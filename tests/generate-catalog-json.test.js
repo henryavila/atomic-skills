@@ -111,10 +111,12 @@ describe('buildCatalogJson', () => {
     }
   });
 
-  it('includes module skills and preserves core-then-modules order', () => {
+  it('includes only core skills (modules catalog removed)', () => {
     const out = buildCatalogJson({
-      core: { fix: minimalEntry('fix') },
-      modules: { php: { laravel: minimalEntry('laravel') } },
+      core: {
+        fix: minimalEntry('fix'),
+        laravel: minimalEntry('laravel'),
+      },
     });
     assert.deepEqual(
       out.map((r) => r.id),

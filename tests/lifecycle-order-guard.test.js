@@ -4,6 +4,10 @@ import assert from 'node:assert/strict';
 import {
   classifyLifecycleOrder,
   LIFECYCLE_ORDER_EXCEPTIONS,
+  preflightPhaseDone,
+  commitGuardPhaseDone,
+  decidePhaseDoneTerminal,
+  gatePassed,
 } from '../scripts/lifecycle-order-guard.js';
 
 function deepFreeze(value) {
@@ -20,6 +24,40 @@ function assertBlockedWithCommand(result) {
   assert.equal(typeof result.recommendedCommand, 'string');
   assert.notEqual(result.recommendedCommand.length, 0);
   assert.equal(result.exception, null);
+}
+
+const FP = 'abc123deadbeef01';
+
+function happyCommitInput(overrides = {}) {
+  return {
+    parentPlan: 'integrity-remediation',
+    phaseId: 'F4',
+    phase: {
+      parentPlan: 'integrity-remediation',
+      phaseId: 'F4',
+      lessonsState: 'none',
+    },
+    plan: {
+      phases: [
+        {
+          id: 'F4',
+          slug: 'f4',
+          status: 'active',
+          dependsOn: [],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'F4',
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F4-G3', status: 'met' }],
+    reviewGate: { status: 'passed', at: FP, mode: 'local' },
+    fingerprint: FP,
+    expectedFingerprint: FP,
+    ...overrides,
+  };
 }
 
 test('blocks archive <slug> before finalize/consolidate publication exists', () => {
@@ -135,15 +173,86 @@ test('allows depend resolve --archived when archived prerequisite is integrated'
   assert.equal(result.exception, null);
 });
 
+test('preflightPhaseDone allows evidence production when tasks are closed (gates not required)', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'integrity-remediation',
+    phaseId: 'F4',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    // pending gate is OK at preflight — evidence production is the next stage
+    exitGates: [{ id: 'F4-G3', status: 'pending' }],
+  });
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.blocked, false);
+});
+
+test('preflightPhaseDone blocks open tasks and missing identity', () => {
+  const open = preflightPhaseDone({
+    parentPlan: 'p',
+    phaseId: 'F4',
+    tasks: [
+      { id: 'T-001', status: 'done' },
+      { id: 'T-002', status: 'pending' },
+    ],
+  });
+  assertBlockedWithCommand(open);
+  assert.equal(open.code, 'phase-done-open-task');
+  assert.match(open.recommendedCommand, /done T-002/);
+
+  const noId = preflightPhaseDone({
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assertBlockedWithCommand(noId);
+  assert.equal(noId.code, 'phase-done-missing-identity');
+});
+
+test('preflightPhaseDone blocks invalid phase DAG when plan is provided', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'p',
+    phaseId: 'A',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    plan: {
+      phases: [
+        {
+          id: 'A',
+          slug: 'a',
+          status: 'active',
+          dependsOn: ['B'],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'A',
+        },
+        {
+          id: 'B',
+          slug: 'b',
+          status: 'pending',
+          dependsOn: ['A'],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'B',
+        },
+      ],
+    },
+  });
+
+  assertBlockedWithCommand(result);
+  assert.match(result.code, /phase-done-dag/);
+});
+
 test('blocks phase-done while tasks are open and recommends the task close command', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    stage: 'preflight',
+    parentPlan: 'p',
+    phaseId: 'F0',
     tasks: [
       { id: 'T-001', status: 'done' },
       { id: 'T-002', status: 'pending' },
     ],
     exitGates: [],
-    reviewGate: { status: 'passed', at: 'abc123' },
+    reviewGate: { status: 'passed', at: 'abc1234', mode: 'local' },
   });
 
   assertBlockedWithCommand(result);
@@ -151,45 +260,109 @@ test('blocks phase-done while tasks are open and recommends the task close comma
   assert.match(result.recommendedCommand, /done T-002/);
 });
 
-test('blocks phase-done while exit gates are open', () => {
-  const result = classifyLifecycleOrder({
-    command: 'phase-done',
-    tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'pending' }],
-    reviewGate: { status: 'passed', at: 'abc123' },
-  });
+test('gatePassed is true only for met (not deferred)', () => {
+  assert.equal(gatePassed({ status: 'met' }), true);
+  assert.equal(gatePassed({ status: 'deferred', deferredReason: 'later' }), false);
+  assert.equal(gatePassed({ status: 'pending' }), false);
+  assert.equal(gatePassed({ status: 'failed' }), false);
+});
 
-  assertBlockedWithCommand(result);
-  assert.equal(result.code, 'phase-done-open-gate');
-  assert.match(result.recommendedCommand, /G-1/);
+test('commit guard blocks open exit gates and deferred gates', () => {
+  const pending = commitGuardPhaseDone(happyCommitInput({
+    exitGates: [{ id: 'G-1', status: 'pending' }],
+  }));
+  assertBlockedWithCommand(pending);
+  assert.equal(pending.code, 'phase-done-open-gate');
+  assert.match(pending.recommendedCommand, /G-1/);
+
+  const deferred = commitGuardPhaseDone(happyCommitInput({
+    exitGates: [{ id: 'G-2', status: 'deferred', deferredReason: 'operator accepted non-blocking follow-up' }],
+  }));
+  assertBlockedWithCommand(deferred);
+  assert.equal(deferred.code, 'phase-done-gate-deferred');
+  assert.match(deferred.reason, /not a terminal path/);
 });
 
 test('blocks phase-done until reviewGate is recorded', () => {
-  const result = classifyLifecycleOrder({
-    command: 'phase-done',
-    tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'met' }],
+  const result = commitGuardPhaseDone(happyCommitInput({
     reviewGate: { status: 'pending' },
-  });
+  }));
 
   assertBlockedWithCommand(result);
   assert.equal(result.code, 'phase-done-review-open');
   assert.match(result.recommendedCommand, /review-code/);
 });
 
-test('allows phase-done when tasks, gates, and review gate are closed', () => {
-  const result = classifyLifecycleOrder({
-    command: 'phase-done',
-    tasks: [{ id: 'T-001', status: 'done' }],
+test('commit guard requires lessons and matching fingerprint', () => {
+  const lessons = commitGuardPhaseDone(happyCommitInput({
+    phase: { parentPlan: 'integrity-remediation', phaseId: 'F4' },
+    lessonsState: undefined,
+  }));
+  assertBlockedWithCommand(lessons);
+  assert.equal(lessons.code, 'phase-done-lessons-open');
+
+  const newHead = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const oldHead = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const stale = commitGuardPhaseDone(happyCommitInput({
+    fingerprint: newHead,
+    expectedFingerprint: oldHead,
+    // Keep reviewGate.at aligned so the failure is the fingerprint gate, not review-stale.
+    reviewGate: { status: 'passed', at: newHead, mode: 'local' },
+  }));
+  assertBlockedWithCommand(stale);
+  assert.equal(stale.code, 'phase-done-fingerprint-stale');
+});
+
+test('commit guard rejects passed reviewGate without real SHA or mode', () => {
+  assert.equal(
+    commitGuardPhaseDone(happyCommitInput({
+      reviewGate: { status: 'passed', at: 'not-a-sha', mode: 'local' },
+    })).code,
+    'phase-done-review-open',
+  );
+  assert.equal(
+    commitGuardPhaseDone(happyCommitInput({
+      reviewGate: { status: 'passed', at: FP },
+    })).code,
+    'phase-done-review-open',
+  );
+});
+
+test('allows phase-done commit when tasks, gates met, review, lessons, and fingerprint match', () => {
+  const result = commitGuardPhaseDone(happyCommitInput({
     exitGates: [
       { id: 'G-1', status: 'met' },
-      { id: 'G-2', status: 'deferred', deferredReason: 'operator accepted non-blocking follow-up' },
+      { id: 'G-2', status: 'met' },
     ],
     reviewGate: { status: 'skipped', reason: 'user requested --skip-review' },
-  });
+  }));
 
   assert.equal(result.allowed, true);
   assert.equal(result.blocked, false);
+
+  const viaClassify = classifyLifecycleOrder({
+    command: 'phase-done',
+    ...happyCommitInput(),
+  });
+  assert.equal(viaClassify.allowed, true);
+});
+
+test('decidePhaseDoneTerminal returns empty effects when blocked and terminal writes when allowed', () => {
+  const blocked = decidePhaseDoneTerminal(happyCommitInput({
+    tasks: [{ id: 'T-001', status: 'active' }],
+  }));
+  assert.equal(blocked.terminal, false);
+  assert.deepEqual(blocked.writes, []);
+  assert.deepEqual(blocked.events, []);
+  assert.deepEqual(blocked.commits, []);
+
+  const ok = decidePhaseDoneTerminal(happyCommitInput());
+  assert.equal(ok.terminal, true);
+  assert.ok(ok.writes.length > 0);
+  assert.ok(ok.events.some((e) => e.startsWith('phase-done:')));
+  assert.ok(ok.commits.length > 0);
+  // No bulk task-done events on the phase-done path
+  assert.ok(!ok.events.some((e) => e.startsWith('task-done:')));
 });
 
 test('permits named internal exceptions only when their explicit conditions match', () => {
@@ -235,4 +408,13 @@ test('is pure and never mutates frozen input', () => {
 
   assert.doesNotThrow(() => classifyLifecycleOrder(input));
   assert.deepEqual(input, before);
+
+  const phaseInput = deepFreeze(happyCommitInput());
+  const phaseBefore = structuredClone(phaseInput);
+  assert.doesNotThrow(() => {
+    preflightPhaseDone(phaseInput);
+    commitGuardPhaseDone(phaseInput);
+    decidePhaseDoneTerminal(phaseInput);
+  });
+  assert.deepEqual(phaseInput, phaseBefore);
 });

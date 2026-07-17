@@ -132,7 +132,7 @@ involving initiative file(s); `cross-ref` = finding involving external
 artifact(s).
 
 **Alignment notes added:** [N] (cross-ref only)
-**Reviews saved at:** `.atomic-skills/reviews/<file>.md` (codex/both only)
+**Reviews saved at:** `.atomic-skills/reviews/<file>.md` (any external / both* mode)
 **Final status:** Plan approved / with caveats / Escalated to user
 ```
 
@@ -152,20 +152,25 @@ materialized).
 Maintain a `## Reviews` section in the plan body, appended after `## Self-review
 against code-quality gates` (or at end-of-body if that block is absent). Write ONE
 line per review channel; **re-running a channel UPDATES its existing line, never
-duplicates** (idempotent — match by the `- internal:` / `- codex:` prefix):
+duplicates** (idempotent — match by the `- internal:` / `- cross-model (<provider>):`
+prefix; legacy `- codex:` is still a valid reader key for the codex provider):
 
 ```markdown
 ## Reviews
 
 - internal: <zero findings | N finding(s) applied> @ <commitSha | uncommitted> (<ISO-8601 UTC>)
-- codex: <PASSED | needs_changes (resolved) | SKIPPED — <reason>> — <reviews/<file>.md | n/a>
+- cross-model (<provider>): <PASSED | needs_changes (resolved) | SKIPPED — <reason>> — <reviews/<file>.md | n/a>
 ```
 
-- `mode ∈ {local, both}`: write/refresh the `- internal:` line. Stamp the commit
-  with {{BASH_TOOL}} `git rev-parse --short HEAD 2>/dev/null || echo uncommitted`
-  and the time with `date -u +%Y-%m-%dT%H:%M:%SZ`; edit the body with
-  {{REPLACE_TOOL}}. This line is the **mandatory** receipt.
-- `mode ∈ {codex, both}`: write/refresh the `- codex:` line with the verdict and
-  the persisted `reviews/<file>.md` path. Optional — codex is offered, not forced;
-  a plan with only a `- codex:` line and no `- internal:` line still reads as
-  unreviewed by the gate.
+- `mode ∈ {local, both, both-codex, both-grok}` (any mode with a local leg): write/refresh
+  the `- internal:` line. Stamp the commit with {{BASH_TOOL}}
+  `git rev-parse --short HEAD 2>/dev/null || echo uncommitted` and the time with
+  `date -u +%Y-%m-%dT%H:%M:%SZ`; edit the body with {{REPLACE_TOOL}}. This line is
+  the **mandatory** receipt.
+- External modes (`codex`, `grok`, `both`, `both-codex`, `both-grok`, `external-both`):
+  write/refresh a `- cross-model (<provider>):` line with the verdict and the
+  persisted `reviews/<file>.md` path, where `<provider>` is `route.externalProvider`
+  (or each entry of `route.externalProviders` for `external-both`). Optional —
+  cross-model is offered, not forced; a plan with only a cross-model line and no
+  `- internal:` line still reads as unreviewed by the gate. Legacy `- codex:`
+  lines remain valid readers (treat as provider `codex`).

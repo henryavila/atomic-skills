@@ -5,10 +5,62 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { installSkills } from '../src/install.js';
+import { PUBLIC_IDE_IDS } from '../src/config.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const SKILLS_DIR = join(__dirname, '..', 'skills');
 const META_DIR = join(__dirname, '..', 'meta');
+
+const HOST_HOOK_MATRIX = [
+  {
+    host: 'Claude Code',
+    ideId: 'claude-code',
+    skillPath: '.claude/commands/atomic-skills/<skill>.md',
+    hookConfig: '.claude/settings.local.json',
+  },
+  {
+    host: 'Cursor',
+    ideId: 'cursor',
+    skillPath: '.cursor/skills/atomic-skills/<skill>/SKILL.md',
+    hookConfig: null,
+  },
+  {
+    host: 'Gemini CLI',
+    ideId: 'gemini',
+    skillPath: '.gemini/skills/atomic-skills-<skill>/SKILL.md',
+    hookConfig: null,
+  },
+  {
+    host: 'Codex',
+    ideId: 'codex',
+    skillPath: '.agents/skills/atomic-skills/<skill>/SKILL.md',
+    hookConfig: '.codex/hooks.json',
+  },
+  {
+    host: 'OpenCode',
+    ideId: 'opencode',
+    skillPath: '.opencode/skills/atomic-skills/<skill>/SKILL.md',
+    hookConfig: null,
+  },
+  {
+    host: 'GitHub Copilot',
+    ideId: 'github-copilot',
+    skillPath: '.github/skills/atomic-skills/<skill>/SKILL.md',
+    hookConfig: null,
+  },
+  {
+    host: 'Grok Build',
+    ideId: 'grok',
+    skillPath: '.grok/plugins/atomic-skills/skills/<skill>/SKILL.md',
+    hookConfig: '.grok/plugins/atomic-skills/hooks/hooks.json',
+  },
+];
+
+const GENERIC_NO_HOOK_HOST = 'generic IDE';
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // After the v2.0.0 unification, `project-status` + `project-plan` are a single
 // `project` skill: a thin router (skills/core/project.md) plus lazy detail
@@ -32,7 +84,6 @@ describe('project skill (unified router + lazy assets)', () => {
     installSkills(tempDir, {
       language,
       ides,
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -43,6 +94,13 @@ describe('project skill (unified router + lazy assets)', () => {
 
   function readRouter() {
     return readFileSync(join(tempDir, ROUTER), 'utf8');
+  }
+  function readRouterInitialDetection() {
+    const router = readRouter();
+    return router.slice(
+      router.indexOf('## Initial detection'),
+      router.indexOf('## No-args'),
+    );
   }
   function readAsset(name) {
     return readFileSync(join(tempDir, ASSET(name)), 'utf8');
@@ -57,6 +115,64 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.ok(!content.includes('{{ARG_VAR}}'), '{{ARG_VAR}} must be rendered');
     assert.ok(!content.includes('{{READ_TOOL}}'), '{{READ_TOOL}} must be rendered');
     assert.ok(!content.includes('{{ASSETS_PATH}}'), '{{ASSETS_PATH}} must be rendered');
+  });
+
+  it('router sends empty and installer-only .atomic-skills roots to setup', () => {
+    install();
+    const detection = readRouterInitialDetection();
+
+    assert.doesNotMatch(detection, /test -d \.atomic-skills\//);
+    assert.match(detection, /already\s+exists or is empty/);
+    assert.match(detection, /manifest\.json.*installer ledger/is);
+    assert.match(detection, /hooks\/version-check\.sh.*installer runtime/is);
+    assert.match(detection, /never\s+count\s+as its sentinel/);
+    assert.match(detection, /setup\s+mode/i);
+  });
+
+  it('router accepts either the setup index or a nested plan as a configured sentinel', () => {
+    install();
+    const detection = readRouterInitialDetection();
+
+    assert.match(detection, /\*\*Configured:\*\*/);
+    assert.match(detection, /\.atomic-skills\/PROJECT-STATUS\.md/);
+    assert.match(detection, /PROJECT-STATUS\.md.*schemaVersion.*# Project Status Index/is);
+    assert.match(
+      detection,
+      /\.atomic-skills\/projects\/<project-id>\/<plan-slug>\/plan\.md/,
+    );
+    assert.match(detection, /nested.*plan\.md.*validate-state/is);
+    assert.match(detection, /OR at least one nested/);
+    assert.match(detection, /Continue with normal resolution/);
+  });
+
+  it('router diagnoses legacy flat state without fresh setup or destructive writes', () => {
+    install();
+    const detection = readRouterInitialDetection();
+
+    assert.match(detection, /\*\*Legacy coexistence:\*\*/);
+    assert.match(detection, /\.atomic-skills\/plans\/\*\.md/);
+    assert.match(detection, /\.atomic-skills\/initiatives\/\*\.md/);
+    assert.match(detection, /Do not run fresh setup over it/);
+    assert.match(detection, /do not\s+delete or overwrite it/);
+    assert.match(detection, /project-migrate\.md/);
+    assert.match(detection, /diagnostic\/migration\s+flow/);
+    assert.match(detection, /even when a configured\s+sentinel also exists/);
+  });
+
+  it('new plan and new initiative reuse the resident Project setup sentinel', () => {
+    install();
+
+    for (const asset of ['project-create-plan.md', 'project-create-initiative.md']) {
+      const content = readAsset(asset);
+      const preflight = content.slice(0, content.indexOf('## Steps') === -1
+        ? content.indexOf('## Default flow')
+        : content.indexOf('## Steps'));
+      assert.doesNotMatch(preflight, /test -d \.atomic-skills\//, asset);
+      assert.match(preflight, /Project setup sentinel/, asset);
+      assert.match(preflight, /Configured.*Legacy coexistence.*Setup\s+required/is, asset);
+      assert.match(preflight, /project-setup\.md/, asset);
+      assert.match(preflight, /project-migrate\.md/, asset);
+    }
   });
 
   it('old skill files are gone (project-status.md / project-plan.md)', () => {
@@ -168,7 +284,7 @@ describe('project skill (unified router + lazy assets)', () => {
   it('router renders for gemini with proper tool-name substitution', () => {
     install('en', ['gemini']);
     const content = readFileSync(
-      join(tempDir, '.gemini/skills/atomic-skills/project/SKILL.md'),
+      join(tempDir, '.gemini/skills/atomic-skills-project/SKILL.md'),
       'utf8'
     );
     assert.ok(content.includes('run_shell_command'), 'Gemini should get run_shell_command');
@@ -302,6 +418,201 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /hooks/);
     assert.match(content, /bootstrap-drafts/);
     assert.match(content, /mkdir -p \.atomic-skills/);
+  });
+
+  it('project-setup idempotently creates the structural sentinel without touching the ledger', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+
+    assert.match(setup, /Project setup sentinel.*Setup\s+required/is);
+    assert.doesNotMatch(setup, /when `?\.atomic-skills\/?`? does not exist/i);
+    assert.match(setup, /If .*PROJECT-STATUS\.md.*is absent/is);
+    assert.match(setup, /PROJECT-STATUS\.md.*(?:already exists|preserve)/is);
+    assert.match(setup, /manifest\.json.*hooks\/version-check\.sh/is);
+    assert.match(setup, /never (?:delete|move|overwrite)/i);
+  });
+
+  it('project-setup registers project hooks with a wrapper-level project-dir fallback', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+    const hooksReadme = readAsset('hooks/README.md');
+    const combined = `${setup}\n${hooksReadme}`;
+
+    for (const script of ['session-start.sh', 'stop.sh', 'pre-write.sh']) {
+      assert.ok(
+        setup.includes(`"command": "bash \\"\${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/${script}\\""`),
+        `setup must register ${script} with a wrapper-level fallback`,
+      );
+    }
+    assert.ok(
+      !combined.includes('"command": "bash \\"$CLAUDE_PROJECT_DIR/.atomic-skills/status/hooks/'),
+      'hook docs must not use a bare CLAUDE_PROJECT_DIR path; the wrapper must fall back to $PWD before invoking the script',
+    );
+    assert.ok(
+      combined.includes('"hooks": {'),
+      'hook config examples must show the host config top-level hooks object',
+    );
+  });
+
+  it('project-setup keeps Soft and Strict hook sets distinct', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+    const softStart = setup.indexOf('Option (b), Soft:');
+    const strictStart = setup.indexOf('Option (c), Strict:');
+    const neverStart = setup.indexOf('Never register hooks as');
+
+    assert.notEqual(softStart, -1, 'setup must label the Soft hook block');
+    assert.notEqual(strictStart, -1, 'setup must label the Strict hook block');
+    assert.notEqual(neverStart, -1, 'setup must keep the invalid-wrapper warning');
+
+    const softBlock = setup.slice(softStart, strictStart);
+    const strictBlock = setup.slice(strictStart, neverStart);
+    assert.ok(softBlock.includes('session-start.sh'), 'Soft must register SessionStart');
+    assert.ok(softBlock.includes('pre-write.sh'), 'Soft must register PreToolUse');
+    assert.ok(!softBlock.includes('stop.sh'), 'Soft must not register Stop');
+    assert.ok(softBlock.includes('search_replace|write'), 'Soft matcher dual-vocab includes Grok tools');
+    assert.ok(strictBlock.includes('stop.sh'), 'Strict must add Stop');
+    assert.match(
+      setup,
+      /Option \(c\).*additionally copies\/registers `stop\.sh` as `Stop`/,
+      'Strict-only Stop behavior must be explicit',
+    );
+  });
+
+  it('project-setup lists skill install paths for every supported host', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+
+    assert.deepStrictEqual(
+      HOST_HOOK_MATRIX.map(({ ideId }) => ideId),
+      PUBLIC_IDE_IDS,
+      'host matrix must cover every declared public host in order',
+    );
+
+    for (const { host, skillPath } of HOST_HOOK_MATRIX) {
+      assert.ok(setup.includes(skillPath), `${host} setup must list skill install path: ${skillPath}`);
+    }
+    assert.ok(
+      setup.includes('.gemini/commands/atomic-skills-<skill>.toml'),
+      'Gemini command shims remain documented only as a Gemini+Codex effective selection',
+    );
+  });
+
+  it('project-setup detects Codex before the generic no-hook fallback and documents Codex hooks', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+    const codexDetect = setup.indexOf('`test -d .codex/ || test -d .agents/` → Codex');
+    const genericFallback = setup.indexOf('Otherwise → generic IDE');
+    const codexHooks = setup.indexOf('Codex: `.codex/hooks.json`');
+
+    assert.notEqual(codexHooks, -1, 'setup must document the Codex hook config path');
+    assert.notEqual(codexDetect, -1, 'setup must detect Codex repos via .codex/ or .agents/');
+    assert.notEqual(genericFallback, -1, 'setup must document the generic no-hook fallback');
+    assert.ok(
+      codexDetect < genericFallback,
+      'Codex detection must run before the generic no-hook fallback',
+    );
+  });
+
+  it('project-setup approves hook config only for hosts with a known hook contract', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+    const eligibleStart = setup.indexOf('Run this step only when the detected/selected host has a known project-hook contract:');
+    const noopStart = setup.indexOf('For Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks.');
+
+    assert.notEqual(eligibleStart, -1, 'setup must introduce hook eligibility explicitly');
+    assert.notEqual(noopStart, -1, 'setup must document no-op hooks for hosts without a contract');
+
+    const approvedHookConfigs = setup.slice(eligibleStart, noopStart);
+    for (const { host, hookConfig } of HOST_HOOK_MATRIX) {
+      if (hookConfig) {
+        assert.match(
+          approvedHookConfigs,
+          new RegExp(`${escapeRegExp(host)}: \`${escapeRegExp(hookConfig)}\``),
+          `${host} must be approved only for ${hookConfig}`,
+        );
+      } else {
+        assert.doesNotMatch(
+          approvedHookConfigs,
+          new RegExp(escapeRegExp(host)),
+          `${host} must not appear in the approved hook config block`,
+        );
+      }
+    }
+    assert.doesNotMatch(approvedHookConfigs, new RegExp(escapeRegExp(GENERIC_NO_HOOK_HOST)));
+
+    for (const host of [
+      ...HOST_HOOK_MATRIX.filter(({ hookConfig }) => !hookConfig).map(({ host }) => host),
+      GENERIC_NO_HOOK_HOST,
+    ]) {
+      assert.match(setup, new RegExp(`${host}.*no-op|no-op.*${host}`, 'i'), `${host} hook setup must be documented as no-op`);
+    }
+    assert.doesNotMatch(
+      setup,
+      /(?:Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,
+      'hosts without a hook contract must not be listed as approved hook config targets',
+    );
+  });
+
+  it('project hook README source and installed copy document the same host contract', () => {
+    install();
+    const sourceReadme = readAsset('hooks/README.md');
+    const installedReadme = readFileSync(
+      join(__dirname, '..', '.atomic-skills/status/hooks/README.md'),
+      'utf8',
+    );
+
+    assert.equal(installedReadme, sourceReadme, 'installed hooks README must match the source asset');
+    for (const readme of [sourceReadme, installedReadme]) {
+      assert.match(readme, /Skill installation and project-hook setup are separate contracts/);
+      for (const { host, hookConfig } of HOST_HOOK_MATRIX) {
+        if (hookConfig) {
+          assert.match(
+            readme,
+            new RegExp(`${escapeRegExp(host)}: project-hook setup is supported through merge-only entries in \`${escapeRegExp(hookConfig)}\``),
+            `${host} README hook result must point at ${hookConfig}`,
+          );
+        }
+      }
+      assert.match(
+        readme,
+        /Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks/,
+      );
+      assert.match(readme, /"hooks": \{/, 'README hook JSON must include the top-level hooks object');
+      assert.match(
+        readme,
+        /Edit\|Write\|MultiEdit\|search_replace\|write/,
+        'README Soft matcher must dual-vocab Claude + Grok write tools',
+      );
+      assert.doesNotMatch(
+        readme,
+        /(?:Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,
+        'hosts without a hook contract must not be listed as approved hook config targets',
+      );
+    }
+  });
+
+  it('Grok Soft plugin hooks ship SessionStart+PreToolUse without Stop', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['grok'],
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+      scope: 'project',
+    });
+    const hooks = JSON.parse(
+      readFileSync(join(tempDir, '.grok/plugins/atomic-skills/hooks/hooks.json'), 'utf8'),
+    );
+    assert.ok(hooks.hooks?.SessionStart?.length >= 1, 'Soft SessionStart present');
+    assert.ok(hooks.hooks?.PreToolUse?.length >= 1, 'Soft PreToolUse present');
+    assert.equal(hooks.hooks?.Stop, undefined, 'Soft must not register Stop');
+    const matcher = hooks.hooks.PreToolUse[0].matcher || '';
+    assert.match(matcher, /search_replace/, 'matcher includes Grok search_replace');
+    assert.match(matcher, /write/, 'matcher includes Grok write');
+    assert.match(matcher, /Edit/, 'matcher keeps Claude Edit for dual-vocab');
+    const preCmd = hooks.hooks.PreToolUse[0].hooks[0].command;
+    assert.match(preCmd, /pre-write\.sh/, 'PreToolUse points at pre-write.sh');
+    assert.match(preCmd, /CLAUDE_PROJECT_DIR:-\$PWD/, 'wrapper falls back to $PWD');
   });
 
   // ─── Lazy asset: create-plan (former project-plan bootstrap) ─────────────
@@ -689,6 +1000,36 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(reconcile, /Never write back a parsed snapshot captured before the prompt/);
   });
 
+  it('project-transitions reconcile distinguishes detection-drift mutation from done closure authority (F4/T-008)', () => {
+    install();
+    const content = readAsset('project-transitions.md');
+    const reconcileStart = content.indexOf('## `reconcile`');
+    const phaseStart = content.indexOf('## `phase-done`');
+    const reconcile = content.slice(reconcileStart, phaseStart);
+    const doneStart = content.indexOf('## `done <task-id>`');
+    const done = content.slice(doneStart, reconcileStart);
+
+    // Naming: detection trigger vs closure authority (audit M7)
+    assert.match(reconcile, /detection-drift-triggered completion-mutation path/);
+    assert.match(reconcile, /closure authority/);
+    assert.match(done, /closure authority for task state/);
+    // Old absolute wording must not reappear without the detection-drift qualifier
+    assert.doesNotMatch(reconcile, /The \*\*only\*\* completion-mutation path\b/);
+    // Path is signal → ask → verifier/ack; never silent auto-close
+    assert.match(reconcile, /signal → ask → verifier run or manual ack/);
+    assert.match(reconcile, /never silent/);
+    // Still open: schema-supported anchors only (audit M2)
+    assert.match(reconcile, /\*\*task\*\*.*`lastUpdated`/s);
+    assert.match(reconcile, /\*\*initiative's\*\* `lastUpdated`/);
+    assert.match(reconcile, /never write one onto a criterion/);
+    assert.match(reconcile, /additionalProperties: false/);
+
+    // Router resident copy stays aligned
+    const router = readRouter();
+    assert.match(router, /detection-drift-triggered completion-mutation path/);
+    assert.match(router, /closure authority/);
+  });
+
   it('project-finalize requires an explicit slug and project-consolidate records resume state', () => {
     install();
     const router = readRouter();
@@ -736,13 +1077,13 @@ describe('project skill (unified router + lazy assets)', () => {
 
   // ─── Lazy asset: drift / codex review ───────────────────────────────────
 
-  it('project-drift documents scope-creep / why / re-ratify / codex review tracking', () => {
+  it('project-drift documents scope-creep / why / re-ratify / CROSS-MODEL REVIEW tracking', () => {
     install();
     const content = readAsset('project-drift.md');
     assert.match(content, /## `scope-creep`/);
     assert.match(content, /## `why <id>`/);
     assert.match(content, /## `re-ratify <id>`/);
-    assert.match(content, /Codex review tracking/);
+    assert.match(content, /CROSS-MODEL REVIEW tracking/);
     assert.match(content, /last-review\.json/);
     assert.match(content, /review-due/);
   });

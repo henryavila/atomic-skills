@@ -318,20 +318,7 @@ export function collectSkills(data) {
   const skills = [];
   if (data?.core && typeof data.core === 'object') {
     for (const [key, entry] of Object.entries(data.core)) {
-      skills.push({ key, entry, location: `core.${key}`, modulePath: null });
-    }
-  }
-  if (data?.modules && typeof data.modules === 'object') {
-    for (const [modName, modEntries] of Object.entries(data.modules)) {
-      if (modEntries == null || typeof modEntries !== 'object') continue;
-      for (const [key, entry] of Object.entries(modEntries)) {
-        skills.push({
-          key,
-          entry,
-          location: `modules.${modName}.${key}`,
-          modulePath: modName,
-        });
-      }
+      skills.push({ key, entry, location: `core.${key}` });
     }
   }
   return skills;
@@ -339,20 +326,15 @@ export function collectSkills(data) {
 
 /**
  * Compute the expected `.md` body path for a skill.
- *   core.X      → <skillsDir>/core/X.md
- *   modules.M.X → <skillsDir>/modules/M/X.md
+ *   core.X → <skillsDir>/core/X.md
  */
 export function bodyPathForSkill(skill, skillsDir) {
-  if (skill.modulePath) {
-    return join(skillsDir, 'modules', skill.modulePath, `${skill.key}.md`);
-  }
   return join(skillsDir, 'core', `${skill.key}.md`);
 }
 
 /**
- * Walk `<skillsDir>/{core,modules/*}/` and return the set of body filenames
- * stripped to skill names. Used for the inverse cross-check (body without
- * catalog entry).
+ * Walk `<skillsDir>/core/` and return the set of body filenames stripped to
+ * skill names. Used for the inverse cross-check (body without catalog entry).
  */
 export function discoverBodySkills(skillsDir) {
   const found = []; // [{name, location, file}]
@@ -363,23 +345,6 @@ export function discoverBodySkills(skillsDir) {
     for (const f of readdirSync(coreDir)) {
       if (f.endsWith('.md')) {
         found.push({ name: f.slice(0, -3), location: `core.${f.slice(0, -3)}`, file: join(coreDir, f) });
-      }
-    }
-  }
-
-  const modulesDir = join(skillsDir, 'modules');
-  if (existsSync(modulesDir)) {
-    for (const mod of readdirSync(modulesDir)) {
-      const modPath = join(modulesDir, mod);
-      if (!statSync(modPath).isDirectory()) continue;
-      for (const f of readdirSync(modPath)) {
-        if (f.endsWith('.md')) {
-          found.push({
-            name: f.slice(0, -3),
-            location: `modules.${mod}.${f.slice(0, -3)}`,
-            file: join(modPath, f),
-          });
-        }
       }
     }
   }
@@ -472,64 +437,22 @@ export function validateReadmeMentions(readmeText, knownSkillNames) {
 }
 
 /**
- * Cross-check `module_meta` documentation block against the canonical
- * `modules` block. Every `module_meta` key must correspond to a real module
- * (no orphan docs) and every module must have docs (no missing entry that
- * would silently disappear from the rendered README).
+ * Codex F-003: installer modules concept removed. Catalog MUST NOT carry
+ * top-level `modules` or `module_meta` keys (hard fail, not optional).
  */
-export function validateModuleMeta(data) {
+export function validateNoModulesKeys(data) {
   const issues = [];
-  const moduleKeys = data?.modules && typeof data.modules === 'object'
-    ? new Set(Object.keys(data.modules))
-    : new Set();
-
-  if (data?.module_meta === undefined) {
-    if (moduleKeys.size > 0) {
-      issues.push(
-        `module_meta block missing from catalog.yaml; cannot render README ` +
-        `Modules section (${moduleKeys.size} module(s) without docs)`
-      );
-    }
-    return issues;
+  if (data == null || typeof data !== 'object') return issues;
+  if ('modules' in data) {
+    issues.push(
+      'catalog.yaml must not contain top-level `modules` — installer modules concept removed; skills live under `core:` only'
+    );
   }
-  if (data.module_meta == null || typeof data.module_meta !== 'object') {
-    issues.push('module_meta must be a mapping of moduleKey → {title, intro, ...}');
-    return issues;
+  if ('module_meta' in data) {
+    issues.push(
+      'catalog.yaml must not contain top-level `module_meta` — Modules README section removed'
+    );
   }
-
-  const metaKeys = new Set(Object.keys(data.module_meta));
-
-  for (const orphan of [...metaKeys].filter((k) => !moduleKeys.has(k))) {
-    issues.push(`module_meta.${orphan} has no matching entry under modules`);
-  }
-  for (const undocumented of [...moduleKeys].filter((k) => !metaKeys.has(k))) {
-    issues.push(`modules.${undocumented} has no module_meta entry (would disappear from README)`);
-  }
-
-  for (const [key, meta] of Object.entries(data.module_meta)) {
-    if (meta == null || typeof meta !== 'object') {
-      issues.push(`module_meta.${key} must be an object`);
-      continue;
-    }
-    if (typeof meta.title !== 'string' || meta.title.trim().length === 0) {
-      issues.push(`module_meta.${key}.title is required (non-empty string)`);
-    }
-    if (typeof meta.intro !== 'string' || meta.intro.trim().length === 0) {
-      issues.push(`module_meta.${key}.intro is required (non-empty string)`);
-    }
-    if ('version_added' in meta && (typeof meta.version_added !== 'string' || !VERSION_REGEX.test(meta.version_added))) {
-      issues.push(`module_meta.${key}.version_added must match \`X.Y.Z\``);
-    }
-    if ('features' in meta) {
-      if (!Array.isArray(meta.features) || meta.features.some((f) => typeof f !== 'string')) {
-        issues.push(`module_meta.${key}.features must be an array of strings`);
-      }
-    }
-    if ('notes' in meta && typeof meta.notes !== 'string') {
-      issues.push(`module_meta.${key}.notes must be a string`);
-    }
-  }
-
   return issues;
 }
 
@@ -641,14 +564,13 @@ export function validateCatalog(data, options = {}) {
     }
   }
 
-  if (options.requireModuleMeta) {
-    const moduleMetaIssues = validateModuleMeta(data);
-    if (moduleMetaIssues.length > 0) {
-      perSkillFailures.set('__module_meta__', {
-        location: '__module_meta__',
-        issues: moduleMetaIssues,
-      });
-    }
+  // Always enforce: no installer-modules leftovers in catalog (Codex F-003).
+  const noModulesIssues = validateNoModulesKeys(data);
+  if (noModulesIssues.length > 0) {
+    perSkillFailures.set('__no_modules__', {
+      location: '__no_modules__',
+      issues: noModulesIssues,
+    });
   }
 
   // F-003 (codex review): opt-in (CLI sets requireCatalogVersion: true;

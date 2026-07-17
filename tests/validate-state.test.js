@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -547,11 +547,12 @@ test('crossValidate: done phase + active initiative with pending tasks → error
     exitGates: [{ id: 'F0-G1', status: 'pending' }],
   }]]);
   const errors = crossValidate(plans, inits);
-  assert.equal(errors.length, 1);
-  assert.equal(errors[0].phaseId, 'F0');
-  assert.ok(errors[0].errors.some((e) => e.includes('initiative status')));
-  assert.ok(errors[0].errors.some((e) => e.includes('2 initiative task(s) not done')));
-  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
+  // F4/T-001 also emits terminal-pending-gate; still require the legacy consistency messages.
+  assert.ok(errors.length >= 1);
+  const flat = errors.flatMap((e) => e.errors).join('\n');
+  assert.match(flat, /initiative status/);
+  assert.match(flat, /2 initiative task\(s\) not done/);
+  assert.match(flat, /F0-G1/);
 });
 
 test('crossValidate: nested done phase resolves project-scoped initiative keys', () => {
@@ -571,15 +572,16 @@ test('crossValidate: nested done phase resolves project-scoped initiative keys',
     exitGates: [{ id: 'F0-G1', status: 'pending' }],
   }]]);
   const errors = crossValidate(plans, inits);
-  assert.equal(errors.length, 1);
-  assert.equal(errors[0].planSlug, 'p');
-  assert.equal(errors[0].initiativeSlug, 'p-f0');
-  assert.ok(errors[0].errors.some((e) => e.includes('initiative status')));
-  assert.ok(errors[0].errors.some((e) => e.includes('1 initiative task(s) not done')));
-  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
+  // F4/T-001 also emits terminal-pending-gate alongside status/task consistency.
+  assert.ok(errors.length >= 1);
+  assert.ok(errors.some((e) => e.planSlug === 'p' && e.initiativeSlug === 'p-f0'));
+  const flat = errors.flatMap((e) => e.errors).join('\n');
+  assert.match(flat, /initiative status/);
+  assert.match(flat, /1 initiative task\(s\) not done/);
+  assert.match(flat, /F0-G1/);
 });
 
-test('crossValidate: done phase + no matching initiative → no errors (graceful skip)', () => {
+test('crossValidate: done phase + no matching initiative → missing-initiative (F4/T-001 closes false-green skip)', () => {
   const plans = new Map([['p', {
     slug: 'p',
     phases: [{
@@ -589,7 +591,11 @@ test('crossValidate: done phase + no matching initiative → no errors (graceful
   }]]);
   const inits = new Map();
   const errors = crossValidate(plans, inits);
-  assert.equal(errors.length, 0);
+  assert.ok(errors.length >= 1, 'must reject done phase without initiative');
+  assert.ok(
+    errors.some((ce) => ce.errors.some((e) => String(e).includes('missing-initiative'))),
+    `expected missing-initiative, got ${JSON.stringify(errors)}`,
+  );
 });
 
 test('crossValidate: met plan criterion + pending initiative gate → error', () => {
@@ -612,8 +618,9 @@ test('crossValidate: met plan criterion + pending initiative gate → error', ()
     ],
   }]]);
   const errors = crossValidate(plans, inits);
-  assert.equal(errors.length, 1);
-  assert.ok(errors[0].errors.some((e) => e.includes('F0-G2') && e.includes('pending')));
+  // F4/T-001 also emits terminal-pending-gate for the pending initiative exitGate.
+  assert.ok(errors.length >= 1);
+  assert.ok(errors.some((ce) => ce.errors.some((e) => e.includes('F0-G2') && e.includes('pending'))));
 });
 
 // C2#2 — GATE-R2 must not be splittable across the plan↔initiative mirror.
@@ -965,6 +972,23 @@ test('0.2: unknown evidence field still rejected (additionalProperties:false int
   assert.equal(validators.validateInitiative(init), false, 'additionalProperties:false must reject unknown evidence fields');
 });
 
+test('F4/T-008: ExitCriterion rejects lastUpdated (Still open must not write it on criteria)', () => {
+  // reconcile Still open for a criterion bumps initiative.lastUpdated; writing
+  // lastUpdated onto the criterion itself must HARD-FAIL schema (strict exitCriterion).
+  const validators = buildValidators();
+  const init = baseInitiative({
+    exitGates: [{
+      id: 'G1', description: 'd', status: 'pending',
+      lastUpdated: '2026-06-01T00:00:00Z',
+    }],
+  });
+  assert.equal(validators.validateInitiative(init), false, 'exitCriterion must reject lastUpdated (additionalProperties:false)');
+  const ok = baseInitiative({
+    exitGates: [{ id: 'G1', description: 'd', status: 'pending' }],
+  });
+  assert.equal(validators.validateInitiative(ok), true, 'pending criterion without lastUpdated remains valid');
+});
+
 // ── GATE-R2: the met-invariant + R-XAGENT-07 paranoid false-green REDs ──
 // checkMetInvariant is the one place a markdown "passed" claim becomes
 // non-self-graded. These prove the three false-green guards plus the
@@ -1014,6 +1038,43 @@ test('GATE-R2 RED (query): kind:query met without a numeric rowCount', () => {
     { verifierKind: 'query', verifiedAt: '2026-06-01T00:00:00Z', passed: true, outputSummary: 'ran' },
   );
   assert.match(checkMetInvariant(fm).join('\n'), /numeric evidence.rowCount/);
+});
+
+test('F3/T-004: schema rejects kind:query without expectRowCount', () => {
+  const incomplete = metGate(
+    { kind: 'query', sql: 'SELECT 1' },
+    undefined,
+  );
+  // Force pending so GATE-R2 is not the failure mode — schema must reject shape
+  incomplete.exitGates[0].status = 'pending';
+  delete incomplete.exitGates[0].metAt;
+  delete incomplete.exitGates[0].evidence;
+  const validators = buildValidators();
+  const ok = validators.validateInitiative(incomplete);
+  assert.equal(ok, false, 'query without expectRowCount must fail schema');
+  const msgs = (validators.validateInitiative.errors || []).map((e) => `${e.instancePath} ${e.message}`).join('\n');
+  assert.match(msgs, /expectRowCount|required/i);
+});
+
+test('F3/T-004: schema admits kind:query with expectRowCount and optional connectionCommand', () => {
+  const complete = metGate(
+    {
+      kind: 'query',
+      sql: 'SELECT 1',
+      expectRowCount: 0,
+      connectionCommand: 'psql -c "SELECT 1"',
+    },
+    undefined,
+  );
+  complete.exitGates[0].status = 'pending';
+  delete complete.exitGates[0].metAt;
+  delete complete.exitGates[0].evidence;
+  const validators = buildValidators();
+  assert.equal(
+    validators.validateInitiative(complete),
+    true,
+    JSON.stringify(validators.validateInitiative.errors, null, 2),
+  );
 });
 
 test('GATE-R2 GREEN: met with passed:true + (test) testsCollected>0 → no violation', () => {
@@ -1073,9 +1134,10 @@ test('GATE-R2 (plan level): met phase criterion with a verifier but no evidence 
   assert.match(checkMetInvariant(plan).join('\n'), /phase F0 criterion F0-G1/);
 });
 
-// checkReviewGate (GATE-R3): the review-code phase gate is a hard precondition
-// for closing a phase. A 'done' phase carrying a reviewGate block must be HONEST
-// — a 'passed' claim needs an `at` sha anchor; a 'skipped' needs a `reason`.
+// checkReviewGate (GATE-R3 / F4/T-004): the review-code phase gate is a hard
+// precondition for closing a phase. A 'done' phase carrying a reviewGate block
+// must be HONEST — a 'passed' claim needs a real `at` git SHA + coherent `mode`
+// (+ non-blank `reviewFile` when present); a 'skipped' needs a `reason`.
 // Like GATE-R2, the conditional lives in JS (not the schema) to keep the aiDeck
 // mirror additive; an ABSENT block on a legacy 'done' phase is tolerated.
 
@@ -1084,11 +1146,38 @@ const donePlan = (reviewGate) => ({
   phases: [{ id: 'F0', slug: 'p-f0', status: 'done', exitGate: { criteria: [] }, ...(reviewGate ? { reviewGate } : {}) }],
 });
 
+test('isGitSha accepts full/abbrev hex and rejects labels', () => {
+  assert.equal(isGitSha('a3f1c2d'), true);
+  assert.equal(isGitSha('a3f1c2d4e5f6789012345678abcdef0123456789'), true);
+  assert.equal(isGitSha('not-a-sha'), false);
+  assert.equal(isGitSha('phase-done-fp-aaa'), false);
+  assert.equal(isGitSha(''), false);
+  assert.equal(isGitSha(null), false);
+});
+
 test('GATE-R3 RED (a): done phase with reviewGate status:passed but NO `at` sha violates', () => {
-  const v = checkReviewGate(donePlan({ status: 'passed' }));
+  const v = checkReviewGate(donePlan({ status: 'passed', mode: 'local' }));
   assert.ok(v.length >= 1, 'a passed review claim with no reviewed-sha anchor must violate');
   assert.match(v.join('\n'), /phase F0/);
   assert.match(v.join('\n'), /at/);
+});
+
+test('GATE-R3 RED (a2): passed with arbitrary non-SHA `at` violates (F4/T-004)', () => {
+  const v = checkReviewGate(donePlan({ status: 'passed', at: 'reviewed-ok', mode: 'local' }));
+  assert.ok(v.length >= 1, 'arbitrary non-SHA strings must not anchor a passed review');
+  assert.match(v.join('\n'), /git SHA|at/);
+});
+
+test('GATE-R3 RED (a3): passed without mode violates (F4/T-004)', () => {
+  const v = checkReviewGate(donePlan({ status: 'passed', at: 'a3f1c2d' }));
+  assert.ok(v.length >= 1, 'passed review must record mode');
+  assert.match(v.join('\n'), /mode/);
+});
+
+test('GATE-R3 RED (a4): passed with blank reviewFile violates (incoherent)', () => {
+  const v = checkReviewGate(donePlan({ status: 'passed', at: 'a3f1c2d', mode: 'local', reviewFile: '   ' }));
+  assert.ok(v.length >= 1, 'blank reviewFile is not coherent');
+  assert.match(v.join('\n'), /reviewFile/);
 });
 
 test('GATE-R3 RED (b): done phase with reviewGate status:skipped but NO reason violates', () => {
@@ -1097,8 +1186,14 @@ test('GATE-R3 RED (b): done phase with reviewGate status:skipped but NO reason v
   assert.match(v.join('\n'), /reason/);
 });
 
-test('GATE-R3 GREEN: passed+at and skipped+reason both pass', () => {
+test('GATE-R3 GREEN: passed+SHA+mode(+reviewFile) and skipped+reason both pass', () => {
   assert.deepEqual(checkReviewGate(donePlan({ status: 'passed', at: 'a3f1c2d', mode: 'both' })), []);
+  assert.deepEqual(checkReviewGate(donePlan({
+    status: 'passed',
+    at: 'a3f1c2d4e5f6789012345678abcdef0123456789',
+    mode: 'local',
+    reviewFile: '.atomic-skills/reviews/sample.md',
+  })), []);
   assert.deepEqual(checkReviewGate(donePlan({ status: 'skipped', reason: 'docs-only phase, no code diff' })), []);
 });
 
@@ -1138,6 +1233,101 @@ test('GATE-R3 wiring: validateFile REJECTS a schema-valid plan whose done phase 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('GATE-R2 / F4-T-004: evidence.verifiedCommit rejects arbitrary non-SHA strings', () => {
+  const bad = metGate(
+    { kind: 'shell', command: 'true', expectExitCode: 0 },
+    {
+      verifierKind: 'shell',
+      verifiedAt: '2026-06-01T00:00:00Z',
+      passed: true,
+      exitCode: 0,
+      verifiedCommit: 'not-a-real-sha',
+    },
+  );
+  const v = checkMetInvariant(bad);
+  assert.ok(v.length >= 1, 'non-SHA verifiedCommit must violate');
+  assert.match(v.join('\n'), /verifiedCommit/);
+  assert.match(v.join('\n'), /git SHA/);
+});
+
+test('GATE-R2 / F4-T-004: evidence.verifiedCommit accepts real SHA; absent tolerated on legacy', () => {
+  const withSha = metGate(
+    { kind: 'shell', command: 'true', expectExitCode: 0 },
+    {
+      verifierKind: 'shell',
+      verifiedAt: '2026-06-01T00:00:00Z',
+      passed: true,
+      exitCode: 0,
+      verifiedCommit: 'a3f1c2d4e5f6789012345678abcdef0123456789',
+    },
+  );
+  assert.deepEqual(checkMetInvariant(withSha), []);
+
+  const legacyNoAnchor = metGate(
+    { kind: 'shell', command: 'true', expectExitCode: 0 },
+    {
+      verifierKind: 'shell',
+      verifiedAt: '2026-06-01T00:00:00Z',
+      passed: true,
+      exitCode: 0,
+    },
+  );
+  assert.deepEqual(checkMetInvariant(legacyNoAnchor), [], 'absent verifiedCommit on legacy met is tolerated');
+});
+
+test('schema: evidence.verifiedCommit pattern rejects non-SHA; accepts hex', () => {
+  const validators = buildValidators();
+  const good = baseInitiative({
+    exitGates: [{
+      id: 'G1', description: 'd', status: 'met', metAt: '2026-06-01T00:00:00Z',
+      verifier: { kind: 'shell', command: 'true', expectExitCode: 0 },
+      evidence: {
+        verifierKind: 'shell', verifiedAt: '2026-06-01T00:00:00Z', passed: true,
+        verifiedCommit: 'deadbeef',
+      },
+    }],
+  });
+  assert.equal(validators.validateInitiative(good), true,
+    `valid verifiedCommit must pass schema: ${JSON.stringify(validators.validateInitiative.errors)}`);
+
+  const bad = baseInitiative({
+    exitGates: [{
+      id: 'G1', description: 'd', status: 'met', metAt: '2026-06-01T00:00:00Z',
+      verifier: { kind: 'shell', command: 'true', expectExitCode: 0 },
+      evidence: {
+        verifierKind: 'shell', verifiedAt: '2026-06-01T00:00:00Z', passed: true,
+        verifiedCommit: 'HEAD-at-close',
+      },
+    }],
+  });
+  assert.equal(validators.validateInitiative(bad), false, 'non-SHA verifiedCommit must fail schema pattern');
+});
+
+test('schema: reviewGate.at must be gitSha (not arbitrary string)', () => {
+  const validators = buildValidators();
+  const planGood = {
+    schemaVersion: '0.2', slug: 'sample', title: 'Sample', version: '1', status: 'active',
+    started: '2026-06-01T00:00:00Z', lastUpdated: '2026-06-01T00:00:00Z',
+    currentPhase: 'F0', parallelismAllowed: false,
+    phases: [{
+      id: 'F0', slug: 'sample-f0', title: 'F0', goal: 'do a thing', dependsOn: [], subPhaseCount: 0,
+      status: 'done', exitGate: { summary: 's', criteria: [] },
+      reviewGate: { status: 'passed', at: 'a3f1c2d', mode: 'local' },
+    }],
+  };
+  assert.equal(validators.validatePlan(planGood), true,
+    `SHA reviewGate.at must pass: ${JSON.stringify(validators.validatePlan.errors)}`);
+
+  const planBad = {
+    ...planGood,
+    phases: [{
+      ...planGood.phases[0],
+      reviewGate: { status: 'passed', at: 'reviewed-ok', mode: 'local' },
+    }],
+  };
+  assert.equal(validators.validatePlan(planBad), false, 'non-SHA reviewGate.at must fail schema');
 });
 
 // Lessons file (Spec 2 / G1): a per-initiative lessons file under
@@ -1199,7 +1389,8 @@ test('collectTargets: a dir arg also walks projects/<id>/<slug>/lessons/', () =>
     mkdirSync(join(planDir, 'lessons'), { recursive: true });
     writeFileSync(join(planDir, 'plan.md'), '---\nslug: alpha\n---\n');
     writeFileSync(join(planDir, 'lessons', 'alpha-f1.md'), `---\n${stringifyYaml(baseLessonFile()).trimEnd()}\n---\n`);
-    const found = collectTargets([dir]).map((p) => p.split('/').slice(-2).join('/'));
+    // Normalize separators so tail checks work on win32 (CI windows-path-contracts).
+    const found = collectTargets([dir]).map((p) => p.replace(/\\/g, '/').split('/').slice(-2).join('/'));
     assert.ok(found.includes('lessons/alpha-f1.md'), `lessons file not collected: ${found.join(', ')}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -1222,7 +1413,8 @@ test('collectTargets (Inc2 R-XAGENT-05): a dir arg walks BOTH flat and nested pr
     writeFileSync(join(planDir, 'phases', 'f0-foundation.md'), '---\nslug: sample-f0\n---\n');
     writeFileSync(join(planDir, 'phases', 'archive', 'f0-old.md'), '---\nslug: sample-f0-old\n---\n');
 
-    const found = collectTargets([dir]).map((p) => p.split('/').slice(-2).join('/'));
+    // Normalize separators so tail checks work on win32 (CI windows-path-contracts).
+    const found = collectTargets([dir]).map((p) => p.replace(/\\/g, '/').split('/').slice(-2).join('/'));
     // flat still found
     assert.ok(found.includes('plans/flatplan.md'));
     assert.ok(found.includes('initiatives/flatinit.md'));

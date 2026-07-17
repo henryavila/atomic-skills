@@ -68,7 +68,7 @@ calls `buildInstaller({}).uninstall()` which **replays the journal in reverse**
 (`Driver.uninstall` → `replayReverse` + `removeManifest`). No consumer writes
 revert logic; reversibility is a property of each effect. The manifest is
 **hybrid**: the journal (`effects[]`) is authoritative for uninstall, and a
-derived legacy `files{}` map + metadata (`version/language/ides/modules`) are
+derived legacy `files{}` map + metadata (`version/language/ides`) are
 patched on for the status/compat readers.
 
 | Install action | Effect (journal) → reversal |
@@ -86,6 +86,8 @@ express a conditional, refcounted, or cross-version-format reclaim):
 | Runtime `~/.atomic-skills/{bin,dashboard,aideck-consumer,src,package-root}` | `removeRuntimeArtifacts` — reclaimed only when the LAST install leaves |
 | Cross-install refcount `~/.atomic-skills/installs.json` | `registerInstall` ↔ `unregisterInstall` (returns remaining count; 0 → reclaim runtime) |
 | Legacy-namespace orphans at obsolete paths | `findLegacyOrphans`/`removeLegacyOrphans` (frontmatter safelist = the only ownership proof, P3) |
+| Grok host plugin registry (`grok plugin install --trust` → snapshot under `~/.grok/installed-plugins/`) | `unregisterGrokPluginHost` (`grok plugin uninstall atomic-skills`) before journal reverse — fail-open if `grok` missing; package tree itself is journal-owned under `.grok/plugins/atomic-skills/` (outside Codex `.agents/`). Re-register **uninstalls+installs** (not `plugin update`) so the host snapshot re-copies `argument-hint` and other re-renders |
+| Grok foreign-skills isolation (`~/.grok/config.toml` → `[skills].ignore` for `~/.agents|cursor|claude…/atomic-skills`) | `applyGrokAgentsIsolation` on install / `revertGrokAgentsIsolation` on uninstall (refcount: keep while any other install still lists `grok`) — stops Grok listing Cursor/Codex/Claude-rendered Atomic Skills as `user:*` duplicates next to `atomic-skills:*` plugin skills |
 
 The aiDeck **bin** (`bin/aideck.mjs`, an argv[1]-rewrite launcher shim) and
 **dashboard** (the aiDeck client) are restaged by `installRuntimeArtifacts` from

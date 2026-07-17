@@ -12,10 +12,16 @@ import { uninstall } from '../src/uninstall.js';
 
 function withHome(fakeHome, fn) {
   const original = process.env.HOME;
+  const originalSkip = process.env.ATOMIC_SKILLS_SKIP_GROK_HOST;
   process.env.HOME = fakeHome;
+  // Hermetic: real `grok` under a fake HOME seeds host docs/registry residue
+  // that breaks content-aware roundtrip snapshots.
+  process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = '1';
   return Promise.resolve(fn()).finally(() => {
     if (original === undefined) delete process.env.HOME;
     else process.env.HOME = original;
+    if (originalSkip === undefined) delete process.env.ATOMIC_SKILLS_SKIP_GROK_HOST;
+    else process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = originalSkip;
   });
 }
 
@@ -50,6 +56,27 @@ function diffTree(before, after) {
   return { added: added.sort(), removed: removed.sort(), modified: modified.sort() };
 }
 
+function sessionStartCommands(settingsPath) {
+  const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  return (settings.hooks?.SessionStart ?? [])
+    .flatMap((entry) => (entry.hooks ?? []).map((hook) => hook.command))
+    .filter((command) => typeof command === 'string');
+}
+
+/** Match version-check commands whether shell-quoted or raw paths. */
+function isVersionCheckCommand(command, absPath = null) {
+  if (typeof command !== 'string') return false;
+  const unquoted = command.replace(/^'|'$/g, '').replace(/'\\''/g, "'");
+  if (absPath && (command === absPath || unquoted === absPath || command === `'${absPath}'`)) {
+    return true;
+  }
+  return /version-check\.sh'?$/.test(command) || unquoted.endsWith('version-check.sh');
+}
+
+function countVersionCheckHooks(commands) {
+  return commands.filter((command) => isVersionCheckCommand(command)).length;
+}
+
 describe('install→uninstall round-trip', () => {
   it('user scope returns $HOME to its pre-install state (no residue)', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
@@ -74,7 +101,7 @@ describe('install→uninstall round-trip', () => {
     // Each IDE writes to a different path tree (.claude, .cursor, .gemini,
     // .codex/.agents, .opencode, .github). Installing all of them at once is
     // the strongest parity proof: ~300+ files, and every one must be reverted.
-    const ALL_IDES = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot'];
+    const ALL_IDES = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot', 'grok'];
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
     const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
     try {
@@ -116,6 +143,105 @@ describe('install→uninstall round-trip', () => {
     }
   });
 
+  it('user-scope grok install writes plugin package only (no .grok/skills tree)', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ['grok'], lang: 'en' });
+
+        const pluginJson = join(fakeHome, '.grok/plugins/atomic-skills/plugin.json');
+        const skillMd = join(fakeHome, '.grok/plugins/atomic-skills/skills/fix/SKILL.md');
+        const hooksJson = join(fakeHome, '.grok/plugins/atomic-skills/hooks/hooks.json');
+        assert.ok(existsSync(pluginJson), 'plugin.json must exist under plugin root');
+        assert.ok(existsSync(skillMd), 'at least one SKILL.md under plugin skills/');
+        assert.ok(existsSync(hooksJson), 'hooks/hooks.json stub must exist');
+
+        const plugin = JSON.parse(readFileSync(pluginJson, 'utf8'));
+        assert.equal(plugin.name, 'atomic-skills');
+        assert.ok(plugin.version, 'plugin.json must carry package version');
+        assert.equal(plugin.skills, './skills/');
+
+        // Forbidden dual tree: package must not own skill files under .grok/skills/
+        const dualSkillsRoot = join(fakeHome, '.grok/skills/atomic-skills');
+        assert.ok(
+          !existsSync(dualSkillsRoot),
+          'must not create .grok/skills/atomic-skills dual tree',
+        );
+
+        // Auto-update SessionStart on Grok surface (D3) — not Claude settings.
+        const versionCheck = join(fakeHome, '.atomic-skills/hooks/version-check.sh');
+        const grokAutoUpdate = join(fakeHome, '.grok/hooks/atomic-skills-auto-update.json');
+        assert.ok(existsSync(versionCheck), 'version-check.sh staged for auto-update');
+        assert.ok(existsSync(grokAutoUpdate), 'Grok auto-update hook file must exist');
+        assert.ok(
+          !existsSync(join(fakeHome, '.claude/settings.json')),
+          'grok-only install must not create .claude/settings.json',
+        );
+        const autoUpdate = JSON.parse(readFileSync(grokAutoUpdate, 'utf8'));
+        assert.ok(autoUpdate.hooks?.SessionStart?.length >= 1, 'SessionStart registered');
+        assert.equal(
+          autoUpdate.hooks.SessionStart[0].matcher,
+          undefined,
+          'Grok SessionStart must not set matcher',
+        );
+        assert.equal(autoUpdate.hooks.PreToolUse, undefined, 'auto-update must not ship Soft PreToolUse');
+        assert.equal(autoUpdate.hooks.Stop, undefined, 'auto-update must not ship Strict Stop');
+
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(added, [], `residue after grok uninstall: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `grok uninstall deleted pre-existing paths: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `grok uninstall modified pre-existing files: ${modified.join(', ')}`);
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('user-scope claude+grok install registers both auto-update surfaces and uninstalls cleanly', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ['claude-code', 'grok'], lang: 'en' });
+
+        const versionCheck = join(fakeHome, '.atomic-skills/hooks/version-check.sh');
+        const claudeSettings = join(fakeHome, '.claude/settings.json');
+        const grokAutoUpdate = join(fakeHome, '.grok/hooks/atomic-skills-auto-update.json');
+        assert.ok(existsSync(versionCheck));
+        assert.ok(existsSync(claudeSettings), 'Claude auto-update registration present');
+        assert.ok(existsSync(grokAutoUpdate), 'Grok auto-update registration present');
+
+        const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
+        const claudeCmds = (claude.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
+        assert.ok(
+          claudeCmds.some((h) => isVersionCheckCommand(h.command, versionCheck)),
+          'Claude SessionStart must register shell-safe version-check command',
+        );
+
+        const grok = JSON.parse(readFileSync(grokAutoUpdate, 'utf8'));
+        const grokCmds = (grok.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
+        assert.ok(
+          grokCmds.some((h) => isVersionCheckCommand(h.command, versionCheck)),
+          'Grok SessionStart must register shell-safe version-check command',
+        );
+
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(added, [], `residue after dual-ides uninstall: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `dual-ides uninstall deleted pre-existing: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `dual-ides uninstall modified pre-existing: ${modified.join(', ')}`);
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
   it('project scope returns the repo to baseline with .gitignore left untouched', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
     const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
@@ -146,6 +272,73 @@ describe('install→uninstall round-trip', () => {
     }
   });
 
+  it('project-scope install leaves a ledger-only tree that the installed router sends to setup', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      await withHome(fakeHome, async () => {
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+
+        const stateRoot = join(repo, '.atomic-skills');
+        assert.ok(existsSync(join(stateRoot, 'manifest.json')), 'installer ledger exists');
+        assert.ok(existsSync(join(stateRoot, 'hooks', 'version-check.sh')), 'installer hook exists');
+        assert.equal(existsSync(join(stateRoot, 'PROJECT-STATUS.md')), false);
+        assert.equal(existsSync(join(stateRoot, 'projects')), false);
+
+        const router = readFileSync(
+          join(repo, '.claude', 'commands', 'atomic-skills', 'project.md'),
+          'utf8',
+        );
+        const initialDetection = router.slice(
+          router.indexOf('## Initial detection'),
+          router.indexOf('## No-args'),
+        );
+        assert.doesNotMatch(initialDetection, /test -d \.atomic-skills\//);
+        assert.match(initialDetection, /manifest\.json.*(?:ledger|installer)/is);
+        assert.match(initialDetection, /PROJECT-STATUS\.md/);
+        assert.match(initialDetection, /projects\/.+plan\.md/s);
+        assert.match(initialDetection, /setup\s+mode/i);
+
+        await uninstall(repo, { scope: 'project', yes: true });
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('project install→uninstall preserves canonical and legacy lifecycle state byte-for-byte', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      const stateRoot = join(repo, '.atomic-skills');
+      mkdirSync(join(stateRoot, 'plans'), { recursive: true });
+      mkdirSync(join(stateRoot, 'initiatives'), { recursive: true });
+      writeFileSync(
+        join(stateRoot, 'PROJECT-STATUS.md'),
+        "---\nschemaVersion: '0.1'\n---\n\n# Project Status Index\n",
+      );
+      writeFileSync(join(stateRoot, 'plans', 'legacy.md'), 'legacy plan bytes\n');
+      writeFileSync(join(stateRoot, 'initiatives', 'legacy.md'), 'legacy initiative bytes\n');
+      const before = snapshotTree(repo);
+
+      await withHome(fakeHome, async () => {
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+        await uninstall(repo, { scope: 'project', yes: true });
+      });
+
+      const { added, removed, modified } = diffTree(before, snapshotTree(repo));
+      assert.deepEqual(added, [], `installer residue: ${added.join(', ')}`);
+      assert.deepEqual(removed, [], `lifecycle state deleted: ${removed.join(', ')}`);
+      assert.deepEqual(modified, [], `lifecycle state modified: ${modified.join(', ')}`);
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   // ─── Adversarial data-safety matrix (F1 T-004) ───
   // These three fixtures lock in the data-safety contract the installer MUST
   // satisfy — proving the round-trip is not just "clean install/uninstall" but
@@ -154,7 +347,7 @@ describe('install→uninstall round-trip', () => {
   // is the parity contract F3's rewire onto json-merge / refcount / legacy-prune
   // must keep green.
 
-  it('preserves a pre-existing THIRD-PARTY SessionStart hook across the round-trip', async () => {
+  it('preserves a pre-existing THIRD-PARTY SessionStart hook across install→UPDATE→uninstall', async () => {
     // json-merge data-safety: revert subtracts ONLY the entry the installer
     // merged, never a snapshot — a hook the user already had must survive.
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
@@ -176,12 +369,20 @@ describe('install→uninstall round-trip', () => {
 
         await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' });
 
-        const merged = JSON.parse(readFileSync(settingsPath, 'utf8'));
-        const mergedCmds = merged.hooks.SessionStart.flatMap((e) => e.hooks.map((h) => h.command));
+        const mergedCmds = sessionStartCommands(settingsPath);
         assert.ok(mergedCmds.includes(thirdPartyCmd), 'third-party hook present after install');
-        assert.ok(
-          mergedCmds.some((c) => c.endsWith('version-check.sh')),
-          'installer merged its own hook alongside the third party',
+        assert.equal(
+          countVersionCheckHooks(mergedCmds), 1,
+          'installer merged exactly one of its own hooks alongside the third party',
+        );
+
+        await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' }); // UPDATE
+
+        const updatedCmds = sessionStartCommands(settingsPath);
+        assert.ok(updatedCmds.includes(thirdPartyCmd), 'third-party hook present after update');
+        assert.equal(
+          countVersionCheckHooks(updatedCmds), 1,
+          'update keeps a single Atomic Skills hook entry',
         );
 
         await uninstall(projectDir, { scope: 'user', yes: true });
@@ -190,11 +391,10 @@ describe('install→uninstall round-trip', () => {
         assert.deepEqual(removed, [], `uninstall deleted user files: ${removed.join(', ')}`);
         assert.deepEqual(added, [], `residue after uninstall: ${added.join(', ')}`);
         assert.deepEqual(modified, [], `settings.json must return byte-for-byte: ${modified.join(', ')}`);
-        const after = JSON.parse(readFileSync(settingsPath, 'utf8'));
-        const afterCmds = after.hooks.SessionStart.flatMap((e) => e.hooks.map((h) => h.command));
+        const afterCmds = sessionStartCommands(settingsPath);
         assert.ok(afterCmds.includes(thirdPartyCmd), 'third-party hook survives uninstall');
-        assert.ok(
-          !afterCmds.some((c) => c.endsWith('version-check.sh')),
+        assert.equal(
+          countVersionCheckHooks(afterCmds), 0,
           'installer hook removed on uninstall (only the delta subtracted)',
         );
       });
@@ -224,20 +424,31 @@ describe('install→uninstall round-trip', () => {
         await install(userProj, { yes: true, ide: ['claude-code'], lang: 'en' });
         await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
         assert.ok(existsSync(installsJson), 'shared install registry created');
-        assert.equal(
-          JSON.parse(readFileSync(installsJson, 'utf8')).length, 2,
-          'both owners registered',
-        );
+        {
+          // P1-B: versioned schema { schemaVersion, owners:[{basePath,...}] }
+          const reg = JSON.parse(readFileSync(installsJson, 'utf8'));
+          const owners = Array.isArray(reg) ? reg : (reg.owners || []);
+          assert.equal(owners.length, 2, 'both owners registered');
+        }
 
         // Uninstall owner B: the shared registry must persist (owner A remains).
         await uninstall(repo, { scope: 'project', yes: true });
         assert.ok(existsSync(installsJson), 'registry persists while one owner remains');
-        const remaining = JSON.parse(readFileSync(installsJson, 'utf8'));
-        assert.equal(remaining.length, 1, 'one owner remains after first uninstall');
+        const remainingReg = JSON.parse(readFileSync(installsJson, 'utf8'));
+        const remainingOwners = Array.isArray(remainingReg)
+          ? remainingReg.map((b) => (typeof b === 'string' ? { basePath: b } : b))
+          : (remainingReg.owners || []);
+        assert.equal(remainingOwners.length, 1, 'one owner remains after first uninstall');
 
         // CRASH SIMULATION: a crashed uninstall-retry left a DUPLICATE owner-A
         // entry in the registry. The filter-based unregister must still reach 0.
-        writeFileSync(installsJson, JSON.stringify([...remaining, ...remaining], null, 2) + '\n');
+        writeFileSync(
+          installsJson,
+          JSON.stringify({
+            schemaVersion: remainingReg.schemaVersion || '1',
+            owners: [...remainingOwners, ...remainingOwners],
+          }, null, 2) + '\n',
+        );
 
         // Uninstall owner A: count -> 0 -> registry + shared runtime reclaimed.
         await uninstall(userProj, { scope: 'user', yes: true });
@@ -341,7 +552,6 @@ describe('install→uninstall round-trip', () => {
           version: '2.0.0',
           language: 'en',
           ides: ['claude-code'],
-          modules: {},
           effects: [
             { type: 'reconcileFileSet', beforeState: [] },
             { type: 'stageRuntimeArtifacts', beforeState: { created: [] } },

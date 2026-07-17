@@ -7,6 +7,8 @@ import * as p from '@clack/prompts';
 import { readManifest } from './manifest.js';
 import { IDE_CONFIG } from './config.js';
 import { resolveProjectScopeTarget } from './scope.js';
+import { verifyInstall, summarizeVerification } from './status-verify.js';
+import { observeRuntimeRegistry } from './runtime-observe.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
@@ -26,13 +28,18 @@ function stripIdeSuffix(name) {
  * @param {boolean} [options.forceProject] - when true, read project manifest
  *   (./.atomic-skills/manifest.json) instead of falling back to user scope.
  *   Mirrors the `--project` flag on install/detect/uninstall.
- * @returns {{manifest: object|null, scope: 'user'|'project', base: string|null}}
- *   The manifest read (or null if not found), the scope it came from, and
- *   the base path it was resolved against. Returned so tests and callers
- *   can verify routing without scraping console output.
+ * @param {boolean} [options.verify=true] - hash-verify all manifest paths
+ * @returns {{
+ *   manifest: object|null,
+ *   scope: 'user'|'project',
+ *   base: string|null,
+ *   verification?: object,
+ *   runtime?: object,
+ * }}
  */
 export function status(projectDir, options = {}) {
   const homeDir = homedir();
+  const doVerify = options.verify !== false;
   let manifest;
   let manifestScope;
   let manifestBase;
@@ -66,10 +73,20 @@ export function status(projectDir, options = {}) {
   }
 
   const pkgVersion = getPackageVersion();
-  const isUpToDate = manifest.version === pkgVersion;
+  const verification = doVerify && manifestBase
+    ? verifyInstall(manifestBase, manifest, { packageVersion: pkgVersion })
+    : null;
+
+  // Never claim up-to-date from semver alone when hash verification fails.
+  const isUpToDate = verification
+    ? verification.upToDate
+    : manifest.version === pkgVersion;
   const versionStr = isUpToDate
     ? pc.green(`v${manifest.version}`) + ' (up to date)'
-    : pc.yellow(`v${manifest.version}`) + ` (package: v${pkgVersion})`;
+    : pc.yellow(`v${manifest.version}`)
+      + (manifest.version === pkgVersion
+        ? ' (hash drift — not up to date)'
+        : ` (package: v${pkgVersion})`);
 
   p.log.message([
     `${pc.bold('Version:')}  ${versionStr}`,
@@ -78,8 +95,26 @@ export function status(projectDir, options = {}) {
     `${pc.bold('Updated:')}  ${manifest.updated_at ? new Date(manifest.updated_at).toLocaleString() : 'unknown'}`,
   ].join('\n'));
 
-  // Per-IDE status
-  const allFiles = Object.keys(manifest.files);
+  if (verification) {
+    const counts = verification.counts || summarizeVerification(verification);
+    const driftBits = [];
+    for (const key of ['missing', 'modified', 'stale', 'preserved', 'conflict']) {
+      if (counts[key] > 0) driftBits.push(`${counts[key]} ${key}`);
+    }
+    if (driftBits.length > 0) {
+      p.log.warn(pc.yellow('Verify:') + ' ' + driftBits.join(', '));
+      for (const f of verification.files) {
+        if (f.state === 'unchanged' || f.state === 'updated') continue;
+        p.log.warn(`  ${pc.red(f.state + ':')} ${f.path}`);
+      }
+    } else {
+      p.log.message(pc.green('Verify:') + ` ${counts.unchanged} unchanged`);
+    }
+  }
+
+  // Per-IDE status (presence + hash when verified)
+  const allFiles = Object.keys(manifest.files || {});
+  const verifyByPath = new Map((verification?.files || []).map((f) => [f.path, f]));
 
   for (const ideId of (manifest.ides || [])) {
     const ideCfg = IDE_CONFIG[ideId];
@@ -87,32 +122,76 @@ export function status(projectDir, options = {}) {
 
     const displayName = stripIdeSuffix(ideCfg.name);
     const ideDir = ideCfg.dir + '/';
-    const ideFiles = allFiles.filter(f => f.startsWith(ideDir) || f.startsWith(ideCfg.dir + '/'));
+    // Include sibling assets (outside ide.dir) when path is under the IDE parent tree
+    // for this host — e.g. .claude/atomic-skills/_assets/… for claude-code.
+    const ideFiles = allFiles.filter((f) => {
+      if (f.startsWith(ideDir) || f.startsWith(ideCfg.dir + '/')) return true;
+      // Assets live as siblings of the scanned skill tree (see getAssetsDir).
+      if (ideId === 'claude-code' && f.startsWith('.claude/')) return true;
+      if (ideId === 'cursor' && f.startsWith('.cursor/')) return true;
+      if (ideId === 'codex' && f.startsWith('.agents/')) return true;
+      if ((ideId === 'gemini' || ideId === 'gemini-commands') && f.startsWith('.gemini/')) return true;
+      if (ideId === 'opencode' && f.startsWith('.opencode/')) return true;
+      if (ideId === 'github-copilot' && f.startsWith('.github/')) return true;
+      if (ideId === 'grok' && f.startsWith('.grok/')) return true;
+      return false;
+    });
     const total = ideFiles.length;
-    const missing = ideFiles.filter(f => !existsSync(join(manifestBase, f)));
+    const missing = ideFiles.filter((f) => !existsSync(join(manifestBase, f)));
+    const bad = ideFiles.filter((f) => {
+      const v = verifyByPath.get(f);
+      return v && v.state !== 'unchanged' && v.state !== 'updated';
+    });
 
-    if (missing.length === 0) {
+    if (missing.length === 0 && bad.length === 0) {
       p.log.message(pc.green('✓') + ' ' + pc.bold(displayName) + ` — ${total} file${total !== 1 ? 's' : ''}`);
     } else {
       p.log.warn(
-        pc.yellow('⚠') + ' ' + pc.bold(displayName) +
-        ` — ${total - missing.length}/${total} files present`
+        pc.yellow('⚠') + ' ' + pc.bold(displayName)
+        + ` — ${total - missing.length - (bad.length - missing.filter((m) => bad.includes(m)).length)}/${total} clean`,
       );
       for (const f of missing) {
         p.log.warn('  ' + pc.red('missing:') + ' ' + f);
       }
+      for (const f of bad) {
+        if (missing.includes(f)) continue;
+        const v = verifyByPath.get(f);
+        p.log.warn('  ' + pc.red((v?.state || 'modified') + ':') + ' ' + f);
+      }
     }
   }
 
-  // Module status
-  const modules = manifest.modules || {};
-  const installedMods = Object.entries(modules).filter(([, v]) => v.installed).map(([k]) => k);
-  if (installedMods.length > 0) {
-    p.log.message(pc.bold('Modules:') + ' ' + installedMods.map(m => pc.cyan(m)).join(', '));
-  } else {
-    p.log.message(pc.bold('Modules:') + ' none');
+  // Runtime registry observation (read-only; F2/T-004)
+  let runtime = null;
+  try {
+    runtime = observeRuntimeRegistry({ homeDir, packageRoot: PACKAGE_ROOT });
+    if (runtime.corruption) {
+      p.log.error(pc.red('Runtime registry:') + ' corrupted — ' + runtime.corruption);
+    } else if (runtime.selectedOwner) {
+      p.log.message(
+        pc.bold('Runtime owner:') + ' '
+        + runtime.selectedOwner.basePath
+        + (runtime.selectedOwner.fingerprint ? ` (fp ${runtime.selectedOwner.fingerprint.slice(0, 8)}…)` : ''),
+      );
+    } else if (runtime.owners.length === 0) {
+      p.log.warn(pc.yellow('Runtime owners:') + ' none registered');
+    }
+    if (runtime.ghosts?.length) {
+      p.log.warn(pc.yellow('Ghost owners:') + ` ${runtime.ghosts.length}`);
+    }
+    if (runtime.runtimeMismatch) {
+      p.log.warn(pc.yellow('Runtime mismatch:') + ' ' + runtime.runtimeMismatch);
+    }
+  } catch {
+    /* observation is best-effort; never fail status */
   }
 
   p.outro(pc.bold('Done.'));
-  return { manifest, scope: manifestScope, base: manifestBase };
+  return {
+    manifest,
+    scope: manifestScope,
+    base: manifestBase,
+    verification: verification || undefined,
+    runtime: runtime || undefined,
+  };
 }

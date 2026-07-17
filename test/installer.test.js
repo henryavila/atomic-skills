@@ -20,7 +20,6 @@ test('buildInstaller stages the skills file set + auto-update hook over the Driv
     const installer = buildInstaller({
       language: 'en',
       ides: ['claude-code'],
-      modules: { memory: { installed: true, config: {} } },
       skillsDir: join(PACKAGE_ROOT, 'skills'),
       metaDir: join(PACKAGE_ROOT, 'meta'),
       scope: 'project',

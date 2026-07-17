@@ -1,0 +1,88 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "installer-hooks-cross-ide-f1-setup-e-documentacao",
+  "title": "Setup e documentacao",
+  "goal": "Corrigir project-setup.md, hooks/README.md e textos relacionados para separar instalacao de skills de setup de hooks, com no-op explicito para hosts sem contrato.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Corrigir project-setup.md",
+      "description": "Atualizar o setup para declarar matriz de skills e matriz de hooks como passos separados.",
+      "scopeBoundary": [
+        "nao alterar scripts de hook ou runtime layer nesta task"
+      ],
+      "acceptance": [
+        "project-setup.md lista paths de skills por host e registra hooks apenas para hosts com contrato",
+        "project-setup.md detecta Codex por `.codex/ || .agents/` antes da fallback generica de hosts sem contrato"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-setup.md"
+        },
+        {
+          "kind": "file",
+          "path": "tests/project.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Corrigir README de hooks fonte e instalado",
+      "description": "Alinhar README fonte e README instalado para explicar suporte real, wrapper de projeto e no-op por host.",
+      "scopeBoundary": [
+        "nao editar session-start.sh, stop.sh ou pre-write.sh nesta task"
+      ],
+      "acceptance": [
+        "os READMEs nao prometem .codex/hooks.json nem .claude/settings.local.json fora da matriz aprovada"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/hooks/README.md"
+        },
+        {
+          "kind": "file",
+          "path": ".atomic-skills/status/hooks/README.md"
+        },
+        {
+          "kind": "file",
+          "path": "tests/project.test.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "project.test.js valida que setup e README nao prometem hooks para hosts sem contrato e que Codex e detectado por `.codex/ || .agents/`.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-2",
+      "description": "A documentacao instalada em .atomic-skills/status/hooks/README.md reflete o mesmo contrato da fonte em skills/shared/project-assets/hooks/README.md.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project.test.js && bash tests/hooks/session-start.test.sh",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

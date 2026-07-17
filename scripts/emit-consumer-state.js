@@ -36,6 +36,7 @@ import { join, resolve } from 'node:path';
 import { parseFrontmatter } from './validate-state.js';
 import { verifierLabelFor, evidenceSummaryFor } from './compute-rollups.js';
 import { buildPlanDependencyGraph } from '../src/plan-dependencies.js';
+import { dedupeCompletionEvents } from './append-completion.js';
 
 const STATE_DIRNAME = join('.aideck', 'state');
 
@@ -562,13 +563,15 @@ export function buildSeries(tree, completionLines, nowMs) {
       weightTotal += tasks.reduce((sum, task) => sum + weightOf(task), 0);
     }
 
-    const planEvents = arr(completionLines).filter((e) =>
-      e?.projectId === plan.projectId && e?.planSlug === plan.planSlug);
+    const planEvents = dedupeCompletionEvents(arr(completionLines).filter((e) =>
+      e?.projectId === plan.projectId && e?.planSlug === plan.planSlug));
     // Earned value counts each completed TASK once. `done`, `reconcile`, and the
     // per-task lines of a `phase-done` bulk-close all emit `task-done` events;
     // the single aggregate `phase-done` event (taskId:null, weight default 1) is
     // a marker, NOT a per-task earned increment — summing it would double-count
     // earned weight on every phase close. So earned sums `task-done` events only.
+    // F4/T-005: also collapse duplicate lines with the same completionEventKey so
+    // a historical retry cannot inflate earned value.
     const earnedEvents = planEvents.filter((e) => e?.event === 'task-done');
     const started = Date.parse(String(plan.fm?.started || ''));
     const deadline = Date.parse(String(plan.fm?.deadline || ''));

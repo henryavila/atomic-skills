@@ -18,6 +18,9 @@ try {
       port: { type: 'string' },
       'aideck-bin': { type: 'string' },
       demo: { type: 'boolean', default: false },
+      repair: { type: 'boolean', default: false },
+      'force-incomplete': { type: 'boolean', default: false },
+      'force-adopt': { type: 'boolean', default: false },
     },
   }));
 } catch (err) {
@@ -32,19 +35,30 @@ if (values.help || !command) {
   ⚛ Atomic Skills — Stop rewriting prompts.
 
   Usage:
-    npx @henryavila/atomic-skills install    [--yes] [--project] [--ide <ids>|detected] [--all-detected] [--lang <code>]
+    npx @henryavila/atomic-skills install    [--yes] [--project] [--ide <ids>|detected] [--all-detected] [--lang <code>] [--repair] [--force-adopt]
     npx @henryavila/atomic-skills detect     [--project] [--json]
     npx @henryavila/atomic-skills status     [--project]
-    npx @henryavila/atomic-skills uninstall  [--yes] [--project]
+    npx @henryavila/atomic-skills uninstall  [--yes] [--project] [--force-incomplete]
     npx @henryavila/atomic-skills serve      [--demo] [--port <N>] [--aideck-bin <path>]
 
   Options:
     --yes, -y         Non-interactive: (install) accept auto-detected defaults;
                       (uninstall) skip the confirmation prompt
     --project         Skip scope picker and install to the current repo's Git root
-    --ide <ids>       Comma-separated: claude-code,cursor,gemini,codex,opencode,github-copilot
+    --ide <ids>       Comma-separated: claude-code,cursor,gemini,codex,opencode,github-copilot,grok
                       Use --ide detected or --all-detected to refresh from installed IDEs
     --lang <code>     Communication language for all skills (e.g. en, pt, es, fr, ja)
+    --repair          (install) Recover from an incomplete installer transaction:
+                      scans user+project for incomplete; refuse silent resume on
+                      pre-U journals (use uninstall --force-incomplete); post-U is
+                      reverse-only (clears incomplete — re-run install separately;
+                      does not auto-reinstall)
+    --force-adopt     (install) Reclaim foreign/user content at desired skill paths
+                      (default: leave unmanaged-desired paths untouched and report them)
+    --force-incomplete (uninstall) Best-effort reverse of journaled effects when the
+                      install is stuck incomplete; routes to the incomplete scope;
+                      writes a residual recovery ledger (never hand-edit manifest JSON);
+                      exits non-zero if reverse fails or incomplete is retained
     --demo            (serve) Stage demo fixtures (a sample plan + initiative)
                       in a tmp dir and serve from there. Useful for first
                       look without bootstrapping your own .atomic-skills/.
@@ -60,6 +74,10 @@ if (values.help || !command) {
     console.error('  Error: use either --ide or --all-detected, not both');
     process.exit(1);
   }
+  if (values['force-incomplete']) {
+    console.error('  Error: --force-incomplete is for uninstall only (use install --repair)');
+    process.exit(1);
+  }
   const { install } = await import('../src/install.js');
   const useDetected = values.ide === 'detected' || values['all-detected'];
   await install(process.cwd(), {
@@ -68,6 +86,8 @@ if (values.help || !command) {
     ide: values.ide && values.ide !== 'detected' ? values.ide.split(',') : null,
     lang: values.lang,
     allDetected: useDetected,
+    repair: values.repair,
+    forceAdopt: values['force-adopt'],
   });
 } else if (command === 'detect') {
   const { homedir } = await import('node:os');
@@ -92,10 +112,15 @@ if (values.help || !command) {
     console.log(`Effective: ${state.effective.length > 0 ? state.effective.join(', ') : pc.yellow('(none)')}`);
   }
 } else if (command === 'uninstall') {
+  if (values.repair) {
+    console.error('  Error: --repair is for install only (use uninstall --force-incomplete)');
+    process.exit(1);
+  }
   const { uninstall } = await import('../src/uninstall.js');
   await uninstall(process.cwd(), {
     scope: values.project ? 'project' : null,
     yes: values.yes,
+    forceIncomplete: values['force-incomplete'],
   });
 } else if (command === 'status') {
   const { status } = await import('../src/status.js');

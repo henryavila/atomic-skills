@@ -1,14 +1,32 @@
 # project — first-time setup (lazy detail)
 
-Loaded by the router when `.atomic-skills/` does not exist (any subcommand), or on explicit `setup`.
+Loaded by the router when the resident **Project setup sentinel** returns **Setup
+required** (including an absent, empty, or installer-ledger-only
+`.atomic-skills/`), or on explicit `setup`.
 
 Announce: "I will configure the `project` skill in this repo."
 
 ## 1. Detect environment
-- `test -d .claude/` → Claude Code
-- `test -d .cursor/` → Cursor
-- `test -d .gemini/` → Gemini CLI
-- Otherwise → generic IDE; skip step 5
+
+Detect two independent axes: skill installation compatibility and project-hook setup eligibility. A host may support skills without supporting project hooks.
+
+### Skill installation host
+- `test -d .claude/` → Claude Code; skills path: `.claude/commands/atomic-skills/<skill>.md`
+- `test -d .cursor/` → Cursor; skills path: `.cursor/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .gemini/` → Gemini CLI; skills path: `.gemini/skills/atomic-skills-<skill>/SKILL.md` (first-level discovery depth — not nested under `atomic-skills/`)
+- `test -d .codex/ || test -d .agents/` → Codex; skills path: `.agents/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .opencode/` → OpenCode; skills path: `.opencode/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .github/` → GitHub Copilot; skills path: `.github/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .grok/` → Grok Build; skills path: `.grok/plugins/atomic-skills/skills/<skill>/SKILL.md` (plugin package only)
+- Native Gemini stays at `.gemini/skills/atomic-skills-<skill>/SKILL.md` even when Codex is also selected (no rewrite to commands)
+- Optional Gemini command adapters: `.gemini/commands/atomic-skills-<skill>.toml` (explicit `gemini-commands` profile only)
+- Otherwise → generic IDE; no host-specific skills path and no project-hook setup
+
+### Project-hook setup eligibility
+- Claude Code has a project-hook contract: merge-only registration in `.claude/settings.local.json`
+- Codex has a project-hook contract: merge-only registration in `.codex/hooks.json`
+- Grok Build has a project-hook contract: merge-only registration in `.grok/plugins/atomic-skills/hooks/hooks.json` (plugin Soft is installed with the package; Strict adds Stop)
+- Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE have no known project-hook contract; hook setup is an explicit no-op for those hosts and must not create or register hook config files
 
 ## 2. Verify/create CLAUDE.md
 - If CLAUDE.md is absent: ask "Create minimal CLAUDE.md with hard-gate? (y/n)" — if yes, create with a title + hard-gate template
@@ -26,23 +44,69 @@ Check if markers `<!-- atomic-skills:status-gate:start -->` already exist:
 - If AGENTS.md exists and references CLAUDE.md: skip
 - If AGENTS.md exists without reference: show suggested diff, ask confirmation (do not force)
 
-## 5. Install hooks (Claude Code only)
+## 5. Install hooks (Claude Code / Codex / Grok Build only)
+
+Run this step only when the detected/selected host has a known project-hook contract:
+
+- Claude Code: `.claude/settings.local.json`
+- Codex: `.codex/hooks.json`
+- Grok Build: `.grok/plugins/atomic-skills/hooks/hooks.json`
+
+For Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks. Do not copy project hook scripts for those hosts, do not create hook config files, and do not register hook events.
+
 Present Structured Options:
 > What enforcement level?
 > (a) Passive — hard-gate in CLAUDE.md only, no hooks
 > (b) Soft (recommended) — hard-gate + SessionStart hook + PreToolUse provenance gate (dry-run)
 > (c) Strict — hard-gate + SessionStart + Stop hook + PreToolUse provenance gate (all dry-run 7d before real strict)
 
-For (b) and (c): copy `session-start.sh`, `stop.sh`, and `pre-write.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, register them in `.claude/settings.local.json` under `SessionStart`, `Stop`, and `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`) respectively.
+For eligible hosts only, option (b): copy `session-start.sh` and `pre-write.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, then register only `SessionStart` and `PreToolUse` in the host hook config with merge-only changes. Option (c) does the same and additionally copies/registers `stop.sh` as `Stop`.
+
+- Claude Code: `.claude/settings.local.json`
+- Codex: `.codex/hooks.json`
+- Grok Build Soft: plugin package `hooks/hooks.json` (installer-owned Soft envelope under `GROK_PLUGIN_ROOT`; do not hand-edit for Strict)
+- Grok Build Strict: separate merge-only file `.grok/hooks/atomic-skills-strict.json` (Stop only) — never mutate the installer-owned plugin `hooks/hooks.json` for Strict (avoids hash-preserve / uninstall residue)
+
+Use these exact command wrappers under the host config's top-level `hooks` object so the hook still runs when the host does not export `CLAUDE_PROJECT_DIR`.
+
+Option (b), Soft:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
+    "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit|search_replace|write", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }]
+  }
+}
+```
+
+Dual-vocab PreToolUse matcher: Claude tools (`Edit|Write|MultiEdit`) and Grok write tools (`search_replace|write`). Hosts that only emit one vocabulary still match.
+
+Option (c), Strict: add `Stop` under the same `hooks` object:
+
+```json
+{
+  "hooks": {
+    "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/stop.sh\"" }] }]
+  }
+}
+```
+
+Never register hooks as `bash "$CLAUDE_PROJECT_DIR/.atomic-skills/status/hooks/<script>.sh"`: when `CLAUDE_PROJECT_DIR` is unset, the shell expands that to `/.atomic-skills/...` before the script's own fallback can run.
 
 For (b): copy `config.json` with `strict_mode: false`, `emergent_strict_mode: false`, and `dry_run_started: $(date -I)`.
 For (c): same `config.json` shape — both strict knobs default false during the 7-day dry-run window.
 
 The `pre-write.sh` gate intercepts direct Edits to the nested `.atomic-skills/projects/<id>/<slug>/{plan.md,phases/*.md}` (and legacy flat `.atomic-skills/initiatives/*.md` + `plans/*.md`) that add entries to `tasks[]` or `phases[]` without a `provenance:` field. Use the documented `new-task` / `new-phase` / `split-phase` / `emerge --target` commands (they set provenance automatically) instead. Bypass for 24h with `touch .atomic-skills/status/SKIP-EMERGENT`.
 
-When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level (b) or (c)), it enforces both rules mechanically: any `Edit` / `Write` / `MultiEdit` that adds a `tasks[]` or `phases[]` entry without `provenance:` — OR with `provenance:` but missing any of `context.solves` / `context.trigger` / `context.ratifiedAt` — is logged in dry-run mode or denied in strict mode (`emergent_strict_mode: true`). The hook exempts file creation (original materialization), updates to existing entries, deletions, archive subdirs, and `*.rendered.md` artifacts. See `.atomic-skills/status/hooks/README.md` for promotion + bypass instructions.
+When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level (b) or (c)), it enforces both rules mechanically: any write tool (Claude `Edit` / `Write` / `MultiEdit` or Grok `search_replace` / `write`) that adds a `tasks[]` or `phases[]` entry without `provenance:` — OR with `provenance:` but missing any of `context.solves` / `context.trigger` / `context.ratifiedAt` — is logged in dry-run mode or denied in strict mode (`emergent_strict_mode: true`). The hook exempts file creation (original materialization), updates to existing entries, deletions, archive subdirs, and `*.rendered.md` artifacts. See `.atomic-skills/status/hooks/README.md` for promotion + bypass instructions.
 
 ## 6. Create structure
+
+Installer coexistence is non-destructive: `.atomic-skills/manifest.json` and
+`.atomic-skills/hooks/version-check.sh` may already exist. They belong to the
+installer, not the project lifecycle. Never delete, move, or overwrite either
+artifact during setup.
 
 Use {{BASH_TOOL}}:
 ```bash
@@ -50,7 +114,21 @@ mkdir -p .atomic-skills/projects        # nested top level — per-project folde
 mkdir -p .atomic-skills/status/hooks
 ```
 
-The per-project index `projects/<project-id>/PROJECT-STATUS.md` (and the `<slug>/phases/archive/` dirs) are created with the first plan (`new plan` / `discover --commit`). For coexistence with un-migrated tooling, also seed a top-level fallback index now: copy `{{ASSETS_PATH}}/PROJECT-STATUS.md.template.md` to `.atomic-skills/PROJECT-STATUS.md`, replacing `REPLACE_ISO_TIMESTAMP` with the current timestamp.
+The per-project index `projects/<project-id>/PROJECT-STATUS.md` (and the
+`<slug>/phases/archive/` dirs) are created with the first plan (`new plan` /
+`discover --commit`). The top-level `.atomic-skills/PROJECT-STATUS.md` is the
+structural sentinel for a configured repo that has no plan yet:
+
+- If `.atomic-skills/PROJECT-STATUS.md` is absent, copy
+  `{{ASSETS_PATH}}/PROJECT-STATUS.md.template.md` there and replace
+  `REPLACE_ISO_TIMESTAMP` with the current timestamp.
+- If `.atomic-skills/PROJECT-STATUS.md` already exists, preserve it byte for
+  byte. Read it and diagnose missing frontmatter/`schemaVersion` or the missing
+  `# Project Status Index` heading; repair only after showing the diff and
+  receiving explicit approval. Never silently overwrite it.
+
+Re-run the Project setup sentinel after this step. It must now classify the
+tree as **Configured** before setup reports success.
 
 ## 7. Update .gitignore
 Append (if not present):

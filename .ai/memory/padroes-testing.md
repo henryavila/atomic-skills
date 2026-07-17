@@ -74,6 +74,27 @@ falso-verde antes do fechamento da fase.
 3. Asserte presença/ausência de arquivos e campos no estado pós-ação, não em
    estruturas capturadas antes da ação.
 
+## Multiplataforma: install não pode ser Linux-only
+
+O engine (`@henryavila/minimalist-installer`) e o produto reclamam Linux + macOS +
+Windows. Regressões `/proc/self/fd`-only só aparecem no macOS se a suíte Linux
+nunca forçar o backend portátil.
+
+**Enforcers:**
+- `tests/multiplatform-contract.test.js` — static ban de `/proc/self/fd` fora de
+  `path-safety.js`, ban da mensagem Linux-only fail-closed, CLI
+  install/status/detect/uninstall sob `MINIMALIST_INSTALLER_PATH_BACKEND=path`,
+  e assert de job CI multiplatform.
+- Job CI `multiplatform-path-nofollow` em `.github/workflows/test.yml` com
+  `MINIMALIST_INSTALLER_PATH_BACKEND: path` + round-trip de install.
+- Upstream `test/multiplatform-backends.test.js` (matrix path/proc + guards
+  estáticos no package).
+
+**How to apply:** Qualquer mutação de filesystem do installer deve passar por
+`entryPath` / `*NoFollow` do engine. Nunca hardcodar `/proc/self/fd` em effects
+ou no produto. Se adicionar um comando CLI mutante, estenda o ciclo
+install→status→detect→uninstall do contrato multiplatform.
+
 ## Hooks e testes de ambiente precisam de HOME isolado
 
 Hooks de sessão podem ler arquivos globais do usuário (`~/.atomic-skills/env`,
@@ -142,3 +163,67 @@ não inferir metade-criada por scan de `.atomic-skills/projects/`.
 Regressão útil: teste textual/estrutural que falha se o skill voltar a instruir
 "write then append". Para scripts executáveis, preferir teste de fault-injection
 entre registro e escrita.
+
+## Round-trip feliz não prova atomicidade do installer
+
+Um installer orientado a effects precisa ser testado em cada boundary, não só no
+caminho em que todos os effects terminam. Se o file-set é aplicado antes de um
+hook/jsonMerge e o manifest só fica durável no final, uma falha tardia deixa
+arquivos sem ownership. Em update, o retry ainda pode confundir bytes já
+atualizados com edição local e perpetuar resíduos.
+
+**Como aplicar:** para fresh install e update, injete falha após cada effect e
+asserte quatro estados:
+
+1. a falha não deixa mutação sem journal recuperável;
+2. reparar a causa e repetir é idempotente;
+3. `currentHash === desiredHash` é re-adotado pelo novo journal;
+4. uninstall após o retry retorna HOME e repo ao baseline byte a byte.
+
+Também faça o contador exibido pelo uninstall derivar das remoções observadas,
+não da quantidade de entradas que existia no manifest.
+
+## Closure renderizado precisa de oracle independente
+
+Contagem fixa de arquivos, spot-check de alguns assets ou "provider novo reproduz
+provider antigo" não provam que a instalação entrega tudo que as skills citam.
+Uma omissão compartilhada pelos dois lados passa verde.
+
+**Como aplicar:** para cada IDE pública e scope, renderize numa instalação
+temporária, extraia todas as referências locais acionáveis e exija que cada uma
+resolva dentro do file-set/runtime instalado. Rode o smoke a partir de um repo
+consumidor sem `skills/`, `src/` ou `node_modules` do checkout atomic-skills.
+Falhe também em destination collisions e em níveis de diretório ignorados.
+
+## Runtime publicado exige instalar o tarball, não apontar para o checkout
+
+Um teste que grava manualmente `~/.atomic-skills/package-root` com o root do
+checkout só prova que o source funciona com seu próprio `node_modules`. Ele não
+detecta arquivo omitido de `package.json.files`, dependência ausente do pacote,
+asset não renderizado ou import acidental pelo CWD consumidor.
+
+**Why:** Em 2026-07-12, o contrato de consumer executava decompose/discover/
+depend/normalize pelo checkout e o teste de closure usava apenas
+`npm pack --dry-run`. O E2E black-box novo matou a remoção de `src/` do tarball
+em `bin/cli.js → src/install.js`, provando que a instalação física era exercida.
+
+**Como aplicar:** Empacote para um diretório temporário, instale o `.tgz` num
+repo com HOME isolado, execute o bin extraído e exija que o marker resolva dentro
+de `consumer/node_modules`, nunca para o source. Use um módulo sentinela no CWD,
+carregue helpers pelas referências renderizadas e varra marker/saídas por paths
+absolutos do checkout. No macOS, canonicalize `tmpdir()` com `realpathSync` para
+neutralizar o alias `/var` → `/private/var` nos guards de entrypoint.
+
+## Transação plan + initiative publica o lado dependente primeiro
+
+Dois renames não são atomicamente observáveis como uma única operação. Para uma
+materialização descriptor-only, a ordem precisa tornar seguro cada snapshot:
+persistir staging + marker com hashes, renomear a initiative e somente então o
+plan que passa a declará-la active. Plan primeiro cria a janela proibida
+`phase active && initiative ausente`.
+
+O retry lê hashes live contra `{before, after}`: falha após initiative converge
+com o rename do plan; falha após plan apenas valida e limpa. Staging perdido pode
+restaurar o par anterior; hash desconhecido é ambíguo e falha sem sobrescrever.
+O marker só some após o par completo validar, e sua recuperação deve ocorrer
+antes do preflight que normalmente rejeita uma initiative já existente.

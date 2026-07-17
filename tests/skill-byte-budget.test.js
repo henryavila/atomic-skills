@@ -45,14 +45,27 @@ const REPO_ROOT = resolve(__dirname, '..')
 
 // [relative path under skills/, hard ceiling in bytes, provenance]
 const BUDGETS = [
-  ['core/project.md', 23000, 'F1 — thin router (raised 22000→23000 2026-06-26: depend verb added resident grammar+dispatch+gate-list surface + operator-model block mandated resident by validate-skills.test.js)'],
-  ['core/implement.md', 22000, 'F1 — lean driver'],
-  ['core/review-code.md', 20000, 'F3/T3.1'],
-  ['core/review-plan.md', 24000, 'F3/T3.2'],
+  // Raised 2026-07-16 integrity-remediation F0–F5: setup sentinel + structural
+  // setup rules (F0) plus integrity operator surface (state join, sidecar lazy
+  // descriptors, verify/cross-validation pointers) that must stay resident in
+  // the thin router — not movable prose.
+  ['core/project.md', 24000, 'F1 — thin router (raised 22000→23000 2026-06-26; 23000→23500→24000 2026-07-16: integrity F0–F5 setup sentinel + structural setup + integrity operator surface)'],
+  // Raised 2026-07-16 integrity-remediation F3–F5: load/closure authority,
+  // plan/worktree resume gate, verifier/concurrency/resolution policy, and
+  // handoff checkpoint prose required on the implement driver surface.
+  ['core/implement.md', 24500, 'F1 — lean driver (raised 22000→24500 2026-07-16: integrity F3–F5 closure/resume/verifier authority on driver surface)'],
+  // Raised 2026-07-16 for grok-build-integration F3–F5: multi-provider modes
+  // (codex|grok|external-both), host-default picker, and CROSS-MODEL REVIEW
+  // provider field. ~20B / ~700B over prior ceilings; content is resident
+  // dispatch surface, not movable prose.
+  ['core/review-code.md', 21000, 'F3/T3.1 (raised 20000→21000 2026-07-16: multi-provider review modes + host-default)'],
+  // Raised 2026-07-17: external model selection flags + Step 0.model pointer
+  // (discover/recommend/pick lives in review-mode-ux.md lazy asset).
+  ['core/review-plan.md', 25500, 'F3/T3.2 (raised 24000→25000 2026-07-16 multi-provider; 25000→25500 2026-07-17: --model/--ask-model + Step 0.model pointer)'],
   ['core/hunt.md', 14000, 'F3/T3.3'],
   ['core/debate.md', 15000, 'F3/T3.4'],
   ['core/parallel-dispatch.md', 13000, 'F2/T2.4'],
-  ['modules/memory/init-memory.md', 7800, 'F3/T3.5'],
+  ['core/init-memory.md', 7800, 'F3/T3.5'],
 ]
 
 describe('skill byte budgets (token-economy invariant)', () => {

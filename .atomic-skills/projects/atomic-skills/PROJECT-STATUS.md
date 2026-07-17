@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-08T18:31:17Z
+lastUpdated: 2026-07-17T14:28:52.716Z
 schemaVersion: "0.1"
-activePlans: 0
-activeInitiatives: 0
-archivedCount: 19
+activePlans: 1
+activeInitiatives: 1
+archivedCount: 23
 ---
 
 # Project Status Index
@@ -18,13 +18,19 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
-_(none)_
+| Slug | Status | Current Phase | Branch | Started | Phases |
+|------|--------|---------------|--------|---------|
+| product-docs-site | active | F0 | plan/product-docs-site | 2026-07-17 | 0/6 |
+
 
 
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| integrity-remediation | done | F6 | plan/integrity-remediation | 2026-07-10 | 7/7 |
+| grok-build-integration | done | F5 | plan/grok-build-integration | 2026-07-16 | 6/6 |
+| installer-hooks-cross-ide | done | F3 | develop | 2026-07-08 | 4/4 |
 | help-command | done | F3 | develop | 2026-07-05 | 4/4 |
 | fix-aideck-dashboard | done | F3 | plan/fix-aideck-dashboard | 2026-06-16 | 4/4 |
 | deadline-burnup-forecast | done | F5 | plan/deadline-burnup-forecast | 2026-06-17 | 6/6 |
@@ -38,6 +44,12 @@ _(none)_
 |------|--------|---------------|--------|---------|--------|
 | refactor-doc-architect | paused | F0 | main | 2026-05-31 | 0/6 |
 
+## Active Initiatives (plan-anchored)
+
+| Path | Status | Phase | Branch | Tasks |
+|------|--------|-------|--------|-------|
+| product-docs-site / product-docs-site-f0-catalog-v0-3-and-product-block | active | F0 | plan/product-docs-site | 0/3 tasks |
+
 ## Active Initiatives (standalone)
 
 _(none)_
@@ -46,17 +58,16 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| installer-hooks-cross-ide/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final | 2026-07-10 | F3 | 4/4 | Reparo local e validacao final |
+| installer-hooks-cross-ide/installer-hooks-cross-ide-f2-testes-de-regressao | 2026-07-10 | F2 | 3/4 | Testes de regressao |
+| installer-hooks-cross-ide/installer-hooks-cross-ide-f1-setup-e-documentacao | 2026-07-09 | F1 | 2/4 | Setup e documentacao |
+| installer-hooks-cross-ide/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks | 2026-07-09 | F0 | 1/4 | Contrato cross-IDE de hooks |
 | project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | help-command/f3-guarda-de-fidelidade-help-nunca-cita-um | 2026-07-08 | F3 | 4/4 | Comando `help` - F3 Guarda de fidelidade (help nunca cita um verbo que não existe) |
 | help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
 | help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |
 | phase-materialization | 2026-07-02 | F5 | 6/6 | Materialização lazy de fases + gate de validação de negócio |
-| design-brief-briefing-rework | 2026-06-19 | F1 | 2/2 | design-brief - repensar o modelo de autoridade do briefing (anti-congelamento de legado) |
-| worktree-lifecycle-finalization | 2026-06-19 | F8 | 9/9 | Finalizacao do ciclo de vida da worktree-do-plano |
-| app-map-conflict-arbitration | 2026-06-16 | F1 | 2/2 | app-map: descritor de conflito rico + canal de arbitragem |
-| design-brief-source-of-truth | 2026-06-16 | F2 | 3/3 | design-brief: reconstrucao da fonte-de-verdade (catalogo app-map) |
-| multiplan-focus-resolution | 2026-06-16 | - | 1/1 | Resolucao de foco em camadas + enforcer worktree-por-plano |
 
 ## Ad-Hoc Sessions Log (last 5)
 

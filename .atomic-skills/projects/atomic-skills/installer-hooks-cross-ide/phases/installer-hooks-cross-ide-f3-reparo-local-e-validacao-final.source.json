@@ -1,0 +1,79 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "installer-hooks-cross-ide-f3-reparo-local-e-validacao-final",
+  "title": "Reparo local e validacao final",
+  "goal": "Aplicar o reparo local em .codex/hooks.json por merge quando o contrato disser que Codex tem hook contract neste projeto, rodar a suite relevante e fechar a fase com review.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Reparar .codex/hooks.json por merge",
+      "description": "Adicionar somente entradas aprovadas pelo contrato e preservar o hook Nexus existente.",
+      "scopeBoundary": [
+        "nao sobrescrever .codex/hooks.json inteiro e nao remover hooks de terceiros"
+      ],
+      "acceptance": [
+        ".codex/hooks.json contem o hook Nexus pre-existente e as entradas Atomic Skills aprovadas pela matriz"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": ".codex/hooks.json"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Rodar validacao final e review",
+      "description": "Executar validate-state, suite relevante e review da fase antes de fechar.",
+      "scopeBoundary": [
+        "nao fechar fase com verifier falhando"
+      ],
+      "acceptance": [
+        "validate-state, project tests, round-trip e session-start passam na arvore atual"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node scripts/validate-state.js .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md && node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js && bash tests/hooks/session-start.test.sh",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "test",
+          "command": "node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js"
+        },
+        {
+          "kind": "test",
+          "command": "bash tests/hooks/session-start.test.sh"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": ".codex/hooks.json local preserva o hook Nexus e adiciona apenas entradas aprovadas pelo contrato.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-2",
+      "description": "Validacao final de estado e hooks passa apos refresh-state.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node scripts/validate-state.js .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md && bash tests/hooks/session-start.test.sh",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

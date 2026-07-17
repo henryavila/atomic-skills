@@ -1,0 +1,247 @@
+---
+schemaVersion: "0.1"
+slug: grok-build-integration-f2-cross-model-bridge-core-l7
+title: cross-model-bridge core (L7)
+goal: Rename or alias codex-bridge to cross-model-bridge with pluggable codex
+  and grok providers, host default matrix, same-family confirm-to-local
+  (interactive) and HARD ABORT or --accept-same-family-as-local
+  (non-interactive).
+status: done
+branch: plan/grok-build-integration
+started: 2026-07-16T14:29:05.000Z
+lastUpdated: 2026-07-16T14:46:44.000Z
+nextAction: null
+parentPlan: grok-build-integration
+phaseId: F2
+businessIntent:
+  value: Atomic Skills installs and runs as a first-class Grok Build plugin
+    (skills + hooks), and adversarial review always uses a different model
+    family than the host session so self-preference bias is reduced.
+  workflow: Install selects grok → plugin package → skills with correct tools →
+    host-aware external review (Codex/Grok) with sealed envelope → CROSS-MODEL
+    REVIEW tracks cadence with provider field.
+  rules: Plugin is the only Grok skill root; host is never the external reviewer
+    without same-family confirm→local; install/uninstall parity; tool vars not
+    hardcoded Claude names.
+  outOfScope: Marketplace publish, MCP project-state server, Mode-2 execution via
+    Grok, auto-apply external findings without human triage.
+  doneWhen: Phase F2 exit gates green with deterministic verifiers.
+tasksDone: 3
+tasksTotal: 3
+gatesMet: 3
+gatesTotal: 3
+weightDone: 3
+weightTotal: 3
+exitGates:
+  - id: G-1
+    description: cross-model-bridge module validates and codex alias remains installable.
+    status: met
+    metAt: 2026-07-16T14:46:44.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:46:44.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 phase-done gates re-verified
+    verifier:
+      kind: shell
+      command: npm run validate-skills
+      expectExitCode: 0
+    verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-07-16
+  - id: G-2
+    description: Grok invocation and host-default assets encode matrix and
+      same-family interactive plus non-interactive rules.
+    status: met
+    metAt: 2026-07-16T14:46:44.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:46:44.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 phase-done gates re-verified
+    verifier:
+      kind: shell
+      command: test -s
+        skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt
+        && grep -E 'same-family|accept-same-family-as-local|HARD ABORT'
+        skills/shared/codex-bridge-assets/host-default-external.md
+      expectExitCode: 0
+    verifierLabel: "shell: test -s skills/shared/codex-bridge-assets/providers/grok/in…"
+    evidenceSummary: passed · 2026-07-16
+  - id: G-3
+    description: Pure host-default and same-family routing helper unit tests pass
+      for every matrix row.
+    status: met
+    metAt: 2026-07-16T14:46:44.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:46:44.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 phase-done gates re-verified
+    verifier:
+      kind: shell
+      command: node --test tests/cross-model-host-default.test.js
+      expectExitCode: 0
+    verifierLabel: "shell: node --test tests/cross-model-host-default.test.js"
+    evidenceSummary: passed · 2026-07-16
+stack:
+  - id: 1
+    title: cross-model-bridge core (L7)
+    type: task
+    openedAt: 2026-07-16T14:29:05.000Z
+tasks:
+  - id: T-001
+    title: Module layout and codex-bridge alias
+    description: Introduce skills/modules/cross-model-bridge and shared
+      cross-model-review-assets (or restructure codex-bridge-assets) with
+      providers/codex and providers/grok; keep codex-bridge as compatibility
+      alias in catalog and install.
+    status: done
+    lastUpdated: 2026-07-16T14:32:48.000Z
+    closedAt: 2026-07-16T14:32:48.000Z
+    scopeBoundary:
+      - do not change review-code or review-plan mode UX in this task beyond
+        asset path references if required
+    acceptance:
+      - validate-skills and catalog resolve cross-model-bridge; codex provider
+        assets still load; no broken ASSETS_PATH references in envelope
+        orchestration
+    verifier:
+      kind: shell
+      command: node --test tests/validate-skills.test.js && npm run validate-skills
+      expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:32:48.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: validate-skills.test.js 53 pass; npm run validate-skills ✓ All 15
+        skills valid; install.test.js footprints updated (providers/codex
+        recursive install)
+    outputs:
+      - kind: file
+        path: skills/modules/cross-model-bridge/module.yaml
+      - kind: file
+        path: skills/modules/codex-bridge/module.yaml
+      - kind: file
+        path: skills/shared/codex-bridge-assets/envelope-orchestration.md
+      - kind: file
+        path: skills/shared/codex-bridge-assets/providers/codex/preflight-checks.txt
+      - kind: file
+        path: skills/shared/codex-bridge-assets/providers/codex/invocation-canonical.txt
+      - kind: file
+        path: meta/catalog.yaml
+      - kind: file
+        path: src/providers/skills-file-set.js
+      - kind: file
+        path: tests/install.test.js
+      - kind: file
+        path: README.md
+  - id: T-002
+    title: Grok provider preflight and invocation
+    description: Add providers/grok preflight-checks and invocation-canonical proven
+      against installed grok CLI; portable timeout; read-only sandbox; capture
+      output file; document locked flags.
+    status: done
+    lastUpdated: 2026-07-16T14:40:00.000Z
+    closedAt: 2026-07-16T14:40:00.000Z
+    scopeBoundary:
+      - do not implement external-both merge or rename CROSS-MODEL REVIEW
+        product line in this task
+    acceptance:
+      - preflight documents which grok and auth failure messages; invocation
+        uses timeout wrapper and non-interactive flags; fixture or test asserts
+        required flags appear in the canonical file
+    verifier:
+      kind: shell
+      command: test -s
+        skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt
+        && grep -E 'grok|sandbox|timeout'
+        skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt
+      expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:40:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: invocation-canonical non-empty with grok|sandbox|timeout;
+        cross-model-grok-invocation.test.js 3 pass; live smoke grok 0.2.101
+        read-only + disallowed-tools → PONG; unauth GROK_HOME → Not signed in
+    outputs:
+      - kind: file
+        path: skills/shared/codex-bridge-assets/providers/grok/preflight-checks.txt
+      - kind: file
+        path: skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt
+      - kind: file
+        path: tests/fixtures/cross-model-bridge/grok-invocation-required-flags.txt
+      - kind: file
+        path: tests/cross-model-grok-invocation.test.js
+      - kind: file
+        path: tests/install.test.js
+  - id: T-003
+    title: Envelope orchestration parameterized by provider and host matrix
+    description: Update envelope-orchestration to bind provider preflight and
+      invocation; document host default external matrix and same-family
+      interactive confirm plus non-interactive abort/accept-as-local; extract
+      pure host-default helper with unit tests.
+    status: done
+    lastUpdated: 2026-07-16T14:48:00.000Z
+    closedAt: 2026-07-16T14:48:00.000Z
+    scopeBoundary:
+      - do not rewrite full review-plan body modes list until F3
+    acceptance:
+      - orchestration steps name PROVIDER slots; host-default-external.md
+        encodes matrix plus HARD ABORT and --accept-same-family-as-local; unit
+        tests cover every host row and non-interactive branches
+    verifier:
+      kind: shell
+      command: node --test tests/cross-model-host-default.test.js
+      expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:48:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: cross-model-host-default.test.js 32 pass (all HOST_FAMILIES
+        matrix rows + interactive confirm/decline/offer + non-interactive HARD
+        ABORT and --accept-same-family-as-local)
+    outputs:
+      - kind: file
+        path: skills/shared/codex-bridge-assets/envelope-orchestration.md
+      - kind: file
+        path: skills/shared/codex-bridge-assets/host-default-external.md
+      - kind: file
+        path: src/cross-model-host-default.js
+      - kind: file
+        path: tests/cross-model-host-default.test.js
+      - kind: file
+        path: tests/install.test.js
+parked: []
+emerged: []
+planTitle: Grok Build native integration + cross-model review
+planActive: true
+current: true
+---
+
+# Narrative / notes
+
+Initiative for phase **F2 — cross-model-bridge core (L7)**.
+
+## Session handoff
+
+- **Narrative:** F2 tasks T-001..T-003 complete. cross-model-bridge module +
+  providers/{codex,grok} + host-default matrix helper. Exit gates G-1..G-3 are
+  for phase-done (orchestrator). Do **not** run phase-done here.
+- **Decision log:** Recursive asset install for providers/; same-family
+  confirm→local interactive; HARD ABORT non-interactive unless
+  --accept-same-family-as-local; headless denylist `run_terminal_cmd` vs
+  skill-body `run_terminal_command` documented.
+- **Single nextAction:** Orchestrator runs phase-done (G-1..G-3 + Codex review +
+  advance F3).
+- **Uncommitted changes:** none after T-003 checkpoint.
+
+## Phase-done
+
+- Gates met; Codex review `.atomic-skills/reviews/2026-07-16-1445-grok-build-integration-f2-codex.md` at `010db660b63f3ae9034dab2fcadfccc442fecef0`.

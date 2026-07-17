@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { collectSkills, bodyPathForSkill } from './validate-skills-core.js';
 import { extractIronLaw } from './extract-iron-law.js';
-import { IDE_CONFIG, SKILL_NAMESPACE } from '../../src/config.js';
+import { IDE_CONFIG, SKILL_NAMESPACE, getIdeSupportLabel } from '../../src/config.js';
 
 const TABLE_START = '[SKILLS_TABLE_START]: #';
 const TABLE_END = '[SKILLS_TABLE_END]: #';
@@ -11,8 +11,6 @@ const DETAILS_START = '[SKILL_DETAILS_START]: #';
 const DETAILS_END = '[SKILL_DETAILS_END]: #';
 const IDES_START = '[IDES_TABLE_START]: #';
 const IDES_END = '[IDES_TABLE_END]: #';
-const MODULES_START = '[MODULES_START]: #';
-const MODULES_END = '[MODULES_END]: #';
 const VERSION_NOTE_START = '[VERSION_NOTE_START]: #';
 const VERSION_NOTE_END = '[VERSION_NOTE_END]: #';
 
@@ -25,33 +23,25 @@ const FORMAT_LABELS = {
 function ideTargetDir(ide) {
   // `toml` installers encode the namespace in the filename prefix
   // (`atomic-skills-X.toml`), so the directory itself is the literal `ide.dir`.
-  // Every other format nests skill bodies under `<ide.dir>/<namespace>/`.
-  return ide.format === 'toml' ? `${ide.dir}/` : `${ide.dir}/${SKILL_NAMESPACE}/`;
+  // Plugin delivery (Grok): package root IS the namespace; skills land directly
+  // under `ide.dir` (e.g. `.grok/plugins/atomic-skills/skills/<name>/SKILL.md`).
+  // Flat first-level dirs (Gemini discovery depth): `atomic-skills-<skill>/`
+  // under `ide.dir` — no nested namespace folder.
+  // Every other markdown/command format nests under `<ide.dir>/<namespace>/`.
+  if (ide.format === 'toml' || ide.delivery === 'plugin') return `${ide.dir}/`;
+  if (ide.namespaceRoot === false) return `${ide.dir}/${SKILL_NAMESPACE}-<skill>/`;
+  return `${ide.dir}/${SKILL_NAMESPACE}/`;
 }
 
 export function renderIdesTable() {
-  const header = '| IDE | Profile | Directory | Format |\n|-----|---------|-----------|--------|';
+  const header =
+    '| IDE | Profile | Directory | Format | Support |\n|-----|---------|-----------|--------|---------|';
   const rows = Object.entries(IDE_CONFIG).map(([id, ide]) => {
     const label = FORMAT_LABELS[ide.format] || ide.format;
-    return `| ${ide.name} | \`${id}\` | \`${ideTargetDir(ide)}\` | ${label} |`;
+    const support = getIdeSupportLabel(id);
+    return `| ${ide.name} | \`${id}\` | \`${ideTargetDir(ide)}\` | ${label} | ${support} |`;
   });
   return [header, ...rows].join('\n');
-}
-
-function renderOneModule(key, meta) {
-  const heading = meta.version_added
-    ? `### ${meta.title} (new in ${meta.version_added})`
-    : `### ${meta.title}`;
-  const parts = [heading, '', meta.intro];
-  if (Array.isArray(meta.features) && meta.features.length > 0) {
-    parts.push('');
-    for (const f of meta.features) parts.push(`- ${f}`);
-  }
-  if (meta.notes) {
-    parts.push('');
-    parts.push(meta.notes);
-  }
-  return parts.join('\n');
 }
 
 /**
@@ -73,22 +63,6 @@ export function renderVersionNote(releaseHighlight, pkgVersion) {
   const first = `> **Note (v${pkgVersion}):** ${lines[0]}`;
   const rest = lines.slice(1).map((l) => `> ${l}`);
   return [first, ...rest].join('\n');
-}
-
-/**
- * Render the `## Modules` body from `data.module_meta`. Order follows the
- * insertion order of the YAML map. Returns an empty string when the block
- * is absent (suppresses the section — useful in unit-test fixtures). The
- * orphan/missing cross-check is enforced separately by validateModuleMeta.
- */
-export function renderModulesSection(moduleMeta) {
-  if (moduleMeta == null) return '';
-  if (typeof moduleMeta !== 'object') {
-    throw new Error('module_meta must be a mapping');
-  }
-  return Object.entries(moduleMeta)
-    .map(([key, meta]) => renderOneModule(key, meta))
-    .join('\n\n');
 }
 
 function renderTableRow(skill, ironLaw) {
@@ -269,7 +243,6 @@ function ensureMarkers(readme) {
     TABLE_START, TABLE_END,
     DETAILS_START, DETAILS_END,
     IDES_START, IDES_END,
-    MODULES_START, MODULES_END,
     VERSION_NOTE_START, VERSION_NOTE_END,
   ]) {
     if (!readme.includes(marker)) {
@@ -324,13 +297,11 @@ export function renderReadme({ catalogData, readme, skillsDir, pkgVersion }) {
   const table = renderTable(skills, ironLaws);
   const details = renderDetails(skills, ironLaws);
   const idesTable = renderIdesTable();
-  const modulesBody = renderModulesSection(catalogData.module_meta);
   const versionNote = renderVersionNote(catalogData.release_highlight, pkgVersion);
 
   let next = replaceBetween(readme, TABLE_START, TABLE_END, table);
   next = replaceBetween(next, DETAILS_START, DETAILS_END, details);
   next = replaceBetween(next, IDES_START, IDES_END, idesTable);
-  next = replaceBetween(next, MODULES_START, MODULES_END, modulesBody);
   next = replaceBetween(next, VERSION_NOTE_START, VERSION_NOTE_END, versionNote);
   return next;
 }
@@ -375,6 +346,5 @@ export const MARKERS = {
   TABLE_START, TABLE_END,
   DETAILS_START, DETAILS_END,
   IDES_START, IDES_END,
-  MODULES_START, MODULES_END,
   VERSION_NOTE_START, VERSION_NOTE_END,
 };

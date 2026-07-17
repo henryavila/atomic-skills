@@ -1,4 +1,7 @@
-Single entry-point for tracking Plan / Initiative / Task state in `.atomic-skills/`. Git-style subcommand grammar with **lazy detail**: this router holds only the dispatch table, the no-args summary, and the always-resident invariants. Each subcommand's full procedure lives in a detail file under `{{ASSETS_PATH}}/` and is read on demand.
+Single entry-point for Plan / Initiative / Task state in `.atomic-skills/`, with
+Git-style subcommands and **lazy detail**. This router keeps dispatch, the no-args
+summary, and always-resident invariants; full procedures live under
+`{{ASSETS_PATH}}/` and are read on demand.
 
 This skill implements a 3-level model that matches `@henryavila/aideck`. State lives under **`.atomic-skills/projects/<project-id>/`** — the **Project** is a real top level whose folder name IS the `<project-id>` (enumerate `projects/*/` to list them; a folder counts as a project only once it holds ≥1 `<plan-slug>/plan.md`):
 
@@ -15,7 +18,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project status [--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]
 /atomic-skills:project help [--html]         → GPS de terminal: onde estou + próximo passo (alias: `next`; `--html` abre o guia visual)
 /atomic-skills:project verify [--fix]        → state ⇄ code check (READ-ONLY unless `--fix`; normalization gate only)
-/atomic-skills:project reconcile             → close tasks/gates that look done in the repo (the ONLY completion-mutation path)
+/atomic-skills:project reconcile             → dispose detection-drift candidates (signal→ask→verifier/ack; done stays closure authority)
 /atomic-skills:project review [<slug>] [--with-code] [--mode=local|both]  → mutation-gated audit (delegated reviews; never closes/advances)
 /atomic-skills:project new                          → fixed menu (plan | initiative) + discoverability hint
 /atomic-skills:project new plan <slug>              → bootstrap a multi-phase Plan
@@ -48,7 +51,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `help`, `help --html`, `next` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-help.md` |
 | `verify`, `verify --fix` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-verify.md` |
 | `review`, `review <slug>`, `review --with-code`, `review --mode=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-review.md` |
-| first-time setup (`.atomic-skills/` absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
+| first-time setup (project setup sentinel absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
 | `new plan <slug>`, `adopt <file.md>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-plan.md` |
 | `new initiative <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-initiative.md` |
 | `discover` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-discover.md` |
@@ -60,18 +63,35 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `finalize <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-finalize.md` |
 | `consolidate` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-consolidate.md` |
 | `migrate` (bare = cut-over), `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
-| `scope-creep`, `why`, `re-ratify`, `review-due`, CODEX REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
+| `scope-creep`, `why`, `re-ratify`, `review-due`, CROSS-MODEL REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
 
 Lazy-load is NOT optional. For any subcommand above: **STOP. `{{READ_TOOL}}` the listed file before you act.** Acting from memory of a similar command is the failure mode this architecture exists to prevent.
 
 ## Initial detection (run on every invocation)
 
-Run with {{BASH_TOOL}}:
-- `test -d .atomic-skills/` — if absent, enter **setup mode** (read `{{ASSETS_PATH}}/project-setup.md`).
-- If present, locate the project index. Prefer the **nested** layout — enumerate `.atomic-skills/projects/*/` and read each project's `PROJECT-STATUS.md` (a folder is a project once it holds ≥1 `<plan-slug>/plan.md`); fall back to a top-level `.atomic-skills/PROJECT-STATUS.md` on an un-migrated (flat) tree. Then:
-  - Determine the **active Plan** (if any) and its `currentPhase` — its file is `projects/<project-id>/<plan-slug>/plan.md` (nested) or `plans/<slug>.md` (legacy flat).
-  - Determine the **active Initiative** — a phase of the active plan at `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, or a standalone unit (its own degenerate 1-phase plan); legacy fallback `initiatives/<slug>.md`.
-  - If the current branch matches no active initiative → run the disambiguation flow (in `project-view.md`).
+With {{BASH_TOOL}}, run the **Project setup sentinel**; directory presence is
+never authoritative:
+
+- **Configured:** read `.atomic-skills/PROJECT-STATUS.md` and require
+  `schemaVersion` plus `# Project Status Index`, OR at least one nested
+  `.atomic-skills/projects/<project-id>/<plan-slug>/plan.md` passes
+  `validate-state`. Continue with normal resolution only after one branch passes.
+- **Legacy coexistence:** scan flat `.atomic-skills/plans/*.md` and
+  `.atomic-skills/initiatives/*.md` independently, even when a configured
+  sentinel also exists. Do not run fresh setup over it when legacy-only; do not
+  delete or overwrite it. Read `{{ASSETS_PATH}}/project-migrate.md` and enter its
+  diagnostic/migration flow.
+- **Setup required:** absent/malformed state or a `.atomic-skills/` that already
+  exists or is empty. Enter **setup mode** via
+  `{{ASSETS_PATH}}/project-setup.md`, preserving malformed artifacts for its
+  repair diff. `.atomic-skills/manifest.json` is installer ledger metadata and
+  `.atomic-skills/hooks/version-check.sh` is installer runtime; they never count
+  as its sentinel.
+
+Configured state prefers nested
+`projects/<project-id>/<plan-slug>/{plan.md,phases/f<N>-*.md}`; otherwise use the
+top index with flat `plans/*.md`/`initiatives/*.md`. Resolve plan/phase, then
+branch; no match runs `project-view.md` disambiguation.
 
 ## No-args — compact summary (cheap; does NOT open the browser)
 
@@ -81,15 +101,17 @@ Plain `/atomic-skills:project` with no subcommand prints a 5-line summary and st
 PLAN     <plan-slug> · phase <id> — <title>            (or "none — standalone only")
 INIT     <init-slug> · <N/M tasks done>, <B blocked>   (active initiative)
 NEXT     <nextAction>
-CODEX    <CODEX REVIEW line — see project-drift.md>
+XMODEL   <CROSS-MODEL REVIEW line — see project-drift.md>
 IDEAS    <N> pending — `idea list`   (ONLY when N>0; omit the line otherwise)
 DRIFT    <N task(s)/gate(s) look done — run `reconcile`>   (ONLY when drift; omit the line otherwise)
           → /atomic-skills:project status        (dashboard / full view)
 ```
 
-Print `IDEAS` only when N>0, computed zero-token via `{{BASH_TOOL}} grep -c '· status:pending' <resolved ideas.md>` (single project → its ideas.md; otherwise sum `projects/*/ideas.md`; fail-open). Print `DRIFT` only when `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` reports `drift: true` (pure-read, fail-open). Neither mutates; `reconcile` is the only completion-mutation path.
+Print `IDEAS` only when N>0, computed zero-token via `{{BASH_TOOL}} grep -c '· status:pending' <resolved ideas.md>` (single project → its ideas.md; otherwise sum `projects/*/ideas.md`; fail-open). Print `DRIFT` only when `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` reports `drift: true` (pure-read, fail-open). Neither mutates; `reconcile` is the only **detection-drift-triggered** completion-mutation path (`done` remains task closure authority).
 
-If `.atomic-skills/` is absent: print one line — `No .atomic-skills/ yet — run \`/atomic-skills:project\` and I'll set it up.` — then enter setup mode.
+On **setup required**, print `No project lifecycle state yet — run
+\`/atomic-skills:project\` and I'll set it up.` and enter setup mode (including a
+ledger-only tree).
 
 ---
 
@@ -107,6 +129,9 @@ Run these in order on the active initiative BEFORE executing a mutating command 
 
 1. **Migration check.** Parse frontmatter. If `schemaVersion` is absent → STOP. Abort with: "Mutation cancelled — file is legacy. Run `atomic-skills:project migrate <slug>` first, then retry." (Full detail: `project-transitions.md`.)
 2. **Reconciliation gate.** Collect `tasks[]` where `status: active` AND `lastUpdated` older than 24h (configurable `reconciliationThresholdHours`, `0` disables). If non-empty, present each (max 4 oldest) via {{ASK_USER_QUESTION_TOOL}} with options `Still active` / `Done` / `Blocked` / `Skip`, apply answers, THEN proceed. Skipped when the user is already running `done` on the stale task. (Full detail: `project-transitions.md`.)
+{{#if ide.grok}}
+   On Grok Build, use native `ask_user_question` for those structured options. Soft project hooks require folder/hooks trust; when untrusted they fail-open (no SessionStart digest / PreToolUse gate) — not an install failure. See `docs/kb/grok-build-compatibility.md` §7.
+{{/if}}
 
 ## Gate-status invariant
 
@@ -162,7 +187,7 @@ In practice tasks/phases are **not** marked done when the work is done: code lan
 
 1. **Detection is deterministic + read-only.** `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" [--project <id>] [--json]` (zero-token, exits non-zero on drift) is the single source of "looks done in the repo, still open in state". It classifies each open task / pending criterion by a *changed-deliverable* signal — `output-exists` (a declared `outputs[].path` exists + changed after the entry's anchor) or `commit-ref` (a commit after the anchor naming the exact id or touching an exact declared output). Timestamps are compared by epoch, not lexically (git's offset vs the `Z` anchors). **Tasks** can match either class; an **exit-criterion** has no `outputs` field in the schema, so a **gate is detected by the id-in-commit half of `commit-ref` only** (never `output-exists`). **A `verifier:`'s mere presence is NEVER a signal** (it is written before work starts — it is the *closing* mechanism, not detection); free-text `acceptance[]` prose is never parsed. The detector NEVER mutates and NEVER runs a verifier.
 2. **`status` and `verify` DETECT & REPORT by default.** The no-args summary, every `status` view, and `verify` check #7 surface drift; they do not close tasks/gates. `status` refresh/repair writes require `project-view.md` prompts; `verify --fix` is only the `project-verify.md` normalization gate. SessionStart + Stop use the same detector (fail-open).
-3. **`reconcile` is the ONLY completion-mutation path** (mutating; subject to the pre-mutation gates). It is verifier-aware: a candidate with a `shell`/`test`/`query` verifier offers **`Run verifier` only** (no "mark done" shortcut — GATE-R2 forbids closing it without passing evidence); a verifier-absent candidate offers **`Mark done`** (manual ack). The signal is the *reason to ask*, never the close itself. Detail: `project-transitions.md` → `reconcile`.
+3. **`reconcile` is the ONLY detection-drift-triggered completion-mutation path** (mutating; subject to the pre-mutation gates). `done` remains the **closure authority** for task state — `reconcile` routes closes through verifier run / `done` / manual criterion ack; it never silent-auto-closes. It is verifier-aware: a candidate with a `shell`/`test`/`query` verifier offers **`Run verifier` only** (no "mark done" shortcut — GATE-R2 forbids closing it without passing evidence); a verifier-absent candidate offers **`Mark done`** (manual ack). The signal is the *reason to ask*, never the close itself. Detail: `project-transitions.md` → `reconcile`.
 
 **Signal-at-creation (Component E).** Detection can only see tasks that carry a signal, so every task-creating path nudges the author to give one. `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` (zero-token, exits non-zero) lists open tasks with neither a `verifier` nor an `outputs[].path` for backfill — the same replicable-detector pattern as `find-missing-task-summaries.js`. The nudge is soft (some tasks are genuinely unverifiable), but it shrinks the undetectable blind spot toward zero over a project's life.
 

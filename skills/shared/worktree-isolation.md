@@ -21,13 +21,19 @@ A redundant worktree is pure overhead and a teardown hazard. Reuse-or-skip beats
 From the primary tree, branched off the task's base ref:
 
 ```bash
+# Branch does NOT exist yet — create it:
 git worktree add -b <task-branch> <path-outside-the-repo> <base-ref>
 # e.g. git worktree add -b impl/t-003 ../.wt-t-003 HEAD
+
+# Branch already exists — reuse the branch without `-b` (Git fails if you pass -b):
+git worktree add <path-outside-the-repo> <existing-branch>
+# e.g. git worktree add .worktrees/plan-b plan/plan-b
 ```
 
-- **Path placement.** Put the worktree OUTSIDE the primary tree's path (a sibling dir), so file watchers, globs, and the build never recurse into it. Confirm with `git check-ignore` that the path is not accidentally tracked.
-- **Branch, never detached.** `-b <branch>` gives the work a name and a clean merge target. A detached worktree strands commits.
-- **Base ref.** Seed from the exact ref the task plans against (usually `HEAD` of the primary tree's current branch), so the diff is attributable.
+- **Path placement.** For plan homes prefer inside-repo `.worktrees/<slug>` (git-ignored). For Mode 2 task isolation, put the worktree OUTSIDE the primary tree's path (a sibling dir) so file watchers, globs, and the build never recurse into it. Confirm with `git check-ignore` that the path is not accidentally tracked.
+- **Branch, never detached.** Prefer a named branch and a clean merge target. A detached worktree strands commits.
+- **Reuse without `-b`.** When the plan/task branch already exists, omit `-b` and attach a worktree to that branch. Passing `-b` against an existing branch is a hard failure (`fatal: a branch named '…' already exists`).
+- **Base ref.** When creating a new branch, seed from the exact ref the task plans against (usually `HEAD` of the primary tree's current branch), so the diff is attributable.
 
 ## Use it
 

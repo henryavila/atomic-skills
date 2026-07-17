@@ -59,4 +59,4 @@ Build a corrective prompt naming exactly what failed, e.g.:
 
 Invoke Codex once more with this corrective briefing. If second attempt also fails: write raw outputs to `.atomic-skills/reviews/<ts>-raw-failed.txt` and escalate to user with message:
 
-> "Codex output did not match expected template after 1 retry. Raw output saved to <path>. Try: (a) `codex update`, (b) different model via `--ask-model`, (c) verify briefing isn't too long."
+> "External provider output did not match expected template after 1 retry. Raw output saved to <path>. Try: (a) update the provider CLI, (b) different model via `--model=<id>` or `--ask-model`, (c) verify briefing isn't too long."

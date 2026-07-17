@@ -105,6 +105,12 @@ describe('detectIDEs', () => {
     assert.ok(result.includes('github-copilot'));
   });
 
+  it('detects grok from .grok directory', () => {
+    mkdirSync(join(tempDir, '.grok'));
+    const result = detectIDEs(tempDir);
+    assert.ok(result.includes('grok'));
+  });
+
   it('returns supported, detected, and effective IDE state', () => {
     mkdirSync(join(tempDir, '.gemini'));
     mkdirSync(join(tempDir, '.agents'));
@@ -112,25 +118,15 @@ describe('detectIDEs', () => {
     assert.ok(result.supported.includes('gemini'));
     assert.ok(result.supported.includes('codex'));
     assert.deepStrictEqual(result.detected, ['gemini', 'codex']);
-    assert.deepStrictEqual(result.effective, ['gemini-commands', 'codex']);
+    assert.deepStrictEqual(result.effective, ['gemini', 'codex']);
   });
 });
 
 describe('countSkills', () => {
   const metaDir = join(process.cwd(), 'meta');
 
-  it('counts core skills with no modules', () => {
-    const result = countSkills(metaDir, {});
-    assert.strictEqual(result, '14 core');
-  });
-
-  it('counts core + module skills when memory is enabled', () => {
-    const result = countSkills(metaDir, { memory: { installed: true } });
-    assert.strictEqual(result, '14 core + 1 module');
-  });
-
-  it('ignores disabled modules', () => {
-    const result = countSkills(metaDir, { memory: { installed: false } });
-    assert.strictEqual(result, '14 core');
+  it('counts core skills only', () => {
+    const result = countSkills(metaDir);
+    assert.strictEqual(result, '15 core');
   });
 });

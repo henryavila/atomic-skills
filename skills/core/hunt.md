@@ -171,13 +171,11 @@ Present the final report:
 **Coverage added:** [N] tests for [N] previously uncovered paths
 **Suggested next runs:** [other files/functions that should be hunted]
 
-{{#if modules.memory}}
 **Save to memory:** update `{{memory_path}}` — create or update a `hunt-log.md` file with:
 - Files hunted and date
 - Bugs found and their status (fixed/deferred)
 - Coverage gaps remaining (suggested next runs)
 Update existing entries instead of creating duplicates. Keep `MEMORY.md` index updated.
-{{/if}}
 
 **Mutation testing (optional):** to validate test quality, consider running mutation testing
 if available in the project (Infection for PHP, Stryker for JS, mutmut for Python).

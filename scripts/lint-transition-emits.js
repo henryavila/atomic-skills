@@ -25,6 +25,7 @@ const DEFAULT_TRANSITIONS = join(PROJECT_ROOT, 'skills', 'shared', 'project-asse
 const REQUIREMENTS = [
   { header: '## `done <task-id>`', events: ['task-done'], fields: ['projectId', 'planSlug', 'phaseId', 'taskId'] },
   { header: '## `reconcile`', events: ['task-done'], fields: ['projectId', 'planSlug', 'phaseId', 'taskId'] },
+  // phase-done still mentions task-done (prior per-task closes) + emits phase-done/actuals only
   { header: '## `phase-done`', events: ['task-done', 'phase-done'], fields: ['projectId', 'planSlug', 'phaseId', 'taskId', 'actuals'] },
 ];
 
@@ -73,8 +74,21 @@ function checkPhaseDoneGateSemantics(block) {
   if (!/Never convert `pending` or `deferred` gates to `met`/.test(block)) {
     missing.push('no-pending-or-deferred-to-met');
   }
-  if (!/set `status: deferred`[\s\S]{0,120}`deferredReason`/.test(block)) {
-    missing.push('deferred-status-override');
+  // F4/T-003: defer/skip is not a terminal path; preflight + commit guard required.
+  if (!/no bulk-close/i.test(block) && !/Do \*\*not\*\* set open tasks to `done`/.test(block)) {
+    missing.push('no-bulk-close');
+  }
+  if (!/Do not offer defer\/skip as a terminal path/i.test(block) && !/defer\/skip of exit gates as a terminal path/i.test(block)) {
+    missing.push('no-defer-skip-terminal');
+  }
+  if (!/preflightPhaseDone|stage: 'preflight'|Stage A — pure preflight/.test(block)) {
+    missing.push('phase-done-preflight');
+  }
+  if (!/commitGuardPhaseDone|stage: 'commit'|Commit guard \(HARD/.test(block)) {
+    missing.push('phase-done-commit-guard');
+  }
+  if (!/fingerprint/.test(block)) {
+    missing.push('phase-done-fingerprint');
   }
   return missing;
 }

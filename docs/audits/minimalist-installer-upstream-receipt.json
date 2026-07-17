@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1",
+  "package": "@henryavila/minimalist-installer",
+  "version": "0.1.0",
+  "dist": {
+    "resolved": "https://registry.npmjs.org/@henryavila/minimalist-installer/-/minimalist-installer-0.1.0.tgz",
+    "integrity": "sha512-XeZYy924Ps5jblp+YJuhBrXQlKXrPSKqwwozxVWheCLZadotqehv2nMoLB0Ferk45+ZfHtzYXjxuFbTRUUBYIw=="
+  },
+  "integrated": {
+    "resolved": "git+ssh://git@github.com/henryavila/minimalist-installer.git#f1984e9e176cb35dd62f848fcd423e97640dc4fc",
+    "integrity": "sha512-8V7GOoT/X+kOBPrGfP2cTQCElFGUE+IL6ee6IxApDyMqhPkK4bzyeIBm0+ANjY9HpCFgLgWv9OJRy/Al55Kfhg==",
+    "note": "Consumer package-lock pins this git SHA (no npm publish). dist.integrity remains the 0.1.0 baseline tarball. f1984e9 multiplatform path backends + win32 O_NOFOLLOW."
+  },
+  "baseSha": "66c8e940812deaa0012debd713051cecd662acc5",
+  "origin": "git@github.com:henryavila/minimalist-installer.git",
+  "branch": "codex/integrity-remediation-v2",
+  "worktree": "../minimalist-installer-integrity-remediation",
+  "contentMatch": {
+    "method": "byte-compare-src-tree",
+    "note": "Vendored tests/fixtures/minimalist-installer-v0.1.0/package matches worktree src/ at baseSha."
+  },
+  "tasks": {
+    "F1/T-001": {
+      "status": "local",
+      "resultSha": "66c8e940812deaa0012debd713051cecd662acc5",
+      "note": "Baseline fixed; RED repros against vendored 0.1.0 tarball."
+    },
+    "F1/T-002": {
+      "status": "local",
+      "resultSha": "13e58582bb4cec45ffca41c63ff10d0f2751985d",
+      "note": "No-follow path-safety + greenfield conflict refusal."
+    },
+    "F1/T-003": {
+      "status": "local",
+      "resultSha": "6dcadc523ddee404a7073a22df3ae76b77889a2d",
+      "note": "Canonical locks, atomic manifest, incomplete-transaction fail-closed."
+    },
+    "F1/T-004": {
+      "status": "local",
+      "resultSha": "6550f1170b5f7568f02ba1ca00984a3c06e4349f",
+      "note": "Journal v2 stable effect ids + already-desired retry."
+    },
+    "F1/T-005": {
+      "status": "local",
+      "resultSha": "0d2e98a8525a53918a896fdd6f00275f4adad5d6",
+      "note": "Consumer data-safety + runtime lock tests; registerInstall uses shared locks."
+    },
+    "F1/T-006": {
+      "status": "partial",
+      "resultSha": "7182a350c9288557534f68417ee83673eba4fb73",
+      "note": "Upstream branch on origin; consumer lock pins git SHA (no npm publish of new version)."
+    },
+    "F1/T-007": {
+      "status": "local",
+      "resultSha": "7182a350c9288557534f68417ee83673eba4fb73",
+      "note": "Portable no-follow: path-nofollow backend for macOS (no /proc/self/fd)."
+    },
+    "F1/T-008": {
+      "status": "local",
+      "resultSha": "f1984e9e176cb35dd62f848fcd423e97640dc4fc",
+      "note": "Multiplatform backend suite + path-nofollow on any host with O_NOFOLLOW (incl. win32)."
+    }
+  },
+  "resultSha": "f1984e9e176cb35dd62f848fcd423e97640dc4fc",
+  "remotePublished": true
+}

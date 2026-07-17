@@ -1,24 +1,26 @@
 Perform an adversarial analysis of the plan {{ARG_VAR}} looking for
-internal errors, gaps, and inconsistencies. Step 0 picks one of three
-modes: `local` (same-model self-loop), `codex` (cross-model two-pass
-sealed envelope via OpenAI Codex CLI), or `both` (local first → codex
-on the CLEANED plan). All modes optionally cross-reference against
-source artifacts (PRD, specs, designs).
+internal errors, gaps, and inconsistencies. Step 0 picks a mode: `local`,
+`codex`, `grok`, `both` (local→**host external default**), `both-codex`,
+`both-grok`, or `external-both`. Full mode table, host-aware picker, and
+same-family rules: {{READ_TOOL}}
+`skills/shared/codex-bridge-assets/review-mode-ux.md` (routing:
+`src/cross-model-host-default.js`). All modes may cross-reference source
+artifacts (PRD, specs, designs).
 
 ## Iron Law
 
 NO APPROVAL WITHOUT EVIDENCE.
 - Local mode: every checklist item marked "ok" MUST cite plan line numbers. When cross-ref is active: line numbers from BOTH plan AND artifact. When initiative-depth is active: line numbers from BOTH plan AND initiative file(s).
-- Codex mode: every codex finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
+- External mode (`codex`/`grok`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
 
-NO INTENT IN THE BRIEFING (codex sub-flow).
-The briefing sent to codex contains ONLY externally verifiable facts.
-Intent narrative poisons the reviewer by up to -93pp detection rate
-([arXiv 2603.18740](https://arxiv.org/abs/2603.18740)). When the active
-mode is `both`, the codex briefing additionally must NOT include local
-findings, fix descriptions, iteration counts, or any narrative implying a
-prior review took place. The codex receives the CLEANED plan + external
-constraints ONLY.
+NO INTENT IN THE BRIEFING (external sub-flow).
+The briefing sent to the external provider contains ONLY externally
+verifiable facts. Intent narrative poisons the reviewer by up to -93pp
+detection rate ([arXiv 2603.18740](https://arxiv.org/abs/2603.18740)).
+When a local leg preceded the external (`both*`), the external briefing
+must NOT include local findings, fix descriptions, iteration counts, or
+any narrative implying a prior review. The external reviewer receives the
+CLEANED plan + external constraints ONLY.
 
 ## Mindset
 
@@ -34,32 +36,34 @@ When the active mode is `cross-ref`, the artifacts are the source of
 truth — the plan is the interpretation, and interpretations frequently
 lose details, oversimplify, or add things nobody asked for.
 
-In codex sub-flow: codex is an adversarial reviewer from a different
-family (GPT). Its task is to find gaps Claude missed due to
-self-preference bias ([arXiv 2410.21819](https://arxiv.org/abs/2410.21819)).
-Do NOT defend the plan — facilitate the critique.
+In the external sub-flow: the reviewer is family-different from the host
+when the route is true CROSS-MODEL REVIEW (self-preference bias:
+[arXiv 2410.21819](https://arxiv.org/abs/2410.21819)). Do NOT defend the
+plan — facilitate the critique.
 
 ## Argument contract
 
-Parse {{ARG_VAR}} BEFORE any prompt or file read. {{ARG_VAR}} is the raw
-argument string; split it into `plan_path` + optional flags. Tokens that
-start with `--` are flags:
+Parse {{ARG_VAR}} BEFORE any prompt or file read. First
+`parseModelArgs({{ARG_VAR}})` so model flags **and values** are consumed
+(`--model=<id>`, `--model <id>`, `model:<id>`, `--model-codex`/`--model-grok`
+eq or space, `--ask-model`). Then split `remainingTokens` into `plan_path` +
+flags. Tokens starting with `--` are flags:
 
 | Flag | Effect |
 |---|---|
-| `--mode=local` | Skip Step 0a picker; force local self-loop. |
-| `--mode=codex` | Skip Step 0a picker; force codex envelope. |
-| `--mode=both` | Skip Step 0a picker; force local→codex. |
+| `--mode=local\|codex\|grok\|both\|both-codex\|both-grok\|external-both` | Skip Step 0a; force mode (`both` = local→host external default). |
 | `--mode=internal` | Alias for `--mode=local` (compat with v2.x). |
-| `--no-cross-ref` | Skip Step 0b picker; force internal-only. Valid only when mode ∈ {local, both}. |
-| `--cross-ref=path1,path2,...` | Skip Step 0b picker; use the listed artifacts. Valid only when mode ∈ {local, both}. |
+| `--accept-same-family-as-local` | Non-interactive same-family → sealed local (`provider:local`); see review-mode-ux.md. |
+| `--model=<id>` / `--model <id>` / `model:<id>` / `--model-codex=` / `--model-grok=` / `--ask-model` | External model (review-mode-ux.md Step 0.model). Values are **not** part of `plan_path`. |
+| `--no-cross-ref` | Skip Step 0b; force internal-only. Valid when mode has a local leg or is local-only. |
+| `--cross-ref=path1,path2,...` | Skip Step 0b; use listed artifacts. Same validity as `--no-cross-ref`. |
 | `--artifacts=path1,path2,...` | Alias for `--cross-ref=` (compat with v2.x). |
-| `--allow-dirty` | Pass through to codex pre-flight (suppresses dirty-tree abort). |
-| `--no-initiatives` | Skip Step 0c; review plan structure only without task-level depth. |
+| `--allow-dirty` | Pass through to external pre-flight (suppresses dirty-tree abort). |
+| `--no-initiatives` | Skip Step 0c; plan structure only without task-level depth. |
 
-Everything that is NOT a `--` token is part of `plan_path`. Strip trailing
-whitespace. Do NOT pass the unparsed {{ARG_VAR}} to {{READ_TOOL}} — that
-would try to open the literal string "docs/plan.md --mode=local" as a file.
+`plan_path` = `positionalFromRemaining(remainingTokens)`. Strip trailing
+whitespace. Do NOT pass unparsed {{ARG_VAR}} to {{READ_TOOL}} (avoids
+"docs/plan.md --mode=local" or "docs/plan.md gpt-5.5" after `--model gpt-5.5`).
 
 ### Target resolution (plan_path → a real plan file)
 
@@ -70,43 +74,34 @@ slug → active plan → abort) in {{READ_TOOL}}
 router's `## Initial detection`. Do NOT re-implement plan discovery here.
 
 **Non-interactive abort.** If neither a TTY nor an explicit `--mode=` flag
-is available (invocation from a hook, `parallel-dispatch`, or
-`project-status`/`project-plan` loop), and no `--mode=` flag was supplied,
-abort with: "review-plan invoked without TTY and without `--mode=`; pass
-`--mode=local|codex|both` explicitly." Do NOT invoke
-{{ASK_USER_QUESTION_TOOL}} in background. Workflows that loop over
-plans (e.g. `project-plan` Stage 8b, `project-status` phase-completion
-review) MUST pass `--mode=local` (or `--mode=internal`) to skip the
-prompt.
+is available (hook, `parallel-dispatch`, or `project-status`/`project-plan`
+loop), abort with: "review-plan invoked without TTY and without `--mode=`;
+pass `--mode=local|codex|grok|both|both-codex|both-grok|external-both`
+explicitly." Do NOT invoke {{ASK_USER_QUESTION_TOOL}} in background.
+Workflows that loop over plans (e.g. `project-plan` Stage 8b) MUST pass
+`--mode=local` (or `--mode=internal`) to skip the prompt.
 
-## Step 0a — Pick review mode
+## Step 0a — Pick review mode + same-family route
 
-Skip this step if `--mode=` was supplied (use the parsed value directly).
-Otherwise, use {{ASK_USER_QUESTION_TOOL}}:
+Skip the picker if `--mode=` was supplied. Otherwise {{READ_TOOL}}
+`skills/shared/codex-bridge-assets/review-mode-ux.md` and run its
+**host-aware Step 0 picker** via {{ASK_USER_QUESTION_TOOL}}. Default:
+**Both** (local → host external default).
 
-**Question:** "How should this plan be reviewed?"
+After `mode` is known, run the **same-family gate** in review-mode-ux.md
+(`resolveReviewRoute`). Interactive same-family → confirm→local;
+non-interactive without `--accept-same-family-as-local` → **HARD ABORT**.
+Record `provider` / `sameFamilyRemap` from the route result.
 
-**Options:**
-- **Both (local then codex)** — Recommended for plans entering significant
-  execution. Self-loop adversarial review runs first (catches contradictions,
-  broken deps, ordering). Plan is fixed inline. Then codex cross-model
-  review runs on the CLEANED plan with sealed envelope (catches what
-  self-review missed due to self-preference bias). ~$1-2 codex cost.
-- **Local only** — Self-loop adversarial review. Cheap, fast, catches
-  obvious issues. Use for small plans or when codex is unavailable.
-- **Codex only** — Skip local, go straight to cross-model envelope. Use
-  when you already had another agent self-review the plan and want a
-  fresh independent read.
-
-Default: **Both**. The user explicitly opts down for cost-sensitive cases.
-
-Set `mode ∈ {local, codex, both}` based on the answer.
+When the route keeps an external provider, run **Step 0.model** in
+review-mode-ux.md (discover catalog → recommended → picker or
+`--model`/`--ask-model`) and bind `REVIEW_MODEL_FLAG` before any envelope
+invoke. Skip Step 0.model for pure-local routes.
 
 ## Step 0b — Detect and confirm cross-ref scope
 
 Cross-reference selection is orthogonal to the mode picker. It runs for
-every mode (`local`, `codex`, `both`); the selected artifacts feed into
-the appropriate sub-flow.
+every mode; the selected artifacts feed into the appropriate sub-flow.
 
 1. {{READ_TOOL}} the plan file at `plan_path`. Parse its frontmatter and
    **auto-seed `detected_artifacts` from provenance, BEFORE the prose scan**:
@@ -146,9 +141,9 @@ the appropriate sub-flow.
    - Number of requirements/stories/FRs identified
 
 6. **Mode interaction:**
-   - `mode == local`: artifacts feed into the self-loop checklist (steps 8–13 below).
-   - `mode == codex`: cross-ref step is informational only. The codex envelope does NOT consume artifacts as additional briefing material (see "Codex sub-flow" below — the sealed briefing carries only the plan + external constraints).
-   - `mode == both`: artifacts feed the local checklist first. If the local pass corrected anything in the artifacts' alignment notes, the CLEANED plan still references the same paths — codex sees that cleaned plan.
+   - Local leg (`local` / `both*`): artifacts feed the self-loop checklist (steps 8–13).
+   - External-only (`codex`/`grok`/`external-both`): cross-ref is informational; the sealed envelope does NOT consume artifacts as extra briefing material.
+   - `both*`: artifacts feed local first; the CLEANED plan still references the same paths for the external leg.
 
 ## Cross-ref HARD-GATE (only when cross_ref != none)
 
@@ -184,42 +179,56 @@ DO NOT use {{REPLACE_TOOL}} on initiative files.
 
 ## Flow per mode
 
-### Flow A — `mode == local`
+Resolve route first (Step 0a). Then Step 0b → cross-ref. Step 0c → initiatives.
 
-Step 0a → `local`. Step 0b → cross-ref picker. Step 0c → initiative
-discovery. Run **Self-loop checklist** (below). END.
+### Flow A — local only (`mode == local`, or same-family remap → `provider: local`)
 
-### Flow B — `mode == codex`
+Run **Self-loop checklist** (below). END.
 
-Step 0a → `codex`. Step 0b → cross-ref picker (cosmetic; artifacts NOT
-sent to codex). Step 0c → initiative discovery (feeds codex briefing
-artifact). Run **Codex sub-flow** (below). END.
+### Flow B — external only (`mode ∈ {codex, grok}` after route stays external)
 
-### Flow C — `mode == both`
+Run **External sealed-envelope sub-flow** with `«PROVIDER»` =
+`route.externalProvider` (result of `resolveReviewRoute` — never re-derive from
+the forced mode after the same-family decision). END.
 
-Step 0a → `both`. Step 0b → cross-ref picker. Step 0c → initiative
-discovery.
+### Flow C — local then external (`mode ∈ {both, both-codex, both-grok}`)
 
-1. **LOCAL PHASE** — Run Self-loop checklist. Apply fixes inline.
-   - Track the set of fix descriptions for the audit trail.
-   - This audit trail goes into the persisted review file, NOT the codex briefing.
-
-2. **CODEX PHASE** — Run Codex sub-flow on the CLEANED plan. The
-   Pass-1 briefing MUST NOT mention:
-   - Local findings
-   - Fix descriptions
-   - Iteration count of the self-loop
-   - That a prior review took place
-
-   The codex sees the CLEANED plan as if it were the first review.
-   Persist results to `.atomic-skills/reviews/` with BOTH the local fix
-   log AND codex findings.
+1. **LOCAL PHASE** — Self-loop checklist; apply fixes inline. Audit trail goes
+   into the persisted review file, NOT the external briefing.
+2. **EXTERNAL PHASE** — External sealed-envelope on the CLEANED plan with
+   `«PROVIDER»` = `route.externalProvider` (result of `resolveReviewRoute` —
+   never re-derive from mode / forced provider after the same-family decision;
+   remaps yield `null` and stay on Flow A). Pass-1 MUST NOT mention local
+   findings, fixes, iteration counts, or a prior review.
+   Persist local fix log AND external findings under `.atomic-skills/reviews/`.
 
 END.
 
+### Flow D — `mode == external-both`
+
+**Collect-then-merge-then-triage** (same contract as `review-code` Flow D;
+details: `docs/kb/cross-model-review-design.md` § external-both +
+`{{ASSETS_PATH}}/envelope-orchestration.md` § external-both):
+
+1. **Collect.** Run External sealed-envelope per remaining provider
+   (**Codex then Grok**) on the same CLEANED plan. No triage/edit between legs.
+   Per-provider failure records `{ status: failed, error }` and **continues**
+   the other leg (single-provider modes still abort on failure).
+   Family-filtered legs: `status: skipped`.
+2. **Merge.**
+   ```bash
+   node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
+     <codex-findings.json|-|skip> <grok-findings.json|-|skip>
+   ```
+   Or `mergeExternalBothFindings` from
+   `"$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/external-both-merge.js"`.
+   Merge key `file:line`+claim; higher severity wins; status
+   `succeeded|failed|skipped` (absent = skipped); partial keeps good half.
+3. **Triage.** Human triage of the merged list only. END.
+
 ---
 
-## Self-loop checklist (modes: local, both)
+## Self-loop checklist (modes: local, both*)
 
 Always run the 7 internal checks. For each item, cite line numbers from
 the plan that prove the verification. If you cannot cite line numbers,
@@ -278,13 +287,14 @@ document it as an "alignment note" in the plan itself.
 
 ---
 
-## Codex sub-flow (modes: codex, both)
+## External sealed-envelope sub-flow (modes: codex, grok, both*, external-both)
 
 Run the canonical two-pass sealed envelope per
-`{{ASSETS_PATH}}/envelope-orchestration.md` (the byte-identical 12-step skeleton
-shared with `review-code`). It uses the canonical leaf assets in
-`skills/shared/codex-bridge-assets/` as the single source of truth; do NOT
-inline-rewrite them. Bind these plan-review artifact slots:
+`{{ASSETS_PATH}}/envelope-orchestration.md` (byte-identical skeleton shared with
+`review-code`). Bind `«PROVIDER»` ∈ {`codex`,`grok`} from the route (never after
+same-family remap). Leaf assets under
+`skills/shared/codex-bridge-assets/providers/«PROVIDER»/`; do NOT inline-rewrite
+them. Plan-review artifact slots:
 
 - **`«INPUT»`** — the input plan file is `plan_path` (already validated in Step
   0b). Validate with {{READ_TOOL}} that the file exists and has ≥ 10 lines. In
@@ -312,12 +322,11 @@ inline-rewrite them. Bind these plan-review artifact slots:
        Scope: <scope.paths[] joined with ", "> (or "not declared")
        ---END INITIATIVE <phaseId>---
        ```
-    Initiative summaries are CONTEXT for codex — they help it identify
-    plan-level gaps (e.g., a gate with no plausible task). Codex MUST NOT cite
-    initiative summaries as `file:line` evidence; its findings reference only
-    the plan file. The detailed initiative-depth checks (items 14-20) are
-    executed by the LOCAL self-loop, which reads full initiative files with
-    line numbers.
+    Initiative summaries are CONTEXT for the external reviewer — they help
+    identify plan-level gaps (e.g., a gate with no plausible task). The
+    external reviewer MUST NOT cite initiative summaries as `file:line`
+    evidence; findings reference only the plan file. Initiative-depth checks
+    (items 14-20) are LOCAL self-loop only (full files + line numbers).
 - **`«SIZE_BUDGET»`** — {{BASH_TOOL}} `wc -c` the briefing, compute
   `(size_bytes / 4)` excluding the artifact portion; `> 800` tokens (plan-only)
   or `> 1600` tokens (plan with initiatives) → WARNING, likely residual framing,
@@ -347,10 +356,9 @@ another agent. Beyond the existing checklist, audit the plan against
 - **G2 soft-language ban** — grep the plan for `should|probably|may|typically|usually|I think|it seems|in theory|tends to`. Each occurrence that is NOT marked `unverified:` is a finding. Cite line number.
 - **G6 reference-or-strike** — every assertion in the plan body or task descriptions must carry `verified_by:` or `unverified:`. Bare assertions are findings. Cite line number.
 
-In codex sub-flow: if you find any G1/G2/G6 violations during briefing
-curation, add them to the briefing as **constraints** (not findings) so
-codex can corroborate. After codex responds, cross-check that codex
-caught the same issues.
+In external sub-flow: if you find any G1/G2/G6 violations during briefing
+curation, add them as **constraints** (not findings) so the external
+reviewer can corroborate. After it responds, cross-check the same issues.
 
 ## Self-review against gates
 
@@ -368,7 +376,7 @@ If you found zero gate violations, treat that with suspicion —
 re-read the checklist and force a second, more aggressive pass before
 accepting.
 
-In `mode ∈ {codex, both}`, the self-review block goes into the
+In any mode with an external leg, the self-review block goes into the
 consolidated review file under `.atomic-skills/reviews/<…>.md`. Silent
 skipping is forbidden.
 
@@ -382,13 +390,14 @@ skipping is forbidden.
 - "I'll skip the reread, my corrections are right"
 - "I'll edit the artifact to make it consistent with the plan" (cross-ref mode only)
 - "This artifact isn't relevant" (cross-ref mode only)
-- "I'll inject project memory into the briefing to help codex" (codex sub-flow)
-- "I'll write an intent steelman so codex understands better" (codex sub-flow)
-- "I'll mention the local pass in the codex briefing — codex deserves context" (mode == both)
-- "I'll skip pre-flight, codex is installed" (codex sub-flow)
-- "I'll skip briefing confirmation to go faster" (codex sub-flow)
+- "I'll inject project memory into the briefing to help the external reviewer"
+- "I'll write an intent steelman so the external reviewer understands better"
+- "I'll mention the local pass in the external briefing" (both*)
+- "I'll skip pre-flight, the CLI is installed"
+- "I'll skip briefing confirmation to go faster"
 - "I already validated the output mentally, no need for the checklist"
 - "Verdict is needs_changes but I'll approve anyway"
+- "Same-family headless is still CROSS-MODEL REVIEW" (it is not)
 - "The initiative tasks obviously cover the exit gates, I don't need to check each one" (initiative-depth)
 - "I'll edit the initiative file to fix this task" (initiative-depth — HARD-GATE violation)
 - "The initiative file is too long, I'll skim the tasks" (initiative-depth)
@@ -409,8 +418,8 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "I'll skim the artifact" (cross-ref) | Skimming = missing requirements. Full {{READ_TOOL}} |
 | "Intentional divergence, no need to document" (cross-ref) | If it's not documented, it's not intentional |
 | "Editing the artifact is faster" (cross-ref) | HARD-GATE: never edit artifacts |
-| "Codex will figure it out from context" (codex) | Sealed envelope: facts only |
-| "The local pass already fixed everything, codex is a formality" (both) | Empirically codex catches disjoint findings — see [arXiv 2603.12123](https://arxiv.org/abs/2603.12123) |
+| "External will figure it out from context" | Sealed envelope: facts only |
+| "The local pass already fixed everything, external is a formality" (both*) | Empirically family-different reviewers catch disjoint findings — see [arXiv 2603.12123](https://arxiv.org/abs/2603.12123) |
 | "The tasks obviously deliver what the gate requires" (initiative-depth) | Prove with task description ↔ gate description cross-reference |
 | "I'll fix the initiative file directly, it's faster" (initiative-depth) | HARD-GATE: never edit initiative files — record finding, fix via project-status |
 | "subPhaseCount is just metadata, mismatch doesn't matter" (initiative-depth) | Mismatch means plan and initiative diverged — one is wrong |
@@ -419,5 +428,7 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 
 The review output uses the `### Analysis Summary` template in
 `skills/shared/project-assets/plan-initiative-depth.md` § *Closing template*.
-{{READ_TOOL}} it and present the summary in that format — sections marked
-`(local/both)` appear only in local/both mode, `(codex/both)` likewise.
+{{READ_TOOL}} it and present the summary in that format — include
+**Provider:** `codex|grok|local` from the route (never codex/grok after
+same-family remap). Sections marked `(local/both*)` / `(external)` apply
+by leg.

@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "1",
+  "hosts": [
+    {
+      "id": "claude-code",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "justification": "Tool adapter and layout are unit-qualified; real CLI discovery/load/invoke probe receipt is required by F6 before operational promotion.",
+      "adapter": {
+        "id": "claude-code-tools",
+        "version": "1",
+        "profile": "claude-code"
+      },
+      "autoUpdate": {
+        "capability": "session-start-hook",
+        "surface": ".claude/settings.json"
+      }
+    },
+    {
+      "id": "cursor",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "justification": "Layout and explicit tool profile only; no Cursor Agent CLI probe receipt yet — must not claim operational support.",
+      "adapter": {
+        "id": "cursor-tools",
+        "version": "1",
+        "profile": "cursor"
+      },
+      "autoUpdate": {
+        "capability": "none"
+      }
+    },
+    {
+      "id": "gemini",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "justification": "Gemini native discovery/layout depth and CLI probes are F5/F6 work; layout-only until probe receipt exists.",
+      "adapter": {
+        "id": "gemini-tools",
+        "version": "1",
+        "profile": "gemini"
+      },
+      "autoUpdate": {
+        "capability": "none"
+      }
+    },
+    {
+      "id": "codex",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "justification": "Codex tool profile is explicit (no Claude freeride); operational promotion waits for versioned CLI discovery/load/invoke receipt in F6.",
+      "adapter": {
+        "id": "codex-tools",
+        "version": "1",
+        "profile": "codex"
+      },
+      "autoUpdate": {
+        "capability": "none"
+      }
+    },
+    {
+      "id": "opencode",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "justification": "Layout install path only; OpenCode CLI probe not automated — supportDeclared remains false.",
+      "adapter": {
+        "id": "opencode-tools",
+        "version": "1",
+        "profile": "opencode"
+      },
+      "autoUpdate": {
+        "capability": "none"
+      }
+    },
+    {
+      "id": "github-copilot",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "justification": "GitHub Copilot skills layout only; no operational CLI probe — must not declare support.",
+      "adapter": {
+        "id": "github-copilot-tools",
+        "version": "1",
+        "profile": "github-copilot"
+      },
+      "autoUpdate": {
+        "capability": "none"
+      }
+    },
+    {
+      "id": "grok",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "justification": "Plugin package + tool profile are unit-tested; headless Grok discovery/load/invoke receipt required before operational tier.",
+      "adapter": {
+        "id": "grok-tools",
+        "version": "1",
+        "profile": "grok"
+      },
+      "autoUpdate": {
+        "capability": "session-start-hook",
+        "surface": ".grok/hooks/atomic-skills-auto-update.json"
+      }
+    }
+  ]
+}

@@ -22,7 +22,6 @@ describe('Update and Orphan Removal', () => {
     const initialResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini-commands'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'project'
@@ -35,13 +34,12 @@ describe('Update and Orphan Removal', () => {
     const newResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'project'
     });
 
-    assert.ok(existsSync(join(tempDir, '.gemini/skills/atomic-skills/fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.gemini/skills/atomic-skills-fix/SKILL.md')));
 
     // 3. Simulate the interactive orphan removal logic
     const existingManifestFiles = initialResult.files.reduce((acc, f) => {
@@ -84,7 +82,6 @@ describe('Update and Orphan Removal', () => {
     const initialResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini-commands'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'project'
@@ -100,7 +97,6 @@ describe('Update and Orphan Removal', () => {
     const newResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'project'
@@ -146,7 +142,6 @@ describe('Update and Orphan Removal', () => {
     const newResult = installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'user'

@@ -10,7 +10,7 @@ if [[ -n "${ATOMIC_SKILLS_NO_UPDATE_CHECK:-}" ]]; then
 fi
 
 # Locate manifest: prefer project-scope, fall back to user-scope
-PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+PROJ_DIR="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 MANIFEST=""
 SCOPE=""
 if [[ -f "$PROJ_DIR/.atomic-skills/manifest.json" ]]; then
@@ -71,12 +71,19 @@ fi
 greater=$(printf '%s\n%s\n' "$installed" "$latest" | sort -V 2>/dev/null | tail -1)
 [[ "$greater" != "$latest" ]] && exit 0
 
+# Scope-aware update command (project installs need --project)
+if [[ "$SCOPE" == "project" ]]; then
+  UPDATE_CMD="npx -y @henryavila/atomic-skills@latest install --yes --project"
+else
+  UPDATE_CMD="npx -y @henryavila/atomic-skills@latest install --yes"
+fi
+
 # Build notification message
 msg="## Atomic Skills Update Available
 atomic-skills **v${latest}** disponível (instalado: v${installed}, scope: ${SCOPE}).
 Atualizar:
 \`\`\`bash
-npx -y @henryavila/atomic-skills@latest install --yes
+${UPDATE_CMD}
 \`\`\`
 (Para silenciar: \`export ATOMIC_SKILLS_NO_UPDATE_CHECK=1\`)"
 

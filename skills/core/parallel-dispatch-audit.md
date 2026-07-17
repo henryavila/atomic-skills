@@ -130,14 +130,12 @@ If read-only mode was triggered in the HARD-GATE: SKIP this phase entirely.
 
 Only if the dispatch plan included a memory-consolidation task.
 
-{{#if modules.memory}}
 1. Verify the canonical snapshot file exists at `{{memory_path}}` (e.g., `project_current_state.md`) and is coherent.
 2. **Zero churn by churn:** if the memory-consolidation agent delivered ✅, skip rewrite. Only update `MEMORY.md` pointer if it is missing or stale.
 3. **Contradiction criteria:** if handoffs or memory files contradict, prefer the entry with the **most recent timestamp** AND record the resolution explicitly in the audit report:
    > Ambiguity resolved: `<X>` preferred over `<Y>` by criterion `<timestamp | explicit user decision | internal consistency>`
 4. Respect the soft cap of 200 lines / 25 KB on `MEMORY.md`.
 5. Commit with `[audit-dispatch-<slug>] consolidate memory after batch`.
-{{/if}}
 
 ### Phase 5 — Report
 

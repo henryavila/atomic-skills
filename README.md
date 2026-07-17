@@ -10,14 +10,14 @@
 
 AI agents skip steps, cut corners, and ignore what they promised two messages ago. **Atomic Skills** are battle-tested prompts that make them follow through — each one encodes a hard-won workflow behind Iron Laws and HARD-GATEs that turn *"the agent should do X"* into *"the agent will not proceed without X."*
 
-*Stop babysitting your agent.* Not a prompt pack you copy-paste — install once, then invoke `/atomic-skills:<name>` natively in Claude Code, Cursor, Gemini CLI, Codex, OpenCode, or GitHub Copilot.
+*Stop babysitting your agent.* Not a prompt pack you copy-paste — install once, then invoke `/atomic-skills:<name>` natively in the agent you already use. **Tested day-to-day** on Claude Code, Cursor, Codex, and Grok Build; other hosts (Gemini CLI, OpenCode, GitHub Copilot, …) have install layouts and tool adapters but only **theoretical** support until exercised in real sessions.
 
 ### What you get
 
 - **The agent follows through.** Iron Laws and HARD-GATEs make skipping steps *impossible*, not merely discouraged — no fix without a root cause, no "done" without a fresh verification, no push with a secret in the diff.
 - **One job per skill.** 14 small, composable skills — diagnose a bug, review a diff, drive a plan to done — with no coupling between them. Reach for the one that matches today's problem.
 - **Evidence over vibes.** Every claim cites `file:line` or real tool output; every gate closes against proof, not the agent's say-so.
-- **Native in the agent you already use.** A polyglot layer rewrites tool names per IDE, so the *same* skill body runs correctly in Claude Code, Cursor, Gemini CLI, Codex, OpenCode, and GitHub Copilot.
+- **Native in the agent you already use.** A polyglot layer rewrites tool names per IDE, so the *same* skill body installs everywhere. **Battle-tested** on Claude Code, Cursor, Codex, and Grok Build; Gemini CLI, OpenCode, and GitHub Copilot are theoretical (adapters ship, real-session QA has not).
 - **60-second install, zero config.** No API keys for the core skills; the installer detects your IDE(s) and writes the command files in place.
 
 > **Where to next:** skim the [14 skills →](#the-skills) · understand the [approach →](#the-atomic-approach) · or just [install →](#quick-start).
@@ -98,7 +98,7 @@ Every skill is built from the same enforcement primitives. This is the full voca
 | 💡 | [`brainstorm`](docs/skills/brainstorm.md) | Diverge, decide, then write a critic-gated design.md before any plan | `NO PLAN WITHOUT AN APPROVED DESIGN.` |
 | 🎨 | [`design-brief`](docs/skills/design-brief.md) | Generate DS + screens prompts for a design agent, contamination-free | `NEVER SILENCE BEHAVIOUR OR PHILOSOPHY — SILENCE IS FOR VISUAL FORM ONLY.` |
 | 🎭 | [`debate`](docs/skills/debate.md) | Roundtable of independent subagent personas for divergent thinking | `NO SYNTHESIS WITHOUT INDEPENDENT VOICES.` |
-| ⚙️ | [`implement`](docs/skills/implement.md) | Drive decomposed tasks to done, one at a time, verifier-gated | `CODING STAYS SINGLE-THREADED.` |
+| ⚙️ | [`implement`](docs/skills/implement.md) | Drive decomposed tasks to done, one at a time, verifier-gated | `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).` |
 | ✅ | [`verify-claim`](docs/skills/verify-claim.md) | No success claim without fresh verification — run it, cite it | `NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.` |
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Consolidate scattered memory into .ai/memory/ and wire it to the IDE | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
 [SKILLS_TABLE_END]: #
@@ -274,9 +274,9 @@ Ask one model for "the architect''s view and the QA view" and both collapse towa
 
 ---
 
-### ⚙️ `implement` — Mode 1 Execution Driver
+### ⚙️ `implement` — Mode 2-aware Execution Driver
 
-**Iron Law:** `CODING STAYS SINGLE-THREADED.`
+**Iron Law:** `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).`
 
 The lifecycle ends in execution, and execution is where state gets lost — work marked done on a claim, context evicted mid-task, a resume that cold-re-investigates. `implement` is a serial loop with durable checkpoints: code one task, gate it through verify-on-done (never a self-asserted pass), snapshot a self-sufficient `## Session handoff` block on observable events (after each task / before each dispatch / phase boundary) — never on a fabricated context-% gauge. Coding stays single-threaded; only heavy reads fan out. The next session resumes from the handoff, and `resume` refuses on a dirty tree or a placeholder.
 
@@ -426,65 +426,39 @@ Every command above is documented in [docs/skills/project.md](docs/skills/projec
 
 ## Multi-Agent Support
 
-Atomic Skills uses a polyglot rendering layer that detects your agent and rewrites tool names and instructions automatically — the same skill body renders correctly everywhere:
+Atomic Skills uses a polyglot rendering layer that detects your agent and rewrites tool names and instructions automatically — the same skill body renders for every install profile.
 
-- **Claude Code** — `Bash`, `Read tool`, `Edit tool`, `Agent`.
-- **Gemini CLI** — `run_shell_command`, `read_file`, `replace`, `codebase_investigator`.
+**Tested (real sessions):** Claude Code, Cursor, Codex, Grok Build.
+
+**Theoretical only:** Gemini CLI, OpenCode, GitHub Copilot, and any other install profile — layout paths + tool-name maps exist so install works, but those hosts have not been battle-tested end-to-end. Treat them as best-effort; report issues if you use them.
+
+Example tool renames:
+
+- **Claude Code** (tested) — `Bash`, `Read tool`, `Edit tool`, `Agent`.
+- **Gemini CLI** (theoretical) — `run_shell_command`, `read_file`, `replace`, `codebase_investigator`.
 - **Generic / others** — standardized naming for maximum compatibility.
 
 ### Supported IDEs
 
+Support column:
+
+- **Tested** — install, discovery, invoke, and skill workflows exercised in real agent sessions.
+- **Theoretical** — installer + adapter present; not verified in day-to-day use.
+
 [IDES_TABLE_START]: #
-| IDE | Profile | Directory | Format |
-|-----|---------|-----------|--------|
-| Claude Code | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) |
-| Cursor | `cursor` | `.cursor/skills/atomic-skills/` | Markdown |
-| Gemini CLI (Skills) | `gemini` | `.gemini/skills/atomic-skills/` | Markdown |
-| Gemini CLI (Commands) | `gemini-commands` | `.gemini/commands/` | TOML (Slash commands) |
-| Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown |
-| OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown |
-| GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown |
+| IDE | Profile | Directory | Format | Support |
+|-----|---------|-----------|--------|---------|
+| Claude Code | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) | Tested |
+| Cursor | `cursor` | `.cursor/skills/atomic-skills/` | Markdown | Tested |
+| Gemini CLI (Skills) | `gemini` | `.gemini/skills/atomic-skills-<skill>/` | Markdown | Theoretical |
+| Gemini CLI (Commands) | `gemini-commands` | `.gemini/commands/` | TOML (Slash commands) | Theoretical |
+| Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown | Tested |
+| OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown | Theoretical |
+| GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown | Theoretical |
+| Grok Build | `grok` | `.grok/plugins/atomic-skills/skills/` | Markdown | Tested |
 [IDES_TABLE_END]: #
 
 For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md).
-
-## Modules
-
-Modules bundle optional skills, shared assets, or hooks on top of the core skills. The `memory`, `codex-bridge`, and `auto-update` modules are enabled on every install. To change the active set, use the interactive installer (the `Change modules` / customize-modules action in the `npx @henryavila/atomic-skills install` menu) — there is no `--modules` CLI flag.
-
-[MODULES_START]: #
-### Memory
-
-Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.
-
-- Configurable path (default: `.ai/memory/`)
-- Adds the `atomic-skills:init-memory` skill
-- Supports Claude Code's `autoMemoryDirectory` for direct integration (no redirect needed)
-- Available in both project and user scope installations
-
-### Codex Bridge (new in 1.8.0)
-
-Shared infrastructure for the codex sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — bundles the 11 templates and checklists consumed by the codex envelope:
-
-- Anti-framing directive (literal text injected into every briefing)
-- Pre-flight checks, canonical Codex invocation, output validation checklist
-- Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)
-- Briefing templates (plan + code) and consolidated review file template
-- Reviews INDEX.md row template
-
-Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.
-
-### Auto-Update (new in 1.8.0)
-
-SessionStart hook that notifies you when a new version is available on npm — without polling or interrupting your flow.
-
-- Hook script installed at `~/.atomic-skills/hooks/version-check.sh`
-- Merged into `~/.claude/settings.json` non-destructively (coexists with existing hooks)
-- 24h TTL on npm checks; async background fetch (0ms perceived latency)
-- Opt-out via `ATOMIC_SKILLS_NO_UPDATE_CHECK=1` env var
-- Configurable TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<seconds>`
-- Currently covers **Claude Code** only (Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot have different lifecycles)
-[MODULES_END]: #
 
 ## Install, Update, Uninstall
 
@@ -510,6 +484,12 @@ npx @henryavila/atomic-skills uninstall [--project]
 # Non-interactive uninstall for scripts (skips the confirmation prompt)
 npx @henryavila/atomic-skills uninstall --yes [--project]
 ```
+
+**Auto-update.** On hosts with a SessionStart surface (Claude Code, Grok Build), install registers a non-blocking version check (`~/.atomic-skills/hooks/version-check.sh`) that notifies when a newer npm release is available. Opt out with `ATOMIC_SKILLS_NO_UPDATE_CHECK=1`; TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<seconds>` (default 24h).
+
+**Shared assets.** Sealed-envelope templates for cross-model review and other helpers install under each IDE’s `_assets/` directory (sibling of the skill tree so they are not scanned as slash-commands) and are referenced as `{{ASSETS_PATH}}`.
+
+**Memory.** Persistent context lives at `.ai/memory/`. Bootstrap with `/atomic-skills:init-memory` (always installed).
 
 **Uninstall removes everything the installer wrote:** the skill/command files,
 shared assets, the namespace root, the manifest, and the auto-update
@@ -547,7 +527,7 @@ It verifies:
 
 The same discipline the skills enforce on your agent, the repo enforces on itself.
 
-**Generation contract.** The README skills table and per-skill blurbs, the per-skill docs, the IDEs table, the modules section, and the version note are **generated** from `meta/catalog.yaml` + `src/config.js` via `scripts/lib/render-readme.js`; a husky pre-commit regenerates these regions (and the dashboard data) when their inputs are staged. **Never hand-edit inside the marker regions.** To add or change a skill, edit the catalog (`value_pitch`, `one_liner`, args) and the skill body, and use the tool variables from `AGENTS.md` — never hardcoded tool names.
+**Generation contract.** The README skills table and per-skill blurbs, the per-skill docs, the IDEs table, and the version note are **generated** from `meta/catalog.yaml` + `src/config.js` via `scripts/lib/render-readme.js`; a husky pre-commit regenerates these regions (and the dashboard data) when their inputs are staged. **Never hand-edit inside the marker regions.** To add or change a skill, edit the catalog (`value_pitch`, `one_liner`, args) and the skill body, and use the tool variables from `AGENTS.md` — never hardcoded tool names.
 
 See also [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md) and [docs/kb/skill-frontmatter-spec.md](docs/kb/skill-frontmatter-spec.md).
 

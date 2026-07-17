@@ -12,8 +12,87 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.18'
           cache: 'npm'
       - run: npm ci
+      - run: node -p "process.version"
       - run: npm test
       - run: npm run validate-catalog
+
+  # F5/T-004: portable path contracts must pass on Windows (path.win32).
+  windows-path-contracts:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18'
+          cache: 'npm'
+      - run: npm ci
+      - run: node -p "process.version"
+      - run: node --test tests/windows-path-contract.test.js tests/validate-state.test.js tests/normalize.test.js
+
+  # Multi-platform install contract: force path-nofollow backend on Linux so
+  # /proc/self/fd regressions fail here instead of only on macOS hosts.
+  multiplatform-path-nofollow:
+    name: multiplatform path-nofollow
+    runs-on: ubuntu-latest
+    env:
+      MINIMALIST_INSTALLER_PATH_BACKEND: path
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18'
+          cache: 'npm'
+      - run: npm ci
+      - name: Record backend + host
+        run: node -p "JSON.stringify({node:process.version,platform:process.platform,backend:process.env.MINIMALIST_INSTALLER_PATH_BACKEND})"
+      - name: Multiplatform contract + install round-trip under path-nofollow
+        run: node --test tests/multiplatform-contract.test.js tests/install-uninstall-roundtrip.test.js tests/installer-data-safety.test.js
+
+  # F6/T-003 — release-blocking Cartesian matrix:
+  #   OS ∈ {ubuntu-latest, macos-latest}
+  #   Node ∈ {22.18.x, 24.11.x}
+  # Windows is intentionally out of this matrix: GitHub-hosted Node builds do not
+  # expose fs.constants.O_NOFOLLOW, so @henryavila/minimalist-installer path-safety
+  # refuses installs (PathSafetyError / UNSUPPORTED_PLATFORM). Path portability is
+  # still covered by windows-path-contracts. Re-add windows-latest when the engine
+  # pin supports win32 no-follow (or Node exports O_NOFOLLOW on the runner).
+  # Critical steps never use continue-on-error.
+  release-matrix:
+    name: release ${{ matrix.os }} node-${{ matrix.node }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: ['22.18', '24.11']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Record real process.version
+        run: node -p "JSON.stringify({node:process.version,platform:process.platform,arch:process.arch})"
+      - name: Unit suite
+        run: npm test
+      - name: Skills + docs
+        run: npm run validate-skills && npm run check-docs
+      - name: Release blackbox + host probes + fault matrix
+        run: node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/release-fault-matrix.test.js
+      - name: Gemini CLI contract
+        run: node --test tests/gemini-cli-contract.test.js
+      - name: Host probes
+        run: node scripts/run-host-probes.js --manifest meta/host-qualification.json --receipt docs/audits/host-contract-receipt.json --write
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-matrix-${{ matrix.os }}-node-${{ matrix.node }}
+          path: |
+            docs/audits/
+            **/test-results/
+          if-no-files-found: ignore

@@ -66,9 +66,27 @@ Steps:
 1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`. The `AIDECK_BIN` / `DASHBOARD_DIR` values come from the AIDECK CONTRACT block above:
 
    ```bash
-   # projectId = normalized repo basename. The consumer is FIXED (atomic-skills);
-   # $pid is the PROJECT id the data + dashboard are scoped by (AIDECK CONTRACT).
-   pid=$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+   # projectId = canonical nested folder when unambiguous, else normalized basename.
+   # NEVER derive solely from basename of a plan worktree — that breaks multi-project
+   # dashboards. Resolve via resolve-project-id.js (same algorithm as `atomic-skills serve`).
+   # Payload is JSON.stringify — never shell-interpolate rootDir (quotes/spaces break).
+   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo "$PWD")"
+   RESOLVE_ID=""
+   for c in "$PWD/scripts/resolve-project-id.js" \
+            "$PKG_ROOT/scripts/resolve-project-id.js" \
+            "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/scripts/resolve-project-id.js" \
+            "$HOME/.atomic-skills/src/../scripts/resolve-project-id.js"; do
+     [ -f "$c" ] && RESOLVE_ID="$c" && break
+   done
+   if [ -n "$RESOLVE_ID" ]; then
+     pid=$(node "$RESOLVE_ID" "$PWD")
+     REGISTER_JSON=$(node "$RESOLVE_ID" --register-json "$PWD")
+   else
+     # Last-resort fallback (no package-root): basename normalize only.
+     pid=$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/^[^a-z]*//' | cut -c1-64)
+     [ -z "$pid" ] && pid=project
+     REGISTER_JSON=$(node -e 'const r=process.argv[1],p=process.argv[2];process.stdout.write(JSON.stringify({rootDir:r,projectId:p}))' "$PWD" "$pid")
+   fi
 
    # Provision (idempotent) the single ~/.aideck/consumers/atomic-skills/ consumer
    # from the shipped template. Resolve the provisioner the same way as
@@ -110,10 +128,10 @@ Steps:
              node "$AIDECK_BIN" down >/dev/null 2>&1
              # AIDECK_URL stays empty → step 2 spawns the current build.
            else
-             # Register this project
+             # Register this project (JSON payload — no shell interpolation of $PWD)
              curl -sf -X POST "$url/api/projects/register" \
                -H 'Content-Type: application/json' \
-               -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" >/dev/null 2>&1
+               -d "$REGISTER_JSON" >/dev/null 2>&1
              AIDECK_URL="$url"
            fi
          fi
@@ -134,7 +152,7 @@ Steps:
            if [ -n "$url" ] && curl -sf "$url/api/health" >/dev/null 2>&1; then
              curl -sf -X POST "$url/api/projects/register" \
                -H 'Content-Type: application/json' \
-               -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" >/dev/null 2>&1
+               -d "$REGISTER_JSON" >/dev/null 2>&1
              AIDECK_URL="$url"
              break 2
            fi
@@ -237,7 +255,7 @@ Steps:
    - Active plan/phase (if any)
    - Active initiative slug + task progress (e.g. `3/7 done, 1 blocked`)
    - Next action
-   - CODEX REVIEW line (see `{{ASSETS_PATH}}/project-drift.md` § Codex review tracking)
+   - CROSS-MODEL REVIEW line (see `{{ASSETS_PATH}}/project-drift.md` § CROSS-MODEL REVIEW tracking)
    - Completion-drift offer (see "Completion-drift offer" below — read-only; `reconcile` is the only mutation path)
 
 ## `--terminal`
@@ -270,7 +288,7 @@ If there is an active initiative whose `branch:` matches `git rev-parse --abbrev
      ```
      The `solves` line is mandatory in the render — when `context.solves` is absent (shouldn't happen post-migration, but legacy data may), render `solves: (legacy — re-ratify to articulate)` to nudge the user toward `re-ratify <id>`.
   5. NEXT: `<nextAction>` from frontmatter
-  6. **CODEX REVIEW** line: see `{{ASSETS_PATH}}/project-drift.md` § Codex review tracking — this single line tells the user whether the work-in-progress has been adversarially reviewed since the last meaningful change, and surfaces the `review-due` command if not.
+  6. **CROSS-MODEL REVIEW** line: see `{{ASSETS_PATH}}/project-drift.md` § CROSS-MODEL REVIEW tracking — this single line tells the user whether the work-in-progress has been adversarially reviewed since the last meaningful change, and surfaces the `review-due` command if not.
 
 Unicode icons:
 - `✓` done, `◉` active, `·` pending, `⊘` blocked, `⌂` parked, `⇥` emerged

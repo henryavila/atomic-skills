@@ -22,6 +22,11 @@ const PROJECT_ROOT = join(__dirname, '..');
 const CATALOG_YAML = join(PROJECT_ROOT, 'meta', 'catalog.yaml');
 const CATALOG_JSON = join(PROJECT_ROOT, 'meta', 'catalog.json');
 
+/** Normalize EOLs so --check is portable under Windows checkout (CRLF vs LF). */
+function normalizeEol(text) {
+  return String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
 function main() {
   const checkMode = new Set(process.argv.slice(2)).has('--check');
 
@@ -31,7 +36,7 @@ function main() {
 
   if (checkMode) {
     const current = existsSync(CATALOG_JSON) ? readFileSync(CATALOG_JSON, 'utf8') : '';
-    if (current !== expected) {
+    if (normalizeEol(current) !== normalizeEol(expected)) {
       console.error('✖ meta/catalog.json is stale — run `npm run generate-docs` to update.');
       process.exit(1);
     }

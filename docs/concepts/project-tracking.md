@@ -1,11 +1,10 @@
 # Project Tracking — The `.atomic-skills/` Model
 
-This is the canonical explanation of the data model behind the two heaviest skills in
-the package: [`project-status`](../skills/project-status.md) (view + daily mutations) and
-[`project-plan`](../skills/project-plan.md) (create + structural changes). The README
-*names* Plans, Initiatives, Phases, and Tasks; this document *defines* them — what each
-one is, where it lives on disk, how they nest, and the discipline that keeps the model
-trustworthy over a multi-month project.
+This is the canonical explanation of the data model behind the `project` skill
+(thin router + lazy project-assets). The README *names* Plans, Initiatives, Phases,
+and Tasks; this document *defines* them — what each one is, where it lives on disk,
+how they nest, and the discipline that keeps the model trustworthy over a multi-month
+project.
 
 If you only ever run the non-tracking skills (`fix`, `hunt`, `review-code`, …), you
 never need this. The tracking model exists for one situation: **multi-session work where
@@ -29,44 +28,31 @@ never owns state, and every mutation is a file write.
 ```
 .atomic-skills/                          canonical state tree (aiDeck = read-only projection)
 │
-├── PLAN  (plans/<slug>.md)              OPTIONAL — a repo may run on standalone initiatives only
-│   ├── narrative (md body) · principles[] · glossary[] · tracks[]
-│   ├── currentPhase  ───────────────►   id of the phase in progress (or null)
-│   ├── parallelismAllowed: bool
-│   ├── interPhaseGates[]   (from → to : criteria[])
-│   └── phases[]   (ordered, declared INLINE — a phase is NOT its own file)
-│        ├── PHASE F0  {id, slug, title, goal, dependsOn[], status, exitGate{summary, criteria[]}}
-│        │     └── EXIT GATE
-│        │           └── exitCriterion {id, description, status, verifier?, evidence?}
-│        │                 verifier ∈ shell | query | test | manual
-│        ├── PHASE F1  (dependsOn:[F0]) … parallelWith[] / track
-│        └── PHASE Fn  (+ provenance + context IF inserted mid-plan)
+├── projects/<project-id>/<plan-slug>/   NESTED layout (canonical; preferred)
+│   ├── plan.md                          PLAN frontmatter + narrative body
+│   │     currentPhase · phases[] (inline PhaseDescriptors + exitGates)
+│   ├── phases/
+│   │     ├── f0-<slug>.md               phase-anchored INITIATIVE (parentPlan + phaseId)
+│   │     │     stack[] · tasks[] · parked[] · emerged[] · exitGates[]
+│   │     └── archive/                   closed phase initiatives
+│   └── lessons/                         optional per-initiative lessons
 │
-│        each phase is EXECUTED by exactly one ↓
+├── plans/<slug>.md · initiatives/       LEGACY flat layout (still readable; migrate with `project migrate`)
 │
-├── INITIATIVE  (initiatives/<slug>.md)
-│   │   phase-anchored  → has parentPlan + phaseId   (BOTH present)
-│   │   standalone      → omits both                 (NEITHER present)
-│   ├── goal · branch · nextAction · scope{paths[]} · exitGates[]
-│   ├── stack[]      ── LIFO frames {id, title, type, openedAt}        ◉ top = HERE
-│   │       push (lateral) / pop --resolve|--park|--emerge
-│   ├── tasks[]
-│   │     └── TASK {id:T-NNN, title, status, verifier?, scopeBoundary[], acceptance[≤5]}
-│   │            (+ provenance + context IF added mid-execution)
-│   ├── parked[]    {title, surfacedAt, fromFrame, context(REQUIRED)}   ⌂ note-for-later
-│   └── emerged[]   {title, surfacedAt, promoted,  context(REQUIRED)}   ⇥ real follow-up
-│              promote ─► becomes a Task   |   emerge --target Fk ─► lands in Fk's initiative
-│
-└── status/   config.json · last-review.json · hooks/ · bootstrap-drafts/ · *.log
+└── status/ · bootstrap-drafts/ · reviews/ · focus.json · PROJECT-STATUS.md
 
 provenance (WHEN/WHO)  +  context {solves, trigger, assumesStillValid, ratifiedAt} (WHY, human-ratified)
    ── co-located on every emergent task/phase, and on EVERY parked/emerged entry ──
 ```
 
+**Nested is the taught model.** New plans materialize under
+`projects/<project-id>/<slug>/`. The legacy flat tree (`plans/`, `initiatives/`) remains
+readable during migration; do not author new state in flat paths.
+
 ### Two facts the rest of the docs hide
 
-These are the load-bearing relationships. Both come straight from the top of
-`skills/core/project-status.md` (lines 5–9):
+These are the load-bearing relationships. Both come straight from the `project`
+router and its lazy assets:
 
 1. **A Phase is not its own file.** A phase is an *inline entry* in the Plan's `phases[]`
    array. The actual *work* for that phase lives in a separate **phase-anchored
@@ -86,7 +72,9 @@ These are the load-bearing relationships. Both come straight from the top of
 Every field below is from the schemas. Required fields are listed first; the markdown
 *body* of each file (long-form prose) is **not** in frontmatter.
 
-### Plan — `.atomic-skills/plans/<slug>.md`
+### Plan — `.atomic-skills/projects/<project-id>/<slug>/plan.md`
+
+(Legacy flat: `.atomic-skills/plans/<slug>.md`.)
 
 A multi-phase project: a narrative plus an ordered list of phases, each gated by an exit
 gate. Optional root of the hierarchy.
@@ -101,7 +89,7 @@ gate. Optional root of the hierarchy.
   This is *required content* even though it is not a schema field: `project-plan`'s Iron Law
   is **NO PLAN WITHOUT NARRATIVE** (§1 Context, §2 Principles, §3 Phase tree).
 
-### Phase (PhaseDescriptor) — inline in `plans/<slug>.md` `phases[]`
+### Phase (PhaseDescriptor) — inline in `plan.md` `phases[]`
 
 One ordered stage of a Plan. Declared inline; never a separate file.
 
@@ -115,7 +103,9 @@ One ordered stage of a Plan. Declared inline; never a separate file.
   (the `if/then` rule in `plan.schema.json`). Phases that shipped in the original plan have
   neither — their "why" is the plan narrative.
 
-### Initiative — `.atomic-skills/initiatives/<slug>.md`
+### Initiative — `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`
+
+(Legacy flat: `.atomic-skills/initiatives/<slug>.md`.)
 
 The unit of *execution*. Either one phase of a Plan (phase-anchored) or a free-standing unit
 of work (standalone). The initiative owns the tasks, the stack, and the parked/emerged

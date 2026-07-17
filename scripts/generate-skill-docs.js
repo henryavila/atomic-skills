@@ -19,6 +19,11 @@ const CATALOG_PATH = join(PROJECT_ROOT, 'meta', 'catalog.yaml');
 const SKILLS_DIR = join(PROJECT_ROOT, 'skills');
 const DOCS_DIR = join(PROJECT_ROOT, 'docs', 'skills');
 
+/** Normalize EOLs so --check is portable under Windows checkout (CRLF vs LF). */
+function normalizeEol(text) {
+  return String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
 function main() {
   const args = new Set(process.argv.slice(2));
   const checkMode = args.has('--check');
@@ -36,7 +41,7 @@ function main() {
 
     if (checkMode) {
       const current = existsSync(filePath) ? readFileSync(filePath, 'utf8') : '';
-      if (current !== expected) {
+      if (normalizeEol(current) !== normalizeEol(expected)) {
         console.error(`✖ docs/skills/${key}.md is stale`);
         stale = true;
       }

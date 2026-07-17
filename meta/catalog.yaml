@@ -38,7 +38,7 @@ core:
         description: 'Skill prompts you for the symptom interactively'
     related: [hunt, review-code]
     tags: [quality, debugging, tdd, core]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -84,7 +84,7 @@ core:
         description: 'Full flow: memory + commits + push'
     related: [project, init-memory]
     tags: [workflow, git, memory, core]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: true
@@ -131,14 +131,14 @@ core:
         description: 'Local then codex (sealed envelope)'
     related: [review-code]
     tags: [review, planning, adversarial, cross-model]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: true
     mutates_repo: true
     network_required: true
     one_liner: 'Adversarial plan review with local/codex/both mode picker'
     emoji: '🔍'
     version_added: '2.0.0'
-    argument_hint: '<plan.md> [--mode=local|codex|both] [--cross-ref=paths|--no-cross-ref] [--no-initiatives] [--allow-dirty]'
+    argument_hint: '<plan.md> [--mode=local|codex|grok|both*|ext-both] [--model=ID|--ask-model] [xref flags]'
     args:
       - name: plan-path
         kind: positional
@@ -147,7 +147,15 @@ core:
       - name: '--mode'
         kind: option
         required: false
-        description: 'Force a review mode (local, codex, both, or the v2.x alias internal). Skips the Step 0a picker.'
+        description: 'Force a review mode (local, codex, grok, both*, external-both, or the v2.x alias internal). Skips the Step 0a picker.'
+      - name: '--model'
+        kind: option
+        required: false
+        description: 'Force external reviewer model id (skips model picker). Use cli-default for empty --model flag. Also --model-codex / --model-grok / --ask-model.'
+      - name: '--ask-model'
+        kind: flag
+        required: false
+        description: 'Prefer the catalog-recommended model for the external provider.'
       - name: '--no-cross-ref'
         kind: flag
         required: false
@@ -210,14 +218,14 @@ core:
         description: 'Local then codex (sealed envelope)'
     related: [review-plan, fix, hunt]
     tags: [review, code, adversarial, cross-model]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: true
     one_liner: 'Adversarial code review with local/codex/both mode picker'
     emoji: '🔬'
     version_added: '2.0.0'
-    argument_hint: '[ref|wip|branch|all] [--mode=local|codex|both] [--allow-dirty] [--max-iterations=N]'
+    argument_hint: '[ref|wip|branch|all] [--mode=local|codex|grok|both*|ext-both] [--model=ID|--ask-model]'
     args:
       - name: git-ref
         kind: positional
@@ -226,7 +234,15 @@ core:
       - name: '--mode'
         kind: option
         required: false
-        description: 'Force a review mode (local, codex, both). Skips the Step 0 picker.'
+        description: 'Force a review mode (local, codex, grok, both*, external-both). Skips the Step 0 picker.'
+      - name: '--model'
+        kind: option
+        required: false
+        description: 'Force external reviewer model id (skips model picker). Use cli-default for empty --model flag. Also --model-codex / --model-grok / --ask-model.'
+      - name: '--ask-model'
+        kind: flag
+        required: false
+        description: 'Prefer the catalog-recommended model for the external provider.'
       - name: '--allow-dirty'
         kind: flag
         required: false
@@ -281,11 +297,13 @@ core:
         description: 'Reconcile .atomic-skills/ state against the code'
     related: [fix, save-and-push, review-plan]
     tags: [tracking, anchoring, planning, bootstrap, create, migrate, core]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex, opencode, github-copilot]
     requires_args: false
     mutates_repo: true
-    network_required: false
-    argument_hint: '[status|new|materialize|done|phase-done|finalize|verify|…]'
+    network_required: true
+    # Grammar-order prefix (≤120 chars). Full subcommand index is `subcommands[]`
+    # below; this string is what Claude Code + Grok Build show in slash autocomplete.
+    argument_hint: '[status|help|verify|review|new|idea|materialize|done|phase-done|finalize|reconcile|…]'
     one_liner: 'Plan / Initiative / Task state your agent reloads every session'
     emoji: '📊'
     version_added: '1.5.0'
@@ -358,7 +376,7 @@ core:
       - name: reconcile
         group: 'Tasks & phases'
         signature: ''
-        description: 'Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent)'
+        description: 'Dispose tasks/gates that look done in the repo — the only detection-drift-triggered completion-mutation path (done stays task closure authority); verifier-aware (Run verifier when one exists, Mark done only when verifier-absent); never silent auto-close'
         example: '/atomic-skills:project reconcile'
       - name: materialize
         group: 'Tasks & phases'
@@ -481,10 +499,11 @@ core:
         description: 'Discover: comma-separated source kinds (git,github,docs,roadmap,memory-local,memory-claude,claude-mem)'
     output_artifacts:
       - '.atomic-skills/PROJECT-STATUS.md'
-      - '.atomic-skills/plans/<slug>.md'
-      - '.atomic-skills/initiatives/<slug>.md'
+      - '.atomic-skills/projects/<project-id>/<slug>/plan.md (nested canonical)'
+      - '.atomic-skills/projects/<project-id>/<slug>/phases/f<N>-*.md (phase initiatives)'
       - '.atomic-skills/status/config.json'
       - '.atomic-skills/bootstrap-drafts/ (discover output)'
+      - 'legacy flat plans/ + initiatives/ remain readable during migration'
     dependencies: [git]
     schema_version: '0.2'
   prompt:
@@ -518,7 +537,7 @@ core:
         description: 'Skill asks for task interactively'
     related: [parallel-dispatch, fix, project]
     tags: [meta, generation, planning]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
     mutates_repo: false
     network_required: false
@@ -565,7 +584,7 @@ core:
         description: 'Triage mode for directory (max 30 files)'
     related: [fix, review-code]
     tags: [testing, quality, pre-implementation]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: true
     mutates_repo: true
     network_required: false
@@ -710,7 +729,7 @@ core:
         description: 'Skill asks for the problem, goal, project-id, and slug interactively'
     related: [debate, project, review-plan]
     tags: [design, brainstorming, lifecycle, core]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -762,7 +781,7 @@ core:
         description: 'Skill asks for the app/scope and the product intent interactively'
     related: [brainstorm, project]
     tags: [design, prompts, anti-contamination, core]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -812,7 +831,7 @@ core:
         description: 'Convene a specific named panel from a roster file'
     related: [parallel-dispatch, review-plan, review-code]
     tags: [brainstorming, multi-agent, roundtable, divergent, core]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
     mutates_repo: false
     network_required: false
@@ -847,7 +866,7 @@ core:
 
   implement:
     name: implement
-    title: 'Implement — Mode 1 Execution Driver'
+    title: 'Implement — Mode 2-aware Execution Driver'
     description: 'Drive the SPEC-admitted tasks of a decomposed plan to DONE — the single-threaded execution driver at the tail of the lifecycle. Use to implement a plan task-by-task, closing each only through verify-on-done, with event-driven session handoffs that make a fresh session resume cheaply.'
     value_pitch: >
       The lifecycle ends in execution, and execution is where state gets
@@ -878,7 +897,7 @@ core:
         description: 'Implement the active plan/initiative; resume from its handoff if present'
     related: [project, verify-claim, fix]
     tags: [execution, lifecycle, implement, core]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -926,7 +945,7 @@ core:
         description: 'Gate an "it works" claim on a fresh, captured run'
     related: [implement, fix, project]
     tags: [quality, verification, gate, core]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -942,79 +961,40 @@ core:
     dependencies: [git]
     schema_version: '0.2'
 
-modules:
-  codex-bridge: {}
-  auto-update: {}
-  memory:
-    init-memory:
-      name: init-memory
-      title: 'Init Memory — Persistent Context'
-      description: 'Initialize persistent memory structure for cross-session context.'
-      value_pitch: >
-        Memory often already exists but is scattered across `.memory/`,
-        `docs/memory/`, and Claude's auto-memory dir — duplicated,
-        contradictory, or never actually read because it was never wired up.
-        `init-memory` consolidates it into one indexed `.ai/memory/`, connects
-        it via `autoMemoryDirectory` (the durable path, not the fragile
-        redirect), and keeps `MEMORY.md` under the 200-line load limit.
-        Originals are deleted only after an ls-compare confirms every file
-        copied.
-      purpose: >
-        Bootstrap the persistent memory directory and index so that future
-        sessions can pick up where this one left off.
-      when_to_use:
-        - 'First time using atomic-skills in a project'
-        - 'Memory directory missing or corrupted'
-        - 'You want to standardize the memory layout'
-      when_not_to_use:
-        - 'Memory already initialized and healthy'
-      examples:
-        - command: '/atomic-skills:init-memory'
-          description: 'Bootstrap memory in the current project'
-      related: [save-and-push]
-      tags: [memory, setup]
-      ide_compatibility: [claude-code, gemini, cursor]
-      requires_args: false
-      mutates_repo: true
-      network_required: false
-      one_liner: 'Consolidate scattered memory into .ai/memory/ and wire it to the IDE'
-      emoji: '🧠'
-      version_added: '1.0.0'
-      output_artifacts:
-        - '.ai/memory/MEMORY.md'
-      schema_version: '0.2'
-
-# Documentation for the Modules section of README.md. Keys MUST match
-# entries under `modules:` above. Order here drives section order in the
-# rendered README.
-module_meta:
-  memory:
-    title: 'Memory'
-    intro: 'Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.'
-    features:
-      - 'Configurable path (default: `.ai/memory/`)'
-      - 'Adds the `atomic-skills:init-memory` skill'
-      - "Supports Claude Code's `autoMemoryDirectory` for direct integration (no redirect needed)"
-      - 'Available in both project and user scope installations'
-  codex-bridge:
-    title: 'Codex Bridge'
-    version_added: '1.8.0'
-    intro: 'Shared infrastructure for the codex sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — bundles the 11 templates and checklists consumed by the codex envelope:'
-    features:
-      - 'Anti-framing directive (literal text injected into every briefing)'
-      - 'Pre-flight checks, canonical Codex invocation, output validation checklist'
-      - 'Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)'
-      - 'Briefing templates (plan + code) and consolidated review file template'
-      - 'Reviews INDEX.md row template'
-    notes: 'Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.'
-  auto-update:
-    title: 'Auto-Update'
-    version_added: '1.8.0'
-    intro: 'SessionStart hook that notifies you when a new version is available on npm — without polling or interrupting your flow.'
-    features:
-      - 'Hook script installed at `~/.atomic-skills/hooks/version-check.sh`'
-      - 'Merged into `~/.claude/settings.json` non-destructively (coexists with existing hooks)'
-      - '24h TTL on npm checks; async background fetch (0ms perceived latency)'
-      - 'Opt-out via `ATOMIC_SKILLS_NO_UPDATE_CHECK=1` env var'
-      - 'Configurable TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<seconds>`'
-      - 'Currently covers **Claude Code** only (Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot have different lifecycles)'
+  init-memory:
+    name: init-memory
+    title: 'Init Memory — Persistent Context'
+    description: 'Initialize persistent memory structure for cross-session context.'
+    value_pitch: >
+      Memory often already exists but is scattered across `.memory/`,
+      `docs/memory/`, and Claude's auto-memory dir — duplicated,
+      contradictory, or never actually read because it was never wired up.
+      `init-memory` consolidates it into one indexed `.ai/memory/`, connects
+      it via `autoMemoryDirectory` (the durable path, not the fragile
+      redirect), and keeps `MEMORY.md` under the 200-line load limit.
+      Originals are deleted only after an ls-compare confirms every file
+      copied.
+    purpose: >
+      Bootstrap the persistent memory directory and index so that future
+      sessions can pick up where this one left off.
+    when_to_use:
+      - 'First time using atomic-skills in a project'
+      - 'Memory directory missing or corrupted'
+      - 'You want to standardize the memory layout'
+    when_not_to_use:
+      - 'Memory already initialized and healthy'
+    examples:
+      - command: '/atomic-skills:init-memory'
+        description: 'Bootstrap memory in the current project'
+    related: [save-and-push]
+    tags: [memory, setup]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    one_liner: 'Consolidate scattered memory into .ai/memory/ and wire it to the IDE'
+    emoji: '🧠'
+    version_added: '1.0.0'
+    output_artifacts:
+      - '.ai/memory/MEMORY.md'
+    schema_version: '0.2'

@@ -1,0 +1,158 @@
+# Provider: grok
+# Path: skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt
+# Logical module: cross-model-bridge (codex-bridge is a compatibility alias)
+#
+# Canonical Grok Build Invocation (external sealed-envelope reviewer)
+#
+# Proven against: grok 0.2.101 (stable). Headless docs: user-guide/14-headless-mode.md
+# and 18-sandbox.md. Re-smoke flags after CLI upgrades.
+
+Use this exact command shape for every Grok external-review invocation.
+Departure from this shape risks interactive hangs, write-capable tools, or
+stdout contamination.
+
+## Variables to substitute
+
+- `<BRIEFING_PATH>`: path to briefing markdown file (input; use `--prompt-file`)
+- `<OUTPUT_PATH>`: path to output markdown file (stdout redirect; Grok has no `-o`)
+- `<STDERR_PATH>`: path to stderr log (must live under a private `mktemp -d` dir)
+- `<TIMEOUT_SECONDS>`: integer seconds (default 600 = 10 min)
+- `<MODEL_FLAG>` / `REVIEW_MODEL_ID`: from Step 0.model. Empty when
+  `source: cli-default` or `invalidModelId`. Prefer binding safe `REVIEW_MODEL_ID`
+  and expanding `${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"}` (quoted). Never
+  invent an id; never pass an id that failed `isSafeReviewModelId`.
+
+## Pre-step: private work directory (symlink-safe)
+
+Never write stderr/output to a predictable shared `/tmp/…-<ts>` path. Create a
+private dir first:
+
+```bash
+umask 077
+REVIEW_TMP=$(mktemp -d "${TMPDIR:-/tmp}/as-grok-review.XXXXXX") || exit 1
+trap 'rm -rf "$REVIEW_TMP"' EXIT
+# Bind: <OUTPUT_PATH>=$REVIEW_TMP/out.md  <STDERR_PATH>=$REVIEW_TMP/stderr.log
+#        <BRIEFING_PATH> may stay outside if already sealed by the caller
+```
+
+## Pre-step: portable timeout wrapper
+
+`timeout(1)` is GNU coreutils. On macOS it is NOT installed by default; on
+Linux + WSL it is. The skill MUST detect the available wrapper before
+constructing the command — never hardcode `timeout`.
+
+Detection (run once per session — defines a shell function `run_with_timeout`).
+Do NOT store the wrapper in a plain string variable: shell variable expansion
+does not re-parse embedded quotes.
+
+```bash
+if command -v timeout >/dev/null 2>&1; then
+  run_with_timeout() { timeout "$@"; }
+elif command -v gtimeout >/dev/null 2>&1; then
+  run_with_timeout() { gtimeout "$@"; }                                # macOS via `brew install coreutils`
+elif command -v perl >/dev/null 2>&1; then
+  run_with_timeout() { perl -e 'alarm shift @ARGV; exec @ARGV' -- "$@"; }   # POSIX-portable fallback
+else
+  echo "ERROR: no timeout wrapper available. Install coreutils (Linux: apt/yum; macOS: brew install coreutils) or perl." >&2
+  exit 1
+fi
+```
+
+All three branches expose the same shell function with COMPATIBLE call shape:
+`run_with_timeout <SECONDS> <command...>`.
+
+## Command
+
+```bash
+# REVIEW_MODEL_ID must be empty or pass isSafeReviewModelId (slug-shaped).
+run_with_timeout <TIMEOUT_SECONDS> grok \
+  ${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"} \
+  --sandbox read-only \
+  --disallowed-tools "search_replace,write,run_terminal_cmd,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,image_to_video,reference_to_video,spawn_subagent,monitor" \
+  --no-memory \
+  --output-format plain \
+  --prompt-file <BRIEFING_PATH> \
+  > <OUTPUT_PATH> 2> <STDERR_PATH>
+```
+
+Notes:
+
+- `--prompt-file` (or `-p` / `--single`) triggers headless mode. Prefer
+  `--prompt-file` so the sealed briefing is never argv-truncated.
+- Grok does **not** take a Codex-style `-o` final-message path. Capture the
+  response by redirecting **stdout** to `<OUTPUT_PATH>`. Keep stderr in a
+  separate log for auth/timeout diagnostics.
+- Each `grok -p` / `--prompt-file` run creates a **fresh session** by default
+  (ephemeral relative to prior reviews). Do **not** pass `-c` / `--continue` or
+  `-r` / `--resume`. `--no-memory` disables cross-session memory for this run.
+
+## Flag-by-flag rationale
+
+| Flag | Why |
+|------|-----|
+| `run_with_timeout <N>` | External kill. Portable across Linux/macOS/WSL via the function above. |
+| `--sandbox read-only` | OS-level FS sandbox: read everywhere, write only `~/.grok/` + temp; child network blocked on Linux. Reviewer must never write project files. |
+| `--disallowed-tools "…"` | Defense-in-depth denylist: mutating tools, shell, subagents, **web/browse**, MCP `use_tool`/`search_tool`, and media generators. Headless shell id is `run_terminal_cmd`. Re-smoke after CLI upgrades. |
+| `--no-memory` | Do not inject cross-session memory into the sealed envelope. |
+| `--output-format plain` | Markdown-friendly final text on stdout (matches sealed review parse). |
+| `--prompt-file <BRIEFING_PATH>` | Prompt from file; headless single-turn. |
+| `> <OUTPUT_PATH>` | Persist the response for Pass validation (private dir). |
+| `2> <STDERR_PATH>` | Keep banner/auth errors out of the review file (private dir; never predictable `/tmp/…-<ts>`). |
+
+## Optional / overrides
+
+| Flag | When |
+|------|------|
+| `--model <id>` / `-m` | User passed `model:<id>` or `--model`. Empty by default (CLI default model). |
+| `--reasoning-effort high` | Optional deeper reasoning if the installed CLI accepts it for the selected model. |
+| `--max-turns <N>` | Optional cap for runaway tool loops. Not required when write/shell tools are disallowed. |
+
+## DO NOT
+
+- Use `--yolo`, `--always-approve`, or `--permission-mode bypassPermissions` for
+  review — those auto-approve tool execution; sandbox + denylist must remain the
+  safety boundary, not always-approve.
+- Use `--sandbox workspace` / `off` / `devbox` for review (write-capable).
+- Pass the briefing only as a bare `-p "..."` with a huge inlined body when a
+  file path is available — prefer `--prompt-file`.
+- Resume sessions (`-c` / `-r`) between Pass 1 and Pass 2 — each pass is a
+  **fresh** headless run with its own briefing file.
+- Hardcode `timeout` (fails on macOS without coreutils). Use the detector above.
+- Treat same-family host=Grok + `--mode=grok` as cross-model: route via
+  `host-default-external.md` (confirm→local or HARD ABORT).
+
+## Exit codes and failure signals
+
+- `0` with non-empty `<OUTPUT_PATH>` and no auth banner in the stderr log: ok,
+  parse the output file.
+- `124`: timeout (`timeout` / `gtimeout`).
+- `142` or SIGALRM-killed: timeout (perl `alarm` fallback).
+- Non-zero **or** stderr/stdout containing `Not signed in` / `XAI_API_KEY` /
+  `grok login`: auth failure — abort with the preflight auth message.
+- other non-zero: Grok error. Abort with message + point at the stderr log.
+
+Both timeout exit codes (124 and 142) MUST be handled as "timeout" by the
+skill — the wrapper choice is invisible to the user.
+
+## Locked tool ids (headless denylist vs skill-body map)
+
+| Concern | Id / note |
+|---------|-----------|
+| Headless denylist shell tool | `run_terminal_cmd` (Grok headless docs) |
+| Skill-body `{{BASH_TOOL}}` on host Grok | `run_terminal_command` (F0 render map; may diverge from headless id) |
+| Write tools to strip | `search_replace`, `write` |
+| Subagents | `Agent` (blocks all spawn) |
+
+If a future Grok release renames headless tool ids, re-smoke and update **this
+file** first; do not invent denylist names in skill bodies.
+
+## Smoke evidence (F2)
+
+Against installed `grok 0.2.101`:
+
+1. `grok --version` → `grok 0.2.x … [stable]`
+2. Missing prompt file → `Failed to read '…': No such file or directory`
+3. Unauthenticated `GROK_HOME` → stderr contains `Not signed in` + `grok login --device-code` + `XAI_API_KEY`
+4. Authenticated headless:  
+   `grok -p "Reply with the single word PONG and nothing else." --sandbox read-only --disallowed-tools "search_replace,write,run_terminal_cmd,Agent" --no-memory --max-turns 1 --output-format plain`  
+   → stdout `PONG`, exit 0

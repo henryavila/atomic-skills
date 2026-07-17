@@ -18,8 +18,21 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, basename } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
+import {
+  kindFromPath as kindFromPathPortable,
+  projectIdFromPath as projectIdFromPathPortable,
+  nestedIdsFromPath,
+  pathSegments,
+} from '../src/state-paths.js';
 import { validateAppMap } from '../src/app-map/validate.js';
 import { validatePlanDependencyGraph } from '../src/plan-dependencies.js';
+import {
+  collectStateIntegrityErrors,
+  formatIntegrityError,
+  resolvePhaseInitiative,
+  projectScopeId as integrityProjectScopeId,
+  sidecarKey,
+} from '../src/state-invariants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -104,54 +117,105 @@ export function parseFrontmatter(raw) {
 }
 
 /**
- * Infer schema kind ('plan' | 'initiative') from a file path.
- * Returns null if the path is not under a recognised directory.
- *
- * Two layouts are recognised (R-XAGENT-08 / F-B3):
- *  - FLAT (legacy, live during the dogfood window):
- *      <root>/plans/<slug>.md            → 'plan'
- *      <root>/initiatives/<slug>.md      → 'initiative'
- *  - NESTED (projects/<id>/<slug>/, the migration target):
- *      <root>/projects/<id>/<slug>/plan.md           → 'plan'
- *      <root>/projects/<id>/<slug>/phases/f<N>-*.md  → 'initiative'
- *      (a phase initiative *is* an initiative — Decision #9; no 4th schema)
- *
- * The flat checks run FIRST and the loop returns at the segment closest to the
- * file, so adding the nested checks cannot change any flat-tree result.
+ * Infer schema kind ('plan' | 'initiative' | 'lesson') from a file path.
+ * Portable implementation lives in src/state-paths.js (Windows + POSIX).
+ * @param {string} filePath
+ * @returns {'plan'|'initiative'|'lesson'|null}
  */
-function kindFromPath(filePath) {
-  const parts = resolve(filePath).split('/');
-  // NESTED layout plan FIRST: `plan.md` directly under a projects/<id>/<slug>/
-  // tree. Checked before the segment scan so a slug literally named `phases`,
-  // `plans`, or `initiatives` (the slug regex permits them) cannot shadow a real
-  // plan.md — e.g. projects/<id>/phases/plan.md is a plan, not an initiative.
-  if (basename(parts[parts.length - 1]) === 'plan.md' && parts.includes('projects')) {
-    return 'plan';
-  }
-  // Walk from the end: the immediate parent dir tells us the kind.
-  // tests/fixtures/state/plans/<slug>.md → 'plan'
-  // .atomic-skills/initiatives/<slug>.md → 'initiative'
-  for (let i = parts.length - 2; i >= 0; i--) {
-    if (parts[i] === 'plans') return 'plan';
-    if (parts[i] === 'initiatives') return 'initiative';
-    // NESTED layout: a `phases/` ancestor marks a phase initiative. Checked
-    // LAST in the loop body so a flat path with a `plans`/`initiatives`
-    // segment is unaffected (it short-circuits above).
-    if (parts[i] === 'phases') return 'initiative';
-    // Spec 2 / G1: a `lessons/` ancestor marks a per-initiative lessons file
-    // (projects/<id>/<slug>/lessons/<initiative-slug>.md).
-    if (parts[i] === 'lessons') return 'lesson';
-  }
-  return null;
+export function kindFromPath(filePath) {
+  return kindFromPathPortable(filePath);
 }
 
-function projectIdFromPath(filePath) {
-  const parts = resolve(filePath).split('/');
-  const idx = parts.lastIndexOf('projects');
-  if (idx >= 0 && typeof parts[idx + 1] === 'string' && parts[idx + 1].length > 0) {
-    return parts[idx + 1];
+/**
+ * @param {string} filePath
+ * @returns {string}
+ */
+export function projectIdFromPath(filePath) {
+  return projectIdFromPathPortable(filePath);
+}
+
+/**
+ * Discover lazy phase source sidecars (`*.source.json`) for integrity checks.
+ * Returns a Set of keys from `sidecarKey(projectId, planSlug, phaseSlug)` plus
+ * short-name aliases used by nested materialize (planSlug-stripped basename).
+ *
+ * Directory args are scanned like collectTargets; file args are ignored unless
+ * they end with `.source.json`.
+ *
+ * @param {string[]} args
+ * @returns {Set<string>}
+ */
+export function collectSidecars(args) {
+  const keys = new Set();
+  const addFromDir = (dir, projectId, planSlug) => {
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
+    for (const entry of readdirSync(dir)) {
+      if (!entry.endsWith('.source.json')) continue;
+      const base = entry.slice(0, -'.source.json'.length);
+      // Nested writers strip `<planSlug>-` prefix from the filename; register
+      // both the file base and the full phase slug form.
+      keys.add(sidecarKey(projectId, planSlug, base));
+      if (planSlug && !base.startsWith(`${planSlug}-`)) {
+        keys.add(sidecarKey(projectId, planSlug, `${planSlug}-${base}`));
+      }
+    }
+  };
+
+  const registerNestedPhases = (phasesDir, projectId, planSlug) => {
+    addFromDir(phasesDir, projectId, planSlug);
+  };
+
+  for (const arg of args) {
+    const absPath = resolve(arg);
+    if (!existsSync(absPath)) continue;
+    const st = statSync(absPath);
+    if (st.isFile()) {
+      const nested = nestedIdsFromPath(absPath);
+      if (absPath.endsWith('.source.json') && nested) {
+        const base = basename(absPath).slice(0, -'.source.json'.length);
+        keys.add(sidecarKey(nested.projectId, nested.planSlug, base));
+        if (!base.startsWith(`${nested.planSlug}-`)) {
+          keys.add(sidecarKey(nested.projectId, nested.planSlug, `${nested.planSlug}-${base}`));
+        }
+      }
+      // plan.md or phase initiative under nested layout → scan sibling/own phases/
+      if (nested) {
+        const segments = pathSegments(absPath);
+        const hasPhases = segments.includes('phases');
+        if (basename(absPath) === 'plan.md') {
+          registerNestedPhases(join(dirname(absPath), 'phases'), nested.projectId, nested.planSlug);
+        } else if (hasPhases) {
+          registerNestedPhases(dirname(absPath), nested.projectId, nested.planSlug);
+        }
+      }
+      continue;
+    }
+    if (!st.isDirectory()) continue;
+    // Direct phases/ directory under nested layout
+    const asPhases = nestedIdsFromPath(absPath);
+    if (asPhases && basename(absPath) === 'phases') {
+      registerNestedPhases(absPath, asPhases.projectId, asPhases.planSlug);
+    }
+    // Plan directory: projects/<id>/<slug>/
+    if (asPhases && existsSync(join(absPath, 'plan.md'))) {
+      registerNestedPhases(join(absPath, 'phases'), asPhases.projectId, asPhases.planSlug);
+    }
+    // Flat: <root>/initiatives/*.source.json → planSlug unknown; use '__flat__'
+    addFromDir(join(absPath, 'initiatives'), '__legacy', '__flat__');
+    const projectsDir = join(absPath, 'projects');
+    if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+      for (const projId of readdirSync(projectsDir)) {
+        const projPath = join(projectsDir, projId);
+        if (!statSync(projPath).isDirectory()) continue;
+        for (const planSlug of readdirSync(projPath)) {
+          const planPath = join(projPath, planSlug);
+          if (!statSync(planPath).isDirectory()) continue;
+          addFromDir(join(planPath, 'phases'), projId, planSlug);
+        }
+      }
+    }
   }
-  return '__legacy';
+  return keys;
 }
 
 /**
@@ -346,6 +410,20 @@ export function validateAppMapFile(appMapPath) {
 }
 
 const DETERMINISTIC_VERIFIER_KINDS = new Set(['shell', 'test', 'query']);
+const REVIEW_GATE_MODES = new Set(['local', 'codex', 'both']);
+/** Full or abbreviated git SHA (lowercase preferred; case-insensitive match). */
+const GIT_SHA_RE = /^[0-9a-f]{7,40}$/i;
+
+/**
+ * True when `value` is a full or abbreviated git commit SHA (7–40 hex).
+ * Arbitrary non-SHA strings (labels, fingerprints, prose) return false.
+ * Pure: no I/O.
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export function isGitSha(value) {
+  return typeof value === 'string' && GIT_SHA_RE.test(value.trim());
+}
 
 /**
  * GATE-R2 — the machine-checked met-invariant (F-B2 / Inc1 linchpin).
@@ -361,7 +439,10 @@ const DETERMINISTIC_VERIFIER_KINDS = new Set(['shell', 'test', 'query']);
  *   - kind:test additionally requires a parsed evidence.testsCollected > 0
  *     (a pattern that matched 0 tests must NOT be 'met' — R-XAGENT-07),
  *   - kind:query additionally requires a numeric evidence.rowCount
- *     (query is deferred-by-design; never 'met' without a real rowCount — F-B1).
+ *     (query is deferred-by-design; never 'met' without a real rowCount — F-B1),
+ *   - when evidence.verifiedCommit is present it MUST be a real git SHA
+ *     (F4/T-004 — arbitrary non-SHA strings are rejected; absent is tolerated
+ *     on legacy met criteria that predate the anchor field).
  * manual verifiers and verifier-absent items are intentionally NOT gated here
  * (the manual-acceptance gate and user-overrides live elsewhere).
  *
@@ -392,6 +473,13 @@ export function checkMetInvariant(frontmatter) {
     }
     if (kind === 'query' && typeof evidence.rowCount !== 'number') {
       violations.push(`${label}: kind:query closed without a numeric evidence.rowCount — query is deferred-by-design and never 'met' without a real rowCount.`);
+    }
+    // F4/T-004: when verifiedCommit is stamped it must be a real SHA — never a label.
+    if (Object.prototype.hasOwnProperty.call(evidence, 'verifiedCommit')) {
+      const vc = evidence.verifiedCommit;
+      if (vc == null || vc === '' || !isGitSha(vc)) {
+        violations.push(`${label}: evidence.verifiedCommit must be a git SHA (7–40 hex), got ${JSON.stringify(vc)} — arbitrary non-SHA strings cannot anchor gate evidence.`);
+      }
     }
   };
 
@@ -458,15 +546,19 @@ export function checkClosedAtHardening(frontmatter, grandfatheredTaskIds) {
 }
 
 /**
- * GATE-R3 — the machine-checked review-gate invariant (G2).
+ * GATE-R3 — the machine-checked review-gate invariant (G2 / F4/T-004).
  *
  * The review-code phase gate is a hard precondition for closing a phase. A
  * markdown self-review block can CLAIM "review ran" without it having; the
  * `reviewGate` block on a plan phase makes that claim machine-checkable. This
  * pure predicate enforces, for a plan phase with status:'done' that CARRIES a
  * reviewGate block, that the claim is HONEST:
- *   - status:'passed' must carry an `at` sha (the commit the review concluded
- *     against) — a passed claim with no anchor is not evidence, it is a boast,
+ *   - status:'passed' must carry:
+ *       • `at` as a real git SHA (7–40 hex) — the commit the review concluded
+ *         against; arbitrary non-SHA strings are rejected (F4/T-004),
+ *       • `mode` in {local, codex, both} — which review surface ran,
+ *       • `reviewFile` coherent when present (non-empty path; optional when no
+ *         file was written — blank/whitespace is not coherent),
  *   - status:'skipped' must carry a `reason` (mirrors --skip-review's recorded
  *     reason; a silent skip is forbidden).
  * An ABSENT reviewGate on a 'done' phase is NOT gated here — consistent with
@@ -494,6 +586,18 @@ export function checkReviewGate(frontmatter) {
     if (rg.status === 'passed') {
       if (!hasText(rg.at)) {
         violations.push(`${label}: reviewGate.status is 'passed' but has no \`at\` sha — a passed review claim must record the commit it concluded against, not just assert it ran.`);
+      } else if (!isGitSha(rg.at)) {
+        violations.push(`${label}: reviewGate.at must be a git SHA (7–40 hex), got ${JSON.stringify(rg.at)} — arbitrary non-SHA strings cannot anchor a passed review.`);
+      }
+      if (!hasText(rg.mode)) {
+        violations.push(`${label}: reviewGate.status is 'passed' but has no \`mode\` — record which surface ran (local|codex|both).`);
+      } else if (!REVIEW_GATE_MODES.has(rg.mode)) {
+        violations.push(`${label}: reviewGate.mode must be one of local|codex|both (got ${JSON.stringify(rg.mode)}).`);
+      }
+      // reviewFile is optional (not every local pass writes a file), but when
+      // present it must be a coherent non-empty path — blank is not evidence.
+      if (Object.prototype.hasOwnProperty.call(rg, 'reviewFile') && !hasText(rg.reviewFile)) {
+        violations.push(`${label}: reviewGate.reviewFile is present but empty/blank — omit the field or record a real path.`);
       }
     } else if (rg.status === 'skipped') {
       if (!hasText(rg.reason)) {
@@ -556,31 +660,44 @@ export function validateFile(filePath, validators) {
 }
 
 /**
- * Cross-validate plan↔initiative consistency for done phases.
+ * Cross-validate plan↔initiative consistency: identity/terminality/uniqueness
+ * (F4/T-001 authority) plus done-phase status/task/gate/evidence co-checks.
  * Returns array of { planSlug, phaseId, initiativeSlug, errors: string[] }.
+ *
+ * @param {Map<string, object>} planFrontmatters
+ * @param {Map<string, object>} initiativeFrontmatters
+ * @param {{ sidecars?: Set<string> }} [options]
  */
-export function crossValidate(planFrontmatters, initiativeFrontmatters) {
+export function crossValidate(planFrontmatters, initiativeFrontmatters, options = {}) {
   const errors = [];
-  const initBySlug = new Map();
-  const projectScopeId = (fm) => (typeof fm?.__projectId === 'string' && fm.__projectId.length > 0)
-    ? fm.__projectId
-    : '__legacy';
-  for (const [slug, fm] of initiativeFrontmatters) {
-    initBySlug.set(slug, fm);
+  const projectScopeId = integrityProjectScopeId;
+
+  // F4/T-001 — identity join, unique IDs, terminal pending gates, lazy descriptors.
+  const integrity = collectStateIntegrityErrors(
+    planFrontmatters,
+    initiativeFrontmatters,
+    { sidecars: options.sidecars },
+  );
+  for (const ie of integrity) {
+    errors.push({
+      planSlug: ie.planSlug ?? '?',
+      phaseId: ie.phaseId ?? '?',
+      initiativeSlug: ie.initiativeSlug ?? '?',
+      errors: [formatIntegrityError(ie)],
+    });
   }
 
   for (const [, plan] of planFrontmatters) {
     if (!plan.phases) continue;
-    const projectId = typeof plan.__projectId === 'string' && plan.__projectId.length > 0
-      ? plan.__projectId
-      : null;
     for (const phase of plan.phases) {
       if (phase.status !== 'done') continue;
       if (!phase.slug) continue;
 
-      const init = (projectId ? initBySlug.get(`${projectId}/${phase.slug}`) : null)
-        ?? initBySlug.get(phase.slug);
-      if (!init) continue;
+      // Identity-aware join (projectId+plan+phase). Missing/collision already
+      // reported by collectStateIntegrityErrors — skip consistency co-checks.
+      const resolved = resolvePhaseInitiative(plan, phase, initiativeFrontmatters);
+      if (resolved.kind !== 'matched') continue;
+      const init = resolved.initiative;
 
       const phaseErrors = [];
 
@@ -800,6 +917,8 @@ function main() {
 
   const planFrontmatters = new Map();
   const initiativeFrontmatters = new Map();
+  /** @type {string[]} */
+  const duplicateAuthorityErrors = [];
   for (const target of targets) {
     const kind = kindFromPath(target);
     let raw;
@@ -807,15 +926,40 @@ function main() {
     const parsed = parseFrontmatter(raw);
     if (!parsed.frontmatter || !parsed.frontmatter.slug) continue;
     const projectId = projectIdFromPath(target);
+    const mapKey = `${projectId}/${parsed.frontmatter.slug}`;
     if (kind === 'plan') {
-      planFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
+      if (planFrontmatters.has(mapKey)) {
+        const prev = planFrontmatters.get(mapKey);
+        duplicateAuthorityErrors.push(
+          `duplicate plan authority for ${mapKey}: ${prev.__sourcePath || '(prior)'} and ${target}`,
+        );
+      }
+      planFrontmatters.set(mapKey, {
+        ...parsed.frontmatter,
+        __projectId: projectId,
+        __sourcePath: target,
+      });
     }
     if (kind === 'initiative') {
-      initiativeFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
+      if (initiativeFrontmatters.has(mapKey)) {
+        const prev = initiativeFrontmatters.get(mapKey);
+        duplicateAuthorityErrors.push(
+          `duplicate initiative authority for ${mapKey}: ${prev.__sourcePath || '(prior)'} and ${target}`,
+        );
+      }
+      initiativeFrontmatters.set(mapKey, {
+        ...parsed.frontmatter,
+        __projectId: projectId,
+        __sourcePath: target,
+      });
     }
   }
 
-  const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters);
+  const sidecars = collectSidecars(args);
+  const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters, { sidecars });
+  for (const err of duplicateAuthorityErrors) {
+    console.error(`\n✖ authority: ${err}`);
+  }
   for (const ce of crossErrors) {
     console.error(`\n✖ cross-validation: plan '${ce.planSlug}' phase ${ce.phaseId} ↔ initiative '${ce.initiativeSlug}'`);
     for (const err of ce.errors) {
@@ -841,7 +985,13 @@ function main() {
     }
   }
 
-  if (failed === 0 && crossErrors.length === 0 && routingFailed === 0 && appMapFailed === 0) {
+  if (
+    failed === 0
+    && crossErrors.length === 0
+    && routingFailed === 0
+    && appMapFailed === 0
+    && duplicateAuthorityErrors.length === 0
+  ) {
     const routingNote = routingConfigs.length ? `, ${routingConfigs.length} routing config(s) valid` : '';
     const appMapNote = appMaps.length ? `, ${appMaps.length} app-map catalog(s) valid` : '';
     console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated${routingNote}${appMapNote} (schemaVersion 0.1/0.2)`);
@@ -849,6 +999,9 @@ function main() {
   }
   if (failed > 0) {
     console.error(`\n✖ ${failed} of ${targets.length} file(s) failed schema validation`);
+  }
+  if (duplicateAuthorityErrors.length > 0) {
+    console.error(`\n✖ ${duplicateAuthorityErrors.length} duplicate-authority error(s)`);
   }
   if (crossErrors.length > 0) {
     console.error(`✖ ${crossErrors.length} cross-validation error(s)`);

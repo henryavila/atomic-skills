@@ -1,0 +1,165 @@
+{
+  "schemaVersion": "1",
+  "generatedAt": "2026-07-16T17:53:38.647Z",
+  "platform": "linux",
+  "node": "v24.15.0",
+  "manifest": "/home/henry/atomic-skills/meta/host-qualification.json",
+  "hosts": [
+    {
+      "id": "claude-code",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "layout": {
+        "ok": true,
+        "skillPath": ".claude/commands/atomic-skills/project.md"
+      },
+      "cli": {
+        "present": true,
+        "version": "2.1.199 (Claude Code)",
+        "detail": "ok"
+      },
+      "operational": {
+        "ok": true,
+        "skipped": true,
+        "reason": "layout-only — no discovery/load/invoke claim",
+        "cliPresent": true,
+        "cliVersion": "2.1.199 (Claude Code)"
+      }
+    },
+    {
+      "id": "cursor",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "layout": {
+        "ok": true,
+        "skillPath": ".cursor/skills/atomic-skills/project/SKILL.md"
+      },
+      "cli": {
+        "present": false,
+        "version": null,
+        "detail": "cursor not on PATH"
+      },
+      "operational": {
+        "ok": true,
+        "skipped": true,
+        "reason": "layout-only — no discovery/load/invoke claim",
+        "cliPresent": false,
+        "cliVersion": null
+      }
+    },
+    {
+      "id": "gemini",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "layout": {
+        "ok": true,
+        "skillPath": ".gemini/skills/atomic-skills-project/SKILL.md"
+      },
+      "cli": {
+        "present": true,
+        "version": "0.35.3",
+        "detail": "ok"
+      },
+      "operational": {
+        "ok": true,
+        "skipped": true,
+        "reason": "layout-only — no discovery/load/invoke claim",
+        "cliPresent": true,
+        "cliVersion": "0.35.3"
+      }
+    },
+    {
+      "id": "codex",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "layout": {
+        "ok": true,
+        "skillPath": ".agents/skills/atomic-skills/project/SKILL.md"
+      },
+      "cli": {
+        "present": true,
+        "version": "codex-cli 0.144.4",
+        "detail": "ok"
+      },
+      "operational": {
+        "ok": true,
+        "skipped": true,
+        "reason": "layout-only — no discovery/load/invoke claim",
+        "cliPresent": true,
+        "cliVersion": "codex-cli 0.144.4"
+      }
+    },
+    {
+      "id": "opencode",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "layout": {
+        "ok": true,
+        "skillPath": ".opencode/skills/atomic-skills/project/SKILL.md"
+      },
+      "cli": {
+        "present": true,
+        "version": "1.2.6",
+        "detail": "ok"
+      },
+      "operational": {
+        "ok": true,
+        "skipped": true,
+        "reason": "layout-only — no discovery/load/invoke claim",
+        "cliPresent": true,
+        "cliVersion": "1.2.6"
+      }
+    },
+    {
+      "id": "github-copilot",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "layout": {
+        "ok": true,
+        "skillPath": ".github/skills/atomic-skills/project/SKILL.md"
+      },
+      "cli": {
+        "present": false,
+        "version": null,
+        "detail": "no standalone CLI"
+      },
+      "operational": {
+        "ok": true,
+        "skipped": true,
+        "reason": "layout-only — no discovery/load/invoke claim",
+        "cliPresent": false,
+        "cliVersion": null
+      }
+    },
+    {
+      "id": "grok",
+      "supportTier": "layout-only",
+      "supportDeclared": false,
+      "layout": {
+        "ok": true,
+        "skillPath": ".grok/plugins/atomic-skills/skills/project/SKILL.md"
+      },
+      "cli": {
+        "present": true,
+        "version": "grok 0.2.101 (5bc4b5dfad)",
+        "detail": "ok"
+      },
+      "operational": {
+        "ok": true,
+        "skipped": true,
+        "reason": "layout-only — no discovery/load/invoke claim",
+        "cliPresent": true,
+        "cliVersion": "grok 0.2.101 (5bc4b5dfad)"
+      }
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "layoutOk": 7,
+    "operationalClaimed": 0,
+    "operationalOk": 0,
+    "layoutOnly": 7
+  },
+  "ok": true,
+  "errors": []
+}

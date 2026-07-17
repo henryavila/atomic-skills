@@ -30,7 +30,9 @@ Adversarially review an implementation plan before it runs — locally (fast, ch
 | Name | Kind | Required | Description |
 |------|------|----------|-------------|
 | `plan-path` | positional | required | Path to the plan markdown file under review. |
-| `--mode` | option | optional | Force a review mode (local, codex, both, or the v2.x alias internal). Skips the Step 0a picker. |
+| `--mode` | option | optional | Force a review mode (local, codex, grok, both*, external-both, or the v2.x alias internal). Skips the Step 0a picker. |
+| `--model` | option | optional | Force external reviewer model id (skips model picker). Use cli-default for empty --model flag. Also --model-codex / --model-grok / --ask-model. |
+| `--ask-model` | flag | optional | Prefer the catalog-recommended model for the external provider. |
 | `--no-cross-ref` | flag | optional | Skip the Step 0b cross-ref picker; force internal-only. |
 | `--cross-ref` | option | optional | Comma-separated list of artifact paths to cross-reference against. Skips the picker. |
 | `--artifacts` | option | optional | Alias of --cross-ref (compat with v2.x). |

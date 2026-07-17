@@ -28,7 +28,6 @@ import { MANIFEST_DIR } from './manifest.js';
  * @param {object} config
  * @param {string} config.language - communication language code (e.g. 'en')
  * @param {string[]} config.ides - IDE ids to render for
- * @param {object} config.modules - module selection/config map
  * @param {string} config.skillsDir - path to the skills/ source tree
  * @param {string} config.metaDir - path to the meta/ dir holding catalog.yaml
  * @param {''|'user'|'project'} config.scope - install scope (drives ASSETS_PATH)

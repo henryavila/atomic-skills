@@ -1,21 +1,46 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+/**
+ * Install-ledger I/O for atomic-skills.
+ *
+ * Single API over the engine's atomic/no-follow writer (P1-C / F-006).
+ * All install-ledger writes (adopt, installSkills patch, tests that touch
+ * the journal) MUST go through `writeManifest` here — never plain
+ * `writeFileSync` to `.atomic-skills/manifest.json`.
+ *
+ * MANIFEST_DIR is fixed to `.atomic-skills` (consumer override of the engine
+ * default `.minimalist-installer`).
+ */
+import {
+  readManifest as engineReadManifest,
+  writeManifest as engineWriteManifest,
+  removeManifest as engineRemoveManifest,
+  MANIFEST_FILE as ENGINE_MANIFEST_FILE,
+} from '@henryavila/minimalist-installer';
 
 export const MANIFEST_DIR = '.atomic-skills';
-export const MANIFEST_FILE = 'manifest.json';
+export const MANIFEST_FILE = ENGINE_MANIFEST_FILE;
 
+/**
+ * @param {string} projectDir
+ * @returns {object|null}
+ */
 export function readManifest(projectDir) {
-  const filePath = join(projectDir, MANIFEST_DIR, MANIFEST_FILE);
-  if (!existsSync(filePath)) return null;
-  const raw = readFileSync(filePath, 'utf8');
-  return JSON.parse(raw);
+  return engineReadManifest(projectDir, MANIFEST_DIR);
 }
 
+/**
+ * Atomic same-dir temp+rename write; refuses leaf/intermediate symlinks
+ * under projectDir (engine path-safety).
+ *
+ * @param {string} projectDir
+ * @param {object} data
+ */
 export function writeManifest(projectDir, data) {
-  const dir = join(projectDir, MANIFEST_DIR);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const filePath = join(dir, MANIFEST_FILE);
-  data.updated_at = new Date().toISOString();
-  if (!data.installed_at) data.installed_at = data.updated_at;
-  writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+  return engineWriteManifest(projectDir, data, MANIFEST_DIR);
+}
+
+/**
+ * @param {string} projectDir
+ */
+export function removeManifest(projectDir) {
+  return engineRemoveManifest(projectDir, MANIFEST_DIR);
 }

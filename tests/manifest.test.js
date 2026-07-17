@@ -26,7 +26,6 @@ describe('manifest', () => {
       version: '1.0.0',
       language: 'pt',
       ides: ['claude-code'],
-      modules: {},
       files: {},
     };
     writeManifest(tempDir, data);

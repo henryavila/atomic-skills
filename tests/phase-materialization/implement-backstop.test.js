@@ -68,7 +68,7 @@ test('T-011 Step 2.1 documents exactly the two D6.1 re-question events', () => {
 
   assert.deepEqual(triggers, [
     '   1. A critic/review reports drift from the original `businessIntent`.',
-    '   2. Implement Step 2.1 reports a runtime `scopeBoundary` exit with the exact path and reason.',
+    '   2. Implement Step 2.1 reports a required violation of a `scopeBoundary` exclusion with the exact path and reason.',
   ]);
   assert.match(d61, /These are the only two `businessIntent` re-question points for this plan/);
   assert.match(d61, /`lint-source\.js` is explicitly not the D6\.1b runtime trigger/);
@@ -81,10 +81,12 @@ test('T-011 Step 2.1 runtime scope exits stop and report path plus reason', () =
 
   assertInOrder(step2, [
     '1. **Orient.**',
-    'Read the task\'s `Files`, `acceptance[]`, and `scopeBoundary[]`',
-    'a change outside `scopeBoundary[]` is a scope exit',
+    'Read the task\'s `outputs[].path`, `acceptance[]`, and `scopeBoundary[]`',
+    'Treat `outputs[].path` as the exact implementation targets',
+    'Treat `scopeBoundary[]` as explicit exclusions (DO-NOT constraints), never as an allowlist',
+    'If implementation requires an unlisted target or would violate an exclusion',
     'stop and report the exact path and reason',
-    'When a task would require a runtime change outside `scopeBoundary[]`',
-    'treat this stop-and-report as a `businessIntent` re-question event',
+    'A required violation of `scopeBoundary[]` is a runtime scope exit',
+    'a `businessIntent` re-question event',
   ]);
 });

@@ -121,9 +121,7 @@ each subagent's output into a single report:
 **Post-triage actions:**
 For each deferred bug, offer: "Fix [bug description] with /as-fix? The reproducing test already exists."
 
-{{#if modules.memory}}
 **Save to memory:** the main agent (not subagents) writes to `{{memory_path}}hunt-log.md`:
 - All files hunted, dates, and results consolidated from subagent reports
 - All bugs found and their status
 - Remaining gaps and suggested next runs
-{{/if}}

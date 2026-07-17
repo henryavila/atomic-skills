@@ -1,6 +1,6 @@
-# `atomic-skills:implement` — Mode 1 Execution Driver
+# `atomic-skills:implement` — Mode 2-aware Execution Driver
 
-> **Iron Law:** `CODING STAYS SINGLE-THREADED.`
+> **Iron Law:** `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).`
 
 **Drive decomposed tasks to done, one at a time, verifier-gated**
 

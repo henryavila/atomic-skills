@@ -102,7 +102,7 @@ export function mapEntry(key, entry) {
 
 /**
  * Build the bare-array catalog projection from a parsed catalog.yaml object.
- * Order follows collectSkills (core, then modules) — stable for the --check diff.
+ * Order follows collectSkills (core skills) — stable for the --check diff.
  */
 export function buildCatalogJson(catalogData) {
   return collectSkills(catalogData).map(({ key, entry }) => mapEntry(key, entry));

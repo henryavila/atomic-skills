@@ -34,11 +34,22 @@ test('T-009 documents the materialize flow from retained source to active phase'
     'Reuse `decomposeOnePhase(phaseSource, ctx)`',
     'Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.',
     'Write the initiative with `businessIntent` and update the parent plan',
-    'descriptor atomically.',
+    'descriptor atomically via `scripts/materialize-state.js`.',
     'Run `scripts/find-missing-business-intent.js`.',
     'Run `scripts/validate-state.js`.',
     'Run `scripts/refresh-state.js`.',
   ]);
+});
+
+test('T-005 materialize publish is owned by materialize-state.js (no sequential dual WRITE)', () => {
+  assert.match(doc, /scripts\/materialize-state\.js/);
+  assert.match(doc, /Atomic publish via `scripts\/materialize-state\.js`/);
+  assert.match(doc, /renames \*\*initiative first\*\*, \*\*plan last\*\*/);
+  assert.match(doc, /Do \*\*not\*\* write either file with sequential `\{\{WRITE_TOOL\}\}` calls/);
+  assert.doesNotMatch(
+    doc,
+    /Write the returned initiative file with `\{\{WRITE_TOOL\}\}` and write the parent\s+plan descriptor/,
+  );
 });
 
 test('T-009 businessIntent gate requires business/customer value and non-goal outOfScope', () => {
