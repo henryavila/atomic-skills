@@ -5,9 +5,9 @@ title: Product docs site from catalog SSOT
 version: "1.0"
 status: active
 started: 2026-07-17T14:28:20.714Z
-lastUpdated: 2026-07-17T16:06:59.752Z
+lastUpdated: 2026-07-17T16:13:16.000Z
 branch: plan/product-docs-site
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -153,21 +153,23 @@ phases:
       criteria:
         - id: F2-G1
           description: README is the slim envelope and check-docs passes.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run check-docs && test $(wc -l < README.md) -le 200
             expectExitCode: 0
+          metAt: 2026-07-17T16:13:16.000Z
         - id: F2-G2
           description: package homepage points at the docs site.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node -e "const p=require('./package.json');
               if(!String(p.homepage||'').includes('atomic-skills.henryavila.com'))
               process.exit(1)"
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T16:13:16.000Z
+    status: done
     summary: README envelope magro + homepage apontando para
       atomic-skills.henryavila.com.
     businessIntent:
@@ -187,7 +189,7 @@ phases:
       page, without stuffing domain model into core.project catalog fields.
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -200,9 +202,19 @@ phases:
               -f docs/site/dist/project/index.html || test -f
               site/dist/project.html || test -f docs/site/dist/project.html)
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Guia profundo do project no site via dataset dedicado (não expandir
       core.project).
+    businessIntent:
+      value: Project mental model lives on the product site via a dedicated dataset,
+        not core.project catalog bloat.
+      workflow: Author meta/product/project-guide.yaml; render
+        site/dist/project/index.html; deprecation note on onboarding monólito.
+      rules: Do not expand core.project with state machines; keep skill runtime
+        unchanged.
+      outOfScope: Deploy, README further, retiring all docs/skills.
+      doneWhen: generate-site emits project guide page; onboarding path deprecation
+        documented.
   - id: F4
     slug: product-docs-site-f4-deploy-offline-access-and-release-cutove
     title: Deploy, offline access, and release cutover

@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: product-docs-site-f2-slim-readme-and-envelope
 title: Slim README and envelope
 goal: Shrink README to the product envelope and keep it generated from the same SSOT.
-status: active
+status: done
 branch: plan/product-docs-site
 started: 2026-07-17T16:06:59.752Z
-lastUpdated: 2026-07-17T16:10:01.000Z
-nextAction: review-code F2
+lastUpdated: 2026-07-17T16:13:16.000Z
+nextAction: null
 parentPlan: product-docs-site
 phaseId: F2
 businessIntent:
@@ -32,11 +32,11 @@ exitGates:
       command: npm run check-docs && test $(wc -l < README.md) -le 200
       expectExitCode: 0
     status: met
-    metAt: 2026-07-17T16:10:01.000Z
+    metAt: 2026-07-17T16:13:16.000Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T16:10:01.000Z
-      verifiedCommit: 8aa1ee6c855985f412e4777e88c240ff5b1289c6
+      verifiedAt: 2026-07-17T16:13:16.000Z
+      verifiedCommit: 16e7c5c339acbf9b810f895ffd8a872a7eed1306
       passed: true
       exitCode: 0
       outputSummary: F2-G1
@@ -49,11 +49,11 @@ exitGates:
         process.exit(1)"
       expectExitCode: 0
     status: met
-    metAt: 2026-07-17T16:10:01.000Z
+    metAt: 2026-07-17T16:13:16.000Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T16:10:01.000Z
-      verifiedCommit: 8aa1ee6c855985f412e4777e88c240ff5b1289c6
+      verifiedAt: 2026-07-17T16:13:16.000Z
+      verifiedCommit: 16e7c5c339acbf9b810f895ffd8a872a7eed1306
       passed: true
       exitCode: 0
       outputSummary: F2-G2
@@ -132,6 +132,19 @@ tasks:
 parked: []
 emerged: []
 summary: README envelope magro + homepage apontando para atomic-skills.henryavila.com.
+closedAt: 2026-07-17T16:13:16.000Z
+reviewGate:
+  at: 16e7c5c339acbf9b810f895ffd8a872a7eed1306
+  mode: codex
+  provider: gpt-5.5
+  verdict: minor_fixed
+  counts:
+    blocker: 0
+    critical: 0
+    major: 0
+    minor: 2
+    nit: 0
+  reviewFile: .atomic-skills/reviews/product-docs-site-f2-codex-pass1.md
 ---
 
 # F2 — Slim README envelope
