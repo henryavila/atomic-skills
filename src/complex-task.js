@@ -5,6 +5,11 @@
  *        OR tags ∩ {destructive, decommission, drop, complex} ≠ ∅
  *        OR destructiveDiff === true
  *
+ * Under automate, callers compute `destructiveDiff` from the **validated claim
+ * commit range** (`src/claim-report.js` → `validatedRangeForDone` / base+head
+ * or exclusive commitShas) using the review-code DESTRUCTIVE heuristic, then
+ * pass the boolean here. Do not invent destructiveDiff without a pinned range.
+ *
  * No I/O. Shared by implement, phase-done hooks, and transitions.
  */
 
