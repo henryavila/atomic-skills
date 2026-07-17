@@ -70,7 +70,28 @@ On Claude Code, the native worktree harness tools manage the same lifecycle with
 
 This accelerator block is stripped on every other host, where the portable `git worktree` commands above are the path. Both routes leave identical durable state, so callers (`implement`, `parallel-dispatch`) do not branch on host.
 
+## Automate phase isolation — sibling worktree + writer lease
+
+When `implement` runs with `isAutomateActive` (pure maestro), the phase writer does **not** share the plan worktree for product edits. Isolation rules:
+
+1. **Sibling from common-dir / primary root — never nest.** The plan home is often already a linked worktree (`.worktrees/<plan-slug>`). Phase isolation cuts a **sibling** worktree from the git **common-dir** / primary repo root (same pattern as Mode 2), **never nest** under `.worktrees/<plan-slug>/…`. Nesting confuses Step 0 detection, teardown, and file watchers.
+2. **Writer lease before spawn (exclusive acquire).** Before spawning the phase writer, the orchestrator **acquires** a durable lease via `acquireLeaseFile` / `writeLeaseFile` in `src/writer-lease.js` at `<statusRoot>/writer-leases/<plan-slug>.json`. Create uses **`wx` / O_EXCL** (mode `0o600`) — never overwrite; concurrent second acquire fails. Returns `{ path, secret, lease }`: hold `secret` in memory; on disk only public fields + `tokenHash = sha256(secret)` (never plaintext secret). Prefer status root `.atomic-skills/status`.
+3. **Clear lease only after settle, with acquire secret.** Clear (`clearLeaseFile(statusRoot, planSlug, secret)`) only after **sync-wait + claim collect + merge settle**, and only when `sha256(secret)` matches on-disk `tokenHash`. Wrong/missing secret refuses — public identity alone never clears. Unlinks when secret matches (no non-blocking cleared residue). Resume **and** `--clear-execution-mode` / Mode-1 refuse when `isLeaseBlocking` / `assertLeaseAbsent` fails — **any** non-missing status (`active`, `cleared`, `malformed`) blocks (implement Step 0.5 HARD-GATE).
+4. **Merge sibling → plan branch before any task re-verify or `done`.** Orchestrator git-ops only (merge/status/checkout that do not hand-edit product file contents). Content conflicts ⇒ re-dispatch a code-only fix agent under the same fence — never force-resolve product content in the maestro session. After merge settle, **prove claim SHAs/ranges are ancestors of plan-branch HEAD** (`validateClaimReachability` / `git merge-base --is-ancestor`) before re-verify/`done`.
+5. **One phase writer at a time.** Concurrent phase writers are forbidden in v1 even if the plan sets `parallelismAllowed`. A second spawn while a lease is blocking is a HARD refuse.
+6. **Refuse mid-merge resume.** Incomplete merge state is treated like an active lease for the resume gate.
+
+Example portable create (paths illustrative — resolve common-dir first):
+
+```bash
+# From primary / common worktree root — NOT from inside .worktrees/<plan-slug>/
+COMMON=$(git rev-parse --path-format=absolute --git-common-dir)
+# sibling path beside plan homes, never nested under the plan worktree:
+git worktree add -b impl/<plan-slug>-<phaseId>-writer .worktrees/<plan-slug>-<phaseId>-writer <plan-branch>
+```
+
 ## How implement.md and parallel-dispatch.md consume this
 
 - `implement.md` **Mode 2 (Codex workspace-write)** → create an isolated worktree, point Codex's `--sandbox workspace-write` at it, read the diff back, then **merge back serially** (the *Merge-back when a BATCH of worktrees exists* procedure above) with a mandatory post-merge re-verify on the primary. Codex never writes the primary tree; worktrees never merge concurrently.
+- `implement.md` **Automate pure maestro** → sibling phase worktree + writer lease (this section); merge before done; post-merge re-verify; no concurrent phase writers.
 - `parallel-dispatch.md` → offer a per-agent worktree when dispatched tasks share a lockfile, build dir, or root config that would collide under concurrent writers (the collision class parallel-dispatch alone cannot solve).
