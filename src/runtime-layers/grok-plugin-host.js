@@ -103,18 +103,6 @@ export function defaultGrokHostRunner(bin, args, opts = {}) {
  */
 
 /**
- * Register the materialised plugin package with the Grok host.
- * Idempotent: already-installed → try update, else treat as success.
- *
- * @param {object} opts
- * @param {string} opts.basePath
- * @param {string[]} [opts.ides] - if provided and grok not selected, no-op skip
- * @param {HostRunner} [opts.run]
- * @param {() => string | null} [opts.resolveBin]
- * @param {NodeJS.ProcessEnv} [opts.env]
- * @returns {{ status: RegisterStatus, detail?: string }}
- */
-/**
  * Test/CI escape hatch: hermetic install tests set this so a real `grok`
  * binary on the machine never mutates a fake HOME (host seed docs + registry
  * residue break content-aware roundtrips).
@@ -124,6 +112,21 @@ export function isGrokHostBridgeDisabled(env = process.env) {
   return v === '1' || v === 'true' || v === 'yes';
 }
 
+/**
+ * Register the materialised plugin package with the Grok host.
+ * Idempotent: already-installed → try update, else treat as success.
+ *
+ * @param {object} opts
+ * @param {string} opts.basePath
+ * @param {string[]} [opts.ides] - if provided and grok not selected, no-op skip
+ * @param {HostRunner} [opts.run]
+ * @param {() => string | null} [opts.resolveBin]
+ * @param {NodeJS.ProcessEnv} [opts.env]
+ * @param {boolean} [opts.nonDestructive=false] - when true, do not uninstall+reinstall
+ *   on "already installed" (prefer leaving host registration intact; used by
+ *   multi-owner restage so a failed reinstall cannot drop survivors' host).
+ * @returns {{ status: RegisterStatus, detail?: string }}
+ */
 export function registerGrokPluginHost(opts) {
   const {
     basePath,
@@ -131,6 +134,7 @@ export function registerGrokPluginHost(opts) {
     run = defaultGrokHostRunner,
     resolveBin = resolveGrokBinary,
     env = process.env,
+    nonDestructive = false,
   } = opts;
 
   if (ides !== undefined && !wantsGrokPluginHost(ides)) {
@@ -158,6 +162,14 @@ export function registerGrokPluginHost(opts) {
 
   const combined = `${install.stdout}\n${install.stderr}`;
   if (/already installed/i.test(combined)) {
+    // Multi-owner restage: never risk unregistering a live host when reinstall
+    // might fail — host entry may already be fine for the survivor.
+    if (nonDestructive) {
+      return {
+        status: 'already',
+        detail: trimOut(install) || 'already installed (non-destructive restage)',
+      };
+    }
     // Grok materializes a DIRECTORY SNAPSHOT under ~/.grok/installed-plugins/
     // (not a live symlink to the journal package). `plugin update` for local
     // sources prints "local symlink, already live" and leaves that snapshot
@@ -177,7 +189,8 @@ export function registerGrokPluginHost(opts) {
           || `reinstalled (prior: ${trimOut(uninstall) || 'uninstalled'})`,
       };
     }
-    // Fail-open: journal package remains; host may need a manual reinstall.
+    // Fail-open for install path: journal package remains; host may need a manual reinstall.
+    // Callers that require a live host after restage must treat this as failure.
     return {
       status: 'already',
       detail:
