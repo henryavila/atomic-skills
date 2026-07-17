@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Product docs site cutover
+
+Canonical human product docs: **https://atomic-skills.henryavila.com** (static site under `site/dist/`, CI via `.github/workflows/deploy-docs.yml`). Offline: `npm run generate-site` then open `site/dist/index.html`.
+
+- **Catalog v0.3 product fields.** Top-level `product:` (what_is / what_is_not / docs_url / install.primary) and per-skill `iron_law` are validated SSOT for the README envelope and site generators.
+- **Slim README.** npm/GitHub envelope only: positioning, install, host tiers, compact skills table. Long skill blurbs and module essays live on the product docs site, not in README body regions.
+- **Engineering archive stays off the product site.** `docs/kb/`, `docs/design/`, plans, audits, and handoffs remain repo MD for agents and maintainers; they are not published as product pages. Generated per-skill Markdown under `docs/skills/` remains a secondary offline/GitHub view (site is the canonical human product surface).
+
 ## [2.0.0] — 2026-05-23
 
 First major bump since 1.8.x. Consolidates **five** threads of work — the
