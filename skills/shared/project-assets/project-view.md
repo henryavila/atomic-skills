@@ -256,6 +256,7 @@ Steps:
    - Active initiative slug + task progress (e.g. `3/7 done, 1 blocked`)
    - Next action
    - CROSS-MODEL REVIEW line (see `{{ASSETS_PATH}}/project-drift.md` § CROSS-MODEL REVIEW tracking)
+   - When the active plan has `executionMode: automate`: **PLAN-END REVIEW** line (missing receipt / user validation pending / ok) — see `{{ASSETS_PATH}}/project-drift.md` § *Plan-end receipt visibility (automate — read-only)*. Read-only; never mutates.
    - Completion-drift offer (see "Completion-drift offer" below — read-only; `reconcile` is the only mutation path)
 
 ## `--terminal`
@@ -289,6 +290,7 @@ If there is an active initiative whose `branch:` matches `git rev-parse --abbrev
      The `solves` line is mandatory in the render — when `context.solves` is absent (shouldn't happen post-migration, but legacy data may), render `solves: (legacy — re-ratify to articulate)` to nudge the user toward `re-ratify <id>`.
   5. NEXT: `<nextAction>` from frontmatter
   6. **CROSS-MODEL REVIEW** line: see `{{ASSETS_PATH}}/project-drift.md` § CROSS-MODEL REVIEW tracking — this single line tells the user whether the work-in-progress has been adversarially reviewed since the last meaningful change, and surfaces the `review-due` command if not.
+  7. **PLAN-END REVIEW** line (only when the active plan's `executionMode` is `automate` / `isAutomateActive` would be true): see `{{ASSETS_PATH}}/project-drift.md` § *Plan-end receipt visibility (automate — read-only)*. Surfaces missing `planEndReview` receipt, pending `userValidatedAt`, or both-ok — pure helpers `planEndReviewOk` / `userValidationOk` / `automatePlanEndGatesOk` from `src/plan-end-review.js`. Read-only; finalize/archive enforce the HARD-BLOCK separately.
 
 Unicode icons:
 - `✓` done, `◉` active, `·` pending, `⊘` blocked, `⌂` parked, `⇥` emerged

@@ -49,6 +49,14 @@ SE TRAVAR        → project why <id>   ·   project status --browser   ·   pro
 GUIA VISUAL      → project help --html      (abre a doc visual no navegador)
 ```
 
+Quando o plano ativo tem `executionMode: automate`, `help` / status **podem**
+acrescentar uma linha read-only de **PLAN-END REVIEW** (receipt ausente /
+`userValidatedAt` pendente / ok) — ver `{{ASSETS_PATH}}/project-drift.md`
+§ *Plan-end receipt visibility*. Nunca muta; o HARD-BLOCK de
+finalize/archive vive em `project-finalize.md` Step 1.7 e
+`project-transitions.md` `archive` step 1b (`planEndReviewOk` +
+`userValidationOk`; `--skip-plan-end-review` exige reason não-vazio).
+
 Se a chamada acima não puder rodar ou produzir saída vazia, aplique fail-open:
 imprima o resumo no-args quando ele já estiver disponível no contexto da
 invocação, acrescente uma linha `SE TRAVAR` apontando para `project why`,
