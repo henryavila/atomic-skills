@@ -577,6 +577,8 @@ describe('uninstall wiring — residual gate + multi-owner', () => {
         assert.equal(baseHasGrokResidual(project, readManifest(project)), true);
 
         const { calls, run } = mockHostRunner();
+        // listInstallBases inject is intentionally ignored by the combined path
+        // (C3: post-removal snapshot from trusted scan only).
         const released = releaseGrokAndUnregisterRuntime(project, {
           home,
           listInstallBases: () => [project],
@@ -589,6 +591,203 @@ describe('uninstall wiring — residual gate + multi-owner', () => {
         assert.equal(released.host.status, 'unregistered');
         assert.ok(calls.some((c) => c.args[1] === 'uninstall'));
         assert.equal(released.remaining, 0);
+        assert.equal(
+          existsSync(join(home, '.atomic-skills', 'installs.json')),
+          false,
+          'last owner registry reclaimed',
+        );
+      });
+    });
+  });
+
+  test('P0-C C2: corrupt registry — no registry mutation + no host unregister', () => {
+    withTmp((home) => {
+      withHome(home, () => {
+        const project = join(home, 'proj-corrupt');
+        mkdirSync(join(project, '.atomic-skills'), { recursive: true });
+        writeManifest(project, {
+          effects: [],
+          version: '2.0.0',
+          language: 'en',
+          ides: ['grok'],
+          files: {},
+        });
+        stagePluginPackage(project);
+        mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+        const corruptBody = 'NOT_JSON{{{';
+        const regPath = join(home, '.atomic-skills', 'installs.json');
+        writeFileSync(regPath, corruptBody);
+        applyGrokAgentsIsolation({ ides: ['grok'], home });
+
+        const { calls, run } = mockHostRunner();
+        const released = releaseGrokAndUnregisterRuntime(project, {
+          home,
+          run,
+          resolveBin: () => '/mock/grok',
+          env: { HOME: home },
+          // Malicious override that would claim "no other owners" and force last-owner
+          // unregister if the combined path honored it — must be ignored after untrusted scan.
+          listInstallBases: () => [],
+        });
+
+        assert.equal(released.host.status, 'skipped');
+        assert.match(released.host.detail || '', /registry-untrusted/i);
+        assert.equal(released.isolation.status, 'skipped');
+        assert.equal(released.lastOwner, false);
+        assert.equal(calls.length, 0, 'no host CLI on untrusted registry');
+        assert.equal(
+          readFileSync(regPath, 'utf8'),
+          corruptBody,
+          'corrupt registry must not be rewritten',
+        );
+        assert.ok(skillsIgnoreContainsAll(readFileSync(resolveGrokUserConfigPath({ home }), 'utf8')));
+      });
+    });
+  });
+
+  test('P0-C C1: last-owner host failure keeps basePath in registry', () => {
+    withTmp((home) => {
+      withHome(home, () => {
+        const project = join(home, 'proj-fail-host');
+        mkdirSync(join(project, '.atomic-skills'), { recursive: true });
+        writeManifest(project, {
+          effects: [],
+          version: '2.0.0',
+          language: 'en',
+          ides: ['grok'],
+          files: {},
+        });
+        stagePluginPackage(project);
+        mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+        writeFileSync(
+          join(home, '.atomic-skills', 'installs.json'),
+          JSON.stringify([project]),
+        );
+        applyGrokAgentsIsolation({ ides: ['grok'], home });
+
+        const { calls, run } = mockHostRunner({
+          run: (_bin, args) => {
+            if (args[1] === 'uninstall') {
+              return { status: 1, stdout: '', stderr: 'host busy / half-applied' };
+            }
+            return { status: 1, stdout: '', stderr: 'unexpected' };
+          },
+        });
+
+        const released = releaseGrokAndUnregisterRuntime(project, {
+          home,
+          run,
+          resolveBin: () => '/mock/grok',
+          env: { HOME: home },
+        });
+
+        assert.equal(released.lastOwner, true);
+        assert.equal(released.host.status, 'failed');
+        assert.ok(calls.some((c) => c.args[1] === 'uninstall'));
+        // Registry must still list project so a later retry can re-attempt release.
+        const reg = JSON.parse(readFileSync(join(home, '.atomic-skills', 'installs.json'), 'utf8'));
+        const list = Array.isArray(reg) ? reg : (reg.owners || []).map((o) => o.basePath || o);
+        assert.ok(
+          list.some((p) => sameInstallBase(p, project)),
+          'last-owner host failure must not drop registry ownership',
+        );
+        assert.equal(released.remaining, 1);
+      });
+    });
+  });
+
+  test('P0-C C1 fail-open: last-owner binary missing still unregisters registry', () => {
+    withTmp((home) => {
+      withHome(home, () => {
+        const project = join(home, 'proj-no-bin');
+        mkdirSync(join(project, '.atomic-skills'), { recursive: true });
+        writeManifest(project, {
+          effects: [],
+          version: '2.0.0',
+          language: 'en',
+          ides: ['grok'],
+          files: {},
+        });
+        stagePluginPackage(project);
+        mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+        writeFileSync(
+          join(home, '.atomic-skills', 'installs.json'),
+          JSON.stringify([project]),
+        );
+
+        const { calls, run } = mockHostRunner();
+        const released = releaseGrokAndUnregisterRuntime(project, {
+          home,
+          run,
+          resolveBin: () => null, // fail-open: binary gone
+          env: { HOME: home },
+        });
+
+        assert.equal(released.lastOwner, true);
+        assert.equal(released.host.status, 'skipped');
+        assert.equal(calls.length, 0);
+        assert.equal(released.remaining, 0);
+        assert.equal(existsSync(join(home, '.atomic-skills', 'installs.json')), false);
+      });
+    });
+  });
+
+  test('P0-C C3: multi-owner uses post-removal remainingBases (survivor kept); caller listInstallBases ignored', () => {
+    withTmp((home) => {
+      withHome(home, () => {
+        const a = join(home, 'proj-a');
+        const b = join(home, 'proj-b');
+        for (const p of [a, b]) {
+          mkdirSync(join(p, '.atomic-skills'), { recursive: true });
+          writeManifest(p, {
+            effects: [],
+            version: '2.0.0',
+            language: 'en',
+            ides: ['grok'],
+            files: {},
+          });
+          stagePluginPackage(p);
+        }
+        mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+        writeFileSync(
+          join(home, '.atomic-skills', 'installs.json'),
+          JSON.stringify([a, b]),
+        );
+        applyGrokAgentsIsolation({ ides: ['grok'], home });
+
+        const { calls, run } = mockHostRunner({
+          run: (_bin, args) => {
+            if (args[1] === 'install') {
+              return { status: 1, stdout: '', stderr: 'Plugin already installed' };
+            }
+            if (args[1] === 'uninstall') {
+              return { status: 0, stdout: 'uninstalled\n', stderr: '' };
+            }
+            return { status: 1, stdout: '', stderr: 'unexpected' };
+          },
+        });
+
+        // Caller claims "no survivors" (empty list) — if honored, would last-owner
+        // unregister host and drop isolation. Combined path must force remainingBases
+        // from the trusted post-removal snapshot (still includes B).
+        const released = releaseGrokAndUnregisterRuntime(a, {
+          home,
+          listInstallBases: () => [],
+          run,
+          resolveBin: () => '/mock/grok',
+          env: { HOME: home },
+          restageSurvivor: true,
+        });
+
+        assert.equal(released.lastOwner, false, 'survivor B must be visible via remainingBases');
+        assert.equal(released.host.status, 'kept');
+        assert.ok(!calls.some((c) => c.args[1] === 'uninstall'), 'must not host-uninstall while B remains');
+        assert.equal(released.remaining, 1);
+        const reg = JSON.parse(readFileSync(join(home, '.atomic-skills', 'installs.json'), 'utf8'));
+        const list = Array.isArray(reg) ? reg : [];
+        assert.ok(!list.some((p) => sameInstallBase(p, a)), 'A finalized out of registry');
+        assert.ok(list.some((p) => sameInstallBase(p, b)), 'B remains registered');
+        assert.ok(skillsIgnoreContainsAll(readFileSync(resolveGrokUserConfigPath({ home }), 'utf8')));
       });
     });
   });
