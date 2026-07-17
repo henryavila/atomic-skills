@@ -34,15 +34,16 @@
  */
 
 import {
-  existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, renameSync,
+  existsSync, readFileSync, unlinkSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import {
   createJsonMergeEffect,
   stableEffectId,
   readEffects,
   assertNoIncompleteTransaction,
   acquireInstallLocks,
+  atomicWriteJsonNoFollow,
 } from '@henryavila/minimalist-installer';
 import { createStageRuntimeArtifactsEffect } from './effects/stage-runtime-artifacts.js';
 import {
@@ -166,18 +167,6 @@ export function findDroppedAutoUpdateEffects(priorManifest, plannedIds) {
 }
 
 /**
- * @param {string} path
- * @param {object} data
- */
-function atomicWriteJson(path, data) {
-  const dir = dirname(path);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const tmp = `${path}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
-  renameSync(tmp, path);
-}
-
-/**
  * @param {string} projectDir
  * @returns {object|null}
  */
@@ -192,11 +181,18 @@ function readPendingLedger(projectDir) {
 }
 
 /**
+ * Path-safe pending ledger write (engine atomic no-follow; P1-C / review F7).
+ * Relative path under projectDir is always `${MANIFEST_DIR}/${AUTO_UPDATE_DROP_PENDING_FILE}`.
+ *
  * @param {string} projectDir
  * @param {object} ledger
  */
 function writePendingLedger(projectDir, ledger) {
-  atomicWriteJson(autoUpdateDropPendingPath(projectDir), ledger);
+  atomicWriteJsonNoFollow(
+    projectDir,
+    `${MANIFEST_DIR}/${AUTO_UPDATE_DROP_PENDING_FILE}`,
+    ledger,
+  );
 }
 
 /**

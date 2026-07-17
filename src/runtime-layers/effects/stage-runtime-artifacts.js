@@ -1,5 +1,5 @@
 import {
-  chmodSync, readFileSync, readdirSync, statSync, existsSync, rmdirSync,
+  readFileSync, readdirSync, statSync, existsSync, rmdirSync,
 } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import {
@@ -91,26 +91,17 @@ export const createStageRuntimeArtifactsEffect = () => ({
         stageTreeNoFollow(basePath, item.path, item.sourceTree);
       } else if ('source' in item) {
         const data = readFileSync(item.source); // source is package asset (outside base)
+        // Mode is applied via writeFileNoFollow (O_CREAT + temp open) — no follow
+        // chmodSync after write (TOCTOU if leaf replaced with symlink).
         writeFileNoFollow(basePath, item.path, data, {
           atomic: true,
           mode: item.mode != null ? item.mode : 0o644,
         });
-        if (item.mode != null) {
-          // writeFileNoFollow sets mode on create; re-chmod for replace safety.
-          try {
-            chmodSync(join(basePath, item.path), item.mode);
-          } catch { /* best-effort */ }
-        }
       } else {
         writeFileNoFollow(basePath, item.path, item.content, {
           atomic: true,
           mode: item.mode != null ? item.mode : 0o644,
         });
-        if (item.mode != null) {
-          try {
-            chmodSync(join(basePath, item.path), item.mode);
-          } catch { /* best-effort */ }
-        }
       }
 
       if (ownsTarget) created.push(item.path);
