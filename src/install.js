@@ -509,6 +509,43 @@ export function isAtomicSkillsArtifact(filePath, knownCurrentNames) {
 }
 
 /**
+ * P1-A: package leftover at a desired path under our namespace.
+ * Command files often lack `name:` (only `description:`) so isAtomicSkillsArtifact
+ * alone misses them. Eligible when:
+ *   - path is under the atomic-skills namespace segment, AND
+ *   - content starts with YAML frontmatter, AND
+ *   - basename (or parent dir for SKILL.md) matches a known/historical skill name.
+ *
+ * Foreign user files without frontmatter or with unrelated basenames stay unmanaged.
+ *
+ * @param {string} filePath absolute path
+ * @param {string} relPath relative desired path
+ * @param {Set<string>} knownCurrentNames
+ * @returns {boolean}
+ */
+export function isAtomicSkillsNamespaceLeftover(filePath, relPath, knownCurrentNames) {
+  if (typeof relPath !== 'string' || !relPath.includes(SKILL_NAMESPACE)) return false;
+  let head;
+  try {
+    head = readFileSync(filePath, 'utf8').slice(0, 256);
+  } catch {
+    return false;
+  }
+  if (!head.startsWith('---\n') && !head.startsWith('---\r\n')) return false;
+  const base = basename(relPath);
+  const stem = base.includes('.') ? base.slice(0, base.lastIndexOf('.')) : base;
+  if (stem === 'SKILL') {
+    const parent = basename(dirname(relPath));
+    return knownCurrentNames.has(parent) || HISTORICAL_ATOMIC_SKILLS_NAMES.has(parent);
+  }
+  // Namespace root or asset paths are package-owned when frontmatter-shaped.
+  if (stem === SKILL_NAMESPACE || stem.startsWith('_') || relPath.includes('/_assets/')) {
+    return true;
+  }
+  return knownCurrentNames.has(stem) || HISTORICAL_ATOMIC_SKILLS_NAMES.has(stem);
+}
+
+/**
  * Scan obsolete install paths (see LEGACY_NAMESPACE_PATHS) for any file
  * still living under the atomic-skills namespace. These are invisible to
  * the manifest-based orphan detector because they predate the current
@@ -636,7 +673,11 @@ export function installSkills(projectDir, options, callbacks = {}) {
   const knownCurrentNames = new Set(Object.keys(catalogForAdopt?.core || {}));
   const adoptResult = adoptPreexistingDesiredFiles(projectDir, desired, {
     forceAdopt,
-    isArtifact: (abs) => isAtomicSkillsArtifact(abs, knownCurrentNames),
+    isArtifact: (abs) => {
+      if (isAtomicSkillsArtifact(abs, knownCurrentNames)) return true;
+      const rel = relative(projectDir, abs);
+      return isAtomicSkillsNamespaceLeftover(abs, rel, knownCurrentNames);
+    },
     knownPackageHashes,
   });
   const excludeDesiredPaths = adoptResult.excludeFromDesired || [];

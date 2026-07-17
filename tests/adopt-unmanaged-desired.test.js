@@ -94,13 +94,12 @@ describe('unmanaged-desired install path (P1-A / F-004)', () => {
     assert.equal(readFileSync(join(tempDir, rel), 'utf8'), userBody);
   });
 
-  it('stale package leftover with safelist frontmatter is reclaimed', () => {
-    const rel = '.claude/skills/atomic-skills/project/SKILL.md';
-    mkdirSync(join(tempDir, '.claude/skills/atomic-skills/project'), { recursive: true });
-    // name: project is a known catalog skill → isAtomicSkillsArtifact true
+  it('stale package leftover (namespace + frontmatter + known basename) is reclaimed', () => {
+    const rel = '.claude/commands/atomic-skills/project.md';
+    mkdirSync(join(tempDir, '.claude/commands/atomic-skills'), { recursive: true });
     writeFileSync(
       join(tempDir, rel),
-      '---\nname: project\ndescription: stale leftover\n---\n\nold body from prior install\n',
+      '---\ndescription: stale leftover\n---\n\nold body from prior install\n',
     );
 
     writeManifest(tempDir, {
