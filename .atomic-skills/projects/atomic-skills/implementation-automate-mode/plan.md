@@ -5,7 +5,7 @@ title: Implementation Automate Mode
 version: "1.0"
 status: active
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:20:13.000Z
+lastUpdated: 2026-07-17T19:20:22.000Z
 branch: plan/implementation-automate-mode
 currentPhase: F1
 parallelismAllowed: false
@@ -56,6 +56,14 @@ phases:
             kind: shell
             command: node --test tests/implement-mode.test.js tests/complex-task.test.js tests/plan-end-review.test.js
             expectExitCode: 0
+          metAt: 2026-07-17T19:20:22.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:20:22.000Z
+            verifiedCommit: 8d27f374d8dc02ca75ed600f418bf215e2a06672
+            passed: true
+            exitCode: 0
+            outputSummary: "  ✔ false for non-ISO / invalid timestamps under automate (0.102666ms)   ✔ true only with non-empty ISO timestamp under automate (0.059375ms)   ✔ optional validatorId does not alone satisfy the gate (0.034875ms) ✔ userValidationOk (0.454792ms) ℹ tests 45 ℹ suites 5 ℹ pass 45 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 ℹ todo 0 ℹ duration_ms 40.515708"
         - id: F0-G2
           description: Helpers are pure modules importable without side effects on import.
           status: met
@@ -63,6 +71,14 @@ phases:
             kind: shell
             command: node -e "import('./src/implement-mode.js'); import('./src/complex-task.js'); import('./src/plan-end-review.js');"
             expectExitCode: 0
+          metAt: 2026-07-17T19:20:22.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:20:22.000Z
+            verifiedCommit: 8d27f374d8dc02ca75ed600f418bf215e2a06672
+            passed: true
+            exitCode: 0
+            outputSummary: import ok
     status: done
     businessIntent:
       value: "Helpers puros sao a unica fonte da verdade do modo: mode parse, isComplexTask, planEndReviewOk e userValidationOk compartilhados por implement/transitions/finalize."
@@ -102,7 +118,7 @@ phases:
             kind: shell
             command: test -s skills/shared/implement-phase-evaluator.md && rg -n 'evaluation agent|user validates' skills/shared/implement-phase-evaluator.md skills/core/implement.md
             expectExitCode: 0
-    status: active
+    status: pending
     summary: "Implement maestro: writer code-only, evaluator, sibling isolation, lease, merge-before-done."
   - id: F2
     slug: implementation-automate-mode-f2-review-policy-phase-done-and-co
