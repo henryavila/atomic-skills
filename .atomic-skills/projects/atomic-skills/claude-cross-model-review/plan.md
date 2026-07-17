@@ -319,7 +319,7 @@ Close the host×reviewer matrix so Codex and Grok hosts can run sealed external 
 verified_by: live `claude 2.1.212` headless run against this plan (~84s, exit 0).
 
 ```bash
-claude --safe-mode -p --effort high --tools "Read,Grep,Glob" \
+claude --safe-mode -p --effort xhigh --tools "Read,Grep,Glob" \
   --permission-mode dontAsk --no-session-persistence --disable-slash-commands \
   --output-format text < briefing.md > out.md
 ```

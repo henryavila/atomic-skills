@@ -62,7 +62,7 @@ run_with_timeout <TIMEOUT_SECONDS> claude \
   --safe-mode \
   -p \
   ${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"} \
-  --effort high \
+  --effort xhigh \
   --tools "Read,Grep,Glob" \
   --permission-mode dontAsk \
   --no-session-persistence \
