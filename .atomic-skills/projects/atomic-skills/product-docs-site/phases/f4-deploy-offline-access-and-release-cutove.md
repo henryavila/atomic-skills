@@ -4,11 +4,11 @@ slug: product-docs-site-f4-deploy-offline-access-and-release-cutove
 title: Deploy, offline access, and release cutover
 goal: Publish the site to the canonical domain and ensure maintainers can open
   docs without relying only on memory of the README.
-status: active
+status: done
 branch: plan/product-docs-site
 started: 2026-07-17T16:22:27.652Z
-lastUpdated: 2026-07-17T16:22:27.652Z
-nextAction: Start T-011 deploy workflow
+lastUpdated: 2026-07-17T16:27:23.205Z
+nextAction: null
 parentPlan: product-docs-site
 phaseId: F4
 businessIntent:
@@ -20,9 +20,9 @@ businessIntent:
     without request.
   doneWhen: deploy path exists in-repo; CHANGELOG mentions docs site; offline path
     documented.
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F4-G1
@@ -32,7 +32,15 @@ exitGates:
       command: test -f .github/workflows/deploy-docs.yml -o -f
         .github/workflows/pages.yml -o -f docs/deploy.md -o -f site/DEPLOY.md
       expectExitCode: 0
-    status: pending
+    status: met
+    metAt: 2026-07-17T16:27:23.205Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:27:23.205Z
+      verifiedCommit: b6f901a9cc90d364439e4562df80e97167a69823
+      passed: true
+      exitCode: 0
+      outputSummary: F4-G1
   - id: F4-G2
     description: CHANGELOG records the docs site cutover.
     verifier:
@@ -40,7 +48,15 @@ exitGates:
       command: grep -Eiq 'atomic-skills.henryavila.com|docs site|product docs'
         CHANGELOG.md
       expectExitCode: 0
-    status: pending
+    status: met
+    metAt: 2026-07-17T16:27:23.205Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:27:23.205Z
+      verifiedCommit: b6f901a9cc90d364439e4562df80e97167a69823
+      passed: true
+      exitCode: 0
+      outputSummary: F4-G2
 stack:
   - id: 1
     title: Deploy, offline access, and release cutover
@@ -68,8 +84,16 @@ tasks:
         path: site/DEPLOY.md
     summary: Workflow/docs de deploy estático para o domínio.
     weight: 2
-    status: pending
-    lastUpdated: 2026-07-17T16:22:27.652Z
+    status: done
+    lastUpdated: 2026-07-17T16:27:23.205Z
+    closedAt: 2026-07-17T16:27:23.205Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:27:23.205Z
+      verifiedCommit: b6f901a9cc90d364439e4562df80e97167a69823
+      passed: true
+      exitCode: 0
+      outputSummary: T-011
   - id: T-012
     title: Offline or package-local docs path
     scopeBoundary:
@@ -92,8 +116,16 @@ tasks:
         path: bin/cli.js
     summary: Caminho offline/package-local para abrir o site gerado.
     weight: 2
-    status: pending
-    lastUpdated: 2026-07-17T16:22:27.652Z
+    status: done
+    lastUpdated: 2026-07-17T16:27:23.205Z
+    closedAt: 2026-07-17T16:27:23.205Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:27:23.205Z
+      verifiedCommit: b6f901a9cc90d364439e4562df80e97167a69823
+      passed: true
+      exitCode: 0
+      outputSummary: T-012
   - id: T-013
     title: Release checklist for docs cutover
     scopeBoundary:
@@ -113,11 +145,32 @@ tasks:
         path: CHANGELOG.md
     summary: CHANGELOG/cutover note do site de docs.
     weight: 1
-    status: pending
-    lastUpdated: 2026-07-17T16:22:27.652Z
+    status: done
+    lastUpdated: 2026-07-17T16:27:23.205Z
+    closedAt: 2026-07-17T16:27:23.205Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:27:23.205Z
+      verifiedCommit: b6f901a9cc90d364439e4562df80e97167a69823
+      passed: true
+      exitCode: 0
+      outputSummary: T-013
 parked: []
 emerged: []
 summary: Deploy CI, acesso offline/local e nota de release/CHANGELOG.
+closedAt: 2026-07-17T16:27:23.205Z
+reviewGate:
+  at: b6f901a9cc90d364439e4562df80e97167a69823
+  mode: codex
+  provider: gpt-5.5
+  verdict: majors_fixed
+  counts:
+    blocker: 0
+    critical: 0
+    major: 2
+    minor: 0
+    nit: 0
+  reviewFile: .atomic-skills/reviews/product-docs-site-f4-f5-codex-pass1.md
 ---
 
 # F4 deploy offline release

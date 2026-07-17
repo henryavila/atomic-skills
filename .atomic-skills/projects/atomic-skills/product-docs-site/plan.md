@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: product-docs-site
 title: Product docs site from catalog SSOT
 version: "1.0"
-status: active
+status: done
 started: 2026-07-17T14:28:20.714Z
-lastUpdated: 2026-07-17T16:22:27.652Z
+lastUpdated: 2026-07-17T16:27:23.205Z
 branch: plan/product-docs-site
-currentPhase: F4
+currentPhase: F5
 parallelismAllowed: false
 principles:
   - id: P1
@@ -229,22 +229,24 @@ phases:
       criteria:
         - id: F4-G1
           description: Deploy path for the static site exists in-repo.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test -f .github/workflows/deploy-docs.yml -o -f
               .github/workflows/pages.yml -o -f docs/deploy.md -o -f
               site/DEPLOY.md
             expectExitCode: 0
+          metAt: 2026-07-17T16:27:23.205Z
         - id: F4-G2
           description: CHANGELOG records the docs site cutover.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: grep -Eiq 'atomic-skills.henryavila.com|docs site|product docs'
               CHANGELOG.md
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T16:27:23.205Z
+    status: done
     summary: Deploy CI, acesso offline/local e nota de release/CHANGELOG.
     businessIntent:
       value: Publish static product docs and give maintainers offline access + release
@@ -269,16 +271,18 @@ phases:
       criteria:
         - id: F5-G1
           description: check-docs reflects the post-site decision on docs/skills generation.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run check-docs
             expectExitCode: 0
-    status: pending
+          metAt: 2026-07-17T16:27:23.205Z
+    status: done
     summary: "Decisão explícita: manter ou aposentar docs/skills gerados."
 references: []
 planActive: true
 planTitle: Product docs site from catalog SSOT
+closedAt: 2026-07-17T16:27:23.205Z
 ---
 
 # Product docs site from catalog SSOT

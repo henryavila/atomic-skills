@@ -20,7 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
-| product-docs-site | active | F0 | plan/product-docs-site | 2026-07-17 | 0/6 |
+| product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
 
 
 
