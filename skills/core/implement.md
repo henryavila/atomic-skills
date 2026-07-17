@@ -85,10 +85,10 @@ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). A
 | **D** | Sync wait → collect claim report | **SYNC WAIT** until the writer exits. Collect the **claim report** (per task: commit SHAs, paths, verifier command + exit + transcript). Refuse self-certify — claims do not close tasks. |
 | **D.5** | Merge sibling → plan branch | Orchestrator **merges sibling into plan branch before** any task re-verify or `done` (**git-ops only**). Content conflicts ⇒ re-dispatch a code-only fix agent (not hand-edit). Refuse resume mid-merge. Clear writer lease only after sync-wait + claim collect + **merge settle**. |
 | **E** | Post-merge re-verify → done | For each claimed task **on the MERGED plan tree only** (**post-merge** re-verify mandatory): re-run verifier (verify-claim / `done` path). Verifier fail ⇒ **do not** `done`; re-dispatch code-only fix agent (max **2**) or stop for operator — **never** silent Mode-1 self-code. If `isComplexTask` → `review-code --mode=both` on the validated task commit range; blocker/critical block `done`. Only on verifier pass (+ complex review clear when required) → orchestrator `done <task-id>`. |
-| **F** | Evaluation agent | When all phase tasks are `done`, spawn a separate **evaluation agent** (fresh context, not the writer) — read-only structured pass/fail vs goal + gates + `businessIntent`. See evaluator asset. |
-| **G** | phase-done | Only after evaluation pass (or operator disposition of findings): `phase-done` with review mode **`both`** under automate (F2 wires transition default; this skill still states the order). Durable decisions log visible for audit. |
+| **F** | Evaluation agent | When **all** phase tasks are `done`, spawn a separate **evaluation agent** (fresh context, not the writer) — read-only structured pass/fail vs goal + gates + `businessIntent`. Never edits product source or project state. Detail: `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`. On blocker/critical: reopen affected tasks or blocking follow-ups; re-dispatch code-only fix agent (max **2**); re-run verifiers/complex reviews; re-evaluate. |
+| **G** | phase-done | Fixed order: tasks done → evaluation agent → **then** `phase-done` with `review-code --mode=both` (F2 wires transition default; implement states the order). Durable decisions log visible for audit. |
 | **H** | Next phase | Re-enter Step A with a new writer (+ later a new evaluator); prior contexts discarded. Concurrent phase writers forbidden. |
-| **I** | Plan end | After last phase: plan-end `external-both` + **`planEndReviewOk`** (`src/plan-end-review.js`) → user validates implementation + decisions → only then finalize/archive. |
+| **I** | Plan end | After last phase: plan-end `external-both` + **`planEndReviewOk`** (`src/plan-end-review.js`) → **user validates** implementation + decisions (`userValidationOk`) → only then finalize/archive. Never auto-archive after last phase green. |
 
 **Hard rules for the pure maestro path:**
 
@@ -97,6 +97,8 @@ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). A
 - Never self-certify; never silent Mode-1 fallback under automate.
 - Max **2** re-dispatch rounds for verifier/review/evaluator fail, then mandatory operator stop.
 - Every routing / skip / re-dispatch / scope-exit / review-severity disposition is written to the durable decisions log / handoff decision log.
+- Fixed evaluation order: all phase tasks `done` → **evaluation agent** → phase-done `review-code --mode=both`.
+- After last phase the **user validates** implementation before finalize/archive.
 
 ### Step 2 — Execute one task (single-threaded) — Mode 1 only
 
@@ -129,9 +131,9 @@ For the chosen task, in this order:
 When the last task of the phase closes, `done` announces the phase transition.
 
 - **Mode 1:** Run `phase-done` (`{{ASSETS_PATH}}/project-transitions.md`): it executes every pending exit-gate verifier (verify-on-done), runs the mandatory `review-code` phase-diff gate, advances the plan, and writes phase-boundary microcommits for each logical state checkpoint.
-- **Automate (`isAutomateActive`):** Fixed order — all phase tasks `done` → **evaluation agent** → then `phase-done` with `review-code --mode=both` (default under automate; F2 owns transition wiring). Do not skip the evaluation agent. See pure-maestro Steps F–G.
+- **Automate (`isAutomateActive`):** Fixed order — all phase tasks `done` → **evaluation agent** (read-only; see `skills/shared/implement-phase-evaluator.md`) → then `phase-done` with `review-code --mode=both` (default under automate; F2 owns transition wiring). Do not skip the evaluation agent. On evaluation blocker/critical, reopen/fix (max 2 re-dispatches) before phase-done. Orchestrator writes dispositions to the durable decisions log.
 
-Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule). Finalize/archive after the last phase still require `planEndReviewOk` and that the user validates implementation (automate).
+Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule). Finalize/archive after the last phase still require `planEndReviewOk` and that the **user validates** implementation (automate / `userValidationOk` in `src/plan-end-review.js`).
 
 **Session cut-over (advisory, v1).** At a phase boundary, if the next pending task is structurally unrelated to the recent working set, you MAY recommend writing the handoff and starting a fresh session (a tightly-scoped fresh context beats a large stale one). This is advisory only — see `docs/design/project-orchestrator/06-session-boundary-and-telemetry.md` (F-E1). It never forces a cut, and it never reads a self-reported context-%.
 

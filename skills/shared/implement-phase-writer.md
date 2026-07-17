@@ -133,6 +133,20 @@ On post-merge verifier fail, content merge conflict, complex-review blocker/crit
 
 ---
 
+## After claims — orchestrator only (not the writer)
+
+The phase writer stops at the claim report. What follows is **never** the writer's job:
+
+1. Merge sibling → plan branch; post-merge re-verify; orchestrator `done` per task.
+2. When **all** phase tasks are `done`: spawn the **evaluation agent** (fresh, read-only — `implement-phase-evaluator.md`).
+3. On evaluation blocker/critical: reopen tasks or blocking follow-ups; re-dispatch code-only fix agent (max 2); re-run verifiers/complex reviews; only then continue.
+4. Then `phase-done` with `review-code --mode=both`.
+5. After last phase: `planEndReviewOk` + **user validates** implementation → finalize/archive.
+
+The writer **never** runs the evaluation agent, never calls phase-done, and never self-certifies the phase.
+
+---
+
 ## Cross-links
 
 - Maestro loop: `skills/core/implement.md` (Automate mode — pure maestro Steps A–I).
