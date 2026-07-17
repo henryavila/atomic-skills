@@ -1,6 +1,6 @@
 # Plan: Installer hardening — P0 + P1
 
-**Status:** implementing (orchestrated 2026-07-17)  
+**Status:** implemented on `plan/installer-hardening-p0-p1` (2026-07-17) — ship-with-caveats after final cross-model  
 **Created:** 2026-07-17  
 **Audit source (canonical findings):** [docs/audits/installer-audit-2026-07-17.md](../audits/installer-audit-2026-07-17.md)  
 **Prior audit:** [docs/audits/installer-audit-2026-07-10.md](../audits/installer-audit-2026-07-10.md)  
@@ -12,7 +12,11 @@
 
 | Date | Decision | Detail |
 |------|----------|--------|
-| 2026-07-17 | **U+C** | Consumer work + engine PR in parallel. Criterion 1 / P0 green only after pin with durable per-effect journaling + crash-resumable drop-revert. Branch: `plan/installer-hardening-p0-p1`. Order: P0-C → P0-A consumer CLI → P0-B consumer fallback → P0-D → P1; upstream U tracked when engine PR lands. |
+| 2026-07-17 | **U+C** | Consumer work + engine PR in parallel. Branch: `plan/installer-hardening-p0-p1`. |
+| 2026-07-17 | **Pin** | `@henryavila/minimalist-installer` → `67dddc3` (F-001 durable per-effect journal; PR https://github.com/henryavila/minimalist-installer/pull/1). F-002 engine drop-revert **not** in pin — consumer `auto-update-drop-revert.js` is the workaround. |
+| 2026-07-17 | **Done** | P0-A…D + P1-A…F implemented with per-phase cross-model where load-bearing; final local+Codex review + critical remediations. Residual majors: dual lock roots, removeTreeNoFollow following stats, engine F-002, force-incomplete outside-journal ghosts, legacy non-electable survivors. |
+
+**Reviews:** `.atomic-skills/reviews/2026-07-17-p0{a,b,c}-*`, `2026-07-17-plan-final-{local,codex}.md`
 
 ## Goal
 
