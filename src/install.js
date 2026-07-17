@@ -32,6 +32,8 @@ import { applyGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation
 import {
   listKnownInstallBases,
   releaseGrokOutsideJournal,
+  scanKnownInstallBases,
+  sameInstallBase,
 } from './runtime-layers/grok-refcount.js';
 import { withSharedRuntimeLocks } from './runtime-locks.js';
 import { verifyInstall, decisionsByState } from './status-verify.js';
@@ -307,13 +309,15 @@ export function unregisterAndMaybeReclaimRuntime(basePath) {
 /**
  * Registry remove + optional runtime reclaim without acquiring locks.
  * Caller MUST hold `withSharedRuntimeLocks` (or accept races).
+ * Identity compare uses normalize/realpath (sameInstallBase) so equivalent
+ * paths drop correctly after scan-side normalize.
  * @param {string} basePath
  * @returns {number} remaining installs
  */
 function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
   const p = installsRegistryPath();
   const prior = readInstallsRegistry(p);
-  const next = prior.list.filter((b) => b !== basePath);
+  const next = prior.list.filter((b) => !sameInstallBase(b, basePath));
   if (next.length === 0) {
     try { unlinkSync(p); } catch {}
     removeRuntimeArtifacts();
@@ -324,14 +328,33 @@ function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
 }
 
 /**
+ * Current registry owner count when readable; -1 if corrupt/unreadable.
+ * Does not throw — used for return values on fail-closed skip paths.
+ * @returns {number}
+ */
+function registryOwnerCountSafe() {
+  try {
+    return readInstallsRegistry(installsRegistryPath()).list.length;
+  } catch {
+    return -1;
+  }
+}
+
+/**
  * Grok outside-journal release + registry unregister under one shared lock
  * (Codex F-001 / P0-C concurrency).
  *
- * Order under the lock:
- * 1. Drop this base from the installs registry (so concurrent peers do not see
- *    us as a survivor).
- * 2. `releaseGrokOutsideJournal` against the post-removal owner set.
- * 3. Reclaim shared runtime artifacts only when the registry is empty.
+ * Order under the lock (P0-C C1–C3):
+ * 1. Trusted scan of registry (+ known bases). If untrusted → skip host and
+ *    isolation mutations and do **not** mutate the registry.
+ * 2. `remainingBases` = scan bases without this `basePath` (in-memory only).
+ * 3. `releaseGrokOutsideJournal` with `listInstallBases: () => remainingBases`
+ *    forced (caller cannot override — survivor set must be the post-removal
+ *    snapshot, not a re-scan that still includes self).
+ * 4. If last-owner host unregister **failed** (may be half-applied) → keep
+ *    registry so a retry still sees this owner. Fail-open skips (binary
+ *    missing / bridge disabled) still commit unregister.
+ * 5. Else write registry without basePath; if empty → reclaim runtime.
  *
  * Residual race (documented): host CLI (`grok plugin …`) is external and not
  * covered by the O_EXCL file lock — two processes can still interleave host
@@ -340,7 +363,8 @@ function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
  * decision + release sequencing which is the primary dual-keep failure mode.
  *
  * @param {string} basePath
- * @param {object} [releaseOpts] - forwarded to releaseGrokOutsideJournal (minus basePath)
+ * @param {object} [releaseOpts] - forwarded to releaseGrokOutsideJournal
+ *   (`basePath` and `listInstallBases` are controlled here; caller listInstallBases is ignored)
  * @returns {{
  *   remaining: number,
  *   lastOwner: boolean,
@@ -350,14 +374,44 @@ function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
  */
 export function releaseGrokAndUnregisterRuntime(basePath, releaseOpts = {}) {
   return withSharedRuntimeLocks({ basePath }, () => {
-    // Remove self from registry first so last-owner decision is post-removal.
-    const remaining = unregisterAndMaybeReclaimRuntimeUnlocked(basePath);
-    // Note: reclaim already ran inside unlock path when remaining===0.
-    // releaseGrok may still need host/isolation cleanup after last registry owner.
+    const home = releaseOpts.home || process.env.HOME || homedir();
+
+    // 1. Trusted scan — fail-closed: never shrink owners / mutate on corrupt registry.
+    const scan = scanKnownInstallBases(home);
+    if (scan.status === 'untrusted') {
+      return {
+        remaining: registryOwnerCountSafe(),
+        lastOwner: false,
+        host: { status: 'skipped', detail: 'registry-untrusted' },
+        isolation: { status: 'skipped', detail: 'registry-untrusted' },
+      };
+    }
+
+    // 2. Post-removal owner set (in-memory). Do not re-scan ambient state later.
+    const remainingBases = scan.bases.filter((b) => !sameInstallBase(b, basePath));
+
+    // 3. Release against that exact list. Drop caller listInstallBases so it
+    // cannot reintroduce self or diverge from the post-removal snapshot (C3).
+    const { listInstallBases: _ignoredListInstallBases, ...restReleaseOpts } = releaseOpts;
     const released = releaseGrokOutsideJournal({
-      ...releaseOpts,
+      ...restReleaseOpts,
       basePath,
+      listInstallBases: () => remainingBases,
     });
+
+    // 4. Last-owner host failure may leave host half-applied — keep registry
+    // so retry still sees this owner. Fail-open `skipped` (binary gone) commits.
+    if (released.lastOwner && released.host.status === 'failed') {
+      return {
+        remaining: registryOwnerCountSafe(),
+        lastOwner: true,
+        host: released.host,
+        isolation: released.isolation,
+      };
+    }
+
+    // 5. Finalize registry remove + optional runtime reclaim.
+    const remaining = unregisterAndMaybeReclaimRuntimeUnlocked(basePath);
     return {
       remaining,
       lastOwner: released.lastOwner,
