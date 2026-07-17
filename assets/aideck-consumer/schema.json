@@ -938,6 +938,85 @@
         "branch": {
           "type": "string"
         },
+        "executionMode": {
+          "type": "string",
+          "enum": [
+            "automate",
+            "mode1",
+            "1",
+            "default",
+            "2"
+          ],
+          "description": "Optional durable implement execution mode stamp (F2/T-009, design D14). Absent on pre-automate plans (still valid). First confirmed `implement --mode=automate` entry MUST stamp `automate` after interactive operator confirm; stamp alone re-enters pure-maestro + review cadence until `implement --clear-execution-mode` or a recorded clear mutation removes the field. Read with `isAutomateActive({ planExecutionMode })` from src/implement-mode.js."
+        },
+        "userValidatedAt": {
+          "$ref": "#/definitions/isoTimestamp",
+          "description": "Operator validation timestamp for automate finalize/archive (F3/T-010, design D9/D12). Read by userValidationOk({ automateActive: true, userValidatedAt }) from src/plan-end-review.js. Absent on non-automate plans; under executionMode automate, finalize and archive HARD-BLOCK until a non-empty ISO timestamp is recorded after the user validates implementation + decisions."
+        },
+        "planEndReview": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Durable machine-readable plan-end external-both receipt (F3/T-010, design D7/D12). Full narrative review file lives under `.atomic-skills/reviews/` and is linked from the plan body `## Reviews` section; this object is what planEndReviewOk reads. skipPlanEndReview requires non-empty skipReason (CLI: --skip-plan-end-review).",
+          "properties": {
+            "reviewFile": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Path to the persisted plan-end review under `.atomic-skills/reviews/` (e.g. `.atomic-skills/reviews/2026-07-17-1200-my-plan-plan-end.md`)."
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "external-both"
+              ],
+              "description": "Plan-end review mode. Under automate this is always external-both (family-different externals only)."
+            },
+            "range": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Git range reviewed (typically integrationRef/baseRef…HEAD or plan branch range)."
+            },
+            "legs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "description": "External provider id (codex | grok). Known externals only count toward planEndReviewOk."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "succeeded",
+                      "failed",
+                      "skipped"
+                    ],
+                    "description": "Per-leg outcome. Only succeeded + familyDifferent true + known external counts."
+                  },
+                  "familyDifferent": {
+                    "type": "boolean",
+                    "description": "true when the provider family differs from the host (strict; missing does not count)."
+                  }
+                }
+              }
+            },
+            "skipPlanEndReview": {
+              "type": "boolean",
+              "description": "Operator recorded --skip-plan-end-review. Requires non-empty skipReason for planEndReviewOk."
+            },
+            "skipReason": {
+              "type": "string",
+              "description": "Non-empty reason when skipPlanEndReview is true. Prefer SKIP_PLAN_END_REASON_TAXONOMY tokens from src/plan-end-review.js."
+            },
+            "verifiedAt": {
+              "$ref": "#/definitions/isoTimestamp"
+            }
+          }
+        },
         "currentPhase": {
           "type": [
             "string",
