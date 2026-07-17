@@ -65,7 +65,9 @@ Support column in the table:
 
 ## Skills
 
-Compact index (name · one-liner · Iron Law). Full product docs — including modules and long skill write-ups — live on the site linked above. Generated Markdown refs also remain under [`docs/skills/`](docs/skills/).
+Compact index (name · one-liner · Iron Law).
+
+**Dual docs view (intentional):** the product docs site ([online](https://atomic-skills.henryavila.com/) or offline `site/dist/` via `npm run generate-site`) is the **canonical human product surface** (modules, long skill write-ups, project guide). Generated Markdown under [`docs/skills/`](docs/skills/) is a **secondary** offline / agent / GitHub-browsing reference, kept drift-checked by `npm run generate-skill-docs` (still part of `npm run check-docs`). Engineering archive paths (`docs/kb/`, `docs/design/`, plans, audits) are not product docs and are not published on the site.
 
 [VERSION_NOTE_START]: #
 
