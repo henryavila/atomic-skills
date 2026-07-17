@@ -46,11 +46,15 @@ describe('installSkills', () => {
 
   it('reclaims unowned pre-existing skill files when expanding IDEs (no GREENFIELD_CONFLICT)', async () => {
     // Repro: journal only owns a Grok path; disk has a stale Claude skill from an
-    // older install. Re-install with claude-code must not throw GREENFIELD_CONFLICT.
+    // older install. Safelist frontmatter (name: project) → adopt + rewrite (P1-A).
     const { writeManifest } = await import('../src/manifest.js');
-    const rel = '.claude/commands/atomic-skills/project.md';
-    mkdirSync(join(tempDir, '.claude/commands/atomic-skills'), { recursive: true });
-    writeFileSync(join(tempDir, rel), '---\ndescription: stale leftover\n---\n\nold body from prior install\n');
+    // Use SKILL.md path — commands lack name: frontmatter; skills carry name: for safelist.
+    const rel = '.claude/skills/atomic-skills/project/SKILL.md';
+    mkdirSync(join(tempDir, '.claude/skills/atomic-skills/project'), { recursive: true });
+    writeFileSync(
+      join(tempDir, rel),
+      '---\nname: project\ndescription: stale leftover\n---\n\nold body from prior install\n',
+    );
 
     writeManifest(tempDir, {
       journalVersion: 2,
@@ -74,13 +78,13 @@ describe('installSkills', () => {
       scope: 'project',
     });
 
-    assert.ok(existsSync(join(tempDir, rel)), 'project.md must remain after install');
+    assert.ok(existsSync(join(tempDir, rel)), 'project SKILL.md must remain after install');
     const content = readFileSync(join(tempDir, rel), 'utf8');
     assert.ok(!content.includes('old body from prior install'), 'stale body must be replaced');
-    assert.ok(content.includes('description:'), 'rendered skill frontmatter present');
+    assert.ok(content.includes('name: project') || content.includes('description:'), 'rendered skill frontmatter present');
     assert.ok(
       result.files.some((f) => f.path === rel),
-      'installed file set must include reclaimed project.md',
+      'installed file set must include reclaimed project skill',
     );
   });
 
