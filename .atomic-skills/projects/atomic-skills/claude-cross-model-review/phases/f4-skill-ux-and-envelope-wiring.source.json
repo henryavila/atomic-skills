@@ -1,0 +1,110 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F4",
+  "slug": "claude-cross-model-review-f4-skill-ux-and-envelope-wiring",
+  "title": "Skill UX and envelope wiring",
+  "goal": "Operators can select Claude modes from review-code / review-plan; envelope orchestration binds providers/claude; argument-hints document the matrix.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Wire review-code and review-plan modes for Claude",
+      "scopeBoundary": [
+        "Do not reimplement envelope steps inline; reference envelope-orchestration and provider leaves. Do not change local-review agent design."
+      ],
+      "acceptance": [
+        "argument-hint and mode tables include claude, both-claude, and external-both as family-filtered multi-provider.; Flow B accepts mode claude; Flow C both-claude; Flow D order codex then grok then claude (filter same-family).; Provider binding text is «PROVIDER» ∈ {codex, grok, claude}.; Closing summary Provider field lists claude."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "grep -E 'both-claude|--mode=claude|claude' skills/core/review-code.md skills/core/review-plan.md && grep -q 'external-both' skills/core/review-code.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/review-code.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/review-plan.md"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Update shared review UX assets",
+      "scopeBoundary": [
+        "Shared assets only; no dashboard code."
+      ],
+      "acceptance": [
+        "review-mode-ux host-aware picker options include Claude external where family-different.; envelope-orchestration external-both order mentions claude; provider set documents three leaves.; diff-capture flag table includes --mode=claude."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "grep -q 'claude' skills/shared/codex-bridge-assets/review-mode-ux.md && grep -q 'claude' skills/shared/codex-bridge-assets/envelope-orchestration.md && grep -q 'claude' skills/shared/local-review-assets/diff-capture.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/codex-bridge-assets/review-mode-ux.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/codex-bridge-assets/envelope-orchestration.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/local-review-assets/diff-capture.md"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "validate-skills after skill rewrites",
+      "scopeBoundary": [
+        "Fix skill schema issues only; no feature expansion."
+      ],
+      "acceptance": [
+        "npm run validate-skills exits 0."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "npm run validate-skills",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/review-code.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/review-plan.md (only as already edited)"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F4-G1",
+      "description": "Skill bodies and shared UX assets mention Claude modes and external-both order.",
+      "verifier": {
+        "kind": "shell",
+        "command": "grep -q 'both-claude' skills/core/review-code.md && grep -q 'claude' skills/shared/codex-bridge-assets/envelope-orchestration.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F4-G2",
+      "description": "validate-skills is green.",
+      "verifier": {
+        "kind": "shell",
+        "command": "npm run validate-skills",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

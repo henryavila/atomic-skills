@@ -3,8 +3,8 @@ Perform an adversarial analysis of the code changes at {{ARG_VAR}}
 keyword: `wip`, `branch`, `all`; empty → interactive scope picker)
 looking for logic bugs, race conditions, error handling gaps,
 schema/migration inconsistencies, and missing tests. Step 0 picks a mode:
-`local`, `codex`, `grok`, `both` (local→**host external default**),
-`both-codex`, `both-grok`, or `external-both`. Full mode table, host-aware
+`local`, `codex`, `grok`, `claude`, `both` (local→**host external default**),
+`both-codex`, `both-grok`, `both-claude`, or `external-both`. Full mode table, host-aware
 picker, and same-family rules: {{READ_TOOL}}
 `skills/shared/codex-bridge-assets/review-mode-ux.md` (routing helper:
 `src/cross-model-host-default.js`).
@@ -13,7 +13,7 @@ picker, and same-family rules: {{READ_TOOL}}
 
 NO APPROVAL WITHOUT EVIDENCE.
 - Local mode: each finding MUST cite `file:line`. Bug claims without `file:line` are rejected.
-- External mode (`codex`/`grok`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
+- External mode (`codex`/`grok`/`claude`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
 
 NO INTENT IN THE BRIEFING (local + external).
 Intent narrative poisons reviewers by up to -93pp detection rate
@@ -49,7 +49,7 @@ review phases consume those outputs; never re-run `git diff`.
 
 ## Step 0 — Pick review mode + same-family route
 
-Skip the picker if `--mode=` was supplied (accepted values: `local|codex|grok|both|both-codex|both-grok|external-both`). Also accept `--accept-same-family-as-local`, `--model=`, `--model-codex=`, `--model-grok=`, `--ask-model` (see review-mode-ux.md).
+Skip the picker if `--mode=` was supplied (accepted values: `local|codex|grok|claude|both|both-codex|both-grok|both-claude|external-both`). Also accept `--accept-same-family-as-local`, `--model=`, `--model-codex=`, `--model-grok=`, `--model-claude=`, `--ask-model` (see review-mode-ux.md).
 
 Otherwise {{READ_TOOL}} `skills/shared/codex-bridge-assets/review-mode-ux.md` and run its **host-aware Step 0 picker** via {{ASK_USER_QUESTION_TOOL}}. When `DESTRUCTIVE` is true, prepend: *"⚠ This diff is predominantly destructive (deletes/drops). A same-model local-only pass frequently misses orphaned-data / dangling-reference regressions — cross-model is strongly advised."* Default remains **Both** (host external default); when `DESTRUCTIVE`, that default is the recommended option, not merely the fallback.
 
@@ -117,13 +117,13 @@ Resolve route first (Step 0). Then:
 Argument & diff capture → Step 0 → Prepare briefing → spawn **Local review agent**
 (below) → receive findings → **Triage + fix** (below). END.
 
-### Flow B — external only (`mode ∈ {codex, grok}` after route stays external)
+### Flow B — external only (`mode ∈ {codex, grok, claude}` after route stays external)
 
 Argument & diff capture → Step 0 → Run **External sealed-envelope sub-flow**
 with `«PROVIDER»` = `route.externalProvider` (result of `resolveReviewRoute` —
 never re-derive from the forced mode after the same-family decision). END.
 
-### Flow C — local then external (`mode ∈ {both, both-codex, both-grok}`)
+### Flow C — local then external (`mode ∈ {both, both-codex, both-grok, both-claude}`)
 
 Argument & diff capture → Step 0.
 
@@ -150,8 +150,8 @@ END.
 Argument & diff capture → Step 0 → route yields `externalProviders` (family-different
 legs only). **Collect both legs → merge → triage** (no triage/edit between legs).
 
-1. **Collect.** For each remaining provider in order (**Codex then Grok** when
-   both remain), run the **External sealed-envelope sub-flow** on the **same**
+1. **Collect.** For each remaining provider in order (**codex → grok → claude**
+   after family filter), run the **External sealed-envelope sub-flow** on the **same**
    `CAPTURED_DIFF` (no re-capture). Persist each leg's findings JSON (or error).
    - Family-filtered providers: record `status: skipped` — do not invoke.
    - If one leg fails preflight/invoke/validation: record
@@ -166,7 +166,7 @@ legs only). **Collect both legs → merge → triage** (no triage/edit between l
    - CLI (preferred at skill runtime):
      ```bash
      node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
-       <codex-findings.json|-|skip> <grok-findings.json|-|skip>
+       <codex-findings.json|-|skip> <grok-findings.json|-|skip> [claude-findings.json|-|skip]
      ```
    Contract: merge key = `file:line` + normalized claim; higher severity wins
    with dual provenance; status per provider is `succeeded|failed|skipped`
@@ -240,11 +240,11 @@ Parse the agent's output. For each finding:
 
 ---
 
-## External sealed-envelope sub-flow (modes: codex, grok, both*, external-both)
+## External sealed-envelope sub-flow (modes: codex, grok, claude, both*, external-both)
 
 Run the canonical two-pass sealed envelope per
 `{{ASSETS_PATH}}/envelope-orchestration.md` (byte-identical skeleton shared with
-`review-plan`). Bind `«PROVIDER»` ∈ {`codex`,`grok`} from the route result (never
+`review-plan`). Bind `«PROVIDER»` ∈ {`codex`,`grok`,`claude`} from the route result (never
 from a same-family remap — those stay on the local path). Leaf assets under
 `skills/shared/codex-bridge-assets/providers/«PROVIDER»/`. Code-review slots:
 
@@ -334,8 +334,8 @@ appear when a local leg ran; `(external)` when an external provider ran.
 ### Analysis Summary
 
 **Ref/scope:** {{ARG_VAR}} (or the resolved scope when the picker ran)
-**Mode:** local | codex | grok | both | both-codex | both-grok | external-both
-**Provider:** codex | grok | local  (from route; never codex/grok after same-family remap)
+**Mode:** local | codex | grok | claude | both | both-codex | both-grok | both-claude | external-both
+**Provider:** codex | grok | claude | local  (from route; never codex/grok after same-family remap)
 **Model:** <id> | cli-default  (external only; source=explicit|user-pick|recommended|cli-default)
 **Files reviewed:** [N]
 **Passes (local):** [N] (local/both* only)

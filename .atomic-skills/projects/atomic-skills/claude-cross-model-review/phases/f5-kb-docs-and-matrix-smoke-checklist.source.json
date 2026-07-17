@@ -1,0 +1,73 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F5",
+  "slug": "claude-cross-model-review-f5-kb-docs-and-matrix-smoke-checklist",
+  "title": "KB docs and matrix smoke checklist",
+  "goal": "Document the three-provider matrix and model-discovery honesty; leave an operator-runnable smoke checklist for the three hosts.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Update cross-model-review KB",
+      "scopeBoundary": [
+        "KB only; no code changes."
+      ],
+      "acceptance": [
+        "External modes list includes claude / both-claude.; external-both described as family-filtered codex→grok→claude.; Model selection section states Claude has no live catalog; aliases + cli-default.; Host defaults table still shows legacy defaults and Claude as available external."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "grep -q 'claude' docs/kb/cross-model-review-design.md && grep -E 'cli-default|alias|no live|without live' docs/kb/cross-model-review-design.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/kb/cross-model-review-design.md"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Operator smoke checklist in plan lessons or docs",
+      "scopeBoundary": [
+        "Checklist only inside the KB; does not require CI to run paid external reviews."
+      ],
+      "acceptance": [
+        "Checklist rows for host Claude external-both → codex+grok; host Codex → grok+claude; host Grok → codex+claude.; Single-provider --mode=claude preflight path documented.; Notes that live smoke is manual and cost-bearing."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/cross-model-claude-invocation.test.js tests/cross-model-host-default.test.js tests/external-both-merge.test.js tests/resolve-review-model.test.js tests/review-provider-field.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/kb/cross-model-review-design.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F5-G1",
+      "description": "KB documents three-provider modes and Claude model policy.",
+      "verifier": {
+        "kind": "shell",
+        "command": "grep -q 'both-claude\\|mode=claude' docs/kb/cross-model-review-design.md && grep -E 'cli-default|alias' docs/kb/cross-model-review-design.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F5-G2",
+      "description": "Unit suites for routing, merge, model, provider-field, and claude invocation are green together.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/cross-model-claude-invocation.test.js tests/cross-model-host-default.test.js tests/external-both-merge.test.js tests/resolve-review-model.test.js tests/review-provider-field.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

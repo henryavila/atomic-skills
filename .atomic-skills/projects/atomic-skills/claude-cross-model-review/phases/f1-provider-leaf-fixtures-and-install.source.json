@@ -1,0 +1,77 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "claude-cross-model-review-f1-provider-leaf-fixtures-and-install",
+  "title": "Provider leaf fixtures and install surface",
+  "goal": "Lock the Claude leaf with the same fixture-test pattern as Grok and ensure install still stages providers under `_assets`.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Fixture-lock Claude invocation flags",
+      "scopeBoundary": [
+        "Do not change routing/merge logic. Leaf content may be tightened to match fixtures only."
+      ],
+      "acceptance": [
+        "Test fails if invocation-canonical lacks required tokens from the F0-proven set (e.g. safe-mode, -p or proven channel, permission-mode dontAsk, no-session-persistence, output-format, timeout wrapper).; Test fails if preflight-checks lacks which/version/auth/dirty-tree checks.; `node --test tests/cross-model-claude-invocation.test.js` exits 0 when leaf matches."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/cross-model-claude-invocation.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/cross-model-claude-invocation.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/fixtures/cross-model-bridge/claude-invocation-required-flags.txt"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Confirm install stages providers/claude",
+      "scopeBoundary": [
+        "Do not redesign installer effects. Only assert providers directory includes claude after install when assets are staged."
+      ],
+      "acceptance": [
+        "Existing install/assets tests still pass.; A check proves `providers/claude` is part of the shared assets set that install copies (grep install or assets listing includes claude after leaf lands)."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/install.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/install.test.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F1-G1",
+      "description": "Claude invocation fixture test is green.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/cross-model-claude-invocation.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F1-G2",
+      "description": "Install suite remains green with providers/claude on disk.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/install.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

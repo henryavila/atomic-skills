@@ -101,7 +101,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 88); // single IDE: core (incl. init-memory) + shared assets (incl. connect + implement-phase-writer/evaluator) + auto-update
+    assert.strictEqual(result.files.length, 90); // single IDE: core + shared assets (implement-phase-* + providers/claude) + auto-update
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -244,7 +244,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
     assert.ok(existsSync(join(tempDir, '.claude/atomic-skills/_assets/connect.md')));
-    assert.strictEqual(result.files.length, 88); // core incl. init-memory + shared assets (incl. connect + implement-phase-writer/evaluator) + auto-update hook
+    assert.strictEqual(result.files.length, 90); // core + shared assets (implement-phase-* + providers/claude) + auto-update hook
     assert.ok(result.files.some((f) => f.source === 'core/init-memory'));
     assert.ok(result.files.some((f) => f.source === '_assets/memory-assets/connect.md'));
   });
@@ -311,7 +311,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 175); // 2 IDEs + init-memory + connect per IDE + shared assets (incl. implement-phase-writer/evaluator ×2) + one auto-update hook
+    assert.strictEqual(result.files.length, 179); // 2 IDEs + shared assets (implement-phase-* + providers/claude ×2) + one auto-update hook
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -387,7 +387,7 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    assert.strictEqual(result.files.length, 88);
+    assert.strictEqual(result.files.length, 90);
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -520,6 +520,14 @@ describe('installSkills', () => {
     assert.ok(
       existsSync(pjoin(assetsDir, 'providers', 'grok', 'invocation-canonical.txt')),
       'providers/grok/invocation-canonical.txt must be installed',
+    );
+    assert.ok(
+      existsSync(pjoin(assetsDir, 'providers', 'claude', 'invocation-canonical.txt')),
+      'providers/claude/invocation-canonical.txt must be installed',
+    );
+    assert.ok(
+      existsSync(pjoin(assetsDir, 'providers', 'claude', 'preflight-checks.txt')),
+      'providers/claude/preflight-checks.txt must be installed',
     );
     // Spot-check one from each origin
     assert.ok(files.includes('preflight-checks.txt'), 'must include codex-bridge asset');

@@ -1,0 +1,77 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F2",
+  "slug": "claude-cross-model-review-f2-routing-host-matrix-and-modes",
+  "title": "Routing host matrix and modes",
+  "goal": "Register Claude as an external provider id; add modes; same-family gate; external-both filters to family-different legs in order codex→grok→claude.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Extend cross-model-host-default for Claude",
+      "scopeBoundary": [
+        "Do not implement merge or skill prose. Do not change HOST_EXTERNAL_DEFAULT values."
+      ],
+      "acceptance": [
+        "EXTERNAL_PROVIDERS includes claude; modes include claude and both-claude.; externalProviderForMode('claude'|'both-claude') returns claude; both still uses host default.; isSameFamilyExternal('claude','claude') is true; isSameFamilyExternal('codex','claude') is false.; external-both legs for host claude are [codex, grok]; for host codex are [grok, claude]; for host grok are [codex, claude]; for cursor/unknown are [codex, grok, claude].; Unit tests cover the matrix above and same-family abort/confirm paths for claude."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/cross-model-host-default.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/cross-model-host-default.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/cross-model-host-default.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Update host-default-external docs leaf",
+      "scopeBoundary": [
+        "Docs only for this task; skill bodies are F4."
+      ],
+      "acceptance": [
+        "Matrix table lists Claude as external option and same-family rule for host claude.; external-both described as family-filtered codex→grok→claude order.; Envelope binding section mentions providers/claude/."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "grep -E 'claude|codex → grok|codex.*grok.*claude' skills/shared/codex-bridge-assets/host-default-external.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/codex-bridge-assets/host-default-external.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F2-G1",
+      "description": "Host-default unit tests green with Claude modes and external-both filter.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/cross-model-host-default.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F2-G2",
+      "description": "host-default-external.md documents Claude external and external-both order.",
+      "verifier": {
+        "kind": "shell",
+        "command": "grep -E 'claude|codex → grok|codex.*grok.*claude' skills/shared/codex-bridge-assets/host-default-external.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

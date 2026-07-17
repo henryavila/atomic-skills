@@ -86,7 +86,10 @@ describe('externalProviderForMode', () => {
     assert.equal(externalProviderForMode('both', 'claude'), 'codex');
     assert.equal(externalProviderForMode('both-codex', 'codex'), 'codex');
     assert.equal(externalProviderForMode('both-grok', 'claude'), 'grok');
+    assert.equal(externalProviderForMode('both-claude', 'codex'), 'claude');
+    assert.equal(externalProviderForMode('claude', 'grok'), 'claude');
     assert.equal(externalProviderForMode('external-both', 'claude'), 'codex');
+    assert.equal(externalProviderForMode('external-both', 'codex'), 'grok');
   });
 });
 
@@ -129,19 +132,49 @@ describe('resolveReviewRoute — happy paths per host matrix row', () => {
   it('external-both runs codex then grok legs', () => {
     const r = resolveReviewRoute({ hostFamily: 'claude', mode: 'external-both' });
     assert.equal(r.action, 'run');
-    assert.deepEqual(r.externalProviders, ['codex', 'grok']);
+    assert.deepEqual(r.externalProviders, ['codex', 'grok']); // claude host: drops claude
   });
 
   it('external-both on codex host drops the same-family codex leg', () => {
     const r = resolveReviewRoute({ hostFamily: 'codex', mode: 'external-both' });
     assert.equal(r.action, 'run');
-    assert.deepEqual(r.externalProviders, ['grok']);
+    assert.deepEqual(r.externalProviders, ['grok', 'claude']);
   });
 
   it('external-both on grok host drops the same-family grok leg', () => {
     const r = resolveReviewRoute({ hostFamily: 'grok', mode: 'external-both' });
     assert.equal(r.action, 'run');
-    assert.deepEqual(r.externalProviders, ['codex']);
+    assert.deepEqual(r.externalProviders, ['codex', 'claude']);
+  });
+
+  it('external-both on claude host drops the same-family claude leg', () => {
+    const r = resolveReviewRoute({ hostFamily: 'claude', mode: 'external-both' });
+    assert.equal(r.action, 'run');
+    assert.deepEqual(r.externalProviders, ['codex', 'grok']);
+  });
+
+  it('both-claude routes external leg to claude', () => {
+    const r = resolveReviewRoute({ hostFamily: 'codex', mode: 'both-claude' });
+    assert.equal(r.action, 'run');
+    assert.equal(r.externalProvider, 'claude');
+    assert.equal(r.includesLocal, true);
+  });
+
+  it('same-family claude host + mode claude confirms or aborts', () => {
+    const wait = resolveReviewRoute({
+      hostFamily: 'claude',
+      mode: 'claude',
+      interactive: true,
+    });
+    assert.equal(wait.action, 'confirm-same-family');
+    const local = resolveReviewRoute({
+      hostFamily: 'claude',
+      mode: 'claude',
+      interactive: true,
+      sameFamilyDecision: 'confirm',
+    });
+    assert.equal(local.provider, 'local');
+    assert.equal(local.sameFamilyRemap, true);
   });
 
   it('unknown mode aborts (no silent local)', () => {

@@ -1,19 +1,19 @@
 /**
  * external-both findings merge (plan §5 / design open-question resolution).
  *
- * Pure helpers — no I/O. Skill bodies run Codex envelope then Grok envelope on
- * the same cleaned artifact, then call `mergeExternalBothFindings` to produce
- * a single triage list. Auto-apply is a non-goal; humans still triage.
+ * Pure helpers — no I/O. Skill bodies run each external envelope on the same
+ * cleaned artifact, then call `mergeExternalBothFindings` to produce a single
+ * triage list. Auto-apply is a non-goal; humans still triage.
  *
  * Contract:
- * - Order: Codex first, then Grok (caller responsibility for invocation).
+ * - Order: codex → grok → claude (caller responsibility for invocation).
  * - Merge key: `file:line` + normalized claim text.
- * - Severity conflict: keep the higher severity; provenance lists both.
+ * - Severity conflict: keep the higher severity; provenance lists all.
  * - Per-provider status is explicit: `succeeded` | `failed` | `skipped`.
  *   Absent provider keys default to `skipped` (never "succeeded by omission").
  * - Partial failure: keep the successful provider's findings; surface the
  *   failed provider error; never drop the good half silently.
- * - Collect-then-merge: callers must finish both legs (or skip) before triage.
+ * - Collect-then-merge: callers must finish all legs (or skip) before triage.
  */
 
 /** @typedef {'blocker' | 'critical' | 'major' | 'minor' | 'nit'} Severity */
@@ -33,7 +33,12 @@ const SEVERITY_RANK = Object.freeze(
   Object.fromEntries(SEVERITY_ORDER.map((s, i) => [s, SEVERITY_ORDER.length - i])),
 );
 
-/** @typedef {'codex' | 'grok'} ExternalProvider */
+/** @typedef {'codex' | 'grok' | 'claude'} ExternalProvider */
+
+/** Fixed merge / invocation order. */
+export const EXTERNAL_PROVIDER_ORDER = Object.freeze(
+  /** @type {const} */ (['codex', 'grok', 'claude']),
+);
 
 /**
  * @typedef {object} FindingInput
@@ -65,7 +70,7 @@ const SEVERITY_RANK = Object.freeze(
  * @property {Severity|string} severity
  * @property {string} [category]
  * @property {string} mergeKey
- * @property {ExternalProvider[]} providers - dual provenance when both sides agree
+ * @property {ExternalProvider[]} providers - dual/triple provenance when sides agree
  * @property {ExternalProvider} primaryProvider - side that supplied the kept body
  * @property {Severity|string} [otherSeverity] - when severities differed
  * @property {string} [id]
@@ -110,7 +115,6 @@ export function mergeKey(file, line, claim) {
  */
 function normalizeLine(line) {
   if (line == null || line === '') return '';
-  // Accept "12", 12, "12-20" → start line only for identity.
   const s = String(line).trim();
   const m = s.match(/^(\d+)/);
   return m ? m[1] : s;
@@ -140,12 +144,6 @@ export function compareSeverity(a, b) {
 
 /**
  * Resolve explicit or inferred per-provider status.
- *
- * Rules:
- * - Missing key / null side → `skipped` (never treat absence as success).
- * - Explicit `status` ∈ {succeeded, failed, skipped} wins.
- * - Else `error` text → `failed`.
- * - Else key present → `succeeded` (findings may be empty).
  *
  * @param {object} input
  * @param {ExternalProvider} provider
@@ -181,11 +179,9 @@ export function resolveProviderSide(input, provider) {
         error: errorFromField ?? (hasText(side.reason) ? String(side.reason) : 'provider failed'),
       };
     }
-    // succeeded — keep optional error surface empty; findings as given
     return { status, findings, error: null };
   }
 
-  // Infer when status omitted.
   if (errorFromField) {
     return { status: 'failed', findings, error: errorFromField };
   }
@@ -223,75 +219,62 @@ function toMerged(finding, provider) {
 }
 
 /**
- * Merge two provider finding lists. Codex is the left/first provider; Grok is
- * the right/second. Identity is `file:line` + normalized claim. On conflict,
- * higher severity wins and `providers` lists both. Unknown severities rank
- * below known ones; equal rank keeps the Codex body as primary.
- *
- * Provider participation uses explicit status (`succeeded` | `failed` |
- * `skipped`). An omitted provider key is `skipped`, not succeeded. Findings
- * from skipped providers are ignored. Failed providers still contribute any
- * findings they produced (best-effort) while remaining in `providersFailed`.
+ * Merge provider finding lists in EXTERNAL_PROVIDER_ORDER.
+ * Identity is `file:line` + normalized claim. On conflict, higher severity wins
+ * and `providers` lists all. Equal rank keeps the earlier provider body.
  *
  * @param {object} input
  * @param {ProviderSide} [input.codex]
  * @param {ProviderSide} [input.grok]
+ * @param {ProviderSide} [input.claude]
  * @returns {{
  *   findings: MergedFinding[],
- *   errors: { codex?: string, grok?: string },
+ *   errors: Partial<Record<ExternalProvider, string>>,
  *   partial: boolean,
- *   providerStatus: { codex: ProviderStatus, grok: ProviderStatus },
+ *   providerStatus: Record<ExternalProvider, ProviderStatus>,
  *   providersSucceeded: ExternalProvider[],
  *   providersFailed: ExternalProvider[],
  *   providersSkipped: ExternalProvider[],
  * }}
  */
 export function mergeExternalBothFindings(input = {}) {
-  const codexSide = resolveProviderSide(input, 'codex');
-  const grokSide = resolveProviderSide(input, 'grok');
+  /** @type {Map<ExternalProvider, ReturnType<typeof resolveProviderSide>>} */
+  const sides = new Map();
+  for (const p of EXTERNAL_PROVIDER_ORDER) {
+    sides.set(p, resolveProviderSide(input, p));
+  }
 
   /** @type {Map<string, MergedFinding>} */
   const byKey = new Map();
 
-  // Only merge findings from non-skipped legs (failed may still have partial output).
-  if (codexSide.status !== 'skipped') {
-    for (const f of codexSide.findings) {
+  for (const p of EXTERNAL_PROVIDER_ORDER) {
+    const side = sides.get(p);
+    if (!side || side.status === 'skipped') continue;
+    for (const f of side.findings) {
       if (!f || typeof f !== 'object') continue;
-      const merged = toMerged(/** @type {FindingInput} */ (f), 'codex');
-      if (!merged.mergeKey || merged.mergeKey === ':::') continue;
-      byKey.set(merged.mergeKey, merged);
-    }
-  }
-
-  if (grokSide.status !== 'skipped') {
-    for (const f of grokSide.findings) {
-      if (!f || typeof f !== 'object') continue;
-      const incoming = toMerged(/** @type {FindingInput} */ (f), 'grok');
+      const incoming = toMerged(/** @type {FindingInput} */ (f), p);
       if (!incoming.mergeKey || incoming.mergeKey === ':::') continue;
       const existing = byKey.get(incoming.mergeKey);
       if (!existing) {
         byKey.set(incoming.mergeKey, incoming);
         continue;
       }
-      // Same identity — dual provenance; higher severity wins body.
       const cmp = compareSeverity(incoming.severity, existing.severity);
       if (cmp > 0) {
-        // Grok higher — take Grok body, remember Codex severity if different.
         const otherSeverity = existing.severity;
         const next = {
           ...incoming,
-          providers: uniqueProviders([...existing.providers, 'grok']),
-          primaryProvider: /** @type {ExternalProvider} */ ('grok'),
+          providers: uniqueProviders([...existing.providers, p]),
+          primaryProvider: p,
         };
         if (normalizeSeverity(otherSeverity) !== normalizeSeverity(incoming.severity)) {
           next.otherSeverity = otherSeverity;
         }
         byKey.set(incoming.mergeKey, next);
       } else {
-        // Codex wins body (higher or equal). Still dual provenance.
         const next = {
           ...existing,
-          providers: uniqueProviders([...existing.providers, 'grok']),
+          providers: uniqueProviders([...existing.providers, p]),
         };
         if (cmp < 0 && normalizeSeverity(incoming.severity) !== normalizeSeverity(existing.severity)) {
           next.otherSeverity = incoming.severity;
@@ -301,24 +284,16 @@ export function mergeExternalBothFindings(input = {}) {
     }
   }
 
-  // Stable order: severity desc, then mergeKey asc for determinism.
   const findings = [...byKey.values()].sort((a, b) => {
     const c = compareSeverity(b.severity, a.severity);
     if (c !== 0) return c;
     return a.mergeKey.localeCompare(b.mergeKey);
   });
 
-  /** @type {{ codex?: string, grok?: string }} */
+  /** @type {Partial<Record<ExternalProvider, string>>} */
   const errors = {};
-  if (codexSide.error) errors.codex = codexSide.error;
-  if (grokSide.error) errors.grok = grokSide.error;
-
-  /** @type {{ codex: ProviderStatus, grok: ProviderStatus }} */
-  const providerStatus = {
-    codex: codexSide.status,
-    grok: grokSide.status,
-  };
-
+  /** @type {Record<ExternalProvider, ProviderStatus>} */
+  const providerStatus = /** @type {Record<ExternalProvider, ProviderStatus>} */ ({});
   /** @type {ExternalProvider[]} */
   const providersSucceeded = [];
   /** @type {ExternalProvider[]} */
@@ -326,8 +301,11 @@ export function mergeExternalBothFindings(input = {}) {
   /** @type {ExternalProvider[]} */
   const providersSkipped = [];
 
-  for (const p of /** @type {const} */ (['codex', 'grok'])) {
-    const st = providerStatus[p];
+  for (const p of EXTERNAL_PROVIDER_ORDER) {
+    const side = sides.get(p);
+    const st = side?.status ?? 'skipped';
+    providerStatus[p] = st;
+    if (side?.error) errors[p] = side.error;
     if (st === 'succeeded') providersSucceeded.push(p);
     else if (st === 'failed') providersFailed.push(p);
     else providersSkipped.push(p);

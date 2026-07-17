@@ -27,13 +27,27 @@ unless `--accept-same-family-as-local` (records `provider: local`).
 Canonical UX + routing: `skills/shared/codex-bridge-assets/review-mode-ux.md`,
 `host-default-external.md`, `src/cross-model-host-default.js`.
 
+
+External modes also include `--mode=claude`, `--mode=both-claude`. `--mode=external-both`
+runs family-filtered legs in order **codex → grok → claude**, then merges.
+Claude has **no live model catalog** — Step 0.model uses stable **aliases**
+(`opus`, `sonnet`, `haiku`, `fable`) or `cli-default` (omit `--model`). Flags:
+`--model-claude=`. Host defaults are unchanged (Claude host → codex; Codex → grok;
+Grok → codex).
+
+**Host matrix smoke (manual, cost-bearing):**
+- host Claude `external-both` → legs codex + grok
+- host Codex `external-both` → legs grok + claude
+- host Grok `external-both` → legs codex + claude
+- single-provider: `--mode=claude` preflight via `providers/claude/`
+
 ## Core principles
 
 ### 1. Cross-family is the point
 - Same-family review has documented self-preference bias (arXiv 2410.21819, 2508.06709, 2509.26464)
 - Family-different external providers (Codex ↔ Grok ↔ Claude host pairings) supply an independent bias vector
 - Same-model review remains useful but is a complement, not a replacement
-- Product cadence label: **CROSS-MODEL REVIEW** (not "CODEX REVIEW"); receipt field `provider: codex|grok|local`
+- Product cadence label: **CROSS-MODEL REVIEW** (not "CODEX REVIEW"); receipt field `provider: codex|grok|claude|local`
 
 ### 2. Briefing is factual, NOT narrative
 - Intent narrative poisons the reviewer by up to -93pp detection rate (arXiv 2603.18740)
@@ -55,13 +69,13 @@ Canonical UX + routing: `skills/shared/codex-bridge-assets/review-mode-ux.md`,
 - **Non-interactive default:** skill does NOT pass `--model`; each CLI uses its
   configured/recommended default (`source: cli-default`) — backward compatible
 - **Interactive external leg:** after the provider is known, discover the live
-  catalog (`codex debug models --bundled` / `grok models`), rank a **recommended**
+  catalog (`codex debug models --bundled` / `grok models` / Claude aliases — no live list), rank a **recommended**
   model for adversarial review, and offer a picker (recommended first + CLI default)
 - **Flags:** `--model=<id>` (or `model:<id>`) skips the picker; `--model-codex=` /
   `--model-grok=` for per-leg overrides; `--ask-model` binds the recommended id
   headlessly (or pre-selects it in the picker)
 - Pure helper: `src/resolve-review-model.js`; CLI:
-  `scripts/list-review-models.js --provider=codex|grok [--resolve …]`
+  `scripts/list-review-models.js --provider=codex|grok|claude [--resolve …]`
 - Do **not** maintain a static `models.yaml` in-repo — catalogs are dynamic per CLI
 
 ## external-both merge contract

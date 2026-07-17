@@ -7,8 +7,8 @@
  */
 
 /** @typedef {'claude' | 'codex' | 'grok' | 'cursor' | 'unknown'} HostFamily */
-/** @typedef {'local' | 'codex' | 'grok'} ProviderId */
-/** @typedef {'local' | 'codex' | 'grok' | 'both' | 'both-codex' | 'both-grok' | 'external-both'} ReviewMode */
+/** @typedef {'local' | 'codex' | 'grok' | 'claude'} ProviderId */
+/** @typedef {'local' | 'codex' | 'grok' | 'claude' | 'both' | 'both-codex' | 'both-grok' | 'both-claude' | 'external-both'} ReviewMode */
 
 export const HOST_FAMILIES = Object.freeze(['claude', 'codex', 'grok', 'cursor', 'unknown']);
 
@@ -21,16 +21,21 @@ export const HOST_EXTERNAL_DEFAULT = Object.freeze({
   unknown: 'codex',
 });
 
-const EXTERNAL_PROVIDERS = new Set(['codex', 'grok']);
+/** Fixed order for multi-provider legs (external-both). */
+export const EXTERNAL_PROVIDER_ORDER = Object.freeze(/** @type {const} */ (['codex', 'grok', 'claude']));
+
+const EXTERNAL_PROVIDERS = new Set(EXTERNAL_PROVIDER_ORDER);
 
 /** Modes accepted by resolveReviewRoute — unknown values abort (no silent local). */
 export const REVIEW_MODES = Object.freeze([
   'local',
   'codex',
   'grok',
+  'claude',
   'both',
   'both-codex',
   'both-grok',
+  'both-claude',
   'external-both',
 ]);
 
@@ -74,7 +79,7 @@ export function detectHostFamily(input = {}) {
 
 /**
  * @param {HostFamily | string} hostFamily
- * @returns {'codex' | 'grok'}
+ * @returns {'codex' | 'grok' | 'claude'}
  */
 export function defaultExternalProvider(hostFamily) {
   const host = normalizeHostFamily(hostFamily);
@@ -83,7 +88,7 @@ export function defaultExternalProvider(hostFamily) {
 
 /**
  * Whether an external provider id is the same model family as the host.
- * Only `codex` and `grok` are external providers; `local` is never "same-family external".
+ * External providers: codex, grok, claude. `local` is never "same-family external".
  *
  * @param {HostFamily | string} hostFamily
  * @param {string} provider
@@ -94,6 +99,15 @@ export function isSameFamilyExternal(hostFamily, provider) {
   const p = String(provider || '').toLowerCase();
   if (!EXTERNAL_PROVIDERS.has(p)) return false;
   return host === p;
+}
+
+/**
+ * Family-different external legs in fixed order for external-both.
+ * @param {HostFamily | string} hostFamily
+ * @returns {Array<'codex' | 'grok' | 'claude'>}
+ */
+export function externalBothLegs(hostFamily) {
+  return EXTERNAL_PROVIDER_ORDER.filter((p) => !isSameFamilyExternal(hostFamily, p));
 }
 
 /**
@@ -113,15 +127,19 @@ export function acceptsSameFamilyAsLocal(opts = {}) {
  *
  * @param {ReviewMode | string} mode
  * @param {HostFamily | string} hostFamily
- * @returns {'codex' | 'grok' | null}
+ * @returns {'codex' | 'grok' | 'claude' | null}
  */
 export function externalProviderForMode(mode, hostFamily) {
   const m = String(mode || '').toLowerCase();
   if (m === 'local') return null;
   if (m === 'codex' || m === 'both-codex') return 'codex';
   if (m === 'grok' || m === 'both-grok') return 'grok';
+  if (m === 'claude' || m === 'both-claude') return 'claude';
   if (m === 'both') return defaultExternalProvider(hostFamily);
-  if (m === 'external-both') return 'codex'; // first leg; second is always grok
+  if (m === 'external-both') {
+    const legs = externalBothLegs(hostFamily);
+    return legs[0] ?? null; // first remaining leg after family filter
+  }
   return undefined; // unknown mode — callers must abort (do not treat as local)
 }
 
@@ -131,8 +149,8 @@ export function externalProviderForMode(mode, hostFamily) {
  * @property {ProviderId} [provider] - effective provider when action is run
  * @property {boolean} [sameFamilyRemap]
  * @property {boolean} [includesLocal] - true for both* modes that run local first
- * @property {'codex' | 'grok' | null} [externalProvider] - external leg if any
- * @property {'codex' | 'grok'} [crossFamilyAlternative]
+ * @property {'codex' | 'grok' | 'claude' | null} [externalProvider] - external leg if any
+ * @property {'codex' | 'grok' | 'claude'} [crossFamilyAlternative]
  * @property {string} [message]
  * @property {HostFamily} hostFamily
  * @property {string} mode
@@ -176,7 +194,8 @@ export function resolveReviewRoute(input) {
     };
   }
 
-  const includesLocal = mode === 'both' || mode === 'both-codex' || mode === 'both-grok';
+  const includesLocal =
+    mode === 'both' || mode === 'both-codex' || mode === 'both-grok' || mode === 'both-claude';
   const externalProvider = externalProviderForMode(mode, hostFamily);
   const crossFamilyAlternative = defaultExternalProvider(hostFamily);
 
@@ -192,9 +211,9 @@ export function resolveReviewRoute(input) {
     };
   }
 
-  // external-both: filter same-family legs (Codex host drops codex; Grok drops grok).
+  // external-both: filter same-family legs (order: codex → grok → claude).
   if (mode === 'external-both') {
-    const legs = ['codex', 'grok'].filter((p) => !isSameFamilyExternal(hostFamily, p));
+    const legs = externalBothLegs(hostFamily);
     if (legs.length === 0) {
       if (interactive && (input.sameFamilyDecision == null || input.sameFamilyDecision === '')) {
         return {

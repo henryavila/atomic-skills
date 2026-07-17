@@ -5,14 +5,16 @@
  * Usage:
  *   node scripts/list-review-models.js --provider=codex
  *   node scripts/list-review-models.js --provider=grok --human
+ *   node scripts/list-review-models.js --provider=claude
  *   node scripts/list-review-models.js --provider=codex --resolve --model=gpt-5.6-sol
  *   node scripts/list-review-models.js --provider=codex --resolve --ask-model --interactive=0
  *   node scripts/list-review-models.js --provider=grok --resolve --interactive --user-choice=recommended
  *   node scripts/list-review-models.js --provider=codex --catalog=path/to.json
  *
  * Catalog discovery (live CLI; fail-open to empty catalog):
- *   codex → `codex debug models --bundled` (JSON)
- *   grok  → `grok models` (text)
+ *   codex  → `codex debug models --bundled` (JSON)
+ *   grok   → `grok models` (text)
+ *   claude → stable aliases only (no live CLI catalog; optional `claude --help` filter)
  *
  * Package-root invocation (installed):
  *   node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/list-review-models.js" \
@@ -24,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import {
   catalogDiscoveryResult,
+  parseClaudeModelsAliases,
   parseCodexModelsCatalog,
   parseGrokModelsList,
   parseModelArgs,
@@ -95,7 +98,7 @@ function parseCli(argv) {
 }
 
 /**
- * @param {'codex'|'grok'} provider
+ * @param {'codex'|'grok'|'claude'} provider
  * @param {string} [catalogPath]
  * @returns {{ models: import('../src/resolve-review-model.js').ReviewModel[], error: string | null }}
  */
@@ -103,7 +106,11 @@ function fetchModels(provider, catalogPath) {
   if (catalogPath) {
     const text = readFileSync(catalogPath, 'utf8');
     const models =
-      provider === 'codex' ? parseCodexModelsCatalog(text) : parseGrokModelsList(text);
+      provider === 'codex'
+        ? parseCodexModelsCatalog(text)
+        : provider === 'claude'
+          ? parseClaudeModelsAliases(text)
+          : parseGrokModelsList(text);
     // File catalogs: no process status; still report parse failure on nonblank empty parse.
     return catalogDiscoveryResult({
       provider,
@@ -129,6 +136,23 @@ function fetchModels(provider, catalogPath) {
       spawnError: r.error || (r.status !== 0 ? r.stderr || `codex debug models exited ${r.status}` : null),
     });
   }
+  if (provider === 'claude') {
+    // No live catalog — optional help filter for alias mention; always returns aliases.
+    const r = spawnSync('claude', ['--help'], {
+      encoding: 'utf8',
+      maxBuffer: 2 * 1024 * 1024,
+      timeout: 15_000,
+    });
+    const text = `${r.stdout || ''}\n${r.stderr || ''}`;
+    const models = parseClaudeModelsAliases(text);
+    return catalogDiscoveryResult({
+      provider: 'claude',
+      models,
+      text: models.length ? '' : text, // empty text when aliases present → no false parse error
+      status: 0,
+      spawnError: null,
+    });
+  }
   const r = spawnSync('grok', ['models'], {
     encoding: 'utf8',
     maxBuffer: 2 * 1024 * 1024,
@@ -149,21 +173,26 @@ function main() {
   const { flags, modelArgs } = parseCli(process.argv.slice(2));
   if (flags.help) {
     process.stdout.write(
-      'Usage: list-review-models.js --provider=codex|grok [--resolve] [--model=ID] [--ask-model] [--interactive] [--user-choice=ID] [--catalog=path] [--human]\n',
+      'Usage: list-review-models.js --provider=codex|grok|claude [--resolve] [--model=ID] [--ask-model] [--interactive] [--user-choice=ID] [--catalog=path] [--human]\n',
     );
     process.exit(0);
   }
   const provider = String(flags.provider || '').toLowerCase();
-  if (provider !== 'codex' && provider !== 'grok') {
-    process.stderr.write('ERROR: --provider=codex|grok is required\n');
+  if (provider !== 'codex' && provider !== 'grok' && provider !== 'claude') {
+    process.stderr.write('ERROR: --provider=codex|grok|claude is required\n');
     process.exit(1);
   }
 
   const catalogPath = flags.catalog ? String(flags.catalog) : undefined;
-  const { models, error } = fetchModels(/** @type {'codex'|'grok'} */ (provider), catalogPath);
-  const ranked = rankModelsForReview(models, { provider: /** @type {'codex'|'grok'} */ (provider) });
+  const { models, error } = fetchModels(
+    /** @type {'codex'|'grok'|'claude'} */ (provider),
+    catalogPath,
+  );
+  const ranked = rankModelsForReview(models, {
+    provider: /** @type {'codex'|'grok'|'claude'} */ (provider),
+  });
   const recommended = recommendedReviewModel(models, {
-    provider: /** @type {'codex'|'grok'} */ (provider),
+    provider: /** @type {'codex'|'grok'|'claude'} */ (provider),
   });
 
   if (!flags.resolve) {
@@ -209,6 +238,7 @@ function main() {
     explicitModel: modelArgs.model || explicitFromFlag,
     modelCodex: modelArgs.modelCodex,
     modelGrok: modelArgs.modelGrok,
+    modelClaude: modelArgs.modelClaude,
     askModel: modelArgs.askModel || flags['ask-model'] === true || flags['ask-model'] === '1',
     interactive: Boolean(flags.interactive),
     userChoice: flags['user-choice'] ? String(flags['user-choice']) : null,

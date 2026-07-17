@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "claude-cross-model-review",
+  "projectId": "atomic-skills",
+  "sourcePath": ".atomic-skills/projects/atomic-skills/claude-cross-model-review/source.md",
+  "stage": "ready",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/plan.md",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f0-smoke-and-draft-claude-leaf.md",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f1-provider-leaf-fixtures-and-install.source.json",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f2-routing-host-matrix-and-modes.source.json",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f3-merge-n-provider-model-resolve-rec.source.json",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f4-skill-ux-and-envelope-wiring.source.json",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f5-kb-docs-and-matrix-smoke-checklist.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/plan.md",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f0-smoke-and-draft-claude-leaf.md",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f1-provider-leaf-fixtures-and-install.source.json",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f2-routing-host-matrix-and-modes.source.json",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f3-merge-n-provider-model-resolve-rec.source.json",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f4-skill-ux-and-envelope-wiring.source.json",
+    ".atomic-skills/projects/atomic-skills/claude-cross-model-review/phases/f5-kb-docs-and-matrix-smoke-checklist.source.json"
+  ],
+  "status": "ready",
+  "updatedAt": "2026-07-17T18:42:31.815Z"
+}

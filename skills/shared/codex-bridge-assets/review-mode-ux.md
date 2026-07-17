@@ -14,7 +14,7 @@ Host matrix + same-family policy: `{{ASSETS_PATH}}/host-default-external.md`.
 | `grok` | external sealed envelope via Grok only |
 | `both` | local → **host external default** (Claude/Cursor/unknown→codex; Grok host→codex; Codex host→grok) |
 | `both-codex` | local → forced Codex |
-| `both-grok` | local → forced Grok |
+| `both-grok`, `both-claude` | local → forced Grok |
 | `external-both` | external Codex **then** Grok on the same cleaned artifact; merge via `src/external-both-merge.js` (key `file:line`+claim; higher severity wins; partial failure keeps good half) for human triage |
 
 Aliases: `--mode=internal` → `local` (review-plan compat).
@@ -58,7 +58,7 @@ Skip when `--mode=` was supplied. Otherwise use {{ASK_USER_QUESTION_TOOL}}.
 3. **Codex only** — External Codex sealed envelope (cross-model only when host ≠ codex).
 4. **Grok only** — External Grok sealed envelope (cross-model only when host ≠ grok).
 5. **Both then Codex** (`both-codex`) — Force Codex as the external leg regardless of host default.
-6. **Both then Grok** (`both-grok`) — Force Grok as the external leg.
+6. **Both then Grok** (`both-grok`, `both-claude`) — Force Grok as the external leg.
 7. **External both (Codex then Grok)** (`external-both`) — Two external envelopes, no local leg. Prefer on Claude hosts when both CLIs are available. Same-family legs are filtered (Grok host runs Codex only; Codex host runs Grok only).
 
 Default: **Both** (host external default). Set `mode` from the answer.
@@ -142,7 +142,7 @@ per-provider override.
 
 - `provider == local` (or mode `local`, or same-family remap) → local sealed path only.
 - External single provider (`codex` / `grok` modes, or the external leg of `both*`) → bind `«PROVIDER»` and run `envelope-orchestration.md`.
-- `both` / `both-codex` / `both-grok` with `includesLocal` → local phase first, then external on the **same** cleaned artifact / byte-identical `CAPTURED_DIFF` (no intent leakage into the external briefing).
+- `both` / `both-codex` / `both-grok`, `both-claude` with `includesLocal` → local phase first, then external on the **same** cleaned artifact / byte-identical `CAPTURED_DIFF` (no intent leakage into the external briefing).
 - `external-both` with `externalProviders: […]` → **collect** envelope once per remaining provider in order (Codex then Grok when both remain; no triage between legs; one leg's failure does not abort the other). **Merge** with `mergeExternalBothFindings` / `scripts/merge-external-both.js`: identity = `file:line` + normalized claim; severity conflict keeps higher severity with dual provenance; per-provider status `succeeded|failed|skipped` (absent = skipped); partial failure keeps the successful half and surfaces the error. **Triage** the merged list only — never auto-apply.
 
 ## Non-interactive abort (no TTY, no `--mode=`)

@@ -16,8 +16,8 @@ import {
 import { HOST_FAMILIES, defaultExternalProvider } from '../src/cross-model-host-default.js';
 
 describe('PROVIDER_ENUM', () => {
-  it('is exactly codex | grok | local', () => {
-    assert.deepEqual([...PROVIDER_ENUM].sort(), ['codex', 'grok', 'local'].sort());
+  it('is exactly codex | grok | claude | local', () => {
+    assert.deepEqual([...PROVIDER_ENUM].sort(), ['claude', 'codex', 'grok', 'local'].sort());
   });
 });
 
@@ -49,7 +49,8 @@ describe('buildProviderFields (writer)', () => {
   });
 
   it('rejects unknown provider ids', () => {
-    assert.throws(() => buildProviderFields({ provider: 'claude' }), /unknown provider/i);
+    assert.throws(() => buildProviderFields({ provider: 'not-a-provider' }), /unknown provider/i);
+    assert.deepEqual(buildProviderFields({ provider: 'claude' }).provider, 'claude');
     assert.throws(() => buildProviderFields({ provider: '' }), /unknown provider/i);
   });
 });

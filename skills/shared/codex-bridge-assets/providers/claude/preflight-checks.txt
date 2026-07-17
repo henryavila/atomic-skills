@@ -1,0 +1,74 @@
+# Pre-flight Checks for Claude Code Invocation
+# Provider: claude
+# Path: skills/shared/codex-bridge-assets/providers/claude/preflight-checks.txt
+# Logical module: cross-model-bridge (codex-bridge is a compatibility alias)
+#
+# Proven against: claude 2.1.212 (dogfood 2026-07-17). Re-smoke after major CLI bumps.
+
+Run these checks BEFORE any Claude external-review invocation. ALL must pass or
+the skill aborts with a clear message.
+
+## 1. Claude binary present
+
+Run: `which claude`
+
+If exit != 0: ABORT with message:
+> "Claude Code CLI not found in PATH. Install Claude Code (https://code.claude.com), ensure `claude` is on PATH, then run `claude auth login` (or set ANTHROPIC_API_KEY)."
+
+## 2. Claude CLI is callable
+
+Run: `claude --version`
+
+If exit != 0: ABORT with message:
+> "`claude --version` failed. Reinstall the CLI or check `claude auth login`."
+
+Record the version string in the briefing metadata (for the audit trail). The
+locked invocation shape targets **claude 2.1.x**. If the major.minor is outside
+2.1, warn and re-read `providers/claude/invocation-canonical.txt` before
+proceeding (flag churn is real).
+
+## 3. Auth is usable (session or API key)
+
+Claude accepts interactive OAuth (`claude auth login`) or headless
+`ANTHROPIC_API_KEY`. Default invocation uses `--safe-mode` (OAuth-compatible).
+`--bare` (API-key-only) is opt-in via `ATOMIC_SKILLS_CLAUDE_BARE=1` and requires
+`ANTHROPIC_API_KEY`.
+
+If a prior run or a probe prints (or exits with) auth failure text matching:
+
+- `Not logged in`
+- `Please run /login`
+- `claude auth login`
+- `authentication_failed`
+- `Invalid API key`
+
+ABORT with message:
+> "Claude is not authenticated. Run `claude auth login`, or set `ANTHROPIC_API_KEY`, then retry."
+
+Do NOT proceed into Pass 1/2 with a known-unauthenticated CLI — the envelope
+would waste timeout budget and produce empty findings.
+
+## 4. Working tree clean (or --allow-dirty)
+
+Run: `git status --porcelain`
+
+If output is non-empty AND user did NOT pass `--allow-dirty`: ABORT with message:
+> "Working tree has uncommitted changes. External review should target a clean
+> ref (or an explicit scope capture). Either commit/stash changes, or re-invoke
+> with `--allow-dirty` to proceed anyway."
+
+Exception — worktree-scoped review: if the invoking skill resolved a review
+scope where the working tree IS the review subject (e.g. review-code scopes
+`wip` / `all`), treat `--allow-dirty` as implicitly set: emit the warning, do
+not abort.
+
+## 5. Inside git repo (or --skip-git-check)
+
+Run: `git rev-parse --is-inside-work-tree`
+
+If exit != 0 AND user did NOT pass `--skip-git-check`: ABORT with message:
+> "Not inside a git repository. Re-invoke with `--skip-git-check` if intentional."
+
+## All checks passed
+
+Proceed to briefing curation.

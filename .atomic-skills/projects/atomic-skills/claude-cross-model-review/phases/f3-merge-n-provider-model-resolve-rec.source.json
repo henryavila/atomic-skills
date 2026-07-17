@@ -1,0 +1,114 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "claude-cross-model-review-f3-merge-n-provider-model-resolve-rec",
+  "title": "Merge N-provider, model resolve, receipt enum",
+  "goal": "Merge accepts Claude; model flags work without live catalog; receipts can record provider claude.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Generalize external-both merge to N providers",
+      "scopeBoundary": [
+        "Do not change severity rank or merge-key algorithm. Do not rewrite skill Flow D prose beyond what F4 owns."
+      ],
+      "acceptance": [
+        "ExternalProvider typedef includes claude.; merge accepts three sides; dual/triple provenance on same merge key; higher severity wins.; CLI: optional third positional arg; omitting third leaves claude status skipped; two-arg callers still work.; Partial failure with one of three failed keeps successful findings + errors map."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/external-both-merge.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/external-both-merge.js"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/merge-external-both.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/external-both-merge.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Claude branch in resolve-review-model and list-review-models",
+      "scopeBoundary": [
+        "No live Anthropic HTTP catalog. No static full-id dump."
+      ],
+      "acceptance": [
+        "parseModelArgs consumes --model-claude= / --model-claude space form.; provider claude resolves: explicit id → source explicit; none → cli-default; --ask-model → recommended alias (opus if in alias list) or cli-default.; list-review-models.js accepts --provider=claude and returns alias list (not empty catalog error that aborts usage for other providers).; rank/recommend for claude does not claim priority JSON from Codex."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/resolve-review-model.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/resolve-review-model.js"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/list-review-models.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/resolve-review-model.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "Receipt provider enum includes claude",
+      "scopeBoundary": [
+        "Do not change same-family remap rule (still forces provider local)."
+      ],
+      "acceptance": [
+        "PROVIDER_ENUM includes claude; normalizeProvider('claude') returns claude.; buildProviderFields with provider claude and sameFamilyRemap false records claude; remap true still records local."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/resolve-review-model.test.js tests/review-provider-field.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/review-provider-field.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/review-provider-field.test.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F3-G1",
+      "description": "external-both-merge tests green with Claude as third provider and optional third CLI arg.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/external-both-merge.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F3-G2",
+      "description": "resolve-review-model and review-provider-field tests green with Claude.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/resolve-review-model.test.js tests/review-provider-field.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}
