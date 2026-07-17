@@ -21,8 +21,8 @@ describe('planEndReviewOk', () => {
     assert.equal(
       planEndReviewOk({
         legs: [
-          { provider: 'codex', status: 'succeeded' },
-          { provider: 'grok', status: 'skipped' },
+          { provider: 'codex', status: 'succeeded', familyDifferent: true },
+          { provider: 'grok', status: 'skipped', familyDifferent: true },
         ],
       }),
       true,
@@ -85,7 +85,7 @@ describe('planEndReviewOk', () => {
     );
     assert.equal(
       planEndReviewOk({
-        legs: [{ provider: 'grok', status: 'succeeded' }],
+        legs: [{ provider: 'grok', status: 'succeeded', familyDifferent: true }],
       }),
       true,
     );
@@ -109,10 +109,70 @@ describe('planEndReviewOk', () => {
     );
   });
 
-  it('missing familyDifferent is treated as true for external legs', () => {
+  it('fail-closed: missing familyDifferent does NOT count (strict true required)', () => {
     assert.equal(
       planEndReviewOk({
         legs: [{ provider: 'codex', status: 'succeeded' }],
+      }),
+      false,
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: [{ provider: 'grok', status: 'succeeded', familyDifferent: undefined }],
+      }),
+      false,
+    );
+  });
+
+  it('fail-closed: missing or unknown provider does not count even if succeeded + familyDifferent', () => {
+    assert.equal(
+      planEndReviewOk({
+        legs: [{ status: 'succeeded', familyDifferent: true }],
+      }),
+      false,
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: [{ provider: 'local', status: 'succeeded', familyDifferent: true }],
+      }),
+      false,
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: [{ provider: 'claude', status: 'succeeded', familyDifferent: true }],
+      }),
+      false,
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: [{ provider: '', status: 'succeeded', familyDifferent: true }],
+      }),
+      false,
+    );
+  });
+
+  it('fail-closed: same-family succeeded (familyDifferent false) with known provider does not count', () => {
+    assert.equal(
+      planEndReviewOk({
+        legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: false }],
+      }),
+      false,
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: [{ provider: 'grok', status: 'succeeded', familyDifferent: false }],
+      }),
+      false,
+    );
+  });
+
+  it('only known external providers codex|grok count when succeeded + familyDifferent true', () => {
+    assert.equal(
+      planEndReviewOk({
+        legs: [
+          { provider: 'local', status: 'succeeded', familyDifferent: true },
+          { provider: 'codex', status: 'succeeded', familyDifferent: true },
+        ],
       }),
       true,
     );
@@ -128,6 +188,21 @@ describe('userValidationOk', () => {
     );
     assert.equal(
       userValidationOk({ automateActive: false, userValidatedAt: '' }),
+      true,
+    );
+    assert.equal(
+      userValidationOk({ automateActive: false, userValidatedAt: 'not-a-date' }),
+      true,
+    );
+  });
+
+  // Callers MUST pass automateActive: true explicitly for automate gates.
+  // Omission means the gate is inactive (non-automate path) — do not treat as fail-closed.
+  it('omitted automateActive means gate inactive: userValidationOk({}) returns true', () => {
+    assert.equal(userValidationOk({}), true);
+    assert.equal(userValidationOk(), true);
+    assert.equal(
+      userValidationOk({ userValidatedAt: 'garbage' }),
       true,
     );
   });
@@ -152,6 +227,16 @@ describe('userValidationOk', () => {
     );
   });
 
+  it('false for non-ISO / invalid timestamps under automate', () => {
+    for (const bad of ['ok', 'yes', '0', 'not-a-date', 'true', '12345', 'July 17 2026']) {
+      assert.equal(
+        userValidationOk({ automateActive: true, userValidatedAt: bad }),
+        false,
+        `expected false for ${JSON.stringify(bad)}`,
+      );
+    }
+  });
+
   it('true only with non-empty ISO timestamp under automate', () => {
     assert.equal(
       userValidationOk({
@@ -165,6 +250,20 @@ describe('userValidationOk', () => {
         automateActive: true,
         userValidatedAt: '2026-07-17T19:00:00.000Z',
         validatorId: 'operator-henry',
+      }),
+      true,
+    );
+    assert.equal(
+      userValidationOk({
+        automateActive: true,
+        userValidatedAt: '2026-07-17T19:00:00Z',
+      }),
+      true,
+    );
+    assert.equal(
+      userValidationOk({
+        automateActive: true,
+        userValidatedAt: '2026-07-17',
       }),
       true,
     );
