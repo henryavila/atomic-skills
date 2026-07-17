@@ -4,7 +4,13 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { stringify } from 'yaml';
-import { renderReadme, renderReadmeFromPaths, buildSkillDocs, MARKERS } from '../scripts/lib/render-readme.js';
+import {
+  renderReadme,
+  renderReadmeFromPaths,
+  renderProductEnvelope,
+  buildSkillDocs,
+  MARKERS,
+} from '../scripts/lib/render-readme.js';
 
 const minimalV02Entry = (name, overrides = {}) => ({
   name,
@@ -21,10 +27,22 @@ const minimalV02Entry = (name, overrides = {}) => ({
   ...overrides,
 });
 
+const minimalProduct = (overrides = {}) => ({
+  what_is: 'Battle-tested skill prompts for unit tests.',
+  what_is_not: ['A copy-paste prompt pack'],
+  docs_url: 'https://atomic-skills.henryavila.com',
+  install: { primary: 'npx @henryavila/atomic-skills install' },
+  ...overrides,
+});
+
 const buildReadmeShell = (extras = '') =>
   `# Header (hand-written)
 
 Some prose.
+
+[PRODUCT_START]: #
+placeholder
+[PRODUCT_END]: #
 
 [IDES_TABLE_START]: #
 placeholder
@@ -116,7 +134,27 @@ describe('renderReadme', () => {
     }
   });
 
-  it('renders compact skill detail blurbs with link to per-skill docs', () => {
+  it('renders product envelope from catalog.product (SSOT)', () => {
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
+    const data = {
+      product: minimalProduct(),
+      core: { demo: minimalV02Entry('demo') },
+    };
+    const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
+    const productSection = out.slice(
+      out.indexOf(MARKERS.PRODUCT_START),
+      out.indexOf(MARKERS.PRODUCT_END) + MARKERS.PRODUCT_END.length
+    );
+    assert.ok(productSection.includes('## What it is'));
+    assert.ok(productSection.includes('Battle-tested skill prompts for unit tests.'));
+    assert.ok(productSection.includes('## What it is not'));
+    assert.ok(productSection.includes('A copy-paste prompt pack'));
+    assert.ok(productSection.includes('## Install'));
+    assert.ok(productSection.includes('npx @henryavila/atomic-skills install'));
+    assert.ok(productSection.includes('https://atomic-skills.henryavila.com'));
+  });
+
+  it('does not render long per-skill value_pitch blurbs in README details', () => {
     writeFileSync(
       join(skillsDir, 'core', 'demo.md'),
       '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n'
@@ -151,15 +189,49 @@ describe('renderReadme', () => {
       out.indexOf(MARKERS.DETAILS_START),
       out.indexOf(MARKERS.DETAILS_END) + MARKERS.DETAILS_END.length
     );
-    assert.ok(detailSection.includes('`demo`'), 'heading contains skill key');
-    assert.ok(detailSection.includes('**Iron Law:** `NO TEST WITHOUT EVIDENCE.`'));
-    assert.ok(detailSection.includes('catches bugs before they reach production'), 'value pitch present');
-    assert.ok(detailSection.includes('/atomic-skills:demo'), 'example command present');
-    assert.ok(detailSection.includes('[Full reference →](docs/skills/demo.md)'), 'link to per-skill doc');
-    // Full details (subcommands, args, artifacts) are NOT in the README — they live in per-skill docs
-    assert.ok(!detailSection.includes('**Subcommands:**'), 'subcommands not in compact blurb');
-    assert.ok(!detailSection.includes('**Arguments:**'), 'arguments not in compact blurb');
-    assert.ok(!detailSection.includes('**Version added:**'), 'version not in compact blurb');
+    // Slim envelope: DETAILS body is empty — blurbs deferred to docs site
+    assert.ok(
+      !detailSection.includes('catches bugs before they reach production'),
+      'value pitch must not appear in README details'
+    );
+    assert.ok(!detailSection.includes('**Iron Law:**'), 'iron law blurb not in details');
+    assert.ok(!detailSection.includes('[Full reference →]'), 'per-skill blurbs removed');
+    // Compact table still carries the skill index
+    assert.ok(out.includes('| | Skill |'));
+    assert.ok(out.includes('`demo`'));
+  });
+
+  it('leaves MODULES and VERSION_NOTE regions empty in the slim envelope', () => {
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
+    const data = {
+      core: { demo: minimalV02Entry('demo') },
+      release_highlight: { body: 'Should not appear in slim README.' },
+      module_meta: {
+        memory: {
+          title: 'Memory',
+          intro: 'Should not appear in slim README.',
+          features: ['x'],
+        },
+      },
+    };
+    const out = renderReadme({
+      catalogData: data,
+      readme: buildReadmeShell(),
+      skillsDir,
+      pkgVersion: '9.9.9',
+    });
+    const modules = out.slice(
+      out.indexOf(MARKERS.MODULES_START),
+      out.indexOf(MARKERS.MODULES_END) + MARKERS.MODULES_END.length
+    );
+    const version = out.slice(
+      out.indexOf(MARKERS.VERSION_NOTE_START),
+      out.indexOf(MARKERS.VERSION_NOTE_END) + MARKERS.VERSION_NOTE_END.length
+    );
+    assert.ok(!modules.includes('Memory'), 'modules section empty');
+    assert.ok(!modules.includes('Should not appear'), 'module copy not in README');
+    assert.ok(!version.includes('Should not appear'), 'release highlight not in README');
+    assert.ok(!version.includes('Note (v9.9.9)'), 'version callout suppressed');
   });
 
   it('preserves hand-written content outside markers', () => {
@@ -218,6 +290,30 @@ describe('renderReadme', () => {
     };
     const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
     assert.ok(out.includes('`CATALOG ONLY LAW.`'));
+  });
+});
+
+describe('renderProductEnvelope', () => {
+  it('renders what_is / what_is_not / install / docs_url', () => {
+    const out = renderProductEnvelope(minimalProduct());
+    assert.ok(out.includes('## What it is'));
+    assert.ok(out.includes('Battle-tested skill prompts for unit tests.'));
+    assert.ok(out.includes('- A copy-paste prompt pack'));
+    assert.ok(out.includes('```bash\nnpx @henryavila/atomic-skills install\n```'));
+    assert.ok(out.includes('https://atomic-skills.henryavila.com'));
+  });
+
+  it('returns empty string when product is absent', () => {
+    assert.strictEqual(renderProductEnvelope(null), '');
+    assert.strictEqual(renderProductEnvelope(undefined), '');
+  });
+
+  it('throws on incomplete product', () => {
+    assert.throws(() => renderProductEnvelope({}), /what_is/);
+    assert.throws(
+      () => renderProductEnvelope({ what_is: 'x', what_is_not: [] }),
+      /what_is_not/
+    );
   });
 });
 

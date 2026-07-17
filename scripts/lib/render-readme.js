@@ -4,7 +4,14 @@ import { parse } from 'yaml';
 import { collectSkills, bodyPathForSkill } from './validate-skills-core.js';
 import { extractIronLaw } from './extract-iron-law.js';
 import { IDE_CONFIG, SKILL_NAMESPACE, getIdeSupportLabel } from '../../src/config.js';
+import { safeHttpUrl } from './render-site.js';
 
+// Marker-bounded regions. README is a slim product envelope (design D5):
+// product copy + hosts table + compact skills table. Long skill blurbs and
+// module essays live on the docs site, not here — DETAILS/MODULES/VERSION_NOTE
+// markers stay so check-docs/husky keep working, but their bodies are empty.
+const PRODUCT_START = '[PRODUCT_START]: #';
+const PRODUCT_END = '[PRODUCT_END]: #';
 const TABLE_START = '[SKILLS_TABLE_START]: #';
 const TABLE_END = '[SKILLS_TABLE_END]: #';
 const DETAILS_START = '[SKILL_DETAILS_START]: #';
@@ -63,8 +70,8 @@ function renderOneModule(key, meta) {
 }
 
 /**
- * Render the `> Note (vX.Y.Z): ...` callout under `## Skills`. Returns an
- * empty string when `release_highlight` is absent (note is suppressed).
+ * Render the `> Note (vX.Y.Z): ...` callout. Kept for unit-test / future use;
+ * the slim README envelope no longer injects release_highlight (design D5).
  * Version is authoritative from `package.json` — the catalog only carries
  * the editorial body so the two cannot disagree.
  */
@@ -81,6 +88,67 @@ export function renderVersionNote(releaseHighlight, pkgVersion) {
   const first = `> **Note (v${pkgVersion}):** ${lines[0]}`;
   const rest = lines.slice(1).map((l) => `> ${l}`);
   return [first, ...rest].join('\n');
+}
+
+/**
+ * Product envelope body from catalog `product:` (design D2/D5).
+ * what_is / what_is_not / install.primary / docs_url.
+ * Returns empty string when product is absent (unit-test fixtures).
+ */
+export function renderProductEnvelope(product) {
+  if (product == null) return '';
+  if (typeof product !== 'object') {
+    throw new Error('catalog product must be an object');
+  }
+  const whatIs = typeof product.what_is === 'string' ? product.what_is.trim() : '';
+  if (!whatIs) {
+    throw new Error('product.what_is must be a non-empty string');
+  }
+  const whatIsNot = Array.isArray(product.what_is_not) ? product.what_is_not : [];
+  if (whatIsNot.length === 0) {
+    throw new Error('product.what_is_not must be a non-empty array');
+  }
+  for (const item of whatIsNot) {
+    if (typeof item !== 'string' || !item.trim()) {
+      throw new Error('product.what_is_not entries must be non-empty strings');
+    }
+  }
+  const installPrimary =
+    product.install &&
+    typeof product.install === 'object' &&
+    typeof product.install.primary === 'string'
+      ? product.install.primary.trim()
+      : '';
+  if (!installPrimary) {
+    throw new Error('product.install.primary must be a non-empty string');
+  }
+  const docsUrlRaw = typeof product.docs_url === 'string' ? product.docs_url.trim() : '';
+  if (!docsUrlRaw) {
+    throw new Error('product.docs_url must be a non-empty string');
+  }
+  const safeDocs = safeHttpUrl(docsUrlRaw);
+  const docsLine = safeDocs
+    ? `**Docs:** [${safeDocs}](${safeDocs})`
+    : `**Docs:** \`${docsUrlRaw}\``;
+
+  const notBullets = whatIsNot.map((item) => `- ${item.trim()}`).join('\n');
+  return [
+    '## What it is',
+    '',
+    whatIs,
+    '',
+    '## What it is not',
+    '',
+    notBullets,
+    '',
+    '## Install',
+    '',
+    '```bash',
+    installPrimary,
+    '```',
+    '',
+    docsLine,
+  ].join('\n');
 }
 
 /**
@@ -209,24 +277,12 @@ function titleSuffix(title) {
   return idx >= 0 ? title.slice(idx + 3) : title;
 }
 
-function renderDetailCompact(skill, ironLaw) {
-  const e = skill.entry;
-  const heading = `### ${e.emoji} \`${skill.key}\` — ${titleSuffix(e.title)}`;
-  const lines = [heading, ''];
-  if (ironLaw) lines.push(`**Iron Law:** \`${ironLaw}\``, '');
-  const pitch = (e.value_pitch || e.description || '').trim();
-  lines.push(pitch, '');
-  const ex = Array.isArray(e.examples) && e.examples.length > 0 ? e.examples[0] : null;
-  if (ex) {
-    lines.push('```', ex.command, '```', '');
-  }
-  lines.push(`[Full reference →](docs/skills/${skill.key}.md)`, '');
-  lines.push('---');
-  return lines.join('\n');
-}
-
-export function renderDetails(skills, ironLaws) {
-  return skills.map((s) => renderDetailCompact(s, ironLaws.get(s.key))).join('\n\n');
+/**
+ * Per-skill README blurbs are retired (design D5 / F2). Long value_pitch
+ * copy lives on the product docs site. Markers remain for check-docs.
+ */
+export function renderDetails(_skills, _ironLaws) {
+  return '';
 }
 
 function renderDetailFull(skill, ironLaw) {
@@ -274,6 +330,7 @@ export function renderSkillDocs(skills, ironLaws) {
 
 function ensureMarkers(readme) {
   for (const marker of [
+    PRODUCT_START, PRODUCT_END,
     TABLE_START, TABLE_END,
     DETAILS_START, DETAILS_END,
     IDES_START, IDES_END,
@@ -303,18 +360,12 @@ function replaceBetween(text, startMarker, endMarker, replacement) {
 /**
  * Pure renderer: takes a parsed catalog + current README content + a function
  * to read body files, returns the new README content.
+ *
+ * Slim envelope (design D5): product block, hosts table, compact skills table.
+ * DETAILS / MODULES / VERSION_NOTE bodies are intentionally empty.
  */
-export function renderReadme({ catalogData, readme, skillsDir, pkgVersion }) {
+export function renderReadme({ catalogData, readme, skillsDir, pkgVersion: _pkgVersion }) {
   ensureMarkers(readme);
-
-  // pkgVersion is only required when the catalog carries a release_highlight
-  // block; otherwise the version-note section renders empty and the absence
-  // of package.json is tolerated (useful in unit-test fixtures).
-  if (catalogData.release_highlight && (!pkgVersion || typeof pkgVersion !== 'string')) {
-    throw new Error(
-      'renderReadme: pkgVersion is required when catalog has release_highlight'
-    );
-  }
 
   const skills = collectSkills(catalogData);
   const ironLaws = new Map();
@@ -338,13 +389,16 @@ export function renderReadme({ catalogData, readme, skillsDir, pkgVersion }) {
     ironLaws.set(skill.key, law);
   }
 
+  const productBody = renderProductEnvelope(catalogData.product);
   const table = renderTable(skills, ironLaws);
-  const details = renderDetails(skills, ironLaws);
+  const details = renderDetails(skills, ironLaws); // empty — site owns blurbs
   const idesTable = renderIdesTable();
-  const modulesBody = renderModulesSection(catalogData.module_meta);
-  const versionNote = renderVersionNote(catalogData.release_highlight, pkgVersion);
+  // Modules + release callout live on the docs site; keep marker pairs empty.
+  const modulesBody = '';
+  const versionNote = '';
 
-  let next = replaceBetween(readme, TABLE_START, TABLE_END, table);
+  let next = replaceBetween(readme, PRODUCT_START, PRODUCT_END, productBody);
+  next = replaceBetween(next, TABLE_START, TABLE_END, table);
   next = replaceBetween(next, DETAILS_START, DETAILS_END, details);
   next = replaceBetween(next, IDES_START, IDES_END, idesTable);
   next = replaceBetween(next, MODULES_START, MODULES_END, modulesBody);
@@ -397,6 +451,7 @@ export function buildSkillDocs({ catalogData, skillsDir }) {
 }
 
 export const MARKERS = {
+  PRODUCT_START, PRODUCT_END,
   TABLE_START, TABLE_END,
   DETAILS_START, DETAILS_END,
   IDES_START, IDES_END,
