@@ -5,7 +5,7 @@ title: Implementation Automate Mode
 version: "1.0"
 status: active
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:20:22.000Z
+lastUpdated: 2026-07-17T19:20:54.697Z
 branch: plan/implementation-automate-mode
 currentPhase: F1
 parallelismAllowed: false
@@ -93,7 +93,7 @@ phases:
     goal: "Extend implement so --mode=automate runs the pure-maestro loop: one code-only phase writer per phase, sync wait, claim handling, orchestrator-owned done, no silent Mode-1 fallback."
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 4
     exitGate:
       summary: 3 criteria to meet
       criteria:
@@ -118,8 +118,14 @@ phases:
             kind: shell
             command: test -s skills/shared/implement-phase-evaluator.md && rg -n 'evaluation agent|user validates' skills/shared/implement-phase-evaluator.md skills/core/implement.md
             expectExitCode: 0
-    status: pending
+    status: active
     summary: "Implement maestro: writer code-only, evaluator, sibling isolation, lease, merge-before-done."
+    businessIntent:
+      value: "Maestro puro sob --mode=automate: session nao edita product source; um phase-writer code-only por fase; orchestrator fecha done."
+      workflow: Documentar implement maestro + phase-writer asset + lease/isolation + evaluator; TDD writer-lease helper.
+      rules: P2 pure maestro; P3 code-only writer; P4 one writer; sem Mode-1 silent fallback; sem nest worktree.
+      outOfScope: phase-done review policy (F2); plan-end finalize (F3); full contract tests (F4).
+      doneWhen: F1-G1/G2/G3 met; implement + phase-writer + evaluator assets exist.
   - id: F2
     slug: implementation-automate-mode-f2-review-policy-phase-done-and-co
     title: "Review policy: phase-done and complex tasks under automate"
