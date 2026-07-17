@@ -30,7 +30,6 @@ import {
 } from './runtime-layers/grok-plugin-host.js';
 import { applyGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation.js';
 import {
-  listKnownInstallBases,
   releaseGrokOutsideJournal,
   scanKnownInstallBases,
   sameInstallBase,
@@ -594,8 +593,8 @@ function registryOwnerCountSafe() {
 }
 
 /**
- * Grok outside-journal release + registry unregister under one shared lock
- * (Codex F-001 / P0-C concurrency).
+ * Grok outside-journal release + optional registry unregister under one shared
+ * lock (Codex F-001 / P0-C concurrency).
  *
  * Order under the lock (P0-C C1–C3):
  * 1. Trusted scan of registry (+ known bases). If untrusted → skip host and
@@ -606,8 +605,15 @@ function registryOwnerCountSafe() {
  *    snapshot, not a re-scan that still includes self).
  * 4. If last-owner host unregister **failed** (may be half-applied) → keep
  *    registry so a retry still sees this owner. Fail-open skips (binary
- *    missing / bridge disabled) still commit unregister.
- * 5. Else write registry without basePath; if empty → reclaim runtime.
+ *    missing / bridge disabled) still commit unregister when finalizeRegistry.
+ * 5. Else, when `finalizeRegistry` (default true): write registry without
+ *    basePath; if empty → reclaim runtime.
+ *
+ * Uninstall orchestration (C-codex-3/4) calls with `finalizeRegistry: false`
+ * so host/isolation release runs against the post-removal simulation first,
+ * then journal Driver.uninstall, then registry unregister only after journal
+ * success — and only when this helper did not retain ownership for host-fail
+ * retry (`registryUnregistered` / `retainRegistryForHostRetry`).
  *
  * Residual race (documented): host CLI (`grok plugin …`) is external and not
  * covered by the O_EXCL file lock — two processes can still interleave host
@@ -618,16 +624,21 @@ function registryOwnerCountSafe() {
  * @param {string} basePath
  * @param {object} [releaseOpts] - forwarded to releaseGrokOutsideJournal
  *   (`basePath` and `listInstallBases` are controlled here; caller listInstallBases is ignored)
+ * @param {boolean} [releaseOpts.finalizeRegistry=true] - when false, only host
+ *   /isolation release runs; registry is left for the caller after journal success
  * @returns {{
  *   remaining: number,
  *   lastOwner: boolean,
  *   host: { status: string, detail?: string, restage?: string },
  *   isolation: { status: string, detail?: string },
+ *   registryUnregistered: boolean,
+ *   retainRegistryForHostRetry: boolean,
  * }}
  */
 export function releaseGrokAndUnregisterRuntime(basePath, releaseOpts = {}) {
   return withSharedRuntimeLocks({ basePath }, () => {
     const home = releaseOpts.home || process.env.HOME || homedir();
+    const finalizeRegistry = releaseOpts.finalizeRegistry !== false;
 
     // 1. Trusted scan — fail-closed: never shrink owners / mutate on corrupt registry.
     const scan = scanKnownInstallBases(home);
@@ -637,15 +648,21 @@ export function releaseGrokAndUnregisterRuntime(basePath, releaseOpts = {}) {
         lastOwner: false,
         host: { status: 'skipped', detail: 'registry-untrusted' },
         isolation: { status: 'skipped', detail: 'registry-untrusted' },
+        registryUnregistered: false,
+        retainRegistryForHostRetry: false,
       };
     }
 
     // 2. Post-removal owner set (in-memory). Do not re-scan ambient state later.
     const remainingBases = scan.bases.filter((b) => !sameInstallBase(b, basePath));
 
-    // 3. Release against that exact list. Drop caller listInstallBases so it
-    // cannot reintroduce self or diverge from the post-removal snapshot (C3).
-    const { listInstallBases: _ignoredListInstallBases, ...restReleaseOpts } = releaseOpts;
+    // 3. Release against that exact list. Drop caller listInstallBases + finalize
+    // flag so they cannot reintroduce self or diverge from the post-removal snapshot (C3).
+    const {
+      listInstallBases: _ignoredListInstallBases,
+      finalizeRegistry: _ignoredFinalize,
+      ...restReleaseOpts
+    } = releaseOpts;
     const released = releaseGrokOutsideJournal({
       ...restReleaseOpts,
       basePath,
@@ -660,16 +677,32 @@ export function releaseGrokAndUnregisterRuntime(basePath, releaseOpts = {}) {
         lastOwner: true,
         host: released.host,
         isolation: released.isolation,
+        registryUnregistered: false,
+        retainRegistryForHostRetry: true,
       };
     }
 
-    // 5. Finalize registry remove + optional runtime reclaim.
+    // 5. Finalize registry remove + optional runtime reclaim (optional for
+    // uninstall that must journal-uninstall first — C-codex-3).
+    if (!finalizeRegistry) {
+      return {
+        remaining: registryOwnerCountSafe(),
+        lastOwner: released.lastOwner,
+        host: released.host,
+        isolation: released.isolation,
+        registryUnregistered: false,
+        retainRegistryForHostRetry: false,
+      };
+    }
+
     const remaining = unregisterAndMaybeReclaimRuntimeUnlocked(basePath);
     return {
       remaining,
       lastOwner: released.lastOwner,
       host: released.host,
       isolation: released.isolation,
+      registryUnregistered: true,
+      retainRegistryForHostRetry: false,
     };
   });
 }
@@ -1049,7 +1082,11 @@ export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en', 
   const {
     priorIdes,
     home = process.env.HOME || homedir(),
-    listInstallBases = () => listKnownInstallBases(home),
+    // C-local-F1: do NOT default to listKnownInstallBases (throws REGISTRY_UNTRUSTED).
+    // When omitted, releaseGrokOutsideJournal uses scanKnownInstallBases fail-closed
+    // skip (same as releaseGrokAndUnregisterRuntime) so journal commit is not
+    // stranded mid-error after a successful Driver install.
+    listInstallBases,
     run,
     resolveBin,
     env,
@@ -1061,12 +1098,32 @@ export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en', 
       const releaseOpts = {
         basePath,
         home,
-        listInstallBases,
       };
+      // Only pass an explicit scan callback when the caller supplied one.
+      // Default path relies on releaseGrokOutsideJournal's untrusted skip.
+      if (typeof listInstallBases === 'function') {
+        releaseOpts.listInstallBases = listInstallBases;
+      }
       if (run) releaseOpts.run = run;
       if (resolveBin) releaseOpts.resolveBin = resolveBin;
       if (env) releaseOpts.env = env;
-      const released = releaseGrokOutsideJournal(releaseOpts);
+      let released;
+      try {
+        released = releaseGrokOutsideJournal(releaseOpts);
+      } catch (err) {
+        // Fail-closed: corrupt/untrusted registry must never throw after journal
+        // commit (C-local-F1). Map to the same skipped shape as scan path.
+        if (err?.code === 'REGISTRY_UNTRUSTED' || err?.code === 'REGISTRY_CORRUPT'
+          || err?.code === 'REGISTRY_UNKNOWN' || err?.code === 'REGISTRY_IO') {
+          released = {
+            lastOwner: false,
+            host: { status: 'skipped', detail: 'registry-untrusted' },
+            isolation: { status: 'skipped', detail: 'registry-untrusted' },
+          };
+        } else {
+          throw err;
+        }
+      }
       logGrokRelease(released, isPt);
     }
     return;
@@ -1163,8 +1220,19 @@ export async function install(projectDir, options = {}) {
     process.exit(1);
   }
 
-  const userManifest = readManifest(userBasePath);
-  const projectManifest = projectTarget.ok ? readManifest(projectTarget.path) : null;
+  // C-codex-1: never let corrupt/invalid incomplete JSON throw before --repair
+  // routing. describeRecovery / repairIncompleteInstall tolerate invalid JSON;
+  // raw readManifest does not.
+  const tryReadManifest = (base) => {
+    try {
+      return readManifest(base);
+    } catch {
+      return null;
+    }
+  };
+
+  const userManifest = tryReadManifest(userBasePath);
+  const projectManifest = projectTarget.ok ? tryReadManifest(projectTarget.path) : null;
   const initialLanguage = cliLang || userManifest?.language || projectManifest?.language || detectLanguage();
 
   // P0-A: --repair routes by incomplete presence across user+project scopes
@@ -1242,7 +1310,7 @@ export async function install(projectDir, options = {}) {
     process.exit(1);
   }
 
-  const existingManifest = readManifest(basePath);
+  const existingManifest = tryReadManifest(basePath);
   const isFirstInstall = !existingManifest;
   const isUpdate = !!existingManifest;
   const pkgVersion = getPackageVersion();
