@@ -88,7 +88,7 @@ describe('renderReadme', () => {
       join(skillsDir, 'core', 'demo.md'),
       '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n'
     );
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
 
     const tableSection = out.slice(
@@ -106,7 +106,7 @@ describe('renderReadme', () => {
       join(skillsDir, 'core', 'demo.md'),
       '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n'
     );
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
 
     const idesSection = out.slice(
@@ -182,7 +182,7 @@ describe('renderReadme', () => {
       related: [],
       tags: ['testing'],
     });
-    const data = { core: { demo: entry } };
+    const data = { product: minimalProduct(), core: { demo: entry } };
     const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
 
     const detailSection = out.slice(
@@ -204,6 +204,7 @@ describe('renderReadme', () => {
   it('leaves MODULES and VERSION_NOTE regions empty in the slim envelope', () => {
     writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
     const data = {
+      product: minimalProduct(),
       core: { demo: minimalV02Entry('demo') },
       release_highlight: { body: 'Should not appear in slim README.' },
       module_meta: {
@@ -236,7 +237,7 @@ describe('renderReadme', () => {
 
   it('preserves hand-written content outside markers', () => {
     writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     const before = buildReadmeShell('\n\nMore prose with secret-marker-XYZ.');
     const out = renderReadme({ catalogData: data, readme: before, skillsDir });
 
@@ -251,7 +252,7 @@ describe('renderReadme', () => {
 
   it('throws when README is missing required markers', () => {
     writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     const readmeWithoutMarkers = '# README\n\nNo markers here.\n';
     assert.throws(
       () => renderReadme({ catalogData: data, readme: readmeWithoutMarkers, skillsDir }),
@@ -261,7 +262,7 @@ describe('renderReadme', () => {
 
   it('throws when a skill body lacks `## Iron Law`', () => {
     writeFileSync(join(skillsDir, 'core', 'demo.md'), 'No iron law here.\n');
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     assert.throws(
       () => renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir }),
       /missing canonical `## Iron Law`/
@@ -272,6 +273,7 @@ describe('renderReadme', () => {
     // Body has a different law; generators must use catalog SSOT (design D2).
     writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nBODY LAW ONLY.\n');
     const data = {
+      product: minimalProduct(),
       core: {
         demo: minimalV02Entry('demo', { iron_law: 'CATALOG LAW WINS.' }),
       },
@@ -284,6 +286,7 @@ describe('renderReadme', () => {
   it('does not throw on missing body Iron Law when catalog iron_law is set', () => {
     writeFileSync(join(skillsDir, 'core', 'demo.md'), 'No iron law section here.\n');
     const data = {
+      product: minimalProduct(),
       core: {
         demo: minimalV02Entry('demo', { iron_law: 'CATALOG ONLY LAW.' }),
       },
@@ -299,13 +302,15 @@ describe('renderProductEnvelope', () => {
     assert.ok(out.includes('## What it is'));
     assert.ok(out.includes('Battle-tested skill prompts for unit tests.'));
     assert.ok(out.includes('- A copy-paste prompt pack'));
-    assert.ok(out.includes('```bash\nnpx @henryavila/atomic-skills install\n```'));
+    assert.ok(out.includes('npx @henryavila/atomic-skills install'));
+    assert.ok(out.includes('```bash'));
     assert.ok(out.includes('https://atomic-skills.henryavila.com'));
   });
 
-  it('returns empty string when product is absent', () => {
-    assert.strictEqual(renderProductEnvelope(null), '');
-    assert.strictEqual(renderProductEnvelope(undefined), '');
+  it('returns empty string when product is absent with allowMissing', () => {
+    assert.strictEqual(renderProductEnvelope(null, { allowMissing: true }), '');
+    assert.strictEqual(renderProductEnvelope(undefined, { allowMissing: true }), '');
+    assert.throws(() => renderProductEnvelope(null), /product is required/);
   });
 
   it('throws on incomplete product', () => {
@@ -330,7 +335,7 @@ describe('renderReadmeFromPaths (project-root integration)', () => {
     );
     writeFileSync(
       join(projectRoot, 'meta', 'catalog.yaml'),
-      stringify({ core: { demo: minimalV02Entry('demo') } })
+      stringify({ product: minimalProduct(), core: { demo: minimalV02Entry('demo') } })
     );
     writeFileSync(join(projectRoot, 'README.md'), buildReadmeShell());
   });
@@ -376,7 +381,7 @@ describe('buildSkillDocs (per-skill reference pages)', () => {
       related: ['fix'],
       tags: ['testing'],
     });
-    const data = { core: { demo: entry } };
+    const data = { product: minimalProduct(), core: { demo: entry } };
     const docs = buildSkillDocs({ catalogData: data, skillsDir });
 
     assert.strictEqual(docs.length, 1);
@@ -431,6 +436,7 @@ describe('buildSkillDocs (per-skill reference pages)', () => {
     writeFileSync(join(skillsDir, 'core', 'a.md'), '## Iron Law\nNO A.\n');
     writeFileSync(join(skillsDir, 'core', 'b.md'), '## Iron Law\nNO B.\n');
     const data = {
+      product: minimalProduct(),
       core: {
         a: minimalV02Entry('a'),
         b: minimalV02Entry('b'),

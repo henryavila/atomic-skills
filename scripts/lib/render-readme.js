@@ -91,12 +91,33 @@ export function renderVersionNote(releaseHighlight, pkgVersion) {
 }
 
 /**
+ * Size a markdown fence so it cannot be closed by content backticks.
+ * @param {string} content
+ * @param {string} [lang]
+ */
+export function fencedCodeBlock(content, lang = '') {
+  const text = String(content ?? '');
+  let ticks = 3;
+  const match = text.match(/`+/g);
+  if (match) {
+    const longest = Math.max(...match.map((m) => m.length));
+    ticks = Math.max(3, longest + 1);
+  }
+  const fence = '`'.repeat(ticks);
+  return `${fence}${lang}\n${text}\n${fence}`;
+}
+
+/**
  * Product envelope body from catalog `product:` (design D2/D5).
  * what_is / what_is_not / install.primary / docs_url.
- * Returns empty string when product is absent (unit-test fixtures).
+ * @param {object|null|undefined} product
+ * @param {{ allowMissing?: boolean }} [opts] allowMissing=true only for unit fixtures
  */
-export function renderProductEnvelope(product) {
-  if (product == null) return '';
+export function renderProductEnvelope(product, opts = {}) {
+  if (product == null) {
+    if (opts.allowMissing) return '';
+    throw new Error('catalog product is required for README envelope');
+  }
   if (typeof product !== 'object') {
     throw new Error('catalog product must be an object');
   }
@@ -122,6 +143,9 @@ export function renderProductEnvelope(product) {
   if (!installPrimary) {
     throw new Error('product.install.primary must be a non-empty string');
   }
+  if (/\r|\n/.test(installPrimary)) {
+    throw new Error('product.install.primary must be a single line');
+  }
   const docsUrlRaw = typeof product.docs_url === 'string' ? product.docs_url.trim() : '';
   if (!docsUrlRaw) {
     throw new Error('product.docs_url must be a non-empty string');
@@ -129,13 +153,13 @@ export function renderProductEnvelope(product) {
   const safeDocs = safeHttpUrl(docsUrlRaw);
   const docsLine = safeDocs
     ? `**Docs:** [${safeDocs}](${safeDocs})`
-    : `**Docs:** \`${docsUrlRaw}\``;
+    : `**Docs:** \`${docsUrlRaw.replace(/`/g, "'")}\``;
 
-  const notBullets = whatIsNot.map((item) => `- ${item.trim()}`).join('\n');
+  const notBullets = whatIsNot.map((item) => `- ${item.trim().replace(/\n+/g, ' ')}`).join('\n');
   return [
     '## What it is',
     '',
-    whatIs,
+    whatIs.replace(/\n{3,}/g, '\n\n'),
     '',
     '## What it is not',
     '',
@@ -143,9 +167,7 @@ export function renderProductEnvelope(product) {
     '',
     '## Install',
     '',
-    '```bash',
-    installPrimary,
-    '```',
+    fencedCodeBlock(installPrimary, 'bash'),
     '',
     docsLine,
   ].join('\n');
