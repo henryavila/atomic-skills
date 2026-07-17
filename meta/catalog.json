@@ -802,7 +802,7 @@
   {
     "id": "/atomic-skills:implement",
     "icon": "⚙️",
-    "oneLiner": "Drive decomposed tasks to done, one at a time, verifier-gated",
+    "oneLiner": "Drive plan tasks to done; optional --mode=automate pure maestro",
     "facets": [
       "execution",
       "lifecycle",
@@ -813,7 +813,8 @@
     "pros": [
       "A plan has been decomposed and its tasks admitted by the SPEC gate",
       "You are implementing a phase task-by-task and want verifier-gated completion",
-      "Resuming a prior implementation session from its handoff block"
+      "Resuming a prior implementation session from its handoff block",
+      "You want pure-maestro multi-phase execution with --mode=automate (phase writers + forced cross-model review)"
     ],
     "cons": [
       "There is no plan/design yet (use brainstorm, then project new plan)",
@@ -822,6 +823,7 @@
     ],
     "examples": [
       "/atomic-skills:implement migration-self-host",
+      "/atomic-skills:implement my-plan --mode=automate",
       "/atomic-skills:implement"
     ],
     "fields": [
@@ -830,6 +832,18 @@
         "kind": "positional",
         "required": false,
         "description": "The plan (or project-id/plan-slug) to implement. If omitted, uses the active plan/initiative."
+      },
+      {
+        "name": "--mode",
+        "kind": "flag",
+        "required": false,
+        "description": "Opt-in execution mode. automate = pure maestro + phase writers; 1/default = Mode 1 session writer. Stamps plan executionMode on first automate entry."
+      },
+      {
+        "name": "--clear-execution-mode",
+        "kind": "flag",
+        "required": false,
+        "description": "Leave durable automate (unstamp executionMode). Refuses while a writer lease is active or malformed."
       }
     ],
     "deps": [

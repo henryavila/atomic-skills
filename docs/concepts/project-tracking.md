@@ -416,6 +416,31 @@ the file back out of `archive/` if needed.
   the target, and warns (offering to also switch the plan) if the target belongs to a
   different plan.
 
+### Step 3.5 — Drive tasks (`implement`) and opt-in automate mode
+
+Day-to-day execution of SPEC-admitted tasks is **`atomic-skills:implement`** (Mode 1 by
+default: the host session is the single-threaded writer). Contract:
+[`skills/core/implement.md`](../../skills/core/implement.md).
+
+**Opt-in `--mode=automate`** turns the host into a **pure maestro**: it does not edit product
+source; it spawns one **code-only phase writer** per phase, re-verifies claims on the merged
+plan tree, runs an evaluation agent, forces phase-done `review-code --mode=both`, and at plan
+end requires `external-both` + machine `planEndReviewOk` **and** explicit user validation before
+finalize/archive. First entry stamps plan frontmatter `executionMode: automate` (after operator
+confirm); leave with `--clear-execution-mode` only when the writer lease is clean.
+
+| Flag / stamp | Effect |
+|--------------|--------|
+| *(default)* / `--mode=1` | Mode 1 session writer (unchanged) |
+| `--mode=automate` | Pure maestro + phase writers; stamps `executionMode: automate` |
+| stamp alone | Later `implement <plan>` re-enters automate until clear |
+| `--clear-execution-mode` | Unstamp + leave automate (refuses while writer lease active/malformed) |
+
+Not a separate skill — there is no `skills/core/automate.md`. Phase-writer and evaluator
+contracts: `skills/shared/implement-phase-writer.md`,
+`skills/shared/implement-phase-evaluator.md`. Under automate, archive/finalize **HARD-BLOCK**
+unless both plan-end review and user validation pass (see project finalize assets).
+
 ---
 
 ## 8. A worked example
