@@ -4,11 +4,11 @@ slug: product-docs-site-f3-project-deep-guide-on-the-site
 title: Project deep guide on the site
 goal: Move the project mental-model documentation onto the site as a data-driven
   page, without stuffing domain model into core.project catalog fields.
-status: active
+status: done
 branch: plan/product-docs-site
 started: 2026-07-17T16:13:16.000Z
-lastUpdated: 2026-07-17T16:13:16.000Z
-nextAction: Start T-009 project-guide dataset
+lastUpdated: 2026-07-17T16:22:27.652Z
+nextAction: null
 parentPlan: product-docs-site
 phaseId: F3
 businessIntent:
@@ -20,9 +20,9 @@ businessIntent:
   outOfScope: Deploy, README further, retiring all docs/skills.
   doneWhen: generate-site emits project guide page; onboarding path deprecation
     documented.
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F3-G1
@@ -33,7 +33,15 @@ exitGates:
         -f docs/site/dist/project/index.html || test -f site/dist/project.html
         || test -f docs/site/dist/project.html)
       expectExitCode: 0
-    status: pending
+    status: met
+    metAt: 2026-07-17T16:22:27.652Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:22:27.652Z
+      verifiedCommit: 469bae8b002510a59363c7ed5bbfc1c32bfcf8a3
+      passed: true
+      exitCode: 0
+      outputSummary: F3-G1
 stack:
   - id: 1
     title: Project deep guide on the site
@@ -68,8 +76,16 @@ tasks:
         path: scripts/generate-site.js
     summary: Dataset project-guide + rota no site.
     weight: 4
-    status: pending
-    lastUpdated: 2026-07-17T16:13:16.000Z
+    status: done
+    lastUpdated: 2026-07-17T16:22:27.652Z
+    closedAt: 2026-07-17T16:22:27.652Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:22:27.652Z
+      verifiedCommit: 469bae8b002510a59363c7ed5bbfc1c32bfcf8a3
+      passed: true
+      exitCode: 0
+      outputSummary: T-009
   - id: T-010
     title: Onboarding HTML deprecation path
     scopeBoundary:
@@ -95,12 +111,33 @@ tasks:
         path: package.json
     summary: Deprecar ou redirecionar onboarding HTML monólito.
     weight: 1
-    status: pending
-    lastUpdated: 2026-07-17T16:13:16.000Z
+    status: done
+    lastUpdated: 2026-07-17T16:22:27.652Z
+    closedAt: 2026-07-17T16:22:27.652Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:22:27.652Z
+      verifiedCommit: 469bae8b002510a59363c7ed5bbfc1c32bfcf8a3
+      passed: true
+      exitCode: 0
+      outputSummary: T-010
 parked: []
 emerged: []
 summary: Guia profundo do project no site via dataset dedicado (não expandir
   core.project).
+closedAt: 2026-07-17T16:22:27.652Z
+reviewGate:
+  at: 469bae8b002510a59363c7ed5bbfc1c32bfcf8a3
+  mode: codex
+  provider: gpt-5.5
+  verdict: major_fixed
+  counts:
+    blocker: 0
+    critical: 0
+    major: 1
+    minor: 1
+    nit: 0
+  reviewFile: .atomic-skills/reviews/product-docs-site-f3-codex-pass1.md
 ---
 
 # F3 project guide

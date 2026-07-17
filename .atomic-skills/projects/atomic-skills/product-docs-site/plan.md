@@ -5,9 +5,9 @@ title: Product docs site from catalog SSOT
 version: "1.0"
 status: active
 started: 2026-07-17T14:28:20.714Z
-lastUpdated: 2026-07-17T16:13:16.000Z
+lastUpdated: 2026-07-17T16:22:27.652Z
 branch: plan/product-docs-site
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -195,14 +195,15 @@ phases:
       criteria:
         - id: F3-G1
           description: Site includes a project guide page built from a dedicated dataset.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run generate-site && (test -f site/dist/project/index.html || test
               -f docs/site/dist/project/index.html || test -f
               site/dist/project.html || test -f docs/site/dist/project.html)
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T16:22:27.652Z
+    status: done
     summary: Guia profundo do project no site via dataset dedicado (não expandir
       core.project).
     businessIntent:
@@ -222,7 +223,7 @@ phases:
       docs without relying only on memory of the README.
     dependsOn:
       - F3
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -243,8 +244,18 @@ phases:
             command: grep -Eiq 'atomic-skills.henryavila.com|docs site|product docs'
               CHANGELOG.md
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Deploy CI, acesso offline/local e nota de release/CHANGELOG.
+    businessIntent:
+      value: Publish static product docs and give maintainers offline access + release
+        notes for the cutover.
+      workflow: Add CI/docs deploy path; document offline site/dist; CHANGELOG cutover
+        note.
+      rules: No secrets in repo; deploy git-driven; offline works without DNS.
+      outOfScope: Actual production DNS flip if credentials missing; version bump
+        without request.
+      doneWhen: deploy path exists in-repo; CHANGELOG mentions docs site; offline path
+        documented.
   - id: F5
     slug: product-docs-site-f5-generated-md-cleanup-optional-follow-thr
     title: Generated MD cleanup (optional follow-through)
