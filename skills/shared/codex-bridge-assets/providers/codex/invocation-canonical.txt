@@ -13,7 +13,10 @@ contamination, orphan processes).
 - `<BRIEFING_PATH>`: path to briefing markdown file (input)
 - `<OUTPUT_PATH>`: path to output markdown file (Codex writes final message here)
 - `<TIMEOUT_SECONDS>`: integer seconds (default 600 = 10 min)
-- `<MODEL_FLAG>`: empty by default. If user passed `--model X`, set to `--model X`.
+- `<MODEL_FLAG>` / `REVIEW_MODEL_ID`: from Step 0.model. Empty when
+  `source: cli-default` or `invalidModelId`. Prefer binding safe `REVIEW_MODEL_ID`
+  and expanding `${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"}` (quoted). Never
+  invent an id; never pass an id that failed `isSafeReviewModelId`.
 
 ## Pre-step: portable timeout wrapper
 
@@ -50,8 +53,10 @@ would destroy).
 ## Command
 
 ```bash
+# REVIEW_MODEL_ID must be empty or pass isSafeReviewModelId (slug-shaped).
+# Prefer the quoted expansion over unquoted <MODEL_FLAG> text substitution.
 run_with_timeout <TIMEOUT_SECONDS> codex -a never exec \
-  <MODEL_FLAG> \
+  ${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"} \
   -c model_reasoning_effort=high \
   --sandbox read-only \
   --skip-git-repo-check \

@@ -43,24 +43,27 @@ plan — facilitate the critique.
 
 ## Argument contract
 
-Parse {{ARG_VAR}} BEFORE any prompt or file read. {{ARG_VAR}} is the raw
-argument string; split it into `plan_path` + optional flags. Tokens that
-start with `--` are flags:
+Parse {{ARG_VAR}} BEFORE any prompt or file read. First
+`parseModelArgs({{ARG_VAR}})` so model flags **and values** are consumed
+(`--model=<id>`, `--model <id>`, `model:<id>`, `--model-codex`/`--model-grok`
+eq or space, `--ask-model`). Then split `remainingTokens` into `plan_path` +
+flags. Tokens starting with `--` are flags:
 
 | Flag | Effect |
 |---|---|
 | `--mode=local\|codex\|grok\|both\|both-codex\|both-grok\|external-both` | Skip Step 0a; force mode (`both` = local→host external default). |
 | `--mode=internal` | Alias for `--mode=local` (compat with v2.x). |
 | `--accept-same-family-as-local` | Non-interactive same-family → sealed local (`provider:local`); see review-mode-ux.md. |
+| `--model=<id>` / `--model <id>` / `model:<id>` / `--model-codex=` / `--model-grok=` / `--ask-model` | External model (review-mode-ux.md Step 0.model). Values are **not** part of `plan_path`. |
 | `--no-cross-ref` | Skip Step 0b; force internal-only. Valid when mode has a local leg or is local-only. |
 | `--cross-ref=path1,path2,...` | Skip Step 0b; use listed artifacts. Same validity as `--no-cross-ref`. |
 | `--artifacts=path1,path2,...` | Alias for `--cross-ref=` (compat with v2.x). |
 | `--allow-dirty` | Pass through to external pre-flight (suppresses dirty-tree abort). |
 | `--no-initiatives` | Skip Step 0c; plan structure only without task-level depth. |
 
-Everything that is NOT a `--` token is part of `plan_path`. Strip trailing
-whitespace. Do NOT pass the unparsed {{ARG_VAR}} to {{READ_TOOL}} — that
-would try to open the literal string "docs/plan.md --mode=local" as a file.
+`plan_path` = `positionalFromRemaining(remainingTokens)`. Strip trailing
+whitespace. Do NOT pass unparsed {{ARG_VAR}} to {{READ_TOOL}} (avoids
+"docs/plan.md --mode=local" or "docs/plan.md gpt-5.5" after `--model gpt-5.5`).
 
 ### Target resolution (plan_path → a real plan file)
 
@@ -89,6 +92,11 @@ After `mode` is known, run the **same-family gate** in review-mode-ux.md
 (`resolveReviewRoute`). Interactive same-family → confirm→local;
 non-interactive without `--accept-same-family-as-local` → **HARD ABORT**.
 Record `provider` / `sameFamilyRemap` from the route result.
+
+When the route keeps an external provider, run **Step 0.model** in
+review-mode-ux.md (discover catalog → recommended → picker or
+`--model`/`--ask-model`) and bind `REVIEW_MODEL_FLAG` before any envelope
+invoke. Skip Step 0.model for pure-local routes.
 
 ## Step 0b — Detect and confirm cross-ref scope
 

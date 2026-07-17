@@ -31,7 +31,9 @@ Adversarially review code changes — a git ref (branch, commit, range), a scope
 | Name | Kind | Required | Description |
 |------|------|----------|-------------|
 | `git-ref` | positional | optional | Git ref (branch, commit, a..b / a...b) or scope keyword: wip (uncommitted), branch (merge-base..HEAD), all (both). Empty → interactive scope picker. |
-| `--mode` | option | optional | Force a review mode (local, codex, both). Skips the Step 0 picker. |
+| `--mode` | option | optional | Force a review mode (local, codex, grok, both*, external-both). Skips the Step 0 picker. |
+| `--model` | option | optional | Force external reviewer model id (skips model picker). Use cli-default for empty --model flag. Also --model-codex / --model-grok / --ask-model. |
+| `--ask-model` | flag | optional | Prefer the catalog-recommended model for the external provider. |
 | `--allow-dirty` | flag | optional | Include working-tree changes in the captured diff; suppresses the dirty-tree abort. |
 
 **Examples:**

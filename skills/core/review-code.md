@@ -49,11 +49,16 @@ review phases consume those outputs; never re-run `git diff`.
 
 ## Step 0 — Pick review mode + same-family route
 
-Skip the picker if `--mode=` was supplied (accepted values: `local|codex|grok|both|both-codex|both-grok|external-both`). Also accept `--accept-same-family-as-local` (see review-mode-ux.md).
+Skip the picker if `--mode=` was supplied (accepted values: `local|codex|grok|both|both-codex|both-grok|external-both`). Also accept `--accept-same-family-as-local`, `--model=`, `--model-codex=`, `--model-grok=`, `--ask-model` (see review-mode-ux.md).
 
 Otherwise {{READ_TOOL}} `skills/shared/codex-bridge-assets/review-mode-ux.md` and run its **host-aware Step 0 picker** via {{ASK_USER_QUESTION_TOOL}}. When `DESTRUCTIVE` is true, prepend: *"⚠ This diff is predominantly destructive (deletes/drops). A same-model local-only pass frequently misses orphaned-data / dangling-reference regressions — cross-model is strongly advised."* Default remains **Both** (host external default); when `DESTRUCTIVE`, that default is the recommended option, not merely the fallback.
 
 After `mode` is known, run the **same-family gate** in review-mode-ux.md (`resolveReviewRoute`). Interactive same-family → confirm→local; non-interactive without `--accept-same-family-as-local` → **HARD ABORT**. Record `provider` / `sameFamilyRemap` from the route result.
+
+When the route keeps an external provider, run **Step 0.model** in
+review-mode-ux.md (discover catalog → recommended → picker or
+`--model`/`--ask-model`) and bind `REVIEW_MODEL_FLAG` before any envelope
+invoke. Skip Step 0.model for pure-local routes.
 
 Why {{ASK_USER_QUESTION_TOOL}}: the template var resolves per IDE (Claude native multi-choice; other hosts get a descriptive string). Hardcoding a host-specific tool name breaks other IDEs.
 
@@ -331,6 +336,7 @@ appear when a local leg ran; `(external)` when an external provider ran.
 **Ref/scope:** {{ARG_VAR}} (or the resolved scope when the picker ran)
 **Mode:** local | codex | grok | both | both-codex | both-grok | external-both
 **Provider:** codex | grok | local  (from route; never codex/grok after same-family remap)
+**Model:** <id> | cli-default  (external only; source=explicit|user-pick|recommended|cli-default)
 **Files reviewed:** [N]
 **Passes (local):** [N] (local/both* only)
 **External iterations:** 2 (blind + informed) per provider (external only)

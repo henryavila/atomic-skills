@@ -25,6 +25,14 @@ Aliases: `--mode=internal` → `local` (review-plan compat).
 |------|--------|
 | `--mode=<mode>` | Skip Step 0 picker; force mode from the table above |
 | `--accept-same-family-as-local` | Non-interactive: same-family external remaps to sealed `local` (records `provider: local`, `sameFamilyRemap: true`; **never** counts as CROSS-MODEL REVIEW). Env: `ATOMIC_SKILLS_ACCEPT_SAME_FAMILY_AS_LOCAL=1` |
+| `--model=<id>` | Force external reviewer model id for the active provider. Skips the model picker. Also accepts `--model <id>` and `model:<id>`. Pass `cli-default` to force an empty `--model` flag (provider CLI default). |
+| `--model-codex=<id>` | Per-provider override when the external leg is Codex (or for the Codex leg of `external-both`). Wins over generic `--model` for that leg. |
+| `--model-grok=<id>` | Per-provider override when the external leg is Grok (or for the Grok leg of `external-both`). Wins over generic `--model` for that leg. |
+| `--ask-model` | Prefer the **recommended** model from the live provider catalog. Interactive: still show the picker with recommended first. Non-interactive: bind recommended automatically (writes `--model <recommended>`). |
+
+Pure helper (unit-tested): `src/resolve-review-model.js`
+(`parseModelArgs`, `resolveReviewModel`, `rankModelsForReview`).
+CLI: `scripts/list-review-models.js --provider=codex|grok [--resolve …]`.
 
 ## Host detection (before picker / routing)
 
@@ -66,6 +74,69 @@ Run `resolveReviewRoute({ hostFamily, mode, interactive, acceptSameFamilyAsLocal
 | `abort` | STOP. Print `message` (names cross-family alternative + `--accept-same-family-as-local`). **No silent local remap** in non-interactive without the flag. |
 
 **Receipt rule:** same-family remap records `provider: local` + `sameFamilyRemap: true`. Never write `provider: codex` or `provider: grok` for a remapped same-family run. Such a run does **not** advance CROSS-MODEL REVIEW cadence.
+
+## Step 0.model — external model selection (after route, before envelope)
+
+Run **once per external provider leg** that will actually invoke (skip when
+`provider == local` / same-family remap / family-filtered `external-both` legs).
+
+### 1. Discover catalog + recommended
+
+```bash
+PKG="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+node "$PKG/scripts/list-review-models.js" --provider=«PROVIDER» --json
+```
+
+- Codex catalog source: `codex debug models --bundled` (priority-ranked; lower
+  `priority` = stronger/newer in the CLI list).
+- Grok catalog source: `grok models` (CLI default first).
+- Fail-open: empty catalog still allows `--model` / `cli-default`; do **not**
+  abort the review solely because discovery failed — surface `catalogError` and
+  continue with the picker options that remain (at least **CLI default**).
+
+`recommended` = top of `rankModelsForReview` (Codex: lowest list-visible
+priority; Grok: CLI-marked default). That is the skill's "best available for
+adversarial review" suggestion — **not** a hard pin in non-interactive runs
+unless `--ask-model` is set.
+
+### 2. Resolve
+
+Parse model flags from `{{ARG_VAR}}` via `parseModelArgs` (or the CLI
+`--resolve` path). Then `resolveReviewModel`:
+
+| Input | Result |
+|-------|--------|
+| `--model=<id>` / `--model-codex` / `--model-grok` | `action: run`, `source: explicit`, `modelFlag: --model <id>` (or empty when `cli-default`) |
+| Interactive, no explicit model | `action: pick` — use {{ASK_USER_QUESTION_TOOL}} with `options` (recommended first, then other catalog models, then **CLI default (no --model flag)**) |
+| `--ask-model` + non-interactive | `action: run`, `source: recommended`, bind recommended when known |
+| Non-interactive, no flags | `action: run`, `source: cli-default`, **empty** `modelFlag` (backward compatible — provider CLI / `config.toml` default) |
+| User picks `recommended` / a slug / `cli-default` | re-enter with `userChoice` → `action: run` |
+
+When `unknownToCatalog: true` (explicit id not in the discovered list): warn
+once ("model not in catalog — CLI may still accept it") and proceed.
+
+### 3. Bind for invocation
+
+Record for the envelope:
+
+- `REVIEW_MODEL_ID` ← `modelId` (null when CLI default). Must pass
+  `isSafeReviewModelId` (slug-shaped only); if `invalidModelId` is true, **abort**
+  the external leg with a clear error — never pass an unsafe id to the shell.
+- `REVIEW_MODEL_FLAG` ← `modelFlag` (e.g. `--model gpt-5.6-sol` or empty;
+  empty when unsafe — fail closed)
+- `REVIEW_MODEL_SOURCE` ← `explicit | user-pick | recommended | cli-default`
+
+Prefer binding `REVIEW_MODEL_ID` and expanding
+`${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"}` in
+`providers/«PROVIDER»/invocation-canonical.txt` for **both** Pass 1 and Pass 2
+(quoted argv; never unquoted interpolation of an unvalidated id). Legacy
+`<MODEL_FLAG>` is the same expansion when non-empty. Persist the chosen model
+id in the review receipt frontmatter (`reviewer:` / model field) when known.
+
+**external-both:** resolve **per leg** (Codex then Grok). Use
+`--model-codex` / `--model-grok` when the two providers need different ids;
+generic `--model` alone applies only as a fallback for a leg without a
+per-provider override.
 
 ## Flow routing after resolve
 

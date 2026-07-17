@@ -17,7 +17,10 @@ stdout contamination.
 - `<OUTPUT_PATH>`: path to output markdown file (stdout redirect; Grok has no `-o`)
 - `<STDERR_PATH>`: path to stderr log (must live under a private `mktemp -d` dir)
 - `<TIMEOUT_SECONDS>`: integer seconds (default 600 = 10 min)
-- `<MODEL_FLAG>`: empty by default. If user passed `--model X`, set to `--model X`.
+- `<MODEL_FLAG>` / `REVIEW_MODEL_ID`: from Step 0.model. Empty when
+  `source: cli-default` or `invalidModelId`. Prefer binding safe `REVIEW_MODEL_ID`
+  and expanding `${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"}` (quoted). Never
+  invent an id; never pass an id that failed `isSafeReviewModelId`.
 
 ## Pre-step: private work directory (symlink-safe)
 
@@ -61,8 +64,9 @@ All three branches expose the same shell function with COMPATIBLE call shape:
 ## Command
 
 ```bash
+# REVIEW_MODEL_ID must be empty or pass isSafeReviewModelId (slug-shaped).
 run_with_timeout <TIMEOUT_SECONDS> grok \
-  <MODEL_FLAG> \
+  ${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"} \
   --sandbox read-only \
   --disallowed-tools "search_replace,write,run_terminal_cmd,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,image_to_video,reference_to_video,spawn_subagent,monitor" \
   --no-memory \

@@ -51,9 +51,18 @@ Canonical UX + routing: `skills/shared/codex-bridge-assets/review-mode-ux.md`,
 - Host agents read markdown natively
 - Frontmatter YAML minimum for programmatic parse (`provider`, `provider_version`, verdict, counts, framing_delta)
 
-### 5. Provider resolves its own model
-- Skill does NOT pass `--model` by default; each CLI uses its recommended default
-- Override via explicit flag or provider debug listing when needed
+### 5. Model selection (discover → recommend → pick or flag)
+- **Non-interactive default:** skill does NOT pass `--model`; each CLI uses its
+  configured/recommended default (`source: cli-default`) — backward compatible
+- **Interactive external leg:** after the provider is known, discover the live
+  catalog (`codex debug models --bundled` / `grok models`), rank a **recommended**
+  model for adversarial review, and offer a picker (recommended first + CLI default)
+- **Flags:** `--model=<id>` (or `model:<id>`) skips the picker; `--model-codex=` /
+  `--model-grok=` for per-leg overrides; `--ask-model` binds the recommended id
+  headlessly (or pre-selects it in the picker)
+- Pure helper: `src/resolve-review-model.js`; CLI:
+  `scripts/list-review-models.js --provider=codex|grok [--resolve …]`
+- Do **not** maintain a static `models.yaml` in-repo — catalogs are dynamic per CLI
 
 ## external-both merge contract
 

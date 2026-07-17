@@ -138,7 +138,7 @@ core:
     one_liner: 'Adversarial plan review with local/codex/both mode picker'
     emoji: '🔍'
     version_added: '2.0.0'
-    argument_hint: '<plan.md> [--mode=local|codex|both] [--cross-ref=paths|--no-cross-ref] [--no-initiatives] [--allow-dirty]'
+    argument_hint: '<plan.md> [--mode=local|codex|grok|both*|ext-both] [--model=ID|--ask-model] [xref flags]'
     args:
       - name: plan-path
         kind: positional
@@ -147,7 +147,15 @@ core:
       - name: '--mode'
         kind: option
         required: false
-        description: 'Force a review mode (local, codex, both, or the v2.x alias internal). Skips the Step 0a picker.'
+        description: 'Force a review mode (local, codex, grok, both*, external-both, or the v2.x alias internal). Skips the Step 0a picker.'
+      - name: '--model'
+        kind: option
+        required: false
+        description: 'Force external reviewer model id (skips model picker). Use cli-default for empty --model flag. Also --model-codex / --model-grok / --ask-model.'
+      - name: '--ask-model'
+        kind: flag
+        required: false
+        description: 'Prefer the catalog-recommended model for the external provider.'
       - name: '--no-cross-ref'
         kind: flag
         required: false
@@ -217,7 +225,7 @@ core:
     one_liner: 'Adversarial code review with local/codex/both mode picker'
     emoji: '🔬'
     version_added: '2.0.0'
-    argument_hint: '[ref|wip|branch|all] [--mode=local|codex|both] [--allow-dirty] [--max-iterations=N]'
+    argument_hint: '[ref|wip|branch|all] [--mode=local|codex|grok|both*|ext-both] [--model=ID|--ask-model]'
     args:
       - name: git-ref
         kind: positional
@@ -226,7 +234,15 @@ core:
       - name: '--mode'
         kind: option
         required: false
-        description: 'Force a review mode (local, codex, both). Skips the Step 0 picker.'
+        description: 'Force a review mode (local, codex, grok, both*, external-both). Skips the Step 0 picker.'
+      - name: '--model'
+        kind: option
+        required: false
+        description: 'Force external reviewer model id (skips model picker). Use cli-default for empty --model flag. Also --model-codex / --model-grok / --ask-model.'
+      - name: '--ask-model'
+        kind: flag
+        required: false
+        description: 'Prefer the catalog-recommended model for the external provider.'
       - name: '--allow-dirty'
         kind: flag
         required: false

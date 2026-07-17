@@ -97,17 +97,22 @@ surfaces the error.
 
 4. **Briefing confirmation** — show the user a compact summary (artifact/ref,
    modified files or artifact path, factual constraints/callers, estimated
-   tokens). Ask `approve / edit / cancel`. On cancel: abort.
+   tokens, **provider + model** (`REVIEW_MODEL_ID` or `cli-default`, plus
+   `REVIEW_MODEL_SOURCE`)). Ask `approve / edit / cancel`. On cancel: abort.
 
 5. **Pass 1 invocation (blind)** — follow
    `{{ASSETS_PATH}}/providers/«PROVIDER»/invocation-canonical.txt` (legacy root
    `{{ASSETS_PATH}}/invocation-canonical.txt` remains the Codex leaf for older
    callers), substituting `<BRIEFING_PATH>` (file from step 3), `<OUTPUT_PATH>`
    (`/tmp/cross-model-output-pass1-<PROVIDER>-<ts>.md`), `<TIMEOUT_SECONDS>` =
-   600, `<MODEL_FLAG>` empty by default (provider resolves its own default;
-   user can override with `model:<id>`). Capture the exit code: 124 (GNU
-   timeout) / 142 (perl alarm fallback) → timeout, abort with retry suggestion;
-   other non-zero → provider error, abort.
+   600, model binding from **Step 0.model** in
+   `{{ASSETS_PATH}}/review-mode-ux.md`: prefer `REVIEW_MODEL_ID` with
+   `${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"}` (empty when
+   `source: cli-default` or `invalidModelId`; abort the external leg if
+   `invalidModelId`). Do **not** invent a model id here — resolve before this
+   step. Capture the exit code: 124 (GNU timeout) / 142 (perl alarm fallback)
+   → timeout, abort with retry suggestion; other non-zero → provider error,
+   abort.
 
 6. **Pass 1 validation** — `{{ASSETS_PATH}}/validation-checklist.txt` (universal
    checks 1-9). Failure → 1 corrective retry. Failure again → escalate raw.
