@@ -5,9 +5,9 @@ title: Product docs site from catalog SSOT
 version: "1.0"
 status: active
 started: 2026-07-17T14:28:20.714Z
-lastUpdated: 2026-07-17T15:57:30.122Z
+lastUpdated: 2026-07-17T16:06:41.000Z
 branch: plan/product-docs-site
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -110,19 +110,21 @@ phases:
       criteria:
         - id: F1-G1
           description: generate-site produces dist HTML for landing, skills, modules, hosts.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run generate-site && test -d site/dist -o -d docs/site/dist
             expectExitCode: 0
+          metAt: 2026-07-17T16:06:41.000Z
         - id: F1-G2
           description: check-site catches stale dist.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run check-site
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T16:06:41.000Z
+    status: done
     summary: Build estático multi-página a partir do catalog + hosts do config; DS
       compartilhado e check-site.
     businessIntent:
@@ -165,7 +167,7 @@ phases:
               if(!String(p.homepage||'').includes('atomic-skills.henryavila.com'))
               process.exit(1)"
             expectExitCode: 0
-    status: pending
+    status: active
     summary: README envelope magro + homepage apontando para
       atomic-skills.henryavila.com.
   - id: F3

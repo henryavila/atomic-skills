@@ -5,11 +5,11 @@ title: Site build from catalog
 goal: Add a static site generator that emits multi-page HTML from catalog and
   config, reusing the onboarding design-system tokens without cloning monólito
   pages by hand.
-status: active
+status: done
 branch: plan/product-docs-site
 started: 2026-07-17T15:57:30.122Z
-lastUpdated: 2026-07-17T16:02:15.000Z
-nextAction: review-code F1 then phase-done
+lastUpdated: 2026-07-17T16:06:41.000Z
+nextAction: null
 parentPlan: product-docs-site
 phaseId: F1
 businessIntent:
@@ -37,14 +37,14 @@ exitGates:
       command: npm run generate-site && test -d site/dist -o -d docs/site/dist
       expectExitCode: 0
     status: met
-    metAt: 2026-07-17T16:02:15.000Z
+    metAt: 2026-07-17T16:06:41.000Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T16:02:15.000Z
-      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      verifiedAt: 2026-07-17T16:06:41.000Z
+      verifiedCommit: 04199379256f599f699799e7761fcca17bf0ca21
       passed: true
       exitCode: 0
-      outputSummary: F1-G1 pass at 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      outputSummary: F1-G1 after review fixes
   - id: F1-G2
     description: check-site catches stale dist.
     verifier:
@@ -52,14 +52,14 @@ exitGates:
       command: npm run check-site
       expectExitCode: 0
     status: met
-    metAt: 2026-07-17T16:02:15.000Z
+    metAt: 2026-07-17T16:06:41.000Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T16:02:15.000Z
-      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      verifiedAt: 2026-07-17T16:06:41.000Z
+      verifiedCommit: 04199379256f599f699799e7761fcca17bf0ca21
       passed: true
       exitCode: 0
-      outputSummary: F1-G2 pass at 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      outputSummary: F1-G2 after review fixes
 stack: []
 tasks:
   - id: T-004
@@ -88,8 +88,8 @@ tasks:
     closedAt: 2026-07-17T16:02:15.000Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T16:02:15.000Z
-      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      verifiedAt: 2026-07-17T16:06:41.000Z
+      verifiedCommit: 04199379256f599f699799e7761fcca17bf0ca21
       passed: true
       exitCode: 0
       outputSummary: test -s site/assets/ds.css OK
@@ -126,8 +126,8 @@ tasks:
     closedAt: 2026-07-17T16:02:15.000Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T16:02:15.000Z
-      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      verifiedAt: 2026-07-17T16:06:41.000Z
+      verifiedCommit: 04199379256f599f699799e7761fcca17bf0ca21
       passed: true
       exitCode: 0
       outputSummary: generate-site + check-site exit 0; 19 HTML pages
@@ -153,8 +153,8 @@ tasks:
     closedAt: 2026-07-17T16:02:15.000Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T16:02:15.000Z
-      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      verifiedAt: 2026-07-17T16:06:41.000Z
+      verifiedCommit: 04199379256f599f699799e7761fcca17bf0ca21
       passed: true
       exitCode: 0
       outputSummary: check-site via check-docs chain exit 0
@@ -162,6 +162,19 @@ parked: []
 emerged: []
 summary: Build estático multi-página a partir do catalog + hosts do config; DS
   compartilhado e check-site.
+closedAt: 2026-07-17T16:06:41.000Z
+reviewGate:
+  at: 04199379256f599f699799e7761fcca17bf0ca21
+  mode: codex
+  provider: gpt-5.5
+  verdict: needs_changes_then_fixed
+  counts:
+    blocker: 0
+    critical: 1
+    major: 2
+    minor: 0
+    nit: 0
+  reviewFile: .atomic-skills/reviews/product-docs-site-f1-codex-pass1.md
 ---
 
 # Narrative / notes
@@ -183,3 +196,9 @@ _(record decisions here as they are made)_
 ## Links
 
 - design.md D4 — HTML is generated; DS shared; multi-page
+
+
+## Self-review against code-quality gates
+
+- G1/G2/G6 applied
+- CROSS-MODEL REVIEW: codex gpt-5.5 (gpt-5.6-sol unavailable), fixed critical path traversal + 2 major
