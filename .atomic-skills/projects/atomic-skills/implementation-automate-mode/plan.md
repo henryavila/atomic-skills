@@ -5,112 +5,76 @@ title: Implementation Automate Mode
 version: "1.0"
 status: active
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:07:01.074Z
+lastUpdated: 2026-07-17T19:20:13.000Z
 branch: plan/implementation-automate-mode
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
     title: Opt-in only
-    body: Automate never becomes the default implement path. Absent
-      `--mode=automate` (or an explicit plan stamp), Mode 1/Mode 2 behavior is
-      byte-identical for review policy and who writes code.
+    body: Automate never becomes the default implement path. Absent `--mode=automate` (or an explicit plan stamp), Mode 1/Mode 2 behavior is byte-identical for review policy and who writes code.
   - id: P2
     title: Pure maestro
-    body: In automate mode the host session never edits product source. It
-      re-dispatches fix agents when verifiers or blocker/critical reviews fail;
-      it does not silently become Mode 1.
+    body: In automate mode the host session never edits product source. It re-dispatches fix agents when verifiers or blocker/critical reviews fail; it does not silently become Mode 1.
   - id: P3
     title: Code-only phase writer
-    body: The phase agent may orient, code, pre-close self-check, and make
-      explicit-path implementation microcommits. It must not invoke `done`,
-      `phase-done`, handoff mutation, or any durable `.atomic-skills/` write.
-      The orchestrator is the sole closer (never self-certify).
+    body: The phase agent may orient, code, pre-close self-check, and make explicit-path implementation microcommits. It must not invoke `done`, `phase-done`, handoff mutation, or any durable `.atomic-skills/` write. The orchestrator is the sole closer (never self-certify).
   - id: P4
     title: One writer per tree per window
-    body: At most one writer process on a given worktree at a time. Orchestrator
-      sync-waits for the phase writer. Phase isolation uses a sibling worktree
-      from the git common-dir (never nested under the plan worktree).
+    body: At most one writer process on a given worktree at a time. Orchestrator sync-waits for the phase writer. Phase isolation uses a sibling worktree from the git common-dir (never nested under the plan worktree).
   - id: P5
     title: Review cadence is mode-scoped
-    body: "Under automate: phase-done defaults to `--mode=both`; complex tasks use
-      `--mode=both` before `done`; plan-end uses `external-both` +
-      `planEndReviewOk`. Non-automate keeps the DESTRUCTIVE-only ladder in
-      phase-done."
+    body: "Under automate: phase-done defaults to `--mode=both`; complex tasks use `--mode=both` before `done`; plan-end uses `external-both` + `planEndReviewOk`. Non-automate keeps the DESTRUCTIVE-only ladder in phase-done."
   - id: P6
     title: Evaluate then user-validate
-    body: Each phase gets a fresh evaluation agent after the writer; decisions are
-      logged for the user; finalize and archive only after explicit user
-      validation of implementation and decisions.
+    body: Each phase gets a fresh evaluation agent after the writer; decisions are logged for the user; finalize and archive only after explicit user validation of implementation and decisions.
 glossary:
   - term: automate mode
-    definition: "Opt-in implement execution mode: session orchestrates; one
-      code-only writer agent per phase; forced cross-model review policy."
+    definition: "Opt-in implement execution mode: session orchestrates; one code-only writer agent per phase; forced cross-model review policy."
   - term: phase writer
-    definition: "Foreign executor for one phase: code-only subset of the implement
-      loop; returns claim reports; never closes tasks in project state."
+    definition: "Foreign executor for one phase: code-only subset of the implement loop; returns claim reports; never closes tasks in project state."
   - term: claim report
-    definition: "Per-task payload from the phase writer: task id, commit SHAs, paths
-      touched, verifier command + exit transcript."
+    definition: "Per-task payload from the phase writer: task id, commit SHAs, paths touched, verifier command + exit transcript."
   - term: complex task
-    definition: Task with weight greater than or equal to threshold (default 3), or
-      tags intersecting destructive/decommission/drop/complex, or DESTRUCTIVE
-      signal true on its implementation range.
+    definition: Task with weight greater than or equal to threshold (default 3), or tags intersecting destructive/decommission/drop/complex, or DESTRUCTIVE signal true on its implementation range.
   - term: planEndReviewOk
-    definition: "Machine predicate: plan-end review receipt exists AND (at least one
-      succeeded family-different external leg OR recorded
-      `--skip-plan-end-review` with non-empty reason)."
+    definition: "Machine predicate: plan-end review receipt exists AND (at least one succeeded family-different external leg OR recorded `--skip-plan-end-review` with non-empty reason)."
 phases:
   - id: F0
     slug: implementation-automate-mode-f0-foundation-mode-parse-and-pure
     title: "Foundation: mode parse and pure predicates"
-    goal: Land pure, unit-tested helpers for automate mode detection, complex-task
-      classification, and planEndReviewOk so skill prose and transitions share
-      one definition.
+    goal: Land pure, unit-tested helpers for automate mode detection, complex-task classification, and planEndReviewOk so skill prose and transitions share one definition.
     dependsOn: []
     subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: F0-G1
-          description: Unit tests for implement-mode, complex-task, and plan-end-review
-            all pass.
-          status: pending
+          description: Unit tests for implement-mode, complex-task, and plan-end-review all pass.
+          status: met
           verifier:
             kind: shell
-            command: node --test tests/implement-mode.test.js tests/complex-task.test.js
-              tests/plan-end-review.test.js
+            command: node --test tests/implement-mode.test.js tests/complex-task.test.js tests/plan-end-review.test.js
             expectExitCode: 0
         - id: F0-G2
           description: Helpers are pure modules importable without side effects on import.
-          status: pending
+          status: met
           verifier:
             kind: shell
-            command: node -e "import('./src/implement-mode.js');
-              import('./src/complex-task.js');
-              import('./src/plan-end-review.js');"
+            command: node -e "import('./src/implement-mode.js'); import('./src/complex-task.js'); import('./src/plan-end-review.js');"
             expectExitCode: 0
-    status: active
+    status: done
     businessIntent:
-      value: "Helpers puros sao a unica fonte da verdade do modo: mode parse,
-        isComplexTask, planEndReviewOk e userValidationOk compartilhados por
-        implement/transitions/finalize."
-      workflow: "TDD helpers: testes RED, implementar src/implement-mode.js,
-        complex-task.js, plan-end-review.js; F1+ consome os helpers."
-      rules: Helpers puros sem I/O de rede; automate off por default; nao tocar Mode 2
-        lane.
-      outOfScope: Prosa completa phase-done/finalize e spawn real (F1+); Mode 2
-        changes; auto-finalize.
-      doneWhen: Suites implement-mode, complex-task e plan-end-review verdes;
-        F0-G1/F0-G2 met.
-    summary: "Helpers puros: mode parse, isComplexTask, planEndReviewOk e
-      userValidationOk."
+      value: "Helpers puros sao a unica fonte da verdade do modo: mode parse, isComplexTask, planEndReviewOk e userValidationOk compartilhados por implement/transitions/finalize."
+      workflow: "TDD helpers: testes RED, implementar src/implement-mode.js, complex-task.js, plan-end-review.js; F1+ consome os helpers."
+      rules: Helpers puros sem I/O de rede; automate off por default; nao tocar Mode 2 lane.
+      outOfScope: Prosa completa phase-done/finalize e spawn real (F1+); Mode 2 changes; auto-finalize.
+      doneWhen: Suites implement-mode, complex-task e plan-end-review verdes; F0-G1/F0-G2 met.
+    summary: "Helpers puros: mode parse, isComplexTask, planEndReviewOk e userValidationOk."
   - id: F1
     slug: implementation-automate-mode-f1-implement-maestro-loop-and-phas
     title: Implement maestro loop and phase-writer contract
-    goal: "Extend implement so --mode=automate runs the pure-maestro loop: one
-      code-only phase writer per phase, sync wait, claim handling,
-      orchestrator-owned done, no silent Mode-1 fallback."
+    goal: "Extend implement so --mode=automate runs the pure-maestro loop: one code-only phase writer per phase, sync wait, claim handling, orchestrator-owned done, no silent Mode-1 fallback."
     dependsOn:
       - F0
     subPhaseCount: 0
@@ -118,15 +82,11 @@ phases:
       summary: 3 criteria to meet
       criteria:
         - id: F1-G1
-          description: implement.md and phase-writer asset describe maestro + code-only
-            writer + isolation without Mode-1 silent fallback.
+          description: implement.md and phase-writer asset describe maestro + code-only writer + isolation without Mode-1 silent fallback.
           status: pending
           verifier:
             kind: shell
-            command: rg -n 'mode=automate' skills/core/implement.md && rg -n
-              'code-only|never.*done' skills/shared/implement-phase-writer.md
-              skills/core/implement.md && rg -n 'Mode-1|silent'
-              skills/shared/implement-antipatterns.md
+            command: rg -n 'mode=automate' skills/core/implement.md && rg -n 'code-only|never.*done' skills/shared/implement-phase-writer.md skills/core/implement.md && rg -n 'Mode-1|silent' skills/shared/implement-antipatterns.md
             expectExitCode: 0
         - id: F1-G2
           description: No new top-level skill named automate was added under skills/core.
@@ -136,23 +96,18 @@ phases:
             command: test ! -e skills/core/automate.md
             expectExitCode: 0
         - id: F1-G3
-          description: Phase evaluation agent contract exists and forbids auto-finalize
-            without user validation.
+          description: Phase evaluation agent contract exists and forbids auto-finalize without user validation.
           status: pending
           verifier:
             kind: shell
-            command: test -s skills/shared/implement-phase-evaluator.md && rg -n 'evaluation
-              agent|user validates' skills/shared/implement-phase-evaluator.md
-              skills/core/implement.md
+            command: test -s skills/shared/implement-phase-evaluator.md && rg -n 'evaluation agent|user validates' skills/shared/implement-phase-evaluator.md skills/core/implement.md
             expectExitCode: 0
-    status: pending
-    summary: "Implement maestro: writer code-only, evaluator, sibling isolation,
-      lease, merge-before-done."
+    status: active
+    summary: "Implement maestro: writer code-only, evaluator, sibling isolation, lease, merge-before-done."
   - id: F2
     slug: implementation-automate-mode-f2-review-policy-phase-done-and-co
     title: "Review policy: phase-done and complex tasks under automate"
-    goal: Wire automate-aware review policy so phase-done defaults to both, and
-      complex tasks run review-code --mode=both before orchestrator done.
+    goal: Wire automate-aware review policy so phase-done defaults to both, and complex tasks run review-code --mode=both before orchestrator done.
     dependsOn:
       - F1
     subPhaseCount: 0
@@ -178,8 +133,7 @@ phases:
   - id: F3
     slug: implementation-automate-mode-f3-plan-end-external-both-and-fina
     title: Plan-end external-both and finalize hard gate
-    goal: Finalize and archive under automate require external-both receipt
-      satisfying planEndReviewOk; missing success without skip hard-blocks.
+    goal: Finalize and archive under automate require external-both receipt satisfying planEndReviewOk; missing success without skip hard-blocks.
     dependsOn:
       - F2
     subPhaseCount: 0
@@ -187,30 +141,25 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F3-G1
-          description: planEndReviewOk unit tests pass and finalize documents the
-            hard-block.
+          description: planEndReviewOk unit tests pass and finalize documents the hard-block.
           status: pending
           verifier:
             kind: shell
-            command: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk'
-              skills/shared/project-assets/project-finalize.md
+            command: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk' skills/shared/project-assets/project-finalize.md
             expectExitCode: 0
         - id: F3-G2
-          description: skip-plan-end-review requires non-empty reason in documented
-            contract.
+          description: skip-plan-end-review requires non-empty reason in documented contract.
           status: pending
           verifier:
             kind: shell
-            command: rg -n 'skip-plan-end-review'
-              skills/shared/project-assets/project-finalize.md
+            command: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md
             expectExitCode: 0
     status: pending
     summary: Finalize/archive hard-block planEndReviewOk + userValidationOk.
   - id: F4
     slug: implementation-automate-mode-f4-integration-tests-install-surfa
     title: Integration tests, install surface, and dogfood
-    goal: Lock the mode with tests that exercise prose contracts and helper wiring;
-      document the mode for operators; keep install/catalog consistent.
+    goal: Lock the mode with tests that exercise prose contracts and helper wiring; document the mode for operators; keep install/catalog consistent.
     dependsOn:
       - F3
     subPhaseCount: 0
