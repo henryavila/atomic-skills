@@ -52,15 +52,61 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
     assert.equal(phaseReviewMode({}), 'local');
   });
 
-  it('explicit local override remains recordable (downgrade, not full skip)', () => {
+  it('F3: stamp alone (planExecutionMode automate, no automateActive) → both', () => {
+    assert.equal(
+      phaseReviewMode({ planExecutionMode: 'automate' }),
+      'both',
+    );
+    assert.equal(
+      phaseReviewMode({ planExecutionMode: 'automate', destructive: false }),
+      'both',
+    );
+    assert.notEqual(
+      phaseReviewMode({ planExecutionMode: 'automate' }),
+      'local',
+      'omitted automateActive with stamp must not return local',
+    );
+  });
+
+  it('F3: under automate, local/skip without overrideReason → both', () => {
     assert.equal(
       phaseReviewMode({
         automateActive: true,
         destructive: true,
         explicitOverride: 'local',
       }),
+      'both',
+    );
+    assert.equal(
+      phaseReviewMode({
+        planExecutionMode: 'automate',
+        explicitOverride: 'skip',
+      }),
+      'both',
+    );
+  });
+
+  it('F3: under automate, local/skip with non-empty overrideReason is honored', () => {
+    assert.equal(
+      phaseReviewMode({
+        automateActive: true,
+        destructive: true,
+        explicitOverride: 'local',
+        overrideReason: 'operator accepted local-only residual risk',
+      }),
       'local',
     );
+    assert.equal(
+      phaseReviewMode({
+        automateActive: true,
+        explicitOverride: 'skip',
+        overrideReason: 'no external provider available',
+      }),
+      'skip',
+    );
+  });
+
+  it('explicit local override remains recordable outside automate (downgrade, not full skip)', () => {
     assert.equal(
       phaseReviewMode({
         automateActive: false,
@@ -82,15 +128,7 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
     );
   });
 
-  it('skip-review remains the only full skip', () => {
-    assert.equal(
-      phaseReviewMode({
-        automateActive: true,
-        destructive: true,
-        explicitOverride: 'skip',
-      }),
-      'skip',
-    );
+  it('skip-review outside automate remains full skip without reason requirement', () => {
     assert.equal(
       phaseReviewMode({
         automateActive: false,
@@ -136,7 +174,7 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
     );
   });
 
-  it('precedence matrix: explicitOverride > automateActive > destructive', () => {
+  it('precedence matrix: stamp/automate + overrideReason rules', () => {
     /** @type {Array<{input: Parameters<typeof phaseReviewMode>[0], want: string}>} */
     const matrix = [
       { input: {}, want: 'local' },
@@ -145,12 +183,25 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
       { input: { automateActive: true, destructive: false }, want: 'both' },
       { input: { automateActive: false, destructive: true }, want: 'both' },
       { input: { automateActive: false, destructive: false }, want: 'local' },
+      { input: { planExecutionMode: 'automate' }, want: 'both' },
       {
         input: { automateActive: true, destructive: true, explicitOverride: 'local' },
+        want: 'both',
+      },
+      {
+        input: {
+          automateActive: true,
+          explicitOverride: 'local',
+          overrideReason: 'accepted',
+        },
         want: 'local',
       },
       {
-        input: { automateActive: true, destructive: false, explicitOverride: 'skip' },
+        input: {
+          automateActive: true,
+          explicitOverride: 'skip',
+          overrideReason: 'accepted',
+        },
         want: 'skip',
       },
       {

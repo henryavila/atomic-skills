@@ -55,6 +55,27 @@ describe('parseClaimReport', () => {
     assert.equal(parseClaimReport('{not json'), null);
     assert.equal(parseClaimReport(42), null);
   });
+
+  it('F6: does not drop empty-taskId / malformed entries silently', () => {
+    const report = parseClaimReport({
+      tasks: [
+        passClaim(),
+        { taskId: '', status: 'claimed-pass', commitShas: ['x'], paths: ['a'], verifierCommand: 't', exitCode: 0, transcript: '' },
+        { status: 'claimed-pass' }, // missing taskId
+        null,
+      ],
+    });
+    assert.ok(report);
+    assert.equal(report.tasks.length, 4, 'malformed entries must be preserved');
+    assert.equal(report.tasks[1].taskId, '');
+    assert.equal(report.tasks[2].taskId, '');
+    const validated = validateClaimReport(report);
+    assert.equal(validated.ok, false);
+    assert.ok(
+      validated.errors.some((e) => /taskId is required/i.test(e)),
+      validated.errors.join('; '),
+    );
+  });
 });
 
 describe('validateTaskClaim / claimRangeFromTask', () => {
@@ -97,14 +118,43 @@ describe('validateTaskClaim / claimRangeFromTask', () => {
     assert.ok(result.errors.some((e) => /base and head/i.test(e)));
   });
 
-  it('accepts exitCode null and empty transcript', () => {
-    const result = validateTaskClaim(
-      passClaim({ exitCode: null, transcript: '' }),
+  it('F8: claimed-pass rejects exitCode null; accepts empty transcript with exitCode 0', () => {
+    const nullExit = validateTaskClaim(passClaim({ exitCode: null, transcript: '' }));
+    assert.equal(nullExit.ok, false);
+    assert.ok(
+      nullExit.errors.some((e) => /exitCode === 0|claimed-pass requires exitCode/i.test(e)),
+      nullExit.errors.join('; '),
     );
-    assert.equal(result.ok, true, result.errors.join('; '));
+
+    const ok = validateTaskClaim(passClaim({ exitCode: 0, transcript: '' }));
+    assert.equal(ok.ok, true, ok.errors.join('; '));
   });
 
-  it('blocked/skipped may omit commit identity', () => {
+  it('F8: claimed-fail may use non-zero or null exitCode', () => {
+    const fail = validateTaskClaim(
+      passClaim({ status: 'claimed-fail', exitCode: 1, paths: ['src/foo.js'] }),
+    );
+    assert.equal(fail.ok, true, fail.errors.join('; '));
+    const nullFail = validateTaskClaim(
+      passClaim({ status: 'claimed-fail', exitCode: null, paths: ['src/foo.js'] }),
+    );
+    assert.equal(nullFail.ok, true, nullFail.errors.join('; '));
+  });
+
+  it('F7: open claims require ≥1 non-empty path', () => {
+    const empty = validateTaskClaim(passClaim({ paths: [] }));
+    assert.equal(empty.ok, false);
+    assert.ok(empty.errors.some((e) => /paths/i.test(e)));
+
+    const blank = validateTaskClaim(passClaim({ paths: ['', '  '] }));
+    assert.equal(blank.ok, false);
+    assert.ok(blank.errors.some((e) => /paths/i.test(e)));
+
+    const ok = validateTaskClaim(passClaim({ paths: ['src/a.js'] }));
+    assert.equal(ok.ok, true);
+  });
+
+  it('blocked/skipped may omit commit identity and empty paths', () => {
     const blocked = validateTaskClaim({
       taskId: 'T-b',
       status: 'blocked',
@@ -172,8 +222,7 @@ describe('multi-task SHA exclusivity', () => {
     assert.equal(report.ok, true, report.errors.join('; '));
   });
 
-  it('base+head exclusive ranges do not fight bare SHA lists for the same identity token', () => {
-    // Task with exclusive range is not in the bare-SHA pool; another task may list SHAs freely.
+  it('allows disjoint range endpoints and bare SHAs when no shared tokens', () => {
     const tasks = [
       passClaim({
         taskId: 'T-001',
@@ -187,8 +236,43 @@ describe('multi-task SHA exclusivity', () => {
     assert.equal(validateClaimReport({ tasks }).ok, true);
   });
 
-  it('document: each task needs exclusive range or single SHA list not shared across open claims without base/head', () => {
-    // Shared SHA with both tasks also having base+head is OK (range-identified).
+  it('F9: rejects range endpoint appearing in another claim commitShas', () => {
+    const tasks = [
+      passClaim({
+        taskId: 'T-001',
+        commitShas: undefined,
+        base: 'shared-endpoint',
+        head: 'head1',
+      }),
+      passClaim({
+        taskId: 'T-002',
+        commitShas: ['shared-endpoint'],
+      }),
+    ];
+    const overlap = findOverlappingClaimShas(tasks);
+    assert.ok(overlap.length >= 1, overlap.join('; '));
+    assert.ok(overlap.some((e) => /shared-endpoint|overlapping/i.test(e)));
+  });
+
+  it('F9: rejects shared endpoints across two ranges', () => {
+    const tasks = [
+      passClaim({
+        taskId: 'T-001',
+        commitShas: undefined,
+        base: 'b1',
+        head: 'shared-head',
+      }),
+      passClaim({
+        taskId: 'T-002',
+        commitShas: undefined,
+        base: 'shared-head',
+        head: 'h2',
+      }),
+    ];
+    assert.ok(findOverlappingClaimShas(tasks).length >= 1);
+  });
+
+  it('F9: shared commitShas across range-identified tasks is rejected', () => {
     const tasks = [
       passClaim({
         taskId: 'T-001',
@@ -203,8 +287,7 @@ describe('multi-task SHA exclusivity', () => {
         head: 'h2',
       }),
     ];
-    // claimRangeFromTask prefers base+head → kind range → not in bare pool
-    assert.deepEqual(findOverlappingClaimShas(tasks), []);
+    assert.ok(findOverlappingClaimShas(tasks).length >= 1);
   });
 
   it('rejects two open claims with the same base+head pair', () => {

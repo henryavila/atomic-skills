@@ -5,21 +5,24 @@
  * Orchestrator validates each task claim before re-verify / complex review / done.
  *
  * Required per-task fields:
- *   - taskId
+ *   - taskId (empty/missing → validation error; not silently dropped — F6)
  *   - status: claimed-pass | claimed-fail | blocked | skipped | omit
  *     (unknown statuses like done/pass/ok are validation errors, not silent non-open)
  *   - commit identity: non-empty commitShas[] OR (base + head) range
- *   - paths (array; may be empty only when status is blocked/skipped with notes)
+ *   - paths (array; for open claims claimed-pass/claimed-fail: ≥1 non-empty path — F7)
  *   - verifierCommand
- *   - exitCode (number or null)
+ *   - exitCode (number or null; claimed-pass requires exitCode === 0 — F8)
  *   - transcript (string; may be empty)
  *
- * Multi-task exclusivity (HARD):
+ * Multi-task exclusivity (HARD / F9):
  *   Each open claim needs an exclusive commit range or a SHA list that is NOT
- *   shared across other open claims without a base/head pair. Ambiguous
- *   overlapping multi-task SHAs are rejected so review-code / destructiveDiff
- *   cannot pin the wrong range. Two open claims with the same base+head pair
- *   are also rejected (identical ranges).
+ *   shared across other open claims. Range endpoints (base, head) contribute to
+ *   the exclusivity pool as SHA-like tokens — reject if any open claim's
+ *   base/head appears in another claim's commitShas or endpoints. Identical
+ *   base+head pairs are also rejected.
+ *
+ *   Pure-helper limit: full commit-graph overlap (ancestors between base..head)
+ *   needs git expand post-merge; this helper only checks token/endpoint identity.
  *
  * Reachability (validateClaimReachability):
  *   Exact case-insensitive SHA equality only — no free prefix/startsWith match.
@@ -76,7 +79,8 @@ const ALLOWED_CLAIM_STATUSES = new Set([
 
 /**
  * Normalize a free-form claim report (array of tasks or envelope with tasks[]).
- * Pure — does not validate.
+ * Pure — does not validate. Preserves invalid task entries (empty taskId, etc.)
+ * so validation can report errors (F6).
  *
  * @param {unknown} raw
  * @returns {ClaimReport | null}
@@ -95,7 +99,7 @@ export function parseClaimReport(raw) {
   }
 
   if (Array.isArray(raw)) {
-    return { tasks: raw.map(normalizeTaskClaim).filter(Boolean) };
+    return { tasks: raw.map(normalizeTaskClaim) };
   }
 
   if (typeof raw !== 'object') return null;
@@ -108,10 +112,20 @@ export function parseClaimReport(raw) {
       : null;
 
   if (tasksRaw == null) {
-    // Single task object with taskId
-    if (obj.taskId != null) {
+    // Single task object with taskId (including empty string → preserve for errors)
+    if (obj.taskId != null || Object.prototype.hasOwnProperty.call(obj, 'taskId')) {
       const task = normalizeTaskClaim(obj);
-      return task ? { tasks: [task] } : null;
+      return { tasks: [task] };
+    }
+    // Non-object-array entries without taskId key still preserve shape when
+    // they look like a task-shaped object (status/paths etc.)
+    if (
+      obj.status != null ||
+      obj.commitShas != null ||
+      obj.paths != null ||
+      obj.verifierCommand != null
+    ) {
+      return { tasks: [normalizeTaskClaim(obj)] };
     }
     return null;
   }
@@ -122,18 +136,30 @@ export function parseClaimReport(raw) {
     worktreePath: obj.worktreePath != null ? String(obj.worktreePath) : undefined,
     writerBranch: obj.writerBranch != null ? String(obj.writerBranch) : undefined,
     finishedAt: obj.finishedAt != null ? String(obj.finishedAt) : undefined,
-    tasks: tasksRaw.map(normalizeTaskClaim).filter(Boolean),
+    // F6: do not filter null/invalid normalizations — preserve for validation errors
+    tasks: tasksRaw.map(normalizeTaskClaim),
   };
 }
 
 /**
+ * Normalize a single task claim. Always returns a TaskClaim-shaped object
+ * (never null) so empty taskId / garbage entries surface in validation (F6).
+ *
  * @param {unknown} raw
- * @returns {TaskClaim | null}
+ * @returns {TaskClaim}
  */
 function normalizeTaskClaim(raw) {
-  if (raw == null || typeof raw !== 'object') return null;
+  if (raw == null || typeof raw !== 'object') {
+    return {
+      taskId: '',
+      status: undefined,
+      paths: undefined,
+      verifierCommand: undefined,
+      exitCode: undefined,
+      transcript: undefined,
+    };
+  }
   const t = /** @type {Record<string, unknown>} */ (raw);
-  if (t.taskId == null || String(t.taskId).trim() === '') return null;
 
   /** @type {string[] | undefined} */
   let commitShas;
@@ -148,7 +174,7 @@ function normalizeTaskClaim(raw) {
   }
 
   return {
-    taskId: String(t.taskId).trim(),
+    taskId: t.taskId != null ? String(t.taskId).trim() : '',
     status: t.status != null ? String(t.status) : undefined,
     commitShas,
     base: t.base != null && String(t.base).trim() !== '' ? String(t.base).trim() : undefined,
@@ -206,22 +232,27 @@ export function claimRangeFromTask(claim) {
  * Missing/undefined/empty → open (claimed-pass default).
  *
  * @param {TaskClaim | null | undefined} claim
- * @returns {{ raw: string, known: boolean, open: boolean }}
+ * @returns {{ raw: string, known: boolean, open: boolean, claimedPass: boolean }}
  */
 function normalizeClaimStatus(claim) {
   const raw =
     claim?.status != null ? String(claim.status).trim().toLowerCase() : '';
   if (raw === '') {
-    return { raw: '', known: true, open: true };
+    return { raw: '', known: true, open: true, claimedPass: true };
   }
   if (!ALLOWED_CLAIM_STATUSES.has(raw)) {
-    return { raw, known: false, open: false };
+    return { raw, known: false, open: false, claimedPass: false };
   }
   if (raw === 'blocked' || raw === 'skipped') {
-    return { raw, known: true, open: false };
+    return { raw, known: true, open: false, claimedPass: false };
   }
   // claimed-pass | claimed-fail
-  return { raw, known: true, open: true };
+  return {
+    raw,
+    known: true,
+    open: true,
+    claimedPass: raw === 'claimed-pass',
+  };
 }
 
 /**
@@ -278,6 +309,16 @@ export function validateTaskClaim(claim) {
 
   if (!Array.isArray(claim.paths)) {
     errors.push('paths must be an array');
+  } else if (open) {
+    // F7: claimed-pass / claimed-fail (open) require ≥1 non-empty path
+    const nonEmpty = claim.paths
+      .map((p) => String(p).trim())
+      .filter((p) => p !== '');
+    if (nonEmpty.length < 1) {
+      errors.push(
+        'paths must contain at least one non-empty path for claimed-pass/claimed-fail',
+      );
+    }
   }
 
   if (claim.verifierCommand == null || String(claim.verifierCommand).trim() === '') {
@@ -292,6 +333,11 @@ export function validateTaskClaim(claim) {
     }
   } else if (claim.exitCode !== null && !Number.isFinite(Number(claim.exitCode))) {
     errors.push('exitCode must be a finite number or null');
+  } else if (statusInfo.claimedPass) {
+    // F8: claimed-pass (and omit/default open) requires exitCode === 0
+    if (claim.exitCode !== 0) {
+      errors.push('claimed-pass requires exitCode === 0 (null not allowed on pass)');
+    }
   }
 
   if (claim.transcript === undefined || claim.transcript === null) {
@@ -316,16 +362,17 @@ function rangePairKey(base, head) {
 }
 
 /**
- * Detect ambiguous SHA overlap and identical base+head pairs across open claims.
+ * Detect ambiguous SHA/endpoint overlap and identical base+head pairs across open claims (F9).
  *
  * Rules:
- * - Tasks with exclusive base+head ranges do not contribute bare SHAs to the
- *   shared pool (they are treated as range-identified).
+ * - Every open claim contributes identity tokens to a shared exclusivity pool:
+ *   - base and head endpoints (when set)
+ *   - each commitShas entry (when set)
+ * - Any token claimed by more than one open task is rejected.
  * - Two open claims with the same base+head pair are rejected (identical ranges).
- * - Tasks with only commitShas must not share any SHA with another open claim's
- *   commitShas list (ambiguous multi-task ownership).
- * - A SHA that appears in two open sha-lists without base/head on either side
- *   is rejected.
+ *
+ * Pure-helper limit: full commit-graph overlap (ancestors between base..head)
+ * needs git expand post-merge; this only checks token/endpoint identity equality.
  *
  * @param {TaskClaim[]} tasks
  * @returns {string[]} error messages
@@ -335,30 +382,54 @@ export function findOverlappingClaimShas(tasks) {
   const errors = [];
   if (!Array.isArray(tasks)) return errors;
 
-  /** @type {Map<string, string[]>} sha -> taskIds that claim it via bare commitShas */
-  const shaOwners = new Map();
+  /** @type {Map<string, string[]>} token -> taskIds that claim it */
+  const tokenOwners = new Map();
   /** @type {Map<string, string[]>} rangePairKey -> taskIds */
   const rangeOwners = new Map();
 
+  /**
+   * @param {string} token
+   * @param {string} tid
+   */
+  function ownToken(token, tid) {
+    const key = String(token).trim().toLowerCase();
+    if (key === '') return;
+    const owners = tokenOwners.get(key) || [];
+    if (!owners.includes(tid)) owners.push(tid);
+    tokenOwners.set(key, owners);
+  }
+
   for (const claim of tasks) {
     if (claim == null || !isOpenClaim(claim)) continue;
+    const tid = String(claim.taskId || '(missing)');
     const range = claimRangeFromTask(claim);
-    if (range == null) continue;
-    const tid = String(claim.taskId);
 
-    if (range.kind === 'range') {
-      const key = rangePairKey(/** @type {string} */ (range.base), /** @type {string} */ (range.head));
+    // Endpoints always contribute when present (even alongside commitShas)
+    const base =
+      claim.base != null && String(claim.base).trim() !== ''
+        ? String(claim.base).trim()
+        : '';
+    const head =
+      claim.head != null && String(claim.head).trim() !== ''
+        ? String(claim.head).trim()
+        : '';
+    if (base !== '') ownToken(base, tid);
+    if (head !== '') ownToken(head, tid);
+
+    if (Array.isArray(claim.commitShas)) {
+      for (const sha of claim.commitShas) {
+        ownToken(String(sha), tid);
+      }
+    }
+
+    if (range != null && range.kind === 'range') {
+      const key = rangePairKey(
+        /** @type {string} */ (range.base),
+        /** @type {string} */ (range.head),
+      );
       const owners = rangeOwners.get(key) || [];
       if (!owners.includes(tid)) owners.push(tid);
       rangeOwners.set(key, owners);
-      continue;
-    }
-
-    for (const sha of range.commitShas || []) {
-      const key = String(sha).trim().toLowerCase();
-      const owners = shaOwners.get(key) || [];
-      if (!owners.includes(tid)) owners.push(tid);
-      shaOwners.set(key, owners);
     }
   }
 
@@ -370,10 +441,10 @@ export function findOverlappingClaimShas(tasks) {
     }
   }
 
-  for (const [sha, owners] of shaOwners) {
+  for (const [token, owners] of tokenOwners) {
     if (owners.length > 1) {
       errors.push(
-        `ambiguous overlapping multi-task SHAs: ${sha} claimed by ${owners.join(', ')} — each task needs an exclusive commitShas list or a base+head range not shared across open claims`,
+        `ambiguous overlapping multi-task SHAs: ${token} claimed by ${owners.join(', ')} — each task needs exclusive commitShas and non-overlapping base/head endpoints (pure helper; full graph overlap needs git expand post-merge)`,
       );
     }
   }
@@ -416,8 +487,11 @@ export function validateClaimReport(reportOrRaw) {
   const taskResults = [];
 
   for (const claim of report.tasks) {
-    const tid = claim?.taskId != null ? String(claim.taskId) : '(missing)';
-    if (claim?.taskId != null) {
+    const tid =
+      claim?.taskId != null && String(claim.taskId).trim() !== ''
+        ? String(claim.taskId)
+        : '(missing)';
+    if (claim?.taskId != null && String(claim.taskId).trim() !== '') {
       if (seenIds.has(String(claim.taskId))) {
         errors.push(`duplicate taskId in claim report: ${claim.taskId}`);
       }
@@ -537,7 +611,10 @@ export function validateClaimReachability(reportOrRaw, reachable) {
 
   for (const claim of report.tasks) {
     if (claim == null || !isOpenClaim(claim)) continue;
-    const tid = claim.taskId != null ? String(claim.taskId) : '(missing)';
+    const tid =
+      claim.taskId != null && String(claim.taskId).trim() !== ''
+        ? String(claim.taskId)
+        : '(missing)';
     const range = claimRangeFromTask(claim);
     if (range == null) {
       // Field validation is separate; reachability only checks known identities

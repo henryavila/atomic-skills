@@ -7,7 +7,7 @@
  *     (
  *       count(succeeded family-different external legs) ≥ 1
  *       AND non-empty reviewFile
- *       AND mode is 'external-both' | 'both'
+ *       AND mode is 'external-both' only (F5 — not bare 'both')
  *       AND non-empty verifiedAt (ISO preferred / Date.parse finite)
  *     )
  *     OR explicit skipPlanEndReview with non-empty reason
@@ -20,13 +20,15 @@
  *
  * userValidationOk: under automateActive === true, require a non-empty
  * ISO-8601-ish timestamp in userValidatedAt. When automate is not active
- * the gate does not apply (returns true).
+ * the gate does not apply (returns true). Stamp alone also activates via
+ * durable plan-end resolution.
  *
- * automatePlanEndGatesOk is fail-closed on the automate stamp: when
- * planExecutionMode (or isAutomateActive signals) imply automate, gates
- * enforce even if automateActive is omitted. Explicit non-automate CLI
- * still overrides stamp via isAutomateActive (design M4). When clearly
- * non-automate, ok is true.
+ * automatePlanEndGatesOk durable HARD-BLOCK (F4): uses **stamp only**:
+ *   durableAutomate = planExecutionMode === 'automate' OR automateActive === true
+ * Session cliMode / clearExecutionMode do NOT disable finalize/archive gates
+ * while the stamp remains automate. To leave the durable gate, call
+ * `clearExecutionModeStamp` (remove stamp). Session `isAutomateActive` remains
+ * for the maestro loop who codes.
  *
  * Finalize/archive under automate HARD-BLOCK unless BOTH planEndReviewOk
  * and userValidationOk are true (see automatePlanEndGatesOk). Receipt files
@@ -37,12 +39,10 @@
  * No I/O.
  */
 
-import { isAutomateActive } from './implement-mode.js';
-
 const KNOWN_EXTERNAL_PROVIDERS = new Set(['codex', 'grok']);
 
-/** Modes accepted on a non-skip plan-end receipt (host routes may stamp either). */
-const PLAN_END_OK_MODES = new Set(['external-both', 'both']);
+/** Modes accepted on a non-skip plan-end receipt (F5: external-both only). */
+const PLAN_END_OK_MODES = new Set(['external-both']);
 
 /**
  * Guided `--skip-plan-end-review` reason taxonomy (non-empty required).
@@ -131,7 +131,7 @@ function receiptShapeOk(receipt) {
  * `skipPlanEndReview: true` + non-empty `skipReason` on the durable receipt.
  *
  * Non-skip path requires ≥1 succeeded family-different known-provider leg
- * AND non-empty reviewFile + mode in {external-both, both} + non-empty verifiedAt.
+ * AND non-empty reviewFile + mode === 'external-both' + non-empty verifiedAt.
  * Skip path needs only skipPlanEndReview + non-empty reason (legs/shape optional).
  *
  * @param {PlanEndReviewReceipt | null | undefined} receipt
@@ -172,10 +172,16 @@ function isIsoTimestamp(s) {
 }
 
 /**
- * Resolve whether automate plan-end gates apply.
- * Fail-closed on stamp: planExecutionMode automate (via isAutomateActive)
- * enforces even when automateActive is omitted. Explicit --mode=1 / clear
- * still overrides stamp. Legacy automateActive: true alone still activates.
+ * Resolve whether durable automate plan-end gates apply (F4).
+ *
+ * Durable HARD-BLOCK uses **stamp only** (plus legacy automateActive flag):
+ *   durableAutomate =
+ *     automateActive === true
+ *     OR planExecutionMode === 'automate'
+ *
+ * Session cliMode / clearExecutionMode are IGNORED for finalize/archive.
+ * To leave the durable gate: `clearExecutionModeStamp` must remove the stamp.
+ * Session `isAutomateActive` remains for the maestro coding loop.
  *
  * @param {{
  *   automateActive?: boolean,
@@ -185,33 +191,24 @@ function isIsoTimestamp(s) {
  * }} input
  * @returns {boolean}
  */
-function resolveAutomateActiveForGates(input = {}) {
-  if (input.clearExecutionMode === true) {
-    return false;
-  }
+function resolveDurableAutomateForGates(input = {}) {
   if (input.automateActive === true) {
     return true;
   }
-  const hasModeSignals =
-    (input.planExecutionMode != null && String(input.planExecutionMode).trim() !== '') ||
-    (input.cliMode != null && String(input.cliMode).trim() !== '');
-  if (hasModeSignals) {
-    return isAutomateActive({
-      cliMode: input.cliMode,
-      planExecutionMode: input.planExecutionMode,
-      clearExecutionMode: input.clearExecutionMode,
-    });
-  }
-  return false;
+  const stamp =
+    input.planExecutionMode != null
+      ? String(input.planExecutionMode).trim().toLowerCase()
+      : '';
+  return stamp === 'automate';
 }
 
 /**
  * Operator validation gate before finalize/archive under automate.
  *
  * When automate is not active, returns true (gate does not apply).
- * Activation: automateActive === true, OR planExecutionMode/cliMode via
- * isAutomateActive (stamp alone fail-closes). Under automate, userValidatedAt
- * must be a non-empty ISO-8601-ish timestamp.
+ * Activation: automateActive === true, OR durable stamp planExecutionMode
+ * automate (session CLI override does not disable — F4). Under automate,
+ * userValidatedAt must be a non-empty ISO-8601-ish timestamp.
  *
  * @param {{
  *   automateActive?: boolean,
@@ -224,7 +221,7 @@ function resolveAutomateActiveForGates(input = {}) {
  * @returns {boolean}
  */
 export function userValidationOk(input = {}) {
-  if (!resolveAutomateActiveForGates(input)) {
+  if (!resolveDurableAutomateForGates(input)) {
     return true;
   }
 
@@ -235,11 +232,12 @@ export function userValidationOk(input = {}) {
 }
 
 /**
- * Combined finalize/archive gate under automate (design D7 + D9 + D12).
+ * Combined finalize/archive gate under automate (design D7 + D9 + D12 / F4).
  *
- * When automate is not active, both sub-gates are inactive → ok: true.
- * Under automate (explicit automateActive or stamp/CLI via isAutomateActive),
- * HARD-BLOCK unless planEndReviewOk(receipt) AND userValidationOk.
+ * When durable automate is not active, both sub-gates are inactive → ok: true.
+ * Under durable automate (automateActive or stamp automate — **ignore** session
+ * cliMode/clear for this gate), HARD-BLOCK unless planEndReviewOk(receipt)
+ * AND userValidationOk.
  *
  * @param {{
  *   automateActive?: boolean,
@@ -257,7 +255,7 @@ export function userValidationOk(input = {}) {
  * }}
  */
 export function automatePlanEndGatesOk(input = {}) {
-  if (!resolveAutomateActiveForGates(input)) {
+  if (!resolveDurableAutomateForGates(input)) {
     return {
       ok: true,
       planEndReviewOk: true,

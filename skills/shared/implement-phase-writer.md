@@ -131,10 +131,10 @@ A missing claim entry for a work-order task is treated as incomplete — do not 
 
 1. Plan worktree is dirty / unexpectedly advanced (`git status --porcelain` non-empty for task-owned work).
 2. `## Session handoff` has unfilled `TODO` / `REPLACE_*` / placeholder fields.
-3. A **phase-writer lease** is `active` **or** `malformed` (`src/writer-lease.js` — `readLeaseResult` / `isLeaseBlocking` / `hasActiveLease`; malformed ≠ missing) — phase writer still running, lease not cleared, or torn file requiring operator recovery.
+3. A **phase-writer lease** is blocking (`src/writer-lease.js` — `isLeaseBlocking` / `assertLeaseAbsent` / `readLeaseResult`; any non-missing status: `active`, `cleared`, `malformed`) — phase writer still running, lease not cleared, or torn file requiring operator recovery.
 4. Sibling phase merge is mid-flight (incomplete merge state).
 
-**HARD-GATE:** do not spawn a second phase writer while a lease is blocking. Acquire via exclusive create (`acquireLeaseFile`). Clear only with matching owner token (`clearLeaseFile(..., ownerToken)`) after sync-wait + claim collect + merge settle (see worktree-isolation + implement Step D/D.5).
+**HARD-GATE:** do not spawn a second phase writer while a lease is blocking. Acquire via exclusive create (`acquireLeaseFile` → `{ path, secret, lease }`). Clear only with the acquire secret (`clearLeaseFile(..., secret)`) after sync-wait + claim collect + merge settle (see worktree-isolation + implement Step D/D.5).
 
 ---
 
