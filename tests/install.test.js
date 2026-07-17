@@ -44,6 +44,47 @@ describe('installSkills', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
+  it('reclaims unowned pre-existing skill files when expanding IDEs (no GREENFIELD_CONFLICT)', async () => {
+    // Repro: journal only owns a Grok path; disk has a stale Claude skill from an
+    // older install. Re-install with claude-code must not throw GREENFIELD_CONFLICT.
+    const { writeManifest } = await import('../src/manifest.js');
+    const rel = '.claude/commands/atomic-skills/project.md';
+    mkdirSync(join(tempDir, '.claude/commands/atomic-skills'), { recursive: true });
+    writeFileSync(join(tempDir, rel), '---\ndescription: stale leftover\n---\n\nold body from prior install\n');
+
+    writeManifest(tempDir, {
+      journalVersion: 2,
+      effects: [{
+        type: 'reconcileFileSet',
+        beforeState: [{
+          path: '.grok/plugins/atomic-skills/skills/fix/SKILL.md',
+          installedHash: 'deadbeefcafebabe',
+        }],
+      }],
+      version: '2.0.0',
+      language: 'en',
+      ides: ['grok'],
+    });
+
+    const result = installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code', 'grok'],
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+      scope: 'project',
+    });
+
+    assert.ok(existsSync(join(tempDir, rel)), 'project.md must remain after install');
+    const content = readFileSync(join(tempDir, rel), 'utf8');
+    assert.ok(!content.includes('old body from prior install'), 'stale body must be replaced');
+    assert.ok(content.includes('description:'), 'rendered skill frontmatter present');
+    assert.ok(
+      result.files.some((f) => f.path === rel),
+      'installed file set must include reclaimed project.md',
+    );
+  });
+
+
   it('creates command files for claude-code', () => {
     const result = installSkills(tempDir, {
       language: 'en',

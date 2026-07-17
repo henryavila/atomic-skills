@@ -14,6 +14,7 @@ import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
 import { buildInstaller } from './installer.js';
 import { computeSkillsFileSet } from './providers/skills-file-set.js';
 import { migrateLegacyInstall } from './migrate-legacy-install.js';
+import { adoptPreexistingDesiredFiles } from './adopt-preexisting-desired.js';
 import { parse as parseYaml } from 'yaml';
 import { detectLanguage, detectIDEs, countSkills } from './detect.js';
 import { resolveProjectScopeTarget } from './scope.js';
@@ -482,6 +483,12 @@ export function removeLegacyOrphans(basePath, orphans) {
 export function installSkills(projectDir, options, callbacks = {}) {
   const { language, ides, skillsDir, metaDir, scope } = options;
   const { onFileWritten } = callbacks;
+
+  // Claim ownership of desired paths that already exist on disk but are missing
+  // from the journal (IDE expand / partial journal). Prevents GREENFIELD_CONFLICT
+  // when leftover package files differ from the new render (see adopt-preexisting-desired.js).
+  const desired = computeSkillsFileSet({ language, ides, skillsDir, metaDir, scope });
+  adoptPreexistingDesiredFiles(projectDir, desired);
 
   const installer = buildInstaller({ language, ides, skillsDir, metaDir, scope });
   installer.install({ projectDir });
