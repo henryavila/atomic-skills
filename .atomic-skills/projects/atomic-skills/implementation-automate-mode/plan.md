@@ -5,9 +5,9 @@ title: Implementation Automate Mode
 version: "1.0"
 status: active
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:29:38.832Z
+lastUpdated: 2026-07-17T19:33:38.837Z
 branch: plan/implementation-automate-mode
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -210,19 +210,35 @@ phases:
       criteria:
         - id: F3-G1
           description: planEndReviewOk unit tests pass and finalize documents the hard-block.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk' skills/shared/project-assets/project-finalize.md
             expectExitCode: 0
+          metAt: 2026-07-17T19:33:38.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:33:38.000Z
+            verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
+            passed: true
+            exitCode: 0
+            outputSummary: "orch: F3-G1"
         - id: F3-G2
           description: skip-plan-end-review requires non-empty reason in documented contract.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T19:33:38.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:33:38.000Z
+            verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
+            passed: true
+            exitCode: 0
+            outputSummary: "orch: F3-G2"
+    status: done
     summary: Finalize/archive hard-block planEndReviewOk + userValidationOk.
     businessIntent:
       value: Finalize/archive sob automate exigem planEndReviewOk e userValidationOk.
@@ -236,7 +252,7 @@ phases:
     goal: Lock the mode with tests that exercise prose contracts and helper wiring; document the mode for operators; keep install/catalog consistent.
     dependsOn:
       - F3
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -254,8 +270,14 @@ phases:
             kind: shell
             command: node scripts/validate-skills.js
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Contract tests, docs/catálogo e suite completa verde.
+    businessIntent:
+      value: Contract tests, docs/catalog e suite completa verde para automate mode.
+      workflow: implement-automate-contract tests + docs + validate-skills + npm test.
+      rules: No new top-level automate skill; catalog consistent; dogfood notes ok.
+      outOfScope: New product features beyond automate surface.
+      doneWhen: contract tests + npm test + validate-skills green.
 references: []
 ---
 

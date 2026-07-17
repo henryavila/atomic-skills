@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: implementation-automate-mode-f3-plan-end-external-both-and-fina
 title: Plan-end external-both and finalize hard gate
 goal: Finalize and archive under automate require external-both receipt satisfying planEndReviewOk; missing success without skip hard-blocks.
-status: active
+status: done
 branch: plan/implementation-automate-mode
 started: 2026-07-17T19:29:38.832Z
-lastUpdated: 2026-07-17T19:29:38.832Z
+lastUpdated: 2026-07-17T19:33:38.000Z
 nextAction: Start T-010
 parentPlan: implementation-automate-mode
 phaseId: F3
@@ -16,25 +16,41 @@ businessIntent:
   rules: HARD-BLOCK without receipt success or skip reason; archive same gate.
   outOfScope: F4 contract tests/docs only after F3.
   doneWhen: planEndReviewOk tests + finalize docs hard-block + skip reason.
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F3-G1
     description: planEndReviewOk unit tests pass and finalize documents the hard-block.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk' skills/shared/project-assets/project-finalize.md
       expectExitCode: 0
+    metAt: 2026-07-17T19:33:38.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:33:38.000Z
+      verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
+      passed: true
+      exitCode: 0
+      outputSummary: "orch: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk' skills/shared/project-assets/project-finalize.md"
   - id: F3-G2
     description: skip-plan-end-review requires non-empty reason in documented contract.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md
       expectExitCode: 0
+    metAt: 2026-07-17T19:33:38.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:33:38.000Z
+      verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
+      passed: true
+      exitCode: 0
+      outputSummary: "orch: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md"
 stack:
   - id: 1
     title: Plan-end external-both and finalize hard gate
@@ -43,8 +59,8 @@ stack:
 tasks:
   - id: T-010
     title: Finalize plan-end review gate under automate
-    status: pending
-    lastUpdated: 2026-07-17T19:29:38.832Z
+    status: done
+    lastUpdated: 2026-07-17T19:33:38.000Z
     scopeBoundary:
       - Do not change finalize for non-automate plans beyond detection of executionMode. Do not auto-merge PRs. Do not skip the user-validation step after plan-end review.
     acceptance:
@@ -64,10 +80,18 @@ tasks:
         path: meta/schemas/plan.schema.json
     summary: Finalize plan-end review gate under automate
     weight: 2
+    closedAt: 2026-07-17T19:33:38.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:33:38.000Z
+      verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
+      passed: true
+      exitCode: 0
+      outputSummary: "orch: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk|userValidationOk|userValidatedAt' skills/shared/project-assets/project-finalize.md"
   - id: T-011
     title: Archive hard-block and status visibility of plan-end receipt
-    status: pending
-    lastUpdated: 2026-07-17T19:29:38.832Z
+    status: done
+    lastUpdated: 2026-07-17T19:33:38.000Z
     scopeBoundary:
       - Do not invent a third external provider. Do not change CROSS-MODEL REVIEW cadence for non-automate. Soft pointer to finalize is not an archive success path.
     acceptance:
@@ -87,6 +111,14 @@ tasks:
         path: tests/plan-end-review.test.js
     summary: Archive hard-block and status visibility of plan-end receipt
     weight: 2
+    closedAt: 2026-07-17T19:33:38.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:33:38.000Z
+      verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
+      passed: true
+      exitCode: 0
+      outputSummary: "orch: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md"
 parked: []
 emerged: []
 summary: Finalize/archive hard-block planEndReviewOk + userValidationOk.
