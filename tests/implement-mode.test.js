@@ -31,12 +31,26 @@ describe('parseImplementMode', () => {
     assert.equal(result.modeExplicit, true);
   });
 
-  it('absent mode returns default without treating automate as on', () => {
+  it('absent mode returns undefined (modeExplicit false) — not synthetic default', () => {
     const result = parseImplementMode(['my-plan']);
-    assert.ok(result.mode === 'default' || result.mode === 'mode1');
-    assert.notEqual(result.mode, 'automate');
+    assert.equal(result.mode, undefined);
     assert.equal(result.modeExplicit, false);
     assert.equal(isAutomateActive({ cliMode: result.mode }), false);
+  });
+
+  it('F1: parseImplementMode without mode flag + stamp automate → isAutomateActive true', () => {
+    const result = parseImplementMode(['plan']);
+    assert.equal(result.mode, undefined);
+    assert.equal(result.modeExplicit, false);
+    assert.equal(
+      isAutomateActive({
+        cliMode: result.mode,
+        planExecutionMode: 'automate',
+        clearExecutionMode: result.clearExecutionMode,
+      }),
+      true,
+      'stamp re-entry must not be broken by synthetic cliMode default',
+    );
   });
 
   it('--mode=1 returns mode1 / default without automate on', () => {
@@ -47,11 +61,11 @@ describe('parseImplementMode', () => {
     assert.equal(isAutomateActive({ cliMode: result.mode }), false);
   });
 
-  it('empty / missing argv yields default', () => {
-    assert.notEqual(parseImplementMode([]).mode, 'automate');
+  it('empty / missing argv yields undefined mode (not automate)', () => {
+    assert.equal(parseImplementMode([]).mode, undefined);
     assert.equal(parseImplementMode([]).modeExplicit, false);
-    assert.notEqual(parseImplementMode('').mode, 'automate');
-    assert.notEqual(parseImplementMode(undefined).mode, 'automate');
+    assert.equal(parseImplementMode('').mode, undefined);
+    assert.equal(parseImplementMode(undefined).mode, undefined);
   });
 
   it('rejects unknown mode with a clear error (not ignored)', () => {

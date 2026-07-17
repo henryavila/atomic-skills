@@ -8,7 +8,8 @@
  * - First confirmed `implement --mode=automate` → after interactive operator `y`,
  *   stamp plan frontmatter `executionMode: 'automate'` via `stampExecutionMode`.
  * - Stamp alone → `isAutomateActive({ planExecutionMode: 'automate' })` true
- *   until clear.
+ *   until clear. **Do not** pass a non-explicit `cliMode: 'default'` from parse —
+ *   absent mode returns `mode: undefined` so stamp re-entry works.
  * - Clear: CLI `--clear-execution-mode` (parse sets clearExecutionMode) and/or
  *   `clearExecutionModeStamp(plan)` removing the field; record in decision log.
  * - Plans without `executionMode` remain valid (optional schema field).
@@ -74,10 +75,14 @@ function isBlankMode(raw) {
  * - `mode:automate` bare token
  * - `--clear-execution-mode`
  *
+ * When no mode flag is present, `mode` is `undefined` and `modeExplicit` is
+ * false — callers must not invent `cliMode: 'default'` for `isAutomateActive`
+ * or stamp re-entry is broken.
+ *
  * Rejects empty `--mode=`, blank mode values, and unknown tokens with a clear error.
  *
  * @param {string | string[] | null | undefined} argvLike
- * @returns {{ mode: string, clearExecutionMode: boolean, modeExplicit: boolean }}
+ * @returns {{ mode: string | undefined, clearExecutionMode: boolean, modeExplicit: boolean }}
  * @throws {Error} when an explicit mode token is unknown or blank
  */
 export function parseImplementMode(argvLike) {
@@ -93,7 +98,8 @@ export function parseImplementMode(argvLike) {
     tokens = [];
   }
 
-  let mode = 'default';
+  /** @type {string | undefined} */
+  let mode = undefined;
   let clearExecutionMode = false;
   let modeExplicit = false;
 
@@ -149,9 +155,10 @@ export function parseImplementMode(argvLike) {
     }
   }
 
-  // Absent mode → default (Mode 1). Explicit mode1 aliases stay as normalized.
+  // Absent mode → mode undefined (modeExplicit false). Never invent 'default'
+  // as cliMode — that would override an automate stamp (F1).
   if (!modeExplicit) {
-    mode = 'default';
+    mode = undefined;
   }
 
   return { mode, clearExecutionMode, modeExplicit };
@@ -163,11 +170,15 @@ export function parseImplementMode(argvLike) {
  * Precedence (design open-Q1 closed + M4 explicit non-automate CLI override):
  * 1. clearExecutionMode true → false (always wins)
  * 2. cliMode === 'automate' → true
- * 3. cliMode is an explicit known non-automate mode (1/mode1/default/2/mode2/codex)
- *    → false even if stamp is automate
- * 4. planExecutionMode / stamp === 'automate' with no explicit non-automate CLI
- *    → true (stamp-alone re-entry when cliMode absent/undefined)
+ * 3. cliMode is a provided known non-automate mode (1/mode1/default/2/…)
+ *    → false even if stamp is automate (session override only; durable
+ *    plan-end gates use stamp alone — see plan-end-review)
+ * 4. planExecutionMode / stamp === 'automate' with no CLI mode provided
+ *    (undefined/null/omitted) → true (stamp-alone re-entry)
  * 5. else false
+ *
+ * **F1:** if `cliMode` is `undefined`/`null`/blank → no CLI override; stamp wins.
+ * Callers must pass `parseImplementMode(...).mode` as-is (undefined when absent).
  *
  * Automate is OFF by default when nothing is set.
  *
@@ -175,6 +186,8 @@ export function parseImplementMode(argvLike) {
  *   cliMode?: string | null,
  *   planExecutionMode?: string | null,
  *   clearExecutionMode?: boolean,
+ *   modeExplicit?: boolean,
+ *   cliModeExplicit?: boolean,
  * }} [input]
  * @returns {boolean}
  */
@@ -192,7 +205,9 @@ export function isAutomateActive(input = {}) {
     if (cli === 'automate') {
       return true;
     }
-    // Explicit known non-automate CLI overrides stamp (M4).
+    // Known non-automate CLI overrides stamp only when the mode was actually
+    // provided (cliRaw non-empty). parseImplementMode leaves mode undefined
+    // when no flag — so stamp re-entry is not broken by a synthetic 'default'.
     if (isKnownMode(cliRaw)) {
       return false;
     }
