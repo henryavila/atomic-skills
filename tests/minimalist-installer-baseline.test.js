@@ -66,41 +66,52 @@ describe('minimalist-installer baseline (F1/T-001)', () => {
     }
   });
 
-  it('baseSha uniquely corresponds to vendored 0.1.0 src tree', () => {
-    // RED baseline is the published 0.1.0 tarball contents (vendored under fixtures),
-    // not whatever the consumer currently pins (may be a remediated git SHA).
-    const installedRoot = join(FIXTURE_DIR, 'package');
-    const installedSrc = join(installedRoot, 'src');
-    assert.ok(existsSync(installedSrc), 'vendored 0.1.0 package must exist under fixtures');
-    const worktree = resolve(REPO_ROOT, '../minimalist-installer-integrity-remediation');
-    assert.ok(existsSync(worktree), 'upstream worktree must exist');
+  const upstreamWorktree = resolve(REPO_ROOT, '../minimalist-installer-integrity-remediation');
+  const upstreamWorktreeAvailable = existsSync(upstreamWorktree);
 
-    execFileSync('git', ['-C', worktree, 'cat-file', '-e', `${EXPECTED_BASE_SHA}^{commit}`]);
+  it(
+    'baseSha uniquely corresponds to vendored 0.1.0 src tree',
+    {
+      skip: upstreamWorktreeAvailable
+        ? false
+        : 'upstream worktree missing (../minimalist-installer-integrity-remediation)',
+    },
+    () => {
+      // RED baseline is the published 0.1.0 tarball contents (vendored under fixtures),
+      // not whatever the consumer currently pins (may be a remediated git SHA).
+      const installedRoot = join(FIXTURE_DIR, 'package');
+      const installedSrc = join(installedRoot, 'src');
+      assert.ok(existsSync(installedSrc), 'vendored 0.1.0 package must exist under fixtures');
+      const worktree = upstreamWorktree;
+      assert.ok(existsSync(worktree), 'upstream worktree must exist');
 
-    const baseTree = execFileSync(
-      'git',
-      ['-C', worktree, 'ls-tree', '-r', '--name-only', EXPECTED_BASE_SHA, 'src'],
-      { encoding: 'utf8' },
-    ).trim().split('\n').filter(Boolean).sort();
+      execFileSync('git', ['-C', worktree, 'cat-file', '-e', `${EXPECTED_BASE_SHA}^{commit}`]);
 
-    const installedFiles = walkFiles(installedSrc)
-      .map((f) => `src/${f.slice(installedSrc.length + 1).replace(/\\/g, '/')}`)
-      .sort();
-    assert.deepEqual(installedFiles, baseTree, 'vendored 0.1.0 src must match baseSha tree');
-
-    for (const rel of baseTree) {
-      const blob = execFileSync(
+      const baseTree = execFileSync(
         'git',
-        ['-C', worktree, 'show', `${EXPECTED_BASE_SHA}:${rel}`],
-      );
-      const disk = readFileSync(join(installedRoot, rel));
-      assert.equal(
-        createHash('sha256').update(blob).digest('hex'),
-        createHash('sha256').update(disk).digest('hex'),
-        `content mismatch for ${rel}`,
-      );
-    }
-  });
+        ['-C', worktree, 'ls-tree', '-r', '--name-only', EXPECTED_BASE_SHA, 'src'],
+        { encoding: 'utf8' },
+      ).trim().split('\n').filter(Boolean).sort();
+
+      const installedFiles = walkFiles(installedSrc)
+        .map((f) => `src/${f.slice(installedSrc.length + 1).replace(/\\/g, '/')}`)
+        .sort();
+      assert.deepEqual(installedFiles, baseTree, 'vendored 0.1.0 src must match baseSha tree');
+
+      for (const rel of baseTree) {
+        const blob = execFileSync(
+          'git',
+          ['-C', worktree, 'show', `${EXPECTED_BASE_SHA}:${rel}`],
+        );
+        const disk = readFileSync(join(installedRoot, rel));
+        assert.equal(
+          createHash('sha256').update(blob).digest('hex'),
+          createHash('sha256').update(disk).digest('hex'),
+          `content mismatch for ${rel}`,
+        );
+      }
+    },
+  );
 
   for (const name of REPROS) {
     it(`RED repro ${name} observes vulnerability on 0.1.0`, async () => {
