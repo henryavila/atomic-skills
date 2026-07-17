@@ -5,7 +5,7 @@ title: Implementation Automate Mode
 version: "1.0"
 status: active
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:29:38.000Z
+lastUpdated: 2026-07-17T19:29:38.832Z
 branch: plan/implementation-automate-mode
 currentPhase: F3
 parallelismAllowed: false
@@ -204,7 +204,7 @@ phases:
     goal: Finalize and archive under automate require external-both receipt satisfying planEndReviewOk; missing success without skip hard-blocks.
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -222,8 +222,14 @@ phases:
             kind: shell
             command: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Finalize/archive hard-block planEndReviewOk + userValidationOk.
+    businessIntent:
+      value: Finalize/archive sob automate exigem planEndReviewOk e userValidationOk.
+      workflow: Wire finalize hard-block + skip-plan-end-review reason; unit tests plan-end-review.
+      rules: HARD-BLOCK without receipt success or skip reason; archive same gate.
+      outOfScope: F4 contract tests/docs only after F3.
+      doneWhen: planEndReviewOk tests + finalize docs hard-block + skip reason.
   - id: F4
     slug: implementation-automate-mode-f4-integration-tests-install-surfa
     title: Integration tests, install surface, and dogfood
