@@ -10,7 +10,9 @@ import {
   existsSync,
   mkdtempSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -21,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import {
   describeRecovery,
   TX_STATE_INCOMPLETE,
+  TX_STATE_COMPLETE,
   assertNoIncompleteTransaction,
   hashContent,
 } from '@henryavila/minimalist-installer';
@@ -30,10 +33,14 @@ import {
   JOURNAL_TRUST_PRE_U,
   JOURNAL_TRUST_POST_U,
   RECOVERY_LEDGER_FILE,
+  RECOVERY_QUARANTINE_PREFIX,
   formatRecoverySummary,
   repairIncompleteInstall,
   forceIncompleteUninstall,
   incompleteOperatorMessage,
+  resolveIncompleteRecoveryScope,
+  writeRecoveryLedger,
+  recoveryLedgerPath,
 } from '../src/recovery-cli.js';
 import { MANIFEST_DIR } from '../src/manifest.js';
 
@@ -92,20 +99,39 @@ describe('classifyJournalTrust', () => {
     );
   });
 
-  it('classifies engine trust flags as post-U', () => {
+  it('does not trust bare capability flags without durable applied evidence', () => {
+    // Empty effects + journalMode alone → pre-U (forged flags must not clear clean).
     assert.equal(
       classifyJournalTrust({
         effects: [],
         transaction: { state: 'incomplete', journalMode: 'per-effect' },
       }),
-      JOURNAL_TRUST_POST_U,
+      JOURNAL_TRUST_PRE_U,
     );
     assert.equal(
       classifyJournalTrust({
         effects: [],
         transaction: { state: 'incomplete', durablePerEffect: true },
       }),
-      JOURNAL_TRUST_POST_U,
+      JOURNAL_TRUST_PRE_U,
+    );
+    // Free-form journalTrust boolean alone → pre-U.
+    assert.equal(
+      classifyJournalTrust({
+        effects: [{ type: 'reconcileFileSet', beforeState: [] }],
+        transaction: { state: 'incomplete', journalTrust: 'post-U' },
+      }),
+      JOURNAL_TRUST_PRE_U,
+    );
+    // journaledAt alone is a weak marker → pre-U.
+    assert.equal(
+      classifyJournalTrust({
+        effects: [
+          { type: 'reconcileFileSet', beforeState: [], journaledAt: '2026-07-17T00:00:01.000Z' },
+        ],
+        transaction: { state: 'incomplete', journalMode: 'per-effect' },
+      }),
+      JOURNAL_TRUST_PRE_U,
     );
   });
 
@@ -117,6 +143,16 @@ describe('classifyJournalTrust', () => {
           { type: 'jsonMerge', beforeState: {}, durable: true },
         ],
         transaction: { state: 'incomplete' },
+      }),
+      JOURNAL_TRUST_POST_U,
+    );
+    // Capability + durable applied evidence.
+    assert.equal(
+      classifyJournalTrust({
+        effects: [
+          { type: 'reconcileFileSet', beforeState: [], flushedAt: '2026-07-17T00:00:01.000Z' },
+        ],
+        transaction: { state: 'incomplete', journalMode: 'per-effect' },
       }),
       JOURNAL_TRUST_POST_U,
     );
@@ -254,7 +290,7 @@ describe('forceIncompleteUninstall', () => {
     assert.notEqual(desc.state, TX_STATE_INCOMPLETE);
   });
 
-  it('keeps residual ledger when reverse partially fails', () => {
+  it('returns non-zero exit when reverse partially fails (retained or residual)', () => {
     root = mkdtempSync(join(tmpdir(), 'as-force-fail-'));
     writeIncompleteManifest(root, {
       effects: [
@@ -263,14 +299,100 @@ describe('forceIncompleteUninstall', () => {
     });
 
     const result = forceIncompleteUninstall(root);
-    assert.equal(result.ok, true);
+    // pre-U clears incomplete after ledger, but reverse failures → non-zero.
+    assert.equal(result.ok, false);
+    assert.notEqual(result.exitCode, 0);
     assert.ok(result.failed.length >= 1);
+    assert.ok(
+      result.action === 'forced-residual' || result.action === 'partial-kept-incomplete',
+    );
     const ledger = JSON.parse(
       readFileSync(join(root, MANIFEST_DIR, RECOVERY_LEDGER_FILE), 'utf8'),
     );
     assert.ok(ledger.failed.length >= 1);
     // Residual risk still discoverable
     assert.ok(ledger.residualRisk);
+  });
+
+  it('post-U partial reverse retains incomplete and exits non-zero', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-force-postu-partial-'));
+    writeIncompleteManifest(root, {
+      effects: [
+        {
+          type: 'totally-unknown-effect-xyz',
+          id: 'x',
+          beforeState: {},
+          flushedAt: '2026-07-17T00:00:01.000Z',
+        },
+      ],
+      transactionExtra: { journalMode: 'per-effect' },
+    });
+
+    const result = forceIncompleteUninstall(root);
+    assert.equal(result.ok, false);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.action, 'partial-kept-incomplete');
+    assert.equal(result.incompleteRetained, true);
+    assert.match(result.message, /RETAINED|not complete|still blocks/i);
+
+    const desc = describeRecovery(root, MANIFEST_DIR);
+    assert.equal(desc.state, TX_STATE_INCOMPLETE);
+  });
+
+  it('quarantines unreadable incomplete manifest before clear', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-force-unreadable-'));
+    const dir = join(root, MANIFEST_DIR);
+    mkdirSync(dir, { recursive: true });
+    const raw = '{not-valid-json!!!';
+    writeFileSync(join(dir, 'manifest.json'), raw, 'utf8');
+
+    const result = forceIncompleteUninstall(root);
+    assert.equal(result.incompleteRetained, false);
+    assert.ok(
+      result.residualRisk === 'unreadable_manifest_quarantined'
+      || result.ledger?.residualRisk === 'unreadable_manifest_quarantined',
+    );
+
+    // Raw bytes preserved in quarantine artifact.
+    const entries = readdirSync(dir);
+    const quarantine = entries.find((n) => n.startsWith(RECOVERY_QUARANTINE_PREFIX));
+    assert.ok(quarantine, 'quarantine artifact required');
+    assert.equal(readFileSync(join(dir, quarantine), 'utf8'), raw);
+
+    // Ledger present (atomic write) after force.
+    assert.equal(existsSync(join(dir, RECOVERY_LEDGER_FILE)), true);
+
+    // Incomplete marker cleared after quarantine.
+    const desc = describeRecovery(root, MANIFEST_DIR);
+    assert.notEqual(desc.state, TX_STATE_INCOMPLETE);
+  });
+
+  it('writes residual ledger atomically (present after force)', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-force-ledger-atomic-'));
+    writeIncompleteManifest(root, {
+      effects: [
+        {
+          type: 'reconcileFileSet',
+          id: 'reconcileFileSet',
+          beforeState: [],
+        },
+      ],
+    });
+    const result = forceIncompleteUninstall(root);
+    assert.equal(result.exitCode, 0);
+    const path = recoveryLedgerPath(root);
+    assert.equal(existsSync(path), true);
+    // Valid JSON (not truncated).
+    const ledger = JSON.parse(readFileSync(path, 'utf8'));
+    assert.equal(ledger.recoveryAction, 'uninstall --force-incomplete');
+    assert.ok(ledger.createdAt);
+
+    // Direct atomic write helper also produces valid JSON.
+    writeRecoveryLedger(root, { version: 1, probe: true });
+    assert.deepEqual(
+      JSON.parse(readFileSync(path, 'utf8')),
+      { version: 1, probe: true },
+    );
   });
 });
 
@@ -442,6 +564,7 @@ describe('normal install blocked by assertNoIncomplete + repair messaging', () =
       });
       assert.match(out, /force-incomplete|residual|recovery/i);
       assert.match(out, /[Dd]o not hand-edit/);
+      assert.match(out, /complete/i);
 
       const ledgerPath = join(root, MANIFEST_DIR, RECOVERY_LEDGER_FILE);
       assert.equal(existsSync(ledgerPath), true);
@@ -450,6 +573,191 @@ describe('normal install blocked by assertNoIncomplete + repair messaging', () =
 
       const desc = describeRecovery(root, MANIFEST_DIR);
       assert.notEqual(desc.state, TX_STATE_INCOMPLETE);
+    });
+  });
+
+  it('CLI force-incomplete exits non-zero and does not print complete on reverse failure', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-cli-force-fail-'));
+    return withHome(root, () => {
+      writeIncompleteManifest(root, {
+        effects: [
+          { type: 'totally-unknown-effect-xyz', id: 'x', beforeState: {} },
+        ],
+      });
+
+      let err;
+      try {
+        execFileSync('node', [CLI, 'uninstall', '--force-incomplete', '--yes'], {
+          encoding: 'utf8',
+          timeout: 15_000,
+          env: { ...process.env, HOME: root, ATOMIC_SKILLS_SKIP_GROK_HOST: '1' },
+          cwd: ROOT,
+        });
+      } catch (e) {
+        err = e;
+      }
+      assert.ok(err, 'must exit non-zero when reverse fails');
+      const out = `${err.stdout || ''}${err.stderr || ''}`;
+      assert.match(out, /did not fully recover|failed/i);
+      // Must not claim success complete after failure path.
+      assert.doesNotMatch(out, /Force-incomplete complete/);
+    });
+  });
+});
+
+describe('resolveIncompleteRecoveryScope (dual-scope routing)', () => {
+  let fakeHome;
+  let projectRoot;
+  afterEach(() => {
+    if (projectRoot) rmSync(projectRoot, { recursive: true, force: true });
+    if (fakeHome) rmSync(fakeHome, { recursive: true, force: true });
+    projectRoot = undefined;
+    fakeHome = undefined;
+  });
+
+  function initGitRepo(dir) {
+    mkdirSync(dir, { recursive: true });
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'test'], { cwd: dir, stdio: 'ignore' });
+    writeFileSync(join(dir, 'README.md'), 'x\n', 'utf8');
+    execFileSync('git', ['add', '.'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+  }
+
+  it('selects project incomplete when user is complete', () => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'as-scope-home-'));
+    projectRoot = mkdtempSync(join(tmpdir(), 'as-scope-proj-'));
+    initGitRepo(projectRoot);
+
+    return withHome(fakeHome, () => {
+      // User: complete install
+      const userDir = join(fakeHome, MANIFEST_DIR);
+      mkdirSync(userDir, { recursive: true });
+      writeFileSync(
+        join(userDir, 'manifest.json'),
+        JSON.stringify({
+          journalVersion: 2,
+          effects: [],
+          transaction: { state: 'complete' },
+        }),
+        'utf8',
+      );
+      // Project: incomplete
+      writeIncompleteManifest(projectRoot, {
+        effects: [{ type: 'reconcileFileSet', id: 'reconcileFileSet', beforeState: [] }],
+      });
+
+      const resolved = resolveIncompleteRecoveryScope({
+        projectDir: projectRoot,
+        forceProject: false,
+        purpose: 'repair',
+      });
+      assert.equal(resolved.ok, true);
+      assert.equal(resolved.scope, 'project');
+      // Git resolve uses realpath (macOS /var → /private/var).
+      assert.equal(resolved.basePath, realpathSync(projectRoot));
+      assert.equal(resolved.incomplete.length, 1);
+    });
+  });
+
+  it('errors with ambiguity when both user and project are incomplete', () => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'as-scope-home2-'));
+    projectRoot = mkdtempSync(join(tmpdir(), 'as-scope-proj2-'));
+    initGitRepo(projectRoot);
+
+    return withHome(fakeHome, () => {
+      writeIncompleteManifest(fakeHome, {
+        effects: [{ type: 'reconcileFileSet', id: 'u', beforeState: [] }],
+      });
+      writeIncompleteManifest(projectRoot, {
+        effects: [{ type: 'reconcileFileSet', id: 'p', beforeState: [] }],
+      });
+
+      const resolved = resolveIncompleteRecoveryScope({
+        projectDir: projectRoot,
+        forceProject: false,
+        purpose: 'force-incomplete',
+      });
+      assert.equal(resolved.ok, false);
+      assert.equal(resolved.ambiguous, true);
+      assert.equal(resolved.exitCode, 1);
+      assert.match(resolved.message, /both user and project/i);
+      assert.match(resolved.message, /--project/);
+    });
+  });
+
+  it('CLI install --repair targets project incomplete when user is complete', () => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'as-cli-scope-home-'));
+    projectRoot = mkdtempSync(join(tmpdir(), 'as-cli-scope-proj-'));
+    initGitRepo(projectRoot);
+
+    return withHome(fakeHome, () => {
+      const userDir = join(fakeHome, MANIFEST_DIR);
+      mkdirSync(userDir, { recursive: true });
+      writeFileSync(
+        join(userDir, 'manifest.json'),
+        JSON.stringify({
+          journalVersion: 2,
+          effects: [],
+          transaction: { state: 'complete' },
+        }),
+        'utf8',
+      );
+      writeIncompleteManifest(projectRoot, {
+        effects: [{ type: 'reconcileFileSet', id: 'reconcileFileSet', beforeState: [] }],
+      });
+
+      // pre-U refuse on project (not user complete no-op)
+      let err;
+      try {
+        execFileSync('node', [CLI, 'install', '--repair', '--yes'], {
+          encoding: 'utf8',
+          timeout: 15_000,
+          env: { ...process.env, HOME: fakeHome, ATOMIC_SKILLS_SKIP_GROK_HOST: '1' },
+          cwd: projectRoot,
+        });
+      } catch (e) {
+        err = e;
+      }
+      assert.ok(err, 'must refuse pre-U incomplete on project (non-zero)');
+      const out = `${err.stdout || ''}${err.stderr || ''}`;
+      assert.match(out, /scope:\s*project/i);
+      assert.match(out, /force-incomplete|pre-U|refuse/i);
+
+      // Project still incomplete; user still complete.
+      assert.equal(describeRecovery(projectRoot, MANIFEST_DIR).state, TX_STATE_INCOMPLETE);
+      assert.equal(describeRecovery(fakeHome, MANIFEST_DIR).state, TX_STATE_COMPLETE);
+    });
+  });
+
+  it('CLI install --repair errors on dual incomplete without --project', () => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'as-cli-ambig-home-'));
+    projectRoot = mkdtempSync(join(tmpdir(), 'as-cli-ambig-proj-'));
+    initGitRepo(projectRoot);
+
+    return withHome(fakeHome, () => {
+      writeIncompleteManifest(fakeHome, {
+        effects: [{ type: 'reconcileFileSet', id: 'u', beforeState: [] }],
+      });
+      writeIncompleteManifest(projectRoot, {
+        effects: [{ type: 'reconcileFileSet', id: 'p', beforeState: [] }],
+      });
+
+      let err;
+      try {
+        execFileSync('node', [CLI, 'install', '--repair', '--yes'], {
+          encoding: 'utf8',
+          timeout: 15_000,
+          env: { ...process.env, HOME: fakeHome, ATOMIC_SKILLS_SKIP_GROK_HOST: '1' },
+          cwd: projectRoot,
+        });
+      } catch (e) {
+        err = e;
+      }
+      assert.ok(err, 'dual incomplete must be ambiguous');
+      const out = `${err.stdout || ''}${err.stderr || ''}`;
+      assert.match(out, /both user and project|ambiguous|--project/i);
     });
   });
 });
