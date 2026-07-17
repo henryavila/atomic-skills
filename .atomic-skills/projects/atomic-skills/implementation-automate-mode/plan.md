@@ -5,7 +5,7 @@ title: Implementation Automate Mode
 version: "1.0"
 status: active
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:24:50.000Z
+lastUpdated: 2026-07-17T19:25:02.478Z
 branch: plan/implementation-automate-mode
 currentPhase: F2
 parallelismAllowed: false
@@ -156,7 +156,7 @@ phases:
     goal: Wire automate-aware review policy so phase-done defaults to both, and complex tasks run review-code --mode=both before orchestrator done.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -174,8 +174,14 @@ phases:
             kind: shell
             command: rg -n 'complex' skills/core/implement.md | rg -n 'both|review-code'
             expectExitCode: 0
-    status: pending
+    status: active
     summary: "Review policy: phase/complex both; executionMode stamp obrigatório."
+    businessIntent:
+      value: "Review policy sob automate: phase-done defaults to both; complex tasks review-code both before done; executionMode stamp obrigatorio."
+      workflow: Wire project-transitions automate matrix + unit tests; document complex-task both in implement.md.
+      rules: P5 mode-scoped review cadence; non-automate keeps DESTRUCTIVE-only ladder; stamp executionMode after first automate entry.
+      outOfScope: plan-end external-both (F3); full contract suite (F4).
+      doneWhen: project-transitions-automate tests green; implement documents complex both review.
   - id: F3
     slug: implementation-automate-mode-f3-plan-end-external-both-and-fina
     title: Plan-end external-both and finalize hard gate
