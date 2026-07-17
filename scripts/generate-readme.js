@@ -3,6 +3,11 @@
  * Regenerate the SKILLS_TABLE + SKILL_DETAILS sections of README.md from
  * `meta/catalog.yaml` + skill bodies.
  *
+ * Catalog root v0.3: prefers each skill's catalog `iron_law` (product SSOT);
+ * falls back to extracting `## Iron Law` from the skill body when absent.
+ * Top-level `product:` is tolerated by the parser and ignored here (landing
+ * copy is not yet README-bound — slim envelope is a later phase).
+ *
  * Usage:
  *   node scripts/generate-readme.js          # rewrites README.md in place
  *   node scripts/generate-readme.js --check  # exits 1 if README is stale
