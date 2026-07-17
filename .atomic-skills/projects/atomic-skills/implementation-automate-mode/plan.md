@@ -5,9 +5,9 @@ title: Implementation Automate Mode
 version: "1.0"
 status: active
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:25:02.478Z
+lastUpdated: 2026-07-17T19:29:38.000Z
 branch: plan/implementation-automate-mode
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -162,19 +162,35 @@ phases:
       criteria:
         - id: F2-G1
           description: Automate phase review mode matrix is unit-tested.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/project-transitions-automate.test.js
             expectExitCode: 0
+          metAt: 2026-07-17T19:29:38.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:29:38.000Z
+            verifiedCommit: 18d5b03d5fdd20cdf32f7ff8cc030a91d98f0b6e
+            passed: true
+            exitCode: 0
+            outputSummary: "orch re-run: F2-G1"
         - id: F2-G2
           description: implement documents complex-task both review before done.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'complex' skills/core/implement.md | rg -n 'both|review-code'
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T19:29:38.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:29:38.000Z
+            verifiedCommit: 18d5b03d5fdd20cdf32f7ff8cc030a91d98f0b6e
+            passed: true
+            exitCode: 0
+            outputSummary: "orch re-run: F2-G2"
+    status: done
     summary: "Review policy: phase/complex both; executionMode stamp obrigatório."
     businessIntent:
       value: "Review policy sob automate: phase-done defaults to both; complex tasks review-code both before done; executionMode stamp obrigatorio."
