@@ -2,6 +2,8 @@ Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that si
 
 If {{ARG_VAR}} was provided, use it as the plan-slug (or `<project-id>/<plan-slug>`) to implement. If not, ask the user: "Which plan are we implementing? I'll read its active phase's tasks." Default to the active plan/initiative if one is already selected. **The explicit arg selects plan, branch, and worktree before any resume gate or write** — see Step 0.
 
+**Mode detection (pure):** parse CLI tokens with `src/implement-mode.js` (`parseImplementMode`, `isAutomateActive`). Opt-in `--mode=automate` (or `mode:automate`) enters **pure-maestro** automate mode (session orchestrates; one phase writer codes — full maestro loop lands in later phases). Absent mode / `--mode=1` stays Mode 1 (this skill's default session-writer path). Plan stamp `executionMode: automate` re-enters automate on later runs until `--clear-execution-mode`. Automate is **off by default**. Mode 1 iron law below is unchanged.
+
 ## Iron Law
 
 CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).
@@ -29,7 +31,8 @@ The snapshot trigger is **event-driven, never a self-measured context gauge.** Y
 
 **Before any resume gate, dirty check, or write**, select the plan the user asked for and bind its worktree. The pure helper is `src/project-target-resolver.js` (`parsePlanArg`, `resolveImplementTarget`, `composePlanWorktreeAdd`). Skill prose must follow the same order.
 
-1. **Parse the arg.** `{{ARG_VAR}}` is a bare slug (`plan-b`) or `<project-id>/<plan-slug>` (`atomic-skills/plan-b`). If missing, ask which plan; do not silently pick a different active plan when more than one is open.
+0. **Parse mode flags (before plan selection).** From `{{ARG_VAR}}` / argv, call `parseImplementMode` in `src/implement-mode.js`. Tokens: `--mode=automate` / `mode:automate` / `--mode=1` / `--clear-execution-mode`. Unknown mode → refuse with a clear error (do not ignore). Combine with plan frontmatter `executionMode` via `isAutomateActive({ cliMode, planExecutionMode, clearExecutionMode })`. When automate is active, the session is pure maestro (no product-source edits by the host session); Mode 1 iron law still applies to the single phase writer. Full maestro loop prose is owned by later phases — F0 only lands mode detection.
+1. **Parse the arg.** `{{ARG_VAR}}` is a bare slug (`plan-b`) or `<project-id>/<plan-slug>` (`atomic-skills/plan-b`), after stripping mode flags. If missing, ask which plan; do not silently pick a different active plan when more than one is open.
 2. **Select the plan** from nested inventory (`.atomic-skills/projects/*/*/plan.md`). Prefer exact slug (+ project when given). On ambiguity, disambiguate — never invent.
 3. **Bind branch + worktree.** Read the plan's `branch:` (usually `plan/<slug>`). Compare to `git symbolic-ref --short HEAD` and `git worktree list --porcelain`.
    - Already on the plan branch → home; continue to Step 0.5 (resume gate) on **this** tree.
