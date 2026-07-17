@@ -22,9 +22,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
 const README_PATH = join(PROJECT_ROOT, 'README.md');
 
+/** Normalize EOLs so --check is portable under Windows checkout (CRLF vs LF). */
+function normalizeEol(text) {
+  return String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
 function diffLines(a, b) {
-  const aLines = a.split('\n');
-  const bLines = b.split('\n');
+  const aLines = normalizeEol(a).split('\n');
+  const bLines = normalizeEol(b).split('\n');
   const out = [];
   const max = Math.max(aLines.length, bLines.length);
   for (let i = 0; i < max; i++) {
@@ -54,9 +59,11 @@ function main() {
   }
 
   const current = readFileSync(README_PATH, 'utf8');
+  const currentNorm = normalizeEol(current);
+  const nextNorm = normalizeEol(next);
 
   if (checkMode) {
-    if (current === next) {
+    if (currentNorm === nextNorm) {
       process.exit(0);
     }
     console.error('✖ README.md is out of sync with meta/catalog.yaml');
@@ -64,7 +71,7 @@ function main() {
     process.exit(1);
   }
 
-  if (current === next) {
+  if (currentNorm === nextNorm) {
     console.log('✓ README.md already up to date');
     process.exit(0);
   }
