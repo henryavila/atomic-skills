@@ -46,9 +46,9 @@ Record the choice in the plan session notes (one of):
 
 | Choice | Meaning | Accepts partial success? |
 |--------|---------|--------------------------|
-| **U** — upstream first | Open/land minimalist-installer PR for journal flush **or** apply-time rollback (F-001) and drop-effect revert (F-002); then **pin-bump** consumer | No — ship only when pin includes both engine fixes |
-| **C** — consumer first | Ship repair CLI + auto-update shrink workaround + P0-C without waiting on engine | **Yes** — success criterion 1 is met by a **documented force path** that leaves tree installable/uninstallable; true mid-effect journal accuracy remains incomplete until U |
-| **U+C** — dual | Consumer CLI + workaround land first; engine PR in parallel; pin-bump when green | Criterion 1 interim via C; full journal correctness after pin |
+| **U** — upstream first | Open/land minimalist-installer PR for **durable per-effect journaling or staging-and-commit** (F-001; rollback-only is **not** sufficient) **and** crash-resumable drop-effect revert (F-002); then **pin-bump** consumer | No — ship only when pin includes both engine fixes |
+| **C** — consumer first | Ship repair CLI + auto-update shrink workaround + P0-C without waiting on engine | **Partial only** — does **not** satisfy success criterion 1. C may ship operator messaging + force path, but criterion 1 / P0 green require U (or residual ledger that asserts clean/owned baseline — see P0-A) |
+| **U+C** — dual | Consumer CLI + workaround land first; engine PR in parallel; pin-bump when green | Criterion 1 satisfied only after pin (U half). C half is interim operator UX, not green bar for #1 |
 
 **Hard rule:** do not ship both consumer auto-update shrink workaround **and** engine drop-effect revert without a single ownership story (engine wins; remove consumer workaround in the same pin-bump PR).
 
@@ -95,16 +95,17 @@ P1-F  publishRuntimeAndRegister always[F-009]  atomic-skills
 
 **Work:**
 
-1. **Upstream (choice U or U+C):** after each successful `effect.apply`, append effect to on-disk journal (or staging manifest) so incomplete journal reflects applied ownership. **Alternatively:** real rollback of applied effects on failure before rethrow. Document which alternative the engine PR takes.
+1. **Upstream (choice U or U+C) — required mechanism:** after each successful `effect.apply`, **append that effect to the on-disk journal** (or write a staging manifest and commit), so an incomplete journal always reflects applied ownership. Optional **supplementary** rollback of applied effects on caught failure is allowed **in addition to** durable journaling, never as the sole design. **Rejected:** rollback-only (cannot run after SIGKILL / power loss / abrupt kill).
 2. **Consumer CLI (required for C and U+C; still useful under U):**
    - Ship **both** flags with fixed semantics (not “and/or”):
      - `install --repair` — when incomplete: print `describeRecovery` summary (effectCount, state, reason); if journal is trusted post-U pin, resume/complete or re-run install; if pre-U (stale prior journal), refuse silent resume and instruct `uninstall --force-incomplete`.
-     - `uninstall --force-incomplete` — clear incomplete gate, attempt best-effort reverse of **journaled** effects, then delete incomplete marker; document residual risk when disk had unjournaled applies (pre-U).
+     - `uninstall --force-incomplete` — attempt best-effort reverse of **journaled** effects; **do not** delete the incomplete marker until an asserted clean or fully owned baseline (or write a residual recovery ledger of unrecovered paths). Pre-U residual risk for unjournaled applies must remain discoverable after the command.
    - Operator message on incomplete: what failed, which command fixes it (never “edit JSON by hand”).
 3. **Pin bump (U / U+C only):** update `package.json` / lock for `@henryavila/minimalist-installer` to the commit/tag that contains the engine fix. `unverified:` exact tag until PR merges.
-4. **Tests:** inject fail on 2nd effect during full `installSkills` / `install()`; assert repair or force-incomplete path returns to installable/uninstallable baseline without deleting whole tree manually.
+4. **Tests:** inject fail on 2nd effect during full `installSkills` / `install()`; also fault-inject **abrupt child-process kill after a disk-mutating effect** (not only thrown errors). Assert repair/force path leaves installable or clean+ledgered baseline without hand-editing JSON.
 
-**Exit gate:** incomplete TX → documented CLI path → tree either fully installed or fully reversible under the chosen gate (C accepts residual pre-U journal lag).
+**Exit gate (U / U+C after pin):** incomplete TX → documented CLI path → tree fully installed or fully reversible (journal matches disk).  
+**Exit gate (C only):** operator CLI exists + messages; **does not** mark success criterion 1 or P0 green.
 
 ---
 
@@ -120,17 +121,22 @@ P1-F  publishRuntimeAndRegister always[F-009]  atomic-skills
 
 **Work:**
 
-1. **Prefer upstream Driver (U / U+C):** before replacing journal, `diff(priorEffects, plannedEffects)` and `revert` dropped ids/types (order reverse).
+1. **Prefer upstream Driver (U / U+C) — crash-resumable transition:**
+   - Record drop intent (which prior effect ids will be reverted) on disk before the first reverse.
+   - `diff(priorEffects, plannedEffects)` then `revert` dropped ids/types in reverse order.
+   - Remove each journal entry **only after** its successful reverse (or mark it `reverted` in a durable staging journal).
+   - Replace the live journal with the next plan only after all drops complete; resume mid-drop after incomplete.
 2. **Consumer fallback (C or until pin):**
    - Detect prior auto-update effects (`stageRuntimeArtifacts` / `jsonMerge` for auto-update paths) not in new plan.
-   - Explicitly revert those effects (or call the same cleanup helpers the effect `revert` would use).
+   - Explicitly revert those effects (or call the same cleanup helpers the effect `revert` would use), with the same crash-resumable boundary rules at consumer level when feasible.
    - Scope: auto-update surfaces only — not a general “any dropped effect” engine.
 3. On pin that includes engine drop-revert: **delete** the consumer workaround (hard rule above).
 4. **Tests (mandatory):**
    - install `ides: [claude-code]` → update `ides: [codex]` → no `version-check.sh` under Claude tree / no Atomic SessionStart residue in settings (surgical: only our entries).
    - install `ides: [claude-code, grok]` → update to `[cursor]` → both auto-update surfaces gone.
+   - Fault inject during dropped-effect reversal (kill after first reverse, before journal replace) → resume leaves no orphan hooks and journal consistent.
 
-**Exit gate:** shrink never leaves auto-update residue; uninstall after shrink is clean for those surfaces.
+**Exit gate:** shrink never leaves auto-update residue; uninstall after shrink is clean for those surfaces; mid-drop crash is resumable without journal/disk split.
 
 ---
 
@@ -321,8 +327,10 @@ See audit F-010–F-014 and items 11–16 in the audit improvements backlog. Unr
 - Consumer hotspots: `src/install.js`, `src/uninstall.js`, `src/installer.js`, `src/adopt-preexisting-desired.js`, `src/runtime-layers/**`, `src/manifest.js`, `src/runtime-observe.js`
 - Current engine pin: `package.json` → `@henryavila/minimalist-installer` git commit (read at implement time)
 
-## Alignment notes (review-plan local)
+## Alignment notes (review-plan local + codex)
 
 - `describeRecovery` is already exported and is inspect-only; repair mutation is consumer-owned until engine gains resume APIs.
 - Consumer auto-update shrink workaround and engine drop-effect revert must not double-apply after pin-bump.
 - Pin bump for F-001/F-002 is in-scope for choices U/U+C (not P2).
+- **Codex criticals applied (2026-07-17):** F-001 ban rollback-only; F-002 crash-resumable drop transition; F-003 choice C does not satisfy success criterion 1.
+- **Codex majors recorded (not auto-applied):** repair mutator task detail; Grok host multi-owner unregister gate; unmanaged-desired reconciler disposition; legacy registry metadata discovery; P1-C mandatory no-follow tests — see `.atomic-skills/reviews/2026-07-17-1816-installer-hardening-p0-p1-codex.md`.

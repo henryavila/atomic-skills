@@ -94,3 +94,4 @@
 - 2026-07-16-f6-integrity-remediation.md — PASS_WITH_FINDINGS
 - 2026-07-16-1844-integrity-remediation-codex.md — Codex CROSS-MODEL reject (3 critical, 10 major) on integrity-remediation product diff
 | 2026-07-17 13:12 | [wip-resolve-review-model](2026-07-17-1312-wip-resolve-review-model.md) | code | codex | needs_changes | 0B/0C/4M/0m/0n | 0d/4=/0+ |
+| 2026-07-17 | plan | installer-hardening-p0-p1 | both→codex | needs_changes | 0B/3C/5M | .atomic-skills/reviews/2026-07-17-1816-installer-hardening-p0-p1-codex.md |
