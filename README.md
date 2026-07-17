@@ -29,6 +29,16 @@ npx @henryavila/atomic-skills install
 **Docs:** [https://atomic-skills.henryavila.com/](https://atomic-skills.henryavila.com/)
 [PRODUCT_END]: #
 
+## Offline / local docs
+
+Build the static product site from a checkout (no network after install):
+
+```bash
+npm run generate-site
+```
+
+Then open `site/dist/index.html` in a browser. Details: [`site/DEPLOY.md`](site/DEPLOY.md).
+
 ## Hosts
 
 **Tested** (real sessions): Claude Code, Cursor, Codex, Grok Build.
