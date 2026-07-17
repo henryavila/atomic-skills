@@ -29,6 +29,10 @@ import {
   wantsGrokPluginHost,
 } from './runtime-layers/grok-plugin-host.js';
 import { applyGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation.js';
+import {
+  listKnownInstallBases,
+  releaseGrokOutsideJournal,
+} from './runtime-layers/grok-refcount.js';
 import { withSharedRuntimeLocks } from './runtime-locks.js';
 import { verifyInstall, decisionsByState } from './status-verify.js';
 
@@ -549,22 +553,59 @@ export function installSkills(projectDir, options, callbacks = {}) {
 }
 
 /**
- * After the journal materialises `.grok/plugins/atomic-skills/`:
- *  1. Register the package with the Grok host plugin system
- *     (`grok plugin install --trust`) — fail-open.
- *  2. Hide foreign Atomic Skills trees (agents/cursor/claude) from Grok's
- *     skill scanner (`~/.grok/config.toml` → `[skills].ignore`) so multi-IDE
- *     installs do not surface `user:project` next to `atomic-skills:project`.
+ * After the journal materialises `.grok/plugins/atomic-skills/` (or shrinks it away):
+ *  1. When `ides` still include grok — register the package with the Grok host
+ *     (`grok plugin install --trust`) and apply foreign-skills isolation — fail-open.
+ *  2. When prior ides included grok and next do not (IDE shrink, F-003 / P0-C) —
+ *     release host registration + isolation only if this install is the last
+ *     remaining grok owner (same multi-owner scan as isolation refcount). If
+ *     another install still wants grok, keep host + isolation (restage from
+ *     survivor package when possible).
  *
  * @param {string} basePath
- * @param {string[]} ides
+ * @param {string[]} ides - next ides after this install
  * @param {string} [language]
+ * @param {object} [opts]
+ * @param {string[]} [opts.priorIdes] - ides from existing manifest before rewrite
+ * @param {string} [opts.home]
+ * @param {() => string[]} [opts.listInstallBases]
+ * @param {import('./runtime-layers/grok-plugin-host.js').HostRunner} [opts.run]
+ * @param {() => string | null} [opts.resolveBin]
+ * @param {NodeJS.ProcessEnv} [opts.env]
  */
-export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en') {
-  if (!wantsGrokPluginHost(ides)) return;
+export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en', opts = {}) {
   const isPt = language === 'pt';
+  const {
+    priorIdes,
+    home = process.env.HOME || homedir(),
+    listInstallBases = () => listKnownInstallBases(home),
+    run,
+    resolveBin,
+    env,
+  } = opts;
 
-  const result = registerGrokPluginHost({ basePath, ides });
+  // F-003: shrink away from grok — multi-owner-safe outside-journal cleanup.
+  if (!wantsGrokPluginHost(ides)) {
+    if (priorIdes !== undefined && wantsGrokPluginHost(priorIdes)) {
+      const releaseOpts = {
+        basePath,
+        home,
+        listInstallBases,
+      };
+      if (run) releaseOpts.run = run;
+      if (resolveBin) releaseOpts.resolveBin = resolveBin;
+      if (env) releaseOpts.env = env;
+      const released = releaseGrokOutsideJournal(releaseOpts);
+      logGrokRelease(released, isPt);
+    }
+    return;
+  }
+
+  const regOpts = { basePath, ides };
+  if (run) regOpts.run = run;
+  if (resolveBin) regOpts.resolveBin = resolveBin;
+  if (env) regOpts.env = env;
+  const result = registerGrokPluginHost(regOpts);
   if (result.status === 'registered') {
     console.log(
       `  ${pc.dim(isPt ? 'Grok plugin host: registrado (nativo).' : 'Grok plugin host: registered (native).')}`,
@@ -590,7 +631,7 @@ export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en') 
   }
 
   // Isolation always targets user ~/.grok/config.toml (foreign vendor skill roots).
-  const iso = applyGrokAgentsIsolation({ ides });
+  const iso = applyGrokAgentsIsolation({ ides, home });
   if (iso.status === 'applied') {
     console.log(
       `  ${pc.dim(isPt ? 'Grok: isolado de skills estrangeiras (agents/cursor/claude atomic-skills).' : 'Grok: isolated from foreign atomic-skills trees (agents/cursor/claude).')}`,
@@ -599,6 +640,29 @@ export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en') 
     console.log(
       `  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills já presente.' : 'Grok: foreign-skills isolation already present.')}`,
     );
+  }
+}
+
+/**
+ * @param {{ lastOwner: boolean, host: { status: string, detail?: string }, isolation: { status: string, detail?: string } }} released
+ * @param {boolean} isPt
+ */
+function logGrokRelease(released, isPt) {
+  const { host, isolation } = released;
+  if (host.status === 'unregistered' || host.status === 'absent') {
+    console.log(`  ${pc.dim(isPt ? 'Grok plugin host: desregistrado (último owner).' : 'Grok plugin host: unregistered (last owner).')}`);
+  } else if (host.status === 'kept') {
+    console.log(`  ${pc.dim(isPt ? 'Grok plugin host: mantido (outra install com grok).' : 'Grok plugin host: kept (another grok install remains).')}`);
+  } else if (host.status === 'skipped') {
+    console.log(`  ${pc.dim(isPt ? `Grok plugin host: omitido (${host.detail || 'skip'}).` : `Grok plugin host: skipped (${host.detail || 'skip'}).`)}`);
+  } else if (host.status === 'failed') {
+    console.log(`  ${pc.yellow(isPt ? `Grok plugin host: falha ao desregistrar (${host.detail || 'erro'}).` : `Grok plugin host: unregister failed (${host.detail || 'error'}).`)}`);
+  }
+
+  if (isolation.status === 'removed') {
+    console.log(`  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills removido.' : 'Grok: foreign-skills isolation removed.')}`);
+  } else if (isolation.status === 'kept') {
+    console.log(`  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills mantido (outra install com grok).' : 'Grok: foreign-skills isolation kept (another grok install remains).')}`);
   }
 }
 
@@ -727,10 +791,12 @@ export async function install(projectDir, options = {}) {
     // The Driver's reconcileFileSet runs the 3-hash no-clobber update (files the
     // user modified survive) and removes unmodified orphans — what the bespoke
     // keepFiles/savedContent/orphan logic used to do, now a property of the effect.
+    const priorIdes = existingManifest?.ides;
     const result = installSkills(basePath, { language, ides, skillsDir, metaDir, scope });
 
     // Host plugin registry (outside journal): native Grok plugin, outside Codex.
-    syncGrokPluginHostAfterInstall(basePath, ides, language);
+    // Pass priorIdes so IDE shrink away from grok can last-owner-clean host + isolation (F-003).
+    syncGrokPluginHostAfterInstall(basePath, ides, language, { priorIdes });
 
     publishRuntimeAndRegister(basePath);
     showNonInteractiveResult(result, ides, language);
@@ -846,6 +912,7 @@ export async function install(projectDir, options = {}) {
   };
   process.on('SIGINT', cleanup);
 
+  const priorIdes = existingManifest?.ides;
   let result;
   try {
     result = installSkills(basePath, {
@@ -862,7 +929,8 @@ export async function install(projectDir, options = {}) {
   }
 
   // Host plugin registry (outside journal): native Grok plugin, outside Codex.
-  syncGrokPluginHostAfterInstall(basePath, config.ides, config.lang);
+  // Pass priorIdes so IDE shrink away from grok can last-owner-clean host + isolation (F-003).
+  syncGrokPluginHostAfterInstall(basePath, config.ides, config.lang, { priorIdes });
 
   // Install aideck bundle + dashboard to ~/.atomic-skills/
   installRuntimeArtifacts();

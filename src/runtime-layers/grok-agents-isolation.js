@@ -3,7 +3,8 @@ import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { SKILL_NAMESPACE } from '../config.js';
 import { wantsGrokPluginHost } from './grok-plugin-host.js';
-import { readManifest, MANIFEST_DIR } from '../manifest.js';
+import { readManifest } from '../manifest.js';
+import { listKnownInstallBases } from './grok-refcount.js';
 
 /**
  * Hide non-Grok Atomic Skills trees from Grok's skill scanner.
@@ -310,23 +311,6 @@ function pruneEmptyParentsUpTo(fromDir, boundary) {
 }
 
 // ─── internals ─────────────────────────────────────────────────────────────
-
-/**
- * @param {string} home
- * @returns {string[]}
- */
-function listKnownInstallBases(home) {
-  const bases = new Set();
-  bases.add(home);
-  const registryPath = join(home, MANIFEST_DIR, 'installs.json');
-  if (existsSync(registryPath)) {
-    try {
-      const list = JSON.parse(readFileSync(registryPath, 'utf8'));
-      if (Array.isArray(list)) for (const p of list) if (typeof p === 'string') bases.add(p);
-    } catch { /* ignore */ }
-  }
-  return [...bases];
-}
 
 /**
  * @param {string} inner content between [ and ]

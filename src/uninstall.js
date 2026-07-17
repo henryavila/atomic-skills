@@ -8,11 +8,7 @@ import { buildInstaller } from './installer.js';
 import { migrateLegacyInstall } from './migrate-legacy-install.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
 import { resolveProjectScopeTarget } from './scope.js';
-import {
-  unregisterGrokPluginHost,
-  wantsGrokPluginHost,
-} from './runtime-layers/grok-plugin-host.js';
-import { revertGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation.js';
+import { releaseGrokOutsideJournal } from './runtime-layers/grok-refcount.js';
 
 /**
  * Walk up from a just-removed file, deleting empty parent dirs until a
@@ -121,22 +117,34 @@ export async function uninstall(projectDir, options = {}) {
   migrateLegacyInstall(basePath, MANIFEST_DIR);
 
   // Host plugin registry + foreign-skills isolation first (outside journal):
-  // drop Grok's native registration and clear managed [skills].ignore entries
-  // before the filesystem package is removed. Fail-open if `grok` is absent.
-  if (wantsGrokPluginHost(manifest.ides)) {
-    const host = unregisterGrokPluginHost({ ides: manifest.ides });
-    if (host.status === 'unregistered' || host.status === 'absent') {
+  // last-owner gate for BOTH host unregister and isolation (F-003 / P0-C).
+  // Do not key only on current manifest.ides — residual after shrink away from
+  // grok must still be cleanable when no remaining install wants grok; multi-
+  // owner uninstall must not kill survivors' host registration.
+  // Fail-open if `grok` is absent. Quiet when nothing was present (non-grok installs).
+  {
+    const departingHadGrok = Array.isArray(manifest.ides) && manifest.ides.includes('grok');
+    const { host, isolation: iso } = releaseGrokOutsideJournal({
+      basePath,
+      // Restage only when this install may have owned the host snapshot.
+      // Residual-after-shrink (ides already without grok) still last-owner cleans.
+      restageSurvivor: departingHadGrok,
+    });
+    // Log host/isolation when we mutated, or when a grok install multi-owner-kept.
+    // Silent when a non-grok install finds survivors or no residual (avoid noise).
+    if (host.status === 'unregistered') {
       console.log(`  ${pc.dim(lang === 'pt' ? 'Grok plugin host: desregistrado.' : 'Grok plugin host: unregistered.')}`);
-    } else if (host.status === 'skipped') {
-      console.log(`  ${pc.dim(lang === 'pt' ? `Grok plugin host: omitido (${host.detail || 'skip'}).` : `Grok plugin host: skipped (${host.detail || 'skip'}).`)}`);
-    } else {
+    } else if (host.status === 'kept' && departingHadGrok) {
+      console.log(`  ${pc.dim(lang === 'pt' ? 'Grok plugin host: mantido (outra install com grok).' : 'Grok plugin host: kept (another grok install remains).')}`);
+    } else if (host.status === 'failed') {
       console.log(`  ${pc.yellow(lang === 'pt' ? `Grok plugin host: falha ao desregistrar (${host.detail || 'erro'}).` : `Grok plugin host: unregister failed (${host.detail || 'error'}).`)}`);
+    } else if (host.status === 'skipped' && departingHadGrok) {
+      console.log(`  ${pc.dim(lang === 'pt' ? `Grok plugin host: omitido (${host.detail || 'skip'}).` : `Grok plugin host: skipped (${host.detail || 'skip'}).`)}`);
     }
 
-    const iso = revertGrokAgentsIsolation({ basePath, ides: manifest.ides });
     if (iso.status === 'removed') {
       console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento foreign-skills removido.' : 'Grok: foreign-skills isolation removed.')}`);
-    } else if (iso.status === 'kept') {
+    } else if (iso.status === 'kept' && departingHadGrok) {
       console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento foreign-skills mantido (outra install com grok).' : 'Grok: foreign-skills isolation kept (another grok install remains).')}`);
     }
   }
