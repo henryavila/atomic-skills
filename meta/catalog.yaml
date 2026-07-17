@@ -1,4 +1,4 @@
-version: '0.2'
+version: '0.3'
 
 # Optional callout rendered under `## Skills` as a versioned `> Note`.
 # Version string is pulled from package.json automatically; only the body
@@ -7,6 +7,20 @@ release_highlight:
   body: |
     First major bump since 1.8.x. Review skills consolidated from 4 → 2 (`review-plan` + `review-code`) with a Step 0 mode picker (`local` | `codex` | `both`). `project-status` + `project-plan` unified into a single `project` skill — a thin router with lazy-loaded detail files (git-style subcommands, a `verify` reconciliation command, and the aiDeck contract quarantined behind one constant). Catalog moved to schema v0.2 and was renamed to `meta/catalog.yaml`. README + dashboard are now generated from five marker-bounded regions; husky pre-commit auto-regenerates on staged catalog changes.
     See [CHANGELOG.md](CHANGELOG.md) for the full migration matrix.
+
+product:
+  what_is: >
+    Battle-tested skill prompts that make AI coding agents follow through —
+    each skill encodes one hard-won workflow behind Iron Laws and HARD-GATEs
+    so "the agent should do X" becomes "the agent will not proceed without X."
+  what_is_not:
+    - A copy-paste prompt pack or chat snippet library
+    - A replacement for your IDE, model, or git workflow
+    - An engineering archive of plans, audits, or design notes
+    - A claim that every host adapter is day-to-day tested (only Claude Code, Cursor, Codex, and Grok Build are)
+  docs_url: 'https://atomic-skills.henryavila.com'
+  install:
+    primary: 'npx @henryavila/atomic-skills install'
 
 core:
   fix:
@@ -52,6 +66,7 @@ core:
         required: false
         description: 'Observed bug or unexpected behavior. If omitted, skill prompts interactively.'
     dependencies: [git]
+    iron_law: 'NO FIX WITHOUT ROOT CAUSE.'
     schema_version: '0.2'
 
   save-and-push:
@@ -92,6 +107,7 @@ core:
     emoji: '💾'
     version_added: '1.0.0'
     dependencies: [git]
+    iron_law: 'NO PUSH WITHOUT FRESH VERIFICATION.'
     schema_version: '0.2'
 
   review-plan:
@@ -168,6 +184,7 @@ core:
       - '.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)'
       - '.atomic-skills/reviews/INDEX.md'
     dependencies: [codex, git]
+    iron_law: 'NO APPROVAL WITHOUT EVIDENCE.'
     schema_version: '0.2'
 
   review-code:
@@ -235,6 +252,7 @@ core:
       - '.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)'
       - '.atomic-skills/reviews/INDEX.md'
     dependencies: [codex, git]
+    iron_law: 'NO APPROVAL WITHOUT EVIDENCE.'
     schema_version: '0.2'
 
   project:
@@ -489,6 +507,7 @@ core:
       - '.atomic-skills/bootstrap-drafts/ (discover output)'
       - 'legacy flat plans/ + initiatives/ remain readable during migration'
     dependencies: [git]
+    iron_law: 'NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.'
     schema_version: '0.2'
   prompt:
     name: prompt
@@ -534,6 +553,7 @@ core:
         kind: positional
         required: false
         description: 'Task description in natural language. If omitted, skill asks interactively.'
+    iron_law: 'NO PROMPT WITHOUT CODEBASE ANALYSIS.'
     schema_version: '0.2'
 
   hunt:
@@ -582,6 +602,7 @@ core:
         required: true
         description: 'File, directory, or function/class to hunt. Directory mode caps at 30 files.'
     dependencies: [git]
+    iron_law: 'NO HUNT WITHOUT BOUNDED SCOPE.'
     schema_version: '0.2'
 
   parallel-dispatch:
@@ -630,6 +651,7 @@ core:
     output_artifacts:
       - '.atomic-skills/dispatches/<batch-id>.md'
     dependencies: [git]
+    iron_law: 'NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.'
     schema_version: '0.2'
 
   parallel-dispatch-audit:
@@ -678,6 +700,7 @@ core:
     output_artifacts:
       - '.atomic-skills/dispatches/<slug>.md (annotated with audit results)'
     dependencies: [git]
+    iron_law: 'NO CONCLUSION WITHOUT EVIDENCE FROM DISK.'
     schema_version: '0.2'
 
   brainstorm:
@@ -727,6 +750,7 @@ core:
         required: false
         description: 'The problem/goal to design. If omitted, the skill asks interactively.'
     dependencies: [git]
+    iron_law: 'NO PLAN WITHOUT AN APPROVED DESIGN.'
     schema_version: '0.2'
 
   design-brief:
@@ -778,6 +802,7 @@ core:
         kind: positional
         required: false
         description: 'The target app/scope (repo path + product intent). If omitted, the skill asks interactively.'
+    iron_law: 'NEVER SILENCE BEHAVIOUR OR PHILOSOPHY — SILENCE IS FOR VISUAL FORM ONLY.'
     schema_version: '0.2'
 
   debate:
@@ -846,6 +871,7 @@ core:
         required: false
         description: 'Gate-mode: bounded agenda + mandatory contrarian every round + a machine-readable Synthesis verdict block handed to a critic. Produces evidence for a stage gate; never decides.'
     dependencies: []
+    iron_law: 'NO SYNTHESIS WITHOUT INDEPENDENT VOICES.'
     schema_version: '0.2'
 
   implement:
@@ -895,6 +921,7 @@ core:
         required: false
         description: 'The plan (or project-id/plan-slug) to implement. If omitted, uses the active plan/initiative.'
     dependencies: [git]
+    iron_law: 'CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).'
     schema_version: '0.2'
 
   verify-claim:
@@ -943,6 +970,7 @@ core:
         required: false
         description: 'The claim or task id under verification. If omitted, the skill asks for the claim and its verifier.'
     dependencies: [git]
+    iron_law: 'NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.'
     schema_version: '0.2'
 
 modules:
@@ -987,6 +1015,7 @@ modules:
       version_added: '1.0.0'
       output_artifacts:
         - '.ai/memory/MEMORY.md'
+      iron_law: 'NO DELETION WITHOUT CONFIRMED BACKUP.'
       schema_version: '0.2'
 
 # Documentation for the Modules section of README.md. Keys MUST match
