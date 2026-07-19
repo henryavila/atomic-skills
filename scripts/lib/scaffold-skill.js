@@ -64,6 +64,8 @@ export function defaultFields(name, pkgVersion) {
     one_liner: oneLiner,
     emoji: '🧩',
     version_added: pkgVersion || '0.0.0',
+    // Catalog v0.3 requires iron_law; keep in sync with buildSkillBody first law line.
+    iron_law: 'TODO: STATE THE ONE NON-NEGOTIABLE RULE FOR THIS SKILL AS A SINGLE CAPS SENTENCE.',
   };
 }
 
@@ -112,6 +114,7 @@ export function buildSkillEntry(name, fields) {
     `    emoji: ${sq(fields.emoji)}`,
     `    version_added: ${sq(fields.version_added)}`,
     `    schema_version: '0.2'`,
+    `    iron_law: ${sq(fields.iron_law)}`,
   ];
   return lines.join('\n');
 }
@@ -135,7 +138,8 @@ export function buildSkillBody(name, fields) {
     '',
     '## Iron Law',
     '',
-    'TODO: STATE THE ONE NON-NEGOTIABLE RULE FOR THIS SKILL AS A SINGLE CAPS SENTENCE.',
+    fields.iron_law ||
+      'TODO: STATE THE ONE NON-NEGOTIABLE RULE FOR THIS SKILL AS A SINGLE CAPS SENTENCE.',
     '',
     'TODO: Explain why this law matters and exactly how to apply it. The README and',
     'the per-skill doc extract this section, so keep it tight and self-contained.',

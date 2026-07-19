@@ -24,6 +24,10 @@
  *   refs      ← related (each prefixed, so they resolve against `id`)
  *
  * Optional keys are OMITTED when empty so the widget renders no empty sections.
+ *
+ * Catalog root v0.3 additive fields (`iron_law`, top-level `product:`) are
+ * intentionally NOT projected here — CatalogWidget still uses the flat help
+ * card shape; product positioning is for site/README generators, not aiDeck.
  */
 import { collectSkills } from './validate-skills-core.js';
 

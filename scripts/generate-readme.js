@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 /**
- * Regenerate the SKILLS_TABLE + SKILL_DETAILS sections of README.md from
- * `meta/catalog.yaml` + skill bodies.
+ * Regenerate README.md marker regions from `meta/catalog.yaml` + skill bodies
+ * + `src/config.js` (host tiers).
+ *
+ * Slim product envelope (design D5 / F2):
+ *   - PRODUCT — what_is / what_is_not / install / docs_url from catalog.product
+ *   - IDES_TABLE — Tested vs Theoretical from config
+ *   - SKILLS_TABLE — compact name + one_liner + iron_law
+ *   - SKILL_DETAILS / MODULES / VERSION_NOTE — empty (site owns long copy)
+ *
+ * Catalog root v0.3: prefers each skill's catalog `iron_law` (product SSOT);
+ * falls back to extracting `## Iron Law` from the skill body when absent.
  *
  * Usage:
  *   node scripts/generate-readme.js          # rewrites README.md in place

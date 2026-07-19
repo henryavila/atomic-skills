@@ -1,0 +1,286 @@
+# Project skill deep guide — product domain dataset (design D4).
+# SSOT for site/dist/project/index.html. Not part of core.project catalog fields.
+# English product copy; technical tokens stay verbatim.
+
+schema_version: "0.1"
+title: Project skill — mental model
+one_liner: Plan ⊃ Phase ⊃ Task tracking for multi-day work, reloaded every session.
+iron_law: NO IMPLEMENTATION WITHOUT AN ANCHORED INITIATIVE.
+lede: >
+  The project skill keeps Plan / Initiative / Task state in .atomic-skills/
+  so every session reloads the exact frame — stack frames for side work,
+  an emergence ladder for new work, exit gates before advancing, and one
+  git-style command surface for the whole lifecycle.
+prefix: "/atomic-skills:project"
+state_root: ".atomic-skills/"
+related:
+  skill_page: "skills/project/index.html"
+  offline_archive: "docs/design/project-onboarding/index.html"
+  live_dashboard: "status --browser"
+  terminal_gps: "help"
+
+entities:
+  - id: plan
+    name: Plan
+    summary: Multi-phase delivery with one objective and its own branch (plan/<slug>).
+    nests: Phases (initiatives)
+  - id: phase
+    name: Phase / Initiative
+    summary: >
+      A plan stage (F0, F1, …) with an exit-gate. A standalone initiative is a
+      one-phase plan.
+    nests: Tasks
+  - id: task
+    name: Task
+    summary: Implementable unit (T-001, …) with acceptance criteria and a verifier.
+    nests: Leaf of the tree
+  - id: ideas
+    name: Ideas
+    summary: Raw inbox in ideas.md before work is structured.
+    nests: Outside the tree; enters via idea promote
+  - id: stack
+    name: Stack frames
+    summary: Side investigations stacked on current work (push / pop).
+    nests: Temporary stack
+  - id: backlog
+    name: Backlog
+    summary: Future work in parked[] / emerged[] classified by the emergence ladder.
+    nests: Becomes a Task via promote
+
+key_concepts:
+  - id: lazy-materialization
+    title: Lazy materialization
+    body: >
+      new plan creates plan.md and materializes only F0. F1..N stay descriptor-only
+      until materialize <phase>. descriptor-only = line in the plan, no initiative
+      file yet. materializada = full initiative file with tasks, ready for implement.
+  - id: business-intent
+    title: businessIntent
+    body: >
+      HARD gate at materialize. Captures value / workflow / rules / outOfScope /
+      doneWhen. A phase does not materialize without this spine.
+  - id: exit-gate
+    title: Exit-gate
+    body: >
+      Each phase has verifiable exit criteria. You do not advance while a criterion
+      is pending. Criteria close via verifier (shell / test / query), not guesswork.
+
+lifecycle_spine:
+  - id: idea
+    label: IDEA
+    note: Capture in ideas.md or park/emerge
+  - id: design
+    label: DESIGN
+    note: brainstorm → approved design.md
+  - id: plan
+    label: PLAN
+    note: Source plan markdown + no-placeholder lint
+  - id: decompose
+    label: DECOMPOSE
+    note: Phases + tasks; SPEC gate (4 HOW fields)
+  - id: materialize
+    label: MATERIALIZE
+    note: businessIntent HARD gate
+  - id: implement
+    label: IMPLEMENT
+    note: Task-by-task via atomic-skills:implement
+  - id: verify
+    label: VERIFY
+    note: done runs verifier; evidence required
+  - id: review
+    label: REVIEW
+    note: phase-done requires code review
+  - id: done
+    label: DONE
+    note: Phase or plan complete
+  - id: archive
+    label: ARCHIVE
+    note: finalize → PR; then archive
+
+execution_loop:
+  - step: materialize <phase>
+    gate: businessIntent
+  - step: implement (task by task)
+    gate: SPEC admission (Files, scopeBoundary, acceptance, deterministic verifier)
+  - step: done <task-id>
+    gate: Verifier must pass; rewrites nextAction
+  - step: phase-done
+    gate: Exit-gate verifiers + mandatory code review → advances currentPhase
+
+can:
+  - Reload the exact multi-day frame each session (phase, parked work, why a task exists).
+  - Anchor every code-changing session to an active initiative (or explicit ad-hoc).
+  - Classify new work on the emergence ladder before it lands (park / emerge / promote).
+  - Stack side investigations without losing the main thread (push / pop).
+  - Block phase advance until exit-gate criteria pass.
+  - Detect scope-creep and state-vs-code drift.
+  - One git-style command for view, create, mutate, discover, migrate, verify.
+
+cannot:
+  - Iron Law — no implementation without an anchored initiative (or explicit ad-hoc).
+  - Never hand-edit .atomic-skills/; subcommands set provenance and validate.
+  - Do not decompose a plan whose design.md fails lint.
+  - No task admitted to implement without the four HOW fields and a deterministic verifier (manual does not count).
+  - No placeholders (REPLACE_* / TODO / TBD / FIXME / <path>) past the HARD gate — nothing is written until clean.
+  - reconcile is the only completion-mutation path for “looks done” tasks/gates.
+  - review never closes a task or advances a phase — report only.
+  - Do not advance a phase with a pending gate criterion (unless deferred with an explicit reason).
+  - Do not advance a plan blocked by dependsOnPlans[].
+  - Legacy files without schemaVersion must migrate before any mutation.
+  - Not for one-shot questions or work that fits the current session alone.
+
+command_groups:
+  - id: view
+    title: View
+    commands:
+      - name: status
+        args: "[--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]"
+        description: Compact summary, aiDeck dashboard, full terminal view, or filtered tables.
+      - name: verify
+        args: "[--fix] [--slug <slug>]"
+        description: Reconcile .atomic-skills/ vs repo (schema, branch, scope, orphans). Read-only unless --fix.
+  - id: create
+    title: Create
+    commands:
+      - name: new
+        args: "[plan|initiative] <slug>"
+        description: Bootstrap a multi-phase plan (gated flow) or a standalone/anchored initiative.
+      - name: discover
+        args: "[--dry-run|--commit] [--scope=<list>] [--scan=<path>]"
+        description: Scan the repo and propose Plans + Initiatives for approve/reject.
+      - name: adopt
+        args: "<file.md>"
+        description: Capture freeform markdown into structured Plan + Initiatives + Tasks.
+  - id: stack
+    title: Stack frames
+    commands:
+      - name: push
+        args: "<description>"
+        description: Open a side frame on current work (type inferred from the verb).
+      - name: pop
+        args: "[--resolve|--park|--emerge]"
+        description: Close the top frame — discard, note, or follow-up.
+  - id: backlog
+    title: Backlog (emergence ladder)
+    commands:
+      - name: park
+        args: "<description>"
+        description: Low-commitment note in parked[] (ratification gate for solves/trigger).
+      - name: emerge
+        args: "<description>"
+        description: Real follow-up in emerged[]; optional --target <phaseId>.
+      - name: promote
+        args: "<title-or-idx>"
+        description: Turn a parked item into a real task (next T-NNN).
+      - name: idea
+        args: "[list | promote <n>]"
+        description: Raw ideas.md inbox; promote routes through the emergence ladder.
+  - id: tasks-phases
+    title: Tasks & phases
+    commands:
+      - name: done
+        args: "<task-id>"
+        description: Close a task with closedAt; may offer phase-done or archive if last open.
+      - name: reconcile
+        args: ""
+        description: Close tasks/gates that look done in the repo — only completion-mutation path.
+      - name: materialize
+        args: "<phase-id>"
+        description: descriptor-only → full initiative; captures businessIntent HARD gate.
+      - name: unblock
+        args: "<task-id>"
+        description: Return a blocked task to workable state (does not close it).
+      - name: phase-done
+        args: ""
+        description: Verify exit-gate criteria, mandatory code review, advance currentPhase.
+      - name: phase-reopen
+        args: "[<phase-id>]"
+        description: Revert phase-done; initiative active again; criteria/tasks reset.
+      - name: split-phase
+        args: "<id>"
+        description: Split an oversized phase; original archived (not done) with provenance.
+  - id: lifecycle
+    title: Lifecycle
+    commands:
+      - name: finalize
+        args: ""
+        description: Publish plan branch as PR (push plan/<slug> + gh pr create).
+      - name: consolidate
+        args: ""
+        description: 1:N merge-train of ready worktrees into an integration branch + PR.
+      - name: archive
+        args: "[<slug>]"
+        description: Move finished plan/initiative to archive/ (plan cascades to phases).
+      - name: switch
+        args: "<slug>"
+        description: Pause current plan/initiative and activate the target.
+      - name: migrate
+        args: "[<slug>]"
+        description: Legacy schema conversion or flat→projects/<id>/<slug>/ layout cut-over.
+      - name: re-bootstrap
+        args: "<slug>"
+        description: After migrate, re-articulate parked/emerged items still holding placeholders.
+  - id: context-drift
+    title: Context & drift
+    commands:
+      - name: why
+        args: "<id>"
+        description: Deep read-only view — status, solves/trigger/assumptions, provenance, staleness.
+      - name: re-ratify
+        args: "<id>"
+        description: Refresh a stale item — reconfirm premises or rewrite solves/trigger/assumptions.
+      - name: scope-creep
+        args: ""
+        description: Read-only drift report (phase growth, scope expansion, parked zombies, stale context).
+      - name: detect-scope
+        args: ""
+        description: Suggest scope.paths from recent git activity as an accept checklist.
+  - id: review
+    title: Review
+    commands:
+      - name: review
+        args: "[<slug>] [--with-code] [--mode=local|both]"
+        description: Mutation-gated adversarial audit; reports findings only — never closes work.
+      - name: review-due
+        args: ""
+        description: Cross-model review of diff since last review; records the result.
+  - id: dependencies
+    title: Dependencies
+    commands:
+      - name: depend
+        args: "list | add <dependent> <prerequisite> | remove … | resolve … --archived"
+        description: Manage dependsOnPlans[] (dashboard lanes Liberado / Em andamento / Bloqueado / Concluido).
+
+sister_skills:
+  - moment: DESIGN (new plan stage 2)
+    skill: atomic-skills:brainstorm
+    role: Critic-approved design.md before decompose
+  - moment: Adversarial divergence
+    skill: atomic-skills:debate
+    role: Independent design voices
+  - moment: Post-materialize execution
+    skill: atomic-skills:implement
+    role: Single-threaded driver of admitted tasks to DONE
+  - moment: Task / gate close
+    skill: atomic-skills:verify-claim
+    role: Fresh-run evidence for done/pass/fixed claims
+  - moment: review / phase-done
+    skill: atomic-skills:review-plan + review-code
+    role: Adversarial plan and code audit
+  - moment: Bug mid-flight
+    skill: atomic-skills:fix
+    role: Root-cause + TDD fix
+  - moment: Live project state
+    skill: aiDeck (status --browser)
+    role: Dashboard graphs, exit-gates, live SSE
+
+lost_footer:
+  - label: Terminal GPS
+    command: "/atomic-skills:project help"
+    note: Where you are and what next, from live .atomic-skills/ state
+  - label: Live dashboard
+    command: "/atomic-skills:project status --browser"
+    note: Living state — not this static guide
+  - label: Bare status
+    command: "/atomic-skills:project"
+    note: Compact 5-line summary; does not open a browser

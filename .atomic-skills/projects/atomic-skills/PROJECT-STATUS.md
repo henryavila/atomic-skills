@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-17T18:45:43.946Z
+lastUpdated: 2026-07-19T21:13:20.000Z
 schemaVersion: "0.1"
-activePlans: 2
-activeInitiatives: 2
-archivedCount: 23
+activePlans: 0
+activeInitiatives: 0
+archivedCount: 24
 ---
 
 # Project Status Index
@@ -20,7 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
-| product-docs-site | active | F0 | plan/product-docs-site | 2026-07-17 | 0/6 |
+| _(none)_ | | | | | |
 
 
 
@@ -28,6 +28,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
 | integrity-remediation | done | F6 | plan/integrity-remediation | 2026-07-10 | 7/7 |
 | grok-build-integration | done | F5 | plan/grok-build-integration | 2026-07-16 | 6/6 |
 | installer-hooks-cross-ide | done | F3 | develop | 2026-07-08 | 4/4 |
@@ -48,7 +49,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Path | Status | Phase | Branch | Tasks |
 |------|--------|-------|--------|-------|
-| product-docs-site / product-docs-site-f0-catalog-v0-3-and-product-block | active | F0 | plan/product-docs-site | 0/3 tasks |
 
 ## Active Initiatives (standalone)
 
@@ -68,7 +68,6 @@ _(none)_
 | help-command/f3-guarda-de-fidelidade-help-nunca-cita-um | 2026-07-08 | F3 | 4/4 | Comando `help` - F3 Guarda de fidelidade (help nunca cita um verbo que não existe) |
 | help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
 | help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |
-| phase-materialization | 2026-07-02 | F5 | 6/6 | Materialização lazy de fases + gate de validação de negócio |
 
 ## Ad-Hoc Sessions Log (last 5)
 

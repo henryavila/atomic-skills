@@ -29,18 +29,21 @@ This means:
 
 ## Schema versions
 
-Two versions are currently accepted by the validator:
+**Per-skill `schema_version`** (entry field) accepted by the validator:
 
-- **v0.1** (legacy) — the original shape documented below. Existing entries
-  remain valid during the migration window.
-- **v0.2** (canonical, target) — adds 7 fields (3 required + 4 optional) so
-  the catalog can drive generated docs (README table, dashboard HelpView).
-  See `## Schema (v0.2)` below.
+- **v0.2** (canonical) — skill entry shape: identity, usage, one_liner/emoji/
+  version_added, optional surface fields. See `## Schema (v0.2)` below.
+- **v0.1** was hard-cut; entries with `schema_version: '0.1'` fail validation.
 
-The validator's `ACCEPTED_SCHEMA_VERSIONS` set holds both during migration
-(see `scripts/lib/validate-skills-core.js`). After all 11 entries are
-migrated and Phase C of `docs/plan-skills-catalog-v0.2.md` completes, the
-set will be narrowed to `{'0.2'}` (hard cut).
+**Catalog root `version`** (top of `meta/catalog.yaml`) accepted:
+
+- **`'0.2'`** — skill entries only (legacy root; still accepted during tools migration).
+- **`'0.3'`** (current) — adds required per-skill `iron_law` and top-level
+  `product:` positioning block. See `## Catalog root v0.3` below.
+
+`ACCEPTED_SCHEMA_VERSIONS = {'0.2'}` and
+`ACCEPTED_CATALOG_VERSIONS = {'0.2', '0.3'}` live in
+`scripts/lib/validate-skills-core.js`.
 
 ## Schema (v0.1)
 
@@ -203,6 +206,61 @@ core:
 | `args` | object[] | Top-level positional args + flags + options for the skill. | v0.2 |
 | `output_artifacts` | string[] | Paths/patterns the skill writes (e.g. `.atomic-skills/reviews/<date>-<slug>.md`). | v0.2 |
 | `dependencies` | string[] | External tools required (`codex`, `git`, `gh`). | v0.2 |
+| `iron_law` | string | One-liner Iron Law for product cards/README. **Required** when catalog root is v0.3. | catalog v0.3 |
+
+## Catalog root v0.3
+
+Root `version: '0.3'` expands the catalog as the **product SSOT** (design D2 of
+`product-docs-site`). Skill `schema_version` stays `'0.2'`; the new product
+fields are gated by the **catalog root version**.
+
+### Required when root `version` is `'0.3'`
+
+**Per skill (every `core.*` and `modules.*.*` entry):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `iron_law` | non-empty string | Single non-negotiable rule shown on skill cards and README. Must match the first non-empty line under the body's `## Iron Law` section (whitespace-normalized CI cross-check). Catalog is authoritative for generators; body remains the agent-facing prompt. |
+
+**Top-level `product:` block:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `what_is` | non-empty string | Short positioning paragraph (English). |
+| `what_is_not` | non-empty string[] | Bullet list of what Atomic Skills is *not*. |
+| `docs_url` | non-empty string | Canonical product docs URL (`https://atomic-skills.henryavila.com`). |
+| `install.primary` | non-empty string | Primary install command (`npx @henryavila/atomic-skills install`). |
+
+```yaml
+version: '0.3'
+
+product:
+  what_is: >
+    Battle-tested skill prompts that make AI coding agents follow through.
+  what_is_not:
+    - A copy-paste prompt pack
+    - A replacement for your IDE or model
+  docs_url: 'https://atomic-skills.henryavila.com'
+  install:
+    primary: 'npx @henryavila/atomic-skills install'
+
+core:
+  fix:
+    # ... v0.2 fields ...
+    iron_law: 'NO FIX WITHOUT ROOT CAUSE.'
+    schema_version: '0.2'
+```
+
+### iron_law authority and cross-check
+
+- **Generators** (`render-readme.js`, skill docs) prefer catalog `iron_law`
+  when present; they fall back to extracting the body `## Iron Law` only when
+  the catalog field is absent (legacy fixtures).
+- **Validator** (when root is v0.3): if both catalog `iron_law` and body
+  `## Iron Law` exist, they must match after whitespace normalization. Mismatch
+  is a validation failure — no silent dual-write drift.
+- Do **not** put skill bodies, HARD-GATE tables, host tested lists, or page
+  layout into the catalog (hosts stay in `src/config.js`).
 
 ## Conventions
 
@@ -244,8 +302,12 @@ Additionally, the catalog-level cross-checks (run by
 `scripts/validate-skills.js`):
 - Each catalog entry has a matching body at `skills/core/<name>.md`
 - Each body file has a matching catalog entry (inverse check)
-- Optional gate (enabled after Phase C of the catalog migration): every
-  body file contains a canonical `^## Iron Law` H2 section
+- Every body file contains a canonical `^## Iron Law` H2 section (CLI enables
+  `requireIronLaw`)
+- When root `version` is `'0.3'`: every skill has non-empty `iron_law`;
+  `product` block is present and well-formed; catalog `iron_law` matches the
+  body's first Iron Law line (whitespace-normalized)
+
 
 Validation runs at:
 - Install time (`installSkills` rejects invalid skills with clear error)

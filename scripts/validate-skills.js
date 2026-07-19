@@ -50,6 +50,11 @@ function main() {
     requireIronLaw: true,
 
     requireCatalogVersion: true,
+    // v0.3 catalogs auto-require iron_law + product + body cross-check;
+    // explicit flags keep the CLI intent obvious for future root versions.
+    requireIronLawField: data.version === '0.3',
+    requireProduct: data.version === '0.3',
+    crossCheckIronLaw: data.version === '0.3',
   });
 
   if (report.parseError) {

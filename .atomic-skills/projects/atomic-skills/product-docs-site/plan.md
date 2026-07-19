@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: product-docs-site
 title: Product docs site from catalog SSOT
 version: "1.0"
-status: active
+status: done
 started: 2026-07-17T14:28:20.714Z
-lastUpdated: 2026-07-17T14:28:52.710Z
+lastUpdated: 2026-07-17T16:27:23.205Z
 branch: plan/product-docs-site
-currentPhase: F0
+currentPhase: F5
 parallelismAllowed: false
 principles:
   - id: P1
@@ -64,19 +64,21 @@ phases:
         - id: F0-G1
           description: validate-skills accepts v0.3 catalog with iron_law on every skill
             and product positioning data present.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node scripts/validate-skills.js
             expectExitCode: 0
+          metAt: 2026-07-17T15:57:11.533Z
         - id: F0-G2
           description: check-docs still passes with the expanded catalog.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run check-docs
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T15:57:11.533Z
+    status: done
     businessIntent:
       value: Public product facts (skill cards, positioning, host tiers) must not
         drift between README, site, and catalog — F0 makes iron_law and product
@@ -102,27 +104,42 @@ phases:
       monólito pages by hand.
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: F1-G1
           description: generate-site produces dist HTML for landing, skills, modules, hosts.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run generate-site && test -d site/dist -o -d docs/site/dist
             expectExitCode: 0
+          metAt: 2026-07-17T16:06:41.000Z
         - id: F1-G2
           description: check-site catches stale dist.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run check-site
             expectExitCode: 0
-    status: pending
+          metAt: 2026-07-17T16:06:41.000Z
+    status: done
     summary: Build estático multi-página a partir do catalog + hosts do config; DS
       compartilhado e check-site.
+    businessIntent:
+      value: Ship a multi-page static product docs site generated from catalog +
+        config so humans get polished product education without dual editorial
+        sources.
+      workflow: Extract DS tokens from onboarding HTML; implement
+        generate-site/check-site for landing, skills index/detail, modules,
+        hosts; wire npm scripts into docs pipeline.
+      rules: Catalog is SSOT for skill copy; hosts from src/config.js TESTED_IDE_IDS;
+        HTML is generated view only; no skill body prompts on public pages.
+      outOfScope: Deploy/DNS, slim README layout, project deep guide page, retiring
+        docs/skills.
+      doneWhen: npm run generate-site produces dist with required pages; npm run
+        check-site exits 0 and detects stale dist.
   - id: F2
     slug: product-docs-site-f2-slim-readme-and-envelope
     title: Slim README and envelope
@@ -130,29 +147,41 @@ phases:
       SSOT.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: F2-G1
           description: README is the slim envelope and check-docs passes.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run check-docs && test $(wc -l < README.md) -le 200
             expectExitCode: 0
+          metAt: 2026-07-17T16:13:16.000Z
         - id: F2-G2
           description: package homepage points at the docs site.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node -e "const p=require('./package.json');
               if(!String(p.homepage||'').includes('atomic-skills.henryavila.com'))
               process.exit(1)"
             expectExitCode: 0
-    status: pending
+          metAt: 2026-07-17T16:13:16.000Z
+    status: done
     summary: README envelope magro + homepage apontando para
       atomic-skills.henryavila.com.
+    businessIntent:
+      value: npm/GitHub README becomes a thin product envelope pointing at the site so
+        install surface stays scannable and SSOT stays catalog+site.
+      workflow: Slim generate-readme regions to envelope shape; set package homepage
+        to docs_url; keep check-docs green.
+      rules: No multi-section skill blurbs; hosts still Tested/Theoretical from
+        config; catalog SSOT unchanged except homepage wiring.
+      outOfScope: Deploy, project guide, retiring docs/skills.
+      doneWhen: README ≤200 lines, check-docs green, homepage includes
+        atomic-skills.henryavila.com.
   - id: F3
     slug: product-docs-site-f3-project-deep-guide-on-the-site
     title: Project deep guide on the site
@@ -160,22 +189,33 @@ phases:
       page, without stuffing domain model into core.project catalog fields.
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 1 criterion to meet
       criteria:
         - id: F3-G1
           description: Site includes a project guide page built from a dedicated dataset.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run generate-site && (test -f site/dist/project/index.html || test
               -f docs/site/dist/project/index.html || test -f
               site/dist/project.html || test -f docs/site/dist/project.html)
             expectExitCode: 0
-    status: pending
+          metAt: 2026-07-17T16:22:27.652Z
+    status: done
     summary: Guia profundo do project no site via dataset dedicado (não expandir
       core.project).
+    businessIntent:
+      value: Project mental model lives on the product site via a dedicated dataset,
+        not core.project catalog bloat.
+      workflow: Author meta/product/project-guide.yaml; render
+        site/dist/project/index.html; deprecation note on onboarding monólito.
+      rules: Do not expand core.project with state machines; keep skill runtime
+        unchanged.
+      outOfScope: Deploy, README further, retiring all docs/skills.
+      doneWhen: generate-site emits project guide page; onboarding path deprecation
+        documented.
   - id: F4
     slug: product-docs-site-f4-deploy-offline-access-and-release-cutove
     title: Deploy, offline access, and release cutover
@@ -183,29 +223,41 @@ phases:
       docs without relying only on memory of the README.
     dependsOn:
       - F3
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: F4-G1
           description: Deploy path for the static site exists in-repo.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test -f .github/workflows/deploy-docs.yml -o -f
               .github/workflows/pages.yml -o -f docs/deploy.md -o -f
               site/DEPLOY.md
             expectExitCode: 0
+          metAt: 2026-07-17T16:27:23.205Z
         - id: F4-G2
           description: CHANGELOG records the docs site cutover.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: grep -Eiq 'atomic-skills.henryavila.com|docs site|product docs'
               CHANGELOG.md
             expectExitCode: 0
-    status: pending
+          metAt: 2026-07-17T16:27:23.205Z
+    status: done
     summary: Deploy CI, acesso offline/local e nota de release/CHANGELOG.
+    businessIntent:
+      value: Publish static product docs and give maintainers offline access + release
+        notes for the cutover.
+      workflow: Add CI/docs deploy path; document offline site/dist; CHANGELOG cutover
+        note.
+      rules: No secrets in repo; deploy git-driven; offline works without DNS.
+      outOfScope: Actual production DNS flip if credentials missing; version bump
+        without request.
+      doneWhen: deploy path exists in-repo; CHANGELOG mentions docs site; offline path
+        documented.
   - id: F5
     slug: product-docs-site-f5-generated-md-cleanup-optional-follow-thr
     title: Generated MD cleanup (optional follow-through)
@@ -219,14 +271,18 @@ phases:
       criteria:
         - id: F5-G1
           description: check-docs reflects the post-site decision on docs/skills generation.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run check-docs
             expectExitCode: 0
-    status: pending
+          metAt: 2026-07-17T16:27:23.205Z
+    status: done
     summary: "Decisão explícita: manter ou aposentar docs/skills gerados."
 references: []
+planActive: true
+planTitle: Product docs site from catalog SSOT
+closedAt: 2026-07-17T16:27:23.205Z
 ---
 
 # Product docs site from catalog SSOT

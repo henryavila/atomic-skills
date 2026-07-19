@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🔬 Review Code — Adversarial (Local + Codex) · Atomic Skills</title>
+<meta name="description" content="Adversarial code review with local/codex/both mode picker">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../project/index.html">Project</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">review-code</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>🔬 Review Code — Adversarial (Local + Codex)</h1>
+      <p class="lede">Adversarial code review with local/codex/both mode picker</p>
+      <div class="iron-law">NO APPROVAL WITHOUT EVIDENCE.</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>Reviewing your own diff in the same context that wrote it inherits every blind spot and rationalization. `review-code` captures the diff once and hands it to a sealed reviewer with clean context — locally, cross-model via codex, or both — stripped of commit messages and intent so framing can&#39;t suppress findings. Every finding cites file:line; no evidence, no approval.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>You finished a coherent code change</li>
+<li>You just implemented something and it is still uncommitted (wip scope)</li>
+<li>Significant change about to merge (both mode recommended)</li>
+<li>Critical path (auth, payments, data integrity) — both mode</li>
+<li>Cheap pre-merge sanity check (local mode)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>Nothing to review (clean tree, no commits ahead of base)</li>
+<li>Trivial change already heavily reviewed</li>
+<li>Codex CLI not installed and you need codex mode (use --mode=local)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:review-code</div><div class="desc">No argument — picks scope (wip/branch/all) then mode</div></li>
+<li><div class="cmd">/atomic-skills:review-code wip --mode=local</div><div class="desc">Review uncommitted work, local-only self-loop</div></li>
+<li><div class="cmd">/atomic-skills:review-code feat/new-feature --mode=local</div><div class="desc">Force local-only self-loop</div></li>
+<li><div class="cmd">/atomic-skills:review-code main..HEAD --mode=both</div><div class="desc">Local then codex (sealed envelope)</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code>, <code>src/config.js</code>,
+    and optional <code>meta/product/*.yaml</code> datasets.
+    Product HTML is a build view only — not the SSOT.
+  </footer>
+</div>
+</body>
+</html>

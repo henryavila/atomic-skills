@@ -38,8 +38,10 @@
     "generate-readme": "node scripts/generate-readme.js",
     "generate-skill-docs": "node scripts/generate-skill-docs.js",
     "generate-catalog-json": "node scripts/generate-catalog-json.js",
-    "generate-docs": "node scripts/generate-readme.js && node scripts/generate-skill-docs.js && node scripts/generate-catalog-json.js",
-    "check-docs": "node scripts/generate-readme.js --check && node scripts/generate-skill-docs.js --check && node scripts/generate-catalog-json.js --check",
+    "generate-site": "node scripts/generate-site.js",
+    "check-site": "node scripts/generate-site.js --check",
+    "generate-docs": "node scripts/generate-readme.js && node scripts/generate-skill-docs.js && node scripts/generate-catalog-json.js && node scripts/generate-site.js",
+    "check-docs": "node scripts/generate-readme.js --check && node scripts/generate-skill-docs.js --check && node scripts/generate-catalog-json.js --check && node scripts/generate-site.js --check",
     "validate-catalog": "npm run validate-skills && npm run check-docs",
     "prepare": "husky && git config core.hooksPath .husky"
   },
@@ -59,7 +61,7 @@
     "type": "git",
     "url": "git+https://github.com/henryavila/atomic-skills.git"
   },
-  "homepage": "https://github.com/henryavila/atomic-skills#readme",
+  "homepage": "https://atomic-skills.henryavila.com",
   "bugs": {
     "url": "https://github.com/henryavila/atomic-skills/issues"
   },

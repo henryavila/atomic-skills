@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hosts · Atomic Skills</title>
+<meta name="description" content="Atomic Skills IDE host support — Tested vs Theoretical.">
+<link rel="stylesheet" href="../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../index.html">Home</a>
+      <a href="../skills/index.html">Skills</a>
+      <a href="../project/index.html">Project</a>
+      <a href="../modules/index.html">Modules</a>
+      <a href="../hosts/index.html" class="active">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← Home</a></p>
+      <h1>Hosts</h1>
+      <p class="lede">Product-facing IDE support. <strong>Tested</strong> hosts have been exercised end-to-end in real agent sessions. <strong>Theoretical</strong> hosts have install layouts and adapters but are not day-to-day battle-tested.</p>
+      <p class="footnote">Distinct from operational CLI probe tiers in <code>meta/host-qualification.json</code>. Labels come from <code>TESTED_IDE_IDS</code> / <code>getIdeSupportLabel</code> in <code>src/config.js</code>.</p>
+    </section>
+    <section class="table-wrap">
+      <table class="docs">
+        <thead>
+          <tr>
+            <th>IDE</th>
+            <th>Profile</th>
+            <th>Directory</th>
+            <th>Format</th>
+            <th>Support</th>
+          </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>Claude Code</td>
+          <td><code>claude-code</code></td>
+          <td><code>.claude/commands</code></td>
+          <td>Command (slash)</td>
+          <td><span class="badge badge-tested">Tested</span></td>
+        </tr>
+        <tr>
+          <td>Cursor</td>
+          <td><code>cursor</code></td>
+          <td><code>.cursor/skills</code></td>
+          <td>Markdown</td>
+          <td><span class="badge badge-tested">Tested</span></td>
+        </tr>
+        <tr>
+          <td>Gemini CLI (Skills)</td>
+          <td><code>gemini</code></td>
+          <td><code>.gemini/skills</code></td>
+          <td>Markdown</td>
+          <td><span class="badge badge-theoretical">Theoretical</span></td>
+        </tr>
+        <tr>
+          <td>Codex</td>
+          <td><code>codex</code></td>
+          <td><code>.agents/skills</code></td>
+          <td>Markdown</td>
+          <td><span class="badge badge-tested">Tested</span></td>
+        </tr>
+        <tr>
+          <td>OpenCode</td>
+          <td><code>opencode</code></td>
+          <td><code>.opencode/skills</code></td>
+          <td>Markdown</td>
+          <td><span class="badge badge-theoretical">Theoretical</span></td>
+        </tr>
+        <tr>
+          <td>GitHub Copilot</td>
+          <td><code>github-copilot</code></td>
+          <td><code>.github/skills</code></td>
+          <td>Markdown</td>
+          <td><span class="badge badge-theoretical">Theoretical</span></td>
+        </tr>
+        <tr>
+          <td>Grok Build</td>
+          <td><code>grok</code></td>
+          <td><code>.grok/plugins/atomic-skills/skills</code></td>
+          <td>Markdown</td>
+          <td><span class="badge badge-tested">Tested</span></td>
+        </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code>, <code>src/config.js</code>,
+    and optional <code>meta/product/*.yaml</code> datasets.
+    Product HTML is a build view only — not the SSOT.
+  </footer>
+</div>
+</body>
+</html>

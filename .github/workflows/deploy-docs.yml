@@ -1,0 +1,59 @@
+# Deploy product docs site (site/dist) to GitHub Pages.
+# Canonical domain: https://atomic-skills.henryavila.com
+# No secrets in repo — uses the built-in GITHUB_TOKEN with pages permissions.
+# Permissions are scoped per job (build cannot write Pages / OIDC).
+
+name: Deploy product docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pages-product-docs
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Validate catalog + generated docs (dual-view contract)
+        run: npm run check-docs
+
+      - name: Generate static site
+        run: npm run generate-site
+
+      - name: Re-check site drift after generate
+        run: npm run check-site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

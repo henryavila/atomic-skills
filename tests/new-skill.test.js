@@ -83,6 +83,16 @@ describe('scaffold-skill: catalog insertion', () => {
     assert.equal(data.core.demo.schema_version, '0.2');
   });
 
+  it('emits iron_law matching the body Iron Law line (catalog v0.3)', () => {
+    const fields = defaultFields('demo', '2.0.0');
+    assert.ok(fields.iron_law && fields.iron_law.trim().length > 0);
+    const entry = buildSkillEntry('demo', fields);
+    const data = parse(insertEntry(CATALOG, entry));
+    assert.equal(data.core.demo.iron_law, fields.iron_law);
+    const plan = planScaffold({ catalogText: CATALOG, name: 'demo', pkgVersion: '2.0.0' });
+    assert.ok(plan.bodyText.includes(fields.iron_law));
+  });
+
   it('escapes single quotes in field values', () => {
     const fields = { ...defaultFields('demo', '2.0.0'), title: "It's fine" };
     const data = parse(insertEntry(CATALOG, buildSkillEntry('demo', fields)));
@@ -112,6 +122,50 @@ describe('scaffold-skill: planScaffold end-to-end', () => {
     const report = validateCatalog(data, {
       skillsDir,
       requireIronLaw: true,
+      requireCatalogVersion: true,
+    });
+    assert.equal(report.totalIssues, 0, JSON.stringify(report.failures, null, 2));
+  });
+
+  it('v0.3 catalog scaffold includes iron_law and passes validateCatalog', () => {
+    const catalogV03 = `version: '0.3'
+
+product:
+  what_is: 'Atomic Skills product.'
+  what_is_not:
+    - 'A monorepo of free-form prompts'
+  docs_url: 'https://atomic-skills.henryavila.com'
+  install:
+    primary: 'npx @henryavila/atomic-skills install'
+
+core:
+  fix:
+    name: fix
+    title: 'Fix'
+    description: 'Existing skill.'
+    purpose: 'Existing skill.'
+    when_to_use:
+      - 'A bug'
+    when_not_to_use:
+      - 'A feature'
+    examples:
+      - command: '/atomic-skills:fix'
+        description: 'Run'
+    one_liner: 'Root cause diagnosis plus a TDD fix'
+    emoji: '🔧'
+    version_added: '1.0.0'
+    schema_version: '0.2'
+    iron_law: 'NO FIX WITHOUT ROOT CAUSE.'
+`;
+    const plan = planScaffold({ catalogText: catalogV03, name: 'demo', pkgVersion: '2.0.0' });
+    const data = parse(plan.catalogText);
+    assert.ok(data.core.demo.iron_law, 'scaffold emits iron_law');
+    assert.ok(!('modules' in data), 'v0.3 scaffold stays core-only (no modules key)');
+    const skillsDir = mkdtempSync(join(tmpdir(), 'skills-v03-'));
+    writeBody(skillsDir, 'fix', 'Body.\n\n## Iron Law\n\nNO FIX WITHOUT ROOT CAUSE.\n');
+    writeBody(skillsDir, 'demo', plan.bodyText);
+    const report = validateCatalog(data, {
+      skillsDir,
       requireCatalogVersion: true,
     });
     assert.equal(report.totalIssues, 0, JSON.stringify(report.failures, null, 2));

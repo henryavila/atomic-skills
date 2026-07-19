@@ -4,7 +4,13 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { stringify } from 'yaml';
-import { renderReadme, renderReadmeFromPaths, buildSkillDocs, MARKERS } from '../scripts/lib/render-readme.js';
+import {
+  renderReadme,
+  renderReadmeFromPaths,
+  renderProductEnvelope,
+  buildSkillDocs,
+  MARKERS,
+} from '../scripts/lib/render-readme.js';
 
 const minimalV02Entry = (name, overrides = {}) => ({
   name,
@@ -21,10 +27,22 @@ const minimalV02Entry = (name, overrides = {}) => ({
   ...overrides,
 });
 
+const minimalProduct = (overrides = {}) => ({
+  what_is: 'Battle-tested skill prompts for unit tests.',
+  what_is_not: ['A copy-paste prompt pack'],
+  docs_url: 'https://atomic-skills.henryavila.com',
+  install: { primary: 'npx @henryavila/atomic-skills install' },
+  ...overrides,
+});
+
 const buildReadmeShell = (extras = '') =>
   `# Header (hand-written)
 
 Some prose.
+
+[PRODUCT_START]: #
+placeholder
+[PRODUCT_END]: #
 
 [IDES_TABLE_START]: #
 placeholder
@@ -42,6 +60,9 @@ placeholder
 [SKILL_DETAILS_START]: #
 placeholder
 [SKILL_DETAILS_END]: #
+
+[MODULES_START]: #
+[MODULES_END]: #
 
 ## Hand-written section that must NOT be touched
 
@@ -67,7 +88,7 @@ describe('renderReadme', () => {
       join(skillsDir, 'core', 'demo.md'),
       '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n'
     );
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
 
     const tableSection = out.slice(
@@ -85,7 +106,7 @@ describe('renderReadme', () => {
       join(skillsDir, 'core', 'demo.md'),
       '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n'
     );
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
 
     const idesSection = out.slice(
@@ -113,7 +134,27 @@ describe('renderReadme', () => {
     }
   });
 
-  it('renders compact skill detail blurbs with link to per-skill docs', () => {
+  it('renders product envelope from catalog.product (SSOT)', () => {
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
+    const data = {
+      product: minimalProduct(),
+      core: { demo: minimalV02Entry('demo') },
+    };
+    const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
+    const productSection = out.slice(
+      out.indexOf(MARKERS.PRODUCT_START),
+      out.indexOf(MARKERS.PRODUCT_END) + MARKERS.PRODUCT_END.length
+    );
+    assert.ok(productSection.includes('## What it is'));
+    assert.ok(productSection.includes('Battle-tested skill prompts for unit tests.'));
+    assert.ok(productSection.includes('## What it is not'));
+    assert.ok(productSection.includes('A copy-paste prompt pack'));
+    assert.ok(productSection.includes('## Install'));
+    assert.ok(productSection.includes('npx @henryavila/atomic-skills install'));
+    assert.ok(productSection.includes('https://atomic-skills.henryavila.com'));
+  });
+
+  it('does not render long per-skill value_pitch blurbs in README details', () => {
     writeFileSync(
       join(skillsDir, 'core', 'demo.md'),
       '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n'
@@ -141,27 +182,62 @@ describe('renderReadme', () => {
       related: [],
       tags: ['testing'],
     });
-    const data = { core: { demo: entry } };
+    const data = { product: minimalProduct(), core: { demo: entry } };
     const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
 
     const detailSection = out.slice(
       out.indexOf(MARKERS.DETAILS_START),
       out.indexOf(MARKERS.DETAILS_END) + MARKERS.DETAILS_END.length
     );
-    assert.ok(detailSection.includes('`demo`'), 'heading contains skill key');
-    assert.ok(detailSection.includes('**Iron Law:** `NO TEST WITHOUT EVIDENCE.`'));
-    assert.ok(detailSection.includes('catches bugs before they reach production'), 'value pitch present');
-    assert.ok(detailSection.includes('/atomic-skills:demo'), 'example command present');
-    assert.ok(detailSection.includes('[Full reference →](docs/skills/demo.md)'), 'link to per-skill doc');
-    // Full details (subcommands, args, artifacts) are NOT in the README — they live in per-skill docs
-    assert.ok(!detailSection.includes('**Subcommands:**'), 'subcommands not in compact blurb');
-    assert.ok(!detailSection.includes('**Arguments:**'), 'arguments not in compact blurb');
-    assert.ok(!detailSection.includes('**Version added:**'), 'version not in compact blurb');
+    // Slim envelope: DETAILS body is empty — blurbs deferred to docs site
+    assert.ok(
+      !detailSection.includes('catches bugs before they reach production'),
+      'value pitch must not appear in README details'
+    );
+    assert.ok(!detailSection.includes('**Iron Law:**'), 'iron law blurb not in details');
+    assert.ok(!detailSection.includes('[Full reference →]'), 'per-skill blurbs removed');
+    // Compact table still carries the skill index
+    assert.ok(out.includes('| | Skill |'));
+    assert.ok(out.includes('`demo`'));
+  });
+
+  it('leaves MODULES and VERSION_NOTE regions empty in the slim envelope', () => {
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
+    const data = {
+      product: minimalProduct(),
+      core: { demo: minimalV02Entry('demo') },
+      release_highlight: { body: 'Should not appear in slim README.' },
+      module_meta: {
+        memory: {
+          title: 'Memory',
+          intro: 'Should not appear in slim README.',
+          features: ['x'],
+        },
+      },
+    };
+    const out = renderReadme({
+      catalogData: data,
+      readme: buildReadmeShell(),
+      skillsDir,
+      pkgVersion: '9.9.9',
+    });
+    const modules = out.slice(
+      out.indexOf(MARKERS.MODULES_START),
+      out.indexOf(MARKERS.MODULES_END) + MARKERS.MODULES_END.length
+    );
+    const version = out.slice(
+      out.indexOf(MARKERS.VERSION_NOTE_START),
+      out.indexOf(MARKERS.VERSION_NOTE_END) + MARKERS.VERSION_NOTE_END.length
+    );
+    assert.ok(!modules.includes('Memory'), 'modules section empty');
+    assert.ok(!modules.includes('Should not appear'), 'module copy not in README');
+    assert.ok(!version.includes('Should not appear'), 'release highlight not in README');
+    assert.ok(!version.includes('Note (v9.9.9)'), 'version callout suppressed');
   });
 
   it('preserves hand-written content outside markers', () => {
     writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     const before = buildReadmeShell('\n\nMore prose with secret-marker-XYZ.');
     const out = renderReadme({ catalogData: data, readme: before, skillsDir });
 
@@ -176,7 +252,7 @@ describe('renderReadme', () => {
 
   it('throws when README is missing required markers', () => {
     writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     const readmeWithoutMarkers = '# README\n\nNo markers here.\n';
     assert.throws(
       () => renderReadme({ catalogData: data, readme: readmeWithoutMarkers, skillsDir }),
@@ -186,10 +262,62 @@ describe('renderReadme', () => {
 
   it('throws when a skill body lacks `## Iron Law`', () => {
     writeFileSync(join(skillsDir, 'core', 'demo.md'), 'No iron law here.\n');
-    const data = { core: { demo: minimalV02Entry('demo') } };
+    const data = { product: minimalProduct(), core: { demo: minimalV02Entry('demo') } };
     assert.throws(
       () => renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir }),
       /missing canonical `## Iron Law`/
+    );
+  });
+
+  it('prefers catalog iron_law over body extract when present', () => {
+    // Body has a different law; generators must use catalog SSOT (design D2).
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nBODY LAW ONLY.\n');
+    const data = {
+      product: minimalProduct(),
+      core: {
+        demo: minimalV02Entry('demo', { iron_law: 'CATALOG LAW WINS.' }),
+      },
+    };
+    const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
+    assert.ok(out.includes('`CATALOG LAW WINS.`'), 'catalog iron_law used');
+    assert.ok(!out.includes('BODY LAW ONLY'), 'body law not used when catalog present');
+  });
+
+  it('does not throw on missing body Iron Law when catalog iron_law is set', () => {
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), 'No iron law section here.\n');
+    const data = {
+      product: minimalProduct(),
+      core: {
+        demo: minimalV02Entry('demo', { iron_law: 'CATALOG ONLY LAW.' }),
+      },
+    };
+    const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
+    assert.ok(out.includes('`CATALOG ONLY LAW.`'));
+  });
+});
+
+describe('renderProductEnvelope', () => {
+  it('renders what_is / what_is_not / install / docs_url', () => {
+    const out = renderProductEnvelope(minimalProduct());
+    assert.ok(out.includes('## What it is'));
+    assert.ok(out.includes('Battle-tested skill prompts for unit tests.'));
+    assert.ok(out.includes('- A copy-paste prompt pack'));
+    assert.ok(out.includes('npx @henryavila/atomic-skills install'));
+    assert.ok(out.includes('```bash'));
+    assert.ok(out.includes('https://atomic-skills.henryavila.com'));
+  });
+
+  it('returns empty string when product is absent with allowMissing', () => {
+    assert.strictEqual(renderProductEnvelope(null, { allowMissing: true }), '');
+    assert.strictEqual(renderProductEnvelope(undefined, { allowMissing: true }), '');
+    assert.throws(() => renderProductEnvelope(null), /product is required/);
+  });
+
+  it('throws on incomplete product', () => {
+    assert.throws(() => renderProductEnvelope({}), /what_is/);
+    assert.throws(
+      () => renderProductEnvelope({ what_is: 'x', what_is_not: [] }),
+      /what_is_not/
     );
   });
 });
@@ -207,7 +335,7 @@ describe('renderReadmeFromPaths (project-root integration)', () => {
     );
     writeFileSync(
       join(projectRoot, 'meta', 'catalog.yaml'),
-      stringify({ core: { demo: minimalV02Entry('demo') } })
+      stringify({ product: minimalProduct(), core: { demo: minimalV02Entry('demo') } })
     );
     writeFileSync(join(projectRoot, 'README.md'), buildReadmeShell());
   });
@@ -253,7 +381,7 @@ describe('buildSkillDocs (per-skill reference pages)', () => {
       related: ['fix'],
       tags: ['testing'],
     });
-    const data = { core: { demo: entry } };
+    const data = { product: minimalProduct(), core: { demo: entry } };
     const docs = buildSkillDocs({ catalogData: data, skillsDir });
 
     assert.strictEqual(docs.length, 1);
@@ -308,6 +436,7 @@ describe('buildSkillDocs (per-skill reference pages)', () => {
     writeFileSync(join(skillsDir, 'core', 'a.md'), '## Iron Law\nNO A.\n');
     writeFileSync(join(skillsDir, 'core', 'b.md'), '## Iron Law\nNO B.\n');
     const data = {
+      product: minimalProduct(),
       core: {
         a: minimalV02Entry('a'),
         b: minimalV02Entry('b'),

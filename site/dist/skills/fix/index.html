@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🔧 Fix — Root Cause + TDD · Atomic Skills</title>
+<meta name="description" content="Diagnose root cause → write test → fix → verify">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../project/index.html">Project</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">fix</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>🔧 Fix — Root Cause + TDD</h1>
+      <p class="lede">Diagnose root cause → write test → fix → verify</p>
+      <div class="iron-law">NO FIX WITHOUT ROOT CAUSE.</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>AI agents love to jump to fixes — patch the first plausible line, declare victory, ship the regression. `fix` forces the detective path instead: reproduce the failure, trace it to the exact root cause, write a test that fails for that reason, *then* fix. The reproducing test stays in the suite — so the bug it caught can never silently return.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>You observed a bug or unexpected behavior</li>
+<li>A test is failing for unclear reasons</li>
+<li>A regression appeared after a recent change</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>You want to add a new feature (use prompt)</li>
+<li>The issue is in design, not implementation</li>
+<li>You have no symptom to reproduce</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:fix &quot;duplicates in /musicas listing&quot;</div><div class="desc">Diagnose and fix with provided symptom</div></li>
+<li><div class="cmd">/atomic-skills:fix</div><div class="desc">Skill prompts you for the symptom interactively</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code>, <code>src/config.js</code>,
+    and optional <code>meta/product/*.yaml</code> datasets.
+    Product HTML is a build view only — not the SSOT.
+  </footer>
+</div>
+</body>
+</html>

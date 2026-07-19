@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🔍 Review Plan — Adversarial (Local + Codex) · Atomic Skills</title>
+<meta name="description" content="Adversarial plan review with local/codex/both mode picker">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../project/index.html">Project</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">review-plan</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>🔍 Review Plan — Adversarial (Local + Codex)</h1>
+      <p class="lede">Adversarial plan review with local/codex/both mode picker</p>
+      <div class="iron-law">NO APPROVAL WITHOUT EVIDENCE.</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>A plan reviewed by its own author inherits every blind spot that wrote it — the gaps read as completeness from the inside. `review-plan` runs adversarial passes that actively hunt for what&#39;s missing: a fast local self-loop, a cross-model codex envelope that can&#39;t see your intent, or both. It surfaces the unhandled edge case, the optimistic assumption, and the silent dependency *before* execution turns them into rework — and never approves without cited evidence.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>You finished writing a plan and want a structural review</li>
+<li>Significant plan about to enter execution (both mode recommended)</li>
+<li>Cross-model bug hunt against self-preference bias (codex or both)</li>
+<li>Plan was derived from a PRD/spec and you want coverage verification</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>Plan is still brainstorming (not structured yet)</li>
+<li>Trivial plan (skip review entirely)</li>
+<li>Codex CLI not installed and you need codex mode (use --mode=local)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md</div><div class="desc">Interactive picker — chooses mode + cross-ref</div></li>
+<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=local</div><div class="desc">Force local-only self-loop</div></li>
+<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=both</div><div class="desc">Local then codex (sealed envelope)</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code>, <code>src/config.js</code>,
+    and optional <code>meta/product/*.yaml</code> datasets.
+    Product HTML is a build view only — not the SSOT.
+  </footer>
+</div>
+</body>
+</html>

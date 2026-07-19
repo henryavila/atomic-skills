@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📝 Prompt — Generate Optimized Prompt · Atomic Skills</title>
+<meta name="description" content="Generate a self-contained prompt with exact paths and guardrails">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../project/index.html">Project</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">prompt</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>📝 Prompt — Generate Optimized Prompt</h1>
+      <p class="lede">Generate a self-contained prompt with exact paths and guardrails</p>
+      <div class="iron-law">NO PROMPT WITHOUT CODEBASE ANALYSIS.</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>Hand an agent a vague task and you get a vague result — it guesses paths, invents constraints, and drifts from what you meant. `prompt` reads your actual codebase first, then writes a precise, self-contained brief: exact file paths, explicit guardrails, and acceptance criteria the receiving agent can check itself against. Hand it to a parallel session or a fresh context and the work comes back on-target the first time.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>You have a vague task and want to make it actionable</li>
+<li>You need to brief a parallel agent precisely</li>
+<li>You will hand off the work to a different session</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>You will execute the task in this same session</li>
+<li>You need a multi-phase plan (use project)</li>
+<li>You want to dispatch many tasks (use parallel-dispatch)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:prompt &quot;refactor auth middleware to use new session API&quot;</div><div class="desc">Generate a precise prompt with file paths and guards</div></li>
+<li><div class="cmd">/atomic-skills:prompt</div><div class="desc">Skill asks for task interactively</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code>, <code>src/config.js</code>,
+    and optional <code>meta/product/*.yaml</code> datasets.
+    Product HTML is a build view only — not the SSOT.
+  </footer>
+</div>
+</body>
+</html>
