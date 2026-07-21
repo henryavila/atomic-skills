@@ -7,7 +7,7 @@ status: active
 started: 2026-07-21T19:25:48.389Z
 branch: plan/automate-skill-discipline
 executionMode: automate
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -183,25 +183,54 @@ phases:
       criteria:
         - id: F2-G1
           description: Claim-bound and complex gate unit tests pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/automate-orchestrator-gates.test.js tests/claim-report.test.js tests/complex-task.test.js tests/assert-automate-gate.test.js
             expectExitCode: 0
+          metAt: 2026-07-21T20:07:10.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-21T20:07:10.000Z
+            verifiedCommit: 9b936b2ffde00d176e68f5cd02e2792fbe55e4b1
+            passed: true
+            exitCode: 0
+            outputSummary: F2 gates
         - id: F2-G2
           description: Maestro and transitions document claim-bound done under automate stamp.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'claim-bound|canCloseTasksFromClaims|reachability' skills/shared/implement-automate-maestro.md skills/shared/project-assets/project-transitions.md
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-21T20:07:10.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-21T20:07:10.000Z
+            verifiedCommit: 9b936b2ffde00d176e68f5cd02e2792fbe55e4b1
+            passed: true
+            exitCode: 0
+            outputSummary: F2 gates
+    status: done
     businessIntent:
       value: Sob stamp automate, done recusa claim invalido, reachability falha e complex sem both-clear — fail-closed no miolo A-E que a auditoria marcou como soft.
       workflow: TDD predicates claim-bound/complex (T-005) depois wire assert done + prosa transitions (T-006); Mode 1 unstamped permanece igual.
       rules: Nao mudar GATE-R2 verifier execution; nao forcar complex both em non-automate; nao deixar phase writer chamar done; claim obrigatorio so com executionMode automate.
       outOfScope: maestro cursor (F3); pause F4; Layer 4; auto-merge no assert script.
       doneWhen: Unit tests claim/complex/assert verdes; prosa claim-bound greppable; F2-G1/F2-G2 met.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f2-evaluation.md
+      verifiedAt: 2026-07-21T20:07:10.000Z
+      at: 9b936b2ffde00d176e68f5cd02e2792fbe55e4b1
+    reviewGate:
+      status: passed
+      mode: local
+      at: 9b936b2ffde00d176e68f5cd02e2792fbe55e4b1
+      reviewFile: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f2-evaluation.md
+      verifiedAt: 2026-07-21T20:07:10.000Z
+      reason: explicit local override F2 dogfood
   - id: F3
     slug: automate-skill-discipline-f3-thin-maestro-step-cursor-r2
     title: Thin maestro step cursor (R2)
@@ -255,7 +284,7 @@ phases:
 references: []
 planActive: true
 planTitle: Automate skill discipline remediation
-lastUpdated: 2026-07-21T20:00:52.547Z
+lastUpdated: 2026-07-21T20:07:10.000Z
 ---
 
 # Automate skill discipline remediation
