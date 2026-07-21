@@ -62,6 +62,7 @@ function writeCursor(statusRoot, planSlug, step, phaseId = 'F0') {
  *   evaluationGate?: object | null,
  *   lessonsState?: string | null,
  *   lessonsPath?: string | null,
+ *   reviewGate?: object | null,
  *   planEndReview?: object | null,
  *   userValidatedAt?: string | null,
  * }} [opts]
@@ -81,6 +82,7 @@ function writePlan(root, opts = {}) {
         : {}),
       ...(opts.lessonsState != null ? { lessonsState: opts.lessonsState } : {}),
       ...(opts.lessonsPath != null ? { lessonsPath: opts.lessonsPath } : {}),
+      ...(opts.reviewGate !== undefined ? { reviewGate: opts.reviewGate } : {}),
     },
   ];
 
@@ -140,6 +142,19 @@ function writePlan(root, opts = {}) {
     }
     if (p.lessonsState != null) lines.push(`    lessonsState: ${p.lessonsState}`);
     if (p.lessonsPath != null) lines.push(`    lessonsPath: "${p.lessonsPath}"`);
+    if (p.reviewGate != null) {
+      const rg = p.reviewGate;
+      lines.push('    reviewGate:');
+      if (rg.status != null) lines.push(`      status: ${rg.status}`);
+      if (rg.mode != null) lines.push(`      mode: ${rg.mode}`);
+      if (rg.at != null) lines.push(`      at: "${rg.at}"`);
+      if (rg.reviewFile != null) lines.push(`      reviewFile: "${rg.reviewFile}"`);
+      if (rg.reason != null) lines.push(`      reason: "${rg.reason}"`);
+      if (rg.overrideReason != null) {
+        lines.push(`      overrideReason: "${rg.overrideReason}"`);
+      }
+      if (rg.operatorSkip === true) lines.push('      operatorSkip: true');
+    }
   }
   lines.push('---');
   lines.push('');
@@ -532,7 +547,7 @@ describe('assert-automate-gate CLI', () => {
       }
     });
 
-    it('exit 0 when evaluationGate + lessonsState allow close', () => {
+    it('exit 1 when evaluation+lessons ok but reviewGate missing both', () => {
       const root = tmpRoot();
       try {
         writePlan(root, {
@@ -543,6 +558,46 @@ describe('assert-automate-gate CLI', () => {
             reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
           },
           lessonsState: 'none',
+        });
+        const stateRoot = join(root, '.atomic-skills');
+        writeCursor(join(stateRoot, 'status'), 'demo-plan', 'G');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'phase-done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /reviewGate|mode both|review/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('exit 0 when evaluation + lessons + review both allow close', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, {
+          executionMode: 'automate',
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
+          lessonsState: 'none',
+          reviewGate: {
+            status: 'passed',
+            mode: 'both',
+            at: 'a'.repeat(40),
+            reviewFile: '.atomic-skills/reviews/f0-both.md',
+          },
         });
         const stateRoot = join(root, '.atomic-skills');
         writeCursor(join(stateRoot, 'status'), 'demo-plan', 'G');
@@ -678,6 +733,12 @@ describe('assert-automate-gate CLI', () => {
           reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
         },
         lessonsState: 'none',
+        reviewGate: {
+          status: 'passed',
+          mode: 'both',
+          at: 'a'.repeat(40),
+          reviewFile: '.atomic-skills/reviews/f0-both.md',
+        },
       });
       writePlan(root, {
         projectId: 'other',
@@ -793,6 +854,13 @@ describe('assert-automate-gate CLI', () => {
             status: 'passed',
             verdict: 'pass',
             reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
+          lessonsState: 'none',
+          reviewGate: {
+            status: 'passed',
+            mode: 'both',
+            at: 'a'.repeat(40),
+            reviewFile: '.atomic-skills/reviews/f0-both.md',
           },
         });
         const stateRoot = join(root, '.atomic-skills');

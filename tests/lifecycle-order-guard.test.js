@@ -461,7 +461,7 @@ test('preflightPhaseDone blocks under automate with evaluation but without lesso
   assert.match(result.recommendedCommand || '', /lessons|Proposed lessons|none/i);
 });
 
-test('preflightPhaseDone allows automate when evaluationGate + lessonsState answered', () => {
+test('preflightPhaseDone blocks under automate without reviewGate both (R3)', () => {
   const result = preflightPhaseDone({
     parentPlan: 'demo',
     phaseId: 'F0',
@@ -479,6 +479,39 @@ test('preflightPhaseDone allows automate when evaluationGate + lessonsState answ
             reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
           },
           lessonsState: 'none',
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true);
+  assert.equal(result.code, 'phase-done-review-open');
+});
+
+test('preflightPhaseDone allows automate when evaluation + lessons + review both', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    plan: {
+      executionMode: 'automate',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'f0',
+          status: 'active',
+          dependsOn: [],
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
+          lessonsState: 'none',
+          reviewGate: {
+            status: 'passed',
+            mode: 'both',
+            at: 'a'.repeat(40),
+            reviewFile: '.atomic-skills/reviews/f0-both.md',
+          },
         },
       ],
     },

@@ -275,7 +275,14 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
     );
   });
 
-  it('phase-done ok under stamp with evaluation + lessonsState none', () => {
+  const bothReview = {
+    status: 'passed',
+    mode: 'both',
+    at: 'a'.repeat(40),
+    reviewFile: '.atomic-skills/reviews/f0-both.md',
+  };
+
+  it('phase-done blocked under stamp without reviewGate both', () => {
     assert.equal(
       canRunPhaseDone({
         planExecutionMode: 'automate',
@@ -286,11 +293,27 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
         },
         lessonsState: 'none',
       }).ok,
+      false,
+    );
+  });
+
+  it('phase-done ok under stamp with evaluation + lessons + review both', () => {
+    assert.equal(
+      canRunPhaseDone({
+        planExecutionMode: 'automate',
+        evaluationGate: {
+          status: 'passed',
+          verdict: 'pass',
+          reportPath: '.atomic-skills/reviews/eval.md',
+        },
+        lessonsState: 'none',
+        reviewGate: bothReview,
+      }).ok,
       true,
     );
   });
 
-  it('phase-done ok under stamp with evaluation + lessons recorded+path', () => {
+  it('phase-done ok under stamp with evaluation + lessons recorded+path + review both', () => {
     assert.equal(
       canRunPhaseDone({
         planExecutionMode: 'automate',
@@ -302,6 +325,60 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
         lessonsState: 'recorded',
         lessonsPath:
           '.atomic-skills/projects/demo/plan/lessons/f0-demo.md',
+        reviewGate: bothReview,
+      }).ok,
+      true,
+    );
+  });
+
+  it('canDoneFromAutomateClaims blocks complex task without both receipt', () => {
+    const goodTask = {
+      taskId: 'T-001',
+      status: 'claimed-pass',
+      commitShas: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
+      paths: ['src/a.js'],
+      verifierCommand: 'node -e "process.exit(0)"',
+      exitCode: 0,
+      transcript: '',
+    };
+    assert.equal(
+      canDoneFromAutomateClaims({
+        claimReport: { tasks: [goodTask] },
+        checkReachability: false,
+        complexTasks: [
+          {
+            task: { weight: 5, tags: ['complex'] },
+            reviewReceipt: null,
+          },
+        ],
+      }).ok,
+      false,
+    );
+  });
+
+  it('canDoneFromAutomateClaims allows complex with both receipt', () => {
+    const goodTask = {
+      taskId: 'T-001',
+      status: 'claimed-pass',
+      commitShas: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
+      paths: ['src/a.js'],
+      verifierCommand: 'node -e "process.exit(0)"',
+      exitCode: 0,
+      transcript: '',
+    };
+    assert.equal(
+      canDoneFromAutomateClaims({
+        claimReport: { tasks: [goodTask] },
+        checkReachability: false,
+        complexTasks: [
+          {
+            task: { weight: 5 },
+            reviewReceipt: {
+              mode: 'both',
+              reviewFile: '.atomic-skills/reviews/t001-both.md',
+            },
+          },
+        ],
       }).ok,
       true,
     );

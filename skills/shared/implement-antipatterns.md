@@ -67,6 +67,8 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "Stamp automate but silent Mode-1 just this once" | Forbidden under stamp; clear/unstamp explicitly after a clean lease, or re-dispatch code-only / stop. |
 | "Stamp evaluationGate passed without a report" | forging evaluationGate is forbidden — `reportPath` to a real evaluationReport is required (R3 honesty). |
 | "Skip lessons under automate multi-phase (no Proposed lessons / no ratify)" | `lessonsState` must be `recorded`+`lessonsPath` or explicit `none` before phase-done; silence is blocked (`phase-done-lessons-open`). |
+| "Stamp reviewGate mode local and skip both under automate" | Default is both; local needs non-empty overrideReason; missing both blocks (`phaseReviewAllowsClose` / phase-done-review-open). |
+| "Close complex task without both receipt under automate" | `complexTaskAllowsDone` / `canDoneFromAutomateClaims({ complexTasks })` require mode both receipt or operator disposition. |
 | "Skip evaluation with a fabricated reason (no operator)" | `operatorSkip: true` + reason only; inventing skip without the operator is forge. |
 | "rm cursor or lease file to force progress" | Forbidden — advance cursor legally; clear lease only with acquire secret. Deleting the lease file / cursor is not a continue token. |
 | "Auto-materialize next phase + fill businessIntent" | Operator owns materialize spine; inventing businessIntent under automate is HARD-BLOCK. |

@@ -376,7 +376,15 @@
             },
             "reason": {
               "type": "string",
-              "description": "why review was skipped. Required-when-skipped by GATE-R3."
+              "description": "why review was skipped. Required-when-skipped by GATE-R3. Under automate also used with operatorSkip for skip authenticity."
+            },
+            "overrideReason": {
+              "type": "string",
+              "description": "Under durable automate: non-empty reason required when mode is local (operator-owned downgrade from default both). Enforced by phaseReviewHonesty / canRunPhaseDone."
+            },
+            "operatorSkip": {
+              "type": "boolean",
+              "description": "Under durable automate: required true when status=skipped (operator-owned full skip of phase review). Enforced by phaseReviewHonesty."
             },
             "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
           }

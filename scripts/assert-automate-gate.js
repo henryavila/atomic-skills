@@ -62,7 +62,7 @@ Gates:
                 + cursor step D|D.5|E under stamp
   done          canDoneFromAutomateClaims under stamp (claim-bound; inactive when no stamp)
                 + cursor step E under stamp
-  phase-done    canRunPhaseDone (evaluationGate + lessonsState under durable automate)
+  phase-done    canRunPhaseDone (evaluation + lessons + review both under durable automate)
                 + cursor step G under stamp
   finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
                 + cursor step I under stamp
@@ -556,6 +556,12 @@ export function runAssert(args, env = {}) {
         : fm.evaluationGate != null
           ? fm.evaluationGate
           : null;
+    const reviewGate =
+      phase != null && phase.reviewGate != null
+        ? phase.reviewGate
+        : fm.reviewGate != null
+          ? fm.reviewGate
+          : null;
     const r = canRunPhaseDone({
       planExecutionMode,
       evaluationGate,
@@ -575,12 +581,13 @@ export function runAssert(args, env = {}) {
         phase != null && phase.noneReason != null
           ? phase.noneReason
           : null,
+      reviewGate,
       phase,
     });
     if (!r.ok) {
       return {
         ok: false,
-        message: `blocked: ${formatBlocked(r, 'phase-done evaluation/lessons gate')}`,
+        message: `blocked: ${formatBlocked(r, 'phase-done evaluation/lessons/review gate')}`,
         exitCode: 1,
       };
     }

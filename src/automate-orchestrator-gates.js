@@ -26,6 +26,8 @@ import {
 } from './plan-end-review.js';
 import { phaseEvaluationAllowsClose } from './phase-evaluation-gate.js';
 import { phaseLessonsAllowsClose } from './phase-lessons-gate.js';
+import { phaseReviewAllowsClose } from './phase-review-gate.js';
+import { complexTaskAllowsDone } from './complex-task.js';
 import {
   validateClaimReport,
   validateClaimReachability,
@@ -110,34 +112,57 @@ export function canCloseTasksFromClaims(input = {}) {
  * shape checks. Missing / invalid / overlapping / non-reachable claims ⇒
  * refuse orchestrator `done` (claim-bound close).
  *
- * Complex-before-done is a separate pure helper (`complexTaskAllowsDone` in
- * `src/complex-task.js`): non-complex → verifier-only; complex → both-mode
- * durable receipt or operator disposition skip. Call that per task after
- * this gate and GATE-R2 verifier pass.
+ * When `complexTasks` is provided (array of { task, reviewReceipt?, ... }),
+ * each entry must pass {@link complexTaskAllowsDone} (complex → both receipt
+ * or operator disposition). Omit the array to skip complex checks (shape-only).
  *
  * @param {{
  *   claimReport?: unknown,
  *   reachableSet?: Iterable<string> | ((sha: string) => boolean) | null,
  *   checkReachability?: boolean,
+ *   complexTasks?: Array<{
+ *     task?: object | null,
+ *     reviewReceipt?: object | null,
+ *     operatorSkip?: boolean | null,
+ *     disposition?: string | null,
+ *     reason?: string | null,
+ *     complexOptions?: { threshold?: number | string },
+ *   }> | null,
  * }} [input]
  * @returns {{ ok: boolean, reason?: string, claimValidation?: object }}
  */
 export function canDoneFromAutomateClaims(input = {}) {
   // Automate done: claim required + reachability on by default.
   const checkReachability = input.checkReachability !== false;
-  return canCloseTasksFromClaims({
+  const claim = canCloseTasksFromClaims({
     claimReport: input.claimReport,
     reachableSet: input.reachableSet,
     checkReachability,
   });
+  if (!claim.ok) return claim;
+
+  if (Array.isArray(input.complexTasks)) {
+    for (let i = 0; i < input.complexTasks.length; i++) {
+      const row = input.complexTasks[i];
+      if (row == null || typeof row !== 'object') continue;
+      const c = complexTaskAllowsDone(row);
+      if (!c.ok) {
+        return {
+          ok: false,
+          reason: c.reason || `complex task gate failed at index ${i}`,
+          claimValidation: claim.claimValidation,
+        };
+      }
+    }
+  }
+  return claim;
 }
 
 /**
- * Before phase-done under durable automate: evaluation gate AND lessons answer
- * must allow close (dogfood: pure-maestro must not skip distill/ratify).
+ * Before phase-done under durable automate: evaluation + lessons + review both.
  *
- * Order: evaluation honesty first, then lessons honesty. Non-automate: both
- * inactive → ok.
+ * Order: evaluation → lessons → phase review (mode both). Non-automate: inactive → ok.
+ * Dogfood: pure-maestro must not skip distill, ratify, or cross-model phase review.
  *
  * @param {{
  *   automateActive?: boolean | null,
@@ -146,6 +171,7 @@ export function canDoneFromAutomateClaims(input = {}) {
  *   lessonsState?: string | null,
  *   lessonsPath?: string | null,
  *   noneReason?: string | null,
+ *   reviewGate?: unknown,
  *   phase?: object | null,
  * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
@@ -153,7 +179,9 @@ export function canDoneFromAutomateClaims(input = {}) {
 export function canRunPhaseDone(input = {}) {
   const evalGate = phaseEvaluationAllowsClose(input);
   if (!evalGate.ok) return evalGate;
-  return phaseLessonsAllowsClose(input);
+  const lessons = phaseLessonsAllowsClose(input);
+  if (!lessons.ok) return lessons;
+  return phaseReviewAllowsClose(input);
 }
 
 /**

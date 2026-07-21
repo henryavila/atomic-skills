@@ -129,3 +129,22 @@ Under durable `executionMode: automate`, `canRunPhaseDone` / `assert-automate-ga
 | `none` | explicit zero-lessons (clean phase) — **omitting the field is invalid** |
 
 Helpers: `src/phase-lessons-gate.js` (`phaseLessonsAllowsClose`, `buildLessonsState`). Code: `phase-done-lessons-open`.
+
+### Phase review both (hard under automate — no skip)
+
+Dogfood: `reviewGate.mode: local` without real `review-code --mode=both`. Under stamp,
+`canRunPhaseDone` / preflight / commitGuard / assert require:
+
+| `reviewGate` | Required |
+|--------------|----------|
+| `status: passed` | `mode` ∈ both \| both-* \| external-both, real `at` SHA, non-empty `reviewFile` |
+| `status: passed` + `mode: local` | only with non-empty `overrideReason` (operator downgrade) |
+| `status: skipped` | `operatorSkip: true` + non-empty `reason` |
+
+Helper: `src/phase-review-gate.js` (`phaseReviewAllowsClose`). Code: `phase-done-review-open`.
+
+### Complex before done (optional input, deterministic when provided)
+
+`canDoneFromAutomateClaims({ complexTasks: [{ task, reviewReceipt }] })` runs
+`complexTaskAllowsDone` per row after claim validation. Orchestrator must pass
+complex rows for weight/tags/destructive tasks under automate.

@@ -16,6 +16,7 @@
 import { validatePhaseDag } from '../src/transition.js';
 import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
 import { phaseLessonsAllowsClose } from '../src/phase-lessons-gate.js';
+import { phaseReviewAllowsClose } from '../src/phase-review-gate.js';
 
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
@@ -359,8 +360,22 @@ function exitGatesOf(input) {
 }
 
 function reviewGateOf(input) {
+  if (input.reviewGate != null && typeof input.reviewGate === 'object') {
+    return input.reviewGate;
+  }
   const phase = phaseSlice(input);
-  return input.reviewGate ?? phase.reviewGate;
+  if (phase.reviewGate != null && typeof phase.reviewGate === 'object') {
+    return phase.reviewGate;
+  }
+  const plan = object(input.plan);
+  const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
+  if (!Array.isArray(plan.phases) || !phaseId) return input.reviewGate ?? phase.reviewGate;
+  const planPhase = plan.phases.find(
+    (p) => object(p).id === phaseId || object(p).slug === phaseId,
+  );
+  if (planPhase == null) return null;
+  const rg = object(planPhase).reviewGate;
+  return rg != null && typeof rg === 'object' ? rg : null;
 }
 
 /**
@@ -484,6 +499,28 @@ function checkPhaseDoneLessons(input) {
 }
 
 /**
+ * Under durable automate stamp, reviewGate must satisfy phase-review honesty (R3):
+ * mode both (or both-codex/grok/claude or external-both), or skipped with
+ * operatorSkip+reason, or local only with non-empty overrideReason.
+ * @param {object} input
+ */
+function checkPhaseDoneAutomateReview(input) {
+  const planExecutionMode = planExecutionModeOf(input);
+  const result = phaseReviewAllowsClose({
+    planExecutionMode: planExecutionMode || null,
+    automateActive: input.automateActive === true,
+    reviewGate: reviewGateOf(input),
+  });
+  if (result.ok) return allow();
+  return block(
+    'phase-done-review-open',
+    result.reason ||
+      'phase-done under automate requires reviewGate mode both (or operator skip/local override)',
+    'Run `atomic-skills:review-code --mode=both`, stamp reviewGate (mode both + at + reviewFile), or record operator skip with operatorSkip+reason / local with overrideReason — then rerun `phase-done`.',
+  );
+}
+
+/**
  * Identity for phase-done: initiative must carry parentPlan + phaseId (or
  * callers pass them explicitly). Optional plan slice checks the phase exists.
  * @param {object} input
@@ -596,7 +633,11 @@ export function preflightPhaseDone(input = {}) {
   if (evaluation.blocked) return evaluation;
   // R2: under durable automate, lessons must be *answered* (recorded+path or
   // explicit none) before phase-done — silence is skip of distill/ratify.
-  return checkPhaseDoneLessons(safe);
+  const lessons = checkPhaseDoneLessons(safe);
+  if (lessons.blocked) return lessons;
+  // R3: under durable automate, reviewGate must be both (or operator skip/local
+  // with override) — dogfood local-without-both is blocked.
+  return checkPhaseDoneAutomateReview(safe);
 }
 
 /**
@@ -648,12 +689,31 @@ export function commitGuardPhaseDone(input = {}) {
     );
   }
 
-  if (safe.requireReview !== false && !reviewGateComplete(reviewGateOf(safe))) {
-    return block(
-      'phase-done-review-open',
-      'phase-done requires a recorded reviewGate before the phase can advance',
-      'Run `atomic-skills:review-code <range>` and record reviewGate (passed + SHA + mode), then rerun `phase-done`.',
-    );
+  if (safe.requireReview !== false) {
+    const rg = reviewGateOf(safe);
+    if (!reviewGateComplete(rg)) {
+      return block(
+        'phase-done-review-open',
+        'phase-done requires a recorded reviewGate before the phase can advance',
+        'Run `atomic-skills:review-code <range>` and record reviewGate (passed + SHA + mode), then rerun `phase-done`.',
+      );
+    }
+    // Under durable automate, mode must be both* (or operator skip/local override)
+    // — not bare local without overrideReason (dogfood skip).
+    const planExecutionMode = planExecutionModeOf(safe);
+    const reviewHonesty = phaseReviewAllowsClose({
+      planExecutionMode: planExecutionMode || null,
+      automateActive: safe.automateActive === true,
+      reviewGate: rg,
+    });
+    if (!reviewHonesty.ok) {
+      return block(
+        'phase-done-review-open',
+        reviewHonesty.reason ||
+          'phase-done under automate requires reviewGate mode both',
+        'Run `atomic-skills:review-code --mode=both` and stamp reviewGate (mode both + at + reviewFile), or operator skip/local with overrideReason.',
+      );
+    }
   }
 
   if (safe.requireLessons !== false) {
