@@ -17,6 +17,7 @@ import {
   MAESTRO_CURSOR_DIR,
   MAESTRO_STEPS,
   AWAITING_OPERATOR_ADVANCE,
+  OPERATOR_CONTINUE_TOKEN,
   MAX_REDISPATCH,
   sanitizePlanSlug,
   cursorPath,
@@ -28,9 +29,15 @@ import {
   serializeCursor,
   advanceCursor,
   cursorAllowsGate,
+  isAwaitingOperatorAdvance,
+  cursorAllowsStepA,
+  recordPhaseDonePause,
+  clearContinue,
   readCursorResult,
   writeCursorFile,
   ensureCursor,
+  recordPhaseDonePauseFile,
+  clearContinueFile,
 } from '../src/maestro-cursor.js';
 
 describe('sanitizePlanSlug / cursorPath', () => {
@@ -284,6 +291,98 @@ describe('cursorAllowsGate', () => {
   });
 });
 
+describe('phase-done pause + clearContinue (F4)', () => {
+  function cur(step) {
+    return {
+      step,
+      phaseId: 'F4',
+      redispatchCount: 0,
+      updatedAt: '2026-07-21T00:00:00.000Z',
+    };
+  }
+
+  it('recordPhaseDonePause sets awaiting-operator-advance from G', () => {
+    const r = recordPhaseDonePause(cur('G'), {
+      updatedAt: '2026-07-21T05:00:00.000Z',
+    });
+    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.alreadyPaused, false);
+    assert.equal(r.cursor.step, AWAITING_OPERATOR_ADVANCE);
+    assert.equal(isAwaitingOperatorAdvance(r.cursor), true);
+  });
+
+  it('recordPhaseDonePause is idempotent when already paused', () => {
+    const r = recordPhaseDonePause(cur(AWAITING_OPERATOR_ADVANCE));
+    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.alreadyPaused, true);
+    assert.equal(r.cursor.step, AWAITING_OPERATOR_ADVANCE);
+  });
+
+  it('recordPhaseDonePause refuses non-G (no auto-chain from C)', () => {
+    const r = recordPhaseDonePause(cur('C'));
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /requires step G|refuse auto-chain/i);
+  });
+
+  it('clearContinue requires operator-continue token (generic ok not enough)', () => {
+    const paused = cur(AWAITING_OPERATOR_ADVANCE);
+    const bare = clearContinue(paused, {});
+    assert.equal(bare.ok, false);
+    assert.match(bare.reason, /continueToken|operatorContinue|generic ok/i);
+
+    const wrong = clearContinue(paused, { continueToken: 'ok' });
+    assert.equal(wrong.ok, false);
+    assert.match(wrong.reason, /continueToken|operator-continue/i);
+  });
+
+  it('clearContinue with operator-continue advances pause → H', () => {
+    const r = clearContinue(cur(AWAITING_OPERATOR_ADVANCE), {
+      continueToken: OPERATOR_CONTINUE_TOKEN,
+      updatedAt: '2026-07-21T06:00:00.000Z',
+    });
+    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.cursor.step, 'H');
+    assert.equal(isAwaitingOperatorAdvance(r.cursor), false);
+  });
+
+  it('clearContinue accepts operatorContinue: true', () => {
+    const r = clearContinue(cur(AWAITING_OPERATOR_ADVANCE), {
+      operatorContinue: true,
+    });
+    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.cursor.step, 'H');
+  });
+
+  it('clearContinue refuses when not paused', () => {
+    const r = clearContinue(cur('G'), {
+      continueToken: OPERATOR_CONTINUE_TOKEN,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /awaiting-operator-advance/);
+  });
+
+  it('cursorAllowsStepA refuses while awaiting until clearContinue', () => {
+    const paused = cur(AWAITING_OPERATOR_ADVANCE);
+    const blocked = cursorAllowsStepA(paused);
+    assert.equal(blocked.ok, false);
+    assert.match(blocked.reason, /awaiting-operator-advance|clearContinue/i);
+
+    const cleared = clearContinue(paused, {
+      continueToken: OPERATOR_CONTINUE_TOKEN,
+    });
+    assert.equal(cleared.ok, true, cleared.reason);
+    assert.equal(cursorAllowsStepA(cleared.cursor).ok, true);
+    // spawn still needs step C — Step A ok does not unlock spawn
+    assert.equal(cursorAllowsGate(cleared.cursor, 'spawn').ok, false);
+  });
+
+  it('cursorAllowsStepA allows non-pause steps (e.g. A, H)', () => {
+    assert.equal(cursorAllowsStepA(cur('A')).ok, true);
+    assert.equal(cursorAllowsStepA(cur('H')).ok, true);
+    assert.equal(cursorAllowsStepA(cur('C')).ok, true);
+  });
+});
+
 describe('FS: read / write / ensure (missing initializes at A or B)', () => {
   /** @type {string} */
   let root;
@@ -376,5 +475,45 @@ describe('FS: read / write / ensure (missing initializes at A or B)', () => {
     assert.equal(r.initialized, false);
     // file still the partial write
     assert.match(readFileSync(path, 'utf8'), /"step":"C"/);
+  });
+
+  it('recordPhaseDonePauseFile + clearContinueFile continue path', () => {
+    writeCursorFile(
+      statusRoot,
+      'pause-plan',
+      buildInitialCursor({
+        phaseId: 'F4',
+        step: 'G',
+        updatedAt: '2026-07-21T07:00:00.000Z',
+      }),
+    );
+    const paused = recordPhaseDonePauseFile(statusRoot, 'pause-plan', {
+      updatedAt: '2026-07-21T07:01:00.000Z',
+    });
+    assert.equal(paused.ok, true, paused.reason);
+    assert.equal(paused.cursor.step, AWAITING_OPERATOR_ADVANCE);
+    assert.equal(
+      readCursorResult(statusRoot, 'pause-plan').cursor.step,
+      AWAITING_OPERATOR_ADVANCE,
+    );
+
+    // spawn blocked while pause
+    assert.equal(
+      cursorAllowsGate(paused.cursor, 'spawn').ok,
+      false,
+    );
+    assert.equal(cursorAllowsStepA(paused.cursor).ok, false);
+
+    const noToken = clearContinueFile(statusRoot, 'pause-plan', {});
+    assert.equal(noToken.ok, false);
+
+    const cont = clearContinueFile(statusRoot, 'pause-plan', {
+      continueToken: OPERATOR_CONTINUE_TOKEN,
+      updatedAt: '2026-07-21T07:02:00.000Z',
+    });
+    assert.equal(cont.ok, true, cont.reason);
+    assert.equal(cont.cursor.step, 'H');
+    assert.equal(readCursorResult(statusRoot, 'pause-plan').cursor.step, 'H');
+    assert.equal(cursorAllowsStepA(cont.cursor).ok, true);
   });
 });
