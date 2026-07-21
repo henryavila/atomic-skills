@@ -37,14 +37,22 @@ Pure functions the skill **must** call before advancing. Already landed:
 **warnings → errors** under `executionMode: automate` (evaluationGate present
 on done phases; planEndReview when status archived/finalizing).
 
-### Layer 2 — Thin CLI “assert” (1–2 days)
+### Layer 2 — Thin CLI “assert” (**landed** — F0)
 
 ```bash
-node scripts/assert-automate-gate.js --plan <slug> --gate spawn|done|phase-done|finalize
+node scripts/assert-automate-gate.js --plan <slug> --gate spawn|claims|done|phase-done|finalize
 ```
 
-Reads disk state, prints ok/blocked + reason, exit 1 on block. Agents run it
-before transitions; CI can run finalize gate on stamped plans. Still no spawn.
+**Path:** `scripts/assert-automate-gate.js` (unit tests: `tests/assert-automate-gate.test.js`).
+Wraps Layer-1 helpers: lease read → `canSpawnPhaseWriter`; claim report →
+`canCloseTasksFromClaims`; plan `evaluationGate` → `canRunPhaseDone`; plan-end
+receipt + `userValidatedAt` → `canFinalizeOrArchive`.
+
+Reads disk state, prints `ok` / `blocked: <reason>`, exit 1 on block. Skill prose
+(`implement` pure-maestro Steps **C / E / G / I**, `project-transitions` /
+`project-finalize`) **requires** this assert before spawn, done-batch,
+phase-done, and finalize under automate — non-zero forbids advancing. Still no
+spawn of writers (orchestration remains skill-driven).
 
 ### Layer 3 — Host-local runner (weeks, optional)
 

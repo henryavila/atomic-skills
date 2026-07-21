@@ -26,6 +26,8 @@ The one-liner Red-Flag **triggers** stay resident in `implement.md` so the ambie
 - "The phase writer said all verifiers passed — mark them done without re-running on the merged tree." → Phase writer self-check ≠ self-certify; the writer **must never** call `done`. The orchestrator re-runs each verifier on the **MERGED** plan tree and is the sole closer. Trusting the claim report as closure is foreign-executor self-certification.
 - "I'll spawn two phase writers for independent phases in parallel under automate." → Concurrent phase writers are forbidden in v1 even when `parallelismAllowed` is true. One phase writer at a time; sequential phases only. Two writers race on merge/lease and break pure-maestro exclusive-write windows.
 - "I'll nest the phase worktree under the plan worktree to keep paths tidy." → Automate phase isolation cuts a **sibling** worktree from the git common-dir / primary root — **never nest** under `.worktrees/<plan-slug>/…`. Nesting confuses teardown, watchers, and the "already in a worktree" Step 0 detection.
+- "I'll skip `assert-automate-gate` — I already know the lease/claim/eval/finalize gates are fine." → Under pure-maestro, Steps **C / E / G / I** require a fresh `node scripts/assert-automate-gate.js --plan <slug> --gate spawn|claims|done|phase-done|finalize` that exits **0**. Mental re-derivation of Layer-1 helpers is not a substitute; non-zero assert **forbids** advancing (HARD-GATE). Skipping assert is how silent illegal transitions re-enter.
+- "Stamp is `executionMode: automate` but I'll just Mode-1 code this one task without `--clear-execution-mode`." → Silent Mode-1 under stamp is forbidden. Either re-dispatch a code-only fix agent (max 2) or stop for the operator; leave automate only via explicit clear/unstamp (and only when the writer lease is clean).
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
@@ -54,3 +56,5 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "Phase writer claim report is enough — skip merged re-verify / call done from the writer" | Never self-certify: writer is code-only (no `done`); orchestrator re-verifies on MERGED tree (R-EXEC-28/29). |
 | "Two phase writers in parallel under automate" | Concurrent phase writers forbidden in v1 even with parallelismAllowed — one writer lease, sequential phases. |
 | "Nest phase worktree under the plan worktree" | Sibling from common-dir / primary root only; never nest under `.worktrees/<plan-slug>/`. |
+| "Skip assert-automate-gate — helpers already exist" | Layer-2 CLI is the required call site before C/E/G/I; non-zero exit forbids advance — mental Layer-1 is not a substitute. |
+| "Stamp automate but silent Mode-1 just this once" | Forbidden under stamp; clear/unstamp explicitly after a clean lease, or re-dispatch code-only / stop. |
