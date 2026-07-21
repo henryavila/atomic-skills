@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeCursorFile, buildInitialCursor } from '../src/maestro-cursor.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(ROOT, 'scripts', 'assert-automate-gate.js');
@@ -23,6 +24,25 @@ const GOOD_SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
 function tmpRoot() {
   return mkdtempSync(join(tmpdir(), 'assert-gate-'));
+}
+
+/**
+ * Write maestro cursor at the step required for a gate under automate stamp.
+ * @param {string} statusRoot
+ * @param {string} planSlug
+ * @param {string} step
+ * @param {string} [phaseId]
+ */
+function writeCursor(statusRoot, planSlug, step, phaseId = 'F0') {
+  writeCursorFile(
+    statusRoot,
+    planSlug,
+    buildInitialCursor({
+      phaseId,
+      step,
+      updatedAt: '2026-07-21T00:00:00.000Z',
+    }),
+  );
 }
 
 /**
@@ -199,11 +219,13 @@ describe('assert-automate-gate CLI', () => {
   });
 
   describe('spawn', () => {
-    it('ok when lease missing', () => {
+    it('ok when lease missing and cursor at C', () => {
       const root = tmpRoot();
       try {
         writePlan(root, { executionMode: 'automate' });
         const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'C');
         const r = run(
           [
             '--plan',
@@ -213,7 +235,7 @@ describe('assert-automate-gate CLI', () => {
             '--state-root',
             stateRoot,
             '--status-root',
-            join(stateRoot, 'status'),
+            statusRoot,
           ],
           { cwd: root },
         );
@@ -230,6 +252,7 @@ describe('assert-automate-gate CLI', () => {
         writePlan(root, { executionMode: 'automate' });
         const stateRoot = join(root, '.atomic-skills');
         const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'C');
         const leaseDir = join(statusRoot, 'writer-leases');
         mkdirSync(leaseDir, { recursive: true });
         writeFileSync(
@@ -273,9 +296,20 @@ describe('assert-automate-gate CLI', () => {
       try {
         writePlan(root, { executionMode: 'automate' });
         const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'E');
         for (const gate of ['claims', 'done']) {
           const r = run(
-            ['--plan', 'demo-plan', '--gate', gate, '--state-root', stateRoot],
+            [
+              '--plan',
+              'demo-plan',
+              '--gate',
+              gate,
+              '--state-root',
+              stateRoot,
+              '--status-root',
+              statusRoot,
+            ],
             { cwd: root },
           );
           assert.equal(r.status, 1, `${gate}: ${combined(r)}`);
@@ -310,6 +344,8 @@ describe('assert-automate-gate CLI', () => {
       try {
         writePlan(root, { executionMode: 'automate' });
         const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'E');
         const claimPath = join(root, 'bad-claim.json');
         writeFileSync(
           claimPath,
@@ -324,6 +360,8 @@ describe('assert-automate-gate CLI', () => {
             'done',
             '--state-root',
             stateRoot,
+            '--status-root',
+            statusRoot,
             '--claim-report',
             claimPath,
           ],
@@ -341,6 +379,7 @@ describe('assert-automate-gate CLI', () => {
       try {
         writePlan(root, { executionMode: 'automate' });
         const stateRoot = join(root, '.atomic-skills');
+        writeCursor(join(stateRoot, 'status'), 'demo-plan', 'E');
         const claimPath = join(root, 'good-claim.json');
         writeFileSync(claimPath, JSON.stringify(goodClaimReport()), 'utf8');
         const r = run(
@@ -351,6 +390,8 @@ describe('assert-automate-gate CLI', () => {
             'claims',
             '--state-root',
             stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
             '--claim-report',
             claimPath,
           ],
@@ -368,6 +409,7 @@ describe('assert-automate-gate CLI', () => {
       try {
         writePlan(root, { executionMode: 'automate' });
         const stateRoot = join(root, '.atomic-skills');
+        writeCursor(join(stateRoot, 'status'), 'demo-plan', 'E');
         const claimPath = join(root, 'good-claim.json');
         writeFileSync(claimPath, JSON.stringify(goodClaimReport()), 'utf8');
         const emptyReachable = join(root, 'empty-reachable.txt');
@@ -380,6 +422,8 @@ describe('assert-automate-gate CLI', () => {
             'done',
             '--state-root',
             stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
             '--claim-report',
             claimPath,
             '--check-reachability',
@@ -395,6 +439,8 @@ describe('assert-automate-gate CLI', () => {
             'done',
             '--state-root',
             stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
             '--claim-report',
             claimPath,
             '--check-reachability',
@@ -417,8 +463,19 @@ describe('assert-automate-gate CLI', () => {
       try {
         writePlan(root, { executionMode: 'automate' });
         const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'G');
         const r = run(
-          ['--plan', 'demo-plan', '--gate', 'phase-done', '--state-root', stateRoot],
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'phase-done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
           { cwd: root },
         );
         assert.equal(r.status, 1, combined(r));
@@ -441,8 +498,18 @@ describe('assert-automate-gate CLI', () => {
           },
         });
         const stateRoot = join(root, '.atomic-skills');
+        writeCursor(join(stateRoot, 'status'), 'demo-plan', 'G');
         const r = run(
-          ['--plan', 'demo-plan', '--gate', 'phase-done', '--state-root', stateRoot],
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'phase-done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
+          ],
           { cwd: root },
         );
         assert.equal(r.status, 0, combined(r));
@@ -475,8 +542,19 @@ describe('assert-automate-gate CLI', () => {
       try {
         writePlan(root, { executionMode: 'automate' });
         const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'I');
         const r = run(
-          ['--plan', 'demo-plan', '--gate', 'finalize', '--state-root', stateRoot],
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'finalize',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
           { cwd: root },
         );
         assert.equal(r.status, 1, combined(r));
@@ -502,8 +580,18 @@ describe('assert-automate-gate CLI', () => {
           userValidatedAt: '2026-07-21T12:00:00.000Z',
         });
         const stateRoot = join(root, '.atomic-skills');
+        writeCursor(join(stateRoot, 'status'), 'demo-plan', 'I');
         const r = run(
-          ['--plan', 'demo-plan', '--gate', 'finalize', '--state-root', stateRoot],
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'finalize',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
+          ],
           { cwd: root },
         );
         assert.equal(r.status, 0, combined(r));
@@ -550,6 +638,7 @@ describe('assert-automate-gate CLI', () => {
         // no evaluationGate → would block if selected
       });
       const stateRoot = join(root, '.atomic-skills');
+      writeCursor(join(stateRoot, 'status'), 'demo-plan', 'G');
       const r = run(
         [
           '--plan',
@@ -558,6 +647,8 @@ describe('assert-automate-gate CLI', () => {
           'phase-done',
           '--state-root',
           stateRoot,
+          '--status-root',
+          join(stateRoot, 'status'),
           '--project',
           'atomic-skills',
         ],
@@ -573,6 +664,8 @@ describe('assert-automate-gate CLI', () => {
           'phase-done',
           '--state-root',
           stateRoot,
+          '--status-root',
+          join(stateRoot, 'status'),
         ],
         { cwd: root },
       );
@@ -580,5 +673,208 @@ describe('assert-automate-gate CLI', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  describe('maestro cursor (Layer 2.5 under stamp)', () => {
+    it('blocks spawn when cursor step is B (illegal step)', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, { executionMode: 'automate' });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'B');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /blocked/i);
+        assert.match(combined(r), /cursor|step B|forbids/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('blocks done when cursor step is B', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, { executionMode: 'automate' });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'B');
+        const claimPath = join(root, 'good-claim.json');
+        writeFileSync(claimPath, JSON.stringify(goodClaimReport()), 'utf8');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+            '--claim-report',
+            claimPath,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /blocked/i);
+        assert.match(combined(r), /cursor|step B|forbids/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('blocks phase-done when cursor step is C (jump)', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, {
+          executionMode: 'automate',
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
+        });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'C');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'phase-done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /blocked/i);
+        assert.match(combined(r), /cursor|step C|forbids/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('blocks spawn while awaiting-operator-advance', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, { executionMode: 'automate' });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'awaiting-operator-advance');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /awaiting-operator-advance/);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('missing cursor under automate inits at A and still blocks spawn', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, { executionMode: 'automate' });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /blocked/i);
+        assert.match(combined(r), /cursor|step A|forbids/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('non-automate does not require maestro cursor', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root); // no stamp
+        const stateRoot = join(root, '.atomic-skills');
+        // spawn with no cursor + no lease → ok (cursor check inactive)
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 0, combined(r));
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('--skip-cursor bypasses step check (recovery only)', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, { executionMode: 'automate' });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'B'); // would block spawn
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+            '--skip-cursor',
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 0, combined(r));
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
   });
 });
