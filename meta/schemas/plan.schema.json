@@ -385,26 +385,35 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["status"],
-          "description": "Automate pure-maestro Step F→G: outcome of the phase evaluation agent before phase-done. Written by the orchestrator after the evaluator returns (or operator skip/disposition). Enforced by phaseEvaluationAllowsClose / canRunPhaseDone when plan.executionMode is automate. Absent on non-automate phases.",
+          "description": "Automate pure-maestro Step F→G: outcome of the phase evaluation agent before phase-done. Written by the orchestrator after the evaluator returns (or operator skip/disposition). Enforced by phaseEvaluationAllowsClose / evaluationGateHonesty / canRunPhaseDone when plan.executionMode is automate. Absent on non-automate phases. Authenticity (R3): passed requires non-empty reportPath + verdict pass; skipped requires operatorSkip true + non-empty reason (enforced in JS honesty helper, not JSON Schema if/then — same pattern as GATE-R3 reviewGate).",
           "properties": {
             "status": {
               "type": "string",
               "enum": ["passed", "skipped", "failed-dispositioned"],
-              "description": "passed = evaluator verdict pass; skipped = operator skip with reason; failed-dispositioned = residual findings with accept|defer|fix."
+              "description": "passed = evaluator verdict pass; skipped = operator skip with operatorSkip+reason; failed-dispositioned = residual findings with accept|defer|fix."
             },
             "verdict": {
               "type": "string",
               "enum": ["pass", "fail"],
-              "description": "Required when status=passed (must be pass)."
+              "description": "Required-when status=passed (must be pass). Enforced by evaluationGateHonesty."
+            },
+            "reportPath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Required-when status=passed: non-empty path to the evaluationReport (typically under .atomic-skills/reviews/). Forge-resistant pointer; pure honesty checks non-empty string only (no I/O). Enforced by evaluationGateHonesty / phaseEvaluationAllowsClose / GATE-R4."
+            },
+            "operatorSkip": {
+              "type": "boolean",
+              "description": "Required-when status=skipped: must be true. Marks the skip as operator-owned. Legacy retroactive skips remain expressible ONLY via operatorSkip=true + non-empty reason — never silent reason-alone. Enforced by evaluationGateHonesty."
             },
             "disposition": {
               "type": "string",
               "enum": ["accept", "defer", "fix"],
-              "description": "Required when status=failed-dispositioned."
+              "description": "Required-when status=failed-dispositioned. Enforced by evaluationGateHonesty."
             },
             "reason": {
               "type": "string",
-              "description": "Required when status is skipped or failed-dispositioned."
+              "description": "Required-when status is skipped (with operatorSkip=true) or failed-dispositioned. Enforced by evaluationGateHonesty."
             },
             "at": {
               "$ref": "common.schema.json#/$defs/gitSha",

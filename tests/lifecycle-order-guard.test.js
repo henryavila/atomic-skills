@@ -446,7 +446,11 @@ test('preflightPhaseDone allows automate when evaluationGate passed', () => {
           slug: 'f0',
           status: 'active',
           dependsOn: [],
-          evaluationGate: { status: 'passed', verdict: 'pass' },
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
         },
       ],
     },

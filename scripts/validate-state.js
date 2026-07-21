@@ -623,14 +623,20 @@ export function checkReviewGate(frontmatter) {
 }
 
 /**
- * GATE-R4 — evaluation gate honesty under durable automate (R1).
+ * GATE-R4 — evaluation gate honesty under durable automate (R1 + R3 authenticity).
  *
  * When plan.executionMode is automate, every phase with status:'done' must carry
- * an evaluationGate that phaseEvaluationAllowsClose accepts (passed+verdict pass,
- * skipped+reason, or failed-dispositioned+disposition+reason). Absent gate on a
- * done automate phase is a HARD violation (not legacy-tolerant — automate stamp
- * is opt-in and post-dates the gate). Non-automate plans: if evaluationGate is
- * present on a done phase, still check honesty; absent is OK.
+ * an evaluationGate that phaseEvaluationAllowsClose / evaluationGateHonesty
+ * accepts:
+ *   - passed + verdict pass + non-empty reportPath
+ *   - skipped + operatorSkip true + non-empty reason
+ *   - failed-dispositioned + disposition + non-empty reason
+ * Absent gate on a done automate phase is a HARD violation (not legacy-tolerant —
+ * automate stamp is opt-in and post-dates the gate). Non-automate plans: if
+ * evaluationGate is present on a done phase, still check honesty; absent is OK.
+ * Does not require evaluationGate on non-automate plans.
+ *
+ * Uses the same honesty helper as phaseEvaluationAllowsClose (no divergent rules).
  *
  * @param {object} frontmatter - parsed plan frontmatter
  * @returns {string[]}
@@ -656,7 +662,8 @@ export function checkEvaluationGate(frontmatter) {
       }
       continue;
     }
-    // Present gate: honesty always (passed+verdict / skipped+reason / dispositioned)
+    // Present gate: same honesty helper as phaseEvaluationAllowsClose
+    // (passed+reportPath / skipped+operatorSkip+reason / dispositioned)
     const honesty = phaseEvaluationAllowsClose({
       automateActive: true,
       evaluationGate: eg,

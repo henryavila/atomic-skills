@@ -1828,13 +1828,24 @@ test('GATE-R4 RED: automate done phase without evaluationGate violates', () => {
 
 test('GATE-R4 GREEN: automate done phase with passed evaluationGate', () => {
   assert.deepEqual(
-    checkEvaluationGate(automateDonePlan({ status: 'passed', verdict: 'pass' })),
+    checkEvaluationGate(
+      automateDonePlan({
+        status: 'passed',
+        verdict: 'pass',
+        reportPath: '.atomic-skills/reviews/eval-gate-r4-demo-f0.md',
+      }),
+    ),
     [],
   );
 });
 
 test('GATE-R4 RED: automate done phase with passed but no verdict', () => {
-  const v = checkEvaluationGate(automateDonePlan({ status: 'passed' }));
+  const v = checkEvaluationGate(
+    automateDonePlan({
+      status: 'passed',
+      reportPath: '.atomic-skills/reviews/x.md',
+    }),
+  );
   assert.ok(v.length >= 1);
 });
 
