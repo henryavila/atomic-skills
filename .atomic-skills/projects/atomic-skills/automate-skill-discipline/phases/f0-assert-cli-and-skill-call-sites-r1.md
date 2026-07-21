@@ -140,3 +140,11 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** Pure-maestro dogfood of F0 for automate-skill-discipline. Plan stamped `executionMode: automate`. About to acquire writer lease and spawn one code-only phase writer for T-001+T-002 (assert CLI + prose call sites).
+- **Decision log:** Operator requested implement via automate (durable stamp after explicit request). Mode 1 self-code forbidden while stamp active. F0 builds Layer-2 assert that will later harden this path.
+- **Single nextAction:** Sync-wait phase writer claim report for T-001 and T-002, then merge sibling → plan branch, re-verify, orchestrator done.
+- **Verbatim state:** plan=`.atomic-skills/projects/atomic-skills/automate-skill-discipline/plan.md` executionMode automate; phase F0; tasks T-001 T-002 pending; branch plan/automate-skill-discipline; worktree .worktrees/automate-skill-discipline.
+- **Uncommitted changes:** clean tree expected after stamp+handoff checkpoint commit (pre-dispatch).
+

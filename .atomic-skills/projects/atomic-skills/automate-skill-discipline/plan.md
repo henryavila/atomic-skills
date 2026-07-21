@@ -5,8 +5,9 @@ title: Automate skill discipline remediation
 version: "1.0"
 status: active
 started: 2026-07-21T19:25:48.389Z
-lastUpdated: 2026-07-21T19:25:48.389Z
+lastUpdated: 2026-07-21T19:29:15.727Z
 branch: plan/automate-skill-discipline
+executionMode: automate
 currentPhase: F0
 parallelismAllowed: false
 principles:
