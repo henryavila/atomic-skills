@@ -27,6 +27,7 @@ One writer touches a given working tree at a time — never two concurrent agent
 4. **Never silent Mode-1 fallback.** Under automate, spawn failure or review/verifier fail means re-dispatch a code-only fix agent (max **2**) or stop for the operator — **not** the host session coding product source. Leaving automate requires explicit `--clear-execution-mode` / Mode-1 re-entry recorded in the decision log.
 5. **No concurrent phase writers** in v1, even when `parallelismAllowed` is true. Sequential phases only.
 6. **planEndReviewOk** (and user validation) gate finalize/archive under automate — see plan-end path and `src/plan-end-review.js`.
+7. **assert-automate-gate before every pure-maestro advance.** Under automate, before spawn (Step C), done-batch (Step E), `phase-done` (Step G), or finalize/archive (Step I), run `node scripts/assert-automate-gate.js --plan <slug> --gate spawn|claims|done|phase-done|finalize` (see `skills/shared/implement-automate-maestro.md`). **Non-zero exit ⇒ STOP** — do not acquire a second lease, do not `done`, do not `phase-done`, do not finalize. Layer-1 helpers alone are not enough if the agent skips calling them; the CLI is the machine-checkable call site.
 
 <HARD-GATE>
 If you are about to mark a task `done` because it *looks* finished, without running its verifier through the `done` / verify-on-done patterns: STOP. Run the verifier. The pass is the evidence; "it works" is the claim.
@@ -34,6 +35,7 @@ If a verified task changed files and you are about to continue without committin
 If you are RESUMING and `git status` is dirty/stale OR the `## Session handoff` block has an unfilled `TODO`/`REPLACE_*` placeholder: STOP. Refuse to execute. Surface the missing pieces and resolve them (commit/stash, fill the handoff) before any task runs — a resume over an inconsistent snapshot corrupts the work.
 If you are about to dispatch a read-only subagent or hand off a token-heavy read: STOP and write the snapshot FIRST (the handoff is the pre-dispatch checkpoint).
 If the caller's tree already governs another plan than the one requested (`caller-governs-other-plan`): STOP. Do not run the resume gate or write plan state here — re-enter the plan's worktree first.
+If `isAutomateActive` and you are about to spawn a phase writer, run orchestrator `done`, run `phase-done`, or finalize/archive **without** a fresh `assert-automate-gate` exit 0 for the matching `--gate` (spawn / claims|done / phase-done / finalize): STOP. Non-zero assert forbids advancing.
 </HARD-GATE>
 
 ## Mindset
@@ -94,9 +96,9 @@ If `isAutomateActive` and you have **not** `{{READ_TOOL}}` `skills/shared/implem
 **Load the full A–I loop + claim/complex/evaluationGate/plan-end rules:**
 `{{READ_TOOL}} skills/shared/implement-automate-maestro.md`
 
-Also: phase writer `{{READ_TOOL}} skills/shared/implement-phase-writer.md`; isolation/lease `{{READ_TOOL}} skills/shared/worktree-isolation.md` + `src/writer-lease.js`; evaluation `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`; STOP helpers `src/automate-orchestrator-gates.js` (`canSpawnPhaseWriter`, `canCloseTasksFromClaims`, `canRunPhaseDone`, `canFinalizeOrArchive`). Machine preflight: `preflightPhaseDone` blocks under `executionMode: automate` without a valid `evaluationGate` (`phase-done-evaluation-open`).
+Also: phase writer `{{READ_TOOL}} skills/shared/implement-phase-writer.md`; isolation/lease `{{READ_TOOL}} skills/shared/worktree-isolation.md` + `src/writer-lease.js`; evaluation `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`; STOP helpers `src/automate-orchestrator-gates.js` (`canSpawnPhaseWriter`, `canCloseTasksFromClaims`, `canRunPhaseDone`, `canFinalizeOrArchive`); **Layer-2 assert CLI** `scripts/assert-automate-gate.js` (required before Steps C/E/G/I — non-zero exit forbids advance). Machine preflight: `preflightPhaseDone` blocks under `executionMode: automate` without a valid `evaluationGate` (`phase-done-evaluation-open`).
 
-**Summary:** one code-only phase writer per phase → merge → post-merge `done` → evaluation agent + `evaluationGate` → `phase-done` with `review-code --mode=both` → next phase (materialize if descriptor-only) → plan-end **`external-both`** (codex|grok|claude) + user validation via durable stamp.
+**Summary:** one code-only phase writer per phase → merge → post-merge `done` → evaluation agent + `evaluationGate` → `phase-done` with `review-code --mode=both` → next phase (materialize if descriptor-only) → plan-end **`external-both`** (codex|grok|claude) + user validation via durable stamp. **Assert gates at C/E/G/I** via `assert-automate-gate` before each advance.
 
 ### Step 2 — Execute one task (single-threaded) — Mode 1 only
 
@@ -129,9 +131,9 @@ For the chosen task, in this order:
 When the last task of the phase closes, `done` announces the phase transition.
 
 - **Mode 1:** Run `phase-done` (`{{ASSETS_PATH}}/project-transitions.md`): it executes every pending exit-gate verifier (verify-on-done), runs the mandatory `review-code` phase-diff gate, advances the plan, and writes phase-boundary microcommits for each logical state checkpoint.
-- **Automate (`isAutomateActive`):** Fixed order — all phase tasks `done` → **evaluation agent** (read-only; see `skills/shared/implement-phase-evaluator.md`) → then `phase-done` with `review-code --mode=both` (default under automate; F2 owns transition wiring). Do not skip the evaluation agent. On evaluation blocker/critical, reopen/fix (max 2 re-dispatches) before phase-done. Orchestrator writes dispositions to the durable decisions log.
+- **Automate (`isAutomateActive`):** Fixed order — all phase tasks `done` → **evaluation agent** (read-only; see `skills/shared/implement-phase-evaluator.md`) → stamp `evaluationGate` → **`assert-automate-gate --gate phase-done` (exit 0 required)** → then `phase-done` with `review-code --mode=both` (default under automate; F2 owns transition wiring). Do not skip the evaluation agent or the assert. On evaluation blocker/critical, reopen/fix (max 2 re-dispatches) before phase-done. Orchestrator writes dispositions to the durable decisions log.
 
-Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule). Finalize/archive after the last phase still require `planEndReviewOk` and that the **user validates** implementation (automate / `userValidationOk` in `src/plan-end-review.js`).
+Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule). Finalize/archive after the last phase still require `planEndReviewOk`, that the **user validates** implementation (automate / `userValidationOk` in `src/plan-end-review.js`), and **`assert-automate-gate --gate finalize` exit 0**.
 
 **Session cut-over (advisory, v1).** At a phase boundary, if the next pending task is structurally unrelated to the recent working set, you MAY recommend writing the handoff and starting a fresh session (a tightly-scoped fresh context beats a large stale one). This is advisory only — see `docs/design/project-orchestrator/06-session-boundary-and-telemetry.md` (F-E1). It never forces a cut, and it never reads a self-reported context-%.
 
@@ -246,6 +248,8 @@ Resident **triggers** only — if a thought matches one, STOP and read its full 
 - "The phase writer said all verifiers passed — mark them done without re-running on the merged tree."
 - "I'll spawn two phase writers for independent phases in parallel under automate."
 - "I'll nest the phase worktree under the plan worktree to keep paths tidy."
+- "I'll skip assert-automate-gate — the pure helpers already exist in my head."
+- "Stamp is automate but I'll silently drop into Mode 1 coding without clear-execution-mode."
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
@@ -257,4 +261,4 @@ The full Temptation→Reality table (every rationalization above, refuted with i
 
 Output of a clean run: the phase's tasks each closed through a verified PASS (evidence in durable state), the `## Session handoff` block current and self-sufficient, the tree committed or its uncommitted changes recorded verbatim, and — at a phase boundary — `phase-done` run with its exit-gate verifiers and review gate. implement never closes a task on a claim and never codes two tasks at once.
 
-Under `--mode=automate` / pure maestro: the session never edits product source; one code-only phase writer per phase; orchestrator owns merge, post-merge re-verify, `done`, evaluation agent, and `phase-done`; never self-certify; never silent Mode-1 fallback; finalize/archive require `planEndReviewOk` and that the user validates implementation.
+Under `--mode=automate` / pure maestro: the session never edits product source; one code-only phase writer per phase; orchestrator owns merge, post-merge re-verify, `done`, evaluation agent, and `phase-done`; never self-certify; never silent Mode-1 fallback; run `assert-automate-gate` before spawn/done/phase-done/finalize (non-zero forbids advance); finalize/archive require `planEndReviewOk` and that the user validates implementation.

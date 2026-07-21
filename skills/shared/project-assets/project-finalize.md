@@ -383,6 +383,15 @@ const gates = automatePlanEndGatesOk({
 // Prefer canFinalizeOrArchive from src/automate-orchestrator-gates.js (same predicate).
 ```
 
+**Layer-2 assert CLI (required call site under pure-maestro / durable stamp):**
+
+```bash
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/assert-automate-gate.js" \
+  --plan <slug> --gate finalize
+```
+
+Exit **0** / `ok` only when `canFinalizeOrArchive` / `automatePlanEndGatesOk` is true. Non-zero + `blocked:` ⇒ **HARD-BLOCK** — do not push, do not open a PR, do not archive.
+
 | Condition | Result |
 |---|---|
 | `planEndReviewOk` false (missing receipt, all legs failed/skipped, or skip without non-empty reason) | **HARD-BLOCK** finalize — print which leg(s) failed / that skip needs a reason; offer re-run external-both or `--skip-plan-end-review <reason>` |
@@ -390,7 +399,7 @@ const gates = automatePlanEndGatesOk({
 | both true | proceed to Step 2 (diff + proposed PR halt) |
 
 **Invariant:** finalize under automate never creates a PR while `automatePlanEndGatesOk`
-reports `ok: false`. Archive re-checks the same gates
+reports `ok: false` (or `assert-automate-gate --gate finalize` exits non-zero). Archive re-checks the same gates
 (`{{ASSETS_PATH}}/project-transitions.md` → `archive`).
 
 ## Step 2 — Show the diff + the proposed PR, then HALT (operator-prompted)
