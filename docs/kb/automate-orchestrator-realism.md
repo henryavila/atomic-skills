@@ -109,10 +109,10 @@ finalize without plan-end, claim without merge, host-local wait-loop needs).
 
 ## Operator mental model
 
-1. **Materialize** each phase (you own `businessIntent`).
-2. **`implement --mode=automate`** once per plan (stamp).
-3. Maestro follows A–I; STOP helpers + **assert** + **maestro cursor** refuse illegal jumps when invoked.
-4. After phase-done, cursor may sit at **`awaiting-operator-advance`** until you continue.
-5. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your validation timestamp.
+1. **Materialize** each phase (you own `businessIntent` — automate never invents spine).
+2. **`implement --mode=automate`** once per plan (stamp). Mode 1 is the **execution driver**; automate is **pure maestro** (orchestrator-only).
+3. Maestro follows A–I; STOP helpers + **`assert-automate-gate`** + **maestro cursor** refuse illegal jumps when invoked (spawn/done/phase-done/finalize).
+4. After phase-done, cursor sits at **`awaiting-operator-advance`** (pause) until you **continue** via `clearContinue` (`operator-continue` token). No multi-phase auto-run; no auto-materialize; generic ok is not enough.
+5. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your **`userValidatedAt`** validation timestamp (`assert-automate-gate --gate finalize`).
 
-If a step is skipped, prefer **fail closed** (blocked gate / illegal cursor step) over “looks done”.
+**Assert + cursor + pause** are the cheap fail-closed trio: Layer-2 CLI, Layer-2.5 step file, post phase-done operator authority. If a step is skipped, prefer **fail closed** (blocked `assert-automate-gate` / illegal cursor step / `awaiting-operator-advance`) over “looks done”.

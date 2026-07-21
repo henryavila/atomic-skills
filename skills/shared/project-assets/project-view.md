@@ -257,6 +257,7 @@ Steps:
    - Next action
    - CROSS-MODEL REVIEW line (see `{{ASSETS_PATH}}/project-drift.md` § CROSS-MODEL REVIEW tracking)
    - When the active plan has `executionMode: automate`: **PLAN-END REVIEW** line (missing receipt / user validation pending / ok) — see `{{ASSETS_PATH}}/project-drift.md` § *Plan-end receipt visibility (automate — read-only)*. Read-only; never mutates.
+   - When the active plan has `executionMode: automate`: **MAESTRO / ASSERT** line (read-only). If `.atomic-skills/status/automate/<slug>.json` has step **`awaiting-operator-advance`**, surface pause — next-phase spawn / Step A blocked until operator `clearContinue` (`operator-continue`). Otherwise note cursor step when present and that illegal advances are refused by `scripts/assert-automate-gate.js` (spawn/done/phase-done/finalize). Point at assert + maestro cursor; do not mutate cursor or run assert as a writer from view.
    - Completion-drift offer (see "Completion-drift offer" below — read-only; `reconcile` is the only mutation path)
 
 ## `--terminal`
@@ -291,6 +292,7 @@ If there is an active initiative whose `branch:` matches `git rev-parse --abbrev
   5. NEXT: `<nextAction>` from frontmatter
   6. **CROSS-MODEL REVIEW** line: see `{{ASSETS_PATH}}/project-drift.md` § CROSS-MODEL REVIEW tracking — this single line tells the user whether the work-in-progress has been adversarially reviewed since the last meaningful change, and surfaces the `review-due` command if not.
   7. **PLAN-END REVIEW** line (only when the active plan's `executionMode` is `automate` / `isAutomateActive` would be true): see `{{ASSETS_PATH}}/project-drift.md` § *Plan-end receipt visibility (automate — read-only)*. Surfaces missing `planEndReview` receipt, pending `userValidatedAt`, or both-ok — pure helpers `planEndReviewOk` / `userValidationOk` / `automatePlanEndGatesOk` from `src/plan-end-review.js`. Read-only; finalize/archive enforce the HARD-BLOCK separately.
+  8. **MAESTRO / ASSERT** line (only when active plan `executionMode: automate`): read `.atomic-skills/status/automate/<slug>.json` when present. If `step` is **`awaiting-operator-advance`**, print pause (operator continue required; `clearContinue` / `operator-continue` — no auto-materialize). Else print step + phaseId when available. Always note Layer-2 `assert-automate-gate` refuses illegal spawn/done/phase-done/finalize under stamp. **Read-only** — view never advances cursor, never clears pause, never spawns.
 
 Unicode icons:
 - `✓` done, `◉` active, `·` pending, `⊘` blocked, `⌂` parked, `⇥` emerged

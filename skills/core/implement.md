@@ -43,7 +43,14 @@ If `isAutomateActive` and the maestro cursor is **`awaiting-operator-advance`**,
 
 ## Mindset
 
-This is an **execution driver, not an orchestrator** — call it that so no one expects concurrency that single-threaded coding will never use. It is a serial loop with durable checkpoints: code a task, verify it, commit it, close it, commit the state, repeat. The value is not speed; it is that the work is always recoverable from git plus `.atomic-skills/` state and that no task closes on a claim instead of a fact.
+**Branch on mode — do not blur them:**
+
+| Mode | Role | What the host session does |
+|------|------|----------------------------|
+| **Mode 1** | **execution driver** | Session-writer path: you **are** the single-threaded coder. Serial loop with durable checkpoints — code a task, verify it, commit it, close it, commit the state, repeat. Not a multi-agent orchestrator; no one expects concurrency that single-threaded coding will never use. |
+| **Automate** (`isAutomateActive`) | **pure maestro** (orchestrator-only) | Host session is **orchestrator-only** — never edits product source. Dispatches one code-only phase writer, sync-waits, merges (git-ops only), re-verifies, runs evaluation, owns `done` / `phase-done` / finalize. The **phase writer** is the execution driver for code; the maestro is not. |
+
+The value in both modes is not speed; it is that the work is always recoverable from git plus `.atomic-skills/` state and that no task closes on a claim instead of a fact. Under automate, that recoverability includes the maestro cursor (pause at `awaiting-operator-advance` after phase-done until operator `clearContinue`).
 
 The snapshot trigger is **event-driven, never a self-measured context gauge.** You cannot read your own remaining context window — the number is fabricated and the loss is silent (the host meter, where one exists, is advisory only). So you snapshot on *events* you can observe: after each task closes, before each subagent dispatch, at every phase boundary, and on request. A snapshot means a microcommit plus a refreshed handoff. A handoff that records dirty files is a crash report, not a successful checkpoint.
 
