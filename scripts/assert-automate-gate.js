@@ -17,19 +17,27 @@
  *                            (claim-bound; inactive when no executionMode stamp)
  *   --check-reachability     Also validate claim SHAs against reachable set
  *   --reachable-file <path>  Newline-separated SHAs (with --check-reachability)
+ *   --complex-receipts <path> JSON map { "T-001": { mode, reviewFile, ... } }
+ *                            for complex-before-done (optional; also reads
+ *                            task.reviewReceipt on initiative)
  *   --skip-cursor            Skip maestro cursor step check (debug only)
+ *   --skip-last-assert       Do not write lastAssert on cursor (debug only)
  *   --help
  *
  * Under durable executionMode: automate, gates also read the thin maestro
  * cursor (Layer 2.5 — `src/maestro-cursor.js`, path
  * `<status-root>/automate/<slug>.json`) and block illegal step for
- * spawn/done/phase-done/finalize. Non-automate plans never require a cursor.
+ * spawn/done/phase-done/finalize. On exit 0 (and blocked done/phase-done),
+ * writes lastAssert so pure-maestro cannot mutate without a fresh assert.
  *
- * No auto-merge / no git worktree ops — pure assert only.
+ * --gate done also loads the phase initiative and builds complexTasks from
+ * weight/tags + receipts (fail closed for complex without both receipt).
+ *
+ * No auto-merge / no git worktree ops.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   canSpawnPhaseWriter,
@@ -43,9 +51,14 @@ import {
   readCursorResult,
   ensureCursor,
   cursorAllowsGate,
+  recordLastAssertFile,
   AWAITING_OPERATOR_ADVANCE,
 } from '../src/maestro-cursor.js';
 import { hasAutomateStamp } from '../src/implement-mode.js';
+import {
+  buildComplexTasksFromInitiative,
+  claimTaskIdsFromReport,
+} from '../src/automate-complex-from-initiative.js';
 import { parseFrontmatter } from './validate-state.js';
 
 const GATES = new Set(['spawn', 'claims', 'done', 'phase-done', 'finalize']);
@@ -60,10 +73,10 @@ Gates:
                 + maestro cursor step C under automate stamp
   claims        canCloseTasksFromClaims (claim report required under automate stamp)
                 + cursor step D|D.5|E under stamp
-  done          canDoneFromAutomateClaims under stamp (claim-bound; inactive when no stamp)
-                + cursor step E under stamp
+  done          canDoneFromAutomateClaims under stamp (claim-bound + complex from initiative)
+                + cursor step E under stamp + lastAssert written
   phase-done    canRunPhaseDone (evaluation + lessons + review both under durable automate)
-                + cursor step G under stamp
+                + cursor step G under stamp + lastAssert written
   finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
                 + cursor step I under stamp
 
@@ -74,12 +87,15 @@ Options:
   --claim-report <path>     JSON claim report (claims|done)
   --check-reachability      Validate claim SHAs against reachable set
   --reachable-file <path>   Newline-separated SHAs for reachability
+  --complex-receipts <path> JSON { "T-001": { mode, reviewFile } } for complex done
   --skip-cursor             Skip maestro-cursor step check (debug / recovery only)
+  --skip-last-assert        Do not write lastAssert (debug only)
   --help                    Show this help (exit 0)
 
 Maestro cursor (Layer 2.5, under stamp only):
   Path: <status-root>/automate/<slug>.json via src/maestro-cursor.js
   Missing cursor initializes at A (ensureCursor) — still blocks gates that need C/E/G/I.
+  lastAssert: { gate, ok, at } written on done/phase-done so skill cannot mutate without assert.
   Non-automate: cursor not required (gate inactive for step check).
 
 Exit codes:
@@ -110,6 +126,10 @@ export function parseArgs(argv) {
     }
     if (a === '--skip-cursor') {
       out.skipCursor = true;
+      continue;
+    }
+    if (a === '--skip-last-assert') {
+      out.skipLastAssert = true;
       continue;
     }
     if (a.startsWith('--') && a.includes('=')) {
@@ -259,6 +279,90 @@ export function phaseSlice(fm, phaseId) {
 }
 
 /**
+ * Resolve nested phase initiative path next to plan.md.
+ * @param {string} planFile
+ * @param {object} fm
+ * @param {object | null} phase
+ * @returns {string | null}
+ */
+export function resolveInitiativePath(planFile, fm, phase) {
+  if (phase == null || typeof phase !== 'object') return null;
+  const planDir = dirname(planFile);
+  const phasesDir = join(planDir, 'phases');
+  if (!existsSync(phasesDir)) return null;
+  const planSlug =
+    fm.slug != null && String(fm.slug).trim() !== ''
+      ? String(fm.slug).trim()
+      : '';
+  const phaseSlug =
+    phase.slug != null && String(phase.slug).trim() !== ''
+      ? String(phase.slug).trim()
+      : '';
+  const phaseId =
+    phase.id != null && String(phase.id).trim() !== ''
+      ? String(phase.id).trim().toLowerCase()
+      : '';
+
+  /** @type {string[]} */
+  const candidates = [];
+  if (phaseSlug) {
+    candidates.push(join(phasesDir, `${phaseSlug}.md`));
+    if (planSlug) {
+      candidates.push(join(phasesDir, `${planSlug}-${phaseSlug}.md`));
+    }
+  }
+  // f0-*.md style: match files starting with phase id lowercased
+  try {
+    for (const name of readdirSync(phasesDir)) {
+      if (!name.endsWith('.md') || name.endsWith('.source.json')) continue;
+      const base = name.slice(0, -3);
+      if (phaseSlug && (base === phaseSlug || base.endsWith(`-${phaseSlug}`))) {
+        candidates.push(join(phasesDir, name));
+      }
+      if (phaseId && (base.startsWith(`${phaseId}-`) || base === phaseId)) {
+        candidates.push(join(phasesDir, name));
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+/**
+ * Load initiative frontmatter for complex-task scan.
+ * @param {string | null} initiativePath
+ * @returns {object | null}
+ */
+export function loadInitiativeFrontmatter(initiativePath) {
+  if (!initiativePath || !existsSync(initiativePath)) return null;
+  return readFm(initiativePath);
+}
+
+/**
+ * @param {string} path
+ * @returns {Record<string, object>}
+ */
+export function loadComplexReceiptsMap(path) {
+  const raw = JSON.parse(readFileSync(path, 'utf8'));
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('complex receipts must be a JSON object map');
+  }
+  /** @type {Record<string, object>} */
+  const out = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (v != null && typeof v === 'object' && !Array.isArray(v)) {
+      out[String(k)] = v;
+    }
+  }
+  return out;
+}
+
+/**
  * @param {string} path
  * @returns {unknown}
  */
@@ -352,6 +456,48 @@ export function checkMaestroCursor(input) {
     };
   }
   return { ok: true };
+}
+
+/**
+ * Persist lastAssert on maestro cursor so pure-maestro cannot mutate without
+ * a fresh successful assert for done/phase-done.
+ *
+ * @param {string} statusRoot
+ * @param {string} planSlug
+ * @param {object} fm
+ * @param {Record<string, string | boolean>} args
+ * @param {string} gate
+ * @param {{ ok: boolean, message: string, exitCode: number }} result
+ */
+export function maybeRecordLastAssert(
+  statusRoot,
+  planSlug,
+  fm,
+  args,
+  gate,
+  result,
+) {
+  if (args.skipLastAssert === true) return;
+  if (args.skipCursor === true) return;
+  const planExecutionMode =
+    fm.executionMode != null ? String(fm.executionMode) : null;
+  if (!hasAutomateStamp({ executionMode: planExecutionMode })) return;
+  if (gate !== 'done' && gate !== 'phase-done') return;
+  try {
+    const phaseId =
+      fm.currentPhase != null && String(fm.currentPhase).trim() !== ''
+        ? String(fm.currentPhase).trim()
+        : 'F0';
+    recordLastAssertFile(statusRoot, planSlug, {
+      gate,
+      ok: result.ok === true && result.exitCode === 0,
+      reason: result.ok ? null : result.message,
+      phaseId,
+    });
+  } catch {
+    // fail-open on lastAssert write — gate result still returned; skill prose
+    // still requires lastAssertAllows before mutate when cursor is readable
+  }
 }
 
 /**
@@ -524,28 +670,62 @@ export function runAssert(args, env = {}) {
       }
     }
 
-    // Under stamp: --gate done uses claim-bound canDoneFromAutomateClaims.
-    // CLI reachability stays opt-in via --check-reachability (pass false so
-    // missing --reachable-file does not fail shape-only assert). Pure helper
-    // still defaults reachability true when called without that flag from code.
+    // Under stamp: --gate done uses claim-bound canDoneFromAutomateClaims +
+    // complexTasks auto-built from phase initiative (weight/tags + receipts).
+    // CLI reachability stays opt-in via --check-reachability.
     // No auto-merge: this script never runs git merge / worktree ops.
     let r;
     if (gate === 'done' && stamped) {
+      /** @type {Record<string, object> | null} */
+      let receiptsByTaskId = null;
+      if (args.complexReceipts != null && args.complexReceipts !== true) {
+        const crPath = resolve(cwd, String(args.complexReceipts));
+        if (!existsSync(crPath)) {
+          return {
+            ok: false,
+            message: `blocked: complex receipts file not found: ${crPath}`,
+            exitCode: 1,
+          };
+        }
+        try {
+          receiptsByTaskId = loadComplexReceiptsMap(crPath);
+        } catch (err) {
+          return {
+            ok: false,
+            message: `blocked: unparseable complex receipts: ${err instanceof Error ? err.message : String(err)}`,
+            exitCode: 1,
+          };
+        }
+      }
+      const phase = phaseSlice(fm, fm.currentPhase);
+      const initiativePath = resolveInitiativePath(resolved.planFile, fm, phase);
+      const initFm = loadInitiativeFrontmatter(initiativePath);
+      const claimIds = claimTaskIdsFromReport(claimReport);
+      const complexTasks = buildComplexTasksFromInitiative({
+        tasks: initFm != null ? initFm.tasks : [],
+        claimTaskIds: claimIds.length > 0 ? claimIds : null,
+        receiptsByTaskId,
+      });
       r = canDoneFromAutomateClaims({
         ...input,
         checkReachability: args.checkReachability === true,
+        complexTasks,
       });
     } else {
       r = canCloseTasksFromClaims(input);
     }
     if (!r.ok) {
-      return {
+      const out = {
         ok: false,
         message: `blocked: ${formatBlocked(r, 'claim report invalid')}`,
         exitCode: 1,
       };
+      maybeRecordLastAssert(statusRoot, slug, fm, args, gate, out);
+      return out;
     }
-    return { ok: true, message: 'ok', exitCode: 0 };
+    const okOut = { ok: true, message: 'ok', exitCode: 0 };
+    maybeRecordLastAssert(statusRoot, slug, fm, args, gate, okOut);
+    return okOut;
   }
 
   if (gate === 'phase-done') {
@@ -585,13 +765,17 @@ export function runAssert(args, env = {}) {
       phase,
     });
     if (!r.ok) {
-      return {
+      const out = {
         ok: false,
         message: `blocked: ${formatBlocked(r, 'phase-done evaluation/lessons/review gate')}`,
         exitCode: 1,
       };
+      maybeRecordLastAssert(statusRoot, slug, fm, args, gate, out);
+      return out;
     }
-    return { ok: true, message: 'ok', exitCode: 0 };
+    const okOut = { ok: true, message: 'ok', exitCode: 0 };
+    maybeRecordLastAssert(statusRoot, slug, fm, args, gate, okOut);
+    return okOut;
   }
 
   // finalize

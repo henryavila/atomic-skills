@@ -143,8 +143,15 @@ Dogfood: `reviewGate.mode: local` without real `review-code --mode=both`. Under 
 
 Helper: `src/phase-review-gate.js` (`phaseReviewAllowsClose`). Code: `phase-done-review-open`.
 
-### Complex before done (optional input, deterministic when provided)
+### Complex before done (auto-loaded on assert --gate done)
 
-`canDoneFromAutomateClaims({ complexTasks: [{ task, reviewReceipt }] })` runs
-`complexTaskAllowsDone` per row after claim validation. Orchestrator must pass
-complex rows for weight/tags/destructive tasks under automate.
+`assert-automate-gate --gate done` loads the phase initiative and builds
+`complexTasks` via `src/automate-complex-from-initiative.js` (weight/tags +
+`--complex-receipts` map or `task.reviewReceipt`). Complex without both-mode
+receipt fails closed.
+
+### lastAssert mutation fence
+
+On done/phase-done, assert writes `lastAssert: { gate, ok, at }` on the maestro
+cursor. Skill must call `lastAssertAllows(cursor, gate)` before mutating task
+or phase terminal state — fail closed if assert was skipped or failed.

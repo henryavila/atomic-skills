@@ -9,9 +9,13 @@
  * file contents. Skill prose remains the maestro; this is Layer 2.5 status.
  *
  * Cursor shape:
- *   { step, phaseId, redispatchCount, claimReportPath?, leasePath?, updatedAt }
+ *   { step, phaseId, redispatchCount, claimReportPath?, leasePath?, updatedAt,
+ *     lastAssert?: { gate, ok, at, reason? } }
  *
  * Steps: A | B | C | D | D.5 | E | F | G | H | I | awaiting-operator-advance
+ *
+ * lastAssert: written by assert-automate-gate on exit 0 so pure-maestro cannot
+ * mutate done/phase-done state without a fresh successful assert for that gate.
  *
  * Pure builders/parsers preferred; thin FS wrappers for read/write/ensure.
  * No network.
@@ -65,12 +69,20 @@ export const MAX_REDISPATCH = 2;
  * @typedef {'A'|'B'|'C'|'D'|'D.5'|'E'|'F'|'G'|'H'|'I'|'awaiting-operator-advance'} MaestroStep
  *
  * @typedef {{
+ *   gate: string,
+ *   ok: boolean,
+ *   at: string,
+ *   reason?: string | null,
+ * }} LastAssert
+ *
+ * @typedef {{
  *   step: MaestroStep | string,
  *   phaseId: string,
  *   redispatchCount: number,
  *   claimReportPath?: string | null,
  *   leasePath?: string | null,
  *   updatedAt: string,
+ *   lastAssert?: LastAssert | null,
  * }} MaestroCursor
  *
  * @typedef {{
@@ -239,6 +251,23 @@ export function validateCursorShape(cursor) {
   }
   if (c.leasePath != null && typeof c.leasePath !== 'string') {
     errors.push('leasePath must be a string or null when present');
+  }
+  if (c.lastAssert != null) {
+    if (typeof c.lastAssert !== 'object' || Array.isArray(c.lastAssert)) {
+      errors.push('lastAssert must be an object when present');
+    } else {
+      const la = /** @type {Record<string, unknown>} */ (c.lastAssert);
+      if (la.gate == null || String(la.gate).trim() === '') {
+        errors.push('lastAssert.gate is required when lastAssert present');
+      }
+      if (typeof la.ok !== 'boolean') {
+        errors.push('lastAssert.ok must be a boolean when lastAssert present');
+      }
+      if (la.at != null && String(la.at).trim() !== '') {
+        const d = Date.parse(String(la.at));
+        if (Number.isNaN(d)) errors.push('lastAssert.at must be ISO when present');
+      }
+    }
   }
 
   return { ok: errors.length === 0, errors };
@@ -501,6 +530,151 @@ export function isAwaitingOperatorAdvance(cursor) {
  * @param {MaestroCursor | null | undefined | Record<string, unknown>} cursor
  * @returns {CursorGateResult}
  */
+/**
+ * Pure: attach lastAssert after assert-automate-gate exit 0 (or failure record).
+ * Does not mutate input.
+ *
+ * @param {MaestroCursor | Record<string, unknown>} cursor
+ * @param {{
+ *   gate: string,
+ *   ok: boolean,
+ *   reason?: string | null,
+ *   at?: string | null,
+ * }} fields
+ * @returns {CursorAdvanceResult}
+ */
+export function recordLastAssert(cursor, fields) {
+  const shape = validateCursorShape(cursor);
+  if (!shape.ok) {
+    return {
+      ok: false,
+      reason: `invalid cursor: ${shape.errors.join('; ')}`,
+    };
+  }
+  if (fields == null || typeof fields !== 'object') {
+    return { ok: false, reason: 'recordLastAssert: fields required' };
+  }
+  const gate = fields.gate != null ? String(fields.gate).trim().toLowerCase() : '';
+  if (!gate) {
+    return { ok: false, reason: 'recordLastAssert: gate is required' };
+  }
+  if (typeof fields.ok !== 'boolean') {
+    return { ok: false, reason: 'recordLastAssert: ok must be boolean' };
+  }
+  const c = /** @type {MaestroCursor} */ (cursor);
+  /** @type {LastAssert} */
+  const lastAssert = {
+    gate,
+    ok: fields.ok,
+    at:
+      fields.at != null && String(fields.at).trim() !== ''
+        ? String(fields.at).trim()
+        : new Date().toISOString(),
+  };
+  if (fields.reason != null && String(fields.reason).trim() !== '') {
+    lastAssert.reason = String(fields.reason).trim();
+  }
+  /** @type {MaestroCursor} */
+  const next = {
+    ...c,
+    lastAssert,
+    updatedAt: lastAssert.at,
+  };
+  const nextShape = validateCursorShape(next);
+  if (!nextShape.ok) {
+    return {
+      ok: false,
+      reason: `invalid cursor after lastAssert: ${nextShape.errors.join('; ')}`,
+    };
+  }
+  return { ok: true, cursor: next };
+}
+
+/**
+ * Pure: whether lastAssert authorizes a mutation for this gate (done / phase-done).
+ * Requires lastAssert.ok === true and matching gate. Missing lastAssert → fail closed
+ * under pure-maestro (must run assert-automate-gate first).
+ *
+ * @param {MaestroCursor | null | undefined | Record<string, unknown>} cursor
+ * @param {string} gate
+ * @returns {CursorGateResult}
+ */
+export function lastAssertAllows(cursor, gate) {
+  if (cursor == null || typeof cursor !== 'object') {
+    return { ok: false, reason: 'missing maestro cursor (need lastAssert after assert-automate-gate)' };
+  }
+  const shape = validateCursorShape(cursor);
+  if (!shape.ok) {
+    return {
+      ok: false,
+      reason: `invalid maestro cursor: ${shape.errors.join('; ')}`,
+    };
+  }
+  const want = String(gate ?? '').trim().toLowerCase();
+  if (!want) {
+    return { ok: false, reason: 'lastAssertAllows: gate is required' };
+  }
+  const la = /** @type {MaestroCursor} */ (cursor).lastAssert;
+  if (la == null || typeof la !== 'object') {
+    return {
+      ok: false,
+      reason: `missing lastAssert for gate ${want} — run assert-automate-gate --gate ${want} first (exit 0)`,
+    };
+  }
+  const got = la.gate != null ? String(la.gate).trim().toLowerCase() : '';
+  if (got !== want) {
+    return {
+      ok: false,
+      reason: `lastAssert.gate is ${got || '(empty)'} (need ${want}) — re-run assert-automate-gate --gate ${want}`,
+    };
+  }
+  if (la.ok !== true) {
+    return {
+      ok: false,
+      reason: `lastAssert.ok is false for gate ${want}${la.reason ? `: ${la.reason}` : ''}`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * FS: write lastAssert onto on-disk cursor (create via ensureCursor if missing).
+ *
+ * @param {string} statusRoot
+ * @param {string} planSlug
+ * @param {{
+ *   gate: string,
+ *   ok: boolean,
+ *   reason?: string | null,
+ *   at?: string | null,
+ *   phaseId?: string,
+ * }} fields
+ * @returns {{ path: string, cursor: MaestroCursor }}
+ */
+export function recordLastAssertFile(statusRoot, planSlug, fields) {
+  let read = readCursorResult(statusRoot, planSlug);
+  let cursor = read.cursor;
+  if (read.status === 'missing' || cursor == null) {
+    const phaseId =
+      fields.phaseId != null && String(fields.phaseId).trim() !== ''
+        ? String(fields.phaseId).trim()
+        : 'F0';
+    const ensured = ensureCursor(statusRoot, planSlug, { phaseId });
+    cursor = ensured.cursor;
+  }
+  if (read.status === 'malformed') {
+    throw new Error(
+      `recordLastAssertFile: malformed cursor for ${planSlug}: ${read.error || 'invalid'}`,
+    );
+  }
+  const result = recordLastAssert(cursor, fields);
+  if (!result.ok || result.cursor == null) {
+    throw new Error(result.reason || 'recordLastAssertFile failed');
+  }
+  const path = writeCursorFile(statusRoot, planSlug, result.cursor);
+  return { path, cursor: result.cursor };
+}
+
 export function cursorAllowsStepA(cursor) {
   if (cursor == null || typeof cursor !== 'object') {
     return { ok: false, reason: 'missing maestro cursor' };

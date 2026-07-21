@@ -319,6 +319,81 @@ describe('assert-automate-gate CLI', () => {
   });
 
   describe('claims / done', () => {
+    it('exit 1 when complex initiative task lacks both receipt (auto complexTasks)', () => {
+      const root = tmpRoot();
+      try {
+        const { planDir, stateRoot } = writePlan(root, {
+          executionMode: 'automate',
+        });
+        const phasesDir = join(planDir, 'phases');
+        mkdirSync(phasesDir, { recursive: true });
+        // initiative with complex task T-001 weight 5
+        writeFileSync(
+          join(phasesDir, 'f0-demo.md'),
+          [
+            '---',
+            'schemaVersion: "0.1"',
+            'slug: f0-demo',
+            'phaseId: F0',
+            'parentPlan: demo-plan',
+            'status: active',
+            'tasks:',
+            '  - id: T-001',
+            '    title: heavy',
+            '    status: pending',
+            '    weight: 5',
+            '---',
+            '',
+            '# init',
+            '',
+          ].join('\n'),
+          'utf8',
+        );
+        // fix plan phase slug for resolveInitiativePath
+        // writePlan only sets id F0 — resolve uses f0- prefix match
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'E');
+        const claimPath = join(root, 'claim.json');
+        writeFileSync(
+          claimPath,
+          JSON.stringify({
+            tasks: [
+              {
+                taskId: 'T-001',
+                status: 'claimed-pass',
+                commitShas: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
+                paths: ['src/a.js'],
+                verifierCommand: 'true',
+                exitCode: 0,
+                transcript: '',
+              },
+            ],
+          }),
+          'utf8',
+        );
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+            '--claim-report',
+            claimPath,
+            '--skip-last-assert',
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /complex|both|receipt/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
     it('exit 1 when claim report missing under automate stamp (claim-bound)', () => {
       const root = tmpRoot();
       try {

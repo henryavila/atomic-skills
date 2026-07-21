@@ -92,6 +92,8 @@ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). A
 - Pure STOP helpers (layer-1, no spawn): `src/automate-orchestrator-gates.js` (`canSpawnPhaseWriter`, `canCloseTasksFromClaims`, `canDoneFromAutomateClaims` claim-bound done, `canRunPhaseDone` = evaluation + **lessons**, `canFinalizeOrArchive`) + `phaseLessonsAllowsClose` / `buildLessonsState` in `src/phase-lessons-gate.js` + `complexTaskAllowsDone` in `src/complex-task.js`.
 - **Layer-2 assert (required before C/E/G/I):** `scripts/assert-automate-gate.js` — non-zero exit forbids advancing. Step **E** is claim-bound under stamp (`--gate done`).
 - **Layer-2.5 maestro cursor:** update on every A–I boundary (`src/maestro-cursor.js`); assert under stamp refuses illegal step; after successful phase-done **`recordPhaseDonePause` → `awaiting-operator-advance`**; Step A / spawn refuse until **`clearContinue` (`operator-continue`)**; never delete cursor/lease to force progress.
+- **lastAssert (mutation fence):** `assert-automate-gate --gate done|phase-done` writes `lastAssert: { gate, ok, at }` on the cursor. Before orchestrator mutates task `done` or phase-done terminal state, call **`lastAssertAllows(cursor, 'done'|'phase-done')`** — if ok is false or gate mismatches, **STOP** (do not mark done / do not advance). Forces re-run of assert after every claim/eval change.
+- **done complex auto-load:** `assert --gate done` loads the phase initiative and builds `complexTasks` from weight/tags (+ `--complex-receipts` map or `task.reviewReceipt`). Complex without both-mode receipt fails closed.
 
 #### Claim report validation (orchestrator, before any `done`) — claim-bound under stamp
 
