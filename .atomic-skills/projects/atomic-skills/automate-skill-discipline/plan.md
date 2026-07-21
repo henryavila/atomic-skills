@@ -297,7 +297,7 @@ phases:
     goal: After phase-done under automate, block next-phase spawn until operator continue; branch Mindset Mode-1 vs Automate; close residual antipatterns; view surfaces pause/plan-end if cheap.
     dependsOn:
       - F3
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -315,11 +315,17 @@ phases:
             kind: shell
             command: test ! -e skills/core/automate.md && node --test tests/phase-evaluation-gate.test.js tests/assert-automate-gate.test.js
             expectExitCode: 0
-    status: pending
+    status: active
+    businessIntent:
+      value: Apos phase-done sob automate, spawn da proxima fase bloqueia ate operator continue; framing Mode-1 vs Automate e antipatterns residual fecham a disciplina.
+      workflow: T-009 pause awaiting-operator-advance no cursor+assert+transitions; T-010 framing mindset e antipatterns pack.
+      rules: Nao auto-materialize; nao auto-finalize; continue token explicito; non-automate phase-done inalterado.
+      outOfScope: Mode 2 rewrite; install surface; Layer 4.
+      doneWhen: Pause tests+greps verdes; framing pure maestro vs execution driver; F4-G1/G2 met.
 references: []
 planActive: true
 planTitle: Automate skill discipline remediation
-lastUpdated: 2026-07-21T20:16:16.000Z
+lastUpdated: 2026-07-21T20:16:16.227Z
 ---
 
 # Automate skill discipline remediation
