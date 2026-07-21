@@ -1,7 +1,7 @@
 Perform an adversarial analysis of the plan {{ARG_VAR}} looking for
 internal errors, gaps, and inconsistencies. Step 0 picks a mode: `local`,
-`codex`, `grok`, `both` (local→**host external default**), `both-codex`,
-`both-grok`, or `external-both`. Full mode table, host-aware picker, and
+`codex`, `grok`, `claude`, `both` (local→**host external default**), `both-codex`,
+`both-grok`, `both-claude`, or `external-both`. Full mode table, host-aware picker, and
 same-family rules: {{READ_TOOL}}
 `skills/shared/codex-bridge-assets/review-mode-ux.md` (routing:
 `src/cross-model-host-default.js`). All modes may cross-reference source
@@ -11,7 +11,7 @@ artifacts (PRD, specs, designs).
 
 NO APPROVAL WITHOUT EVIDENCE.
 - Local mode: every checklist item marked "ok" MUST cite plan line numbers. When cross-ref is active: line numbers from BOTH plan AND artifact. When initiative-depth is active: line numbers from BOTH plan AND initiative file(s).
-- External mode (`codex`/`grok`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
+- External mode (`codex`/`grok`/`claude`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
 
 NO INTENT IN THE BRIEFING (external sub-flow).
 The briefing sent to the external provider contains ONLY externally
@@ -51,10 +51,10 @@ flags. Tokens starting with `--` are flags:
 
 | Flag | Effect |
 |---|---|
-| `--mode=local\|codex\|grok\|both\|both-codex\|both-grok\|external-both` | Skip Step 0a; force mode (`both` = local→host external default). |
+| `--mode=local\|codex\|grok\|claude\|both\|both-codex\|both-grok\|both-claude\|external-both` | Skip Step 0a; force mode (`both` = local→host external default). |
 | `--mode=internal` | Alias for `--mode=local` (compat with v2.x). |
 | `--accept-same-family-as-local` | Non-interactive same-family → sealed local (`provider:local`); see review-mode-ux.md. |
-| `--model=<id>` / `--model <id>` / `model:<id>` / `--model-codex=` / `--model-grok=` / `--ask-model` | External model (review-mode-ux.md Step 0.model). Values are **not** part of `plan_path`. |
+| `--model=<id>` / `--model <id>` / `model:<id>` / `--model-codex=` / `--model-grok=` / `--model-claude=` / `--ask-model` | External model (review-mode-ux.md Step 0.model). Values are **not** part of `plan_path`. |
 | `--no-cross-ref` | Skip Step 0b; force internal-only. Valid when mode has a local leg or is local-only. |
 | `--cross-ref=path1,path2,...` | Skip Step 0b; use listed artifacts. Same validity as `--no-cross-ref`. |
 | `--artifacts=path1,path2,...` | Alias for `--cross-ref=` (compat with v2.x). |
@@ -76,7 +76,7 @@ router's `## Initial detection`. Do NOT re-implement plan discovery here.
 **Non-interactive abort.** If neither a TTY nor an explicit `--mode=` flag
 is available (hook, `parallel-dispatch`, or `project-status`/`project-plan`
 loop), abort with: "review-plan invoked without TTY and without `--mode=`;
-pass `--mode=local|codex|grok|both|both-codex|both-grok|external-both`
+pass `--mode=local|codex|grok|claude|both|both-codex|both-grok|both-claude|external-both`
 explicitly." Do NOT invoke {{ASK_USER_QUESTION_TOOL}} in background.
 Workflows that loop over plans (e.g. `project-plan` Stage 8b) MUST pass
 `--mode=local` (or `--mode=internal`) to skip the prompt.
@@ -185,13 +185,13 @@ Resolve route first (Step 0a). Then Step 0b → cross-ref. Step 0c → initiativ
 
 Run **Self-loop checklist** (below). END.
 
-### Flow B — external only (`mode ∈ {codex, grok}` after route stays external)
+### Flow B — external only (`mode ∈ {codex, grok, claude}` after route stays external)
 
 Run **External sealed-envelope sub-flow** with `«PROVIDER»` =
 `route.externalProvider` (result of `resolveReviewRoute` — never re-derive from
 the forced mode after the same-family decision). END.
 
-### Flow C — local then external (`mode ∈ {both, both-codex, both-grok}`)
+### Flow C — local then external (`mode ∈ {both, both-codex, both-grok, both-claude}`)
 
 1. **LOCAL PHASE** — Self-loop checklist; apply fixes inline. Audit trail goes
    into the persisted review file, NOT the external briefing.
@@ -211,14 +211,14 @@ details: `docs/kb/cross-model-review-design.md` § external-both +
 `{{ASSETS_PATH}}/envelope-orchestration.md` § external-both):
 
 1. **Collect.** Run External sealed-envelope per remaining provider
-   (**Codex then Grok**) on the same CLEANED plan. No triage/edit between legs.
+   (**codex → grok → claude**, family-filtered) on the same CLEANED plan. No triage/edit between legs.
    Per-provider failure records `{ status: failed, error }` and **continues**
    the other leg (single-provider modes still abort on failure).
    Family-filtered legs: `status: skipped`.
 2. **Merge.**
    ```bash
    node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
-     <codex-findings.json|-|skip> <grok-findings.json|-|skip>
+     <codex-findings.json|-|skip> <grok-findings.json|-|skip> [claude-findings.json|-|skip]
    ```
    Or `mergeExternalBothFindings` from
    `"$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/external-both-merge.js"`.
@@ -287,11 +287,11 @@ document it as an "alignment note" in the plan itself.
 
 ---
 
-## External sealed-envelope sub-flow (modes: codex, grok, both*, external-both)
+## External sealed-envelope sub-flow (modes: codex, grok, claude, both*, external-both)
 
 Run the canonical two-pass sealed envelope per
 `{{ASSETS_PATH}}/envelope-orchestration.md` (byte-identical skeleton shared with
-`review-code`). Bind `«PROVIDER»` ∈ {`codex`,`grok`} from the route (never after
+`review-code`). Bind `«PROVIDER»` ∈ {`codex`,`grok`,`claude`} from the route (never after
 same-family remap). Leaf assets under
 `skills/shared/codex-bridge-assets/providers/«PROVIDER»/`; do NOT inline-rewrite
 them. Plan-review artifact slots:
@@ -429,6 +429,6 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 The review output uses the `### Analysis Summary` template in
 `skills/shared/project-assets/plan-initiative-depth.md` § *Closing template*.
 {{READ_TOOL}} it and present the summary in that format — include
-**Provider:** `codex|grok|local` from the route (never codex/grok after
+**Provider:** `codex|grok|claude|local` from the route (never codex/grok after
 same-family remap). Sections marked `(local/both*)` / `(external)` apply
 by leg.

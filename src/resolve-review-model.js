@@ -14,7 +14,15 @@
  * - --ask-model non-interactive: auto-bind recommended
  */
 
-/** @typedef {'codex' | 'grok'} ExternalProvider */
+/** @typedef {'codex' | 'grok' | 'claude'} ExternalProvider */
+
+/** Stable Claude Code aliases (no live CLI catalog — design D7). */
+export const CLAUDE_MODEL_ALIASES = Object.freeze([
+  { slug: 'opus', displayName: 'Opus', description: 'Recommended for adversarial review', isDefault: false, priority: 1 },
+  { slug: 'sonnet', displayName: 'Sonnet', description: 'Balanced default-class', isDefault: true, priority: 2 },
+  { slug: 'haiku', displayName: 'Haiku', description: 'Fast / cheap', isDefault: false, priority: 3 },
+  { slug: 'fable', displayName: 'Fable', description: 'Alias named in claude --help', isDefault: false, priority: 4 },
+]);
 
 /**
  * @typedef {object} ReviewModel
@@ -170,6 +178,49 @@ export function parseGrokModelsList(text) {
 }
 
 /**
+ * Claude has no live CLI catalog. Return stable aliases (optional help-text
+ * scan can mark aliases mentioned in `claude --help`).
+ *
+ * @param {string | null | undefined} helpText
+ * @returns {ReviewModel[]}
+ */
+export function parseClaudeModelsAliases(helpText) {
+  const help = helpText == null ? '' : String(helpText);
+  /** @type {ReviewModel[]} */
+  const out = [];
+  for (const a of CLAUDE_MODEL_ALIASES) {
+    const mentioned = help === '' || new RegExp(`\\b${a.slug}\\b`, 'i').test(help);
+    if (!mentioned && help !== '') continue;
+    out.push({
+      slug: a.slug,
+      displayName: a.displayName,
+      description: a.description,
+      priority: a.priority,
+      visibility: 'list',
+      reasoningLevels: [],
+      isDefault: a.isDefault === true,
+      provider: 'claude',
+    });
+  }
+  // Always return at least the full alias table when help is empty (offline).
+  if (out.length === 0) {
+    for (const a of CLAUDE_MODEL_ALIASES) {
+      out.push({
+        slug: a.slug,
+        displayName: a.displayName,
+        description: a.description,
+        priority: a.priority,
+        visibility: 'list',
+        reasoningLevels: [],
+        isDefault: a.isDefault === true,
+        provider: 'claude',
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * Rank models for adversarial external review.
  * Codex: list-visible only, lower priority number first, then deeper reasoning support.
  * Grok: CLI default first, then remaining as listed.
@@ -180,16 +231,19 @@ export function parseGrokModelsList(text) {
  */
 export function rankModelsForReview(models, { provider }) {
   const list = Array.isArray(models) ? models.slice() : [];
-  if (provider === 'codex') {
+  if (provider === 'codex' || provider === 'claude') {
+    // Codex: priority + reasoning. Claude: priority only (aliases; opus first).
     return list
       .filter((m) => (m.visibility || 'list') !== 'hide')
       .sort((a, b) => {
         const pa = a.priority ?? Number.MAX_SAFE_INTEGER;
         const pb = b.priority ?? Number.MAX_SAFE_INTEGER;
         if (pa !== pb) return pa - pb;
-        const da = reasoningDepthScore(a);
-        const db = reasoningDepthScore(b);
-        if (da !== db) return db - da;
+        if (provider === 'codex') {
+          const da = reasoningDepthScore(a);
+          const db = reasoningDepthScore(b);
+          if (da !== db) return db - da;
+        }
         return a.slug.localeCompare(b.slug);
       });
   }
@@ -269,6 +323,7 @@ export function buildModelFlag(modelId) {
  *   model: string | null,
  *   modelCodex: string | null,
  *   modelGrok: string | null,
+ *   modelClaude: string | null,
  *   askModel: boolean,
  *   remainingTokens: string[],
  * }}
@@ -291,6 +346,8 @@ export function parseModelArgs(args) {
   let modelCodex = null;
   /** @type {string | null} */
   let modelGrok = null;
+  /** @type {string | null} */
+  let modelClaude = null;
   let askModel = false;
   /** @type {string[]} */
   const remainingTokens = [];
@@ -355,10 +412,24 @@ export function parseModelArgs(args) {
       continue;
     }
 
+    const eqClaude = t.match(/^--model-claude=(.+)$/);
+    if (eqClaude) {
+      modelClaude = eqClaude[1];
+      continue;
+    }
+    if (t === '--model-claude') {
+      const next = tokens[i + 1];
+      if (next && !next.startsWith('-')) {
+        modelClaude = next;
+        i++;
+      }
+      continue;
+    }
+
     remainingTokens.push(t);
   }
 
-  return { model, modelCodex, modelGrok, askModel, remainingTokens };
+  return { model, modelCodex, modelGrok, modelClaude, askModel, remainingTokens };
 }
 
 /**
@@ -418,6 +489,7 @@ export function catalogDiscoveryResult(input) {
  * @param {string | null} [input.explicitModel] — generic --model=
  * @param {string | null} [input.modelCodex]
  * @param {string | null} [input.modelGrok]
+ * @param {string | null} [input.modelClaude]
  * @param {boolean} [input.askModel]
  * @param {boolean} [input.interactive]
  * @param {string | null} [input.userChoice] — answer from picker (slug | recommended | cli-default)
@@ -436,7 +508,9 @@ export function resolveReviewModel(input) {
       ? input.modelCodex ?? null
       : provider === 'grok'
         ? input.modelGrok ?? null
-        : null;
+        : provider === 'claude'
+          ? input.modelClaude ?? null
+          : null;
   const explicit =
     (perProvider && String(perProvider).trim()) ||
     (input.explicitModel && String(input.explicitModel).trim()) ||

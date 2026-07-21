@@ -1,0 +1,15 @@
+# Required substrings that must appear in
+# skills/shared/codex-bridge-assets/providers/claude/invocation-canonical.txt
+claude
+safe-mode
+run_with_timeout
+timeout
+dontAsk
+permission-mode
+no-session-persistence
+output-format
+Read,Grep,Glob
+--effort xhigh
+xhigh
+BRIEFING_PATH
+OUTPUT_PATH

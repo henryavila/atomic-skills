@@ -34,7 +34,9 @@ Modes consumed by review-code / review-plan (F3 fills UX; F2 locks routing):
 | `grok` | external sealed via Grok only |
 | `both` | local → **host external default** |
 | `both-codex` / `both-grok` | local → forced provider |
-| `external-both` | external Codex then Grok (Claude picker; merge later) |
+| `external-both` | family-filtered legs in order **codex → grok → claude** (merge after all) |
+| `claude` | external sealed via Claude Code only |
+| `both-claude` | local → Claude |
 
 ## Same-family is not external
 
@@ -68,11 +70,11 @@ pipeline. Same-family headless is **not** labeled CROSS-MODEL REVIEW.
 
 ## Envelope binding
 
-When the route resolves to an external provider `P ∈ {codex, grok}`:
+When the route resolves to an external provider `P ∈ {codex, grok, claude}`:
 
 1. Bind `«PROVIDER»` = `P` in `envelope-orchestration.md`
-2. Preflight: pick `{{ASSETS_PATH}}/providers/codex/preflight-checks.txt` or `{{ASSETS_PATH}}/providers/grok/preflight-checks.txt` for the external provider
-3. Invoke: same provider dir — `invocation-canonical.txt` under that providers leaf
+2. Preflight: `{{ASSETS_PATH}}/providers/«PROVIDER»/preflight-checks.txt`
+3. Invoke: `{{ASSETS_PATH}}/providers/«PROVIDER»/invocation-canonical.txt`
 4. Persist review receipt with `provider: P` (never claim cross-model when
    `sameFamilyRemap: true`)
 

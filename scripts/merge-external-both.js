@@ -2,10 +2,13 @@
  * merge-external-both.js — CLI wrapper around mergeExternalBothFindings.
  *
  * Usage:
- *   node scripts/merge-external-both.js <codex.json> <grok.json>
+ *   node scripts/merge-external-both.js <codex.json> <grok.json> [claude.json]
  *
  * Each argument is a path to a JSON file, or `-` / `skip` / empty to mark that
- * provider as skipped. File contents may be:
+ * provider as skipped. Omitting the third arg leaves Claude as skipped
+ * (2-arg legacy callers keep working).
+ *
+ * File contents may be:
  *   - a provider payload: { findings?, error?, status?, reason? }
  *   - a raw findings array: [ { file, line, claim, severity, ... }, ... ]
  *
@@ -14,7 +17,7 @@
  *
  * Package-root invocation (installed):
  *   node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
- *     /tmp/codex-findings.json /tmp/grok-findings.json
+ *     /tmp/codex-findings.json /tmp/grok-findings.json [/tmp/claude-findings.json]
  */
 import { readFileSync } from 'node:fs';
 import { mergeExternalBothFindings } from '../src/external-both-merge.js';
@@ -31,7 +34,7 @@ function isSkipToken(arg) {
 
 /**
  * @param {string} pathArg
- * @param {'codex'|'grok'} provider
+ * @param {'codex'|'grok'|'claude'} provider
  * @returns {{ findings?: object[], error?: string, status?: string, reason?: string } | null}
  *   null → provider omitted (skipped)
  */
@@ -65,9 +68,10 @@ export function loadProviderArg(pathArg, provider) {
 export function mergeFromArgs(argv) {
   const codexArg = argv[0];
   const grokArg = argv[1];
+  const claudeArg = argv[2]; // optional — omit = skipped
   if (codexArg === undefined || grokArg === undefined) {
     throw new Error(
-      'usage: node scripts/merge-external-both.js <codex.json|-|skip> <grok.json|-|skip>',
+      'usage: node scripts/merge-external-both.js <codex.json|-|skip> <grok.json|-|skip> [claude.json|-|skip]',
     );
   }
   /** @type {Record<string, object>} */
@@ -76,6 +80,10 @@ export function mergeFromArgs(argv) {
   const grok = loadProviderArg(grokArg, 'grok');
   if (codex != null) input.codex = codex;
   if (grok != null) input.grok = grok;
+  if (claudeArg !== undefined) {
+    const claude = loadProviderArg(claudeArg, 'claude');
+    if (claude != null) input.claude = claude;
+  }
   return mergeExternalBothFindings(input);
 }
 

@@ -154,7 +154,7 @@ core:
     one_liner: 'Adversarial plan review with local/codex/both mode picker'
     emoji: '🔍'
     version_added: '2.0.0'
-    argument_hint: '<plan.md> [--mode=local|codex|grok|both*|ext-both] [--model=ID|--ask-model] [xref flags]'
+    argument_hint: '<plan.md> [--mode=local|codex|grok|claude|both*|ext-both] [--model=ID|--ask-model] [xref flags]'
     args:
       - name: plan-path
         kind: positional
@@ -242,7 +242,7 @@ core:
     one_liner: 'Adversarial code review with local/codex/both mode picker'
     emoji: '🔬'
     version_added: '2.0.0'
-    argument_hint: '[ref|wip|branch|all] [--mode=local|codex|grok|both*|ext-both] [--model=ID|--ask-model]'
+    argument_hint: '[ref|wip|branch|all] [--mode=local|codex|grok|claude|both*|ext-both] [--model=ID|--ask-model]'
     args:
       - name: git-ref
         kind: positional

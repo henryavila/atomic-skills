@@ -2,7 +2,7 @@
 
 The two-pass sealed-envelope sub-flow is **byte-identical** between
 `review-code` and `review-plan` except for a handful of artifact-specific slots
-and the external **provider** (`codex` | `grok`). This file is the single source
+and the external **provider** (`codex` | `grok` | `claude`). This file is the single source
 for the orchestration skeleton; each caller references it and binds only the
 `«SLOTS»` listed under **Artifact bindings**.
 
@@ -26,7 +26,7 @@ two callers.
 ### external-both (multi-provider callers)
 
 When the caller mode is `external-both`, invoke this skeleton **once per
-remaining provider** in order (Codex then Grok) on the **same** cleaned
+remaining provider** in order (**codex → grok → claude**, family-filtered) on the **same** cleaned
 artifact. Family-filtered legs are recorded as `status: skipped` and are not
 invoked.
 
@@ -39,11 +39,11 @@ invoked.
    / validation failure for one provider: record
    `{ status: failed, error: <message>, findings: <any partial> }` and
    **continue** to the next provider. Only single-provider modes
-   (`codex` / `grok` / the external leg of `both*`) still **ABORT** on that
+   (`codex` / `grok` / `claude` / the external leg of `both*`) still **ABORT** on that
    provider's failure (existing steps 1/5–9 behaviour below).
 3. **Merge after both legs settle.** Feed both provider payloads into
    `mergeExternalBothFindings` (`src/external-both-merge.js`), or via CLI:
-   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" <codex.json|-|skip> <grok.json|-|skip>`.
+   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" <codex.json|-|skip> <grok.json|-|skip> [claude.json|-|skip]`.
 4. **Triage only the merged list.** Human triage on the merged findings (+ any
    `errors` / `providerStatus`). Auto-apply of external findings is a non-goal.
 
@@ -57,7 +57,7 @@ surfaces the error.
 
 | Slot | Bound by the caller to |
 |------|------------------------|
-| `«PROVIDER»` | external provider id: `codex` or `grok` (never the host family without same-family routing — see `host-default-external.md`) |
+| `«PROVIDER»` | external provider id: `codex`, `grok`, or `claude` (never the host family without same-family routing — see `host-default-external.md`) |
 | `«INPUT»` | what the captured/validated input is, and how it is obtained (no re-capture) |
 | `«PASS1_TEMPLATE»` | the `{{ASSETS_PATH}}/pass1-briefing-template-*.txt` for this artifact |
 | `«CONSTRAINTS»` | how externally-verifiable factual constraints are gathered |

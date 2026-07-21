@@ -27,6 +27,8 @@ values** and never leak into `git_ref`. Then split
 | `--mode=local` | Skip Step 0 mode picker; force local sealed envelope. |
 | `--mode=codex` | Skip Step 0 mode picker; force Codex envelope (cross-model only when host ≠ codex). |
 | `--mode=grok` | Skip Step 0 mode picker; force Grok envelope (cross-model only when host ≠ grok). |
+| `--mode=claude` | Skip Step 0 mode picker; force Claude envelope (cross-model only when host ≠ claude). |
+| `--mode=both-claude` | Local then Claude external (when host ≠ claude). |
 | `--mode=both` | Skip Step 0 mode picker; force local → host external default. |
 | `--mode=both-codex` | Skip Step 0 mode picker; force local → Codex. |
 | `--mode=both-grok` | Skip Step 0 mode picker; force local → Grok. |

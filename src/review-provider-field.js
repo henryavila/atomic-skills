@@ -12,9 +12,11 @@ import {
   normalizeHostFamily,
 } from './cross-model-host-default.js';
 
-/** @typedef {'codex' | 'grok' | 'local'} ProviderId */
+/** @typedef {'codex' | 'grok' | 'claude' | 'local'} ProviderId */
 
-export const PROVIDER_ENUM = Object.freeze(/** @type {const} */ (['codex', 'grok', 'local']));
+export const PROVIDER_ENUM = Object.freeze(
+  /** @type {const} */ (['codex', 'grok', 'claude', 'local']),
+);
 
 const PROVIDER_SET = new Set(PROVIDER_ENUM);
 
@@ -159,10 +161,11 @@ export function parseReviewFileFrontmatter(markdown) {
 
 /**
  * Mode flag for review-due / create-plan when forcing a single external pass:
- * host's family-different default (`codex` or `grok`), never hardcoded codex-only.
+ * host's family-different default (`codex` | `grok` | rarely `claude`), never
+ * hardcoded codex-only.
  *
  * @param {string} hostFamily
- * @returns {'codex' | 'grok'}
+ * @returns {'codex' | 'grok' | 'claude'}
  */
 export function hostDefaultExternalMode(hostFamily) {
   return defaultExternalProvider(hostFamily);

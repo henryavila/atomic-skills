@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-19T21:13:20.000Z
+lastUpdated: 2026-07-21T16:00:00.000Z
 schemaVersion: "0.1"
 activePlans: 0
 activeInitiatives: 0
@@ -28,6 +28,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| claude-cross-model-review | done | F5 | plan/claude-cross-model-review | 2026-07-17 | 6/6 |
 | product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
 | integrity-remediation | done | F6 | plan/integrity-remediation | 2026-07-10 | 7/7 |
 | grok-build-integration | done | F5 | plan/grok-build-integration | 2026-07-16 | 6/6 |

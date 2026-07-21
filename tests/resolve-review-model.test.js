@@ -120,6 +120,7 @@ describe('parseModelArgs', () => {
       model: 'gpt-5.6-sol',
       modelCodex: null,
       modelGrok: null,
+      modelClaude: null,
       askModel: false,
       remainingTokens: ['--mode=codex'],
     });
@@ -127,6 +128,7 @@ describe('parseModelArgs', () => {
       model: 'gpt-5.5',
       modelCodex: null,
       modelGrok: null,
+      modelClaude: null,
       askModel: false,
       remainingTokens: ['wip', '--allow-dirty'],
     });
@@ -134,6 +136,7 @@ describe('parseModelArgs', () => {
       model: 'gpt-5.4',
       modelCodex: null,
       modelGrok: null,
+      modelClaude: null,
       askModel: false,
       remainingTokens: ['plan.md'],
     });
@@ -415,5 +418,28 @@ describe('catalogDiscoveryResult', () => {
     });
     assert.deepEqual(r.models, []);
     assert.equal(r.error, null);
+  });
+});
+
+
+describe("claude model aliases (no live catalog)", () => {
+  it("parseClaudeModelsAliases returns stable aliases", async () => {
+    const { parseClaudeModelsAliases, rankModelsForReview, parseModelArgs, resolveReviewModel } =
+      await import("../src/resolve-review-model.js");
+    const models = parseClaudeModelsAliases("");
+    assert.ok(models.some((m) => m.slug === "opus"));
+    const ranked = rankModelsForReview(models, { provider: "claude" });
+    assert.equal(ranked[0].slug, "opus");
+    const args = parseModelArgs("--mode=claude --model-claude=sonnet");
+    assert.equal(args.modelClaude, "sonnet");
+    const res = resolveReviewModel({
+      provider: "claude",
+      models,
+      modelClaude: "sonnet",
+    });
+    assert.equal(res.modelId, "sonnet");
+    assert.equal(res.source, "explicit");
+    const def = resolveReviewModel({ provider: "claude", models: [] });
+    assert.equal(def.source, "cli-default");
   });
 });
