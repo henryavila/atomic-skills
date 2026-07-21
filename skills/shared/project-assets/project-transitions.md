@@ -131,6 +131,12 @@ written by `verify-claim`; a caller may run `verify-claim` as pre-close
 confidence, but task closure evidence is written only by this flow from the
 task's own `verifier:`. Do NOT consume `verify-claim` output as task evidence.
 
+0. **Claim-bound HARD-GATE under durable automate stamp (`executionMode: automate`).** When the parent plan carries `executionMode: automate`, task close is **claim-bound**:
+   - **HARD-GATE first:** run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/assert-automate-gate.js" --plan <slug> --gate done --claim-report <path>` (post-merge: add `--check-reachability --reachable-file <shas>`). **Non-zero exit ⇒ STOP** — do not run verifier close, do not set `status: done`, do not emit completion. Layer-1: `canDoneFromAutomateClaims` / `canCloseTasksFromClaims` in `src/automate-orchestrator-gates.js` (required claim report + reachability after merge).
+   - Prove **reachability** on the plan branch for every claimed SHA / base+head before verifier/`done` (`validateClaimReachability` / `git merge-base --is-ancestor`).
+   - **Complex tasks** (`isComplexTask` / `complexTaskAllowsDone`): require durable `review-code --mode=both` receipt (or operator disposition `accept|defer|fix` + reason) before close; non-complex → verifier-only GATE-R2.
+   - Phase writer **never** calls `done` — only the orchestrator/session after claim-bound gates pass.
+   - When the plan has **no** `executionMode: automate` stamp, claim-bound is inactive (Mode 1 unstamped unchanged).
 1. Locate task in `tasks:` (array). Find the entry where `id === <task-id>`.
 2. **Verifier handling is the first state-changing gate.** If the task has a non-empty `verifier:`, apply **Per-task verifiers** below now and write the result into `tasks[].evidence`. A deterministic `shell`/`test`/`query` verifier must produce `evidence.passed === true` (and `testsCollected > 0` for `kind: test`) before closure continues. If the verifier fails, is skipped, has no real runner, or lacks required evidence, leave the task's `status` unchanged and stop; do not emit completion, recompute rollups, or checkpoint a close. For a `manual` verifier or no verifier, the manual-ack path in `verifier-exec.md` is the only non-deterministic close path.
 3. Only after verifier handling succeeds, set `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.

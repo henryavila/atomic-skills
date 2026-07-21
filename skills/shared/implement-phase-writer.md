@@ -25,7 +25,7 @@ The phase writer **MUST NOT**:
 - Nest a phase worktree under the plan worktree path (sibling isolation only — see `worktree-isolation.md`).
 - Include or depend on orchestrator chat history in its brief (constructed brief only).
 
-**Never call `done`.** The orchestrator alone closes tasks after post-merge re-verify.
+**Never call `done`.** The orchestrator alone closes tasks after post-merge re-verify, claim-bound `assert-automate-gate --gate done` / `canDoneFromAutomateClaims`, and (when complex) `complexTaskAllowsDone`. Phase writer is never the closure authority.
 
 ---
 
@@ -119,7 +119,7 @@ claimReport:
 5. For each `claimed-pass` task on the **MERGED** tree: re-run `tasks[].verifier` (verify-claim / `done` path).
 6. Verifier fail ⇒ do **not** `done`; re-dispatch code-only fix agent (max 2) or stop for operator.
 7. **Complex tasks** (`isComplexTask` with `destructiveDiff` from the **validated claim range**): `review-code --mode=both` on that range before `done`; blocker/critical block close; major needs disposition `accept|defer|fix`; durable receipt before `done`. Non-complex → verifier-only GATE-R2.
-8. Only orchestrator `done <taskId>` writes durable state — and only after reachability + post-merge verifier pass.
+8. Only orchestrator `done <taskId>` writes durable state — and only after claim-bound gates (reachability + `assert-automate-gate --gate done` / `canDoneFromAutomateClaims`) + post-merge verifier pass (+ `complexTaskAllowsDone` when complex). Writer never invokes `done`.
 
 A missing claim entry for a work-order task is treated as incomplete — do not invent pass.
 

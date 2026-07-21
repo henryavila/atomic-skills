@@ -268,7 +268,7 @@ describe('assert-automate-gate CLI', () => {
   });
 
   describe('claims / done', () => {
-    it('exit 1 when claim report missing under automate stamp', () => {
+    it('exit 1 when claim report missing under automate stamp (claim-bound)', () => {
       const root = tmpRoot();
       try {
         writePlan(root, { executionMode: 'automate' });
@@ -280,6 +280,25 @@ describe('assert-automate-gate CLI', () => {
           );
           assert.equal(r.status, 1, `${gate}: ${combined(r)}`);
           assert.match(combined(r), /claim/i);
+          assert.match(combined(r), /claim-bound|automate/i);
+        }
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('exit 0 when claim report missing and no automate stamp (gate inactive)', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root); // no executionMode
+        const stateRoot = join(root, '.atomic-skills');
+        for (const gate of ['claims', 'done']) {
+          const r = run(
+            ['--plan', 'demo-plan', '--gate', gate, '--state-root', stateRoot],
+            { cwd: root },
+          );
+          assert.equal(r.status, 0, `${gate} unstamped: ${combined(r)}`);
+          assert.match(r.stdout, /^ok\b/m);
         }
       } finally {
         rmSync(root, { recursive: true, force: true });
