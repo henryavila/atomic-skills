@@ -30,6 +30,7 @@ The one-liner Red-Flag **triggers** stay resident in `implement.md` so the ambie
 - "Stamp is `executionMode: automate` but I'll just Mode-1 code this one task without `--clear-execution-mode`." → Silent Mode-1 under stamp is forbidden. Either re-dispatch a code-only fix agent (max 2) or stop for the operator; leave automate only via explicit clear/unstamp (and only when the writer lease is clean).
 - "I'll stamp `evaluationGate: { status: passed, verdict: pass }` without writing an evaluationReport — the gate is just a flag." → **Forging evaluationGate** without a real report is forbidden. Authenticity R3: `status: passed` requires non-empty **`reportPath`** to an evaluationReport under `.atomic-skills/reviews/` (or documented path). `buildEvaluationGate` / `evaluationGateHonesty` / GATE-R4 reject passed-without-reportPath. Write the report first, then stamp with `reportPath`.
 - "I'll skip the evaluation agent and stamp `status: skipped` with a reason so we can phase-done." → Inventing skip without the operator is forge. `skipped` requires **`operatorSkip: true` + non-empty reason** (operator-owned). Reason-alone is rejected. Only the operator may authorize skip; record it in the decisions log and stamp both fields.
+- "Assert says illegal maestro cursor step — I'll `rm` `.atomic-skills/status/automate/<slug>.json` or the writer lease so the gate stops blocking." → **Deleting the cursor or lease to force progress is forbidden.** Repair via legal `advanceCursor` / operator continue / secret-matched `clearLeaseFile`. Missing cursor re-inits at **A** and still blocks spawn/done/phase-done until the step is honest. Lease residue blocks spawn and leave-automate by design.
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
@@ -62,3 +63,4 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "Stamp automate but silent Mode-1 just this once" | Forbidden under stamp; clear/unstamp explicitly after a clean lease, or re-dispatch code-only / stop. |
 | "Stamp evaluationGate passed without a report" | forging evaluationGate is forbidden — `reportPath` to a real evaluationReport is required (R3 honesty). |
 | "Skip evaluation with a fabricated reason (no operator)" | `operatorSkip: true` + reason only; inventing skip without the operator is forge. |
+| "rm cursor or lease to force progress" | Forbidden — advance cursor legally; clear lease only with acquire secret. Deleting status files is not a continue token. |

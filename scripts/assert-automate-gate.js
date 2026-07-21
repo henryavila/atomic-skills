@@ -1,8 +1,8 @@
 /**
  * assert-automate-gate.js — thin CLI over Layer-1 pure automate STOP helpers.
  *
- * No spawn, no git merge, no durable state mutation. Reads plan/lease/claim
- * from disk and prints ok|blocked + reason; exit 0 only when ok.
+ * No spawn, no git merge, no durable state mutation. Reads plan/lease/claim/
+ * maestro-cursor from disk and prints ok|blocked + reason; exit 0 only when ok.
  *
  * Usage:
  *   node scripts/assert-automate-gate.js --plan <slug> --gate <gate> [options]
@@ -17,7 +17,13 @@
  *                            (claim-bound; inactive when no executionMode stamp)
  *   --check-reachability     Also validate claim SHAs against reachable set
  *   --reachable-file <path>  Newline-separated SHAs (with --check-reachability)
+ *   --skip-cursor            Skip maestro cursor step check (debug only)
  *   --help
+ *
+ * Under durable executionMode: automate, gates also read the thin maestro
+ * cursor (Layer 2.5 — `src/maestro-cursor.js`, path
+ * `<status-root>/automate/<slug>.json`) and block illegal step for
+ * spawn/done/phase-done/finalize. Non-automate plans never require a cursor.
  *
  * No auto-merge / no git worktree ops — pure assert only.
  */
@@ -33,22 +39,33 @@ import {
   canFinalizeOrArchive,
 } from '../src/automate-orchestrator-gates.js';
 import { readLeaseResult } from '../src/writer-lease.js';
+import {
+  readCursorResult,
+  ensureCursor,
+  cursorAllowsGate,
+  AWAITING_OPERATOR_ADVANCE,
+} from '../src/maestro-cursor.js';
 import { hasAutomateStamp } from '../src/implement-mode.js';
 import { parseFrontmatter } from './validate-state.js';
 
 const GATES = new Set(['spawn', 'claims', 'done', 'phase-done', 'finalize']);
 
-const HELP = `assert-automate-gate — pure automate STOP gates (Layer 2)
+const HELP = `assert-automate-gate — pure automate STOP gates (Layer 2 + cursor 2.5)
 
 Usage:
   node scripts/assert-automate-gate.js --plan <slug> --gate <gate> [options]
 
 Gates:
   spawn         canSpawnPhaseWriter via readLeaseResult (lease must be missing)
+                + maestro cursor step C under automate stamp
   claims        canCloseTasksFromClaims (claim report required under automate stamp)
+                + cursor step D|D.5|E under stamp
   done          canDoneFromAutomateClaims under stamp (claim-bound; inactive when no stamp)
+                + cursor step E under stamp
   phase-done    canRunPhaseDone (evaluationGate under durable automate)
+                + cursor step G under stamp
   finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
+                + cursor step I under stamp
 
 Options:
   --project <id>            Prefer projects/<id>/<slug>/plan.md
@@ -57,7 +74,13 @@ Options:
   --claim-report <path>     JSON claim report (claims|done)
   --check-reachability      Validate claim SHAs against reachable set
   --reachable-file <path>   Newline-separated SHAs for reachability
+  --skip-cursor             Skip maestro-cursor step check (debug / recovery only)
   --help                    Show this help (exit 0)
+
+Maestro cursor (Layer 2.5, under stamp only):
+  Path: <status-root>/automate/<slug>.json via src/maestro-cursor.js
+  Missing cursor initializes at A (ensureCursor) — still blocks gates that need C/E/G/I.
+  Non-automate: cursor not required (gate inactive for step check).
 
 Exit codes:
   0  ok
@@ -83,6 +106,10 @@ export function parseArgs(argv) {
     }
     if (a === '--check-reachability') {
       out.checkReachability = true;
+      continue;
+    }
+    if (a === '--skip-cursor') {
+      out.skipCursor = true;
       continue;
     }
     if (a.startsWith('--') && a.includes('=')) {
@@ -268,6 +295,66 @@ function formatBlocked(result, fallbackReason = 'gate blocked') {
 }
 
 /**
+ * Under durable automate: load or init maestro cursor, then require step match.
+ * Missing → ensureCursor at A (no throw). Malformed → block.
+ *
+ * @param {{
+ *   statusRoot: string,
+ *   planSlug: string,
+ *   phaseId: string,
+ *   gate: string,
+ * }} input
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function checkMaestroCursor(input) {
+  const statusRoot = input.statusRoot;
+  const planSlug = input.planSlug;
+  const phaseId = input.phaseId;
+  const gate = input.gate;
+
+  let read = readCursorResult(statusRoot, planSlug);
+  if (read.status === 'missing') {
+    // First automate entry — init at A without throw (skill advances on A–I boundaries)
+    try {
+      const ensured = ensureCursor(statusRoot, planSlug, { phaseId });
+      if (ensured.status !== 'ok' || !ensured.cursor) {
+        return {
+          ok: false,
+          reason:
+            ensured.error ||
+            'maestro cursor missing and could not initialize at A',
+        };
+      }
+      read = { status: 'ok', cursor: ensured.cursor };
+    } catch (err) {
+      return {
+        ok: false,
+        reason: `maestro cursor init failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+  if (read.status === 'malformed') {
+    return {
+      ok: false,
+      reason: `maestro cursor malformed: ${read.error || 'invalid shape'} — repair via src/maestro-cursor.js; do not delete to force progress`,
+    };
+  }
+  const gateOk = cursorAllowsGate(read.cursor, gate);
+  if (!gateOk.ok) {
+    return {
+      ok: false,
+      reason:
+        gateOk.reason ||
+        `maestro cursor step forbids gate ${gate}` +
+          (read.cursor?.step === AWAITING_OPERATOR_ADVANCE
+            ? ' (awaiting-operator-advance)'
+            : ''),
+    };
+  }
+  return { ok: true };
+}
+
+/**
  * @param {Record<string, string | boolean>} args
  * @param {{ cwd?: string }} [env]
  * @returns {{ ok: boolean, message: string, exitCode: number }}
@@ -334,6 +421,29 @@ export function runAssert(args, env = {}) {
   const planExecutionMode =
     fm.executionMode != null ? String(fm.executionMode) : null;
   const stamped = hasAutomateStamp({ executionMode: planExecutionMode });
+
+  // Layer 2.5 — thin maestro cursor (under durable automate stamp only).
+  // Missing cursor initializes at A without throw; illegal step still blocks.
+  // Non-automate: skip (do not force cursor). --skip-cursor is recovery only.
+  if (stamped && args.skipCursor !== true) {
+    const phaseId =
+      fm.currentPhase != null && String(fm.currentPhase).trim() !== ''
+        ? String(fm.currentPhase).trim()
+        : 'F0';
+    const cursorCheck = checkMaestroCursor({
+      statusRoot,
+      planSlug: slug,
+      phaseId,
+      gate,
+    });
+    if (!cursorCheck.ok) {
+      return {
+        ok: false,
+        message: `blocked: ${cursorCheck.reason}`,
+        exitCode: 1,
+      };
+    }
+  }
 
   if (gate === 'spawn') {
     const lease = readLeaseResult(statusRoot, slug);

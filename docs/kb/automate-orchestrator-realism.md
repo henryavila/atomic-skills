@@ -54,6 +54,28 @@ Reads disk state, prints `ok` / `blocked: <reason>`, exit 1 on block. Skill pros
 phase-done, and finalize under automate — non-zero forbids advancing. Still no
 spawn of writers (orchestration remains skill-driven).
 
+### Layer 2.5 — Thin maestro step cursor (**landed** — F3 / R2)
+
+**Not Layer 4.** A durable per-plan status file records pure-maestro position so
+assert can refuse illegal step jumps without a spawn supervisor or multi-host
+daemon.
+
+| Piece | Path |
+|-------|------|
+| Module | `src/maestro-cursor.js` |
+| Tests | `tests/maestro-cursor.test.js` |
+| Status file | `.atomic-skills/status/automate/<plan-slug>.json` |
+
+Shape: `{ step, phaseId, redispatchCount, claimReportPath?, leasePath?, updatedAt }`
+with steps A–I plus pause `awaiting-operator-advance`. Legal transition table
+rejects jumps (e.g. C→G). Under durable `executionMode: automate`,
+`assert-automate-gate` reads the cursor and blocks spawn/done/phase-done/finalize
+when the step does not match (spawn needs **C**, done **E**, phase-done **G**,
+finalize **I**). Missing cursor initializes at **A** without throw; skill prose
+must advance the cursor on each A–I boundary. Non-automate plans never require a
+cursor. **Do not** treat this as Layer 4 workqueue + provider spawn adapters —
+those remain non-goals until dogfood proves Layer 1–2.5 insufficient.
+
 ### Layer 3 — Host-local runner (weeks, optional)
 
 A **per-host** script (not cross-host daemon) that:
@@ -70,12 +92,13 @@ Human or agent still runs git merge and `done`. Reduces “forgot step D.5”.
 
 Only if automate becomes the default path for many plans:
 
-- Workqueue + durable step cursor in `.atomic-skills/status/`
+- Workqueue + multi-host recovery beyond the thin Layer 2.5 cursor
 - Provider-specific spawn adapters (Claude Task, Codex, Grok subagent)
-- Crash recovery from lease + handoff
+- Crash recovery from lease + handoff as a supervised loop
 
-**Do not start Layer 4** until Layers 1–2 have dogfood evidence of real failures
-(skipped evaluation, finalize without plan-end, claim without merge).
+**Do not start Layer 4** until Layers 1–2 (+ thin cursor 2.5) have dogfood
+evidence of real failures the status file cannot catch (skipped evaluation,
+finalize without plan-end, claim without merge, host-local wait-loop needs).
 
 ## What not to do
 
@@ -88,7 +111,8 @@ Only if automate becomes the default path for many plans:
 
 1. **Materialize** each phase (you own `businessIntent`).
 2. **`implement --mode=automate`** once per plan (stamp).
-3. Maestro follows A–I; STOP helpers refuse illegal jumps when invoked.
-4. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your validation timestamp.
+3. Maestro follows A–I; STOP helpers + **assert** + **maestro cursor** refuse illegal jumps when invoked.
+4. After phase-done, cursor may sit at **`awaiting-operator-advance`** until you continue.
+5. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your validation timestamp.
 
-If a step is skipped, prefer **fail closed** (blocked gate) over “looks done”.
+If a step is skipped, prefer **fail closed** (blocked gate / illegal cursor step) over “looks done”.

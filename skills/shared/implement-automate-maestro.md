@@ -5,11 +5,12 @@ claim validation, complex-task review, evaluationGate, and plan-end gates.
 
 Layer-1 STOP helpers (no spawn): `src/automate-orchestrator-gates.js`.
 Layer-2 assert CLI: `scripts/assert-automate-gate.js` (must run before C/E/G/I advances).
+Layer-2.5 thin **maestro cursor**: `src/maestro-cursor.js` — durable step pointer under `.atomic-skills/status/automate/<slug>.json` (not Layer 4; no spawn adapters).
 Realism note: `docs/kb/automate-orchestrator-realism.md`.
 
 ### HARD-GATE — assert-automate-gate before C / E / G / I
 
-Before **spawn** (C), **done-batch** (E), **phase-done** (G), or **finalize/archive** (I), run the Layer-2 CLI (or an equivalent `node` invocation of the same script). **Non-zero exit ⇒ STOP** — do not acquire a second lease, do not call `done`, do not run `phase-done`, do not finalize/archive. Print the `blocked:` reason and fix the underlying gate (lease, claim report, `evaluationGate`, plan-end receipt / `userValidatedAt`).
+Before **spawn** (C), **done-batch** (E), **phase-done** (G), or **finalize/archive** (I), run the Layer-2 CLI (or an equivalent `node` invocation of the same script). **Non-zero exit ⇒ STOP** — do not acquire a second lease, do not call `done`, do not run `phase-done`, do not finalize/archive. Print the `blocked:` reason and fix the underlying gate (lease, claim report, `evaluationGate`, plan-end receipt / `userValidatedAt`, **or illegal maestro cursor step**).
 
 ```bash
 node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/assert-automate-gate.js" \
@@ -18,12 +19,35 @@ node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/a
 
 | Transition | `--gate` | Required extras |
 |------------|----------|-----------------|
-| Before acquire/spawn (Step **C**) | `spawn` | default `--status-root` = `.atomic-skills/status` |
-| Before done-batch / claim close (Step **E**) | `claims` or `done` | `--claim-report <path>`; optional `--check-reachability --reachable-file <shas>` after merge |
-| Before `phase-done` (Step **G**) | `phase-done` | plan must carry valid `phases[].evaluationGate` under stamp |
-| Before finalize/archive (Step **I**) | `finalize` | plan-end receipt + `userValidatedAt` under stamp |
+| Before acquire/spawn (Step **C**) | `spawn` | default `--status-root` = `.atomic-skills/status`; cursor step **C** |
+| Before done-batch / claim close (Step **E**) | `claims` or `done` | `--claim-report <path>`; optional `--check-reachability --reachable-file <shas>` after merge; cursor step **E** (claims also allow D\|D.5) |
+| Before `phase-done` (Step **G**) | `phase-done` | plan must carry valid `phases[].evaluationGate` under stamp; cursor step **G** |
+| Before finalize/archive (Step **I**) | `finalize` | plan-end receipt + `userValidatedAt` under stamp; cursor step **I** |
 
-Exit **0** + stdout `ok` only when the Layer-1 predicate allows. Exit **1** + `blocked: <reason>` forbids advancing.
+Exit **0** + stdout `ok` only when the Layer-1 predicate **and** (under stamp) the maestro cursor step allow. Exit **1** + `blocked: <reason>` forbids advancing.
+
+### Maestro cursor — update on every A–I boundary (Layer 2.5)
+
+Durable file: `.atomic-skills/status/automate/<plan-slug>.json` via `src/maestro-cursor.js` (`ensureCursor`, `advanceCursor`, `writeCursorFile`, `readCursorResult`). Shape: `{ step, phaseId, redispatchCount, claimReportPath?, leasePath?, updatedAt }`.
+
+**Required:** on each pure-maestro boundary, advance the cursor with `advanceCursor` / `writeCursorFile` so assert cannot be fooled by a stale step:
+
+| Boundary event | Cursor `step` after update |
+|----------------|----------------------------|
+| First automate entry / Step **A** load | `ensureCursor` → **A** (or **B** if handoff already ready) — missing file initializes without throw |
+| Step **B** handoff + work-order ready | **B** |
+| About to assert spawn / enter **C** | **C** (set before `assert-automate-gate --gate spawn`) |
+| Writer exited; collecting claims (**D**) | **D** (+ optional `claimReportPath`) |
+| Merge settle (**D.5**) | **D.5** |
+| Post-merge re-verify / done-batch (**E**) | **E** (before `assert-automate-gate --gate done`) |
+| Evaluation agent (**F**) | **F** |
+| About to phase-done (**G**) | **G** (before `assert-automate-gate --gate phase-done`) |
+| After successful phase-done | **`awaiting-operator-advance`** (pause until operator continue — F4 hardens spawn refuse) |
+| Operator continue / next-phase prep (**H**) | **H** |
+| Plan-end finalize path (**I**) | **I** (before `assert-automate-gate --gate finalize`) |
+| Re-dispatch code-only fix (from E\|F) | **C** via legal redispatch transition (`redispatchCount`++) — max **2** |
+
+**Never** delete the cursor or lease file to force progress. Illegal jumps (e.g. **C→G**, `done` while step is **B**) are rejected by `isLegalTransition` / `cursorAllowsGate` and by assert under stamp. Non-automate plans do not require a cursor.
 
 ### Automate mode — pure maestro loop (when `isAutomateActive`)
 
@@ -53,6 +77,7 @@ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). A
 - After last phase the **user validates** implementation before finalize/archive (`assert-automate-gate --gate finalize` / `canFinalizeOrArchive` / durable stamp — not session clear alone).
 - Pure STOP helpers (layer-1, no spawn): `src/automate-orchestrator-gates.js` (`canSpawnPhaseWriter`, `canCloseTasksFromClaims`, `canDoneFromAutomateClaims` claim-bound done, `canRunPhaseDone`, `canFinalizeOrArchive`) + `complexTaskAllowsDone` in `src/complex-task.js`.
 - **Layer-2 assert (required before C/E/G/I):** `scripts/assert-automate-gate.js` — non-zero exit forbids advancing. Step **E** is claim-bound under stamp (`--gate done`).
+- **Layer-2.5 maestro cursor:** update on every A–I boundary (`src/maestro-cursor.js`); assert under stamp refuses illegal step; after phase-done prefer step **`awaiting-operator-advance`**; never delete cursor/lease to force progress.
 
 #### Claim report validation (orchestrator, before any `done`) — claim-bound under stamp
 
