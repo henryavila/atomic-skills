@@ -1,8 +1,12 @@
 /**
- * Pure claim-report parse + validation for automate phase writers (design D6 / F2 T-008).
+ * Pure claim-report parse + validation for automate phase writers (design D6 / F2).
  *
  * A claim is confidence from the code-only phase writer — never closure.
  * Orchestrator validates each task claim before re-verify / complex review / done.
+ * Under durable automate, **claim-bound done** is gated by
+ * `canDoneFromAutomateClaims` / `canCloseTasksFromClaims` in
+ * `src/automate-orchestrator-gates.js` (required claim report + reachability
+ * default true for automate done) plus `complexTaskAllowsDone` for complex tasks.
  *
  * Required per-task fields:
  *   - taskId (empty/missing → validation error; not silently dropped — F6)

@@ -14,9 +14,12 @@
  *   --state-root <path>      Default: ./.atomic-skills (cwd-relative)
  *   --status-root <path>     Default: <state-root>/status
  *   --claim-report <path>    Required for claims|done when stamp is automate
+ *                            (claim-bound; inactive when no executionMode stamp)
  *   --check-reachability     Also validate claim SHAs against reachable set
  *   --reachable-file <path>  Newline-separated SHAs (with --check-reachability)
  *   --help
+ *
+ * No auto-merge / no git worktree ops — pure assert only.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -25,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import {
   canSpawnPhaseWriter,
   canCloseTasksFromClaims,
+  canDoneFromAutomateClaims,
   canRunPhaseDone,
   canFinalizeOrArchive,
 } from '../src/automate-orchestrator-gates.js';
@@ -41,7 +45,8 @@ Usage:
 
 Gates:
   spawn         canSpawnPhaseWriter via readLeaseResult (lease must be missing)
-  claims|done   canCloseTasksFromClaims (claim report required under automate stamp)
+  claims        canCloseTasksFromClaims (claim report required under automate stamp)
+  done          canDoneFromAutomateClaims under stamp (claim-bound; inactive when no stamp)
   phase-done    canRunPhaseDone (evaluationGate under durable automate)
   finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
 
@@ -350,19 +355,15 @@ export function runAssert(args, env = {}) {
         : null;
 
     if (!claimPath) {
-      if (stamped) {
-        return {
-          ok: false,
-          message:
-            'blocked: missing claim report (--claim-report required under executionMode: automate)',
-          exitCode: 1,
-        };
+      if (!stamped) {
+        // Non-automate: claim-bound done is inactive (Mode 1 unstamped unchanged).
+        return { ok: true, message: 'ok', exitCode: 0 };
       }
-      // Non-automate: claims/done gate with no report still fails closed — the
-      // gate's purpose is claim validation; without a report there is nothing to assert.
+      // Durable executionMode: automate — claim report is HARD for claims|done.
       return {
         ok: false,
-        message: 'blocked: missing claim report (--claim-report required for claims|done)',
+        message:
+          'blocked: missing claim report (--claim-report required under executionMode: automate) — claim-bound done',
         exitCode: 1,
       };
     }
@@ -413,7 +414,20 @@ export function runAssert(args, env = {}) {
       }
     }
 
-    const r = canCloseTasksFromClaims(input);
+    // Under stamp: --gate done uses claim-bound canDoneFromAutomateClaims.
+    // CLI reachability stays opt-in via --check-reachability (pass false so
+    // missing --reachable-file does not fail shape-only assert). Pure helper
+    // still defaults reachability true when called without that flag from code.
+    // No auto-merge: this script never runs git merge / worktree ops.
+    let r;
+    if (gate === 'done' && stamped) {
+      r = canDoneFromAutomateClaims({
+        ...input,
+        checkReachability: args.checkReachability === true,
+      });
+    } else {
+      r = canCloseTasksFromClaims(input);
+    }
     if (!r.ok) {
       return {
         ok: false,

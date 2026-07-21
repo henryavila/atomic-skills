@@ -5,6 +5,13 @@
  * the machine-checkable STOP points an agent (or future thin CLI) must call
  * before advancing — they do not spawn writers or run git.
  *
+ * Claim-bound done under durable automate:
+ *   - {@link canCloseTasksFromClaims} — validate claim report; reachability opt-in
+ *   - {@link canDoneFromAutomateClaims} — claim + **reachability default true**
+ *     for automate orchestrator `done` (missing/invalid/non-reachable ⇒ block)
+ *   - complex path: `complexTaskAllowsDone` in `src/complex-task.js` (both
+ *     receipt or operator disposition; non-complex ⇒ verifier-only)
+ *
  * No I/O (except optional FS wrappers re-exported only via comment — call
  * writer-lease / claim-report directly for disk).
  */
@@ -56,6 +63,10 @@ export function canSpawnPhaseWriter(input = {}) {
 /**
  * Before orchestrator done: claim report must validate; optional reachability.
  *
+ * Low-level claim shape + exclusivity gate. Reachability is **opt-in** here
+ * (`checkReachability === true`). For **automate claim-bound done** (default
+ * reachability on), prefer {@link canDoneFromAutomateClaims}.
+ *
  * @param {{
  *   claimReport?: unknown,
  *   reachableSet?: Iterable<string> | ((sha: string) => boolean) | null,
@@ -87,6 +98,37 @@ export function canCloseTasksFromClaims(input = {}) {
     }
   }
   return { ok: true, claimValidation: v };
+}
+
+/**
+ * Claim-bound automate done (HARD under durable `executionMode: automate`).
+ *
+ * Requires a valid claim report (fields + multi-task exclusivity). **Post-merge
+ * reachability defaults to true** — pass a reachable set / predicate after
+ * merge settle, or set `checkReachability: false` only for pre-merge claim
+ * shape checks. Missing / invalid / overlapping / non-reachable claims ⇒
+ * refuse orchestrator `done` (claim-bound close).
+ *
+ * Complex-before-done is a separate pure helper (`complexTaskAllowsDone` in
+ * `src/complex-task.js`): non-complex → verifier-only; complex → both-mode
+ * durable receipt or operator disposition skip. Call that per task after
+ * this gate and GATE-R2 verifier pass.
+ *
+ * @param {{
+ *   claimReport?: unknown,
+ *   reachableSet?: Iterable<string> | ((sha: string) => boolean) | null,
+ *   checkReachability?: boolean,
+ * }} [input]
+ * @returns {{ ok: boolean, reason?: string, claimValidation?: object }}
+ */
+export function canDoneFromAutomateClaims(input = {}) {
+  // Automate done: claim required + reachability on by default.
+  const checkReachability = input.checkReachability !== false;
+  return canCloseTasksFromClaims({
+    claimReport: input.claimReport,
+    reachableSet: input.reachableSet,
+    checkReachability,
+  });
 }
 
 /**

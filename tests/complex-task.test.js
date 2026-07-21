@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { isComplexTask, COMPLEX_TAGS, DEFAULT_COMPLEX_WEIGHT_THRESHOLD } from '../src/complex-task.js';
+import {
+  isComplexTask,
+  complexTaskAllowsDone,
+  COMPLEX_TAGS,
+  DEFAULT_COMPLEX_WEIGHT_THRESHOLD,
+} from '../src/complex-task.js';
 
 describe('isComplexTask', () => {
   it('returns true when weight >= threshold default 3', () => {
@@ -73,5 +78,25 @@ describe('isComplexTask', () => {
     assert.equal(isComplexTask({ weight: '2' }), false);
     assert.equal(isComplexTask({ weight: '3.0' }), true);
     assert.equal(isComplexTask({ weight: ' 3 ' }), true);
+  });
+});
+
+describe('complexTaskAllowsDone', () => {
+  it('verifier-only for non-complex; receipt required for complex', () => {
+    assert.equal(
+      complexTaskAllowsDone({ task: { weight: 1 } }).path,
+      'verifier-only',
+    );
+    assert.equal(complexTaskAllowsDone({ task: { weight: 3 } }).ok, false);
+    assert.equal(
+      complexTaskAllowsDone({
+        task: { weight: 3 },
+        reviewReceipt: {
+          mode: 'both',
+          reviewFile: '.atomic-skills/reviews/x.md',
+        },
+      }).ok,
+      true,
+    );
   });
 });
