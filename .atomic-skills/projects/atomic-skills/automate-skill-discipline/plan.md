@@ -303,29 +303,58 @@ phases:
       criteria:
         - id: F4-G1
           description: Pause and framing greps plus cursor/assert tests pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/maestro-cursor.test.js tests/assert-automate-gate.test.js && rg -n 'awaiting-operator-advance' skills/core/implement.md skills/shared/implement-automate-maestro.md && rg -n 'pure maestro|execution driver' skills/core/implement.md
             expectExitCode: 0
+          metAt: 2026-07-21T20:21:52.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-21T20:21:52.000Z
+            verifiedCommit: 2cdc7bf39da4ef1957f014a9edc2851e43cbc63e
+            passed: true
+            exitCode: 0
+            outputSummary: ok
         - id: F4-G2
           description: No top-level automate skill; validate-state still green on fixture plans used in tests.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test ! -e skills/core/automate.md && node --test tests/phase-evaluation-gate.test.js tests/assert-automate-gate.test.js
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-21T20:21:52.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-21T20:21:52.000Z
+            verifiedCommit: 2cdc7bf39da4ef1957f014a9edc2851e43cbc63e
+            passed: true
+            exitCode: 0
+            outputSummary: ok
+    status: done
     businessIntent:
       value: Apos phase-done sob automate, spawn da proxima fase bloqueia ate operator continue; framing Mode-1 vs Automate e antipatterns residual fecham a disciplina.
       workflow: T-009 pause awaiting-operator-advance no cursor+assert+transitions; T-010 framing mindset e antipatterns pack.
       rules: Nao auto-materialize; nao auto-finalize; continue token explicito; non-automate phase-done inalterado.
       outOfScope: Mode 2 rewrite; install surface; Layer 4.
       doneWhen: Pause tests+greps verdes; framing pure maestro vs execution driver; F4-G1/G2 met.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f4-evaluation.md
+      verifiedAt: 2026-07-21T20:21:52.000Z
+      at: 2cdc7bf39da4ef1957f014a9edc2851e43cbc63e
+    reviewGate:
+      status: passed
+      mode: local
+      at: 2cdc7bf39da4ef1957f014a9edc2851e43cbc63e
+      reviewFile: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f4-evaluation.md
+      verifiedAt: 2026-07-21T20:21:52.000Z
+      reason: local override F4 dogfood
 references: []
 planActive: true
 planTitle: Automate skill discipline remediation
-lastUpdated: 2026-07-21T20:16:16.227Z
+lastUpdated: 2026-07-21T20:21:52.000Z
 ---
 
 # Automate skill discipline remediation

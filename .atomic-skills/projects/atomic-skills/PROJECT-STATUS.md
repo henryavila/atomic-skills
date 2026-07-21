@@ -20,7 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| automate-skill-discipline | active | F1 | plan/automate-skill-discipline | 2026-07-21 | 1/5 | |
+| automate-skill-discipline | active | F4 | plan/automate-skill-discipline | 2026-07-21 | 5/5 | |
 
 
 

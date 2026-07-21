@@ -129,3 +129,6 @@
 {"ts":"2026-07-21T20:16:16.054Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-skill-discipline","phaseId":"F3","taskId":"T-007","weight":1,"weightBasis":"count","actuals":{}}
 {"ts":"2026-07-21T20:16:16.055Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-skill-discipline","phaseId":"F3","taskId":"T-008","weight":1,"weightBasis":"count","actuals":{}}
 {"ts":"2026-07-21T20:16:16.064Z","event":"phase-done","projectId":"atomic-skills","planSlug":"automate-skill-discipline","phaseId":"F3","taskId":null,"weight":1,"weightBasis":"count","actuals":{}}
+{"ts":"2026-07-21T20:21:52.419Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-skill-discipline","phaseId":"F4","taskId":"T-009","weight":1,"weightBasis":"count","actuals":{}}
+{"ts":"2026-07-21T20:21:52.420Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-skill-discipline","phaseId":"F4","taskId":"T-010","weight":1,"weightBasis":"count","actuals":{}}
+{"ts":"2026-07-21T20:21:52.429Z","event":"phase-done","projectId":"atomic-skills","planSlug":"automate-skill-discipline","phaseId":"F4","taskId":null,"weight":1,"weightBasis":"count","actuals":{}}
