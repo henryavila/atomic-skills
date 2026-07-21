@@ -116,3 +116,16 @@ finalize without plan-end, claim without merge, host-local wait-loop needs).
 5. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your **`userValidatedAt`** validation timestamp (`assert-automate-gate --gate finalize`).
 
 **Assert + cursor + pause** are the cheap fail-closed trio: Layer-2 CLI, Layer-2.5 step file, post phase-done operator authority. If a step is skipped, prefer **fail closed** (blocked `assert-automate-gate` / illegal cursor step / `awaiting-operator-advance`) over “looks done”.
+
+### Lessons distill (hard under automate — no skip)
+
+Dogfood: pure-maestro multi-phase skipped phase-end lessons (no `Proposed lessons:`, no operator ratify, no `lessons/` file). That is a skill-step skip, not a clean phase.
+
+Under durable `executionMode: automate`, `canRunPhaseDone` / `assert-automate-gate --gate phase-done` / `preflightPhaseDone` require an **answered** lessons gate before advance:
+
+| `lessonsState` | Required |
+|----------------|----------|
+| `recorded` | non-empty `lessonsPath` after distill + operator ratify → `lessons/<initiative>.md` |
+| `none` | explicit zero-lessons (clean phase) — **omitting the field is invalid** |
+
+Helpers: `src/phase-lessons-gate.js` (`phaseLessonsAllowsClose`, `buildLessonsState`). Code: `phase-done-lessons-open`.

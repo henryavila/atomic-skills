@@ -261,6 +261,67 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
     );
   });
 
+  it('phase-done blocked under stamp with evaluation but without lessonsState', () => {
+    assert.equal(
+      canRunPhaseDone({
+        planExecutionMode: 'automate',
+        evaluationGate: {
+          status: 'passed',
+          verdict: 'pass',
+          reportPath: '.atomic-skills/reviews/eval.md',
+        },
+      }).ok,
+      false,
+    );
+  });
+
+  it('phase-done ok under stamp with evaluation + lessonsState none', () => {
+    assert.equal(
+      canRunPhaseDone({
+        planExecutionMode: 'automate',
+        evaluationGate: {
+          status: 'passed',
+          verdict: 'pass',
+          reportPath: '.atomic-skills/reviews/eval.md',
+        },
+        lessonsState: 'none',
+      }).ok,
+      true,
+    );
+  });
+
+  it('phase-done ok under stamp with evaluation + lessons recorded+path', () => {
+    assert.equal(
+      canRunPhaseDone({
+        planExecutionMode: 'automate',
+        evaluationGate: {
+          status: 'passed',
+          verdict: 'pass',
+          reportPath: '.atomic-skills/reviews/eval.md',
+        },
+        lessonsState: 'recorded',
+        lessonsPath:
+          '.atomic-skills/projects/demo/plan/lessons/f0-demo.md',
+      }).ok,
+      true,
+    );
+  });
+
+  it('phase-done blocked when recorded without lessonsPath', () => {
+    assert.equal(
+      canRunPhaseDone({
+        planExecutionMode: 'automate',
+        evaluationGate: {
+          status: 'passed',
+          verdict: 'pass',
+          reportPath: '.atomic-skills/reviews/eval.md',
+        },
+        lessonsState: 'recorded',
+      }).ok,
+      false,
+    );
+  });
+
   it('finalize durable stamp still gates when session clear would turn isAutomateActive off', () => {
     // H1: stamp remains → durable HARD-BLOCK even if session cleared
     const gates = canFinalizeOrArchive({

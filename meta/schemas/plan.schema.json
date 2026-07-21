@@ -421,6 +421,20 @@
             },
             "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
           }
+        },
+        "lessonsState": {
+          "type": "string",
+          "enum": ["recorded", "none"],
+          "description": "Automate pure-maestro Step G: phase lessons answer before phase-done. recorded = distill + operator ratify + lessons file on disk; none = clean phase with explicit zero-lessons answer. Omitted is NOT an answer under durable automate — enforced by phaseLessonsAllowsClose / canRunPhaseDone / preflightPhaseDone (phase-done-lessons-open). Non-automate phases may omit."
+        },
+        "lessonsPath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required-when lessonsState=recorded: path to lessons/<initiative-slug>.md (typically .atomic-skills/projects/<id>/<plan>/lessons/...). Pure honesty checks non-empty string only (no I/O)."
+        },
+        "noneReason": {
+          "type": "string",
+          "description": "Optional note when lessonsState=none (e.g. no failure signals this phase)."
         }
       },
       "allOf": [

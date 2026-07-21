@@ -15,6 +15,7 @@
 
 import { validatePhaseDag } from '../src/transition.js';
 import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
+import { phaseLessonsAllowsClose } from '../src/phase-lessons-gate.js';
 
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
@@ -421,6 +422,68 @@ function checkPhaseDoneEvaluation(input) {
 }
 
 /**
+ * Resolve lessons fields from input, phase/initiative slice, or plan.phases[].
+ * Same lookup ladder as evaluationGateOf (plan phase is authoritative for automate stamps).
+ * @param {object} input
+ * @returns {{ lessonsState?: unknown, lessonsPath?: unknown, noneReason?: unknown }}
+ */
+function lessonsFieldsOf(input) {
+  const phase = phaseSlice(input);
+  if (input.lessonsState != null || input.lessonsPath != null) {
+    return {
+      lessonsState: input.lessonsState,
+      lessonsPath: input.lessonsPath,
+      noneReason: input.noneReason,
+    };
+  }
+  if (phase.lessonsState != null || phase.lessonsPath != null) {
+    return {
+      lessonsState: phase.lessonsState,
+      lessonsPath: phase.lessonsPath,
+      noneReason: phase.noneReason,
+    };
+  }
+  const plan = object(input.plan);
+  const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
+  if (!Array.isArray(plan.phases) || !phaseId) return {};
+  const planPhase = plan.phases.find(
+    (p) => object(p).id === phaseId || object(p).slug === phaseId,
+  );
+  if (planPhase == null) return {};
+  const pp = object(planPhase);
+  return {
+    lessonsState: pp.lessonsState,
+    lessonsPath: pp.lessonsPath,
+    noneReason: pp.noneReason,
+  };
+}
+
+/**
+ * Under durable automate stamp, lessons must be answered before phase-done (R2).
+ * Non-automate: no-op allow (commitGuard still enforces requireLessons later).
+ * @param {object} input
+ */
+function checkPhaseDoneLessons(input) {
+  const planExecutionMode = planExecutionModeOf(input);
+  const fields = lessonsFieldsOf(input);
+  const result = phaseLessonsAllowsClose({
+    planExecutionMode: planExecutionMode || null,
+    automateActive: input.automateActive === true,
+    lessonsState: fields.lessonsState,
+    lessonsPath: fields.lessonsPath,
+    noneReason: fields.noneReason,
+    phase: fields,
+  });
+  if (result.ok) return allow();
+  return block(
+    'phase-done-lessons-open',
+    result.reason ||
+      'phase-done under automate requires lessonsState recorded|none before advance',
+    'Distill phase lessons, present Proposed lessons for operator ratify, write lessons/<initiative>.md and stamp lessonsState=recorded + lessonsPath — or stamp lessonsState=none for a clean phase — then rerun `phase-done`. Silence is not an answer.',
+  );
+}
+
+/**
  * Identity for phase-done: initiative must carry parentPlan + phaseId (or
  * callers pass them explicitly). Optional plan slice checks the phase exists.
  * @param {object} input
@@ -529,7 +592,11 @@ export function preflightPhaseDone(input = {}) {
   if (tasks.blocked) return tasks;
   // R1: under plan.executionMode automate, evaluationGate must allow close
   // before exit-gate verifiers / review-code run.
-  return checkPhaseDoneEvaluation(safe);
+  const evaluation = checkPhaseDoneEvaluation(safe);
+  if (evaluation.blocked) return evaluation;
+  // R2: under durable automate, lessons must be *answered* (recorded+path or
+  // explicit none) before phase-done — silence is skip of distill/ratify.
+  return checkPhaseDoneLessons(safe);
 }
 
 /**

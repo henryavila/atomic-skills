@@ -25,6 +25,7 @@ import {
   isDurableAutomateActive,
 } from './plan-end-review.js';
 import { phaseEvaluationAllowsClose } from './phase-evaluation-gate.js';
+import { phaseLessonsAllowsClose } from './phase-lessons-gate.js';
 import {
   validateClaimReport,
   validateClaimReachability,
@@ -132,13 +133,27 @@ export function canDoneFromAutomateClaims(input = {}) {
 }
 
 /**
- * Before phase-done under durable automate: evaluation gate must allow close.
+ * Before phase-done under durable automate: evaluation gate AND lessons answer
+ * must allow close (dogfood: pure-maestro must not skip distill/ratify).
  *
- * @param {Parameters<typeof phaseEvaluationAllowsClose>[0]} [input]
+ * Order: evaluation honesty first, then lessons honesty. Non-automate: both
+ * inactive → ok.
+ *
+ * @param {{
+ *   automateActive?: boolean | null,
+ *   planExecutionMode?: string | null,
+ *   evaluationGate?: unknown,
+ *   lessonsState?: string | null,
+ *   lessonsPath?: string | null,
+ *   noneReason?: string | null,
+ *   phase?: object | null,
+ * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
  */
 export function canRunPhaseDone(input = {}) {
-  return phaseEvaluationAllowsClose(input);
+  const evalGate = phaseEvaluationAllowsClose(input);
+  if (!evalGate.ok) return evalGate;
+  return phaseLessonsAllowsClose(input);
 }
 
 /**

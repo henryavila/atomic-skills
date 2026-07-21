@@ -434,7 +434,7 @@ test('preflightPhaseDone blocks under automate without evaluationGate (R1)', () 
   assert.match(result.recommendedCommand || '', /evaluation/i);
 });
 
-test('preflightPhaseDone allows automate when evaluationGate passed', () => {
+test('preflightPhaseDone blocks under automate with evaluation but without lessons (R2)', () => {
   const result = preflightPhaseDone({
     parentPlan: 'demo',
     phaseId: 'F0',
@@ -451,6 +451,34 @@ test('preflightPhaseDone allows automate when evaluationGate passed', () => {
             verdict: 'pass',
             reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
           },
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true);
+  assert.equal(result.code, 'phase-done-lessons-open');
+  assert.match(result.recommendedCommand || '', /lessons|Proposed lessons|none/i);
+});
+
+test('preflightPhaseDone allows automate when evaluationGate + lessonsState answered', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    plan: {
+      executionMode: 'automate',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'f0',
+          status: 'active',
+          dependsOn: [],
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
+          lessonsState: 'none',
         },
       ],
     },
