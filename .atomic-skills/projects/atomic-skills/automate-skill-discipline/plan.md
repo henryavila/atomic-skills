@@ -7,7 +7,7 @@ status: active
 started: 2026-07-21T19:25:48.389Z
 branch: plan/automate-skill-discipline
 executionMode: automate
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -123,25 +123,54 @@ phases:
       criteria:
         - id: F1-G1
           description: Authenticity unit tests and GATE-R4 path pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/phase-evaluation-gate.test.js tests/validate-state-evaluation-gate.test.js
             expectExitCode: 0
+          metAt: 2026-07-21T20:00:30.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-21T20:00:30.000Z
+            verifiedCommit: c85285888b4feba002673823849d281c470977c0
+            passed: true
+            exitCode: 0
+            outputSummary: 35 pass evaluation authenticity tests
         - id: F1-G2
           description: Prose forbids forge and documents reportPath/operatorSkip.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'reportPath|operatorSkip' skills/shared/implement-phase-evaluator.md skills/shared/implement-automate-maestro.md && rg -n 'forging evaluationGate|operatorSkip' skills/shared/implement-antipatterns.md
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-21T20:00:30.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-21T20:00:30.000Z
+            verifiedCommit: c85285888b4feba002673823849d281c470977c0
+            passed: true
+            exitCode: 0
+            outputSummary: rg reportPath operatorSkip antipatterns ok
+    status: done
     businessIntent:
       value: "evaluationGate deixa de aceitar forge: passed exige evaluationReport no disco; skipped so com operatorSkip+reason; GATE-R4 e phaseEvaluationAllowsClose usam a mesma honesty — pure-maestro Step F vira fail-closed de verdade."
       workflow: TDD schema+helpers (T-003) depois prosa/buildEvaluationGate (T-004); validate-state e phase-evaluation-gate compartilham predicado; sem auto-run do evaluation agent.
       rules: Nao exigir evaluationGate em planos non-automate; nao mudar planEndReview; nao Layer 4; campos additive reportPath/operatorSkip; skipped so com operatorSkip true + reason nao-vazio.
       outOfScope: claim-bound done (F2); maestro cursor (F3); pause entre fases (F4); auto-finalize; evaluation agent que escreve state.
       doneWhen: Testes phase-evaluation-gate + validate-state-evaluation-gate verdes; prosa reportPath/operatorSkip e antipattern forge; F1-G1/F1-G2 met.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f1-evaluation.md
+      verifiedAt: 2026-07-21T20:00:30.000Z
+      at: c85285888b4feba002673823849d281c470977c0
+    reviewGate:
+      status: passed
+      mode: local
+      at: c85285888b4feba002673823849d281c470977c0
+      reviewFile: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f1-evaluation.md
+      verifiedAt: 2026-07-21T20:00:30.000Z
+      reason: explicit local override F1 dogfood automate
   - id: F2
     slug: automate-skill-discipline-f2-claim-bound-done-and-complex-both
     title: Claim-bound done and complex both under automate (R4 + P0-3)
@@ -220,7 +249,7 @@ phases:
 references: []
 planActive: true
 planTitle: Automate skill discipline remediation
-lastUpdated: 2026-07-21T19:52:11.625Z
+lastUpdated: 2026-07-21T20:00:30.000Z
 ---
 
 # Automate skill discipline remediation

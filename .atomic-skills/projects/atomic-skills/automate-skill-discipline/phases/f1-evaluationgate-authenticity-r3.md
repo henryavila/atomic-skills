@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: automate-skill-discipline-f1-evaluationgate-authenticity-r3
 title: evaluationGate authenticity (R3)
 goal: "Make evaluationGate forge-resistant: passed requires evaluationReport path on disk; skipped requires operatorSkip + non-empty reason; GATE-R4 and phaseEvaluationAllowsClose share one honesty definition; buildEvaluationGate and skill evaluator asset updated."
-status: active
+status: done
 branch: plan/automate-skill-discipline
 started: 2026-07-21T19:52:11.625Z
-lastUpdated: 2026-07-21T19:57:49.000Z
-nextAction: Evaluation agent F1 then phase-done
+lastUpdated: 2026-07-21T20:00:30.000Z
+nextAction: "Maestro continues: materialize F2 then phase writer T-005 T-006"
 parentPlan: automate-skill-discipline
 phaseId: F1
 businessIntent:
@@ -18,23 +18,39 @@ businessIntent:
   doneWhen: Testes phase-evaluation-gate + validate-state-evaluation-gate verdes; prosa reportPath/operatorSkip e antipattern forge; F1-G1/F1-G2 met.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F1-G1
     description: Authenticity unit tests and GATE-R4 path pass.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/phase-evaluation-gate.test.js tests/validate-state-evaluation-gate.test.js
       expectExitCode: 0
+    metAt: 2026-07-21T20:00:30.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-21T20:00:30.000Z
+      verifiedCommit: c85285888b4feba002673823849d281c470977c0
+      passed: true
+      exitCode: 0
+      outputSummary: F1 evaluation pass
   - id: F1-G2
     description: Prose forbids forge and documents reportPath/operatorSkip.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'reportPath|operatorSkip' skills/shared/implement-phase-evaluator.md skills/shared/implement-automate-maestro.md && rg -n 'forging evaluationGate|operatorSkip' skills/shared/implement-antipatterns.md
       expectExitCode: 0
+    metAt: 2026-07-21T20:00:30.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-21T20:00:30.000Z
+      verifiedCommit: c85285888b4feba002673823849d281c470977c0
+      passed: true
+      exitCode: 0
+      outputSummary: F1 evaluation pass
 stack:
   - id: 1
     title: evaluationGate authenticity (R3)
@@ -130,8 +146,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F1 T-003/T-004 closed under pure-maestro after exclusive claim fix (chained base/head shared SHA rejected by validateClaimReport — dogfood caught real fail-closed).
-- **Decision log:** Materialize F1 orchestrated by maestro. Claim exclusivity rewrite by orchestrator (report packaging only). Merge + re-verify green.
-- **Single nextAction:** Evaluation agent F1 with reportPath authenticity, stamp evaluationGate, assert phase-done, phase-done.
-- **Verbatim state:** HEAD=bce3ccdebfa26bcb540f7bc97bd603d4c42bc374; claim-report.f1.json exclusive SHAs; T-003 T-004 done.
-- **Uncommitted changes:** initiative dirty until checkpoint.
+- **Narrative:** F1 pure-maestro complete with authentic evaluationGate.reportPath. Advancing to F2 claim-bound done.
+- **Decision log:** Operator automate mandate continues multi-phase; materialize is maestro Step H.
+- **Single nextAction:** Materialize F2 and spawn writer for T-005 T-006.
+- **Verbatim state:** HEAD=c85285888b4feba002673823849d281c470977c0; reportPath=.atomic-skills/reviews/2026-07-21-automate-skill-discipline-f1-evaluation.md; currentPhase=F2.
+- **Uncommitted changes:** clean after advance commit.
