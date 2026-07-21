@@ -64,7 +64,7 @@ const BUDGETS = [
   ['core/review-code.md', 21000, 'F3/T3.1 (raised 20000→21000 2026-07-16: multi-provider review modes + host-default)'],
   // Raised 2026-07-17: external model selection flags + Step 0.model pointer
   // (discover/recommend/pick lives in review-mode-ux.md lazy asset).
-  ['core/review-plan.md', 25500, 'F3/T3.2 (raised 24000→25000 2026-07-16 multi-provider; 25000→25500 2026-07-17: --model/--ask-model + Step 0.model pointer)'],
+  ['core/review-plan.md', 25600, 'F3/T3.2 (raised 24000→25000 2026-07-16 multi-provider; 25000→25500 2026-07-17 model flags; 25500→25600 2026-07-21: claude third provider modes)'],
   ['core/hunt.md', 14000, 'F3/T3.3'],
   ['core/debate.md', 15000, 'F3/T3.4'],
   ['core/parallel-dispatch.md', 13000, 'F2/T2.4'],

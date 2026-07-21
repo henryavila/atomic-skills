@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: claude-cross-model-review
 title: Claude as external cross-model review provider
 version: "1.0"
-status: active
+status: done
 started: 2026-07-17T18:41:49.722Z
-lastUpdated: 2026-07-17T19:06:05.000Z
+lastUpdated: 2026-07-21T16:55:19.000Z
 branch: plan/claude-cross-model-review
-currentPhase: F0
+currentPhase: F5
 parallelismAllowed: false
 principles:
   - id: P1
