@@ -15,7 +15,14 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeCursorFile, buildInitialCursor } from '../src/maestro-cursor.js';
+import {
+  writeCursorFile,
+  buildInitialCursor,
+  recordPhaseDonePauseFile,
+  clearContinueFile,
+  OPERATOR_CONTINUE_TOKEN,
+  AWAITING_OPERATOR_ADVANCE,
+} from '../src/maestro-cursor.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(ROOT, 'scripts', 'assert-automate-gate.js');
@@ -793,6 +800,93 @@ describe('assert-automate-gate CLI', () => {
         );
         assert.equal(r.status, 1, combined(r));
         assert.match(combined(r), /awaiting-operator-advance/);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('phase-done pause blocks spawn until clearContinue (continue path)', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, { executionMode: 'automate' });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'G');
+        const pause = recordPhaseDonePauseFile(statusRoot, 'demo-plan');
+        assert.equal(pause.ok, true, pause.reason);
+        assert.equal(pause.cursor.step, AWAITING_OPERATOR_ADVANCE);
+
+        const blocked = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(blocked.status, 1, combined(blocked));
+        assert.match(combined(blocked), /awaiting-operator-advance/);
+
+        // generic ok is not enough — missing token keeps pause
+        const noTok = clearContinueFile(statusRoot, 'demo-plan', {});
+        assert.equal(noTok.ok, false);
+
+        const cont = clearContinueFile(statusRoot, 'demo-plan', {
+          continueToken: OPERATOR_CONTINUE_TOKEN,
+        });
+        assert.equal(cont.ok, true, cont.reason);
+        assert.equal(cont.cursor.step, 'H');
+
+        // After clearContinue, pause lifted but spawn still needs step C (not auto-spawn)
+        const stillNotC = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(stillNotC.status, 1, combined(stillNotC));
+        assert.match(combined(stillNotC), /step H|forbids|cursor/i);
+        assert.doesNotMatch(combined(stillNotC), /awaiting-operator-advance/);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('non-automate spawn ignores pause cursor (non-automate phase-done unchanged)', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root); // no executionMode stamp
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', AWAITING_OPERATOR_ADVANCE);
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        // Cursor check inactive without stamp — lease missing → ok
+        assert.equal(r.status, 0, combined(r));
+        assert.match(r.stdout, /^ok\b/m);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }

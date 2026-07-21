@@ -42,12 +42,26 @@ Durable file: `.atomic-skills/status/automate/<plan-slug>.json` via `src/maestro
 | Post-merge re-verify / done-batch (**E**) | **E** (before `assert-automate-gate --gate done`) |
 | Evaluation agent (**F**) | **F** |
 | About to phase-done (**G**) | **G** (before `assert-automate-gate --gate phase-done`) |
-| After successful phase-done | **`awaiting-operator-advance`** (pause until operator continue — F4 hardens spawn refuse) |
-| Operator continue / next-phase prep (**H**) | **H** |
+| After successful phase-done | **`awaiting-operator-advance`** via `recordPhaseDonePause` / `recordPhaseDonePauseFile` (pause until operator continue — **no** auto-materialize, **no** auto-finalize, **no** next-phase spawn) |
+| Operator continue / next-phase prep (**H**) | **H** only after **`clearContinue` / `clearContinueFile`** with explicit continue token (below) |
 | Plan-end finalize path (**I**) | **I** (before `assert-automate-gate --gate finalize`) |
 | Re-dispatch code-only fix (from E\|F) | **C** via legal redispatch transition (`redispatchCount`++) — max **2** |
 
-**Never** delete the cursor or lease file to force progress. Illegal jumps (e.g. **C→G**, `done` while step is **B**) are rejected by `isLegalTransition` / `cursorAllowsGate` and by assert under stamp. Non-automate plans do not require a cursor.
+### Operator continue token (post phase-done pause — HARD)
+
+After successful `phase-done` under durable `executionMode: automate`, the cursor **must** sit at **`awaiting-operator-advance`** (`recordPhaseDonePause` from step **G**). While paused:
+
+- `assert-automate-gate --gate spawn` **refuses** (and `cursorAllowsGate` / `cursorAllowsStepA` refuse).
+- Pure-maestro **Step A** (load / next-phase re-entry) **refuses** until continue.
+- **Do not** auto-materialize the next phase, auto-run multi-phase, or finalize.
+
+**Continue path (explicit token — generic ok is not enough):**
+
+1. Operator re-enters with an explicit continue (implement re-entry + confirm continue, or skill flag that maps to the token) — **not** a bare "ok" / phase-done y alone when ratify rules apply.
+2. Call `clearContinue(cursor, { continueToken: 'operator-continue' })` **or** `{ operatorContinue: true }` (same semantics; constant `OPERATOR_CONTINUE_TOKEN` in `src/maestro-cursor.js`) → durable write via `clearContinueFile` → step **H**.
+3. From **H**: materialize if descriptor-only (operator owns `businessIntent`); then advance to **A** for the next phase, or **I** for plan-end. Never jump pause → **C**/spawn.
+
+**Never** delete the cursor or lease file to force progress. Illegal jumps (e.g. **C→G**, `done` while step is **B**) are rejected by `isLegalTransition` / `cursorAllowsGate` and by assert under stamp. Non-automate plans do not require a cursor and **must not** call `recordPhaseDonePause` (non-automate phase-done unchanged).
 
 ### Automate mode — pure maestro loop (when `isAutomateActive`)
 
@@ -63,7 +77,7 @@ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). A
 | **E** | Post-merge reachability → re-verify → done | **Claim-bound HARD-GATE first:** after D.5 merge settle, prove claim **reachability** on the plan branch, then `assert-automate-gate --gate done --claim-report <path> --check-reachability --reachable-file <shas>` must exit 0 (`canDoneFromAutomateClaims` / `canCloseTasksFromClaims` — claim-bound under durable stamp; missing/invalid/non-reachable claims block). Every claimed SHA and every `base`/`head` must be an ancestor of plan-branch `HEAD` (`git merge-base --is-ancestor <sha> HEAD` exit 0, or `validateClaimReachability`). Reject missing/non-ancestor claims — re-dispatch writer/fix; do not close on a tree that lacks the claimed commits. Then for each claimed task **on the MERGED plan tree only** (**post-merge** re-verify mandatory): re-run verifier (verify-claim / `done` path). Verifier fail ⇒ **do not** `done`; re-dispatch code-only fix agent (max **2**) or stop for operator — **never** silent Mode-1 self-code. **Complex path (below):** if `isComplexTask` after computing `destructiveDiff` from the **validated claim range** → `review-code --mode=both` + `complexTaskAllowsDone` (durable both receipt or operator disposition) before `done`. Non-complex → verifier-only GATE-R2. Only on verifier pass (+ complex review clear + durable receipt when required) → orchestrator `done <task-id>`. Phase writer never `done`. |
 | **F** | Evaluation agent | When **all** phase tasks are `done`, spawn a separate **evaluation agent** (fresh context, not the writer) — read-only structured pass/fail vs goal + gates + `businessIntent`. Never edits product source or durable plan state. **Must produce an `evaluationReport` on disk under `.atomic-skills/reviews/`** before any gate stamp; path becomes `evaluationGate.reportPath`. Detail: `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`. On blocker/critical: reopen affected tasks or blocking follow-ups; re-dispatch code-only fix agent (max **2**); re-run verifiers/complex reviews; re-evaluate. Evaluation pass does **not** finalize or auto phase-done. |
 | **G** | phase-done | Fixed order: tasks done → evaluation agent → **persist report** → stamp `phases[].evaluationGate` via `buildEvaluationGate` (authenticity R3: `passed` requires non-empty **`reportPath`**; `skipped` requires **`operatorSkip: true` + non-empty reason** — forge without them is rejected by `evaluationGateHonesty` / `phaseEvaluationAllowsClose` / GATE-R4) / `canRunPhaseDone` → **HARD-GATE:** `assert-automate-gate --gate phase-done` must exit 0 → **then** `phase-done` with `review-code --mode=both` (F2 wires transition default). **Not** `external-both` here — that mode is plan-end only (Step I). Durable decisions log visible for audit. Non-zero assert ⇒ do not run `phase-done`. |
-| **H** | Next phase | Re-enter Step A with a new writer (+ later a new evaluator); prior contexts discarded. Concurrent phase writers forbidden. **Materialize is not auto-run:** if the successor is descriptor-only, `phase-done` advance offers `project materialize` (operator fills `businessIntent`); Step A HARD-refuses until initiative exists. Automate executes materialized phases — it does not invent spine. |
+| **H** | Next phase | **Only after operator continue** cleared `awaiting-operator-advance` (`clearContinue` with `operator-continue` token → **H**). Then re-enter Step A with a new writer (+ later a new evaluator); prior contexts discarded. Concurrent phase writers forbidden. **Materialize is not auto-run:** if the successor is descriptor-only, offer `project materialize` (operator fills `businessIntent`); Step A HARD-refuses until initiative exists **and** pause is cleared. Automate executes materialized phases — it does not invent spine or chain F_n→F_n+1 without continue. |
 | **I** | Plan end | After last phase: plan-end **`review-code --mode=external-both` only** (receipt `mode` must be `external-both` — bare `both` fails `planEndReviewOk`) + legs **codex\|grok\|claude** that are family-different → **`planEndReviewOk`** + **user validates** (`userValidationOk`) via durable stamp gates (`isDurableAutomateActive` / `canFinalizeOrArchive`) → **HARD-GATE:** `assert-automate-gate --gate finalize` must exit 0 → only then finalize/archive. Never auto-archive after last phase green. Non-zero assert ⇒ HARD-BLOCK finalize/archive. |
 
 **Hard rules for the pure maestro path:**
@@ -77,7 +91,7 @@ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). A
 - After last phase the **user validates** implementation before finalize/archive (`assert-automate-gate --gate finalize` / `canFinalizeOrArchive` / durable stamp — not session clear alone).
 - Pure STOP helpers (layer-1, no spawn): `src/automate-orchestrator-gates.js` (`canSpawnPhaseWriter`, `canCloseTasksFromClaims`, `canDoneFromAutomateClaims` claim-bound done, `canRunPhaseDone`, `canFinalizeOrArchive`) + `complexTaskAllowsDone` in `src/complex-task.js`.
 - **Layer-2 assert (required before C/E/G/I):** `scripts/assert-automate-gate.js` — non-zero exit forbids advancing. Step **E** is claim-bound under stamp (`--gate done`).
-- **Layer-2.5 maestro cursor:** update on every A–I boundary (`src/maestro-cursor.js`); assert under stamp refuses illegal step; after phase-done prefer step **`awaiting-operator-advance`**; never delete cursor/lease to force progress.
+- **Layer-2.5 maestro cursor:** update on every A–I boundary (`src/maestro-cursor.js`); assert under stamp refuses illegal step; after successful phase-done **`recordPhaseDonePause` → `awaiting-operator-advance`**; Step A / spawn refuse until **`clearContinue` (`operator-continue`)**; never delete cursor/lease to force progress.
 
 #### Claim report validation (orchestrator, before any `done`) — claim-bound under stamp
 

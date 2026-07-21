@@ -45,6 +45,13 @@ export const MAESTRO_STEPS = Object.freeze([
 /** Post phase-done pause until operator continue (F3 records; F4 hardens). */
 export const AWAITING_OPERATOR_ADVANCE = 'awaiting-operator-advance';
 
+/**
+ * Explicit continue token for {@link clearContinue}.
+ * Generic "ok" / phase-done y-accept is **not** enough under project ratify rules —
+ * operator must pass this token (or `operatorContinue: true`) so spawn/Step A unpause.
+ */
+export const OPERATOR_CONTINUE_TOKEN = 'operator-continue';
+
 /** All legal cursor.step values. */
 export const ALL_CURSOR_STEPS = Object.freeze([
   ...MAESTRO_STEPS,
@@ -476,6 +483,136 @@ export function cursorAllowsGate(cursor, gate) {
   return { ok: true };
 }
 
+/**
+ * Whether cursor is in the post phase-done pause (pure).
+ * @param {MaestroCursor | null | undefined | Record<string, unknown>} cursor
+ * @returns {boolean}
+ */
+export function isAwaitingOperatorAdvance(cursor) {
+  if (cursor == null || typeof cursor !== 'object') return false;
+  return normStep(/** @type {MaestroCursor} */ (cursor).step) === AWAITING_OPERATOR_ADVANCE;
+}
+
+/**
+ * Implement pure-maestro Step A (load phase / next-phase re-entry) under stamp.
+ * Fail-closed while `awaiting-operator-advance` until {@link clearContinue}.
+ * Missing/invalid cursor → not ok (same fail-closed as gates).
+ *
+ * @param {MaestroCursor | null | undefined | Record<string, unknown>} cursor
+ * @returns {CursorGateResult}
+ */
+export function cursorAllowsStepA(cursor) {
+  if (cursor == null || typeof cursor !== 'object') {
+    return { ok: false, reason: 'missing maestro cursor' };
+  }
+  const shape = validateCursorShape(cursor);
+  if (!shape.ok) {
+    return {
+      ok: false,
+      reason: `invalid maestro cursor: ${shape.errors.join('; ')}`,
+    };
+  }
+  if (isAwaitingOperatorAdvance(cursor)) {
+    return {
+      ok: false,
+      reason:
+        'maestro cursor is awaiting-operator-advance — refuse Step A until clearContinue (operator-continue token)',
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * After successful phase-done under durable automate: advance G → awaiting-operator-advance.
+ * Idempotent when already paused. Does **not** auto-materialize or finalize.
+ * Non-automate phase-done must not call this (non-automate unchanged).
+ *
+ * @param {MaestroCursor | Record<string, unknown>} cursor
+ * @param {{
+ *   phaseId?: string,
+ *   claimReportPath?: string | null,
+ *   leasePath?: string | null,
+ *   updatedAt?: string,
+ *   now?: string,
+ * }} [opts]
+ * @returns {CursorAdvanceResult & { alreadyPaused?: boolean }}
+ */
+export function recordPhaseDonePause(cursor, opts = {}) {
+  const shape = validateCursorShape(cursor);
+  if (!shape.ok) {
+    return {
+      ok: false,
+      reason: `invalid cursor: ${shape.errors.join('; ')}`,
+    };
+  }
+  const c = /** @type {MaestroCursor} */ (cursor);
+  const step = normStep(c.step);
+  if (step === AWAITING_OPERATOR_ADVANCE) {
+    return { ok: true, cursor: c, alreadyPaused: true };
+  }
+  if (step !== 'G') {
+    return {
+      ok: false,
+      reason: `recordPhaseDonePause requires step G after phase-done (have ${step}) — refuse auto-chain`,
+    };
+  }
+  const advanced = advanceCursor(c, AWAITING_OPERATOR_ADVANCE, opts);
+  if (!advanced.ok) return advanced;
+  return { ...advanced, alreadyPaused: false };
+}
+
+/**
+ * Operator continue path: clear post phase-done pause (awaiting → H).
+ *
+ * Requires an **explicit** continue token — generic ok / phase-done y alone is not enough:
+ * - `continueToken: 'operator-continue'` ({@link OPERATOR_CONTINUE_TOKEN}), or
+ * - `operatorContinue: true` (same semantics; skill documents either form).
+ *
+ * After clear, next-phase prep is **H** (materialize if descriptor-only; then A).
+ * Does not auto-materialize, does not auto-finalize, does not jump to C/spawn.
+ *
+ * @param {MaestroCursor | Record<string, unknown>} cursor
+ * @param {{
+ *   continueToken?: string,
+ *   operatorContinue?: boolean,
+ *   phaseId?: string,
+ *   claimReportPath?: string | null,
+ *   leasePath?: string | null,
+ *   updatedAt?: string,
+ *   now?: string,
+ * }} [opts]
+ * @returns {CursorAdvanceResult}
+ */
+export function clearContinue(cursor, opts = {}) {
+  const tokenOk =
+    opts.operatorContinue === true ||
+    (opts.continueToken != null &&
+      String(opts.continueToken).trim() === OPERATOR_CONTINUE_TOKEN);
+  if (!tokenOk) {
+    return {
+      ok: false,
+      reason:
+        `clearContinue requires continueToken: '${OPERATOR_CONTINUE_TOKEN}' or operatorContinue: true ` +
+        '(generic ok is not a continue token under automate pause)',
+    };
+  }
+  const shape = validateCursorShape(cursor);
+  if (!shape.ok) {
+    return {
+      ok: false,
+      reason: `invalid cursor: ${shape.errors.join('; ')}`,
+    };
+  }
+  const step = normStep(/** @type {MaestroCursor} */ (cursor).step);
+  if (step !== AWAITING_OPERATOR_ADVANCE) {
+    return {
+      ok: false,
+      reason: `clearContinue only from awaiting-operator-advance (have ${step})`,
+    };
+  }
+  return advanceCursor(/** @type {MaestroCursor} */ (cursor), 'H', opts);
+}
+
 // --- Thin FS wrappers ---
 
 /**
@@ -582,4 +719,72 @@ export function ensureCursor(statusRoot, planSlug, opts) {
   });
   const path = writeCursorFile(statusRoot, planSlug, cursor);
   return { status: 'ok', cursor, initialized: true, path };
+}
+
+/**
+ * Durable write after successful automate phase-done: set step awaiting-operator-advance.
+ * Reads existing cursor; must be at G (or already paused). Malformed/missing → not ok.
+ *
+ * @param {string} statusRoot
+ * @param {string} planSlug
+ * @param {{
+ *   phaseId?: string,
+ *   updatedAt?: string,
+ *   now?: string,
+ * }} [opts]
+ * @returns {CursorAdvanceResult & { path?: string, alreadyPaused?: boolean }}
+ */
+export function recordPhaseDonePauseFile(statusRoot, planSlug, opts = {}) {
+  const read = readCursorResult(statusRoot, planSlug);
+  if (read.status === 'missing') {
+    return {
+      ok: false,
+      reason:
+        'maestro cursor missing — cannot record phase-done pause; ensureCursor/advance to G before phase-done',
+    };
+  }
+  if (read.status === 'malformed' || !read.cursor) {
+    return {
+      ok: false,
+      reason: `maestro cursor malformed: ${read.error || 'invalid'} — repair; do not delete to force progress`,
+    };
+  }
+  const result = recordPhaseDonePause(read.cursor, opts);
+  if (!result.ok || !result.cursor) return result;
+  const path = writeCursorFile(statusRoot, planSlug, result.cursor);
+  return { ...result, path };
+}
+
+/**
+ * Durable operator continue: clear awaiting-operator-advance → H when token valid.
+ *
+ * @param {string} statusRoot
+ * @param {string} planSlug
+ * @param {{
+ *   continueToken?: string,
+ *   operatorContinue?: boolean,
+ *   phaseId?: string,
+ *   updatedAt?: string,
+ *   now?: string,
+ * }} [opts]
+ * @returns {CursorAdvanceResult & { path?: string }}
+ */
+export function clearContinueFile(statusRoot, planSlug, opts = {}) {
+  const read = readCursorResult(statusRoot, planSlug);
+  if (read.status === 'missing') {
+    return {
+      ok: false,
+      reason: 'maestro cursor missing — nothing to clearContinue',
+    };
+  }
+  if (read.status === 'malformed' || !read.cursor) {
+    return {
+      ok: false,
+      reason: `maestro cursor malformed: ${read.error || 'invalid'} — repair; do not delete to force progress`,
+    };
+  }
+  const result = clearContinue(read.cursor, opts);
+  if (!result.ok || !result.cursor) return result;
+  const path = writeCursorFile(statusRoot, planSlug, result.cursor);
+  return { ...result, path };
 }
