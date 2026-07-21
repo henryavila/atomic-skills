@@ -12,14 +12,15 @@ Under automate, phase close order is fixed:
 
 1. **All phase tasks `done`** — each closed by the orchestrator via post-merge verifier pass (+ complex-task review when required). Writer claims alone never suffice.
 2. **Evaluation agent** (this contract) — fresh context, not the writer; structured pass/fail vs phase goal + exit gates + `businessIntent`.
-3. **Stamp `phases[<id>].evaluationGate`** on the parent plan via `buildEvaluationGate` (`src/phase-evaluation-gate.js`):
-   - pass → `{ status: passed, verdict: pass, at: <HEAD>, verifiedAt: <ISO> }`
-   - rare skip → `{ status: skipped, reason: <non-empty> }` (must be operator-recorded, never silent)
+3. **Persist `evaluationReport` on disk** under `.atomic-skills/reviews/` (path like `.atomic-skills/reviews/eval-<planSlug>-<phaseId>.md` or equivalent documented path). The evaluator (or orchestrator on its behalf after the structured return) **must write this file before** any gate stamp. Soft "looks good" narrative is not a report.
+4. **Stamp `phases[<id>].evaluationGate`** on the parent plan via `buildEvaluationGate` (`src/phase-evaluation-gate.js`) — **only after** the report path exists:
+   - pass → `{ status: passed, verdict: pass, reportPath: <non-empty path to evaluationReport>, at: <HEAD>, verifiedAt: <ISO> }`
+   - rare skip → `{ status: skipped, operatorSkip: true, reason: <non-empty> }` (operator-owned only; never silent; never reason-alone)
    - residual after disposition → `{ status: failed-dispositioned, disposition: accept|defer|fix, reason: <non-empty> }`
-   Machine check: `phaseEvaluationAllowsClose` / `canRunPhaseDone` must return `ok: true` before phase-done.
-4. **Then** `phase-done` with `review-code --mode=both` (automate default — **not** `external-both`; plan-end is the only `external-both` gate).
+   Machine check: `phaseEvaluationAllowsClose` / `evaluationGateHonesty` / `canRunPhaseDone` must return `ok: true` before phase-done. Authenticity (R3): **passed without non-empty `reportPath` is forge and is rejected**; **skipped without `operatorSkip: true` + non-empty reason is forge and is rejected**.
+5. **Then** `phase-done` with `review-code --mode=both` (automate default — **not** `external-both`; plan-end is the only `external-both` gate).
 
-Do not run phase-done before the evaluation agent completes **and** `evaluationGate` is stamped (or the operator records an explicit skip/disposition with non-empty reason — rare; still not silent).
+Do not run phase-done before the evaluation agent completes, the **evaluationReport is on disk**, **and** `evaluationGate` is stamped with authenticity fields (or the operator records an explicit `operatorSkip`+reason / disposition — rare; still not silent).
 
 ---
 
@@ -32,7 +33,7 @@ Do not run phase-done before the evaluation agent completes **and** `evaluationG
 | Return structured pass/fail + findings (severity + path/reason) | Call `done`, `phase-done`, finalize, archive |
 | Surface drift from ratified spine | Self-certify the phase as closed |
 
-**Never writes product source or project state.** The orchestrator alone logs dispositions and runs transitions.
+**Never writes product source or durable project state** (plan frontmatter, handoff, rollups, tasks). The structured `evaluationReport` file under `.atomic-skills/reviews/` is the allowed evidence artifact the orchestrator points to via `evaluationGate.reportPath` — the evaluator still does **not** stamp `phases[].evaluationGate` itself. The orchestrator alone logs dispositions, stamps the gate, and runs transitions.
 
 ---
 
@@ -62,6 +63,15 @@ evaluationReport:
 - **Major** findings surface for operator triage (accept/defer/fix) and require a recorded disposition before phase-done.
 - Soft language (`should` / `probably` / `looks done`) is banned in the verdict narrative (G2).
 
+### Persist report before gate stamp (HARD — authenticity R3)
+
+1. Write the structured report to **`.atomic-skills/reviews/`** (e.g. `.atomic-skills/reviews/eval-<planSlug>-<phaseId>.md`) with the shape above.
+2. Return the **absolute or repo-relative `reportPath`** to the orchestrator.
+3. Orchestrator stamps via `buildEvaluationGate({ status: 'passed', verdict: 'pass', reportPath, at, verifiedAt })` — `buildEvaluationGate` **requires** non-empty `reportPath` for `passed` and refuses forge-friendly partial stamps.
+4. Do **not** stamp `evaluationGate` with `status: passed` without a real report path. Do **not** invent `skipped` without operator mandate (`operatorSkip: true` + non-empty reason).
+
+Evaluation pass does **not** finalize the plan and does **not** auto-run `phase-done` — it only unlocks the Step G assert + phase-done order.
+
 ---
 
 ## Reopen protocol (on blocker/critical)
@@ -85,7 +95,7 @@ Every evaluation-related disposition the orchestrator takes must land in durable
 - Initiative `## Session handoff` **decision log**, and/or
 - A durable phase decisions block under `.atomic-skills/` owned by the orchestrator.
 
-Record at least: routing choices, skip of evaluation (if any) with non-empty reason, re-dispatch count + why, scope-exit events, review/evaluation severity dispositions (accept/defer/fix).
+Record at least: routing choices, skip of evaluation (if any) with **`operatorSkip: true` + non-empty reason** (and stamp those fields on `evaluationGate`), re-dispatch count + why, scope-exit events, review/evaluation severity dispositions (accept/defer/fix), and the `reportPath` when evaluation passed.
 
 ---
 
