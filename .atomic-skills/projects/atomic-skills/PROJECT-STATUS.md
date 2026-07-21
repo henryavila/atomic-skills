@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-21T19:26:00.000Z
+lastUpdated: 2026-07-21T19:42:30.835Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 1
@@ -20,7 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| automate-skill-discipline | active | F0 | plan/automate-skill-discipline | 2026-07-21 | 0/5 | |
+| automate-skill-discipline | active | F1 | plan/automate-skill-discipline | 2026-07-21 | 1/5 | |
 
 
 
@@ -50,7 +50,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Path | Status | Phase | Branch | Tasks |
 |------|--------|-------|--------|-------|
-| automate-skill-discipline/phases/f0-assert-cli-and-skill-call-sites-r1.md | active | F0 | plan/automate-skill-discipline | 0/2 |
+| automate-skill-discipline/phases/f0-assert-cli-and-skill-call-sites-r1.md | done | F0 | plan/automate-skill-discipline | 2/2 |
 
 ## Active Initiatives (standalone)
 

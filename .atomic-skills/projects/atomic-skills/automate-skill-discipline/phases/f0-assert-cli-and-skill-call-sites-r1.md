@@ -3,11 +3,10 @@ schemaVersion: "0.1"
 slug: automate-skill-discipline-f0-assert-cli-and-skill-call-sites-r1
 title: Assert CLI and skill call sites (R1)
 goal: Land `scripts/assert-automate-gate.js` reusing Layer-1 helpers, unit/integration tests, and skill prose that hard-requires assert before spawn, done-batch, phase-done, and finalize under automate.
-status: active
+status: done
 branch: plan/automate-skill-discipline
 started: 2026-07-21T19:25:48.389Z
-lastUpdated: 2026-07-21T19:38:41.000Z
-nextAction: All F0 tasks done — evaluation agent then phase-done
+nextAction: "Operator: project materialize F1 then continue implement (stamp automate already on)"
 parentPlan: automate-skill-discipline
 phaseId: F0
 businessIntent:
@@ -18,27 +17,55 @@ businessIntent:
   doneWhen: assert-automate-gate testes verdes e prosa exige assert antes de spawn/done/phase-done/finalize; F0-G1 e F0-G2 met.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 0
 weightTotal: 2
 exitGates:
   - id: F0-G1
     description: assert-automate-gate tests pass and script is executable via node.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/assert-automate-gate.test.js && node scripts/assert-automate-gate.js --help >/dev/null 2>&1 || node scripts/assert-automate-gate.js 2>&1 | head -5
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/assert-automate-gate.test.js && node scri…"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-21T19:41:19.000Z
+      verifiedCommit: 42ed863f4cccf2e0e92d0362bcc3bbfbc9d03817
+      passed: true
+      exitCode: 0
+      outputSummary: |2-
+            ✔ exit 0 when non-automate (64.030208ms)
+          ✔ finalize (192.175875ms)
+          ✔ resolves nested project/slug and --project filter (127.086958ms)
+        ✔ assert-automate-gate CLI (1335.547875ms)
+        ℹ tests 16
+        ℹ suites 5
+        ℹ pass 16
+        ℹ fail 0
+        ℹ cancelled 0
+        ℹ skipped 0
+        ℹ todo 0
+        ℹ duration_ms 1369.239
+    metAt: 2026-07-21T19:41:19.000Z
   - id: F0-G2
     description: Skill assets require assert-automate-gate under automate; no top-level automate skill.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test ! -e skills/core/automate.md && rg -n 'assert-automate-gate' skills/core/implement.md skills/shared/implement-automate-maestro.md
       expectExitCode: 0
     verifierLabel: "shell: test ! -e skills/core/automate.md && rg -n 'assert-automate…"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-21T19:41:19.000Z
+      verifiedCommit: 42ed863f4cccf2e0e92d0362bcc3bbfbc9d03817
+      passed: true
+      exitCode: 0
+      outputSummary: assert-automate-gate greps ok; no automate.md
+    metAt: 2026-07-21T19:41:19.000Z
 stack:
   - id: 1
     title: Assert CLI and skill call sites (R1)
@@ -129,6 +156,7 @@ emerged: []
 planTitle: Automate skill discipline remediation
 planActive: true
 current: true
+lastUpdated: 2026-07-21T19:42:17.011Z
 ---
 
 # Narrative / notes
@@ -144,8 +172,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** Pure-maestro F0: phase writer delivered T-001/T-002; merged into plan branch; post-merge verifiers pass; both tasks closed via orchestrator done (claim-validated). Lease cleared with acquire secret.
-- **Decision log:** Dogfood automate on remediation plan. assert-automate-gate --gate done exited 0 with claim report. No silent Mode-1 host coding of product source.
-- **Single nextAction:** Spawn evaluation agent (Step F), stamp evaluationGate, assert-automate-gate --gate phase-done, then phase-done with review-code --mode=both.
-- **Verbatim state:** HEAD=3958c642f17fc7318e79291fd813ac7309a2eb0c; claim-report=/Volumes/External/code/atomic-skills/.worktrees/automate-skill-discipline-f0-writer/claim-report.f0.json; T-001/T-002 evidence passed; executionMode=automate.
-- **Uncommitted changes:** clean after checkpoint commit.
+- **Narrative:** F0 pure-maestro dogfood complete through evaluation + exit gates + review receipt. Ready for phase-done advance after commit of state.
+- **Decision log:** Used phase writer for product code; orchestrator only merge/done/eval/state. assert-automate-gate validated done+phase-done. evaluationGate passed. reviewGate stamped.
+- **Single nextAction:** Complete phase-done terminal write: mark F0 done, activate materialize prompt for F1 (do not auto-materialize).
+- **Verbatim state:** HEAD=42ed863f4cccf2e0e92d0362bcc3bbfbc9d03817; evaluationGate.passed; F0-G1/G2 met; reviewFile=.atomic-skills/reviews/2026-07-21-automate-skill-discipline-f0-local.md
+- **Uncommitted changes:** plan+initiative+reviews dirty until advance checkpoint.
