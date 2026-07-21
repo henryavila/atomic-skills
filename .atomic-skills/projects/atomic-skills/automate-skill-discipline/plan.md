@@ -237,7 +237,7 @@ phases:
     goal: Durable per-plan maestro cursor records step/phase/redispatch; assert and skill refuse actions that skip steps; no multi-host spawn supervisor.
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -255,7 +255,13 @@ phases:
             kind: shell
             command: rg -n 'maestro-cursor|cursor' scripts/assert-automate-gate.js skills/shared/implement-automate-maestro.md
             expectExitCode: 0
-    status: pending
+    status: active
+    businessIntent:
+      value: Cursor duravel de step do pure-maestro impede pular A-I sem o assert gritar — anti-pulo barato sem daemon Layer 4.
+      workflow: TDD src/maestro-cursor.js (T-007) depois wire assert+prosa (T-008); status file sob .atomic-skills/status/automate/.
+      rules: Nao spawn adapters multi-host; nao forcar cursor em non-automate; path so status/automate.
+      outOfScope: Layer 3 host-local wait-loop; Layer 4 daemon; product file contents no cursor.
+      doneWhen: maestro-cursor tests verdes; assert+skill referenciam cursor; F3-G1/G2 met.
   - id: F4
     slug: automate-skill-discipline-f4-phase-pause-framing-and-residual-d
     title: Phase pause, framing, and residual discipline (R5 + P1)
@@ -284,7 +290,7 @@ phases:
 references: []
 planActive: true
 planTitle: Automate skill discipline remediation
-lastUpdated: 2026-07-21T20:07:10.000Z
+lastUpdated: 2026-07-21T20:07:28.991Z
 ---
 
 # Automate skill discipline remediation
