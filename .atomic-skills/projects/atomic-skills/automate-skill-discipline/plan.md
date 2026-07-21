@@ -7,7 +7,7 @@ status: active
 started: 2026-07-21T19:25:48.389Z
 branch: plan/automate-skill-discipline
 executionMode: automate
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -243,25 +243,54 @@ phases:
       criteria:
         - id: F3-G1
           description: Maestro cursor unit tests pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/maestro-cursor.test.js
             expectExitCode: 0
+          metAt: 2026-07-21T20:16:16.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-21T20:16:16.000Z
+            verifiedCommit: 4e102d07e3313ac4ef9f085c58a5921774ea69f2
+            passed: true
+            exitCode: 0
+            outputSummary: ok
         - id: F3-G2
           description: Assert + skill reference cursor anti-skip.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'maestro-cursor|cursor' scripts/assert-automate-gate.js skills/shared/implement-automate-maestro.md
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-21T20:16:16.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-21T20:16:16.000Z
+            verifiedCommit: 4e102d07e3313ac4ef9f085c58a5921774ea69f2
+            passed: true
+            exitCode: 0
+            outputSummary: ok
+    status: done
     businessIntent:
       value: Cursor duravel de step do pure-maestro impede pular A-I sem o assert gritar — anti-pulo barato sem daemon Layer 4.
       workflow: TDD src/maestro-cursor.js (T-007) depois wire assert+prosa (T-008); status file sob .atomic-skills/status/automate/.
       rules: Nao spawn adapters multi-host; nao forcar cursor em non-automate; path so status/automate.
       outOfScope: Layer 3 host-local wait-loop; Layer 4 daemon; product file contents no cursor.
       doneWhen: maestro-cursor tests verdes; assert+skill referenciam cursor; F3-G1/G2 met.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f3-evaluation.md
+      verifiedAt: 2026-07-21T20:16:16.000Z
+      at: 4e102d07e3313ac4ef9f085c58a5921774ea69f2
+    reviewGate:
+      status: passed
+      mode: local
+      at: 4e102d07e3313ac4ef9f085c58a5921774ea69f2
+      reviewFile: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f3-evaluation.md
+      verifiedAt: 2026-07-21T20:16:16.000Z
+      reason: local override F3 dogfood
   - id: F4
     slug: automate-skill-discipline-f4-phase-pause-framing-and-residual-d
     title: Phase pause, framing, and residual discipline (R5 + P1)
@@ -290,7 +319,7 @@ phases:
 references: []
 planActive: true
 planTitle: Automate skill discipline remediation
-lastUpdated: 2026-07-21T20:07:28.991Z
+lastUpdated: 2026-07-21T20:16:16.000Z
 ---
 
 # Automate skill discipline remediation
