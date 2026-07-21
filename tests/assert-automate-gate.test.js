@@ -102,6 +102,8 @@ function writePlan(root, opts = {}) {
       lines.push('    evaluationGate:');
       if (g.status != null) lines.push(`      status: ${g.status}`);
       if (g.verdict != null) lines.push(`      verdict: ${g.verdict}`);
+      if (g.reportPath != null) lines.push(`      reportPath: "${g.reportPath}"`);
+      if (g.operatorSkip === true) lines.push('      operatorSkip: true');
       if (g.reason != null) lines.push(`      reason: "${g.reason}"`);
       if (g.disposition != null) lines.push(`      disposition: ${g.disposition}`);
     }
@@ -413,7 +415,11 @@ describe('assert-automate-gate CLI', () => {
       try {
         writePlan(root, {
           executionMode: 'automate',
-          evaluationGate: { status: 'passed', verdict: 'pass' },
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
         });
         const stateRoot = join(root, '.atomic-skills');
         const r = run(
@@ -512,7 +518,11 @@ describe('assert-automate-gate CLI', () => {
         projectId: 'atomic-skills',
         slug: 'demo-plan',
         executionMode: 'automate',
-        evaluationGate: { status: 'passed', verdict: 'pass' },
+        evaluationGate: {
+          status: 'passed',
+          verdict: 'pass',
+          reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+        },
       });
       writePlan(root, {
         projectId: 'other',
