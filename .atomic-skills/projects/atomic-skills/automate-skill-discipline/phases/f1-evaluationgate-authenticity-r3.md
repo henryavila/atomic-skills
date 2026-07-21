@@ -2,33 +2,21 @@
 schemaVersion: "0.1"
 slug: automate-skill-discipline-f1-evaluationgate-authenticity-r3
 title: evaluationGate authenticity (R3)
-goal: "Make evaluationGate forge-resistant: passed requires evaluationReport
-  path on disk; skipped requires operatorSkip + non-empty reason; GATE-R4 and
-  phaseEvaluationAllowsClose share one honesty definition; buildEvaluationGate
-  and skill evaluator asset updated."
+goal: "Make evaluationGate forge-resistant: passed requires evaluationReport path on disk; skipped requires operatorSkip + non-empty reason; GATE-R4 and phaseEvaluationAllowsClose share one honesty definition; buildEvaluationGate and skill evaluator asset updated."
 status: active
 branch: plan/automate-skill-discipline
 started: 2026-07-21T19:52:11.625Z
-lastUpdated: 2026-07-21T19:52:11.625Z
-nextAction: "Start T-003: Schema and pure honesty for evaluation report pointer"
+lastUpdated: 2026-07-21T19:57:49.000Z
+nextAction: Evaluation agent F1 then phase-done
 parentPlan: automate-skill-discipline
 phaseId: F1
 businessIntent:
-  value: "evaluationGate deixa de aceitar forge: passed exige evaluationReport no
-    disco; skipped so com operatorSkip+reason; GATE-R4 e
-    phaseEvaluationAllowsClose usam a mesma honesty — pure-maestro Step F vira
-    fail-closed de verdade."
-  workflow: TDD schema+helpers (T-003) depois prosa/buildEvaluationGate (T-004);
-    validate-state e phase-evaluation-gate compartilham predicado; sem auto-run
-    do evaluation agent.
-  rules: Nao exigir evaluationGate em planos non-automate; nao mudar
-    planEndReview; nao Layer 4; campos additive reportPath/operatorSkip; skipped
-    so com operatorSkip true + reason nao-vazio.
-  outOfScope: claim-bound done (F2); maestro cursor (F3); pause entre fases (F4);
-    auto-finalize; evaluation agent que escreve state.
-  doneWhen: Testes phase-evaluation-gate + validate-state-evaluation-gate verdes;
-    prosa reportPath/operatorSkip e antipattern forge; F1-G1/F1-G2 met.
-tasksDone: 0
+  value: "evaluationGate deixa de aceitar forge: passed exige evaluationReport no disco; skipped so com operatorSkip+reason; GATE-R4 e phaseEvaluationAllowsClose usam a mesma honesty — pure-maestro Step F vira fail-closed de verdade."
+  workflow: TDD schema+helpers (T-003) depois prosa/buildEvaluationGate (T-004); validate-state e phase-evaluation-gate compartilham predicado; sem auto-run do evaluation agent.
+  rules: Nao exigir evaluationGate em planos non-automate; nao mudar planEndReview; nao Layer 4; campos additive reportPath/operatorSkip; skipped so com operatorSkip true + reason nao-vazio.
+  outOfScope: claim-bound done (F2); maestro cursor (F3); pause entre fases (F4); auto-finalize; evaluation agent que escreve state.
+  doneWhen: Testes phase-evaluation-gate + validate-state-evaluation-gate verdes; prosa reportPath/operatorSkip e antipattern forge; F1-G1/F1-G2 met.
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
@@ -38,18 +26,14 @@ exitGates:
     status: pending
     verifier:
       kind: shell
-      command: node --test tests/phase-evaluation-gate.test.js
-        tests/validate-state-evaluation-gate.test.js
+      command: node --test tests/phase-evaluation-gate.test.js tests/validate-state-evaluation-gate.test.js
       expectExitCode: 0
   - id: F1-G2
     description: Prose forbids forge and documents reportPath/operatorSkip.
     status: pending
     verifier:
       kind: shell
-      command: rg -n 'reportPath|operatorSkip'
-        skills/shared/implement-phase-evaluator.md
-        skills/shared/implement-automate-maestro.md && rg -n 'forging
-        evaluationGate|operatorSkip' skills/shared/implement-antipatterns.md
+      command: rg -n 'reportPath|operatorSkip' skills/shared/implement-phase-evaluator.md skills/shared/implement-automate-maestro.md && rg -n 'forging evaluationGate|operatorSkip' skills/shared/implement-antipatterns.md
       expectExitCode: 0
 stack:
   - id: 1
@@ -59,29 +43,15 @@ stack:
 tasks:
   - id: T-003
     title: Schema and pure honesty for evaluation report pointer
-    status: pending
-    lastUpdated: 2026-07-21T19:52:11.625Z
+    status: done
+    lastUpdated: 2026-07-21T19:57:49.000Z
     scopeBoundary:
-      - Do not require evaluationGate on non-automate plans. Do not change
-        planEndReview shape. Do not invent Layer 4. Prefer additive schema
-        fields (reportPath, operatorSkip) with additionalProperties false
-        updated carefully.
+      - Do not require evaluationGate on non-automate plans. Do not change planEndReview shape. Do not invent Layer 4. Prefer additive schema fields (reportPath, operatorSkip) with additionalProperties false updated carefully.
     acceptance:
-      - it - evaluationGate schema allows reportPath string and operatorSkip
-        boolean with documented required-when rules.; it -
-        phaseEvaluationAllowsClose rejects status passed without non-empty
-        reportPath when authenticity flag or durable automate honesty mode is on
-        (default on for automate).; it - rejects status skipped without
-        operatorSkip true and non-empty reason.; it - accepts passed with
-        reportPath and verdict pass and accepts skipped only with
-        operatorSkip+reason.; it - GATE-R4 / checkEvaluationGate uses the same
-        honesty helper (no divergent prose rules).; it - legacy retroactive
-        skips remain expressible only via operatorSkip+reason (document
-        migration note in test or comment).; it - unit tests cover forge cases.
+      - it - evaluationGate schema allows reportPath string and operatorSkip boolean with documented required-when rules.; it - phaseEvaluationAllowsClose rejects status passed without non-empty reportPath when authenticity flag or durable automate honesty mode is on (default on for automate).; it - rejects status skipped without operatorSkip true and non-empty reason.; it - accepts passed with reportPath and verdict pass and accepts skipped only with operatorSkip+reason.; it - GATE-R4 / checkEvaluationGate uses the same honesty helper (no divergent prose rules).; it - legacy retroactive skips remain expressible only via operatorSkip+reason (document migration note in test or comment).; it - unit tests cover forge cases.
     verifier:
       kind: shell
-      command: node --test tests/phase-evaluation-gate.test.js
-        tests/validate-state-evaluation-gate.test.js
+      command: node --test tests/phase-evaluation-gate.test.js tests/validate-state-evaluation-gate.test.js
       expectExitCode: 0
     outputs:
       - kind: file
@@ -94,26 +64,35 @@ tasks:
         path: scripts/validate-state.js
       - kind: file
         path: tests/validate-state-evaluation-gate.test.js
+    closedAt: 2026-07-21T19:57:49.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-21T19:57:49.000Z
+      verifiedCommit: bce3ccdebfa26bcb540f7bc97bd603d4c42bc374
+      passed: true
+      exitCode: 0
+      outputSummary: |-
+        ✔ GATE-R4: non-automate plan without evaluationGate is OK (0.038875ms)
+        ✔ GATE-R4: non-automate plan with present forged passed gate still honesty-checked (0.055166ms)
+        ℹ tests 35
+        ℹ suites 4
+        ℹ pass 35
+        ℹ fail 0
+        ℹ cancelled 0
+        ℹ skipped 0
+        ℹ todo 0
+        ℹ duration_ms 71.482208
   - id: T-004
     title: Evaluator asset and buildEvaluationGate write reportPath
-    status: pending
-    lastUpdated: 2026-07-21T19:52:11.625Z
+    status: done
+    lastUpdated: 2026-07-21T19:57:49.000Z
     scopeBoundary:
-      - Do not auto-run evaluation agent. Do not write product source from
-        evaluator. Do not finalize on evaluation pass.
+      - Do not auto-run evaluation agent. Do not write product source from evaluator. Do not finalize on evaluation pass.
     acceptance:
-      - it - buildEvaluationGate for passed requires or records reportPath.; it
-        - evaluator asset mandates writing evaluationReport under
-        .atomic-skills/reviews/ (or documented path) before orchestrator stamps
-        gate.; it - antipatterns ban forging evaluationGate passed without
-        report and inventing skip without operator.; it - maestro Step F/G
-        references authenticity rules.
+      - it - buildEvaluationGate for passed requires or records reportPath.; it - evaluator asset mandates writing evaluationReport under .atomic-skills/reviews/ (or documented path) before orchestrator stamps gate.; it - antipatterns ban forging evaluationGate passed without report and inventing skip without operator.; it - maestro Step F/G references authenticity rules.
     verifier:
       kind: shell
-      command: rg -n 'reportPath|operatorSkip'
-        skills/shared/implement-phase-evaluator.md
-        skills/shared/implement-automate-maestro.md && rg -n 'forging
-        evaluationGate|operatorSkip' skills/shared/implement-antipatterns.md
+      command: rg -n 'reportPath|operatorSkip' skills/shared/implement-phase-evaluator.md skills/shared/implement-automate-maestro.md && rg -n 'forging evaluationGate|operatorSkip' skills/shared/implement-antipatterns.md
       expectExitCode: 0
     outputs:
       - kind: file
@@ -126,6 +105,14 @@ tasks:
         path: skills/core/implement.md
       - kind: file
         path: skills/shared/implement-antipatterns.md
+    closedAt: 2026-07-21T19:57:49.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-21T19:57:49.000Z
+      verifiedCommit: bce3ccdebfa26bcb540f7bc97bd603d4c42bc374
+      passed: true
+      exitCode: 0
+      outputSummary: "skills/shared/implement-automate-maestro.md:40:| **F** | Evaluation agent | When **all** phase tasks are `done`, spawn a separate **evaluation agent** (fresh context, not the writer) — read-only structured pass/fail vs goal + gates + `businessIntent`. Never edits product source or durable plan state. **Must produce an `evaluationReport` on disk under `.atomic-skills/reviews/`** before any gate stamp; path becomes `evaluationGate.reportPath`. Detail: `{{READ_TOOL}} skills/shared/implement-phase-e"
 parked: []
 emerged: []
 ---
@@ -143,9 +130,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** Pure-maestro continues: F0 done; F1 materialized by orchestrator (businessIntent from ratified plan source + operator automate mandate). Spawning phase writer for T-003+T-004.
-- **Decision log:** Under automate, materialize is maestro Step H — operator does not run materialize by hand. Spine filled from plan source F1 goal (not invented beyond ratified remediation plan).
-- **Single nextAction:** Phase writer implements T-003 then T-004; orchestrator merges, re-verifies, done, evaluate, phase-done.
-- **Verbatim state:** executionMode=automate; currentPhase=F1; initiative=f1-evaluationgate-authenticity-r3.md; tasks T-003 T-004 pending.
-- **Uncommitted changes:** clean after materialize checkpoint.
-
+- **Narrative:** F1 T-003/T-004 closed under pure-maestro after exclusive claim fix (chained base/head shared SHA rejected by validateClaimReport — dogfood caught real fail-closed).
+- **Decision log:** Materialize F1 orchestrated by maestro. Claim exclusivity rewrite by orchestrator (report packaging only). Merge + re-verify green.
+- **Single nextAction:** Evaluation agent F1 with reportPath authenticity, stamp evaluationGate, assert phase-done, phase-done.
+- **Verbatim state:** HEAD=bce3ccdebfa26bcb540f7bc97bd603d4c42bc374; claim-report.f1.json exclusive SHAs; T-003 T-004 done.
+- **Uncommitted changes:** initiative dirty until checkpoint.

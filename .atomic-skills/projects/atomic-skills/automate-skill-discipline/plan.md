@@ -103,6 +103,7 @@ phases:
       verdict: pass
       at: 42ed863f4cccf2e0e92d0362bcc3bbfbc9d03817
       verifiedAt: 2026-07-21T19:41:19.159Z
+      reportPath: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f0-evaluation.md
     reviewGate:
       status: passed
       mode: local
