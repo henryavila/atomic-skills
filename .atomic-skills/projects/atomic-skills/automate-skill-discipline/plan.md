@@ -177,7 +177,7 @@ phases:
     goal: Under durable automate stamp, task close refuses missing/invalid claims, failed reachability, and complex tasks without both-mode review clear; assert --gate done shares the predicate; Mode 1 unstamped unchanged.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -195,7 +195,13 @@ phases:
             kind: shell
             command: rg -n 'claim-bound|canCloseTasksFromClaims|reachability' skills/shared/implement-automate-maestro.md skills/shared/project-assets/project-transitions.md
             expectExitCode: 0
-    status: pending
+    status: active
+    businessIntent:
+      value: Sob stamp automate, done recusa claim invalido, reachability falha e complex sem both-clear — fail-closed no miolo A-E que a auditoria marcou como soft.
+      workflow: TDD predicates claim-bound/complex (T-005) depois wire assert done + prosa transitions (T-006); Mode 1 unstamped permanece igual.
+      rules: Nao mudar GATE-R2 verifier execution; nao forcar complex both em non-automate; nao deixar phase writer chamar done; claim obrigatorio so com executionMode automate.
+      outOfScope: maestro cursor (F3); pause F4; Layer 4; auto-merge no assert script.
+      doneWhen: Unit tests claim/complex/assert verdes; prosa claim-bound greppable; F2-G1/F2-G2 met.
   - id: F3
     slug: automate-skill-discipline-f3-thin-maestro-step-cursor-r2
     title: Thin maestro step cursor (R2)
@@ -249,7 +255,7 @@ phases:
 references: []
 planActive: true
 planTitle: Automate skill discipline remediation
-lastUpdated: 2026-07-21T20:00:30.000Z
+lastUpdated: 2026-07-21T20:00:52.547Z
 ---
 
 # Automate skill discipline remediation
