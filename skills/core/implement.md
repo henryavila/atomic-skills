@@ -86,54 +86,17 @@ After that hard pre-check passes, confirm each pending task carries the SPEC int
 
 ### Automate mode — pure maestro loop (when `isAutomateActive`)
 
-When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). After Step 1 hard gates pass, run this spine. Detail for the phase writer contract: `{{READ_TOOL}} skills/shared/implement-phase-writer.md`. Isolation/lease: `{{READ_TOOL}} skills/shared/worktree-isolation.md` + `src/writer-lease.js`. Evaluation order: `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`.
+When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). After Step 1 hard gates pass, run the pure-maestro spine.
 
-| Step | Name | Orchestrator action |
-|------|------|---------------------|
-| **A** | Load phase | Active phase + `businessIntent` + SPEC-admitted pending tasks (Step 1 already hard-gated). |
-| **B** | Snapshot handoff → build phase work-order | Write/refresh `## Session handoff` (pre-dispatch checkpoint). Build a **phase work-order** for all pending tasks of **this phase only** (task ids, paths, `scopeBoundary`, `acceptance`, `verifier`). |
-| **C** | Spawn phase writer | **Acquire writer lease** with exclusive create (`acquireLeaseFile` / `writeLeaseFile` in `src/writer-lease.js` — `wx` / O_EXCL; returns `{ path, secret, lease }`; on-disk stores `tokenHash` only, mode `0o600`; fail if file already present). Hold the **secret** in memory for clear. Cut a **sibling** phase worktree from the git **common-dir** / primary root — **never nest** under `.worktrees/<plan-slug>/…`. Spawn **ONE** code-only **phase writer** with a **constructed brief** (work-order + scoped context — **MUST NOT** include orchestrator chat history). Concurrent phase writers forbidden even if `parallelismAllowed`. |
-| **D** | Sync wait → collect claim report | **SYNC WAIT** until the writer exits. Collect the **claim report** (per task: commit SHAs **or** base+head, paths ≥1 for open claims, verifier command + exit + transcript; claimed-pass requires `exitCode === 0`). Parse/validate with `src/claim-report.js` (`parseClaimReport` / `validateClaimReport`) — refuse self-certify; incomplete or overlapping claims do not close tasks. |
-| **D.5** | Merge sibling → plan branch | Orchestrator **merges sibling into plan branch before** any task re-verify or `done` (**git-ops only**). Content conflicts ⇒ re-dispatch a code-only fix agent (not hand-edit). Refuse resume mid-merge. Clear writer lease only with the **acquire secret** (`clearLeaseFile(statusRoot, planSlug, secret)` — verifies sha256 against on-disk `tokenHash`; forged public-fields clear fails) after sync-wait + claim collect + **merge settle**. |
-| **E** | Post-merge reachability → re-verify → done | After merge settle, **prove claim reachability on the plan branch** before any verifier/`done`: every claimed SHA and every `base`/`head` must be an ancestor of plan-branch `HEAD` (`git merge-base --is-ancestor <sha> HEAD` exit 0, or `validateClaimReachability` with that reachable set). Reject missing/non-ancestor claims — re-dispatch writer/fix; do not close on a tree that lacks the claimed commits. Then for each claimed task **on the MERGED plan tree only** (**post-merge** re-verify mandatory): re-run verifier (verify-claim / `done` path). Verifier fail ⇒ **do not** `done`; re-dispatch code-only fix agent (max **2**) or stop for operator — **never** silent Mode-1 self-code. **Complex path (below):** if `isComplexTask` after computing `destructiveDiff` from the **validated claim range** → `review-code --mode=both` on that range before `done`. Non-complex → verifier-only GATE-R2. Only on verifier pass (+ complex review clear + durable receipt when required) → orchestrator `done <task-id>`. |
-| **F** | Evaluation agent | When **all** phase tasks are `done`, spawn a separate **evaluation agent** (fresh context, not the writer) — read-only structured pass/fail vs goal + gates + `businessIntent`. Never edits product source or project state. Detail: `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`. On blocker/critical: reopen affected tasks or blocking follow-ups; re-dispatch code-only fix agent (max **2**); re-run verifiers/complex reviews; re-evaluate. |
-| **G** | phase-done | Fixed order: tasks done → evaluation agent → **then** `phase-done` with `review-code --mode=both` (F2 wires transition default; implement states the order). Durable decisions log visible for audit. |
-| **H** | Next phase | Re-enter Step A with a new writer (+ later a new evaluator); prior contexts discarded. Concurrent phase writers forbidden. |
-| **I** | Plan end | After last phase: plan-end `external-both` + **`planEndReviewOk`** (`src/plan-end-review.js`) → **user validates** implementation + decisions (`userValidationOk`) → only then finalize/archive. Never auto-archive after last phase green. |
+**<HARD-GATE — load maestro asset before any spawn>**
+If `isAutomateActive` and you have **not** `{{READ_TOOL}}` `skills/shared/implement-automate-maestro.md` **in this turn** before acquiring a writer lease or spawning a phase writer: **STOP**. Read that file first. The resident summary below is not a substitute for Steps A–I (claim exclusivity, D.5 merge, evaluationGate, plan-end `external-both`).
 
-**Hard rules for the pure maestro path:**
+**Load the full A–I loop + claim/complex/evaluationGate/plan-end rules:**
+`{{READ_TOOL}} skills/shared/implement-automate-maestro.md`
 
-- Session never edits product source (pure maestro).
-- One phase writer per phase, **code-only** (forbids `done`, `phase-done`, handoff mutation, any `.atomic-skills/` durable write).
-- Never self-certify; never silent Mode-1 fallback under automate.
-- Max **2** re-dispatch rounds for verifier/review/evaluator fail, then mandatory operator stop.
-- Every routing / skip / re-dispatch / scope-exit / review-severity disposition is written to the durable decisions log / handoff decision log.
-- Fixed evaluation order: all phase tasks `done` → **evaluation agent** → phase-done `review-code --mode=both`.
-- After last phase the **user validates** implementation before finalize/archive.
+Also: phase writer `{{READ_TOOL}} skills/shared/implement-phase-writer.md`; isolation/lease `{{READ_TOOL}} skills/shared/worktree-isolation.md` + `src/writer-lease.js`; evaluation `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`; STOP helpers `src/automate-orchestrator-gates.js` (`canSpawnPhaseWriter`, `canCloseTasksFromClaims`, `canRunPhaseDone`, `canFinalizeOrArchive`). Machine preflight: `preflightPhaseDone` blocks under `executionMode: automate` without a valid `evaluationGate` (`phase-done-evaluation-open`).
 
-#### Claim report validation (orchestrator, before any `done`)
-
-Use `src/claim-report.js` as the single machine definition:
-
-1. **`parseClaimReport`** → envelope or task list.
-2. **`validateClaimReport`** requires per open claim: `taskId`, commit identity (`commitShas[]` non-empty **or** `base`+`head`), `paths[]`, `verifierCommand`, `exitCode` (number or `null`), `transcript` (string; may be empty).
-3. **Reject ambiguous overlapping multi-task SHAs:** each task needs an **exclusive** `commitShas` list **or** a `base`+`head` range — a SHA shared across open claims without exclusive base/head is invalid (`findOverlappingClaimShas`). Do not run `review-code` or `done` on an invalid claim set; re-dispatch the writer/fix agent for a clean report.
-4. **Post-merge reachability (HARD, after D.5):** for every open claim, prove each `commitShas[]` entry and each `base`/`head` is reachable on the **merged plan branch** (`git merge-base --is-ancestor <sha> HEAD` → 0, or pure helper `validateClaimReachability(report, reachableSet)`). Missing or non-ancestor claims ⇒ refuse verifier/`done`; re-dispatch.
-5. Resolve the review pin with `validatedRangeForDone` / `claimRangeFromTask` on the **validated** range only.
-
-#### Complex-task CROSS-MODEL before `done` (automate only)
-
-Predicate: `isComplexTask` from `src/complex-task.js` — `weight >= threshold` (default **3**) OR tags ∩ `{destructive, decommission, drop, complex}` OR **`destructiveDiff === true`**.
-
-Under automate, **before orchestrator `done` on a complex task**:
-
-1. Compute **`destructiveDiff`** from the **validated claim commit range** (same pin `review-code` will use — DESTRUCTIVE heuristic in `skills/core/review-code.md` over that range). Pass the flag into `isComplexTask({ weight, tags, destructiveDiff })`.
-2. If complex → run **`review-code --mode=both`** on that validated range (`resolveReviewRoute` still applies same-family remap).
-3. **Severity gate:**
-   - **blocker / critical** → **block `done`** until re-dispatch (code-only fix agent, max **2**) or operator disposition recorded in the decisions log.
-   - **major** → surface for operator triage; require disposition **`accept` | `defer` | `fix`** recorded before close (do not auto-close majors without a disposition).
-4. **Durable receipt:** leave a review receipt / evidence path (under `.atomic-skills/reviews/` when written) linked from the decisions log / handoff **before** `done`. No receipt + complex required ⇒ do not close.
-5. **Non-complex tasks** close with **verifier-only** under existing GATE-R2 — no forced per-task cross-model `review-code --mode=both`.
+**Summary:** one code-only phase writer per phase → merge → post-merge `done` → evaluation agent + `evaluationGate` → `phase-done` with `review-code --mode=both` → next phase (materialize if descriptor-only) → plan-end **`external-both`** (codex|grok|claude) + user validation via durable stamp.
 
 ### Step 2 — Execute one task (single-threaded) — Mode 1 only
 

@@ -33,6 +33,7 @@ import {
   projectScopeId as integrityProjectScopeId,
   sidecarKey,
 } from '../src/state-invariants.js';
+import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -410,7 +411,18 @@ export function validateAppMapFile(appMapPath) {
 }
 
 const DETERMINISTIC_VERIFIER_KINDS = new Set(['shell', 'test', 'query']);
-const REVIEW_GATE_MODES = new Set(['local', 'codex', 'both']);
+/** Phase-done review modes (local ladder + multi-provider both* / single externals). */
+const REVIEW_GATE_MODES = new Set([
+  'local',
+  'codex',
+  'grok',
+  'claude',
+  'both',
+  'both-codex',
+  'both-grok',
+  'both-claude',
+  'external-both',
+]);
 /** Full or abbreviated git SHA (lowercase preferred; case-insensitive match). */
 const GIT_SHA_RE = /^[0-9a-f]{7,40}$/i;
 
@@ -590,9 +602,9 @@ export function checkReviewGate(frontmatter) {
         violations.push(`${label}: reviewGate.at must be a git SHA (7–40 hex), got ${JSON.stringify(rg.at)} — arbitrary non-SHA strings cannot anchor a passed review.`);
       }
       if (!hasText(rg.mode)) {
-        violations.push(`${label}: reviewGate.status is 'passed' but has no \`mode\` — record which surface ran (local|codex|both).`);
+        violations.push(`${label}: reviewGate.status is 'passed' but has no \`mode\` — record which surface ran (local|codex|grok|claude|both|…).`);
       } else if (!REVIEW_GATE_MODES.has(rg.mode)) {
-        violations.push(`${label}: reviewGate.mode must be one of local|codex|both (got ${JSON.stringify(rg.mode)}).`);
+        violations.push(`${label}: reviewGate.mode must be a known review mode (got ${JSON.stringify(rg.mode)}).`);
       }
       // reviewFile is optional (not every local pass writes a file), but when
       // present it must be a coherent non-empty path — blank is not evidence.
@@ -605,6 +617,52 @@ export function checkReviewGate(frontmatter) {
       }
     } else {
       violations.push(`${label}: reviewGate.status must be 'passed' or 'skipped' (got ${JSON.stringify(rg.status)}).`);
+    }
+  }
+  return violations;
+}
+
+/**
+ * GATE-R4 — evaluation gate honesty under durable automate (R1).
+ *
+ * When plan.executionMode is automate, every phase with status:'done' must carry
+ * an evaluationGate that phaseEvaluationAllowsClose accepts (passed+verdict pass,
+ * skipped+reason, or failed-dispositioned+disposition+reason). Absent gate on a
+ * done automate phase is a HARD violation (not legacy-tolerant — automate stamp
+ * is opt-in and post-dates the gate). Non-automate plans: if evaluationGate is
+ * present on a done phase, still check honesty; absent is OK.
+ *
+ * @param {object} frontmatter - parsed plan frontmatter
+ * @returns {string[]}
+ */
+export function checkEvaluationGate(frontmatter) {
+  const violations = [];
+  if (frontmatter == null || typeof frontmatter !== 'object') return violations;
+  const planExecutionMode =
+    frontmatter.executionMode != null
+      ? String(frontmatter.executionMode).trim().toLowerCase()
+      : '';
+  const durableAutomate = planExecutionMode === 'automate';
+  const phases = Array.isArray(frontmatter.phases) ? frontmatter.phases : [];
+  for (const phase of phases) {
+    if (phase?.status !== 'done') continue;
+    const label = `phase ${phase.id ?? '?'}`;
+    const eg = phase.evaluationGate;
+    if (eg == null || typeof eg !== 'object') {
+      if (durableAutomate) {
+        violations.push(
+          `${label}: executionMode automate requires evaluationGate on done phases — run the evaluation agent (or stamp skip/disposition) before phase-done`,
+        );
+      }
+      continue;
+    }
+    // Present gate: honesty always (passed+verdict / skipped+reason / dispositioned)
+    const honesty = phaseEvaluationAllowsClose({
+      automateActive: true,
+      evaluationGate: eg,
+    });
+    if (!honesty.ok) {
+      violations.push(`${label}: evaluationGate invalid — ${honesty.reason}`);
     }
   }
   return violations;
@@ -652,6 +710,7 @@ export function validateFile(filePath, validators) {
   const invariantViolations = [
     ...checkMetInvariant(parsed.frontmatter),
     ...checkReviewGate(parsed.frontmatter), // GATE-R3 (G2): done phase's review claim must be honest
+    ...checkEvaluationGate(parsed.frontmatter), // GATE-R4: automate evaluationGate honesty
   ];
   if (invariantViolations.length > 0) {
     return { ok: false, kind, errors: invariantViolations };

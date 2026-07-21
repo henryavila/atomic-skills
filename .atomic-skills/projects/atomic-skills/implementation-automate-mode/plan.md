@@ -80,6 +80,10 @@ phases:
             exitCode: 0
             outputSummary: import ok
     status: done
+    evaluationGate:
+      status: skipped
+      reason: "retroactive GATE-R4 backfill — phase closed before evaluationGate existed (implementation-automate-mode self-host)"
+      verifiedAt: "2026-07-21T00:00:00.000Z"
     businessIntent:
       value: "Helpers puros sao a unica fonte da verdade do modo: mode parse, isComplexTask, planEndReviewOk e userValidationOk compartilhados por implement/transitions/finalize."
       workflow: "TDD helpers: testes RED, implementar src/implement-mode.js, complex-task.js, plan-end-review.js; F1+ consome os helpers."
@@ -143,6 +147,10 @@ phases:
             exitCode: 0
             outputSummary: "orchestrator re-run exit 0 after merge F1: F1-G3"
     status: done
+    evaluationGate:
+      status: skipped
+      reason: "retroactive GATE-R4 backfill — phase closed before evaluationGate existed (implementation-automate-mode self-host)"
+      verifiedAt: "2026-07-21T00:00:00.000Z"
     summary: "Implement maestro: writer code-only, evaluator, sibling isolation, lease, merge-before-done."
     businessIntent:
       value: "Maestro puro sob --mode=automate: session nao edita product source; um phase-writer code-only por fase; orchestrator fecha done."
@@ -191,6 +199,10 @@ phases:
             exitCode: 0
             outputSummary: "orch re-run: F2-G2"
     status: done
+    evaluationGate:
+      status: skipped
+      reason: "retroactive GATE-R4 backfill — phase closed before evaluationGate existed (implementation-automate-mode self-host)"
+      verifiedAt: "2026-07-21T00:00:00.000Z"
     summary: "Review policy: phase/complex both; executionMode stamp obrigatório."
     businessIntent:
       value: "Review policy sob automate: phase-done defaults to both; complex tasks review-code both before done; executionMode stamp obrigatorio."
@@ -239,6 +251,10 @@ phases:
             exitCode: 0
             outputSummary: "orch: F3-G2"
     status: done
+    evaluationGate:
+      status: skipped
+      reason: "retroactive GATE-R4 backfill — phase closed before evaluationGate existed (implementation-automate-mode self-host)"
+      verifiedAt: "2026-07-21T00:00:00.000Z"
     summary: Finalize/archive hard-block planEndReviewOk + userValidationOk.
     businessIntent:
       value: Finalize/archive sob automate exigem planEndReviewOk e userValidationOk.
@@ -287,6 +303,10 @@ phases:
             exitCode: 0
             outputSummary: ✓ All 15 skills valid (schema_version 0.2)
     status: done
+    evaluationGate:
+      status: skipped
+      reason: "retroactive GATE-R4 backfill — phase closed before evaluationGate existed (implementation-automate-mode self-host)"
+      verifiedAt: "2026-07-21T00:00:00.000Z"
     summary: Contract tests, docs/catálogo e suite completa verde.
     businessIntent:
       value: Contract tests, docs/catalog e suite completa verde para automate mode.

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkEvaluationGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1788,4 +1788,58 @@ test('plan schema: planEndReview accepts skip with reason; rejects unknown mode'
     false,
     'planEndReview.mode must be external-both only',
   );
+});
+
+// GATE-R4 — evaluationGate under executionMode automate
+function automateDonePlan(evaluationGate, extra = {}) {
+  return {
+    schemaVersion: '0.1',
+    slug: 'gate-r4-demo',
+    title: 'Gate R4',
+    version: '1.0',
+    status: 'active',
+    started: '2026-07-21T00:00:00.000Z',
+    lastUpdated: '2026-07-21T00:00:00.000Z',
+    branch: 'plan/gate-r4-demo',
+    currentPhase: null,
+    executionMode: 'automate',
+    phases: [
+      {
+        id: 'F0',
+        slug: 'f0',
+        title: 'F0',
+        goal: 'g',
+        status: 'done',
+        dependsOn: [],
+        subPhaseCount: 0,
+        exitGate: { summary: 's', criteria: [] },
+        ...(evaluationGate !== undefined ? { evaluationGate } : {}),
+        ...extra,
+      },
+    ],
+  };
+}
+
+test('GATE-R4 RED: automate done phase without evaluationGate violates', () => {
+  const v = checkEvaluationGate(automateDonePlan(undefined));
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /evaluationGate/);
+});
+
+test('GATE-R4 GREEN: automate done phase with passed evaluationGate', () => {
+  assert.deepEqual(
+    checkEvaluationGate(automateDonePlan({ status: 'passed', verdict: 'pass' })),
+    [],
+  );
+});
+
+test('GATE-R4 RED: automate done phase with passed but no verdict', () => {
+  const v = checkEvaluationGate(automateDonePlan({ status: 'passed' }));
+  assert.ok(v.length >= 1);
+});
+
+test('GATE-R4: non-automate plan without evaluationGate is OK', () => {
+  const plan = automateDonePlan(undefined);
+  delete plan.executionMode;
+  assert.deepEqual(checkEvaluationGate(plan), []);
 });

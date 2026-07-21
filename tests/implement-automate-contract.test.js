@@ -81,10 +81,16 @@ describe('implement automate skill surface (prose)', () => {
   it('implement.md points at code-only writer, complex both, and plan-end external-both', () => {
     assertMatch(implement, /code-only/i, 'implement.md');
     assertMatch(implement, /complex/i, 'implement.md');
-    assertMatch(implement, /review-code.*--mode=both|--mode=both.*complex|complex.*--mode=both/is, 'implement.md complex both');
     assertMatch(implement, /external-both|planEndReviewOk/i, 'implement.md plan-end');
     assertIncludes(implement, 'implement-phase-writer.md', 'implement.md');
     assertIncludes(implement, 'implement-phase-evaluator.md', 'implement.md');
+    assertIncludes(implement, 'implement-automate-maestro.md', 'implement.md');
+    assert.ok(
+      existsSync(join(ROOT, 'skills/shared/implement-automate-maestro.md')),
+      'lazy pure-maestro asset must exist',
+    );
+    const maestro = read('skills/shared/implement-automate-maestro.md');
+    assertMatch(maestro, /review-code.*--mode=both|--mode=both.*complex|complex.*--mode=both/is, 'maestro complex both');
   });
 
   it('implement-phase-writer.md exists with code-only / never done language', () => {
@@ -125,12 +131,23 @@ describe('implement automate skill surface (prose)', () => {
     assertMatch(transitions, /both/, 'project-transitions.md');
   });
 
-  it('project-finalize documents planEndReviewOk hard-block under automate', () => {
+  it('project-finalize documents planEndReviewOk hard-block under durable automate', () => {
     assertIncludes(finalize, 'planEndReviewOk', 'project-finalize.md');
-    assertIncludes(finalize, 'isAutomateActive', 'project-finalize.md');
+    assertIncludes(finalize, 'isDurableAutomateActive', 'project-finalize.md');
     assertMatch(finalize, /HARD-BLOCK|HARD-BLOCKS/i, 'project-finalize.md');
     assertMatch(finalize, /skip-plan-end-review/, 'project-finalize.md');
     assertIncludes(finalize, 'userValidationOk', 'project-finalize.md');
+    assertIncludes(finalize, 'external-both', 'project-finalize.md');
+  });
+
+  it('implement spine documents evaluationGate and orchestrator gates', () => {
+    assertIncludes(implement, 'evaluationGate', 'implement.md');
+    assertIncludes(implement, 'canRunPhaseDone', 'implement.md');
+    assertIncludes(implement, 'canFinalizeOrArchive', 'implement.md');
+    assertIncludes(phaseEvaluator, 'evaluationGate', 'phase-evaluator');
+    assertMatch(implement, /HARD-GATE.*maestro|implement-automate-maestro/is, 'implement HARD-GATE maestro');
+    assertIncludes(transitions, 'evaluationGate', 'project-transitions');
+    assertIncludes(transitions, 'phaseEvaluationAllowsClose', 'project-transitions');
   });
 });
 

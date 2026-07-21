@@ -27,10 +27,12 @@ Loaded by the router for `/atomic-skills:project finalize <slug>`.
    (`git status --porcelain` empty). A dirty tree aborts — commit or stash first.
 2. `gh` is authenticated and an `origin` remote exists. If either is missing,
    surface a safe block (do not half-publish) — see *Failure handling*.
-3. **Automate plan-end gates (when `isAutomateActive`)** — see **Step 1.7**. Under
-   `executionMode: automate` (or CLI automate with an active stamp), finalize
-   **HARD-BLOCKS** unless both `planEndReviewOk` and `userValidationOk` are true
-   (`src/plan-end-review.js`). Non-automate plans skip this precondition entirely.
+3. **Automate plan-end gates (when durable automate is active)** — see **Step 1.7**.
+   Use **`isDurableAutomateActive`** / stamp `executionMode: automate` (not session
+   `isAutomateActive` alone — clear flag / `--mode=1` must not skip plan-end while
+   the stamp remains). Finalize **HARD-BLOCKS** unless both `planEndReviewOk` and
+   `userValidationOk` are true (`src/plan-end-review.js`). Non-automate plans skip
+   this precondition entirely.
 
 ## Step 1 — Resolve the integration ref (consumes `scripts/integration-ref.js`)
 
@@ -262,23 +264,30 @@ out of scope — the operator's call).
 
 ## Step 1.7 — Plan-end external-both + user validation (automate only — HARD-BLOCK)
 
-**When this step runs:** only when `isAutomateActive` is true
-(`src/implement-mode.js` — CLI mode + plan `executionMode` stamp + clear flag).
-Non-automate plans **skip this step entirely** (no extra review forced at finalize;
-non-automate behavior is unchanged beyond detecting `executionMode`).
+**When this step runs:** only when **`isDurableAutomateActive({ planExecutionMode })`**
+is true (`src/plan-end-review.js` — stamp `executionMode: automate` **or** explicit
+`automateActive: true`). **Do not** early-exit on session `isAutomateActive` alone:
+`--clear-execution-mode` / `--mode=1` turn the *session* off but leave the stamp;
+plan-end gates stay **on** until `clearExecutionModeStamp` removes the stamp.
+Non-automate plans (no stamp) **skip this step entirely**.
 
-**Design load-bearing (D7 + D9 + D12):** under automate, plan finalize requires a
-plan-end `review-code` with **`external-both`** on the plan integration range, a
+**Design load-bearing (D7 + D9 + D12):** under durable automate, plan finalize requires a
+plan-end `review-code` with **`external-both` only** (not bare `both` / `both-claude` —
+`planEndReviewOk` rejects `mode !== 'external-both'`) on the plan integration range, a
 machine-checkable receipt, **and** explicit operator validation of the
 implementation + durable decisions log. Soft “point the operator at review” is
 **not** a success path. Never auto-merge PRs; never auto-archive after the last
 phase turns green.
 
-### 1.7.1 — Resolve automate + load durable receipt / validation
+**Legs that count:** family-different **`codex` | `grok` | `claude`** with
+`status: succeeded` and `familyDifferent: true` (`KNOWN_EXTERNAL_PROVIDERS`).
 
-1. Compute `automateActive = isAutomateActive({ cliMode, planExecutionMode, clearFlag })`
-   from the plan frontmatter `executionMode` (and any CLI clear flag). If not active →
-   continue to Step 2.
+### 1.7.1 — Resolve durable automate + load receipt / validation
+
+1. Compute `durableAutomate = isDurableAutomateActive({ planExecutionMode: plan.executionMode })`
+   (optionally pass `automateActive: true` to force). **If not durable → continue to
+   Step 2.** Never use session-only `isAutomateActive({ clearExecutionMode: true })` to
+   skip this step while the stamp remains.
 2. Load the durable plan-end receipt from plan frontmatter `planEndReview` when
    present (schema: `meta/schemas/plan.schema.json`). If absent, treat receipt as
    missing (`planEndReviewOk` → false) unless the operator is about to run the
@@ -315,7 +324,8 @@ phase turns green.
      reviewFile: ".atomic-skills/reviews/<…>-plan-end.md"
      legs:
        - { provider: codex, status: succeeded, familyDifferent: true }
-       - { provider: grok, status: skipped, familyDifferent: true }   # example host filter
+       - { provider: grok, status: skipped, familyDifferent: true }    # example host filter
+       - { provider: claude, status: skipped, familyDifferent: true }  # third external; counts when succeeded
      verifiedAt: "<ISO-8601>"
    ```
 
@@ -365,11 +375,12 @@ import {
 } from 'src/plan-end-review.js';
 
 const gates = automatePlanEndGatesOk({
-  automateActive: true,
-  receipt: plan.planEndReview,       // or null if missing
+  planExecutionMode: plan.executionMode, // stamp-first durable (H1)
+  receipt: plan.planEndReview,           // or null if missing
   userValidatedAt: plan.userValidatedAt,
 });
 // gates.ok === false ⇒ HARD-BLOCK finalize (and archive — see project-transitions.md)
+// Prefer canFinalizeOrArchive from src/automate-orchestrator-gates.js (same predicate).
 ```
 
 | Condition | Result |
@@ -465,8 +476,10 @@ merges and never archives.
   (`scripts/finalize-plan-scope.js`) BLOCKS a non-terminal or
   `branch ≠ plan`-unconfirmed target; the status-regression detector is
   advisory/read-only (reuses the F4 lane, never gates, never auto-resolves).
-- **Automate plan-end gate (Step 1.7)** — when `isAutomateActive`, finalize
-  **HARD-BLOCKS** unless `planEndReviewOk` (external-both receipt under
-  `.atomic-skills/reviews/` linked from `## Reviews`, or `--skip-plan-end-review`
-  with non-empty reason) **and** `userValidationOk` (`userValidatedAt` ISO stamp).
-  Non-automate plans are unchanged. Never auto-merge.
+- **Automate plan-end gate (Step 1.7)** — when **`isDurableAutomateActive`**
+  (stamp `executionMode: automate`), finalize **HARD-BLOCKS** unless
+  `planEndReviewOk` (`mode: external-both` receipt; legs codex|grok|claude;
+  under `.atomic-skills/reviews/` linked from `## Reviews`, or
+  `--skip-plan-end-review` with non-empty reason) **and** `userValidationOk`
+  (`userValidatedAt` ISO stamp). Session clear without unstamp does **not**
+  skip the gate. Non-automate plans are unchanged. Never auto-merge.

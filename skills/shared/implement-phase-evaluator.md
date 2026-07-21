@@ -12,9 +12,14 @@ Under automate, phase close order is fixed:
 
 1. **All phase tasks `done`** — each closed by the orchestrator via post-merge verifier pass (+ complex-task review when required). Writer claims alone never suffice.
 2. **Evaluation agent** (this contract) — fresh context, not the writer; structured pass/fail vs phase goal + exit gates + `businessIntent`.
-3. **Then** `phase-done` with `review-code --mode=both` (automate default; F2 wires the transition default — implement still states this order).
+3. **Stamp `phases[<id>].evaluationGate`** on the parent plan via `buildEvaluationGate` (`src/phase-evaluation-gate.js`):
+   - pass → `{ status: passed, verdict: pass, at: <HEAD>, verifiedAt: <ISO> }`
+   - rare skip → `{ status: skipped, reason: <non-empty> }` (must be operator-recorded, never silent)
+   - residual after disposition → `{ status: failed-dispositioned, disposition: accept|defer|fix, reason: <non-empty> }`
+   Machine check: `phaseEvaluationAllowsClose` / `canRunPhaseDone` must return `ok: true` before phase-done.
+4. **Then** `phase-done` with `review-code --mode=both` (automate default — **not** `external-both`; plan-end is the only `external-both` gate).
 
-Do not run phase-done before the evaluation agent completes (or the operator records an explicit skip disposition in the decisions log — rare; still not silent).
+Do not run phase-done before the evaluation agent completes **and** `evaluationGate` is stamped (or the operator records an explicit skip/disposition with non-empty reason — rare; still not silent).
 
 ---
 

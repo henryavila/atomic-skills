@@ -16,7 +16,7 @@
  * A leg counts ONLY when ALL of:
  *   - status === 'succeeded'
  *   - familyDifferent === true (strict boolean; missing is NOT true)
- *   - provider is a known external ('codex' | 'grok')
+ *   - provider is a known external ('codex' | 'grok' | 'claude')
  *
  * userValidationOk: under automateActive === true, require a non-empty
  * ISO-8601-ish timestamp in userValidatedAt. When automate is not active
@@ -28,7 +28,8 @@
  * Session cliMode / clearExecutionMode do NOT disable finalize/archive gates
  * while the stamp remains automate. To leave the durable gate, call
  * `clearExecutionModeStamp` (remove stamp). Session `isAutomateActive` remains
- * for the maestro loop who codes.
+ * for the maestro coding loop only — finalize/archive MUST use
+ * `isDurableAutomateActive` (not session isAutomateActive alone).
  *
  * Finalize/archive under automate HARD-BLOCK unless BOTH planEndReviewOk
  * and userValidationOk are true (see automatePlanEndGatesOk). Receipt files
@@ -39,7 +40,15 @@
  * No I/O.
  */
 
-const KNOWN_EXTERNAL_PROVIDERS = new Set(['codex', 'grok']);
+import { EXTERNAL_PROVIDER_ORDER } from './cross-model-host-default.js';
+
+/**
+ * Family-different external providers that count toward planEndReviewOk.
+ * Single source: EXTERNAL_PROVIDER_ORDER (codex → grok → claude) — never `local`.
+ */
+export const KNOWN_EXTERNAL_PROVIDERS = EXTERNAL_PROVIDER_ORDER;
+
+const KNOWN_EXTERNAL_PROVIDER_SET = new Set(KNOWN_EXTERNAL_PROVIDERS);
 
 /** Modes accepted on a non-skip plan-end receipt (F5: external-both only). */
 const PLAN_END_OK_MODES = new Set(['external-both']);
@@ -97,7 +106,7 @@ function legCountsAsSucceededFamilyDifferent(leg) {
   if (leg.status !== 'succeeded') return false;
   if (leg.familyDifferent !== true) return false;
   const provider = leg.provider != null ? String(leg.provider).trim().toLowerCase() : '';
-  if (!KNOWN_EXTERNAL_PROVIDERS.has(provider)) return false;
+  if (!KNOWN_EXTERNAL_PROVIDER_SET.has(provider)) return false;
   return true;
 }
 
@@ -191,7 +200,20 @@ function isIsoTimestamp(s) {
  * }} input
  * @returns {boolean}
  */
-function resolveDurableAutomateForGates(input = {}) {
+/**
+ * Durable automate for finalize/archive HARD-BLOCK (stamp-first).
+ * Exported so skill prose and gates share one definition — never early-exit
+ * finalize on session `isAutomateActive` alone while the stamp remains.
+ *
+ * @param {{
+ *   automateActive?: boolean,
+ *   planExecutionMode?: string | null,
+ *   cliMode?: string | null,
+ *   clearExecutionMode?: boolean,
+ * }} [input]
+ * @returns {boolean}
+ */
+export function isDurableAutomateActive(input = {}) {
   if (input.automateActive === true) {
     return true;
   }
@@ -200,6 +222,11 @@ function resolveDurableAutomateForGates(input = {}) {
       ? String(input.planExecutionMode).trim().toLowerCase()
       : '';
   return stamp === 'automate';
+}
+
+/** @deprecated use isDurableAutomateActive — same predicate */
+function resolveDurableAutomateForGates(input = {}) {
+  return isDurableAutomateActive(input);
 }
 
 /**

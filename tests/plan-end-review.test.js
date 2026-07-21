@@ -5,6 +5,8 @@ import {
   userValidationOk,
   automatePlanEndGatesOk,
   SKIP_PLAN_END_REASON_TAXONOMY,
+  KNOWN_EXTERNAL_PROVIDERS,
+  isDurableAutomateActive,
 } from '../src/plan-end-review.js';
 
 /** Non-skip success path requires full receipt shape (Fix A). */
@@ -174,18 +176,33 @@ describe('planEndReviewOk', () => {
     assert.equal(
       planEndReviewOk(
         shapedOk({
-          legs: [{ provider: 'claude', status: 'succeeded', familyDifferent: true }],
-        }),
-      ),
-      false,
-    );
-    assert.equal(
-      planEndReviewOk(
-        shapedOk({
           legs: [{ provider: '', status: 'succeeded', familyDifferent: true }],
         }),
       ),
       false,
+    );
+  });
+
+  it('claude is a known external provider and counts when succeeded + familyDifferent', () => {
+    assert.equal(
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'claude', status: 'succeeded', familyDifferent: true }],
+        }),
+      ),
+      true,
+    );
+    assert.equal(
+      planEndReviewOk(
+        shapedOk({
+          legs: [
+            { provider: 'claude', status: 'succeeded', familyDifferent: true },
+            { provider: 'codex', status: 'skipped', familyDifferent: true },
+            { provider: 'grok', status: 'skipped', familyDifferent: true },
+          ],
+        }),
+      ),
+      true,
     );
   });
 
@@ -208,7 +225,7 @@ describe('planEndReviewOk', () => {
     );
   });
 
-  it('only known external providers codex|grok count when succeeded + familyDifferent true', () => {
+  it('only known external providers codex|grok|claude count when succeeded + familyDifferent true', () => {
     assert.equal(
       planEndReviewOk(
         shapedOk({
@@ -626,5 +643,20 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
     assert.equal(r.ok, true);
     assert.equal(r.planEndReviewOk, true);
     assert.equal(r.userValidationOk, true);
+  });
+});
+
+describe('isDurableAutomateActive (H1)', () => {
+  it('true on stamp alone even with clearExecutionMode', () => {
+    assert.equal(
+      isDurableAutomateActive({
+        planExecutionMode: 'automate',
+        clearExecutionMode: true,
+      }),
+      true,
+    );
+  });
+  it('KNOWN_EXTERNAL_PROVIDERS is codex|grok|claude', () => {
+    assert.deepEqual([...KNOWN_EXTERNAL_PROVIDERS].sort(), ['claude', 'codex', 'grok'].sort());
   });
 });

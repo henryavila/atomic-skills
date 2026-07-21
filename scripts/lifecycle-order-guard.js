@@ -14,6 +14,7 @@
  */
 
 import { validatePhaseDag } from '../src/transition.js';
+import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
 
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
@@ -362,6 +363,64 @@ function reviewGateOf(input) {
 }
 
 /**
+ * Resolve plan.executionMode for durable automate checks (preflight).
+ * @param {object} input
+ * @returns {string}
+ */
+function planExecutionModeOf(input) {
+  return (
+    text(input.planExecutionMode) ||
+    text(object(input.plan).executionMode) ||
+    ''
+  );
+}
+
+/**
+ * Resolve evaluationGate from input, phase slice, or plan.phases[].
+ * @param {object} input
+ * @returns {object|null}
+ */
+function evaluationGateOf(input) {
+  if (input.evaluationGate != null && typeof input.evaluationGate === 'object') {
+    return input.evaluationGate;
+  }
+  const phase = phaseSlice(input);
+  if (phase.evaluationGate != null && typeof phase.evaluationGate === 'object') {
+    return phase.evaluationGate;
+  }
+  const plan = object(input.plan);
+  const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
+  if (!Array.isArray(plan.phases) || !phaseId) return null;
+  const planPhase = plan.phases.find(
+    (p) => object(p).id === phaseId || object(p).slug === phaseId,
+  );
+  if (planPhase == null) return null;
+  const eg = object(planPhase).evaluationGate;
+  return eg != null && typeof eg === 'object' ? eg : null;
+}
+
+/**
+ * Under durable automate stamp, evaluationGate must allow phase-done (R1).
+ * Non-automate: no-op allow.
+ * @param {object} input
+ */
+function checkPhaseDoneEvaluation(input) {
+  const planExecutionMode = planExecutionModeOf(input);
+  const result = phaseEvaluationAllowsClose({
+    planExecutionMode: planExecutionMode || null,
+    automateActive: input.automateActive === true,
+    evaluationGate: evaluationGateOf(input),
+  });
+  if (result.ok) return allow();
+  return block(
+    'phase-done-evaluation-open',
+    result.reason ||
+      'phase-done under automate requires evaluationGate before exit gates / review',
+    'Run the evaluation agent and stamp phases[].evaluationGate (passed|skipped+reason|failed-dispositioned), then rerun `phase-done`.',
+  );
+}
+
+/**
  * Identity for phase-done: initiative must carry parentPlan + phaseId (or
  * callers pass them explicitly). Optional plan slice checks the phase exists.
  * @param {object} input
@@ -446,9 +505,12 @@ function checkPhaseDoneTasks(input) {
 /**
  * Pure preflight for phase-done — runs BEFORE exit-gate verifiers / review.
  *
- * Validates identity (parentPlan+phaseId), optional plan DAG, and that every
- * task is already done. Does NOT require gates, reviewGate, lessons, or
- * fingerprint — so evidence production may proceed after a green preflight.
+ * Validates identity (parentPlan+phaseId), optional plan DAG, that every
+ * task is already done, and (when plan.executionMode is automate) that
+ * evaluationGate allows close via phaseEvaluationAllowsClose. Does NOT require
+ * exit gates, reviewGate, lessons, or fingerprint — so evidence production may
+ * proceed after a green preflight on non-automate (and after evaluation stamp
+ * on automate).
  *
  * On block: callers must produce zero gate-verifier runs, review, events,
  * archive moves, status writes, or commits.
@@ -463,7 +525,11 @@ export function preflightPhaseDone(input = {}) {
   if (identity.blocked) return identity;
   const dag = checkPhaseDoneDag(safe);
   if (dag.blocked) return dag;
-  return checkPhaseDoneTasks(safe);
+  const tasks = checkPhaseDoneTasks(safe);
+  if (tasks.blocked) return tasks;
+  // R1: under plan.executionMode automate, evaluationGate must allow close
+  // before exit-gate verifiers / review-code run.
+  return checkPhaseDoneEvaluation(safe);
 }
 
 /**

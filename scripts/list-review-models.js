@@ -233,7 +233,7 @@ function main() {
 
   const explicitFromFlag = flags.model ? String(flags.model) : null;
   const resolved = resolveReviewModel({
-    provider: /** @type {'codex'|'grok'} */ (provider),
+    provider: /** @type {'codex'|'grok'|'claude'} */ (provider),
     models,
     explicitModel: modelArgs.model || explicitFromFlag,
     modelCodex: modelArgs.modelCodex,

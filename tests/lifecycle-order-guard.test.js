@@ -418,3 +418,52 @@ test('is pure and never mutates frozen input', () => {
   });
   assert.deepEqual(phaseInput, phaseBefore);
 });
+
+test('preflightPhaseDone blocks under automate without evaluationGate (R1)', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    plan: {
+      executionMode: 'automate',
+      phases: [{ id: 'F0', slug: 'f0', status: 'active', dependsOn: [] }],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true);
+  assert.equal(result.code, 'phase-done-evaluation-open');
+  assert.match(result.recommendedCommand || '', /evaluation/i);
+});
+
+test('preflightPhaseDone allows automate when evaluationGate passed', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    plan: {
+      executionMode: 'automate',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'f0',
+          status: 'active',
+          dependsOn: [],
+          evaluationGate: { status: 'passed', verdict: 'pass' },
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.allowed, true);
+  assert.equal(result.blocked, false);
+});
+
+test('preflightPhaseDone non-automate still allows without evaluationGate', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    plan: {
+      phases: [{ id: 'F0', slug: 'f0', status: 'active', dependsOn: [] }],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.allowed, true);
+});

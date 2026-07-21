@@ -352,8 +352,18 @@
             },
             "mode": {
               "type": "string",
-              "enum": ["local", "codex", "both"],
-              "description": "which review mode ran (a destructive phase runs 'both' per G5). Required-when-passed by GATE-R3."
+              "enum": [
+                "local",
+                "codex",
+                "grok",
+                "claude",
+                "both",
+                "both-codex",
+                "both-grok",
+                "both-claude",
+                "external-both"
+              ],
+              "description": "which review mode ran (automate/destructive default 'both'; plan-end uses external-both). Required-when-passed by GATE-R3."
             },
             "at": {
               "$ref": "common.schema.json#/$defs/gitSha",
@@ -367,6 +377,38 @@
             "reason": {
               "type": "string",
               "description": "why review was skipped. Required-when-skipped by GATE-R3."
+            },
+            "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
+          }
+        },
+        "evaluationGate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "description": "Automate pure-maestro Step F→G: outcome of the phase evaluation agent before phase-done. Written by the orchestrator after the evaluator returns (or operator skip/disposition). Enforced by phaseEvaluationAllowsClose / canRunPhaseDone when plan.executionMode is automate. Absent on non-automate phases.",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["passed", "skipped", "failed-dispositioned"],
+              "description": "passed = evaluator verdict pass; skipped = operator skip with reason; failed-dispositioned = residual findings with accept|defer|fix."
+            },
+            "verdict": {
+              "type": "string",
+              "enum": ["pass", "fail"],
+              "description": "Required when status=passed (must be pass)."
+            },
+            "disposition": {
+              "type": "string",
+              "enum": ["accept", "defer", "fix"],
+              "description": "Required when status=failed-dispositioned."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Required when status is skipped or failed-dispositioned."
+            },
+            "at": {
+              "$ref": "common.schema.json#/$defs/gitSha",
+              "description": "Plan-branch HEAD when evaluation concluded."
             },
             "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
           }
