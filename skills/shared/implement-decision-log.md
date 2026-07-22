@@ -31,11 +31,15 @@ Examples:
 .atomic-skills/projects/atomic-skills/implement-phase-agents/decisions/F1.jsonl
 ```
 
-Resolve via `decisionLogPath({ statusRoot, projectId, planSlug, phaseId })` or
-pass an absolute/relative file path into `appendDecision` / `listDecisions`.
+Resolve **only** via `decisionLogPath({ statusRoot, projectId, planSlug, phaseId })`
+segments. `appendDecision` / `listDecisions` require `projectId` + `planSlug` +
+`phaseId` (with optional `statusRoot`); arbitrary absolute/relative path overrides
+that escape the `decisions/` tree are **rejected**. Path id segments are
+allowlisted `[A-Za-z0-9._-]+`.
 
 **Format:** one JSON object per line (JSONL). Append-only — never rewrite prior
-lines to invent history. Empty file or missing file means zero entries.
+lines to invent history. Empty file or missing file means zero entries. New log
+files are created mode `0o600` when possible.
 
 ---
 
@@ -45,13 +49,13 @@ Every decision entry **MUST** include:
 
 | Field | Type | Meaning |
 |-------|------|---------|
-| `id` | string | Stable unique id for the entry (e.g. UUID or `dec-<ISO>-<n>`). |
+| `id` | string | Stable unique id for the entry (e.g. UUID or `dec-<ISO>-<n>`). Auto-generated when omitted. |
 | `category` | string | One of the categories below (required; missing rejected). |
 | `decision` | string | What was decided (required; empty/whitespace rejected). |
-| `why` | string | Rationale so the next session / operator does not re-litigate. |
-| `evidencePath` | string | Path or URI to supporting evidence (claim report path, review receipt, verifier transcript path, or explicit `none` when no file exists). |
-| `impact` | string | What changes because of this decision (routing, scope, close path, risk). |
-| `at` | string | ISO-8601 timestamp when the decision was recorded. |
+| `why` | string | Rationale so the next session / operator does not re-litigate (**required; non-empty after trim**). |
+| `evidencePath` | string | Path or URI to supporting evidence (claim report path, review receipt, verifier transcript path). **Defaults to `none` only when the field is omitted**; empty string when provided is rejected. |
+| `impact` | string | What changes because of this decision (routing, scope, close path, risk) (**required; non-empty after trim**). |
+| `at` | string | ISO-8601 timestamp when the decision was recorded. Auto-now when omitted; **invalid provided values throw** (no silent replace). |
 
 Optional fields (allowed, never required for append): `phaseId`, `taskId`,
 `actor` (`maestro` \| `phase-writer` \| `evaluator` \| `operator` \| `host`),
@@ -91,6 +95,11 @@ sets `decisionReview.status` to `PASS` / `passed`.
 **Do not** store secrets, API keys, writer-lease secrets, lease token hashes, or
 acquire secrets in the decision log. Reference lease *existence* or public
 identity fields only when needed; never the clear secret.
+
+Helpers reject **high-signal** shapes in `decision` / `why` / `impact` / `notes`
+(e.g. long 64-hex digests, `sk-…` tokens, `Bearer …`, `api_key=…`,
+`Authorization:` headers). This is a minimal fence — **residual secret hygiene
+is caller duty**; shapes that evade the regexes must still never be appended.
 
 ---
 
@@ -134,8 +143,9 @@ FAIL ⇒ reopen, re-dispatch, or park; do not phase-done.
 | `DECISION_CATEGORIES` | Frozen minimum category list |
 | `REQUIRED_DECISION_FIELDS` | Frozen required field names |
 
-Validation rejects missing `category` and empty `decision`. No network I/O.
-No API stamps decision-review PASS.
+Validation rejects missing `category`, empty `decision` / `why` / `impact`,
+invalid provided `at`, high-signal secret shapes, and path escapes outside
+`decisions/`. No network I/O. No API stamps decision-review PASS.
 
 ---
 

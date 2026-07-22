@@ -12,6 +12,17 @@ import {
   listDecisions,
 } from '../src/decision-log.js';
 
+/** Minimal valid entry body (required why/impact non-empty). */
+function baseEntry(overrides = {}) {
+  return {
+    category: 'routing',
+    decision: 're-dispatch fix agent',
+    why: 'verifier failed post-merge',
+    impact: 'task remains open',
+    ...overrides,
+  };
+}
+
 describe('DECISION_CATEGORIES', () => {
   it('includes minimum categories', () => {
     for (const c of [
@@ -76,6 +87,45 @@ describe('decisionLogPath', () => {
       /invalid phaseId/,
     );
   });
+
+  it('rejects projectId traversal', () => {
+    assert.throws(
+      () =>
+        decisionLogPath({
+          statusRoot: '/tmp/status',
+          projectId: '../evil',
+          planSlug: 's',
+          phaseId: 'F1',
+        }),
+      /invalid projectId/,
+    );
+  });
+
+  it('rejects planSlug traversal', () => {
+    assert.throws(
+      () =>
+        decisionLogPath({
+          statusRoot: '/tmp/status',
+          projectId: 'p',
+          planSlug: 'foo/bar',
+          phaseId: 'F1',
+        }),
+      /invalid planSlug/,
+    );
+  });
+
+  it('rejects non-allowlist characters in segments', () => {
+    assert.throws(
+      () =>
+        decisionLogPath({
+          statusRoot: '/tmp/status',
+          projectId: 'p',
+          planSlug: 'plan slug',
+          phaseId: 'F1',
+        }),
+      /invalid planSlug/,
+    );
+  });
 });
 
 describe('validateDecisionEntry', () => {
@@ -89,14 +139,29 @@ describe('validateDecisionEntry', () => {
     });
     assert.equal(e.category, 'routing');
     assert.equal(e.decision, 're-dispatch fix agent');
+    assert.equal(e.why, 'verifier failed post-merge');
+    assert.equal(e.impact, 'task remains open');
+    assert.equal(e.evidencePath, 'reviews/x.md');
     assert.ok(e.id);
     assert.ok(e.at);
     assert.ok(!Number.isNaN(Date.parse(e.at)));
   });
 
+  it('defaults evidencePath to none only when omitted', () => {
+    const e = validateDecisionEntry(baseEntry());
+    assert.equal(e.evidencePath, 'none');
+  });
+
+  it('rejects empty provided evidencePath', () => {
+    assert.throws(
+      () => validateDecisionEntry(baseEntry({ evidencePath: '   ' })),
+      /evidencePath empty/,
+    );
+  });
+
   it('rejects missing category', () => {
     assert.throws(
-      () => validateDecisionEntry({ decision: 'x' }),
+      () => validateDecisionEntry({ decision: 'x', why: 'y', impact: 'z' }),
       /missing category/,
     );
   });
@@ -107,8 +172,55 @@ describe('validateDecisionEntry', () => {
         validateDecisionEntry({
           category: 'routing',
           decision: '   ',
+          why: 'reason',
+          impact: 'impact',
         }),
       /empty or missing decision/,
+    );
+  });
+
+  it('rejects empty or missing why', () => {
+    assert.throws(
+      () =>
+        validateDecisionEntry({
+          category: 'routing',
+          decision: 'x',
+          why: '  ',
+          impact: 'impact',
+        }),
+      /empty or missing why/,
+    );
+    assert.throws(
+      () =>
+        validateDecisionEntry({
+          category: 'routing',
+          decision: 'x',
+          impact: 'impact',
+        }),
+      /empty or missing why/,
+    );
+  });
+
+  it('rejects empty or missing impact', () => {
+    assert.throws(
+      () =>
+        validateDecisionEntry({
+          category: 'routing',
+          decision: 'x',
+          why: 'reason',
+          impact: '',
+        }),
+      /empty or missing impact/,
+    );
+  });
+
+  it('rejects invalid provided at (no silent replace)', () => {
+    assert.throws(
+      () =>
+        validateDecisionEntry(
+          baseEntry({ at: 'not-a-timestamp' }),
+        ),
+      /at must be a valid ISO timestamp/,
     );
   });
 
@@ -118,9 +230,43 @@ describe('validateDecisionEntry', () => {
         validateDecisionEntry({
           category: 'routing',
           decision: 'close',
+          why: 'x',
+          impact: 'y',
           decisionReview: { status: 'PASS' },
         }),
       /decision-review PASS|decisionReview/,
+    );
+  });
+
+  it('rejects high-signal secret shapes in decision text', () => {
+    assert.throws(
+      () =>
+        validateDecisionEntry(
+          baseEntry({
+            decision: 'store sk-abcdefghijklmnopqrstuvwxyz0123',
+          }),
+        ),
+      /secret shape/,
+    );
+  });
+
+  it('rejects 64-hex secret shapes in why', () => {
+    const hex64 = 'a'.repeat(64);
+    assert.throws(
+      () => validateDecisionEntry(baseEntry({ why: `token ${hex64}` })),
+      /secret shape/,
+    );
+  });
+
+  it('rejects Bearer token shapes in notes', () => {
+    assert.throws(
+      () =>
+        validateDecisionEntry(
+          baseEntry({
+            notes: 'Authorization: Bearer abcdefghijklmnop1234',
+          }),
+        ),
+      /secret shape/,
     );
   });
 });
@@ -128,9 +274,24 @@ describe('validateDecisionEntry', () => {
 describe('appendDecision + listDecisions', () => {
   /** @type {string} */
   let root;
+  /** @type {string} */
+  let statusRoot;
+
+  /**
+   * @param {string} [phaseId]
+   */
+  function locator(phaseId = 'F1') {
+    return {
+      statusRoot,
+      projectId: 'atomic-skills',
+      planSlug: 'implement-phase-agents',
+      phaseId,
+    };
+  }
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'decision-log-'));
+    statusRoot = join(root, '.atomic-skills');
   });
 
   afterEach(() => {
@@ -138,24 +299,15 @@ describe('appendDecision + listDecisions', () => {
   });
 
   it('appends a validated entry and lists it for a phase', () => {
-    const statusRoot = join(root, '.atomic-skills');
-    const result = appendDecision(
-      {
-        statusRoot,
-        projectId: 'atomic-skills',
-        planSlug: 'implement-phase-agents',
-        phaseId: 'F1',
-      },
-      {
-        category: 'tradeoff',
-        decision: 'use JSONL not markdown table',
-        why: 'machine-addressable append',
-        evidencePath: 'none',
-        impact: 'F3 can hardgate on file existence',
-        at: '2026-07-22T12:00:00.000Z',
-        id: 'dec-1',
-      },
-    );
+    const result = appendDecision(locator(), {
+      category: 'tradeoff',
+      decision: 'use JSONL not markdown table',
+      why: 'machine-addressable append',
+      evidencePath: 'none',
+      impact: 'F3 can hardgate on file existence',
+      at: '2026-07-22T12:00:00.000Z',
+      id: 'dec-1',
+    });
     assert.equal(result.ok, true);
     assert.ok(result.path.endsWith(join('decisions', 'F1.jsonl')));
     assert.ok(existsSync(result.path));
@@ -167,20 +319,14 @@ describe('appendDecision + listDecisions', () => {
     assert.equal(parsed.category, 'tradeoff');
     assert.ok(!('decisionReview' in parsed));
 
-    const listed = listDecisions({
-      statusRoot,
-      projectId: 'atomic-skills',
-      planSlug: 'implement-phase-agents',
-      phaseId: 'F1',
-    });
+    const listed = listDecisions(locator());
     assert.equal(listed.length, 1);
     assert.equal(listed[0].decision, 'use JSONL not markdown table');
   });
 
   it('appends multiple entries and filters by category', () => {
-    const logPath = join(root, 'F1.jsonl');
     assert.equal(
-      appendDecision(logPath, {
+      appendDecision(locator(), {
         category: 'routing',
         decision: 're-dispatch',
         why: 'fail',
@@ -192,7 +338,7 @@ describe('appendDecision + listDecisions', () => {
       true,
     );
     assert.equal(
-      appendDecision(logPath, {
+      appendDecision(locator(), {
         category: 'scope-exit',
         decision: 'stop on boundary',
         why: 'path outside outputs',
@@ -204,56 +350,123 @@ describe('appendDecision + listDecisions', () => {
       true,
     );
 
-    const all = listDecisions(logPath);
+    const all = listDecisions(locator());
     assert.equal(all.length, 2);
-    const routing = listDecisions(logPath, { category: 'routing' });
+    const routing = listDecisions(locator(), { category: 'routing' });
     assert.equal(routing.length, 1);
     assert.equal(routing[0].id, 'a');
   });
 
   it('reject path: empty decision returns ok false', () => {
-    const logPath = join(root, 'reject.jsonl');
-    const result = appendDecision(logPath, {
+    const result = appendDecision(locator('reject'), {
       category: 'env',
       decision: '',
+      why: 'x',
+      impact: 'y',
     });
     assert.equal(result.ok, false);
     assert.match(result.error || '', /empty or missing decision/);
-    assert.equal(existsSync(logPath), false);
+  });
+
+  it('reject path: missing why returns ok false', () => {
+    const result = appendDecision(locator('reject-why'), {
+      category: 'env',
+      decision: 'use node',
+      impact: 'repro',
+    });
+    assert.equal(result.ok, false);
+    assert.match(result.error || '', /empty or missing why/);
   });
 
   it('reject path: missing category returns ok false', () => {
-    const logPath = join(root, 'reject2.jsonl');
-    const result = appendDecision(logPath, {
+    const result = appendDecision(locator('reject2'), {
       decision: 'something',
+      why: 'x',
+      impact: 'y',
     });
     assert.equal(result.ok, false);
     assert.match(result.error || '', /missing category/);
   });
 
+  it('reject path: secret shape returns ok false', () => {
+    const result = appendDecision(locator('reject-secret'), {
+      category: 'env',
+      decision: 'config',
+      why: 'api_key=supersecretvalue123456',
+      impact: 'none',
+    });
+    assert.equal(result.ok, false);
+    assert.match(result.error || '', /secret shape/);
+  });
+
+  it('reject path: object.path outside decisions tree', () => {
+    const outside = join(root, 'evil.jsonl');
+    const result = appendDecision(
+      {
+        statusRoot,
+        projectId: 'atomic-skills',
+        planSlug: 'implement-phase-agents',
+        phaseId: 'F1',
+        path: outside,
+      },
+      baseEntry({ id: 'evil-1', at: '2026-07-22T12:00:00.000Z' }),
+    );
+    assert.equal(result.ok, false);
+    assert.match(result.error || '', /path override rejected|arbitrary path rejected/);
+    assert.equal(existsSync(outside), false);
+  });
+
+  it('reject path: absolute path without segments', () => {
+    const outside = join(root, 'abs-evil.jsonl');
+    const result = appendDecision(outside, baseEntry({
+      id: 'abs-1',
+      at: '2026-07-22T12:00:00.000Z',
+    }));
+    assert.equal(result.ok, false);
+    assert.match(result.error || '', /arbitrary path rejected/);
+    assert.equal(existsSync(outside), false);
+  });
+
+  it('reject path: projectId traversal via locator', () => {
+    const result = appendDecision(
+      {
+        statusRoot,
+        projectId: '../evil',
+        planSlug: 'plan',
+        phaseId: 'F1',
+      },
+      baseEntry({ id: 'trav-1', at: '2026-07-22T12:00:00.000Z' }),
+    );
+    assert.equal(result.ok, false);
+    assert.match(result.error || '', /invalid projectId/);
+  });
+
   it('listDecisions returns [] for missing file', () => {
-    assert.deepEqual(listDecisions(join(root, 'missing.jsonl')), []);
+    assert.deepEqual(listDecisions(locator('missing')), []);
   });
 
   it('no API stamps decisionReview status PASS', () => {
-    const logPath = join(root, 'no-pass.jsonl');
-    const blocked = appendDecision(logPath, {
+    const blocked = appendDecision(locator('no-pass'), {
       category: 'routing',
       decision: 'try to pass gate',
+      why: 'x',
+      impact: 'y',
       decisionReview: { status: 'PASS' },
     });
     assert.equal(blocked.ok, false);
     assert.match(blocked.error || '', /decision-review PASS|decisionReview/);
 
-    const blocked2 = appendDecision(logPath, {
+    const blocked2 = appendDecision(locator('no-pass'), {
       category: 'routing',
       decision: 'try status field',
+      why: 'x',
+      impact: 'y',
       decisionReviewStatus: 'PASS',
     });
     assert.equal(blocked2.ok, false);
 
     // Successful append still has no decisionReview key
-    const ok = appendDecision(logPath, {
+    const ok = appendDecision(locator('no-pass'), {
       category: 'routing',
       decision: 'normal entry',
       why: 'ok',
@@ -265,12 +478,11 @@ describe('appendDecision + listDecisions', () => {
     assert.equal(ok.ok, true);
     assert.equal('decisionReview' in ok.entry, false);
     assert.equal('decisionReviewStatus' in ok.entry, false);
-    const disk = JSON.parse(readFileSync(logPath, 'utf8').trim());
+    const disk = JSON.parse(readFileSync(ok.path, 'utf8').trim());
     assert.equal('decisionReview' in disk, false);
   });
 
   it('works with statusRoot string + locator', () => {
-    const statusRoot = join(root, '.atomic-skills');
     const r = appendDecision(statusRoot, {
       category: 'env',
       decision: 'use node --test',
@@ -295,14 +507,24 @@ describe('appendDecision + listDecisions', () => {
   });
 
   it('skips corrupt JSONL lines on list', () => {
-    const logPath = join(root, 'corrupt.jsonl');
+    const logPath = decisionLogPath({
+      statusRoot,
+      projectId: 'p',
+      planSlug: 'plan',
+      phaseId: 'corrupt',
+    });
     mkdirSync(dirname(logPath), { recursive: true });
     writeFileSync(
       logPath,
-      'not-json\n{"id":"good","category":"routing","decision":"ok","why":"","evidencePath":"none","impact":"","at":"2026-07-22T00:00:00.000Z"}\n',
+      'not-json\n{"id":"good","category":"routing","decision":"ok","why":"reason","evidencePath":"none","impact":"none","at":"2026-07-22T00:00:00.000Z"}\n',
       'utf8',
     );
-    const listed = listDecisions(logPath);
+    const listed = listDecisions({
+      statusRoot,
+      projectId: 'p',
+      planSlug: 'plan',
+      phaseId: 'corrupt',
+    });
     assert.equal(listed.length, 1);
     assert.equal(listed[0].id, 'good');
   });

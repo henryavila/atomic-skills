@@ -166,10 +166,14 @@ The phase writer stops at the claim report. What follows is **never** the writer
 1. Merge sibling → plan branch; **prove claim reachability** on plan-branch HEAD; post-merge re-verify; orchestrator `done` per task.
 2. When **all** phase tasks are `done`: spawn the **evaluation agent** (fresh, read-only — `implement-phase-evaluator.md`).
 3. On evaluation blocker/critical: reopen tasks or blocking follow-ups; re-dispatch code-only fix agent (max 2); re-run verifiers/complex reviews; only then continue.
-4. Stamp `phases[].evaluationGate` (`buildEvaluationGate` / `canRunPhaseDone`) — then `phase-done` with `review-code --mode=both` (**not** `external-both`).
-5. After last phase: plan-end **`external-both`** (`planEndReviewOk`; legs codex|grok|claude) + **user validates** → `canFinalizeOrArchive` → finalize/archive.
+4. Stamp `phases[].evaluationGate` (`buildEvaluationGate` / `canRunPhaseDone` — **evaluationGate only**, not decision-review).
+5. **decision-review** mandatory **manual hardgate** — **operator PASS only** (agents never write decision-review PASS; silent auto-PASS forbidden). Aligns with maestro Step G.
+6. **Then** `phase-done` with `review-code --mode=both` (**not** `external-both`).
+7. After last phase: plan-end **`external-both`** (`planEndReviewOk`; legs codex|grok|claude) + **user validates** → `canFinalizeOrArchive` → finalize/archive.
 
-The writer **never** runs the evaluation agent, never calls phase-done, and never self-certifies the phase.
+**Host owns decision-log append.** The orchestrator (host) calls `appendDecision` for routing / skip / disposition / scope-exit / product-tradeoff entries. The writer **must not** open `decisionLogPath` for write (code-only fence — no durable `.atomic-skills/` mutation). Surface tradeoffs in claim `notes` so the host can record them.
+
+The writer **never** runs the evaluation agent, never calls phase-done, never writes decision-review PASS, and never self-certifies the phase.
 
 ---
 
