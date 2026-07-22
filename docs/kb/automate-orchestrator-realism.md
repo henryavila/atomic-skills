@@ -60,7 +60,11 @@ Human or agent still runs git merge and `done`. Reduces “forgot step D.5”.
 
 ### Layer 4 — Full maestro (only if product-critical)
 
-Only if automate becomes the default path for many plans:
+**Non-goal for the current implement-phase-agents plan.** Layer 4 full daemon
+(workqueue + multi-host spawn + crash recovery) is **not** in scope and is **not**
+implemented by host-thin phase agents / phase-start package work.
+
+Only if automate becomes the default path for many plans *after* Layers 1–2 dogfood:
 
 - Workqueue + durable step cursor in `.atomic-skills/status/`
 - Provider-specific spawn adapters (Claude Task, Codex, Grok subagent)
@@ -75,13 +79,28 @@ Only if automate becomes the default path for many plans:
 - Silent Mode-1 fallback when writer fails
 - Auto-materialize with LLM-filled `businessIntent` (spine is operator authority)
 - Pretending prose = runtime in marketing docs
+- Claiming Layer 4 full daemon is shipped when only skill prose + STOP helpers exist
 
 ## Operator mental model
 
-1. **Materialize** each phase (you own `businessIntent`).
-2. **`implement --mode=automate`** once per plan (stamp).
+Under automate the operator model is **host-thin phase agents** plus a
+**phase-start package** ritual — not a full maestro daemon (Layer 4 remains a
+non-goal for this plan).
+
+1. **Materialize** each phase. At **phase-start**, the skill presents a
+   **phase-start package**: phase **objective** + **task list** (id + title) + a
+   **drafted** `businessIntent`. Your role is **validate-only** for task titles
+   and BI (edit allowed, then ratify). Blank-fill BI and silent auto-PASS are
+   forbidden — you own the spine, the skill drafts it.
+2. **`implement --mode=automate`** once per plan (stamp). Host stays **host-thin**:
+   no product source edits; no product diagnostic entrypoints except **verbatim**
+   verifiers. One **fresh phase agent** per phase (constructed brief; no host
+   chat history).
 3. Maestro follows A–I; STOP helpers refuse illegal jumps when invoked.
-4. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your validation timestamp.
+4. Before **phase-done** under automate: **decision-review** is a mandatory
+   **manual hardgate** — only you write **operator PASS**; agents never write
+   decision-review PASS. Then evaluation gate + `review-code --mode=both`.
+5. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your validation timestamp.
    **Skip is forbidden under durable automate:** `planEndReviewOk(..., { forbidSkip: true })` —
    `--skip-plan-end-review` with any reason does **not** open finalize/archive while
    `executionMode: automate` remains. Phase evaluation and phase-done `review-code`
