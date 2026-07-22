@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T22:37:27.000Z
+lastUpdated: 2026-07-22T23:30:10.467Z
 branch: plan/implement-phase-agents
 currentPhase: F1
 executionMode: automate
@@ -123,7 +123,7 @@ phases:
     goal: Make load-bearing automate decisions durable and machine-addressable so decision-review can hard-block without relying on chat history.
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 1
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -141,8 +141,14 @@ phases:
             kind: shell
             command: test -s skills/shared/implement-decision-log.md && rg -n 'decision log|decision-log' skills/shared/implement-automate-maestro.md
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Decision log duravel com helper de append e wiring no maestro.
+    businessIntent:
+      value: Sob automate, decisoes de routing, tradeoff, disposition e hardgates manuais ficam em decision log duravel por fase, para decision-review e auditoria sem depender de chat.
+      workflow: Asset de path/shape (T-004) → helper pure/fs append+list + testes (T-005) → wiring maestro/phase-writer/implement (T-006) → F2+ usa o log e F3 machine-hardgate decisionReview.
+      rules: "So o operador escreve decision-review PASS. Agente so append de entradas. Sem secrets/lease secrets no log. Append rejeita decision vazio ou category ausente. Categories minimas: routing, tradeoff, review-disposition, scope-exit, manual-gate-delegation, env. Nao auto-PASS de decision-review no evaluator."
+      outOfScope: Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de produto; network I/O no helper; writer mutando plan.md status.
+      doneWhen: Asset implement-decision-log + helper com testes verdes + maestro greppable para decision log/decision-log; F1-G1 e F1-G2 metiveis.
   - id: F2
     slug: implement-phase-agents-f2-host-thin-maestro-and-product-executi
     title: Host-thin maestro and product execution ban
