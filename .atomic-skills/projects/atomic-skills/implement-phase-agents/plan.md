@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T20:49:59.931Z
+lastUpdated: 2026-07-22T20:54:16.650Z
 branch: plan/implement-phase-agents
 currentPhase: F0
 parallelismAllowed: false
@@ -353,4 +353,16 @@ Extend implement and shared assets plus pure helpers and tests. No skills/core/a
 
 ## Reviews
 
+- operator-ratify: 2026-07-22T20:54:16.650Z — contract + F0 businessIntent (phase-start draft→validate-only)
+
 - internal: 2026-07-22 20:38 — bootstrap review: structure 6 phases / 17 tasks SPEC-clean; T-003/T-017 verifier bleed from exit_gate YAML fixed post-materialize; supersedes partial vs implementation-automate-mode; F1–F5 descriptor-only by design. Major: none blocking bootstrap. Nit: re-materialize source needs blank separator before exit_gate fences to avoid decompose last-task verifier clobber.
+
+
+## Operator ratifications
+
+- **2026-07-22T20:54:16.650Z** — Henry `ratify` on implement-phase-agents contract:
+  - host-thin automate (agent per phase, fresh context)
+  - phase-start **package**: objective + tasks (id/title) + **drafted** businessIntent
+  - operator work = **validate-only** (edit titles/BI then ratify); no blank BI form
+  - decision-review manual hardgate at phase end (agent never PASS)
+  - F0 businessIntent spine accepted as drafted in plan state

@@ -7,7 +7,7 @@ goal: Freeze the operator-facing automate contract in durable skill prose and
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T20:49:59.959Z
+lastUpdated: 2026-07-22T20:54:16.650Z
 nextAction: "Implementar T-001: contrato host-thin + phase-start package (draft
   BI, validate-only) em implement.md e implement-automate-maestro.md"
 parentPlan: implement-phase-agents
@@ -174,3 +174,11 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+
+## Session handoff
+- **Narrative:** Operator ratified (Henry, 2026-07-22T20:54:16.650Z) the implement-phase-agents contract and F0 businessIntent. Phase-start package = objective + tasks + drafted BI; operator validate-only; decision-review hardgate at end. F0 active; ready for implement T-001.
+- **Decision log:** Ratify 2026-07-22 — skill drafts package; operator validates titles+BI only; never blank form; never silent BI PASS; agent never decision-review PASS.
+- **Single nextAction:** Run implement on F0 starting at T-001 (contract freeze in implement.md + implement-automate-maestro.md).
+- **Verbatim state:** slug implement-phase-agents; branch plan/implement-phase-agents; currentPhase F0; operator-ratify 2026-07-22T20:54:16.650Z.
+- **Uncommitted changes:** clean after ratify commit.
