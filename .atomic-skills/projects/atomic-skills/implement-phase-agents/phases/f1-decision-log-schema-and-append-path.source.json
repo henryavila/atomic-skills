@@ -1,0 +1,110 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "implement-phase-agents-f1-decision-log-schema-and-append-path",
+  "title": "Decision log schema and append path",
+  "goal": "Make load-bearing automate decisions durable and machine-addressable so decision-review can hard-block without relying on chat history.",
+  "tasks": [
+    {
+      "id": "T-004",
+      "title": "Decision log path and entry shape",
+      "scopeBoundary": [
+        "Do not store secrets or writer-lease secrets in the decision log. Do not make the evaluator auto-PASS decision-review."
+      ],
+      "acceptance": [
+        "it - Asset documents per-phase durable path under the plan tree and required fields id category decision why evidencePath impact at ISO timestamp.; it - Categories include routing tradeoff review-disposition scope-exit manual-gate-delegation env at minimum.; it - Asset states only the operator writes decision-review PASS and the agent only appends decision entries."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "test -s skills/shared/implement-decision-log.md && rg -n 'decision-review|category|evidencePath|operator' skills/shared/implement-decision-log.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-decision-log.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/implement-decision-log.md"
+        }
+      ]
+    },
+    {
+      "id": "T-005",
+      "title": "Pure helper append and read decision log",
+      "scopeBoundary": [
+        "Do not perform network I/O. Do not write decision-review PASS from append APIs."
+      ],
+      "acceptance": [
+        "it - Pure or fs-scoped helpers can append a validated entry and list entries for a phase.; it - Append rejects empty decision or missing category.; it - Unit tests cover append list and reject paths.; it - No API stamps decisionReview status PASS."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/decision-log.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/decision-log.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/decision-log.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-006",
+      "title": "Wire decision log into maestro and phase-writer briefs",
+      "scopeBoundary": [
+        "Do not allow phase writer to mutate plan.md phase status fields. Do not remove claim report requirements."
+      ],
+      "acceptance": [
+        "it - Maestro requires every re-dispatch skip disposition and scope exit to append a decision log entry before continuing.; it - Phase-writer brief requires recording product tradeoffs that change behavior outside pure task text into the decision log path provided by the work-order.; it - implement.md points at the decision log asset for automate."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "test -s skills/shared/implement-decision-log.md && rg -n 'decision log|decision-log' skills/shared/implement-automate-maestro.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-phase-writer.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F1-G1",
+      "description": "decision-log unit tests pass.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/decision-log.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F1-G2",
+      "description": "Decision log asset and maestro wiring strings exist.",
+      "verifier": {
+        "kind": "shell",
+        "command": "test -s skills/shared/implement-decision-log.md && rg -n 'decision log|decision-log' skills/shared/implement-automate-maestro.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

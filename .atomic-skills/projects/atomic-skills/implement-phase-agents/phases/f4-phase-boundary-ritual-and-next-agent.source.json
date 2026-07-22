@@ -1,0 +1,85 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F4",
+  "slug": "implement-phase-agents-f4-phase-boundary-ritual-and-next-agent",
+  "title": "Phase boundary ritual and next agent",
+  "goal": "After phase-done, automate always ends with a clear materialize-or-spawn-next-agent ritual instead of a silent host stop or host mega-continuation.",
+  "tasks": [
+    {
+      "id": "T-013",
+      "title": "Step H ritual message and handoff fields",
+      "scopeBoundary": [
+        "Do not auto-run materialize. Do not spawn phase writer when initiative file is absent."
+      ],
+      "acceptance": [
+        "it - Step H defines exact post phase-done branches materialized successor versus descriptor-only successor.; it - Descriptor-only branch prints automate paused not coding and nextAction materialize.; it - Materialized successor branch instructs spawn new phase agent with fresh context and forbids reusing the previous writer context.; it - Session handoff single nextAction is mandatory at the boundary."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'Step H|automate paused|fresh|materialize|nextAction' skills/shared/implement-automate-maestro.md skills/core/implement.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        }
+      ]
+    },
+    {
+      "id": "T-014",
+      "title": "Re-entry after materialize",
+      "scopeBoundary": [
+        "Do not change find-missing-business-intent quality HARD rules. Do not pre-fill businessIntent by LLM as PASS."
+      ],
+      "acceptance": [
+        "it - implement documents that after materialize with ratified businessIntent the next implement invocation under stamp re-enters Step A and spawns a new phase agent.; it - project-lazy-materialization after-materialize section mentions host-thin automate phase agents and decision-review.; it - No path documents silent host coding of the new phase."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'host-thin|decision-review|phase agent' docs/kb/project-lazy-materialization.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/project-lazy-materialization.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F4-G1",
+      "description": "Step H ritual strings present in maestro.",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'automate paused|Step H|fresh' skills/shared/implement-automate-maestro.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F4-G2",
+      "description": "Lazy materialization KB updated for host-thin automate.",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'host-thin|decision-review|phase agent' docs/kb/project-lazy-materialization.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

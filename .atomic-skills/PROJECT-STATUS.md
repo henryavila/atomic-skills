@@ -1,7 +1,7 @@
 ---
-lastUpdated: 2026-07-22T10:43:32.449Z
+lastUpdated: 2026-07-22T20:38:03.630Z
 schemaVersion: "0.1"
-activePlans: 1
+activePlans: 2
 activeInitiatives: 1
 archivedCount: 24
 ---
@@ -20,6 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
+| implement-phase-agents | active | F0 | plan/implement-phase-agents | 2026-07-22 | 1/6 |
 | materialize-spec-quality-guards | active | F0 | plan/materialize-spec-quality-guards | 2026-07-22 | 1/5 |
 
 

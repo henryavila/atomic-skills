@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "implement-phase-agents",
+  "projectId": "atomic-skills",
+  "sourcePath": ".atomic-skills/projects/atomic-skills/implement-phase-agents/source.md",
+  "stage": "ready-to-materialize",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/plan.md",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f0-contract-freeze-and-antipatterns.md",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f1-decision-log-schema-and-append-path.source.json",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f2-host-thin-maestro-and-product-executi.source.json",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f3-decision-review-hardgate-on-phase-don.source.json",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f4-phase-boundary-ritual-and-next-agent.source.json",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f5-tests-fixtures-docs-and-dogfood-check.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/plan.md",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f0-contract-freeze-and-antipatterns.md",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f1-decision-log-schema-and-append-path.source.json",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f2-host-thin-maestro-and-product-executi.source.json",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f3-decision-review-hardgate-on-phase-don.source.json",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f4-phase-boundary-ritual-and-next-agent.source.json",
+    ".atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f5-tests-fixtures-docs-and-dogfood-check.source.json"
+  ],
+  "status": "validated",
+  "updatedAt": "2026-07-22T20:38:03.854Z"
+}
