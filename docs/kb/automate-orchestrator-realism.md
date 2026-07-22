@@ -77,7 +77,7 @@ Only if automate becomes the default path for many plans *after* Layers 1–2 do
 
 - A second top-level skill `automate.md` that reimplements implement
 - Silent Mode-1 fallback when writer fails
-- Auto-materialize with LLM-filled `businessIntent` (spine is operator authority)
+- Silent auto-materialize / silent auto-PASS / blank-fill of `businessIntent` (skill may draft; operator validate-only only)
 - Pretending prose = runtime in marketing docs
 - Claiming Layer 4 full daemon is shipped when only skill prose + STOP helpers exist
 
@@ -97,9 +97,11 @@ non-goal for this plan).
    verifiers. One **fresh phase agent** per phase (constructed brief; no host
    chat history).
 3. Maestro follows A–I; STOP helpers refuse illegal jumps when invoked.
-4. Before **phase-done** under automate: **decision-review** is a mandatory
-   **manual hardgate** — only you write **operator PASS**; agents never write
-   decision-review PASS. Then evaluation gate + `review-code --mode=both`.
+4. Before **phase-done** under automate, fixed order only:
+   all phase tasks done → **evaluation agent** → stamp **`evaluationGate`**
+   (`buildEvaluationGate` / `canRunPhaseDone`) → **decision-review** mandatory
+   **manual hardgate** (only you write **operator PASS**; agents never write
+   decision-review PASS) → **then** `phase-done` with `review-code --mode=both`.
 5. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your validation timestamp.
    **Skip is forbidden under durable automate:** `planEndReviewOk(..., { forbidSkip: true })` —
    `--skip-plan-end-review` with any reason does **not** open finalize/archive while
@@ -107,10 +109,12 @@ non-goal for this plan).
    are likewise mandatory (`phaseEvaluationAllowsClose` only accepts passed+pass;
    `phaseReviewMode` never returns local/skip under automate).
 
-If a step is skipped, prefer **fail closed** (blocked gate) over “looks done”.
+If a step is skipped, **fail closed** (blocked gate) — never treat a skipped gate as “looks done”.
 
 ## Plan quality guards
 
-- No LLM-filled `businessIntent` (operator authority).
+- Skill may **draft** `businessIntent` in the phase-start package; operator is
+  **validate-only** (edit allowed, then ratify). Forbidden: silent auto-PASS of
+  drafted BI, silent auto-materialize with unratified BI, and blank-fill BI forms.
 - Quality HARD: `find-weak-business-intent.js` after presence.
 - Fingerprint refuse emits D9 `fingerprint_refuse` (fail-open); report via `scripts/report-plan-quality.js`.

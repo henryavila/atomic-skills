@@ -17,9 +17,10 @@ Under automate, phase close order is fixed:
    - rare skip → `{ status: skipped, reason: <non-empty> }` (must be operator-recorded, never silent)
    - residual after disposition → `{ status: failed-dispositioned, disposition: accept|defer|fix, reason: <non-empty> }`
    Machine check: `phaseEvaluationAllowsClose` / `canRunPhaseDone` must return `ok: true` before phase-done.
-4. **Then** `phase-done` with `review-code --mode=both` (automate default — **not** `external-both`; plan-end is the only `external-both` gate).
+4. **decision-review** mandatory **manual hardgate** — **operator PASS only**; the agent never writes decision-review PASS (silent auto-PASS forbidden).
+5. **Then** `phase-done` with `review-code --mode=both` (automate default — **not** `external-both`; plan-end is the only `external-both` gate).
 
-Do not run phase-done before the evaluation agent completes **and** `evaluationGate` is stamped (or the operator records an explicit skip/disposition with non-empty reason — rare; still not silent).
+Do not run phase-done before the evaluation agent completes, `evaluationGate` is stamped (or the operator records an explicit skip/disposition with non-empty reason — rare; still not silent), **and** decision-review has operator PASS.
 
 ---
 

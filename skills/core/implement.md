@@ -131,7 +131,7 @@ For the chosen task, in this order:
 When the last task of the phase closes, `done` announces the phase transition.
 
 - **Mode 1:** Run `phase-done` (`{{ASSETS_PATH}}/project-transitions.md`): it executes every pending exit-gate verifier (verify-on-done), runs the mandatory `review-code` phase-diff gate, advances the plan, and writes phase-boundary microcommits for each logical state checkpoint.
-- **Automate (`isAutomateActive`):** Fixed order — all phase tasks `done` → **evaluation agent** (read-only; see `skills/shared/implement-phase-evaluator.md`) → **decision-review** mandatory manual hardgate (operator PASS only; the agent never writes decision-review PASS) → then `phase-done` with `review-code --mode=both` (default under automate; F2 owns transition wiring). Do not skip the evaluation agent or auto-PASS decision-review. On evaluation blocker/critical, reopen/fix (max 2 re-dispatches) before phase-done. Orchestrator writes dispositions to the durable decisions log.
+- **Automate (`isAutomateActive`):** Fixed order — all phase tasks `done` → **evaluation agent** (read-only; see `skills/shared/implement-phase-evaluator.md`) → stamp `phases[].evaluationGate` via `buildEvaluationGate` / `canRunPhaseDone` → **decision-review** mandatory manual hardgate (operator PASS only; the agent never writes decision-review PASS) → then `phase-done` with `review-code --mode=both` (default under automate; F2 owns transition wiring). Do not skip the evaluation agent, the evaluationGate stamp, or auto-PASS decision-review. On evaluation blocker/critical, reopen/fix (max 2 re-dispatches) before phase-done. Orchestrator writes dispositions to the durable decisions log.
 
 Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule). Finalize/archive after the last phase still require `planEndReviewOk` and that the **user validates** implementation (automate / `userValidationOk` in `src/plan-end-review.js`).
 
@@ -248,6 +248,10 @@ Resident **triggers** only — if a thought matches one, STOP and read its full 
 - "The phase writer said all verifiers passed — mark them done without re-running on the merged tree."
 - "I'll spawn two phase writers for independent phases in parallel under automate."
 - "I'll nest the phase worktree under the plan worktree to keep paths tidy."
+- "Automate is on but I need to see the failure — I'll run compose / build_edl (or start the app server) from the host to diagnose."
+- "The phase is small — I'll just close the entire phase Steps A through I myself as a host mega-session without spawning a phase agent."
+- "I'll auto-write decision-review PASS (or silently auto-PASS the drafted businessIntent) so we can phase-done."
+- "I'll dump a blank businessIntent form on the operator instead of a drafted phase-start package — they'll fill it."
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
