@@ -9,6 +9,15 @@ phase initiative. It consumes the retained per-phase source sidecar written by
 then runs the deterministic businessIntent detector before the phase can become
 active.
 
+**R3 tasks core fingerprint.** `materialize-state.js` compares live sidecar
+`tasks[]` **core** (id, title normalized, files/outputs paths, scopeBoundary,
+acceptance, verifier) to the initiative being published. On mismatch it
+**refuses** (tasks-fingerprint refuse) and does not rename live files. Allowlist
+fields only: summary, weight, status, businessIntent, nextAction, rollups,
+evidence. **Red flag:** "I'll rewrite the sidecar tasks because they're better"
+→ STOP. To change SPEC: edit source / re-capture sidecar (re-spec path) — never
+as a silent side-effect of materialize.
+
 ## Contract
 
 ### Inputs

@@ -45,6 +45,10 @@ import { createHash, randomBytes } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseFrontmatter } from './validate-state.js';
+import {
+  compareTasksCore,
+  listCoreMismatches,
+} from '../src/tasks-fingerprint.js';
 
 const MARKER_SUFFIX = '.materialize-tx.json';
 const STAGE_SUFFIX = '.materialize-stage';
@@ -481,6 +485,63 @@ function enforceSuccessorBarrierIfNeeded(opts) {
 }
 
 /**
+ * Resolve sidecar path next to initiative: `fN-….md` → `fN-….source.json`.
+ * @param {string} initiativeAbs
+ * @param {string|null} explicit
+ */
+export function resolveSidecarPath(initiativeAbs, explicit = null) {
+  if (explicit) return resolve(explicit);
+  if (initiativeAbs.endsWith('.md')) {
+    return initiativeAbs.slice(0, -3) + '.source.json';
+  }
+  return `${initiativeAbs}.source.json`;
+}
+
+/**
+ * Refuse materialize when initiative tasks *core* diverges from live sidecar.
+ * No sidecar file → skip (bootstrap / tests without capture). Empty sidecar
+ * tasks with non-empty initiative still refuse.
+ *
+ * @param {{ initiativePath: string, initiativeContent: string, sidecarPath?: string|null }} opts
+ */
+export function assertTasksCoreMatchesSidecar(opts) {
+  const initAbs = resolve(opts.initiativePath);
+  const sidecarAbs = resolveSidecarPath(initAbs, opts.sidecarPath ?? null);
+  if (!existsSync(sidecarAbs)) {
+    return { skipped: true, reason: 'no-sidecar' };
+  }
+  let sidecar;
+  try {
+    sidecar = JSON.parse(readFileSync(sidecarAbs, 'utf8'));
+  } catch (e) {
+    throw new Error(`tasks-fingerprint: cannot parse sidecar ${sidecarAbs}: ${e.message}`);
+  }
+  const sidecarTasks = Array.isArray(sidecar.tasks) ? sidecar.tasks : [];
+  const initParsed = parseFrontmatter(opts.initiativeContent);
+  if (initParsed.error) {
+    throw new Error(`tasks-fingerprint: invalid initiative frontmatter: ${initParsed.error}`);
+  }
+  const initTasks = Array.isArray(initParsed.frontmatter.tasks)
+    ? initParsed.frontmatter.tasks
+    : [];
+  // Bootstrap: both empty → ok
+  if (sidecarTasks.length === 0 && initTasks.length === 0) {
+    return { skipped: false, match: true };
+  }
+  const cmp = compareTasksCore(sidecarTasks, initTasks);
+  if (cmp.match) {
+    return { skipped: false, match: true, ...cmp };
+  }
+  const mismatches = listCoreMismatches(sidecarTasks, initTasks);
+  throw new Error(
+    `tasks-fingerprint refuse: initiative tasks core diverges from sidecar ${sidecarAbs}. ` +
+      `mismatched task ids: ${mismatches.join(', ') || '(none)'}. ` +
+      `sidecarHash=${cmp.sidecarHash.slice(0, 12)}… initiativeHash=${cmp.initiativeHash.slice(0, 12)}…. ` +
+      `Do not rewrite SPEC core at materialize — re-capture source / re-spec explicitly, then retry.`,
+  );
+}
+
+/**
  * Publish planContent + initiativeContent via recoverable two-rename transaction.
  *
  * @param {object} opts
@@ -545,6 +606,17 @@ export function materializePair(opts) {
 
   // 2. Validate staged pair in memory — no live mutation yet.
   validateStagedPair(planContent, initiativeContent);
+
+  // 2b. Tasks-core fingerprint vs live sidecar (R3) — refuse core rewrite.
+  // Adjudicator is live sidecar tasks vs initiative tasks; missing sidecar field
+  // tasksFingerprint is fine (compat). skipFingerprint for unit tests only.
+  if (!opts.skipFingerprint) {
+    assertTasksCoreMatchesSidecar({
+      initiativePath: initAbs,
+      initiativeContent,
+      sidecarPath: opts.sidecarPath ?? null,
+    });
+  }
 
   const planAfterHash = sha256(planContent);
   const initAfterHash = sha256(initiativeContent);
