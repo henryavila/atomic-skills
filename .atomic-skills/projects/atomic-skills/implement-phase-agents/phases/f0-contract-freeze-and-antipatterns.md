@@ -161,8 +161,8 @@ _(plan doc, external refs)_
 
 
 ## Session handoff
-- **Narrative:** F0 tasks T-001..T-003 done with GATE-R2 evidence. Evaluation agent verdict=pass (head 3c4812e). evaluationGate stamped status=passed on plan F0. Awaiting operator decision-review PASS and F0-G3 manual PASS before phase-done.
-- **Decision log:** Automate stamp 8b893e7. Phase writer exclusive commitShas claim set validated; merge FF 8c90a36. Post-merge re-verify EXIT 0. Lease cleared. Evaluation 2026-07-22: pass; no blocker/critical; F0-G3 operator-pending.
-- **Single nextAction:** Operator decision-review PASS + F0-G3 PASS, then run phase-done (exit gates F0-G1/G2 + review-code --mode=both).
-- **Verbatim state:** HEAD=3c4812edb7cabc8413cfc1049e5f6ba6a6748ccb; evaluationGate={status:passed,verdict:pass,at:3c4812edb7cabc8413cfc1049e5f6ba6a6748ccb}; tasksDone=3/3; lease=missing; executionMode=automate.
-- **Uncommitted changes:** plan evaluationGate stamp + handoff (this write).
+- **Narrative:** F0 tasks T-001..T-003 done (GATE-R2). Evaluation agent verdict=pass. evaluationGate stamped status=passed (at 3c4812e). Tree clean after stamp commit eddf02d. Awaiting operator decision-review PASS and F0-G3 manual PASS before phase-done.
+- **Decision log:** Automate stamp 8b893e7. Phase writer exclusive commitShas validated; merge FF 8c90a36. Post-merge re-verify EXIT 0. Lease cleared. Evaluation pass (no blocker/critical). evaluationGate passed stamped eddf02d.
+- **Single nextAction:** Operator decision-review PASS + F0-G3 PASS, then phase-done (F0-G1/G2 shell + review-code --mode=both).
+- **Verbatim state:** HEAD=eddf02d3ba9962ebe982e1af7d02590914c8a423; evaluationGate.status=passed verdict=pass at=3c4812edb7cabc8413cfc1049e5f6ba6a6748ccb; tasksDone=3/3; lease=missing; executionMode=automate.
+- **Uncommitted changes:** clean tree.
