@@ -2,8 +2,8 @@
  * Pure phase evaluation gate (automate Step F → G HARD order).
  *
  * Under durable automate, phase-done must not run until the evaluation agent
- * has produced a disposition: pass, or skip with non-empty reason, or fail
- * with operator disposition accept|defer|fix recorded.
+ * has produced status=passed and verdict=pass. Skip / accept residual are
+ * forbidden while the stamp holds (clear executionMode to leave automate).
  *
  * Non-automate: gate inactive (allows close).
  * No I/O.

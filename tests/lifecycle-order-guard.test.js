@@ -347,6 +347,87 @@ test('allows phase-done commit when tasks, gates met, review, lessons, and finge
   assert.equal(viaClassify.allowed, true);
 });
 
+test('B1: under durable automate, reviewGate skipped is blocked even with reason', () => {
+  const result = commitGuardPhaseDone(
+    happyCommitInput({
+      plan: {
+        executionMode: 'automate',
+        phases: [
+          {
+            id: 'F4',
+            slug: 'f4',
+            status: 'active',
+            dependsOn: [],
+            exitGate: { summary: 's', criteria: [] },
+            subPhaseCount: 0,
+            goal: 'g',
+            title: 'F4',
+          },
+        ],
+      },
+      evaluationGate: { status: 'passed', verdict: 'pass' },
+      reviewGate: {
+        status: 'skipped',
+        reason: 'operator: pad pad pad pad pad',
+      },
+    }),
+  );
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-review-open');
+  assert.match(result.reason, /automate|skip|both/i);
+});
+
+test('B1: under durable automate, reviewGate passed + mode local is blocked', () => {
+  const result = commitGuardPhaseDone(
+    happyCommitInput({
+      plan: {
+        executionMode: 'automate',
+        phases: [
+          {
+            id: 'F4',
+            slug: 'f4',
+            status: 'active',
+            dependsOn: [],
+            exitGate: { summary: 's', criteria: [] },
+            subPhaseCount: 0,
+            goal: 'g',
+            title: 'F4',
+          },
+        ],
+      },
+      evaluationGate: { status: 'passed', verdict: 'pass' },
+      reviewGate: { status: 'passed', at: FP, mode: 'local' },
+    }),
+  );
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-review-open');
+});
+
+test('B1: under durable automate, reviewGate passed + mode both is allowed', () => {
+  const result = commitGuardPhaseDone(
+    happyCommitInput({
+      plan: {
+        executionMode: 'automate',
+        phases: [
+          {
+            id: 'F4',
+            slug: 'f4',
+            status: 'active',
+            dependsOn: [],
+            exitGate: { summary: 's', criteria: [] },
+            subPhaseCount: 0,
+            goal: 'g',
+            title: 'F4',
+          },
+        ],
+      },
+      evaluationGate: { status: 'passed', verdict: 'pass' },
+      reviewGate: { status: 'passed', at: FP, mode: 'both' },
+    }),
+  );
+  assert.equal(result.allowed, true, result.reason);
+});
+
 test('decidePhaseDoneTerminal returns empty effects when blocked and terminal writes when allowed', () => {
   const blocked = decidePhaseDoneTerminal(happyCommitInput({
     tasks: [{ id: 'T-001', status: 'active' }],

@@ -253,7 +253,12 @@ function dependResolveArchived(input) {
   return allow();
 }
 
-function reviewGateComplete(reviewGate) {
+/**
+ * @param {unknown} reviewGate
+ * @param {{ durableAutomate?: boolean }} [opts]
+ *   When durableAutomate, only status=passed with SHA+mode counts — skip is closed.
+ */
+function reviewGateComplete(reviewGate, opts = {}) {
   const gate = object(reviewGate);
   if (gate.status === 'passed') {
     // F4/T-004: passed requires a real SHA + mode; reviewFile optional but coherent.
@@ -262,9 +267,17 @@ function reviewGateComplete(reviewGate) {
     if (Object.prototype.hasOwnProperty.call(gate, 'reviewFile') && !text(gate.reviewFile)) {
       return false;
     }
+    // Under durable automate, require mode both (or external-both) — not local-only.
+    if (opts.durableAutomate === true) {
+      const mode = text(gate.mode).toLowerCase();
+      if (mode !== 'both' && mode !== 'external-both') return false;
+    }
     return true;
   }
-  if (gate.status === 'skipped') return Boolean(text(gate.reason));
+  if (gate.status === 'skipped') {
+    if (opts.durableAutomate === true) return false;
+    return Boolean(text(gate.reason));
+  }
   return false;
 }
 
@@ -581,11 +594,21 @@ export function commitGuardPhaseDone(input = {}) {
     );
   }
 
-  if (safe.requireReview !== false && !reviewGateComplete(reviewGateOf(safe))) {
+  const planMode =
+    text(object(safe.plan).executionMode || safe.planExecutionMode).toLowerCase();
+  const durableAutomate = planMode === 'automate' || safe.automateActive === true;
+  if (
+    safe.requireReview !== false &&
+    !reviewGateComplete(reviewGateOf(safe), { durableAutomate })
+  ) {
     return block(
       'phase-done-review-open',
-      'phase-done requires a recorded reviewGate before the phase can advance',
-      'Run `atomic-skills:review-code <range>` and record reviewGate (passed + SHA + mode), then rerun `phase-done`.',
+      durableAutomate
+        ? 'phase-done under durable automate requires reviewGate status=passed with mode both|external-both (skip/local forbidden)'
+        : 'phase-done requires a recorded reviewGate before the phase can advance',
+      durableAutomate
+        ? 'Run `atomic-skills:review-code <range> --mode=both`, stamp reviewGate {status:passed, at:HEAD, mode:both}, then rerun `phase-done`. Clear executionMode stamp only if leaving automate.'
+        : 'Run `atomic-skills:review-code <range>` and record reviewGate (passed + SHA + mode), then rerun `phase-done`.',
     );
   }
 

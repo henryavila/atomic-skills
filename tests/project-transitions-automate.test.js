@@ -218,3 +218,24 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
     }
   });
 });
+
+  it('B2: durable stamp + clearExecutionMode still forces both (not session isAutomateActive)', () => {
+    assert.equal(
+      phaseReviewMode({
+        planExecutionMode: 'automate',
+        clearExecutionMode: true,
+        explicitOverride: 'skip',
+        overrideReason: 'session clear should not open skip',
+      }),
+      'both',
+    );
+    assert.equal(
+      phaseReviewMode({
+        planExecutionMode: 'automate',
+        cliMode: '1',
+        explicitOverride: 'local',
+        overrideReason: 'mode1 should not open local under stamp',
+      }),
+      'both',
+    );
+  });

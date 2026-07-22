@@ -23,7 +23,7 @@ import { parseFrontmatter } from './validate-state.js';
 
 const MIN_REASON_LEN = 15;
 
-/** Motivos que não contam como escolha real do operador. */
+/** Exact normalized reasons that do not count as real operator choice. */
 export const BANNED_SKIP_REASONS = [
   'not provided',
   'notprovided',
@@ -34,6 +34,7 @@ export const BANNED_SKIP_REASONS = [
   'n',
   'no',
   'skip',
+  'y n',
   'y/n',
 ];
 
@@ -68,7 +69,12 @@ export function invalidSkipReason(reason) {
   if (r.length < MIN_REASON_LEN) return 'reason-too-short';
   const norm = r.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   for (const ban of BANNED_SKIP_REASONS) {
-    if (norm === ban || norm.startsWith(ban + ' ')) return 'banned-reason';
+    // Exact match only — prefix bans on "no"/"n"/"skip" false-block legitimate prose.
+    if (norm === ban) return 'banned-reason';
+  }
+  // Soft prefix only for long multi-word bans that are clearly filler openers.
+  if (norm.startsWith('not provided') || norm.startsWith('recommended ')) {
+    return 'banned-reason';
   }
   return null;
 }
@@ -158,6 +164,14 @@ export function findInvalidCrossModelSkips(target = process.cwd()) {
         const planFile = join(projPath, slug, 'plan.md');
         if (existsSync(planFile)) collectPlanFile(planFile, report);
       }
+    }
+  }
+  // Flat legacy coexistence
+  const flatPlans = join(root, 'plans');
+  if (existsSync(flatPlans) && statSync(flatPlans).isDirectory()) {
+    for (const entry of readdirSync(flatPlans)) {
+      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+      collectPlanFile(join(flatPlans, entry), report);
     }
   }
   return report;

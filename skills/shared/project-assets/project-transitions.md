@@ -218,7 +218,10 @@ Invoked when the active initiative is the phase initiative of an active plan AND
 
 ### Stage C — review + lessons (only when every exit gate is met)
 
-6. **Review gate** — run `atomic-skills:review-code` on the phase diff. This step is mandatory unless `--skip-review` is passed explicitly.
+6. **Review gate** — run `atomic-skills:review-code` on the phase diff. Under
+   durable `executionMode: automate`, review is **mandatory** (`phaseReviewMode`
+   always `both`; `commitGuardPhaseDone` / GATE-R3 reject `skipped` and
+   `mode: local`). Outside automate, `--skip-review` may be passed explicitly.
    - Compute the diff range: from the phase initiative's `started` timestamp (find the closest commit via `git log --before=<started> -1 --format=%H`) to HEAD.
    - **Pick the mode via `phaseReviewMode` (single definition — `src/phase-review-mode.js`).** Compute inputs, then call `phaseReviewMode({ automateActive, destructive, explicitOverride })` — do **not** re-derive the ladder in prose elsewhere:
      1. Resolve `automateActive` with `isAutomateActive` from `src/implement-mode.js` (CLI mode + plan `executionMode` stamp + clear flag).

@@ -302,3 +302,5 @@ Ver frontmatter principles[] — elaborados no source e no design.md.
 - validate-skills pass
 - dogfood: find-weak own plan, SPEC source, fingerprint refuse, report-plan-quality
 
+
+- local (post-merge B1/B2 fix): .atomic-skills/reviews/2026-07-22-main-quality-automate-gates.md
