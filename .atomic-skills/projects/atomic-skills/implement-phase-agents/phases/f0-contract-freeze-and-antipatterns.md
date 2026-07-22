@@ -6,8 +6,8 @@ goal: Freeze the operator-facing automate contract in durable skill prose and an
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T22:15:10.198Z
-nextAction: Spawn evaluation agent for F0, stamp evaluationGate, then request operator decision-review PASS, then phase-done with review-code --mode=both.
+lastUpdated: 2026-07-22T22:17:13.000Z
+nextAction: "Operator: decision-review PASS on F0 decision log + F0-G3 manual PASS, then phase-done with review-code --mode=both."
 parentPlan: implement-phase-agents
 phaseId: F0
 businessIntent:
@@ -161,8 +161,8 @@ _(plan doc, external refs)_
 
 
 ## Session handoff
-- **Narrative:** Pure-maestro F0: phase writer claimed-pass T-001..T-003; FF-merged; post-merge re-verify EXIT 0; lease cleared; all three tasks closed via done with GATE-R2 evidence on HEAD 8c90a36.
-- **Decision log:** Automate stamp 8b893e7. Claim exclusivity revalidated with exclusive commitShas only. Merge FF 8c90a36. Complex tasks: none. Lease cleared after merge settle.
-- **Single nextAction:** Spawn evaluation agent for F0 → stamp evaluationGate → operator decision-review PASS → phase-done (review-code --mode=both).
-- **Verbatim state:** HEAD=8c90a36c660dd4d18bfdeddfea78f3916152cc64; T-001=42ddee2872689cdee652d76c97a758160b0ef008; T-002=e4ad99a9c9d9b31ffd831705a28015e737a6f47f; T-003=8c90a36c660dd4d18bfdeddfea78f3916152cc64; lease=missing; executionMode=automate; tasksDone=3/3.
-- **Uncommitted changes:** initiative state checkpoint for T-001..T-003 closes (this write); commit next.
+- **Narrative:** F0 tasks T-001..T-003 done with GATE-R2 evidence. Evaluation agent verdict=pass (head 3c4812e). evaluationGate stamped status=passed on plan F0. Awaiting operator decision-review PASS and F0-G3 manual PASS before phase-done.
+- **Decision log:** Automate stamp 8b893e7. Phase writer exclusive commitShas claim set validated; merge FF 8c90a36. Post-merge re-verify EXIT 0. Lease cleared. Evaluation 2026-07-22: pass; no blocker/critical; F0-G3 operator-pending.
+- **Single nextAction:** Operator decision-review PASS + F0-G3 PASS, then run phase-done (exit gates F0-G1/G2 + review-code --mode=both).
+- **Verbatim state:** HEAD=3c4812edb7cabc8413cfc1049e5f6ba6a6748ccb; evaluationGate={status:passed,verdict:pass,at:3c4812edb7cabc8413cfc1049e5f6ba6a6748ccb}; tasksDone=3/3; lease=missing; executionMode=automate.
+- **Uncommitted changes:** plan evaluationGate stamp + handoff (this write).
