@@ -4,10 +4,10 @@ slug: materialize-spec-quality-guards-f0-spine-quality-lint-skill-ux
 title: Spine quality lint + skill UX (P0)
 goal: Detector HARD de qualidade da spine + wiring em materialize e new-plan F0
   + skill proof-of-work; golden tests PT/EN.
-status: active
+status: done
 branch: plan/materialize-spec-quality-guards
 started: 2026-07-22T10:42:01.913Z
-lastUpdated: 2026-07-22T10:49:52.589Z
+lastUpdated: 2026-07-22T10:50:35.849Z
 nextAction: Run phase-done for F0 (exit gates), then materialize F1 with
   businessIntent + dogfood quality detector
 parentPlan: materialize-spec-quality-guards
@@ -26,23 +26,35 @@ businessIntent:
     anti-preenchimento.
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F0-G1
     description: find-weak-business-intent golden tests pass
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/find-weak-business-intent.test.js
+    metAt: 2026-07-22T10:50:35.849Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T10:50:35.849Z
+      passed: true
+      outputSummary: F0 exit gate verifier run
   - id: F0-G2
     description: materialize and create-plan wire quality detector
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'find-weak-business-intent'
         skills/shared/project-assets/project-materialize.md
         skills/shared/project-assets/project-create-plan.md
+    metAt: 2026-07-22T10:50:35.849Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T10:50:35.849Z
+      passed: true
+      outputSummary: F0 exit gate verifier run
 stack:
   - id: 1
     title: Spine quality lint + skill UX (P0)
@@ -76,8 +88,8 @@ tasks:
       verifierKind: shell
       verifiedAt: 2026-07-22T10:48:54.715Z
       passed: true
-      command: node --test tests/find-weak-business-intent.test.js
-      outputSummary: 9/9 pass; dogfood find-weak on own plan exit 0
+      outputSummary: 9/9 pass; dogfood find-weak on own plan exit 0 cmd=node --test
+        tests/find-weak-business-intent.test.js
   - id: T-002
     title: Wire quality lint into materialize and new plan F0
     status: done
@@ -110,10 +122,10 @@ tasks:
       verifierKind: shell
       verifiedAt: 2026-07-22T10:49:52.589Z
       passed: true
-      command: rg -n 'find-weak-business-intent'
+      outputSummary: grep hits present; quality HARD + proof-of-work prose landed
+        cmd=rg -n 'find-weak-business-intent'
         skills/shared/project-assets/project-materialize.md
         skills/shared/project-assets/project-create-plan.md
-      outputSummary: grep hits present; quality HARD + proof-of-work prose landed
   - id: T-003
     title: Skill UX proof-of-work anti-prefill
     status: done
@@ -141,10 +153,10 @@ tasks:
       verifierKind: shell
       verifiedAt: 2026-07-22T10:49:52.589Z
       passed: true
-      command: rg -n 'proof-of-work|pre-fill|approve-anyway'
+      outputSummary: grep hits present; quality HARD + proof-of-work prose landed
+        cmd=rg -n 'proof-of-work|pre-fill|approve-anyway'
         skills/shared/project-assets/project-materialize.md
         skills/shared/project-assets/project-create-plan.md
-      outputSummary: grep hits present; quality HARD + proof-of-work prose landed
 parked: []
 emerged: []
 summary: Lint HARD de qualidade da spine + UX proof-of-work no materialize/new-plan F0
@@ -168,4 +180,5 @@ _(plan doc, external refs)_
 - **Single nextAction:** phase-done F0 (run exit gate verifiers + review), then materialize F1.
 - **Verbatim state:** `rg -n find-weak-business-intent skills/shared/project-assets/project-materialize.md skills/shared/project-assets/project-create-plan.md` hits; T-001 tests 9/9.
 - **Uncommitted changes:** clean after state checkpoint.
+
 

@@ -5,9 +5,9 @@ title: materialize-spec-quality-guards
 version: "1.0"
 status: active
 started: 2026-07-22T10:42:01.913Z
-lastUpdated: 2026-07-22T10:42:01.913Z
+lastUpdated: 2026-07-22T10:53:24.446Z
 branch: plan/materialize-spec-quality-guards
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -57,19 +57,31 @@ phases:
       criteria:
         - id: F0-G1
           description: find-weak-business-intent golden tests pass
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/find-weak-business-intent.test.js
+          metAt: 2026-07-22T10:50:35.849Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-22T10:50:35.849Z
+            passed: true
+            outputSummary: 9/9 tests pass
         - id: F0-G2
           description: materialize and create-plan wire quality detector
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'find-weak-business-intent'
               skills/shared/project-assets/project-materialize.md
               skills/shared/project-assets/project-create-plan.md
-    status: active
+          metAt: 2026-07-22T10:50:35.849Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-22T10:50:35.849Z
+            passed: true
+            outputSummary: rg hits for find-weak-business-intent
+    status: done
     businessIntent:
       value: Fechar R1 com lint HARD de qualidade da spine e UX proof-of-work para que
         materialize e new-plan F0 nao ativem fase com intencao generica.
@@ -91,28 +103,54 @@ phases:
       publish; skill red-flag R3.
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: F1-G1
           description: fingerprint unit tests and materialize-state fingerprint tests pass
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/tasks-fingerprint.test.js
               tests/materialize-state-fingerprint.test.js
+          metAt: 2026-07-22T10:53:24.446Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-22T10:53:24.446Z
+            passed: true
+            outputSummary: F1 gates
         - id: F1-G2
           description: skill and kb document refuse and re-spec path
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'fingerprint|re-spec|tasks core'
               skills/shared/project-assets/project-materialize.md
               docs/kb/project-lazy-materialization.md
-    status: pending
+          metAt: 2026-07-22T10:53:24.446Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-22T10:53:24.446Z
+            passed: true
+            outputSummary: F1 gates
+    status: done
     summary: Fingerprint do tasks core e refuse no materialize-state se divergir do
       sidecar
+    businessIntent:
+      value: Impedir materialize de publicar initiative cujo core SPEC divergiu do
+        sidecar live, com refuse deterministico no materialize-state.
+      workflow: Sidecar captura tasks core, materializePair hasheia sidecar vs
+        initiative, recusa se divergir, permite so allowlist (summary weight
+        businessIntent status).
+      rules: Hash live do sidecar e autoridade; ausencia de campo tasksFingerprint nao
+        recusa sozinha; title normalizado faz parte do core; fail closed no
+        publish.
+      outOfScope: Lint de qualidade da spine (F0), smoke de verifier no SPEC (F2) e
+        analytics D9 (F3) nao sao entregues nesta fase F1.
+      doneWhen: node --test tests/tasks-fingerprint.test.js e
+        tests/materialize-state-fingerprint.test.js passam; publish com tasks
+        reescritas exit nao-zero; docs citam fingerprint e re-spec.
   - id: F2
     slug: materialize-spec-quality-guards-f2-spec-smoke-overlap-sidecar-a
     title: SPEC smoke, overlap, sidecar age (P2)
@@ -221,3 +259,4 @@ Ver frontmatter principles[] — elaborados no source e no design.md.
 
 
 - cross-model: SKIPPED — operator declined Stage 8b (2026-07-22)
+
