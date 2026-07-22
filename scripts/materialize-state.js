@@ -49,6 +49,7 @@ import {
   compareTasksCore,
   listCoreMismatches,
 } from '../src/tasks-fingerprint.js';
+import { appendPlanQualityEvent } from '../src/plan-quality-events.js';
 
 const MARKER_SUFFIX = '.materialize-tx.json';
 const STAGE_SUFFIX = '.materialize-stage';
@@ -611,11 +612,22 @@ export function materializePair(opts) {
   // Adjudicator is live sidecar tasks vs initiative tasks; missing sidecar field
   // tasksFingerprint is fine (compat). skipFingerprint for unit tests only.
   if (!opts.skipFingerprint) {
-    assertTasksCoreMatchesSidecar({
-      initiativePath: initAbs,
-      initiativeContent,
-      sidecarPath: opts.sidecarPath ?? null,
-    });
+    try {
+      assertTasksCoreMatchesSidecar({
+        initiativePath: initAbs,
+        initiativeContent,
+        sidecarPath: opts.sidecarPath ?? null,
+      });
+    } catch (e) {
+      appendPlanQualityEvent({
+        kind: 'fingerprint_refuse',
+        planSlug: null,
+        phaseId: null,
+        stateRoot: join(rootDir, '.atomic-skills'),
+        meta: { message: String(e.message || e).slice(0, 200) },
+      });
+      throw e;
+    }
   }
 
   const planAfterHash = sha256(planContent);

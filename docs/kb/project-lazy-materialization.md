@@ -48,9 +48,11 @@ After presence (`find-missing-business-intent.js`), run
 
 **D9 - gate-como-hipótese.** O gate de presença prova preenchimento da espinha; o
 lint de qualidade reduz rubber-stamp óbvio mas **não** prova eficácia causal.
-Instrumentação de medida (eventos + `report-plan-quality`) vive no plano
-`materialize-spec-quality-guards` (P3). Redução de rework permanece hipótese a
-medir.
+**Measure:** append-only JSONL via `src/plan-quality-events.js` (kinds:
+`spine_quality_fail`, `fingerprint_refuse`, `phase_reopen`, `task_reopen`) and
+`node scripts/report-plan-quality.js [--window-days 14]`. `materialize-state`
+emits `fingerprint_refuse` fail-open on refuse. Reduction of rework remains a
+hypothesis to measure — not a proven benefit.
 
 **D10 - constituição fora do plano.** Consolidar anti-patterns em catálogo consultado pelo gate é iniciativa separada. Este plano registra o non-goal e não adiciona `alternatives` por fase (`.atomic-skills/projects/atomic-skills/phase-materialization/design.md:239-252`, `:368-374`).
 

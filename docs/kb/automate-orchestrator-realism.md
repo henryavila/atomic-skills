@@ -84,3 +84,9 @@ Only if automate becomes the default path for many plans:
 4. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your validation timestamp.
 
 If a step is skipped, prefer **fail closed** (blocked gate) over “looks done”.
+
+## Plan quality guards
+
+- No LLM-filled `businessIntent` (operator authority).
+- Quality HARD: `find-weak-business-intent.js` after presence.
+- Fingerprint refuse emits D9 `fingerprint_refuse` (fail-open); report via `scripts/report-plan-quality.js`.

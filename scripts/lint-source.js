@@ -279,6 +279,90 @@ function isDeterministicVerifier(value) {
   return /\b(shell|test|query)\b/i.test(value);
 }
 
+/** Exact-match tautological command bodies after kind (design seed ban). */
+export const TAUTOLOGICAL_COMMANDS = new Set([
+  'exit 0',
+  'true',
+  ':',
+  'echo ok',
+  'echo OK',
+  '',
+]);
+
+/**
+ * Extract shell/test command body from a verifier field value for smoke checks.
+ * @param {string} value
+ * @returns {string|null}
+ */
+export function extractVerifierCommand(value) {
+  if (!value || typeof value !== 'string') return null;
+  const cmd =
+    value.match(/\bcommand\s*[:=]\s*["']([^"']+)["']/i)?.[1] ??
+    value.match(/\bcommand\s*[:=]\s*([^\n,;]+)/i)?.[1] ??
+    null;
+  if (cmd != null) return cmd.trim();
+  // bare `kind: shell` with nothing else
+  if (/\bkind\s*[:=]?\s*(shell|test)\b/i.test(value) && !/\bcommand\b/i.test(value)) {
+    return '';
+  }
+  return null;
+}
+
+/**
+ * @param {string} value verifier field
+ * @returns {boolean} true if tautological / empty shell-test command
+ */
+export function isTautologicalVerifier(value) {
+  if (!value || typeof value !== 'string') return false;
+  if (/\bkind\s*[:=]?\s*query\b/i.test(value)) return false;
+  if (/\bkind\s*[:=]?\s*manual\b/i.test(value)) return false;
+  const cmd = extractVerifierCommand(value);
+  if (cmd === null) return false;
+  return TAUTOLOGICAL_COMMANDS.has(cmd.trim());
+}
+
+/**
+ * Basenames + argv0 tokens for acceptance↔verifier overlap.
+ * @returns {{ paths: Set<string>, tokens: Set<string> }}
+ */
+export function extractOverlapTokens(...texts) {
+  const paths = new Set();
+  const tokens = new Set();
+  const joined = texts.filter(Boolean).join('\n');
+  for (const m of joined.matchAll(/[\w@./-]+\.[A-Za-z0-9]+/g)) {
+    const base = m[0].split('/').pop().toLowerCase();
+    if (base) paths.add(base);
+    paths.add(m[0].toLowerCase());
+  }
+  for (const m of joined.matchAll(/(?:^|[\s"'`])([a-zA-Z][\w.-]*)/g)) {
+    const t = m[1].toLowerCase();
+    if (t.length >= 2 && !['kind', 'shell', 'test', 'query', 'command', 'it'].includes(t)) {
+      tokens.add(t);
+    }
+  }
+  return { paths, tokens };
+}
+
+/**
+ * @returns {'ok'|'warn'|'hard'}
+ */
+export function acceptanceVerifierOverlap(filesVal, acceptanceVal, verifierVal) {
+  if (!verifierVal || /\bmanual\b/i.test(verifierVal)) return 'ok';
+  const a = extractOverlapTokens(filesVal, acceptanceVal);
+  const v = extractOverlapTokens(verifierVal);
+  let pathHit = false;
+  for (const p of a.paths) if (v.paths.has(p) || v.tokens.has(p.replace(/\.[^.]+$/, ''))) pathHit = true;
+  let tokenHit = false;
+  for (const t of a.tokens) if (v.tokens.has(t) || v.paths.has(t)) tokenHit = true;
+  // also acceptance path mentioned in verifier string directly
+  for (const p of a.paths) {
+    if (String(verifierVal).toLowerCase().includes(p)) pathHit = true;
+  }
+  if (pathHit || tokenHit) return 'ok';
+  // zero overlap
+  return 'hard';
+}
+
 /**
  * SPEC / per-task admission gate (R-ORCH-19/23). Subsumes lintSource, then
  * requires every task to carry exact paths + scopeBoundary + acceptance + a
@@ -357,6 +441,17 @@ export function lintSpec(markdown) {
       violations.push(
         `${where}: kind:query verifier is incomplete — requires sql and expectRowCount (connectionCommand optional; without it the criterion defers).`,
       );
+    } else if (isTautologicalVerifier(verifier)) {
+      violations.push(
+        `${where}: verifier command is tautological/smoke-banned ("${extractVerifierCommand(verifier) ?? ''}"); use a real shell/test command.`,
+      );
+    } else {
+      const overlap = acceptanceVerifierOverlap(files, acceptance, verifier);
+      if (overlap === 'hard') {
+        violations.push(
+          `${where}: acceptance/Files and verifier have zero path/token overlap — HARD; mention a shared basename or command token.`,
+        );
+      }
     }
   }
   return violations;

@@ -97,6 +97,12 @@ The command's load-bearing order is fixed:
 
 ## Pre-flight
 
+0. **Sidecar age opt-in (defaults N=14 days, K=12 tasks).** Run
+   `node -e "import('…/src/sidecar-age.js').then(m=>console.log(JSON.stringify(m.evaluateSidecarAge({sidecarPath:'…'}))))"`
+   or equivalent. If `shouldPrompt`, ask: "Revalidar SPEC desta fase?" Default
+   **não** re-decompõe — operator may continue. Age uses `capturedAt` → mtime →
+   `plan.started` (`src/sidecar-age.js`).
+
 1. Parse `{{ARG_VAR}}`. If absent, stop and ask for exactly one phase id or slug.
 2. Run the standard project initial detection from `skills/core/project.md`.
    Resolve exactly one active plan and read its `plan.md`.
