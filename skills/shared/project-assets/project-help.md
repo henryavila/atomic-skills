@@ -55,7 +55,8 @@ acrescentar uma linha read-only de **PLAN-END REVIEW** (receipt ausente /
 § *Plan-end receipt visibility*. Nunca muta; o HARD-BLOCK de
 finalize/archive vive em `project-finalize.md` Step 1.7 e
 `project-transitions.md` `archive` step 1b (`planEndReviewOk` +
-`userValidationOk`; `--skip-plan-end-review` exige reason não-vazio).
+`userValidationOk`; sob `executionMode: automate` skip de plan-end é HARD-CLOSED —
+só receipt `external-both` real abre finalize/archive).
 
 Se a chamada acima não puder rodar ou produzir saída vazia, aplique fail-open:
 imprima o resumo no-args quando ele já estiver disponível no contexto da

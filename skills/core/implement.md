@@ -26,7 +26,7 @@ One writer touches a given working tree at a time — never two concurrent agent
 3. **Never self-certify.** A phase-writer claim is confidence, not closure. Only the orchestrator re-running the task verifier on the **MERGED** plan tree (via verify-claim / `done`) may close.
 4. **Never silent Mode-1 fallback.** Under automate, spawn failure or review/verifier fail means re-dispatch a code-only fix agent (max **2**) or stop for the operator — **not** the host session coding product source. Leaving automate requires explicit `--clear-execution-mode` / Mode-1 re-entry recorded in the decision log.
 5. **No concurrent phase writers** in v1, even when `parallelismAllowed` is true. Sequential phases only.
-6. **planEndReviewOk** (and user validation) gate finalize/archive under automate — see plan-end path and `src/plan-end-review.js`.
+6. **planEndReviewOk** (and user validation) gate finalize/archive under automate — see plan-end path and `src/plan-end-review.js`. Under durable stamp, **skip is HARD-CLOSED** (`forbidSkip: true`); phase evaluation + phase-done `review-code --mode=both` are mandatory.
 
 <HARD-GATE>
 If you are about to mark a task `done` because it *looks* finished, without running its verifier through the `done` / verify-on-done patterns: STOP. Run the verifier. The pass is the evidence; "it works" is the claim.

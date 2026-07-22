@@ -86,7 +86,7 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
     );
   });
 
-  it('F3: under automate, local/skip with non-empty overrideReason is honored', () => {
+  it('F3: under automate, local/skip even with overrideReason stay both (mandatory review)', () => {
     assert.equal(
       phaseReviewMode({
         automateActive: true,
@@ -94,7 +94,7 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
         explicitOverride: 'local',
         overrideReason: 'operator accepted local-only residual risk',
       }),
-      'local',
+      'both',
     );
     assert.equal(
       phaseReviewMode({
@@ -102,7 +102,7 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
         explicitOverride: 'skip',
         overrideReason: 'no external provider available',
       }),
-      'skip',
+      'both',
     );
   });
 
@@ -194,7 +194,7 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
           explicitOverride: 'local',
           overrideReason: 'accepted',
         },
-        want: 'local',
+        want: 'both', // mandatory under automate — reason cannot downgrade
       },
       {
         input: {
@@ -202,7 +202,7 @@ describe('phaseReviewMode — automate override + DESTRUCTIVE ladder', () => {
           explicitOverride: 'skip',
           overrideReason: 'accepted',
         },
-        want: 'skip',
+        want: 'both', // mandatory under automate — skip closed
       },
       {
         input: { automateActive: false, destructive: false, explicitOverride: 'both' },

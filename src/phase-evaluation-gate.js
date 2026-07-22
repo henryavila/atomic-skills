@@ -38,13 +38,11 @@ export function isDurableAutomateForEvaluation(input = {}) {
 /**
  * Whether phase-done may proceed under the evaluation order (design D10/D13).
  *
- * When durable automate is off → true.
- * When on:
- *   - status === 'passed' and verdict === 'pass' → true
- *   - status === 'skipped' and non-empty reason → true (rare; must be recorded)
- *   - status === 'failed-dispositioned' with disposition in accept|defer|fix
- *     and non-empty reason → true (operator owned residual)
- *   - otherwise → false
+ * When durable automate is off → true (gate inactive).
+ * When on, **only** status === 'passed' && verdict === 'pass' → true.
+ * Skip, failed-dispositioned (including accept/defer/fix residual), missing
+ * gate → false. Evaluation is mandatory under the durable stamp; leave
+ * automate via clearExecutionModeStamp if residual risk must be accepted.
  *
  * @param {{
  *   automateActive?: boolean | null,
@@ -63,7 +61,7 @@ export function phaseEvaluationAllowsClose(input = {}) {
     return {
       ok: false,
       reason:
-        'automate requires evaluationGate before phase-done (run evaluation agent, or record skip/disposition)',
+        'automate requires evaluationGate before phase-done (run evaluation agent — skip is forbidden under durable automate)',
     };
   }
 
@@ -83,32 +81,18 @@ export function phaseEvaluationAllowsClose(input = {}) {
   }
 
   if (status === 'skipped') {
-    const reason = gate.reason != null ? String(gate.reason).trim() : '';
-    if (reason !== '') return { ok: true };
     return {
       ok: false,
-      reason: 'evaluationGate status=skipped requires non-empty reason',
+      reason:
+        'automate forbids evaluationGate status=skipped — evaluation is mandatory under durable stamp (clear executionMode to leave automate)',
     };
   }
 
   if (status === 'failed-dispositioned') {
-    const disposition =
-      gate.disposition != null
-        ? String(gate.disposition).trim().toLowerCase()
-        : '';
-    const reason = gate.reason != null ? String(gate.reason).trim() : '';
-    if (
-      (disposition === 'accept' ||
-        disposition === 'defer' ||
-        disposition === 'fix') &&
-      reason !== ''
-    ) {
-      return { ok: true };
-    }
     return {
       ok: false,
       reason:
-        'evaluationGate status=failed-dispositioned requires disposition accept|defer|fix and non-empty reason',
+        'automate forbids phase-done on failed-dispositioned evaluation — re-dispatch fix until evaluationGate status=passed verdict=pass (accept/defer residual requires clearing the automate stamp)',
     };
   }
 

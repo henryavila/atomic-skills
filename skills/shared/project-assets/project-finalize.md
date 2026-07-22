@@ -295,9 +295,11 @@ phase turns green.
 3. Load `userValidatedAt` from plan frontmatter (ISO-8601). Optional
    `validatorId` is audit-only and does **not** alone satisfy the gate.
 
-### 1.7.2 — Run plan-end `external-both` (or record `--skip-plan-end-review`)
+### 1.7.2 — Run plan-end `external-both` (mandatory under durable automate)
 
-**Before any push or PR create**, ensure a plan-end review exists:
+**Before any push or PR create**, ensure a plan-end review exists.
+Under `executionMode: automate`, this path is **mandatory** — skip is HARD-CLOSED
+by `planEndReviewOk(receipt, { forbidSkip: true })` / `automatePlanEndGatesOk`.
 
 1. **Range:** plan integration range — `baseRef...plan/<slug>` (or
    `integrationRef`/`develop`…HEAD as resolved in Step 1). Same range used for the
@@ -329,10 +331,17 @@ phase turns green.
      verifiedAt: "<ISO-8601>"
    ```
 
-### 1.7.3 — `--skip-plan-end-review` (guided; non-empty reason REQUIRED)
+### 1.7.3 — `--skip-plan-end-review` (non-automate only)
 
-When zero family-different providers remain, both CLIs are unavailable, or the
-operator accepts residual risk, do **not** strand the plan. Offer a guided skip:
+**Under durable `executionMode: automate`, skip is forbidden.**
+`automatePlanEndGatesOk` always calls `planEndReviewOk(receipt, { forbidSkip: true })`
+— any `skipPlanEndReview: true` leaves `planEndReviewOk` false until a real
+`external-both` receipt exists. To accept residual risk outside that gate:
+`implement --clear-execution-mode` (after clean writer lease) then use the
+non-automate skip path below.
+
+When automate is **not** stamped and zero family-different providers remain,
+both CLIs are unavailable, or the operator accepts residual risk:
 
 - CLI / operator flag: **`--skip-plan-end-review`**
 - Durable mapping: `planEndReview.skipPlanEndReview: true` + **non-empty**
@@ -385,7 +394,7 @@ const gates = automatePlanEndGatesOk({
 
 | Condition | Result |
 |---|---|
-| `planEndReviewOk` false (missing receipt, all legs failed/skipped, or skip without non-empty reason) | **HARD-BLOCK** finalize — print which leg(s) failed / that skip needs a reason; offer re-run external-both or `--skip-plan-end-review <reason>` |
+| `planEndReviewOk` false (missing receipt, all legs failed/skipped, skip under automate, or skip without reason outside automate) | **HARD-BLOCK** finalize — under automate only offer re-run `external-both` (never skip); outside automate may offer `--skip-plan-end-review <reason>` |
 | `userValidationOk` false under automate | **HARD-BLOCK** finalize — prompt operator validation; stamp `userValidatedAt` only after explicit accept |
 | both true | proceed to Step 2 (diff + proposed PR halt) |
 

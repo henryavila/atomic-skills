@@ -51,7 +51,7 @@ describe('planEndReviewOk', () => {
     );
   });
 
-  it('is true when skipPlanEndReview true with non-empty reason even if all legs failed (no shape required)', () => {
+  it('is true when skipPlanEndReview true with non-empty reason outside automate (forbidSkip off)', () => {
     assert.equal(
       planEndReviewOk({
         legs: [
@@ -63,6 +63,19 @@ describe('planEndReviewOk', () => {
       }),
       true,
     );
+  });
+
+  it('is false when skipPlanEndReview set but forbidSkip/durableAutomate (mandatory review)', () => {
+    const skipReceipt = {
+      legs: [
+        { provider: 'codex', status: 'failed' },
+        { provider: 'grok', status: 'failed' },
+      ],
+      skipPlanEndReview: true,
+      skipReason: 'operator accepted residual risk for dogfood',
+    };
+    assert.equal(planEndReviewOk(skipReceipt, { forbidSkip: true }), false);
+    assert.equal(planEndReviewOk(skipReceipt, { durableAutomate: true }), false);
   });
 
   it('is false when all legs skipped/failed and no skip reason', () => {
@@ -481,10 +494,16 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       ok: true,
       planEndReviewOk: true,
       userValidationOk: true,
+      reviewSkipForbidden: false,
     });
     assert.deepEqual(
       automatePlanEndGatesOk({ automateActive: false, receipt: null }),
-      { ok: true, planEndReviewOk: true, userValidationOk: true },
+      {
+        ok: true,
+        planEndReviewOk: true,
+        userValidationOk: true,
+        reviewSkipForbidden: false,
+      },
     );
   });
 
@@ -519,6 +538,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       ok: true,
       planEndReviewOk: true,
       userValidationOk: true,
+      reviewSkipForbidden: true,
     });
   });
 
@@ -627,10 +647,11 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       ok: true,
       planEndReviewOk: true,
       userValidationOk: true,
+      reviewSkipForbidden: true,
     });
   });
 
-  it('ok when valid skip-plan-end-review reason + ISO userValidatedAt', () => {
+  it('HARD-BLOCKs skip-plan-end-review under durable automate even with non-empty reason', () => {
     const r = automatePlanEndGatesOk({
       automateActive: true,
       receipt: {
@@ -640,9 +661,24 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       },
       userValidatedAt: goodAt,
     });
-    assert.equal(r.ok, true);
-    assert.equal(r.planEndReviewOk, true);
+    assert.equal(r.ok, false);
+    assert.equal(r.planEndReviewOk, false);
     assert.equal(r.userValidationOk, true);
+    assert.equal(r.reviewSkipForbidden, true);
+  });
+
+  it('HARD-BLOCKs skip under stamp alone (session clear does not reopen skip)', () => {
+    const r = automatePlanEndGatesOk({
+      planExecutionMode: 'automate',
+      clearExecutionMode: true,
+      receipt: {
+        skipPlanEndReview: true,
+        skipReason: 'operator-accepted-residual-risk',
+      },
+      userValidatedAt: goodAt,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.planEndReviewOk, false);
   });
 });
 

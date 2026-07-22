@@ -45,12 +45,13 @@ describe('phaseEvaluationAllowsClose', () => {
     assert.equal(r.ok, false);
   });
 
-  it('allows skipped with reason', () => {
+  it('blocks skipped even with reason (mandatory under durable automate)', () => {
     const r = phaseEvaluationAllowsClose({
       planExecutionMode: 'automate',
       evaluationGate: { status: 'skipped', reason: 'operator: evaluator unavailable' },
     });
-    assert.equal(r.ok, true);
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /forbids.*skipped|mandatory/i);
   });
 
   it('blocks skipped without reason', () => {
@@ -61,7 +62,7 @@ describe('phaseEvaluationAllowsClose', () => {
     assert.equal(r.ok, false);
   });
 
-  it('allows failed-dispositioned with disposition + reason', () => {
+  it('blocks failed-dispositioned accept residual under automate', () => {
     const r = phaseEvaluationAllowsClose({
       planExecutionMode: 'automate',
       evaluationGate: {
@@ -70,7 +71,8 @@ describe('phaseEvaluationAllowsClose', () => {
         reason: 'major only; deferred to F2',
       },
     });
-    assert.equal(r.ok, true);
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /failed-dispositioned|mandatory|clearing/i);
   });
 });
 

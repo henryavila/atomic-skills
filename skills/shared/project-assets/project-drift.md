@@ -99,7 +99,7 @@ CROSS-MODEL REVIEW line when automate is stamped):
 
 | Condition | Surface (read-only) |
 |---|---|
-| no `planEndReview` / `planEndReviewOk` false | `PLAN-END REVIEW: missing receipt · finalize/archive HARD-BLOCK under automate → run plan-end external-both or --skip-plan-end-review <reason>` |
+| no `planEndReview` / `planEndReviewOk` false | `PLAN-END REVIEW: missing receipt · finalize/archive HARD-BLOCK under automate → run plan-end external-both (skip forbidden while stamp holds)` |
 | receipt ok, `userValidatedAt` missing | `PLAN-END REVIEW: receipt ok · user validation pending (userValidatedAt)` |
 | both ok | `PLAN-END REVIEW: ok (planEndReviewOk + userValidationOk)` |
 

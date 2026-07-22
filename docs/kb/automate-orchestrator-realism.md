@@ -82,5 +82,10 @@ Only if automate becomes the default path for many plans:
 2. **`implement --mode=automate`** once per plan (stamp).
 3. Maestro follows A–I; STOP helpers refuse illegal jumps when invoked.
 4. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your validation timestamp.
+   **Skip is forbidden under durable automate:** `planEndReviewOk(..., { forbidSkip: true })` —
+   `--skip-plan-end-review` with any reason does **not** open finalize/archive while
+   `executionMode: automate` remains. Phase evaluation and phase-done `review-code`
+   are likewise mandatory (`phaseEvaluationAllowsClose` only accepts passed+pass;
+   `phaseReviewMode` never returns local/skip under automate).
 
 If a step is skipped, prefer **fail closed** (blocked gate) over “looks done”.
