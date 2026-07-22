@@ -341,4 +341,4 @@ Extend implement and shared assets plus pure helpers and tests. No skills/core/a
 
 ## Reviews
 
-- internal: pending
+- internal: 2026-07-22 20:38 — bootstrap review: structure 6 phases / 17 tasks SPEC-clean; T-003/T-017 verifier bleed from exit_gate YAML fixed post-materialize; supersedes partial vs implementation-automate-mode; F1–F5 descriptor-only by design. Major: none blocking bootstrap. Nit: re-materialize source needs blank separator before exit_gate fences to avoid decompose last-task verifier clobber.

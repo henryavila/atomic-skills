@@ -60,6 +60,10 @@ Goal: Freeze the operator-facing automate contract in durable skill prose and an
 - acceptance: it - Document states host-thin phase agents and intentional phase-start materialize stop as the operator mental model under automate.; it - Document states decision-review manual hardgate as required for phase close under automate.; it - Document still marks Layer 4 full daemon as non-goal for this plan.
 - verifier: { kind: shell, command: "rg -n 'host-thin|decision-review|phase-start|Layer 4' docs/kb/automate-orchestrator-realism.md", expectExitCode: 0 }
 
+<!-- decompose: keep a non-task separator before exit_gate -->
+
+### Exit gates
+
 ```yaml
 exit_gate:
   - id: F0-G1
@@ -98,6 +102,10 @@ Goal: Make load-bearing automate decisions durable and machine-addressable so de
 - acceptance: it - Maestro requires every re-dispatch skip disposition and scope exit to append a decision log entry before continuing.; it - Phase-writer brief requires recording product tradeoffs that change behavior outside pure task text into the decision log path provided by the work-order.; it - implement.md points at the decision log asset for automate.
 - verifier: { kind: shell, command: "rg -n 'decision log|decision-log|implement-decision-log' skills/core/implement.md skills/shared/implement-automate-maestro.md skills/shared/implement-phase-writer.md", expectExitCode: 0 }
 
+<!-- decompose: keep a non-task separator before exit_gate -->
+
+### Exit gates
+
 ```yaml
 exit_gate:
   - id: F1-G1
@@ -132,6 +140,10 @@ Goal: Enforce host-thin behavior in skill prose and STOP helpers so automate can
 - scopeBoundary: Do not implement a full process supervisor. Do not require network for assert.
 - acceptance: it - canSpawnPhaseWriter or a sibling helper documents host-thin preconditions already required lease clean and phase materialized.; it - assert-automate-gate exposes or documents a gate that fails when active phase initiative file is missing descriptor-only.; it - Unit tests cover descriptor-only refuse path for spawn or phase load.
 - verifier: { kind: shell, command: "node --test tests/automate-orchestrator-gates.test.js && rg -n 'descriptor|materialize|initiative' scripts/assert-automate-gate.js src/automate-orchestrator-gates.js", expectExitCode: 0 }
+
+<!-- decompose: keep a non-task separator before exit_gate -->
+
+### Exit gates
 
 ```yaml
 exit_gate:
@@ -168,6 +180,10 @@ Goal: Machine-enforce that automate phase-done cannot complete without operator 
 - acceptance: it - Fixed order under automate includes decision-review operator PASS after evaluation and before or as part of phase-done preflight.; it - Procedure forbids host writing PASS without explicit operator token in the same turn.; it - FAIL path records failed status and does not advance currentPhase.
 - verifier: { kind: shell, command: "rg -n 'decision-review|decisionReview|operator' skills/shared/implement-automate-maestro.md skills/core/implement.md skills/shared/implement-decision-log.md", expectExitCode: 0 }
 
+<!-- decompose: keep a non-task separator before exit_gate -->
+
+### Exit gates
+
 ```yaml
 exit_gate:
   - id: F3-G1
@@ -198,6 +214,10 @@ Goal: After phase-done, automate always ends with a clear materialize-or-spawn-n
 - scopeBoundary: Do not change find-missing-business-intent quality HARD rules. Do not pre-fill businessIntent by LLM as PASS.
 - acceptance: it - implement documents that after materialize with ratified businessIntent the next implement invocation under stamp re-enters Step A and spawns a new phase agent.; it - project-lazy-materialization after-materialize section mentions host-thin automate phase agents and decision-review.; it - No path documents silent host coding of the new phase.
 - verifier: { kind: shell, command: "rg -n 'materialize|phase agent|decision-review|host-thin' skills/core/implement.md docs/kb/project-lazy-materialization.md", expectExitCode: 0 }
+
+<!-- decompose: keep a non-task separator before exit_gate -->
+
+### Exit gates
 
 ```yaml
 exit_gate:
@@ -233,6 +253,10 @@ Goal: Prove the contract with automated tests and a dogfood checklist so the nex
 - scopeBoundary: Do not inflate package version. Do not remove prior automate dogfood memory; link supersession.
 - acceptance: it - MEMORY.md links the new reference note.; it - Reference note states host-thin phase agents decision-review hardgate and supersedes the prior note line that forbade handing materialize to the user for full-plan automate.; it - Note points at this plan slug implement-phase-agents.
 - verifier: { kind: shell, command: "test -s .ai/memory/reference-implement-phase-agents.md && rg -n 'implement-phase-agents|decision-review|host-thin' .ai/memory/MEMORY.md .ai/memory/reference-implement-phase-agents.md", expectExitCode: 0 }
+
+<!-- decompose: keep a non-task separator before exit_gate -->
+
+### Exit gates
 
 ```yaml
 exit_gate:
