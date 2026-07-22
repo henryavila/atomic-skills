@@ -13,14 +13,15 @@ Under automate, phase close order is fixed:
 1. **All phase tasks `done`** — each closed by the orchestrator via post-merge verifier pass (+ complex-task review when required). Writer claims alone never suffice.
 2. **Evaluation agent** (this contract) — fresh context, not the writer; structured pass/fail vs phase goal + exit gates + `businessIntent`.
 3. **Stamp `phases[<id>].evaluationGate`** on the parent plan via `buildEvaluationGate` (`src/phase-evaluation-gate.js`):
-   - pass → `{ status: passed, verdict: pass, at: <HEAD>, verifiedAt: <ISO> }`
-   - rare skip → `{ status: skipped, reason: <non-empty> }` (must be operator-recorded, never silent)
-   - residual after disposition → `{ status: failed-dispositioned, disposition: accept|defer|fix, reason: <non-empty> }`
-   Machine check: `phaseEvaluationAllowsClose` / `canRunPhaseDone` must return `ok: true` before phase-done.
+   - **closing shape (only path under durable automate stamp):** `{ status: passed, verdict: pass, at: <HEAD>, verifiedAt: <ISO> }`
+   - **non-closing shapes** (may be recorded via `buildEvaluationGate` for audit / residual path; **do not** satisfy close while the stamp holds):
+     - rare skip → `{ status: skipped, reason: <non-empty> }` (operator-recorded, never silent)
+     - residual after disposition → `{ status: failed-dispositioned, disposition: accept|defer|fix, reason: <non-empty> }`
+   Machine check under durable automate: `phaseEvaluationAllowsClose` / `canRunPhaseDone` return `ok: true` **only** for `{ status: passed, verdict: pass }`. `skipped` and `failed-dispositioned` return `ok: false` — evaluation is mandatory under the stamp; clear `executionMode` (leave automate) before accepting residual risk.
 4. **decision-review** mandatory **manual hardgate** — **operator PASS only**; the agent never writes decision-review PASS (silent auto-PASS forbidden).
 5. **Then** `phase-done` with `review-code --mode=both` (automate default — **not** `external-both`; plan-end is the only `external-both` gate).
 
-Do not run phase-done before the evaluation agent completes, `evaluationGate` is stamped (or the operator records an explicit skip/disposition with non-empty reason — rare; still not silent), **and** decision-review has operator PASS.
+Do not run phase-done before the evaluation agent completes, `evaluationGate` is stamped with **`{ status: passed, verdict: pass }`** (explicit skip/disposition alone never enables phase-done under durable automate — clear executionMode first if residual must be accepted), **and** decision-review has operator PASS.
 
 ---
 
