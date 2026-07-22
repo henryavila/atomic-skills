@@ -124,3 +124,4 @@
 {"ts":"2026-07-22T23:36:54.030Z","event":"task-done","projectId":"atomic-skills","planSlug":"implement-phase-agents","phaseId":"F1","taskId":"T-004","weight":1,"weightBasis":"count","actuals":{"attempts":1}}
 {"ts":"2026-07-22T23:36:54.032Z","event":"task-done","projectId":"atomic-skills","planSlug":"implement-phase-agents","phaseId":"F1","taskId":"T-005","weight":1,"weightBasis":"count","actuals":{"attempts":1}}
 {"ts":"2026-07-22T23:36:54.032Z","event":"task-done","projectId":"atomic-skills","planSlug":"implement-phase-agents","phaseId":"F1","taskId":"T-006","weight":1,"weightBasis":"count","actuals":{"attempts":1}}
+{"ts":"2026-07-22T23:56:41.328Z","event":"phase-done","projectId":"atomic-skills","planSlug":"implement-phase-agents","phaseId":"F1","taskId":null,"weight":1,"weightBasis":"count","actuals":{"attempts":1}}

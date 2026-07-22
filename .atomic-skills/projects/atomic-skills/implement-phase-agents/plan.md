@@ -5,9 +5,9 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T23:39:31.000Z
+lastUpdated: 2026-07-22T23:56:41.000Z
 branch: plan/implement-phase-agents
-currentPhase: F1
+currentPhase: F2
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -129,19 +129,35 @@ phases:
       criteria:
         - id: F1-G1
           description: decision-log unit tests pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/decision-log.test.js
             expectExitCode: 0
+          metAt: 2026-07-22T23:56:41.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-22T23:56:41.000Z
+            verifiedCommit: 4b08a89aefc3419ed5d4c9e8369ffce26d8265af
+            passed: true
+            exitCode: 0
+            outputSummary: node --test tests/decision-log.test.js 38 pass
         - id: F1-G2
           description: Decision log asset and maestro wiring strings exist.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test -s skills/shared/implement-decision-log.md && rg -n 'decision log|decision-log' skills/shared/implement-automate-maestro.md
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-22T23:56:41.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-22T23:56:41.000Z
+            verifiedCommit: 4b08a89aefc3419ed5d4c9e8369ffce26d8265af
+            passed: true
+            exitCode: 0
+            outputSummary: asset + maestro decision log|decision-log EXIT 0
+    status: done
     summary: Decision log duravel com helper de append e wiring no maestro.
     businessIntent:
       value: Sob automate, decisoes de routing, tradeoff, disposition e hardgates manuais ficam em decision log duravel por fase, para decision-review e auditoria sem depender de chat.
@@ -152,8 +168,14 @@ phases:
     evaluationGate:
       status: passed
       verdict: pass
-      verifiedAt: 2026-07-22T23:39:31.000Z
-      at: da392e860034a7e178af51f521240308571130a5
+      verifiedAt: 2026-07-22T23:56:41.000Z
+      at: 4b08a89aefc3419ed5d4c9e8369ffce26d8265af
+    reviewGate:
+      status: passed
+      at: 4b08a89aefc3419ed5d4c9e8369ffce26d8265af
+      mode: both
+      reviewFile: .atomic-skills/reviews/implement-phase-agents-F1-both-4b08a89.md
+      verifiedAt: 2026-07-22T23:56:41.000Z
   - id: F2
     slug: implement-phase-agents-f2-host-thin-maestro-and-product-executi
     title: Host-thin maestro and product execution ban

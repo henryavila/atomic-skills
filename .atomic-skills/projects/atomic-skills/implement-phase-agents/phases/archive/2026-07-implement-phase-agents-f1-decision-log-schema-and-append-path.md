@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: implement-phase-agents-f1-decision-log-schema-and-append-path
 title: Decision log schema and append path
 goal: Make load-bearing automate decisions durable and machine-addressable so decision-review can hard-block without relying on chat history.
-status: active
+status: done
 branch: plan/implement-phase-agents
 started: 2026-07-22T23:30:10.467Z
-lastUpdated: 2026-07-22T23:39:31.000Z
-nextAction: Operator decision-review PASS for F1, then phase-done with review-code --mode=both.
+lastUpdated: 2026-07-22T23:56:41.000Z
+nextAction: null
 parentPlan: implement-phase-agents
 phaseId: F1
 businessIntent:
@@ -18,23 +18,39 @@ businessIntent:
   doneWhen: Asset implement-decision-log + helper com testes verdes + maestro greppable para decision log/decision-log; F1-G1 e F1-G2 metiveis.
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F1-G1
     description: decision-log unit tests pass.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/decision-log.test.js
       expectExitCode: 0
+    metAt: 2026-07-22T23:56:41.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T23:56:41.000Z
+      verifiedCommit: 4b08a89aefc3419ed5d4c9e8369ffce26d8265af
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/decision-log.test.js 38 pass
   - id: F1-G2
     description: Decision log asset and maestro wiring strings exist.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test -s skills/shared/implement-decision-log.md && rg -n 'decision log|decision-log' skills/shared/implement-automate-maestro.md
       expectExitCode: 0
+    metAt: 2026-07-22T23:56:41.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T23:56:41.000Z
+      verifiedCommit: 4b08a89aefc3419ed5d4c9e8369ffce26d8265af
+      passed: true
+      exitCode: 0
+      outputSummary: asset + maestro decision log|decision-log EXIT 0
 stack:
   - id: 1
     title: Decision log schema and append path
@@ -122,6 +138,7 @@ parked: []
 emerged: []
 weightDone: 3
 weightTotal: 3
+current: false
 ---
 
 # Narrative / notes
@@ -137,8 +154,16 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F1 tasks done. Evaluation agent verdict=pass. evaluationGate stamped at da392e8. Awaiting operator decision-review PASS and phase-done.
-- **Decision log:** Evaluation pass; F1-G1 16/16 and F1-G2 EXIT 0 re-run at stamp time.
-- **Single nextAction:** Operator decision-review PASS, then phase-done with review-code --mode=both.
-- **Verbatim state:** HEAD=da392e860034a7e178af51f521240308571130a5; evaluationGate.status=passed verdict=pass at=da392e860034a7e178af51f521240308571130a5; tasksDone=3/3; executionMode=automate.
-- **Uncommitted changes:** evaluationGate stamp (this write).
+- **Narrative:** F1 closed. Decision log asset+helper+wiring + review fixes. evaluationGate pass, review both pass after 2 fix re-dispatches. Archived; plan advanced to F2 (descriptor-only).
+- **Decision log:** F1 review blockers fixed (path confinement, required fields, secrets, order, strict at/evidencePath, EEXIST). Operator decision-review PASS via continue.
+- **Single nextAction:** materialize F2 then implement pure-maestro (executionMode automate still stamped).
+- **Verbatim state:** HEAD=4b08a89aefc3419ed5d4c9e8369ffce26d8265af; F1=done; currentPhase=F2; executionMode=automate; lease=missing.
+- **Uncommitted changes:** phase-done advance (this write).
+
+
+## Self-review against code-quality gates
+- G1: T-004..T-006 closed with GATE-R2; F1-G1/G2 re-run at 4b08a89
+- G2: no soft close claims
+- CROSS-MODEL: review-code both local+codex; receipt implement-phase-agents-F1-both-4b08a89.md
+- reviewGate: passed mode=both at=4b08a89aefc3419ed5d4c9e8369ffce26d8265af
+- decision-review: operator continue/PASS 2026-07-22
