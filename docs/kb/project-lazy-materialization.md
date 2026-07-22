@@ -28,9 +28,31 @@ review, plan-end `external-both` + user validation) pass **`--mode=automate`**. 
 `skills/core/implement.md`. Operator overview:
 `docs/concepts/project-tracking.md` § *Step 3.5 — Drive tasks (`implement`) and opt-in automate mode*.
 
+## Tasks core fingerprint (R3)
+
+At publish time, `scripts/materialize-state.js` → `assertTasksCoreMatchesSidecar`
+hashes the **live** sidecar `tasks[]` core vs the initiative tasks core
+(`src/tasks-fingerprint.js`). Mismatch → **refuse** (no live rename). Core =
+id, title (trim+collapse ws), files/outputs paths, scopeBoundary, acceptance,
+verifier. Allowlist mutations (summary/weight/status/businessIntent/…) do not
+refuse. Missing `.source.json` skips the check (bootstrap without capture).
+Changing SPEC requires explicit re-capture / re-spec — not silent rewrite during
+`materialize`.
+
+## Spine quality (R1)
+
+After presence (`find-missing-business-intent.js`), run
+`find-weak-business-intent.js` (HARD). Rewrite weak fields; no approve-anyway.
+
 ## D9 e D10
 
-**D9 - gate-como-hipótese.** O gate prova presença e preenchimento da espinha `businessIntent`; ele não prova eficácia anti-rubber-stamp. O design registra a redução de rework como hipótese a medir, não como benefício garantido (`.atomic-skills/projects/atomic-skills/phase-materialization/design.md:222-230`, `:342-349`).
+**D9 - gate-como-hipótese.** O gate de presença prova preenchimento da espinha; o
+lint de qualidade reduz rubber-stamp óbvio mas **não** prova eficácia causal.
+**Measure:** append-only JSONL via `src/plan-quality-events.js` (kinds:
+`spine_quality_fail`, `fingerprint_refuse`, `phase_reopen`, `task_reopen`) and
+`node scripts/report-plan-quality.js [--window-days 14]`. `materialize-state`
+emits `fingerprint_refuse` fail-open on refuse. Reduction of rework remains a
+hypothesis to measure — not a proven benefit.
 
 **D10 - constituição fora do plano.** Consolidar anti-patterns em catálogo consultado pelo gate é iniciativa separada. Este plano registra o non-goal e não adiciona `alternatives` por fase (`.atomic-skills/projects/atomic-skills/phase-materialization/design.md:239-252`, `:368-374`).
 

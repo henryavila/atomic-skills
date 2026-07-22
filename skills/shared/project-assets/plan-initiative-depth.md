@@ -83,6 +83,10 @@ phase in the plan.
     implement without guessing? Evaluate each task individually, not just
     the phase goal. A task with only a title and no description is
     automatically **major**.
+17b. **Acceptance↔verifier overlap:** deterministic path/token overlap between
+    Files/acceptance and verifier (see `lint-source.js`
+    `acceptanceVerifierOverlap`). Zero overlap on a non-manual verifier is
+    **significant** (SPEC HARD at admit; review surfaces stragglers).
 18. **Task-level file verification:** `outputs[].path` are deliverables
     the task CREATES — do NOT check their existence. Instead, verify
     input file paths mentioned in the task's `description` (files the

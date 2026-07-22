@@ -1,0 +1,77 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F4",
+  "slug": "materialize-spec-quality-guards-f4-integration-and-regression",
+  "title": "Integration and regression",
+  "goal": "Suite cobre R1/R2/R3 end-to-end; validate-skills; dogfood dos gates.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Integration suite three risks",
+      "scopeBoundary": [
+        "Use tmp dirs only. No external network. Do not mutate live monorepo .atomic-skills plans outside fixtures."
+      ],
+      "acceptance": [
+        "it - R1 weak spine fails closed.; it - R2 tautological verifier fails SPEC.; it - R3 core mismatch refuses publish.; it - happy-path strong spine and matching core publishes."
+      ],
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/plan-quality-guards-integration.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/plan-quality-guards-integration.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "validate-skills and plan self-review",
+      "scopeBoundary": [
+        "Do not invent new top-level skills. Self-review G1 G2 G6 on plan body."
+      ],
+      "acceptance": [
+        "it - npm run validate-skills exits 0.; it - plan.md has Self-review against code-quality gates after Reviews."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "npm run validate-skills",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/kb/project-lazy-materialization.md"
+        },
+        {
+          "kind": "file",
+          "path": ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/plan.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F4-G1",
+      "description": "integration suite passes",
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/plan-quality-guards-integration.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F4-G2",
+      "description": "validate-skills passes",
+      "verifier": {
+        "kind": "shell",
+        "command": "npm run validate-skills",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

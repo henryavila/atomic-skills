@@ -9,6 +9,15 @@ phase initiative. It consumes the retained per-phase source sidecar written by
 then runs the deterministic businessIntent detector before the phase can become
 active.
 
+**R3 tasks core fingerprint.** `materialize-state.js` compares live sidecar
+`tasks[]` **core** (id, title normalized, files/outputs paths, scopeBoundary,
+acceptance, verifier) to the initiative being published. On mismatch it
+**refuses** (tasks-fingerprint refuse) and does not rename live files. Allowlist
+fields only: summary, weight, status, businessIntent, nextAction, rollups,
+evidence. **Red flag:** "I'll rewrite the sidecar tasks because they're better"
+→ STOP. To change SPEC: edit source / re-capture sidecar (re-spec path) — never
+as a silent side-effect of materialize.
+
 ## Contract
 
 ### Inputs
@@ -35,7 +44,10 @@ active.
 - Publish goes through the single authority `scripts/materialize-state.js`
   (recoverable staging + marker; initiative rename first, plan last).
 - A detector-backed gate result: `scripts/find-missing-business-intent.js` exits
-  `0` before the command reports the phase as active.
+  `0` (presence) **and** `scripts/find-weak-business-intent.js` exits `0`
+  (quality HARD-BLOCK) before the command reports the phase as active. On quality
+  fail: tell the operator to **rewrite** the weak fields — do **not** offer
+  approve-anyway (no test-only override in operator path).
 
 ### F4-G3 non-deferrable successor barrier
 
@@ -78,11 +90,18 @@ The command's load-bearing order is fixed:
 5. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
 6. Write the initiative with `businessIntent` and update the parent plan
    descriptor atomically via `scripts/materialize-state.js`.
-7. Run `scripts/find-missing-business-intent.js`.
+7. Run `scripts/find-missing-business-intent.js` (presence).
+7b. Run `scripts/find-weak-business-intent.js` (quality HARD — rewrite fields on fail; no approve-anyway).
 8. Run `scripts/validate-state.js`.
 9. Run `scripts/refresh-state.js`.
 
 ## Pre-flight
+
+0. **Sidecar age opt-in (defaults N=14 days, K=12 tasks).** Run
+   `node -e "import('…/src/sidecar-age.js').then(m=>console.log(JSON.stringify(m.evaluateSidecarAge({sidecarPath:'…'}))))"`
+   or equivalent. If `shouldPrompt`, ask: "Revalidar SPEC desta fase?" Default
+   **não** re-decompõe — operator may continue. Age uses `capturedAt` → mtime →
+   `plan.started` (`src/sidecar-age.js`).
 
 1. Parse `{{ARG_VAR}}`. If absent, stop and ask for exactly one phase id or slug.
 2. Run the standard project initial detection from `skills/core/project.md`.
@@ -117,9 +136,13 @@ The command's load-bearing order is fixed:
 
 ## BusinessIntent Gate
 
-The user writes the five spine fields. The agent may draft labels and context,
-but unknown values stay visibly marked `[NEEDS CLARIFICATION]` until the user
-replaces them.
+**Proof-of-work (anti-rubber-stamp UX).** The user **writes** the five spine
+fields. The agent may offer **separate** questions or examples for context, but
+**must not** pre-fill / paste a drafted spine into the five fields of the user's
+answer surface for simple signature. Unknown values stay visibly marked
+`[NEEDS CLARIFICATION]` until the user replaces them. A generic **"ok" / "yes" /
+"do it" / "lgtm"** without the five fields is **not** acceptance — re-prompt
+(same discipline as ratify). `derived[]` remains optional and **ungated**.
 
 Ask via `{{ASK_USER_QUESTION_TOOL}}` for a single structured block:
 
@@ -197,13 +220,18 @@ Reject the block when any required field is blank or still contains
    --plan <plan.md>`); do not hand-edit the pair and do not report the phase active.
    The detector runs after a successful publish because it checks the descriptor
    and the materialized initiative together.
-7. Run the detector with `{{BASH_TOOL}}`:
+7. Run the **presence** detector with `{{BASH_TOOL}}`:
    `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
    Pass the parent `plan.md` so unrelated legacy plans cannot block this materialization.
    A tree root (`.atomic-skills` or repo root) is reserved for explicit audits that
    intentionally scan every materialized phase.
    Exit code `0` is required. Any non-zero exit leaves the initiative and plan
    edits open for repair; do not report the phase as active.
+7b. Run the **quality** detector (HARD-BLOCK) with `{{BASH_TOOL}}`:
+   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-weak-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
+   Exit code `0` is required. On non-zero: print the weak fields/reasons and ask the
+   operator to **rewrite** them — do **not** offer approve-anyway. Re-run 7 then 7b
+   after the rewrite. Presence and quality are separate gates.
 8. Run schema validation with `{{BASH_TOOL}}`:
    `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md`.
    Pass the newly written initiative file explicitly; do not pass the `phases/`

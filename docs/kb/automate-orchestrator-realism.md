@@ -89,3 +89,9 @@ Only if automate becomes the default path for many plans:
    `phaseReviewMode` never returns local/skip under automate).
 
 If a step is skipped, prefer **fail closed** (blocked gate) over “looks done”.
+
+## Plan quality guards
+
+- No LLM-filled `businessIntent` (operator authority).
+- Quality HARD: `find-weak-business-intent.js` after presence.
+- Fingerprint refuse emits D9 `fingerprint_refuse` (fail-open); report via `scripts/report-plan-quality.js`.

@@ -26,7 +26,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project idea                         → capture an idea into the inbox (fork: Só salvar / Analisar)
 /atomic-skills:project idea list                    → zero-token view of the ideas.md inbox
 /atomic-skills:project idea promote <n>             → promote idea #n via the emergence ladder (ratify-gated)
-/atomic-skills:project materialize <phase>          → phase descriptor → initiative + businessIntent gate
+/atomic-skills:project materialize <phase>          → phase descriptor → initiative + businessIntent gate (presence + find-weak-business-intent quality HARD)
 /atomic-skills:project finalize <slug>              → publish plan/<slug> as a PR vs <integrationRef> (push + gh pr create); operator-prompted, pre-merge, pre-archive
 /atomic-skills:project consolidate                  → merge-train integrate ≥2 READY worktrees into ONE PR (operator-prompted; <2 live WT = no-op, use finalize)
 /atomic-skills:project done|push|pop|park|emerge|promote|unblock|switch|phase-done|phase-reopen|archive
