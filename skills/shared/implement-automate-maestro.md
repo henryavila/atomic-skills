@@ -8,7 +8,7 @@ Realism note: `docs/kb/automate-orchestrator-realism.md`.
 
 ### Automate mode — pure maestro loop (when `isAutomateActive`)
 
-When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). After Step 1 hard gates pass, run this **host-thin** spine. The host never edits product source and does not run product diagnostic entrypoints (e.g. `compose`, `build_edl`) except **verbatim** task/exit-gate verifiers. Detail for the phase writer contract: `{{READ_TOOL}} skills/shared/implement-phase-writer.md`. Isolation/lease: `{{READ_TOOL}} skills/shared/worktree-isolation.md` + `src/writer-lease.js`. Evaluation order: `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`.
+When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). After Step 1 hard gates pass, run this **host-thin** spine. The host never edits product source and does not run product diagnostic entrypoints (e.g. `compose`, `build_edl`) except **verbatim** task/exit-gate verifiers. Detail for the phase writer contract: `{{READ_TOOL}} skills/shared/implement-phase-writer.md`. Isolation/lease: `{{READ_TOOL}} skills/shared/worktree-isolation.md` + `src/writer-lease.js`. Evaluation order: `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`. **Decision log** (durable append path + operator-only decision-review PASS): `{{READ_TOOL}} skills/shared/implement-decision-log.md` + `src/decision-log.js` (`appendDecision` / `listDecisions`).
 
 #### phase-start package (before Step C spawn)
 
@@ -41,7 +41,8 @@ Operator role is **validate-only** for task titles and `businessIntent` (edit al
 - Never self-certify; never silent Mode-1 fallback under automate.
 - **decision-review** is a mandatory **manual hardgate** before `phase-done` under automate. **Agents never write decision-review PASS**; only the **operator PASS** closes it.
 - Max **2** re-dispatch rounds for verifier/review/evaluator fail, then mandatory operator stop.
-- Every routing / skip / re-dispatch / scope-exit / review-severity disposition is written to the durable decisions log / handoff decision log.
+- **Decision log append before continue (HARD):** every **re-dispatch**, **skip**, **review disposition** (`accept`/`defer`/`fix`), and **scope-exit** must append a decision log entry via `appendDecision` (or equivalent durable write to the phase decision-log path) **before** continuing the loop, re-spawning, or closing. Chat / handoff bullets alone do **not** count. Path + shape: `skills/shared/implement-decision-log.md` → `.atomic-skills/projects/<project-id>/<plan-slug>/decisions/<phaseId>.jsonl`. Categories at minimum: `routing`, `tradeoff`, `review-disposition`, `scope-exit`, `manual-gate-delegation`, `env`. Include the decision log path (or resolve it) in the phase work-order / constructed brief so the writer can cite tradeoffs; the **host** owns durable append for routing/skip/disposition/scope-exit under host-thin automate (phase writer remains code-only and must not mutate plan.md status).
+- Every routing / skip / re-dispatch / scope-exit / review-severity disposition is written to the durable **decision log** (JSONL) and may be summarized in the handoff decision log.
 - Fixed evaluation order: all phase tasks `done` → **evaluation agent** → stamp `evaluationGate` → **decision-review** (operator PASS) → phase-done `review-code --mode=both` (check `canRunPhaseDone` first).
 - After last phase the **user validates** implementation before finalize/archive (`canFinalizeOrArchive` / durable stamp — not session clear alone).
 - Pure STOP helpers (layer-1, no spawn): `src/automate-orchestrator-gates.js` (`canSpawnPhaseWriter`, `canCloseTasksFromClaims`, `canRunPhaseDone`, `canFinalizeOrArchive`).
@@ -65,8 +66,8 @@ Under automate, **before orchestrator `done` on a complex task**:
 1. Compute **`destructiveDiff`** from the **validated claim commit range** (same pin `review-code` will use — DESTRUCTIVE heuristic in `skills/core/review-code.md` over that range). Pass the flag into `isComplexTask({ weight, tags, destructiveDiff })`.
 2. If complex → run **`review-code --mode=both`** on that validated range (`resolveReviewRoute` still applies same-family remap).
 3. **Severity gate:**
-   - **blocker / critical** → **block `done`** until re-dispatch (code-only fix agent, max **2**) or operator disposition recorded in the decisions log.
-   - **major** → surface for operator triage; require disposition **`accept` | `defer` | `fix`** recorded before close (do not auto-close majors without a disposition).
-4. **Durable receipt:** leave a review receipt / evidence path (under `.atomic-skills/reviews/` when written) linked from the decisions log / handoff **before** `done`. No receipt + complex required ⇒ do not close.
+   - **blocker / critical** → **block `done`** until re-dispatch (code-only fix agent, max **2**) or operator disposition recorded in the **decision log** (`category: review-disposition` or `routing`) **before continuing**.
+   - **major** → surface for operator triage; require disposition **`accept` | `defer` | `fix`** recorded as a **decision log** entry **before** close (do not auto-close majors without a disposition).
+4. **Durable receipt:** leave a review receipt / evidence path (under `.atomic-skills/reviews/` when written) linked from the decision log (`evidencePath`) / handoff **before** `done`. No receipt + complex required ⇒ do not close.
 5. **Non-complex tasks** close with **verifier-only** under existing GATE-R2 — no forced per-task cross-model `review-code --mode=both`.
 

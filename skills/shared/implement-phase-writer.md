@@ -49,6 +49,7 @@ Built by the orchestrator (implement Step B) for **this phase only** — all pen
 | `worktreePath` | Sibling phase worktree cwd for the writer. |
 | `writerBranch` | Named branch the writer commits on (merge target is the plan branch). |
 | `baseRef` | Ref the sibling worktree was seeded from (usually plan-branch HEAD at spawn). |
+| `decisionLogPath` | Durable phase **decision log** path (JSONL) the orchestrator will append to / audit — e.g. `.atomic-skills/projects/<project-id>/<plan-slug>/decisions/<phaseId>.jsonl`. See `skills/shared/implement-decision-log.md`. **Informational for the writer:** under code-only fence the writer does **not** write this path (host owns durable `.atomic-skills/` appends); the writer **must** surface product tradeoffs so the host can record them. |
 
 Optional but recommended: `tasks[].weight`, `tasks[].tags` (for orchestrator-side `isComplexTask` after merge — the writer does not run cross-model review).
 
@@ -92,7 +93,7 @@ Returned after the writer exits (implement Step D). One entry per task the work-
 | `verifierCommand` | string | Exact command the writer self-checked (verbatim). **Required for open claims.** |
 | `exitCode` | number \| null | Exit code of that self-check (`null` if not run). **Required for open claims.** |
 | `transcript` | string | Tail of verifier stdout/stderr (verbatim; keep bounded; may be empty string). **Required for open claims.** |
-| `notes` | string (optional) | Scope-exit, blocked reason, or conflict note — no soft "looks done". |
+| `notes` | string (optional) | Scope-exit, blocked reason, conflict note, or **product tradeoff** that changed behavior outside pure task text — no soft "looks done". Tradeoffs and scope-exits must be explicit so the orchestrator can append a **decision log** entry (`category: tradeoff` or `scope-exit`) at `decisionLogPath` before continuing. |
 
 **Commit identity rule:** each open claim (`claimed-pass` / `claimed-fail`) MUST supply **either** a non-empty `commitShas[]` **or** both `base` and `head`. `blocked` / `skipped` may omit commits when none were made.
 
@@ -138,9 +139,23 @@ A missing claim entry for a work-order task is treated as incomplete — do not 
 
 ---
 
+## Product tradeoffs → decision log
+
+When implementation requires a **product or eng tradeoff** that changes behavior **outside pure task text** (not already spelled in `acceptance[]` / SPEC), the phase writer:
+
+1. Does **not** silently widen scope or invent durable state.
+2. Records the tradeoff in the claim report `notes` (and any blocked/skipped reason) so it is greppable.
+3. Relies on the work-order **`decisionLogPath`** (when provided) as the durable target the **orchestrator** uses for `appendDecision` — the writer itself remains code-only and **must not** mutate plan.md phase status fields or write decision-review PASS.
+
+Scope-exit (required violation of `scopeBoundary[]`) is always a stop + report: path + reason in `notes` / blocked claim; orchestrator appends `category: scope-exit` to the decision log before any continue/re-question path.
+
+Full shape: `skills/shared/implement-decision-log.md` + `src/decision-log.js`.
+
+---
+
 ## Fix-agent re-dispatch
 
-On post-merge verifier fail, content merge conflict, complex-review blocker/critical, or evaluation blocker/critical: orchestrator re-dispatches a **code-only** fix agent under the same fence (same work-order subset / fix range, claim report, never `done`). Max **2** re-dispatches then mandatory operator stop. Never silent Mode-1 self-code while automate is active.
+On post-merge verifier fail, content merge conflict, complex-review blocker/critical, or evaluation blocker/critical: orchestrator re-dispatches a **code-only** fix agent under the same fence (same work-order subset / fix range, claim report, never `done`). Max **2** re-dispatches then mandatory operator stop. Never silent Mode-1 self-code while automate is active. Orchestrator appends a **decision log** entry (`category: routing`) for each re-dispatch **before** continuing.
 
 ---
 
@@ -161,6 +176,7 @@ The writer **never** runs the evaluation agent, never calls phase-done, and neve
 ## Cross-links
 
 - Maestro loop: `skills/core/implement.md` (Automate mode — pure maestro Steps A–I).
+- Decision log (path, fields, operator-only PASS): `skills/shared/implement-decision-log.md`, `src/decision-log.js`.
 - Isolation + lease: `skills/shared/worktree-isolation.md`, `src/writer-lease.js`.
 - Evaluation agent (after all phase tasks done): `skills/shared/implement-phase-evaluator.md`.
 - Antipatterns: `skills/shared/implement-antipatterns.md` (self-certify, concurrent writers, nest, silent Mode-1).
