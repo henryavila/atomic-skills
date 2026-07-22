@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T23:30:10.467Z
+lastUpdated: 2026-07-22T23:39:31.000Z
 branch: plan/implement-phase-agents
 currentPhase: F1
 executionMode: automate
@@ -149,6 +149,11 @@ phases:
       rules: "So o operador escreve decision-review PASS. Agente so append de entradas. Sem secrets/lease secrets no log. Append rejeita decision vazio ou category ausente. Categories minimas: routing, tradeoff, review-disposition, scope-exit, manual-gate-delegation, env. Nao auto-PASS de decision-review no evaluator."
       outOfScope: Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de produto; network I/O no helper; writer mutando plan.md status.
       doneWhen: Asset implement-decision-log + helper com testes verdes + maestro greppable para decision log/decision-log; F1-G1 e F1-G2 metiveis.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-22T23:39:31.000Z
+      at: da392e860034a7e178af51f521240308571130a5
   - id: F2
     slug: implement-phase-agents-f2-host-thin-maestro-and-product-executi
     title: Host-thin maestro and product execution ban
