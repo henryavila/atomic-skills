@@ -304,7 +304,10 @@ supersedes:
     - evaluationGate and phase review both
     - plan-end external-both and userValidationOk
     - assert-automate-gate machine layers from automate-skill-discipline
+planActive: true
+planTitle: Implement phase agents (host-thin automate)
 ---
+
 # Implement phase agents (host-thin automate)
 
 ## 1. Context
