@@ -6,8 +6,8 @@ goal: Make load-bearing automate decisions durable and machine-addressable so de
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-22T23:30:10.467Z
-lastUpdated: 2026-07-22T23:31:10.325Z
-nextAction: SYNC WAIT F1 phase writer claim report (T-004..T-006).
+lastUpdated: 2026-07-22T23:36:53.793Z
+nextAction: Spawn evaluation agent for F1, stamp evaluationGate, operator decision-review PASS, then phase-done with review-code --mode=both.
 parentPlan: implement-phase-agents
 phaseId: F1
 businessIntent:
@@ -16,7 +16,7 @@ businessIntent:
   rules: "So o operador escreve decision-review PASS. Agente so append de entradas. Sem secrets/lease secrets no log. Append rejeita decision vazio ou category ausente. Categories minimas: routing, tradeoff, review-disposition, scope-exit, manual-gate-delegation, env. Nao auto-PASS de decision-review no evaluator."
   outOfScope: Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de produto; network I/O no helper; writer mutando plan.md status.
   doneWhen: Asset implement-decision-log + helper com testes verdes + maestro greppable para decision log/decision-log; F1-G1 e F1-G2 metiveis.
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
@@ -43,8 +43,8 @@ stack:
 tasks:
   - id: T-004
     title: Decision log path and entry shape
-    status: pending
-    lastUpdated: 2026-07-22T23:30:10.467Z
+    status: done
+    lastUpdated: 2026-07-22T23:36:53.793Z
     scopeBoundary:
       - Do not store secrets or writer-lease secrets in the decision log. Do not make the evaluator auto-PASS decision-review.
     acceptance:
@@ -58,10 +58,18 @@ tasks:
         path: skills/shared/implement-decision-log.md
       - kind: file
         path: docs/kb/implement-decision-log.md
+    closedAt: 2026-07-22T23:36:53.793Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T23:36:53.793Z
+      verifiedCommit: eb1db513b0afe21b3c343bd6cfa251ccd0af491d
+      passed: true
+      exitCode: 0
+      outputSummary: 6:count as recorded decisions for decision-review. 49:| `category` | string | One of the categories below (required; missing rejected). | 51:| `why` | string | Rationale so the next session / operator does not re-litigate. | 52:| `evidencePath` | string | Path or URI to supporting evidence (claim report path, review receipt, verifier transcript path, or explicit `none` when no file exists). | 57:`actor` (`maestro` \| `phase-writer` \| `evaluator` \| `operator` \| `host`), 68:| `manual-gate-deleg
   - id: T-005
     title: Pure helper append and read decision log
-    status: pending
-    lastUpdated: 2026-07-22T23:30:10.467Z
+    status: done
+    lastUpdated: 2026-07-22T23:36:53.793Z
     scopeBoundary:
       - Do not perform network I/O. Do not write decision-review PASS from append APIs.
     acceptance:
@@ -75,10 +83,18 @@ tasks:
         path: src/decision-log.js
       - kind: file
         path: tests/decision-log.test.js
+    closedAt: 2026-07-22T23:36:53.793Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T23:36:53.793Z
+      verifiedCommit: eb1db513b0afe21b3c343bd6cfa251ccd0af491d
+      passed: true
+      exitCode: 0
+      outputSummary: "▶ DECISION_CATEGORIES ✔ includes minimum categories (0.408541ms) ✔ DECISION_CATEGORIES (1.684333ms) ▶ REQUIRED_DECISION_FIELDS ✔ lists required entry fields (0.122125ms) ✔ REQUIRED_DECISION_FIELDS (0.182583ms) ▶ decisionLogPath ✔ resolves per-phase durable path under plan tree (0.230458ms) ✔ rejects path traversal in phaseId (0.244583ms) ✔ decisionLogPath (1.385375ms) ▶ validateDecisionEntry ✔ accepts a full entry and fills defaults (1.188042ms) ✔ rejects missing category (0.211792ms) ✔ rejects "
   - id: T-006
     title: Wire decision log into maestro and phase-writer briefs
-    status: pending
-    lastUpdated: 2026-07-22T23:30:10.467Z
+    status: done
+    lastUpdated: 2026-07-22T23:36:53.793Z
     scopeBoundary:
       - Do not allow phase writer to mutate plan.md phase status fields. Do not remove claim report requirements.
     acceptance:
@@ -94,8 +110,18 @@ tasks:
         path: skills/shared/implement-phase-writer.md
       - kind: file
         path: skills/core/implement.md
+    closedAt: 2026-07-22T23:36:53.793Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T23:36:53.793Z
+      verifiedCommit: eb1db513b0afe21b3c343bd6cfa251ccd0af491d
+      passed: true
+      exitCode: 0
+      outputSummary: "11:When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). After Step 1 hard gates pass, run this **host-thin** spine. The host never edits product source and does not run product diagnostic entrypoints (e.g. `compose`, `build_edl`) except **verbatim** task/exit-gate verifiers. Detail for the phase writer contract: `{{READ_TOOL}} skills/shared/implement-phase-writer.md`. Isolation/lease: `{{READ_TOOL}} skills/shared/worktree-isolation.md` + `src/writer-lease.js`. Evaluatio"
 parked: []
 emerged: []
+weightDone: 3
+weightTotal: 3
 ---
 
 # Narrative / notes
@@ -111,8 +137,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** Pure-maestro pre-dispatch F1. About to spawn sibling phase writer for T-004..T-006 (decision log asset, helper+tests, maestro wiring).
-- **Decision log:** F1 materialized with draft BI validate-only. Lessons none. executionMode automate.
-- **Single nextAction:** SYNC WAIT phase writer claim report for F1; then merge + post-merge done.
-- **Verbatim state:** HEAD=undefined; writerBranch=impl/implement-phase-agents-F1-writer; worktreePath=/Volumes/External/code/atomic-skills/.worktrees/implement-phase-agents-F1-writer; baseRef=undefined.
-- **Uncommitted changes:** handoff dirty until pre-dispatch commit.
+- **Narrative:** F1 tasks T-004..T-006 closed with GATE-R2 evidence on HEAD eb1db51 after post-merge re-verify. Lease cleared. Next: evaluation agent.
+- **Decision log:** Exclusive commitShas claim set validated; merge FF eb1db51. Complex: none.
+- **Single nextAction:** Spawn evaluation agent for F1 → stamp evaluationGate → operator decision-review PASS → phase-done (review-code --mode=both).
+- **Verbatim state:** HEAD=eb1db513b0afe21b3c343bd6cfa251ccd0af491d; T-004=fc6374465e8750ddfcf979c7040c4f3542e044de; T-005=f45f7fcd491efde9d7e7a9c110541f47d06a9523; T-006=eb1db513b0afe21b3c343bd6cfa251ccd0af491d; lease=missing; executionMode=automate; tasksDone=3/3.
+- **Uncommitted changes:** state checkpoint for T-004..T-006 (this write).
