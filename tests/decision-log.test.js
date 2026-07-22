@@ -152,6 +152,13 @@ describe('validateDecisionEntry', () => {
     assert.equal(e.evidencePath, 'none');
   });
 
+  it('rejects null evidencePath when property is present', () => {
+    assert.throws(
+      () => validateDecisionEntry(baseEntry({ evidencePath: null })),
+      /evidencePath empty/,
+    );
+  });
+
   it('rejects empty provided evidencePath', () => {
     assert.throws(
       () => validateDecisionEntry(baseEntry({ evidencePath: '   ' })),
@@ -222,6 +229,38 @@ describe('validateDecisionEntry', () => {
         ),
       /at must be a valid ISO timestamp/,
     );
+  });
+
+  it('rejects null at when property is present', () => {
+    assert.throws(
+      () => validateDecisionEntry(baseEntry({ at: null })),
+      /at must be a valid ISO timestamp/,
+    );
+  });
+
+  it('rejects Date.parse false-positive at values like "0"', () => {
+    assert.throws(
+      () => validateDecisionEntry(baseEntry({ at: '0' })),
+      /at must be a valid ISO timestamp/,
+    );
+  });
+
+  it('accepts ISO date-only and datetime at values', () => {
+    const dateOnly = validateDecisionEntry(
+      baseEntry({ at: '2026-07-22' }),
+    );
+    assert.equal(dateOnly.at, '2026-07-22');
+    const withT = validateDecisionEntry(
+      baseEntry({ at: '2026-07-22T12:00:00.000Z' }),
+    );
+    assert.equal(withT.at, '2026-07-22T12:00:00.000Z');
+  });
+
+  it('defaults at only when property is absent', () => {
+    const e = validateDecisionEntry(baseEntry());
+    assert.ok(e.at);
+    assert.ok(!Number.isNaN(Date.parse(e.at)));
+    assert.match(e.at, /T|^\d{4}-\d{2}-\d{2}/);
   });
 
   it('rejects decisionReview fields (no PASS stamp via append path)', () => {
@@ -443,6 +482,29 @@ describe('appendDecision + listDecisions', () => {
 
   it('listDecisions returns [] for missing file', () => {
     assert.deepEqual(listDecisions(locator('missing')), []);
+  });
+
+  it('first-append EEXIST race falls through to append', () => {
+    // Peer already created the log: exclusive openSync('wx') throws EEXIST;
+    // ensureLogFile must fall through so appendFileSync still succeeds.
+    const logPath = decisionLogPath(locator('race'));
+    mkdirSync(dirname(logPath), { recursive: true });
+    writeFileSync(logPath, '', { mode: 0o600 });
+
+    const result = appendDecision(locator('race'), {
+      category: 'routing',
+      decision: 'race-safe append',
+      why: 'EEXIST on exclusive create must not fail first writer peer',
+      evidencePath: 'none',
+      impact: 'concurrent first append succeeds',
+      id: 'race-1',
+      at: '2026-07-22T12:00:00.000Z',
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.path, logPath);
+    const listed = listDecisions(locator('race'));
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0].id, 'race-1');
   });
 
   it('no API stamps decisionReview status PASS', () => {

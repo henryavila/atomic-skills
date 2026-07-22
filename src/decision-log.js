@@ -151,12 +151,29 @@ function assertNoSecretShapes(field, text) {
 }
 
 /**
+ * ISO-ish timestamp: Date.parse accepts AND looks like a calendar date
+ * (contains 'T' or matches YYYY-MM-DD…). Rejects Date.parse false positives
+ * like "0".
+ *
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isIsoishTimestamp(value) {
+  if (typeof value !== 'string') return false;
+  const provided = value.trim();
+  if (!provided) return false;
+  if (Number.isNaN(Date.parse(provided))) return false;
+  return /T/.test(provided) || /^\d{4}-\d{2}-\d{2}/.test(provided);
+}
+
+/**
  * Normalize and validate an entry. Throws on invalid input.
  * Never accepts or sets decisionReview PASS.
  *
  * Required (non-empty after trim): category, decision, why, impact.
- * evidencePath defaults to `'none'` only when omitted or null/undefined.
- * Invalid provided `at` throws (never silently replaced).
+ * evidencePath defaults to `'none'` only when the property is absent;
+ * present null/empty rejects.
+ * `at` defaults only when the property is absent; present null/"0"/garbage rejects.
  *
  * @param {Partial<DecisionEntry> & Record<string, unknown>} raw
  * @returns {DecisionEntry}
@@ -196,12 +213,17 @@ export function validateDecisionEntry(raw) {
 
   const id = isNonEmptyString(raw.id) ? String(raw.id).trim() : randomUUID();
 
-  // evidencePath defaults to 'none' only when omitted (null/undefined)
+  // evidencePath defaults to 'none' only when property is absent
   let evidencePath;
-  if (raw.evidencePath == null) {
+  if (!Object.hasOwn(raw, 'evidencePath')) {
     evidencePath = 'none';
   } else {
-    const ep = String(raw.evidencePath).trim();
+    if (raw.evidencePath == null || typeof raw.evidencePath !== 'string') {
+      throw new Error(
+        'decision entry evidencePath empty — omit the field to default to "none", or provide a path/URI',
+      );
+    }
+    const ep = raw.evidencePath.trim();
     if (!ep) {
       throw new Error(
         'decision entry evidencePath empty — omit the field to default to "none", or provide a path/URI',
@@ -211,18 +233,12 @@ export function validateDecisionEntry(raw) {
   }
 
   let at;
-  if (Object.prototype.hasOwnProperty.call(raw, 'at') && raw.at != null) {
-    const provided = String(raw.at).trim();
-    if (!provided || Number.isNaN(Date.parse(provided))) {
-      throw new Error('decision entry at must be a valid ISO timestamp');
-    }
-    at = provided;
-  } else {
+  if (!Object.hasOwn(raw, 'at')) {
     at = new Date().toISOString();
-  }
-
-  if (Number.isNaN(Date.parse(at))) {
+  } else if (!isIsoishTimestamp(raw.at)) {
     throw new Error('decision entry at must be a valid ISO timestamp');
+  } else {
+    at = String(raw.at).trim();
   }
 
   for (const [field, text] of [
@@ -420,14 +436,26 @@ function resolveLogPath(statusRootOrPath, locator = {}) {
 
 /**
  * Create parent dirs and ensure the log file exists with mode 0o600 when new.
+ * Always try exclusive create (`wx`); on EEXIST (peer won the race, or file
+ * already present) fall through so appendFileSync can proceed.
  *
  * @param {string} path
  */
 function ensureLogFile(path) {
   mkdirSync(dirname(path), { recursive: true });
-  if (!existsSync(path)) {
+  try {
     const fd = openSync(path, 'wx', 0o600);
     closeSync(fd);
+  } catch (e) {
+    if (
+      e &&
+      typeof e === 'object' &&
+      'code' in e &&
+      /** @type {{ code?: string }} */ (e).code === 'EEXIST'
+    ) {
+      return;
+    }
+    throw e;
   }
 }
 
