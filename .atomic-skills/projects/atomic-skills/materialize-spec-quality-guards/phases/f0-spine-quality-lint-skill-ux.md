@@ -7,9 +7,9 @@ goal: Detector HARD de qualidade da spine + wiring em materialize e new-plan F0
 status: active
 branch: plan/materialize-spec-quality-guards
 started: 2026-07-22T10:42:01.913Z
-lastUpdated: 2026-07-22T10:42:01.913Z
-nextAction: Run `done T-001` after implementing
-  scripts/find-weak-business-intent.js + tests
+lastUpdated: 2026-07-22T10:48:54.715Z
+nextAction: "Implement T-002: wire find-weak-business-intent into
+  project-materialize + project-create-plan"
 parentPlan: materialize-spec-quality-guards
 phaseId: F0
 businessIntent:
@@ -24,7 +24,7 @@ businessIntent:
   doneWhen: find-weak-business-intent testes verdes e skills
     materialize/create-plan citam o detector e o proof-of-work
     anti-preenchimento.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
@@ -51,8 +51,8 @@ stack:
 tasks:
   - id: T-001
     title: Detector find-weak-business-intent
-    status: pending
-    lastUpdated: 2026-07-22T10:42:01.913Z
+    status: done
+    lastUpdated: 2026-07-22T10:48:54.715Z
     scopeBoundary:
       - Do not change presence-only contract of find-missing-business-intent.js
         beyond clear composition. Do not call LLM. Do not mutate state files.
@@ -71,6 +71,13 @@ tasks:
         path: tests/find-weak-business-intent.test.js
     summary: Script detector de spine fraca com fixtures strong/weak
     weight: 3
+    closedAt: 2026-07-22T10:48:54.715Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T10:48:54.715Z
+      passed: true
+      command: node --test tests/find-weak-business-intent.test.js
+      outputSummary: 9/9 pass; dogfood find-weak on own plan exit 0
   - id: T-002
     title: Wire quality lint into materialize and new plan F0
     status: pending
@@ -125,7 +132,6 @@ parked: []
 emerged: []
 summary: Lint HARD de qualidade da spine + UX proof-of-work no materialize/new-plan F0
 ---
-
 # Narrative / notes
 
 Initiative for phase **F0 — Spine quality lint + skill UX (P0)**.
@@ -137,3 +143,11 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** F0 T-001 landed: scripts/find-weak-business-intent.js + tests. Dogfood: own plan spine passes presence + quality.
+- **Decision log:** Quality rules = min length 40, G2 soft-language, outOfScope≠value echo, doneWhen needs observable token; separate from find-missing-business-intent.
+- **Single nextAction:** Implement T-002 wire into materialize/create-plan skills.
+- **Verbatim state:** `node --test tests/find-weak-business-intent.test.js` → 9/9 pass; `node scripts/find-weak-business-intent.js .atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/plan.md` exit 0.
+- **Uncommitted changes:** clean after this checkpoint (state commit follows).
+
