@@ -177,8 +177,8 @@ _(plan doc, external refs)_
 
 
 ## Session handoff
-- **Narrative:** Operator confirmed `y` for durable automate entry. Stamped `executionMode: automate` on plan.md. Pure maestro on F0 (T-001..T-003 pending). Host will not edit product source; phase writer code-only next.
-- **Decision log:** Ratify 2026-07-22 — skill drafts package; operator validates titles+BI only; never blank form; never silent BI PASS; agent never decision-review PASS. | 2026-07-22 automate entry: operator `y` → stampExecutionMode(plan, automate); pure-maestro Steps A–I; no silent Mode-1.
-- **Single nextAction:** Pure-maestro Step C — acquire writer lease, sibling worktree `impl/implement-phase-agents-F0-writer`, spawn code-only phase writer for F0 work-order (T-001, T-002, T-003).
-- **Verbatim state:** slug implement-phase-agents; branch plan/implement-phase-agents; currentPhase F0; executionMode automate; HEAD pre-stamp-commit pending; tasks T-001 T-002 T-003 pending.
-- **Uncommitted changes:** plan.md + f0 initiative handoff dirty until stamp microcommit.
+- **Narrative:** Pure-maestro pre-dispatch snapshot (Step B). F0 pending T-001..T-003. About to acquire writer lease and spawn sibling phase writer on `impl/implement-phase-agents-F0-writer` from base `8b893e77c0ccebeafa5c1bef8bae3106258e8d91`.
+- **Decision log:** Ratify 2026-07-22 — skill drafts package; operator validates titles+BI only; never blank form; never silent BI PASS; agent never decision-review PASS. | 2026-07-22 automate entry: operator `y` → stampExecutionMode(plan, automate) commit 8b893e7. | Pre-dispatch 2026-07-22: canSpawnPhaseWriter ok (lease missing); sibling path `.worktrees/implement-phase-agents-F0-writer`.
+- **Single nextAction:** Acquire lease + create sibling worktree + spawn code-only phase writer for F0 (T-001, T-002, T-003); SYNC WAIT for claim report.
+- **Verbatim state:** planSlug=implement-phase-agents phaseId=F0 executionMode=automate HEAD=8b893e77c0ccebeafa5c1bef8bae3106258e8d91 baseRef=8b893e77c0ccebeafa5c1bef8bae3106258e8d91 writerBranch=impl/implement-phase-agents-F0-writer worktreePath=/Volumes/External/code/atomic-skills/.worktrees/implement-phase-agents-F0-writer initiativePath=.atomic-skills/projects/atomic-skills/implement-phase-agents/phases/f0-contract-freeze-and-antipatterns.md
+- **Uncommitted changes:** clean tree after pre-dispatch handoff microcommit (this block).
