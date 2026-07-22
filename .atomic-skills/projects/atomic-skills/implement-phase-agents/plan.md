@@ -5,9 +5,9 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T22:17:13.000Z
+lastUpdated: 2026-07-22T22:37:27.000Z
 branch: plan/implement-phase-agents
-currentPhase: F0
+currentPhase: F1
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -57,25 +57,48 @@ phases:
       criteria:
         - id: F0-G1
           description: Contract strings for host-thin, phase-start package (draft businessIntent / validate-only), and decision-review appear in implement and maestro assets.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'host-thin|decision-review|phase-start|validate-only|draft' skills/core/implement.md skills/shared/implement-automate-maestro.md
             expectExitCode: 0
+          metAt: 2026-07-22T22:37:27.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-22T22:37:27.000Z
+            verifiedCommit: 253e79362931d352944083ccc308cc77e1184128
+            passed: true
+            exitCode: 0
+            outputSummary: rg host-thin|decision-review|phase-start|validate-only|draft implement+maestro EXIT 0
         - id: F0-G2
           description: Antipatterns file covers host product diagnostics and auto PASS on decision-review.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'decision-review|compose|build_edl' skills/shared/implement-antipatterns.md
             expectExitCode: 0
+          metAt: 2026-07-22T22:37:27.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-22T22:37:27.000Z
+            verifiedCommit: 253e79362931d352944083ccc308cc77e1184128
+            passed: true
+            exitCode: 0
+            outputSummary: rg decision-review|compose|build_edl antipatterns EXIT 0
         - id: F0-G3
           description: "Manual HARD — Henry confirms F0 contract: host-thin; phase-start presents objective+tasks+draft BI; operator only validates titles and BI; decision-review hardgate."
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: Henry acks F0 contract in gate-signoff or chat with explicit PASS on design alignment.
-    status: active
+          metAt: 2026-07-22T22:37:27.000Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-22T22:37:27.000Z
+            verifiedCommit: 253e79362931d352944083ccc308cc77e1184128
+            passed: true
+            outputSummary: Henry PASS F0 contract 2026-07-22 (host-thin; phase-start draft BI validate-only; decision-review hardgate)
+    status: done
     businessIntent:
       value: "Sob automate o host fica magro: cada fase roda em agente fresco; no inicio da fase o skill apresenta objetivo + lista de tasks + businessIntent rascunhado para o operador so validar (titulos e BI); decisoes do agente ficam no decision log; phase-done exige hardgate manual de decision-review (so o operador escreve PASS)."
       workflow: Congelar contrato em prosa e antipatterns (F0) → decision log duravel (F1) → ban de execucao de produto no host e banners (F2) → schema e preflight decisionReview (F3) → ritual phase-start package + Step H (F4) → testes fixture + dogfood checklist (F5).
@@ -86,8 +109,14 @@ phases:
     evaluationGate:
       status: passed
       verdict: pass
-      verifiedAt: 2026-07-22T22:17:13.000Z
-      at: 3c4812edb7cabc8413cfc1049e5f6ba6a6748ccb
+      verifiedAt: 2026-07-22T22:37:27.000Z
+      at: 253e79362931d352944083ccc308cc77e1184128
+    reviewGate:
+      status: passed
+      at: 253e79362931d352944083ccc308cc77e1184128
+      mode: both
+      reviewFile: .atomic-skills/reviews/implement-phase-agents-F0-both-253e793.md
+      verifiedAt: 2026-07-22T22:37:27.000Z
   - id: F1
     slug: implement-phase-agents-f1-decision-log-schema-and-append-path
     title: Decision log schema and append path

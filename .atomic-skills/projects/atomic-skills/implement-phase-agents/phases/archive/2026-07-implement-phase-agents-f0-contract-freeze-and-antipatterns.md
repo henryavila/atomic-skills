@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: implement-phase-agents-f0-contract-freeze-and-antipatterns
 title: Contract freeze and antipatterns
 goal: Freeze the operator-facing automate contract in durable skill prose and antipatterns so later code phases implement one agreed shape.
-status: active
+status: done
 branch: plan/implement-phase-agents
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T22:17:13.000Z
-nextAction: "Operator: decision-review PASS on F0 decision log + F0-G3 manual PASS, then phase-done with review-code --mode=both."
+lastUpdated: 2026-07-22T22:37:27.000Z
+nextAction: null
 parentPlan: implement-phase-agents
 phaseId: F0
 businessIntent:
@@ -18,34 +18,57 @@ businessIntent:
   doneWhen: Contrato host-thin + phase-start package (draft BI + validate-only) + decision-review hardgate greppable em implement/maestro/antipatterns; Henry PASS no gate manual F0-G3.
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 weightDone: 4
 weightTotal: 4
 exitGates:
   - id: F0-G1
     description: Contract strings for host-thin, phase-start package (draft businessIntent / validate-only), and decision-review appear in implement and maestro assets.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'host-thin|decision-review|phase-start|validate-only|draft' skills/core/implement.md skills/shared/implement-automate-maestro.md
       expectExitCode: 0
     verifierLabel: "shell: rg -n 'host-thin|decision-review|phase-start|validate-only|…"
+    metAt: 2026-07-22T22:37:27.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T22:37:27.000Z
+      verifiedCommit: 253e79362931d352944083ccc308cc77e1184128
+      passed: true
+      exitCode: 0
+      outputSummary: rg host-thin|decision-review|phase-start|validate-only|draft implement+maestro EXIT 0
   - id: F0-G2
     description: Antipatterns file covers host product diagnostics and auto PASS on decision-review.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'decision-review|compose|build_edl' skills/shared/implement-antipatterns.md
       expectExitCode: 0
     verifierLabel: "shell: rg -n 'decision-review|compose|build_edl' skills/shared/imp…"
+    metAt: 2026-07-22T22:37:27.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T22:37:27.000Z
+      verifiedCommit: 253e79362931d352944083ccc308cc77e1184128
+      passed: true
+      exitCode: 0
+      outputSummary: rg decision-review|compose|build_edl antipatterns EXIT 0
   - id: F0-G3
     description: "Manual HARD — Henry confirms F0 contract: host-thin; phase-start presents objective+tasks+draft BI; operator only validates titles and BI; decision-review hardgate."
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Henry acks F0 contract in gate-signoff or chat with explicit PASS on design alignment.
     verifierLabel: manual
+    metAt: 2026-07-22T22:37:27.000Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-22T22:37:27.000Z
+      verifiedCommit: 253e79362931d352944083ccc308cc77e1184128
+      passed: true
+      outputSummary: Henry PASS F0 contract 2026-07-22 (host-thin; phase-start draft BI validate-only; decision-review hardgate)
 stack:
   - id: 1
     title: Contract freeze and antipatterns
@@ -144,7 +167,7 @@ emerged: []
 summary: Congela contrato host-thin, phase-start package (draft→validate) e decision-review.
 planTitle: Implement phase agents (host-thin automate)
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -161,8 +184,20 @@ _(plan doc, external refs)_
 
 
 ## Session handoff
-- **Narrative:** F0 tasks T-001..T-003 done (GATE-R2). Evaluation agent verdict=pass. evaluationGate stamped status=passed (at 3c4812e). Tree clean after stamp commit eddf02d. Awaiting operator decision-review PASS and F0-G3 manual PASS before phase-done.
-- **Decision log:** Automate stamp 8b893e7. Phase writer exclusive commitShas validated; merge FF 8c90a36. Post-merge re-verify EXIT 0. Lease cleared. Evaluation pass (no blocker/critical). evaluationGate passed stamped eddf02d.
-- **Single nextAction:** Operator decision-review PASS + F0-G3 PASS, then phase-done (F0-G1/G2 shell + review-code --mode=both).
-- **Verbatim state:** HEAD=eddf02d3ba9962ebe982e1af7d02590914c8a423; evaluationGate.status=passed verdict=pass at=3c4812edb7cabc8413cfc1049e5f6ba6a6748ccb; tasksDone=3/3; lease=missing; executionMode=automate.
-- **Uncommitted changes:** clean tree.
+- **Narrative:** F0 closed. Tasks done, evaluation pass, decision-review operator PASS, F0-G3 PASS, review both pass after 2 fix re-dispatches. Phase archived; plan advanced to F1 (descriptor-only — materialize required).
+- **Decision log:** Automate stamp. Claim exclusive commitShas. Review critical order mismatch fixed (2 re-dispatches). Operator PASS decision-review + F0-G3 2026-07-22. evaluationGate re-stamped at close HEAD.
+- **Single nextAction:** Run project materialize F1 for implement-phase-agents, then implement --mode=automate (stamp already set).
+- **Verbatim state:** HEAD=253e79362931d352944083ccc308cc77e1184128; F0 status=done; currentPhase=F1; executionMode=automate; reviewGate.mode=both at=253e79362931d352944083ccc308cc77e1184128; lease=missing.
+- **Uncommitted changes:** phase-done advance commit (this write).
+
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: T-001..T-003 closed with shell evidence + post-merge re-verify EXIT 0; F0-G1/G2 re-run at 253e793.
+- **G2 soft-language**: scanned; completion claims are passed:true evidence; decision-review PASS is operator-only.
+- **G6 reference-or-strike**: handoff literals use SHAs/commands.
+- **G10 gate-must-be-able-to-fail**: F0-G1/G2 greps fail when strings absent; F0-G3 manual.
+- **CROSS-MODEL REVIEW**: review-code --mode=both local+codex; receipt .atomic-skills/reviews/implement-phase-agents-F0-both-253e793.md; at=253e79362931d352944083ccc308cc77e1184128.
+- **Review gate (G2)**: reviewGate status=passed mode=both at=253e79362931d352944083ccc308cc77e1184128.
+- **Lessons (G1)**: no lessons distilled (clean phase after review fixes).
+- **decision-review**: operator PASS recorded 2026-07-22T22:37:27.000Z.
