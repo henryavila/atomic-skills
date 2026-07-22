@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T20:36:08.845Z
+lastUpdated: 2026-07-22T20:49:59.931Z
 branch: plan/implement-phase-agents
 currentPhase: F0
 parallelismAllowed: false
@@ -21,10 +21,11 @@ principles:
       chat history is not passed. After phase-done the next phase agent is a new
       spawn following materialize when required.
   - id: P3
-    title: Phase-start materialize stop
-    body: Descriptor-only phases HARD-refuse implement. The skill stops with a
-      single nextAction pointing at `project materialize` and businessIntent
-      ratification. Automate does not invent spine.
+    title: Phase-start draft then validate
+    body: At phase start under automate the skill presents phase objective, task
+      list (ids and titles), and a drafted businessIntent. Operator work is
+      validate or edit task titles and the BI then ratify — never blank-fill BI
+      from scratch. Draft is not PASS; silent auto-PASS is forbidden.
   - id: P4
     title: Durable decisions
     body: Load-bearing decisions are appended to a durable per-phase decision log.
@@ -55,9 +56,13 @@ glossary:
   - term: decision-review
     definition: "Manual hardgate: operator PASS/FAIL on the decision log before
       phase-done completes under automate"
-  - term: phase-start stop
-    definition: Intentional halt when the active phase is descriptor-only pending
-      materialize and businessIntent
+  - term: phase-start package
+    definition: "Before spawning the phase agent: show phase objective, task list,
+      and drafted businessIntent; operator validates task titles and BI then
+      ratifies"
+  - term: validate-only
+    definition: "Operator role at phase start: accept or edit task titles and
+      businessIntent; does not invent the spine or task list from a blank form"
 phases:
   - id: F0
     slug: implement-phase-agents-f0-contract-freeze-and-antipatterns
@@ -70,12 +75,14 @@ phases:
       summary: 3 criteria to meet
       criteria:
         - id: F0-G1
-          description: Contract strings for host-thin, phase-start stop, and
-            decision-review appear in implement and maestro assets.
+          description: Contract strings for host-thin, phase-start package (draft
+            businessIntent / validate-only), and decision-review appear in
+            implement and maestro assets.
           status: pending
           verifier:
             kind: shell
-            command: rg -n 'host-thin|decision-review|phase-start' skills/core/implement.md
+            command: rg -n 'host-thin|decision-review|phase-start|validate-only|draft'
+              skills/core/implement.md
               skills/shared/implement-automate-maestro.md
             expectExitCode: 0
         - id: F0-G2
@@ -88,8 +95,9 @@ phases:
               skills/shared/implement-antipatterns.md
             expectExitCode: 0
         - id: F0-G3
-          description: Manual HARD — Henry confirms F0 contract text matches the ratified
-            design (host-thin, materialize pause OK, decision-review hardgate).
+          description: "Manual HARD — Henry confirms F0 contract: host-thin; phase-start
+            presents objective+tasks+draft BI; operator only validates titles
+            and BI; decision-review hardgate."
           status: pending
           verifier:
             kind: manual
@@ -98,24 +106,27 @@ phases:
     status: active
     businessIntent:
       value: "Sob automate o host fica magro: cada fase roda em agente fresco; no
-        inicio da fase o operador materializa e valida businessIntent; decisoes
-        do agente ficam no decision log; phase-done exige hardgate manual de
-        decision-review (so o operador escreve PASS)."
+        inicio da fase o skill apresenta objetivo + lista de tasks +
+        businessIntent rascunhado para o operador so validar (titulos e BI);
+        decisoes do agente ficam no decision log; phase-done exige hardgate
+        manual de decision-review (so o operador escreve PASS)."
       workflow: Congelar contrato em prosa e antipatterns (F0) → decision log duravel
         (F1) → ban de execucao de produto no host e banners (F2) → schema e
-        preflight decisionReview (F3) → ritual Step H materialize/proximo agente
-        (F4) → testes fixture + dogfood checklist (F5).
-      rules: Nunca auto-materializar BI. Nunca agente escrever decision-review PASS.
+        preflight decisionReview (F3) → ritual phase-start package + Step H (F4)
+        → testes fixture + dogfood checklist (F5).
+      rules: Nunca pedir BI em branco. Skill rascunha objetivo, tasks e BI; operador
+        so valida ou edita e ratifica. Nunca auto-PASS de BI ou decision-review.
         Nunca editar product source no host sob automate. Nao remover
         evaluationGate review both lessons lease claim. Sem
         skills/core/automate.md. Mode 1 e Mode 2 intocados.
       outOfScope: Daemon Layer 4 multi-host; default automate global; trabalho de
         produto em curta; reescrever Mode 1 ou Mode 2; auto-PASS de gates
         manuais de produto.
-      doneWhen: Contrato host-thin + phase-start stop + decision-review hardgate
-        greppable em implement/maestro/antipatterns; Henry PASS no gate manual
-        F0-G3.
-    summary: Congela contrato host-thin, phase-start stop e decision-review em prosa.
+      doneWhen: Contrato host-thin + phase-start package (draft BI + validate-only) +
+        decision-review hardgate greppable em implement/maestro/antipatterns;
+        Henry PASS no gate manual F0-G3.
+    summary: Congela contrato host-thin, phase-start package (draft→validate) e
+      decision-review.
   - id: F1
     slug: implement-phase-agents-f1-decision-log-schema-and-append-path
     title: Decision log schema and append path
@@ -212,9 +223,9 @@ phases:
   - id: F4
     slug: implement-phase-agents-f4-phase-boundary-ritual-and-next-agent
     title: Phase boundary ritual and next agent
-    goal: After phase-done, automate always ends with a clear
-      materialize-or-spawn-next-agent ritual instead of a silent host stop or
-      host mega-continuation.
+    goal: After phase-done and at every phase start, automate presents objective +
+      tasks + drafted BI for operator validation, then spawns a fresh phase
+      agent — never a blank BI form.
     dependsOn:
       - F3
     subPhaseCount: 0
@@ -222,23 +233,24 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F4-G1
-          description: Step H ritual strings present in maestro.
+          description: Phase-start package and draft BI strings present in maestro.
           status: pending
           verifier:
             kind: shell
-            command: rg -n 'automate paused|Step H|fresh'
+            command: rg -n 'phase-start|draft|validate-only|businessIntent'
               skills/shared/implement-automate-maestro.md
             expectExitCode: 0
         - id: F4-G2
-          description: Lazy materialization KB updated for host-thin automate.
+          description: Lazy materialization KB updated for host-thin automate phase-start
+            package.
           status: pending
           verifier:
             kind: shell
-            command: rg -n 'host-thin|decision-review|phase agent'
+            command: rg -n 'host-thin|decision-review|phase-start|draft'
               docs/kb/project-lazy-materialization.md
             expectExitCode: 0
     status: pending
-    summary: "Ritual Step H: materialize ou spawn do proximo agente fresco."
+    summary: "Ritual phase-start: draft package, validate-only, then fresh phase agent."
   - id: F5
     slug: implement-phase-agents-f5-tests-fixtures-docs-and-dogfood-check
     title: Tests fixtures docs and dogfood checklist
@@ -308,9 +320,9 @@ The host never edits product source and never runs product diagnostics outside v
 
 Each phase gets a new agent context with a constructed brief only. Host chat history is not passed. After phase-done the next phase agent is a new spawn following materialize when required.
 
-### P3 Phase-start materialize stop
+### P3 Phase-start draft then validate
 
-Descriptor-only phases HARD-refuse implement. The skill stops with a single nextAction pointing at `project materialize` and businessIntent ratification. Automate does not invent spine.
+At phase start under automate the skill presents phase objective, task list (ids and titles), and a drafted businessIntent. Operator work is validate or edit task titles and the BI then ratify — never blank-fill BI from scratch. Draft is not PASS.
 
 ### P4 Durable decisions
 
@@ -332,11 +344,11 @@ Extend implement and shared assets plus pure helpers and tests. No skills/core/a
 
 | Phase | Title | Summary |
 |-------|-------|---------|
-| F0 | Contract freeze and antipatterns | Congela contrato host-thin, phase-start stop e decision-review em prosa. |
+| F0 | Contract freeze and antipatterns | Congela contrato host-thin, phase-start package (draft→validate) e decision-review. |
 | F1 | Decision log schema and append path | Decision log duravel com helper de append e wiring no maestro. |
 | F2 | Host-thin maestro and product execution ban | Ban de entrypoints de produto no host e preflight descriptor-only. |
 | F3 | Decision-review hardgate on phase-done | Hardgate decisionReview no phase-done sob automate. |
-| F4 | Phase boundary ritual and next agent | Ritual Step H: materialize ou spawn do proximo agente fresco. |
+| F4 | Phase boundary ritual and next agent | Ritual phase-start: draft package, validate-only, then fresh phase agent. |
 | F5 | Tests fixtures docs and dogfood checklist | Fixtures, dogfood checklist e ponteiros de memoria. |
 
 ## Reviews

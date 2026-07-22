@@ -10,14 +10,19 @@ Dogfood on `curta` / `memory-first-generation` (2026-07-22) showed the **operato
 2. After F1 `phase-done`, F2 stayed **descriptor-only**; the skill HARD-refused correctly, but did **not** run a clear operator ritual: *pause → materialize/BI → next phase agent*.
 3. Phase agents (and the host) made **load-bearing decisions** (timeouts, baseline fallbacks, review dispositions, delegated manual PASS) that were only partially logged; there is **no mandatory manual hardgate** that forces the user to accept those decisions before the phase is human-closed.
 
-Operator intent (ratified in conversation, 2026-07-22):
+Operator intent (ratified in conversation, 2026-07-22, refined same day):
 
 - Skill implements each phase in an **agent** without consuming the current host context.
-- **Stopping at the start of each phase** so the user validates materialize + `businessIntent` is **desired**, not a defect.
-- Decisions the skill/agent takes must be **saved** for user review.
-- **Review of decisions is a mandatory manual hardgate** (agent never writes PASS).
+- **Stopping at the start of each phase** is desired — but the skill does **not** dump a blank `businessIntent` form on the user.
+- At phase start under automate the skill **must present a validation package**:
+  1. **Phase objective** (goal / summary from the plan descriptor),
+  2. **Task list** (ids + titles that describe what will be done),
+  3. A **drafted `businessIntent` spine** (value, workflow, rules, outOfScope, doneWhen) derived from the phase goal + tasks + plan principles.
+- **Operator work is validation only:** accept or edit **task names/titles** and the **businessIntent**. The operator does not invent the spine from a blank page; the agent drafts, the operator ratifies (or edits then ratifies). Silent auto-PASS of BI without operator ack is still forbidden.
+- Decisions the skill/agent takes during implementation must be **saved** for user review.
+- **Review of decisions is a mandatory manual hardgate** at phase end (agent never writes PASS).
 
-This design supersedes the informal memory note that told maestro to “not hand off materialize” as full-plan unattended flow. Materialize + BI remain **operator authority** at every phase start under automate.
+This design supersedes the informal memory note that told maestro to “not hand off materialize” as full-plan unattended flow. Phase-start remains a human gate; under automate the skill **prepares** the package (including materialize + draft BI) so the human only validates.
 
 verified_by: conversation audit path
 `.worktrees/memory-first-generation` is product repo; skill ground truth is this monorepo’s `skills/core/implement.md` + `skills/shared/implement-automate-maestro.md` + `docs/kb/automate-orchestrator-realism.md`.
@@ -28,7 +33,11 @@ verified_by: conversation audit path
 
 2. **One phase agent per phase, fresh context.** Each phase’s implementation work runs in a **spawned agent** with a constructed brief (work-order only — no host chat history). The next phase uses a **new** agent after the boundary ritual. The host session does not “continue coding/closing” as a mega-session that re-implements the whole A–I close loop in narrative bulk; it re-enters from durable handoff + nextAction.
 
-3. **Phase-start pause is intentional.** Automate **does not auto-materialize**. If the active (or successor) phase is descriptor-only, the skill **stops** with a single operator-facing message: run `project materialize <phase>` and ratify `businessIntent`. After materialize, the operator re-invokes implement (or confirms continue) and the host spawns the **next** phase agent. This matches lazy materialization (`docs/kb/project-lazy-materialization.md`) and operator authority over spine fields.
+3. **Phase-start validation package (draft → human ratify).** Before spawning the phase agent for a phase under automate, the skill **stops** and presents one package:
+   - phase objective (goal/summary),
+   - task list (id + title; titles must describe the work),
+   - **drafted** `businessIntent` spine for the phase.
+   If the phase is still descriptor-only, the skill **orchestrates materialize** (writes initiative from sidecar + attaches the draft BI) as part of preparing that package — it does **not** tell the user “go create businessIntent yourself.” The operator’s only required work is **validate or edit** task titles and the BI, then explicit ratify (not a generic “ok”). After ratify, the host spawns a **fresh** phase agent. Auto-stamping BI as PASS without ratify remains forbidden (`find-weak-business-intent` / proof-of-work still apply to quality).
 
 4. **Durable decision log (per phase).** Every load-bearing decision during automate for a phase is appended to a **durable** artifact under the plan tree (path fixed in implementation; default: `.atomic-skills/projects/<id>/<slug>/decisions/<phaseId>.md` or equivalent schema-backed block). Categories include at least: routing (re-dispatch/stop), product/eng tradeoffs, review dispositions (`accept`/`defer`/`fix`), scopeBoundary exits, manual-gate delegation, verifier environment choices. Chat-only decisions do not count.
 
@@ -52,31 +61,35 @@ verified_by: conversation audit path
 
 ```text
 implement --mode=automate
-  → host: resolve + stamp + (if descriptor-only) STOP: materialize + BI
-  → host: spawn phase agent (fresh) with work-order only
-  → agent: code-only (or expanded role if later tasks admit) + append decisions to durable log
+  → host: resolve + stamp
+  → phase-start package (every phase, before spawn):
+       if descriptor-only → materialize from sidecar
+       present: phase objective + task list (id, title) + DRAFTED businessIntent
+       STOP for operator: validate/edit task titles + BI → explicit ratify
+  → host: spawn phase agent (fresh) with ratified work-order only
+  → agent: code-only + append decisions to durable log
   → host: merge → re-verify verifiers → orchestrator done (thin)
   → host: evaluation + review-code both (existing)
   → HARDGATE: operator reviews decisions log → PASS only human
   → phase-done
-  → if next phase descriptor-only: STOP with nextAction materialize
-  → after materialize: spawn NEW phase agent (fresh context)
+  → next phase: repeat phase-start package with NEW agent (never blank BI form)
 ```
 
 ### Approaches weighed
 
 | Approach | Verdict |
 |----------|---------|
-| **A. Host-thin + agent-per-phase + decision-review hardgate** | **Chosen** — matches operator intent; keeps lazy BI authority; auditable decisions |
+| **A. Host-thin + agent-per-phase + draft-BI phase-start package + decision-review hardgate** | **Chosen** — agent drafts objective/tasks/BI; operator only validates; decisions audited at end |
 | **B. Keep host-fat pure-maestro (v1)** | Rejected — dogfood proved role collapse and context burn |
 | **C. Full unattended multi-phase daemon (Layer 4)** | Rejected for this plan — multi-month; fights multi-host model (`automate-orchestrator-realism.md`); operator wants phase-start pauses |
-| **D. Auto-materialize with LLM-filled BI** | Rejected — spine is operator authority; lazy materialization constitution |
+| **D. Silent auto-PASS of LLM-filled BI without ratify** | Rejected — operator remains authority; draft ≠ PASS |
+| **E. Stop and force operator to blank-fill BI / invent tasks** | Rejected — operator work must be validation of names + BI, not authoring from scratch |
 
 ## Non-goals
 
 - Full maestro daemon / cross-host spawn supervisor (Layer 4).
 - Making automate the default for all plans.
-- Auto-materialize or LLM-authored `businessIntent` PASS.
+- Silent auto-PASS of drafted `businessIntent` without operator ratify (draft + present is in scope; PASS without ack is not).
 - Changing Mode 1 session-writer or Mode 2 Codex lane contracts.
 - Product work in consumer repos (`curta`, etc.) as part of this plan.
 - Replacing product manual gates (e.g. G1-M metrics) with decision-review alone.
@@ -92,7 +105,8 @@ implement --mode=automate
 - **Host continues mega-session A–I with role banner only** — UX cosmetic; does not free context or force decision audit.
 - **Decision log only at plan-end (`userValidationOk`)** — too late; phase-local decisions must be accepted before advance.
 - **Evaluator agent writes decision PASS** — violates “only human writes PASS” for this hardgate.
-- **Materialize auto-run from descriptor `.source.json` without operator** — invents BI; forbidden by lazy materialization design.
+- **Blank-form phase start (“you fill businessIntent”)** — wrong operator load; skill must draft objective + tasks + BI for validation.
+- **Silent auto-PASS of drafted BI** — draft is allowed; PASS without explicit ratify is not.
 
 ## Self-review against code-quality gates
 

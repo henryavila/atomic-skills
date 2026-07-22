@@ -7,43 +7,46 @@ goal: Freeze the operator-facing automate contract in durable skill prose and
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T20:36:08.845Z
-nextAction: "Implementar T-001: contrato host-thin em implement.md e
-  implement-automate-maestro.md"
+lastUpdated: 2026-07-22T20:49:59.959Z
+nextAction: "Implementar T-001: contrato host-thin + phase-start package (draft
+  BI, validate-only) em implement.md e implement-automate-maestro.md"
 parentPlan: implement-phase-agents
 phaseId: F0
 businessIntent:
   value: "Sob automate o host fica magro: cada fase roda em agente fresco; no
-    inicio da fase o operador materializa e valida businessIntent; decisoes do
-    agente ficam no decision log; phase-done exige hardgate manual de
-    decision-review (so o operador escreve PASS)."
+    inicio da fase o skill apresenta objetivo + lista de tasks + businessIntent
+    rascunhado para o operador so validar (titulos e BI); decisoes do agente
+    ficam no decision log; phase-done exige hardgate manual de decision-review
+    (so o operador escreve PASS)."
   workflow: Congelar contrato em prosa e antipatterns (F0) → decision log duravel
     (F1) → ban de execucao de produto no host e banners (F2) → schema e
-    preflight decisionReview (F3) → ritual Step H materialize/proximo agente
-    (F4) → testes fixture + dogfood checklist (F5).
-  rules: Nunca auto-materializar BI. Nunca agente escrever decision-review PASS.
+    preflight decisionReview (F3) → ritual phase-start package + Step H (F4) →
+    testes fixture + dogfood checklist (F5).
+  rules: Nunca pedir BI em branco. Skill rascunha objetivo, tasks e BI; operador
+    so valida ou edita e ratifica. Nunca auto-PASS de BI ou decision-review.
     Nunca editar product source no host sob automate. Nao remover evaluationGate
     review both lessons lease claim. Sem skills/core/automate.md. Mode 1 e Mode
     2 intocados.
   outOfScope: Daemon Layer 4 multi-host; default automate global; trabalho de
     produto em curta; reescrever Mode 1 ou Mode 2; auto-PASS de gates manuais de
     produto.
-  doneWhen: Contrato host-thin + phase-start stop + decision-review hardgate
-    greppable em implement/maestro/antipatterns; Henry PASS no gate manual
-    F0-G3.
+  doneWhen: Contrato host-thin + phase-start package (draft BI + validate-only) +
+    decision-review hardgate greppable em implement/maestro/antipatterns; Henry
+    PASS no gate manual F0-G3.
 tasksDone: 0
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
 exitGates:
   - id: F0-G1
-    description: Contract strings for host-thin, phase-start stop, and
-      decision-review appear in implement and maestro assets.
+    description: Contract strings for host-thin, phase-start package (draft
+      businessIntent / validate-only), and decision-review appear in implement
+      and maestro assets.
     status: pending
     verifier:
       kind: shell
-      command: rg -n 'host-thin|decision-review|phase-start' skills/core/implement.md
-        skills/shared/implement-automate-maestro.md
+      command: rg -n 'host-thin|decision-review|phase-start|validate-only|draft'
+        skills/core/implement.md skills/shared/implement-automate-maestro.md
       expectExitCode: 0
   - id: F0-G2
     description: Antipatterns file covers host product diagnostics and auto PASS on
@@ -55,8 +58,9 @@ exitGates:
         skills/shared/implement-antipatterns.md
       expectExitCode: 0
   - id: F0-G3
-    description: Manual HARD — Henry confirms F0 contract text matches the ratified
-      design (host-thin, materialize pause OK, decision-review hardgate).
+    description: "Manual HARD — Henry confirms F0 contract: host-thin; phase-start
+      presents objective+tasks+draft BI; operator only validates titles and BI;
+      decision-review hardgate."
     status: pending
     verifier:
       kind: manual
@@ -78,27 +82,29 @@ tasks:
         skills/core/automate.md.
     acceptance:
       - "it - Automate iron laws state host-thin role: no product source edits
-        and no product diagnostic entrypoints except verbatim verifiers.; it -
-        Maestro Step H states intentional phase-start stop for descriptor-only
-        materialize and businessIntent with a single operator-facing
-        nextAction.; it - Maestro states one fresh phase agent per phase and
-        that decision-review is a mandatory manual hardgate before phase-done
-        under automate.; it - Text names that agents never write decision-review
-        PASS."
+        and no product diagnostic entrypoints except verbatim verifiers."
+      - it - Maestro phase-start package presents phase objective, task list (id
+        and title), and a drafted businessIntent before spawn.
+      - it - Operator role is validate-only for task titles and businessIntent
+        (edit allowed); blank-fill BI and silent auto-PASS are forbidden.
+      - it - Maestro states one fresh phase agent per phase and that
+        decision-review is a mandatory manual hardgate before phase-done under
+        automate.
+      - it - Text names that agents never write decision-review PASS.
     verifier:
       kind: shell
-      command: rg -n 'host-thin|phase-start|decision-review|descriptor-only|verbatim
-        verifier' skills/core/implement.md
-        skills/shared/implement-automate-maestro.md && rg -n 'never.*PASS|agent
-        never|operator PASS' skills/core/implement.md
-        skills/shared/implement-automate-maestro.md
+      command: rg -n 'host-thin|phase-start|decision-review|validate-only|draft'
+        skills/core/implement.md skills/shared/implement-automate-maestro.md &&
+        rg -n 'never.*PASS|agent never|operator PASS|validate'
+        skills/core/implement.md skills/shared/implement-automate-maestro.md
       expectExitCode: 0
     outputs:
       - kind: file
         path: skills/core/implement.md
       - kind: file
         path: skills/shared/implement-automate-maestro.md
-    summary: Congela host-thin, phase-start stop e decision-review no implement/maestro.
+    summary: Congela host-thin, phase-start package (draft BI) e decision-review no
+      implement/maestro.
     weight: 2
   - id: T-002
     title: Antipatterns for host product debug and mega-session close
@@ -109,13 +115,17 @@ tasks:
         document Layer 4 daemon as in-scope for this plan.
     acceptance:
       - it - Red flag exists for host running compose or build_edl diagnostics
-        under automate.; it - Red flag exists for closing an entire phase A
-        through I as host mega-session without phase agent spawn.; it - Red flag
-        exists for auto-writing decision-review PASS or skipping materialize
-        stop.; it - Each red flag has a Temptation to Reality refutation entry.
+        under automate.
+      - it - Red flag exists for closing an entire phase A through I as host
+        mega-session without phase agent spawn.
+      - it - Red flag exists for auto-writing decision-review PASS or silent
+        auto-PASS of drafted businessIntent.
+      - it - Red flag exists for dumping a blank businessIntent form on the
+        operator instead of a drafted package.
+      - it - Each red flag has a Temptation to Reality refutation entry.
     verifier:
       kind: shell
-      command: rg -n 'compose|build_edl|mega-session|decision-review|materialize'
+      command: rg -n 'compose|build_edl|mega-session|decision-review|blank|draft'
         skills/shared/implement-antipatterns.md
       expectExitCode: 0
     outputs:
@@ -131,14 +141,15 @@ tasks:
       - Do not claim a full maestro daemon is implemented. Do not document
         auto-materialize of businessIntent.
     acceptance:
-      - it - Document states host-thin phase agents and intentional phase-start
-        materialize stop as the operator mental model under automate.; it -
-        Document states decision-review manual hardgate as required for phase
-        close under automate.; it - Document still marks Layer 4 full daemon as
-        non-goal for this plan.
+      - it - Document states host-thin phase agents and phase-start package
+        (objective + tasks + drafted BI, operator validate-only) as the operator
+        mental model under automate.
+      - it - Document states decision-review manual hardgate as required for
+        phase close under automate.
+      - it - Document still marks Layer 4 full daemon as non-goal for this plan.
     verifier:
       kind: shell
-      command: rg -n 'host-thin|decision-review|phase-start|Layer 4'
+      command: rg -n 'host-thin|decision-review|phase-start|draft|validate|Layer 4'
         docs/kb/automate-orchestrator-realism.md
       expectExitCode: 0
     outputs:
@@ -148,7 +159,8 @@ tasks:
     weight: 1
 parked: []
 emerged: []
-summary: Congela o contrato operator-facing do automate em prosa e antipatterns.
+summary: Congela contrato host-thin, phase-start package (draft→validate) e
+  decision-review.
 ---
 
 # Narrative / notes

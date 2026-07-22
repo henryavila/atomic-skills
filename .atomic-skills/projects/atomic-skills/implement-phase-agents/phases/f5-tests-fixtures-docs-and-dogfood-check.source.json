@@ -12,7 +12,10 @@
         "Do not require live subagent spawn in CI. Do not hit network."
       ],
       "acceptance": [
-        "it - Fixture plan with descriptor-only active phase causes spawn or load helper to block with materialize reason.; it - Fixture plan with executionMode automate and decisionReview pending causes canRunPhaseDone false.; it - Fixture with decisionReview passed and evaluationGate passed allows phase-done predicate true when other existing automate requirements are satisfied or mocked.; it - Tests run under node --test without network."
+        "it - Fixture plan with unratified phase-start package causes spawn helper to block until validate-only ratify.",
+        "it - Fixture plan with executionMode automate and decisionReview pending causes canRunPhaseDone false.",
+        "it - Fixture with decisionReview passed and evaluationGate passed allows phase-done predicate true when other existing automate requirements are satisfied or mocked.",
+        "it - Tests run under node --test without network."
       ],
       "verifier": {
         "kind": "shell",
@@ -37,11 +40,13 @@
         "Do not claim dogfood already passed before the checklist is used on a real plan."
       ],
       "acceptance": [
-        "it - Checklist includes host did not edit product source, phase agent was spawned, decision log has entries, operator PASS on decision-review, phase-start materialize stop observed on multi-phase plan.; it - Checklist references assert-automate-gate commands.; it - Checklist is written as pass or fail items not soft language."
+        "it - Checklist includes host did not edit product source, phase agent was spawned, decision log has entries, operator PASS on decision-review, phase-start package draft BI validate-only observed on multi-phase plan.",
+        "it - Checklist references assert-automate-gate commands.",
+        "it - Checklist is written as pass or fail items not soft language."
       ],
       "verifier": {
         "kind": "shell",
-        "command": "test -s docs/kb/implement-phase-agents-dogfood.md && rg -n 'decision-review|host-thin|materialize|assert-automate-gate' docs/kb/implement-phase-agents-dogfood.md",
+        "command": "test -s docs/kb/implement-phase-agents-dogfood.md && rg -n 'decision-review|host-thin|phase-start|draft|validate|assert-automate-gate' docs/kb/implement-phase-agents-dogfood.md",
         "expectExitCode": 0
       },
       "outputs": [

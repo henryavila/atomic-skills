@@ -38,14 +38,16 @@
       "id": "T-008",
       "title": "Role banner and single nextAction on stops",
       "scopeBoundary": [
-        "Do not force a new chat session via host APIs that do not exist. Do not auto-spawn without operator materialize when descriptor-only."
+        "Do not auto-spawn without operator ratify of the phase-start package."
       ],
       "acceptance": [
-        "it - At Step A C D.5 E F G H the skill requires a one-line role banner stating host-thin maestro.; it - Descriptor-only stop message is a single nextAction containing project materialize and phase id.; it - After phase-done when successor is descriptor-only host must not spawn a writer for the successor."
+        "it - At Step A C D.5 E F G H the skill requires a one-line role banner stating host-thin maestro.",
+        "it - Phase-start package presents objective tasks and drafted BI for validate-only before spawn.",
+        "it - After phase-done when successor needs package host must not spawn a writer until ratify."
       ],
       "verifier": {
         "kind": "shell",
-        "command": "rg -n 'role banner|nextAction|materialize' skills/shared/implement-automate-maestro.md skills/core/implement.md",
+        "command": "rg -n 'role banner|phase-start|draft|validate-only|nextAction' skills/shared/implement-automate-maestro.md skills/core/implement.md",
         "expectExitCode": 0
       },
       "outputs": [

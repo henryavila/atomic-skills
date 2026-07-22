@@ -1,6 +1,6 @@
 # Implement phase agents (host-thin automate)
 
-Redesign `implement --mode=automate` so the host session stays a thin dispatcher: one fresh agent per phase, intentional stop at phase-start for materialize and businessIntent, durable decision log, and a mandatory manual hardgate that only the operator can PASS after reviewing those decisions. Builds on archived `implementation-automate-mode` and `automate-skill-discipline` machine gates without replacing Mode 1 or Mode 2.
+Redesign `implement --mode=automate` so the host session stays a thin dispatcher: one fresh agent per phase, phase-start package (objective + tasks + drafted businessIntent for operator validate-only), durable decision log, and a mandatory manual hardgate that only the operator can PASS after reviewing those decisions. Builds on archived `implementation-automate-mode` and `automate-skill-discipline` machine gates without replacing Mode 1 or Mode 2.
 
 ## Principles
 
@@ -10,8 +10,8 @@ The host never edits product source and never runs product diagnostics outside v
 ### P2 Fresh agent per phase
 Each phase gets a new agent context with a constructed brief only. Host chat history is not passed. After phase-done the next phase agent is a new spawn following materialize when required.
 
-### P3 Phase-start materialize stop
-Descriptor-only phases HARD-refuse implement. The skill stops with a single nextAction pointing at `project materialize` and businessIntent ratification. Automate does not invent spine.
+### P3 Phase-start draft then validate
+At phase start the skill presents phase objective, task list (id + title), and a drafted businessIntent. Operator validates or edits titles and BI then ratifies. Blank BI form and silent auto-PASS are forbidden. Descriptor-only phases are materialized as part of preparing that package.
 
 ### P4 Durable decisions
 Load-bearing decisions are appended to a durable per-phase decision log. Chat-only decisions do not count as recorded.
@@ -33,7 +33,8 @@ Extend implement and shared assets plus pure helpers and tests. No skills/core/a
 | phase agent | Spawned executor for one phase under a constructed work-order brief |
 | decision log | Durable per-phase record of load-bearing routing, tradeoffs, and dispositions |
 | decision-review | Manual hardgate: operator PASS/FAIL on the decision log before phase-done completes under automate |
-| phase-start stop | Intentional halt when the active phase is descriptor-only pending materialize and businessIntent |
+| phase-start package | Before spawn: objective + tasks + drafted BI; operator validate-only then ratify |
+| validate-only | Operator accepts or edits task titles and businessIntent; does not invent them from blank |
 
 ## F0 — Contract freeze and antipatterns
 
@@ -43,22 +44,22 @@ Goal: Freeze the operator-facing automate contract in durable skill prose and an
 
 - Files: skills/core/implement.md, skills/shared/implement-automate-maestro.md
 - scopeBoundary: Do not change Mode 1 Step 2 session-writer coding path. Do not remove evaluation agent or plan-end external-both. Do not add skills/core/automate.md.
-- acceptance: it - Automate iron laws state host-thin role: no product source edits and no product diagnostic entrypoints except verbatim verifiers.; it - Maestro Step H states intentional phase-start stop for descriptor-only materialize and businessIntent with a single operator-facing nextAction.; it - Maestro states one fresh phase agent per phase and that decision-review is a mandatory manual hardgate before phase-done under automate.; it - Text names that agents never write decision-review PASS.
-- verifier: { kind: shell, command: "rg -n 'host-thin|phase-start|decision-review|descriptor-only|verbatim verifier' skills/core/implement.md skills/shared/implement-automate-maestro.md && rg -n 'never.*PASS|agent never|operator PASS' skills/core/implement.md skills/shared/implement-automate-maestro.md", expectExitCode: 0 }
+- acceptance: it - Automate iron laws state host-thin role: no product source edits and no product diagnostic entrypoints except verbatim verifiers.; it - Maestro phase-start package presents phase objective, task list (id and title), and a drafted businessIntent before spawn.; it - Operator role is validate-only for task titles and businessIntent (edit allowed); blank-fill BI and silent auto-PASS are forbidden.; it - Maestro states one fresh phase agent per phase and that decision-review is a mandatory manual hardgate before phase-done under automate.; it - Text names that agents never write decision-review PASS.
+- verifier: { kind: shell, command: "rg -n 'host-thin|phase-start|decision-review|validate-only|draft' skills/core/implement.md skills/shared/implement-automate-maestro.md && rg -n 'never.*PASS|agent never|operator PASS|validate' skills/core/implement.md skills/shared/implement-automate-maestro.md", expectExitCode: 0 }
 
 ### T-002 Antipatterns for host product debug and mega-session close
 
 - Files: skills/shared/implement-antipatterns.md
 - scopeBoundary: Do not delete existing Mode-1 silent fallback antipatterns. Do not document Layer 4 daemon as in-scope for this plan.
-- acceptance: it - Red flag exists for host running compose or build_edl diagnostics under automate.; it - Red flag exists for closing an entire phase A through I as host mega-session without phase agent spawn.; it - Red flag exists for auto-writing decision-review PASS or skipping materialize stop.; it - Each red flag has a Temptation to Reality refutation entry.
-- verifier: { kind: shell, command: "rg -n 'compose|build_edl|mega-session|decision-review|materialize' skills/shared/implement-antipatterns.md", expectExitCode: 0 }
+- acceptance: it - Red flag exists for host running compose or build_edl diagnostics under automate.; it - Red flag exists for closing an entire phase A through I as host mega-session without phase agent spawn.; it - Red flag exists for auto-writing decision-review PASS or silent auto-PASS of drafted businessIntent.; it - Red flag exists for dumping a blank businessIntent form instead of a drafted package.; it - Each red flag has a Temptation to Reality refutation entry.
+- verifier: { kind: shell, command: "rg -n 'compose|build_edl|mega-session|decision-review|blank|draft' skills/shared/implement-antipatterns.md", expectExitCode: 0 }
 
 ### T-003 KB note: operator mental model update
 
 - Files: docs/kb/automate-orchestrator-realism.md
-- scopeBoundary: Do not claim a full maestro daemon is implemented. Do not document auto-materialize of businessIntent.
-- acceptance: it - Document states host-thin phase agents and intentional phase-start materialize stop as the operator mental model under automate.; it - Document states decision-review manual hardgate as required for phase close under automate.; it - Document still marks Layer 4 full daemon as non-goal for this plan.
-- verifier: { kind: shell, command: "rg -n 'host-thin|decision-review|phase-start|Layer 4' docs/kb/automate-orchestrator-realism.md", expectExitCode: 0 }
+- scopeBoundary: Do not claim a full maestro daemon is implemented. Do not document silent auto-PASS of drafted businessIntent.
+- acceptance: it - Document states host-thin phase agents and phase-start package (objective + tasks + drafted BI, operator validate-only) as the operator mental model under automate.; it - Document states decision-review manual hardgate as required for phase close under automate.; it - Document still marks Layer 4 full daemon as non-goal for this plan.
+- verifier: { kind: shell, command: "rg -n 'host-thin|decision-review|phase-start|draft|validate|Layer 4' docs/kb/automate-orchestrator-realism.md", expectExitCode: 0 }
 
 <!-- decompose: keep a non-task separator before exit_gate -->
 
@@ -67,13 +68,13 @@ Goal: Freeze the operator-facing automate contract in durable skill prose and an
 ```yaml
 exit_gate:
   - id: F0-G1
-    description: Contract strings for host-thin, phase-start stop, and decision-review appear in implement and maestro assets.
-    verifier: { kind: shell, command: "rg -n 'host-thin|decision-review|phase-start' skills/core/implement.md skills/shared/implement-automate-maestro.md", expectExitCode: 0 }
+    description: Contract strings for host-thin, phase-start package (draft BI / validate-only), and decision-review appear in implement and maestro assets.
+    verifier: { kind: shell, command: "rg -n 'host-thin|decision-review|phase-start|validate-only|draft' skills/core/implement.md skills/shared/implement-automate-maestro.md", expectExitCode: 0 }
   - id: F0-G2
     description: Antipatterns file covers host product diagnostics and auto PASS on decision-review.
     verifier: { kind: shell, command: "rg -n 'decision-review|compose|build_edl' skills/shared/implement-antipatterns.md", expectExitCode: 0 }
   - id: F0-G3
-    description: Manual HARD — Henry confirms F0 contract text matches the ratified design (host-thin, materialize pause OK, decision-review hardgate).
+    description: Manual HARD — Henry confirms F0 contract: host-thin; phase-start package draft BI; operator validate-only; decision-review hardgate.
     verifier: { kind: manual, description: "Henry acks F0 contract in gate-signoff or chat with explicit PASS on design alignment." }
 ```
 
@@ -130,9 +131,9 @@ Goal: Enforce host-thin behavior in skill prose and STOP helpers so automate can
 ### T-008 Role banner and single nextAction on stops
 
 - Files: skills/shared/implement-automate-maestro.md, skills/core/implement.md
-- scopeBoundary: Do not force a new chat session via host APIs that do not exist. Do not auto-spawn without operator materialize when descriptor-only.
-- acceptance: it - At Step A C D.5 E F G H the skill requires a one-line role banner stating host-thin maestro.; it - Descriptor-only stop message is a single nextAction containing project materialize and phase id.; it - After phase-done when successor is descriptor-only host must not spawn a writer for the successor.
-- verifier: { kind: shell, command: "rg -n 'role banner|nextAction|materialize' skills/shared/implement-automate-maestro.md skills/core/implement.md", expectExitCode: 0 }
+- scopeBoundary: Do not force a new chat session via host APIs that do not exist. Do not auto-spawn without operator ratify of the phase-start package.
+- acceptance: it - At Step A C D.5 E F G H the skill requires a one-line role banner stating host-thin maestro.; it - Phase-start package presents objective tasks and drafted BI for validate-only before spawn.; it - After phase-done when successor needs package host must not spawn a writer until ratify.
+- verifier: { kind: shell, command: "rg -n 'role banner|phase-start|draft|validate-only|nextAction' skills/shared/implement-automate-maestro.md skills/core/implement.md", expectExitCode: 0 }
 
 ### T-009 Assert gate for host-thin preflight optional hook
 
@@ -199,21 +200,21 @@ exit_gate:
 
 ## F4 — Phase boundary ritual and next agent
 
-Goal: After phase-done, automate always ends with a clear materialize-or-spawn-next-agent ritual instead of a silent host stop or host mega-continuation.
+Goal: At every phase start automate presents objective + tasks + drafted BI for operator validate-only, then spawns a fresh phase agent — never a blank BI form.
 
-### T-013 Step H ritual message and handoff fields
+### T-013 Step H and phase-start package ritual
 
 - Files: skills/shared/implement-automate-maestro.md, skills/core/implement.md
-- scopeBoundary: Do not auto-run materialize. Do not spawn phase writer when initiative file is absent.
-- acceptance: it - Step H defines exact post phase-done branches materialized successor versus descriptor-only successor.; it - Descriptor-only branch prints automate paused not coding and nextAction materialize.; it - Materialized successor branch instructs spawn new phase agent with fresh context and forbids reusing the previous writer context.; it - Session handoff single nextAction is mandatory at the boundary.
-- verifier: { kind: shell, command: "rg -n 'Step H|automate paused|fresh|materialize|nextAction' skills/shared/implement-automate-maestro.md skills/core/implement.md", expectExitCode: 0 }
+- scopeBoundary: Do not silent auto-PASS drafted businessIntent. Do not spawn phase writer before operator ratify of the package.
+- acceptance: it - Step H / phase-start defines package: phase objective, task list id+title, drafted businessIntent.; it - Operator validate-only path is documented (edit titles and BI allowed; blank form forbidden).; it - After ratify, spawn new phase agent with fresh context and forbids reusing the previous writer context.; it - Session handoff single nextAction is mandatory at the boundary.
+- verifier: { kind: shell, command: "rg -n 'phase-start|draft|validate-only|businessIntent|fresh|nextAction' skills/shared/implement-automate-maestro.md skills/core/implement.md", expectExitCode: 0 }
 
-### T-014 Re-entry after materialize
+### T-014 Materialize orchestration inside package
 
 - Files: skills/core/implement.md, skills/shared/implement-automate-maestro.md, docs/kb/project-lazy-materialization.md
-- scopeBoundary: Do not change find-missing-business-intent quality HARD rules. Do not pre-fill businessIntent by LLM as PASS.
-- acceptance: it - implement documents that after materialize with ratified businessIntent the next implement invocation under stamp re-enters Step A and spawns a new phase agent.; it - project-lazy-materialization after-materialize section mentions host-thin automate phase agents and decision-review.; it - No path documents silent host coding of the new phase.
-- verifier: { kind: shell, command: "rg -n 'materialize|phase agent|decision-review|host-thin' skills/core/implement.md docs/kb/project-lazy-materialization.md", expectExitCode: 0 }
+- scopeBoundary: Do not change find-weak-business-intent quality HARD rules. Do not stamp BI PASS without operator ratify.
+- acceptance: it - If phase is descriptor-only, automate orchestrates materialize from sidecar and attaches drafted BI into the validation package.; it - Docs state operator does not invent BI from blank; validates drafted package only.; it - project-lazy-materialization after-materialize section mentions host-thin automate phase-start package and decision-review.; it - No path documents silent host coding of the new phase before ratify.
+- verifier: { kind: shell, command: "rg -n 'host-thin|decision-review|phase-start|draft|validate' skills/core/implement.md docs/kb/project-lazy-materialization.md", expectExitCode: 0 }
 
 <!-- decompose: keep a non-task separator before exit_gate -->
 
@@ -222,11 +223,11 @@ Goal: After phase-done, automate always ends with a clear materialize-or-spawn-n
 ```yaml
 exit_gate:
   - id: F4-G1
-    description: Step H ritual strings present in maestro.
-    verifier: { kind: shell, command: "rg -n 'automate paused|Step H|fresh' skills/shared/implement-automate-maestro.md", expectExitCode: 0 }
+    description: Phase-start package and draft BI strings present in maestro.
+    verifier: { kind: shell, command: "rg -n 'phase-start|draft|validate-only|businessIntent' skills/shared/implement-automate-maestro.md", expectExitCode: 0 }
   - id: F4-G2
-    description: Lazy materialization KB updated for host-thin automate.
-    verifier: { kind: shell, command: "rg -n 'host-thin|decision-review|phase agent' docs/kb/project-lazy-materialization.md", expectExitCode: 0 }
+    description: Lazy materialization KB updated for host-thin automate phase-start package.
+    verifier: { kind: shell, command: "rg -n 'host-thin|decision-review|phase-start|draft' docs/kb/project-lazy-materialization.md", expectExitCode: 0 }
 ```
 
 ## F5 — Tests fixtures docs and dogfood checklist
@@ -244,7 +245,7 @@ Goal: Prove the contract with automated tests and a dogfood checklist so the nex
 
 - Files: docs/kb/implement-phase-agents-dogfood.md
 - scopeBoundary: Do not claim dogfood already passed before the checklist is used on a real plan.
-- acceptance: it - Checklist includes host did not edit product source, phase agent was spawned, decision log has entries, operator PASS on decision-review, phase-start materialize stop observed on multi-phase plan.; it - Checklist references assert-automate-gate commands.; it - Checklist is written as pass or fail items not soft language.
+- acceptance: it - Checklist includes host did not edit product source, phase agent was spawned, decision log has entries, operator PASS on decision-review, phase-start package (draft BI + validate-only) observed on multi-phase plan.; it - Checklist references assert-automate-gate commands.; it - Checklist is written as pass or fail items not soft language.
 - verifier: { kind: shell, command: "test -s docs/kb/implement-phase-agents-dogfood.md && rg -n 'decision-review|host-thin|materialize|assert-automate-gate' docs/kb/implement-phase-agents-dogfood.md", expectExitCode: 0 }
 
 ### T-017 Memory and catalog pointers

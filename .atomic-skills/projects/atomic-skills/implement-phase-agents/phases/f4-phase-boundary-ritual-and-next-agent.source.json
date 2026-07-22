@@ -3,20 +3,23 @@
   "phaseId": "F4",
   "slug": "implement-phase-agents-f4-phase-boundary-ritual-and-next-agent",
   "title": "Phase boundary ritual and next agent",
-  "goal": "After phase-done, automate always ends with a clear materialize-or-spawn-next-agent ritual instead of a silent host stop or host mega-continuation.",
+  "goal": "After phase-done and at every phase start, automate presents objective + tasks + drafted BI for operator validation, then spawns a fresh phase agent — never a blank BI form.",
   "tasks": [
     {
       "id": "T-013",
-      "title": "Step H ritual message and handoff fields",
+      "title": "Step H and phase-start package ritual",
       "scopeBoundary": [
-        "Do not auto-run materialize. Do not spawn phase writer when initiative file is absent."
+        "Do not silent auto-PASS drafted businessIntent. Do not spawn phase writer before operator ratify of the package."
       ],
       "acceptance": [
-        "it - Step H defines exact post phase-done branches materialized successor versus descriptor-only successor.; it - Descriptor-only branch prints automate paused not coding and nextAction materialize.; it - Materialized successor branch instructs spawn new phase agent with fresh context and forbids reusing the previous writer context.; it - Session handoff single nextAction is mandatory at the boundary."
+        "it - Step H / phase-start defines package: phase objective, task list id+title, drafted businessIntent.",
+        "it - Operator validate-only path is documented (edit titles and BI allowed; blank form forbidden).",
+        "it - After ratify, spawn new phase agent with fresh context; forbid reusing previous writer context.",
+        "it - Session handoff single nextAction is mandatory at the boundary."
       ],
       "verifier": {
         "kind": "shell",
-        "command": "rg -n 'Step H|automate paused|fresh|materialize|nextAction' skills/shared/implement-automate-maestro.md skills/core/implement.md",
+        "command": "rg -n 'phase-start|draft|validate-only|businessIntent|fresh|nextAction' skills/shared/implement-automate-maestro.md skills/core/implement.md",
         "expectExitCode": 0
       },
       "outputs": [
@@ -32,16 +35,19 @@
     },
     {
       "id": "T-014",
-      "title": "Re-entry after materialize",
+      "title": "Materialize orchestration inside package (not blank handoff)",
       "scopeBoundary": [
-        "Do not change find-missing-business-intent quality HARD rules. Do not pre-fill businessIntent by LLM as PASS."
+        "Do not change find-weak-business-intent quality HARD rules. Do not stamp BI PASS without operator ratify."
       ],
       "acceptance": [
-        "it - implement documents that after materialize with ratified businessIntent the next implement invocation under stamp re-enters Step A and spawns a new phase agent.; it - project-lazy-materialization after-materialize section mentions host-thin automate phase agents and decision-review.; it - No path documents silent host coding of the new phase."
+        "it - If phase is descriptor-only, automate orchestrates materialize from sidecar and attaches drafted BI into the validation package.",
+        "it - Docs state operator does not invent BI from blank; validates drafted package only.",
+        "it - project-lazy-materialization after-materialize section mentions host-thin automate phase-start package and decision-review.",
+        "it - No path documents silent host coding of the new phase before ratify."
       ],
       "verifier": {
         "kind": "shell",
-        "command": "rg -n 'host-thin|decision-review|phase agent' docs/kb/project-lazy-materialization.md",
+        "command": "rg -n 'host-thin|decision-review|phase-start|draft|validate' skills/core/implement.md docs/kb/project-lazy-materialization.md",
         "expectExitCode": 0
       },
       "outputs": [
@@ -63,20 +69,20 @@
   "exitGates": [
     {
       "id": "F4-G1",
-      "description": "Step H ritual strings present in maestro.",
+      "description": "Phase-start package and draft BI strings present in maestro.",
       "verifier": {
         "kind": "shell",
-        "command": "rg -n 'automate paused|Step H|fresh' skills/shared/implement-automate-maestro.md",
+        "command": "rg -n 'phase-start|draft|validate-only|businessIntent' skills/shared/implement-automate-maestro.md",
         "expectExitCode": 0
       },
       "status": "pending"
     },
     {
       "id": "F4-G2",
-      "description": "Lazy materialization KB updated for host-thin automate.",
+      "description": "Lazy materialization KB updated for host-thin automate phase-start package.",
       "verifier": {
         "kind": "shell",
-        "command": "rg -n 'host-thin|decision-review|phase agent' docs/kb/project-lazy-materialization.md",
+        "command": "rg -n 'host-thin|decision-review|phase-start|draft' docs/kb/project-lazy-materialization.md",
         "expectExitCode": 0
       },
       "status": "pending"
