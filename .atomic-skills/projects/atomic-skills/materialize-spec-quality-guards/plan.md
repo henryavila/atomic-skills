@@ -294,7 +294,7 @@ Ver frontmatter principles[] — elaborados no source e no design.md.
 - internal: clean — 2026-07-22 local Stage 8a (structure 5 phases / 14 tasks; SPEC lint clean; lazy F0-only materialization; businessIntent F0 dual surface; exit gates shell-only). Findings major+: 0 after verifier kind:test→shell fix at materialize.
 
 
-- cross-model: SKIPPED — operator declined Stage 8b (2026-07-22)
+- cross-model: INVALIDATED — agent-biased skip (Recommended N first); not operator-initiated (2026-07-22). Re-run Stage 8b for a real external receipt or write SKIPPED — operator: <verbatim reason>.
 
 
 ## Implementation complete

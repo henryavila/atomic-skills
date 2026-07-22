@@ -213,25 +213,40 @@ Resolve `<externalMode> = hostDefaultExternalMode(hostFamily)` from
 `codex`; Codex host → `grok`). Do **not** hardcode `--mode=codex` when the host
 default is Grok.
 
-Announce to the user:
+**Ask shape (HARD — anti agent-biased skip):**
 
-> The plan is materialized and passed internal review. Run a CROSS-MODEL REVIEW via host default external provider `<externalMode>` (`atomic-skills:review-plan --mode=<externalMode>`)? This catches same-model blind spots that internal review misses. Cost: ~$0.50–$1.50 per run, 5–10 minutes wall time. (y/N)
+1. **Never** mark skip as Recommended. **Never** put N/skip first in options.
+2. Present options in this order only:
+   - **A (first):** `y — rodar CROSS-MODEL agora via <externalMode>` (Recommended)
+   - **B:** `n — pular` — description: only if the operator types in Other:
+     `skip cross-model: <motivo em ≥1 frase>`
+3. On **y**: invoke `atomic-skills:review-plan` with args = `<plan path> --mode=<externalMode>` (skips Step 0a; runs the external sealed-envelope). Apply blocker/critical findings. Persist receipt with `provider` + `provider_version` via `buildProviderFields` (same-family remap → `provider: local`, never counts as CROSS-MODEL REVIEW).
+4. On **n without** a typed `skip cross-model: <motivo>` (≥15 chars after the prefix, not ban-list filler): **STOP and re-ask**. Do **not** write SKIPPED.
+5. On **n with** valid typed reason: write **exactly**:
+   `- cross-model: SKIPPED — operator: <verbatim reason after the prefix>`
+   Never write `not provided`, never invent a reason, never narrate "você escolheu pular" without quoting that operator line.
 
-- On `y`: invoke `atomic-skills:review-plan` with args = `<plan path> --mode=<externalMode>` (skips Step 0a; runs the external sealed-envelope for that provider). Apply blocker/critical findings before proceeding. Major findings: at minimum surface them; user decides per item. Persist receipt with `provider` + `provider_version` via `buildProviderFields` (same-family remap → `provider: local`, never counts as CROSS-MODEL REVIEW).
-- On `n`: continue, but record the skip as a `- cross-model: SKIPPED — <user reason or "not provided">` line in the plan's `## Reviews` section (the same section that carries the internal receipt). Legacy `- codex: SKIPPED` lines remain valid readers. The internal receipt still makes the plan pass Stage 8c; cross-model is offered, not required.
+Announce (cost note ok):
 
-Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md` exactly per the `review-plan` external sub-flow contract. The plan body MUST link to it from the same `## Reviews` section (appended after `## Self-review against code-quality gates`), as a `- cross-model (<provider>):` line (legacy `- codex:` still accepted).
+> O plano passou no review interno. Rodar CROSS-MODEL via `<externalMode>` (`atomic-skills:review-plan --mode=<externalMode>`)? Custo ~$0.50–$1.50, 5–10 min. Skip só com texto: `skip cross-model: <motivo>`.
+
+Persistence: review file → `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md`; link from `## Reviews` as `- cross-model (<provider>):` (legacy `- codex:` still accepted).
 
 **Stage 8c — Receipt gate (deterministic, HARD-BLOCK).**
 
-8a/8b are LLM steps; a prose "always runs" is exactly what let a batch of plans land unreviewed before this gate existed (a skill cannot enforce its own invocation). So the close of Stage 8 is a zero-token, deterministic check that the review actually left a receipt on the plan materialized by THIS run — the same kind of gate Stages 4/5 already use:
+8a/8b are LLM steps; the close of Stage 8 is zero-token and must prove (1) internal receipt and (2) no invalid cross-model SKIPPED:
 
 ```bash
 PLAN_PATH=".atomic-skills/projects/<projectId>/<planSlug>/plan.md"
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" "$PLAN_PATH"
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+node "$PKG_ROOT/scripts/find-unreviewed-plans.js" "$PLAN_PATH"
+node "$PKG_ROOT/scripts/find-invalid-cross-model-skips.js" "$PLAN_PATH"
 ```
 
-A non-zero exit means the newly materialized plan lacks a `## Reviews` section with a `- internal:` line — the internal review (8a) either did not run or left no receipt. This **HARD-BLOCKS** declaring that plan ready: re-run 8a so `review-plan` writes the receipt, then re-run the scoped gate. Resolve the script the same 3-path way Stage 6's normalize step does (repo `./scripts`, global npm root, `$HOME/.atomic-skills`). This gate checks only the newly materialized plan; the tree-wide backstop is `project verify` check #10, where pre-existing legacy or batch-created plans already on disk surface as report-only WARNs. Batch/programmatic materialization that bypasses this flow entirely is caught there, not here.
+- `find-unreviewed-plans` non-zero → missing `- internal:` — re-run 8a.
+- `find-invalid-cross-model-skips` non-zero → SKIPPED without `operator:` / short / banned reason — fix receipt or run 8b for real. **HARD-BLOCKS** declaring ready.
+
+Scoped to this plan path; tree-wide backstop remains `project verify`.
 
 ### Stage 9 — Announce
 
