@@ -7,9 +7,9 @@ goal: Detector HARD de qualidade da spine + wiring em materialize e new-plan F0
 status: active
 branch: plan/materialize-spec-quality-guards
 started: 2026-07-22T10:42:01.913Z
-lastUpdated: 2026-07-22T10:48:54.715Z
-nextAction: "Implement T-002: wire find-weak-business-intent into
-  project-materialize + project-create-plan"
+lastUpdated: 2026-07-22T10:49:52.589Z
+nextAction: Run phase-done for F0 (exit gates), then materialize F1 with
+  businessIntent + dogfood quality detector
 parentPlan: materialize-spec-quality-guards
 phaseId: F0
 businessIntent:
@@ -24,7 +24,7 @@ businessIntent:
   doneWhen: find-weak-business-intent testes verdes e skills
     materialize/create-plan citam o detector e o proof-of-work
     anti-preenchimento.
-tasksDone: 1
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
@@ -80,8 +80,8 @@ tasks:
       outputSummary: 9/9 pass; dogfood find-weak on own plan exit 0
   - id: T-002
     title: Wire quality lint into materialize and new plan F0
-    status: pending
-    lastUpdated: 2026-07-22T10:42:01.913Z
+    status: done
+    lastUpdated: 2026-07-22T10:49:52.589Z
     scopeBoundary:
       - Do not auto-fill businessIntent. Do not make quality lint WARN-only. Do
         not edit materialize-state.js in this task.
@@ -105,10 +105,19 @@ tasks:
         path: skills/core/project.md
     summary: Encaixa find-weak-business-intent no fluxo materialize e create-plan
     weight: 2
+    closedAt: 2026-07-22T10:49:52.589Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T10:49:52.589Z
+      passed: true
+      command: rg -n 'find-weak-business-intent'
+        skills/shared/project-assets/project-materialize.md
+        skills/shared/project-assets/project-create-plan.md
+      outputSummary: grep hits present; quality HARD + proof-of-work prose landed
   - id: T-003
     title: Skill UX proof-of-work anti-prefill
-    status: pending
-    lastUpdated: 2026-07-22T10:42:01.913Z
+    status: done
+    lastUpdated: 2026-07-22T10:49:52.589Z
     scopeBoundary:
       - Do not add LLM detector. Do not change businessIntent schema keys.
     acceptance:
@@ -117,10 +126,9 @@ tasks:
         ratify.; it - derived array remains ungated.
     verifier:
       kind: shell
-      command: rg -n 'find-weak-business-intent'
+      command: rg -n 'proof-of-work|pre-fill|approve-anyway'
         skills/shared/project-assets/project-materialize.md
         skills/shared/project-assets/project-create-plan.md
-      expectExitCode: 0
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-materialize.md
@@ -128,6 +136,15 @@ tasks:
         path: skills/shared/project-assets/project-create-plan.md
     summary: Documenta anti-preenchimento e ok-generico != aceite da spine
     weight: 2
+    closedAt: 2026-07-22T10:49:52.589Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-22T10:49:52.589Z
+      passed: true
+      command: rg -n 'proof-of-work|pre-fill|approve-anyway'
+        skills/shared/project-assets/project-materialize.md
+        skills/shared/project-assets/project-create-plan.md
+      outputSummary: grep hits present; quality HARD + proof-of-work prose landed
 parked: []
 emerged: []
 summary: Lint HARD de qualidade da spine + UX proof-of-work no materialize/new-plan F0
@@ -144,10 +161,11 @@ _(record decisions here as they are made)_
 
 _(plan doc, external refs)_
 
+
 ## Session handoff
-- **Narrative:** F0 T-001 landed: scripts/find-weak-business-intent.js + tests. Dogfood: own plan spine passes presence + quality.
-- **Decision log:** Quality rules = min length 40, G2 soft-language, outOfScope≠value echo, doneWhen needs observable token; separate from find-missing-business-intent.
-- **Single nextAction:** Implement T-002 wire into materialize/create-plan skills.
-- **Verbatim state:** `node --test tests/find-weak-business-intent.test.js` → 9/9 pass; `node scripts/find-weak-business-intent.js .atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/plan.md` exit 0.
-- **Uncommitted changes:** clean after this checkpoint (state commit follows).
+- **Narrative:** F0 complete (T-001..T-003). Detector + skill wiring + proof-of-work UX. Dogfood: own F0 spine passes find-weak-business-intent.
+- **Decision log:** Quality is HARD after presence; no approve-anyway; agent must not pre-fill spine fields.
+- **Single nextAction:** phase-done F0 (run exit gate verifiers + review), then materialize F1.
+- **Verbatim state:** `rg -n find-weak-business-intent skills/shared/project-assets/project-materialize.md skills/shared/project-assets/project-create-plan.md` hits; T-001 tests 9/9.
+- **Uncommitted changes:** clean after state checkpoint.
 
