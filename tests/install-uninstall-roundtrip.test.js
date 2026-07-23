@@ -216,18 +216,30 @@ describe('install→uninstall round-trip', () => {
         assert.ok(existsSync(claudeSettings), 'Claude auto-update registration present');
         assert.ok(existsSync(grokAutoUpdate), 'Grok auto-update registration present');
 
+        // Hosts resolve `command` as a path (Grok joins non-absolute to the hook
+        // JSON dir). Must be the raw absolute path — never shell-quoted.
         const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
         const claudeCmds = (claude.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
         assert.ok(
-          claudeCmds.some((h) => isVersionCheckCommand(h.command, versionCheck)),
-          'Claude SessionStart must register shell-safe version-check command',
+          claudeCmds.some((h) => h.command === versionCheck),
+          'Claude SessionStart must register raw absolute version-check path (no shell quotes)',
+        );
+        assert.equal(
+          claudeCmds.filter((h) => isVersionCheckCommand(h.command, versionCheck)).length,
+          1,
+          'exactly one Claude version-check SessionStart entry',
         );
 
         const grok = JSON.parse(readFileSync(grokAutoUpdate, 'utf8'));
         const grokCmds = (grok.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
         assert.ok(
-          grokCmds.some((h) => isVersionCheckCommand(h.command, versionCheck)),
-          'Grok SessionStart must register shell-safe version-check command',
+          grokCmds.some((h) => h.command === versionCheck),
+          'Grok SessionStart must register raw absolute version-check path (no shell quotes)',
+        );
+        assert.equal(
+          grokCmds.filter((h) => isVersionCheckCommand(h.command, versionCheck)).length,
+          1,
+          'exactly one Grok version-check SessionStart entry',
         );
 
         await uninstall(projectDir, { scope: 'user', yes: true });

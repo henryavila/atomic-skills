@@ -17,7 +17,6 @@ import { createStageRuntimeArtifactsEffect } from '../src/runtime-layers/effects
 import {
   createAutoUpdateRuntimeProvider,
   GROK_AUTO_UPDATE_HOOK_REL,
-  shellQuote,
 } from '../src/runtime-layers/auto-update.js';
 import {
   revertDroppedAutoUpdateEffects,
@@ -61,11 +60,13 @@ function autoUpdateInstaller(skillsDir, ides) {
   });
 }
 
+/** Match installed version-check command (raw abs path; also legacy shell-quoted for residue). */
 function isVersionCheckCommand(command, absPath) {
   if (typeof command !== 'string') return false;
-  return command === absPath
-    || command === shellQuote(absPath)
-    || command.replace(/^'|'$/g, '') === absPath;
+  if (command === absPath) return true;
+  // Legacy installs may have written shell-quoted paths — still detect as ours for uninstall asserts.
+  const unquoted = command.replace(/^'|'$/g, '').replace(/'\\''/g, "'");
+  return unquoted === absPath || unquoted.endsWith('version-check.sh');
 }
 
 function assertNoAtomicSessionStart(settingsPath, hookAbs) {
@@ -408,6 +409,82 @@ describe('auto-update IDE shrink (P0-B / F-002)', () => {
       assert.equal(existsSync(hookAbs), false);
       assert.equal(existsSync(grokHookPath), false);
       assertNoAtomicSessionStart(join(projectDir, CLAUDE_SETTINGS_REL), hookAbs);
+    });
+  });
+});
+
+describe('SessionStart desired-set reconcile (install, not append-only)', () => {
+  it('installSkills reinstall drops quoted/stale AS SessionStart; keeps single raw + third-party', () => {
+    // jsonMerge is array-append: shape drift (quoted→raw, wrong basePath,
+    // duplicates) accumulates unless install reconciles AS-owned hooks to the
+    // exact desired command before merge.
+    withTmp((root) => {
+      const projectDir = join(root, 'install');
+      mkdirSync(projectDir, { recursive: true });
+
+      installSkills(projectDir, {
+        language: 'en',
+        ides: ['claude-code', 'grok'],
+        skillsDir: SKILLS_DIR,
+        metaDir: META_DIR,
+        scope: 'project',
+      });
+
+      const hookAbs = join(projectDir, VERSION_CHECK_REL);
+      const settingsPath = join(projectDir, CLAUDE_SETTINGS_REL);
+      const grokHookPath = join(projectDir, GROK_AUTO_UPDATE_HOOK_REL);
+      const thirdParty = {
+        matcher: '*',
+        hooks: [{ type: 'command', command: 'node /third/party.mjs' }],
+      };
+      const stale = '/legacy/.atomic-skills/hooks/version-check.sh';
+
+      // Simulate pre-reconcile residue (upgrade from shell-quoted + path drift).
+      const claude = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      claude.hooks.SessionStart = [
+        { matcher: '*', hooks: [{ type: 'command', command: `'${hookAbs}'` }] },
+        { matcher: '*', hooks: [{ type: 'command', command: hookAbs }] },
+        { matcher: '*', hooks: [{ type: 'command', command: stale }] },
+        thirdParty,
+      ];
+      writeFileSync(settingsPath, `${JSON.stringify(claude, null, 2)}\n`);
+
+      const grok = JSON.parse(readFileSync(grokHookPath, 'utf8'));
+      grok.hooks.SessionStart = [
+        { hooks: [{ type: 'command', command: `'${hookAbs}'` }] },
+        { hooks: [{ type: 'command', command: hookAbs }] },
+        { hooks: [{ type: 'command', command: stale }] },
+      ];
+      writeFileSync(grokHookPath, `${JSON.stringify(grok, null, 2)}\n`);
+
+      installSkills(projectDir, {
+        language: 'en',
+        ides: ['claude-code', 'grok'],
+        skillsDir: SKILLS_DIR,
+        metaDir: META_DIR,
+        scope: 'project',
+      });
+
+      const claudeAfter = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      const claudeCmds = claudeAfter.hooks.SessionStart
+        .flatMap((e) => e.hooks ?? [])
+        .map((h) => h.command);
+      const asClaude = claudeCmds.filter((c) => isVersionCheckCommand(c, hookAbs));
+      assert.deepEqual(asClaude, [hookAbs], 'exactly one raw Claude version-check');
+      assert.ok(
+        claudeCmds.includes('node /third/party.mjs'),
+        'third-party SessionStart preserved',
+      );
+      assert.ok(
+        !claudeCmds.some((c) => typeof c === 'string' && /^['"]/.test(c)),
+        'no shell-quoted SessionStart remains',
+      );
+
+      const grokAfter = JSON.parse(readFileSync(grokHookPath, 'utf8'));
+      const grokCmds = grokAfter.hooks.SessionStart
+        .flatMap((e) => e.hooks ?? [])
+        .map((h) => h.command);
+      assert.deepEqual(grokCmds, [hookAbs], 'exactly one raw Grok version-check');
     });
   });
 });
