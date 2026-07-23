@@ -38,19 +38,86 @@ export function shouldRunPureMaestro(input = {}) {
  * Pure lease-status gate (no FS). Pass `status` from `readLeaseResult(...).status`.
  * Blocking when status is anything other than `missing` (F5/F12).
  *
- * @param {{ leaseStatus?: string | null }} [input]
+ * Host-thin spawn also requires the active phase to be **materialized** (initiative
+ * file present — not descriptor-only). Use {@link canSpawnHostThinPhaseWriter}
+ * (or pass `initiativePresent` / `phaseMaterialized` here) before Step C spawn.
+ *
+ * @param {{
+ *   leaseStatus?: string | null,
+ *   initiativePresent?: boolean | null,
+ *   phaseMaterialized?: boolean | null,
+ * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
  */
 export function canSpawnPhaseWriter(input = {}) {
   const status =
     input.leaseStatus != null ? String(input.leaseStatus).trim().toLowerCase() : 'missing';
-  if (status === 'missing' || status === '') {
-    return { ok: true };
+  if (status !== 'missing' && status !== '') {
+    return {
+      ok: false,
+      reason: `writer lease blocking (status=${status}) — refuse second spawn / resume`,
+    };
   }
-  return {
-    ok: false,
-    reason: `writer lease blocking (status=${status}) — refuse second spawn / resume`,
-  };
+  // Optional materialization probe: only enforced when the caller supplies it.
+  // assert-automate-gate --gate spawn always supplies initiativePresent.
+  const materialization = resolvePhaseMaterialized(input);
+  if (materialization === false) {
+    return {
+      ok: false,
+      reason:
+        'descriptor-only phase — active phase initiative file missing; run project materialize before spawn',
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * @param {{
+ *   initiativePresent?: boolean | null,
+ *   phaseMaterialized?: boolean | null,
+ * }} input
+ * @returns {boolean | null} true/false when known; null when not provided
+ */
+function resolvePhaseMaterialized(input) {
+  if (input.initiativePresent != null) return Boolean(input.initiativePresent);
+  if (input.phaseMaterialized != null) return Boolean(input.phaseMaterialized);
+  return null;
+}
+
+/**
+ * Host-thin preconditions for pure-maestro Step C spawn (pure, no FS / no network).
+ *
+ * Requires:
+ * 1. **Lease clean** — `leaseStatus` missing (same as {@link canSpawnPhaseWriter})
+ * 2. **Phase materialized** — initiative file present (`initiativePresent` /
+ *    `phaseMaterialized` must be true; false = descriptor-only refuse)
+ *
+ * Unlike bare {@link canSpawnPhaseWriter}, this sibling **always** requires an
+ * explicit materialization flag (missing flag ⇒ refuse as unknown / not
+ * materialized). Layer-2 CLI `scripts/assert-automate-gate.js --gate spawn`
+ * probes the initiative path on disk and feeds this helper.
+ *
+ * @param {{
+ *   leaseStatus?: string | null,
+ *   initiativePresent?: boolean | null,
+ *   phaseMaterialized?: boolean | null,
+ * }} [input]
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function canSpawnHostThinPhaseWriter(input = {}) {
+  const materialization = resolvePhaseMaterialized(input);
+  if (materialization == null) {
+    return {
+      ok: false,
+      reason:
+        'host-thin spawn requires phase materialized probe (initiativePresent|phaseMaterialized) — refuse unknown / descriptor-only risk',
+    };
+  }
+  return canSpawnPhaseWriter({
+    leaseStatus: input.leaseStatus,
+    initiativePresent: materialization,
+    phaseMaterialized: materialization,
+  });
 }
 
 /**
