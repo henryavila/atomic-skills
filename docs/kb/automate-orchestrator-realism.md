@@ -87,15 +87,20 @@ Under automate the operator model is **host-thin phase agents** plus a
 **phase-start package** ritual — not a full maestro daemon (Layer 4 remains a
 non-goal for this plan).
 
-1. **Materialize** each phase. At **phase-start**, the skill presents a
-   **phase-start package**: phase **objective** + **task list** (id + title) + a
-   **drafted** `businessIntent`. Your role is **validate-only** for task titles
-   and BI (edit allowed, then ratify). Blank-fill BI and silent auto-PASS are
-   forbidden — you own the spine, the skill drafts it.
+1. **Phase-start package ritual (draft + ratify allowed; silent auto-PASS not).**
+   At **phase-start**, the skill presents a **draft** package: phase **objective**
+   + **task list** (id + title, titles advisory) + a **drafted** `businessIntent`.
+   Your role is **validate-only** for the BI spine (edit fields, then explicit
+   ratify). **No durable BI write** and **no materialize publish** while the phase
+   is still descriptor-only until you ratify. After ratify, the host materializes
+   from the sidecar with your **ratified** spine (not a blank invent form). Durable
+   title renames require re-spec. Blank-fill BI and silent auto-PASS are forbidden
+   — you own the spine, the skill drafts it. Draft+ratify is the intended path;
+   silent auto-PASS is not.
 2. **`implement --mode=automate`** once per plan (stamp). Host stays **host-thin**:
    no product source edits; no product diagnostic entrypoints except **verbatim**
    verifiers. One **fresh phase agent** per phase (constructed brief; no host
-   chat history).
+   chat history) only after package ratify (+ materialize when needed) and work-order.
 3. Maestro follows A–I; STOP helpers refuse illegal jumps when invoked.
 4. Before **phase-done** under automate, fixed order only:
    all phase tasks done → **evaluation agent** → stamp **`evaluationGate`**
@@ -114,7 +119,10 @@ If a step is skipped, **fail closed** (blocked gate) — never treat a skipped g
 ## Plan quality guards
 
 - Skill may **draft** `businessIntent` in the phase-start package; operator is
-  **validate-only** (edit allowed, then ratify). Forbidden: silent auto-PASS of
-  drafted BI, silent auto-materialize with unratified BI, and blank-fill BI forms.
+  **validate-only** (BI field edit allowed, then ratify). Draft+ratify is allowed
+  under F4; forbidden: silent auto-PASS of drafted BI, durable BI write / materialize
+  publish **before** ratify, silent auto-materialize with unratified BI, and
+  blank-fill BI forms under automate (Mode-1 bare materialize may still use the
+  blank-form proof-of-work path).
 - Quality HARD: `find-weak-business-intent.js` after presence.
 - Fingerprint refuse emits D9 `fingerprint_refuse` (fail-open); report via `scripts/report-plan-quality.js`.

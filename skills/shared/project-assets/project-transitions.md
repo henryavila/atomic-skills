@@ -264,11 +264,24 @@ Invoked when the active initiative is the phase initiative of an active plan AND
    - For each newly-active phase id, set the phase descriptor to
      `status: active` and refresh the plan root `lastUpdated`. If the matching initiative
      file exists, set that initiative to `status: active` and refresh
-     `lastUpdated`, then run `refresh-state`. If the initiative file is absent
-     (descriptor-only), run `atomic-skills:project materialize <phase-id>` with
-     the full selected active phase id set so parallel-choice phases beyond the
-     first pass pre-flight; do not propose `new initiative` for descriptor-only
-     phases.
+     `lastUpdated`, then run `refresh-state`.
+   - **Successor materialize — mode split (HARD under automate):**
+     - **Mode 1 / non-automate:** if the initiative file is absent
+       (descriptor-only), run `atomic-skills:project materialize <phase-id>` with
+       the full selected active phase id set so parallel-choice phases beyond the
+       first pass pre-flight (Mode A blank-form BI proof-of-work as in
+       `project-materialize.md`); do not propose `new initiative` for
+       descriptor-only phases.
+     - **Automate (`executionMode: automate` / pure-maestro):** do **not**
+       blank-form materialize the successor here and do **not** invent BI from a
+       blank form as a separate UX. Advance the descriptor pointer only; set
+       session handoff **single nextAction** to the phase-start package ritual
+       (e.g. `present phase-start package for F{N} validate-only` / `await package
+       ratify`). **Step H/B of implement pure-maestro owns** draft package →
+       operator validate-only → explicit ratify → **then** materialize with the
+       pre-ratified spine (Mode B in `project-materialize.md`). Plan-level or
+       closed-initiative nextAction may point at that package ritual before the
+       successor initiative exists.
    - Save the plan + PROJECT-STATUS.md.
    - **Microcommit checkpoints**: stage explicit paths only and commit the phase-boundary state in small logical groups. Use separate commits for review metadata, lessons, archive move, and next-phase activation when those groups exist; the final plan advance commit is `rtk git commit -m "chore(project): advance <plan> <phase>"`. Never use `git add .` or `git add -A`.
 10. On user decline of the advance (or `plan-done` accept without `currentPhase` change) — still only with a green commit guard:

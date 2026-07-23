@@ -84,12 +84,15 @@ The command's load-bearing order is fixed:
 
 1. Load retained source sidecar.
 2. Run the phase-start lessons gate.
-3. Collect the user-written `businessIntent` spine.
+3. Collect the `businessIntent` spine — **Mode A** (user-written blank form) or
+   **Mode B** (automate pre-ratified complete spine from the phase-start package
+   ritual). Under Mode B, collection is **after** package ratify only; do not
+   invent or durable-write spine before that ratify.
 4. Reuse `decomposeOnePhase(phaseSource, ctx)` when raw phase body is present;
    otherwise reuse the parsed F2 sidecar capture.
 5. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
-6. Write the initiative with `businessIntent` and update the parent plan
-   descriptor atomically via `scripts/materialize-state.js`.
+6. Write the initiative with the **ratified** `businessIntent` and update the
+   parent plan descriptor atomically via `scripts/materialize-state.js`.
 7. Run `scripts/find-missing-business-intent.js` (presence).
 7b. Run `scripts/find-weak-business-intent.js` (quality HARD — rewrite fields on fail; no approve-anyway).
 8. Run `scripts/validate-state.js`.
@@ -136,6 +139,10 @@ The command's load-bearing order is fixed:
 
 ## BusinessIntent Gate
 
+Two collection modes — do not conflate them:
+
+### Mode A — default / Mode-1 / bare `project materialize` (proof-of-work blank form)
+
 **Proof-of-work (anti-rubber-stamp UX).** The user **writes** the five spine
 fields. The agent may offer **separate** questions or examples for context, but
 **must not** pre-fill / paste a drafted spine into the five fields of the user's
@@ -155,7 +162,34 @@ doneWhen: ""
 derived: []
 ```
 
-Field rules:
+### Mode B — automate phase-start package exception (pre-ratified complete spine)
+
+When the caller is the **automate pure-maestro** phase-start package ritual
+(`implement --mode=automate` / `isAutomateActive`; see
+`skills/shared/implement-automate-maestro.md` +
+`docs/kb/project-lazy-materialization.md` § Host-thin automate) **and** the
+operator has already **explicitly ratified** a complete five-field spine in that
+package ritual (same turn / continuous package→ratify→materialize sequence):
+
+1. **Do not** dump Mode A's blank form for the operator to invent BI again.
+2. **Accept** the **pre-ratified complete spine** into materialize-state /
+   initiative + plan descriptor publish.
+3. **Still** refuse missing / blank / `[NEEDS CLARIFICATION]` fields and still
+   run presence + quality detectors after write (`find-missing-business-intent`,
+   `find-weak-business-intent`). Weak spine → rewrite, not approve-anyway.
+4. **Sequence authority:** package presentation drafts BI **ephemerally** →
+   operator validate-only → explicit ratify → **only then** this materialize
+   path **writes** the ratified spine. Materialize under automate does **not**
+   write BI **before** package ratify. Silent auto-PASS of an unratified draft
+   is forbidden.
+5. **Titles:** package task titles are advisory for review; durable title
+   renames are **not** a materialize side-effect (R3 fingerprint refuses silent
+   title rewrite — re-spec / sidecar re-capture required).
+
+If automate package ratify is **absent** (operator never ratified, spine
+incomplete, or this is a bare Mode-1 `materialize`), fall back to **Mode A**.
+
+Field rules (both modes):
 
 - `value` states both business value and customer/user value.
 - `workflow` names the operational workflow this phase changes.
@@ -264,7 +298,16 @@ Reject the block when any required field is blank or still contains
 ## Internal Callers
 
 `phase-done`, `switch`, and `phase-reopen` call this same procedure when their
-target next phase is descriptor-only. They pass the concrete phase id, then
-return to their own transition flow only after this procedure has produced a
-validated initiative and detector exit `0`. They do not duplicate the gate or
-write their own initiative file.
+target next phase is descriptor-only **outside** automate host orchestration.
+They pass the concrete phase id, then return to their own transition flow only
+after this procedure has produced a validated initiative and detector exit `0`.
+They do not duplicate the gate or write their own initiative file.
+
+**Automate exception (`executionMode: automate` / pure-maestro):** `phase-done`
+must **not** blank-form materialize the successor as a separate invent-BI UX.
+After phase-done advances the descriptor pointer, handoff **single nextAction**
+points at the phase-start package ritual; the implement pure-maestro (Step H/B)
+presents draft package → validate-only → ratify → then invokes this procedure
+in **Mode B** with the pre-ratified spine. See
+`skills/shared/project-assets/project-transitions.md` § phase-done and
+`skills/shared/implement-automate-maestro.md`.
