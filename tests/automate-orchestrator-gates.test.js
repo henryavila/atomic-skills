@@ -321,3 +321,481 @@ describe('automateModeSnapshot', () => {
     assert.equal(s.hasStamp, true);
   });
 });
+
+describe('assert-automate-gate path safety + flat plan', () => {
+  /** @type {string | null} */
+  let tmp = null;
+
+  function cleanup() {
+    if (tmp) {
+      try {
+        rmSync(tmp, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+      tmp = null;
+    }
+  }
+
+  /**
+   * @param {string[]} args
+   * @param {{ cwd?: string }} [opts]
+   */
+  function run(args, opts = {}) {
+    const result = spawnSync(process.execPath, [ASSERT_SCRIPT, ...args], {
+      encoding: 'utf8',
+      cwd: opts.cwd ?? ROOT,
+      env: { ...process.env },
+    });
+    return {
+      status: result.status ?? 1,
+      stdout: result.stdout ?? '',
+      stderr: result.stderr ?? '',
+    };
+  }
+
+  it('refuses path-traversal plan slug (../evil)', () => {
+    try {
+      tmp = mkdtempSync(join(tmpdir(), 'assert-path-'));
+      const stateRoot = join(tmp, '.atomic-skills');
+      mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      const r = run(
+        [
+          '--plan',
+          '../evil',
+          '--gate',
+          'spawn',
+          '--state-root',
+          stateRoot,
+          '--status-root',
+          join(stateRoot, 'status'),
+        ],
+        { cwd: tmp },
+      );
+      assert.notEqual(r.status, 0);
+      const out = `${r.stdout}\n${r.stderr}`;
+      assert.match(out, /invalid|blocked/i);
+      // Must exit 1 cleanly, not throw uncaught
+      assert.equal(r.status, 1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('refuses plan slug with slash/backslash segments', () => {
+    try {
+      tmp = mkdtempSync(join(tmpdir(), 'assert-path-'));
+      const stateRoot = join(tmp, '.atomic-skills');
+      mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      for (const bad of ['a/b', 'a\\b']) {
+        const r = run(
+          [
+            '--plan',
+            bad,
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
+          ],
+          { cwd: tmp },
+        );
+        assert.notEqual(r.status, 0, `expected refuse for ${bad}`);
+        const out = `${r.stdout}\n${r.stderr}`;
+        assert.match(out, /invalid|blocked|not found/i);
+      }
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('flat plan fallback when projects/ missing (spawn ok with flat initiative)', () => {
+    try {
+      tmp = mkdtempSync(join(tmpdir(), 'assert-flat-'));
+      const stateRoot = join(tmp, '.atomic-skills');
+      mkdirSync(join(stateRoot, 'plans'), { recursive: true });
+      mkdirSync(join(stateRoot, 'initiatives'), { recursive: true });
+      mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      writeFileSync(
+        join(stateRoot, 'plans', 'flat-plan.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: flat-plan',
+          'status: active',
+          'currentPhase: F1',
+          'executionMode: automate',
+          'phases:',
+          '  - id: F1',
+          '    status: pending',
+          '    slug: f1-work',
+          '---',
+          '',
+          '# plan',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      writeFileSync(
+        join(stateRoot, 'initiatives', 'f1-work.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: f1-work',
+          'phaseId: F1',
+          'status: active',
+          'parentPlan: flat-plan',
+          '---',
+          '',
+          '# initiative',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const r = run(
+        [
+          '--plan',
+          'flat-plan',
+          '--gate',
+          'spawn',
+          '--state-root',
+          stateRoot,
+          '--status-root',
+          join(stateRoot, 'status'),
+        ],
+        { cwd: tmp },
+      );
+      assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+      assert.match(r.stdout, /^ok\b/m);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('flat plan without initiative is descriptor-only blocked', () => {
+    try {
+      tmp = mkdtempSync(join(tmpdir(), 'assert-flat-miss-'));
+      const stateRoot = join(tmp, '.atomic-skills');
+      mkdirSync(join(stateRoot, 'plans'), { recursive: true });
+      mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      writeFileSync(
+        join(stateRoot, 'plans', 'flat-plan.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: flat-plan',
+          'status: active',
+          'currentPhase: F1',
+          'executionMode: automate',
+          'phases:',
+          '  - id: F1',
+          '    status: pending',
+          '    slug: f1-work',
+          '---',
+          '',
+          '# plan',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const r = run(
+        [
+          '--plan',
+          'flat-plan',
+          '--gate',
+          'spawn',
+          '--state-root',
+          stateRoot,
+          '--status-root',
+          join(stateRoot, 'status'),
+        ],
+        { cwd: tmp },
+      );
+      assert.notEqual(r.status, 0);
+      const out = `${r.stdout}\n${r.stderr}`;
+      assert.match(out, /descriptor-only|initiative|materialize/i);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('jails claim-report path traversal outside cwd/stateRoot', () => {
+    try {
+      tmp = mkdtempSync(join(tmpdir(), 'assert-jail-'));
+      const stateRoot = join(tmp, '.atomic-skills');
+      const planDir = join(stateRoot, 'projects', 'demo', 'demo-plan');
+      mkdirSync(planDir, { recursive: true });
+      mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: demo-plan',
+          'status: active',
+          'currentPhase: F1',
+          'executionMode: automate',
+          'phases:',
+          '  - id: F1',
+          '    status: pending',
+          '---',
+          '',
+          '# plan',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      // Point claim-report outside the tmp cwd jail
+      const outside = join(tmpdir(), `outside-claim-${Date.now()}.json`);
+      writeFileSync(
+        outside,
+        JSON.stringify({
+          tasks: [
+            {
+              taskId: 'T-001',
+              status: 'claimed-pass',
+              commitShas: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
+              paths: ['src/a.js'],
+              verifierCommand: 'true',
+              exitCode: 0,
+              transcript: '',
+            },
+          ],
+        }),
+        'utf8',
+      );
+      try {
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--project',
+            'demo',
+            '--gate',
+            'claims',
+            '--claim-report',
+            outside,
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
+          ],
+          { cwd: tmp },
+        );
+        assert.notEqual(r.status, 0);
+        const out = `${r.stdout}\n${r.stderr}`;
+        assert.match(out, /jail|escapes|blocked/i);
+      } finally {
+        try {
+          rmSync(outside, { force: true });
+        } catch {
+          /* ignore */
+        }
+      }
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('accepts claim-report under stateRoot when valid', () => {
+    try {
+      tmp = mkdtempSync(join(tmpdir(), 'assert-claim-ok-'));
+      const stateRoot = join(tmp, '.atomic-skills');
+      const planDir = join(stateRoot, 'projects', 'demo', 'demo-plan');
+      mkdirSync(planDir, { recursive: true });
+      mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: demo-plan',
+          'status: active',
+          'currentPhase: F1',
+          'executionMode: automate',
+          'phases:',
+          '  - id: F1',
+          '    status: pending',
+          '---',
+          '',
+          '# plan',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const claimPath = join(stateRoot, 'claim.json');
+      writeFileSync(
+        claimPath,
+        JSON.stringify({
+          tasks: [
+            {
+              taskId: 'T-001',
+              status: 'claimed-pass',
+              commitShas: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
+              paths: ['src/a.js'],
+              verifierCommand: 'true',
+              exitCode: 0,
+              transcript: '',
+            },
+          ],
+        }),
+        'utf8',
+      );
+      const r = run(
+        [
+          '--plan',
+          'demo-plan',
+          '--project',
+          'demo',
+          '--gate',
+          'claims',
+          '--claim-report',
+          claimPath,
+          '--state-root',
+          stateRoot,
+          '--status-root',
+          join(stateRoot, 'status'),
+        ],
+        { cwd: tmp },
+      );
+      assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+      assert.match(r.stdout, /^ok\b/m);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('prefers frontmatter phaseId match over filename hint for initiative', () => {
+    try {
+      tmp = mkdtempSync(join(tmpdir(), 'assert-fm-pref-'));
+      const stateRoot = join(tmp, '.atomic-skills');
+      const planDir = join(stateRoot, 'projects', 'demo', 'demo-plan');
+      const phasesDir = join(planDir, 'phases');
+      mkdirSync(phasesDir, { recursive: true });
+      mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: demo-plan',
+          'status: active',
+          'currentPhase: F1',
+          'executionMode: automate',
+          'phases:',
+          '  - id: F1',
+          '    status: pending',
+          '    slug: wrong-name',
+          '---',
+          '',
+          '# plan',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      // Filename does not match slug, but frontmatter phaseId does
+      writeFileSync(
+        join(phasesDir, 'actual-init.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: actual-init',
+          'phaseId: F1',
+          'status: active',
+          'parentPlan: demo-plan',
+          '---',
+          '',
+          '# initiative',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const r = run(
+        [
+          '--plan',
+          'demo-plan',
+          '--project',
+          'demo',
+          '--gate',
+          'spawn',
+          '--state-root',
+          stateRoot,
+          '--status-root',
+          join(stateRoot, 'status'),
+        ],
+        { cwd: tmp },
+      );
+      assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+      assert.match(r.stdout, /^ok\b/m);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('host-thin spawn still passes when lease clean + initiative present', () => {
+    try {
+      tmp = mkdtempSync(join(tmpdir(), 'assert-host-thin-'));
+      const stateRoot = join(tmp, '.atomic-skills');
+      const planDir = join(stateRoot, 'projects', 'demo', 'demo-plan');
+      const phasesDir = join(planDir, 'phases');
+      mkdirSync(phasesDir, { recursive: true });
+      mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: demo-plan',
+          'status: active',
+          'currentPhase: F1',
+          'executionMode: automate',
+          'phases:',
+          '  - id: F1',
+          '    status: pending',
+          '    slug: f1-next',
+          '---',
+          '',
+          '# plan',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      writeFileSync(
+        join(phasesDir, 'f1-next.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: f1-next',
+          'phaseId: F1',
+          'status: active',
+          'parentPlan: demo-plan',
+          '---',
+          '',
+          '# initiative',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const r = run(
+        [
+          '--plan',
+          'demo-plan',
+          '--project',
+          'demo',
+          '--gate',
+          'spawn',
+          '--state-root',
+          stateRoot,
+          '--status-root',
+          join(stateRoot, 'status'),
+        ],
+        { cwd: tmp },
+      );
+      assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+      assert.match(r.stdout, /^ok\b/m);
+    } finally {
+      cleanup();
+    }
+  });
+});

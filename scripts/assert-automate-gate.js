@@ -26,6 +26,8 @@
  *   --claim-report <path>    JSON claim report (claims|done)
  *   --check-reachability     Validate claim SHAs against reachable set
  *   --reachable-file <path>  Newline-separated SHAs (with --check-reachability)
+ *   --allow-foreign-paths    Permit claim-report/reachable/state-root outside
+ *                            cwd/stateRoot jail (default: jailed)
  *   --help
  *
  * Descriptor-only refuse (spawn):
@@ -36,8 +38,21 @@
  * Exit codes: 0 ok · 1 blocked or usage error
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   canSpawnPhaseWriter,
@@ -46,7 +61,7 @@ import {
   canRunPhaseDone,
   canFinalizeOrArchive,
 } from '../src/automate-orchestrator-gates.js';
-import { readLeaseResult } from '../src/writer-lease.js';
+import { readLeaseResult, sanitizePlanSlug } from '../src/writer-lease.js';
 import { parseFrontmatter } from './validate-state.js';
 
 const GATES = new Set(['spawn', 'claims', 'done', 'phase-done', 'finalize']);
@@ -71,6 +86,7 @@ Options:
   --claim-report <path>     JSON claim report (claims|done)
   --check-reachability      Validate claim SHAs against reachable set
   --reachable-file <path>   Newline-separated SHAs for reachability
+  --allow-foreign-paths     Permit paths outside cwd/stateRoot jail
   --help                    Show this help (exit 0)
 
 No network. No process supervisor. No plan mutation.
@@ -101,6 +117,10 @@ export function parseArgs(argv) {
       out.checkReachability = true;
       continue;
     }
+    if (a === '--allow-foreign-paths') {
+      out.allowForeignPaths = true;
+      continue;
+    }
     if (a.startsWith('--') && a.includes('=')) {
       const eq = a.indexOf('=');
       const key = a.slice(2, eq);
@@ -129,6 +149,93 @@ function flagKey(key) {
 }
 
 /**
+ * Sanitize a single path segment (slug / project id). Reuses writer-lease rules.
+ * @param {string} value
+ * @param {string} label
+ * @returns {{ ok: true, value: string } | { ok: false, error: string }}
+ */
+export function sanitizeSegment(value, label = 'slug') {
+  try {
+    return { ok: true, value: sanitizePlanSlug(String(value).trim()) };
+  } catch (err) {
+    return {
+      ok: false,
+      error: `invalid ${label}: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+/**
+ * Canonicalize for jail compare (resolve + realpath of existing ancestor).
+ * Handles macOS /var → /private/var and other symlink cwd mismatches.
+ * @param {string} p
+ * @returns {string}
+ */
+export function canonicalizePath(p) {
+  const abs = resolve(p);
+  try {
+    if (existsSync(abs)) return realpathSync(abs);
+  } catch {
+    /* fall through */
+  }
+  /** @type {string[]} */
+  const rest = [];
+  let cur = abs;
+  while (cur !== dirname(cur)) {
+    try {
+      if (existsSync(cur)) {
+        return rest.length
+          ? join(realpathSync(cur), ...rest.reverse())
+          : realpathSync(cur);
+      }
+    } catch {
+      /* keep walking */
+    }
+    rest.push(basename(cur));
+    cur = dirname(cur);
+  }
+  return abs;
+}
+
+/**
+ * True when resolved path is under one of the jail roots (or equal to a root).
+ * @param {string} candidateAbs
+ * @param {string[]} jailRootsAbs
+ * @returns {boolean}
+ */
+export function isPathInsideJail(candidateAbs, jailRootsAbs) {
+  const target = canonicalizePath(candidateAbs);
+  for (const root of jailRootsAbs) {
+    const r = canonicalizePath(root);
+    if (target === r) return true;
+    const rel = relative(r, target);
+    // Inside when relative path has no `..` prefix and is not absolute
+    if (rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)) return true;
+  }
+  return false;
+}
+
+/**
+ * Resolve + jail a user-supplied path. Returns absolute path or error.
+ * @param {string} raw
+ * @param {string} cwd
+ * @param {string[]} jailRootsAbs
+ * @param {string} label
+ * @param {boolean} allowForeign
+ * @returns {{ ok: true, path: string } | { ok: false, error: string }}
+ */
+export function resolveJailedPath(raw, cwd, jailRootsAbs, label, allowForeign = false) {
+  const abs = resolve(cwd, String(raw));
+  if (!allowForeign && !isPathInsideJail(abs, jailRootsAbs)) {
+    return {
+      ok: false,
+      error: `${label} path escapes jail (must be under cwd or state-root unless --allow-foreign-paths): ${raw}`,
+    };
+  }
+  return { ok: true, path: abs };
+}
+
+/**
  * @param {string} filePath
  * @returns {object | null}
  */
@@ -142,13 +249,36 @@ function readFm(filePath) {
 }
 
 /**
+ * Try flat plan at stateRoot/plans/<slug>.md.
+ * @param {string} stateRoot
+ * @param {string} wantSlug
+ * @param {string} wantProject
+ * @returns {{ planFile: string, projectId: string, slug: string, fm: object, layout: 'flat' } | null}
+ */
+function tryFlatPlan(stateRoot, wantSlug, wantProject) {
+  const flat = join(stateRoot, 'plans', `${wantSlug}.md`);
+  if (!existsSync(flat)) return null;
+  const fm = readFm(flat);
+  if (!fm) return null;
+  return {
+    planFile: flat,
+    projectId: wantProject || '(flat)',
+    slug: wantSlug,
+    fm,
+    layout: /** @type {const} */ ('flat'),
+  };
+}
+
+/**
  * Resolve plan under stateRoot: projects/<id>/<slug>/plan.md
  * Accepts planSlug as bare slug or projectId/slug.
+ * Flat plan fallback: when projects/ is missing OR after scanning projects
+ * finds no match (never early-return before flat when projects/ is absent).
  *
  * @param {string} stateRoot
  * @param {string} planSlug
  * @param {string | null} projectFilter
- * @returns {{ planFile: string, projectId: string, slug: string, fm: object } | { error: string }}
+ * @returns {{ planFile: string, projectId: string, slug: string, fm: object, layout?: 'nested' | 'flat' } | { error: string }}
  */
 export function resolvePlan(stateRoot, planSlug, projectFilter = null) {
   const raw = String(planSlug || '').trim();
@@ -161,53 +291,75 @@ export function resolvePlan(stateRoot, planSlug, projectFilter = null) {
     if (parts.length >= 2) {
       wantProject = wantProject || parts[0];
       wantSlug = parts[parts.length - 1];
+    } else if (parts.length === 1) {
+      wantSlug = parts[0];
     }
   }
 
-  const projectsDir = join(stateRoot, 'projects');
-  if (!existsSync(projectsDir) || !statSync(projectsDir).isDirectory()) {
-    return { error: `no projects/ under state-root: ${stateRoot}` };
+  const slugSan = sanitizeSegment(wantSlug, 'plan slug');
+  if (!slugSan.ok) return { error: slugSan.error };
+  wantSlug = slugSan.value;
+
+  if (wantProject) {
+    const projSan = sanitizeSegment(wantProject, 'project id');
+    if (!projSan.ok) return { error: projSan.error };
+    wantProject = projSan.value;
   }
 
-  /** @type {Array<{ planFile: string, projectId: string, slug: string, fm: object }>} */
+  /** @type {Array<{ planFile: string, projectId: string, slug: string, fm: object, layout?: 'nested' | 'flat' }>} */
   const matches = [];
 
-  for (const projId of readdirSync(projectsDir)) {
-    if (wantProject && projId !== wantProject) continue;
-    const projPath = join(projectsDir, projId);
-    if (!statSync(projPath).isDirectory()) continue;
-    for (const entry of readdirSync(projPath)) {
-      const planDir = join(projPath, entry);
-      if (!statSync(planDir).isDirectory()) continue;
-      const planFile = join(planDir, 'plan.md');
-      if (!existsSync(planFile)) continue;
-      const fm = readFm(planFile);
-      if (!fm) continue;
-      const slug =
-        fm.slug != null && String(fm.slug).trim() !== ''
-          ? String(fm.slug).trim()
-          : entry;
-      if (slug !== wantSlug && entry !== wantSlug) continue;
-      matches.push({ planFile, projectId: projId, slug, fm });
-    }
-  }
+  const projectsDir = join(stateRoot, 'projects');
+  const hasProjects =
+    existsSync(projectsDir) && statSync(projectsDir).isDirectory();
 
-  if (matches.length === 0) {
-    const flat = join(stateRoot, 'plans', `${wantSlug}.md`);
-    if (existsSync(flat)) {
-      const fm = readFm(flat);
-      if (fm) {
+  if (hasProjects) {
+    for (const projId of readdirSync(projectsDir)) {
+      if (wantProject && projId !== wantProject) continue;
+      // Skip path-like project dir names that would escape segment rules
+      if (projId === '.' || projId === '..' || projId.includes('/') || projId.includes('\\') || projId.includes('\0')) {
+        continue;
+      }
+      const projPath = join(projectsDir, projId);
+      if (!statSync(projPath).isDirectory()) continue;
+      for (const entry of readdirSync(projPath)) {
+        if (entry === '.' || entry === '..' || entry.includes('/') || entry.includes('\\') || entry.includes('\0')) {
+          continue;
+        }
+        const planDir = join(projPath, entry);
+        if (!statSync(planDir).isDirectory()) continue;
+        const planFile = join(planDir, 'plan.md');
+        if (!existsSync(planFile)) continue;
+        const fm = readFm(planFile);
+        if (!fm) continue;
+        const slug =
+          fm.slug != null && String(fm.slug).trim() !== ''
+            ? String(fm.slug).trim()
+            : entry;
+        if (slug !== wantSlug && entry !== wantSlug) continue;
         matches.push({
-          planFile: flat,
-          projectId: wantProject || '(flat)',
-          slug: wantSlug,
+          planFile,
+          projectId: projId,
+          slug,
           fm,
+          layout: 'nested',
         });
       }
     }
   }
 
+  // Flat plan fallback: when projects/ missing OR after scan found nothing.
   if (matches.length === 0) {
+    const flat = tryFlatPlan(stateRoot, wantSlug, wantProject);
+    if (flat) matches.push(flat);
+  }
+
+  if (matches.length === 0) {
+    if (!hasProjects) {
+      return {
+        error: `plan not found for slug "${wantSlug}" (no projects/ and no flat plans/${wantSlug}.md under ${stateRoot})`,
+      };
+    }
     return {
       error: `plan not found for slug "${wantSlug}"${wantProject ? ` project=${wantProject}` : ''} under ${stateRoot}`,
     };
@@ -246,19 +398,56 @@ export function phaseSlice(fm, phaseId) {
 }
 
 /**
- * Resolve nested phase initiative path next to plan.md.
+ * Prefer frontmatter phaseId match; filename hints secondary.
+ * @param {string} filePath
+ * @param {string} phaseId
+ * @param {string} phaseSlug
+ * @returns {{ byFrontmatter: boolean, byFilename: boolean }}
+ */
+function initiativeMatchScore(filePath, phaseId, phaseSlug) {
+  const fm = readFm(filePath);
+  let byFrontmatter = false;
+  if (fm) {
+    const fmPhase =
+      fm.phaseId != null
+        ? String(fm.phaseId).trim()
+        : fm.id != null
+          ? String(fm.id).trim()
+          : '';
+    if (phaseId && fmPhase && fmPhase.toLowerCase() === phaseId.toLowerCase()) {
+      byFrontmatter = true;
+    }
+  }
+  const base = filePath.split(/[/\\]/).pop() || '';
+  const name = base.endsWith('.md') ? base.slice(0, -3) : base;
+  let byFilename = false;
+  if (phaseSlug && (name === phaseSlug || name.endsWith(`-${phaseSlug}`))) {
+    byFilename = true;
+  }
+  if (phaseId) {
+    const idLower = phaseId.toLowerCase();
+    if (name.toLowerCase() === idLower || name.toLowerCase().startsWith(`${idLower}-`)) {
+      byFilename = true;
+    }
+  }
+  return { byFrontmatter, byFilename };
+}
+
+/**
+ * Resolve phase initiative path next to plan.md (nested) or under
+ * stateRoot/initiatives (flat plan layout).
  * Returns null when initiative is missing (descriptor-only).
+ * Prefer parse frontmatter phaseId match; filename hints secondary.
  *
  * @param {string} planFile
  * @param {object} fm
  * @param {object | null} phase
+ * @param {{ stateRoot?: string, layout?: string }} [opts]
  * @returns {string | null}
  */
-export function resolveInitiativePath(planFile, fm, phase) {
+export function resolveInitiativePath(planFile, fm, phase, opts = {}) {
   if (phase == null || typeof phase !== 'object') return null;
-  const planDir = dirname(planFile);
-  const phasesDir = join(planDir, 'phases');
-  if (!existsSync(phasesDir)) return null;
+
   const planSlug =
     fm.slug != null && String(fm.slug).trim() !== ''
       ? String(fm.slug).trim()
@@ -269,37 +458,83 @@ export function resolveInitiativePath(planFile, fm, phase) {
       : '';
   const phaseId =
     phase.id != null && String(phase.id).trim() !== ''
-      ? String(phase.id).trim().toLowerCase()
-      : '';
+      ? String(phase.id).trim()
+      : phase.phaseId != null && String(phase.phaseId).trim() !== ''
+        ? String(phase.phaseId).trim()
+        : '';
 
   /** @type {string[]} */
-  const candidates = [];
-  if (phaseSlug) {
-    candidates.push(join(phasesDir, `${phaseSlug}.md`));
-    if (planSlug) {
-      candidates.push(join(phasesDir, `${planSlug}-${phaseSlug}.md`));
-    }
+  const searchDirs = [];
+  const planDir = dirname(planFile);
+  const nestedPhases = join(planDir, 'phases');
+  if (existsSync(nestedPhases) && statSync(nestedPhases).isDirectory()) {
+    searchDirs.push(nestedPhases);
   }
-  try {
-    for (const name of readdirSync(phasesDir)) {
-      if (!name.endsWith('.md') || name.endsWith('.source.json')) continue;
-      // skip archive/
-      if (name === 'archive') continue;
-      const base = name.slice(0, -3);
-      if (phaseSlug && (base === phaseSlug || base.endsWith(`-${phaseSlug}`))) {
-        candidates.push(join(phasesDir, name));
-      }
-      if (phaseId && (base.startsWith(`${phaseId}-`) || base === phaseId)) {
-        candidates.push(join(phasesDir, name));
-      }
+  // Flat initiatives under stateRoot/initiatives when plan is flat
+  if (opts.layout === 'flat' || !existsSync(nestedPhases)) {
+    const stateRoot =
+      opts.stateRoot != null
+        ? opts.stateRoot
+        : // plans/<slug>.md → stateRoot is parent of plans/
+          dirname(planDir);
+    const flatInit = join(stateRoot, 'initiatives');
+    if (existsSync(flatInit) && statSync(flatInit).isDirectory()) {
+      searchDirs.push(flatInit);
     }
-  } catch {
-    /* ignore */
   }
 
-  for (const p of candidates) {
-    if (existsSync(p) && statSync(p).isFile()) return p;
+  if (searchDirs.length === 0) return null;
+
+  /** @type {string | null} */
+  let fmHit = null;
+  /** @type {string | null} */
+  let nameHit = null;
+
+  for (const dir of searchDirs) {
+    let names;
+    try {
+      names = readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      if (!name.endsWith('.md') || name.endsWith('.source.json')) continue;
+      if (name === 'archive') continue;
+      const full = join(dir, name);
+      try {
+        if (!statSync(full).isFile()) continue;
+      } catch {
+        continue;
+      }
+      const score = initiativeMatchScore(full, phaseId, phaseSlug);
+      if (score.byFrontmatter && !fmHit) fmHit = full;
+      if (score.byFilename && !nameHit) nameHit = full;
+    }
   }
+
+  // Prefer frontmatter phaseId match; filename hints secondary
+  if (fmHit) return fmHit;
+  if (nameHit) return nameHit;
+
+  // Explicit candidate paths (slug-based) as last resort before miss
+  for (const dir of searchDirs) {
+    /** @type {string[]} */
+    const candidates = [];
+    if (phaseSlug) {
+      candidates.push(join(dir, `${phaseSlug}.md`));
+      if (planSlug) {
+        candidates.push(join(dir, `${planSlug}-${phaseSlug}.md`));
+      }
+    }
+    if (phaseId) {
+      candidates.push(join(dir, `${phaseId}.md`));
+      candidates.push(join(dir, `${phaseId.toLowerCase()}.md`));
+    }
+    for (const p of candidates) {
+      if (existsSync(p) && statSync(p).isFile()) return p;
+    }
+  }
+
   return null;
 }
 
@@ -375,24 +610,60 @@ export function runAssert(args, env = {}) {
   }
 
   const cwd = env.cwd != null ? env.cwd : process.cwd();
-  const stateRoot = resolve(
-    cwd,
+  const allowForeign = args.allowForeignPaths === true;
+
+  const stateRootRaw =
     args.stateRoot != null && args.stateRoot !== true
       ? String(args.stateRoot)
-      : join(cwd, '.atomic-skills'),
-  );
-  const statusRoot = resolve(
-    cwd,
+      : join(cwd, '.atomic-skills');
+
+  // Jail state-root under cwd unless allow-foreign
+  const stateRootResolved = resolve(cwd, stateRootRaw);
+  if (!allowForeign && !isPathInsideJail(stateRootResolved, [cwd])) {
+    return {
+      ok: false,
+      message: `blocked: state-root path escapes jail (must be under cwd unless --allow-foreign-paths): ${stateRootRaw}`,
+      exitCode: 1,
+    };
+  }
+  const stateRoot = stateRootResolved;
+
+  const statusRootRaw =
     args.statusRoot != null && args.statusRoot !== true
       ? String(args.statusRoot)
-      : join(stateRoot, 'status'),
+      : join(stateRoot, 'status');
+  const statusJail = resolveJailedPath(
+    statusRootRaw,
+    cwd,
+    [cwd, stateRoot],
+    'status-root',
+    allowForeign,
   );
+  if (!statusJail.ok) {
+    return {
+      ok: false,
+      message: `blocked: ${statusJail.error}`,
+      exitCode: 1,
+    };
+  }
+  const statusRoot = statusJail.path;
+
   const projectFilter =
     args.project != null && args.project !== true
       ? String(args.project).trim()
       : null;
 
-  const resolved = resolvePlan(stateRoot, String(planArg), projectFilter);
+  let resolved;
+  try {
+    resolved = resolvePlan(stateRoot, String(planArg), projectFilter);
+  } catch (err) {
+    // sanitizePlanSlug throws → blocked exit 1, not crash
+    return {
+      ok: false,
+      message: `blocked: ${err instanceof Error ? err.message : String(err)}`,
+      exitCode: 1,
+    };
+  }
   if ('error' in resolved) {
     return {
       ok: false,
@@ -401,15 +672,29 @@ export function runAssert(args, env = {}) {
     };
   }
 
-  const { fm, slug, planFile } = resolved;
+  const { fm, slug, planFile, layout } = resolved;
   const planExecutionMode =
     fm.executionMode != null ? String(fm.executionMode) : null;
 
   if (gate === 'spawn') {
-    const lease = readLeaseResult(statusRoot, slug);
+    let lease;
+    try {
+      lease = readLeaseResult(statusRoot, slug);
+    } catch (err) {
+      // lease path sanitize throws on bad slug → blocked, not crash
+      return {
+        ok: false,
+        message: `blocked: lease read failed: ${err instanceof Error ? err.message : String(err)}`,
+        exitCode: 1,
+      };
+    }
     const phase = phaseSlice(fm, fm.currentPhase);
-    const initiativePath = resolveInitiativePath(planFile, fm, phase);
-    const initiativePresent = initiativePath != null && existsSync(initiativePath);
+    const initiativePath = resolveInitiativePath(planFile, fm, phase, {
+      stateRoot,
+      layout: layout || 'nested',
+    });
+    const initiativePresent =
+      initiativePath != null && existsSync(initiativePath);
     // Host-thin: lease clean + phase materialized (not descriptor-only).
     const r = canSpawnHostThinPhaseWriter({
       leaseStatus: lease.status,
@@ -443,9 +728,23 @@ export function runAssert(args, env = {}) {
         exitCode: 1,
       };
     }
+    const claimJail = resolveJailedPath(
+      String(args.claimReport),
+      cwd,
+      [cwd, stateRoot],
+      'claim-report',
+      allowForeign,
+    );
+    if (!claimJail.ok) {
+      return {
+        ok: false,
+        message: `blocked: ${claimJail.error}`,
+        exitCode: 1,
+      };
+    }
     let claimReport;
     try {
-      claimReport = loadClaimReport(String(args.claimReport));
+      claimReport = loadClaimReport(claimJail.path);
     } catch (err) {
       return {
         ok: false,
@@ -463,8 +762,22 @@ export function runAssert(args, env = {}) {
           exitCode: 1,
         };
       }
+      const reachJail = resolveJailedPath(
+        String(args.reachableFile),
+        cwd,
+        [cwd, stateRoot],
+        'reachable-file',
+        allowForeign,
+      );
+      if (!reachJail.ok) {
+        return {
+          ok: false,
+          message: `blocked: ${reachJail.error}`,
+          exitCode: 1,
+        };
+      }
       try {
-        reachableSet = loadReachableSet(String(args.reachableFile));
+        reachableSet = loadReachableSet(reachJail.path);
       } catch (err) {
         return {
           ok: false,
