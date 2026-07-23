@@ -15,6 +15,7 @@
 
 import { validatePhaseDag } from '../src/transition.js';
 import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
+import { decisionReviewAllowsPhaseDone } from '../src/decision-review-gate.js';
 
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
@@ -413,6 +414,31 @@ function evaluationGateOf(input) {
 }
 
 /**
+ * Resolve decisionReview from input, phase slice, or plan.phases[].
+ * Mirrors evaluationGateOf so preflight/commit-guard see the same stamp.
+ * @param {object} input
+ * @returns {object|null}
+ */
+function decisionReviewOf(input) {
+  if (input.decisionReview != null && typeof input.decisionReview === 'object') {
+    return input.decisionReview;
+  }
+  const phase = phaseSlice(input);
+  if (phase.decisionReview != null && typeof phase.decisionReview === 'object') {
+    return phase.decisionReview;
+  }
+  const plan = object(input.plan);
+  const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
+  if (!Array.isArray(plan.phases) || !phaseId) return null;
+  const planPhase = plan.phases.find(
+    (p) => object(p).id === phaseId || object(p).slug === phaseId,
+  );
+  if (planPhase == null) return null;
+  const dr = object(planPhase).decisionReview;
+  return dr != null && typeof dr === 'object' ? dr : null;
+}
+
+/**
  * Under durable automate stamp, evaluationGate must allow phase-done (R1).
  * Non-automate: no-op allow.
  * @param {object} input
@@ -430,6 +456,29 @@ function checkPhaseDoneEvaluation(input) {
     result.reason ||
       'phase-done under automate requires evaluationGate before exit gates / review',
     'Run the evaluation agent and stamp phases[].evaluationGate (passed|skipped+reason|failed-dispositioned), then rerun `phase-done`.',
+  );
+}
+
+/**
+ * Under durable automate stamp, decisionReview must allow phase-done
+ * (operator PASS: status=passed + verifiedAt). Non-automate: no-op allow.
+ * Distinct code from evaluation so callers can diagnose which hardgate is open.
+ * @param {object} input
+ */
+function checkPhaseDoneDecisionReview(input) {
+  const planExecutionMode = planExecutionModeOf(input);
+  const result = decisionReviewAllowsPhaseDone({
+    planExecutionMode: planExecutionMode || null,
+    executionMode: planExecutionMode || null,
+    automateActive: input.automateActive === true,
+    decisionReview: decisionReviewOf(input),
+  });
+  if (result.ok) return allow();
+  return block(
+    'phase-done-decision-review-open',
+    result.reason ||
+      'phase-done under automate requires decisionReview status=passed + verifiedAt (operator PASS)',
+    'Obtain operator decision-review PASS, stamp phases[].decisionReview { status: passed, verifiedAt }, then rerun `phase-done`. Agents never stamp PASS.',
   );
 }
 
@@ -519,10 +568,11 @@ function checkPhaseDoneTasks(input) {
  * Pure preflight for phase-done — runs BEFORE exit-gate verifiers / review.
  *
  * Validates identity (parentPlan+phaseId), optional plan DAG, that every
- * task is already done, and (when plan.executionMode is automate) that
- * evaluationGate allows close via phaseEvaluationAllowsClose. Does NOT require
+ * task is already done, and (when plan.executionMode is automate) that both
+ * evaluationGate (phaseEvaluationAllowsClose) and decisionReview
+ * (decisionReviewAllowsPhaseDone — operator PASS) allow close. Does NOT require
  * exit gates, reviewGate, lessons, or fingerprint — so evidence production may
- * proceed after a green preflight on non-automate (and after evaluation stamp
+ * proceed after a green preflight on non-automate (and after both stamps
  * on automate).
  *
  * On block: callers must produce zero gate-verifier runs, review, events,
@@ -542,7 +592,11 @@ export function preflightPhaseDone(input = {}) {
   if (tasks.blocked) return tasks;
   // R1: under plan.executionMode automate, evaluationGate must allow close
   // before exit-gate verifiers / review-code run.
-  return checkPhaseDoneEvaluation(safe);
+  const evaluation = checkPhaseDoneEvaluation(safe);
+  if (evaluation.blocked) return evaluation;
+  // Decision-review operator PASS (status=passed + verifiedAt) under automate.
+  // Same durable stamp as canRunPhaseDone; fails closed without the stamp.
+  return checkPhaseDoneDecisionReview(safe);
 }
 
 /**
