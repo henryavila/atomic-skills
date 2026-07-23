@@ -52,6 +52,7 @@ import {
   join,
   relative,
   resolve,
+  sep,
 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -404,7 +405,7 @@ export function phaseSlice(fm, phaseId) {
  * @param {string} phaseSlug
  * @returns {{ byFrontmatter: boolean, byFilename: boolean }}
  */
-function initiativeMatchScore(filePath, phaseId, phaseSlug) {
+function initiativeMatchScore(filePath, phaseId, phaseSlug, planSlug = '') {
   const fm = readFm(filePath);
   let byFrontmatter = false;
   if (fm) {
@@ -415,7 +416,16 @@ function initiativeMatchScore(filePath, phaseId, phaseSlug) {
           ? String(fm.id).trim()
           : '';
     if (phaseId && fmPhase && fmPhase.toLowerCase() === phaseId.toLowerCase()) {
-      byFrontmatter = true;
+      // Flat multi-plan: require parentPlan match when both are present (codex P2)
+      const parent =
+        fm.parentPlan != null ? String(fm.parentPlan).trim() : '';
+      if (
+        !planSlug ||
+        !parent ||
+        parent.toLowerCase() === String(planSlug).toLowerCase()
+      ) {
+        byFrontmatter = true;
+      }
     }
   }
   const base = filePath.split(/[/\\]/).pop() || '';
@@ -506,9 +516,12 @@ export function resolveInitiativePath(planFile, fm, phase, opts = {}) {
       } catch {
         continue;
       }
-      const score = initiativeMatchScore(full, phaseId, phaseSlug);
+      const score = initiativeMatchScore(full, phaseId, phaseSlug, planSlug);
       if (score.byFrontmatter && !fmHit) fmHit = full;
-      if (score.byFilename && !nameHit) nameHit = full;
+      // Filename-only hits: only trust under nested plan phases/ (not flat multi-plan)
+      const isFlatInitiatives =
+        dir.endsWith(`${sep}initiatives`) || dir.endsWith('/initiatives');
+      if (score.byFilename && !nameHit && !isFlatInitiatives) nameHit = full;
     }
   }
 

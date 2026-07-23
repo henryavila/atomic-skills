@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T13:17:05.024Z
+lastUpdated: 2026-07-23T13:30:33.382Z
 branch: plan/implement-phase-agents
 currentPhase: F5
 executionMode: automate
@@ -164,6 +164,11 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/implement-phase-agents-F0-both-253e793.md
       verifiedAt: 2026-07-22T22:37:27.000Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-22T22:37:27.000Z
+      evidencePath: .atomic-skills/projects/atomic-skills/implement-phase-agents/phases/archive/
+      at: 253e79362931d352944083ccc308cc77e1184128
   - id: F1
     slug: implement-phase-agents-f1-decision-log-schema-and-append-path
     title: Decision log schema and append path
@@ -235,6 +240,11 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/implement-phase-agents-F1-both-4b08a89.md
       verifiedAt: 2026-07-22T23:56:41.000Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-22T23:56:41.000Z
+      evidencePath: .atomic-skills/projects/atomic-skills/implement-phase-agents/phases/archive/
+      at: 4b08a89aefc3419ed5d4c9e8369ffce26d8265af
   - id: F2
     slug: implement-phase-agents-f2-host-thin-maestro-and-product-executi
     title: Host-thin maestro and product execution ban
@@ -311,6 +321,11 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/implement-phase-agents-F2-both-7d82db4.md
       verifiedAt: 2026-07-23T01:59:43.000Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-23T01:59:43.000Z
+      evidencePath: .atomic-skills/projects/atomic-skills/implement-phase-agents/phases/archive/
+      at: 7d82db4398adcdb6b6c9bf7bcebc7d46f7f2267a
   - id: F3
     slug: implement-phase-agents-f3-decision-review-hardgate-on-phase-don
     title: Decision-review hardgate on phase-done

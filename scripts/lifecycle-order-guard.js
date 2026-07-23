@@ -649,8 +649,7 @@ export function commitGuardPhaseDone(input = {}) {
     );
   }
 
-  const planMode =
-    text(object(safe.plan).executionMode || safe.planExecutionMode).toLowerCase();
+  const planMode = planExecutionModeOf(safe).toLowerCase();
   const durableAutomate = planMode === 'automate' || safe.automateActive === true;
   if (
     safe.requireReview !== false &&
