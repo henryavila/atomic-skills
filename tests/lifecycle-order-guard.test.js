@@ -596,6 +596,72 @@ test('preflightPhaseDone allows automate when evaluationGate and decisionReview 
   assert.equal(result.blocked, false);
 });
 
+test('top-level executionMode automate: preflight/commitGuard block when decisionReview missing', () => {
+  const input = happyCommitInput({
+    executionMode: 'automate',
+    plan: {
+      phases: [
+        {
+          id: 'F4',
+          slug: 'f4',
+          status: 'active',
+          dependsOn: [],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'F4',
+          evaluationGate: { status: 'passed', verdict: 'pass' },
+        },
+      ],
+    },
+    evaluationGate: { status: 'passed', verdict: 'pass' },
+    reviewGate: { status: 'passed', at: FP, mode: 'both' },
+  });
+  const preflight = preflightPhaseDone(input);
+  assert.equal(preflight.blocked, true);
+  assert.equal(preflight.code, 'phase-done-decision-review-open');
+  const commit = commitGuardPhaseDone(input);
+  assert.equal(commit.blocked, true);
+  assert.equal(commit.code, 'phase-done-decision-review-open');
+});
+
+test('top-level executionMode automate: preflight/commitGuard allow when decisionReview passed+verifiedAt', () => {
+  const input = happyCommitInput({
+    executionMode: 'automate',
+    plan: {
+      phases: [
+        {
+          id: 'F4',
+          slug: 'f4',
+          status: 'active',
+          dependsOn: [],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'F4',
+          evaluationGate: { status: 'passed', verdict: 'pass' },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-07-23T12:00:00.000Z',
+          },
+        },
+      ],
+    },
+    evaluationGate: { status: 'passed', verdict: 'pass' },
+    decisionReview: {
+      status: 'passed',
+      verifiedAt: '2026-07-23T12:00:00.000Z',
+    },
+    reviewGate: { status: 'passed', at: FP, mode: 'both' },
+  });
+  const preflight = preflightPhaseDone(input);
+  assert.equal(preflight.allowed, true, preflight.reason);
+  assert.equal(preflight.blocked, false);
+  const commit = commitGuardPhaseDone(input);
+  assert.equal(commit.allowed, true, commit.reason);
+  assert.equal(commit.blocked, false);
+});
+
 test('preflightPhaseDone non-automate still allows without evaluationGate', () => {
   const result = preflightPhaseDone({
     parentPlan: 'demo',

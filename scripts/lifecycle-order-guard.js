@@ -385,6 +385,7 @@ function planExecutionModeOf(input) {
   return (
     text(input.planExecutionMode) ||
     text(object(input.plan).executionMode) ||
+    text(input.executionMode) ||
     ''
   );
 }
