@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T11:07:12.097Z
+lastUpdated: 2026-07-23T11:13:31.927Z
 branch: plan/implement-phase-agents
 currentPhase: F4
 executionMode: automate
@@ -415,30 +415,60 @@ phases:
       criteria:
         - id: F4-G1
           description: Phase-start package and draft BI strings present in maestro.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'phase-start|draft|validate-only|businessIntent'
               skills/shared/implement-automate-maestro.md
             expectExitCode: 0
+          metAt: 2026-07-23T11:13:31.927Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-23T11:13:31.927Z
+            verifiedCommit: 22c48bbb21f3b40edd666fd487787e686b7af311
+            passed: true
+            exitCode: 0
+            outputSummary: rg exit gate F4-G1 EXIT 0
         - id: F4-G2
           description: Lazy materialization KB updated for host-thin automate phase-start
             package.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'host-thin|decision-review|phase-start|draft'
               docs/kb/project-lazy-materialization.md
             expectExitCode: 0
+          metAt: 2026-07-23T11:13:31.927Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-23T11:13:31.927Z
+            verifiedCommit: 22c48bbb21f3b40edd666fd487787e686b7af311
+            passed: true
+            exitCode: 0
+            outputSummary: rg exit gate F4-G2 EXIT 0
     status: active
     summary: "Ritual phase-start: draft package, validate-only, then fresh phase agent."
     businessIntent:
-      value: "Sob automate, a cada phase-start o skill apresenta package (objetivo + tasks id/title + businessIntent rascunhado) para o operador so validar; apos ratify, spawna agente fresco — nunca formulario BI em branco nem reuso de contexto do writer anterior."
-      workflow: "Ritual Step H / phase-start package no maestro (T-013) → materialize orquestrado no package + KB lazy (T-014) → F5 fixtures/dogfood."
-      rules: "Nunca silent auto-PASS de BI draft. Nunca spawn writer antes de ratify do package. Nao alterar HARD de find-weak-business-intent. Handoff nextAction unico obrigatorio no boundary. decision-review e host-thin permanecem."
-      outOfScope: "Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de produto; host coding da fase antes do ratify."
-      doneWhen: "Strings phase-start/draft/validate-only/businessIntent greppable em maestro+implement; KB lazy menciona host-thin/decision-review/phase-start/draft; F4-G1 e F4-G2 metiveis."
-
+      value: Sob automate, a cada phase-start o skill apresenta package (objetivo +
+        tasks id/title + businessIntent rascunhado) para o operador so validar;
+        apos ratify, spawna agente fresco — nunca formulario BI em branco nem
+        reuso de contexto do writer anterior.
+      workflow: Ritual Step H / phase-start package no maestro (T-013) → materialize
+        orquestrado no package + KB lazy (T-014) → F5 fixtures/dogfood.
+      rules: Nunca silent auto-PASS de BI draft. Nunca spawn writer antes de ratify do
+        package. Nao alterar HARD de find-weak-business-intent. Handoff
+        nextAction unico obrigatorio no boundary. decision-review e host-thin
+        permanecem.
+      outOfScope: Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de
+        produto; host coding da fase antes do ratify.
+      doneWhen: Strings phase-start/draft/validate-only/businessIntent greppable em
+        maestro+implement; KB lazy menciona
+        host-thin/decision-review/phase-start/draft; F4-G1 e F4-G2 metiveis.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-23T11:13:31.927Z
+      at: 22c48bbb21f3b40edd666fd487787e686b7af311
   - id: F5
     slug: implement-phase-agents-f5-tests-fixtures-docs-and-dogfood-check
     title: Tests fixtures docs and dogfood checklist
