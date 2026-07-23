@@ -115,4 +115,18 @@ describe('buildDecisionReview', () => {
   it('rejects invalid status', () => {
     assert.throws(() => buildDecisionReview({ status: 'ok' }), /invalid status/);
   });
+
+  it('rejects passed without verifiedAt', () => {
+    assert.throws(
+      () => buildDecisionReview({ status: 'passed' }),
+      /verifiedAt/,
+    );
+  });
+
+  it('rejects passed with empty verifiedAt', () => {
+    assert.throws(
+      () => buildDecisionReview({ status: 'passed', verifiedAt: '   ' }),
+      /verifiedAt/,
+    );
+  });
 });
