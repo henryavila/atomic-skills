@@ -186,8 +186,18 @@ package ritual (same turn / continuous package→ratify→materialize sequence):
    renames are **not** a materialize side-effect (R3 fingerprint refuses silent
    title rewrite — re-spec / sidecar re-capture required).
 
-If automate package ratify is **absent** (operator never ratified, spine
-incomplete, or this is a bare Mode-1 `materialize`), fall back to **Mode A**.
+**Fail-closed when Mode B preconditions are not met (HARD):**
+
+- Under **automate** (`executionMode: automate` / package-path caller —
+  `isAutomateActive` or durable plan stamp): if package ratify is **absent**,
+  the spine is incomplete, or this call is bare `materialize` **without** a
+  continuous package→ratify→materialize sequence → **STOP**. Do **not** dump
+  Mode A's blank form. Do **not** invent BI. Set handoff / `nextAction` to
+  present the phase-start package and await explicit ratify (e.g. `present
+  phase-start package for F{N} validate-only` / `await package ratify`). Resume
+  materialize only after ratify with the pre-ratified spine (this Mode B path).
+- **Mode A** is only for **Mode 1 / non-automate / bare `materialize` outside
+  the package ritual**. Never use Mode A as a silent fallback under automate.
 
 Field rules (both modes):
 
@@ -298,16 +308,23 @@ Reject the block when any required field is blank or still contains
 ## Internal Callers
 
 `phase-done`, `switch`, and `phase-reopen` call this same procedure when their
-target next phase is descriptor-only **outside** automate host orchestration.
+target next phase is descriptor-only **and** the plan is **Mode 1 / non-automate**.
 They pass the concrete phase id, then return to their own transition flow only
-after this procedure has produced a validated initiative and detector exit `0`.
-They do not duplicate the gate or write their own initiative file.
+after this procedure has produced a validated initiative and detector exit `0`
+(Mode A blank-form BI). They do not duplicate the gate or write their own
+initiative file.
 
-**Automate exception (`executionMode: automate` / pure-maestro):** `phase-done`
-must **not** blank-form materialize the successor as a separate invent-BI UX.
-After phase-done advances the descriptor pointer, handoff **single nextAction**
-points at the phase-start package ritual; the implement pure-maestro (Step H/B)
-presents draft package → validate-only → ratify → then invokes this procedure
-in **Mode B** with the pre-ratified spine. See
-`skills/shared/project-assets/project-transitions.md` § phase-done and
-`skills/shared/implement-automate-maestro.md`.
+**Automate exception (`executionMode: automate` / pure-maestro) — all three
+callers:** do **not** blank-form materialize (Mode A) a descriptor-only target
+as a separate invent-BI UX.
+
+- **`phase-done`:** advance the descriptor pointer only; handoff **single
+  nextAction** → phase-start package ritual; implement pure-maestro Step H/B
+  owns draft → validate-only → ratify → **Mode B** materialize with the
+  pre-ratified spine.
+- **`switch` / `phase-reopen`:** same package→ratify→Mode B path, **or refuse**
+  with zero initiative write and set **single nextAction** to present package /
+  await ratify. Never fall through to Mode A under automate.
+
+See `skills/shared/project-assets/project-transitions.md` § phase-done /
+§ phase-reopen / § switch and `skills/shared/implement-automate-maestro.md`.
