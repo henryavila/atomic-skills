@@ -3,13 +3,24 @@ schemaVersion: "0.1"
 slug: implement-phase-agents
 title: Implement phase agents (host-thin automate)
 version: "1.0"
-status: done
+status: archived
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T15:00:00.000Z
+lastUpdated: 2026-07-23T20:20:00.000Z
 branch: plan/implement-phase-agents
 currentPhase: F5
 executionMode: automate
 parallelismAllowed: false
+integration:
+  merged: true
+  integrated: true
+  required: false
+  base: develop
+  method: local-fast-forward
+  head: f9276ac7cd5e98635a12bcc4c8bc5d96516897b8
+  at: 2026-07-23T20:15:00.000Z
+  justification: "Operator consolidate: direct FF of plan/implement-phase-agents onto
+    origin/develop after plan-end external-both + userValidatedAt; no GitHub PR."
+archivedAt: 2026-07-23T20:20:00.000Z
 principles:
   - id: P1
     title: Host-thin under automate
@@ -670,6 +681,8 @@ Extend implement and shared assets plus pure helpers and tests. No skills/core/a
 | F5 | Tests fixtures docs and dogfood checklist | Fixtures, dogfood checklist e ponteiros de memoria. |
 
 ## Reviews
+
+- plan archived: 2026-07-23T20:20:00.000Z — integrated on develop via local FF (head f9276ac); worktree teardown follows
 
 - plan done: 2026-07-23T15:00:00.000Z — all phases F0–F5 done; plan-end external-both + userValidatedAt; consolidating onto develop
 

@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-23T15:00:00.000Z
+lastUpdated: 2026-07-23T20:20:00.000Z
 schemaVersion: "0.1"
 activePlans: 0
 activeInitiatives: 0
-archivedCount: 24
+archivedCount: 25
 ---
 
 # Project Status Index
@@ -28,7 +28,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| implement-phase-agents | done | F5 | plan/implement-phase-agents | 2026-07-22 | 6/6 |
 | materialize-spec-quality-guards | done | F4 | plan/materialize-spec-quality-guards | 2026-07-22 | 5/5 |
 | claude-cross-model-review | done | F5 | plan/claude-cross-model-review | 2026-07-17 | 6/6 |
 | product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
@@ -61,6 +60,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| implement-phase-agents | 2026-07-23 | F5 | 6/6 | Implement phase agents (host-thin automate) |
 | implementation-automate-mode | 2026-07-17 | F4 | 5/5 | Implementation Automate Mode |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final | 2026-07-10 | F3 | 4/4 | Reparo local e validacao final |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f2-testes-de-regressao | 2026-07-10 | F2 | 3/4 | Testes de regressao |
