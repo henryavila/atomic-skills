@@ -84,11 +84,15 @@ without inventing silent PASS semantics.
 | **Agent** (maestro host, phase writer brief notes via orchestrator, evaluator surfaces) | **Append** decision entries only (`appendDecision`) | Write **decision-review PASS**; invent chat-only as durable; store secrets |
 | **Operator** | Append entries if desired; **write decision-review PASS** (or FAIL) on the manual hardgate | Be replaced by silent auto-PASS |
 
-**Rule.** Only the **operator** writes **decision-review PASS**. Agents **only
-append decision entries**. Silent auto-PASS of decision-review is forbidden.
-The evaluation agent never auto-PASS decision-review. F3 machine-stamps
-`decisionReview` separately from this append path — `appendDecision` **never**
-sets `decisionReview.status` to `PASS` / `passed`.
+**Rule.** Only the **operator** writes **decision-review PASS**, and only via an
+**explicit same-turn token** (e.g. `decision-review PASS` / `ratify decision-review`).
+Host/agent **never** stamp `phases[].decisionReview status=passed` without that
+token. Agents **only append decision entries**. Silent auto-PASS of
+decision-review is forbidden. The evaluation agent never auto-PASS
+decision-review; review-code receipts never substitute. Machine stamp uses
+`buildDecisionReview` / schema field `decisionReview` separately from this
+append path — `appendDecision` **never** sets `decisionReview.status` to
+`PASS` / `passed`.
 
 ### Secrets fence
 
@@ -121,15 +125,47 @@ entries; they do not replace JSONL append for decision-review audit.
 
 ---
 
-## decision-review (manual hardgate)
+## decision-review (operator PASS procedure)
 
-Under automate, after evaluationGate is ready and **before** `phase-done`:
+Under automate, **decision-review** is a mandatory **manual hardgate** after
+evaluation and **before / as part of** phase-done preflight. Fixed order:
+
+```text
+tasks done → evaluation agent → evaluationGate stamp
+  → decision-review operator PASS (this section)
+  → stamp phases[].decisionReview (status=passed + verifiedAt)
+  → canRunPhaseDone / assert-automate-gate --gate phase-done
+  → phase-done with review-code --mode=both
+```
+
+### Operator PASS (closes the gate)
 
 1. Operator reads the phase `decisions/<phaseId>.jsonl` (and linked evidence).
-2. Operator records **PASS** or **FAIL** on decision-review (operator-owned stamp — F3 schema).
-3. Only **operator PASS** closes the gate. Agents never write that PASS.
+2. Operator issues an **explicit token in the same turn** that authorizes PASS
+   (e.g. `decision-review PASS`, `ratify decision-review`, or equivalent clear
+   PASS language). Chat from a prior turn does **not** authorize a new stamp.
+3. **Only then** may the host stamp `phases[].decisionReview` via
+   `buildDecisionReview({ status: 'passed', verifiedAt: <ISO>, evidencePath? })`.
+4. Host/agent **never** writes `decisionReview status=passed` without that
+   explicit operator token in the **same turn**. Silent auto-PASS is forbidden.
+5. Evaluation agent output, `evaluationGate`, and review-code receipts **must
+   not** substitute for decision-review PASS.
 
-FAIL ⇒ reopen, re-dispatch, or park; do not phase-done.
+### Operator FAIL (does not advance)
+
+1. Operator records **FAIL** on decision-review (same-turn explicit FAIL token).
+2. Host stamps `phases[].decisionReview` `{ status: 'failed', verifiedAt: <ISO> }`.
+3. **Do not** run phase-done terminal write; **do not advance** `currentPhase`.
+4. Resume path: reopen / re-dispatch / park; re-run decision-review after fixes
+   until a later operator PASS.
+
+### Machine check
+
+- `decisionReviewAllowsPhaseDone` / `canRunPhaseDone` require `status=passed`
+  + `verifiedAt` under durable automate; pending / failed / absent → block.
+- `assert-automate-gate --gate phase-done` fails closed without both
+  evaluationGate and decisionReview passed.
+- Non-automate plans: decisionReview field optional; gate inactive.
 
 ---
 

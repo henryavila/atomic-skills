@@ -1790,6 +1790,98 @@ test('plan schema: planEndReview accepts skip with reason; rejects unknown mode'
   );
 });
 
+// F3/T-010 — optional phases[].decisionReview (operator PASS hardgate)
+test('plan schema: decisionReview optional; absent still validates (non-automate)', () => {
+  const validators = buildValidators();
+  const without = basePlan();
+  assert.equal(
+    validators.validatePlan(without),
+    true,
+    `plan without decisionReview must validate: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+  assert.equal('decisionReview' in without.phases[0], false);
+});
+
+test('plan schema: decisionReview accepts pending|passed|failed with verifiedAt and evidencePath', () => {
+  const validators = buildValidators();
+  for (const status of ['pending', 'passed', 'failed']) {
+    const plan = basePlan({
+      executionMode: 'automate',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'parent-plan-f0',
+          title: 'F0',
+          goal: 'Do the first phase',
+          dependsOn: [],
+          subPhaseCount: 1,
+          exitGate: { summary: 'done', criteria: [] },
+          status: 'active',
+          decisionReview: {
+            status,
+            verifiedAt: '2026-07-23T12:00:00.000Z',
+            evidencePath:
+              '.atomic-skills/projects/demo/parent-plan/decisions/F0.jsonl',
+          },
+        },
+      ],
+    });
+    assert.equal(
+      validators.validatePlan(plan),
+      true,
+      `decisionReview status=${status} must validate: ${planErrorText(validators.validatePlan.errors)}`,
+    );
+  }
+});
+
+test('plan schema: decisionReview rejects unknown status and extra keys', () => {
+  const validators = buildValidators();
+  const badStatus = basePlan({
+    phases: [
+      {
+        id: 'F0',
+        slug: 'parent-plan-f0',
+        title: 'F0',
+        goal: 'Do the first phase',
+        dependsOn: [],
+        subPhaseCount: 1,
+        exitGate: { summary: 'done', criteria: [] },
+        status: 'active',
+        decisionReview: { status: 'ok' },
+      },
+    ],
+  });
+  assert.equal(
+    validators.validatePlan(badStatus),
+    false,
+    'unknown decisionReview.status must fail schema',
+  );
+  const extraKey = basePlan({
+    phases: [
+      {
+        id: 'F0',
+        slug: 'parent-plan-f0',
+        title: 'F0',
+        goal: 'Do the first phase',
+        dependsOn: [],
+        subPhaseCount: 1,
+        exitGate: { summary: 'done', criteria: [] },
+        status: 'active',
+        decisionReview: {
+          status: 'passed',
+          verifiedAt: '2026-07-23T12:00:00.000Z',
+          agentAutoPass: true,
+        },
+      },
+    ],
+  });
+  assert.equal(
+    validators.validatePlan(extraKey),
+    false,
+    'decisionReview additionalProperties must be false',
+  );
+});
+
 // GATE-R4 — evaluationGate under executionMode automate
 function automateDonePlan(evaluationGate, extra = {}) {
   return {

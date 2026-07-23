@@ -16,7 +16,7 @@
  *   claims        canCloseTasksFromClaims (requires --claim-report)
  *   done          canCloseTasksFromClaims for post-merge close confidence
  *                 (requires --claim-report; optional reachability)
- *   phase-done    canRunPhaseDone (evaluationGate under durable automate)
+ *   phase-done    canRunPhaseDone (evaluationGate + decisionReview under durable automate)
  *   finalize      canFinalizeOrArchive (plan-end + user validation under stamp)
  *
  * Options:
@@ -76,7 +76,7 @@ Gates:
                 (descriptor-only / missing initiative ⇒ blocked)
   claims        canCloseTasksFromClaims (--claim-report required)
   done          claim close gate (--claim-report; optional reachability)
-  phase-done    canRunPhaseDone (evaluationGate under automate stamp)
+  phase-done    canRunPhaseDone (evaluationGate + decisionReview under automate stamp)
   finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
 
 Options:
@@ -807,9 +807,14 @@ export function runAssert(args, env = {}) {
       phase != null && phase.evaluationGate != null
         ? phase.evaluationGate
         : null;
+    const decisionReview =
+      phase != null && phase.decisionReview != null
+        ? phase.decisionReview
+        : null;
     const r = canRunPhaseDone({
       planExecutionMode,
       evaluationGate,
+      decisionReview,
       phase,
     });
     if (!r.ok) {
