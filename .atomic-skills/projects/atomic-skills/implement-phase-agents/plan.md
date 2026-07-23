@@ -5,9 +5,9 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T12:33:14.557Z
+lastUpdated: 2026-07-23T13:12:23.339Z
 branch: plan/implement-phase-agents
-currentPhase: F4
+currentPhase: F5
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -446,7 +446,7 @@ phases:
             passed: true
             exitCode: 0
             outputSummary: rg exit gate F4-G2 EXIT 0
-    status: active
+    status: done
     summary: "Ritual phase-start: draft package, validate-only, then fresh phase agent."
     businessIntent:
       value: Sob automate, a cada phase-start o skill apresenta package (objetivo +
@@ -475,6 +475,11 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/implement-phase-agents-F4-both-4d37183.md
       verifiedAt: 2026-07-23T12:33:14.557Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-23T13:12:23.339Z
+      evidencePath: .atomic-skills/projects/atomic-skills/implement-phase-agents/decisions/F4.jsonl
+      at: 3cef52848377d6c5ba4a5fe4e002ef6ba10d65cf
   - id: F5
     slug: implement-phase-agents-f5-tests-fixtures-docs-and-dogfood-check
     title: Tests fixtures docs and dogfood checklist
@@ -483,7 +488,7 @@ phases:
       rules unnoticed.
     dependsOn:
       - F4
-    subPhaseCount: 0
+    subPhaseCount: 1
     exitGate:
       summary: 3 criteria to meet
       criteria:
@@ -510,8 +515,24 @@ phases:
             kind: manual
             description: Henry runs dogfood checklist or writes defer reason in plan
               decisions.
-    status: pending
+    status: active
     summary: Fixtures, dogfood checklist e ponteiros de memoria.
+    businessIntent:
+      value: Provar o contrato host-thin + phase-start package + decision-review com
+        testes fixture e checklist de dogfood, para a proxima run automate real
+        nao pular hardgates sem ser notado.
+      workflow: Fixture tests descriptor-only + decision-review block (T-015) →
+        dogfood checklist (T-016) → memory/catalog pointers (T-017) → plan-end
+        external-both + user validation.
+      rules: Nao silenciosamente pular decision-review ou host-thin. Nao auto-PASS de
+        BI. Checklist lista no maximo 2 stops humanos por fase (package +
+        decision log). Manter evaluationGate e review both. Sem
+        skills/core/automate.md.
+      outOfScope: Layer 4 daemon; reescrever Mode 1/2; product work em curta;
+        auto-PASS de gates manuais de produto.
+      doneWhen: tests/implement-phase-agents-contract.test.js verde; dogfood md +
+        memory reference existem; Henry dogfood checklist ou defer com razao
+        (F5-G3).
 references: []
 supersedes:
   path: .atomic-skills/projects/atomic-skills/implementation-automate-mode/plan.md
