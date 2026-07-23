@@ -25,8 +25,35 @@ Materialize only admits the phase for execution; it does not close tasks. Drive 
 tasks with `atomic-skills:implement` (default Mode 1). Operators who want the host session as
 **pure maestro** (one code-only phase writer per phase, forced cross-model phase/complex
 review, plan-end `external-both` + user validation) pass **`--mode=automate`**. Full contract:
-`skills/core/implement.md`. Operator overview:
+`skills/core/implement.md` + `skills/shared/implement-automate-maestro.md`. Operator overview:
 `docs/concepts/project-tracking.md` § *Step 3.5 — Drive tasks (`implement`) and opt-in automate mode*.
+
+### Host-thin automate — phase-start package (not blank handoff)
+
+Under **`--mode=automate`** the host stays **host-thin** (dispatch / merge / verify / state only —
+no product source edits, no product entrypoint diagnostics). At every phase boundary and before
+each phase-writer spawn, automate runs the **phase-start package** ritual (Step H / package
+prep in `implement-automate-maestro.md`):
+
+1. If the successor is still **descriptor-only**, automate **orchestrates materialize** from the
+   phase source sidecar (`.source.json`) as part of **package prep** — writes the initiative and
+   attaches a **drafted** `businessIntent` into the validation package. The operator does **not**
+   invent BI from a blank form; they **validate** (or edit titles / BI, then ratify) the
+   **drafted** package only.
+2. Package contents: phase **objective** + **task list** (id + title) + **drafted**
+   `businessIntent` spine. Operator path is **validate-only**; blank-fill BI and silent
+   auto-PASS of the draft are forbidden.
+3. After operator ratify only: spawn a **fresh** phase agent (forbid reusing previous writer
+   context). **No path** allows silent host coding of the new phase product source before ratify.
+4. Session handoff **single nextAction** is mandatory at the boundary.
+5. Phase close under automate still requires the **decision-review** mandatory manual hardgate
+   (operator PASS only — agents never write decision-review PASS) after evaluationGate, before
+   `phase-done`. See `skills/shared/implement-decision-log.md` and
+   `src/automate-orchestrator-gates.js` (`canRunPhaseDone` = evaluationGate **AND** decisionReview).
+
+Spine quality HARD rules (`find-weak-business-intent.js`) are unchanged by this package ritual —
+materialize still refuses weak / missing spine; automate must not stamp BI PASS without
+operator ratify.
 
 ## Tasks core fingerprint (R3)
 
