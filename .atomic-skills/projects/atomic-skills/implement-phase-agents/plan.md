@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T10:48:49.598Z
+lastUpdated: 2026-07-23T11:07:12.097Z
 branch: plan/implement-phase-agents
 currentPhase: F4
 executionMode: automate
@@ -409,7 +409,7 @@ phases:
       agent — never a blank BI form.
     dependsOn:
       - F3
-    subPhaseCount: 0
+    subPhaseCount: 1
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -430,8 +430,15 @@ phases:
             command: rg -n 'host-thin|decision-review|phase-start|draft'
               docs/kb/project-lazy-materialization.md
             expectExitCode: 0
-    status: pending
+    status: active
     summary: "Ritual phase-start: draft package, validate-only, then fresh phase agent."
+    businessIntent:
+      value: "Sob automate, a cada phase-start o skill apresenta package (objetivo + tasks id/title + businessIntent rascunhado) para o operador so validar; apos ratify, spawna agente fresco — nunca formulario BI em branco nem reuso de contexto do writer anterior."
+      workflow: "Ritual Step H / phase-start package no maestro (T-013) → materialize orquestrado no package + KB lazy (T-014) → F5 fixtures/dogfood."
+      rules: "Nunca silent auto-PASS de BI draft. Nunca spawn writer antes de ratify do package. Nao alterar HARD de find-weak-business-intent. Handoff nextAction unico obrigatorio no boundary. decision-review e host-thin permanecem."
+      outOfScope: "Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de produto; host coding da fase antes do ratify."
+      doneWhen: "Strings phase-start/draft/validate-only/businessIntent greppable em maestro+implement; KB lazy menciona host-thin/decision-review/phase-start/draft; F4-G1 e F4-G2 metiveis."
+
   - id: F5
     slug: implement-phase-agents-f5-tests-fixtures-docs-and-dogfood-check
     title: Tests fixtures docs and dogfood checklist
