@@ -5,9 +5,9 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T00:58:11.685Z
+lastUpdated: 2026-07-23T01:59:43.000Z
 branch: plan/implement-phase-agents
-currentPhase: F2
+currentPhase: F3
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -188,19 +188,35 @@ phases:
       criteria:
         - id: F2-G1
           description: Host-thin and product entrypoint ban strings exist in maestro and implement.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'host-thin|verbatim|product' skills/shared/implement-automate-maestro.md skills/core/implement.md
             expectExitCode: 0
+          metAt: 2026-07-23T01:59:43.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-23T01:59:43.000Z
+            verifiedCommit: 7d82db4398adcdb6b6c9bf7bcebc7d46f7f2267a
+            passed: true
+            exitCode: 0
+            outputSummary: rg host-thin|verbatim|product maestro+implement EXIT 0
         - id: F2-G2
           description: Orchestrator gate tests pass including descriptor-only coverage.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/automate-orchestrator-gates.test.js
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-23T01:59:43.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-23T01:59:43.000Z
+            verifiedCommit: 7d82db4398adcdb6b6c9bf7bcebc7d46f7f2267a
+            passed: true
+            exitCode: 0
+            outputSummary: node --test tests/automate-orchestrator-gates.test.js 28 pass
+    status: done
     summary: Ban de entrypoints de produto no host e preflight descriptor-only.
     businessIntent:
       value: "Sob automate o host permanece host-thin: nao executa entrypoints de produto (compose, build_edl, app servers) fora de verifiers verbatim; ban e preflight ficam greppable e testaveis para impedir mega-sessao do host."
@@ -208,6 +224,17 @@ phases:
       rules: Nao banir comando shell do task.verifier ou exit-gate. Nao banir git-ops merge/status/log. Permitir assert-automate-gate, validate-state e verifiers copiados verbatim. Nao auto-spawn sem ratify do phase-start package. Nao implementar process supervisor. Nao exigir network no assert.
       outOfScope: Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de produto; banir verifiers legitimos; network no assert.
       doneWhen: Strings host-thin/product/verbatim greppable em maestro+implement; role banner/phase-start/validate-only greppable; testes automate-orchestrator-gates cobrem descriptor-only refuse; F2-G1 e F2-G2 metiveis.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-23T01:59:43.000Z
+      at: 7d82db4398adcdb6b6c9bf7bcebc7d46f7f2267a
+    reviewGate:
+      status: passed
+      at: 7d82db4398adcdb6b6c9bf7bcebc7d46f7f2267a
+      mode: both
+      reviewFile: .atomic-skills/reviews/implement-phase-agents-F2-both-7d82db4.md
+      verifiedAt: 2026-07-23T01:59:43.000Z
   - id: F3
     slug: implement-phase-agents-f3-decision-review-hardgate-on-phase-don
     title: Decision-review hardgate on phase-done
