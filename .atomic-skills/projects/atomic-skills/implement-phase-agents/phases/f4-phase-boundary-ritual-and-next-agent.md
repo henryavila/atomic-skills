@@ -8,8 +8,8 @@ goal: After phase-done and at every phase start, automate presents objective +
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-23T11:07:12.097Z
-lastUpdated: 2026-07-23T11:08:09.505Z
-nextAction: SYNC WAIT F4 phase writer claim report (T-013..T-014).
+lastUpdated: 2026-07-23T11:12:04.667Z
+nextAction: Evaluation + decision-review + phase-done for F4.
 parentPlan: implement-phase-agents
 phaseId: F4
 businessIntent:
@@ -27,27 +27,43 @@ businessIntent:
   doneWhen: Strings phase-start/draft/validate-only/businessIntent greppable em
     maestro+implement; KB lazy menciona
     host-thin/decision-review/phase-start/draft; F4-G1 e F4-G2 metiveis.
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F4-G1
     description: Phase-start package and draft BI strings present in maestro.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'phase-start|draft|validate-only|businessIntent'
         skills/shared/implement-automate-maestro.md
       expectExitCode: 0
+    metAt: 2026-07-23T11:12:04.667Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T11:12:04.667Z
+      verifiedCommit: 538dd6629b6ead66c6d9cd878430ac149e24ecba
+      passed: true
+      exitCode: 0
+      outputSummary: phase-done exit gate F4-G1 EXIT 0
   - id: F4-G2
     description: Lazy materialization KB updated for host-thin automate phase-start package.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'host-thin|decision-review|phase-start|draft'
         docs/kb/project-lazy-materialization.md
       expectExitCode: 0
+    metAt: 2026-07-23T11:12:04.667Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T11:12:04.667Z
+      verifiedCommit: 538dd6629b6ead66c6d9cd878430ac149e24ecba
+      passed: true
+      exitCode: 0
+      outputSummary: phase-done exit gate F4-G2 EXIT 0
 stack:
   - id: 1
     title: Phase boundary ritual and next agent
@@ -56,8 +72,8 @@ stack:
 tasks:
   - id: T-013
     title: Step H and phase-start package ritual
-    status: pending
-    lastUpdated: 2026-07-23T11:07:12.097Z
+    status: done
+    lastUpdated: 2026-07-23T11:12:04.667Z
     scopeBoundary:
       - Do not silent auto-PASS drafted businessIntent. Do not spawn phase
         writer before operator ratify of the package.
@@ -81,10 +97,20 @@ tasks:
         path: skills/core/implement.md
     summary: Ritual phase-start package + spawn fresh agent apos ratify.
     weight: 2
+    closedAt: 2026-07-23T11:12:04.667Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T11:12:04.667Z
+      verifiedCommit: 538dd6629b6ead66c6d9cd878430ac149e24ecba
+      passed: true
+      exitCode: 0
+      outputSummary: rg
+        phase-start|draft|validate-only|businessIntent|fresh|nextAction
+        maestro+implement EXIT 0 @538dd66
   - id: T-014
     title: Materialize orchestration inside package (not blank handoff)
-    status: pending
-    lastUpdated: 2026-07-23T11:07:12.097Z
+    status: done
+    lastUpdated: 2026-07-23T11:12:04.667Z
     scopeBoundary:
       - Do not change find-weak-business-intent quality HARD rules. Do not stamp
         BI PASS without operator ratify.
@@ -110,23 +136,21 @@ tasks:
         path: docs/kb/project-lazy-materialization.md
     summary: Materialize no package + KB lazy host-thin/decision-review.
     weight: 2
+    closedAt: 2026-07-23T11:12:04.667Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T11:12:04.667Z
+      verifiedCommit: 538dd6629b6ead66c6d9cd878430ac149e24ecba
+      passed: true
+      exitCode: 0
+      outputSummary: rg host-thin|decision-review|phase-start|draft|validate
+        implement+lazy-kb EXIT 0 @538dd66
 parked: []
 emerged: []
 startedCommit: 346b249f58ae55b4953b610e076e134a313d817b
+weightDone: 4
 ---
 
 # Narrative / notes
 
-Initiative for phase **F4 — Phase boundary ritual and next agent**.
-
-## Decisions
-
-- F4 BI ratified validate-only. Lease active; sibling writer worktree spawned.
-
-## Session handoff
-- **Narrative:** F4 pure-maestro Step C: lease active; worktree implement-phase-agents-F4-writer for T-013..T-014. Host-thin.
-- **Decision log:** Lease at writer-leases/implement-phase-agents.json; branch impl/implement-phase-agents-F4-writer.
-- **Single nextAction:** SYNC WAIT F4 phase writer claim report (T-013..T-014); then merge + re-verify + done.
-- **Verbatim state:** phaseId=F4; worktree=/Volumes/External/code/atomic-skills/.worktrees/implement-phase-agents-F4-writer; writerBranch=impl/implement-phase-agents-F4-writer; tasks T-013 T-014 pending.
-- **Uncommitted changes:** pre-dispatch handoff only.
-
+F4 tasks T-013 T-014 closed post-merge re-verify.
