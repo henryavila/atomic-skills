@@ -7,8 +7,9 @@ goal: Machine-enforce that automate phase-done cannot complete without operator
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-23T09:15:05.378Z
-lastUpdated: 2026-07-23T09:18:17.000Z
-nextAction: SYNC WAIT F3 phase writer claim report (T-010..T-012).
+lastUpdated: 2026-07-23T09:25:47.073Z
+nextAction: "Operator: read T-012 decision-review PASS procedure; then close
+  T-012 (manual) + F3-G3."
 parentPlan: implement-phase-agents
 phaseId: F3
 businessIntent:
@@ -27,11 +28,11 @@ businessIntent:
   doneWhen: decision-review-gate testes verdes; canRunPhaseDone/assert greppable
     para decisionReview; procedimento maestro proibe host PASS sem token do
     operador no mesmo turno; Henry PASS em F3-G3.
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 0
+weightDone: 4
 weightTotal: 5
 exitGates:
   - id: F3-G1
@@ -67,8 +68,8 @@ stack:
 tasks:
   - id: T-010
     title: Schema field decisionReview on phase
-    status: pending
-    lastUpdated: 2026-07-23T09:15:05.378Z
+    status: done
+    lastUpdated: 2026-07-23T09:25:47.073Z
     scopeBoundary:
       - Do not require decisionReview on non-automate plans. Do not allow
         agent-written PASS without operator field provenance.
@@ -95,10 +96,19 @@ tasks:
         path: tests/validate-state.test.js
     summary: Schema e helper decisionReviewAllowsPhaseDone com testes.
     weight: 2
+    closedAt: 2026-07-23T09:25:47.073Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T09:25:47.073Z
+      verifiedCommit: 56a4f39756ad2d95cc1b991fe6c55ef267df5793
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/decision-review-gate.test.js
+        tests/validate-state.test.js → 127 pass 0 fail @ 56a4f39
   - id: T-011
     title: Wire canRunPhaseDone and assert gate
-    status: pending
-    lastUpdated: 2026-07-23T09:15:05.378Z
+    status: done
+    lastUpdated: 2026-07-23T09:25:47.073Z
     scopeBoundary:
       - Do not remove evaluationGate requirement under automate. Do not
         auto-stamp decisionReview from evaluation agent.
@@ -128,6 +138,17 @@ tasks:
         path: skills/shared/project-assets/project-transitions.md
     summary: Wire canRunPhaseDone e assert-automate-gate com decisionReview.
     weight: 2
+    closedAt: 2026-07-23T09:25:47.073Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T09:25:47.073Z
+      verifiedCommit: 56a4f39756ad2d95cc1b991fe6c55ef267df5793
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/automate-orchestrator-gates.test.js
+        tests/decision-review-gate.test.js → 48 pass; rg
+        decisionReview|decision-review on gates/assert/transitions EXIT 0 @
+        56a4f39
   - id: T-012
     title: Operator PASS procedure in maestro
     status: pending
@@ -167,16 +188,19 @@ Initiative for phase **F3 — Decision-review hardgate on phase-done**.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- T-010/T-011 closed post-merge re-verify at 56a4f39 (exclusive claims 484c2da / 7bec738).
+- T-012 prose landed (801d667); manual verifier + F3-G3 await operator PASS on procedure.
+- Lease cleared after merge settle; worktree still present for optional teardown.
 
 ## Links
 
-_(plan doc, external refs)_
+- claim SHAs: 484c2da (T-010), 7bec738 (T-011), 801d667 (T-012)
+- merge: 56a4f39
 
 ## Session handoff
-- **Narrative:** F3 pure-maestro Step C: lease active; sibling worktree implement-phase-agents-F3-writer spawned for T-010..T-012. Host is host-thin — no product edits. Awaiting claim report.
-- **Decision log:** F3 BI ratified at materialize. Lease acquired at .atomic-skills/status/writer-leases/implement-phase-agents.json (secret in session writer-lease-secret-implement-phase-agents-F3.json). Writer branch impl/implement-phase-agents-F3-writer base bb418ec.
-- **Single nextAction:** SYNC WAIT F3 phase writer claim report (T-010..T-012); then merge + post-merge re-verify + done.
-- **Verbatim state:** phaseId=F3; executionMode=automate; worktree=/Volumes/External/code/atomic-skills/.worktrees/implement-phase-agents-F3-writer; writerBranch=impl/implement-phase-agents-F3-writer; baseRef=bb418ec; tasks T-010 T-011 T-012 pending.
-- **Uncommitted changes:** pre-dispatch handoff only (this file).
+- **Narrative:** F3 product code merged. T-010 and T-011 done via post-merge shell verifiers. T-012 files present; manual gate pending operator.
+- **Decision log:** Exclusive claim SHAs validated; reachability proven on plan branch; lease cleared with acquire secret.
+- **Single nextAction:** Operator PASS on T-012 / F3-G3 after reading decision-review procedure; then evaluation agent + phase-done.
+- **Verbatim state:** HEAD=56a4f39756ad2d95cc1b991fe6c55ef267df5793; tasksDone=2/3; T-012 pending manual; evaluationGate absent; decisionReview absent.
+- **Uncommitted changes:** checkpoint for T-010 T-011 pending commit.
 
