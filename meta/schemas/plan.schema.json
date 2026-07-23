@@ -412,6 +412,32 @@
             },
             "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
           }
+        },
+        "decisionReview": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "description": "Automate pure-maestro operator PASS hardgate on the phase decision log before phase-done. Written only with explicit operator token in the same turn (never agent auto-PASS). Enforced by decisionReviewAllowsPhaseDone / canRunPhaseDone when plan.executionMode is automate. Absent/optional on non-automate phases.",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["pending", "passed", "failed"],
+              "description": "pending = awaiting operator; passed = operator PASS on decision log; failed = operator FAIL (do not advance currentPhase)."
+            },
+            "verifiedAt": {
+              "$ref": "common.schema.json#/$defs/isoTimestamp",
+              "description": "Required when status=passed (operator PASS timestamp)."
+            },
+            "evidencePath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional path to decision log or PASS evidence (e.g. decisions/<phaseId>.jsonl)."
+            },
+            "at": {
+              "$ref": "common.schema.json#/$defs/gitSha",
+              "description": "Optional plan-branch HEAD when operator stamped decision-review."
+            }
+          }
         }
       },
       "allOf": [
