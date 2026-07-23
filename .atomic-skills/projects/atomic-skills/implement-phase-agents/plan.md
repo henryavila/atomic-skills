@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: implement-phase-agents
 title: Implement phase agents (host-thin automate)
 version: "1.0"
-status: active
+status: done
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T14:19:33.711Z
+lastUpdated: 2026-07-23T15:00:00.000Z
 branch: plan/implement-phase-agents
 currentPhase: F5
 executionMode: automate
@@ -602,7 +602,7 @@ supersedes:
     - evaluationGate and phase review both
     - plan-end external-both and userValidationOk
     - assert-automate-gate machine layers from automate-skill-discipline
-planActive: true
+planActive: false
 planTitle: Implement phase agents (host-thin automate)
 planEndReview:
   mode: external-both
@@ -670,6 +670,8 @@ Extend implement and shared assets plus pure helpers and tests. No skills/core/a
 | F5 | Tests fixtures docs and dogfood checklist | Fixtures, dogfood checklist e ponteiros de memoria. |
 
 ## Reviews
+
+- plan done: 2026-07-23T15:00:00.000Z — all phases F0–F5 done; plan-end external-both + userValidatedAt; consolidating onto develop
 
 - user validation: 2026-07-23T14:19:33.711Z — operator PASS (aprovado) after plan-end external-both
 
