@@ -17,11 +17,11 @@ Under automate, phase close order is fixed:
    - **non-closing shapes** (may be recorded via `buildEvaluationGate` for audit / residual path; **do not** satisfy close while the stamp holds):
      - rare skip → `{ status: skipped, reason: <non-empty> }` (operator-recorded, never silent)
      - residual after disposition → `{ status: failed-dispositioned, disposition: accept|defer|fix, reason: <non-empty> }`
-   Machine check under durable automate: `phaseEvaluationAllowsClose` / `canRunPhaseDone` return `ok: true` **only** for `{ status: passed, verdict: pass }`. `skipped` and `failed-dispositioned` return `ok: false` — evaluation is mandatory under the stamp; clear `executionMode` (leave automate) before accepting residual risk.
-4. **decision-review** mandatory **manual hardgate** — **operator PASS only**; the agent never writes decision-review PASS (silent auto-PASS forbidden).
-5. **Then** `phase-done` with `review-code --mode=both` (automate default — **not** `external-both`; plan-end is the only `external-both` gate).
+   Machine check under durable automate: `phaseEvaluationAllowsClose` returns `ok: true` **only** for `{ status: passed, verdict: pass }`. `skipped` and `failed-dispositioned` return `ok: false` — evaluation is mandatory under the stamp; clear `executionMode` (leave automate) before accepting residual risk.
+4. **decision-review** mandatory **manual hardgate** — **operator PASS only**; the agent never writes decision-review PASS (silent auto-PASS forbidden). Stamp via `buildDecisionReview({ status: 'passed', verifiedAt })` after operator token.
+5. **Then** preflight `canRunPhaseDone` / `preflightPhaseDone` (under automate: **evaluationGate AND decisionReview** — both must allow close; codes `phase-done-evaluation-open` / `phase-done-decision-review-open`) → `phase-done` with `review-code --mode=both` (automate default — **not** `external-both`; plan-end is the only `external-both` gate).
 
-Do not run phase-done before the evaluation agent completes, `evaluationGate` is stamped with **`{ status: passed, verdict: pass }`** (explicit skip/disposition alone never enables phase-done under durable automate — clear executionMode first if residual must be accepted), **and** decision-review has operator PASS.
+Do not run phase-done before the evaluation agent completes, `evaluationGate` is stamped with **`{ status: passed, verdict: pass }`** (explicit skip/disposition alone never enables phase-done under durable automate — clear executionMode first if residual must be accepted), **and** decision-review has operator PASS (`status: passed` + `verifiedAt`). `canRunPhaseDone` = evaluationGate **AND** decisionReview under durable automate.
 
 ---
 

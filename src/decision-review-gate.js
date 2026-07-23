@@ -132,6 +132,15 @@ export function buildDecisionReview(fields) {
       `buildDecisionReview: invalid status "${fields.status}" (pending|passed|failed)`,
     );
   }
+  if (status === 'passed') {
+    const verifiedAt =
+      fields.verifiedAt != null ? String(fields.verifiedAt).trim() : '';
+    if (verifiedAt === '') {
+      throw new Error(
+        'buildDecisionReview: status=passed requires non-empty verifiedAt (operator PASS timestamp)',
+      );
+    }
+  }
   /** @type {DecisionReview} */
   const out = { status: /** @type {DecisionReview['status']} */ (status) };
   if (fields.verifiedAt != null) out.verifiedAt = String(fields.verifiedAt);

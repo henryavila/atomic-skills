@@ -347,6 +347,11 @@ test('allows phase-done commit when tasks, gates met, review, lessons, and finge
   assert.equal(viaClassify.allowed, true);
 });
 
+const automateDecisionReviewPassed = {
+  status: 'passed',
+  verifiedAt: '2026-07-23T12:00:00.000Z',
+};
+
 test('B1: under durable automate, reviewGate skipped is blocked even with reason', () => {
   const result = commitGuardPhaseDone(
     happyCommitInput({
@@ -366,6 +371,7 @@ test('B1: under durable automate, reviewGate skipped is blocked even with reason
         ],
       },
       evaluationGate: { status: 'passed', verdict: 'pass' },
+      decisionReview: automateDecisionReviewPassed,
       reviewGate: {
         status: 'skipped',
         reason: 'operator: pad pad pad pad pad',
@@ -396,6 +402,7 @@ test('B1: under durable automate, reviewGate passed + mode local is blocked', ()
         ],
       },
       evaluationGate: { status: 'passed', verdict: 'pass' },
+      decisionReview: automateDecisionReviewPassed,
       reviewGate: { status: 'passed', at: FP, mode: 'local' },
     }),
   );
@@ -422,6 +429,7 @@ test('B1: under durable automate, reviewGate passed + mode both is allowed', () 
         ],
       },
       evaluationGate: { status: 'passed', verdict: 'pass' },
+      decisionReview: automateDecisionReviewPassed,
       reviewGate: { status: 'passed', at: FP, mode: 'both' },
     }),
   );
@@ -515,7 +523,7 @@ test('preflightPhaseDone blocks under automate without evaluationGate (R1)', () 
   assert.match(result.recommendedCommand || '', /evaluation/i);
 });
 
-test('preflightPhaseDone allows automate when evaluationGate passed', () => {
+test('preflightPhaseDone blocks automate when evaluationGate passed but decisionReview missing', () => {
   const result = preflightPhaseDone({
     parentPlan: 'demo',
     phaseId: 'F0',
@@ -528,6 +536,57 @@ test('preflightPhaseDone allows automate when evaluationGate passed', () => {
           status: 'active',
           dependsOn: [],
           evaluationGate: { status: 'passed', verdict: 'pass' },
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true);
+  assert.equal(result.code, 'phase-done-decision-review-open');
+  assert.match(result.reason || '', /decisionReview/);
+});
+
+test('preflightPhaseDone blocks automate when decisionReview pending', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    plan: {
+      executionMode: 'automate',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'f0',
+          status: 'active',
+          dependsOn: [],
+          evaluationGate: { status: 'passed', verdict: 'pass' },
+          decisionReview: { status: 'pending' },
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true);
+  assert.equal(result.code, 'phase-done-decision-review-open');
+  assert.match(result.reason || '', /pending/i);
+});
+
+test('preflightPhaseDone allows automate when evaluationGate and decisionReview both passed', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    plan: {
+      executionMode: 'automate',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'f0',
+          status: 'active',
+          dependsOn: [],
+          evaluationGate: { status: 'passed', verdict: 'pass' },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-07-23T12:00:00.000Z',
+          },
         },
       ],
     },
