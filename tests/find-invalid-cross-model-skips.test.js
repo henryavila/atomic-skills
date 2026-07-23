@@ -23,6 +23,30 @@ describe('parseCrossModelSkipLine', () => {
     const p = parseCrossModelSkipLine('- cross-model: SKIPPED — not provided');
     assert.equal(p.operatorTagged, false);
   });
+
+  it('recognizes bare SKIPPED without separator (invalid, not ignored)', () => {
+    const p = parseCrossModelSkipLine('- cross-model: SKIPPED');
+    assert.ok(p, 'bare SKIPPED must parse as a skip line');
+    assert.equal(p.operatorTagged, false);
+    assert.equal(p.reason, '');
+  });
+
+  it('recognizes bare legacy codex SKIPPED', () => {
+    const p = parseCrossModelSkipLine('- codex: SKIPPED');
+    assert.ok(p);
+    assert.equal(p.operatorTagged, false);
+  });
+});
+
+describe('findInvalidSkipsInBody bare SKIPPED', () => {
+  it('reports bare cross-model SKIPPED under ## Reviews', () => {
+    const body = `## Reviews
+- internal: clean
+- cross-model: SKIPPED
+`;
+    const bad = findInvalidSkipsInBody(body);
+    assert.ok(bad.some((b) => b.code === 'missing-operator-tag'));
+  });
 });
 
 describe('invalidSkipReason', () => {

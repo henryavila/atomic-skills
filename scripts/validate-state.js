@@ -587,6 +587,32 @@ export function checkClosedAtHardening(frontmatter, grandfatheredTaskIds) {
  * @param {object} frontmatter - a parsed plan frontmatter (initiatives have no phases → no-op)
  * @returns {string[]} violation messages (empty = invariant holds)
  */
+/**
+ * Whether a done phase should be held to durable-automate honesty rules.
+ * Mid-plan Mode-1→automate adoption leaves earlier done phases without
+ * evaluationGate/decisionReview/both-mode review — those are exempt unless
+ * they carry automate-era stamps (or an explicit closedUnderAutomate marker).
+ *
+ * @param {object} phase
+ * @returns {boolean}
+ */
+export function phaseClosedUnderAutomate(phase) {
+  if (phase == null || typeof phase !== 'object') return false;
+  if (phase.closedUnderAutomate === true) return true;
+  if (phase.evaluationGate != null && typeof phase.evaluationGate === 'object') {
+    return true;
+  }
+  if (phase.decisionReview != null && typeof phase.decisionReview === 'object') {
+    return true;
+  }
+  const rg = phase.reviewGate;
+  if (rg != null && typeof rg === 'object') {
+    const mode = rg.mode != null ? String(rg.mode).trim().toLowerCase() : '';
+    if (mode === 'both' || mode === 'external-both') return true;
+  }
+  return false;
+}
+
 export function checkReviewGate(frontmatter) {
   const violations = [];
   if (frontmatter == null || typeof frontmatter !== 'object') return violations;
@@ -600,6 +626,7 @@ export function checkReviewGate(frontmatter) {
     const rg = phase.reviewGate;
     if (rg == null || typeof rg !== 'object') continue; // absent ⇒ tolerated (legacy / GATE-R2-consistent)
     const label = `phase ${phase.id ?? '?'}`;
+    const underAutomate = durableAutomate && phaseClosedUnderAutomate(phase);
     if (rg.status === 'passed') {
       if (!hasText(rg.at)) {
         violations.push(`${label}: reviewGate.status is 'passed' but has no \`at\` sha — a passed review claim must record the commit it concluded against, not just assert it ran.`);
@@ -610,7 +637,7 @@ export function checkReviewGate(frontmatter) {
         violations.push(`${label}: reviewGate.status is 'passed' but has no \`mode\` — record which surface ran (local|codex|grok|claude|both|…).`);
       } else if (!REVIEW_GATE_MODES.has(rg.mode)) {
         violations.push(`${label}: reviewGate.mode must be a known review mode (got ${JSON.stringify(rg.mode)}).`);
-      } else if (durableAutomate) {
+      } else if (underAutomate) {
         const mode = String(rg.mode).trim().toLowerCase();
         if (mode !== 'both' && mode !== 'external-both') {
           violations.push(
@@ -624,7 +651,7 @@ export function checkReviewGate(frontmatter) {
         violations.push(`${label}: reviewGate.reviewFile is present but empty/blank — omit the field or record a real path.`);
       }
     } else if (rg.status === 'skipped') {
-      if (durableAutomate) {
+      if (underAutomate) {
         violations.push(
           `${label}: under executionMode automate, reviewGate.status skipped is forbidden — run review-code --mode=both and stamp passed (clear stamp to leave automate)`,
         );
@@ -663,16 +690,19 @@ export function checkEvaluationGate(frontmatter) {
   for (const phase of phases) {
     if (phase?.status !== 'done') continue;
     const label = `phase ${phase.id ?? '?'}`;
+    const underAutomate = durableAutomate && phaseClosedUnderAutomate(phase);
     const eg = phase.evaluationGate;
     if (eg == null || typeof eg !== 'object') {
-      if (durableAutomate) {
+      // Only require evaluationGate on phases closed under automate (not Mode-1 history).
+      if (underAutomate || (durableAutomate && phase.closedUnderAutomate === true)) {
         violations.push(
-          `${label}: executionMode automate requires evaluationGate on done phases — run the evaluation agent until status=passed verdict=pass (skip forbidden under durable stamp)`,
+          `${label}: executionMode automate requires evaluationGate on done phases closed under automate — run the evaluation agent until status=passed verdict=pass (skip forbidden under durable stamp)`,
         );
       }
       continue;
     }
-    // Honesty only under durable automate (mandatory pass). Non-automate: presence only.
+    // Honesty only under durable automate for automate-era phases.
+    // Presence of evaluationGate itself marks the phase as under-automate.
     if (durableAutomate) {
       const honesty = phaseEvaluationAllowsClose({
         planExecutionMode: 'automate',
@@ -712,6 +742,8 @@ export function checkDecisionReview(frontmatter) {
   const phases = Array.isArray(frontmatter.phases) ? frontmatter.phases : [];
   for (const phase of phases) {
     if (phase?.status !== 'done') continue;
+    // Mode-1 done phases without automate-era stamps are exempt (mid-plan adoption).
+    if (!phaseClosedUnderAutomate(phase)) continue;
     const label = `phase ${phase.id ?? '?'}`;
     const honesty = decisionReviewAllowsPhaseDone({
       planExecutionMode: 'automate',

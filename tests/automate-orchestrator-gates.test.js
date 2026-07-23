@@ -106,6 +106,16 @@ describe('canSpawnHostThinPhaseWriter', () => {
   });
 });
 
+/** Strong-enough BI spine for spawn integrity fixtures (5 fields). */
+const INIT_BI_LINES = [
+  'businessIntent:',
+  '  value: "Sob automate o host fica magro e spawna writer so apos materialize com spine ratificada."',
+  '  workflow: "Package draft → operator ratify → materialize Mode B → lease → spawn phase writer."',
+  '  rules: "Nunca blank BI; nunca auto-PASS; never spawn before ratify; no product entrypoints on host."',
+  '  outOfScope: "Layer 4 daemon multi-host; reescrever Mode 1 ou Mode 2; auto-PASS de gates manuais."',
+  '  doneWhen: "assert-automate-gate --gate spawn exits 0 only with complete BI spine and active initiative."',
+];
+
 describe('assert-automate-gate spawn descriptor-only', () => {
   /** @type {string | null} */
   let tmp = null;
@@ -161,6 +171,7 @@ describe('assert-automate-gate spawn descriptor-only', () => {
           'phaseId: F1',
           'status: active',
           'parentPlan: demo-plan',
+          ...INIT_BI_LINES,
           '---',
           '',
           '# initiative',
@@ -261,6 +272,34 @@ describe('canCloseTasksFromClaims', () => {
       claimReport: { tasks: [goodTask] },
     });
     assert.equal(r.ok, true);
+  });
+
+  it('shape-only allows claimed-fail; done gate (requireAllClaimedPass) rejects it', () => {
+    const failTask = {
+      ...goodTask,
+      status: 'claimed-fail',
+      exitCode: 1,
+    };
+    assert.equal(
+      canCloseTasksFromClaims({ claimReport: { tasks: [failTask] } }).ok,
+      true,
+    );
+    const done = canCloseTasksFromClaims({
+      claimReport: { tasks: [failTask] },
+      requireAllClaimedPass: true,
+    });
+    assert.equal(done.ok, false);
+    assert.match(done.reason || '', /claimed-pass/);
+  });
+
+  it('requireAllClaimedPass accepts claimed-pass with exit 0', () => {
+    assert.equal(
+      canCloseTasksFromClaims({
+        claimReport: { tasks: [goodTask] },
+        requireAllClaimedPass: true,
+      }).ok,
+      true,
+    );
   });
 
   it('reachability check when requested', () => {
@@ -511,6 +550,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           'phaseId: F1',
           'status: active',
           'parentPlan: flat-plan',
+          ...INIT_BI_LINES,
           '---',
           '',
           '# initiative',
@@ -769,6 +809,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           'phaseId: F1',
           'status: active',
           'parentPlan: demo-plan',
+          ...INIT_BI_LINES,
           '---',
           '',
           '# initiative',
@@ -835,6 +876,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           'phaseId: F1',
           'status: active',
           'parentPlan: demo-plan',
+          ...INIT_BI_LINES,
           '---',
           '',
           '# initiative',
@@ -859,6 +901,72 @@ describe('assert-automate-gate path safety + flat plan', () => {
       );
       assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
       assert.match(r.stdout, /^ok\b/m);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('spawn blocks when initiative exists but businessIntent spine is missing', () => {
+    try {
+      tmp = mkdtempSync(join(tmpdir(), 'assert-spawn-no-bi-'));
+      const stateRoot = join(tmp, '.atomic-skills');
+      const planDir = join(stateRoot, 'projects', 'demo', 'demo-plan');
+      const phasesDir = join(planDir, 'phases');
+      mkdirSync(phasesDir, { recursive: true });
+      mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: demo-plan',
+          'status: active',
+          'currentPhase: F1',
+          'executionMode: automate',
+          'phases:',
+          '  - id: F1',
+          '    status: pending',
+          '    slug: f1-next',
+          '---',
+          '',
+          '# plan',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      writeFileSync(
+        join(phasesDir, 'f1-next.md'),
+        [
+          '---',
+          'schemaVersion: "0.1"',
+          'slug: f1-next',
+          'phaseId: F1',
+          'status: active',
+          'parentPlan: demo-plan',
+          '---',
+          '',
+          '# initiative without BI',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const r = run(
+        [
+          '--plan',
+          'demo-plan',
+          '--project',
+          'demo',
+          '--gate',
+          'spawn',
+          '--state-root',
+          stateRoot,
+          '--status-root',
+          join(stateRoot, 'status'),
+        ],
+        { cwd: tmp },
+      );
+      assert.notEqual(r.status, 0);
+      assert.match(`${r.stdout}\n${r.stderr}`, /businessIntent/i);
     } finally {
       cleanup();
     }

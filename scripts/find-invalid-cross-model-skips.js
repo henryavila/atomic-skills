@@ -45,14 +45,20 @@ export const BANNED_SKIP_REASONS = [
  */
 export function parseCrossModelSkipLine(line) {
   if (typeof line !== 'string') return null;
+  // - cross-model: SKIPPED
   // - cross-model: SKIPPED — …
   // - cross-model (codex): SKIPPED — …
   // - codex: SKIPPED — … (legacy)
+  // Separator after SKIPPED is optional so bare `- cross-model: SKIPPED` is
+  // recognized (and later rejected as missing operator tag / reason).
   const m = line.match(
-    /^\s*-\s*(?:cross-model(?:\s*\([^)]*\))?|codex)\s*:\s*SKIPPED\s*(?:—|--|-)\s*(.*)$/i,
+    /^\s*-\s*(?:cross-model(?:\s*\([^)]*\))?|codex)\s*:\s*SKIPPED(?:\s*(?:—|--|-)\s*(.*))?$/i,
   );
   if (!m) return null;
   const rest = (m[1] || '').trim();
+  if (!rest) {
+    return { raw: '', operatorTagged: false, reason: '' };
+  }
   const op = rest.match(/^operator\s*:\s*(.*)$/i);
   if (op) {
     return { raw: rest, operatorTagged: true, reason: (op[1] || '').trim() };

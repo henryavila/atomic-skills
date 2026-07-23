@@ -344,10 +344,42 @@ export function extractOverlapTokens(...texts) {
 }
 
 /**
+ * Whole-suite runners without a file path argument are legitimate SPEC
+ * verifiers (project suite as oracle). Do not HARD-block on zero path/token
+ * overlap for these shapes.
+ * @param {string} verifierVal
+ * @returns {boolean}
+ */
+export function isWholeSuiteVerifier(verifierVal) {
+  if (!verifierVal || typeof verifierVal !== 'string') return false;
+  // Prefer the command field when present (YAML/JSON-ish verifier blocks).
+  const cmdMatch = verifierVal.match(
+    /(?:command|cmd)\s*[:=]\s*["'`]?([^"'`\n]+)/i,
+  );
+  const cmd = (cmdMatch ? cmdMatch[1] : verifierVal).trim();
+  const normalized = cmd.replace(/\s+/g, ' ').trim();
+  // Bare or near-bare suite runners (optional trailing flags that are not paths)
+  return (
+    /^(npm|pnpm|yarn)\s+test(\s|$)/i.test(normalized) ||
+    /^npx\s+[\w@/.-]*\s*test(\s|$)/i.test(normalized) ||
+    /^pytest(\s|$)/i.test(normalized) ||
+    /^cargo\s+test(\s|$)/i.test(normalized) ||
+    /^go\s+test(\s|\.\/|\.\/\.\.\.|$)/i.test(normalized) ||
+    /^make\s+test(\s|$)/i.test(normalized) ||
+    /^node\s+--test(\s|$)/i.test(normalized) ||
+    /^bun\s+test(\s|$)/i.test(normalized) ||
+    /^vitest(\s+run)?(\s|$)/i.test(normalized) ||
+    /^jest(\s|$)/i.test(normalized)
+  );
+}
+
+/**
  * @returns {'ok'|'warn'|'hard'}
  */
 export function acceptanceVerifierOverlap(filesVal, acceptanceVal, verifierVal) {
   if (!verifierVal || /\bmanual\b/i.test(verifierVal)) return 'ok';
+  // Project-wide suite runners are deterministic oracles without path tokens.
+  if (isWholeSuiteVerifier(String(verifierVal))) return 'ok';
   const a = extractOverlapTokens(filesVal, acceptanceVal);
   const v = extractOverlapTokens(verifierVal);
   let pathHit = false;

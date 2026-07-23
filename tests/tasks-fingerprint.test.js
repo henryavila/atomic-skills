@@ -43,6 +43,64 @@ describe('tasks-fingerprint', () => {
     assert.notEqual(base, hashTasksCore([{ ...baseTask, title: 'Do the thing differently' }]));
   });
 
+  it('changing expectExitCode / expectRowCount / connectionCommand / runner changes hash', () => {
+    const withExit = {
+      ...baseTask,
+      verifier: { kind: 'shell', command: 'node --test tests/a.test.js', expectExitCode: 0 },
+    };
+    const base = hashTasksCore([withExit]);
+    assert.notEqual(
+      base,
+      hashTasksCore([
+        {
+          ...withExit,
+          verifier: { ...withExit.verifier, expectExitCode: 1 },
+        },
+      ]),
+    );
+    const query = {
+      ...baseTask,
+      verifier: {
+        kind: 'query',
+        sql: 'select 1',
+        expectRowCount: 0,
+        connectionCommand: 'psql $DB',
+      },
+    };
+    const qBase = hashTasksCore([query]);
+    assert.notEqual(
+      qBase,
+      hashTasksCore([
+        {
+          ...query,
+          verifier: { ...query.verifier, expectRowCount: 1 },
+        },
+      ]),
+    );
+    assert.notEqual(
+      qBase,
+      hashTasksCore([
+        {
+          ...query,
+          verifier: { ...query.verifier, connectionCommand: 'psql $OTHER' },
+        },
+      ]),
+    );
+    const withRunner = {
+      ...baseTask,
+      verifier: { kind: 'test', command: 'npm test', runner: 'jest' },
+    };
+    assert.notEqual(
+      hashTasksCore([withRunner]),
+      hashTasksCore([
+        {
+          ...withRunner,
+          verifier: { ...withRunner.verifier, runner: 'vitest' },
+        },
+      ]),
+    );
+  });
+
   it('title-only whitespace rewrite does not change hash after normalize', () => {
     const a = hashTasksCore([baseTask]);
     const b = hashTasksCore([{ ...baseTask, title: 'Do the thing' }]);

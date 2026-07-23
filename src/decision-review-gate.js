@@ -13,6 +13,22 @@
 import { isDurableAutomateActive } from './plan-end-review.js';
 
 /**
+ * ISO-ish timestamp: Date.parse accepts AND looks like a calendar date
+ * (contains 'T' or matches YYYY-MM-DD…). Rejects Date.parse false positives
+ * like "0" or bare "x".
+ *
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export function isIsoishTimestamp(value) {
+  if (typeof value !== 'string') return false;
+  const provided = value.trim();
+  if (!provided) return false;
+  if (Number.isNaN(Date.parse(provided))) return false;
+  return /T/.test(provided) || /^\d{4}-\d{2}-\d{2}/.test(provided);
+}
+
+/**
  * Whether durable automate decision-review order applies (stamp-first).
  *
  * @param {{
@@ -89,6 +105,13 @@ export function decisionReviewAllowsPhaseDone(input = {}) {
           'decisionReview status=passed requires verifiedAt (operator PASS timestamp)',
       };
     }
+    if (!isIsoishTimestamp(verifiedAt)) {
+      return {
+        ok: false,
+        reason:
+          'decisionReview status=passed requires verifiedAt as ISO timestamp (YYYY-MM-DD or full ISO-8601)',
+      };
+    }
     return { ok: true };
   }
 
@@ -138,6 +161,11 @@ export function buildDecisionReview(fields) {
     if (verifiedAt === '') {
       throw new Error(
         'buildDecisionReview: status=passed requires non-empty verifiedAt (operator PASS timestamp)',
+      );
+    }
+    if (!isIsoishTimestamp(verifiedAt)) {
+      throw new Error(
+        'buildDecisionReview: status=passed requires verifiedAt as ISO timestamp (YYYY-MM-DD or full ISO-8601)',
       );
     }
   }

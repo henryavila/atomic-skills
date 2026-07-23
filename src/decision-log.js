@@ -8,12 +8,14 @@
  */
 
 import {
-  appendFileSync,
+  constants as fsConstants,
   existsSync,
+  lstatSync,
   mkdirSync,
   openSync,
   closeSync,
   readFileSync,
+  writeSync,
 } from 'node:fs';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -306,6 +308,21 @@ function confineDecisionsPath(filePath, statusRoot, projectId, planSlug) {
   if (!absFile.endsWith('.jsonl')) {
     throw new Error('resolveLogPath: decision log path must end with .jsonl');
   }
+  // Reject symlink at the log path (lexical confine alone is not enough —
+  // append would follow the link outside decisions/).
+  if (existsSync(absFile)) {
+    try {
+      const st = lstatSync(absFile);
+      if (st.isSymbolicLink()) {
+        throw new Error(
+          'resolveLogPath: decision log path is a symlink — refuse (use a regular .jsonl file)',
+        );
+      }
+    } catch (e) {
+      if (e instanceof Error && /symlink/.test(e.message)) throw e;
+      // lstat race / ENOENT after exists: fall through to open
+    }
+  }
   return absFile;
 }
 
@@ -437,7 +454,8 @@ function resolveLogPath(statusRootOrPath, locator = {}) {
 /**
  * Create parent dirs and ensure the log file exists with mode 0o600 when new.
  * Always try exclusive create (`wx`); on EEXIST (peer won the race, or file
- * already present) fall through so appendFileSync can proceed.
+ * already present) fall through so append can proceed. Rejects pre-existing
+ * symlink at the target path.
  *
  * @param {string} path
  */
@@ -453,9 +471,51 @@ function ensureLogFile(path) {
       'code' in e &&
       /** @type {{ code?: string }} */ (e).code === 'EEXIST'
     ) {
+      // Existing path must be a regular file, not a symlink.
+      const st = lstatSync(path);
+      if (st.isSymbolicLink()) {
+        throw new Error(
+          'ensureLogFile: decision log path is a symlink — refuse',
+        );
+      }
       return;
     }
     throw e;
+  }
+}
+
+/**
+ * Append one line to the log with O_APPEND|O_WRONLY|O_NOFOLLOW so a symlink
+ * race after ensureLogFile cannot redirect the write outside decisions/.
+ *
+ * @param {string} path
+ * @param {string} line
+ */
+function appendLogLine(path, line) {
+  const flags =
+    fsConstants.O_APPEND |
+    fsConstants.O_WRONLY |
+    (fsConstants.O_NOFOLLOW != null ? fsConstants.O_NOFOLLOW : 0);
+  let fd;
+  try {
+    fd = openSync(path, flags);
+  } catch (e) {
+    const code =
+      e && typeof e === 'object' && 'code' in e
+        ? /** @type {{ code?: string }} */ (e).code
+        : '';
+    // ELOOP = symlink followed / O_NOFOLLOW refused on some platforms
+    if (code === 'ELOOP' || code === 'EPERM') {
+      throw new Error(
+        'appendLogLine: refused open (symlink or O_NOFOLLOW) — decision log must be a regular file',
+      );
+    }
+    throw e;
+  }
+  try {
+    writeSync(fd, line, null, 'utf8');
+  } finally {
+    closeSync(fd);
   }
 }
 
@@ -479,7 +539,7 @@ export function appendDecision(statusRootOrPath, entry, locator) {
     const validated = validateDecisionEntry(entry);
     const path = resolveLogPath(statusRootOrPath, locator ?? {});
     ensureLogFile(path);
-    appendFileSync(path, `${JSON.stringify(validated)}\n`, { encoding: 'utf8' });
+    appendLogLine(path, `${JSON.stringify(validated)}\n`);
     return { ok: true, path, entry: validated };
   } catch (e) {
     return {

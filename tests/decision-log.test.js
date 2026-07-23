@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -589,5 +589,22 @@ describe('appendDecision + listDecisions', () => {
     });
     assert.equal(listed.length, 1);
     assert.equal(listed[0].id, 'good');
+  });
+
+  it('refuses append when log path is a symlink', () => {
+    const loc = locator('sym');
+    const path = decisionLogPath(loc);
+    mkdirSync(dirname(path), { recursive: true });
+    const outside = join(statusRoot, 'outside-target.txt');
+    writeFileSync(outside, 'seed\n', 'utf8');
+    symlinkSync(outside, path);
+    const result = appendDecision(
+      loc,
+      baseEntry({ id: 'sym-1', at: '2026-07-22T12:00:00.000Z' }),
+    );
+    assert.equal(result.ok, false);
+    assert.match(result.error || '', /symlink/i);
+    const outsideBody = readFileSync(outside, 'utf8');
+    assert.equal(outsideBody.includes('sym-1'), false);
   });
 });

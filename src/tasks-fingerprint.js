@@ -69,14 +69,37 @@ function normalizeStringList(list) {
 
 /**
  * Canonical verifier shape for hashing.
+ * Includes outcome/connection fields so expectExitCode / expectRowCount /
+ * connectionCommand / runner changes refuse at materialize.
  * @param {object|null|undefined} v
- * @returns {{ kind: string, command: string } | null}
+ * @returns {object | null}
  */
 export function canonicalizeVerifier(v) {
   if (!v || typeof v !== 'object') return null;
   const kind = String(v.kind || '').toLowerCase();
   const command = String(v.command || v.cmd || v.pattern || v.sql || '').trim();
-  return { kind, command };
+  /** @type {Record<string, unknown>} */
+  const out = { kind, command };
+  if (v.expectExitCode !== undefined && v.expectExitCode !== null) {
+    out.expectExitCode = Number(v.expectExitCode);
+  }
+  if (v.expectRowCount !== undefined && v.expectRowCount !== null) {
+    out.expectRowCount = Number(v.expectRowCount);
+  }
+  if (v.connectionCommand != null && String(v.connectionCommand).trim()) {
+    out.connectionCommand = String(v.connectionCommand).trim();
+  }
+  if (v.runner != null && String(v.runner).trim()) {
+    out.runner = String(v.runner).trim();
+  }
+  if (v.sql != null && String(v.sql).trim() && !out.command) {
+    out.command = String(v.sql).trim();
+  }
+  // Keep explicit sql when both present so SQL body changes are detected.
+  if (v.sql != null && String(v.sql).trim()) {
+    out.sql = String(v.sql).trim();
+  }
+  return out;
 }
 
 /**

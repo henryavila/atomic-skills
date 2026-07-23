@@ -72,6 +72,15 @@ describe('decisionReviewAllowsPhaseDone', () => {
     assert.match(r.reason || '', /verifiedAt/);
   });
 
+  it('blocks passed with non-ISO verifiedAt', () => {
+    const r = decisionReviewAllowsPhaseDone({
+      planExecutionMode: 'automate',
+      decisionReview: { status: 'passed', verifiedAt: 'x' },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /ISO|timestamp/i);
+  });
+
   it('allows automate + status passed + verifiedAt', () => {
     const r = decisionReviewAllowsPhaseDone({
       planExecutionMode: 'automate',

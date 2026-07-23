@@ -123,11 +123,15 @@ export function canSpawnHostThinPhaseWriter(input = {}) {
 
 /**
  * Before orchestrator done: claim report must validate; optional reachability.
+ * When `requireAllClaimedPass` is true (done gate), every task must be
+ * claimed-pass with exitCode === 0, or a closed non-open status (blocked|skipped).
+ * claimed-fail never satisfies the done gate.
  *
  * @param {{
  *   claimReport?: unknown,
  *   reachableSet?: Iterable<string> | ((sha: string) => boolean) | null,
  *   checkReachability?: boolean,
+ *   requireAllClaimedPass?: boolean,
  * }} [input]
  * @returns {{ ok: boolean, reason?: string, claimValidation?: object }}
  */
@@ -143,6 +147,32 @@ export function canCloseTasksFromClaims(input = {}) {
       reason: (v.errors && v.errors.join('; ')) || 'invalid claim report',
       claimValidation: v,
     };
+  }
+  if (input.requireAllClaimedPass === true) {
+    const tasks = Array.isArray(/** @type {{ tasks?: unknown }} */ (report).tasks)
+      ? /** @type {{ tasks: object[] }} */ (report).tasks
+      : [];
+    for (const task of tasks) {
+      const raw =
+        task?.status != null ? String(task.status).trim().toLowerCase() : '';
+      // omit / empty defaults to claimed-pass open in claim-report validation
+      const status = raw === '' ? 'claimed-pass' : raw;
+      if (status === 'blocked' || status === 'skipped') continue;
+      if (status !== 'claimed-pass') {
+        return {
+          ok: false,
+          reason: `done gate requires claimed-pass (got status=${status || '(empty)'} for task ${task?.taskId ?? '?'})`,
+          claimValidation: v,
+        };
+      }
+      if (task.exitCode !== 0) {
+        return {
+          ok: false,
+          reason: `done gate requires exitCode === 0 for claimed-pass (task ${task?.taskId ?? '?'})`,
+          claimValidation: v,
+        };
+      }
+    }
   }
   if (input.checkReachability === true) {
     const r = validateClaimReachability(report, input.reachableSet);

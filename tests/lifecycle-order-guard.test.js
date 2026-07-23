@@ -367,11 +367,11 @@ test('B1: under durable automate, reviewGate skipped is blocked even with reason
             subPhaseCount: 0,
             goal: 'g',
             title: 'F4',
+            evaluationGate: { status: 'passed', verdict: 'pass' },
+            decisionReview: automateDecisionReviewPassed,
           },
         ],
       },
-      evaluationGate: { status: 'passed', verdict: 'pass' },
-      decisionReview: automateDecisionReviewPassed,
       reviewGate: {
         status: 'skipped',
         reason: 'operator: pad pad pad pad pad',
@@ -398,11 +398,11 @@ test('B1: under durable automate, reviewGate passed + mode local is blocked', ()
             subPhaseCount: 0,
             goal: 'g',
             title: 'F4',
+            evaluationGate: { status: 'passed', verdict: 'pass' },
+            decisionReview: automateDecisionReviewPassed,
           },
         ],
       },
-      evaluationGate: { status: 'passed', verdict: 'pass' },
-      decisionReview: automateDecisionReviewPassed,
       reviewGate: { status: 'passed', at: FP, mode: 'local' },
     }),
   );
@@ -425,15 +425,47 @@ test('B1: under durable automate, reviewGate passed + mode both is allowed', () 
             subPhaseCount: 0,
             goal: 'g',
             title: 'F4',
+            evaluationGate: { status: 'passed', verdict: 'pass' },
+            decisionReview: automateDecisionReviewPassed,
           },
         ],
       },
-      evaluationGate: { status: 'passed', verdict: 'pass' },
-      decisionReview: automateDecisionReviewPassed,
       reviewGate: { status: 'passed', at: FP, mode: 'both' },
     }),
   );
   assert.equal(result.allowed, true, result.reason);
+});
+
+test('plan.executionMode stamp is authoritative over top-level planExecutionMode:manual', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    planExecutionMode: 'manual',
+    executionMode: 'manual',
+    plan: {
+      executionMode: 'automate',
+      phases: [{ id: 'F0', slug: 'f0', status: 'active', dependsOn: [] }],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true);
+  assert.equal(result.code, 'phase-done-evaluation-open');
+});
+
+test('top-level evaluationGate cannot spoof missing plan.phases[] stamp', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    plan: {
+      executionMode: 'automate',
+      phases: [{ id: 'F0', slug: 'f0', status: 'active', dependsOn: [] }],
+    },
+    evaluationGate: { status: 'passed', verdict: 'pass' },
+    decisionReview: automateDecisionReviewPassed,
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true);
+  assert.equal(result.code, 'phase-done-evaluation-open');
 });
 
 test('decidePhaseDoneTerminal returns empty effects when blocked and terminal writes when allowed', () => {

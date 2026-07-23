@@ -13,8 +13,8 @@
  *   spawn         Host-thin preflight: lease clean + active phase initiative
  *                 file present (descriptor-only ⇒ fail closed). Uses
  *                 canSpawnHostThinPhaseWriter / canSpawnPhaseWriter.
- *   claims        canCloseTasksFromClaims (requires --claim-report)
- *   done          canCloseTasksFromClaims for post-merge close confidence
+ *   claims        canCloseTasksFromClaims shape-only (requires --claim-report)
+ *   done          canCloseTasksFromClaims requiring claimed-pass+exit 0
  *                 (requires --claim-report; optional reachability)
  *   phase-done    canRunPhaseDone (evaluationGate + decisionReview under durable automate)
  *   finalize      canFinalizeOrArchive (plan-end + user validation under stamp)
@@ -75,8 +75,8 @@ Usage:
 Gates:
   spawn         Host-thin: lease clean + phase initiative materialized
                 (descriptor-only / missing initiative ⇒ blocked)
-  claims        canCloseTasksFromClaims (--claim-report required)
-  done          claim close gate (--claim-report; optional reachability)
+  claims        claim report shape-only (--claim-report required)
+  done          all claims claimed-pass+exit0 (--claim-report; optional reachability)
   phase-done    canRunPhaseDone (evaluationGate + decisionReview under automate stamp)
   finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
 
@@ -396,6 +396,91 @@ export function phaseSlice(fm, phaseId) {
         (String(p.id) === id || String(p.phaseId) === id),
     ) || null
   );
+}
+
+const BI_SPINE = ['value', 'workflow', 'rules', 'outOfScope', 'doneWhen'];
+
+/**
+ * Spawn integrity beyond file existence: parse initiative frontmatter, require
+ * plan/phase identity match and a complete businessIntent spine on the
+ * initiative (and plan phase when available).
+ *
+ * @param {string | null} initiativePath
+ * @param {{ planSlug?: string, phaseId?: string, planPhaseBi?: unknown }} [opts]
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+export function validateSpawnInitiative(initiativePath, opts = {}) {
+  if (initiativePath == null || !existsSync(initiativePath)) {
+    return { ok: false, reason: 'spawn requires initiative file on disk' };
+  }
+  let fm;
+  try {
+    const parsed = parseFrontmatter(readFileSync(initiativePath, 'utf8'));
+    if (parsed.error || parsed.frontmatter == null) {
+      return {
+        ok: false,
+        reason: `spawn initiative unreadable/invalid frontmatter: ${parsed.error || 'missing'}`,
+      };
+    }
+    fm = parsed.frontmatter;
+  } catch (err) {
+    return {
+      ok: false,
+      reason: `spawn initiative read failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+  const planSlug = opts.planSlug != null ? String(opts.planSlug).trim() : '';
+  const parent =
+    fm.parentPlan != null
+      ? String(fm.parentPlan).trim()
+      : fm.plan != null
+        ? String(fm.plan).trim()
+        : '';
+  if (planSlug && parent && parent.toLowerCase() !== planSlug.toLowerCase()) {
+    return {
+      ok: false,
+      reason: `spawn initiative parentPlan mismatch (got ${parent}, want ${planSlug})`,
+    };
+  }
+  const wantPhase = opts.phaseId != null ? String(opts.phaseId).trim() : '';
+  const gotPhase =
+    fm.phaseId != null
+      ? String(fm.phaseId).trim()
+      : fm.id != null
+        ? String(fm.id).trim()
+        : '';
+  if (wantPhase && gotPhase && wantPhase.toLowerCase() !== gotPhase.toLowerCase()) {
+    return {
+      ok: false,
+      reason: `spawn initiative phaseId mismatch (got ${gotPhase}, want ${wantPhase})`,
+    };
+  }
+  const status = fm.status != null ? String(fm.status).trim().toLowerCase() : '';
+  if (status === 'archived' || status === 'done') {
+    return {
+      ok: false,
+      reason: `spawn refuses initiative status=${status || '(empty)'} — need active/materialized phase`,
+    };
+  }
+  const biOk = (bi, where) => {
+    if (bi == null || typeof bi !== 'object' || Array.isArray(bi)) {
+      return `${where}: missing businessIntent object`;
+    }
+    for (const field of BI_SPINE) {
+      const v = bi[field];
+      if (typeof v !== 'string' || !v.trim() || v.trim() === '[NEEDS CLARIFICATION]') {
+        return `${where}: businessIntent.${field} missing or blank`;
+      }
+    }
+    return null;
+  };
+  const initBiErr = biOk(fm.businessIntent, 'initiative');
+  if (initBiErr) return { ok: false, reason: `spawn blocked — ${initBiErr}` };
+  if (opts.planPhaseBi != null) {
+    const planBiErr = biOk(opts.planPhaseBi, 'plan.phases[]');
+    if (planBiErr) return { ok: false, reason: `spawn blocked — ${planBiErr}` };
+  }
+  return { ok: true };
 }
 
 /**
@@ -730,6 +815,24 @@ export function runAssert(args, env = {}) {
         exitCode: 1,
       };
     }
+    // Beyond file existence: parse initiative, match plan/phase, require BI spine.
+    const initCheck = validateSpawnInitiative(initiativePath, {
+      planSlug: slug,
+      phaseId:
+        phase != null && phase.id != null
+          ? String(phase.id)
+          : fm.currentPhase != null
+            ? String(fm.currentPhase)
+            : '',
+      planPhaseBi: phase != null ? phase.businessIntent : null,
+    });
+    if (!initCheck.ok) {
+      return {
+        ok: false,
+        message: `blocked: ${initCheck.reason}`,
+        exitCode: 1,
+      };
+    }
     return { ok: true, message: 'ok', exitCode: 0 };
   }
 
@@ -803,6 +906,8 @@ export function runAssert(args, env = {}) {
       claimReport,
       checkReachability: args.checkReachability === true,
       reachableSet,
+      // done gate: every open claim must be claimed-pass with exitCode 0
+      requireAllClaimedPass: gate === 'done',
     });
     if (!r.ok) {
       return {

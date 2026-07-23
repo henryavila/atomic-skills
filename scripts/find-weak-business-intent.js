@@ -30,11 +30,12 @@ const SPINE_FIELDS = ['value', 'workflow', 'rules', 'outOfScope', 'doneWhen'];
 export const MIN_FIELD_LENGTH = 40;
 
 /**
- * G2 soft-language tokens (whole-word). Aligns with docs/kb/code-quality-gates.md.
- * Also includes common rubber-stamp Portuguese fillers used as entire intent.
+ * G2 soft-language hedges (whole-word). Aligns with docs/kb/code-quality-gates.md.
+ * Intentionally omits common product verbs (melhorar/otimizar/refatorar) and
+ * ambiguous "may" so legitimate concrete spines are not false-blocked.
  */
 export const SOFT_LANGUAGE_RE =
-  /\b(should|probably|may|typically|usually|I think|it seems|in theory|tends to|maybe|perhaps|kinda|sort of|melhorar|otimizar|refatorar)\b/i;
+  /\b(should|probably|typically|usually|I think|it seems|in theory|tends to|maybe|perhaps|kinda|sort of)\b/i;
 
 /** doneWhen must mention something checkable — not pure vibe. */
 export const OBSERVABLE_RE =
@@ -157,6 +158,10 @@ function collectWeakForPlan(plan, initForPhaseId) {
   const weak = [];
   for (const ph of Array.isArray(plan.phases) ? plan.phases : []) {
     if (!ph || typeof ph !== 'object') continue;
+    // Materialize/activation gate: skip historical done/archived phases so a
+    // weak legacy spine cannot block materialize of a new phase (plan-wide scan).
+    const st = ph.status != null ? String(ph.status).trim().toLowerCase() : '';
+    if (st === 'done' || st === 'archived') continue;
     const id = String(ph.id ?? '?');
     const init = initForPhaseId(id);
     if (!init) continue; // descriptor-only

@@ -378,65 +378,83 @@ function reviewGateOf(input) {
 
 /**
  * Resolve plan.executionMode for durable automate checks (preflight).
+ * When `input.plan` is supplied and carries executionMode, that stamp is
+ * authoritative (top-level planExecutionMode/executionMode cannot disable it).
+ * Top-level values are only used when plan has no mode (tests / thin callers).
  * @param {object} input
  * @returns {string}
  */
 function planExecutionModeOf(input) {
-  return (
-    text(input.planExecutionMode) ||
-    text(object(input.plan).executionMode) ||
-    text(input.executionMode) ||
-    ''
-  );
+  const plan = object(input.plan);
+  const planHasPlanObject =
+    input.plan != null && typeof input.plan === 'object' && !Array.isArray(input.plan);
+  if (planHasPlanObject) {
+    const fromPlan = text(plan.executionMode);
+    if (fromPlan) return fromPlan;
+    // Plan object present but unstamped: allow top-level only as fill-in, not override.
+    return text(input.planExecutionMode) || text(input.executionMode) || '';
+  }
+  return text(input.planExecutionMode) || text(input.executionMode) || '';
 }
 
 /**
- * Resolve evaluationGate from input, phase slice, or plan.phases[].
+ * Matching plan.phases[] entry for the active phase id, or null.
+ * @param {object} input
+ * @returns {object|null}
+ */
+function planPhaseEntry(input) {
+  const plan = object(input.plan);
+  const phase = phaseSlice(input);
+  const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
+  if (!Array.isArray(plan.phases) || !phaseId) return null;
+  const planPhase = plan.phases.find(
+    (p) => object(p).id === phaseId || object(p).slug === phaseId,
+  );
+  return planPhase != null && typeof planPhase === 'object' ? object(planPhase) : null;
+}
+
+/**
+ * Resolve evaluationGate. When a plan.phases[] entry exists for the phase,
+ * only that entry's evaluationGate is authoritative (top-level cannot spoof).
+ * Without a plan phase entry: phase slice, then top-level input.
  * @param {object} input
  * @returns {object|null}
  */
 function evaluationGateOf(input) {
-  if (input.evaluationGate != null && typeof input.evaluationGate === 'object') {
-    return input.evaluationGate;
+  const planPhase = planPhaseEntry(input);
+  if (planPhase != null) {
+    const eg = planPhase.evaluationGate;
+    return eg != null && typeof eg === 'object' ? eg : null;
   }
   const phase = phaseSlice(input);
   if (phase.evaluationGate != null && typeof phase.evaluationGate === 'object') {
     return phase.evaluationGate;
   }
-  const plan = object(input.plan);
-  const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
-  if (!Array.isArray(plan.phases) || !phaseId) return null;
-  const planPhase = plan.phases.find(
-    (p) => object(p).id === phaseId || object(p).slug === phaseId,
-  );
-  if (planPhase == null) return null;
-  const eg = object(planPhase).evaluationGate;
-  return eg != null && typeof eg === 'object' ? eg : null;
+  if (input.evaluationGate != null && typeof input.evaluationGate === 'object') {
+    return input.evaluationGate;
+  }
+  return null;
 }
 
 /**
- * Resolve decisionReview from input, phase slice, or plan.phases[].
- * Mirrors evaluationGateOf so preflight/commit-guard see the same stamp.
+ * Resolve decisionReview. Same authority rules as evaluationGateOf.
  * @param {object} input
  * @returns {object|null}
  */
 function decisionReviewOf(input) {
-  if (input.decisionReview != null && typeof input.decisionReview === 'object') {
-    return input.decisionReview;
+  const planPhase = planPhaseEntry(input);
+  if (planPhase != null) {
+    const dr = planPhase.decisionReview;
+    return dr != null && typeof dr === 'object' ? dr : null;
   }
   const phase = phaseSlice(input);
   if (phase.decisionReview != null && typeof phase.decisionReview === 'object') {
     return phase.decisionReview;
   }
-  const plan = object(input.plan);
-  const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
-  if (!Array.isArray(plan.phases) || !phaseId) return null;
-  const planPhase = plan.phases.find(
-    (p) => object(p).id === phaseId || object(p).slug === phaseId,
-  );
-  if (planPhase == null) return null;
-  const dr = object(planPhase).decisionReview;
-  return dr != null && typeof dr === 'object' ? dr : null;
+  if (input.decisionReview != null && typeof input.decisionReview === 'object') {
+    return input.decisionReview;
+  }
+  return null;
 }
 
 /**

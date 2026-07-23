@@ -1912,8 +1912,15 @@ function automateDonePlan(evaluationGate, extra = {}) {
   };
 }
 
-test('GATE-R4 RED: automate done phase without evaluationGate violates', () => {
-  const v = checkEvaluationGate(automateDonePlan(undefined));
+test('GATE-R4: Mode-1 done phase without evaluationGate is OK after mid-plan automate stamp', () => {
+  // No automate-era markers → exempt (legacy close before stamp).
+  assert.deepEqual(checkEvaluationGate(automateDonePlan(undefined)), []);
+});
+
+test('GATE-R4 RED: closedUnderAutomate done phase without evaluationGate violates', () => {
+  const v = checkEvaluationGate(
+    automateDonePlan(undefined, { closedUnderAutomate: true }),
+  );
   assert.ok(v.length >= 1);
   assert.match(v[0], /evaluationGate/);
 });
@@ -1942,7 +1949,12 @@ const decisionReviewPassed = {
   verifiedAt: '2026-07-23T12:00:00.000Z',
 };
 
-test('GATE-R4 RED: automate done phase without decisionReview violates', () => {
+test('GATE-R4: Mode-1 done phase without decisionReview is OK after mid-plan automate stamp', () => {
+  // No evaluationGate / decisionReview / both-mode review → exempt.
+  assert.deepEqual(checkDecisionReview(automateDonePlan(undefined)), []);
+});
+
+test('GATE-R4 RED: automate-era phase (has evaluationGate) without decisionReview violates', () => {
   const v = checkDecisionReview(
     automateDonePlan({ status: 'passed', verdict: 'pass' }),
   );
@@ -1970,6 +1982,17 @@ test('GATE-R4 RED: automate done phase with decisionReview passed but no verifie
   );
   assert.ok(v.length >= 1);
   assert.match(v[0], /verifiedAt|decisionReview/i);
+});
+
+test('GATE-R4 RED: decisionReview passed with non-ISO verifiedAt violates', () => {
+  const v = checkDecisionReview(
+    automateDonePlan(
+      { status: 'passed', verdict: 'pass' },
+      { decisionReview: { status: 'passed', verifiedAt: 'x' } },
+    ),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /ISO|timestamp|verifiedAt|decisionReview/i);
 });
 
 test('GATE-R4 GREEN: automate done phase with decisionReview passed + verifiedAt', () => {
