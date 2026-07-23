@@ -18,6 +18,7 @@ import {
   isDurableAutomateActive,
 } from './plan-end-review.js';
 import { phaseEvaluationAllowsClose } from './phase-evaluation-gate.js';
+import { decisionReviewAllowsPhaseDone } from './decision-review-gate.js';
 import {
   validateClaimReport,
   validateClaimReachability,
@@ -157,13 +158,42 @@ export function canCloseTasksFromClaims(input = {}) {
 }
 
 /**
- * Before phase-done under durable automate: evaluation gate must allow close.
+ * Before phase-done under durable automate: evaluation gate AND decision-review
+ * must both allow close. Non-automate: both helpers return ok (gates inactive).
  *
- * @param {Parameters<typeof phaseEvaluationAllowsClose>[0]} [input]
+ * Order: evaluation first, then decision-review (both must pass under automate).
+ * Does not stamp either field — evaluation agent never auto-stamps decisionReview.
+ *
+ * @param {{
+ *   automateActive?: boolean | null,
+ *   planExecutionMode?: string | null,
+ *   executionMode?: string | null,
+ *   evaluationGate?: import('./phase-evaluation-gate.js').EvaluationGate | null,
+ *   decisionReview?: import('./decision-review-gate.js').DecisionReview | null,
+ * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
  */
 export function canRunPhaseDone(input = {}) {
-  return phaseEvaluationAllowsClose(input);
+  const planExecutionMode =
+    input.planExecutionMode != null
+      ? input.planExecutionMode
+      : input.executionMode != null
+        ? input.executionMode
+        : null;
+  const evalResult = phaseEvaluationAllowsClose({
+    automateActive: input.automateActive,
+    planExecutionMode,
+    evaluationGate: input.evaluationGate,
+  });
+  if (!evalResult.ok) {
+    return evalResult;
+  }
+  return decisionReviewAllowsPhaseDone({
+    automateActive: input.automateActive,
+    planExecutionMode,
+    executionMode: input.executionMode,
+    decisionReview: input.decisionReview,
+  });
 }
 
 /**

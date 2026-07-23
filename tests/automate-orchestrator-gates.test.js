@@ -285,11 +285,76 @@ describe('canCloseTasksFromClaims', () => {
 });
 
 describe('canRunPhaseDone + canFinalizeOrArchive', () => {
+  const evalPassed = { status: 'passed', verdict: 'pass' };
+  const decisionPassed = {
+    status: 'passed',
+    verifiedAt: '2026-07-23T12:00:00.000Z',
+  };
+
   it('phase-done blocked under stamp without evaluation', () => {
     assert.equal(
       canRunPhaseDone({ planExecutionMode: 'automate' }).ok,
       false,
     );
+  });
+
+  it('automate + eval passed + decisionReview missing → block', () => {
+    const r = canRunPhaseDone({
+      planExecutionMode: 'automate',
+      evaluationGate: evalPassed,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /decisionReview/);
+  });
+
+  it('automate + eval passed + decisionReview pending → block', () => {
+    const r = canRunPhaseDone({
+      planExecutionMode: 'automate',
+      evaluationGate: evalPassed,
+      decisionReview: { status: 'pending' },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /pending|decisionReview/i);
+  });
+
+  it('automate + eval passed + decisionReview failed → block', () => {
+    const r = canRunPhaseDone({
+      planExecutionMode: 'automate',
+      evaluationGate: evalPassed,
+      decisionReview: { status: 'failed', verifiedAt: decisionPassed.verifiedAt },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /failed|decisionReview/i);
+  });
+
+  it('automate + both eval and decisionReview passed → allow', () => {
+    const r = canRunPhaseDone({
+      planExecutionMode: 'automate',
+      evaluationGate: evalPassed,
+      decisionReview: decisionPassed,
+    });
+    assert.equal(r.ok, true);
+  });
+
+  it('non-automate skips decisionReview (and evaluation)', () => {
+    assert.equal(canRunPhaseDone({}).ok, true);
+    assert.equal(
+      canRunPhaseDone({
+        planExecutionMode: 'manual',
+        evaluationGate: null,
+        decisionReview: null,
+      }).ok,
+      true,
+    );
+  });
+
+  it('automate still requires evaluation even when decisionReview passed', () => {
+    const r = canRunPhaseDone({
+      planExecutionMode: 'automate',
+      decisionReview: decisionPassed,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /evaluationGate/);
   });
 
   it('finalize durable stamp still gates when session clear would turn isAutomateActive off', () => {
