@@ -4,6 +4,7 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 
 ## Arquivos de memória
 
+- [reference-implement-phase-agents.md](reference-implement-phase-agents.md) — Plan `implement-phase-agents`: host-thin phase agents, decision-review hardgate, two-stop dogfood UX, package→ratify→materialize Mode B. Supersedes prior “hand bare materialize to user” full-plan automate path; links dogfood-stops note.
 - [reference-implement-phase-agents-dogfood-stops.md](reference-implement-phase-agents-dogfood-stops.md) — Dogfood automate: **exactly 2 operator stops/phase** (package ratify + decision-review PASS on log). No literal-token ceremony; no mid-phase micro-approvals. 2026-07-23 Henry stop.
 - [decisoes-arquitetura.md](decisoes-arquitetura.md) — Padrões definidos: `.ai/memory/`, prefixos, exceção BMAD, regras de KB, organização contextual; **scripts de runtime DEVEM estar em package.json `files`** (senão `node scripts/*.js` de skill body faz no-op p/ consumidor); completion reconciler (sinal de detecção ≠ autoridade de fechamento, hooks fail-open)
 - [inventario-projetos.md](inventario-projetos.md) — Levantamento dos padrões de memória em cada projeto do Henry (referência para migração)

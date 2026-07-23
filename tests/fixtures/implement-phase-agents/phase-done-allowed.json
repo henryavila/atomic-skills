@@ -1,0 +1,18 @@
+{
+  "id": "phase-done-allowed",
+  "description": "decisionReview passed (with verifiedAt) + evaluationGate passed under automate ⇒ canRunPhaseDone true when other automate requirements are satisfied (mocked here as pure gate inputs).",
+  "phaseDoneInput": {
+    "planExecutionMode": "automate",
+    "evaluationGate": { "status": "passed", "verdict": "pass" },
+    "decisionReview": {
+      "status": "passed",
+      "verifiedAt": "2026-07-23T12:00:00.000Z",
+      "evidencePath": "tests/fixtures/implement-phase-agents/decisions-sample.jsonl"
+    }
+  },
+  "expect": {
+    "canRunPhaseDoneOk": true,
+    "decisionReviewAllowsOk": true,
+    "phaseEvaluationAllowsOk": true
+  }
+}
