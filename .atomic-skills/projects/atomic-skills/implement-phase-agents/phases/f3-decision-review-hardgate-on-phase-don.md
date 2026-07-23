@@ -7,9 +7,8 @@ goal: Machine-enforce that automate phase-done cannot complete without operator
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-23T09:15:05.378Z
-lastUpdated: 2026-07-23T09:25:47.073Z
-nextAction: "Operator: read T-012 decision-review PASS procedure; then close
-  T-012 (manual) + F3-G3."
+lastUpdated: 2026-07-23T10:09:04.406Z
+nextAction: All F3 tasks done — spawn evaluation agent; then decision-review + phase-done.
 parentPlan: implement-phase-agents
 phaseId: F3
 businessIntent:
@@ -28,11 +27,11 @@ businessIntent:
   doneWhen: decision-review-gate testes verdes; canRunPhaseDone/assert greppable
     para decisionReview; procedimento maestro proibe host PASS sem token do
     operador no mesmo turno; Henry PASS em F3-G3.
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 3
-weightDone: 4
+weightDone: 5
 weightTotal: 5
 exitGates:
   - id: F3-G1
@@ -55,11 +54,18 @@ exitGates:
   - id: F3-G3
     description: Manual HARD — Henry confirms agent cannot stamp decision-review
       PASS in the documented procedure.
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Henry PASS on F3 manual gate after reading PASS procedure.
     verifierLabel: manual
+    metAt: 2026-07-23T10:09:04.406Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-23T10:09:04.406Z
+      verifiedCommit: c4499bb0d6f188902cd30524c9c94def01e3d2f6
+      passed: true
+      outputSummary: Henry aprovado 2026-07-23 PASS F3-G3 / T-012 procedure
 stack:
   - id: 1
     title: Decision-review hardgate on phase-done
@@ -151,8 +157,8 @@ tasks:
         56a4f39
   - id: T-012
     title: Operator PASS procedure in maestro
-    status: pending
-    lastUpdated: 2026-07-23T09:15:05.378Z
+    status: done
+    lastUpdated: 2026-07-23T10:09:04.406Z
     scopeBoundary:
       - Do not let evaluation agent or review-code receipt substitute for
         decision-review PASS.
@@ -174,6 +180,15 @@ tasks:
         path: skills/shared/implement-decision-log.md
     summary: Procedimento operator PASS no maestro; proibe agent stamp.
     weight: 1
+    closedAt: 2026-07-23T10:09:04.406Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-23T10:09:04.406Z
+      verifiedCommit: c4499bb0d6f188902cd30524c9c94def01e3d2f6
+      passed: true
+      outputSummary: Henry aprovado 2026-07-23 — PASS on T-012/F3-G3 decision-review
+        PASS procedure (agent never stamps PASS; same-turn token required; FAIL
+        does not advance currentPhase).
 parked: []
 emerged: []
 startedCommit: 3878067e3337e8a01f8b6e4c465122635ce42b14
@@ -188,19 +203,18 @@ Initiative for phase **F3 — Decision-review hardgate on phase-done**.
 
 ## Decisions
 
-- T-010/T-011 closed post-merge re-verify at 56a4f39 (exclusive claims 484c2da / 7bec738).
-- T-012 prose landed (801d667); manual verifier + F3-G3 await operator PASS on procedure.
-- Lease cleared after merge settle; worktree still present for optional teardown.
+- T-010/T-011 closed post-merge shell re-verify.
+- T-012 + F3-G3: Henry **aprovado** 2026-07-23 (manual PASS on operator PASS procedure).
+- append-completion parked (dispatch-log legacy JSON array).
 
 ## Links
 
-- claim SHAs: 484c2da (T-010), 7bec738 (T-011), 801d667 (T-012)
-- merge: 56a4f39
+- claims: 484c2da / 7bec738 / 801d667; merge 56a4f39
 
 ## Session handoff
-- **Narrative:** F3 product code merged. T-010 and T-011 done via post-merge shell verifiers. T-012 files present; manual gate pending operator.
-- **Decision log:** Exclusive claim SHAs validated; reachability proven on plan branch; lease cleared with acquire secret.
-- **Single nextAction:** Operator PASS on T-012 / F3-G3 after reading decision-review procedure; then evaluation agent + phase-done.
-- **Verbatim state:** HEAD=56a4f39756ad2d95cc1b991fe6c55ef267df5793; tasksDone=2/3; T-012 pending manual; evaluationGate absent; decisionReview absent.
-- **Uncommitted changes:** checkpoint for T-010 T-011 pending commit.
+- **Narrative:** All F3 tasks done. Ready for evaluation agent → decision-review stamp → phase-done both.
+- **Decision log:** Operator aprovado closes T-012/F3-G3; agent never auto-PASS decision-review.
+- **Single nextAction:** Run evaluation agent for F3; stamp evaluationGate; request decision-review PASS for phase decisions; phase-done.
+- **Verbatim state:** HEAD=c4499bb0d6f188902cd30524c9c94def01e3d2f6; tasksDone=3/3; F3-G3 met; F3-G1/G2 still pending shell re-run at phase-done.
+- **Uncommitted changes:** T-012 close checkpoint pending.
 
