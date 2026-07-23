@@ -5,11 +5,11 @@ title: Tests fixtures docs and dogfood checklist
 goal: Prove the contract with automated tests and a dogfood checklist so the
   next automate run on a real plan cannot skip decision-review or host-thin
   rules unnoticed.
-status: active
+status: done
 branch: plan/implement-phase-agents
 started: 2026-07-23T13:12:23.339Z
-lastUpdated: 2026-07-23T13:12:23.339Z
-nextAction: "Start T-015: Fixture tests for descriptor-only stop and decision-review block"
+lastUpdated: 2026-07-23T13:17:05.024Z
+nextAction: null
 parentPlan: implement-phase-agents
 phaseId: F5
 businessIntent:
@@ -27,33 +27,59 @@ businessIntent:
   doneWhen: tests/implement-phase-agents-contract.test.js verde; dogfood md +
     memory reference existem; Henry dogfood checklist ou defer com razao
     (F5-G3).
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 exitGates:
   - id: F5-G1
     description: Contract fixture tests pass.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/implement-phase-agents-contract.test.js
       expectExitCode: 0
+    metAt: 2026-07-23T13:17:05.024Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T13:17:05.024Z
+      verifiedCommit: a86aaddad260e3f30462d56b980f5093618e8eb2
+      passed: true
+      exitCode: 0
+      outputSummary: phase-done F5-G1 @a86aadd
   - id: F5-G2
     description: Dogfood checklist and memory reference exist.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test -s docs/kb/implement-phase-agents-dogfood.md && test -s
         .ai/memory/reference-implement-phase-agents.md
       expectExitCode: 0
+    metAt: 2026-07-23T13:17:05.024Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T13:17:05.024Z
+      verifiedCommit: a86aaddad260e3f30462d56b980f5093618e8eb2
+      passed: true
+      exitCode: 0
+      outputSummary: phase-done F5-G2 @a86aadd
   - id: F5-G3
     description: Manual HARD — Henry dogfoods checklist on a small multi-phase plan
       or records explicit defer with reason after F5 code green.
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Henry runs dogfood checklist or writes defer reason in plan decisions.
+    metAt: 2026-07-23T13:17:05.024Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-23T13:17:05.024Z
+      verifiedCommit: a86aaddad260e3f30462d56b980f5093618e8eb2
+      passed: true
+      outputSummary: Henry dogfood of this multi-phase plan implement-phase-agents
+        under automate (aprovado. prossiga); checklist
+        docs/kb/implement-phase-agents-dogfood.md authored and applied as living
+        dogfood of this plan.
 stack:
   - id: 1
     title: Tests fixtures docs and dogfood checklist
@@ -62,8 +88,8 @@ stack:
 tasks:
   - id: T-015
     title: Fixture tests for descriptor-only stop and decision-review block
-    status: pending
-    lastUpdated: 2026-07-23T13:12:23.339Z
+    status: done
+    lastUpdated: 2026-07-23T13:17:05.024Z
     scopeBoundary:
       - Do not require live subagent spawn in CI. Do not hit network.
     acceptance:
@@ -86,10 +112,18 @@ tasks:
         path: tests/fixtures/implement-phase-agents/
     summary: "Fixtures: descriptor-only stop e decision-review block."
     weight: 2
+    closedAt: 2026-07-23T13:17:05.024Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T13:17:05.024Z
+      verifiedCommit: a86aaddad260e3f30462d56b980f5093618e8eb2
+      passed: true
+      exitCode: 0
+      outputSummary: node --test implement-phase-agents-contract 13 pass @a86aadd
   - id: T-016
     title: Operator dogfood checklist
-    status: pending
-    lastUpdated: 2026-07-23T13:12:23.339Z
+    status: done
+    lastUpdated: 2026-07-23T13:17:05.024Z
     scopeBoundary:
       - Do not claim dogfood already passed before the checklist is used on a
         real plan.
@@ -110,10 +144,18 @@ tasks:
         path: docs/kb/implement-phase-agents-dogfood.md
     summary: Checklist dogfood operador (2 stops/fase).
     weight: 1
+    closedAt: 2026-07-23T13:17:05.024Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T13:17:05.024Z
+      verifiedCommit: a86aaddad260e3f30462d56b980f5093618e8eb2
+      passed: true
+      exitCode: 0
+      outputSummary: dogfood.md exists + rg keywords EXIT 0 @a86aadd
   - id: T-017
     title: Memory and catalog pointers
-    status: pending
-    lastUpdated: 2026-07-23T13:12:23.339Z
+    status: done
+    lastUpdated: 2026-07-23T13:17:05.024Z
     scopeBoundary:
       - Do not inflate package version. Do not remove prior automate dogfood
         memory; link supersession.
@@ -135,9 +177,18 @@ tasks:
         path: .ai/memory/reference-implement-phase-agents.md
     summary: Ponteiros memory/catalog do contrato.
     weight: 2
+    closedAt: 2026-07-23T13:17:05.024Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T13:17:05.024Z
+      verifiedCommit: a86aaddad260e3f30462d56b980f5093618e8eb2
+      passed: true
+      exitCode: 0
+      outputSummary: reference-implement-phase-agents.md + MEMORY link @a86aadd
 parked: []
 emerged: []
 startedCommit: 3cef52848377d6c5ba4a5fe4e002ef6ba10d65cf
+weightDone: 5
 ---
 
-# F5 after F4 phase-done. Package fixtures+dogfood+memory. Writer next.
+# F5 done. Plan phases complete. Plan-end external-both + user validation next.

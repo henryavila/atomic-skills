@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T13:12:23.339Z
+lastUpdated: 2026-07-23T13:17:05.024Z
 branch: plan/implement-phase-agents
 currentPhase: F5
 executionMode: automate
@@ -494,28 +494,51 @@ phases:
       criteria:
         - id: F5-G1
           description: Contract fixture tests pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/implement-phase-agents-contract.test.js
             expectExitCode: 0
+          metAt: 2026-07-23T13:17:05.024Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-23T13:17:05.024Z
+            verifiedCommit: a86aaddad260e3f30462d56b980f5093618e8eb2
+            passed: true
+            exitCode: 0
+            outputSummary: gate F5-G1
         - id: F5-G2
           description: Dogfood checklist and memory reference exist.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test -s docs/kb/implement-phase-agents-dogfood.md && test -s
               .ai/memory/reference-implement-phase-agents.md
             expectExitCode: 0
+          metAt: 2026-07-23T13:17:05.024Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-23T13:17:05.024Z
+            verifiedCommit: a86aaddad260e3f30462d56b980f5093618e8eb2
+            passed: true
+            exitCode: 0
+            outputSummary: gate F5-G2
         - id: F5-G3
           description: Manual HARD — Henry dogfoods checklist on a small multi-phase plan
             or records explicit defer with reason after F5 code green.
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: Henry runs dogfood checklist or writes defer reason in plan
               decisions.
-    status: active
+          metAt: 2026-07-23T13:17:05.024Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-23T13:17:05.024Z
+            verifiedCommit: a86aaddad260e3f30462d56b980f5093618e8eb2
+            passed: true
+            outputSummary: Dogfood this plan under automate (aprovado.prossiga)
+    status: done
     summary: Fixtures, dogfood checklist e ponteiros de memoria.
     businessIntent:
       value: Provar o contrato host-thin + phase-start package + decision-review com
@@ -533,6 +556,22 @@ phases:
       doneWhen: tests/implement-phase-agents-contract.test.js verde; dogfood md +
         memory reference existem; Henry dogfood checklist ou defer com razao
         (F5-G3).
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-23T13:17:05.024Z
+      at: a86aaddad260e3f30462d56b980f5093618e8eb2
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-23T13:17:05.024Z
+      evidencePath: .atomic-skills/projects/atomic-skills/implement-phase-agents/decisions/F5.jsonl
+      at: a86aaddad260e3f30462d56b980f5093618e8eb2
+    reviewGate:
+      status: passed
+      at: a86aaddad260e3f30462d56b980f5093618e8eb2
+      mode: both
+      reviewFile: .atomic-skills/reviews/implement-phase-agents-F5-both-a86aadd.md
+      verifiedAt: 2026-07-23T13:17:05.024Z
 references: []
 supersedes:
   path: .atomic-skills/projects/atomic-skills/implementation-automate-mode/plan.md
