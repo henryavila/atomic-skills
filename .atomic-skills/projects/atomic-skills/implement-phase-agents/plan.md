@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T01:59:43.000Z
+lastUpdated: 2026-07-23T09:15:05.378Z
 branch: plan/implement-phase-agents
 currentPhase: F3
 executionMode: automate
@@ -241,7 +241,7 @@ phases:
     goal: Machine-enforce that automate phase-done cannot complete without operator PASS on the phase decision log.
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 1
     exitGate:
       summary: 3 criteria to meet
       criteria:
@@ -265,8 +265,15 @@ phases:
           verifier:
             kind: manual
             description: Henry PASS on F3 manual gate after reading PASS procedure.
-    status: pending
+    status: active
     summary: Hardgate decisionReview no phase-done sob automate.
+    businessIntent:
+      value: "Sob automate, phase-done nao avanca sem operator PASS no decision log da fase: o hardgate decisionReview e machine-checkable e so o operador grava PASS."
+      workflow: "Schema+helper decisionReview (T-010) → wire canRunPhaseDone/assert (T-011) → procedimento PASS no maestro (T-012) → F4 ritual phase-start com fresh agent."
+      rules: "Agente nunca grava decisionReview PASS. evaluationGate e review-code both permanecem. Nao auto-stamp a partir de evaluation agent ou review receipt. FAIL grava failed e nao avanca currentPhase. Nao exigir decisionReview em plans sem executionMode automate."
+      outOfScope: "Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de produto; substituir evaluationGate ou review-code por decision-review."
+      doneWhen: "decision-review-gate testes verdes; canRunPhaseDone/assert greppable para decisionReview; procedimento maestro proibe host PASS sem token do operador no mesmo turno; Henry PASS em F3-G3."
+
   - id: F4
     slug: implement-phase-agents-f4-phase-boundary-ritual-and-next-agent
     title: Phase boundary ritual and next agent
