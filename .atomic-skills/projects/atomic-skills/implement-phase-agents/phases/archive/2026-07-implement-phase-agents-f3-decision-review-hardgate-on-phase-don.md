@@ -4,11 +4,11 @@ slug: implement-phase-agents-f3-decision-review-hardgate-on-phase-don
 title: Decision-review hardgate on phase-done
 goal: Machine-enforce that automate phase-done cannot complete without operator
   PASS on the phase decision log.
-status: active
+status: done
 branch: plan/implement-phase-agents
 started: 2026-07-23T09:15:05.378Z
-lastUpdated: 2026-07-23T10:09:04.406Z
-nextAction: All F3 tasks done — spawn evaluation agent; then decision-review + phase-done.
+lastUpdated: 2026-07-23T10:48:49.598Z
+nextAction: null
 parentPlan: implement-phase-agents
 phaseId: F3
 businessIntent:
@@ -29,28 +29,44 @@ businessIntent:
     operador no mesmo turno; Henry PASS em F3-G3.
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 1
+gatesMet: 3
 gatesTotal: 3
 weightDone: 5
 weightTotal: 5
 exitGates:
   - id: F3-G1
     description: decision-review gate unit tests pass.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/decision-review-gate.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/decision-review-gate.test.js"
+    metAt: 2026-07-23T10:48:49.598Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T10:48:49.598Z
+      verifiedCommit: 868494806d343eed82dd7b9c13e8a849a4274a0a
+      passed: true
+      exitCode: 0
+      outputSummary: phase-done re-verify F3-G1
   - id: F3-G2
     description: canRunPhaseDone and assert wiring mention decisionReview.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'decisionReview|decision-review'
         src/automate-orchestrator-gates.js scripts/assert-automate-gate.js
       expectExitCode: 0
     verifierLabel: "shell: rg -n 'decisionReview|decision-review' src/automate-orchest…"
+    metAt: 2026-07-23T10:48:49.598Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T10:48:49.598Z
+      verifiedCommit: 868494806d343eed82dd7b9c13e8a849a4274a0a
+      passed: true
+      exitCode: 0
+      outputSummary: phase-done re-verify F3-G2
   - id: F3-G3
     description: Manual HARD — Henry confirms agent cannot stamp decision-review
       PASS in the documented procedure.
@@ -199,22 +215,12 @@ current: true
 
 # Narrative / notes
 
-Initiative for phase **F3 — Decision-review hardgate on phase-done**.
-
-## Decisions
-
-- T-010/T-011 closed post-merge shell re-verify.
-- T-012 + F3-G3: Henry **aprovado** 2026-07-23 (manual PASS on operator PASS procedure).
-- append-completion parked (dispatch-log legacy JSON array).
-
-## Links
-
-- claims: 484c2da / 7bec738 / 801d667; merge 56a4f39
+Phase **F3 done** — decision-review hardgate on phase-done.
 
 ## Session handoff
-- **Narrative:** All F3 tasks done. Ready for evaluation agent → decision-review stamp → phase-done both.
-- **Decision log:** Operator aprovado closes T-012/F3-G3; agent never auto-PASS decision-review.
-- **Single nextAction:** Run evaluation agent for F3; stamp evaluationGate; request decision-review PASS for phase decisions; phase-done.
-- **Verbatim state:** HEAD=c4499bb0d6f188902cd30524c9c94def01e3d2f6; tasksDone=3/3; F3-G3 met; F3-G1/G2 still pending shell re-run at phase-done.
-- **Uncommitted changes:** T-012 close checkpoint pending.
+- **Narrative:** F3 closed after evaluation pass, operator decision-review PASS, review both (local blockers + codex P2 fixed via fix1/fix2).
+- **Decision log:** decisions/F3.jsonl; major lifecycle residual accepted then closed by fix1 preflight wire; codex P2 alias fixed.
+- **Single nextAction:** materialize F4 (descriptor-only) then pure-maestro.
+- **Verbatim state:** HEAD=868494806d343eed82dd7b9c13e8a849a4274a0a; currentPhase advancing to F4; F3 archived.
+- **Uncommitted changes:** phase-done checkpoint pending.
 

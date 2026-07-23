@@ -5,9 +5,9 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-23T10:31:59.422Z
+lastUpdated: 2026-07-23T10:48:49.598Z
 branch: plan/implement-phase-agents
-currentPhase: F3
+currentPhase: F4
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -367,7 +367,7 @@ phases:
             verifiedCommit: 2c506ba58ed8c67513146b1db62340ffda1462d6
             passed: true
             outputSummary: Henry aprovado 2026-07-23 PASS F3-G3 procedure
-    status: active
+    status: done
     summary: Hardgate decisionReview no phase-done sob automate.
     businessIntent:
       value: "Sob automate, phase-done nao avanca sem operator PASS no decision log da
@@ -395,6 +395,12 @@ phases:
       verifiedAt: 2026-07-23T10:31:59.422Z
       evidencePath: .atomic-skills/projects/atomic-skills/implement-phase-agents/decisions/F3.jsonl
       at: f58cb12d98daf0724f3fcc3c8949a23b33e4f9a7
+    reviewGate:
+      status: passed
+      at: 868494806d343eed82dd7b9c13e8a849a4274a0a
+      mode: both
+      reviewFile: .atomic-skills/reviews/implement-phase-agents-F3-both-8684948.md
+      verifiedAt: 2026-07-23T10:48:49.598Z
   - id: F4
     slug: implement-phase-agents-f4-phase-boundary-ritual-and-next-agent
     title: Phase boundary ritual and next agent
