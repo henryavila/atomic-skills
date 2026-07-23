@@ -8,8 +8,8 @@ goal: After phase-done and at every phase start, automate presents objective +
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-23T11:07:12.097Z
-lastUpdated: 2026-07-23T11:07:12.097Z
-nextAction: "Start T-013: Step H and phase-start package ritual"
+lastUpdated: 2026-07-23T11:08:09.505Z
+nextAction: SYNC WAIT F4 phase writer claim report (T-013..T-014).
 parentPlan: implement-phase-agents
 phaseId: F4
 businessIntent:
@@ -121,13 +121,12 @@ Initiative for phase **F4 — Phase boundary ritual and next agent**.
 
 ## Decisions
 
-- F4 BI drafted and ratified (operator ratify on continue after F3 phase-done).
-- Lessons: none. Sidecar age fresh. F3 done dependency satisfied.
+- F4 BI ratified validate-only. Lease active; sibling writer worktree spawned.
 
 ## Session handoff
-- **Narrative:** F4 materialized after F3 phase-done. Phase-start package: Step H ritual + materialize-in-package + lazy KB. Ready for pure-maestro phase writer T-013..T-014.
-- **Decision log:** F4 BI ratified validate-only. F3 decisionReview hardgate done.
-- **Single nextAction:** Run implement pure-maestro for F4 (spawn code-only phase writer T-013..T-014).
-- **Verbatim state:** phaseId=F4; slug=implement-phase-agents-f4-phase-boundary-ritual-and-next-agent; executionMode=automate; currentPhase=F4; tasks T-013 T-014 pending; startedCommit=346b249f58ae55b4953b610e076e134a313d817b.
-- **Uncommitted changes:** materialize checkpoint pending commit.
+- **Narrative:** F4 pure-maestro Step C: lease active; worktree implement-phase-agents-F4-writer for T-013..T-014. Host-thin.
+- **Decision log:** Lease at writer-leases/implement-phase-agents.json; branch impl/implement-phase-agents-F4-writer.
+- **Single nextAction:** SYNC WAIT F4 phase writer claim report (T-013..T-014); then merge + re-verify + done.
+- **Verbatim state:** phaseId=F4; worktree=/Volumes/External/code/atomic-skills/.worktrees/implement-phase-agents-F4-writer; writerBranch=impl/implement-phase-agents-F4-writer; tasks T-013 T-014 pending.
+- **Uncommitted changes:** pre-dispatch handoff only.
 
