@@ -6,8 +6,8 @@ goal: Enforce host-thin behavior in skill prose and STOP helpers so automate can
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-23T00:58:11.685Z
-lastUpdated: 2026-07-23T01:39:22.758Z
-nextAction: SYNC WAIT F2 phase writer claim report (T-007..T-009).
+lastUpdated: 2026-07-23T01:46:25.113Z
+nextAction: Spawn evaluation agent for F2, stamp evaluationGate, operator decision-review PASS, phase-done review both.
 parentPlan: implement-phase-agents
 phaseId: F2
 businessIntent:
@@ -16,7 +16,7 @@ businessIntent:
   rules: Nao banir comando shell do task.verifier ou exit-gate. Nao banir git-ops merge/status/log. Permitir assert-automate-gate, validate-state e verifiers copiados verbatim. Nao auto-spawn sem ratify do phase-start package. Nao implementar process supervisor. Nao exigir network no assert.
   outOfScope: Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de produto; banir verifiers legitimos; network no assert.
   doneWhen: Strings host-thin/product/verbatim greppable em maestro+implement; role banner/phase-start/validate-only greppable; testes automate-orchestrator-gates cobrem descriptor-only refuse; F2-G1 e F2-G2 metiveis.
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
@@ -43,8 +43,8 @@ stack:
 tasks:
   - id: T-007
     title: Product execution ban in maestro and antipatterns
-    status: pending
-    lastUpdated: 2026-07-23T00:58:11.685Z
+    status: done
+    lastUpdated: 2026-07-23T01:46:25.113Z
     scopeBoundary:
       - Do not ban verbatim task verifier shell commands. Do not ban git-ops merge on the plan branch.
     acceptance:
@@ -60,10 +60,18 @@ tasks:
         path: skills/shared/implement-antipatterns.md
       - kind: file
         path: skills/core/implement.md
+    closedAt: 2026-07-23T01:46:25.113Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T01:46:25.113Z
+      verifiedCommit: be9145df7d357285ce16ff02552c1247bf297267
+      passed: true
+      exitCode: 0
+      outputSummary: "skills/shared/implement-antipatterns.md:11:- \"The handoff narrative reads cleaner if I summarize the error instead of pasting it.\" → Literals are verbatim. A paraphrased command/path/error is a different one and strands the next session. skills/shared/implement-antipatterns.md:25:- \"Automate is active but the phase writer died — I'll just code the remaining tasks myself (silent Mode-1 fallback).\" → Under `isAutomateActive` / pure maestro the session **never** edits product source. Spawn failure "
   - id: T-008
     title: Role banner and single nextAction on stops
-    status: pending
-    lastUpdated: 2026-07-23T00:58:11.685Z
+    status: done
+    lastUpdated: 2026-07-23T01:46:25.113Z
     scopeBoundary:
       - Do not auto-spawn without operator ratify of the phase-start package.
     acceptance:
@@ -79,10 +87,18 @@ tasks:
         path: skills/shared/implement-automate-maestro.md
       - kind: file
         path: skills/core/implement.md
+    closedAt: 2026-07-23T01:46:25.113Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T01:46:25.113Z
+      verifiedCommit: be9145df7d357285ce16ff02552c1247bf297267
+      passed: true
+      exitCode: 0
+      outputSummary: "skills/core/implement.md:27:4. **Never silent Mode-1 fallback.** Under automate, spawn failure or review/verifier fail means re-dispatch a code-only fix agent (max **2**) or stop for the operator — **not** the host session coding product source. Leaving automate requires explicit `--clear-execution-mode` / Mode-1 re-entry recorded in the decision log. **Silent auto-PASS** of drafted `businessIntent` or decision-review is forbidden. skills/core/implement.md:30:7. **phase-start package + operator "
   - id: T-009
     title: Assert gate for host-thin preflight optional hook
-    status: pending
-    lastUpdated: 2026-07-23T00:58:11.685Z
+    status: done
+    lastUpdated: 2026-07-23T01:46:25.113Z
     scopeBoundary:
       - Do not implement a full process supervisor. Do not require network for assert.
     acceptance:
@@ -98,6 +114,14 @@ tasks:
         path: src/automate-orchestrator-gates.js
       - kind: file
         path: tests/automate-orchestrator-gates.test.js
+    closedAt: 2026-07-23T01:46:25.113Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-23T01:46:25.113Z
+      verifiedCommit: be9145df7d357285ce16ff02552c1247bf297267
+      passed: true
+      exitCode: 0
+      outputSummary: ▶ shouldRunPureMaestro ✔ true for cli automate (1.788833ms) ✔ false by default (0.156916ms) ✔ stamp alone true; clear flag false (0.061375ms) ✔ shouldRunPureMaestro (2.999708ms) ▶ canSpawnPhaseWriter ✔ ok when missing (0.109083ms) ✔ blocks active/cleared/malformed (0.0455ms) ✔ descriptor-only refuse when initiativePresent false (0.328042ms) ✔ ok when lease clean and initiative present (0.169709ms) ✔ canSpawnPhaseWriter (0.944875ms) ▶ canSpawnHostThinPhaseWriter ✔ documents host-thin precondition
 parked: []
 emerged: []
 ---
@@ -115,8 +139,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** Pure-maestro pre-dispatch F2 after operator aprovado. Spawning phase writer for T-007..T-009.
-- **Decision log:** F2 BI approved (operator aprovado). executionMode automate. Lease acquire for F2 writer.
-- **Single nextAction:** SYNC WAIT F2 phase writer claim report; then merge + post-merge done.
-- **Verbatim state:** HEAD=48b5f69db2a5c8657c1f204bfcaeae41d5ae23af; writerBranch=impl/implement-phase-agents-F2-writer; worktreePath=/Volumes/External/code/atomic-skills/.worktrees/implement-phase-agents-F2-writer; baseRef=48b5f69db2a5c8657c1f204bfcaeae41d5ae23af.
-- **Uncommitted changes:** handoff until pre-dispatch commit.
+- **Narrative:** F2 tasks T-007..T-009 closed with GATE-R2 on be9145d. Next evaluation + phase-done.
+- **Decision log:** Exclusive claims validated; merge be9145d; complex none; lease cleared.
+- **Single nextAction:** Evaluation agent F2 → evaluationGate → decision-review PASS → phase-done --mode=both.
+- **Verbatim state:** HEAD=be9145df7d357285ce16ff02552c1247bf297267; T-007=7cc06ebd4e98e363e324b505c5fbfb2a05dfee41; T-008=76a8eb70fea106feda60f507e03701d55656a121; T-009=be9145df7d357285ce16ff02552c1247bf297267; lease=missing.
+- **Uncommitted changes:** close checkpoint this write.
