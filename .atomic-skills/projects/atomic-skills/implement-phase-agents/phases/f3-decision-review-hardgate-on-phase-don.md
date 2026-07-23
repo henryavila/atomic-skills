@@ -7,8 +7,8 @@ goal: Machine-enforce that automate phase-done cannot complete without operator
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-23T09:15:05.378Z
-lastUpdated: 2026-07-23T09:15:05.378Z
-nextAction: "Start T-010: Schema field decisionReview on phase"
+lastUpdated: 2026-07-23T09:18:17.000Z
+nextAction: SYNC WAIT F3 phase writer claim report (T-010..T-012).
 parentPlan: implement-phase-agents
 phaseId: F3
 businessIntent:
@@ -174,9 +174,9 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F3 materialized after F2 phase-done. Phase-start package: decisionReview schema + canRunPhaseDone/assert wire + operator PASS procedure. BI draft validate-only ratified. Ready for pure-maestro phase writer T-010..T-012.
-- **Decision log:** F3 BI drafted and ratified (operator ratify on materialize f3). Lessons: none. Sidecar age fresh. F2 done dependency satisfied.
-- **Single nextAction:** Run implement pure-maestro for F3 (spawn code-only phase writer T-010..T-012).
-- **Verbatim state:** phaseId=F3; slug=implement-phase-agents-f3-decision-review-hardgate-on-phase-don; executionMode=automate; currentPhase=F3; tasks T-010 T-011 T-012 pending; startedCommit=3878067e3337e8a01f8b6e4c465122635ce42b14.
-- **Uncommitted changes:** materialize checkpoint pending commit.
+- **Narrative:** F3 pure-maestro Step C: lease active; sibling worktree implement-phase-agents-F3-writer spawned for T-010..T-012. Host is host-thin — no product edits. Awaiting claim report.
+- **Decision log:** F3 BI ratified at materialize. Lease acquired at .atomic-skills/status/writer-leases/implement-phase-agents.json (secret in session writer-lease-secret-implement-phase-agents-F3.json). Writer branch impl/implement-phase-agents-F3-writer base bb418ec.
+- **Single nextAction:** SYNC WAIT F3 phase writer claim report (T-010..T-012); then merge + post-merge re-verify + done.
+- **Verbatim state:** phaseId=F3; executionMode=automate; worktree=/Volumes/External/code/atomic-skills/.worktrees/implement-phase-agents-F3-writer; writerBranch=impl/implement-phase-agents-F3-writer; baseRef=bb418ec; tasks T-010 T-011 T-012 pending.
+- **Uncommitted changes:** pre-dispatch handoff only (this file).
 
