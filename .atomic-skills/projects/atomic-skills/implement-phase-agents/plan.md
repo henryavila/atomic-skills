@@ -5,7 +5,7 @@ title: Implement phase agents (host-thin automate)
 version: "1.0"
 status: active
 started: 2026-07-22T20:36:08.845Z
-lastUpdated: 2026-07-22T23:56:41.000Z
+lastUpdated: 2026-07-23T00:58:11.685Z
 branch: plan/implement-phase-agents
 currentPhase: F2
 executionMode: automate
@@ -182,7 +182,7 @@ phases:
     goal: Enforce host-thin behavior in skill prose and STOP helpers so automate cannot honestly run as a host mega-implementer.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 1
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -200,8 +200,14 @@ phases:
             kind: shell
             command: node --test tests/automate-orchestrator-gates.test.js
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Ban de entrypoints de produto no host e preflight descriptor-only.
+    businessIntent:
+      value: "Sob automate o host permanece host-thin: nao executa entrypoints de produto (compose, build_edl, app servers) fora de verifiers verbatim; ban e preflight ficam greppable e testaveis para impedir mega-sessao do host."
+      workflow: Ban de product entrypoints + antipatterns (T-007) → role banner e phase-start validate-only nos stops (T-008) → assert/preflight descriptor-only e lease (T-009) → F3+ hardgate decisionReview e ritual.
+      rules: Nao banir comando shell do task.verifier ou exit-gate. Nao banir git-ops merge/status/log. Permitir assert-automate-gate, validate-state e verifiers copiados verbatim. Nao auto-spawn sem ratify do phase-start package. Nao implementar process supervisor. Nao exigir network no assert.
+      outOfScope: Layer 4 daemon; reescrever Mode 1/2; auto-PASS de gates manuais de produto; banir verifiers legitimos; network no assert.
+      doneWhen: Strings host-thin/product/verbatim greppable em maestro+implement; role banner/phase-start/validate-only greppable; testes automate-orchestrator-gates cobrem descriptor-only refuse; F2-G1 e F2-G2 metiveis.
   - id: F3
     slug: implement-phase-agents-f3-decision-review-hardgate-on-phase-don
     title: Decision-review hardgate on phase-done
