@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkEvaluationGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkEvaluationGate, checkDecisionReview, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1934,4 +1934,58 @@ test('GATE-R4: non-automate plan without evaluationGate is OK', () => {
   const plan = automateDonePlan(undefined);
   delete plan.executionMode;
   assert.deepEqual(checkEvaluationGate(plan), []);
+});
+
+// GATE-R4 — decisionReview honesty under executionMode automate
+const decisionReviewPassed = {
+  status: 'passed',
+  verifiedAt: '2026-07-23T12:00:00.000Z',
+};
+
+test('GATE-R4 RED: automate done phase without decisionReview violates', () => {
+  const v = checkDecisionReview(
+    automateDonePlan({ status: 'passed', verdict: 'pass' }),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /decisionReview/);
+});
+
+test('GATE-R4 RED: automate done phase with decisionReview pending violates', () => {
+  const v = checkDecisionReview(
+    automateDonePlan(
+      { status: 'passed', verdict: 'pass' },
+      { decisionReview: { status: 'pending' } },
+    ),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /decisionReview|pending/i);
+});
+
+test('GATE-R4 RED: automate done phase with decisionReview passed but no verifiedAt', () => {
+  const v = checkDecisionReview(
+    automateDonePlan(
+      { status: 'passed', verdict: 'pass' },
+      { decisionReview: { status: 'passed' } },
+    ),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /verifiedAt|decisionReview/i);
+});
+
+test('GATE-R4 GREEN: automate done phase with decisionReview passed + verifiedAt', () => {
+  assert.deepEqual(
+    checkDecisionReview(
+      automateDonePlan(
+        { status: 'passed', verdict: 'pass' },
+        { decisionReview: decisionReviewPassed },
+      ),
+    ),
+    [],
+  );
+});
+
+test('GATE-R4: non-automate plan without decisionReview is OK', () => {
+  const plan = automateDonePlan({ status: 'passed', verdict: 'pass' });
+  delete plan.executionMode;
+  assert.deepEqual(checkDecisionReview(plan), []);
 });

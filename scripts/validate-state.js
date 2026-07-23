@@ -34,6 +34,7 @@ import {
   sidecarKey,
 } from '../src/state-invariants.js';
 import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
+import { decisionReviewAllowsPhaseDone } from '../src/decision-review-gate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -686,6 +687,46 @@ export function checkEvaluationGate(frontmatter) {
 }
 
 /**
+ * GATE-R4 (decisionReview leg) — operator PASS honesty under durable automate.
+ *
+ * When plan.executionMode is automate, every phase with status:'done' must carry
+ * a decisionReview that decisionReviewAllowsPhaseDone accepts (**only**
+ * status=passed + non-empty verifiedAt). Absent / pending / failed / passed
+ * without verifiedAt on a done automate phase is a HARD violation.
+ * Non-automate plans: decisionReview optional; honesty inactive without stamp.
+ *
+ * Reuses decisionReviewAllowsPhaseDone — does not invent parallel gate logic.
+ *
+ * @param {object} frontmatter - parsed plan frontmatter
+ * @returns {string[]}
+ */
+export function checkDecisionReview(frontmatter) {
+  const violations = [];
+  if (frontmatter == null || typeof frontmatter !== 'object') return violations;
+  const planExecutionMode =
+    frontmatter.executionMode != null
+      ? String(frontmatter.executionMode).trim().toLowerCase()
+      : '';
+  const durableAutomate = planExecutionMode === 'automate';
+  if (!durableAutomate) return violations;
+  const phases = Array.isArray(frontmatter.phases) ? frontmatter.phases : [];
+  for (const phase of phases) {
+    if (phase?.status !== 'done') continue;
+    const label = `phase ${phase.id ?? '?'}`;
+    const honesty = decisionReviewAllowsPhaseDone({
+      planExecutionMode: 'automate',
+      decisionReview: phase.decisionReview,
+    });
+    if (!honesty.ok) {
+      violations.push(
+        `${label}: decisionReview invalid under automate — ${honesty.reason}`,
+      );
+    }
+  }
+  return violations;
+}
+
+/**
  * Validate a single file. Returns { ok, kind, errors[] }.
  */
 export function validateFile(filePath, validators) {
@@ -728,6 +769,7 @@ export function validateFile(filePath, validators) {
     ...checkMetInvariant(parsed.frontmatter),
     ...checkReviewGate(parsed.frontmatter), // GATE-R3 (G2): done phase's review claim must be honest
     ...checkEvaluationGate(parsed.frontmatter), // GATE-R4: automate evaluationGate honesty
+    ...checkDecisionReview(parsed.frontmatter), // GATE-R4: automate decisionReview honesty (operator PASS)
   ];
   if (invariantViolations.length > 0) {
     return { ok: false, kind, errors: invariantViolations };
