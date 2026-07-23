@@ -8,8 +8,8 @@ goal: After phase-done and at every phase start, automate presents objective +
 status: active
 branch: plan/implement-phase-agents
 started: 2026-07-23T11:07:12.097Z
-lastUpdated: 2026-07-23T11:12:04.667Z
-nextAction: Evaluation + decision-review + phase-done for F4.
+lastUpdated: 2026-07-23T12:33:14.557Z
+nextAction: Await decision-review PASS then phase-done F4.
 parentPlan: implement-phase-agents
 phaseId: F4
 businessIntent:
@@ -153,4 +153,17 @@ weightDone: 4
 
 # Narrative / notes
 
-F4 tasks T-013 T-014 closed post-merge re-verify.
+Phase **F4** tasks done; both-review approved after fix1+fix2.
+
+## Decisions
+
+- Authority: draft package → ratify → materialize Mode B; phase-done no blank form under automate.
+- Mode B fail-closed without package ratify; switch/reopen refuse Mode A under automate.
+
+## Session handoff
+- **Narrative:** F4 product green after both-review fix re-dispatches. evaluationGate already passed. Waiting operator decision-review PASS before phase-done.
+- **Decision log:** decisions/F4.jsonl (+ append on decision-review). Review receipt implement-phase-agents-F4-both-4d37183.md
+- **Single nextAction:** Await decision-review PASS then phase-done F4.
+- **Verbatim state:** HEAD=4d371830e39aebe1bd56d6bd4dd97aa57957f8bf; evaluationGate=passed; decisionReview=null; reviewGate pending stamp with receipt; tasks 2/2 done.
+- **Uncommitted changes:** review receipt + handoff + reviewGate stamp pending.
+
