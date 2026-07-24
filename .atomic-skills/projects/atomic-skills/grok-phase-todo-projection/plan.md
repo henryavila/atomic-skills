@@ -5,9 +5,9 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T20:00:09.377Z
+lastUpdated: 2026-07-24T20:06:56.316Z
 branch: plan/grok-phase-todo-projection
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -149,32 +149,32 @@ phases:
             kind: shell
             command: node --test tests/project-session-todos.test.js
             expectExitCode: 0
-          metAt: 2026-07-24T20:00:09.377Z
+          metAt: 2026-07-24T20:06:56.316Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-24T20:00:09.377Z
-            verifiedCommit: 4bee9352050b36b6ff156284387f6f67ed9174b6
+            verifiedAt: 2026-07-24T20:06:56.316Z
+            verifiedCommit: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
             passed: true
             exitCode: 0
             outputSummary: >-
               ✔ formatPhaseContent: materialized uses done/total and summary
-              (1.187708ms)
+              (1.227542ms)
 
               ✔ formatPhaseContent: descriptor-only uses em-dash total + not
-              materialized (1.055958ms)
+              materialized (0.082083ms)
 
-              ✔ formatPhaseContent: paused suffix (0.558458ms)
+              ✔ formatPhaseContent: paused suffix (0.074875ms)
 
               ✔ mapPhaseTodoStatus: paused wins → pending + paused flag
-              (1.629667ms)
+              (0.5855ms)
 
               ✔ mapPhaseTodoStatus: current → in_progress; done → completed;
-              else pending (0.569125ms)
+              else pending (0.173667ms)
 
-              ✔ stableTodoId is planSlug colon phase id (0.308375ms)
+              ✔ mapPhaseTodoStatus: done|archived beats stale currentPhase →
+              completed (0.107708ms)
 
-              ✔ fixture F0 2/5 active + F1 pending + descriptor-only F2
-              (41.609042ms)
+              ✔ stableTodoId is planSlug colon phase id 
         - id: F1-G2
           description: "CLI json contract: merge field + todos with id content status shape"
           status: met
@@ -187,15 +187,15 @@ phases:
               for(const t of j.todos){ if(!t.id||!t.content||!t.status)
               process.exit(2);} process.exit(0)})"
             expectExitCode: 0
-          metAt: 2026-07-24T20:00:09.377Z
+          metAt: 2026-07-24T20:06:56.316Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-24T20:00:09.377Z
-            verifiedCommit: 4bee9352050b36b6ff156284387f6f67ed9174b6
+            verifiedAt: 2026-07-24T20:06:56.316Z
+            verifiedCommit: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
             passed: true
             exitCode: 0
             outputSummary: ""
-    status: active
+    status: done
     summary: Helper + testes do contrato canônico (id, label, status, paused, merge)
     businessIntent:
       value: Agente e skills obtêm payload determinístico de session todos (fases do
@@ -213,11 +213,18 @@ phases:
     evaluationGate:
       status: passed
       verdict: pass
-      verifiedAt: 2026-07-24T19:56:19.186Z
-      at: 6c53407fe154b122a6b1b15dfd92d49840062427
+      verifiedAt: 2026-07-24T20:06:56.316Z
+      at: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
     decisionReview:
       status: passed
       verifiedAt: 2026-07-24T20:00:09.377Z
+    reviewGate:
+      status: passed
+      at: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f1-project-session-todos-both.md
+      verifiedAt: 2026-07-24T20:06:56.316Z
+    lessonsState: none
   - id: F2
     slug: grok-phase-todo-projection-f2-harden-do-emit-lint-estrutural
     title: Harden do emit lint estrutural
@@ -245,7 +252,7 @@ phases:
             kind: shell
             command: node --test tests/transition-emits.test.js
             expectExitCode: 0
-    status: pending
+    status: active
     summary: "Lint transitions: closes + phase-reopen/switch/unblock/archive"
   - id: F3
     slug: grok-phase-todo-projection-f3-wire-implement-e-reseed-grok

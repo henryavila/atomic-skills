@@ -4,11 +4,11 @@ slug: grok-phase-todo-projection-f1-helper-deterministico-de-projecao
 title: Helper determinístico de projeção
 goal: Script zero-token que, dado o repo, emite o array de session todos das
   fases do plan pickFocus com label canônico e statuses corretos.
-status: active
+status: done
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T19:44:51.577Z
-lastUpdated: 2026-07-24T20:00:09.377Z
-nextAction: Run phase-done with review-code --mode=both after canRunPhaseDone
+lastUpdated: 2026-07-24T20:06:56.316Z
+nextAction: present phase-start package for F2 validate-only
 parentPlan: grok-phase-todo-projection
 phaseId: F1
 businessIntent:
@@ -26,7 +26,7 @@ businessIntent:
     emite {merge,todos[]} com shape válido.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 2
 weightTotal: 2
@@ -38,31 +38,33 @@ exitGates:
       kind: shell
       command: node --test tests/project-session-todos.test.js
       expectExitCode: 0
-    verifierLabel: "shell: node --test tests/project-session-todos.test.js"
-    metAt: 2026-07-24T20:00:09.377Z
+    metAt: 2026-07-24T20:06:56.316Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T20:00:09.377Z
-      verifiedCommit: 4bee9352050b36b6ff156284387f6f67ed9174b6
+      verifiedAt: 2026-07-24T20:06:56.316Z
+      verifiedCommit: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
       passed: true
       exitCode: 0
       outputSummary: >-
         ✔ formatPhaseContent: materialized uses done/total and summary
-        (1.187708ms)
+        (1.227542ms)
 
         ✔ formatPhaseContent: descriptor-only uses em-dash total + not
-        materialized (1.055958ms)
+        materialized (0.082083ms)
 
-        ✔ formatPhaseContent: paused suffix (0.558458ms)
+        ✔ formatPhaseContent: paused suffix (0.074875ms)
 
-        ✔ mapPhaseTodoStatus: paused wins → pending + paused flag (1.629667ms)
+        ✔ mapPhaseTodoStatus: paused wins → pending + paused flag (0.5855ms)
 
         ✔ mapPhaseTodoStatus: current → in_progress; done → completed; else
-        pending (0.569125ms)
+        pending (0.173667ms)
 
-        ✔ stableTodoId is planSlug colon phase id (0.308375ms)
+        ✔ mapPhaseTodoStatus: done|archived beats stale currentPhase → completed
+        (0.107708ms)
 
-        ✔ fixture F0 2/5 active + F1 pending + descriptor-only F2 (41.609042ms)
+        ✔ stableTodoId is planSlug colon phase id 
+    verifierLabel: "shell: node --test tests/project-session-todos.test.js"
+    evidenceSummary: passed · 2026-07-24
   - id: F1-G2
     description: CLI json on repo root exits 0 and prints todos array
     status: met
@@ -73,15 +75,16 @@ exitGates:
         j=JSON.parse(d); if(!Array.isArray(j.todos)) process.exit(1);
         process.exit(0)})"
       expectExitCode: 0
-    verifierLabel: 'shell: node scripts/project-session-todos.js --json . | node -e "l…'
-    metAt: 2026-07-24T20:00:09.377Z
+    metAt: 2026-07-24T20:06:56.316Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T20:00:09.377Z
-      verifiedCommit: 4bee9352050b36b6ff156284387f6f67ed9174b6
+      verifiedAt: 2026-07-24T20:06:56.316Z
+      verifiedCommit: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
       passed: true
       exitCode: 0
       outputSummary: ""
+    verifierLabel: 'shell: node scripts/project-session-todos.js --json . | node -e "l…'
+    evidenceSummary: passed · 2026-07-24
 stack:
   - id: 1
     title: Helper determinístico de projeção
@@ -115,37 +118,11 @@ tasks:
     closedAt: 2026-07-24T19:51:38.683Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T19:56:19.186Z
-      verifiedCommit: 6c53407fe154b122a6b1b15dfd92d49840062427
+      verifiedAt: 2026-07-24T20:06:56.316Z
+      verifiedCommit: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
       passed: true
       exitCode: 0
-      outputSummary: >
-        prints payload shape (33.213792ms)
-
-        ✔ done phase initiative under phases/archive uses (done/total) rollups
-        (4.555334ms)
-
-        ✔ active phases/*.md preferred over archive when both exist for same
-        phaseId (2.656333ms)
-
-        ✔ CLI smoke: node scripts/project-session-todos.js --json <fixture> exit
-        0 (275.616041ms)
-
-        ℹ tests 15
-
-        ℹ suites 0
-
-        ℹ pass 15
-
-        ℹ fail 0
-
-        ℹ cancelled 0
-
-        ℹ skipped 0
-
-        ℹ todo 0
-
-        ℹ duration_ms 654.498833
+      outputSummary: re-anchored post fix2
   - id: T-002
     title: Testes golden do helper
     description: Testes golden do helper
@@ -170,43 +147,16 @@ tasks:
     closedAt: 2026-07-24T19:51:41.414Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T19:56:19.186Z
-      verifiedCommit: 6c53407fe154b122a6b1b15dfd92d49840062427
+      verifiedAt: 2026-07-24T20:06:56.316Z
+      verifiedCommit: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
       passed: true
       exitCode: 0
-      outputSummary: >
-        prints payload shape (33.213792ms)
-
-        ✔ done phase initiative under phases/archive uses (done/total) rollups
-        (4.555334ms)
-
-        ✔ active phases/*.md preferred over archive when both exist for same
-        phaseId (2.656333ms)
-
-        ✔ CLI smoke: node scripts/project-session-todos.js --json <fixture> exit
-        0 (275.616041ms)
-
-        ℹ tests 15
-
-        ℹ suites 0
-
-        ℹ pass 15
-
-        ℹ fail 0
-
-        ℹ cancelled 0
-
-        ℹ skipped 0
-
-        ℹ todo 0
-
-        ℹ duration_ms 654.498833
+      outputSummary: re-anchored post fix2
 parked: []
 emerged: []
 summary: Helper + testes do contrato canônico (id, label, status, paused, merge)
 planTitle: Projeção de fases do project no TODO do Grok
 planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -214,8 +164,8 @@ current: true
 Initiative for phase **F1 — Helper determinístico de projeção**.
 
 ## Session handoff
-- **Narrative:** F1 tasks done; archive-lookup fix merged; tests 15/15; evaluation verdict pass after fix. evaluationGate to be stamped; await decision-review PASS.
-- **Decision log:** FIX-ARCHIVE-1 findPhaseInitiative scans phases/archive; re-dispatch after major evaluation finding.
-- **Single nextAction:** await decision-review operator PASS for F1 (then phase-done with review-code --mode=both)
-- **Verbatim state:** HEAD=6c53407fe154b122a6b1b15dfd92d49840062427; node --test exit 0; F0 live content should use archive rollups (2/2)
+- **Narrative:** F1 closed after review-code both + fix2 (empty-focus merge:true no-wipe; status done before current). Plan advances to F2 descriptor-only. Automate: no blank-form materialize.
+- **Decision log:** decision-review PASS; fix1 archive; fix2 empty-focus; evaluationGate pass.
+- **Single nextAction:** present phase-start package for F2 validate-only
+- **Verbatim state:** currentPhase=F2; F1 done; reviewGate.mode=both; HEAD=5fbdf9551dd8f2f610742713ebac83bb458dd34d
 - **Uncommitted changes:** (pending)
