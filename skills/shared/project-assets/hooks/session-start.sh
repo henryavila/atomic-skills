@@ -396,5 +396,14 @@ if [[ -n "$dashboard_url" ]]; then
   context+="${dashboard_url}"$'\n'
 fi
 
+# 8. Grok phase-scaffold reseed hint (SessionStart = hint only; Soft fail-open).
+# Never call todo_write from this hook — the agent / skill path owns reseed.
+# refresh_focus already ran refresh-state above; this is optional guidance when
+# a plan is active. Contract: docs/kb/grok-phase-todo-projection.md.
+if [[ -n "$active_plan" ]]; then
+  context+=$'\n'"## Grok phase scaffold (reseed hint only)"$'\n\n'
+  context+="On **Grok Build**, reseed the phase scaffold via the skill path after SessionStart or context compaction: refresh-state → scripts/project-session-todos.js --json → apply with the session checklist tool (todo_write), merge:false when pickFocus has a winner. Empty focus → skip reseed (no wipe). This SessionStart hook does **not** call todo_write — Soft fail-open without hooks-trust; implement/project start reseed independently. Phases only (not T-00N). See docs/kb/grok-phase-todo-projection.md."$'\n'
+fi
+
 emit_json "$context"
 exit 0
