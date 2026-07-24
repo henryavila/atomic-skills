@@ -75,6 +75,20 @@ Run **only after** Step 0 reports home (`resumeGateAllowed`). The gate is author
 3. **Writer-lease HARD-GATE (always for the selected plan):** refuse resume **and** refuse `--clear-execution-mode` / Mode-1 entry if `assertLeaseAbsent` / `isLeaseBlocking` is true — **any** non-missing lease residue (`active`, `cleared`, `malformed`; see `src/writer-lease.js`) or a sibling phase merge is mid-flight. Acquire via exclusive create (`acquireLeaseFile` / `wx` → returns `{ path, secret, lease }` with on-disk `tokenHash` only); clear only with the **acquire secret** (`clearLeaseFile(statusRoot, planSlug, secret)`) after sync-wait + claim collect + merge settle — public identity fields alone never clear.
 4. On a clean resume: the handoff IS your re-orientation — read its narrative + decision log + `nextAction`; do NOT cold-re-investigate. Any residual heavy read goes to a read-only subagent (below), never the main coding context.
 
+### Step 0.7 — Grok phase scaffold reseed (start + post-compaction)
+
+**Grok-local only** — contract `docs/kb/grok-phase-todo-projection.md`. Session checklist is a **projection only** (never close authority; GATE-R2 stays on verifiers / `done` / `phase-done`). Project **phases** of the active plan — **never** tasks `T-00N` as session todos.
+
+After Step 0 reports home (and a clean Step 0.5 resume), **and after any host context compaction** that drops the session checklist:
+
+1. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"`.
+2. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/project-session-todos.js" --json`.
+3. On Grok, apply the payload with the session checklist tool (`todo_write`). When pickFocus has a winner, reseed the **phase scaffold** with **`merge: false`** (full replace so only phase todos remain). Empty focus / paused plan (no winner) → **skip reseed** (do not wipe the board).
+
+**anti-proc:** while a plan is **anchored**, a concurrent process scaffold (`proc:*` from bundled flows) is **forbidden** as competing session todos. Keep process steps as handoff narrative, not a second checklist.
+
+Skill path reseeds independently of SessionStart (Soft hooks are hint-only / fail-open). Host-thin pure-maestro may apply `todo_write` as **orchestration** without product-source edits — detail: `skills/shared/implement-automate-maestro.md`.
+
 ### Step 1 — Load the admitted tasks
 
 Resolve the active phase before accepting any pending task:
@@ -123,7 +137,7 @@ For the chosen task, in this order:
    - `{{ASSETS_PATH}}/project-transitions.md` (the **canonical done flow** — status, evidence, event, rollups, checkpoint)
    - `{{ASSETS_PATH}}/verifier-exec.md` (per-kind verifier executor + GATE-R2 evidence shape)
    Closure **delegates** to that flow. Do **not** reimplement `done` inside implement; do not invent a second evidence path.
-7. **Close it.** After the implementation commit and the loads above, run `done <task-id>` via the project skill. The `done` flow executes the per-task verifier before setting `status: done`, writes evidence + `nextAction` + **`## Session handoff` in the same durable save**, emits an identity-deduped `task-done` completion event, refreshes state, and owns the single project-state checkpoint commit. GATE-R2 enforces evidence. Handoff is **inside** that checkpoint (not a follow-up edit) so resume never sees a clean HEAD with a stale handoff — status, evidence, and handoff share the same commit. Retry of the same close is idempotent (`decideDoneTerminal` / `appendCompletion` — zero duplicate events or terminal rewrites).
+7. **Close it.** After the implementation commit and the loads above, run `done <task-id>` via the project skill. The `done` flow executes the per-task verifier before setting `status: done`, writes evidence + `nextAction` + **`## Session handoff` in the same durable save**, emits an identity-deduped `task-done` completion event, refreshes state, and owns the single project-state checkpoint commit. GATE-R2 enforces evidence. Handoff is **inside** that checkpoint (not a follow-up edit) so resume never sees a clean HEAD with a stale handoff — status, evidence, and handoff share the same commit. Retry of the same close is idempotent (`decideDoneTerminal` / `appendCompletion` — zero duplicate events or terminal rewrites). **Mode 1 post-done Grok projection** is owned by `project-transitions.md` (`done` step 5b: after `refresh-state` → `project-session-todos` → apply via `todo_write` on Grok) — do not invent a second close path or mark session todos completed to *cause* durable close.
 8. **Confirm the close checkpoint.** If `done` reports that its checkpoint commit succeeded, do not create a second close commit (including "fix handoff" commits). If it reports an uncommitted state diff, stop and resolve only the explicit state paths it names. Leaving handoff dirty after the checkpoint is a close failure.
 9. **Snapshot check.** After a healthy close the worktree is clean (or only explicitly unrelated dirty files); the handoff block already in the checkpoint records that. Only refresh handoff outside `done` on non-close events (pre-dispatch, phase boundary, on request).
 
