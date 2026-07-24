@@ -215,6 +215,7 @@ references:
     path: .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/design.md
 planActive: true
 planTitle: Projeção de fases do project no TODO do Grok
+executionMode: automate
 ---
 
 # Projeção de fases do project no TODO do Grok
