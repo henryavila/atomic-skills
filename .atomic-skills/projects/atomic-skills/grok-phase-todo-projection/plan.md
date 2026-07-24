@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T20:54:53.236Z
+lastUpdated: 2026-07-24T21:01:28.301Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F4
 parallelismAllowed: false
@@ -402,7 +402,7 @@ phases:
     goal: Suite de regressão verde; parity de install intacta; checklist dogfood.
     dependsOn:
       - F3
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -424,6 +424,22 @@ phases:
             description: Operator PASS after one real session saw phase scaffold update
     status: active
     summary: Regressão unit + install parity Grok + dogfood checklist
+    businessIntent:
+      value: A entrega fecha com regressão determinística verde e dogfood documentado
+        (seed → after-done → phase-done → reseed pós-compact), sem segundo SoT e
+        sem PASS inventado de gate manual.
+      workflow: T-001 endurece/expõe regressão package (unit + path de install/render
+        se no escopo) → T-002 documenta checklist dogfood no KB → F4-G1 shell +
+        F4-G2 PASS manual do operador.
+      rules: Não inventar PASS sem run do operador; checklist só no KB (sem segundo
+        helper); não mutar journal de install salvo se arquivo instalado novo
+        exigir reverse; preferir scripts em package-root sem superfície de
+        install.
+      outOfScope: Novo helper de projeção; multi-IDE mirror; write em plan.json da
+        sessão; fechar task via TODO; painel nativo Grok; T-00N no scaffold.
+      doneWhen: node --test nos testes de sessão/transitions (e parity install/render
+        se no G1) exit 0; checklist dogfood no KB com labels de identidade;
+        Henry PASS em F4-G2.
 references:
   - kind: file
     label: design.md critic-approved
@@ -462,8 +478,8 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 
 ## Session handoff (plan-level resume)
-- **Narrative:** implement --mode=automate advanced F0–F3 to done. F4 is currentPhase active but descriptor-only (not materialized). Operator paused for fresh session (context full). executionMode: automate remains stamped.
-- **Decision log:** Automate pure-maestro host-thin; package ratify per phase; T-002 verifiers re-spec when sidecar missing; F1 archive+empty-focus fixes; F2 phase-done post-close projection; F3 implement reseed + SessionStart hint; F3-G2 dogfood PASS.
-- **Single nextAction:** present phase-start package for F4 validate-only (then ratify → materialize Mode B → work-order → lease → fresh F4 writer)
-- **Verbatim state:** branch plan/grok-phase-todo-projection; HEAD=b254d2499ed2ab5c6e87b75e3ffaf9baa887e02a; currentPhase=F4; F0–F3 status=done; F4 status=active descriptor-only .source.json at .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f4-integracao-e-regressao.source.json; lease missing; executionMode automate
-- **Uncommitted changes:** (will list after write)
+- **Narrative:** F4 package ratified; Mode B materialize with ratified BI; T-002 verifier re-speced. Next: work-order → lease → fresh F4 writer.
+- **Decision log:** Automate pure-maestro; F0–F3 done; operator ratify F4; T-002 verifier added for SPEC admit.
+- **Single nextAction:** spawn fresh writer after ratify
+- **Verbatim state:** currentPhase=F4; initiative=.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f4-integracao-e-regressao.md; HEAD=243a7ffcaaf72d1716e9fc7cca494e43a5d2b374; executionMode automate; lease missing pre-acquire
+- **Uncommitted changes:** materialize staging → microcommit

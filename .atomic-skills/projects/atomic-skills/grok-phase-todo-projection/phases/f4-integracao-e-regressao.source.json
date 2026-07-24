@@ -48,7 +48,12 @@
           "kind": "file",
           "path": "docs/kb/grok-phase-todo-projection.md"
         }
-      ]
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'seed|after-done|phase-done|reseed|compact' docs/kb/grok-phase-todo-projection.md && rg -n 'summary|title|F0 \\(' docs/kb/grok-phase-todo-projection.md",
+        "expectExitCode": 0
+      }
     }
   ],
   "exitGates": [
