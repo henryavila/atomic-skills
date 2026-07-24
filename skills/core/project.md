@@ -131,6 +131,7 @@ Run these in order on the active initiative BEFORE executing a mutating command 
 2. **Reconciliation gate.** Collect `tasks[]` where `status: active` AND `lastUpdated` older than 24h (configurable `reconciliationThresholdHours`, `0` disables). If non-empty, present each (max 4 oldest) via {{ASK_USER_QUESTION_TOOL}} with options `Still active` / `Done` / `Blocked` / `Skip`, apply answers, THEN proceed. Skipped when the user is already running `done` on the stale task. (Full detail: `project-transitions.md`.)
 {{#if ide.grok}}
    On Grok Build, use native `ask_user_question` for those structured options. Soft project hooks require folder/hooks trust; when untrusted they fail-open (no SessionStart digest / PreToolUse gate) — not an install failure. See `docs/kb/grok-build-compatibility.md` §7.
+   **Phase scaffold (session todos):** after focus-moving mutations, follow SoT order in `docs/kb/grok-phase-todo-projection.md` — mutate → `refresh-state` → helper `scripts/project-session-todos.js` → `todo_write`. Session todos are a **Grok-local** phase scaffold only (not `T-00N`). While a plan is anchored, a process scaffold (`proc:*`) must **not** compete with the phase scaffold; reseed details live in that KB + `docs/kb/grok-build-compatibility.md` §8 — do not dump the full procedure into this router.
 {{/if}}
 
 ## Gate-status invariant
