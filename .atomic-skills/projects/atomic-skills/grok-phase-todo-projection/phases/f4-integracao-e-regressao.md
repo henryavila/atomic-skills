@@ -113,9 +113,9 @@ current: true
 # F4
 
 ## Session handoff
-- **Narrative:** F4 package ratified Mode B materialize; T-002 verifier re-speced into sidecar.
-- **Decision log:** operator ratify F4 (token: ratify); T-002 shell verifier for dogfood checklist greps.
-- **Single nextAction:** spawn fresh writer after ratify
-- **Verbatim state:** .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f4-integracao-e-regressao.md; HEAD=243a7ffcaaf72d1716e9fc7cca494e43a5d2b374; executionMode automate
-- **Uncommitted changes:** clean expected after materialize microcommit
+- **Narrative:** F4 materialized Mode B; lease acquired; sibling writer worktree ready; spawning fresh phase writer.
+- **Decision log:** operator ratify F4; T-002 verifier re-spec; Mode B materialize; lease F4 host-thin pure maestro.
+- **Single nextAction:** sync-wait F4 phase writer claim report then merge D.5
+- **Verbatim state:** initiative=.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f4-integracao-e-regressao.md; worktree=/Volumes/External/code/atomic-skills/.worktrees/grok-phase-todo-projection-F4-writer; branch=impl/grok-phase-todo-projection-F4-writer; baseRef=76282b3d2506acf7b637f936869ef114f32c3910; lease=.atomic-skills/status/writer-leases/grok-phase-todo-projection.json; executionMode automate
+- **Uncommitted changes:** lease file + handoff pre-dispatch
 

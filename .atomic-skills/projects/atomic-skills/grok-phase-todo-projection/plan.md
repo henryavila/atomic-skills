@@ -478,8 +478,8 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 
 ## Session handoff (plan-level resume)
-- **Narrative:** F4 package ratified; Mode B materialize with ratified BI; T-002 verifier re-speced. Next: work-order → lease → fresh F4 writer.
-- **Decision log:** Automate pure-maestro; F0–F3 done; operator ratify F4; T-002 verifier added for SPEC admit.
-- **Single nextAction:** spawn fresh writer after ratify
-- **Verbatim state:** currentPhase=F4; initiative=.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f4-integracao-e-regressao.md; HEAD=243a7ffcaaf72d1716e9fc7cca494e43a5d2b374; executionMode automate; lease missing pre-acquire
-- **Uncommitted changes:** materialize staging → microcommit
+- **Narrative:** F4 active materialized; lease acquired; spawning F4 phase writer (code-only).
+- **Decision log:** ratify F4; Mode B; T-002 verifier; host-thin pure maestro.
+- **Single nextAction:** sync-wait F4 phase writer claim report then merge D.5
+- **Verbatim state:** HEAD=76282b3d2506acf7b637f936869ef114f32c3910; worktree F4-writer; executionMode automate
+- **Uncommitted changes:** lease + handoff
