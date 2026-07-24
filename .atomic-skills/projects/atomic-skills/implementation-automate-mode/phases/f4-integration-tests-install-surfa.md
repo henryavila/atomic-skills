@@ -2,7 +2,8 @@
 schemaVersion: "0.1"
 slug: implementation-automate-mode-f4-integration-tests-install-surfa
 title: Integration tests, install surface, and dogfood
-goal: Lock the mode with tests that exercise prose contracts and helper wiring; document the mode for operators; keep install/catalog consistent.
+goal: Lock the mode with tests that exercise prose contracts and helper wiring;
+  document the mode for operators; keep install/catalog consistent.
 status: archived
 branch: plan/implementation-automate-mode
 started: 2026-07-17T19:33:38.837Z
@@ -20,6 +21,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 2
 gatesTotal: 2
+weightDone: 6
+weightTotal: 6
 exitGates:
   - id: F4-G1
     description: implement-automate contract tests and full npm test pass.
@@ -35,7 +38,10 @@ exitGates:
       verifiedCommit: cf032335826d83ed99b9c85d70a05386a501d9ab
       passed: true
       exitCode: 0
-      outputSummary: ℹ tests 2307 ℹ suites 296 ℹ pass 2296 ℹ fail 0 ℹ cancelled 0 ℹ skipped 11 ℹ todo 0 ℹ duration_ms 76982.354959
+      outputSummary: ℹ tests 2307 ℹ suites 296 ℹ pass 2296 ℹ fail 0 ℹ cancelled 0 ℹ
+        skipped 11 ℹ todo 0 ℹ duration_ms 76982.354959
+    verifierLabel: "shell: node --test tests/implement-automate-contract.test.js && np…"
+    evidenceSummary: passed · 2026-07-17
   - id: F4-G2
     description: validate-skills exits 0 after catalog or docs touch.
     status: met
@@ -51,6 +57,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: ✓ All 15 skills valid (schema_version 0.2)
+    verifierLabel: "shell: node scripts/validate-skills.js"
+    evidenceSummary: passed · 2026-07-17
 stack:
   - id: 1
     title: Integration tests, install surface, and dogfood
@@ -62,9 +70,14 @@ tasks:
     status: done
     lastUpdated: 2026-07-17T19:48:49.000Z
     scopeBoundary:
-      - Do not require live Codex or Grok network in unit CI. Do not enable Mode 2 by default.
+      - Do not require live Codex or Grok network in unit CI. Do not enable Mode
+        2 by default.
     acceptance:
-      - it - Contract tests assert implement.md contains automate maestro markers phase-writer code-only and complex both and plan-end external-both pointers.; it - contract tests assert project-transitions automate phase review and finalize planEndReviewOk strings.; it - npm test includes the new contract file.
+      - it - Contract tests assert implement.md contains automate maestro
+        markers phase-writer code-only and complex both and plan-end
+        external-both pointers.; it - contract tests assert project-transitions
+        automate phase review and finalize planEndReviewOk strings.; it - npm
+        test includes the new contract file.
     verifier:
       kind: shell
       command: node --test tests/implement-automate-contract.test.js
@@ -83,15 +96,20 @@ tasks:
       verifiedCommit: cf032335826d83ed99b9c85d70a05386a501d9ab
       passed: true
       exitCode: 0
-      outputSummary: ℹ tests 13 ℹ suites 2 ℹ pass 13 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 ℹ todo 0 ℹ duration_ms 38.170792
+      outputSummary: ℹ tests 13 ℹ suites 2 ℹ pass 13 ℹ fail 0 ℹ cancelled 0 ℹ skipped
+        0 ℹ todo 0 ℹ duration_ms 38.170792
   - id: T-013
     title: Operator docs and catalog one-liner touch if needed
     status: done
     lastUpdated: 2026-07-17T19:48:49.000Z
     scopeBoundary:
-      - Do not rewrite the full orchestrator CANON. Do not change skill namespace layout.
+      - Do not rewrite the full orchestrator CANON. Do not change skill
+        namespace layout.
     acceptance:
-      - it - Operator-facing doc mentions implement automate mode and points at implement.md contract.; it - core.implement catalog entry description or argument_hint mentions mode automate if argument_hint is updated without breaking compact format.; it - validate-skills still exits 0.
+      - it - Operator-facing doc mentions implement automate mode and points at
+        implement.md contract.; it - core.implement catalog entry description or
+        argument_hint mentions mode automate if argument_hint is updated without
+        breaking compact format.; it - validate-skills still exits 0.
     verifier:
       kind: shell
       command: node scripts/validate-skills.js
@@ -112,15 +130,18 @@ tasks:
       verifiedCommit: cf032335826d83ed99b9c85d70a05386a501d9ab
       passed: true
       exitCode: 0
-      outputSummary: ℹ tests 13 ℹ suites 2 ℹ pass 13 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 ℹ todo 0 ℹ duration_ms 38.170792
+      outputSummary: ℹ tests 13 ℹ suites 2 ℹ pass 13 ℹ fail 0 ℹ cancelled 0 ℹ skipped
+        0 ℹ todo 0 ℹ duration_ms 38.170792
   - id: T-014
     title: Full suite green after automate landing
     status: done
     lastUpdated: 2026-07-17T19:48:49.000Z
     scopeBoundary:
-      - Do not skip failing unrelated suites by disabling them. Do not expand dogfood into a live multi-phase plan execution in this task.
+      - Do not skip failing unrelated suites by disabling them. Do not expand
+        dogfood into a live multi-phase plan execution in this task.
     acceptance:
-      - it - npm test exits 0 on the package after all automate files land.; it - no skills/core/automate.md exists.
+      - it - npm test exits 0 on the package after all automate files land.; it
+        - no skills/core/automate.md exists.
     verifier:
       kind: shell
       command: node scripts/validate-skills.js
@@ -137,11 +158,14 @@ tasks:
       verifiedCommit: cf032335826d83ed99b9c85d70a05386a501d9ab
       passed: true
       exitCode: 0
-      outputSummary: ℹ tests 13 ℹ suites 2 ℹ pass 13 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 ℹ todo 0 ℹ duration_ms 38.170792
+      outputSummary: ℹ tests 13 ℹ suites 2 ℹ pass 13 ℹ fail 0 ℹ cancelled 0 ℹ skipped
+        0 ℹ todo 0 ℹ duration_ms 38.170792
 parked: []
 emerged: []
 summary: Contract tests, docs/catálogo e suite completa verde.
+planTitle: Implementation Automate Mode
 ---
+
 # F4
 
 ## Session handoff

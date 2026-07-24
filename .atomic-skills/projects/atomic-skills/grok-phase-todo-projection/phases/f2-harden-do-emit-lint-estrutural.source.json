@@ -1,0 +1,72 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F2",
+  "slug": "grok-phase-todo-projection-f2-harden-do-emit-lint-estrutural",
+  "title": "Harden do emit lint estrutural",
+  "goal": "Garantir na prosa de transitions que refresh-state e o helper de projeção estão nos blocos de mutação de status via detector estrutural.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Estender lint-transition-emits",
+      "scopeBoundary": [
+        "do not rewrite verifier or GATE-R2 semantics; do not require todo_write inside shell scripts"
+      ],
+      "acceptance": [
+        "done reconcile and phase-done fail lint if refresh-state missing; done and phase-done fail if project-session-todos not mentioned; completion-emit requirements still pass after prose updates"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/transition-emits.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/lint-transition-emits.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/transition-emits.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Prosa transitions com projeção",
+      "scopeBoundary": [
+        "do not change done verifier-before-status order; do not make todo_write close tasks"
+      ],
+      "acceptance": [
+        "done flow runs refresh-state then documents applying project-session-todos via todo_write on Grok; phase-done and reconcile document same step; never mark phase todo completed without phase status done or archived"
+      ],
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-transitions.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F2-G1",
+      "description": "lint-transition-emits passes on project-transitions.md",
+      "verifier": {
+        "kind": "shell",
+        "command": "node scripts/lint-transition-emits.js skills/shared/project-assets/project-transitions.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F2-G2",
+      "description": "transition-emits unit tests pass",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/transition-emits.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

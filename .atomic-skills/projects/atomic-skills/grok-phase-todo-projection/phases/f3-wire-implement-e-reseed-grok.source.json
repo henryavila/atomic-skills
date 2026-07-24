@@ -1,0 +1,75 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "grok-phase-todo-projection-f3-wire-implement-e-reseed-grok",
+  "title": "Wire implement e reseed Grok",
+  "goal": "implement Atomic Skills e cues de sessão reseedam o scaffold de fases; anti-proc; pós-compaction.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "implement skill wire-up",
+      "scopeBoundary": [
+        "do not change GATE-R2 or pure-maestro claim exclusivity; do not project T-00N as todos; host-thin may update todos as orchestration without product edits"
+      ],
+      "acceptance": [
+        "implement start runs refresh-state and applies phase scaffold merge false; after done Mode 1 references transitions projection step; forbids proc scaffold while plan-anchored; reseed after compaction documented"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'project-session-todos|phase scaffold|todo_write|compaction' skills/core/implement.md skills/shared/implement-automate-maestro.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Reseed cues SessionStart e help",
+      "scopeBoundary": [
+        "do not break Soft fail-open; SessionStart cannot call todo_write only optional hint"
+      ],
+      "acceptance": [
+        "session-start still runs refresh-state and may print Grok reseed hint; project help mentions projection on Grok without inventing non-Grok tools"
+      ],
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/hooks/session-start.sh"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-help.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F3-G1",
+      "description": "implement assets mention helper reseed and anti-proc",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'project-session-todos' skills/core/implement.md && rg -n 'compaction|reseed|proc' skills/core/implement.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F3-G2",
+      "description": "Manual HARD operator dogfoods one implement start sees phase scaffold labels with titles",
+      "verifier": {
+        "kind": "manual",
+        "description": "Henry runs implement or helper plus todo_write once and acks labels show F0 n/N with title or summary"
+      },
+      "status": "pending"
+    }
+  ]
+}

@@ -41,7 +41,6 @@ exitGates:
       kind: shell
       command: node --test tests/decision-review-gate.test.js
       expectExitCode: 0
-    verifierLabel: "shell: node --test tests/decision-review-gate.test.js"
     metAt: 2026-07-23T10:48:49.598Z
     evidence:
       verifierKind: shell
@@ -50,6 +49,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: phase-done re-verify F3-G1
+    verifierLabel: "shell: node --test tests/decision-review-gate.test.js"
+    evidenceSummary: passed · 2026-07-23
   - id: F3-G2
     description: canRunPhaseDone and assert wiring mention decisionReview.
     status: met
@@ -58,7 +59,6 @@ exitGates:
       command: rg -n 'decisionReview|decision-review'
         src/automate-orchestrator-gates.js scripts/assert-automate-gate.js
       expectExitCode: 0
-    verifierLabel: "shell: rg -n 'decisionReview|decision-review' src/automate-orchest…"
     metAt: 2026-07-23T10:48:49.598Z
     evidence:
       verifierKind: shell
@@ -67,6 +67,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: phase-done re-verify F3-G2
+    verifierLabel: "shell: rg -n 'decisionReview|decision-review' src/automate-orchest…"
+    evidenceSummary: passed · 2026-07-23
   - id: F3-G3
     description: Manual HARD — Henry confirms agent cannot stamp decision-review
       PASS in the documented procedure.
@@ -74,7 +76,6 @@ exitGates:
     verifier:
       kind: manual
       description: Henry PASS on F3 manual gate after reading PASS procedure.
-    verifierLabel: manual
     metAt: 2026-07-23T10:09:04.406Z
     evidence:
       verifierKind: manual
@@ -82,6 +83,8 @@ exitGates:
       verifiedCommit: c4499bb0d6f188902cd30524c9c94def01e3d2f6
       passed: true
       outputSummary: Henry aprovado 2026-07-23 PASS F3-G3 / T-012 procedure
+    verifierLabel: manual
+    evidenceSummary: passed · 2026-07-23
 stack:
   - id: 1
     title: Decision-review hardgate on phase-done

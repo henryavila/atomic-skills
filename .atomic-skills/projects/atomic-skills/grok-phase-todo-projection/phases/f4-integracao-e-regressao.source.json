@@ -1,0 +1,75 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F4",
+  "slug": "grok-phase-todo-projection-f4-integracao-e-regressao",
+  "title": "Integração e regressão",
+  "goal": "Suite de regressão verde; parity de install intacta; checklist dogfood.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Regressão package",
+      "scopeBoundary": [
+        "do not change install journal effects unless new installed file requires reverse; prefer package-root scripts with no install surface change"
+      ],
+      "acceptance": [
+        "new tests run under node --test; install-uninstall-roundtrip green when no new install files; existing suite not broken by prose pointers"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project-session-todos.test.js tests/transition-emits.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "package.json"
+        },
+        {
+          "kind": "file",
+          "path": "tests/project-session-todos.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/transition-emits.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Dogfood checklist e close",
+      "scopeBoundary": [
+        "do not invent PASS without operator run; checklist only no second helper"
+      ],
+      "acceptance": [
+        "checklist lists seed after-done counter bump phase-done advance and reseed after compact; documents expected label with identity text not only counts"
+      ],
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/kb/grok-phase-todo-projection.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F4-G1",
+      "description": "New unit tests pass in isolation",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project-session-todos.test.js tests/transition-emits.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F4-G2",
+      "description": "Manual HARD Henry confirms dogfood checklist completed once on Grok",
+      "verifier": {
+        "kind": "manual",
+        "description": "Operator PASS after one real session saw phase scaffold update"
+      },
+      "status": "pending"
+    }
+  ]
+}

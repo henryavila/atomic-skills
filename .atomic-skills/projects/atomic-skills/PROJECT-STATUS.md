@@ -22,8 +22,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 |------|--------|---------------|--------|---------|
 | implement-phase-agents | active | F0 | plan/implement-phase-agents | 2026-07-22 | 1/6 |
 | materialize-spec-quality-guards | active | F0 | plan/materialize-spec-quality-guards | 2026-07-22 | 1/5 |
-
-
+| grok-phase-todo-projection | active | F0 | plan/grok-phase-todo-projection |
 
 ## Done Plans (not archived)
 

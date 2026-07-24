@@ -280,7 +280,6 @@ phases:
     status: done
     summary: "Decisão explícita: manter ou aposentar docs/skills gerados."
 references: []
-planActive: true
 planTitle: Product docs site from catalog SSOT
 closedAt: 2026-07-17T16:27:23.205Z
 ---

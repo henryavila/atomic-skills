@@ -266,7 +266,9 @@ phases:
     status: done
     summary: Suite de integracao R1/R2/R3 e validate-skills
 references: []
+planTitle: materialize-spec-quality-guards
 ---
+
 # Context
 
 Endurecer R1 (spine quality), R2 (SPEC smoke/overlap/age) e R3 (fingerprint refuse) com detectores zero-token fail-closed e D9 measure.
