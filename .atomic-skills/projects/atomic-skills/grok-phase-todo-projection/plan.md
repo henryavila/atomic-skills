@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T18:38:57.644Z
+lastUpdated: 2026-07-24T19:02:30.052Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F0
 parallelismAllowed: false
@@ -45,21 +45,22 @@ phases:
   - id: F0
     slug: grok-phase-todo-projection-f0-contrato-de-projecao-e-wire-up-de
     title: Contrato de projeção e wire-up de prosa
-    goal: Congelar o contrato de label, mapeamento de status, ordem SoT→espelho,
-      reseed e anti-competição proc em prosa e docs, greppable, sem o helper
-      completo ainda.
+    goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
+      paused, merge/reseed, anti-proc, Grok-local; SessionStart = hint only."
     dependsOn: []
     subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: F0-G1
-          description: KB contract file exists and states label plus SoT order
+          description: KB freezes label summary|title, SoT order, paused, anti-proc,
+            Grok-local
           status: pending
           verifier:
             kind: shell
             command: test -f docs/kb/grok-phase-todo-projection.md && rg -n
-              'refresh-state|todo_write' docs/kb/grok-phase-todo-projection.md
+              'summary|title|refresh-state|todo_write|paused|anti-proc|Grok-local|merge'
+              docs/kb/grok-phase-todo-projection.md
             expectExitCode: 0
         - id: F0-G2
           description: Manual HARD operator confirms label format and SoT order match
@@ -81,8 +82,8 @@ phases:
       outOfScope: Tasks T-00N no TODO; painel nativo Grok; write em plan.json da
         sessão; multi-IDE mirror; MCP project-state.
       doneWhen: KB+compat com contrato greppable e Henry PASS no gate manual F0-G2.
-    summary: Congela contrato de label F0 (n/N)—summary|title, SoT e reseed em
-      prosa/docs
+    summary: "Contrato greppable: label, SoT, paused, reseed skill-level,
+      SessionStart só hint"
   - id: F1
     slug: grok-phase-todo-projection-f1-helper-deterministico-de-projecao
     title: Helper determinístico de projeção
@@ -95,29 +96,32 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F1-G1
-          description: Helper tests pass
+          description: Helper unit tests cover label IDs status paused descriptor-only
+            empty focus
           status: pending
           verifier:
             kind: shell
             command: node --test tests/project-session-todos.test.js
             expectExitCode: 0
         - id: F1-G2
-          description: CLI json on repo root exits 0 and prints todos array
+          description: "CLI json contract: merge field + todos with id content status shape"
           status: pending
           verifier:
             kind: shell
             command: node scripts/project-session-todos.js --json . | node -e "let
               d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const
-              j=JSON.parse(d); if(!Array.isArray(j.todos)) process.exit(1);
-              process.exit(0)})"
+              j=JSON.parse(d); if(typeof
+              j.merge!=='boolean'||!Array.isArray(j.todos)) process.exit(1);
+              for(const t of j.todos){ if(!t.id||!t.content||!t.status)
+              process.exit(2);} process.exit(0)})"
             expectExitCode: 0
     status: pending
-    summary: Helper zero-token project-session-todos com label canônico e statuses
+    summary: Helper + testes do contrato canônico (id, label, status, paused, merge)
   - id: F2
     slug: grok-phase-todo-projection-f2-harden-do-emit-lint-estrutural
     title: Harden do emit lint estrutural
-    goal: Garantir na prosa de transitions que refresh-state e o helper de projeção
-      estão nos blocos de mutação de status via detector estrutural.
+    goal: Lint estrutural exige refresh-state + helper em done/reconcile/phase-done
+      e mutadores de foco phase-reopen/switch/unblock/archive.
     dependsOn:
       - F1
     subPhaseCount: 0
@@ -125,7 +129,8 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F2-G1
-          description: lint-transition-emits passes on project-transitions.md
+          description: lint-transition-emits requires refresh-state+helper on close and
+            focus mutators
           status: pending
           verifier:
             kind: shell
@@ -140,12 +145,12 @@ phases:
             command: node --test tests/transition-emits.test.js
             expectExitCode: 0
     status: pending
-    summary: Lint estrutural exige refresh-state e helper nos closes de transition
+    summary: "Lint transitions: closes + phase-reopen/switch/unblock/archive"
   - id: F3
     slug: grok-phase-todo-projection-f3-wire-implement-e-reseed-grok
     title: Wire implement e reseed Grok
-    goal: implement Atomic Skills e cues de sessão reseedam o scaffold de fases;
-      anti-proc; pós-compaction.
+    goal: implement + maestro reseed scaffold via helper+todo_write;
+      SessionStart/help only hint; anti-proc; compaction reseed documented.
     dependsOn:
       - F2
     subPhaseCount: 0
@@ -153,23 +158,29 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F3-G1
-          description: implement assets mention helper reseed and anti-proc
+          description: implement + maestro mention project-session-todos, reseed,
+            compaction, anti-proc separately
           status: pending
           verifier:
             kind: shell
-            command: rg -n 'project-session-todos' skills/core/implement.md && rg -n
-              'compaction|reseed|proc' skills/core/implement.md
+            command: rg -n 'project-session-todos' skills/core/implement.md
+              skills/shared/implement-automate-maestro.md && rg -n
+              'reseed|compaction' skills/core/implement.md && rg -n 'proc'
+              skills/core/implement.md && rg -n
+              'project-session-todos|todo_write|hint'
+              skills/shared/project-assets/project-help.md
+              skills/shared/project-assets/hooks/session-start.sh
             expectExitCode: 0
         - id: F3-G2
-          description: Manual HARD operator dogfoods one implement start sees phase
-            scaffold labels with titles
+          description: Manual HARD dogfood implement start sees phase scaffold labels with
+            titles
           status: pending
           verifier:
             kind: manual
             description: Henry runs implement or helper plus todo_write once and acks labels
               show F0 n/N with title or summary
     status: pending
-    summary: Implement e SessionStart reseedam scaffold de fases no Grok
+    summary: Implement reseeds scaffold; SessionStart só hint; anti-proc
   - id: F4
     slug: grok-phase-todo-projection-f4-integracao-e-regressao
     title: Integração e regressão
@@ -181,12 +192,14 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F4-G1
-          description: New unit tests pass in isolation
+          description: New unit tests plus install-uninstall-roundtrip and render
+            compatibility pass
           status: pending
           verifier:
             kind: shell
             command: node --test tests/project-session-todos.test.js
               tests/transition-emits.test.js
+              tests/install-uninstall-roundtrip.test.js tests/render.test.js
             expectExitCode: 0
         - id: F4-G2
           description: Manual HARD Henry confirms dogfood checklist completed once on Grok
@@ -195,8 +208,11 @@ phases:
             kind: manual
             description: Operator PASS after one real session saw phase scaffold update
     status: pending
-    summary: Regressão package + checklist dogfood do scaffold
-references: []
+    summary: Regressão unit + install parity Grok + dogfood checklist
+references:
+  - kind: file
+    label: design.md critic-approved
+    path: .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/design.md
 planActive: true
 planTitle: Projeção de fases do project no TODO do Grok
 ---
@@ -225,4 +241,5 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 ## Reviews
 
-- internal: clean — 2026-07-24 — Stage 8a self-loop: label format + SoT order + phases F0–F4 SPEC-admitted; no soft-language in exit gates; verifiers shell/manual only; no dual-authority of todo_write; critic-approved design linked at design.md
+- internal: clean — 2026-07-24 — Stage 8a self-loop
+- cross-model (codex): fail→applied — 2026-07-24 — provider gpt-5.5; 2 critical + 5 major applied into plan gates/prose; review file .atomic-skills/reviews/2026-07-24-1859-grok-phase-todo-projection.md

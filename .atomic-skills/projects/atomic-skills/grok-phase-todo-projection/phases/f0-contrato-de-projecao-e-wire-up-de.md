@@ -2,13 +2,12 @@
 schemaVersion: "0.1"
 slug: grok-phase-todo-projection-f0-contrato-de-projecao-e-wire-up-de
 title: Contrato de projeção e wire-up de prosa
-goal: Congelar o contrato de label, mapeamento de status, ordem SoT→espelho,
-  reseed e anti-competição proc em prosa e docs, greppable, sem o helper
-  completo ainda.
+goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
+  paused, merge/reseed, anti-proc, Grok-local; SessionStart = hint only."
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T18:38:57.644Z
+lastUpdated: 2026-07-24T19:02:30.064Z
 nextAction: "Start T-001: Contrato em KB e design receipt"
 parentPlan: grok-phase-todo-projection
 phaseId: F0
@@ -32,14 +31,14 @@ weightDone: 0
 weightTotal: 2
 exitGates:
   - id: F0-G1
-    description: KB contract file exists and states label plus SoT order
+    description: KB freezes label summary|title, SoT order, paused, anti-proc, Grok-local
     status: pending
     verifier:
       kind: shell
       command: test -f docs/kb/grok-phase-todo-projection.md && rg -n
-        'refresh-state|todo_write' docs/kb/grok-phase-todo-projection.md
+        'summary|title|refresh-state|todo_write|paused|anti-proc|Grok-local|merge'
+        docs/kb/grok-phase-todo-projection.md
       expectExitCode: 0
-    verifierLabel: "shell: test -f docs/kb/grok-phase-todo-projection.md && rg -n 'ref…"
   - id: F0-G2
     description: Manual HARD operator confirms label format and SoT order match
       approved design
@@ -47,7 +46,6 @@ exitGates:
     verifier:
       kind: manual
       description: Henry acks F0 contract in chat or gate-signoff with explicit PASS
-    verifierLabel: manual
 stack:
   - id: 1
     title: Contrato de projeção e wire-up de prosa
@@ -103,7 +101,8 @@ tasks:
     weight: 1
 parked: []
 emerged: []
-summary: Congela contrato de label F0 (n/N)—summary|title, SoT e reseed em prosa/docs
+summary: "Contrato greppable: label, SoT, paused, reseed skill-level,
+  SessionStart só hint"
 planTitle: Projeção de fases do project no TODO do Grok
 planActive: true
 current: true
