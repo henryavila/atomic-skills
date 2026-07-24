@@ -287,4 +287,26 @@ withheld — that is intentional Soft fail-open. Install parity still requires
 the hook **files** to reverse cleanly on uninstall.
 
 Marketplace publish and MCP project-state servers remain non-goals (design D10).
+
+## 8. Phase scaffold → session todos (Grok-local)
+
+While a plan is anchored, Grok Build projects **plan phases** (not tasks
+`T-00N`) into the host session checklist via `todo_write`. That **phase
+scaffold** is **Grok-local** only — Claude/Codex/Cursor do not get a mirrored
+todo board from this package; portable SoT remains `.atomic-skills/`.
+
+| Piece | Role |
+|---|---|
+| Contract | `docs/kb/grok-phase-todo-projection.md` (label, status map, SoT order, reseed/merge) |
+| Helper (later phase) | `scripts/project-session-todos.js` — emits `{ merge, todos[] }` for the agent |
+| Agent tool | `todo_write` applies the payload; never closes durable phase/task state |
+
+**Anti-competition.** A process scaffold (`proc:*` from bundled flows) must
+**not** compete with the phase scaffold while a plan is anchored. Reseed uses
+`todo_write` with `merge: false` (full replace); mid-flight updates use
+`merge: true` on stable `<planSlug>:Fn` session todo ids only.
+
+**SessionStart** Soft hooks may *hint* reseed but fail-open without hooks-trust;
+skill paths (`project` / `implement` start) reseed independently. The host does
+**not** auto-read `focus.json` for this board — the agent applies `todo_write`.
 )
