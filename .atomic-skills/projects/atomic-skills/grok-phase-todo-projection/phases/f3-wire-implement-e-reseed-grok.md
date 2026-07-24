@@ -7,8 +7,8 @@ goal: implement Atomic Skills e cues de sessão reseedam o scaffold de fases;
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T20:42:37.052Z
-lastUpdated: 2026-07-24T20:42:37.052Z
-nextAction: "Start T-001: implement skill wire-up"
+lastUpdated: 2026-07-24T20:47:25.235Z
+nextAction: Run evaluation + decision-review; F3-G2 needs operator dogfood PASS
 parentPlan: grok-phase-todo-projection
 phaseId: F3
 businessIntent:
@@ -21,11 +21,11 @@ businessIntent:
   outOfScope: GATE-R2/claim exclusivity changes; T-00N todos; SessionStart chama
     todo_write.
   doneWhen: implement assets greppable helper/reseed/anti-proc; Henry dogfood PASS F3-G2.
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 2
 weightTotal: 2
 exitGates:
   - id: F3-G1
@@ -36,6 +36,7 @@ exitGates:
       command: rg -n 'project-session-todos' skills/core/implement.md && rg -n
         'compaction|reseed|proc' skills/core/implement.md
       expectExitCode: 0
+    verifierLabel: "shell: rg -n 'project-session-todos' skills/core/implement.md && r…"
   - id: F3-G2
     description: Manual HARD operator dogfoods one implement start sees phase
       scaffold labels with titles
@@ -44,6 +45,7 @@ exitGates:
       kind: manual
       description: Henry runs implement or helper plus todo_write once and acks labels
         show F0 n/N with title or summary
+    verifierLabel: manual
 stack:
   - id: 1
     title: Wire implement e reseed Grok
@@ -53,8 +55,8 @@ tasks:
   - id: T-001
     title: implement skill wire-up
     description: implement skill wire-up
-    status: pending
-    lastUpdated: 2026-07-24T20:42:37.052Z
+    status: done
+    lastUpdated: 2026-07-24T20:47:22.112Z
     scopeBoundary:
       - do not change GATE-R2 or pure-maestro claim exclusivity; do not project
         T-00N as todos; host-thin may update todos as orchestration without
@@ -75,11 +77,24 @@ tasks:
         path: skills/shared/implement-automate-maestro.md
     summary: implement skill wire-up
     weight: 1
+    closedAt: 2026-07-24T20:47:22.112Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T20:47:22.112Z
+      verifiedCommit: 25343b2f078e227399a26d57e74e587379e41325
+      passed: true
+      exitCode: 0
+      outputSummary: >
+        te events or terminal rewrites). **Mode 1 post-done Grok projection** is
+        owned by `project-transitions.md` (`done` step 5b: after `refresh-state`
+        → `project-session-todos` → apply via `todo_write` on Grok) — do not
+        invent a second close path or mark session todos completed to *cause*
+        durable close.
   - id: T-002
     title: Reseed cues SessionStart e help
     description: Reseed cues SessionStart e help
-    status: pending
-    lastUpdated: 2026-07-24T20:42:37.052Z
+    status: done
+    lastUpdated: 2026-07-24T20:47:23.748Z
     scopeBoundary:
       - do not break Soft fail-open; SessionStart cannot call todo_write only
         optional hint
@@ -100,6 +115,21 @@ tasks:
         path: skills/shared/project-assets/project-help.md
     summary: Reseed cues SessionStart e help
     weight: 1
+    closedAt: 2026-07-24T20:47:23.748Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T20:47:23.748Z
+      verifiedCommit: 25343b2f078e227399a26d57e74e587379e41325
+      passed: true
+      exitCode: 0
+      outputSummary: >
+        lement/project start and post-compaction. Session
+
+        skills/shared/project-assets/project-help.md:67:reseed but does not call
+        `todo_write`. Claude / Codex / Cursor do **not** get
+
+        skills/shared/project-assets/project-help.md:68:a mirrored phase-todo
+        board from this package — do not invent non-Grok host
 parked: []
 emerged: []
 summary: Implement reseeds scaffold; SessionStart só hint; anti-proc
@@ -107,11 +137,12 @@ planTitle: Projeção de fases do project no TODO do Grok
 planActive: true
 current: true
 ---
+
 # F3
 
 ## Session handoff
-- **Narrative:** F3 package ratified Mode B materialize.
-- **Decision log:** operator ratify F3 + T-002 verifier.
-- **Single nextAction:** spawn fresh writer after ratify
-- **Verbatim state:** .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f3-wire-implement-e-reseed-grok.md
+- **Narrative:** F3 T-002 closed.
+- **Decision log:** post-merge verifiers.
+- **Single nextAction:** Run evaluation + decision-review; F3-G2 needs operator dogfood PASS
+- **Verbatim state:** T-002 done
 - **Uncommitted changes:** (pending)
