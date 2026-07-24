@@ -104,6 +104,22 @@ padrão Todo Scaffold nativo (um `in_progress`, reseed pós-compact); fecha o ga
 3. Incluir `gates met/total` no content da fase (`F0 (2/12 tasks · 0/3 gates)`) —
    default **não** nesta v1; só tasks, para não poluir a linha.
 
+## Critic resolutions (post-approve questions)
+
+Resolved for PLAN without reopening the approach:
+
+1. **Process vs phase scaffold:** on reseed after `refresh-state` / implement start /
+   phase scaffold write, the helper payload is applied with `merge: false` (full
+   replace) so only phase todos remain. Mid-flight content updates for the same
+   plan use `merge: true` on stable `<planSlug>:Fn` ids only. A concurrent
+   `proc:*` scaffold is **forbidden** while a plan is anchored; if process steps
+   are needed, they live as narrative in handoff, not as competing todos.
+2. **`paused` mapping:** a phase with status `paused` projects as todo
+   `pending` with content suffix ` · paused` (not `completed`, not omitted). A
+   paused plan is not the pickFocus winner on another tree; if the current tree’s
+   focus plan is paused, emit empty scaffold (same empty-focus discipline as
+   `emit-focus`).
+
 ## Rejected alternatives
 
 1. **Tasks individuais no TODO** — granula demais; compete com `done`/verifier; lista
