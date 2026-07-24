@@ -5,9 +5,9 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T20:32:16.227Z
+lastUpdated: 2026-07-24T20:38:43.203Z
 branch: plan/grok-phase-todo-projection
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -245,11 +245,11 @@ phases:
             command: node scripts/lint-transition-emits.js
               skills/shared/project-assets/project-transitions.md
             expectExitCode: 0
-          metAt: 2026-07-24T20:32:16.227Z
+          metAt: 2026-07-24T20:38:43.203Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-24T20:32:16.227Z
-            verifiedCommit: c5d94560bb33185026d63c5a7280a6468931da89
+            verifiedAt: 2026-07-24T20:38:43.203Z
+            verifiedCommit: 794205171257913c57fc723a553b1caaf5712211
             passed: true
             exitCode: 0
             outputSummary: >
@@ -262,28 +262,28 @@ phases:
             kind: shell
             command: node --test tests/transition-emits.test.js
             expectExitCode: 0
-          metAt: 2026-07-24T20:32:16.227Z
+          metAt: 2026-07-24T20:38:43.203Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-24T20:32:16.227Z
-            verifiedCommit: c5d94560bb33185026d63c5a7280a6468931da89
+            verifiedAt: 2026-07-24T20:38:43.203Z
+            verifiedCommit: 794205171257913c57fc723a553b1caaf5712211
             passed: true
             exitCode: 0
             outputSummary: >-
               ✔ project-transitions emits are structurally present in all
-              transition blocks (3.352667ms)
+              transition blocks (7.901209ms)
 
               ✔ phase-done prose emits one aggregate phase event and forbids
-              bulk task-done close (0.695125ms)
+              bulk task-done close (2.011417ms)
 
               ✔ done prose requires verifier handling before status mutation
-              (0.414708ms)
+              (0.930958ms)
 
               ✔ phase-done prose forbids defer/skip terminal and bulk-met
-              coercion (0.666709ms)
+              coercion (0.724708ms)
 
               ✔ old done ordering is reported as verifier-before-don
-    status: active
+    status: done
     summary: "Lint transitions: closes + phase-reopen/switch/unblock/archive"
     businessIntent:
       value: Mutações de status (done/reconcile/phase-done/focus) não perdem
@@ -300,11 +300,18 @@ phases:
     evaluationGate:
       status: passed
       verdict: pass
-      verifiedAt: 2026-07-24T20:14:47.879Z
-      at: 8a259a8254c9098f0cc85a7aa0475a55a340ffc1
+      verifiedAt: 2026-07-24T20:38:43.203Z
+      at: 794205171257913c57fc723a553b1caaf5712211
     decisionReview:
       status: passed
       verifiedAt: 2026-07-24T20:32:16.227Z
+    reviewGate:
+      status: passed
+      at: 794205171257913c57fc723a553b1caaf5712211
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f2-transition-emits-both.md
+      verifiedAt: 2026-07-24T20:38:43.203Z
+    lessonsState: none
   - id: F3
     slug: grok-phase-todo-projection-f3-wire-implement-e-reseed-grok
     title: Wire implement e reseed Grok
@@ -338,7 +345,7 @@ phases:
             kind: manual
             description: Henry runs implement or helper plus todo_write once and acks labels
               show F0 n/N with title or summary
-    status: pending
+    status: active
     summary: Implement reseeds scaffold; SessionStart só hint; anti-proc
   - id: F4
     slug: grok-phase-todo-projection-f4-integracao-e-regressao

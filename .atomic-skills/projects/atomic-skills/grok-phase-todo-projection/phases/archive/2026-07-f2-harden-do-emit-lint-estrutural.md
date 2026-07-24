@@ -4,11 +4,11 @@ slug: grok-phase-todo-projection-f2-harden-do-emit-lint-estrutural
 title: Harden do emit lint estrutural
 goal: Garantir na prosa de transitions que refresh-state e o helper de projeção
   estão nos blocos de mutação de status via detector estrutural.
-status: active
+status: done
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T20:07:57.617Z
-lastUpdated: 2026-07-24T20:32:16.227Z
-nextAction: await decision-review operator PASS for F2
+lastUpdated: 2026-07-24T20:38:43.203Z
+nextAction: present phase-start package for F3 validate-only
 parentPlan: grok-phase-todo-projection
 phaseId: F2
 businessIntent:
@@ -24,7 +24,7 @@ businessIntent:
     tests/transition-emits.test.js exit 0.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 2
 weightTotal: 2
@@ -37,17 +37,18 @@ exitGates:
       command: node scripts/lint-transition-emits.js
         skills/shared/project-assets/project-transitions.md
       expectExitCode: 0
-    verifierLabel: "shell: node scripts/lint-transition-emits.js skills/shared/project…"
-    metAt: 2026-07-24T20:32:16.227Z
+    metAt: 2026-07-24T20:38:43.203Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T20:32:16.227Z
-      verifiedCommit: c5d94560bb33185026d63c5a7280a6468931da89
+      verifiedAt: 2026-07-24T20:38:43.203Z
+      verifiedCommit: 794205171257913c57fc723a553b1caaf5712211
       passed: true
       exitCode: 0
       outputSummary: >
         lint-transition-emits: all transition blocks carry completion emit
         instructions
+    verifierLabel: "shell: node scripts/lint-transition-emits.js skills/shared/project…"
+    evidenceSummary: passed · 2026-07-24
   - id: F2-G2
     description: transition-emits unit tests pass
     status: met
@@ -55,28 +56,29 @@ exitGates:
       kind: shell
       command: node --test tests/transition-emits.test.js
       expectExitCode: 0
-    verifierLabel: "shell: node --test tests/transition-emits.test.js"
-    metAt: 2026-07-24T20:32:16.227Z
+    metAt: 2026-07-24T20:38:43.203Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T20:32:16.227Z
-      verifiedCommit: c5d94560bb33185026d63c5a7280a6468931da89
+      verifiedAt: 2026-07-24T20:38:43.203Z
+      verifiedCommit: 794205171257913c57fc723a553b1caaf5712211
       passed: true
       exitCode: 0
       outputSummary: >-
         ✔ project-transitions emits are structurally present in all transition
-        blocks (3.352667ms)
+        blocks (7.901209ms)
 
         ✔ phase-done prose emits one aggregate phase event and forbids bulk
-        task-done close (0.695125ms)
+        task-done close (2.011417ms)
 
         ✔ done prose requires verifier handling before status mutation
-        (0.414708ms)
+        (0.930958ms)
 
         ✔ phase-done prose forbids defer/skip terminal and bulk-met coercion
-        (0.666709ms)
+        (0.724708ms)
 
         ✔ old done ordering is reported as verifier-before-don
+    verifierLabel: "shell: node --test tests/transition-emits.test.js"
+    evidenceSummary: passed · 2026-07-24
 stack:
   - id: 1
     title: Harden do emit lint estrutural
@@ -109,37 +111,11 @@ tasks:
     closedAt: 2026-07-24T20:13:40.736Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T20:13:40.736Z
-      verifiedCommit: 3dfc69f720f3d86d80dc4cc759a545b435d5f2ef
+      verifiedAt: 2026-07-24T20:38:43.203Z
+      verifiedCommit: 794205171257913c57fc723a553b1caaf5712211
       passed: true
       exitCode: 0
-      outputSummary: >
-        esh-state is missing (1.966958ms)
-
-        ✔ done and phase-done fail lint if project-session-todos is not
-        mentioned (2.80425ms)
-
-        ✔ complete fixture still passes completion-emit and projection
-        requirements (1.077917ms)
-
-        ✔ focus mutators fail lint if refresh-state or project-session-todos
-        missing (0.741708ms)
-
-        ℹ tests 13
-
-        ℹ suites 0
-
-        ℹ pass 13
-
-        ℹ fail 0
-
-        ℹ cancelled 0
-
-        ℹ skipped 0
-
-        ℹ todo 0
-
-        ℹ duration_ms 153.243083
+      outputSummary: re-anchor
   - id: T-002
     title: Prosa transitions com projeção
     description: Prosa transitions com projeção
@@ -166,17 +142,16 @@ tasks:
     closedAt: 2026-07-24T20:13:43.323Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T20:13:43.323Z
-      verifiedCommit: 197c36ed5e5c63d22f978dbcc607c8a2247856a8
+      verifiedAt: 2026-07-24T20:38:43.203Z
+      verifiedCommit: 794205171257913c57fc723a553b1caaf5712211
       passed: true
       exitCode: 0
-      outputSummary: lint ok
+      outputSummary: re-anchor
 parked: []
 emerged: []
 summary: "Lint transitions: closes + phase-reopen/switch/unblock/archive"
 planTitle: Projeção de fases do project no TODO do Grok
 planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -184,8 +159,8 @@ current: true
 Initiative F2.
 
 ## Session handoff
-- **Narrative:** F2 evaluation verdict=pass. evaluationGate stamped. Await decision-review.
-- **Decision log:** eval pass (info only on reconcile soft session-todos).
-- **Single nextAction:** await decision-review operator PASS for F2
-- **Verbatim state:** evaluationGate at=8a259a8254c9098f0cc85a7aa0475a55a340ffc1
+- **Narrative:** F2 closed after both-review fix1. Advance to F3 descriptor-only.
+- **Decision log:** decision-review PASS; fix1 post-done projection both forks.
+- **Single nextAction:** present phase-start package for F3 validate-only
+- **Verbatim state:** currentPhase=F3; F2 done; HEAD=794205171257913c57fc723a553b1caaf5712211
 - **Uncommitted changes:** (pending)
