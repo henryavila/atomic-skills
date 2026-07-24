@@ -1,10 +1,10 @@
 # Grok phase → session TODO projection
 
 Contract for projecting the **active plan's phases** into Grok Build's session
-checklist via the Grok session checklist tool (`todo_write`). Prose-only here;
-the deterministic helper lands in a later phase. Producers of focus digest remain
-`refresh-state` / `emit-focus` — this doc is the **Grok session-todo consumer**
-contract, not a second SoT.
+checklist via the Grok session checklist tool (`todo_write`). Deterministic helper:
+`scripts/project-session-todos.js` (emits `{ merge, todos[] }`). Producers of focus
+digest remain `refresh-state` / `emit-focus` — this doc is the **Grok session-todo
+consumer** contract, not a second SoT.
 
 **Related:** `docs/design/statusline-focus-integration.md` (focus.json / statusline
 producer+consumer); `docs/kb/grok-build-compatibility.md` (Grok-local install and
@@ -89,15 +89,17 @@ Canonical order after any lifecycle mutation that changes phase/task status or f
 `todo_write` is a **session-local projection only; never close authority** relative
 to the plan; GATE-R2 stays on verifiers / `done` / `phase-done`.
 
-## Helper name (F0 reserved; not implemented here)
+## Helper name (shipped)
 
-Preferred script name: **`scripts/project-session-todos.js`**.
+Script: **`scripts/project-session-todos.js`**.
 
 - **Role:** zero-token CLI; read plan (pickFocus) + `phases[]` + rollups/initiatives;
   print JSON `{ merge, todos[] }` with stable ids `<planSlug>:Fn` and canonical
   content/status.
-- **F0:** document the name and contract only — **do not** implement the script
-  in this phase. **Not implemented until F1** (name reserved).
+- **Payload (authoritative):** pickFocus **winner** → `{ merge: false, todos: [...] }`
+  (full phase reseed). **No winner** → `{ merge: true, todos: [] }` (no-op apply;
+  do not wipe). Operators **apply the helper payload as emitted** — do not override
+  `merge` for convenience on after-done / mid-flight.
 - Open naming alternative (`emit-session-todos.js`) is superseded for prose by
   `project-session-todos.js` unless a later phase renames deliberately.
 
@@ -105,16 +107,17 @@ Preferred script name: **`scripts/project-session-todos.js`**.
 
 | Moment | Session checklist merge mode | Rule |
 |---|---|---|
-| Reseed when pickFocus has a **winner** (anchored active plan) after `refresh-state` / implement start / full phase-scaffold write | `merge: false` | **Full replace** so only phase todos remain |
-| Empty focus / paused plan (**no pickFocus winner**) | **skip reseed / no-op** | Do **not** full-replace wipe the board; leave existing session todos alone (or emit empty scaffold without `merge: false` wipe) |
-| Mid-flight content/status updates for the same anchored plan | `merge: true` | Touch only stable `<planSlug>:Fn` ids |
+| Reseed when pickFocus has a **winner** (anchored active plan) after `refresh-state` / implement start / full phase-scaffold write / after-done / mid-flight | `merge: false` (helper payload) | **Full replace** so only phase todos remain — apply helper as emitted |
+| Empty focus / paused plan (**no pickFocus winner**) | helper: `merge: true` + empty `todos` / **skip reseed** | **No-op** — do **not** full-replace wipe the board |
+| Mid-flight content/status updates for the same anchored plan | **default: helper `merge: false`** when winner | Apply helper payload as emitted (full phase reseed). `merge: true` only as **exceptional** optional overlay when the board is **already pure phase scaffold** (no `proc:*`) and you deliberately touch only stable `<planSlug>:Fn` ids — **not** equal SoT to the helper default |
 | SessionStart (plugin Soft) | hint only | May fail-open without hooks-trust; **not** the sole reseed path |
 | Skill path (`project` / `implement` start, post-compaction) | reseed when winner | Must reseed independently of SessionStart when a plan is anchored |
 
 **Merge policy summary:**
 
-- **Anchored plan with pickFocus winner** → reseed phase board with `merge: false`.
-- **Empty focus / paused plan (no winner)** → do **not** full-replace wipe (skip reseed or no-op).
+- **Anchored plan with pickFocus winner** → apply helper **`merge: false`** phase board (seed, after-done, phase-done, reseed, mid-flight).
+- **Empty focus / paused plan (no winner)** → do **not** full-replace wipe (helper no-op / skip reseed).
+- **`merge: true` overlay** is exceptional only (already pure phase board / no `proc:*`) — never the default when a winner is anchored; weakens **anti-proc** if `proc:*` remains.
 - Paused **plan** ⇒ empty scaffold (no winner). Paused **phase** on an active plan
   ⇒ still listed as `pending` + ` · paused` (not a contradiction).
 
@@ -145,13 +148,13 @@ replaces the board so only phase todos remain. Empty focus does not wipe via
 - **Do not** write session `plan.json` under `~/.grok/sessions/` by shell.
 - No native Grok chrome panel for this backlog in v1.
 
-## Operator checklist (when wire-up lands — F1+)
+## Operator checklist
 
 1. After `done` / `phase-done` / `switch` / `unblock` / other focus-moving closes:
-   mutate → `refresh-state` → `node scripts/project-session-todos.js` (F1+) →
-   Grok session checklist tool (`todo_write`).
+   mutate → `refresh-state` → `node scripts/project-session-todos.js` →
+   Grok session checklist tool (`todo_write`) with the helper payload **as emitted**.
 2. On session / implement start and after context compaction: reseed phase scaffold
-   (`merge: false` when replacing a process board **and** pickFocus has a winner).
+   by applying helper output (`merge: false` when pickFocus has a winner).
 3. Never close durable state because a session todo is checked.
 
 ## Dogfood checklist (Grok session — operator run)
@@ -173,7 +176,7 @@ is only `F0 (2/12)` with nothing after the em-dash.
 | Step | When / action | What to verify on the Grok session checklist |
 |---|---|---|
 | **seed** | Session start, `implement` start, or first phase-scaffold write while pickFocus has a winner | Full phase board via helper with `merge: false`. One row per `plan.phases[]` id (`<planSlug>:Fn`). Current phase `in_progress`; others `pending`/`completed` per map. Labels show `F0 (n/N) — <summary \|\| title>` (identity, not bare counts). No competing `proc:*` rows while plan anchored (**anti-proc**). |
-| **after-done** (counter bump) | After task `done`: mutate initiative → `refresh-state` → `node scripts/project-session-todos.js --json` → `todo_write` (mid-flight: same plan → `merge: true` is fine) | Active phase row keeps stable id and **identity** (`summary`/`title`). Progress counts bump: `(n/N)` advances (e.g. `F0 (2/5) — Foundation work` → `F0 (3/5) — Foundation work`). Status stays `in_progress` until the phase itself is `done`/`archived` (even at N/N tasks if gates remain open). |
+| **after-done** (counter bump) | After task `done`: mutate initiative → `refresh-state` → `node scripts/project-session-todos.js --json` → `todo_write` with the helper payload **as emitted** (winner → `merge: false` full phase reseed). Do **not** default mid-flight to `merge: true` — that retains `proc:*` and weakens **anti-proc**. Optional `merge: true` only if the board is already pure phase scaffold (no `proc:*`) | Active phase row keeps stable id and **identity** (`summary`/`title`). Progress counts bump: `(n/N)` advances (e.g. `F0 (2/5) — Foundation work` → `F0 (3/5) — Foundation work`). Status stays `in_progress` until the phase itself is `done`/`archived` (even at N/N tasks if gates remain open). |
 | **phase-done** (advance) | After durable `phase-done` (initiative + plan phase `status: done`), then shared post-close projection: `refresh-state` → helper → `todo_write` | Closed phase projects `completed` with informative `(n/N)` and identity text. Successor (if advanced) is `in_progress` with its own `summary`/`title`. Never mark the phase todo `completed` to *cause* close — only after durable plan descriptor is `done`. |
 | **reseed after compact** | After context compaction (and again on skill-path session/`implement` start when a plan is still anchored) | Reseed phase scaffold with `merge: false` when pickFocus has a winner so only phase todos remain. Labels still include identity (`summary`/`title`), not counts alone. Empty focus / paused plan → **skip reseed** (no full-replace wipe). |
 
@@ -187,7 +190,7 @@ above. The package does **not** invent that PASS from unit tests alone.
 - label: `summary` / `title` fallback; descriptor-only `(—)` + `not materialized`
 - order: mutate → `refresh-state` → helper → `todo_write`
 - `paused` → todo `pending` + suffix ` · paused` (precedence: paused first)
-- helper: `project-session-todos` (name reserved; not implemented until F1)
+- helper: `scripts/project-session-todos.js` (apply payload as emitted)
 - **anti-proc**: phase scaffold vs `proc:*` while plan anchored (anti-race alias)
-- merge: pickFocus winner → `merge: false` reseed; empty focus / paused plan → no wipe
+- merge: pickFocus winner → helper `merge: false` reseed (after-done/mid-flight too); empty focus / paused plan → no wipe; `merge: true` only exceptional pure-phase overlay
 - locality: **Grok-local** session todo projection (session-local projection only; never close authority)

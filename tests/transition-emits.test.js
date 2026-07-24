@@ -412,8 +412,8 @@ test('done and phase-done prose keep refresh-state before project-session-todos 
       `${name}: SoT order mutate→refresh-state→helper (refresh before project-session-todos)`,
     );
     assert.ok(
-      projectIdx < todoWriteIdx || (body.includes('project-session-todos') && body.includes('todo_write')),
-      `${name}: helper then session checklist apply`,
+      projectIdx < todoWriteIdx,
+      `${name}: SoT order helper→todo_write (project-session-todos before todo_write)`,
     );
     // GATE-R2: session checklist never closes durable phase/task state.
     assert.match(
