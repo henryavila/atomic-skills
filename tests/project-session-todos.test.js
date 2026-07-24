@@ -466,6 +466,118 @@ test('done phase initiative under phases/archive uses (done/total) rollups', () 
   }
 });
 
+test('flat layout: done initiative under initiatives/archive uses (done/total) rollups', () => {
+  // Legacy flat coexistence: closed phases live under initiatives/archive/*.md
+  // (mirrors nested phases/archive). Must keep numeric rollups, not · not materialized.
+  const repo = mkdtempSync(join(tmpdir(), 'pst-flat-archive-'));
+  try {
+    const state = join(repo, '.atomic-skills');
+    mkdirSync(join(state, 'plans'), { recursive: true });
+    mkdirSync(join(state, 'initiatives', 'archive'), { recursive: true });
+
+    writeFm(
+      join(state, 'plans', 'plan-a.md'),
+      [
+        'schemaVersion: "0.1"',
+        'slug: plan-a',
+        'title: Plan A',
+        'status: active',
+        'currentPhase: F1',
+        'lastUpdated: 2026-06-15T10:00:00Z',
+        'phases:',
+        '  - id: F0',
+        '    slug: plan-a-f0',
+        '    title: Phase Zero',
+        '    summary: Foundation work',
+        '    status: done',
+        '  - id: F1',
+        '    slug: plan-a-f1',
+        '    title: Phase One',
+        '    summary: Follow-on phase',
+        '    status: active',
+      ].join('\n'),
+    );
+
+    // F0 only in initiatives/archive (post phase-done flat).
+    writeFm(
+      join(state, 'initiatives', 'archive', '2026-06-plan-a-f0.md'),
+      [
+        'schemaVersion: "0.1"',
+        'slug: plan-a-f0',
+        'title: Phase Zero',
+        'summary: Foundation work',
+        'status: done',
+        'phaseId: F0',
+        'parentPlan: plan-a',
+        'tasksDone: 5',
+        'tasksTotal: 5',
+        'lastUpdated: 2026-06-15T12:00:00Z',
+        'current: false',
+        'planActive: true',
+        'tasks:',
+        '  - id: T-001',
+        '    status: done',
+        '  - id: T-002',
+        '    status: done',
+        '  - id: T-003',
+        '    status: done',
+        '  - id: T-004',
+        '    status: done',
+        '  - id: T-005',
+        '    status: done',
+      ].join('\n'),
+    );
+
+    // F1 still active at initiatives/*.md top-level.
+    writeFm(
+      join(state, 'initiatives', 'plan-a-f1.md'),
+      [
+        'schemaVersion: "0.1"',
+        'slug: plan-a-f1',
+        'title: Phase One',
+        'summary: Follow-on phase',
+        'status: active',
+        'phaseId: F1',
+        'parentPlan: plan-a',
+        'tasksDone: 1',
+        'tasksTotal: 3',
+        'lastUpdated: 2026-06-15T13:00:00Z',
+        'current: true',
+        'planActive: true',
+        'tasks:',
+        '  - id: T-001',
+        '    status: done',
+        '  - id: T-002',
+        '    status: pending',
+        '  - id: T-003',
+        '    status: pending',
+      ].join('\n'),
+    );
+
+    const { merge, todos } = buildSessionTodos(repo, { branch: null });
+    assert.equal(merge, false);
+    const byId = Object.fromEntries(todos.map((t) => [t.id, t]));
+
+    assert.ok(byId['plan-a:F0'], 'flat archive F0 todo present');
+    assert.equal(byId['plan-a:F0'].status, 'completed');
+    assert.equal(byId['plan-a:F0'].content, `F0 (5/5) ${EM_DASH} Foundation work`);
+    assert.ok(
+      !byId['plan-a:F0'].content.includes('not materialized'),
+      `flat archive F0 must not be not-materialized: ${byId['plan-a:F0'].content}`,
+    );
+    assert.ok(
+      !byId['plan-a:F0'].content.includes(`(${EM_DASH})`),
+      `flat archive F0 must use numeric rollups not em-dash: ${byId['plan-a:F0'].content}`,
+    );
+
+    assert.ok(byId['plan-a:F1']);
+    assert.equal(byId['plan-a:F1'].status, 'in_progress');
+    assert.equal(byId['plan-a:F1'].content, `F1 (1/3) ${EM_DASH} Follow-on phase`);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test('active phases/*.md preferred over archive when both exist for same phaseId', () => {
   const repo = mkdtempSync(join(tmpdir(), 'pst-pref-'));
   try {

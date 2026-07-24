@@ -299,15 +299,18 @@ board from this package; portable SoT remains `.atomic-skills/`.
 | Piece | Role |
 |---|---|
 | Contract | `docs/kb/grok-phase-todo-projection.md` (label, status map, SoT order, reseed/merge, **anti-proc**) |
-| Helper (F1+; name reserved in F0) | `scripts/project-session-todos.js` — emits `{ merge, todos[] }` for the agent; **not implemented until F1** |
+| Helper (shipped) | `scripts/project-session-todos.js` — emits `{ merge, todos[] }` for the agent |
 | Agent tool | session checklist tool (`todo_write`) applies the payload; never closes durable phase/task state |
 
 **Anti-competition (anti-proc).** A process scaffold (`proc:*` from bundled flows)
 must **not** compete with the phase scaffold while a plan is anchored. When
-pickFocus has a winner, reseed uses `todo_write` with `merge: false` (full
-replace); mid-flight updates use `merge: true` on stable `<planSlug>:Fn` session
-todo ids only. Empty focus / paused plan (no winner) → skip reseed / no-op (do
-not wipe the board).
+pickFocus has a **winner**, apply the helper payload **as emitted** (`merge:
+false` full phase reseed) — including mid-flight / after-done updates (anti-proc:
+full replace clears competing `proc:*`). Empty focus / paused plan (**no
+winner**) → skip reseed / no-op (helper `merge: true` + empty todos; do **not**
+wipe the board). `merge: true` overlay is exceptional only when the board is
+already pure phase scaffold (no `proc:*`) — **not** the default while a winner
+is anchored.
 
 **SessionStart** Soft hooks may *hint* reseed but fail-open without hooks-trust;
 skill paths (`project` / `implement` start) reseed independently when a plan is
