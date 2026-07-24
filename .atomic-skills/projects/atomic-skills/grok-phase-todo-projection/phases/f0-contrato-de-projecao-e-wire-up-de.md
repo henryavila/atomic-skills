@@ -7,8 +7,8 @@ goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:12:45.284Z
-nextAction: present phase-start package for F0 validate-only
+lastUpdated: 2026-07-24T19:19:58.256Z
+nextAction: SYNC WAIT phase writer F0 claim report (lease active)
 parentPlan: grok-phase-todo-projection
 phaseId: F0
 businessIntent:
@@ -128,8 +128,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** T-002 re-spec admitted verifier (operator accepted proposed shell verifier). F0 both tasks SPEC-OK. Automate stamped. Awaiting phase-start package ratify before work-order / lease / fresh phase writer.
-- **Decision log:** (1) executionMode automate stamped (cf7a1e7b). (2) T-002 verifier re-spec operator-accepted: shell rg Grok-local/phase scaffold on grok-build-compatibility.md + helper/contract pointer on project.md.
-- **Single nextAction:** present phase-start package for F0 validate-only (operator ratify before spawn).
-- **Verbatim state:** T-002.verifier.command = rg -n 'Grok-local|phase scaffold|todo_write|session.todo' docs/kb/grok-build-compatibility.md && rg -n 'project-session-todos|session.todo|phase scaffold|todo_write' skills/core/project.md; expectExitCode 0; initiative `.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f0-contrato-de-projecao-e-wire-up-de.md`.
-- **Uncommitted changes:** (at commit)
+- **Narrative:** F0 phase-start package ratified. Work-order built for T-001+T-002. Writer lease acquired; sibling worktree impl/grok-phase-todo-projection-F0-writer spawned for code-only phase writer. Host awaits claim report — no product edits on plan tree.
+- **Decision log:** phase-start ratify (dcb6846a); T-002 re-spec verifier (d625d51e); executionMode automate stamped.
+- **Single nextAction:** SYNC WAIT phase writer F0 claim report then merge sibling → plan branch → post-merge re-verify → done.
+- **Verbatim state:** worktreePath=/Volumes/External/code/atomic-skills/.worktrees/grok-phase-todo-projection-F0-writer; writerBranch=impl/grok-phase-todo-projection-F0-writer; lease=.atomic-skills/status/writer-leases/grok-phase-todo-projection.json; baseRef=6f10d27ef2f8bd87d7ea8af3f979081dce058772.
+- **Uncommitted changes:** lease file + initiative handoff (state microcommit pending)
