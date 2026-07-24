@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T20:07:57.617Z
+lastUpdated: 2026-07-24T20:14:47.879Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F2
 parallelismAllowed: false
@@ -266,6 +266,11 @@ phases:
         todo_write no host.
       doneWhen: lint-transition-emits exit 0 no project-transitions.md e node --test
         tests/transition-emits.test.js exit 0.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T20:14:47.879Z
+      at: 8a259a8254c9098f0cc85a7aa0475a55a340ffc1
   - id: F3
     slug: grok-phase-todo-projection-f3-wire-implement-e-reseed-grok
     title: Wire implement e reseed Grok

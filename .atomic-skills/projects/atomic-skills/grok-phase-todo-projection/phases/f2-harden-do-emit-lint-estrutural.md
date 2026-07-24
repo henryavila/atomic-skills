@@ -7,9 +7,8 @@ goal: Garantir na prosa de transitions que refresh-state e o helper de projeçã
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T20:07:57.617Z
-lastUpdated: 2026-07-24T20:13:45.560Z
-nextAction: Run evaluation agent for F2 then stamp evaluationGate; await
-  decision-review PASS
+lastUpdated: 2026-07-24T20:14:47.879Z
+nextAction: await decision-review operator PASS for F2
 parentPlan: grok-phase-todo-projection
 phaseId: F2
 businessIntent:
@@ -154,8 +153,8 @@ current: true
 Initiative F2.
 
 ## Session handoff
-- **Narrative:** F2 T-001 T-002 done. Await evaluation+decision-review.
-- **Decision log:** F2 post-merge verifiers green.
-- **Single nextAction:** Run evaluation agent for F2 then stamp evaluationGate; await decision-review PASS
-- **Verbatim state:** both tasks passed:true
+- **Narrative:** F2 evaluation verdict=pass. evaluationGate stamped. Await decision-review.
+- **Decision log:** eval pass (info only on reconcile soft session-todos).
+- **Single nextAction:** await decision-review operator PASS for F2
+- **Verbatim state:** evaluationGate at=8a259a8254c9098f0cc85a7aa0475a55a340ffc1
 - **Uncommitted changes:** (pending)
