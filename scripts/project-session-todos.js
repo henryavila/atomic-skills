@@ -130,13 +130,27 @@ function findPhaseInitiative(p, phaseId) {
   }
   const phasesDir = join(p.planDir, 'phases');
   if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) return null;
-  for (const entry of readdirSync(phasesDir)) {
-    if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-    const file = join(phasesDir, entry);
-    const fm = readFm(file);
-    if (fm && fm.phaseId === phaseId) return { file, fm };
-  }
-  return null;
+
+  // Prefer active phases/*.md over archive when both exist; fall back to
+  // phases/archive/*.md after phase-done (closed phases live under archive).
+  const scanDir = (dir) => {
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) return null;
+    for (const entry of readdirSync(dir)) {
+      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+      const file = join(dir, entry);
+      // Skip nested dirs at top-level (e.g. archive/ itself when scanning phases/).
+      try {
+        if (!statSync(file).isFile()) continue;
+      } catch {
+        continue;
+      }
+      const fm = readFm(file);
+      if (fm && fm.phaseId === phaseId) return { file, fm };
+    }
+    return null;
+  };
+
+  return scanDir(phasesDir) ?? scanDir(join(phasesDir, 'archive'));
 }
 
 function branchOf(p) {
