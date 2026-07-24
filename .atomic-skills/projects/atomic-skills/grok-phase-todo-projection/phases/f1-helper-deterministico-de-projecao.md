@@ -7,9 +7,8 @@ goal: Script zero-token que, dado o repo, emite o array de session todos das
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T19:44:51.577Z
-lastUpdated: 2026-07-24T19:56:19.186Z
-nextAction: await decision-review operator PASS for F1 (then phase-done with
-  review-code --mode=both)
+lastUpdated: 2026-07-24T20:00:09.377Z
+nextAction: Run phase-done with review-code --mode=both after canRunPhaseDone
 parentPlan: grok-phase-todo-projection
 phaseId: F1
 businessIntent:
@@ -34,15 +33,39 @@ weightTotal: 2
 exitGates:
   - id: F1-G1
     description: Helper tests pass
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/project-session-todos.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/project-session-todos.test.js"
+    metAt: 2026-07-24T20:00:09.377Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T20:00:09.377Z
+      verifiedCommit: 4bee9352050b36b6ff156284387f6f67ed9174b6
+      passed: true
+      exitCode: 0
+      outputSummary: >-
+        ✔ formatPhaseContent: materialized uses done/total and summary
+        (1.187708ms)
+
+        ✔ formatPhaseContent: descriptor-only uses em-dash total + not
+        materialized (1.055958ms)
+
+        ✔ formatPhaseContent: paused suffix (0.558458ms)
+
+        ✔ mapPhaseTodoStatus: paused wins → pending + paused flag (1.629667ms)
+
+        ✔ mapPhaseTodoStatus: current → in_progress; done → completed; else
+        pending (0.569125ms)
+
+        ✔ stableTodoId is planSlug colon phase id (0.308375ms)
+
+        ✔ fixture F0 2/5 active + F1 pending + descriptor-only F2 (41.609042ms)
   - id: F1-G2
     description: CLI json on repo root exits 0 and prints todos array
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node scripts/project-session-todos.js --json . | node -e "let
@@ -51,6 +74,14 @@ exitGates:
         process.exit(0)})"
       expectExitCode: 0
     verifierLabel: 'shell: node scripts/project-session-todos.js --json . | node -e "l…'
+    metAt: 2026-07-24T20:00:09.377Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T20:00:09.377Z
+      verifiedCommit: 4bee9352050b36b6ff156284387f6f67ed9174b6
+      passed: true
+      exitCode: 0
+      outputSummary: ""
 stack:
   - id: 1
     title: Helper determinístico de projeção
