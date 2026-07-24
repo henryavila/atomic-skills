@@ -7,9 +7,8 @@ goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:09:17.908Z
-nextAction: "Re-spec T-002: admit deterministic verifier (kind shell|test|query)
-  before phase-start package ratify / writer spawn"
+lastUpdated: 2026-07-24T19:12:45.284Z
+nextAction: present phase-start package for F0 validate-only
 parentPlan: grok-phase-todo-projection
 phaseId: F0
 businessIntent:
@@ -85,7 +84,7 @@ tasks:
     title: Wire-up Grok em compat e project note
     description: Registrar projeção Grok-local e ponteiro no router project.
     status: pending
-    lastUpdated: 2026-07-24T18:38:57.644Z
+    lastUpdated: 2026-07-24T19:12:45.283Z
     scopeBoundary:
       - do not implement helper or lint changes; do not add Claude or Codex todo
         tools; do not dump full procedure into resident router
@@ -100,6 +99,13 @@ tasks:
         path: skills/core/project.md
     summary: Nota Grok-compat e ponteiro no project router
     weight: 1
+    verifier:
+      kind: shell
+      command: rg -n 'Grok-local|phase scaffold|todo_write|session.todo'
+        docs/kb/grok-build-compatibility.md && rg -n
+        'project-session-todos|session.todo|phase scaffold|todo_write'
+        skills/core/project.md
+      expectExitCode: 0
 parked: []
 emerged: []
 summary: "Contrato greppable: label, SoT, paused, reseed skill-level,
@@ -122,8 +128,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** implement --mode=automate bound plan/grok-phase-todo-projection worktree; operator stamped executionMode: automate (commit cf7a1e7b). F0 is materialized with complete businessIntent spine. Step A SPEC gate blocked spawn: T-002 lacks verifier.
-- **Decision log:** (1) creation-gate residual committed ready (9a9bfe15). (2) executionMode automate stamped after operator y (cf7a1e7b; decisions/F0.jsonl routing entry a519094a). (3) HARD-STOP: T-002 not SPEC-admitted — missing verifier; no improvise; no phase writer spawn.
-- **Single nextAction:** Re-spec T-002 with deterministic verifier (kind shell|test|query) matching acceptance/outputs, then re-run implement grok-phase-todo-projection (automate stamp already set).
-- **Verbatim state:** initiative path `.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f0-contrato-de-projecao-e-wire-up-de.md`; T-001 has verifier; T-002 has outputs/scopeBoundary/acceptance but **no verifier key**; lease status missing.
-- **Uncommitted changes:** (listed at commit time)
+- **Narrative:** T-002 re-spec admitted verifier (operator accepted proposed shell verifier). F0 both tasks SPEC-OK. Automate stamped. Awaiting phase-start package ratify before work-order / lease / fresh phase writer.
+- **Decision log:** (1) executionMode automate stamped (cf7a1e7b). (2) T-002 verifier re-spec operator-accepted: shell rg Grok-local/phase scaffold on grok-build-compatibility.md + helper/contract pointer on project.md.
+- **Single nextAction:** present phase-start package for F0 validate-only (operator ratify before spawn).
+- **Verbatim state:** T-002.verifier.command = rg -n 'Grok-local|phase scaffold|todo_write|session.todo' docs/kb/grok-build-compatibility.md && rg -n 'project-session-todos|session.todo|phase scaffold|todo_write' skills/core/project.md; expectExitCode 0; initiative `.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f0-contrato-de-projecao-e-wire-up-de.md`.
+- **Uncommitted changes:** (at commit)
