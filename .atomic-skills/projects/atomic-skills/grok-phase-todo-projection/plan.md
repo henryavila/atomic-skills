@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T20:42:37.052Z
+lastUpdated: 2026-07-24T20:47:25.457Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F3
 parallelismAllowed: false
@@ -358,6 +358,11 @@ phases:
         todo_write.
       doneWhen: implement assets greppable helper/reseed/anti-proc; Henry dogfood PASS
         F3-G2.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T20:47:25.457Z
+      at: 4684919d80555afead8a05a0d36f4adbe0308438
   - id: F4
     slug: grok-phase-todo-projection-f4-integracao-e-regressao
     title: Integração e regressão
