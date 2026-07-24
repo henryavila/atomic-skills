@@ -4,11 +4,11 @@ slug: grok-phase-todo-projection-f0-contrato-de-projecao-e-wire-up-de
 title: Contrato de projeção e wire-up de prosa
 goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
   paused, merge/reseed, anti-proc, Grok-local; SessionStart = hint only."
-status: active
+status: done
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:33:28.850Z
-nextAction: Run phase-done with review-code --mode=both after canRunPhaseDone preflight
+lastUpdated: 2026-07-24T19:42:03.616Z
+nextAction: present phase-start package for F1 validate-only
 parentPlan: grok-phase-todo-projection
 phaseId: F0
 businessIntent:
@@ -25,7 +25,7 @@ businessIntent:
   doneWhen: KB+compat com contrato greppable e Henry PASS no gate manual F0-G2.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 2
 weightTotal: 2
@@ -39,31 +39,32 @@ exitGates:
         'summary|title|refresh-state|todo_write|paused|anti-proc|Grok-local|merge'
         docs/kb/grok-phase-todo-projection.md
       expectExitCode: 0
-    verifierLabel: "shell: test -f docs/kb/grok-phase-todo-projection.md && rg -n 'sum…"
-    metAt: 2026-07-24T19:33:28.850Z
+    metAt: 2026-07-24T19:42:03.616Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T19:33:28.850Z
-      verifiedCommit: 208b1285f5427e2b33f424b02b6c50388304c208
+      verifiedAt: 2026-07-24T19:42:03.616Z
+      verifiedCommit: 9cba1ffa27b10da0c9a7646456545510ccbf87eb
       passed: true
       exitCode: 0
       outputSummary: >-
-        4:checklist via `todo_write`. Prose-only here; the deterministic helper
-        lands in a
+        4:checklist via the Grok session checklist tool (`todo_write`).
+        Prose-only here;
 
-        5:later phase. Producers of focus digest remain `refresh-state` /
-        `emit-focus` —
+        6:`refresh-state` / `emit-focus` — this doc is the **Grok session-todo
+        consumer**
 
-        9:producer+consumer); `docs/kb/grok-build-compatibility.md` (Grok-local
+        10:producer+consumer); `docs/kb/grok-build-compatibility.md` (Grok-local
         install and
 
-        17:| Phase scaffold on Grok session todos | Projecting tasks `T-00N`
-        into `todo_write` |
+        21:| **anti-proc**: phase scaffold vs `proc:*` while plan anchored |
+        Multi-IDE mirror (Claude/Codex/Cursor todos) |
 
-        21:| Reseed / merge rules for `todo_write` | Using todo completion to
-        close phase/task (GATE-R2 stays) |
+        22:| Reseed / merge rules for session checklist tool | Using todo
+        completion to close phase/task (GATE-R2 stays) |
 
-        23:**Grok-local only.** Claude, Codex, and Cursor do **not
+        24:**Grok-local only.
+    verifierLabel: "shell: test -f docs/kb/grok-phase-todo-projection.md && rg -n 'sum…"
+    evidenceSummary: passed · 2026-07-24
   - id: F0-G2
     description: Manual HARD operator confirms label format and SoT order match
       approved design
@@ -71,14 +72,15 @@ exitGates:
     verifier:
       kind: manual
       description: Henry acks F0 contract in chat or gate-signoff with explicit PASS
-    verifierLabel: manual
-    metAt: 2026-07-24T19:33:28.850Z
+    metAt: 2026-07-24T19:42:03.616Z
     evidence:
       verifierKind: manual
-      verifiedAt: 2026-07-24T19:33:28.850Z
-      verifiedCommit: 208b1285f5427e2b33f424b02b6c50388304c208
+      verifiedAt: 2026-07-24T19:42:03.616Z
+      verifiedCommit: 9cba1ffa27b10da0c9a7646456545510ccbf87eb
       passed: true
-      outputSummary: Operator F0-G2 PASS
+      outputSummary: Operator F0-G2 PASS + decision-review PASS
+    verifierLabel: manual
+    evidenceSummary: passed · 2026-07-24
 stack:
   - id: 1
     title: Contrato de projeção e wire-up de prosa
@@ -176,7 +178,6 @@ summary: "Contrato greppable: label, SoT, paused, reseed skill-level,
   SessionStart só hint"
 planTitle: Projeção de fases do project no TODO do Grok
 planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -192,8 +193,19 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F0 tasks T-001/T-002 done with GATE-R2 evidence. Evaluation agent verdict=pass (no blocker/critical). evaluationGate stamped passed/pass at e886730817273eba9a2ce80b855e35e75691635b. Awaiting operator decision-review PASS before phase-done. F0-G2 manual still open for phase-done exit gates.
-- **Decision log:** evaluation note: literal token anti-proc absent (proc:* anti-competition present); F0-G1 shell ready; F0-G2 pending-manual; doneWhen incomplete until Henry PASS on F0-G2.
-- **Single nextAction:** await decision-review operator PASS for F0 (then phase-done with review-code --mode=both)
-- **Verbatim state:** phases[F0].evaluationGate={status:passed,verdict:pass,at:e886730817273eba9a2ce80b855e35e75691635b,verifiedAt:2026-07-24T19:29:13.834Z}; lease missing; decisions log F0.jsonl.
-- **Uncommitted changes:** plan.md evaluationGate stamp pending commit
+- **Narrative:** F0 closed via pure-maestro: tasks done, evaluationGate+decisionReview passed, review-code both + fix1 merged, exit gates met. Plan advanced to F1 descriptor-only. Automate forbids blank-form materialize — next is phase-start package for F1.
+- **Decision log:** executionMode automate; T-002 re-spec; package ratify; claim exclusive SHAs; both-review fix1 (anti-proc, helper F1-only pointer, merge/paused policy).
+- **Single nextAction:** present phase-start package for F1 validate-only
+- **Verbatim state:** currentPhase=F1; F0 status=done; reviewGate.mode=both reviewFile=.atomic-skills/reviews/2026-07-24-f0-grok-phase-todo-projection-both.md; lease missing.
+- **Uncommitted changes:** (checkpoint pending)
+
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks closed with GATE-R2 evidence + post-merge re-verify.
+- **G2 soft-language**: completion claims are passed:true evidence.
+- **G6 reference-or-strike**: handoff literals are paths/commands.
+- **G10 gate-must-be-able-to-fail**: F0-G1 fails if KB missing tokens; F0-G2 fails without operator PASS.
+- **CROSS-MODEL REVIEW**: mode both local+codex; receipt .atomic-skills/reviews/2026-07-24-f0-grok-phase-todo-projection-both.md; fix1 merged ae26897.
+- **Review gate (G2)**: reviewGate status=passed mode=both at=9cba1ffa27b10da0c9a7646456545510ccbf87eb.
+- **Lessons (G1)**: no lessons distilled — clean phase after fix1 (lessonsState: none).

@@ -5,9 +5,9 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:33:28.850Z
+lastUpdated: 2026-07-24T19:42:03.616Z
 branch: plan/grok-phase-todo-projection
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -62,30 +62,30 @@ phases:
               'summary|title|refresh-state|todo_write|paused|anti-proc|Grok-local|merge'
               docs/kb/grok-phase-todo-projection.md
             expectExitCode: 0
-          metAt: 2026-07-24T19:33:28.850Z
+          metAt: 2026-07-24T19:42:03.616Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-24T19:33:28.850Z
-            verifiedCommit: 208b1285f5427e2b33f424b02b6c50388304c208
+            verifiedAt: 2026-07-24T19:42:03.616Z
+            verifiedCommit: 9cba1ffa27b10da0c9a7646456545510ccbf87eb
             passed: true
             exitCode: 0
             outputSummary: >-
-              4:checklist via `todo_write`. Prose-only here; the deterministic
-              helper lands in a
+              4:checklist via the Grok session checklist tool (`todo_write`).
+              Prose-only here;
 
-              5:later phase. Producers of focus digest remain `refresh-state` /
-              `emit-focus` —
+              6:`refresh-state` / `emit-focus` — this doc is the **Grok
+              session-todo consumer**
 
-              9:producer+consumer); `docs/kb/grok-build-compatibility.md`
+              10:producer+consumer); `docs/kb/grok-build-compatibility.md`
               (Grok-local install and
 
-              17:| Phase scaffold on Grok session todos | Projecting tasks
-              `T-00N` into `todo_write` |
+              21:| **anti-proc**: phase scaffold vs `proc:*` while plan anchored
+              | Multi-IDE mirror (Claude/Codex/Cursor todos) |
 
-              21:| Reseed / merge rules for `todo_write` | Using todo completion
-              to close phase/task (GATE-R2 stays) |
+              22:| Reseed / merge rules for session checklist tool | Using todo
+              completion to close phase/task (GATE-R2 stays) |
 
-              23:**Grok-local only.** Claude, Codex, and Cursor do **not
+              24:**Grok-local only.
         - id: F0-G2
           description: Manual HARD operator confirms label format and SoT order match
             approved design
@@ -93,14 +93,14 @@ phases:
           verifier:
             kind: manual
             description: Henry acks F0 contract in chat or gate-signoff with explicit PASS
-          metAt: 2026-07-24T19:33:28.850Z
+          metAt: 2026-07-24T19:42:03.616Z
           evidence:
             verifierKind: manual
-            verifiedAt: 2026-07-24T19:33:28.850Z
-            verifiedCommit: 208b1285f5427e2b33f424b02b6c50388304c208
+            verifiedAt: 2026-07-24T19:42:03.616Z
+            verifiedCommit: 9cba1ffa27b10da0c9a7646456545510ccbf87eb
             passed: true
-            outputSummary: Operator F0-G2 PASS
-    status: active
+            outputSummary: Operator F0-G2 PASS + decision-review PASS
+    status: done
     businessIntent:
       value: Em sessões Grok o agente mantém no checklist nativo o trilho de fases do
         plan com progresso e o que cada fase faz, sem duplicar SoT nem fechar
@@ -123,6 +123,13 @@ phases:
     decisionReview:
       status: passed
       verifiedAt: 2026-07-24T19:32:34.509Z
+    reviewGate:
+      status: passed
+      at: 9cba1ffa27b10da0c9a7646456545510ccbf87eb
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f0-grok-phase-todo-projection-both.md
+      verifiedAt: 2026-07-24T19:42:03.616Z
+    lessonsState: none
   - id: F1
     slug: grok-phase-todo-projection-f1-helper-deterministico-de-projecao
     title: Helper determinístico de projeção
@@ -154,7 +161,7 @@ phases:
               for(const t of j.todos){ if(!t.id||!t.content||!t.status)
               process.exit(2);} process.exit(0)})"
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Helper + testes do contrato canônico (id, label, status, paused, merge)
   - id: F2
     slug: grok-phase-todo-projection-f2-harden-do-emit-lint-estrutural
