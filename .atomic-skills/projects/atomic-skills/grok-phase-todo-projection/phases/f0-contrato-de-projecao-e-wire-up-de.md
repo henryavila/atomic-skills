@@ -7,8 +7,9 @@ goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:25:40.395Z
-nextAction: Run `done T-002` after post-merge re-verify of T-002 on plan branch
+lastUpdated: 2026-07-24T19:27:10.125Z
+nextAction: Run evaluation agent for F0 then stamp evaluationGate; await
+  decision-review operator PASS before phase-done
 parentPlan: grok-phase-todo-projection
 phaseId: F0
 businessIntent:
@@ -23,11 +24,11 @@ businessIntent:
   outOfScope: Tasks T-00N no TODO; painel nativo Grok; write em plan.json da
     sessão; multi-IDE mirror; MCP project-state.
   doneWhen: KB+compat com contrato greppable e Henry PASS no gate manual F0-G2.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 1
+weightDone: 2
 weightTotal: 2
 exitGates:
   - id: F0-G1
@@ -100,8 +101,8 @@ tasks:
   - id: T-002
     title: Wire-up Grok em compat e project note
     description: Registrar projeção Grok-local e ponteiro no router project.
-    status: pending
-    lastUpdated: 2026-07-24T19:12:45.283Z
+    status: done
+    lastUpdated: 2026-07-24T19:27:08.433Z
     scopeBoundary:
       - do not implement helper or lint changes; do not add Claude or Codex todo
         tools; do not dump full procedure into resident router
@@ -123,6 +124,22 @@ tasks:
         'project-session-todos|session.todo|phase scaffold|todo_write'
         skills/core/project.md
       expectExitCode: 0
+    closedAt: 2026-07-24T19:27:08.433Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T19:27:08.433Z
+      verifiedCommit: a474923ffa62383097fc826e96c4d0cf1448447f
+      passed: true
+      exitCode: 0
+      outputSummary: >
+        affold (session todos):** after focus-moving mutations, follow SoT order
+        in `docs/kb/grok-phase-todo-projection.md` — mutate → `refresh-state` →
+        helper `scripts/project-session-todos.js` → `todo_write`. Session todos
+        are a **Grok-local** phase scaffold only (not `T-00N`). While a plan is
+        anchored, a process scaffold (`proc:*`) must **not** compete with the
+        phase scaffold; reseed details live in that KB +
+        `docs/kb/grok-build-compatibility.md` §8 — do not dump the full
+        procedure into this router.
 parked: []
 emerged: []
 summary: "Contrato greppable: label, SoT, paused, reseed skill-level,
@@ -145,8 +162,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** T-001 closed on merged plan tree after post-merge shell verifier pass. F0 still has T-002 open. Writer lease still active until phase merge settle complete and both tasks closed.
-- **Decision log:** post-merge re-verify passed on plan branch; orchestrator done (not writer self-certify); claim SHAs reachable.
-- **Single nextAction:** Run `done T-002` after post-merge re-verify of T-002 on plan branch
-- **Verbatim state:** task T-001 evidence.passed=true verifiedCommit=b13fcb694e66963b04381077a55d1590a441f623 exitCode=0; command: rg -n 'summary|title|refresh-state|todo_write|paused' docs/kb/grok-phase-todo-projection.md && rg -n 'grok-phase-todo|session.todo|todo_write' docs/design/statusline-focus-integration.md
-- **Uncommitted changes:** (checkpoint pending for this close)
+- **Narrative:** F0 T-001 and T-002 both closed on merged plan branch after post-merge shell verifiers (GATE-R2 evidence). Phase tasks complete; exit gates F0-G1/F0-G2 still pending for phase-done. Writer lease still active until clear after settle.
+- **Decision log:** exclusive claim SHAs validated; merge b13fcb69; orchestrator-owned done (no writer self-certify); dispatch-log repaired NDJSON for append-completion.
+- **Single nextAction:** Run evaluation agent for F0 then stamp evaluationGate; await decision-review operator PASS before phase-done
+- **Verbatim state:** T-001 evidence.passed=true; T-002 evidence.passed=true verifiedCommit=a474923ffa62383097fc826e96c4d0cf1448447f exitCode=0; verifier: rg -n 'Grok-local|phase scaffold|todo_write|session.todo' docs/kb/grok-build-compatibility.md && rg -n 'project-session-todos|session.todo|phase scaffold|todo_write' skills/core/project.md
+- **Uncommitted changes:** (checkpoint pending)
