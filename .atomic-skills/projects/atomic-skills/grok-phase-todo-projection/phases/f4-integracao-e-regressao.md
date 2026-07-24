@@ -6,8 +6,9 @@ goal: Suite de regressão verde; parity de install intacta; checklist dogfood.
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T21:01:28.301Z
-lastUpdated: 2026-07-24T21:01:28.301Z
-nextAction: "Start T-001: Regressão package"
+lastUpdated: 2026-07-24T21:09:08.685Z
+nextAction: Run evaluation agent + decision-review; F4-G2 needs operator dogfood
+  PASS before phase-done
 parentPlan: grok-phase-todo-projection
 phaseId: F4
 businessIntent:
@@ -26,11 +27,11 @@ businessIntent:
     se no G1) exit 0; checklist dogfood no KB com labels de identidade; Henry
     PASS em F4-G2.
 startedCommit: 243a7ffcaaf72d1716e9fc7cca494e43a5d2b374
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 2
 weightTotal: 2
 exitGates:
   - id: F4-G1
@@ -58,8 +59,8 @@ tasks:
   - id: T-001
     title: Regressão package
     description: Regressão package
-    status: pending
-    lastUpdated: 2026-07-24T21:01:28.301Z
+    status: done
+    lastUpdated: 2026-07-24T21:09:06.859Z
     scopeBoundary:
       - do not change install journal effects unless new installed file requires
         reverse; prefer package-root scripts with no install surface change
@@ -80,11 +81,37 @@ tasks:
         path: tests/transition-emits.test.js
     summary: Regressão package
     weight: 1
+    closedAt: 2026-07-24T21:09:06.859Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T21:09:06.859Z
+      verifiedCommit: dcedd05be977cf5d9dd1a4020ddb2b2c8a968c2f
+      passed: true
+      exitCode: 0
+      outputSummary: >-
+        ✔ formatPhaseContent: materialized uses done/total and summary
+        (0.80225ms)
+
+        ✔ formatPhaseContent: descriptor-only uses em-dash total + not
+        materialized (0.096ms)
+
+        ✔ formatPhaseContent: paused suffix (0.084ms)
+
+        ✔ mapPhaseTodoStatus: paused wins → pending + paused flag (0.485708ms)
+
+        ✔ mapPhaseTodoStatus: current → in_progress; done → completed; else
+        pending (0.103875ms)
+
+        ✔ mapPhaseTodoStatus: done|archived beats stale currentPhase → completed
+        (0.129416ms)
+
+        ✔ stableTodoId is planSlug colon phase id (0.08
+    signal: verifier
   - id: T-002
     title: Dogfood checklist e close
     description: Dogfood checklist e close
-    status: pending
-    lastUpdated: 2026-07-24T21:01:28.301Z
+    status: done
+    lastUpdated: 2026-07-24T21:09:08.685Z
     scopeBoundary:
       - do not invent PASS without operator run; checklist only no second helper
     acceptance:
@@ -102,6 +129,29 @@ tasks:
         path: docs/kb/grok-phase-todo-projection.md
     summary: Dogfood checklist e close
     weight: 1
+    closedAt: 2026-07-24T21:09:08.685Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T21:09:08.685Z
+      verifiedCommit: dcedd05be977cf5d9dd1a4020ddb2b2c8a968c2f
+      passed: true
+      exitCode: 0
+      outputSummary: >-
+        22:| Reseed / merge rules for session checklist tool | Using todo
+        completion to close phase/task (GATE-R2 stays) |
+
+        82:   `done` / `phase-done` — the only writers of plan SoT).
+
+        90:to the plan; GATE-R2 stays on verifiers / `done` / `phase-done`.
+
+        104:## Reseed and merge rules
+
+        108:| Reseed when pickFocus has a **winner** (anchored active plan)
+        after `refresh-state` / implement start / full phase-scaffold write |
+        `merge: false` | **Full replace** so only phase todos remain |
+
+        109:| Empty focus / pause
+    signal: verifier
 parked: []
 emerged: []
 summary: Regressão unit + install parity Grok + dogfood checklist
@@ -113,9 +163,10 @@ current: true
 # F4
 
 ## Session handoff
-- **Narrative:** F4 materialized Mode B; lease acquired; sibling writer worktree ready; spawning fresh phase writer.
-- **Decision log:** operator ratify F4; T-002 verifier re-spec; Mode B materialize; lease F4 host-thin pure maestro.
-- **Single nextAction:** sync-wait F4 phase writer claim report then merge D.5
-- **Verbatim state:** initiative=.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f4-integracao-e-regressao.md; worktree=/Volumes/External/code/atomic-skills/.worktrees/grok-phase-todo-projection-F4-writer; branch=impl/grok-phase-todo-projection-F4-writer; baseRef=76282b3d2506acf7b637f936869ef114f32c3910; lease=.atomic-skills/status/writer-leases/grok-phase-todo-projection.json; executionMode automate
-- **Uncommitted changes:** lease file + handoff pre-dispatch
+- **Narrative:** F4 T-001 and T-002 closed on merged plan tree after post-merge re-verify. Lease still active until evaluation/phase-done path clears it after merge settle (merge already done).
+- **Decision log:** claim report validated; D.5 merge(F4); post-merge verifiers exit 0; non-complex tasks.
+- **Single nextAction:** Run evaluation agent + decision-review; F4-G2 needs operator dogfood PASS before phase-done
+- **Verbatim state:** initiative=.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f4-integracao-e-regressao.md; HEAD=dcedd05be977cf5d9dd1a4020ddb2b2c8a968c2f; T-001 verifier `node --test tests/project-session-todos.test.js tests/transition-emits.test.js` exit 0 (35 pass); T-002 rg dogfood checklist exit 0; lease=.atomic-skills/status/writer-leases/grok-phase-todo-projection.json
+- **Uncommitted changes:** clean expected after checkpoint
+
 

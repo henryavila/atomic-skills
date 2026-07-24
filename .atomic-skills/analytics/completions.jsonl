@@ -144,3 +144,5 @@
 {"ts":"2026-07-24T20:47:22.136Z","event":"task-done","projectId":"atomic-skills","planSlug":"grok-phase-todo-projection","phaseId":"F3","taskId":"T-001","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-24T20:47:23.766Z","event":"task-done","projectId":"atomic-skills","planSlug":"grok-phase-todo-projection","phaseId":"F3","taskId":"T-002","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-24T20:51:51.116Z","event":"phase-done","projectId":"atomic-skills","planSlug":"grok-phase-todo-projection","phaseId":"F3","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":8,"locAdded":87,"locRemoved":25,"commits":5}}
+{"ts":"2026-07-24T21:09:07.741Z","event":"task-done","projectId":"atomic-skills","planSlug":"grok-phase-todo-projection","phaseId":"F4","taskId":"T-001","weight":1,"weightBasis":"count"}
+{"ts":"2026-07-24T21:09:07.804Z","event":"task-done","projectId":"atomic-skills","planSlug":"grok-phase-todo-projection","phaseId":"F4","taskId":"T-002","weight":1,"weightBasis":"count"}
