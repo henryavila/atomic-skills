@@ -7,8 +7,9 @@ goal: Garantir na prosa de transitions que refresh-state e o helper de projeçã
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T20:07:57.617Z
-lastUpdated: 2026-07-24T20:13:42.923Z
-nextAction: Run done T-002 after post-merge re-verify
+lastUpdated: 2026-07-24T20:13:45.560Z
+nextAction: Run evaluation agent for F2 then stamp evaluationGate; await
+  decision-review PASS
 parentPlan: grok-phase-todo-projection
 phaseId: F2
 businessIntent:
@@ -22,11 +23,11 @@ businessIntent:
     todo_write no host.
   doneWhen: lint-transition-emits exit 0 no project-transitions.md e node --test
     tests/transition-emits.test.js exit 0.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 1
+weightDone: 2
 weightTotal: 2
 exitGates:
   - id: F2-G1
@@ -112,8 +113,8 @@ tasks:
   - id: T-002
     title: Prosa transitions com projeção
     description: Prosa transitions com projeção
-    status: pending
-    lastUpdated: 2026-07-24T20:07:57.617Z
+    status: done
+    lastUpdated: 2026-07-24T20:13:43.323Z
     scopeBoundary:
       - do not change done verifier-before-status order; do not make todo_write
         close tasks
@@ -132,6 +133,14 @@ tasks:
         path: skills/shared/project-assets/project-transitions.md
     summary: Prosa transitions com projeção
     weight: 1
+    closedAt: 2026-07-24T20:13:43.323Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T20:13:43.323Z
+      verifiedCommit: 197c36ed5e5c63d22f978dbcc607c8a2247856a8
+      passed: true
+      exitCode: 0
+      outputSummary: lint ok
 parked: []
 emerged: []
 summary: "Lint transitions: closes + phase-reopen/switch/unblock/archive"
@@ -145,8 +154,8 @@ current: true
 Initiative F2.
 
 ## Session handoff
-- **Narrative:** F2 T-001 closed post-merge.
-- **Decision log:** merge F2 writer.
-- **Single nextAction:** Run done T-002 after post-merge re-verify
-- **Verbatim state:** T-001 verifiedCommit=3dfc69f720f3d86d80dc4cc759a545b435d5f2ef
+- **Narrative:** F2 T-001 T-002 done. Await evaluation+decision-review.
+- **Decision log:** F2 post-merge verifiers green.
+- **Single nextAction:** Run evaluation agent for F2 then stamp evaluationGate; await decision-review PASS
+- **Verbatim state:** both tasks passed:true
 - **Uncommitted changes:** (pending)
