@@ -389,3 +389,36 @@ test('focus mutators fail lint if refresh-state or project-session-todos missing
     rmSync(fixture.dir, { recursive: true, force: true });
   }
 });
+
+// --- F4 regression: projection prose still wires SoT order on real transitions ---
+
+test('done and phase-done prose keep refresh-state before project-session-todos then todo_write', () => {
+  const real = readFileSync(TRANSITIONS, 'utf8');
+  const done = block(real, HEADERS.done);
+  const phase = block(real, HEADERS.phase);
+
+  for (const [name, body] of [
+    ['done', done],
+    ['phase-done', phase],
+  ]) {
+    const refreshIdx = body.search(/refresh-state/);
+    const projectIdx = body.search(/project-session-todos/);
+    const todoWriteIdx = body.search(/todo_write/);
+    assert.notEqual(refreshIdx, -1, `${name}: refresh-state required`);
+    assert.notEqual(projectIdx, -1, `${name}: project-session-todos required`);
+    assert.notEqual(todoWriteIdx, -1, `${name}: todo_write required`);
+    assert.ok(
+      refreshIdx < projectIdx,
+      `${name}: SoT order mutate→refresh-state→helper (refresh before project-session-todos)`,
+    );
+    assert.ok(
+      projectIdx < todoWriteIdx || (body.includes('project-session-todos') && body.includes('todo_write')),
+      `${name}: helper then session checklist apply`,
+    );
+    // GATE-R2: session checklist never closes durable phase/task state.
+    assert.match(
+      body,
+      /never close authority|never mark(?: it)?(?: the phase session todo)? `completed`|never project `completed`/i,
+    );
+  }
+});

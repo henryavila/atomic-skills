@@ -548,3 +548,166 @@ test('CLI smoke: node scripts/project-session-todos.js --json <fixture> exit 0',
     rmSync(repo, { recursive: true, force: true });
   }
 });
+
+// --- F4 regression: identity labels, full-ratio current, after-done counter bump ---
+
+test('formatPhaseContent: title fallback when summary missing; goal last resort', () => {
+  const titleOnly = formatPhaseContent(
+    { id: 'F0', title: 'Phase Zero', status: 'active' },
+    { tasksDone: 1, tasksTotal: 4, title: 'Phase Zero' },
+  );
+  assert.equal(titleOnly, `F0 (1/4) ${EM_DASH} Phase Zero`);
+  // Counts alone are insufficient — identity text must follow the em-dash.
+  assert.match(titleOnly, new RegExp(`^F0 \\(1/4\\) ${EM_DASH} .+`));
+  assert.ok(!/^F0 \(1\/4\)$/.test(titleOnly));
+
+  const goalOnly = formatPhaseContent(
+    { id: 'F3', goal: 'Ship the dogfood checklist without inventing PASS', status: 'pending' },
+    { tasksDone: 0, tasksTotal: 2 },
+  );
+  assert.equal(
+    goalOnly,
+    `F3 (0/2) ${EM_DASH} Ship the dogfood checklist without inventing PASS`,
+  );
+});
+
+test('current phase at full task ratio stays in_progress (gates may remain open)', () => {
+  // Contract: in_progress when current/active even if tasks are N/N.
+  assert.deepEqual(mapPhaseTodoStatus({ id: 'F0', status: 'active' }, 'F0'), {
+    status: 'in_progress',
+    paused: false,
+  });
+
+  const repo = mkdtempSync(join(tmpdir(), 'pst-full-ratio-'));
+  try {
+    const planDir = join(repo, '.atomic-skills', 'projects', 'p', 'plan-a');
+    mkdirSync(join(planDir, 'phases'), { recursive: true });
+    writeFm(
+      join(planDir, 'plan.md'),
+      [
+        'schemaVersion: "0.1"',
+        'slug: plan-a',
+        'title: Plan A',
+        'status: active',
+        'currentPhase: F0',
+        'lastUpdated: 2026-06-15T10:00:00Z',
+        'phases:',
+        '  - id: F0',
+        '    slug: plan-a-f0',
+        '    title: Phase Zero',
+        '    summary: Foundation work',
+        '    status: active',
+      ].join('\n'),
+    );
+    writeFm(
+      join(planDir, 'phases', 'f0.md'),
+      [
+        'schemaVersion: "0.1"',
+        'slug: plan-a-f0',
+        'title: Phase Zero',
+        'summary: Foundation work',
+        'status: active',
+        'phaseId: F0',
+        'parentPlan: plan-a',
+        'tasksDone: 12',
+        'tasksTotal: 12',
+        'lastUpdated: 2026-06-15T11:00:00Z',
+        'tasks:',
+        '  - id: T-001',
+        '    status: done',
+      ].join('\n'),
+    );
+
+    const { merge, todos } = buildSessionTodos(repo, { branch: null });
+    assert.equal(merge, false);
+    assert.equal(todos.length, 1);
+    assert.equal(todos[0].id, 'plan-a:F0');
+    assert.equal(todos[0].status, 'in_progress');
+    assert.equal(todos[0].content, `F0 (12/12) ${EM_DASH} Foundation work`);
+    assert.match(todos[0].content, /Foundation work/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('after-done counter bump: (n/N) advances; stable id + identity text preserved', () => {
+  // Simulates post-done: refresh-state rollups → helper re-read → todo content bump.
+  const repo = multiPhaseRepo({ includeF2: false });
+  try {
+    const before = buildSessionTodos(repo, { branch: null });
+    const f0Before = before.todos.find((t) => t.id === 'plan-a:F0');
+    assert.ok(f0Before);
+    assert.equal(f0Before.content, `F0 (2/5) ${EM_DASH} Foundation work`);
+    assert.equal(f0Before.status, 'in_progress');
+
+    // Mutate initiative rollups as done would after refresh-state.
+    writeFm(
+      join(repo, '.atomic-skills', 'projects', 'atomic-skills', 'plan-a', 'phases', 'f0-phase-zero.md'),
+      [
+        'schemaVersion: "0.1"',
+        'slug: plan-a-f0',
+        'title: Phase Zero',
+        'summary: Foundation work',
+        'status: active',
+        'phaseId: F0',
+        'parentPlan: plan-a',
+        'tasksDone: 3',
+        'tasksTotal: 5',
+        'lastUpdated: 2026-06-15T12:00:00Z',
+        'current: true',
+        'planActive: true',
+        'tasks:',
+        '  - id: T-001',
+        '    status: done',
+        '  - id: T-002',
+        '    status: done',
+        '  - id: T-003',
+        '    status: done',
+        '  - id: T-004',
+        '    status: pending',
+        '  - id: T-005',
+        '    status: pending',
+      ].join('\n'),
+    );
+
+    const after = buildSessionTodos(repo, { branch: null });
+    const f0After = after.todos.find((t) => t.id === 'plan-a:F0');
+    assert.ok(f0After);
+    assert.equal(f0After.id, f0Before.id, 'stable id must not change after counter bump');
+    assert.equal(f0After.status, 'in_progress');
+    assert.equal(f0After.content, `F0 (3/5) ${EM_DASH} Foundation work`);
+    assert.match(f0After.content, /Foundation work/, 'identity text required, not counts alone');
+    assert.notEqual(f0After.content, f0Before.content);
+
+    // Sibling phase rows unchanged by F0 task close.
+    const f1 = after.todos.find((t) => t.id === 'plan-a:F1');
+    assert.equal(f1.content, `F1 (0/3) ${EM_DASH} Follow-on phase`);
+    assert.equal(f1.status, 'pending');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('anchored winner uses merge:false reseed; empty focus uses merge:true no-op', () => {
+  const winner = multiPhaseRepo({ includeF2: false });
+  try {
+    const payload = buildSessionTodos(winner, { branch: null });
+    assert.equal(payload.merge, false);
+    assert.ok(payload.todos.length >= 1);
+    for (const t of payload.todos) {
+      // Identity after em-dash — never ship bare "F0 (n/N)".
+      assert.match(t.content, new RegExp(`${EM_DASH} .+`));
+      assert.ok(t.id.includes(':'), `stable id form planSlug:Fn — got ${t.id}`);
+    }
+  } finally {
+    rmSync(winner, { recursive: true, force: true });
+  }
+
+  const empty = mkdtempSync(join(tmpdir(), 'pst-empty-focus-'));
+  try {
+    const payload = buildSessionTodos(empty, { branch: null });
+    assert.deepEqual(payload, { merge: true, todos: [] });
+  } finally {
+    rmSync(empty, { recursive: true, force: true });
+  }
+});

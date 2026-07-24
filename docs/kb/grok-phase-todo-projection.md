@@ -154,6 +154,34 @@ replaces the board so only phase todos remain. Empty focus does not wipe via
    (`merge: false` when replacing a process board **and** pickFocus has a winner).
 3. Never close durable state because a session todo is checked.
 
+## Dogfood checklist (Grok session — operator run)
+
+Manual path for one real Grok session. Documents what the operator runs; **do not**
+invent PASS without that run. No second helper — only `refresh-state` →
+`project-session-todos` → session checklist tool (`todo_write`).
+
+Expected label always carries **identity** text (`summary` preferred, else `title`),
+not counts alone. Canonical form:
+
+```
+F0 (n/N) — <summary || title>
+```
+
+Descriptor-only rows use `F2 (—) — <title> · not materialized`. Reject content that
+is only `F0 (2/12)` with nothing after the em-dash.
+
+| Step | When / action | What to verify on the Grok session checklist |
+|---|---|---|
+| **seed** | Session start, `implement` start, or first phase-scaffold write while pickFocus has a winner | Full phase board via helper with `merge: false`. One row per `plan.phases[]` id (`<planSlug>:Fn`). Current phase `in_progress`; others `pending`/`completed` per map. Labels show `F0 (n/N) — <summary \|\| title>` (identity, not bare counts). No competing `proc:*` rows while plan anchored (**anti-proc**). |
+| **after-done** (counter bump) | After task `done`: mutate initiative → `refresh-state` → `node scripts/project-session-todos.js --json` → `todo_write` (mid-flight: same plan → `merge: true` is fine) | Active phase row keeps stable id and **identity** (`summary`/`title`). Progress counts bump: `(n/N)` advances (e.g. `F0 (2/5) — Foundation work` → `F0 (3/5) — Foundation work`). Status stays `in_progress` until the phase itself is `done`/`archived` (even at N/N tasks if gates remain open). |
+| **phase-done** (advance) | After durable `phase-done` (initiative + plan phase `status: done`), then shared post-close projection: `refresh-state` → helper → `todo_write` | Closed phase projects `completed` with informative `(n/N)` and identity text. Successor (if advanced) is `in_progress` with its own `summary`/`title`. Never mark the phase todo `completed` to *cause* close — only after durable plan descriptor is `done`. |
+| **reseed after compact** | After context compaction (and again on skill-path session/`implement` start when a plan is still anchored) | Reseed phase scaffold with `merge: false` when pickFocus has a winner so only phase todos remain. Labels still include identity (`summary`/`title`), not counts alone. Empty focus / paused plan → **skip reseed** (no full-replace wipe). |
+
+**Operator PASS (manual gate only):** after one real Grok session has walked
+seed → after-done counter bump → phase-done advance (when applicable) and at least
+one reseed after compact (or skill-path reseed), confirm the checklist behaved as
+above. The package does **not** invent that PASS from unit tests alone.
+
 ## Greppable contract anchors
 
 - label: `summary` / `title` fallback; descriptor-only `(—)` + `not materialized`
