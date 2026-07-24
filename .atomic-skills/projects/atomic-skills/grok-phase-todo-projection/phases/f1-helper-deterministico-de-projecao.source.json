@@ -40,7 +40,12 @@
           "kind": "file",
           "path": "tests/project-session-todos.test.js"
         }
-      ]
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project-session-todos.test.js",
+        "expectExitCode": 0
+      }
     }
   ],
   "exitGates": [

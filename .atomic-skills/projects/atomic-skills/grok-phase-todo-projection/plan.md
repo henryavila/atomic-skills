@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:42:03.616Z
+lastUpdated: 2026-07-24T19:44:51.577Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F1
 parallelismAllowed: false
@@ -163,6 +163,19 @@ phases:
             expectExitCode: 0
     status: active
     summary: Helper + testes do contrato canônico (id, label, status, paused, merge)
+    businessIntent:
+      value: Agente e skills obtêm payload determinístico de session todos (fases do
+        plan ativo) sem inventar rollups nem tocar o SoT.
+      workflow: Implementar scripts/project-session-todos.js + CLI JSON → testes
+        golden (label, status, paused, descriptor-only, empty focus) → F1-G1/G2.
+      rules: Ids estáveis <planSlug>:Fn; content F0 (n/N) — summary|title ou (—)
+        descriptor-only; um in_progress = fase corrente; paused → pending + ·
+        paused; empty focus → [] sem wipe; zero write em ~/.grok/sessions /
+        frontmatter.
+      outOfScope: Chamar todo_write; mutar plan/initiative; inventar totals
+        descriptor-only; rede; helper em Claude/Codex mirror.
+      doneWhen: node --test tests/project-session-todos.test.js exit 0 e CLI --json
+        emite {merge,todos[]} com shape válido.
   - id: F2
     slug: grok-phase-todo-projection-f2-harden-do-emit-lint-estrutural
     title: Harden do emit lint estrutural
