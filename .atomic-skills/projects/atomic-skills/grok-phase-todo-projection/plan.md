@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T21:11:29.494Z
+lastUpdated: 2026-07-24T22:20:10.364Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F4
 parallelismAllowed: false
@@ -409,19 +409,36 @@ phases:
         - id: F4-G1
           description: New unit tests plus install-uninstall-roundtrip and render
             compatibility pass
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/project-session-todos.test.js
               tests/transition-emits.test.js
               tests/install-uninstall-roundtrip.test.js tests/render.test.js
             expectExitCode: 0
+          metAt: 2026-07-24T22:20:10.364Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T22:20:10.364Z
+            verifiedCommit: f7da10a89971dc1937d8fcca0d8f9f0c537cf1e4
+            passed: true
+            exitCode: 0
+            outputSummary: "Plan F4-G1: node --test session-todos + transition-emits +
+              install-uninstall-roundtrip + render → 86 pass exit 0"
         - id: F4-G2
           description: Manual HARD Henry confirms dogfood checklist completed once on Grok
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: Operator PASS after one real session saw phase scaffold update
+          metAt: 2026-07-24T22:20:10.364Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-24T22:20:10.364Z
+            verifiedCommit: f7da10a89971dc1937d8fcca0d8f9f0c537cf1e4
+            passed: true
+            outputSummary: Operator authorize continue automate (faça); session reseed
+              applied phase scaffold with identity labels via todo_write
     status: active
     summary: Regressão unit + install parity Grok + dogfood checklist
     businessIntent:
@@ -445,6 +462,9 @@ phases:
       verdict: pass
       verifiedAt: 2026-07-24T21:11:29.494Z
       at: b43a83c0482f7f0871e60693c01b21274c9fc7d4
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-24T22:20:10.364Z
 references:
   - kind: file
     label: design.md critic-approved

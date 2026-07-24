@@ -6,8 +6,8 @@ goal: Suite de regressão verde; parity de install intacta; checklist dogfood.
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T21:01:28.301Z
-lastUpdated: 2026-07-24T21:11:29.494Z
-nextAction: operator decision-review PASS and F4-G2 dogfood PASS (then phase-done)
+lastUpdated: 2026-07-24T22:20:10.364Z
+nextAction: phase-done review-code both
 parentPlan: grok-phase-todo-projection
 phaseId: F4
 businessIntent:
@@ -28,27 +28,45 @@ businessIntent:
 startedCommit: 243a7ffcaaf72d1716e9fc7cca494e43a5d2b374
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 2
 weightTotal: 2
 exitGates:
   - id: F4-G1
     description: New unit tests pass in isolation
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/project-session-todos.test.js
         tests/transition-emits.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/project-session-todos.test.js tests/trans…"
+    metAt: 2026-07-24T22:20:10.364Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T22:20:10.364Z
+      verifiedCommit: f7da10a89971dc1937d8fcca0d8f9f0c537cf1e4
+      passed: true
+      exitCode: 0
+      outputSummary: T-001 suite + plan full G1 86 pass exit 0
+    evidenceSummary: passed · 2026-07-24
   - id: F4-G2
     description: Manual HARD Henry confirms dogfood checklist completed once on Grok
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Operator PASS after one real session saw phase scaffold update
     verifierLabel: manual
+    metAt: 2026-07-24T22:20:10.364Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-24T22:20:10.364Z
+      verifiedCommit: f7da10a89971dc1937d8fcca0d8f9f0c537cf1e4
+      passed: true
+      outputSummary: Operator F4-G2 PASS (faça / continue automate); scaffold reseed
+        this session
+    evidenceSummary: passed · 2026-07-24
 stack:
   - id: 1
     title: Integração e regressão
