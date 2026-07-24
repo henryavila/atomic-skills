@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T21:01:28.301Z
+lastUpdated: 2026-07-24T21:11:29.494Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F4
 parallelismAllowed: false
@@ -440,6 +440,11 @@ phases:
       doneWhen: node --test nos testes de sessão/transitions (e parity install/render
         se no G1) exit 0; checklist dogfood no KB com labels de identidade;
         Henry PASS em F4-G2.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T21:11:29.494Z
+      at: b43a83c0482f7f0871e60693c01b21274c9fc7d4
 references:
   - kind: file
     label: design.md critic-approved
@@ -478,8 +483,8 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 
 ## Session handoff (plan-level resume)
-- **Narrative:** F4 active materialized; lease acquired; spawning F4 phase writer (code-only).
-- **Decision log:** ratify F4; Mode B; T-002 verifier; host-thin pure maestro.
-- **Single nextAction:** sync-wait F4 phase writer claim report then merge D.5
-- **Verbatim state:** HEAD=76282b3d2506acf7b637f936869ef114f32c3910; worktree F4-writer; executionMode automate
-- **Uncommitted changes:** lease + handoff
+- **Narrative:** F4 tasks done; evaluation verdict pass; plan F4-G1 full suite 86 pass (incl install/render). Awaiting decision-review PASS + F4-G2 dogfood PASS.
+- **Decision log:** medium G1 plan-vs-initiative drift mitigated by plan G1 green; lease cleared after merge settle.
+- **Single nextAction:** operator decision-review PASS and F4-G2 dogfood PASS (then phase-done review-code both)
+- **Verbatim state:** HEAD=b43a83c0482f7f0871e60693c01b21274c9fc7d4; evaluationGate.passed; F4-G1 plan command exit 0 (86 tests); F4-G2 pending manual
+- **Uncommitted changes:** evaluationGate stamp + lease clear

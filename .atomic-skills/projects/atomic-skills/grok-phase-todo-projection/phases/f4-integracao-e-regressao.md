@@ -6,9 +6,8 @@ goal: Suite de regressão verde; parity de install intacta; checklist dogfood.
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T21:01:28.301Z
-lastUpdated: 2026-07-24T21:09:08.685Z
-nextAction: Run evaluation agent + decision-review; F4-G2 needs operator dogfood
-  PASS before phase-done
+lastUpdated: 2026-07-24T21:11:29.494Z
+nextAction: operator decision-review PASS and F4-G2 dogfood PASS (then phase-done)
 parentPlan: grok-phase-todo-projection
 phaseId: F4
 businessIntent:
@@ -159,14 +158,12 @@ planTitle: Projeção de fases do project no TODO do Grok
 planActive: true
 current: true
 ---
-
 # F4
 
 ## Session handoff
-- **Narrative:** F4 T-001 and T-002 closed on merged plan tree after post-merge re-verify. Lease still active until evaluation/phase-done path clears it after merge settle (merge already done).
-- **Decision log:** claim report validated; D.5 merge(F4); post-merge verifiers exit 0; non-complex tasks.
-- **Single nextAction:** Run evaluation agent + decision-review; F4-G2 needs operator dogfood PASS before phase-done
-- **Verbatim state:** initiative=.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f4-integracao-e-regressao.md; HEAD=dcedd05be977cf5d9dd1a4020ddb2b2c8a968c2f; T-001 verifier `node --test tests/project-session-todos.test.js tests/transition-emits.test.js` exit 0 (35 pass); T-002 rg dogfood checklist exit 0; lease=.atomic-skills/status/writer-leases/grok-phase-todo-projection.json
-- **Uncommitted changes:** clean expected after checkpoint
-
+- **Narrative:** F4 T-001/T-002 done; evaluationGate passed; plan F4-G1 full suite exit 0. Lease cleared.
+- **Decision log:** evaluation pass; medium plan-vs-initiative G1 drift mitigated by full suite green.
+- **Single nextAction:** operator decision-review PASS and F4-G2 dogfood PASS (then phase-done)
+- **Verbatim state:** HEAD=b43a83c0482f7f0871e60693c01b21274c9fc7d4; evaluationGate at b43a83c0482f7f0871e60693c01b21274c9fc7d4; lease missing; F4-G2 pending
+- **Uncommitted changes:** evaluationGate + decisions + handoff
 
