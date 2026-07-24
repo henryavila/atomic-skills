@@ -44,7 +44,12 @@
           "kind": "file",
           "path": "skills/shared/project-assets/project-transitions.md"
         }
-      ]
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node scripts/lint-transition-emits.js skills/shared/project-assets/project-transitions.md",
+        "expectExitCode": 0
+      }
     }
   ],
   "exitGates": [

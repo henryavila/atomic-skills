@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T20:06:56.316Z
+lastUpdated: 2026-07-24T20:07:57.617Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F2
 parallelismAllowed: false
@@ -254,6 +254,18 @@ phases:
             expectExitCode: 0
     status: active
     summary: "Lint transitions: closes + phase-reopen/switch/unblock/archive"
+    businessIntent:
+      value: Mutações de status (done/reconcile/phase-done/focus) não perdem
+        refresh-state nem projeção Grok — lint estrutural falha se faltar.
+      workflow: Estender lint-transition-emits + testes → prosa project-transitions →
+        F2-G1/G2.
+      rules: Exigir refresh-state + menção project-session-todos nos closes; não
+        reescrever GATE-R2; não todo_write em shell; não completed sem phase
+        done.
+      outOfScope: Reescrever ordem verifier-before-status; multi-IDE; implementar
+        todo_write no host.
+      doneWhen: lint-transition-emits exit 0 no project-transitions.md e node --test
+        tests/transition-emits.test.js exit 0.
   - id: F3
     slug: grok-phase-todo-projection-f3-wire-implement-e-reseed-grok
     title: Wire implement e reseed Grok
