@@ -7,7 +7,7 @@ goal: Garantir na prosa de transitions que refresh-state e o helper de projeçã
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T20:07:57.617Z
-lastUpdated: 2026-07-24T20:14:47.879Z
+lastUpdated: 2026-07-24T20:32:16.227Z
 nextAction: await decision-review operator PASS for F2
 parentPlan: grok-phase-todo-projection
 phaseId: F2
@@ -31,21 +31,52 @@ weightTotal: 2
 exitGates:
   - id: F2-G1
     description: lint-transition-emits passes on project-transitions.md
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node scripts/lint-transition-emits.js
         skills/shared/project-assets/project-transitions.md
       expectExitCode: 0
     verifierLabel: "shell: node scripts/lint-transition-emits.js skills/shared/project…"
+    metAt: 2026-07-24T20:32:16.227Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T20:32:16.227Z
+      verifiedCommit: c5d94560bb33185026d63c5a7280a6468931da89
+      passed: true
+      exitCode: 0
+      outputSummary: >
+        lint-transition-emits: all transition blocks carry completion emit
+        instructions
   - id: F2-G2
     description: transition-emits unit tests pass
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/transition-emits.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/transition-emits.test.js"
+    metAt: 2026-07-24T20:32:16.227Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T20:32:16.227Z
+      verifiedCommit: c5d94560bb33185026d63c5a7280a6468931da89
+      passed: true
+      exitCode: 0
+      outputSummary: >-
+        ✔ project-transitions emits are structurally present in all transition
+        blocks (3.352667ms)
+
+        ✔ phase-done prose emits one aggregate phase event and forbids bulk
+        task-done close (0.695125ms)
+
+        ✔ done prose requires verifier handling before status mutation
+        (0.414708ms)
+
+        ✔ phase-done prose forbids defer/skip terminal and bulk-met coercion
+        (0.666709ms)
+
+        ✔ old done ordering is reported as verifier-before-don
 stack:
   - id: 1
     title: Harden do emit lint estrutural
