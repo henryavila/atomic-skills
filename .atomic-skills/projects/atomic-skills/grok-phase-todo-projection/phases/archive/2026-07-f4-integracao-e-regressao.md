@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: grok-phase-todo-projection-f4-integracao-e-regressao
 title: Integração e regressão
 goal: Suite de regressão verde; parity de install intacta; checklist dogfood.
-status: active
+status: done
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T21:01:28.301Z
-lastUpdated: 2026-07-24T22:20:10.364Z
-nextAction: phase-done review-code both
+lastUpdated: 2026-07-24T22:25:20.555Z
+nextAction: null
 parentPlan: grok-phase-todo-projection
 phaseId: F4
 businessIntent:
@@ -45,8 +45,8 @@ exitGates:
     metAt: 2026-07-24T22:20:10.364Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T22:20:10.364Z
-      verifiedCommit: f7da10a89971dc1937d8fcca0d8f9f0c537cf1e4
+      verifiedAt: 2026-07-24T22:25:20.555Z
+      verifiedCommit: 765811595136d295f57d4f06eca425537279c0d3
       passed: true
       exitCode: 0
       outputSummary: T-001 suite + plan full G1 86 pass exit 0
@@ -61,8 +61,8 @@ exitGates:
     metAt: 2026-07-24T22:20:10.364Z
     evidence:
       verifierKind: manual
-      verifiedAt: 2026-07-24T22:20:10.364Z
-      verifiedCommit: f7da10a89971dc1937d8fcca0d8f9f0c537cf1e4
+      verifiedAt: 2026-07-24T22:25:20.555Z
+      verifiedCommit: 765811595136d295f57d4f06eca425537279c0d3
       passed: true
       outputSummary: Operator F4-G2 PASS (faça / continue automate); scaffold reseed
         this session
@@ -173,15 +173,27 @@ parked: []
 emerged: []
 summary: Regressão unit + install parity Grok + dogfood checklist
 planTitle: Projeção de fases do project no TODO do Grok
-planActive: true
-current: true
+planActive: false
+current: false
 ---
-# F4
+# F4 — Integração e regressão (archived)
 
 ## Session handoff
-- **Narrative:** F4 T-001/T-002 done; evaluationGate passed; plan F4-G1 full suite exit 0. Lease cleared.
-- **Decision log:** evaluation pass; medium plan-vs-initiative G1 drift mitigated by full suite green.
-- **Single nextAction:** operator decision-review PASS and F4-G2 dogfood PASS (then phase-done)
-- **Verbatim state:** HEAD=b43a83c0482f7f0871e60693c01b21274c9fc7d4; evaluationGate at b43a83c0482f7f0871e60693c01b21274c9fc7d4; lease missing; F4-G2 pending
-- **Uncommitted changes:** evaluationGate + decisions + handoff
+- **Narrative:** F4 closed and archived; plan status done; plan-end external-both pending.
+- **Decision log:** majors fixed in fix1; operator faça continued automate.
+- **Single nextAction:** plan-end review-code --mode=external-both then user validation
+- **Verbatim state:** archive=.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/archive/2026-07-f4-integracao-e-regressao.md; HEAD=765811595136d295f57d4f06eca425537279c0d3
+- **Uncommitted changes:** clean after advance commit
+
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks closed with verifier evidence on merged tree; fix1 re-verified 35+86 pass
+- **G2 soft-language**: handoff/nextAction scanned; completion claims use passed:true evidence
+- **G6 reference-or-strike**: HEAD=765811595136d295f57d4f06eca425537279c0d3; reviewFile=.atomic-skills/reviews/2026-07-24-f4-session-todo-both.md; F4-G1 command verbatim
+- **G10 gate-must-be-able-to-fail**: F4-G1 shell can fail; F4-G2 manual can fail without operator PASS
+- **CROSS-MODEL REVIEW**: review-code mode=both at HEAD=765811595136d295f57d4f06eca425537279c0d3; receipt .atomic-skills/reviews/2026-07-24-f4-session-todo-both.md
+- **Review gate (G2)**: reviewGate status=passed mode=both at=765811595136d295f57d4f06eca425537279c0d3
+- **Lessons (G1)**: no lessons distilled (clean phase after fix1)
+
 

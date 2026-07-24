@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: grok-phase-todo-projection
 title: Projeção de fases do project no TODO do Grok
 version: "1.0"
-status: active
+status: done
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T22:20:10.364Z
+lastUpdated: 2026-07-24T22:25:20.555Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F4
 parallelismAllowed: false
@@ -419,12 +419,12 @@ phases:
           metAt: 2026-07-24T22:20:10.364Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-24T22:20:10.364Z
-            verifiedCommit: f7da10a89971dc1937d8fcca0d8f9f0c537cf1e4
+            verifiedAt: 2026-07-24T22:25:20.555Z
+            verifiedCommit: 765811595136d295f57d4f06eca425537279c0d3
             passed: true
             exitCode: 0
-            outputSummary: "Plan F4-G1: node --test session-todos + transition-emits +
-              install-uninstall-roundtrip + render → 86 pass exit 0"
+            outputSummary: Plan F4-G1 full suite 86 pass exit 0 at post-fix1 HEAD
+              (session-todos+transition-emits+install-uninstall-roundtrip+render)
         - id: F4-G2
           description: Manual HARD Henry confirms dogfood checklist completed once on Grok
           status: met
@@ -434,12 +434,12 @@ phases:
           metAt: 2026-07-24T22:20:10.364Z
           evidence:
             verifierKind: manual
-            verifiedAt: 2026-07-24T22:20:10.364Z
-            verifiedCommit: f7da10a89971dc1937d8fcca0d8f9f0c537cf1e4
+            verifiedAt: 2026-07-24T22:25:20.555Z
+            verifiedCommit: 765811595136d295f57d4f06eca425537279c0d3
             passed: true
             outputSummary: Operator authorize continue automate (faça); session reseed
               applied phase scaffold with identity labels via todo_write
-    status: active
+    status: done
     summary: Regressão unit + install parity Grok + dogfood checklist
     businessIntent:
       value: A entrega fecha com regressão determinística verde e dogfood documentado
@@ -460,16 +460,23 @@ phases:
     evaluationGate:
       status: passed
       verdict: pass
-      verifiedAt: 2026-07-24T21:11:29.494Z
-      at: b43a83c0482f7f0871e60693c01b21274c9fc7d4
+      verifiedAt: 2026-07-24T22:25:20.555Z
+      at: 765811595136d295f57d4f06eca425537279c0d3
     decisionReview:
       status: passed
       verifiedAt: 2026-07-24T22:20:10.364Z
+    reviewGate:
+      status: passed
+      at: 765811595136d295f57d4f06eca425537279c0d3
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f4-session-todo-both.md
+      verifiedAt: 2026-07-24T22:25:20.555Z
+    lessonsState: none
 references:
   - kind: file
     label: design.md critic-approved
     path: .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/design.md
-planActive: true
+planActive: false
 planTitle: Projeção de fases do project no TODO do Grok
 executionMode: automate
 ---
@@ -503,8 +510,8 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 
 ## Session handoff (plan-level resume)
-- **Narrative:** F4 tasks done; evaluation verdict pass; plan F4-G1 full suite 86 pass (incl install/render). Awaiting decision-review PASS + F4-G2 dogfood PASS.
-- **Decision log:** medium G1 plan-vs-initiative drift mitigated by plan G1 green; lease cleared after merge settle.
-- **Single nextAction:** operator decision-review PASS and F4-G2 dogfood PASS (then phase-done review-code both)
-- **Verbatim state:** HEAD=b43a83c0482f7f0871e60693c01b21274c9fc7d4; evaluationGate.passed; F4-G1 plan command exit 0 (86 tests); F4-G2 pending manual
-- **Uncommitted changes:** evaluationGate stamp + lease clear
+- **Narrative:** F4 phase-done complete (last phase). Product merge + fix1 green. Plan status=done. Automate plan-end still requires external-both review + user validation before archive/finalize.
+- **Decision log:** decision-review PASS (faça); F4-G2 PASS; review both with fix1 majors closed; evaluationGate pass.
+- **Single nextAction:** plan-end review-code --mode=external-both then user validation (planEndReviewOk / userValidationOk) before archive
+- **Verbatim state:** HEAD=765811595136d295f57d4f06eca425537279c0d3; F0–F4 done; reviewFile=.atomic-skills/reviews/2026-07-24-f4-session-todo-both.md; executionMode automate
+- **Uncommitted changes:** phase-done terminal batch
