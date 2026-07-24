@@ -4,11 +4,11 @@ slug: grok-phase-todo-projection-f3-wire-implement-e-reseed-grok
 title: Wire implement e reseed Grok
 goal: implement Atomic Skills e cues de sessão reseedam o scaffold de fases;
   anti-proc; pós-compaction.
-status: active
+status: done
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T20:42:37.052Z
-lastUpdated: 2026-07-24T20:47:25.235Z
-nextAction: Run evaluation + decision-review; F3-G2 needs operator dogfood PASS
+lastUpdated: 2026-07-24T20:51:50.963Z
+nextAction: present phase-start package for F4 validate-only
 parentPlan: grok-phase-todo-projection
 phaseId: F3
 businessIntent:
@@ -23,29 +23,53 @@ businessIntent:
   doneWhen: implement assets greppable helper/reseed/anti-proc; Henry dogfood PASS F3-G2.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 2
 weightTotal: 2
 exitGates:
   - id: F3-G1
     description: implement assets mention helper reseed and anti-proc
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'project-session-todos' skills/core/implement.md && rg -n
         'compaction|reseed|proc' skills/core/implement.md
       expectExitCode: 0
+    metAt: 2026-07-24T20:51:50.963Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T20:51:50.963Z
+      verifiedCommit: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+      passed: true
+      exitCode: 0
+      outputSummary: >-
+        85:2. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null
+        || echo .)/scripts/project-session-todos.js" --json`.
+
+        140:7. **Close it.** After the implementation commit and the loads
+        above, run `done <task-id>` via the project skill. The `done` flow
+        executes the per-task verifier before setting `status: done`, writes
+        evidence + `nextAction` + **`## Session handoff` in the same durable sav
     verifierLabel: "shell: rg -n 'project-session-todos' skills/core/implement.md && r…"
+    evidenceSummary: passed · 2026-07-24
   - id: F3-G2
     description: Manual HARD operator dogfoods one implement start sees phase
       scaffold labels with titles
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Henry runs implement or helper plus todo_write once and acks labels
         show F0 n/N with title or summary
+    metAt: 2026-07-24T20:51:50.963Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-24T20:51:50.963Z
+      verifiedCommit: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+      passed: true
+      outputSummary: Operator F3-G2 dogfood PASS
     verifierLabel: manual
+    evidenceSummary: passed · 2026-07-24
 stack:
   - id: 1
     title: Wire implement e reseed Grok
@@ -80,8 +104,8 @@ tasks:
     closedAt: 2026-07-24T20:47:22.112Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T20:47:22.112Z
-      verifiedCommit: 25343b2f078e227399a26d57e74e587379e41325
+      verifiedAt: 2026-07-24T20:51:50.963Z
+      verifiedCommit: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
       passed: true
       exitCode: 0
       outputSummary: >
@@ -118,8 +142,8 @@ tasks:
     closedAt: 2026-07-24T20:47:23.748Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T20:47:23.748Z
-      verifiedCommit: 25343b2f078e227399a26d57e74e587379e41325
+      verifiedAt: 2026-07-24T20:51:50.963Z
+      verifiedCommit: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
       passed: true
       exitCode: 0
       outputSummary: >
@@ -135,14 +159,18 @@ emerged: []
 summary: Implement reseeds scaffold; SessionStart só hint; anti-proc
 planTitle: Projeção de fases do project no TODO do Grok
 planActive: true
-current: true
 ---
 
 # F3
 
 ## Session handoff
-- **Narrative:** F3 T-002 closed.
-- **Decision log:** post-merge verifiers.
-- **Single nextAction:** Run evaluation + decision-review; F3-G2 needs operator dogfood PASS
-- **Verbatim state:** T-002 done
+- **Narrative:** F3 closed; advance F4 descriptor-only.
+- **Decision log:** decision-review PASS; F3-G2 dogfood PASS.
+- **Single nextAction:** present phase-start package for F4 validate-only
+- **Verbatim state:** currentPhase=F4; HEAD=d70b11b2f5541d2687ebf97235660ca6d7cd1a80
 - **Uncommitted changes:** (pending)
+
+
+## Self-review
+- F3 wire-up + dogfood PASS; review both receipt.
+- Lessons: none.

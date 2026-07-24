@@ -5,9 +5,9 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T20:47:25.457Z
+lastUpdated: 2026-07-24T20:51:50.963Z
 branch: plan/grok-phase-todo-projection
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -326,7 +326,7 @@ phases:
         - id: F3-G1
           description: implement + maestro mention project-session-todos, reseed,
             compaction, anti-proc separately
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'project-session-todos' skills/core/implement.md
@@ -337,15 +337,38 @@ phases:
               skills/shared/project-assets/project-help.md
               skills/shared/project-assets/hooks/session-start.sh
             expectExitCode: 0
+          metAt: 2026-07-24T20:51:50.963Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T20:51:50.963Z
+            verifiedCommit: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+            passed: true
+            exitCode: 0
+            outputSummary: >-
+              85:2. Run `node "$(cat "$HOME/.atomic-skills/package-root"
+              2>/dev/null || echo .)/scripts/project-session-todos.js" --json`.
+
+              140:7. **Close it.** After the implementation commit and the loads
+              above, run `done <task-id>` via the project skill. The `done` flow
+              executes the per-task verifier before setting `status: done`,
+              writes evidence + `nextAction` + **`## Session handoff` in the
+              same durable sav
         - id: F3-G2
           description: Manual HARD dogfood implement start sees phase scaffold labels with
             titles
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: Henry runs implement or helper plus todo_write once and acks labels
               show F0 n/N with title or summary
-    status: active
+          metAt: 2026-07-24T20:51:50.963Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-24T20:51:50.963Z
+            verifiedCommit: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+            passed: true
+            outputSummary: Operator F3-G2 dogfood PASS
+    status: done
     summary: Implement reseeds scaffold; SessionStart só hint; anti-proc
     businessIntent:
       value: Sessões Grok reseedam trilho de fases no start/implement/compaction sem
@@ -361,8 +384,18 @@ phases:
     evaluationGate:
       status: passed
       verdict: pass
-      verifiedAt: 2026-07-24T20:47:25.457Z
-      at: 4684919d80555afead8a05a0d36f4adbe0308438
+      verifiedAt: 2026-07-24T20:51:50.963Z
+      at: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-24T20:51:50.963Z
+    reviewGate:
+      status: passed
+      at: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f3-implement-reseed-both.md
+      verifiedAt: 2026-07-24T20:51:50.963Z
+    lessonsState: none
   - id: F4
     slug: grok-phase-todo-projection-f4-integracao-e-regressao
     title: Integração e regressão
@@ -389,7 +422,7 @@ phases:
           verifier:
             kind: manual
             description: Operator PASS after one real session saw phase scaffold update
-    status: pending
+    status: active
     summary: Regressão unit + install parity Grok + dogfood checklist
 references:
   - kind: file
