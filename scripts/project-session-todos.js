@@ -117,16 +117,27 @@ function findPhaseInitiative(p, phaseId) {
   if (phaseId == null) return null;
   if (p.flat) {
     const initsDir = join(p.stateRoot, 'initiatives');
-    if (!existsSync(initsDir) || !statSync(initsDir).isDirectory()) return null;
-    for (const entry of readdirSync(initsDir)) {
-      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-      const file = join(initsDir, entry);
-      const fm = readFm(file);
-      if (!fm) continue;
-      const belongs = (fm.parentPlan ?? fm.slug) === p.fm.slug;
-      if (belongs && fm.phaseId === phaseId) return { file, fm };
-    }
-    return null;
+    // Prefer active initiatives/*.md over archive when both exist; fall back to
+    // initiatives/archive/*.md after phase-done (closed flat phases live under archive).
+    const scanFlatDir = (dir) => {
+      if (!existsSync(dir) || !statSync(dir).isDirectory()) return null;
+      for (const entry of readdirSync(dir)) {
+        if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+        const file = join(dir, entry);
+        // Skip nested dirs at top-level (e.g. archive/ itself when scanning initiatives/).
+        try {
+          if (!statSync(file).isFile()) continue;
+        } catch {
+          continue;
+        }
+        const fm = readFm(file);
+        if (!fm) continue;
+        const belongs = (fm.parentPlan ?? fm.slug) === p.fm.slug;
+        if (belongs && fm.phaseId === phaseId) return { file, fm };
+      }
+      return null;
+    };
+    return scanFlatDir(initsDir) ?? scanFlatDir(join(initsDir, 'archive'));
   }
   const phasesDir = join(p.planDir, 'phases');
   if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) return null;
