@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T20:51:50.963Z
+lastUpdated: 2026-07-24T20:54:53.236Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F4
 parallelismAllowed: false
@@ -459,3 +459,11 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 - internal: clean — 2026-07-24 — Stage 8a self-loop
 - cross-model (codex): fail→applied — 2026-07-24 — provider gpt-5.5; 2 critical + 5 major applied into plan gates/prose; review file .atomic-skills/reviews/2026-07-24-1859-grok-phase-todo-projection.md
+
+
+## Session handoff (plan-level resume)
+- **Narrative:** implement --mode=automate advanced F0–F3 to done. F4 is currentPhase active but descriptor-only (not materialized). Operator paused for fresh session (context full). executionMode: automate remains stamped.
+- **Decision log:** Automate pure-maestro host-thin; package ratify per phase; T-002 verifiers re-spec when sidecar missing; F1 archive+empty-focus fixes; F2 phase-done post-close projection; F3 implement reseed + SessionStart hint; F3-G2 dogfood PASS.
+- **Single nextAction:** present phase-start package for F4 validate-only (then ratify → materialize Mode B → work-order → lease → fresh F4 writer)
+- **Verbatim state:** branch plan/grok-phase-todo-projection; HEAD=b254d2499ed2ab5c6e87b75e3ffaf9baa887e02a; currentPhase=F4; F0–F3 status=done; F4 status=active descriptor-only .source.json at .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f4-integracao-e-regressao.source.json; lease missing; executionMode automate
+- **Uncommitted changes:** (will list after write)
