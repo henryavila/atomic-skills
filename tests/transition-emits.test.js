@@ -317,6 +317,45 @@ test('complete fixture still passes completion-emit and projection requirements'
   }
 });
 
+test('phase-done both terminal forks run post-close projection after durable plan phase done', () => {
+  const real = readFileSync(TRANSITIONS, 'utf8');
+  const phase = block(real, HEADERS.phase);
+
+  // Shared post-close projection step on both accept (9) and decline/no-successor (10).
+  assert.match(phase, /Post-close projection \(shared/);
+  assert.match(phase, /same shared step as accept path after durable phase done/);
+
+  // Accept path: parent plan phase status:done is written BEFORE projection helper.
+  const acceptPlanDone = phase.search(
+    /Update the parent plan's matching phase descriptor to `status: done`/,
+  );
+  const postClose = phase.search(/Post-close projection \(shared/);
+  const projectSession = phase.indexOf('project-session-todos', postClose === -1 ? 0 : postClose);
+  assert.notEqual(acceptPlanDone, -1, 'accept path must set plan phase status:done');
+  assert.notEqual(postClose, -1, 'shared post-close projection step must exist');
+  assert.notEqual(projectSession, -1, 'post-close must name project-session-todos');
+  assert.ok(acceptPlanDone < postClose, 'plan phase done must precede post-close projection');
+  assert.ok(postClose < projectSession, 'post-close header must precede project-session-todos');
+
+  // Decline / no-successor path (step 10): also projects after plan phase done.
+  const step10 = phase.search(/10\.\s+On user decline of the advance/);
+  assert.notEqual(step10, -1);
+  const step10Body = phase.slice(step10);
+  assert.match(step10Body, /phase `status: done`/);
+  assert.match(step10Body, /Post-close projection/);
+  assert.match(step10Body, /project-session-todos/);
+  assert.match(step10Body, /todo_write/);
+  const declinePlanDone = step10Body.search(/phase `status: done`/);
+  const declinePostClose = step10Body.search(/Post-close projection/);
+  assert.ok(
+    declinePlanDone < declinePostClose,
+    'no-successor path: plan phase done before post-close projection',
+  );
+
+  // Never project completed before plan descriptor is durable done.
+  assert.match(phase, /never project `completed` before the plan phase descriptor is `done`/i);
+});
+
 test('focus mutators fail lint if refresh-state or project-session-todos missing', () => {
   const fixture = tempMarkdown(minimalFixture({
     reopen: [HEADERS.reopen, '', '1. Reopen the phase.', '2. Save.'].join('\n'),
