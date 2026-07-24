@@ -7,8 +7,9 @@ goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:02:30.064Z
-nextAction: "Start T-001: Contrato em KB e design receipt"
+lastUpdated: 2026-07-24T19:09:17.908Z
+nextAction: "Re-spec T-002: admit deterministic verifier (kind shell|test|query)
+  before phase-start package ratify / writer spawn"
 parentPlan: grok-phase-todo-projection
 phaseId: F0
 businessIntent:
@@ -119,3 +120,10 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** implement --mode=automate bound plan/grok-phase-todo-projection worktree; operator stamped executionMode: automate (commit cf7a1e7b). F0 is materialized with complete businessIntent spine. Step A SPEC gate blocked spawn: T-002 lacks verifier.
+- **Decision log:** (1) creation-gate residual committed ready (9a9bfe15). (2) executionMode automate stamped after operator y (cf7a1e7b; decisions/F0.jsonl routing entry a519094a). (3) HARD-STOP: T-002 not SPEC-admitted — missing verifier; no improvise; no phase writer spawn.
+- **Single nextAction:** Re-spec T-002 with deterministic verifier (kind shell|test|query) matching acceptance/outputs, then re-run implement grok-phase-todo-projection (automate stamp already set).
+- **Verbatim state:** initiative path `.atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f0-contrato-de-projecao-e-wire-up-de.md`; T-001 has verifier; T-002 has outputs/scopeBoundary/acceptance but **no verifier key**; lease status missing.
+- **Uncommitted changes:** (listed at commit time)
