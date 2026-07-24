@@ -182,6 +182,18 @@ test('mapPhaseTodoStatus: current → in_progress; done → completed; else pend
   });
 });
 
+test('mapPhaseTodoStatus: done|archived beats stale currentPhase → completed', () => {
+  // currentPhase still points at F0 but phase status is done (stale pointer).
+  assert.deepEqual(mapPhaseTodoStatus({ id: 'F0', status: 'done' }, 'F0'), {
+    status: 'completed',
+    paused: false,
+  });
+  assert.deepEqual(mapPhaseTodoStatus({ id: 'F0', status: 'archived' }, 'F0'), {
+    status: 'completed',
+    paused: false,
+  });
+});
+
 test('stableTodoId is planSlug colon phase id', () => {
   assert.equal(stableTodoId('plan-a', 'F0'), 'plan-a:F0');
   assert.equal(stableTodoId('grok-phase-todo-projection', 'F1'), 'grok-phase-todo-projection:F1');
@@ -244,7 +256,8 @@ test('no active plan emits empty list', () => {
     );
 
     const payload = buildSessionTodos(repo, { branch: null });
-    assert.deepEqual(payload, { merge: false, todos: [] });
+    // Empty focus / paused plan: no-op apply (merge true + empty) — never wipe.
+    assert.deepEqual(payload, { merge: true, todos: [] });
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -254,7 +267,8 @@ test('bare repo (no .atomic-skills) emits empty list', () => {
   const repo = mkdtempSync(join(tmpdir(), 'pst-bare-'));
   try {
     const payload = buildSessionTodos(repo, { branch: null });
-    assert.deepEqual(payload, { merge: false, todos: [] });
+    // Bare tree: skip reseed / no full-replace wipe.
+    assert.deepEqual(payload, { merge: true, todos: [] });
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }

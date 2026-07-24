@@ -272,7 +272,7 @@ export function formatPhaseContent(phase, initFm, opts = {}) {
 
 /**
  * Status map with paused-first precedence. Only `currentPhaseId` is in_progress
- * (at most one), and only when that phase is not paused.
+ * (at most one), and only when that phase is not paused/done/archived.
  *
  * @param {object} phase
  * @param {string|null} currentPhaseId
@@ -280,13 +280,16 @@ export function formatPhaseContent(phase, initFm, opts = {}) {
  */
 export function mapPhaseTodoStatus(phase, currentPhaseId) {
   const st = phase?.status;
-  // Precedence (KB): paused → current/active → done|archived → pending.
-  // At most one in_progress: only plan.currentPhase (never extra actives).
+  // Precedence: paused → done|archived → current/active → pending.
+  // done|archived beats a stale currentPhase pointer so closed phases never
+  // surface as in_progress. At most one in_progress: only plan.currentPhase.
   if (st === 'paused') return { status: 'pending', paused: true };
+  if (st === 'done' || st === 'archived') return { status: 'completed', paused: false };
   if (currentPhaseId != null && phase?.id === currentPhaseId) {
     return { status: 'in_progress', paused: false };
   }
-  if (st === 'done' || st === 'archived') return { status: 'completed', paused: false };
+  // Non-current `active` (or any other open status) stays pending — only
+  // currentPhase is in_progress.
   return { status: 'pending', paused: false };
 }
 
@@ -317,15 +320,17 @@ export function buildPhaseTodo(planSlug, phase, init, currentPhaseId) {
 
 /**
  * Project pickFocus plan phases → session checklist payload.
- * Empty focus / no winner → `{ merge: false, todos: [] }` (do not invent phases).
- * Anchored plan reseed shape → `merge: false` + one todo per phase.
+ * Empty focus / no winner → `{ merge: true, todos: [] }` (no-op apply; do not
+ * full-replace wipe the board). Anchored plan reseed → `merge: false` + one
+ * todo per phase.
  *
  * @param {string} dir - repo root or `.atomic-skills` path
  * @param {{ branch?: string|null }} [opts] - branch for tree-relative pick; omit to auto-detect
  * @returns {{ merge: boolean, todos: Array<{ id: string, content: string, status: string }> }}
  */
 export function buildSessionTodos(dir, opts = {}) {
-  const empty = { merge: false, todos: [] };
+  // merge:true + empty todos = no-op for todo_write (no id updates, no wipe).
+  const empty = { merge: true, todos: [] };
   const { stateRoot, repoRoot } = resolveRoots(dir);
   if (!existsSync(stateRoot)) return empty;
 
