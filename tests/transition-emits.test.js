@@ -10,7 +10,53 @@ const HEADERS = {
   done: '## `done <task-id>`',
   reconcile: '## `reconcile`',
   phase: '## `phase-done`',
+  reopen: '## `phase-reopen`',
+  switch: '## `switch <slug>`',
+  unblock: '## `unblock <task-id>`',
+  archive: '## `archive [<slug>]`',
 };
+
+/** Minimal complete done block for fixtures (completion + gates + F2 projection). */
+const COMPLETE_DONE = [
+  HEADERS.done,
+  '',
+  '`done` is the closure authority for task state.',
+  'Do NOT consume `verify-claim` output as task evidence.',
+  '1. Locate task in `tasks:`.',
+  '2. **Verifier handling is the first state-changing gate.**',
+  '3. Only after verifier handling succeeds, set `status: done`.',
+  "4. Emit exactly one completion event via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })`.",
+  '5. Run `scripts/refresh-state.js`.',
+  '5b. Run `scripts/project-session-todos.js` then apply via `todo_write` on Grok.',
+  'Never mark a phase todo completed without phase status done or archived.',
+].join('\n');
+
+const COMPLETE_RECONCILE = [
+  HEADERS.reconcile,
+  '',
+  '1. Run the detector.',
+  "2. For each reconciled task emit `task-done` via `appendCompletion` with projectId, planSlug, phaseId, taskId.",
+  '3. Run `scripts/refresh-state.js`.',
+  '4. Optionally document `project-session-todos` after refresh-state.',
+].join('\n');
+
+const COMPLETE_PHASE = [
+  HEADERS.phase,
+  '',
+  'Stage A — pure preflight',
+  'preflightPhaseDone',
+  'Commit guard (HARD — re-read before any terminal write).',
+  'commitGuardPhaseDone fingerprint',
+  'No bulk-close of open tasks. Do not offer defer/skip as a terminal path.',
+  'Never convert `pending` or `deferred` gates to `met`.',
+  'Do **not** set open tasks to `done`.',
+  "Emit exactly one `phase-done` completion event via `appendCompletion` with projectId, planSlug, phaseId, taskId, actuals.",
+  'Prior per-task task-done lines already emitted.',
+  'exactly one `phase-done` completion event; aggregate actuals once; do NOT duplicate those aggregate actuals onto prior per-task `task-done` lines.',
+  'Run `scripts/refresh-state.js`.',
+  'Run `scripts/project-session-todos.js` then apply via `todo_write` on Grok.',
+  'Never mark a phase todo completed without phase status done or archived.',
+].join('\n');
 
 function block(markdown, header) {
   const start = markdown.indexOf(header);
@@ -27,14 +73,17 @@ function tempMarkdown(contents) {
 }
 
 function minimalFixture(overrides = {}) {
-  const real = readFileSync(TRANSITIONS, 'utf8');
   return [
-    overrides.done ?? block(real, HEADERS.done),
-    overrides.reconcile ?? block(real, HEADERS.reconcile),
-    overrides.phase ?? block(real, HEADERS.phase),
-    '## `archive`',
+    overrides.done ?? COMPLETE_DONE,
+    overrides.reconcile ?? COMPLETE_RECONCILE,
+    overrides.phase ?? COMPLETE_PHASE,
+    overrides.reopen ?? null,
+    overrides.switch ?? null,
+    overrides.unblock ?? null,
+    overrides.archive ?? null,
+    '## `detect-scope`',
     '',
-  ].join('\n\n');
+  ].filter((part) => part != null).join('\n\n');
 }
 
 test('project-transitions emits are structurally present in all transition blocks', () => {
@@ -92,6 +141,7 @@ test('old done ordering is reported as verifier-before-done', () => {
       '2. Change `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.',
       "3. Emit exactly one completion event via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })`.",
       '4. If the closing task has a non-empty `verifier:`, see **Per-task verifiers** below first.',
+      '5. Run refresh-state and project-session-todos.',
     ].join('\n'),
   }));
   try {
@@ -116,6 +166,7 @@ test('old phase-done bulk-met and missing preflight/commit guard are reported', 
       '3. If any criterion is still `pending`, document the override by setting `deferredReason`.',
       "4. Emit one `task-done` event per task via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })`, then exactly one `phase-done` completion event with `actuals`.",
       "5. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`.",
+      '6. Run refresh-state and project-session-todos.',
     ].join('\n'),
   }));
   try {
@@ -140,8 +191,12 @@ test('missing done emit is reported only on the done block', () => {
     done: [
       HEADERS.done,
       '',
+      '`done` is the closure authority for task state.',
+      'Do NOT consume `verify-claim` output as task evidence.',
       '1. Locate task in `tasks:`.',
-      '2. Change `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.',
+      '2. **Verifier handling is the first state-changing gate.**',
+      '3. Only after verifier handling succeeds, set `status: done`.',
+      '4. Run refresh-state and project-session-todos.',
     ].join('\n'),
   }));
   try {
@@ -164,6 +219,7 @@ test('missing reconcile emit is reported only on the reconcile block', () => {
       '',
       '1. Run the deterministic detector.',
       '2. Apply the user dispositions.',
+      '3. Run refresh-state.',
     ].join('\n'),
   }));
   try {
@@ -184,8 +240,16 @@ test('missing phase-done emit is reported only on the phase-done block', () => {
     phase: [
       HEADERS.phase,
       '',
+      'Stage A — pure preflight',
+      'preflightPhaseDone',
+      'Commit guard (HARD',
+      'commitGuardPhaseDone fingerprint',
+      'No bulk-close. Do not offer defer/skip as a terminal path.',
+      'Never convert `pending` or `deferred` gates to `met`.',
+      'Do **not** set open tasks to `done`.',
       '1. Load the active initiative.',
       '2. Set all `tasks[].status = done` before archiving.',
+      '3. Run refresh-state and project-session-todos.',
     ].join('\n'),
   }));
   try {
@@ -197,6 +261,91 @@ test('missing phase-done emit is reported only on the phase-done block', () => {
     assert.ok(result.offenders[0].missing.includes('task-done'));
     assert.ok(result.offenders[0].missing.includes('phase-done'));
     assert.ok(result.offenders[0].missing.includes('actuals'));
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
+// --- F2: refresh-state + project-session-todos structural checks ---
+
+test('done, reconcile, and phase-done fail lint if refresh-state is missing', () => {
+  const fixture = tempMarkdown(minimalFixture({
+    done: COMPLETE_DONE.replace(/refresh-state/g, 'rollup-recompute'),
+    reconcile: COMPLETE_RECONCILE.replace(/refresh-state/g, 'rollup-recompute'),
+    phase: COMPLETE_PHASE.replace(/refresh-state/g, 'rollup-recompute'),
+  }));
+  try {
+    const result = lintTransitionEmits(fixture.path);
+
+    assert.equal(result.ok, false);
+    const byBlock = Object.fromEntries(result.offenders.map((o) => [o.block, o.missing]));
+    assert.ok(byBlock[HEADERS.done]?.includes('refresh-state'));
+    assert.ok(byBlock[HEADERS.reconcile]?.includes('refresh-state'));
+    assert.ok(byBlock[HEADERS.phase]?.includes('refresh-state'));
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
+test('done and phase-done fail lint if project-session-todos is not mentioned', () => {
+  const fixture = tempMarkdown(minimalFixture({
+    done: COMPLETE_DONE.replace(/project-session-todos/g, 'session-helper'),
+    phase: COMPLETE_PHASE.replace(/project-session-todos/g, 'session-helper'),
+  }));
+  try {
+    const result = lintTransitionEmits(fixture.path);
+
+    assert.equal(result.ok, false);
+    const byBlock = Object.fromEntries(result.offenders.map((o) => [o.block, o.missing]));
+    assert.ok(byBlock[HEADERS.done]?.includes('project-session-todos'));
+    assert.ok(byBlock[HEADERS.phase]?.includes('project-session-todos'));
+    // reconcile is not hard-required for project-session-todos by T-001 acceptance
+    assert.equal(byBlock[HEADERS.reconcile], undefined);
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
+test('complete fixture still passes completion-emit and projection requirements', () => {
+  const fixture = tempMarkdown(minimalFixture());
+  try {
+    const result = lintTransitionEmits(fixture.path);
+    assert.equal(result.ok, true, JSON.stringify(result.offenders, null, 2));
+    assert.deepEqual(result.offenders, []);
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
+test('focus mutators fail lint if refresh-state or project-session-todos missing', () => {
+  const fixture = tempMarkdown(minimalFixture({
+    reopen: [HEADERS.reopen, '', '1. Reopen the phase.', '2. Save.'].join('\n'),
+    switch: [HEADERS.switch, '', '1. Switch plan.', '2. Run refresh-state only.'].join('\n'),
+    unblock: [
+      HEADERS.unblock,
+      '',
+      '1. Unblock the task.',
+      '2. Run refresh-state and project-session-todos.',
+    ].join('\n'),
+    archive: [
+      HEADERS.archive,
+      '',
+      '1. Archive the target.',
+      '2. Run scripts/refresh-state.js then scripts/project-session-todos.js.',
+    ].join('\n'),
+  }));
+  try {
+    const result = lintTransitionEmits(fixture.path);
+
+    assert.equal(result.ok, false);
+    const byBlock = Object.fromEntries(result.offenders.map((o) => [o.block, o.missing]));
+    assert.ok(byBlock[HEADERS.reopen]?.includes('refresh-state'));
+    assert.ok(byBlock[HEADERS.reopen]?.includes('project-session-todos'));
+    assert.ok(byBlock[HEADERS.switch]?.includes('project-session-todos'));
+    assert.equal(byBlock[HEADERS.switch]?.includes('refresh-state'), false);
+    // unblock + archive are complete → not offenders
+    assert.equal(byBlock[HEADERS.unblock], undefined);
+    assert.equal(byBlock[HEADERS.archive], undefined);
   } finally {
     rmSync(fixture.dir, { recursive: true, force: true });
   }
