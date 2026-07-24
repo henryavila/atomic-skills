@@ -7,9 +7,9 @@ goal: Script zero-token que, dado o repo, emite o array de session todos das
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T19:44:51.577Z
-lastUpdated: 2026-07-24T19:51:43.220Z
-nextAction: Run evaluation agent for F1 then stamp evaluationGate; await
-  decision-review operator PASS before phase-done
+lastUpdated: 2026-07-24T19:56:19.186Z
+nextAction: await decision-review operator PASS for F1 (then phase-done with
+  review-code --mode=both)
 parentPlan: grok-phase-todo-projection
 phaseId: F1
 businessIntent:
@@ -61,7 +61,7 @@ tasks:
     title: Implementar helper e CLI
     description: Implementar helper e CLI
     status: done
-    lastUpdated: 2026-07-24T19:51:38.683Z
+    lastUpdated: 2026-07-24T19:56:19.186Z
     scopeBoundary:
       - do not call todo_write or write under ~/.grok/sessions; do not mutate
         plan or initiative frontmatter; do not invent tasksDone or total for
@@ -84,32 +84,27 @@ tasks:
     closedAt: 2026-07-24T19:51:38.683Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T19:51:38.683Z
-      verifiedCommit: ae49792ea496c770499bf22e8c4c7f96b5216348
+      verifiedAt: 2026-07-24T19:56:19.186Z
+      verifiedCommit: 6c53407fe154b122a6b1b15dfd92d49840062427
       passed: true
       exitCode: 0
       outputSummary: >
-        1042ms)
+        prints payload shape (33.213792ms)
 
-        ✔ no active plan emits empty list (5.770208ms)
+        ✔ done phase initiative under phases/archive uses (done/total) rollups
+        (4.555334ms)
 
-        ✔ bare repo (no .atomic-skills) emits empty list (0.74875ms)
-
-        ✔ paused phase maps to pending with · paused suffix (6.246458ms)
-
-        ✔ paused current phase is pending (not in_progress) with suffix
-        (5.560709ms)
-
-        ✔ runCli --json prints payload shape (32.461875ms)
+        ✔ active phases/*.md preferred over archive when both exist for same
+        phaseId (2.656333ms)
 
         ✔ CLI smoke: node scripts/project-session-todos.js --json <fixture> exit
-        0 (309.311125ms)
+        0 (275.616041ms)
 
-        ℹ tests 13
+        ℹ tests 15
 
         ℹ suites 0
 
-        ℹ pass 13
+        ℹ pass 15
 
         ℹ fail 0
 
@@ -119,12 +114,12 @@ tasks:
 
         ℹ todo 0
 
-        ℹ duration_ms 705.298875
+        ℹ duration_ms 654.498833
   - id: T-002
     title: Testes golden do helper
     description: Testes golden do helper
     status: done
-    lastUpdated: 2026-07-24T19:51:41.414Z
+    lastUpdated: 2026-07-24T19:56:19.186Z
     scopeBoundary:
       - do not depend on a live Grok session; do not use the network
     acceptance:
@@ -144,32 +139,27 @@ tasks:
     closedAt: 2026-07-24T19:51:41.414Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T19:51:41.414Z
-      verifiedCommit: b56e4fac38fd09424cfbc50d51a4a3ca4ffd5c3b
+      verifiedAt: 2026-07-24T19:56:19.186Z
+      verifiedCommit: 6c53407fe154b122a6b1b15dfd92d49840062427
       passed: true
       exitCode: 0
       outputSummary: >
-        98584ms)
+        prints payload shape (33.213792ms)
 
-        ✔ no active plan emits empty list (2.510458ms)
+        ✔ done phase initiative under phases/archive uses (done/total) rollups
+        (4.555334ms)
 
-        ✔ bare repo (no .atomic-skills) emits empty list (0.355958ms)
-
-        ✔ paused phase maps to pending with · paused suffix (9.582166ms)
-
-        ✔ paused current phase is pending (not in_progress) with suffix
-        (3.727875ms)
-
-        ✔ runCli --json prints payload shape (36.650583ms)
+        ✔ active phases/*.md preferred over archive when both exist for same
+        phaseId (2.656333ms)
 
         ✔ CLI smoke: node scripts/project-session-todos.js --json <fixture> exit
-        0 (297.6905ms)
+        0 (275.616041ms)
 
-        ℹ tests 13
+        ℹ tests 15
 
         ℹ suites 0
 
-        ℹ pass 13
+        ℹ pass 15
 
         ℹ fail 0
 
@@ -179,7 +169,7 @@ tasks:
 
         ℹ todo 0
 
-        ℹ duration_ms 665.794458
+        ℹ duration_ms 654.498833
 parked: []
 emerged: []
 summary: Helper + testes do contrato canônico (id, label, status, paused, merge)
@@ -193,8 +183,8 @@ current: true
 Initiative for phase **F1 — Helper determinístico de projeção**.
 
 ## Session handoff
-- **Narrative:** F1 T-001 and T-002 both closed after post-merge node --test (13/13). Helper+tests on plan branch. Awaiting evaluation + decision-review before phase-done.
-- **Decision log:** exclusive SHAs; merge writer; GATE-R2 evidence on both tasks.
-- **Single nextAction:** Run evaluation agent for F1 then stamp evaluationGate; await decision-review operator PASS before phase-done
-- **Verbatim state:** T-002 verifiedCommit=b56e4fac38fd09424cfbc50d51a4a3ca4ffd5c3b; node --test tests/project-session-todos.test.js exit 0
-- **Uncommitted changes:** (checkpoint pending)
+- **Narrative:** F1 tasks done; archive-lookup fix merged; tests 15/15; evaluation verdict pass after fix. evaluationGate to be stamped; await decision-review PASS.
+- **Decision log:** FIX-ARCHIVE-1 findPhaseInitiative scans phases/archive; re-dispatch after major evaluation finding.
+- **Single nextAction:** await decision-review operator PASS for F1 (then phase-done with review-code --mode=both)
+- **Verbatim state:** HEAD=6c53407fe154b122a6b1b15dfd92d49840062427; node --test exit 0; F0 live content should use archive rollups (2/2)
+- **Uncommitted changes:** (pending)

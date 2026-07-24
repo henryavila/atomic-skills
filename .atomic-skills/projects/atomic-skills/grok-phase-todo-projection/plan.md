@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:44:51.577Z
+lastUpdated: 2026-07-24T19:56:19.186Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F1
 parallelismAllowed: false
@@ -176,6 +176,11 @@ phases:
         descriptor-only; rede; helper em Claude/Codex mirror.
       doneWhen: node --test tests/project-session-todos.test.js exit 0 e CLI --json
         emite {merge,todos[]} com shape válido.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T19:56:19.186Z
+      at: 6c53407fe154b122a6b1b15dfd92d49840062427
   - id: F2
     slug: grok-phase-todo-projection-f2-harden-do-emit-lint-estrutural
     title: Harden do emit lint estrutural
