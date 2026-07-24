@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: done
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T22:25:20.555Z
+lastUpdated: 2026-07-24T22:35:32.099Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F4
 parallelismAllowed: false
@@ -479,6 +479,21 @@ references:
 planActive: false
 planTitle: Projeção de fases do project no TODO do Grok
 executionMode: automate
+planEndReview:
+  mode: external-both
+  reviewFile: .atomic-skills/reviews/2026-07-24-plan-end-external-both-grok-phase-todo-projection.md
+  range: develop..3635a8314711a399b306fbd7e0601aaa3e83359a
+  verifiedAt: 2026-07-24T22:35:32.099Z
+  legs:
+    - provider: codex
+      status: succeeded
+      familyDifferent: true
+    - provider: grok
+      status: skipped
+      familyDifferent: false
+    - provider: claude
+      status: skipped
+      familyDifferent: true
 ---
 
 # Projeção de fases do project no TODO do Grok
@@ -510,8 +525,8 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 
 ## Session handoff (plan-level resume)
-- **Narrative:** F4 phase-done complete (last phase). Product merge + fix1 green. Plan status=done. Automate plan-end still requires external-both review + user validation before archive/finalize.
-- **Decision log:** decision-review PASS (faça); F4-G2 PASS; review both with fix1 majors closed; evaluationGate pass.
-- **Single nextAction:** plan-end review-code --mode=external-both then user validation (planEndReviewOk / userValidationOk) before archive
-- **Verbatim state:** HEAD=765811595136d295f57d4f06eca425537279c0d3; F0–F4 done; reviewFile=.atomic-skills/reviews/2026-07-24-f4-session-todo-both.md; executionMode automate
-- **Uncommitted changes:** phase-done terminal batch
+- **Narrative:** F4 phase-done; plan status done; plan-end external-both receipt stamped (codex succeeded familyDifferent). plan-end-fix merged. Await user validation before archive/finalize.
+- **Decision log:** codex P2s fixed; planEndReviewOk true; userValidationOk false until operator stamps userValidatedAt.
+- **Single nextAction:** operator user validation PASS (stamp userValidatedAt ISO) then archive/finalize if desired
+- **Verbatim state:** HEAD=3635a8314711a399b306fbd7e0601aaa3e83359a; planEndReview.mode=external-both; reviewFile=.atomic-skills/reviews/2026-07-24-plan-end-external-both-grok-phase-todo-projection.md; executionMode automate
+- **Uncommitted changes:** plan-end receipt + lease clear
