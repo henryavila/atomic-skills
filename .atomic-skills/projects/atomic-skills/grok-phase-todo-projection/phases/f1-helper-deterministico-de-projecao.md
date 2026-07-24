@@ -7,8 +7,8 @@ goal: Script zero-token que, dado o repo, emite o array de session todos das
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T19:44:51.577Z
-lastUpdated: 2026-07-24T19:44:51.577Z
-nextAction: "Start T-001: Implementar helper e CLI"
+lastUpdated: 2026-07-24T19:51:40.435Z
+nextAction: Run `done T-002` after post-merge re-verify of T-002
 parentPlan: grok-phase-todo-projection
 phaseId: F1
 businessIntent:
@@ -24,11 +24,11 @@ businessIntent:
     descriptor-only; rede; helper em Claude/Codex mirror.
   doneWhen: node --test tests/project-session-todos.test.js exit 0 e CLI --json
     emite {merge,todos[]} com shape válido.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 1
 weightTotal: 2
 exitGates:
   - id: F1-G1
@@ -38,6 +38,7 @@ exitGates:
       kind: shell
       command: node --test tests/project-session-todos.test.js
       expectExitCode: 0
+    verifierLabel: "shell: node --test tests/project-session-todos.test.js"
   - id: F1-G2
     description: CLI json on repo root exits 0 and prints todos array
     status: pending
@@ -48,6 +49,7 @@ exitGates:
         j=JSON.parse(d); if(!Array.isArray(j.todos)) process.exit(1);
         process.exit(0)})"
       expectExitCode: 0
+    verifierLabel: 'shell: node scripts/project-session-todos.js --json . | node -e "l…'
 stack:
   - id: 1
     title: Helper determinístico de projeção
@@ -57,8 +59,8 @@ tasks:
   - id: T-001
     title: Implementar helper e CLI
     description: Implementar helper e CLI
-    status: pending
-    lastUpdated: 2026-07-24T19:44:51.577Z
+    status: done
+    lastUpdated: 2026-07-24T19:51:38.683Z
     scopeBoundary:
       - do not call todo_write or write under ~/.grok/sessions; do not mutate
         plan or initiative frontmatter; do not invent tasksDone or total for
@@ -78,6 +80,45 @@ tasks:
     summary: Implementar helper e CLI
     weight: 1
     signal: verifier
+    closedAt: 2026-07-24T19:51:38.683Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T19:51:38.683Z
+      verifiedCommit: ae49792ea496c770499bf22e8c4c7f96b5216348
+      passed: true
+      exitCode: 0
+      outputSummary: >
+        1042ms)
+
+        ✔ no active plan emits empty list (5.770208ms)
+
+        ✔ bare repo (no .atomic-skills) emits empty list (0.74875ms)
+
+        ✔ paused phase maps to pending with · paused suffix (6.246458ms)
+
+        ✔ paused current phase is pending (not in_progress) with suffix
+        (5.560709ms)
+
+        ✔ runCli --json prints payload shape (32.461875ms)
+
+        ✔ CLI smoke: node scripts/project-session-todos.js --json <fixture> exit
+        0 (309.311125ms)
+
+        ℹ tests 13
+
+        ℹ suites 0
+
+        ℹ pass 13
+
+        ℹ fail 0
+
+        ℹ cancelled 0
+
+        ℹ skipped 0
+
+        ℹ todo 0
+
+        ℹ duration_ms 705.298875
   - id: T-002
     title: Testes golden do helper
     description: Testes golden do helper
@@ -106,13 +147,14 @@ planTitle: Projeção de fases do project no TODO do Grok
 planActive: true
 current: true
 ---
+
 # Narrative / notes
 
 Initiative for phase **F1 — Helper determinístico de projeção**.
 
 ## Session handoff
-- **Narrative:** F1 phase-start package ratified with BI spine; materialize Mode B publishing initiative. Automate host will build work-order and spawn fresh phase writer.
-- **Decision log:** Operator ratify F1 + T-002 verifier re-spec (node --test tests/project-session-todos.test.js).
-- **Single nextAction:** spawn fresh writer after ratify (work-order + lease)
-- **Verbatim state:** initiative .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/phases/f1-helper-deterministico-de-projecao.md; tasks T-001 T-002 SPEC with verifiers; businessIntent complete.
-- **Uncommitted changes:** (post-materialize)
+- **Narrative:** F1 T-001 closed: scripts/project-session-todos.js on merged plan tree.
+- **Decision log:** F1 post-merge re-verify node --test exit 0; exclusive claim SHAs; orchestrator done.
+- **Single nextAction:** Run `done T-002` after post-merge re-verify of T-002
+- **Verbatim state:** T-001 evidence.passed=true verifiedCommit=ae49792ea496c770499bf22e8c4c7f96b5216348 cmd=node --test tests/project-session-todos.test.js
+- **Uncommitted changes:** (checkpoint pending)
