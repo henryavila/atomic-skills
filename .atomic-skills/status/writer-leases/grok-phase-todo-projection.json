@@ -1,0 +1,10 @@
+{
+  "planSlug": "grok-phase-todo-projection",
+  "phaseId": "F1",
+  "startedAt": "2026-07-24T20:04:28.645Z",
+  "hostId": "grok-build-host",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/grok-phase-todo-projection-F1-fix2",
+  "writerBranch": "impl/grok-phase-todo-projection-F1-fix2",
+  "status": "active",
+  "tokenHash": "5d1e3387b0b2806eec9a11e2dd06e9a5087fd2091126e0ad7ec7411e8be51bf7"
+}
