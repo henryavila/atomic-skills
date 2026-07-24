@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:02:30.052Z
+lastUpdated: 2026-07-24T19:29:13.834Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F0
 parallelismAllowed: false
@@ -84,6 +84,11 @@ phases:
       doneWhen: KB+compat com contrato greppable e Henry PASS no gate manual F0-G2.
     summary: "Contrato greppable: label, SoT, paused, reseed skill-level,
       SessionStart só hint"
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T19:29:13.834Z
+      at: e886730817273eba9a2ce80b855e35e75691635b
   - id: F1
     slug: grok-phase-todo-projection-f1-helper-deterministico-de-projecao
     title: Helper determinístico de projeção

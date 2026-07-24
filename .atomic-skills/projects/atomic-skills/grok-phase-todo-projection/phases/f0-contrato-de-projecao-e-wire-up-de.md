@@ -7,9 +7,9 @@ goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:27:10.125Z
-nextAction: Run evaluation agent for F0 then stamp evaluationGate; await
-  decision-review operator PASS before phase-done
+lastUpdated: 2026-07-24T19:29:13.834Z
+nextAction: await decision-review operator PASS for F0 (then phase-done with
+  review-code --mode=both)
 parentPlan: grok-phase-todo-projection
 phaseId: F0
 businessIntent:
@@ -162,8 +162,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F0 T-001 and T-002 both closed on merged plan branch after post-merge shell verifiers (GATE-R2 evidence). Phase tasks complete; exit gates F0-G1/F0-G2 still pending for phase-done. Writer lease still active until clear after settle.
-- **Decision log:** exclusive claim SHAs validated; merge b13fcb69; orchestrator-owned done (no writer self-certify); dispatch-log repaired NDJSON for append-completion.
-- **Single nextAction:** Run evaluation agent for F0 then stamp evaluationGate; await decision-review operator PASS before phase-done
-- **Verbatim state:** T-001 evidence.passed=true; T-002 evidence.passed=true verifiedCommit=a474923ffa62383097fc826e96c4d0cf1448447f exitCode=0; verifier: rg -n 'Grok-local|phase scaffold|todo_write|session.todo' docs/kb/grok-build-compatibility.md && rg -n 'project-session-todos|session.todo|phase scaffold|todo_write' skills/core/project.md
-- **Uncommitted changes:** (checkpoint pending)
+- **Narrative:** F0 tasks T-001/T-002 done with GATE-R2 evidence. Evaluation agent verdict=pass (no blocker/critical). evaluationGate stamped passed/pass at e886730817273eba9a2ce80b855e35e75691635b. Awaiting operator decision-review PASS before phase-done. F0-G2 manual still open for phase-done exit gates.
+- **Decision log:** evaluation note: literal token anti-proc absent (proc:* anti-competition present); F0-G1 shell ready; F0-G2 pending-manual; doneWhen incomplete until Henry PASS on F0-G2.
+- **Single nextAction:** await decision-review operator PASS for F0 (then phase-done with review-code --mode=both)
+- **Verbatim state:** phases[F0].evaluationGate={status:passed,verdict:pass,at:e886730817273eba9a2ce80b855e35e75691635b,verifiedAt:2026-07-24T19:29:13.834Z}; lease missing; decisions log F0.jsonl.
+- **Uncommitted changes:** plan.md evaluationGate stamp pending commit
