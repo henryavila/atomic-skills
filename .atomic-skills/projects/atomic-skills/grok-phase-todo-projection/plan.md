@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:29:13.834Z
+lastUpdated: 2026-07-24T19:32:34.509Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F0
 parallelismAllowed: false
@@ -55,20 +55,51 @@ phases:
         - id: F0-G1
           description: KB freezes label summary|title, SoT order, paused, anti-proc,
             Grok-local
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test -f docs/kb/grok-phase-todo-projection.md && rg -n
               'summary|title|refresh-state|todo_write|paused|anti-proc|Grok-local|merge'
               docs/kb/grok-phase-todo-projection.md
             expectExitCode: 0
+          metAt: 2026-07-24T19:32:34.509Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T19:32:34.509Z
+            verifiedCommit: f19feec29b8088eec9c1963adc663411df110321
+            passed: true
+            exitCode: 0
+            outputSummary: >-
+              4:checklist via `todo_write`. Prose-only here; the deterministic
+              helper lands in a
+
+              5:later phase. Producers of focus digest remain `refresh-state` /
+              `emit-focus` —
+
+              9:producer+consumer); `docs/kb/grok-build-compatibility.md`
+              (Grok-local install and
+
+              17:| Phase scaffold on Grok session todos | Projecting tasks
+              `T-00N` into `todo_write` |
+
+              21:| Reseed / merge rules for `todo_write` | Using todo completion
+              to close phase/task (GATE-R2 stays) |
+
+              23:**Grok-local only.** Claude, Codex, and Cursor do **not
         - id: F0-G2
           description: Manual HARD operator confirms label format and SoT order match
             approved design
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: Henry acks F0 contract in chat or gate-signoff with explicit PASS
+          metAt: 2026-07-24T19:32:34.509Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-24T19:32:34.509Z
+            verifiedCommit: f19feec29b8088eec9c1963adc663411df110321
+            passed: true
+            outputSummary: "Operator token: decision-review PASS + F0-G2 PASS (same turn)"
     status: active
     businessIntent:
       value: Em sessões Grok o agente mantém no checklist nativo o trilho de fases do
@@ -89,6 +120,9 @@ phases:
       verdict: pass
       verifiedAt: 2026-07-24T19:29:13.834Z
       at: e886730817273eba9a2ce80b855e35e75691635b
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-24T19:32:34.509Z
   - id: F1
     slug: grok-phase-todo-projection-f1-helper-deterministico-de-projecao
     title: Helper determinístico de projeção

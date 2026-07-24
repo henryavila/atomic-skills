@@ -7,9 +7,8 @@ goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:29:13.834Z
-nextAction: await decision-review operator PASS for F0 (then phase-done with
-  review-code --mode=both)
+lastUpdated: 2026-07-24T19:32:34.509Z
+nextAction: Run phase-done with review-code --mode=both after canRunPhaseDone preflight
 parentPlan: grok-phase-todo-projection
 phaseId: F0
 businessIntent:
@@ -33,7 +32,7 @@ weightTotal: 2
 exitGates:
   - id: F0-G1
     description: KB freezes label summary|title, SoT order, paused, anti-proc, Grok-local
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test -f docs/kb/grok-phase-todo-projection.md && rg -n
@@ -41,14 +40,45 @@ exitGates:
         docs/kb/grok-phase-todo-projection.md
       expectExitCode: 0
     verifierLabel: "shell: test -f docs/kb/grok-phase-todo-projection.md && rg -n 'sum…"
+    metAt: 2026-07-24T19:32:34.509Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T19:32:34.509Z
+      verifiedCommit: f19feec29b8088eec9c1963adc663411df110321
+      passed: true
+      exitCode: 0
+      outputSummary: >-
+        4:checklist via `todo_write`. Prose-only here; the deterministic helper
+        lands in a
+
+        5:later phase. Producers of focus digest remain `refresh-state` /
+        `emit-focus` —
+
+        9:producer+consumer); `docs/kb/grok-build-compatibility.md` (Grok-local
+        install and
+
+        17:| Phase scaffold on Grok session todos | Projecting tasks `T-00N`
+        into `todo_write` |
+
+        21:| Reseed / merge rules for `todo_write` | Using todo completion to
+        close phase/task (GATE-R2 stays) |
+
+        23:**Grok-local only.** Claude, Codex, and Cursor do **not
   - id: F0-G2
     description: Manual HARD operator confirms label format and SoT order match
       approved design
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Henry acks F0 contract in chat or gate-signoff with explicit PASS
     verifierLabel: manual
+    metAt: 2026-07-24T19:32:34.509Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-24T19:32:34.509Z
+      verifiedCommit: f19feec29b8088eec9c1963adc663411df110321
+      passed: true
+      outputSummary: "Operator token: decision-review PASS + F0-G2 PASS (same turn)"
 stack:
   - id: 1
     title: Contrato de projeção e wire-up de prosa
