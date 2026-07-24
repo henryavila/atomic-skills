@@ -222,3 +222,7 @@ harden de `refresh-state` nos closes. Não inventa identidade de fase (usa
 ## 3. Phase tree
 
 _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when running.)_
+
+## Reviews
+
+- internal: clean — 2026-07-24 — Stage 8a self-loop: label format + SoT order + phases F0–F4 SPEC-admitted; no soft-language in exit gates; verifiers shell/manual only; no dual-authority of todo_write; critic-approved design linked at design.md
