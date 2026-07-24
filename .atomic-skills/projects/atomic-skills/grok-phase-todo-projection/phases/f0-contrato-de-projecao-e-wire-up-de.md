@@ -7,7 +7,7 @@ goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:32:34.509Z
+lastUpdated: 2026-07-24T19:33:07.816Z
 nextAction: Run phase-done with review-code --mode=both after canRunPhaseDone preflight
 parentPlan: grok-phase-todo-projection
 phaseId: F0
@@ -40,11 +40,11 @@ exitGates:
         docs/kb/grok-phase-todo-projection.md
       expectExitCode: 0
     verifierLabel: "shell: test -f docs/kb/grok-phase-todo-projection.md && rg -n 'sum…"
-    metAt: 2026-07-24T19:32:34.509Z
+    metAt: 2026-07-24T19:33:07.816Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-24T19:32:34.509Z
-      verifiedCommit: f19feec29b8088eec9c1963adc663411df110321
+      verifiedAt: 2026-07-24T19:33:07.816Z
+      verifiedCommit: 209f7da5d0e684fc20fc146d67cf6384f9a7d3a7
       passed: true
       exitCode: 0
       outputSummary: >-
@@ -72,13 +72,13 @@ exitGates:
       kind: manual
       description: Henry acks F0 contract in chat or gate-signoff with explicit PASS
     verifierLabel: manual
-    metAt: 2026-07-24T19:32:34.509Z
+    metAt: 2026-07-24T19:33:07.816Z
     evidence:
       verifierKind: manual
-      verifiedAt: 2026-07-24T19:32:34.509Z
-      verifiedCommit: f19feec29b8088eec9c1963adc663411df110321
+      verifiedAt: 2026-07-24T19:33:07.816Z
+      verifiedCommit: 209f7da5d0e684fc20fc146d67cf6384f9a7d3a7
       passed: true
-      outputSummary: "Operator token: decision-review PASS + F0-G2 PASS (same turn)"
+      outputSummary: Operator F0-G2 PASS (re-anchored at phase-done fingerprint)
 stack:
   - id: 1
     title: Contrato de projeção e wire-up de prosa

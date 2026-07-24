@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:32:34.509Z
+lastUpdated: 2026-07-24T19:33:07.816Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F0
 parallelismAllowed: false
@@ -62,11 +62,11 @@ phases:
               'summary|title|refresh-state|todo_write|paused|anti-proc|Grok-local|merge'
               docs/kb/grok-phase-todo-projection.md
             expectExitCode: 0
-          metAt: 2026-07-24T19:32:34.509Z
+          metAt: 2026-07-24T19:33:07.816Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-24T19:32:34.509Z
-            verifiedCommit: f19feec29b8088eec9c1963adc663411df110321
+            verifiedAt: 2026-07-24T19:33:07.816Z
+            verifiedCommit: 209f7da5d0e684fc20fc146d67cf6384f9a7d3a7
             passed: true
             exitCode: 0
             outputSummary: >-
@@ -93,13 +93,13 @@ phases:
           verifier:
             kind: manual
             description: Henry acks F0 contract in chat or gate-signoff with explicit PASS
-          metAt: 2026-07-24T19:32:34.509Z
+          metAt: 2026-07-24T19:33:07.816Z
           evidence:
             verifierKind: manual
-            verifiedAt: 2026-07-24T19:32:34.509Z
-            verifiedCommit: f19feec29b8088eec9c1963adc663411df110321
+            verifiedAt: 2026-07-24T19:33:07.816Z
+            verifiedCommit: 209f7da5d0e684fc20fc146d67cf6384f9a7d3a7
             passed: true
-            outputSummary: "Operator token: decision-review PASS + F0-G2 PASS (same turn)"
+            outputSummary: Operator F0-G2 PASS (re-anchored at phase-done fingerprint)
     status: active
     businessIntent:
       value: Em sessões Grok o agente mantém no checklist nativo o trilho de fases do
