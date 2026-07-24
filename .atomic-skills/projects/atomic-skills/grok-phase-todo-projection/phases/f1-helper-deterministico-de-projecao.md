@@ -7,8 +7,9 @@ goal: Script zero-token que, dado o repo, emite o array de session todos das
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T19:44:51.577Z
-lastUpdated: 2026-07-24T19:51:40.435Z
-nextAction: Run `done T-002` after post-merge re-verify of T-002
+lastUpdated: 2026-07-24T19:51:43.220Z
+nextAction: Run evaluation agent for F1 then stamp evaluationGate; await
+  decision-review operator PASS before phase-done
 parentPlan: grok-phase-todo-projection
 phaseId: F1
 businessIntent:
@@ -24,11 +25,11 @@ businessIntent:
     descriptor-only; rede; helper em Claude/Codex mirror.
   doneWhen: node --test tests/project-session-todos.test.js exit 0 e CLI --json
     emite {merge,todos[]} com shape válido.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 1
+weightDone: 2
 weightTotal: 2
 exitGates:
   - id: F1-G1
@@ -122,8 +123,8 @@ tasks:
   - id: T-002
     title: Testes golden do helper
     description: Testes golden do helper
-    status: pending
-    lastUpdated: 2026-07-24T19:44:51.577Z
+    status: done
+    lastUpdated: 2026-07-24T19:51:41.414Z
     scopeBoundary:
       - do not depend on a live Grok session; do not use the network
     acceptance:
@@ -140,6 +141,45 @@ tasks:
     summary: Testes golden do helper
     weight: 1
     signal: verifier
+    closedAt: 2026-07-24T19:51:41.414Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T19:51:41.414Z
+      verifiedCommit: b56e4fac38fd09424cfbc50d51a4a3ca4ffd5c3b
+      passed: true
+      exitCode: 0
+      outputSummary: >
+        98584ms)
+
+        ✔ no active plan emits empty list (2.510458ms)
+
+        ✔ bare repo (no .atomic-skills) emits empty list (0.355958ms)
+
+        ✔ paused phase maps to pending with · paused suffix (9.582166ms)
+
+        ✔ paused current phase is pending (not in_progress) with suffix
+        (3.727875ms)
+
+        ✔ runCli --json prints payload shape (36.650583ms)
+
+        ✔ CLI smoke: node scripts/project-session-todos.js --json <fixture> exit
+        0 (297.6905ms)
+
+        ℹ tests 13
+
+        ℹ suites 0
+
+        ℹ pass 13
+
+        ℹ fail 0
+
+        ℹ cancelled 0
+
+        ℹ skipped 0
+
+        ℹ todo 0
+
+        ℹ duration_ms 665.794458
 parked: []
 emerged: []
 summary: Helper + testes do contrato canônico (id, label, status, paused, merge)
@@ -153,8 +193,8 @@ current: true
 Initiative for phase **F1 — Helper determinístico de projeção**.
 
 ## Session handoff
-- **Narrative:** F1 T-001 closed: scripts/project-session-todos.js on merged plan tree.
-- **Decision log:** F1 post-merge re-verify node --test exit 0; exclusive claim SHAs; orchestrator done.
-- **Single nextAction:** Run `done T-002` after post-merge re-verify of T-002
-- **Verbatim state:** T-001 evidence.passed=true verifiedCommit=ae49792ea496c770499bf22e8c4c7f96b5216348 cmd=node --test tests/project-session-todos.test.js
+- **Narrative:** F1 T-001 and T-002 both closed after post-merge node --test (13/13). Helper+tests on plan branch. Awaiting evaluation + decision-review before phase-done.
+- **Decision log:** exclusive SHAs; merge writer; GATE-R2 evidence on both tasks.
+- **Single nextAction:** Run evaluation agent for F1 then stamp evaluationGate; await decision-review operator PASS before phase-done
+- **Verbatim state:** T-002 verifiedCommit=b56e4fac38fd09424cfbc50d51a4a3ca4ffd5c3b; node --test tests/project-session-todos.test.js exit 0
 - **Uncommitted changes:** (checkpoint pending)
