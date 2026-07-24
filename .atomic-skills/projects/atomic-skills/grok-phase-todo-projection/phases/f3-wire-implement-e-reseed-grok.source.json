@@ -48,7 +48,12 @@
           "kind": "file",
           "path": "skills/shared/project-assets/project-help.md"
         }
-      ]
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'refresh-state|reseed|project-session-todos|Grok' skills/shared/project-assets/hooks/session-start.sh skills/shared/project-assets/project-help.md",
+        "expectExitCode": 0
+      }
     }
   ],
   "exitGates": [

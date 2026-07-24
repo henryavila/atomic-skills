@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: active
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T20:38:43.203Z
+lastUpdated: 2026-07-24T20:42:37.052Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F3
 parallelismAllowed: false
@@ -347,6 +347,17 @@ phases:
               show F0 n/N with title or summary
     status: active
     summary: Implement reseeds scaffold; SessionStart só hint; anti-proc
+    businessIntent:
+      value: Sessões Grok reseedam trilho de fases no start/implement/compaction sem
+        SoT duplo nem proc:* competindo.
+      workflow: Wire implement/maestro → SessionStart hint + project help → F3-G1 +
+        dogfood manual F3-G2.
+      rules: merge:false no start; anti-proc com plan ancorado; SessionStart só hint
+        fail-open; host-thin pode todo_write sem product edits.
+      outOfScope: GATE-R2/claim exclusivity changes; T-00N todos; SessionStart chama
+        todo_write.
+      doneWhen: implement assets greppable helper/reseed/anti-proc; Henry dogfood PASS
+        F3-G2.
   - id: F4
     slug: grok-phase-todo-projection-f4-integracao-e-regressao
     title: Integração e regressão
