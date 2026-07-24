@@ -7,8 +7,8 @@ goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
 status: active
 branch: plan/grok-phase-todo-projection
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T19:19:58.256Z
-nextAction: SYNC WAIT phase writer F0 claim report (lease active)
+lastUpdated: 2026-07-24T19:25:40.395Z
+nextAction: Run `done T-002` after post-merge re-verify of T-002 on plan branch
 parentPlan: grok-phase-todo-projection
 phaseId: F0
 businessIntent:
@@ -23,11 +23,11 @@ businessIntent:
   outOfScope: Tasks T-00N no TODO; painel nativo Grok; write em plan.json da
     sessão; multi-IDE mirror; MCP project-state.
   doneWhen: KB+compat com contrato greppable e Henry PASS no gate manual F0-G2.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 1
 weightTotal: 2
 exitGates:
   - id: F0-G1
@@ -39,6 +39,7 @@ exitGates:
         'summary|title|refresh-state|todo_write|paused|anti-proc|Grok-local|merge'
         docs/kb/grok-phase-todo-projection.md
       expectExitCode: 0
+    verifierLabel: "shell: test -f docs/kb/grok-phase-todo-projection.md && rg -n 'sum…"
   - id: F0-G2
     description: Manual HARD operator confirms label format and SoT order match
       approved design
@@ -46,6 +47,7 @@ exitGates:
     verifier:
       kind: manual
       description: Henry acks F0 contract in chat or gate-signoff with explicit PASS
+    verifierLabel: manual
 stack:
   - id: 1
     title: Contrato de projeção e wire-up de prosa
@@ -56,8 +58,8 @@ tasks:
     title: Contrato em KB e design receipt
     description: Documentar o contrato (fases-only, label, SoT, paused, reseed,
       merge rules) e cross-link no design de statusline.
-    status: pending
-    lastUpdated: 2026-07-24T18:38:57.644Z
+    status: done
+    lastUpdated: 2026-07-24T19:25:38.510Z
     scopeBoundary:
       - do not implement scripts/project-session-todos.js; do not change
         meta/schemas/plan.schema.json; do not claim host auto-reads focus.json
@@ -80,6 +82,21 @@ tasks:
         path: docs/design/statusline-focus-integration.md
     summary: KB do contrato de projeção + link no statusline design
     weight: 1
+    closedAt: 2026-07-24T19:25:38.510Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-24T19:25:38.510Z
+      verifiedCommit: b13fcb694e66963b04381077a55d1590a441f623
+      passed: true
+      exitCode: 0
+      outputSummary: |
+        mmary` / `title` fallback; descriptor-only `(—)` + `not materialized`
+        136:- order: mutate → `refresh-state` → helper → `todo_write`
+        137:- `paused` → todo `pending` + suffix ` · paused`
+        302:## 6. Related consumer — Grok session-todo projection
+        306:**session todos** via the agent tool `todo_write` (phase scaffold only — not tasks
+        311:- [`docs/kb/grok-phase-todo-projection.md`](../kb/grok-phase-todo-projection.md)
+        314:(`scripts/project-session-todos.js`); it does **not** replace the claudebar chip
   - id: T-002
     title: Wire-up Grok em compat e project note
     description: Registrar projeção Grok-local e ponteiro no router project.
@@ -128,8 +145,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F0 phase-start package ratified. Work-order built for T-001+T-002. Writer lease acquired; sibling worktree impl/grok-phase-todo-projection-F0-writer spawned for code-only phase writer. Host awaits claim report — no product edits on plan tree.
-- **Decision log:** phase-start ratify (dcb6846a); T-002 re-spec verifier (d625d51e); executionMode automate stamped.
-- **Single nextAction:** SYNC WAIT phase writer F0 claim report then merge sibling → plan branch → post-merge re-verify → done.
-- **Verbatim state:** worktreePath=/Volumes/External/code/atomic-skills/.worktrees/grok-phase-todo-projection-F0-writer; writerBranch=impl/grok-phase-todo-projection-F0-writer; lease=.atomic-skills/status/writer-leases/grok-phase-todo-projection.json; baseRef=6f10d27ef2f8bd87d7ea8af3f979081dce058772.
-- **Uncommitted changes:** lease file + initiative handoff (state microcommit pending)
+- **Narrative:** T-001 closed on merged plan tree after post-merge shell verifier pass. F0 still has T-002 open. Writer lease still active until phase merge settle complete and both tasks closed.
+- **Decision log:** post-merge re-verify passed on plan branch; orchestrator done (not writer self-certify); claim SHAs reachable.
+- **Single nextAction:** Run `done T-002` after post-merge re-verify of T-002 on plan branch
+- **Verbatim state:** task T-001 evidence.passed=true verifiedCommit=b13fcb694e66963b04381077a55d1590a441f623 exitCode=0; command: rg -n 'summary|title|refresh-state|todo_write|paused' docs/kb/grok-phase-todo-projection.md && rg -n 'grok-phase-todo|session.todo|todo_write' docs/design/statusline-focus-integration.md
+- **Uncommitted changes:** (checkpoint pending for this close)
