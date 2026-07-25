@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: done
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-24T22:35:32.099Z
+lastUpdated: 2026-07-25T00:07:26.759Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F4
 parallelismAllowed: false
@@ -494,6 +494,8 @@ planEndReview:
     - provider: claude
       status: skipped
       familyDifferent: true
+userValidatedAt: 2026-07-25T00:07:26.759Z
+validatorId: operator
 ---
 
 # Projeção de fases do project no TODO do Grok
@@ -525,8 +527,8 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 
 ## Session handoff (plan-level resume)
-- **Narrative:** F4 phase-done; plan status done; plan-end external-both receipt stamped (codex succeeded familyDifferent). plan-end-fix merged. Await user validation before archive/finalize.
-- **Decision log:** codex P2s fixed; planEndReviewOk true; userValidationOk false until operator stamps userValidatedAt.
-- **Single nextAction:** operator user validation PASS (stamp userValidatedAt ISO) then archive/finalize if desired
-- **Verbatim state:** HEAD=3635a8314711a399b306fbd7e0601aaa3e83359a; planEndReview.mode=external-both; reviewFile=.atomic-skills/reviews/2026-07-24-plan-end-external-both-grok-phase-todo-projection.md; executionMode automate
-- **Uncommitted changes:** plan-end receipt + lease clear
+- **Narrative:** Operator user validation PASS stamped via AskUserQuestion. planEndReviewOk + userValidationOk true under executionMode automate. Archive/finalize NOT run (operator chose stamp-only).
+- **Decision log:** AskUserQuestion: validation PASS; next step stamp-only (no archive).
+- **Single nextAction:** operator may run archive/finalize when ready (gates open); or leave plan status=done as-is
+- **Verbatim state:** HEAD=ac8679538f33efe6d677b181cbc00854e5eb99b7; userValidatedAt=2026-07-25T00:07:26.759Z; validatorId=operator; planEndReview.mode=external-both; reviewFile=.atomic-skills/reviews/2026-07-24-plan-end-external-both-grok-phase-todo-projection.md; executionMode automate
+- **Uncommitted changes:** clean expected after checkpoint
