@@ -1,9 +1,7 @@
 ---
-lastUpdated: 2026-07-22T20:38:03.630Z
-schemaVersion: "0.1"
+lastUpdated: 2026-07-22T20:38:03.630ZschemaVersion: "0.1"
 activePlans: 2
-activeInitiatives: 1
-archivedCount: 24
+activeInitiatives: 1archivedCount: 24
 ---
 
 # Project Status Index
@@ -22,7 +20,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 |------|--------|---------------|--------|---------|
 | implement-phase-agents | active | F0 | plan/implement-phase-agents | 2026-07-22 | 1/6 |
 | materialize-spec-quality-guards | active | F0 | plan/materialize-spec-quality-guards | 2026-07-22 | 1/5 |
-
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
@@ -50,7 +47,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Path | Status | Phase | Branch | Tasks |
 |------|--------|-------|--------|-------|
 | materialize-spec-quality-guards/phases/f0-spine-quality-lint-skill-ux.md | active | F0 | plan/materialize-spec-quality-guards | 0/3 |
-
 ## Active Initiatives (standalone)
 
 _(none)_

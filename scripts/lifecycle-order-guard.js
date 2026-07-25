@@ -16,7 +16,6 @@
 import { validatePhaseDag } from '../src/transition.js';
 import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
 import { decisionReviewAllowsPhaseDone } from '../src/decision-review-gate.js';
-
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
   SPLIT_PHASE: 'split-phase',
@@ -372,8 +371,22 @@ function exitGatesOf(input) {
 }
 
 function reviewGateOf(input) {
+  if (input.reviewGate != null && typeof input.reviewGate === 'object') {
+    return input.reviewGate;
+  }
   const phase = phaseSlice(input);
-  return input.reviewGate ?? phase.reviewGate;
+  if (phase.reviewGate != null && typeof phase.reviewGate === 'object') {
+    return phase.reviewGate;
+  }
+  const plan = object(input.plan);
+  const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
+  if (!Array.isArray(plan.phases) || !phaseId) return input.reviewGate ?? phase.reviewGate;
+  const planPhase = plan.phases.find(
+    (p) => object(p).id === phaseId || object(p).slug === phaseId,
+  );
+  if (planPhase == null) return null;
+  const rg = object(planPhase).reviewGate;
+  return rg != null && typeof rg === 'object' ? rg : null;
 }
 
 /**
@@ -501,8 +514,7 @@ function checkPhaseDoneDecisionReview(input) {
   );
 }
 
-/**
- * Identity for phase-done: initiative must carry parentPlan + phaseId (or
+/** * Identity for phase-done: initiative must carry parentPlan + phaseId (or
  * callers pass them explicitly). Optional plan slice checks the phase exists.
  * @param {object} input
  * @returns {{allowed:boolean, blocked:boolean, code:string|null, reason:string|null,
@@ -615,8 +627,7 @@ export function preflightPhaseDone(input = {}) {
   if (evaluation.blocked) return evaluation;
   // Decision-review operator PASS (status=passed + verifiedAt) under automate.
   // Same durable stamp as canRunPhaseDone; fails closed without the stamp.
-  return checkPhaseDoneDecisionReview(safe);
-}
+  return checkPhaseDoneDecisionReview(safe);}
 
 /**
  * Pure commit guard for phase-done — runs AFTER evidence / review / lessons.
@@ -681,8 +692,7 @@ export function commitGuardPhaseDone(input = {}) {
       durableAutomate
         ? 'Run `atomic-skills:review-code <range> --mode=both`, stamp reviewGate {status:passed, at:HEAD, mode:both}, then rerun `phase-done`. Clear executionMode stamp only if leaving automate.'
         : 'Run `atomic-skills:review-code <range>` and record reviewGate (passed + SHA + mode), then rerun `phase-done`.',
-    );
-  }
+    );  }
 
   if (safe.requireLessons !== false) {
     const phase = phaseSlice(safe);

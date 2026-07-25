@@ -367,7 +367,7 @@ test('B1: under durable automate, reviewGate skipped is blocked even with reason
             subPhaseCount: 0,
             goal: 'g',
             title: 'F4',
-            evaluationGate: { status: 'passed', verdict: 'pass' },
+            evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
             decisionReview: automateDecisionReviewPassed,
           },
         ],
@@ -398,7 +398,7 @@ test('B1: under durable automate, reviewGate passed + mode local is blocked', ()
             subPhaseCount: 0,
             goal: 'g',
             title: 'F4',
-            evaluationGate: { status: 'passed', verdict: 'pass' },
+            evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
             decisionReview: automateDecisionReviewPassed,
           },
         ],
@@ -425,7 +425,7 @@ test('B1: under durable automate, reviewGate passed + mode both is allowed', () 
             subPhaseCount: 0,
             goal: 'g',
             title: 'F4',
-            evaluationGate: { status: 'passed', verdict: 'pass' },
+            evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
             decisionReview: automateDecisionReviewPassed,
           },
         ],
@@ -460,7 +460,7 @@ test('top-level evaluationGate cannot spoof missing plan.phases[] stamp', () => 
       executionMode: 'automate',
       phases: [{ id: 'F0', slug: 'f0', status: 'active', dependsOn: [] }],
     },
-    evaluationGate: { status: 'passed', verdict: 'pass' },
+    evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
     decisionReview: automateDecisionReviewPassed,
     tasks: [{ id: 'T-001', status: 'done' }],
   });
@@ -555,7 +555,7 @@ test('preflightPhaseDone blocks under automate without evaluationGate (R1)', () 
   assert.match(result.recommendedCommand || '', /evaluation/i);
 });
 
-test('preflightPhaseDone blocks automate when evaluationGate passed but decisionReview missing', () => {
+test('preflightPhaseDone blocks under automate with evaluation but without decisionReview', () => {
   const result = preflightPhaseDone({
     parentPlan: 'demo',
     phaseId: 'F0',
@@ -567,7 +567,11 @@ test('preflightPhaseDone blocks automate when evaluationGate passed but decision
           slug: 'f0',
           status: 'active',
           dependsOn: [],
-          evaluationGate: { status: 'passed', verdict: 'pass' },
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
         },
       ],
     },
@@ -590,7 +594,7 @@ test('preflightPhaseDone blocks automate when decisionReview pending', () => {
           slug: 'f0',
           status: 'active',
           dependsOn: [],
-          evaluationGate: { status: 'passed', verdict: 'pass' },
+          evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
           decisionReview: { status: 'pending' },
         },
       ],
@@ -614,7 +618,7 @@ test('preflightPhaseDone allows automate when evaluationGate and decisionReview 
           slug: 'f0',
           status: 'active',
           dependsOn: [],
-          evaluationGate: { status: 'passed', verdict: 'pass' },
+          evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-23T12:00:00.000Z',
@@ -642,11 +646,11 @@ test('top-level executionMode automate: preflight/commitGuard block when decisio
           subPhaseCount: 0,
           goal: 'g',
           title: 'F4',
-          evaluationGate: { status: 'passed', verdict: 'pass' },
+          evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
         },
       ],
     },
-    evaluationGate: { status: 'passed', verdict: 'pass' },
+    evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
     reviewGate: { status: 'passed', at: FP, mode: 'both' },
   });
   const preflight = preflightPhaseDone(input);
@@ -671,7 +675,7 @@ test('top-level executionMode automate: preflight/commitGuard allow when decisio
           subPhaseCount: 0,
           goal: 'g',
           title: 'F4',
-          evaluationGate: { status: 'passed', verdict: 'pass' },
+          evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-23T12:00:00.000Z',
@@ -679,7 +683,7 @@ test('top-level executionMode automate: preflight/commitGuard allow when decisio
         },
       ],
     },
-    evaluationGate: { status: 'passed', verdict: 'pass' },
+    evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
     decisionReview: {
       status: 'passed',
       verifiedAt: '2026-07-23T12:00:00.000Z',

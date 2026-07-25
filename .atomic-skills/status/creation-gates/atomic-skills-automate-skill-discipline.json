@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "automate-skill-discipline",
+  "projectId": "atomic-skills",
+  "sourcePath": ".atomic-skills/projects/atomic-skills/automate-skill-discipline/source.md",
+  "stage": "ready",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/plan.md",
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/phases/f0-assert-cli-and-skill-call-sites-r1.md"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/design.md",
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/source.md",
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/plan.md",
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/phases/f0-assert-cli-and-skill-call-sites-r1.md",
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/phases/f1-evaluationgate-authenticity-r3.source.json",
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/phases/f2-claim-bound-done-and-complex-both.source.json",
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/phases/f3-thin-maestro-step-cursor-r2.source.json",
+    ".atomic-skills/projects/atomic-skills/automate-skill-discipline/phases/f4-phase-pause-framing-and-residual-d.source.json"
+  ],
+  "status": "ready",
+  "updatedAt": "2026-07-21T19:28:00.000Z"
+}

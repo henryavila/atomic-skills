@@ -666,15 +666,14 @@ export function checkReviewGate(frontmatter) {
 }
 
 /**
- * GATE-R4 — evaluation gate honesty under durable automate (R1).
+ * GATE-R4 — evaluation gate honesty under durable automate (R1 + R3 authenticity).
  *
  * When plan.executionMode is automate, every phase with status:'done' must carry
  * an evaluationGate that phaseEvaluationAllowsClose accepts (**only**
  * passed+verdict pass under durable automate). Absent gate on a done automate
  * phase is a HARD violation. Non-automate plans: evaluationGate optional;
  * if present under non-automate, only basic shape (object) is required —
- * honesty uses plan stamp, not forced automateActive.
- *
+ * honesty uses plan stamp, not forced automateActive. *
  * @param {object} frontmatter - parsed plan frontmatter
  * @returns {string[]}
  */
@@ -747,8 +746,7 @@ export function checkDecisionReview(frontmatter) {
     const label = `phase ${phase.id ?? '?'}`;
     const honesty = decisionReviewAllowsPhaseDone({
       planExecutionMode: 'automate',
-      decisionReview: phase.decisionReview,
-    });
+      decisionReview: phase.decisionReview,    });
     if (!honesty.ok) {
       violations.push(
         `${label}: decisionReview invalid under automate — ${honesty.reason}`,

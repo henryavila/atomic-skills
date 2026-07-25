@@ -5,10 +5,12 @@ import {
   canSpawnPhaseWriter,
   canSpawnHostThinPhaseWriter,
   canCloseTasksFromClaims,
+  canDoneFromAutomateClaims,
   canRunPhaseDone,
   canFinalizeOrArchive,
   automateModeSnapshot,
 } from '../src/automate-orchestrator-gates.js';
+import { complexTaskAllowsDone } from '../src/complex-task.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -22,7 +24,6 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSERT_SCRIPT = join(ROOT, 'scripts', 'assert-automate-gate.js');
-
 describe('shouldRunPureMaestro', () => {
   it('true for cli automate', () => {
     assert.equal(shouldRunPureMaestro({ cliMode: 'automate' }), true);
@@ -211,6 +212,7 @@ describe('assert-automate-gate spawn descriptor-only', () => {
           'demo',
           '--gate',
           'spawn',
+          '--skip-cursor',
           '--state-root',
           stateRoot,
           '--status-root',
@@ -237,6 +239,7 @@ describe('assert-automate-gate spawn descriptor-only', () => {
           'demo',
           '--gate',
           'spawn',
+          '--skip-cursor',
           '--state-root',
           stateRoot,
           '--status-root',
@@ -265,6 +268,7 @@ describe('canCloseTasksFromClaims', () => {
 
   it('rejects missing report', () => {
     assert.equal(canCloseTasksFromClaims({}).ok, false);
+    assert.match(canCloseTasksFromClaims({}).reason || '', /missing claim/i);
   });
 
   it('accepts valid claim report', () => {
@@ -301,7 +305,6 @@ describe('canCloseTasksFromClaims', () => {
       true,
     );
   });
-
   it('reachability check when requested', () => {
     const sha = goodTask.commitShas[0];
     assert.equal(
@@ -323,11 +326,176 @@ describe('canCloseTasksFromClaims', () => {
   });
 });
 
+describe('canDoneFromAutomateClaims (claim-bound automate done)', () => {
+  const sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const goodTask = {
+    taskId: 'T-001',
+    status: 'claimed-pass',
+    commitShas: [sha],
+    paths: ['src/a.js'],
+    verifierCommand: 'node -e "process.exit(0)"',
+    exitCode: 0,
+    transcript: '',
+  };
+
+  it('rejects missing claim report (claim-bound)', () => {
+    const r = canDoneFromAutomateClaims({});
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /missing claim/i);
+  });
+
+  it('defaults checkReachability true for automate done', () => {
+    // Valid claim shape alone is insufficient without reachable set (default on).
+    const noReach = canDoneFromAutomateClaims({
+      claimReport: { tasks: [goodTask] },
+    });
+    assert.equal(noReach.ok, false, 'reachability defaults true → empty set fails');
+    assert.match(noReach.reason || '', /reachab|missing|not reachable/i);
+
+    const reachable = canDoneFromAutomateClaims({
+      claimReport: { tasks: [goodTask] },
+      reachableSet: new Set([sha]),
+    });
+    assert.equal(reachable.ok, true, reachable.reason);
+
+    // Explicit opt-out allowed for pre-merge claim-shape-only checks
+    const shapeOnly = canDoneFromAutomateClaims({
+      claimReport: { tasks: [goodTask] },
+      checkReachability: false,
+    });
+    assert.equal(shapeOnly.ok, true, shapeOnly.reason);
+  });
+
+  it('rejects non-reachable SHA under default reachability', () => {
+    const r = canDoneFromAutomateClaims({
+      claimReport: { tasks: [goodTask] },
+      reachableSet: new Set(['cccccccccccccccccccccccccccccccccccccccc']),
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /not reachable|reachab/i);
+  });
+
+  it('rejects overlapping SHAs even with reachability opted out', () => {
+    const shared = 'dddddddddddddddddddddddddddddddddddddddd';
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: {
+        tasks: [
+          { ...goodTask, taskId: 'T-001', commitShas: [shared] },
+          {
+            ...goodTask,
+            taskId: 'T-002',
+            commitShas: [shared],
+            paths: ['src/b.js'],
+          },
+        ],
+      },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /overlap|ambiguous/i);
+  });
+});
+
+describe('complexTaskAllowsDone (complex-before-done under automate)', () => {
+  it('non-complex allows verifier-only path (no receipt)', () => {
+    const r = complexTaskAllowsDone({
+      task: { weight: 1, tags: [], destructiveDiff: false },
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.complex, false);
+    assert.equal(r.path, 'verifier-only');
+  });
+
+  it('complex without receipt blocks done', () => {
+    const r = complexTaskAllowsDone({
+      task: { weight: 3 },
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.complex, true);
+    assert.match(r.reason || '', /receipt|both|complex/i);
+  });
+
+  it('complex with durable review receipt mode both allows done', () => {
+    const r = complexTaskAllowsDone({
+      task: { tags: ['destructive'] },
+      reviewReceipt: {
+        mode: 'both',
+        reviewFile: '.atomic-skills/reviews/demo-t001-both.md',
+        verifiedAt: '2026-07-21T00:00:00.000Z',
+      },
+    });
+    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.complex, true);
+    assert.equal(r.path, 'both-receipt');
+  });
+
+  it('complex with local mode receipt still blocks', () => {
+    const r = complexTaskAllowsDone({
+      task: { destructiveDiff: true },
+      reviewReceipt: {
+        mode: 'local',
+        reviewFile: '.atomic-skills/reviews/demo-local.md',
+      },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /both|mode/i);
+  });
+
+  it('complex with operator disposition skip allows done', () => {
+    const r = complexTaskAllowsDone({
+      task: { weight: 5 },
+      operatorSkip: true,
+      disposition: 'accept',
+      reason: 'operator accepted residual risk after local review',
+    });
+    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.complex, true);
+    assert.equal(r.path, 'operator-disposition');
+  });
+
+  it('complex operator skip without disposition or reason blocks', () => {
+    assert.equal(
+      complexTaskAllowsDone({
+        task: { weight: 3 },
+        operatorSkip: true,
+        reason: 'no disposition',
+      }).ok,
+      false,
+    );
+    assert.equal(
+      complexTaskAllowsDone({
+        task: { weight: 3 },
+        operatorSkip: true,
+        disposition: 'accept',
+        reason: '',
+      }).ok,
+      false,
+    );
+  });
+});
+
 describe('canRunPhaseDone + canFinalizeOrArchive', () => {
-  const evalPassed = { status: 'passed', verdict: 'pass' };
+  const evalPassed = {
+    status: 'passed',
+    verdict: 'pass',
+    reportPath: '.atomic-skills/reviews/eval-demo.md',
+  };
   const decisionPassed = {
     status: 'passed',
     verifiedAt: '2026-07-23T12:00:00.000Z',
+  };
+  const reviewBoth = {
+    status: 'passed',
+    mode: 'both',
+    at: 'a'.repeat(40),
+    reviewFile: '.atomic-skills/reviews/f0-both.md',
+  };
+  const fullPhaseDoneOk = {
+    planExecutionMode: 'automate',
+    evaluationGate: evalPassed,
+    lessonsState: 'none',
+    reviewGate: reviewBoth,
+    decisionReview: decisionPassed,
   };
 
   it('phase-done blocked under stamp without evaluation', () => {
@@ -337,42 +505,47 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
     );
   });
 
-  it('automate + eval passed + decisionReview missing → block', () => {
+  it('automate + eval passed but lessons missing → block', () => {
     const r = canRunPhaseDone({
       planExecutionMode: 'automate',
       evaluationGate: evalPassed,
     });
     assert.equal(r.ok, false);
-    assert.match(r.reason || '', /decisionReview/);
+    assert.match(r.reason || '', /lessons/i);
   });
 
-  it('automate + eval passed + decisionReview pending → block', () => {
+  it('automate + eval + lessons + review but decisionReview missing → block', () => {
     const r = canRunPhaseDone({
       planExecutionMode: 'automate',
       evaluationGate: evalPassed,
+      lessonsState: 'none',
+      reviewGate: reviewBoth,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /decisionReview/);
+  });
+
+  it('automate + full chain + decisionReview pending → block', () => {
+    const r = canRunPhaseDone({
+      ...fullPhaseDoneOk,
       decisionReview: { status: 'pending' },
     });
     assert.equal(r.ok, false);
     assert.match(r.reason || '', /pending|decisionReview/i);
   });
 
-  it('automate + eval passed + decisionReview failed → block', () => {
+  it('automate + full chain + decisionReview failed → block', () => {
     const r = canRunPhaseDone({
-      planExecutionMode: 'automate',
-      evaluationGate: evalPassed,
+      ...fullPhaseDoneOk,
       decisionReview: { status: 'failed', verifiedAt: decisionPassed.verifiedAt },
     });
     assert.equal(r.ok, false);
     assert.match(r.reason || '', /failed|decisionReview/i);
   });
 
-  it('automate + both eval and decisionReview passed → allow', () => {
-    const r = canRunPhaseDone({
-      planExecutionMode: 'automate',
-      evaluationGate: evalPassed,
-      decisionReview: decisionPassed,
-    });
-    assert.equal(r.ok, true);
+  it('automate + eval + lessons + review both + decisionReview passed → allow', () => {
+    const r = canRunPhaseDone(fullPhaseDoneOk);
+    assert.equal(r.ok, true, r.reason);
   });
 
   it('non-automate skips decisionReview (and evaluation)', () => {
@@ -391,11 +564,12 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
     const r = canRunPhaseDone({
       planExecutionMode: 'automate',
       decisionReview: decisionPassed,
+      lessonsState: 'none',
+      reviewGate: reviewBoth,
     });
     assert.equal(r.ok, false);
     assert.match(r.reason || '', /evaluationGate/);
   });
-
   it('finalize durable stamp still gates when session clear would turn isAutomateActive off', () => {
     // H1: stamp remains → durable HARD-BLOCK even if session cleared
     const gates = canFinalizeOrArchive({
@@ -469,6 +643,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           '../evil',
           '--gate',
           'spawn',
+          '--skip-cursor',
           '--state-root',
           stateRoot,
           '--status-root',
@@ -564,6 +739,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           'flat-plan',
           '--gate',
           'spawn',
+          '--skip-cursor',
           '--state-root',
           stateRoot,
           '--status-root',
@@ -610,6 +786,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           'flat-plan',
           '--gate',
           'spawn',
+          '--skip-cursor',
           '--state-root',
           stateRoot,
           '--status-root',
@@ -755,6 +932,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           'demo',
           '--gate',
           'claims',
+          '--skip-cursor',
           '--claim-report',
           claimPath,
           '--state-root',
@@ -825,6 +1003,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           'demo',
           '--gate',
           'spawn',
+          '--skip-cursor',
           '--state-root',
           stateRoot,
           '--status-root',
@@ -892,6 +1071,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           'demo',
           '--gate',
           'spawn',
+          '--skip-cursor',
           '--state-root',
           stateRoot,
           '--status-root',
@@ -958,6 +1138,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
           'demo',
           '--gate',
           'spawn',
+          '--skip-cursor',
           '--state-root',
           stateRoot,
           '--status-root',

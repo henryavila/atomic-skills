@@ -5,6 +5,16 @@
  * the machine-checkable STOP points an agent (or future thin CLI) must call
  * before advancing — they do not spawn writers or run git.
  *
+ * Claim-bound done under durable automate:
+ *   - {@link canCloseTasksFromClaims} — validate claim report; reachability opt-in
+ *   - {@link canDoneFromAutomateClaims} — claim + **reachability default true**
+ *     for automate orchestrator `done` (missing/invalid/non-reachable ⇒ block)
+ *   - complex path: `complexTaskAllowsDone` in `src/complex-task.js` (both
+ *     receipt or operator disposition; non-complex ⇒ verifier-only)
+ *
+ * phase-done under durable automate (order, all required):
+ *   evaluation → lessons → phase review (both) → decisionReview
+ *
  * No I/O (except optional FS wrappers re-exported only via comment — call
  * writer-lease / claim-report directly for disk).
  */
@@ -18,7 +28,10 @@ import {
   isDurableAutomateActive,
 } from './plan-end-review.js';
 import { phaseEvaluationAllowsClose } from './phase-evaluation-gate.js';
+import { phaseLessonsAllowsClose } from './phase-lessons-gate.js';
+import { phaseReviewAllowsClose } from './phase-review-gate.js';
 import { decisionReviewAllowsPhaseDone } from './decision-review-gate.js';
+import { complexTaskAllowsDone } from './complex-task.js';
 import {
   validateClaimReport,
   validateClaimReachability,
@@ -127,6 +140,10 @@ export function canSpawnHostThinPhaseWriter(input = {}) {
  * claimed-pass with exitCode === 0, or a closed non-open status (blocked|skipped).
  * claimed-fail never satisfies the done gate.
  *
+ * Low-level claim shape + exclusivity gate. Reachability is **opt-in** here
+ * (`checkReachability === true`). For **automate claim-bound done** (default
+ * reachability on), prefer {@link canDoneFromAutomateClaims}.
+ *
  * @param {{
  *   claimReport?: unknown,
  *   reachableSet?: Iterable<string> | ((sha: string) => boolean) | null,
@@ -188,17 +205,76 @@ export function canCloseTasksFromClaims(input = {}) {
 }
 
 /**
- * Before phase-done under durable automate: evaluation gate AND decision-review
- * must both allow close. Non-automate: both helpers return ok (gates inactive).
+ * Claim-bound automate done (HARD under durable `executionMode: automate`).
  *
- * Order: evaluation first, then decision-review (both must pass under automate).
- * Does not stamp either field — evaluation agent never auto-stamps decisionReview.
+ * Requires a valid claim report (fields + multi-task exclusivity). **Post-merge
+ * reachability defaults to true** — pass a reachable set / predicate after
+ * merge settle, or set `checkReachability: false` only for pre-merge claim
+ * shape checks. Missing / invalid / overlapping / non-reachable claims ⇒
+ * refuse orchestrator `done` (claim-bound close).
+ *
+ * When `complexTasks` is provided (array of { task, reviewReceipt?, ... }),
+ * each entry must pass {@link complexTaskAllowsDone} (complex → both receipt
+ * or operator disposition). Omit the array to skip complex checks (shape-only).
+ *
+ * @param {{
+ *   claimReport?: unknown,
+ *   reachableSet?: Iterable<string> | ((sha: string) => boolean) | null,
+ *   checkReachability?: boolean,
+ *   complexTasks?: Array<{
+ *     task?: object | null,
+ *     reviewReceipt?: object | null,
+ *     operatorSkip?: boolean | null,
+ *     disposition?: string | null,
+ *     reason?: string | null,
+ *     complexOptions?: { threshold?: number | string },
+ *   }> | null,
+ * }} [input]
+ * @returns {{ ok: boolean, reason?: string, claimValidation?: object }}
+ */
+export function canDoneFromAutomateClaims(input = {}) {
+  // Automate done: claim required + reachability on by default.
+  const checkReachability = input.checkReachability !== false;
+  const claim = canCloseTasksFromClaims({
+    claimReport: input.claimReport,
+    reachableSet: input.reachableSet,
+    checkReachability,
+  });
+  if (!claim.ok) return claim;
+
+  if (Array.isArray(input.complexTasks)) {
+    for (let i = 0; i < input.complexTasks.length; i++) {
+      const row = input.complexTasks[i];
+      if (row == null || typeof row !== 'object') continue;
+      const c = complexTaskAllowsDone(row);
+      if (!c.ok) {
+        return {
+          ok: false,
+          reason: c.reason || `complex task gate failed at index ${i}`,
+          claimValidation: claim.claimValidation,
+        };
+      }
+    }
+  }
+  return claim;
+}
+
+/**
+ * Before phase-done under durable automate:
+ * evaluation → lessons → phase review (both) → decisionReview.
+ *
+ * Non-automate: inactive helpers return ok. Does not stamp any field.
  *
  * @param {{
  *   automateActive?: boolean | null,
  *   planExecutionMode?: string | null,
  *   executionMode?: string | null,
  *   evaluationGate?: import('./phase-evaluation-gate.js').EvaluationGate | null,
+ *   lessonsState?: string | null,
+ *   lessonsPath?: string | null,
+ *   noneReason?: string | null,
+ *   reviewGate?: unknown,
+ *   phase?: object | null,
  *   decisionReview?: import('./decision-review-gate.js').DecisionReview | null,
  * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
@@ -210,18 +286,36 @@ export function canRunPhaseDone(input = {}) {
       : input.executionMode != null
         ? input.executionMode
         : null;
-  const evalResult = phaseEvaluationAllowsClose({
-    automateActive: input.automateActive,
-    planExecutionMode,
-    evaluationGate: input.evaluationGate,
-  });
-  if (!evalResult.ok) {
-    return evalResult;
-  }
-  return decisionReviewAllowsPhaseDone({
+  const base = {
     automateActive: input.automateActive,
     planExecutionMode,
     executionMode: input.executionMode,
+  };
+
+  const evalResult = phaseEvaluationAllowsClose({
+    ...base,
+    evaluationGate: input.evaluationGate,
+  });
+  if (!evalResult.ok) return evalResult;
+
+  const lessons = phaseLessonsAllowsClose({
+    ...base,
+    lessonsState: input.lessonsState,
+    lessonsPath: input.lessonsPath,
+    noneReason: input.noneReason,
+    phase: input.phase,
+  });
+  if (!lessons.ok) return lessons;
+
+  const review = phaseReviewAllowsClose({
+    ...base,
+    reviewGate: input.reviewGate,
+    phase: input.phase,
+  });
+  if (!review.ok) return review;
+
+  return decisionReviewAllowsPhaseDone({
+    ...base,
     decisionReview: input.decisionReview,
   });
 }

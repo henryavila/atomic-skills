@@ -37,14 +37,44 @@ Pure functions the skill **must** call before advancing. Already landed:
 **warnings → errors** under `executionMode: automate` (evaluationGate present
 on done phases; planEndReview when status archived/finalizing).
 
-### Layer 2 — Thin CLI “assert” (1–2 days)
+### Layer 2 — Thin CLI “assert” (**landed** — F0)
 
 ```bash
-node scripts/assert-automate-gate.js --plan <slug> --gate spawn|done|phase-done|finalize
+node scripts/assert-automate-gate.js --plan <slug> --gate spawn|claims|done|phase-done|finalize
 ```
 
-Reads disk state, prints ok/blocked + reason, exit 1 on block. Agents run it
-before transitions; CI can run finalize gate on stamped plans. Still no spawn.
+**Path:** `scripts/assert-automate-gate.js` (unit tests: `tests/assert-automate-gate.test.js`).
+Wraps Layer-1 helpers: lease read → `canSpawnPhaseWriter`; claim report →
+`canCloseTasksFromClaims`; plan `evaluationGate` → `canRunPhaseDone`; plan-end
+receipt + `userValidatedAt` → `canFinalizeOrArchive`.
+
+Reads disk state, prints `ok` / `blocked: <reason>`, exit 1 on block. Skill prose
+(`implement` pure-maestro Steps **C / E / G / I**, `project-transitions` /
+`project-finalize`) **requires** this assert before spawn, done-batch,
+phase-done, and finalize under automate — non-zero forbids advancing. Still no
+spawn of writers (orchestration remains skill-driven).
+
+### Layer 2.5 — Thin maestro step cursor (**landed** — F3 / R2)
+
+**Not Layer 4.** A durable per-plan status file records pure-maestro position so
+assert can refuse illegal step jumps without a spawn supervisor or multi-host
+daemon.
+
+| Piece | Path |
+|-------|------|
+| Module | `src/maestro-cursor.js` |
+| Tests | `tests/maestro-cursor.test.js` |
+| Status file | `.atomic-skills/status/automate/<plan-slug>.json` |
+
+Shape: `{ step, phaseId, redispatchCount, claimReportPath?, leasePath?, updatedAt }`
+with steps A–I plus pause `awaiting-operator-advance`. Legal transition table
+rejects jumps (e.g. C→G). Under durable `executionMode: automate`,
+`assert-automate-gate` reads the cursor and blocks spawn/done/phase-done/finalize
+when the step does not match (spawn needs **C**, done **E**, phase-done **G**,
+finalize **I**). Missing cursor initializes at **A** without throw; skill prose
+must advance the cursor on each A–I boundary. Non-automate plans never require a
+cursor. **Do not** treat this as Layer 4 workqueue + provider spawn adapters —
+those remain non-goals until dogfood proves Layer 1–2.5 insufficient.
 
 ### Layer 3 — Host-local runner (weeks, optional)
 
@@ -66,12 +96,13 @@ implemented by host-thin phase agents / phase-start package work.
 
 Only if automate becomes the default path for many plans *after* Layers 1–2 dogfood:
 
-- Workqueue + durable step cursor in `.atomic-skills/status/`
+- Workqueue + multi-host recovery beyond the thin Layer 2.5 cursor
 - Provider-specific spawn adapters (Claude Task, Codex, Grok subagent)
-- Crash recovery from lease + handoff
+- Crash recovery from lease + handoff as a supervised loop
 
-**Do not start Layer 4** until Layers 1–2 have dogfood evidence of real failures
-(skipped evaluation, finalize without plan-end, claim without merge).
+**Do not start Layer 4** until Layers 1–2 (+ thin cursor 2.5) have dogfood
+evidence of real failures the status file cannot catch (skipped evaluation,
+finalize without plan-end, claim without merge, host-local wait-loop needs).
 
 ## What not to do
 
@@ -83,46 +114,48 @@ Only if automate becomes the default path for many plans *after* Layers 1–2 do
 
 ## Operator mental model
 
-Under automate the operator model is **host-thin phase agents** plus a
-**phase-start package** ritual — not a full maestro daemon (Layer 4 remains a
-non-goal for this plan).
+1. **Materialize** each phase (you own `businessIntent` — automate never invents spine).
+2. **`implement --mode=automate`** once per plan (stamp). Mode 1 is the **execution driver**; automate is **pure maestro** (orchestrator-only).
+3. Maestro follows A–I; STOP helpers + **`assert-automate-gate`** + **maestro cursor** refuse illegal jumps when invoked (spawn/done/phase-done/finalize).
+4. After phase-done, cursor sits at **`awaiting-operator-advance`** (pause) until you **continue** via `clearContinue` (`operator-continue` token). No multi-phase auto-run; no auto-materialize; generic ok is not enough.
+5. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your **`userValidatedAt`** validation timestamp (`assert-automate-gate --gate finalize`).
+**Assert + cursor + pause** are the cheap fail-closed trio: Layer-2 CLI, Layer-2.5 step file, post phase-done operator authority. If a step is skipped, prefer **fail closed** (blocked `assert-automate-gate` / illegal cursor step / `awaiting-operator-advance`) over “looks done”.
 
-1. **Phase-start package ritual (draft + ratify allowed; silent auto-PASS not).**
-   At **phase-start**, the skill presents a **draft** package: phase **objective**
-   + **task list** (id + title, titles advisory) + a **drafted** `businessIntent`.
-   Your role is **validate-only** for the BI spine (edit fields, then explicit
-   ratify). **No durable BI write** and **no materialize publish** while the phase
-   is still descriptor-only until you ratify. After ratify, the host materializes
-   from the sidecar with your **ratified** spine (not a blank invent form). Durable
-   title renames require re-spec. Blank-fill BI and silent auto-PASS are forbidden
-   — you own the spine, the skill drafts it. Draft+ratify is the intended path;
-   silent auto-PASS is not.
-2. **`implement --mode=automate`** once per plan (stamp). Host stays **host-thin**:
-   no product source edits; no product diagnostic entrypoints except **verbatim**
-   verifiers. One **fresh phase agent** per phase (constructed brief; no host
-   chat history) only after package ratify (+ materialize when needed) and work-order.
-3. Maestro follows A–I; STOP helpers refuse illegal jumps when invoked.
-4. Before **phase-done** under automate, fixed order only:
-   all phase tasks done → **evaluation agent** → stamp **`evaluationGate`**
-   (`buildEvaluationGate` / `canRunPhaseDone`) → **decision-review** mandatory
-   **manual hardgate** (only you write **operator PASS**; agents never write
-   decision-review PASS) → **then** `phase-done` with `review-code --mode=both`.
-5. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your validation timestamp.
-   **Skip is forbidden under durable automate:** `planEndReviewOk(..., { forbidSkip: true })` —
-   `--skip-plan-end-review` with any reason does **not** open finalize/archive while
-   `executionMode: automate` remains. Phase evaluation and phase-done `review-code`
-   are likewise mandatory (`phaseEvaluationAllowsClose` only accepts passed+pass;
-   `phaseReviewMode` never returns local/skip under automate).
+### Lessons distill (hard under automate — no skip)
 
-If a step is skipped, **fail closed** (blocked gate) — never treat a skipped gate as “looks done”.
+Dogfood: pure-maestro multi-phase skipped phase-end lessons (no `Proposed lessons:`, no operator ratify, no `lessons/` file). That is a skill-step skip, not a clean phase.
 
-## Plan quality guards
+Under durable `executionMode: automate`, `canRunPhaseDone` / `assert-automate-gate --gate phase-done` / `preflightPhaseDone` require an **answered** lessons gate before advance:
 
-- Skill may **draft** `businessIntent` in the phase-start package; operator is
-  **validate-only** (BI field edit allowed, then ratify). Draft+ratify is allowed
-  under F4; forbidden: silent auto-PASS of drafted BI, durable BI write / materialize
-  publish **before** ratify, silent auto-materialize with unratified BI, and
-  blank-fill BI forms under automate (Mode-1 bare materialize may still use the
-  blank-form proof-of-work path).
-- Quality HARD: `find-weak-business-intent.js` after presence.
-- Fingerprint refuse emits D9 `fingerprint_refuse` (fail-open); report via `scripts/report-plan-quality.js`.
+| `lessonsState` | Required |
+|----------------|----------|
+| `recorded` | non-empty `lessonsPath` after distill + operator ratify → `lessons/<initiative>.md` |
+| `none` | explicit zero-lessons (clean phase) — **omitting the field is invalid** |
+
+Helpers: `src/phase-lessons-gate.js` (`phaseLessonsAllowsClose`, `buildLessonsState`). Code: `phase-done-lessons-open`.
+
+### Phase review both (hard under automate — no skip)
+
+Dogfood: `reviewGate.mode: local` without real `review-code --mode=both`. Under stamp,
+`canRunPhaseDone` / preflight / commitGuard / assert require:
+
+| `reviewGate` | Required |
+|--------------|----------|
+| `status: passed` | `mode` ∈ both \| both-* \| external-both, real `at` SHA, non-empty `reviewFile` |
+| `status: passed` + `mode: local` | only with non-empty `overrideReason` (operator downgrade) |
+| `status: skipped` | `operatorSkip: true` + non-empty `reason` |
+
+Helper: `src/phase-review-gate.js` (`phaseReviewAllowsClose`). Code: `phase-done-review-open`.
+
+### Complex before done (auto-loaded on assert --gate done)
+
+`assert-automate-gate --gate done` loads the phase initiative and builds
+`complexTasks` via `src/automate-complex-from-initiative.js` (weight/tags +
+`--complex-receipts` map or `task.reviewReceipt`). Complex without both-mode
+receipt fails closed.
+
+### lastAssert mutation fence
+
+On done/phase-done, assert writes `lastAssert: { gate, ok, at }` on the maestro
+cursor. Skill must call `lastAssertAllows(cursor, gate)` before mutating task
+or phase terminal state — fail closed if assert was skipped or failed.

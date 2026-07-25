@@ -1,410 +1,72 @@
-#!/usr/bin/env node
 /**
- * assert-automate-gate.js — thin Layer-2 CLI over automate STOP helpers.
+ * assert-automate-gate.js — thin CLI over Layer-1 pure automate STOP helpers.
  *
- * No spawn, no git merge, no process supervisor, no network, no durable
- * mutation of plan/initiative. Reads plan/lease/claim from disk and prints
- * ok|blocked + reason; exit 0 only when ok.
+ * No spawn, no git merge, no durable state mutation. Reads plan/lease/claim/
+ * maestro-cursor from disk and prints ok|blocked + reason; exit 0 only when ok.
  *
  * Usage:
  *   node scripts/assert-automate-gate.js --plan <slug> --gate <gate> [options]
  *
- * Gates:
- *   spawn         Host-thin preflight: lease clean + active phase initiative
- *                 file present (descriptor-only ⇒ fail closed). Uses
- *                 canSpawnHostThinPhaseWriter / canSpawnPhaseWriter.
- *   claims        canCloseTasksFromClaims shape-only (requires --claim-report)
- *   done          canCloseTasksFromClaims requiring claimed-pass+exit 0
- *                 (requires --claim-report; optional reachability)
- *   phase-done    canRunPhaseDone (evaluationGate + decisionReview under durable automate)
- *   finalize      canFinalizeOrArchive (plan-end + user validation under stamp)
+ * Gates: spawn | claims | done | phase-done | finalize
  *
  * Options:
  *   --project <id>           Prefer projects/<id>/<slug>/plan.md
  *   --state-root <path>      Default: ./.atomic-skills (cwd-relative)
  *   --status-root <path>     Default: <state-root>/status
- *   --claim-report <path>    JSON claim report (claims|done)
- *   --check-reachability     Validate claim SHAs against reachable set
+ *   --claim-report <path>    Required for claims|done when stamp is automate
+ *                            (claim-bound; inactive when no executionMode stamp)
+ *   --check-reachability     Also validate claim SHAs against reachable set
  *   --reachable-file <path>  Newline-separated SHAs (with --check-reachability)
- *   --allow-foreign-paths    Permit claim-report/reachable/state-root outside
- *                            cwd/stateRoot jail (default: jailed)
+ *   --complex-receipts <path> JSON map { "T-001": { mode, reviewFile, ... } }
+ *                            for complex-before-done (optional; also reads
+ *                            task.reviewReceipt on initiative)
+ *   --skip-cursor            Skip maestro cursor step check (debug only)
+ *   --skip-last-assert       Do not write lastAssert on cursor (debug only)
  *   --help
  *
- * Descriptor-only refuse (spawn):
- *   When the active phase has a plan descriptor entry but the matching
- *   initiative file under phases/ is missing, --gate spawn fails with a
- *   materialize hint. That is the machine form of implement Step 1 refuse.
+ * Under durable executionMode: automate, gates also read the thin maestro
+ * cursor (Layer 2.5 — `src/maestro-cursor.js`, path
+ * `<status-root>/automate/<slug>.json`) and block illegal step for
+ * spawn/done/phase-done/finalize. On exit 0 (and blocked done/phase-done),
+ * writes lastAssert so pure-maestro cannot mutate without a fresh assert.
  *
- * Exit codes: 0 ok · 1 blocked or usage error
+ * --gate done also loads the phase initiative and builds complexTasks from
+ * weight/tags + receipts (fail closed for complex without both receipt).
+ *
+ * No auto-merge / no git worktree ops.
  */
 
-import {
-  existsSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  statSync,
-} from 'node:fs';
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep,
-} from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   canSpawnPhaseWriter,
   canSpawnHostThinPhaseWriter,
   canCloseTasksFromClaims,
+  canDoneFromAutomateClaims,
   canRunPhaseDone,
   canFinalizeOrArchive,
 } from '../src/automate-orchestrator-gates.js';
-import { readLeaseResult, sanitizePlanSlug } from '../src/writer-lease.js';
+import { readLeaseResult } from '../src/writer-lease.js';
+import {
+  readCursorResult,
+  ensureCursor,
+  cursorAllowsGate,
+  recordLastAssertFile,
+  AWAITING_OPERATOR_ADVANCE,
+} from '../src/maestro-cursor.js';
+import { hasAutomateStamp } from '../src/implement-mode.js';
+import {
+  buildComplexTasksFromInitiative,
+  claimTaskIdsFromReport,
+} from '../src/automate-complex-from-initiative.js';
 import { parseFrontmatter } from './validate-state.js';
 
-const GATES = new Set(['spawn', 'claims', 'done', 'phase-done', 'finalize']);
-
-const HELP = `assert-automate-gate — pure automate STOP gates (Layer 2)
-
-Usage:
-  node scripts/assert-automate-gate.js --plan <slug> --gate <gate> [options]
-
-Gates:
-  spawn         Host-thin: lease clean + phase initiative materialized
-                (descriptor-only / missing initiative ⇒ blocked)
-  claims        claim report shape-only (--claim-report required)
-  done          all claims claimed-pass+exit0 (--claim-report; optional reachability)
-  phase-done    canRunPhaseDone (evaluationGate + decisionReview under automate stamp)
-  finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
-
-Options:
-  --project <id>            Prefer projects/<id>/<slug>/plan.md
-  --state-root <path>       Default: ./.atomic-skills
-  --status-root <path>      Default: <state-root>/status
-  --claim-report <path>     JSON claim report (claims|done)
-  --check-reachability      Validate claim SHAs against reachable set
-  --reachable-file <path>   Newline-separated SHAs for reachability
-  --allow-foreign-paths     Permit paths outside cwd/stateRoot jail
-  --help                    Show this help (exit 0)
-
-No network. No process supervisor. No plan mutation.
-
-Exit codes:
-  0  ok
-  1  blocked or usage/error
-
-Output:
-  ok
-  blocked: <reason>
-`;
-
-/**
- * @param {string[]} argv
- * @returns {Record<string, string | boolean>}
- */
-export function parseArgs(argv) {
-  /** @type {Record<string, string | boolean>} */
-  const out = {};
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--help' || a === '-h') {
-      out.help = true;
-      continue;
-    }
-    if (a === '--check-reachability') {
-      out.checkReachability = true;
-      continue;
-    }
-    if (a === '--allow-foreign-paths') {
-      out.allowForeignPaths = true;
-      continue;
-    }
-    if (a.startsWith('--') && a.includes('=')) {
-      const eq = a.indexOf('=');
-      const key = a.slice(2, eq);
-      const val = a.slice(eq + 1);
-      out[flagKey(key)] = val;
-      continue;
-    }
-    if (a.startsWith('--')) {
-      const key = a.slice(2);
-      const next = argv[i + 1];
-      if (next == null || next.startsWith('--')) {
-        out[flagKey(key)] = true;
-        continue;
-      }
-      out[flagKey(key)] = next;
-      i++;
-      continue;
-    }
-  }
-  return out;
-}
-
-/** @param {string} key */
-function flagKey(key) {
-  return key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-}
-
-/**
- * Sanitize a single path segment (slug / project id). Reuses writer-lease rules.
- * @param {string} value
- * @param {string} label
- * @returns {{ ok: true, value: string } | { ok: false, error: string }}
- */
-export function sanitizeSegment(value, label = 'slug') {
-  try {
-    return { ok: true, value: sanitizePlanSlug(String(value).trim()) };
-  } catch (err) {
-    return {
-      ok: false,
-      error: `invalid ${label}: ${err instanceof Error ? err.message : String(err)}`,
-    };
-  }
-}
-
-/**
- * Canonicalize for jail compare (resolve + realpath of existing ancestor).
- * Handles macOS /var → /private/var and other symlink cwd mismatches.
- * @param {string} p
- * @returns {string}
- */
-export function canonicalizePath(p) {
-  const abs = resolve(p);
-  try {
-    if (existsSync(abs)) return realpathSync(abs);
-  } catch {
-    /* fall through */
-  }
-  /** @type {string[]} */
-  const rest = [];
-  let cur = abs;
-  while (cur !== dirname(cur)) {
-    try {
-      if (existsSync(cur)) {
-        return rest.length
-          ? join(realpathSync(cur), ...rest.reverse())
-          : realpathSync(cur);
-      }
-    } catch {
-      /* keep walking */
-    }
-    rest.push(basename(cur));
-    cur = dirname(cur);
-  }
-  return abs;
-}
-
-/**
- * True when resolved path is under one of the jail roots (or equal to a root).
- * @param {string} candidateAbs
- * @param {string[]} jailRootsAbs
- * @returns {boolean}
- */
-export function isPathInsideJail(candidateAbs, jailRootsAbs) {
-  const target = canonicalizePath(candidateAbs);
-  for (const root of jailRootsAbs) {
-    const r = canonicalizePath(root);
-    if (target === r) return true;
-    const rel = relative(r, target);
-    // Inside when relative path has no `..` prefix and is not absolute
-    if (rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)) return true;
-  }
-  return false;
-}
-
-/**
- * Resolve + jail a user-supplied path. Returns absolute path or error.
- * @param {string} raw
- * @param {string} cwd
- * @param {string[]} jailRootsAbs
- * @param {string} label
- * @param {boolean} allowForeign
- * @returns {{ ok: true, path: string } | { ok: false, error: string }}
- */
-export function resolveJailedPath(raw, cwd, jailRootsAbs, label, allowForeign = false) {
-  const abs = resolve(cwd, String(raw));
-  if (!allowForeign && !isPathInsideJail(abs, jailRootsAbs)) {
-    return {
-      ok: false,
-      error: `${label} path escapes jail (must be under cwd or state-root unless --allow-foreign-paths): ${raw}`,
-    };
-  }
-  return { ok: true, path: abs };
-}
-
-/**
- * @param {string} filePath
- * @returns {object | null}
- */
-function readFm(filePath) {
-  try {
-    const parsed = parseFrontmatter(readFileSync(filePath, 'utf8'));
-    return parsed.error ? null : parsed.frontmatter;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Try flat plan at stateRoot/plans/<slug>.md.
- * @param {string} stateRoot
- * @param {string} wantSlug
- * @param {string} wantProject
- * @returns {{ planFile: string, projectId: string, slug: string, fm: object, layout: 'flat' } | null}
- */
-function tryFlatPlan(stateRoot, wantSlug, wantProject) {
-  const flat = join(stateRoot, 'plans', `${wantSlug}.md`);
-  if (!existsSync(flat)) return null;
-  const fm = readFm(flat);
-  if (!fm) return null;
-  return {
-    planFile: flat,
-    projectId: wantProject || '(flat)',
-    slug: wantSlug,
-    fm,
-    layout: /** @type {const} */ ('flat'),
-  };
-}
-
-/**
- * Resolve plan under stateRoot: projects/<id>/<slug>/plan.md
- * Accepts planSlug as bare slug or projectId/slug.
- * Flat plan fallback: when projects/ is missing OR after scanning projects
- * finds no match (never early-return before flat when projects/ is absent).
- *
- * @param {string} stateRoot
- * @param {string} planSlug
- * @param {string | null} projectFilter
- * @returns {{ planFile: string, projectId: string, slug: string, fm: object, layout?: 'nested' | 'flat' } | { error: string }}
- */
-export function resolvePlan(stateRoot, planSlug, projectFilter = null) {
-  const raw = String(planSlug || '').trim();
-  if (!raw) return { error: 'missing --plan' };
-
-  let wantProject = projectFilter != null ? String(projectFilter).trim() : '';
-  let wantSlug = raw;
-  if (raw.includes('/')) {
-    const parts = raw.split('/').filter(Boolean);
-    if (parts.length >= 2) {
-      wantProject = wantProject || parts[0];
-      wantSlug = parts[parts.length - 1];
-    } else if (parts.length === 1) {
-      wantSlug = parts[0];
-    }
-  }
-
-  const slugSan = sanitizeSegment(wantSlug, 'plan slug');
-  if (!slugSan.ok) return { error: slugSan.error };
-  wantSlug = slugSan.value;
-
-  if (wantProject) {
-    const projSan = sanitizeSegment(wantProject, 'project id');
-    if (!projSan.ok) return { error: projSan.error };
-    wantProject = projSan.value;
-  }
-
-  /** @type {Array<{ planFile: string, projectId: string, slug: string, fm: object, layout?: 'nested' | 'flat' }>} */
-  const matches = [];
-
-  const projectsDir = join(stateRoot, 'projects');
-  const hasProjects =
-    existsSync(projectsDir) && statSync(projectsDir).isDirectory();
-
-  if (hasProjects) {
-    for (const projId of readdirSync(projectsDir)) {
-      if (wantProject && projId !== wantProject) continue;
-      // Skip path-like project dir names that would escape segment rules
-      if (projId === '.' || projId === '..' || projId.includes('/') || projId.includes('\\') || projId.includes('\0')) {
-        continue;
-      }
-      const projPath = join(projectsDir, projId);
-      if (!statSync(projPath).isDirectory()) continue;
-      for (const entry of readdirSync(projPath)) {
-        if (entry === '.' || entry === '..' || entry.includes('/') || entry.includes('\\') || entry.includes('\0')) {
-          continue;
-        }
-        const planDir = join(projPath, entry);
-        if (!statSync(planDir).isDirectory()) continue;
-        const planFile = join(planDir, 'plan.md');
-        if (!existsSync(planFile)) continue;
-        const fm = readFm(planFile);
-        if (!fm) continue;
-        const slug =
-          fm.slug != null && String(fm.slug).trim() !== ''
-            ? String(fm.slug).trim()
-            : entry;
-        if (slug !== wantSlug && entry !== wantSlug) continue;
-        matches.push({
-          planFile,
-          projectId: projId,
-          slug,
-          fm,
-          layout: 'nested',
-        });
-      }
-    }
-  }
-
-  // Flat plan fallback: when projects/ missing OR after scan found nothing.
-  if (matches.length === 0) {
-    const flat = tryFlatPlan(stateRoot, wantSlug, wantProject);
-    if (flat) matches.push(flat);
-  }
-
-  if (matches.length === 0) {
-    if (!hasProjects) {
-      return {
-        error: `plan not found for slug "${wantSlug}" (no projects/ and no flat plans/${wantSlug}.md under ${stateRoot})`,
-      };
-    }
-    return {
-      error: `plan not found for slug "${wantSlug}"${wantProject ? ` project=${wantProject}` : ''} under ${stateRoot}`,
-    };
-  }
-  if (matches.length > 1 && !wantProject) {
-    const ids = matches.map((m) => `${m.projectId}/${m.slug}`).join(', ');
-    return {
-      error: `ambiguous plan slug "${wantSlug}" — pass --project or project/slug (matches: ${ids})`,
-    };
-  }
-  return matches[0];
-}
-
-/**
- * @param {object} fm
- * @param {string | null | undefined} phaseId
- * @returns {object | null}
- */
-export function phaseSlice(fm, phaseId) {
-  const phases = Array.isArray(fm.phases) ? fm.phases : [];
-  const id =
-    phaseId != null && String(phaseId).trim() !== ''
-      ? String(phaseId).trim()
-      : fm.currentPhase != null
-        ? String(fm.currentPhase).trim()
-        : '';
-  if (!id) return null;
-  return (
-    phases.find(
-      (p) =>
-        p != null &&
-        typeof p === 'object' &&
-        (String(p.id) === id || String(p.phaseId) === id),
-    ) || null
-  );
-}
 
 const BI_SPINE = ['value', 'workflow', 'rules', 'outOfScope', 'doneWhen'];
 
 /**
- * Spawn integrity beyond file existence: parse initiative frontmatter, require
- * plan/phase identity match and a complete businessIntent spine on the
- * initiative (and plan phase when available).
- *
+ * Spawn integrity beyond file existence: plan/phase identity + businessIntent spine.
  * @param {string | null} initiativePath
  * @param {{ planSlug?: string, phaseId?: string, planPhaseBi?: unknown }} [opts]
  * @returns {{ ok: true } | { ok: false, reason: string }}
@@ -483,56 +145,232 @@ export function validateSpawnInitiative(initiativePath, opts = {}) {
   return { ok: true };
 }
 
+const GATES = new Set(['spawn', 'claims', 'done', 'phase-done', 'finalize']);
+
+const HELP = `assert-automate-gate — pure automate STOP gates (Layer 2 + cursor 2.5)
+
+Usage:
+  node scripts/assert-automate-gate.js --plan <slug> --gate <gate> [options]
+
+Gates:
+  spawn         canSpawnHostThinPhaseWriter (lease missing + initiative present)
+                + maestro cursor step C under automate stamp; descriptor-only refuse
+  claims        canCloseTasksFromClaims (claim report required under automate stamp)
+                + cursor step D|D.5|E under stamp
+  done          canDoneFromAutomateClaims under stamp (claim-bound + complex from initiative)
+                + reachability ON by default (pass --reachable-file <shas>; use --gate claims for shape-only)
+                + cursor step E under stamp + lastAssert written
+  phase-done    canRunPhaseDone (evaluation + lessons + review both + decisionReview under durable automate)
+                + cursor step G under stamp + lastAssert written
+  finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
+                + cursor step I under stamp
+
+Options:
+  --project <id>            Prefer projects/<id>/<slug>/plan.md
+  --state-root <path>       Default: ./.atomic-skills
+  --status-root <path>      Default: <state-root>/status
+  --claim-report <path>     JSON claim report (claims|done)
+  --check-reachability      Validate claim SHAs against reachable set
+  --reachable-file <path>   Newline-separated SHAs for reachability
+  --complex-receipts <path> JSON { "T-001": { mode, reviewFile } } for complex done
+  --skip-cursor             Skip maestro-cursor step check (debug / recovery only)
+  --skip-last-assert        Do not write lastAssert (debug only)
+  --help                    Show this help (exit 0)
+
+Maestro cursor (Layer 2.5, under stamp only):
+  Path: <status-root>/automate/<slug>.json via src/maestro-cursor.js
+  Missing cursor initializes at A (ensureCursor) — still blocks gates that need C/E/G/I.
+  lastAssert: { gate, ok, at } written on done/phase-done so skill cannot mutate without assert.
+  Non-automate: cursor not required (gate inactive for step check).
+
+Exit codes:
+  0  ok
+  1  blocked or usage/error
+
+Output:
+  ok
+  blocked: <reason>
+`;
+
 /**
- * Prefer frontmatter phaseId match; filename hints secondary.
- * @param {string} filePath
- * @param {string} phaseId
- * @param {string} phaseSlug
- * @returns {{ byFrontmatter: boolean, byFilename: boolean }}
+ * @param {string[]} argv
+ * @returns {Record<string, string | boolean>}
  */
-function initiativeMatchScore(filePath, phaseId, phaseSlug, planSlug = '') {
-  const fm = readFm(filePath);
-  let byFrontmatter = false;
-  if (fm) {
-    const fmPhase =
-      fm.phaseId != null
-        ? String(fm.phaseId).trim()
-        : fm.id != null
-          ? String(fm.id).trim()
-          : '';
-    if (phaseId && fmPhase && fmPhase.toLowerCase() === phaseId.toLowerCase()) {
-      // Flat multi-plan: require parentPlan match when both are present (codex P2)
-      const parent =
-        fm.parentPlan != null ? String(fm.parentPlan).trim() : '';
-      if (
-        !planSlug ||
-        !parent ||
-        parent.toLowerCase() === String(planSlug).toLowerCase()
-      ) {
-        byFrontmatter = true;
+export function parseArgs(argv) {
+  /** @type {Record<string, string | boolean>} */
+  const out = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--help' || a === '-h') {
+      out.help = true;
+      continue;
+    }
+    if (a === '--check-reachability') {
+      out.checkReachability = true;
+      continue;
+    }
+    if (a === '--skip-cursor') {
+      out.skipCursor = true;
+      continue;
+    }
+    if (a === '--skip-last-assert') {
+      out.skipLastAssert = true;
+      continue;
+    }
+    if (a.startsWith('--') && a.includes('=')) {
+      const eq = a.indexOf('=');
+      const key = a.slice(2, eq);
+      const val = a.slice(eq + 1);
+      out[flagKey(key)] = val;
+      continue;
+    }
+    if (a.startsWith('--')) {
+      const key = a.slice(2);
+      const next = argv[i + 1];
+      if (next == null || next.startsWith('--')) {
+        out[flagKey(key)] = true;
+        continue;
+      }
+      out[flagKey(key)] = next;
+      i++;
+      continue;
+    }
+  }
+  return out;
+}
+
+/** @param {string} key */
+function flagKey(key) {
+  // kebab-case → camelCase for known flags
+  return key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+}
+
+/**
+ * @param {string} filePath
+ * @returns {object | null}
+ */
+function readFm(filePath) {
+  try {
+    const parsed = parseFrontmatter(readFileSync(filePath, 'utf8'));
+    return parsed.error ? null : parsed.frontmatter;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve plan under stateRoot: projects/<id>/<slug>/plan.md
+ * Accepts planSlug as bare slug or projectId/slug.
+ *
+ * @param {string} stateRoot
+ * @param {string} planSlug
+ * @param {string | null} projectFilter
+ * @returns {{ planFile: string, projectId: string, slug: string, fm: object } | { error: string }}
+ */
+export function resolvePlan(stateRoot, planSlug, projectFilter = null) {
+  const raw = String(planSlug || '').trim();
+  if (!raw) return { error: 'missing --plan' };
+
+  let wantProject = projectFilter != null ? String(projectFilter).trim() : '';
+  let wantSlug = raw;
+  if (raw.includes('/')) {
+    const parts = raw.split('/').filter(Boolean);
+    if (parts.length >= 2) {
+      wantProject = wantProject || parts[0];
+      wantSlug = parts[parts.length - 1];
+    }
+  }
+
+  /** @type {Array<{ planFile: string, projectId: string, slug: string, fm: object, layout?: 'nested' | 'flat' }>} */
+  const matches = [];
+
+  const projectsDir = join(stateRoot, 'projects');
+  if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+    for (const projId of readdirSync(projectsDir)) {
+      if (wantProject && projId !== wantProject) continue;
+      const projPath = join(projectsDir, projId);
+      if (!statSync(projPath).isDirectory()) continue;
+      for (const entry of readdirSync(projPath)) {
+        const planDir = join(projPath, entry);
+        if (!statSync(planDir).isDirectory()) continue;
+        const planFile = join(planDir, 'plan.md');
+        if (!existsSync(planFile)) continue;
+        const fm = readFm(planFile);
+        if (!fm) continue;
+        const slug =
+          fm.slug != null && String(fm.slug).trim() !== ''
+            ? String(fm.slug).trim()
+            : entry;
+        if (slug !== wantSlug && entry !== wantSlug) continue;
+        matches.push({
+          planFile,
+          projectId: projId,
+          slug,
+          fm,
+          layout: 'nested',
+        });
       }
     }
   }
-  const base = filePath.split(/[/\\]/).pop() || '';
-  const name = base.endsWith('.md') ? base.slice(0, -3) : base;
-  let byFilename = false;
-  if (phaseSlug && (name === phaseSlug || name.endsWith(`-${phaseSlug}`))) {
-    byFilename = true;
-  }
-  if (phaseId) {
-    const idLower = phaseId.toLowerCase();
-    if (name.toLowerCase() === idLower || name.toLowerCase().startsWith(`${idLower}-`)) {
-      byFilename = true;
+
+  // Flat legacy: plans/<slug>.md (also when projects/ is absent)
+  if (matches.length === 0) {
+    const flat = join(stateRoot, 'plans', `${wantSlug}.md`);
+    if (existsSync(flat)) {
+      const fm = readFm(flat);
+      if (fm) {
+        matches.push({
+          planFile: flat,
+          projectId: wantProject || '(flat)',
+          slug: wantSlug,
+          fm,
+          layout: 'flat',
+        });
+      }
     }
   }
-  return { byFrontmatter, byFilename };
+
+  if (matches.length === 0) {
+    return {
+      error: `plan not found for slug "${wantSlug}"${wantProject ? ` project=${wantProject}` : ''} (no nested projects/ match and no flat plans/${wantSlug}.md under ${stateRoot})`,
+    };
+  }
+  if (matches.length > 1 && !wantProject) {
+    const ids = matches.map((m) => `${m.projectId}/${m.slug}`).join(', ');
+    return {
+      error: `ambiguous plan slug "${wantSlug}" — pass --project or project/slug (matches: ${ids})`,
+    };
+  }
+  return matches[0];
+}
+
+/**
+ * @param {object} fm
+ * @param {string | null | undefined} phaseId
+ * @returns {object | null}
+ */
+export function phaseSlice(fm, phaseId) {
+  const phases = Array.isArray(fm.phases) ? fm.phases : [];
+  const id =
+    phaseId != null && String(phaseId).trim() !== ''
+      ? String(phaseId).trim()
+      : fm.currentPhase != null
+        ? String(fm.currentPhase).trim()
+        : '';
+  if (!id) return null;
+  return (
+    phases.find(
+      (p) =>
+        p != null &&
+        typeof p === 'object' &&
+        (String(p.id) === id || String(p.phaseId) === id),
+    ) || null
+  );
 }
 
 /**
  * Resolve phase initiative path next to plan.md (nested) or under
- * stateRoot/initiatives (flat plan layout).
- * Returns null when initiative is missing (descriptor-only).
- * Prefer parse frontmatter phaseId match; filename hints secondary.
+ * stateRoot/initiatives (flat layout). Prefers frontmatter phaseId match.
  *
  * @param {string} planFile
  * @param {object} fm
@@ -542,7 +380,7 @@ function initiativeMatchScore(filePath, phaseId, phaseSlug, planSlug = '') {
  */
 export function resolveInitiativePath(planFile, fm, phase, opts = {}) {
   if (phase == null || typeof phase !== 'object') return null;
-
+  const planDir = dirname(planFile);
   const planSlug =
     fm.slug != null && String(fm.slug).trim() !== ''
       ? String(fm.slug).trim()
@@ -554,36 +392,34 @@ export function resolveInitiativePath(planFile, fm, phase, opts = {}) {
   const phaseId =
     phase.id != null && String(phase.id).trim() !== ''
       ? String(phase.id).trim()
-      : phase.phaseId != null && String(phase.phaseId).trim() !== ''
-        ? String(phase.phaseId).trim()
-        : '';
+      : '';
+  const phaseIdLower = phaseId.toLowerCase();
 
   /** @type {string[]} */
   const searchDirs = [];
-  const planDir = dirname(planFile);
   const nestedPhases = join(planDir, 'phases');
   if (existsSync(nestedPhases) && statSync(nestedPhases).isDirectory()) {
     searchDirs.push(nestedPhases);
   }
-  // Flat initiatives under stateRoot/initiatives when plan is flat
-  if (opts.layout === 'flat' || !existsSync(nestedPhases)) {
+  // Flat: stateRoot/initiatives when nested missing or layout flat
+  if (opts.layout === 'flat' || searchDirs.length === 0) {
     const stateRoot =
-      opts.stateRoot != null
-        ? opts.stateRoot
-        : // plans/<slug>.md → stateRoot is parent of plans/
-          dirname(planDir);
-    const flatInit = join(stateRoot, 'initiatives');
-    if (existsSync(flatInit) && statSync(flatInit).isDirectory()) {
-      searchDirs.push(flatInit);
+      opts.stateRoot != null && String(opts.stateRoot).trim() !== ''
+        ? String(opts.stateRoot)
+        : null;
+    if (stateRoot) {
+      const flatInit = join(stateRoot, 'initiatives');
+      if (existsSync(flatInit) && statSync(flatInit).isDirectory()) {
+        searchDirs.push(flatInit);
+      }
     }
   }
-
   if (searchDirs.length === 0) return null;
 
-  /** @type {string | null} */
-  let fmHit = null;
-  /** @type {string | null} */
-  let nameHit = null;
+  /** @type {string[]} */
+  const byFrontmatter = [];
+  /** @type {string[]} */
+  const byFilename = [];
 
   for (const dir of searchDirs) {
     let names;
@@ -594,46 +430,77 @@ export function resolveInitiativePath(planFile, fm, phase, opts = {}) {
     }
     for (const name of names) {
       if (!name.endsWith('.md') || name.endsWith('.source.json')) continue;
-      if (name === 'archive') continue;
       const full = join(dir, name);
-      try {
-        if (!statSync(full).isFile()) continue;
-      } catch {
-        continue;
+      const base = name.slice(0, -3);
+      // Frontmatter phaseId / id match (preferred)
+      const initFm = readFm(full);
+      if (initFm && phaseId) {
+        const fmPhase =
+          initFm.phaseId != null
+            ? String(initFm.phaseId).trim()
+            : initFm.id != null
+              ? String(initFm.id).trim()
+              : '';
+        if (fmPhase && fmPhase.toLowerCase() === phaseIdLower) {
+          const parent =
+            initFm.parentPlan != null ? String(initFm.parentPlan).trim() : '';
+          if (
+            !planSlug ||
+            !parent ||
+            parent.toLowerCase() === planSlug.toLowerCase()
+          ) {
+            byFrontmatter.push(full);
+            continue;
+          }
+        }
       }
-      const score = initiativeMatchScore(full, phaseId, phaseSlug, planSlug);
-      if (score.byFrontmatter && !fmHit) fmHit = full;
-      // Filename-only hits: only trust under nested plan phases/ (not flat multi-plan)
-      const isFlatInitiatives =
-        dir.endsWith(`${sep}initiatives`) || dir.endsWith('/initiatives');
-      if (score.byFilename && !nameHit && !isFlatInitiatives) nameHit = full;
+      // Filename hints
+      if (phaseSlug && (base === phaseSlug || base.endsWith(`-${phaseSlug}`))) {
+        byFilename.push(full);
+      } else if (
+        phaseIdLower &&
+        (base.startsWith(`${phaseIdLower}-`) || base === phaseIdLower)
+      ) {
+        byFilename.push(full);
+      } else if (phaseSlug) {
+        const direct = join(dir, `${phaseSlug}.md`);
+        if (existsSync(direct)) byFilename.push(direct);
+      }
     }
   }
 
-  // Prefer frontmatter phaseId match; filename hints secondary
-  if (fmHit) return fmHit;
-  if (nameHit) return nameHit;
-
-  // Explicit candidate paths (slug-based) as last resort before miss
-  for (const dir of searchDirs) {
-    /** @type {string[]} */
-    const candidates = [];
-    if (phaseSlug) {
-      candidates.push(join(dir, `${phaseSlug}.md`));
-      if (planSlug) {
-        candidates.push(join(dir, `${planSlug}-${phaseSlug}.md`));
-      }
-    }
-    if (phaseId) {
-      candidates.push(join(dir, `${phaseId}.md`));
-      candidates.push(join(dir, `${phaseId.toLowerCase()}.md`));
-    }
-    for (const p of candidates) {
-      if (existsSync(p) && statSync(p).isFile()) return p;
-    }
-  }
-
+  if (byFrontmatter.length > 0) return byFrontmatter[0];
+  if (byFilename.length > 0) return byFilename[0];
   return null;
+}
+
+/**
+ * Load initiative frontmatter for complex-task scan.
+ * @param {string | null} initiativePath
+ * @returns {object | null}
+ */
+export function loadInitiativeFrontmatter(initiativePath) {
+  if (!initiativePath || !existsSync(initiativePath)) return null;
+  return readFm(initiativePath);
+}
+
+/**
+ * @param {string} path
+ * @returns {Record<string, object>}
+ */
+export function loadComplexReceiptsMap(path) {
+  const raw = JSON.parse(readFileSync(path, 'utf8'));
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('complex receipts must be a JSON object map');
+  }
+  /** @type {Record<string, object>} */
+  const out = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (v != null && typeof v === 'object' && !Array.isArray(v)) {
+      out[String(k)] = v;
+    }
+  }
+  return out;
 }
 
 /**
@@ -641,7 +508,8 @@ export function resolveInitiativePath(planFile, fm, phase, opts = {}) {
  * @returns {unknown}
  */
 function loadClaimReport(path) {
-  return JSON.parse(readFileSync(path, 'utf8'));
+  const raw = readFileSync(path, 'utf8');
+  return JSON.parse(raw);
 }
 
 /**
@@ -669,6 +537,108 @@ function formatBlocked(result, fallbackReason = 'gate blocked') {
   if (result.userValidationOk === false) bits.push('userValidationOk=false');
   if (bits.length) return bits.join('; ');
   return fallbackReason;
+}
+
+/**
+ * Under durable automate: load or init maestro cursor, then require step match.
+ * Missing → ensureCursor at A (no throw). Malformed → block.
+ *
+ * @param {{
+ *   statusRoot: string,
+ *   planSlug: string,
+ *   phaseId: string,
+ *   gate: string,
+ * }} input
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function checkMaestroCursor(input) {
+  const statusRoot = input.statusRoot;
+  const planSlug = input.planSlug;
+  const phaseId = input.phaseId;
+  const gate = input.gate;
+
+  let read = readCursorResult(statusRoot, planSlug);
+  if (read.status === 'missing') {
+    // First automate entry — init at A without throw (skill advances on A–I boundaries)
+    try {
+      const ensured = ensureCursor(statusRoot, planSlug, { phaseId });
+      if (ensured.status !== 'ok' || !ensured.cursor) {
+        return {
+          ok: false,
+          reason:
+            ensured.error ||
+            'maestro cursor missing and could not initialize at A',
+        };
+      }
+      read = { status: 'ok', cursor: ensured.cursor };
+    } catch (err) {
+      return {
+        ok: false,
+        reason: `maestro cursor init failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+  if (read.status === 'malformed') {
+    return {
+      ok: false,
+      reason: `maestro cursor malformed: ${read.error || 'invalid shape'} — repair via src/maestro-cursor.js; do not delete to force progress`,
+    };
+  }
+  const gateOk = cursorAllowsGate(read.cursor, gate);
+  if (!gateOk.ok) {
+    return {
+      ok: false,
+      reason:
+        gateOk.reason ||
+        `maestro cursor step forbids gate ${gate}` +
+          (read.cursor?.step === AWAITING_OPERATOR_ADVANCE
+            ? ' (awaiting-operator-advance)'
+            : ''),
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Persist lastAssert on maestro cursor so pure-maestro cannot mutate without
+ * a fresh successful assert for done/phase-done.
+ *
+ * @param {string} statusRoot
+ * @param {string} planSlug
+ * @param {object} fm
+ * @param {Record<string, string | boolean>} args
+ * @param {string} gate
+ * @param {{ ok: boolean, message: string, exitCode: number }} result
+ */
+export function maybeRecordLastAssert(
+  statusRoot,
+  planSlug,
+  fm,
+  args,
+  gate,
+  result,
+) {
+  if (args.skipLastAssert === true) return;
+  if (args.skipCursor === true) return;
+  const planExecutionMode =
+    fm.executionMode != null ? String(fm.executionMode) : null;
+  if (!hasAutomateStamp({ executionMode: planExecutionMode })) return;
+  if (gate !== 'done' && gate !== 'phase-done') return;
+  try {
+    const phaseId =
+      fm.currentPhase != null && String(fm.currentPhase).trim() !== ''
+        ? String(fm.currentPhase).trim()
+        : 'F0';
+    recordLastAssertFile(statusRoot, planSlug, {
+      gate,
+      ok: result.ok === true && result.exitCode === 0,
+      reason: result.ok ? null : result.message,
+      phaseId,
+    });
+  } catch {
+    // fail-open on lastAssert write — gate result still returned; skill prose
+    // still requires lastAssertAllows before mutate when cursor is readable
+  }
 }
 
 /**
@@ -708,60 +678,24 @@ export function runAssert(args, env = {}) {
   }
 
   const cwd = env.cwd != null ? env.cwd : process.cwd();
-  const allowForeign = args.allowForeignPaths === true;
-
-  const stateRootRaw =
+  const stateRoot = resolve(
+    cwd,
     args.stateRoot != null && args.stateRoot !== true
       ? String(args.stateRoot)
-      : join(cwd, '.atomic-skills');
-
-  // Jail state-root under cwd unless allow-foreign
-  const stateRootResolved = resolve(cwd, stateRootRaw);
-  if (!allowForeign && !isPathInsideJail(stateRootResolved, [cwd])) {
-    return {
-      ok: false,
-      message: `blocked: state-root path escapes jail (must be under cwd unless --allow-foreign-paths): ${stateRootRaw}`,
-      exitCode: 1,
-    };
-  }
-  const stateRoot = stateRootResolved;
-
-  const statusRootRaw =
+      : join(cwd, '.atomic-skills'),
+  );
+  const statusRoot = resolve(
+    cwd,
     args.statusRoot != null && args.statusRoot !== true
       ? String(args.statusRoot)
-      : join(stateRoot, 'status');
-  const statusJail = resolveJailedPath(
-    statusRootRaw,
-    cwd,
-    [cwd, stateRoot],
-    'status-root',
-    allowForeign,
+      : join(stateRoot, 'status'),
   );
-  if (!statusJail.ok) {
-    return {
-      ok: false,
-      message: `blocked: ${statusJail.error}`,
-      exitCode: 1,
-    };
-  }
-  const statusRoot = statusJail.path;
-
   const projectFilter =
     args.project != null && args.project !== true
       ? String(args.project).trim()
       : null;
 
-  let resolved;
-  try {
-    resolved = resolvePlan(stateRoot, String(planArg), projectFilter);
-  } catch (err) {
-    // sanitizePlanSlug throws → blocked exit 1, not crash
-    return {
-      ok: false,
-      message: `blocked: ${err instanceof Error ? err.message : String(err)}`,
-      exitCode: 1,
-    };
-  }
+  const resolved = resolvePlan(stateRoot, String(planArg), projectFilter);
   if ('error' in resolved) {
     return {
       ok: false,
@@ -770,153 +704,226 @@ export function runAssert(args, env = {}) {
     };
   }
 
-  const { fm, slug, planFile, layout } = resolved;
+  const { fm, slug, layout } = resolved;
   const planExecutionMode =
     fm.executionMode != null ? String(fm.executionMode) : null;
+  const stamped = hasAutomateStamp({ executionMode: planExecutionMode });
 
-  if (gate === 'spawn') {
-    let lease;
-    try {
-      lease = readLeaseResult(statusRoot, slug);
-    } catch (err) {
-      // lease path sanitize throws on bad slug → blocked, not crash
+  // Layer 2.5 — thin maestro cursor (under durable automate stamp only).
+  // Missing cursor initializes at A without throw; illegal step still blocks.
+  // Non-automate: skip (do not force cursor). --skip-cursor is recovery only.
+  if (stamped && args.skipCursor !== true) {
+    const phaseId =
+      fm.currentPhase != null && String(fm.currentPhase).trim() !== ''
+        ? String(fm.currentPhase).trim()
+        : 'F0';
+    const cursorCheck = checkMaestroCursor({
+      statusRoot,
+      planSlug: slug,
+      phaseId,
+      gate,
+    });
+    if (!cursorCheck.ok) {
       return {
         ok: false,
-        message: `blocked: lease read failed: ${err instanceof Error ? err.message : String(err)}`,
+        message: `blocked: ${cursorCheck.reason}`,
         exitCode: 1,
       };
     }
+  }
+
+  if (gate === 'spawn') {
+    const lease = readLeaseResult(statusRoot, slug);
     const phase = phaseSlice(fm, fm.currentPhase);
-    const initiativePath = resolveInitiativePath(planFile, fm, phase, {
+    const initiativePath = resolveInitiativePath(resolved.planFile, fm, phase, {
       stateRoot,
       layout: layout || 'nested',
     });
     const initiativePresent =
       initiativePath != null && existsSync(initiativePath);
-    // Host-thin: lease clean + phase materialized (not descriptor-only).
-    const r = canSpawnHostThinPhaseWriter({
-      leaseStatus: lease.status,
-      initiativePresent,
-      phaseMaterialized: initiativePresent,
-    });
-    // Also document via canSpawnPhaseWriter path for callers that only use that.
-    const leaseOnly = canSpawnPhaseWriter({
-      leaseStatus: lease.status,
-      initiativePresent,
-    });
-    if (!r.ok || !leaseOnly.ok) {
-      const reason =
-        r.reason ||
-        leaseOnly.reason ||
-        'spawn blocked (lease or descriptor-only initiative missing)';
+    // Host-thin: always require materialization probe under stamp; bare lease
+    // check when non-automate (host-thin still ok with explicit probe).
+    const r = stamped
+      ? canSpawnHostThinPhaseWriter({
+          leaseStatus: lease.status,
+          initiativePresent,
+        })
+      : canSpawnPhaseWriter({
+          leaseStatus: lease.status,
+          initiativePresent,
+        });
+    if (!r.ok) {
       return {
         ok: false,
-        message: `blocked: ${reason}`,
+        message: `blocked: ${formatBlocked(r, 'writer lease blocking')}`,
         exitCode: 1,
       };
     }
-    // Beyond file existence: parse initiative, match plan/phase, require BI spine.
-    const initCheck = validateSpawnInitiative(initiativePath, {
-      planSlug: slug,
-      phaseId:
-        phase != null && phase.id != null
-          ? String(phase.id)
-          : fm.currentPhase != null
-            ? String(fm.currentPhase)
-            : '',
-      planPhaseBi: phase != null ? phase.businessIntent : null,
-    });
-    if (!initCheck.ok) {
-      return {
-        ok: false,
-        message: `blocked: ${initCheck.reason}`,
-        exitCode: 1,
-      };
+    if (stamped && initiativePresent) {
+      const initCheck = validateSpawnInitiative(initiativePath, {
+        planSlug: slug,
+        phaseId:
+          phase != null && phase.id != null
+            ? String(phase.id)
+            : fm.currentPhase != null
+              ? String(fm.currentPhase)
+              : '',
+        planPhaseBi: phase != null ? phase.businessIntent : null,
+      });
+      if (!initCheck.ok) {
+        return {
+          ok: false,
+          message: `blocked: ${initCheck.reason}`,
+          exitCode: 1,
+        };
+      }
     }
     return { ok: true, message: 'ok', exitCode: 0 };
   }
 
   if (gate === 'claims' || gate === 'done') {
-    if (args.claimReport == null || args.claimReport === true) {
+    const claimPath =
+      args.claimReport != null && args.claimReport !== true
+        ? resolve(cwd, String(args.claimReport))
+        : null;
+
+    if (!claimPath) {
+      if (!stamped) {
+        // Non-automate: claim-bound done is inactive (Mode 1 unstamped unchanged).
+        return { ok: true, message: 'ok', exitCode: 0 };
+      }
+      // Durable executionMode: automate — claim report is HARD for claims|done.
       return {
         ok: false,
-        message: 'blocked: --claim-report required for claims|done',
+        message:
+          'blocked: missing claim report (--claim-report required under executionMode: automate) — claim-bound done',
         exitCode: 1,
       };
     }
-    const claimJail = resolveJailedPath(
-      String(args.claimReport),
-      cwd,
-      [cwd, stateRoot],
-      'claim-report',
-      allowForeign,
-    );
-    if (!claimJail.ok) {
+
+    if (!existsSync(claimPath)) {
       return {
         ok: false,
-        message: `blocked: ${claimJail.error}`,
+        message: `blocked: claim report not found: ${claimPath}`,
         exitCode: 1,
       };
     }
+
     let claimReport;
     try {
-      claimReport = loadClaimReport(claimJail.path);
+      claimReport = loadClaimReport(claimPath);
     } catch (err) {
       return {
         ok: false,
-        message: `blocked: claim report read failed: ${err instanceof Error ? err.message : String(err)}`,
+        message: `blocked: unparseable claim report: ${err instanceof Error ? err.message : String(err)}`,
         exitCode: 1,
       };
     }
-    /** @type {Set<string> | null} */
-    let reachableSet = null;
-    if (args.checkReachability === true) {
-      if (args.reachableFile == null || args.reachableFile === true) {
+
+    /** @type {{ claimReport: unknown, checkReachability?: boolean, reachableSet?: Set<string> }} */
+    const input = { claimReport };
+    // done under stamp defaults reachability ON; claims stays opt-in via flag.
+    const wantReach =
+      gate === 'done' && stamped
+        ? args.checkReachability !== false
+        : args.checkReachability === true;
+    if (wantReach) {
+      input.checkReachability = true;
+      const rf =
+        args.reachableFile != null && args.reachableFile !== true
+          ? resolve(cwd, String(args.reachableFile))
+          : null;
+      if (rf) {
+        if (!existsSync(rf)) {
+          return {
+            ok: false,
+            message: `blocked: reachable file not found: ${rf}`,
+            exitCode: 1,
+          };
+        }
+        try {
+          input.reachableSet = loadReachableSet(rf);
+        } catch (err) {
+          return {
+            ok: false,
+            message: `blocked: cannot read reachable file: ${err instanceof Error ? err.message : String(err)}`,
+            exitCode: 1,
+          };
+        }
+      } else if (args.checkReachability === true) {
+        // Explicit flag without file: clear error (legacy UX)
         return {
           ok: false,
-          message: 'blocked: --reachable-file required with --check-reachability',
+          message:
+            'blocked: --check-reachability requires --reachable-file with newline-separated SHAs',
           exitCode: 1,
         };
       }
-      const reachJail = resolveJailedPath(
-        String(args.reachableFile),
-        cwd,
-        [cwd, stateRoot],
-        'reachable-file',
-        allowForeign,
-      );
-      if (!reachJail.ok) {
-        return {
-          ok: false,
-          message: `blocked: ${reachJail.error}`,
-          exitCode: 1,
-        };
-      }
-      try {
-        reachableSet = loadReachableSet(reachJail.path);
-      } catch (err) {
-        return {
-          ok: false,
-          message: `blocked: reachable file read failed: ${err instanceof Error ? err.message : String(err)}`,
-          exitCode: 1,
-        };
-      }
+      // done default without file: leave reachableSet unset → pure helper fails closed
     }
-    const r = canCloseTasksFromClaims({
-      claimReport,
-      checkReachability: args.checkReachability === true,
-      reachableSet,
-      // done gate: every open claim must be claimed-pass with exitCode 0
-      requireAllClaimedPass: gate === 'done',
-    });
+
+    // Under stamp: --gate done uses claim-bound canDoneFromAutomateClaims +
+    // complexTasks auto-built from phase initiative (weight/tags + receipts).
+    // CLI reachability stays opt-in via --check-reachability.
+    // No auto-merge: this script never runs git merge / worktree ops.
+    let r;
+    if (gate === 'done' && stamped) {
+      /** @type {Record<string, object> | null} */
+      let receiptsByTaskId = null;
+      if (args.complexReceipts != null && args.complexReceipts !== true) {
+        const crPath = resolve(cwd, String(args.complexReceipts));
+        if (!existsSync(crPath)) {
+          return {
+            ok: false,
+            message: `blocked: complex receipts file not found: ${crPath}`,
+            exitCode: 1,
+          };
+        }
+        try {
+          receiptsByTaskId = loadComplexReceiptsMap(crPath);
+        } catch (err) {
+          return {
+            ok: false,
+            message: `blocked: unparseable complex receipts: ${err instanceof Error ? err.message : String(err)}`,
+            exitCode: 1,
+          };
+        }
+      }
+      const phase = phaseSlice(fm, fm.currentPhase);
+      const initiativePath = resolveInitiativePath(resolved.planFile, fm, phase, {
+        stateRoot,
+        layout: layout || 'nested',
+      });
+      const initFm = loadInitiativeFrontmatter(initiativePath);
+      const claimIds = claimTaskIdsFromReport(claimReport);
+      const complexTasks = buildComplexTasksFromInitiative({
+        tasks: initFm != null ? initFm.tasks : [],
+        claimTaskIds: claimIds.length > 0 ? claimIds : null,
+        receiptsByTaskId,
+      });
+      r = canDoneFromAutomateClaims({
+        ...input,
+        // Align with canDoneFromAutomateClaims fail-closed default: reachability
+        // ON unless operator explicitly disables (pre-merge shape → use --gate claims).
+        // Omitting --check-reachability must NOT force false (plan-end P2).
+        checkReachability: args.checkReachability !== false,
+        complexTasks,
+      });
+    } else {
+      r = canCloseTasksFromClaims(input);
+    }
     if (!r.ok) {
-      return {
+      const out = {
         ok: false,
-        message: `blocked: ${formatBlocked(r, 'claim gate failed')}`,
+        message: `blocked: ${formatBlocked(r, 'claim report invalid')}`,
         exitCode: 1,
       };
+      maybeRecordLastAssert(statusRoot, slug, fm, args, gate, out);
+      return out;
     }
-    return { ok: true, message: 'ok', exitCode: 0 };
+    const okOut = { ok: true, message: 'ok', exitCode: 0 };
+    maybeRecordLastAssert(statusRoot, slug, fm, args, gate, okOut);
+    return okOut;
   }
 
   if (gate === 'phase-done') {
@@ -924,72 +931,103 @@ export function runAssert(args, env = {}) {
     const evaluationGate =
       phase != null && phase.evaluationGate != null
         ? phase.evaluationGate
-        : null;
+        : fm.evaluationGate != null
+          ? fm.evaluationGate
+          : null;
+    const reviewGate =
+      phase != null && phase.reviewGate != null
+        ? phase.reviewGate
+        : fm.reviewGate != null
+          ? fm.reviewGate
+          : null;
     const decisionReview =
       phase != null && phase.decisionReview != null
         ? phase.decisionReview
-        : null;
+        : fm.decisionReview != null
+          ? fm.decisionReview
+          : null;
     const r = canRunPhaseDone({
       planExecutionMode,
       evaluationGate,
+      lessonsState:
+        phase != null && phase.lessonsState != null
+          ? phase.lessonsState
+          : fm.lessonsState != null
+            ? fm.lessonsState
+            : null,
+      lessonsPath:
+        phase != null && phase.lessonsPath != null
+          ? phase.lessonsPath
+          : fm.lessonsPath != null
+            ? fm.lessonsPath
+            : null,
+      noneReason:
+        phase != null && phase.noneReason != null
+          ? phase.noneReason
+          : null,
+      reviewGate,
       decisionReview,
       phase,
     });
     if (!r.ok) {
-      return {
+      const out = {
         ok: false,
-        message: `blocked: ${formatBlocked(r, 'phase-done gate failed')}`,
+        message: `blocked: ${formatBlocked(r, 'phase-done evaluation/lessons/review/decision gate')}`,
         exitCode: 1,
       };
+      maybeRecordLastAssert(statusRoot, slug, fm, args, gate, out);
+      return out;
     }
-    return { ok: true, message: 'ok', exitCode: 0 };
+    const okOut = { ok: true, message: 'ok', exitCode: 0 };
+    maybeRecordLastAssert(statusRoot, slug, fm, args, gate, okOut);
+    return okOut;
   }
 
-  if (gate === 'finalize') {
-    const receipt = fm.planEndReview != null ? fm.planEndReview : null;
-    const userValidatedAt =
-      fm.userValidatedAt != null
-        ? fm.userValidatedAt
-        : receipt != null && typeof receipt === 'object'
-          ? receipt.userValidatedAt
-          : null;
-    const r = canFinalizeOrArchive({
-      planExecutionMode,
-      receipt,
-      userValidatedAt,
-    });
-    if (!r.ok) {
-      return {
-        ok: false,
-        message: `blocked: ${formatBlocked(r, 'finalize gate failed')}`,
-        exitCode: 1,
-      };
-    }
-    return { ok: true, message: 'ok', exitCode: 0 };
+  // finalize
+  const receipt = fm.planEndReview != null ? fm.planEndReview : null;
+  const userValidatedAt =
+    fm.userValidatedAt != null ? String(fm.userValidatedAt) : null;
+  const r = canFinalizeOrArchive({
+    planExecutionMode,
+    receipt,
+    userValidatedAt,
+  });
+  if (!r.ok) {
+    return {
+      ok: false,
+      message: `blocked: ${formatBlocked(r, 'finalize plan-end gates')}`,
+      exitCode: 1,
+    };
   }
-
-  return {
-    ok: false,
-    message: `blocked: unhandled gate ${gate}`,
-    exitCode: 1,
-  };
+  return { ok: true, message: 'ok', exitCode: 0 };
 }
 
-function main(argv) {
+/**
+ * CLI entry.
+ * @param {string[]} argv process.argv.slice(2)
+ * @returns {number} exit code
+ */
+export function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   const result = runAssert(args, { cwd: process.cwd() });
-  if (result.ok) {
+  // Help / multi-line usage → stdout. Single-line ok|blocked → stdout (agents).
+  // Extra detail after first blocked line also on stderr when multi-line usage.
+  if (result.exitCode === 0) {
     process.stdout.write(result.message + '\n');
   } else {
-    process.stderr.write(result.message + '\n');
+    const lines = result.message.split('\n');
+    process.stdout.write(lines[0] + '\n');
+    if (lines.length > 1) {
+      process.stderr.write(lines.slice(1).join('\n') + '\n');
+    }
   }
-  process.exit(result.exitCode);
+  return result.exitCode;
 }
 
-const isMain =
+const isDirect =
   process.argv[1] != null &&
-  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+  fileURLToPath(import.meta.url) === resolve(process.cwd(), process.argv[1]);
 
-if (isMain) {
-  main(process.argv.slice(2));
+if (isDirect) {
+  process.exitCode = main(process.argv.slice(2));
 }
