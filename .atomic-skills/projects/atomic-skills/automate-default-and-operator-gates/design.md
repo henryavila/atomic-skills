@@ -41,6 +41,43 @@ src/plan-end-review.js:4-14
 
 verified_by: lines cited from this repo and dogfood dump §2 / §6.11 / §20.8.
 
+## Contraste: intenção × previsão × pressupostos
+
+Three columns the plan must keep separate (also mirrored in `plan.md` §1b).
+
+### Intenção (resolve)
+
+1. Bare `implement` runs pure-maestro (no mode flag required).
+2. Operator never decision-review PASSes without seeing the decision package first.
+3. Plan-end cross-model answers “did we deliver what the plan promised?” not only “is the diff ok?”.
+4. Machine `passed` stamps do not lie about those human contracts.
+
+### O que o plano prevê (deliver)
+
+- F0: default `isAutomateActive` + Mode 1 escape + prose/tests.
+- F1: decision package builder + present-before-PASS + machine present evidence.
+- F2: intent/delivered surfaces + `intentVsDelivered` on plan-end receipt + finalize gate.
+- F3: dogfood checklist.
+
+**Not predicted here:** phase review dual-leg authenticity, post-merge e2e re-run,
+archive `validate-state` join, phase-end session-break UX, auto-merge.
+
+### O que o plano assume (may not exist)
+
+| Assumption | Evidence it can fail |
+|------------|----------------------|
+| Host obeys maestro prose (present package) | Dogfood blind PASS with 0 FAIL |
+| Decision JSONL reliably appended at canonical path | F7 wrong `statusRoot` / double projects |
+| External codex/bridge available for plan-end | Missing GNU `timeout`; corrupt F3 receipt |
+| Intent/delivered surfaces reconstructible from state | Unpersisted claims; thin evaluations |
+| external-both accepts extra brief context | Bridge may ignore/truncate prompt |
+| Operator reads chat / AskUserQuestion | Decline → host accept judgment (F7 P2) |
+| Session default activates same durable gates as stamp | Critic F-001; stamp-only call sites |
+| Mode 1 escape remains known | Legacy bare implement was Mode 1 |
+
+**Rule:** delivery (F0–F3) must fail closed when a load-bearing assumption is missing,
+not mark intention “done” by prose alone.
+
 ## Decisions
 
 1. **Automate becomes the default implement path.** When the operator runs

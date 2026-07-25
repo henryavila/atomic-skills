@@ -229,6 +229,73 @@ but operator gates and plan-end review still fail the human contract:
 
 This plan is **skill fidelity + UX of automate**, not product work for Lekto.
 
+## 1b. Contraste: intenção × o que o plano prevê × o que o plano assume
+
+Três colunas distintas. Misturá-las é o modo de falha do dogfood (prosa diz “X”;
+máquina/host não garantem “X”).
+
+### Coluna A — Intenção (o problema a resolver)
+
+O que o operador **precisa que deixe de ser verdade** depois deste plano:
+
+| ID | Intenção (dor) |
+|----|----------------|
+| I1 | Não ter de lembrar `--mode=automate` para rodar pure-maestro. |
+| I2 | Nunca aprovar decision-review **às cegas** — ver as decisões **antes** do PASS. |
+| I3 | No fim da implementação, a revisão cross-model responder **“entregamos o que o plano prometeu?”**, não só “o diff está razoável?”. |
+| I4 | Gates de automação **não mentirem** (carimbo `passed` sem evidência do contrato humano). |
+
+### Coluna B — O que o plano prevê (entrega material)
+
+O que F0–F3 **vão implementar** se o plano fechar (escopo fechado):
+
+| Fase | Previsão de entrega |
+|------|---------------------|
+| F0 | `isAutomateActive` true sem flag; Mode 1 só com escape explícito; prosa/antipatterns alinhados; testes da matriz default. |
+| F1 | Helper de **decision package** + hardgate present-before-PASS + evidência machine (`packagePresentedAt` ou equivalente) + UX em dois passos. |
+| F2 | Collectors intent/delivered + brief plan-end + campo **`intentVsDelivered`** no receipt + wire em `planEndReviewOk` / assert finalize. |
+| F3 | Checklist dogfood dos três gates (prova operacional, não produto). |
+
+**Previsão explícita de NÃO entrega neste plano:** authenticity de `review both` por fase (stubs F3–F6 do dump), re-run Playwright pós-merge, join `validate-state` archive, session-break pós-fase AskUserQuestion, auto-merge.
+
+### Coluna C — O que o plano assume que existe (e pode não existir)
+
+Pressupostos **load-bearing**. Se falharem, a entrega de B não fecha a intenção de A sozinha.
+
+| ID | Pressuposto | Pode não existir / já falhou | Se quebrar… |
+|----|-------------|------------------------------|-------------|
+| A1 | Host **executa** a prosa do maestro (present package, Step I order) | Dogfood: prosa “abra o JSONL” sem present no turno do PASS | F1 precisa de **gate machine**, não só markdown |
+| A2 | `decisions/<phaseId>.jsonl` é appendado de forma confiável | Path `statusRoot` errado (dump F7); claims só no transcript | Package vazio ≠ “sem decisões reais”; F1 empty-ack explícito |
+| A3 | `listDecisions` / decision-log API estáveis e path canônico | Double `projects/` se statusRoot mal passado | F1 builder falha ou lê árvore errada |
+| A4 | Codex / external leg disponível no plan-end | `timeout` ausente no zsh; CLI flag conflicts; 1 leg only | F2 receipt pode não nascer; gate deve fail-closed, não stub |
+| A5 | Surfaces intent/delivered são **reconstruíveis** do plan + state | BI/tasks fracos; claims não persistidos; archive join sujo | `intentVsDelivered` vira chute; F2 collectors devem fail-closed em input incompleto |
+| A6 | `review-code --mode=external-both` aceita brief/contexto extra | Bridge ignora prompt ou trunca | F2 vira só schema no receipt sem modelo comparar de fato |
+| A7 | Operador usa AskUserQuestion / lê o chat | Decline → host judgment accept (dump F7 P2) | Disposition frouxa; F1 não resolve se host ignora STOP em decline |
+| A8 | Session default e durable stamp **alimentam os mesmos gates** | Antes: durable só via stamp; sessão default podia pular | Critic F-001; F0/F1/F2 testam `{no CLI, no stamp}` |
+| A9 | Mode 1 / clear path continua a existir e ser conhecido | Operadores legados em bare `implement` Mode 1 | F0 blast radius: docs + `--mode=1` |
+| A10 | Iron Law host-thin permanece sob default | Default automate sem disciplina = mais spawns, mais lease | P2: default **não** relaxa host-thin |
+
+### Como ler o contraste (regra de uso)
+
+1. **Intenção (A)** define sucesso humano.  
+2. **Previsão (B)** é o único trabalho admitido em tasks/SPEC.  
+3. **Pressupostos (C)** são riscos: cada fase deve **verificar ou fail-closed** se o pressuposto faltar — não narrar que a intenção foi cumprida.
+
+| Se… | Então… |
+|-----|--------|
+| B fecha e C ok | A deve estar resolvida (dogfood F3). |
+| B fecha e C falhou em silêncio | Mesmo padrão do dump: carimbo verde, intenção aberta → **bug de plano/skill**. |
+| A precisa de algo fora de B | Emergir follow-up (não expandir F0–F3 em silêncio). |
+
+### Mapa intenção → fase → pressupostos críticos
+
+| Intenção | Fase que prevê resolver | Pressupostos que a fase deve confrontar |
+|----------|-------------------------|----------------------------------------|
+| I1 default automate | F0 | A8, A9, A10 |
+| I2 sem PASS cego | F1 | A1, A2, A3, A7 |
+| I3 intent vs delivered | F2 | A4, A5, A6, A8 |
+| I4 gates honestos | F1+F2 (+ F3 prova) | A1, A4, A5, A8 |
+
 ## 2. Inviolable principles
 
 - **P1 Automate is the default implement path** — `implement` without an explicit non-automate mode runs pure-maestro. Escape hatches:
