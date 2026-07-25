@@ -1,0 +1,130 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "automate-default-and-operator-gates-f1-decision-review-read-bef",
+  "title": "Decision-review read-before-PASS",
+  "goal": "Operator always sees phase decisions before PASS/FAIL. Blind PASS is impossible under automate.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Decision package builder",
+      "scopeBoundary": [
+        "Do not stamp decisionReview PASS from this helper. No network I/O."
+      ],
+      "acceptance": [
+        "it - Helper builds package with phaseId path entries empty flag and summaryMarkdown from listDecisions input.; it - Each entry exposes category decision why impact evidencePath.; it - Empty log yields empty true and explicit no-decisions banner text.; it - Unit tests cover non-empty and empty packages."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/decision-review-package.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/decision-review-package.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/decision-review-package.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/decision-log.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Hardgate present then PASS token",
+      "scopeBoundary": [
+        "Agents still never write PASS. Do not auto-PASS on empty package."
+      ],
+      "acceptance": [
+        "it - Fixed order requires host render decision package before PASS ask.; it - decisionReview records packagePresentedAt or package present evidence under automate.; it - decisionReviewAllowsPhaseDone or canRunPhaseDone fails closed without present evidence when automate active including no-stamp session default.; it - Antipattern documents Ask PASS without listing decisions."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/decision-review-gate.test.js && rg -n 'read-before-PASS|packagePresented|decision package|present' skills/shared/implement-decision-log.md skills/shared/implement-automate-maestro.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-decision-log.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "src/decision-review-gate.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/automate-orchestrator-gates.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/decision-review-gate.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "Operator UX two-step AskUserQuestion",
+      "scopeBoundary": [
+        "Do not force a specific IDE widget beyond AskUserQuestion where available."
+      ],
+      "acceptance": [
+        "it - UX documents step present package then PASS or FAIL options.; it - Single-click PASS without package body in the same turn is forbidden in prose.; it - Dogfood checklist row covers decision package shown before PASS."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'read-before-PASS|packagePresented|decision package' skills/shared/implement-decision-log.md skills/shared/implement-automate-maestro.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-decision-log.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/implement-phase-agents-dogfood.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F1-G1",
+      "description": "Decision package unit tests pass.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/decision-review-package.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F1-G2",
+      "description": "Maestro and decision-log prose mandate present-before-PASS.",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'read-before-PASS|packagePresented|decision package' skills/shared/implement-decision-log.md skills/shared/implement-automate-maestro.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}
