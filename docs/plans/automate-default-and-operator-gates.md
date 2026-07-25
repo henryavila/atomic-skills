@@ -12,6 +12,43 @@ but operator gates and plan-end review still fail the human contract:
 
 This plan is **skill fidelity + UX of automate**, not product work for Lekto.
 
+## Contraste: intenção × o que o plano prevê × o que o plano assume
+
+### Intenção (dor a fechar)
+
+1. Automate default sem `--mode=automate`.
+2. Decision-review nunca PASS cego — pacote de decisões apresentado antes.
+3. Plan-end cross-model = intent vs delivered (prometido × entregue).
+4. Carimbos `passed` não mentem sobre o contrato humano.
+
+### O que o plano prevê (F0–F3)
+
+| Fase | Entrega |
+|------|---------|
+| F0 | Default `isAutomateActive` + escape Mode 1 + prosa/testes |
+| F1 | Decision package + present-before-PASS + evidência machine |
+| F2 | Surfaces + `intentVsDelivered` no receipt + gate finalize |
+| F3 | Checklist dogfood |
+
+**Fora da previsão:** authenticity review both por fase; Playwright pós-merge; archive join; session-break pós-fase; auto-merge.
+
+### O que o plano assume (pode não existir)
+
+| Pressuposto | Risco (dogfood / runtime) |
+|-------------|---------------------------|
+| Host executa prosa do maestro | PASS sem mostrar JSONL |
+| Decision log no path canônico | statusRoot duplicado; log vazio enganoso |
+| Codex/external no plan-end | timeout ausente; receipt stub/corrupt |
+| State reconstrói intent/delivered | claims só no transcript; BI fraco |
+| Brief extra no external-both | bridge ignora contexto |
+| Operador lê o hardgate | decline → host accept |
+| Session default = gates durable | stamp-only call sites (critic F-001) |
+| Mode 1 escape conhecido | legados no bare Mode 1 |
+
+**Regra:** se o pressuposto faltar, a fase fail-closed — não declarar intenção resolvida.
+
+Ver versão expandida (colunas A/B/C + mapa) em `plan.md` §1b.
+
 ## Principles
 
 ### P1 Automate is the default implement path
