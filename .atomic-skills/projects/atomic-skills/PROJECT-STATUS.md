@@ -27,7 +27,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| grok-phase-todo-projection | done | F4 | plan/grok-phase-todo-projection | 2026-07-24 | 5/5 |
 | claude-cross-model-review | done | F5 | plan/claude-cross-model-review | 2026-07-17 | 6/6 |
 | product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
 | integrity-remediation | done | F6 | plan/integrity-remediation | 2026-07-10 | 7/7 |
@@ -74,3 +73,4 @@ _(none)_
 ## Ad-Hoc Sessions Log (last 5)
 
 _(empty)_
+| grok-phase-todo-projection | 2026-07-25 | plan/grok-phase-todo-projection | 5/5 |

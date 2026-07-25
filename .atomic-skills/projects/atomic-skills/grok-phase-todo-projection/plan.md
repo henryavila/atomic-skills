@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: grok-phase-todo-projection
 title: Projeção de fases do project no TODO do Grok
 version: "1.0"
-status: done
+status: archived
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-25T10:03:18.331Z
+lastUpdated: 2026-07-25T10:04:24.064Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F4
 parallelismAllowed: false
@@ -476,7 +476,6 @@ references:
     label: "PR #36"
 planActive: false
 planTitle: Projeção de fases do project no TODO do Grok
-executionMode: automate
 planEndReview:
   mode: external-both
   reviewFile: .atomic-skills/reviews/2026-07-24-plan-end-external-both-grok-phase-todo-projection.md
@@ -519,13 +518,15 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 ## Reviews
 
+- finalize PR #36: MERGED into develop — https://github.com/henryavila/atomic-skills/pull/36
+
 - internal: clean — 2026-07-24 — Stage 8a self-loop
 - cross-model (codex): fail→applied — 2026-07-24 — provider gpt-5.5; 2 critical + 5 major applied into plan gates/prose; review file .atomic-skills/reviews/2026-07-24-1859-grok-phase-todo-projection.md
 
 
 ## Session handoff (plan-level resume)
-- **Narrative:** finalize published PR #36; next merge then archive.
-- **Decision log:** operator finalize+archive; automatePlanEndGatesOk true.
-- **Single nextAction:** merge PR #36 then archive
-- **Verbatim state:** PR=https://github.com/henryavila/atomic-skills/pull/36; HEAD=89ba2b0bec6077679cbeafc217fe52bf26515459; executionMode automate
-- **Uncommitted changes:** finalize reference stamp
+- **Narrative:** Plan **archived**. Finalize PR #36 merged to develop. Phases already under phases/archive/. Worktree teardown not auto-run.
+- **Decision log:** operator finalize+archive; PR https://github.com/henryavila/atomic-skills/pull/36 state MERGED.
+- **Single nextAction:** optional: remove plan worktree / delete local branch (operator-prompted teardown)
+- **Verbatim state:** status=archived; PR=https://github.com/henryavila/atomic-skills/pull/36; references include PR #36
+- **Uncommitted changes:** archive checkpoint
