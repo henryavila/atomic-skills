@@ -1,7 +1,9 @@
 ---
-lastUpdated: 2026-07-22T20:38:03.630ZschemaVersion: "0.1"
+lastUpdated: 2026-07-25T21:40:04.000Z
+schemaVersion: "0.1"
 activePlans: 2
-activeInitiatives: 1archivedCount: 24
+activeInitiatives: 1
+archivedCount: 25
 ---
 
 # Project Status Index
@@ -55,6 +57,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| automate-skill-discipline | 2026-07-25 | F4 | 5/5 | Automate skill discipline remediation |
 | implementation-automate-mode | 2026-07-17 | F4 | 5/5 | Implementation Automate Mode |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final | 2026-07-10 | F3 | 4/4 | Reparo local e validacao final |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f2-testes-de-regressao | 2026-07-10 | F2 | 3/4 | Testes de regressao |
@@ -64,7 +67,6 @@ _(none)_
 | project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | help-command/f3-guarda-de-fidelidade-help-nunca-cita-um | 2026-07-08 | F3 | 4/4 | Comando `help` - F3 Guarda de fidelidade (help nunca cita um verbo que não existe) |
 | help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
-| help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |
 
 ## Ad-Hoc Sessions Log (last 5)
 

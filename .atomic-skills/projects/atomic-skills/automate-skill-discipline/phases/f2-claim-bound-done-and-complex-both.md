@@ -2,7 +2,9 @@
 schemaVersion: "0.1"
 slug: automate-skill-discipline-f2-claim-bound-done-and-complex-both
 title: Claim-bound done and complex both under automate (R4 + P0-3)
-goal: Under durable automate stamp, task close refuses missing/invalid claims, failed reachability, and complex tasks without both-mode review clear; assert --gate done shares the predicate; Mode 1 unstamped unchanged.
+goal: Under durable automate stamp, task close refuses missing/invalid claims,
+  failed reachability, and complex tasks without both-mode review clear; assert
+  --gate done shares the predicate; Mode 1 unstamped unchanged.
 status: done
 branch: plan/automate-skill-discipline
 started: 2026-07-21T20:00:52.547Z
@@ -11,22 +13,32 @@ nextAction: Materialize F3 maestro cursor
 parentPlan: automate-skill-discipline
 phaseId: F2
 businessIntent:
-  value: Sob stamp automate, done recusa claim invalido, reachability falha e complex sem both-clear — fail-closed no miolo A-E que a auditoria marcou como soft.
-  workflow: TDD predicates claim-bound/complex (T-005) depois wire assert done + prosa transitions (T-006); Mode 1 unstamped permanece igual.
-  rules: Nao mudar GATE-R2 verifier execution; nao forcar complex both em non-automate; nao deixar phase writer chamar done; claim obrigatorio so com executionMode automate.
+  value: Sob stamp automate, done recusa claim invalido, reachability falha e
+    complex sem both-clear — fail-closed no miolo A-E que a auditoria marcou
+    como soft.
+  workflow: TDD predicates claim-bound/complex (T-005) depois wire assert done +
+    prosa transitions (T-006); Mode 1 unstamped permanece igual.
+  rules: Nao mudar GATE-R2 verifier execution; nao forcar complex both em
+    non-automate; nao deixar phase writer chamar done; claim obrigatorio so com
+    executionMode automate.
   outOfScope: maestro cursor (F3); pause F4; Layer 4; auto-merge no assert script.
-  doneWhen: Unit tests claim/complex/assert verdes; prosa claim-bound greppable; F2-G1/F2-G2 met.
+  doneWhen: Unit tests claim/complex/assert verdes; prosa claim-bound greppable;
+    F2-G1/F2-G2 met.
 tasksDone: 2
 tasksTotal: 2
 gatesMet: 2
 gatesTotal: 2
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: F2-G1
     description: Claim-bound and complex gate unit tests pass.
     status: met
     verifier:
       kind: shell
-      command: node --test tests/automate-orchestrator-gates.test.js tests/claim-report.test.js tests/complex-task.test.js tests/assert-automate-gate.test.js
+      command: node --test tests/automate-orchestrator-gates.test.js
+        tests/claim-report.test.js tests/complex-task.test.js
+        tests/assert-automate-gate.test.js
       expectExitCode: 0
     metAt: 2026-07-21T20:07:10.000Z
     evidence:
@@ -36,12 +48,16 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F2 exit gate
+    verifierLabel: "shell: node --test tests/automate-orchestrator-gates.test.js tests…"
+    evidenceSummary: passed · 2026-07-21
   - id: F2-G2
     description: Maestro and transitions document claim-bound done under automate stamp.
     status: met
     verifier:
       kind: shell
-      command: rg -n 'claim-bound|canCloseTasksFromClaims|reachability' skills/shared/implement-automate-maestro.md skills/shared/project-assets/project-transitions.md
+      command: rg -n 'claim-bound|canCloseTasksFromClaims|reachability'
+        skills/shared/implement-automate-maestro.md
+        skills/shared/project-assets/project-transitions.md
       expectExitCode: 0
     metAt: 2026-07-21T20:07:10.000Z
     evidence:
@@ -51,6 +67,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F2 exit gate
+    verifierLabel: "shell: rg -n 'claim-bound|canCloseTasksFromClaims|reachability' sk…"
+    evidenceSummary: passed · 2026-07-21
 stack:
   - id: 1
     title: Claim-bound done and complex both under automate (R4 + P0-3)
@@ -62,12 +80,20 @@ tasks:
     status: done
     lastUpdated: 2026-07-21T20:07:10.000Z
     scopeBoundary:
-      - Do not change GATE-R2 verifier execution itself. Do not force complex both on non-automate. Do not spawn review-code.
+      - Do not change GATE-R2 verifier execution itself. Do not force complex
+        both on non-automate. Do not spawn review-code.
     acceptance:
-      - it - canCloseTasksFromClaims (or new canDoneFromAutomateClaims) documents required claim report + optional reachability true by default for automate done.; it - helper for complex path requires isComplexTask result and a durable review receipt mode both (or skip with recorded operator disposition) before allow done.; it - non-complex allows verifier-only path.; it - unit tests cover missing claim, overlapping SHAs, non-reachable SHA, complex without receipt.
+      - it - canCloseTasksFromClaims (or new canDoneFromAutomateClaims)
+        documents required claim report + optional reachability true by default
+        for automate done.; it - helper for complex path requires isComplexTask
+        result and a durable review receipt mode both (or skip with recorded
+        operator disposition) before allow done.; it - non-complex allows
+        verifier-only path.; it - unit tests cover missing claim, overlapping
+        SHAs, non-reachable SHA, complex without receipt.
     verifier:
       kind: shell
-      command: node --test tests/automate-orchestrator-gates.test.js tests/claim-report.test.js tests/complex-task.test.js
+      command: node --test tests/automate-orchestrator-gates.test.js
+        tests/claim-report.test.js tests/complex-task.test.js
       expectExitCode: 0
     outputs:
       - kind: file
@@ -93,12 +119,20 @@ tasks:
     status: done
     lastUpdated: 2026-07-21T20:07:10.000Z
     scopeBoundary:
-      - Do not require claim reports when plan has no executionMode automate. Do not let phase writer call done. Do not auto-merge worktrees in the assert script.
+      - Do not require claim reports when plan has no executionMode automate. Do
+        not let phase writer call done. Do not auto-merge worktrees in the
+        assert script.
     acceptance:
-      - it - assert --gate done fails without valid claim when plan stamp is automate.; it - implement/maestro Step E requires assert done (or predicate) after reachability before each orchestrator done.; it - transitions done flow documents automate claim-bound HARD-GATE when stamp present.; it - tests cover stamp on vs off.
+      - it - assert --gate done fails without valid claim when plan stamp is
+        automate.; it - implement/maestro Step E requires assert done (or
+        predicate) after reachability before each orchestrator done.; it -
+        transitions done flow documents automate claim-bound HARD-GATE when
+        stamp present.; it - tests cover stamp on vs off.
     verifier:
       kind: shell
-      command: rg -n 'claim-bound|canCloseTasksFromClaims|reachability' skills/shared/implement-automate-maestro.md skills/shared/project-assets/project-transitions.md
+      command: rg -n 'claim-bound|canCloseTasksFromClaims|reachability'
+        skills/shared/implement-automate-maestro.md
+        skills/shared/project-assets/project-transitions.md
       expectExitCode: 0
     outputs:
       - kind: file
@@ -123,6 +157,7 @@ tasks:
       outputSummary: 17 pass assert done + rg claim-bound
 parked: []
 emerged: []
+planTitle: Automate skill discipline remediation
 ---
 
 # Narrative / notes

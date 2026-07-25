@@ -3,10 +3,9 @@ schemaVersion: "0.1"
 slug: automate-skill-discipline
 title: Automate skill discipline remediation
 version: "1.0"
-status: done
+status: archived
 started: 2026-07-21T19:25:48.389Z
 branch: plan/automate-skill-discipline
-executionMode: automate
 currentPhase: F4
 parallelismAllowed: false
 principles:
@@ -373,7 +372,7 @@ planEndReview:
       status: skipped
       familyDifferent: true
 userValidatedAt: 2026-07-25T21:23:36.000Z
-lastUpdated: 2026-07-25T21:23:36.000Z
+lastUpdated: 2026-07-25T21:40:04.000Z
 ---
 
 # Automate skill discipline remediation
@@ -394,3 +393,16 @@ Close the audit gaps so `implement --mode=automate` **fails closed** when the ho
 ## 3. Phase tree
 
 _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when running.)_
+
+## Reviews
+
+- PR merged: https://github.com/henryavila/atomic-skills/pull/37 (merge `8318bebe`)
+- plan-end external-both: `.atomic-skills/reviews/2026-07-25-plan-end-external-both-automate-skill-discipline.md` (codex succeeded)
+- userValidatedAt: 2026-07-25T21:23:36.000Z
+
+## Session handoff
+
+- **Status:** `archived` after PR #37 merge to develop (`8318bebe`).
+- **executionMode:** cleared on archive (stamp no longer needed; plan-end gates already satisfied).
+- **nextAction:** none — plan complete; worktree/branch teardown is operator cleanup.
+- **Decision log:** F0–F4 done; plan-end external-both + userValidatedAt stamped; finalize recorded PR #37; archive post-merge.
