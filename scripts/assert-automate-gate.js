@@ -74,6 +74,7 @@ Gates:
   claims        canCloseTasksFromClaims (claim report required under automate stamp)
                 + cursor step D|D.5|E under stamp
   done          canDoneFromAutomateClaims under stamp (claim-bound + complex from initiative)
+                + reachability ON by default (pass --reachable-file <shas>; use --gate claims for shape-only)
                 + cursor step E under stamp + lastAssert written
   phase-done    canRunPhaseDone (evaluation + lessons + review both under durable automate)
                 + cursor step G under stamp + lastAssert written
@@ -708,7 +709,10 @@ export function runAssert(args, env = {}) {
       });
       r = canDoneFromAutomateClaims({
         ...input,
-        checkReachability: args.checkReachability === true,
+        // Align with canDoneFromAutomateClaims fail-closed default: reachability
+        // ON unless operator explicitly disables (pre-merge shape → use --gate claims).
+        // Omitting --check-reachability must NOT force false (plan-end P2).
+        checkReachability: args.checkReachability !== false,
         complexTasks,
       });
     } else {

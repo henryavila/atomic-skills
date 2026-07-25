@@ -218,6 +218,11 @@ export function buildEvaluationGate(fields) {
       );
     }
     out.reportPath = rp;
+    // Default verdict so callers stamping only reportPath do not persist a
+    // partial gate that later fails evaluationGateHonesty / GATE-R4.
+    if (out.verdict == null || String(out.verdict).trim() === '') {
+      out.verdict = 'pass';
+    }
   }
   if (status === 'skipped') {
     if (out.operatorSkip !== true) {

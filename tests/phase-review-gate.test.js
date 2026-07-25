@@ -57,6 +57,19 @@ describe('phaseReviewHonesty', () => {
     );
   });
 
+  it('rejects local with plain reason only (no overrideReason fig leaf)', () => {
+    assert.equal(
+      phaseReviewHonesty({
+        status: 'passed',
+        mode: 'local',
+        at: 'a'.repeat(40),
+        reviewFile: '.atomic-skills/reviews/f0.md',
+        reason: 'explicit local override for dogfood',
+      }).ok,
+      false,
+    );
+  });
+
   it('rejects skipped without operatorSkip', () => {
     assert.equal(
       phaseReviewHonesty({

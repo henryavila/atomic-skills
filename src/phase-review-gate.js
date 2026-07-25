@@ -74,23 +74,18 @@ export function phaseReviewHonesty(gate) {
     if (!BOTH_SET.has(mode)) {
       // local without operator override reason is the dogfood skip
       if (mode === 'local') {
+        // Require explicit overrideReason only — plain `reason` was the dogfood
+        // fig leaf for skipped-both (`status:passed, mode:local, reason:...`).
+        // Full skip uses status:skipped + operatorSkip + reason separately.
         const override =
           gate.overrideReason != null
             ? String(gate.overrideReason).trim()
-            : gate.reason != null
-              ? String(gate.reason).trim()
-              : '';
-        // Under automate honesty, local is only ok with non-empty operator reason
-        // AND we still prefer both — dogfood used reason as fig leaf for skip.
-        // Product decision: local + non-empty overrideReason is allowed as
-        // explicit downgrade (phaseReviewMode); but require operatorSkip-style
-        // flag? Design says override with reason. Accept local only with
-        // non-empty reason that is not empty.
+            : '';
         if (override === '') {
           return {
             ok: false,
             reason:
-              'automate phase-done default is review mode both; local requires non-empty overrideReason (operator-owned downgrade)',
+              'automate phase-done default is review mode both; local requires non-empty overrideReason (operator-owned downgrade) — plain reason alone is not enough',
           };
         }
         // Allow explicit local downgrade with reason (operator-owned)

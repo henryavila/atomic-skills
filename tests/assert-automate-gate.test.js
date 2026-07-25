@@ -371,6 +371,12 @@ describe('assert-automate-gate CLI', () => {
           }),
           'utf8',
         );
+        const reachablePath = join(root, 'reachable.txt');
+        writeFileSync(
+          reachablePath,
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n',
+          'utf8',
+        );
         const r = run(
           [
             '--plan',
@@ -383,6 +389,9 @@ describe('assert-automate-gate CLI', () => {
             statusRoot,
             '--claim-report',
             claimPath,
+            '--check-reachability',
+            '--reachable-file',
+            reachablePath,
             '--skip-last-assert',
           ],
           { cwd: root },

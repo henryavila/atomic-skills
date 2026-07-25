@@ -20,7 +20,7 @@ node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/a
 | Transition | `--gate` | Required extras |
 |------------|----------|-----------------|
 | Before acquire/spawn (Step **C**) | `spawn` | default `--status-root` = `.atomic-skills/status`; cursor step **C** |
-| Before done-batch / claim close (Step **E**) | `claims` or `done` | `--claim-report <path>`; optional `--check-reachability --reachable-file <shas>` after merge; cursor step **E** (claims also allow D\|D.5) |
+| Before done-batch / claim close (Step **E**) | `claims` or `done` | `--claim-report <path>`; **`done` defaults reachability ON** → pass `--reachable-file <shas>` after merge (shape-only pre-merge → `--gate claims`); cursor step **E** (claims also allow D\|D.5) |
 | Before `phase-done` (Step **G**) | `phase-done` | plan must carry valid `phases[].evaluationGate` under stamp; cursor step **G** |
 | Before finalize/archive (Step **I**) | `finalize` | plan-end receipt + `userValidatedAt` under stamp; cursor step **I** |
 
@@ -87,7 +87,7 @@ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). A
 - Never self-certify; never silent Mode-1 fallback under automate.
 - Max **2** re-dispatch rounds for verifier/review/evaluator fail, then mandatory operator stop.
 - Every routing / skip / re-dispatch / scope-exit / review-severity disposition is written to the durable decisions log / handoff decision log.
-- Fixed evaluation order: all phase tasks `done` → **evaluation agent** → **write evaluationReport + stamp authentic `evaluationGate` (`reportPath` / `operatorSkip`)** → **distill lessons + operator ratify + stamp `lessonsState` (`recorded`+`lessonsPath` or explicit `none`)** → `assert-automate-gate --gate phase-done` → phase-done `review-code --mode=both`. Never forge `status: passed` without `reportPath`; never invent `skipped` without operator `operatorSkip`+reason; never omit lessons under automate (silence ≠ zero).
+- Fixed evaluation order: all phase tasks `done` → **evaluation agent** → **write evaluationReport + stamp authentic `evaluationGate` (`reportPath` / `operatorSkip`)** → **distill lessons + operator ratify + stamp `lessonsState` (`recorded`+`lessonsPath` or explicit `none`)** → **`review-code --mode=both` + stamp `reviewGate`** → **`assert-automate-gate --gate phase-done`** → terminal `phase-done` writes. Never assert before review; never forge `status: passed` without `reportPath`; never invent `skipped` without operator `operatorSkip`+reason; never omit lessons under automate (silence ≠ zero).
 - After last phase the **user validates** implementation before finalize/archive (`assert-automate-gate --gate finalize` / `canFinalizeOrArchive` / durable stamp — not session clear alone).
 - Pure STOP helpers (layer-1, no spawn): `src/automate-orchestrator-gates.js` (`canSpawnPhaseWriter`, `canCloseTasksFromClaims`, `canDoneFromAutomateClaims` claim-bound done, `canRunPhaseDone` = evaluation + **lessons**, `canFinalizeOrArchive`) + `phaseLessonsAllowsClose` / `buildLessonsState` in `src/phase-lessons-gate.js` + `complexTaskAllowsDone` in `src/complex-task.js`.
 - **Layer-2 assert (required before C/E/G/I):** `scripts/assert-automate-gate.js` — non-zero exit forbids advancing. Step **E** is claim-bound under stamp (`--gate done`).

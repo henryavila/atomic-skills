@@ -220,6 +220,16 @@ describe('buildEvaluationGate', () => {
     assert.equal(g.at, 'abc1234');
   });
 
+  it('defaults verdict to pass when status=passed and reportPath set', () => {
+    const g = buildEvaluationGate({
+      status: 'passed',
+      reportPath: '.atomic-skills/reviews/eval-f0.md',
+    });
+    assert.equal(g.status, 'passed');
+    assert.equal(g.verdict, 'pass');
+    assert.equal(g.reportPath, '.atomic-skills/reviews/eval-f0.md');
+  });
+
   it('rejects invalid status', () => {
     assert.throws(() => buildEvaluationGate({ status: 'ok' }), /invalid status/);
   });
