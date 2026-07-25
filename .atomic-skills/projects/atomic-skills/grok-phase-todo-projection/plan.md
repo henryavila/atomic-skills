@@ -129,7 +129,6 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/2026-07-24-f0-grok-phase-todo-projection-both.md
       verifiedAt: 2026-07-24T19:42:03.616Z
-    lessonsState: none
   - id: F1
     slug: grok-phase-todo-projection-f1-helper-deterministico-de-projecao
     title: Helper determinístico de projeção
@@ -224,7 +223,6 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/2026-07-24-f1-project-session-todos-both.md
       verifiedAt: 2026-07-24T20:06:56.316Z
-    lessonsState: none
   - id: F2
     slug: grok-phase-todo-projection-f2-harden-do-emit-lint-estrutural
     title: Harden do emit lint estrutural
@@ -311,7 +309,6 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/2026-07-24-f2-transition-emits-both.md
       verifiedAt: 2026-07-24T20:38:43.203Z
-    lessonsState: none
   - id: F3
     slug: grok-phase-todo-projection-f3-wire-implement-e-reseed-grok
     title: Wire implement e reseed Grok
@@ -395,7 +392,6 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/2026-07-24-f3-implement-reseed-both.md
       verifiedAt: 2026-07-24T20:51:50.963Z
-    lessonsState: none
   - id: F4
     slug: grok-phase-todo-projection-f4-integracao-e-regressao
     title: Integração e regressão
@@ -471,7 +467,6 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/2026-07-24-f4-session-todo-both.md
       verifiedAt: 2026-07-24T22:25:20.555Z
-    lessonsState: none
 references:
   - kind: file
     label: design.md critic-approved
@@ -495,7 +490,6 @@ planEndReview:
       status: skipped
       familyDifferent: true
 userValidatedAt: 2026-07-25T00:07:26.759Z
-validatorId: operator
 ---
 
 # Projeção de fases do project no TODO do Grok

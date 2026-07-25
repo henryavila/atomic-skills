@@ -114,7 +114,6 @@ tasks:
         path: scripts/project-session-todos.js
     summary: Implementar helper e CLI
     weight: 1
-    signal: verifier
     closedAt: 2026-07-24T19:51:38.683Z
     evidence:
       verifierKind: shell
@@ -143,7 +142,6 @@ tasks:
         path: tests/project-session-todos.test.js
     summary: Testes golden do helper
     weight: 1
-    signal: verifier
     closedAt: 2026-07-24T19:51:41.414Z
     evidence:
       verifierKind: shell

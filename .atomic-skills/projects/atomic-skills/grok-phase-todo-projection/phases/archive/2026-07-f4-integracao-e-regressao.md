@@ -123,7 +123,6 @@ tasks:
         (0.129416ms)
 
         ✔ stableTodoId is planSlug colon phase id (0.08
-    signal: verifier
   - id: T-002
     title: Dogfood checklist e close
     description: Dogfood checklist e close
@@ -168,7 +167,6 @@ tasks:
         `merge: false` | **Full replace** so only phase todos remain |
 
         109:| Empty focus / pause
-    signal: verifier
 parked: []
 emerged: []
 summary: Regressão unit + install parity Grok + dogfood checklist
