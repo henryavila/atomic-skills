@@ -37,7 +37,7 @@ const COMPLETE_RECONCILE = [
   '1. Run the detector.',
   "2. For each reconciled task emit `task-done` via `appendCompletion` with projectId, planSlug, phaseId, taskId.",
   '3. Run `scripts/refresh-state.js`.',
-  '4. Optionally document `project-session-todos` after refresh-state.',
+  '4. Run `scripts/project-session-todos.js` then apply via `todo_write` on Grok.',
 ].join('\n');
 
 const COMPLETE_PHASE = [
@@ -287,9 +287,10 @@ test('done, reconcile, and phase-done fail lint if refresh-state is missing', ()
   }
 });
 
-test('done and phase-done fail lint if project-session-todos is not mentioned', () => {
+test('done, reconcile, and phase-done fail lint if project-session-todos is not mentioned', () => {
   const fixture = tempMarkdown(minimalFixture({
     done: COMPLETE_DONE.replace(/project-session-todos/g, 'session-helper'),
+    reconcile: COMPLETE_RECONCILE.replace(/project-session-todos/g, 'session-helper'),
     phase: COMPLETE_PHASE.replace(/project-session-todos/g, 'session-helper'),
   }));
   try {
@@ -298,9 +299,36 @@ test('done and phase-done fail lint if project-session-todos is not mentioned', 
     assert.equal(result.ok, false);
     const byBlock = Object.fromEntries(result.offenders.map((o) => [o.block, o.missing]));
     assert.ok(byBlock[HEADERS.done]?.includes('project-session-todos'));
+    assert.ok(byBlock[HEADERS.reconcile]?.includes('project-session-todos'));
     assert.ok(byBlock[HEADERS.phase]?.includes('project-session-todos'));
-    // reconcile is not hard-required for project-session-todos by T-001 acceptance
-    assert.equal(byBlock[HEADERS.reconcile], undefined);
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
+test('done fails lint when project-session-todos appears before refresh-state', () => {
+  const inverted = [
+    HEADERS.done,
+    '',
+    '`done` is the closure authority for task state.',
+    'Do NOT consume `verify-claim` output as task evidence.',
+    '1. Locate task in `tasks:`.',
+    '2. **Verifier handling is the first state-changing gate.**',
+    '3. Only after verifier handling succeeds, set `status: done`.',
+    "4. Emit exactly one completion event via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })`.",
+    '5. Run `scripts/project-session-todos.js` first (wrong order).',
+    '6. Then run `scripts/refresh-state.js`.',
+    '7. Apply via `todo_write` on Grok.',
+  ].join('\n');
+  const fixture = tempMarkdown(minimalFixture({ done: inverted }));
+  try {
+    const result = lintTransitionEmits(fixture.path);
+    assert.equal(result.ok, false);
+    const byBlock = Object.fromEntries(result.offenders.map((o) => [o.block, o.missing]));
+    assert.ok(
+      byBlock[HEADERS.done]?.includes('refresh-before-project-session-todos'),
+      JSON.stringify(byBlock[HEADERS.done]),
+    );
   } finally {
     rmSync(fixture.dir, { recursive: true, force: true });
   }

@@ -201,8 +201,8 @@ project_chip() {                       # arg: $1 = repo root (git-root, fallback
         [ .plan.slug, (.phase.id // ""), (.phase.index|tostring), (.phase.total|tostring),
           (.tasks.done|tostring), (.tasks.total|tostring), (.tasks.blocked|tostring),
           (.flags.drift|tostring),
-          ( [ .sources[] | .path + "" + .lastUpdated ] | join("") )
-        ] | join("")
+          ( [ .sources[] | .path + "\u0001" + .lastUpdated ] | join("\u0002") )
+        ] | join("\u0000")
       end' "$f" 2>/dev/null) || return 0
     [[ "$data" == "NOPLAN" || -z "$data" ]] && return 0
 

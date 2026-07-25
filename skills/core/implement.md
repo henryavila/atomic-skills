@@ -82,8 +82,8 @@ Run **only after** Step 0 reports home (`resumeGateAllowed`). The gate is author
 After Step 0 reports home (and a clean Step 0.5 resume), **and after any host context compaction** that drops the session checklist:
 
 1. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"`.
-2. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/project-session-todos.js" --json`.
-3. On Grok, apply the payload with the session checklist tool (`todo_write`). When pickFocus has a winner, reseed the **phase scaffold** with **`merge: false`** (full replace so only phase todos remain). Empty focus / paused plan (no winner) → **skip reseed** (do not wipe the board).
+2. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/project-session-todos.js" --json` and **parse the JSON payload**.
+3. On Grok, apply that payload with the session checklist tool (`todo_write`) **verbatim**: use the emitted `merge` flag and `todos[]` as returned — **do not recompute** merge/winner independently. The helper already encodes winner → `merge: false` (full phase reseed) and empty focus / no winner → `merge: true` + empty todos (no wipe).
 
 **anti-proc:** while a plan is **anchored**, a concurrent process scaffold (`proc:*` from bundled flows) is **forbidden** as competing session todos. Keep process steps as handoff narrative, not a second checklist.
 

@@ -286,6 +286,7 @@ Invoked when the active initiative is the phase initiative of an active plan AND
        pre-ratified spine (Mode B in `project-materialize.md`). Plan-level or
        closed-initiative nextAction may point at that package ritual before the
        successor initiative exists.
+   - **Post-successor projection (Mode 1 / when a successor was activated or materialized):** After successor activation and any Mode-1 `materialize`, re-run `refresh-state` → `project-session-todos` → `todo_write` on Grok so the new phase does not linger as `(—) · not materialized` after phase-done. Automate defers this reseed to the package ritual / next implement start (no blank-form materialize here). Apply the helper payload **as emitted**.
    - Save the plan + PROJECT-STATUS.md.
    - **Microcommit checkpoints**: stage explicit paths only and commit the phase-boundary state in small logical groups. Use separate commits for review metadata, lessons, archive move, and next-phase activation when those groups exist; the final plan advance commit is `rtk git commit -m "chore(project): advance <plan> <phase>"`. Never use `git add .` or `git add -A`.
 10. On user decline of the advance (or `plan-done` accept without `currentPhase` change) — still only with a green commit guard:

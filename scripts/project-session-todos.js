@@ -121,7 +121,8 @@ function findPhaseInitiative(p, phaseId) {
     // initiatives/archive/*.md after phase-done (closed flat phases live under archive).
     const scanFlatDir = (dir) => {
       if (!existsSync(dir) || !statSync(dir).isDirectory()) return null;
-      for (const entry of readdirSync(dir)) {
+      // Lexical order so duplicate phaseId matches are deterministic across FS.
+      for (const entry of readdirSync(dir).slice().sort()) {
         if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
         const file = join(dir, entry);
         // Skip nested dirs at top-level (e.g. archive/ itself when scanning initiatives/).
@@ -146,7 +147,8 @@ function findPhaseInitiative(p, phaseId) {
   // phases/archive/*.md after phase-done (closed phases live under archive).
   const scanDir = (dir) => {
     if (!existsSync(dir) || !statSync(dir).isDirectory()) return null;
-    for (const entry of readdirSync(dir)) {
+    // Lexical order so duplicate phaseId matches are deterministic across FS.
+    for (const entry of readdirSync(dir).slice().sort()) {
       if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
       const file = join(dir, entry);
       // Skip nested dirs at top-level (e.g. archive/ itself when scanning phases/).
@@ -237,13 +239,22 @@ export function truncateGoal(goal, max = 80) {
 export function initiativeRollups(initFm) {
   if (!initFm || typeof initFm !== 'object') return null;
   const tasks = Array.isArray(initFm.tasks) ? initFm.tasks : [];
-  const done =
-    typeof initFm.tasksDone === 'number'
+  const fromTasksDone = tasks.filter((t) => t && t.status === 'done').length;
+  const fromTasksTotal = tasks.length;
+  const explicitDone =
+    typeof initFm.tasksDone === 'number' && Number.isFinite(initFm.tasksDone)
       ? initFm.tasksDone
-      : tasks.filter((t) => t && t.status === 'done').length;
-  const total = typeof initFm.tasksTotal === 'number' ? initFm.tasksTotal : tasks.length;
-  // Initiative present ⇒ materialized. Prefer explicit rollups; else task counts.
-  return { done, total };
+      : null;
+  const explicitTotal =
+    typeof initFm.tasksTotal === 'number' && Number.isFinite(initFm.tasksTotal)
+      ? initFm.tasksTotal
+      : null;
+  // Partial explicit pair → fall back to task-array counts (avoid "(2/0)" labels).
+  if (explicitDone != null && explicitTotal != null) {
+    return { done: explicitDone, total: explicitTotal };
+  }
+  // Initiative present ⇒ materialized.
+  return { done: fromTasksDone, total: fromTasksTotal };
 }
 
 /**

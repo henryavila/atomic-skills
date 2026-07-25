@@ -58,19 +58,21 @@ Do **not** ship content that is only `F0 (2/12)` without summary or title.
 
 ## Status mapping
 
-Apply in this **precedence order** (first match wins):
+SoT for session-todo **status** is the plan **phase descriptor** (`plan.phases[]`),
+not the initiative file. Apply this **precedence order** (first match wins) — matches
+`mapPhaseTodoStatus` in `scripts/project-session-todos.js`:
 
-1. If phase status is **`paused`** → always session todo **`pending`** and append content suffix **` · paused`** (not `completed`, not omitted).
-2. Else if phase is **current / `active`** → **`in_progress`** (even if tasks are 12/12 while gates remain open).
-3. Else if phase is **`done` or `archived`** → **`completed`** (`(n/N)` remains informative).
+1. If phase descriptor status is **`paused`** → session todo **`pending`** and append content suffix **` · paused`** (not `completed`, not omitted).
+2. Else if status is **`done` or `archived`** → **`completed`** (`(n/N)` remains informative). **Beats a stale `currentPhase` pointer** so a closed phase never surfaces as `in_progress`.
+3. Else if **`phase.id === plan.currentPhase`** → **`in_progress`** (even if tasks are N/N while gates remain open). **Only** the currentPhase id is `in_progress` — non-current `status: active` stays **`pending`**.
 4. Else → **`pending`**.
 
-| Phase / initiative status | Session todo `status` | Content notes |
+| Phase descriptor | Session todo `status` | Content notes |
 |---|---|---|
-| `paused` | **`pending`** (always) | Append ` · paused` — wins over current/active |
-| current / `active` phase | `in_progress` | Only when not paused |
-| `done` or `archived` | `completed` | `(n/N)` remains informative |
-| other non-done phases | `pending` | |
+| `paused` | **`pending`** (always) | Append ` · paused` — wins over everything |
+| `done` or `archived` | `completed` | Wins over stale `currentPhase`; `(n/N)` informative |
+| id equals `plan.currentPhase` (and not paused/done/archived) | `in_progress` | **Only** currentPhase; non-current `active` is pending |
+| other open statuses (incl. non-current `active`) | `pending` | |
 
 At most one `in_progress` phase todo for the active plan scaffold.
 

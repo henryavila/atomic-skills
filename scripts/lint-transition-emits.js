@@ -42,12 +42,13 @@ const CLOSE_REFRESH_HEADERS = new Set([
 ]);
 
 /**
- * Closes that reseed the Grok phase scaffold must name the projection helper.
- * reconcile documents the same step in prose (T-002) but T-001 acceptance only
- * hard-fails done + phase-done when the helper is missing.
+ * Closes that reseed the Grok phase scaffold must name the projection helper
+ * (and keep SoT order: refresh-state before project-session-todos).
+ * Includes reconcile: disposition-based closes must not skip projection.
  */
 const CLOSE_SESSION_TODOS_HEADERS = new Set([
   '## `done <task-id>`',
+  '## `reconcile`',
   '## `phase-done`',
 ]);
 
@@ -142,6 +143,27 @@ function checkSessionTodosProjection(block) {
   return [];
 }
 
+/**
+ * SoT order when both anchors are present: first refresh-state before first
+ * project-session-todos; when todo_write is also mentioned, helper before todo_write.
+ * Presence-only is insufficient — inverted order still greps green otherwise.
+ */
+function checkProjectionOrder(block) {
+  const missing = [];
+  const refreshIdx = block.search(/refresh-state/);
+  const projectIdx = block.search(/project-session-todos/);
+  if (refreshIdx !== -1 && projectIdx !== -1 && refreshIdx > projectIdx) {
+    missing.push('refresh-before-project-session-todos');
+  }
+  if (projectIdx !== -1) {
+    const todoIdx = block.search(/todo_write/);
+    if (todoIdx !== -1 && projectIdx > todoIdx) {
+      missing.push('project-session-todos-before-todo_write');
+    }
+  }
+  return missing;
+}
+
 function checkCloseProjection(header, block) {
   const missing = [];
   if (CLOSE_REFRESH_HEADERS.has(header)) {
@@ -150,11 +172,21 @@ function checkCloseProjection(header, block) {
   if (CLOSE_SESSION_TODOS_HEADERS.has(header)) {
     missing.push(...checkSessionTodosProjection(block));
   }
+  if (
+    CLOSE_REFRESH_HEADERS.has(header) ||
+    CLOSE_SESSION_TODOS_HEADERS.has(header)
+  ) {
+    missing.push(...checkProjectionOrder(block));
+  }
   return missing;
 }
 
 function checkFocusMutatorProjection(block) {
-  return [...checkRefreshState(block), ...checkSessionTodosProjection(block)];
+  return [
+    ...checkRefreshState(block),
+    ...checkSessionTodosProjection(block),
+    ...checkProjectionOrder(block),
+  ];
 }
 
 export function lintTransitionEmits(path = DEFAULT_TRANSITIONS) {
