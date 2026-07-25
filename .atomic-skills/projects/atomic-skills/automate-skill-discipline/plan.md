@@ -3,7 +3,7 @@ schemaVersion: "0.1"
 slug: automate-skill-discipline
 title: Automate skill discipline remediation
 version: "1.0"
-status: active
+status: done
 started: 2026-07-21T19:25:48.389Z
 branch: plan/automate-skill-discipline
 executionMode: automate
@@ -352,9 +352,25 @@ phases:
       verifiedAt: 2026-07-21T20:21:52.000Z
       reason: local override F4 dogfood
 references: []
-planActive: true
+planActive: false
 planTitle: Automate skill discipline remediation
-lastUpdated: 2026-07-21T20:21:52.000Z
+planEndReview:
+  mode: external-both
+  range: "develop...plan/automate-skill-discipline"
+  reviewFile: ".atomic-skills/reviews/2026-07-25-plan-end-external-both-automate-skill-discipline.md"
+  verifiedAt: 2026-07-25T21:23:36.000Z
+  legs:
+    - provider: codex
+      status: succeeded
+      familyDifferent: true
+    - provider: grok
+      status: skipped
+      familyDifferent: false
+    - provider: claude
+      status: skipped
+      familyDifferent: true
+userValidatedAt: 2026-07-25T21:23:36.000Z
+lastUpdated: 2026-07-25T21:23:36.000Z
 ---
 
 # Automate skill discipline remediation
