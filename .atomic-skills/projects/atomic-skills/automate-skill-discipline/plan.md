@@ -351,7 +351,10 @@ phases:
       reviewFile: .atomic-skills/reviews/2026-07-21-automate-skill-discipline-f4-evaluation.md
       verifiedAt: 2026-07-21T20:21:52.000Z
       reason: local override F4 dogfood
-references: []
+references:
+  - kind: url
+    path: https://github.com/henryavila/atomic-skills/pull/37
+    label: "PR #37"
 planActive: false
 planTitle: Automate skill discipline remediation
 planEndReview:
