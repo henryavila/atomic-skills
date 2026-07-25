@@ -31,6 +31,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 2
 gatesTotal: 2
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: F4-G1
     description: Phase-start package and draft BI strings present in maestro.
@@ -48,6 +50,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: phase-done exit gate F4-G1 EXIT 0
+    verifierLabel: "shell: rg -n 'phase-start|draft|validate-only|businessIntent' skil…"
+    evidenceSummary: passed · 2026-07-23
   - id: F4-G2
     description: Lazy materialization KB updated for host-thin automate phase-start package.
     status: met
@@ -64,6 +68,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: phase-done exit gate F4-G2 EXIT 0
+    verifierLabel: "shell: rg -n 'host-thin|decision-review|phase-start|draft' docs/kb…"
+    evidenceSummary: passed · 2026-07-23
 stack:
   - id: 1
     title: Phase boundary ritual and next agent
@@ -148,7 +154,6 @@ tasks:
 parked: []
 emerged: []
 startedCommit: 346b249f58ae55b4953b610e076e134a313d817b
-weightDone: 4
 ---
 
 # F4 done. decision-review PASS (aprovado). Next: F5 package.

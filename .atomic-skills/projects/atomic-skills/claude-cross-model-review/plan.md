@@ -297,6 +297,7 @@ phases:
     status: pending
     summary: Documentar matriz 3-way na KB e checklist de smoke.
 references: []
+planTitle: Claude as external cross-model review provider
 ---
 
 # Claude as external cross-model review provider

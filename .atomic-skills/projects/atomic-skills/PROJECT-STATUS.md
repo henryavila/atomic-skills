@@ -1,7 +1,7 @@
 ---
 lastUpdated: 2026-07-22T20:38:03.630Z
 schemaVersion: "0.1"
-activePlans: 1
+activePlans: 2
 activeInitiatives: 1
 archivedCount: 24
 ---
@@ -23,12 +23,11 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | implement-phase-agents | active | F0 | plan/implement-phase-agents | 2026-07-22 | 1/6 |
 | materialize-spec-quality-guards | active | F0 | plan/materialize-spec-quality-guards | 2026-07-22 | 1/5 |
 
-
-
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| grok-phase-todo-projection | done | F4 | plan/grok-phase-todo-projection | 2026-07-24 | 5/5 |
 | claude-cross-model-review | done | F5 | plan/claude-cross-model-review | 2026-07-17 | 6/6 |
 | product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
 | integrity-remediation | done | F6 | plan/integrity-remediation | 2026-07-10 | 7/7 |

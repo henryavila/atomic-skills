@@ -31,6 +31,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 3
 gatesTotal: 3
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: F5-G1
     description: Contract fixture tests pass.
@@ -47,6 +49,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: phase-done F5-G1 @a86aadd
+    verifierLabel: "shell: node --test tests/implement-phase-agents-contract.test.js"
+    evidenceSummary: passed · 2026-07-23
   - id: F5-G2
     description: Dogfood checklist and memory reference exist.
     status: met
@@ -63,6 +67,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: phase-done F5-G2 @a86aadd
+    verifierLabel: "shell: test -s docs/kb/implement-phase-agents-dogfood.md && test -…"
+    evidenceSummary: passed · 2026-07-23
   - id: F5-G3
     description: Manual HARD — Henry dogfoods checklist on a small multi-phase plan
       or records explicit defer with reason after F5 code green.
@@ -80,6 +86,8 @@ exitGates:
         under automate (aprovado. prossiga); checklist
         docs/kb/implement-phase-agents-dogfood.md authored and applied as living
         dogfood of this plan.
+    verifierLabel: manual
+    evidenceSummary: passed · 2026-07-23
 stack:
   - id: 1
     title: Tests fixtures docs and dogfood checklist
@@ -188,7 +196,6 @@ tasks:
 parked: []
 emerged: []
 startedCommit: 3cef52848377d6c5ba4a5fe4e002ef6ba10d65cf
-weightDone: 5
 ---
 
 # F5 done. Plan phases complete. Plan-end external-both + user validation next.

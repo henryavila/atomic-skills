@@ -2,7 +2,10 @@
 schemaVersion: "0.1"
 slug: integrity-remediation-f0-runtime-autocontido-e-setup-confiavel
 title: Runtime autocontido e setup confiável
-goal: Destravar a admissão SPEC do próprio executor, fazer toda skill instalada resolver scripts, dependências e assets pelo package root confiável, distinguir ledger do installer de um projeto configurado e fornecer o bootstrap transacional mínimo que materializa F4 sem estado parcial.
+goal: Destravar a admissão SPEC do próprio executor, fazer toda skill instalada
+  resolver scripts, dependências e assets pelo package root confiável,
+  distinguir ledger do installer de um projeto configurado e fornecer o
+  bootstrap transacional mínimo que materializa F4 sem estado parcial.
 summary: Destrava executor, fecha runtime closure e materializa F4 de forma recuperável.
 status: done
 branch: plan/integrity-remediation
@@ -12,11 +15,21 @@ nextAction: Materialize F4 via scripts/materialize-state.js and start F4/T-001.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
-  value: Eliminar dependências do checkout fonte e impedir que o ledger do installer mascare setup ausente, criando uma base confiável para toda a remediação.
-  workflow: Destravar materialização mínima; executar e reconciliar o lifecycle transacional; corrigir o caminho SPEC-implement; então entregar segurança do installer, contratos de host, Gemini/portabilidade e qualificação de release.
-  rules: Nenhuma mutação sem ownership provado; uma autoridade por contrato; reprodução vermelha antes de cada correção; execução em consumidor sem checkout fonte; falha fechada diante de ambiguidade.
-  outOfScope: Fork permanente do installer, banco transacional genérico, redesign da interface aiDeck, features não relacionadas e publicação da release.
-  doneWhen: O manifesto canônico prova todos os findings formais e adicionais; black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node 22.18.x, Node 24.11.x ou superior, full suite, docs e skill validation passam.
+  value: Eliminar dependências do checkout fonte e impedir que o ledger do
+    installer mascare setup ausente, criando uma base confiável para toda a
+    remediação.
+  workflow: Destravar materialização mínima; executar e reconciliar o lifecycle
+    transacional; corrigir o caminho SPEC-implement; então entregar segurança do
+    installer, contratos de host, Gemini/portabilidade e qualificação de
+    release.
+  rules: Nenhuma mutação sem ownership provado; uma autoridade por contrato;
+    reprodução vermelha antes de cada correção; execução em consumidor sem
+    checkout fonte; falha fechada diante de ambiguidade.
+  outOfScope: Fork permanente do installer, banco transacional genérico, redesign
+    da interface aiDeck, features não relacionadas e publicação da release.
+  doneWhen: O manifesto canônico prova todos os findings formais e adicionais;
+    black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node 22.18.x,
+    Node 24.11.x ou superior, full suite, docs e skill validation passam.
 tasksDone: 5
 tasksTotal: 5
 gatesMet: 2
@@ -25,35 +38,49 @@ weightDone: 19
 weightTotal: 19
 exitGates:
   - id: F0-G1
-    description: Admissão SPEC, runtime closure, resolução por package root e bootstrap transacional F0→F4 passam em consumidor sem checkout fonte. FAILS when `implement` exige `Files`, referência resolve fora do tarball ou fault injection deixa descriptor F4 e initiative divergentes.
+    description: Admissão SPEC, runtime closure, resolução por package root e
+      bootstrap transacional F0→F4 passam em consumidor sem checkout fonte.
+      FAILS when `implement` exige `Files`, referência resolve fora do tarball
+      ou fault injection deixa descriptor F4 e initiative divergentes.
     status: met
     verifier:
       kind: shell
-      command: node --test tests/consumer-runtime-resolution.test.js tests/runtime-closure.test.js tests/consumer-install-e2e.test.js tests/implement-ready-contract.test.js tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js
+      command: node --test tests/consumer-runtime-resolution.test.js
+        tests/runtime-closure.test.js tests/consumer-install-e2e.test.js
+        tests/implement-ready-contract.test.js
+        tests/phase-materialization/materialize-bootstrap.test.js
+        tests/phase-materialization/e2e-lifecycle.test.js
       expectExitCode: 0
+    metAt: 2026-07-16T16:38:36.714Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T16:38:36.714Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test consumer-runtime + runtime-closure +
+        consumer-install-e2e + implement-ready + materialize-bootstrap +
+        e2e-lifecycle: 30 pass, 0 fail"
     verifierLabel: "shell: node --test tests/consumer-runtime-resolution.test.js tests…"
-    metAt: 2026-07-16T16:38:36.714Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-07-16T16:38:36.714Z
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test consumer-runtime + runtime-closure + consumer-install-e2e + implement-ready + materialize-bootstrap + e2e-lifecycle: 30 pass, 0 fail"
+    evidenceSummary: passed · 2026-07-16
   - id: F0-G2
-    description: Project-scope install não mascara ausência de setup canônico. FAILS when a pasta do ledger basta para pular setup.
+    description: Project-scope install não mascara ausência de setup canônico. FAILS
+      when a pasta do ledger basta para pular setup.
     status: met
     verifier:
       kind: shell
-      command: node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js
+      command: node --test tests/project.test.js
+        tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
-    verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
     metAt: 2026-07-16T16:38:36.714Z
     evidence:
       verifierKind: shell
       verifiedAt: 2026-07-16T16:38:36.714Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test project.test.js + install-uninstall-roundtrip: 78 pass, 0 fail"
+      outputSummary: "node --test project.test.js + install-uninstall-roundtrip: 78
+        pass, 0 fail"
+    verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
+    evidenceSummary: passed · 2026-07-16
 stack:
   - id: 1
     title: Runtime autocontido e setup confiável
@@ -64,28 +91,40 @@ tasks:
     title: Destravar o executor e expor CLIs estáveis
     summary: Admite outputs/scopeBoundary e resolve as CLIs pelo package root instalado.
     weight: 5
-    description: "Executar esta única task por TDD direto, corrigir a admissão de `implement` para `outputs[].path`/`scopeBoundary[]`, substituir imports relativos ao CWD por entrypoints que resolvem módulos a partir do package root instalado. verified_by: `skills/core/implement.md:51-77` e `docs/audits/project-implement-audit-2026-07-10.md:34-106,251-261`."
+    description: "Executar esta única task por TDD direto, corrigir a admissão de
+      `implement` para `outputs[].path`/`scopeBoundary[]`, substituir imports
+      relativos ao CWD por entrypoints que resolvem módulos a partir do package
+      root instalado. verified_by: `skills/core/implement.md:51-77` e
+      `docs/audits/project-implement-audit-2026-07-10.md:34-106,251-261`."
     status: done
     lastUpdated: 2026-07-11T22:27:22Z
     closedAt: 2026-07-11T22:27:22Z
     tags:
       - bootstrap
     scopeBoundary:
-      - não importar `./src` do repositório consumidor e não alterar a semântica de decompose, discover, depend ou normalize
-      - não invocar `implement` para esta própria task; fechar pelo verifier e pelo fluxo canônico `project done` antes de iniciar qualquer outra task
+      - não importar `./src` do repositório consumidor e não alterar a semântica
+        de decompose, discover, depend ou normalize
+      - não invocar `implement` para esta própria task; fechar pelo verifier e
+        pelo fluxo canônico `project done` antes de iniciar qualquer outra task
     acceptance:
-      - um consumidor temporário sem checkout de atomic-skills executa os quatro entrypoints, e um `src/normalize.js` homônimo no consumidor nunca é carregado
-      - o driver admite uma task materializada com outputs, exclusions, acceptance e verifier sem exigir a propriedade inexistente `Files`
+      - um consumidor temporário sem checkout de atomic-skills executa os quatro
+        entrypoints, e um `src/normalize.js` homônimo no consumidor nunca é
+        carregado
+      - o driver admite uma task materializada com outputs, exclusions,
+        acceptance e verifier sem exigir a propriedade inexistente `Files`
     verifier:
       kind: shell
-      command: node --test tests/skill-script-resolution.test.js tests/consumer-runtime-resolution.test.js tests/implement-ready-contract.test.js
+      command: node --test tests/skill-script-resolution.test.js
+        tests/consumer-runtime-resolution.test.js
+        tests/implement-ready-contract.test.js
       expectExitCode: 0
     evidence:
       verifierKind: shell
       verifiedAt: 2026-07-11T22:27:22Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test: 72 tests, 3 suites, 72 pass, 0 fail; duration_ms 1145.286459"
+      outputSummary: "node --test: 72 tests, 3 suites, 72 pass, 0 fail; duration_ms
+        1145.286459"
     outputs:
       - kind: file
         path: src/runtime-paths.js
@@ -117,24 +156,33 @@ tasks:
     title: Fechar o grafo de assets e detectar colisões
     summary: Instala o grafo completo de assets, com recursão e colisões explícitas.
     weight: 4
-    description: "Instalar recursivamente os helpers lazy referenciados, renderizar referências por `ASSETS_PATH` e rejeitar colisões em vez de descartar a segunda origem. verified_by: `docs/audits/installer-audit-2026-07-10.md:162-199,352-378`."
+    description: "Instalar recursivamente os helpers lazy referenciados, renderizar
+      referências por `ASSETS_PATH` e rejeitar colisões em vez de descartar a
+      segunda origem. verified_by:
+      `docs/audits/installer-audit-2026-07-10.md:162-199,352-378`."
     status: done
     lastUpdated: 2026-07-11T23:06:02Z
     closedAt: 2026-07-11T23:06:02Z
     scopeBoundary:
-      - não achatar dois assets no mesmo destino e não manter referências runtime para `skills/shared/` no conteúdo instalado
+      - não achatar dois assets no mesmo destino e não manter referências
+        runtime para `skills/shared/` no conteúdo instalado
     acceptance:
-      - a closure validator percorre profundidade arbitrária, falha em colisão, inclui helpers standalone e confirma que help HTML faz parte do tarball consumível
+      - a closure validator percorre profundidade arbitrária, falha em colisão,
+        inclui helpers standalone e confirma que help HTML faz parte do tarball
+        consumível
     verifier:
       kind: shell
-      command: node --test tests/minimalist-installer-link.test.js tests/runtime-closure.test.js && npm pack --dry-run --json >/tmp/atomic-skills-pack.json
+      command: node --test tests/minimalist-installer-link.test.js
+        tests/runtime-closure.test.js && npm pack --dry-run --json
+        >/tmp/atomic-skills-pack.json
       expectExitCode: 0
     evidence:
       verifierKind: shell
       verifiedAt: 2026-07-11T23:06:02Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test: 8 tests, 2 suites, 8 pass, 0 fail; npm pack --dry-run --json: exit 0; duration_ms 1196.2205"
+      outputSummary: "node --test: 8 tests, 2 suites, 8 pass, 0 fail; npm pack
+        --dry-run --json: exit 0; duration_ms 1196.2205"
     outputs:
       - kind: file
         path: src/providers/skills-file-set.js
@@ -158,24 +206,30 @@ tasks:
     title: Tornar o sentinel de setup estrutural
     summary: Reconhece setup apenas quando config e índice ou projeto canônicos existem.
     weight: 2
-    description: "Detectar setup por config e índice/projeto válidos, nunca pela mera existência de `.atomic-skills/` criada pelo manifest ou hook. verified_by: `docs/audits/installer-audit-2026-07-10.md:128-161`."
+    description: "Detectar setup por config e índice/projeto válidos, nunca pela
+      mera existência de `.atomic-skills/` criada pelo manifest ou hook.
+      verified_by: `docs/audits/installer-audit-2026-07-10.md:128-161`."
     status: done
     lastUpdated: 2026-07-12T00:43:00Z
     closedAt: 2026-07-12T00:43:00Z
     scopeBoundary:
-      - não apagar manifests legados e não tratar diretório vazio ou ledger isolado como projeto configurado
+      - não apagar manifests legados e não tratar diretório vazio ou ledger
+        isolado como projeto configurado
     acceptance:
-      - install project-scope sem estado entra no setup, estado canônico válido não reexecuta setup, e coexistência legacy continua diagnosticável
+      - install project-scope sem estado entra no setup, estado canônico válido
+        não reexecuta setup, e coexistência legacy continua diagnosticável
     verifier:
       kind: shell
-      command: node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js
+      command: node --test tests/project.test.js
+        tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
     evidence:
       verifierKind: shell
       verifiedAt: 2026-07-12T00:43:00Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0 skipped; duration_ms 4878.142458; commit ac6c3af"
+      outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0 skipped;
+        duration_ms 4878.142458; commit ac6c3af"
     outputs:
       - kind: file
         path: skills/core/project.md
@@ -195,14 +249,20 @@ tasks:
     title: Provar execução fora do checkout fonte
     summary: Exercita o tarball num consumidor isolado sem depender do checkout fonte.
     weight: 4
-    description: "Criar um E2E em HOME e repo temporários que instala o pacote empacotado e carrega scripts, assets e schemas usando apenas a instalação. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:34-69,186-202`."
+    description: "Criar um E2E em HOME e repo temporários que instala o pacote
+      empacotado e carrega scripts, assets e schemas usando apenas a instalação.
+      verified_by:
+      `docs/audits/project-implement-audit-2026-07-10.md:34-69,186-202`."
     status: done
     lastUpdated: 2026-07-12T02:10:36Z
     closedAt: 2026-07-12T02:10:36Z
     scopeBoundary:
-      - não usar paths absolutos deste checkout no fixture e não aceitar snapshots de presença como substituto de execução
+      - não usar paths absolutos deste checkout no fixture e não aceitar
+        snapshots de presença como substituto de execução
     acceptance:
-      - o tarball instalado executa decompose, discover, depend, verify e os helpers lazy em um consumidor com `src/normalize.js` sentinela que falha se for carregado
+      - o tarball instalado executa decompose, discover, depend, verify e os
+        helpers lazy em um consumidor com `src/normalize.js` sentinela que falha
+        se for carregado
     verifier:
       kind: shell
       command: node --test tests/consumer-install-e2e.test.js
@@ -212,7 +272,8 @@ tasks:
       verifiedAt: 2026-07-12T02:10:36Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test: 4 tests, 1 suite, 4 pass, 0 fail, 0 skipped; duration_ms 8230.782667; commit 845187a"
+      outputSummary: "node --test: 4 tests, 1 suite, 4 pass, 0 fail, 0 skipped;
+        duration_ms 8230.782667; commit 845187a"
     outputs:
       - kind: file
         path: tests/consumer-install-e2e.test.js
@@ -228,22 +289,37 @@ tasks:
     title: Bootstrapar materialização recuperável de F4
     summary: Materializa F4 por uma transação recuperável sobre plan e initiative.
     weight: 4
-    description: "Criar em `scripts/materialize-state.js` a única primitiva de materialização: preparar plan e initiative em staging, validar o par, persistir marker durável com hashes e convergir por renames individuais e retry para o estado anterior ou para o par completo. Ligar `project-materialize.md` a essa primitiva apenas no caminho descriptor-only→initiative necessário para F4; F4/T-006 amplia o mesmo módulo. verified_by: `skills/shared/project-assets/project-materialize.md:25-45,105-148` e `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:232-257`."
+    description: "Criar em `scripts/materialize-state.js` a única primitiva de
+      materialização: preparar plan e initiative em staging, validar o par,
+      persistir marker durável com hashes e convergir por renames individuais e
+      retry para o estado anterior ou para o par completo. Ligar
+      `project-materialize.md` a essa primitiva apenas no caminho
+      descriptor-only→initiative necessário para F4; F4/T-006 amplia o mesmo
+      módulo. verified_by:
+      `skills/shared/project-assets/project-materialize.md:25-45,105-148` e
+      `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:232-257`\
+      ."
     status: done
     lastUpdated: 2026-07-16T16:38:29.870Z
     tags:
       - bootstrap
     scopeBoundary:
       - não criar writer alternativo ou writes sequenciais inline na skill
-      - não generalizar em F0 para reopen, switch ou close; F4/T-006 faz essa hardening
-      - não reescrever o histórico materializado de F0; a reconciliação pertence a F4
+      - não generalizar em F0 para reopen, switch ou close; F4/T-006 faz essa
+        hardening
+      - não reescrever o histórico materializado de F0; a reconciliação pertence
+        a F4
     acceptance:
-      - fault injection após cada rename deixa marker recuperável; retry converge ao par anterior ou completo
+      - fault injection após cada rename deixa marker recuperável; retry
+        converge ao par anterior ou completo
       - validate-state nunca observa F4 active sem initiative correspondente
-      - a transição F0→F4 usa `scripts/materialize-state.js`, sem edição manual do descriptor
+      - a transição F0→F4 usa `scripts/materialize-state.js`, sem edição manual
+        do descriptor
     verifier:
       kind: shell
-      command: node --test tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js tests/phase-materialization/materialize-verb.test.js
+      command: node --test tests/phase-materialization/materialize-bootstrap.test.js
+        tests/phase-materialization/e2e-lifecycle.test.js
+        tests/phase-materialization/materialize-verb.test.js
       expectExitCode: 0
     outputs:
       - kind: file
@@ -260,13 +336,11 @@ tasks:
       verifiedAt: 2026-07-16T16:38:29.870Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test materialize-bootstrap + e2e-lifecycle + materialize-verb: 21 pass, 0 fail; F0-G1 30/30; F0-G2 78/78"
+      outputSummary: "node --test materialize-bootstrap + e2e-lifecycle +
+        materialize-verb: 21 pass, 0 fail; F0-G1 30/30; F0-G2 78/78"
 parked: []
 emerged: []
 planTitle: Remediação integral de segurança, lifecycle e distribuição
-planActive: true
-current: true
-
 ---
 
 # Narrative / notes

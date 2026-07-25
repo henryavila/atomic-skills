@@ -24,6 +24,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 1
 gatesTotal: 1
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: F3-G1
     description: Site includes a project guide page built from a dedicated dataset.
@@ -42,6 +44,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F3-G1
+    verifierLabel: "shell: npm run generate-site && (test -f site/dist/project/index.h…"
+    evidenceSummary: passed · 2026-07-17
 stack:
   - id: 1
     title: Project deep guide on the site
@@ -138,6 +142,7 @@ reviewGate:
     minor: 1
     nit: 0
   reviewFile: .atomic-skills/reviews/product-docs-site-f3-codex-pass1.md
+planTitle: Product docs site from catalog SSOT
 ---
 
 # F3 project guide
