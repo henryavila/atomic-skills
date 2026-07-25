@@ -5,7 +5,7 @@ title: Projeção de fases do project no TODO do Grok
 version: "1.0"
 status: done
 started: 2026-07-24T18:38:57.644Z
-lastUpdated: 2026-07-25T00:07:26.759Z
+lastUpdated: 2026-07-25T10:03:18.331Z
 branch: plan/grok-phase-todo-projection
 currentPhase: F4
 parallelismAllowed: false
@@ -471,6 +471,9 @@ references:
   - kind: file
     label: design.md critic-approved
     path: .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/design.md
+  - kind: url
+    path: https://github.com/henryavila/atomic-skills/pull/36
+    label: "PR #36"
 planActive: false
 planTitle: Projeção de fases do project no TODO do Grok
 executionMode: automate
@@ -521,8 +524,8 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 
 ## Session handoff (plan-level resume)
-- **Narrative:** Operator user validation PASS stamped via AskUserQuestion. planEndReviewOk + userValidationOk true under executionMode automate. Archive/finalize NOT run (operator chose stamp-only).
-- **Decision log:** AskUserQuestion: validation PASS; next step stamp-only (no archive).
-- **Single nextAction:** operator may run archive/finalize when ready (gates open); or leave plan status=done as-is
-- **Verbatim state:** HEAD=ac8679538f33efe6d677b181cbc00854e5eb99b7; userValidatedAt=2026-07-25T00:07:26.759Z; validatorId=operator; planEndReview.mode=external-both; reviewFile=.atomic-skills/reviews/2026-07-24-plan-end-external-both-grok-phase-todo-projection.md; executionMode automate
-- **Uncommitted changes:** clean expected after checkpoint
+- **Narrative:** finalize published PR #36; next merge then archive.
+- **Decision log:** operator finalize+archive; automatePlanEndGatesOk true.
+- **Single nextAction:** merge PR #36 then archive
+- **Verbatim state:** PR=https://github.com/henryavila/atomic-skills/pull/36; HEAD=89ba2b0bec6077679cbeafc217fe52bf26515459; executionMode automate
+- **Uncommitted changes:** finalize reference stamp
