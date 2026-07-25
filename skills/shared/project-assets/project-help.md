@@ -55,7 +55,18 @@ acrescentar uma linha read-only de **PLAN-END REVIEW** (receipt ausente /
 § *Plan-end receipt visibility*. Nunca muta; o HARD-BLOCK de
 finalize/archive vive em `project-finalize.md` Step 1.7 e
 `project-transitions.md` `archive` step 1b (`planEndReviewOk` +
-`userValidationOk`; `--skip-plan-end-review` exige reason não-vazio).
+`userValidationOk`; sob `executionMode: automate` skip de plan-end é HARD-CLOSED —
+só receipt `external-both` real abre finalize/archive).
+
+**Grok phase scaffold (Grok-local only).** On **Grok Build**, the active plan's
+**phases** can be projected into the host session checklist via
+`scripts/project-session-todos.js` + the session checklist tool (`todo_write`)
+— a **phase scaffold** reseed (`merge: false` when pickFocus has a winner)
+after `refresh-state` at implement/project start and post-compaction. Session
+todos are projection only (never close authority). SessionStart may *hint*
+reseed but does not call `todo_write`. Claude / Codex / Cursor do **not** get
+a mirrored phase-todo board from this package — do not invent non-Grok host
+todo tools. Contract: `docs/kb/grok-phase-todo-projection.md`.
 
 Se a chamada acima não puder rodar ou produzir saída vazia, aplique fail-open:
 imprima o resumo no-args quando ele já estiver disponível no contexto da

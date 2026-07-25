@@ -1,0 +1,15 @@
+{
+  "id": "decision-review-pending",
+  "description": "executionMode automate + evaluationGate passed + decisionReview pending ⇒ canRunPhaseDone false (decision-review hardgate open).",
+  "phaseDoneInput": {
+    "planExecutionMode": "automate",
+    "evaluationGate": { "status": "passed", "verdict": "pass" },
+    "decisionReview": { "status": "pending" }
+  },
+  "expect": {
+    "canRunPhaseDoneOk": false,
+    "decisionReviewAllowsOk": false,
+    "phaseEvaluationAllowsOk": true,
+    "reasonPattern": "pending|decisionReview"
+  }
+}

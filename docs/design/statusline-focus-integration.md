@@ -201,8 +201,8 @@ project_chip() {                       # arg: $1 = repo root (git-root, fallback
         [ .plan.slug, (.phase.id // ""), (.phase.index|tostring), (.phase.total|tostring),
           (.tasks.done|tostring), (.tasks.total|tostring), (.tasks.blocked|tostring),
           (.flags.drift|tostring),
-          ( [ .sources[] | .path + "" + .lastUpdated ] | join("") )
-        ] | join(" ")
+          ( [ .sources[] | .path + "\u0001" + .lastUpdated ] | join("\u0002") )
+        ] | join("\u0000")
       end' "$f" 2>/dev/null) || return 0
     [[ "$data" == "NOPLAN" || -z "$data" ]] && return 0
 
@@ -296,3 +296,20 @@ Etapas 1–2 entregam frescor "real" (write-through + hooks); 3 já mostra algo;
 | D4 | Largura máx do slug | 18 chars + `…` |
 | D5 | Mostrar `nextAction` no chip | **não** (longo demais; fica só no dashboard/no-arg `project`) |
 | D6 | Sinalizar `multipleActivePlans` visualmente | **sim** — glifo `⧉` (mostra 1 de vários; sinaliza violação do invariante "≤1 plano ativo por branch/worktree") |
+
+---
+
+## 6. Related consumer — Grok session-todo projection
+
+`focus.json` is the denormalized digest for **statusline / claudebar** (this doc).
+A separate **Grok-local** consumer projects the same plan focus into Grok Build
+**session todos** via the agent tool `todo_write` (phase scaffold only — not tasks
+`T-00N`, and **not** host auto-read of `focus.json`).
+
+Contract KB (label, SoT order, status map, reseed/merge, anti-proc competition):
+
+- [`docs/kb/grok-phase-todo-projection.md`](../kb/grok-phase-todo-projection.md)
+
+That path reuses `refresh-state` / rollups as freshness input for a later helper
+(`scripts/project-session-todos.js`); it does **not** replace the claudebar chip
+or claim the Grok host reads `focus.json` itself.

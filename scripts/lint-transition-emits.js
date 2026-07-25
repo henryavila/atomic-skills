@@ -8,6 +8,11 @@
  * block from its `##` header to the next `##` header and checks the required
  * completion helper reference, event enum values, and scope fields in place.
  *
+ * F2 also requires write-through projection anchors on close and focus mutators:
+ * `refresh-state` after status mutation, and (on closes that reseed the phase
+ * scaffold) a mention of `project-session-todos`. Never requires `todo_write`
+ * inside shell scripts — the agent applies the helper payload via the host tool.
+ *
  * Exit 0 = every transition block carries its emit instruction; exit 1 = at
  * least one block is missing its required instruction.
  *
@@ -27,6 +32,36 @@ const REQUIREMENTS = [
   { header: '## `reconcile`', events: ['task-done'], fields: ['projectId', 'planSlug', 'phaseId', 'taskId'] },
   // phase-done still mentions task-done (prior per-task closes) + emits phase-done/actuals only
   { header: '## `phase-done`', events: ['task-done', 'phase-done'], fields: ['projectId', 'planSlug', 'phaseId', 'taskId', 'actuals'] },
+];
+
+/** Close blocks that recompute rollups/focus and must name refresh-state. */
+const CLOSE_REFRESH_HEADERS = new Set([
+  '## `done <task-id>`',
+  '## `reconcile`',
+  '## `phase-done`',
+]);
+
+/**
+ * Closes that reseed the Grok phase scaffold must name the projection helper
+ * (and keep SoT order: refresh-state before project-session-todos).
+ * Includes reconcile: disposition-based closes must not skip projection.
+ */
+const CLOSE_SESSION_TODOS_HEADERS = new Set([
+  '## `done <task-id>`',
+  '## `reconcile`',
+  '## `phase-done`',
+]);
+
+/**
+ * Focus mutators that move plan/phase focus. Checked only when the header is
+ * present (fixtures may omit them). Require refresh-state + project-session-todos
+ * so projection cannot drift after focus changes.
+ */
+const FOCUS_MUTATOR_HEADERS = [
+  '## `phase-reopen`',
+  '## `switch <slug>`',
+  '## `unblock <task-id>`',
+  '## `archive [<slug>]`',
 ];
 
 function sliceBlock(markdown, header) {
@@ -93,6 +128,67 @@ function checkPhaseDoneGateSemantics(block) {
   return missing;
 }
 
+/** F2: write-through refresh-state after status mutation. */
+function checkRefreshState(block) {
+  if (!/refresh-state/.test(block)) return ['refresh-state'];
+  return [];
+}
+
+/**
+ * F2: Grok phase-scaffold helper name (agent applies via todo_write; lint does
+ * not require todo_write inside shell scripts).
+ */
+function checkSessionTodosProjection(block) {
+  if (!/project-session-todos/.test(block)) return ['project-session-todos'];
+  return [];
+}
+
+/**
+ * SoT order when both anchors are present: first refresh-state before first
+ * project-session-todos; when todo_write is also mentioned, helper before todo_write.
+ * Presence-only is insufficient — inverted order still greps green otherwise.
+ */
+function checkProjectionOrder(block) {
+  const missing = [];
+  const refreshIdx = block.search(/refresh-state/);
+  const projectIdx = block.search(/project-session-todos/);
+  if (refreshIdx !== -1 && projectIdx !== -1 && refreshIdx > projectIdx) {
+    missing.push('refresh-before-project-session-todos');
+  }
+  if (projectIdx !== -1) {
+    const todoIdx = block.search(/todo_write/);
+    if (todoIdx !== -1 && projectIdx > todoIdx) {
+      missing.push('project-session-todos-before-todo_write');
+    }
+  }
+  return missing;
+}
+
+function checkCloseProjection(header, block) {
+  const missing = [];
+  if (CLOSE_REFRESH_HEADERS.has(header)) {
+    missing.push(...checkRefreshState(block));
+  }
+  if (CLOSE_SESSION_TODOS_HEADERS.has(header)) {
+    missing.push(...checkSessionTodosProjection(block));
+  }
+  if (
+    CLOSE_REFRESH_HEADERS.has(header) ||
+    CLOSE_SESSION_TODOS_HEADERS.has(header)
+  ) {
+    missing.push(...checkProjectionOrder(block));
+  }
+  return missing;
+}
+
+function checkFocusMutatorProjection(block) {
+  return [
+    ...checkRefreshState(block),
+    ...checkSessionTodosProjection(block),
+    ...checkProjectionOrder(block),
+  ];
+}
+
 export function lintTransitionEmits(path = DEFAULT_TRANSITIONS) {
   const markdown = readFileSync(path, 'utf8');
   const offenders = [];
@@ -105,8 +201,20 @@ export function lintTransitionEmits(path = DEFAULT_TRANSITIONS) {
     if (requirement.header === '## `phase-done`' && block != null) {
       missing.push(...checkPhaseDoneGateSemantics(block));
     }
+    if (block != null) {
+      missing.push(...checkCloseProjection(requirement.header, block));
+    }
     if (missing.length) offenders.push({ block: requirement.header, missing });
   }
+
+  // Focus mutators: enforce only when the named header is present in the file.
+  for (const header of FOCUS_MUTATOR_HEADERS) {
+    const block = sliceBlock(markdown, header);
+    if (block == null) continue;
+    const missing = checkFocusMutatorProjection(block);
+    if (missing.length) offenders.push({ block: header, missing });
+  }
+
   return { ok: offenders.length === 0, offenders };
 }
 

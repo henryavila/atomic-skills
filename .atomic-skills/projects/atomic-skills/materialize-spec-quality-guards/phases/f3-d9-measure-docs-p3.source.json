@@ -1,0 +1,118 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "materialize-spec-quality-guards-f3-d9-measure-docs-p3",
+  "title": "D9 measure + docs (P3)",
+  "goal": "Eventos analytics + script de relatorio; docs atualizam D9 como medido; sem prova causal.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Emit quality events",
+      "scopeBoundary": [
+        "Fail-open if analytics path missing. Do not block materialize if append fails. No PII beyond plan slugs and ids already in repo."
+      ],
+      "acceptance": [
+        "it - append writes JSONL with kind planSlug phaseId ts.; it - kinds include spine_quality_fail fingerprint_refuse phase_reopen task_reopen.; it - unit test uses temp dir."
+      ],
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/plan-quality-events.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/plan-quality-events.js"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/append-plan-quality-event.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/plan-quality-events.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Report plan quality script",
+      "scopeBoundary": [
+        "Read-only over JSONL. Do not mutate plans."
+      ],
+      "acceptance": [
+        "it - CLI prints counts by kind for window default 14d.; it - exit 0 with zero events.; it - test uses fixture JSONL."
+      ],
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/report-plan-quality.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/report-plan-quality.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/report-plan-quality.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "Wire emits and D9 docs",
+      "scopeBoundary": [
+        "Do not claim rubber-stamp reduction as proven. Do not add D10 constitution."
+      ],
+      "acceptance": [
+        "it - lazy-materialization D9 cites report-plan-quality and event kinds.; it - fingerprint refuse path emits event.; it - realism reaffirms no LLM-filled spine."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'report-plan-quality|spine_quality_fail|fingerprint_refuse' docs/kb/project-lazy-materialization.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/materialize-state.js"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-materialize.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/project-lazy-materialization.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/automate-orchestrator-realism.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F3-G1",
+      "description": "events and report unit tests pass",
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/plan-quality-events.test.js tests/report-plan-quality.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F3-G2",
+      "description": "docs cite measure kinds",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'report-plan-quality|spine_quality_fail|fingerprint_refuse' docs/kb/project-lazy-materialization.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

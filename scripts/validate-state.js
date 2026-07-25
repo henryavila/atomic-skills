@@ -34,6 +34,7 @@ import {
   sidecarKey,
 } from '../src/state-invariants.js';
 import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
+import { decisionReviewAllowsPhaseDone } from '../src/decision-review-gate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -572,7 +573,8 @@ export function checkClosedAtHardening(frontmatter, grandfatheredTaskIds) {
  *       • `reviewFile` coherent when present (non-empty path; optional when no
  *         file was written — blank/whitespace is not coherent),
  *   - status:'skipped' must carry a `reason` (mirrors --skip-review's recorded
- *     reason; a silent skip is forbidden).
+ *     reason; a silent skip is forbidden) — **except under durable automate**,
+ *     where skip is HARD-CLOSED (must be passed + mode both|external-both).
  * An ABSENT reviewGate on a 'done' phase is NOT gated here — consistent with
  * GATE-R2's verifier-absent tolerance, and required for backward-compat with
  * the live 0.1/0.2 phases written before this field existed (`verify` check #8
@@ -585,16 +587,46 @@ export function checkClosedAtHardening(frontmatter, grandfatheredTaskIds) {
  * @param {object} frontmatter - a parsed plan frontmatter (initiatives have no phases → no-op)
  * @returns {string[]} violation messages (empty = invariant holds)
  */
+/**
+ * Whether a done phase should be held to durable-automate honesty rules.
+ * Mid-plan Mode-1→automate adoption leaves earlier done phases without
+ * evaluationGate/decisionReview/both-mode review — those are exempt unless
+ * they carry automate-era stamps (or an explicit closedUnderAutomate marker).
+ *
+ * @param {object} phase
+ * @returns {boolean}
+ */
+export function phaseClosedUnderAutomate(phase) {
+  if (phase == null || typeof phase !== 'object') return false;
+  if (phase.closedUnderAutomate === true) return true;
+  if (phase.evaluationGate != null && typeof phase.evaluationGate === 'object') {
+    return true;
+  }
+  if (phase.decisionReview != null && typeof phase.decisionReview === 'object') {
+    return true;
+  }
+  const rg = phase.reviewGate;
+  if (rg != null && typeof rg === 'object') {
+    const mode = rg.mode != null ? String(rg.mode).trim().toLowerCase() : '';
+    if (mode === 'both' || mode === 'external-both') return true;
+  }
+  return false;
+}
+
 export function checkReviewGate(frontmatter) {
   const violations = [];
   if (frontmatter == null || typeof frontmatter !== 'object') return violations;
   const hasText = (v) => typeof v === 'string' && v.trim().length > 0;
+  const durableAutomate =
+    frontmatter.executionMode != null &&
+    String(frontmatter.executionMode).trim().toLowerCase() === 'automate';
   const phases = Array.isArray(frontmatter.phases) ? frontmatter.phases : [];
   for (const phase of phases) {
     if (phase?.status !== 'done') continue;
     const rg = phase.reviewGate;
     if (rg == null || typeof rg !== 'object') continue; // absent ⇒ tolerated (legacy / GATE-R2-consistent)
     const label = `phase ${phase.id ?? '?'}`;
+    const underAutomate = durableAutomate && phaseClosedUnderAutomate(phase);
     if (rg.status === 'passed') {
       if (!hasText(rg.at)) {
         violations.push(`${label}: reviewGate.status is 'passed' but has no \`at\` sha — a passed review claim must record the commit it concluded against, not just assert it ran.`);
@@ -605,6 +637,13 @@ export function checkReviewGate(frontmatter) {
         violations.push(`${label}: reviewGate.status is 'passed' but has no \`mode\` — record which surface ran (local|codex|grok|claude|both|…).`);
       } else if (!REVIEW_GATE_MODES.has(rg.mode)) {
         violations.push(`${label}: reviewGate.mode must be a known review mode (got ${JSON.stringify(rg.mode)}).`);
+      } else if (underAutomate) {
+        const mode = String(rg.mode).trim().toLowerCase();
+        if (mode !== 'both' && mode !== 'external-both') {
+          violations.push(
+            `${label}: under executionMode automate, reviewGate.mode must be both|external-both (got ${JSON.stringify(rg.mode)}) — local-only is forbidden`,
+          );
+        }
       }
       // reviewFile is optional (not every local pass writes a file), but when
       // present it must be a coherent non-empty path — blank is not evidence.
@@ -612,7 +651,11 @@ export function checkReviewGate(frontmatter) {
         violations.push(`${label}: reviewGate.reviewFile is present but empty/blank — omit the field or record a real path.`);
       }
     } else if (rg.status === 'skipped') {
-      if (!hasText(rg.reason)) {
+      if (underAutomate) {
+        violations.push(
+          `${label}: under executionMode automate, reviewGate.status skipped is forbidden — run review-code --mode=both and stamp passed (clear stamp to leave automate)`,
+        );
+      } else if (!hasText(rg.reason)) {
         violations.push(`${label}: reviewGate.status is 'skipped' but carries no \`reason\` — a silent review skip is forbidden (record why, mirroring --skip-review).`);
       }
     } else {
@@ -626,18 +669,11 @@ export function checkReviewGate(frontmatter) {
  * GATE-R4 — evaluation gate honesty under durable automate (R1 + R3 authenticity).
  *
  * When plan.executionMode is automate, every phase with status:'done' must carry
- * an evaluationGate that phaseEvaluationAllowsClose / evaluationGateHonesty
- * accepts:
- *   - passed + verdict pass + non-empty reportPath
- *   - skipped + operatorSkip true + non-empty reason
- *   - failed-dispositioned + disposition + non-empty reason
- * Absent gate on a done automate phase is a HARD violation (not legacy-tolerant —
- * automate stamp is opt-in and post-dates the gate). Non-automate plans: if
- * evaluationGate is present on a done phase, still check honesty; absent is OK.
- * Does not require evaluationGate on non-automate plans.
- *
- * Uses the same honesty helper as phaseEvaluationAllowsClose (no divergent rules).
- *
+ * an evaluationGate that phaseEvaluationAllowsClose accepts (**only**
+ * passed+verdict pass under durable automate). Absent gate on a done automate
+ * phase is a HARD violation. Non-automate plans: evaluationGate optional;
+ * if present under non-automate, only basic shape (object) is required —
+ * honesty uses plan stamp, not forced automateActive. *
  * @param {object} frontmatter - parsed plan frontmatter
  * @returns {string[]}
  */
@@ -653,23 +689,68 @@ export function checkEvaluationGate(frontmatter) {
   for (const phase of phases) {
     if (phase?.status !== 'done') continue;
     const label = `phase ${phase.id ?? '?'}`;
+    const underAutomate = durableAutomate && phaseClosedUnderAutomate(phase);
     const eg = phase.evaluationGate;
     if (eg == null || typeof eg !== 'object') {
-      if (durableAutomate) {
+      // Only require evaluationGate on phases closed under automate (not Mode-1 history).
+      if (underAutomate || (durableAutomate && phase.closedUnderAutomate === true)) {
         violations.push(
-          `${label}: executionMode automate requires evaluationGate on done phases — run the evaluation agent (or stamp skip/disposition) before phase-done`,
+          `${label}: executionMode automate requires evaluationGate on done phases closed under automate — run the evaluation agent until status=passed verdict=pass (skip forbidden under durable stamp)`,
         );
       }
       continue;
     }
-    // Present gate: same honesty helper as phaseEvaluationAllowsClose
-    // (passed+reportPath / skipped+operatorSkip+reason / dispositioned)
-    const honesty = phaseEvaluationAllowsClose({
-      automateActive: true,
-      evaluationGate: eg,
-    });
+    // Honesty only under durable automate for automate-era phases.
+    // Presence of evaluationGate itself marks the phase as under-automate.
+    if (durableAutomate) {
+      const honesty = phaseEvaluationAllowsClose({
+        planExecutionMode: 'automate',
+        evaluationGate: eg,
+      });
+      if (!honesty.ok) {
+        violations.push(`${label}: evaluationGate invalid — ${honesty.reason}`);
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * GATE-R4 (decisionReview leg) — operator PASS honesty under durable automate.
+ *
+ * When plan.executionMode is automate, every phase with status:'done' must carry
+ * a decisionReview that decisionReviewAllowsPhaseDone accepts (**only**
+ * status=passed + non-empty verifiedAt). Absent / pending / failed / passed
+ * without verifiedAt on a done automate phase is a HARD violation.
+ * Non-automate plans: decisionReview optional; honesty inactive without stamp.
+ *
+ * Reuses decisionReviewAllowsPhaseDone — does not invent parallel gate logic.
+ *
+ * @param {object} frontmatter - parsed plan frontmatter
+ * @returns {string[]}
+ */
+export function checkDecisionReview(frontmatter) {
+  const violations = [];
+  if (frontmatter == null || typeof frontmatter !== 'object') return violations;
+  const planExecutionMode =
+    frontmatter.executionMode != null
+      ? String(frontmatter.executionMode).trim().toLowerCase()
+      : '';
+  const durableAutomate = planExecutionMode === 'automate';
+  if (!durableAutomate) return violations;
+  const phases = Array.isArray(frontmatter.phases) ? frontmatter.phases : [];
+  for (const phase of phases) {
+    if (phase?.status !== 'done') continue;
+    // Mode-1 done phases without automate-era stamps are exempt (mid-plan adoption).
+    if (!phaseClosedUnderAutomate(phase)) continue;
+    const label = `phase ${phase.id ?? '?'}`;
+    const honesty = decisionReviewAllowsPhaseDone({
+      planExecutionMode: 'automate',
+      decisionReview: phase.decisionReview,    });
     if (!honesty.ok) {
-      violations.push(`${label}: evaluationGate invalid — ${honesty.reason}`);
+      violations.push(
+        `${label}: decisionReview invalid under automate — ${honesty.reason}`,
+      );
     }
   }
   return violations;
@@ -718,6 +799,7 @@ export function validateFile(filePath, validators) {
     ...checkMetInvariant(parsed.frontmatter),
     ...checkReviewGate(parsed.frontmatter), // GATE-R3 (G2): done phase's review claim must be honest
     ...checkEvaluationGate(parsed.frontmatter), // GATE-R4: automate evaluationGate honesty
+    ...checkDecisionReview(parsed.frontmatter), // GATE-R4: automate decisionReview honesty (operator PASS)
   ];
   if (invariantViolations.length > 0) {
     return { ok: false, kind, errors: invariantViolations };

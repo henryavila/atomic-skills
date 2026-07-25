@@ -19,9 +19,7 @@ Under automate, phase close order is fixed:
    - residual after disposition → `{ status: failed-dispositioned, disposition: accept|defer|fix, reason: <non-empty> }`
    Machine check: `phaseEvaluationAllowsClose` / `evaluationGateHonesty` / `canRunPhaseDone` must return `ok: true` before phase-done. Authenticity (R3): **passed without non-empty `reportPath` is forge and is rejected**; **skipped without `operatorSkip: true` + non-empty reason is forge and is rejected**.
 5. **Then** `phase-done` with `review-code --mode=both` (automate default — **not** `external-both`; plan-end is the only `external-both` gate).
-
 Do not run phase-done before the evaluation agent completes, the **evaluationReport is on disk**, **and** `evaluationGate` is stamped with authenticity fields (or the operator records an explicit `operatorSkip`+reason / disposition — rare; still not silent).
-
 ---
 
 ## What the evaluation agent is

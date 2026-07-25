@@ -90,7 +90,11 @@ Human or agent still runs git merge and `done`. Reduces “forgot step D.5”.
 
 ### Layer 4 — Full maestro (only if product-critical)
 
-Only if automate becomes the default path for many plans:
+**Non-goal for the current implement-phase-agents plan.** Layer 4 full daemon
+(workqueue + multi-host spawn + crash recovery) is **not** in scope and is **not**
+implemented by host-thin phase agents / phase-start package work.
+
+Only if automate becomes the default path for many plans *after* Layers 1–2 dogfood:
 
 - Workqueue + multi-host recovery beyond the thin Layer 2.5 cursor
 - Provider-specific spawn adapters (Claude Task, Codex, Grok subagent)
@@ -104,8 +108,9 @@ finalize without plan-end, claim without merge, host-local wait-loop needs).
 
 - A second top-level skill `automate.md` that reimplements implement
 - Silent Mode-1 fallback when writer fails
-- Auto-materialize with LLM-filled `businessIntent` (spine is operator authority)
+- Silent auto-materialize / silent auto-PASS / blank-fill of `businessIntent` (skill may draft; operator validate-only only)
 - Pretending prose = runtime in marketing docs
+- Claiming Layer 4 full daemon is shipped when only skill prose + STOP helpers exist
 
 ## Operator mental model
 
@@ -114,7 +119,6 @@ finalize without plan-end, claim without merge, host-local wait-loop needs).
 3. Maestro follows A–I; STOP helpers + **`assert-automate-gate`** + **maestro cursor** refuse illegal jumps when invoked (spawn/done/phase-done/finalize).
 4. After phase-done, cursor sits at **`awaiting-operator-advance`** (pause) until you **continue** via `clearContinue` (`operator-continue` token). No multi-phase auto-run; no auto-materialize; generic ok is not enough.
 5. **Finalize** only after durable plan-end `external-both` (codex|grok|claude legs) + your **`userValidatedAt`** validation timestamp (`assert-automate-gate --gate finalize`).
-
 **Assert + cursor + pause** are the cheap fail-closed trio: Layer-2 CLI, Layer-2.5 step file, post phase-done operator authority. If a step is skipped, prefer **fail closed** (blocked `assert-automate-gate` / illegal cursor step / `awaiting-operator-advance`) over “looks done”.
 
 ### Lessons distill (hard under automate — no skip)

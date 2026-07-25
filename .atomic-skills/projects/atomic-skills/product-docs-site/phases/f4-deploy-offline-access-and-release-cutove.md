@@ -24,6 +24,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 2
 gatesTotal: 2
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: F4-G1
     description: Deploy path for the static site exists in-repo.
@@ -41,6 +43,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F4-G1
+    verifierLabel: "shell: test -f .github/workflows/deploy-docs.yml -o -f .github/wor…"
+    evidenceSummary: passed · 2026-07-17
   - id: F4-G2
     description: CHANGELOG records the docs site cutover.
     verifier:
@@ -57,6 +61,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F4-G2
+    verifierLabel: "shell: grep -Eiq 'atomic-skills.henryavila.com|docs site|product d…"
+    evidenceSummary: passed · 2026-07-17
 stack:
   - id: 1
     title: Deploy, offline access, and release cutover
@@ -171,6 +177,7 @@ reviewGate:
     minor: 0
     nit: 0
   reviewFile: .atomic-skills/reviews/product-docs-site-f4-f5-codex-pass1.md
+planTitle: Product docs site from catalog SSOT
 ---
 
 # F4 deploy offline release

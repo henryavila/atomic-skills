@@ -1,9 +1,7 @@
 ---
-lastUpdated: 2026-07-21T19:42:30.835Z
-schemaVersion: "0.1"
-activePlans: 1
-activeInitiatives: 1
-archivedCount: 24
+lastUpdated: 2026-07-22T20:38:03.630ZschemaVersion: "0.1"
+activePlans: 2
+activeInitiatives: 1archivedCount: 24
 ---
 
 # Project Status Index
@@ -19,11 +17,9 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 ## Active Plans
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
-|------|--------|---------------|--------|---------|--------|
-| automate-skill-discipline | active | F4 | plan/automate-skill-discipline | 2026-07-21 | 5/5 | |
-
-
-
+|------|--------|---------------|--------|---------|
+| implement-phase-agents | active | F0 | plan/implement-phase-agents | 2026-07-22 | 1/6 |
+| materialize-spec-quality-guards | active | F0 | plan/materialize-spec-quality-guards | 2026-07-22 | 1/5 |
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
@@ -50,8 +46,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Path | Status | Phase | Branch | Tasks |
 |------|--------|-------|--------|-------|
-| automate-skill-discipline/phases/f0-assert-cli-and-skill-call-sites-r1.md | done | F0 | plan/automate-skill-discipline | 2/2 |
-
+| materialize-spec-quality-guards/phases/f0-spine-quality-lint-skill-ux.md | active | F0 | plan/materialize-spec-quality-guards | 0/3 |
 ## Active Initiatives (standalone)
 
 _(none)_
@@ -74,3 +69,4 @@ _(none)_
 ## Ad-Hoc Sessions Log (last 5)
 
 _(empty)_
+| grok-phase-todo-projection | 2026-07-25 | plan/grok-phase-todo-projection | 5/5 |

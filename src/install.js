@@ -36,6 +36,10 @@ import {
 } from './runtime-layers/grok-refcount.js';
 // P0-B / F-002 consumer fallback — DELETE import when engine drop-revert is pinned.
 import { revertDroppedAutoUpdateEffects } from './runtime-layers/auto-update-drop-revert.js';
+import {
+  reconcileAutoUpdateSessionStartSurfaces,
+  resolveDesiredAutoUpdateCommands,
+} from './runtime-layers/auto-update.js';
 import { withSharedRuntimeLocks } from './runtime-locks.js';
 import { verifyInstall, decisionsByState } from './status-verify.js';
 import {
@@ -982,6 +986,22 @@ export function installSkills(projectDir, options, callbacks = {}) {
       injectFailAfterN: options.autoUpdateDropInjectFailAfterN,
     },
   );
+
+  // SessionStart reconcile (ownership, not append-only):
+  // jsonMerge only appends array items. Stale Atomic Skills version-check
+  // entries (shell-quoted path, old basePath, duplicates) survive next to the
+  // desired form unless we remove every AS-owned hook that is not the exact
+  // desired command. Third-party hooks stay. Drop-revert covers whole-effect
+  // IDE shrink; this covers content drift while the effect stays in the plan.
+  {
+    const desired = resolveDesiredAutoUpdateCommands(projectDir, {
+      language, ides, skillsDir, metaDir, scope,
+    });
+    reconcileAutoUpdateSessionStartSurfaces(projectDir, {
+      claudeCommand: desired.claudeCommand,
+      grokCommand: desired.grokCommand,
+    });
+  }
 
   const installer = buildInstaller({
     language, ides, skillsDir, metaDir, scope, excludeDesiredPaths,

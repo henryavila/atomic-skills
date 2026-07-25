@@ -26,7 +26,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project idea                         → capture an idea into the inbox (fork: Só salvar / Analisar)
 /atomic-skills:project idea list                    → zero-token view of the ideas.md inbox
 /atomic-skills:project idea promote <n>             → promote idea #n via the emergence ladder (ratify-gated)
-/atomic-skills:project materialize <phase>          → phase descriptor → initiative + businessIntent gate
+/atomic-skills:project materialize <phase>          → phase descriptor → initiative + businessIntent gate (presence + find-weak-business-intent quality HARD)
 /atomic-skills:project finalize <slug>              → publish plan/<slug> as a PR vs <integrationRef> (push + gh pr create); operator-prompted, pre-merge, pre-archive
 /atomic-skills:project consolidate                  → merge-train integrate ≥2 READY worktrees into ONE PR (operator-prompted; <2 live WT = no-op, use finalize)
 /atomic-skills:project done|push|pop|park|emerge|promote|unblock|switch|phase-done|phase-reopen|archive
@@ -131,6 +131,7 @@ Run these in order on the active initiative BEFORE executing a mutating command 
 2. **Reconciliation gate.** Collect `tasks[]` where `status: active` AND `lastUpdated` older than 24h (configurable `reconciliationThresholdHours`, `0` disables). If non-empty, present each (max 4 oldest) via {{ASK_USER_QUESTION_TOOL}} with options `Still active` / `Done` / `Blocked` / `Skip`, apply answers, THEN proceed. Skipped when the user is already running `done` on the stale task. (Full detail: `project-transitions.md`.)
 {{#if ide.grok}}
    On Grok Build, use native `ask_user_question` for those structured options. Soft project hooks require folder/hooks trust; when untrusted they fail-open (no SessionStart digest / PreToolUse gate) — not an install failure. See `docs/kb/grok-build-compatibility.md` §7.
+   **Phase scaffold (session todos):** contract is `docs/kb/grok-phase-todo-projection.md` (+ `docs/kb/grok-build-compatibility.md` §8). Shipped helper: `scripts/project-session-todos.js` — after `refresh-state`, run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/project-session-todos.js" --json` and apply the payload with the Grok session checklist tool (`todo_write`). SoT order: mutate → `refresh-state` → helper → `todo_write`. Apply `merge` as emitted (winner → `merge: false` reseed; no winner → no-op). **Grok-local** phase scaffold only, not `T-00N`. **anti-proc:** while a plan is anchored, process scaffold (`proc:*`) must not compete with the phase scaffold. Do not dump the full SoT procedure into this router.
 {{/if}}
 
 ## Gate-status invariant

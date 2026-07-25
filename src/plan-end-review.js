@@ -10,8 +10,12 @@
  *       AND mode is 'external-both' only (F5 — not bare 'both')
  *       AND non-empty verifiedAt (ISO preferred / Date.parse finite)
  *     )
- *     OR explicit skipPlanEndReview with non-empty reason
+ *     OR (NOT forbidSkip AND explicit skipPlanEndReview with non-empty reason)
  *   )
+ *
+ * Under durable automate (`forbidSkip: true` / `automatePlanEndGatesOk`), the
+ * skip path is HARD-CLOSED: review is mandatory. Agent- or operator-skips with
+ * only a free-text reason cannot open finalize/archive while the stamp holds.
  *
  * A leg counts ONLY when ALL of:
  *   - status === 'succeeded'
@@ -138,20 +142,32 @@ function receiptShapeOk(receipt) {
  * Accepts a bare receipt or a finalize-shaped object.
  * CLI flag name in skill prose: `--skip-plan-end-review` maps to
  * `skipPlanEndReview: true` + non-empty `skipReason` on the durable receipt.
+ * **Under durable automate that skip is ignored** (`forbidSkip: true`).
  *
  * Non-skip path requires ≥1 succeeded family-different known-provider leg
  * AND non-empty reviewFile + mode === 'external-both' + non-empty verifiedAt.
- * Skip path needs only skipPlanEndReview + non-empty reason (legs/shape optional).
+ * Skip path (non-automate only): skipPlanEndReview + non-empty reason.
  *
  * @param {PlanEndReviewReceipt | null | undefined} receipt
+ * @param {{
+ *   forbidSkip?: boolean,
+ *   durableAutomate?: boolean,
+ * }} [opts] When `forbidSkip` or `durableAutomate` is true, skipPlanEndReview
+ *   never counts as ok (automate mandatory review).
  * @returns {boolean}
  */
-export function planEndReviewOk(receipt) {
+export function planEndReviewOk(receipt, opts = {}) {
   if (receipt == null || typeof receipt !== 'object') {
     return false;
   }
 
+  const forbidSkip =
+    opts.forbidSkip === true || opts.durableAutomate === true;
+
   if (receipt.skipPlanEndReview === true) {
+    if (forbidSkip) {
+      return false;
+    }
     const reason = receipt.skipReason;
     if (reason != null && String(reason).trim() !== '') {
       return true;
@@ -263,8 +279,9 @@ export function userValidationOk(input = {}) {
  *
  * When durable automate is not active, both sub-gates are inactive → ok: true.
  * Under durable automate (automateActive or stamp automate — **ignore** session
- * cliMode/clear for this gate), HARD-BLOCK unless planEndReviewOk(receipt)
- * AND userValidationOk.
+ * cliMode/clear for this gate), HARD-BLOCK unless planEndReviewOk(receipt,
+ * { forbidSkip: true }) AND userValidationOk. Skip-with-reason cannot open
+ * finalize/archive while the stamp remains.
  *
  * @param {{
  *   automateActive?: boolean,
@@ -279,6 +296,7 @@ export function userValidationOk(input = {}) {
  *   ok: boolean,
  *   planEndReviewOk: boolean,
  *   userValidationOk: boolean,
+ *   reviewSkipForbidden?: boolean,
  * }}
  */
 export function automatePlanEndGatesOk(input = {}) {
@@ -287,10 +305,12 @@ export function automatePlanEndGatesOk(input = {}) {
       ok: true,
       planEndReviewOk: true,
       userValidationOk: true,
+      reviewSkipForbidden: false,
     };
   }
 
-  const pe = planEndReviewOk(input.receipt);
+  // Mandatory external-both under durable automate — no skipPlanEndReview path.
+  const pe = planEndReviewOk(input.receipt, { forbidSkip: true });
   const uv = userValidationOk({
     automateActive: true,
     userValidatedAt: input.userValidatedAt,
@@ -300,5 +320,6 @@ export function automatePlanEndGatesOk(input = {}) {
     ok: pe && uv,
     planEndReviewOk: pe,
     userValidationOk: uv,
+    reviewSkipForbidden: true,
   };
 }

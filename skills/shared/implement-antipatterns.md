@@ -35,7 +35,6 @@ The one-liner Red-Flag **triggers** stay resident in `implement.md` so the ambie
 - "Phase-done just closed — I'll auto-materialize the next phase and invent `businessIntent` so automate can keep rolling." → **Auto-materialize businessIntent is forbidden.** Materialize spine is operator authority; descriptor-only successors stay blocked at Step A until the operator fills `businessIntent` via `project materialize`. Automate does not invent spine.
 - "F3 is green — chain F4 spawn immediately without waiting (multi-phase auto-run)." → **Multi-phase auto-run is forbidden.** After successful phase-done under stamp the cursor is **`awaiting-operator-advance`**; spawn and Step A refuse until **`clearContinue`** with explicit `operator-continue`. Chaining F_n→F_n+1 without that token is HARD-BLOCK.
 - "Plan-end review looks fine — finalize/archive without `userValidatedAt`." → **Finalize without userValidatedAt is forbidden** under durable automate. `assert-automate-gate --gate finalize` / `canFinalizeOrArchive` require plan-end receipt **and** durable user validation timestamp. Never auto-archive after last phase green.
-
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
 ## Rationalization

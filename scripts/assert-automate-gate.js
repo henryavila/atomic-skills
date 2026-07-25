@@ -41,6 +41,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   canSpawnPhaseWriter,
+  canSpawnHostThinPhaseWriter,
   canCloseTasksFromClaims,
   canDoneFromAutomateClaims,
   canRunPhaseDone,
@@ -61,6 +62,89 @@ import {
 } from '../src/automate-complex-from-initiative.js';
 import { parseFrontmatter } from './validate-state.js';
 
+
+const BI_SPINE = ['value', 'workflow', 'rules', 'outOfScope', 'doneWhen'];
+
+/**
+ * Spawn integrity beyond file existence: plan/phase identity + businessIntent spine.
+ * @param {string | null} initiativePath
+ * @param {{ planSlug?: string, phaseId?: string, planPhaseBi?: unknown }} [opts]
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+export function validateSpawnInitiative(initiativePath, opts = {}) {
+  if (initiativePath == null || !existsSync(initiativePath)) {
+    return { ok: false, reason: 'spawn requires initiative file on disk' };
+  }
+  let fm;
+  try {
+    const parsed = parseFrontmatter(readFileSync(initiativePath, 'utf8'));
+    if (parsed.error || parsed.frontmatter == null) {
+      return {
+        ok: false,
+        reason: `spawn initiative unreadable/invalid frontmatter: ${parsed.error || 'missing'}`,
+      };
+    }
+    fm = parsed.frontmatter;
+  } catch (err) {
+    return {
+      ok: false,
+      reason: `spawn initiative read failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+  const planSlug = opts.planSlug != null ? String(opts.planSlug).trim() : '';
+  const parent =
+    fm.parentPlan != null
+      ? String(fm.parentPlan).trim()
+      : fm.plan != null
+        ? String(fm.plan).trim()
+        : '';
+  if (planSlug && parent && parent.toLowerCase() !== planSlug.toLowerCase()) {
+    return {
+      ok: false,
+      reason: `spawn initiative parentPlan mismatch (got ${parent}, want ${planSlug})`,
+    };
+  }
+  const wantPhase = opts.phaseId != null ? String(opts.phaseId).trim() : '';
+  const gotPhase =
+    fm.phaseId != null
+      ? String(fm.phaseId).trim()
+      : fm.id != null
+        ? String(fm.id).trim()
+        : '';
+  if (wantPhase && gotPhase && wantPhase.toLowerCase() !== gotPhase.toLowerCase()) {
+    return {
+      ok: false,
+      reason: `spawn initiative phaseId mismatch (got ${gotPhase}, want ${wantPhase})`,
+    };
+  }
+  const status = fm.status != null ? String(fm.status).trim().toLowerCase() : '';
+  if (status === 'archived' || status === 'done') {
+    return {
+      ok: false,
+      reason: `spawn refuses initiative status=${status || '(empty)'} — need active/materialized phase`,
+    };
+  }
+  const biOk = (bi, where) => {
+    if (bi == null || typeof bi !== 'object' || Array.isArray(bi)) {
+      return `${where}: missing businessIntent object`;
+    }
+    for (const field of BI_SPINE) {
+      const v = bi[field];
+      if (typeof v !== 'string' || !v.trim() || v.trim() === '[NEEDS CLARIFICATION]') {
+        return `${where}: businessIntent.${field} missing or blank`;
+      }
+    }
+    return null;
+  };
+  const initBiErr = biOk(fm.businessIntent, 'initiative');
+  if (initBiErr) return { ok: false, reason: `spawn blocked — ${initBiErr}` };
+  if (opts.planPhaseBi != null) {
+    const planBiErr = biOk(opts.planPhaseBi, 'plan.phases[]');
+    if (planBiErr) return { ok: false, reason: `spawn blocked — ${planBiErr}` };
+  }
+  return { ok: true };
+}
+
 const GATES = new Set(['spawn', 'claims', 'done', 'phase-done', 'finalize']);
 
 const HELP = `assert-automate-gate — pure automate STOP gates (Layer 2 + cursor 2.5)
@@ -69,14 +153,14 @@ Usage:
   node scripts/assert-automate-gate.js --plan <slug> --gate <gate> [options]
 
 Gates:
-  spawn         canSpawnPhaseWriter via readLeaseResult (lease must be missing)
-                + maestro cursor step C under automate stamp
+  spawn         canSpawnHostThinPhaseWriter (lease missing + initiative present)
+                + maestro cursor step C under automate stamp; descriptor-only refuse
   claims        canCloseTasksFromClaims (claim report required under automate stamp)
                 + cursor step D|D.5|E under stamp
   done          canDoneFromAutomateClaims under stamp (claim-bound + complex from initiative)
                 + reachability ON by default (pass --reachable-file <shas>; use --gate claims for shape-only)
                 + cursor step E under stamp + lastAssert written
-  phase-done    canRunPhaseDone (evaluation + lessons + review both under durable automate)
+  phase-done    canRunPhaseDone (evaluation + lessons + review both + decisionReview under durable automate)
                 + cursor step G under stamp + lastAssert written
   finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
                 + cursor step I under stamp
@@ -197,35 +281,39 @@ export function resolvePlan(stateRoot, planSlug, projectFilter = null) {
     }
   }
 
-  const projectsDir = join(stateRoot, 'projects');
-  if (!existsSync(projectsDir) || !statSync(projectsDir).isDirectory()) {
-    return { error: `no projects/ under state-root: ${stateRoot}` };
-  }
-
-  /** @type {Array<{ planFile: string, projectId: string, slug: string, fm: object }>} */
+  /** @type {Array<{ planFile: string, projectId: string, slug: string, fm: object, layout?: 'nested' | 'flat' }>} */
   const matches = [];
 
-  for (const projId of readdirSync(projectsDir)) {
-    if (wantProject && projId !== wantProject) continue;
-    const projPath = join(projectsDir, projId);
-    if (!statSync(projPath).isDirectory()) continue;
-    for (const entry of readdirSync(projPath)) {
-      const planDir = join(projPath, entry);
-      if (!statSync(planDir).isDirectory()) continue;
-      const planFile = join(planDir, 'plan.md');
-      if (!existsSync(planFile)) continue;
-      const fm = readFm(planFile);
-      if (!fm) continue;
-      const slug =
-        fm.slug != null && String(fm.slug).trim() !== ''
-          ? String(fm.slug).trim()
-          : entry;
-      if (slug !== wantSlug && entry !== wantSlug) continue;
-      matches.push({ planFile, projectId: projId, slug, fm });
+  const projectsDir = join(stateRoot, 'projects');
+  if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+    for (const projId of readdirSync(projectsDir)) {
+      if (wantProject && projId !== wantProject) continue;
+      const projPath = join(projectsDir, projId);
+      if (!statSync(projPath).isDirectory()) continue;
+      for (const entry of readdirSync(projPath)) {
+        const planDir = join(projPath, entry);
+        if (!statSync(planDir).isDirectory()) continue;
+        const planFile = join(planDir, 'plan.md');
+        if (!existsSync(planFile)) continue;
+        const fm = readFm(planFile);
+        if (!fm) continue;
+        const slug =
+          fm.slug != null && String(fm.slug).trim() !== ''
+            ? String(fm.slug).trim()
+            : entry;
+        if (slug !== wantSlug && entry !== wantSlug) continue;
+        matches.push({
+          planFile,
+          projectId: projId,
+          slug,
+          fm,
+          layout: 'nested',
+        });
+      }
     }
   }
 
-  // Flat legacy: plans/<slug>.md
+  // Flat legacy: plans/<slug>.md (also when projects/ is absent)
   if (matches.length === 0) {
     const flat = join(stateRoot, 'plans', `${wantSlug}.md`);
     if (existsSync(flat)) {
@@ -236,6 +324,7 @@ export function resolvePlan(stateRoot, planSlug, projectFilter = null) {
           projectId: wantProject || '(flat)',
           slug: wantSlug,
           fm,
+          layout: 'flat',
         });
       }
     }
@@ -243,7 +332,7 @@ export function resolvePlan(stateRoot, planSlug, projectFilter = null) {
 
   if (matches.length === 0) {
     return {
-      error: `plan not found for slug "${wantSlug}"${wantProject ? ` project=${wantProject}` : ''} under ${stateRoot}`,
+      error: `plan not found for slug "${wantSlug}"${wantProject ? ` project=${wantProject}` : ''} (no nested projects/ match and no flat plans/${wantSlug}.md under ${stateRoot})`,
     };
   }
   if (matches.length > 1 && !wantProject) {
@@ -280,17 +369,18 @@ export function phaseSlice(fm, phaseId) {
 }
 
 /**
- * Resolve nested phase initiative path next to plan.md.
+ * Resolve phase initiative path next to plan.md (nested) or under
+ * stateRoot/initiatives (flat layout). Prefers frontmatter phaseId match.
+ *
  * @param {string} planFile
  * @param {object} fm
  * @param {object | null} phase
+ * @param {{ stateRoot?: string, layout?: string }} [opts]
  * @returns {string | null}
  */
-export function resolveInitiativePath(planFile, fm, phase) {
+export function resolveInitiativePath(planFile, fm, phase, opts = {}) {
   if (phase == null || typeof phase !== 'object') return null;
   const planDir = dirname(planFile);
-  const phasesDir = join(planDir, 'phases');
-  if (!existsSync(phasesDir)) return null;
   const planSlug =
     fm.slug != null && String(fm.slug).trim() !== ''
       ? String(fm.slug).trim()
@@ -301,36 +391,86 @@ export function resolveInitiativePath(planFile, fm, phase) {
       : '';
   const phaseId =
     phase.id != null && String(phase.id).trim() !== ''
-      ? String(phase.id).trim().toLowerCase()
+      ? String(phase.id).trim()
       : '';
+  const phaseIdLower = phaseId.toLowerCase();
 
   /** @type {string[]} */
-  const candidates = [];
-  if (phaseSlug) {
-    candidates.push(join(phasesDir, `${phaseSlug}.md`));
-    if (planSlug) {
-      candidates.push(join(phasesDir, `${planSlug}-${phaseSlug}.md`));
+  const searchDirs = [];
+  const nestedPhases = join(planDir, 'phases');
+  if (existsSync(nestedPhases) && statSync(nestedPhases).isDirectory()) {
+    searchDirs.push(nestedPhases);
+  }
+  // Flat: stateRoot/initiatives when nested missing or layout flat
+  if (opts.layout === 'flat' || searchDirs.length === 0) {
+    const stateRoot =
+      opts.stateRoot != null && String(opts.stateRoot).trim() !== ''
+        ? String(opts.stateRoot)
+        : null;
+    if (stateRoot) {
+      const flatInit = join(stateRoot, 'initiatives');
+      if (existsSync(flatInit) && statSync(flatInit).isDirectory()) {
+        searchDirs.push(flatInit);
+      }
     }
   }
-  // f0-*.md style: match files starting with phase id lowercased
-  try {
-    for (const name of readdirSync(phasesDir)) {
+  if (searchDirs.length === 0) return null;
+
+  /** @type {string[]} */
+  const byFrontmatter = [];
+  /** @type {string[]} */
+  const byFilename = [];
+
+  for (const dir of searchDirs) {
+    let names;
+    try {
+      names = readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
       if (!name.endsWith('.md') || name.endsWith('.source.json')) continue;
+      const full = join(dir, name);
       const base = name.slice(0, -3);
-      if (phaseSlug && (base === phaseSlug || base.endsWith(`-${phaseSlug}`))) {
-        candidates.push(join(phasesDir, name));
+      // Frontmatter phaseId / id match (preferred)
+      const initFm = readFm(full);
+      if (initFm && phaseId) {
+        const fmPhase =
+          initFm.phaseId != null
+            ? String(initFm.phaseId).trim()
+            : initFm.id != null
+              ? String(initFm.id).trim()
+              : '';
+        if (fmPhase && fmPhase.toLowerCase() === phaseIdLower) {
+          const parent =
+            initFm.parentPlan != null ? String(initFm.parentPlan).trim() : '';
+          if (
+            !planSlug ||
+            !parent ||
+            parent.toLowerCase() === planSlug.toLowerCase()
+          ) {
+            byFrontmatter.push(full);
+            continue;
+          }
+        }
       }
-      if (phaseId && (base.startsWith(`${phaseId}-`) || base === phaseId)) {
-        candidates.push(join(phasesDir, name));
+      // Filename hints
+      if (phaseSlug && (base === phaseSlug || base.endsWith(`-${phaseSlug}`))) {
+        byFilename.push(full);
+      } else if (
+        phaseIdLower &&
+        (base.startsWith(`${phaseIdLower}-`) || base === phaseIdLower)
+      ) {
+        byFilename.push(full);
+      } else if (phaseSlug) {
+        const direct = join(dir, `${phaseSlug}.md`);
+        if (existsSync(direct)) byFilename.push(direct);
       }
     }
-  } catch {
-    /* ignore */
   }
 
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
+  if (byFrontmatter.length > 0) return byFrontmatter[0];
+  if (byFilename.length > 0) return byFilename[0];
   return null;
 }
 
@@ -564,7 +704,7 @@ export function runAssert(args, env = {}) {
     };
   }
 
-  const { fm, slug } = resolved;
+  const { fm, slug, layout } = resolved;
   const planExecutionMode =
     fm.executionMode != null ? String(fm.executionMode) : null;
   const stamped = hasAutomateStamp({ executionMode: planExecutionMode });
@@ -594,13 +734,49 @@ export function runAssert(args, env = {}) {
 
   if (gate === 'spawn') {
     const lease = readLeaseResult(statusRoot, slug);
-    const r = canSpawnPhaseWriter({ leaseStatus: lease.status });
+    const phase = phaseSlice(fm, fm.currentPhase);
+    const initiativePath = resolveInitiativePath(resolved.planFile, fm, phase, {
+      stateRoot,
+      layout: layout || 'nested',
+    });
+    const initiativePresent =
+      initiativePath != null && existsSync(initiativePath);
+    // Host-thin: always require materialization probe under stamp; bare lease
+    // check when non-automate (host-thin still ok with explicit probe).
+    const r = stamped
+      ? canSpawnHostThinPhaseWriter({
+          leaseStatus: lease.status,
+          initiativePresent,
+        })
+      : canSpawnPhaseWriter({
+          leaseStatus: lease.status,
+          initiativePresent,
+        });
     if (!r.ok) {
       return {
         ok: false,
         message: `blocked: ${formatBlocked(r, 'writer lease blocking')}`,
         exitCode: 1,
       };
+    }
+    if (stamped && initiativePresent) {
+      const initCheck = validateSpawnInitiative(initiativePath, {
+        planSlug: slug,
+        phaseId:
+          phase != null && phase.id != null
+            ? String(phase.id)
+            : fm.currentPhase != null
+              ? String(fm.currentPhase)
+              : '',
+        planPhaseBi: phase != null ? phase.businessIntent : null,
+      });
+      if (!initCheck.ok) {
+        return {
+          ok: false,
+          message: `blocked: ${initCheck.reason}`,
+          exitCode: 1,
+        };
+      }
     }
     return { ok: true, message: 'ok', exitCode: 0 };
   }
@@ -646,13 +822,36 @@ export function runAssert(args, env = {}) {
 
     /** @type {{ claimReport: unknown, checkReachability?: boolean, reachableSet?: Set<string> }} */
     const input = { claimReport };
-    if (args.checkReachability === true) {
+    // done under stamp defaults reachability ON; claims stays opt-in via flag.
+    const wantReach =
+      gate === 'done' && stamped
+        ? args.checkReachability !== false
+        : args.checkReachability === true;
+    if (wantReach) {
       input.checkReachability = true;
       const rf =
         args.reachableFile != null && args.reachableFile !== true
           ? resolve(cwd, String(args.reachableFile))
           : null;
-      if (!rf || !existsSync(rf)) {
+      if (rf) {
+        if (!existsSync(rf)) {
+          return {
+            ok: false,
+            message: `blocked: reachable file not found: ${rf}`,
+            exitCode: 1,
+          };
+        }
+        try {
+          input.reachableSet = loadReachableSet(rf);
+        } catch (err) {
+          return {
+            ok: false,
+            message: `blocked: cannot read reachable file: ${err instanceof Error ? err.message : String(err)}`,
+            exitCode: 1,
+          };
+        }
+      } else if (args.checkReachability === true) {
+        // Explicit flag without file: clear error (legacy UX)
         return {
           ok: false,
           message:
@@ -660,15 +859,7 @@ export function runAssert(args, env = {}) {
           exitCode: 1,
         };
       }
-      try {
-        input.reachableSet = loadReachableSet(rf);
-      } catch (err) {
-        return {
-          ok: false,
-          message: `blocked: cannot read reachable file: ${err instanceof Error ? err.message : String(err)}`,
-          exitCode: 1,
-        };
-      }
+      // done default without file: leave reachableSet unset → pure helper fails closed
     }
 
     // Under stamp: --gate done uses claim-bound canDoneFromAutomateClaims +
@@ -699,7 +890,10 @@ export function runAssert(args, env = {}) {
         }
       }
       const phase = phaseSlice(fm, fm.currentPhase);
-      const initiativePath = resolveInitiativePath(resolved.planFile, fm, phase);
+      const initiativePath = resolveInitiativePath(resolved.planFile, fm, phase, {
+        stateRoot,
+        layout: layout || 'nested',
+      });
       const initFm = loadInitiativeFrontmatter(initiativePath);
       const claimIds = claimTaskIdsFromReport(claimReport);
       const complexTasks = buildComplexTasksFromInitiative({
@@ -746,6 +940,12 @@ export function runAssert(args, env = {}) {
         : fm.reviewGate != null
           ? fm.reviewGate
           : null;
+    const decisionReview =
+      phase != null && phase.decisionReview != null
+        ? phase.decisionReview
+        : fm.decisionReview != null
+          ? fm.decisionReview
+          : null;
     const r = canRunPhaseDone({
       planExecutionMode,
       evaluationGate,
@@ -766,12 +966,13 @@ export function runAssert(args, env = {}) {
           ? phase.noneReason
           : null,
       reviewGate,
+      decisionReview,
       phase,
     });
     if (!r.ok) {
       const out = {
         ok: false,
-        message: `blocked: ${formatBlocked(r, 'phase-done evaluation/lessons/review gate')}`,
+        message: `blocked: ${formatBlocked(r, 'phase-done evaluation/lessons/review/decision gate')}`,
         exitCode: 1,
       };
       maybeRecordLastAssert(statusRoot, slug, fm, args, gate, out);

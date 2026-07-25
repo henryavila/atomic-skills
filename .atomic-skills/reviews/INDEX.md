@@ -95,3 +95,4 @@
 - 2026-07-16-1844-integrity-remediation-codex.md — Codex CROSS-MODEL reject (3 critical, 10 major) on integrity-remediation product diff
 | 2026-07-17 13:12 | [wip-resolve-review-model](2026-07-17-1312-wip-resolve-review-model.md) | code | codex | needs_changes | 0B/0C/4M/0m/0n | 0d/4=/0+ |
 | 2026-07-17 | plan | installer-hardening-p0-p1 | both→codex | needs_changes | 0B/3C/5M | .atomic-skills/reviews/2026-07-17-1816-installer-hardening-p0-p1-codex.md |
+| 2026-07-23 | implement-phase-agents branch ext-both | external-both | needs_changes | 0B/1C/9M/1m | .atomic-skills/reviews/implement-phase-agents-branch-external-both-2026-07-23-1227.md |

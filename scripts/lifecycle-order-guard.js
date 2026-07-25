@@ -15,9 +15,7 @@
 
 import { validatePhaseDag } from '../src/transition.js';
 import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
-import { phaseLessonsAllowsClose } from '../src/phase-lessons-gate.js';
-import { phaseReviewAllowsClose } from '../src/phase-review-gate.js';
-
+import { decisionReviewAllowsPhaseDone } from '../src/decision-review-gate.js';
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
   SPLIT_PHASE: 'split-phase',
@@ -255,7 +253,12 @@ function dependResolveArchived(input) {
   return allow();
 }
 
-function reviewGateComplete(reviewGate) {
+/**
+ * @param {unknown} reviewGate
+ * @param {{ durableAutomate?: boolean }} [opts]
+ *   When durableAutomate, only status=passed with SHA+mode counts — skip is closed.
+ */
+function reviewGateComplete(reviewGate, opts = {}) {
   const gate = object(reviewGate);
   if (gate.status === 'passed') {
     // F4/T-004: passed requires a real SHA + mode; reviewFile optional but coherent.
@@ -264,9 +267,17 @@ function reviewGateComplete(reviewGate) {
     if (Object.prototype.hasOwnProperty.call(gate, 'reviewFile') && !text(gate.reviewFile)) {
       return false;
     }
+    // Under durable automate, require mode both (or external-both) — not local-only.
+    if (opts.durableAutomate === true) {
+      const mode = text(gate.mode).toLowerCase();
+      if (mode !== 'both' && mode !== 'external-both') return false;
+    }
     return true;
   }
-  if (gate.status === 'skipped') return Boolean(text(gate.reason));
+  if (gate.status === 'skipped') {
+    if (opts.durableAutomate === true) return false;
+    return Boolean(text(gate.reason));
+  }
   return false;
 }
 
@@ -380,39 +391,83 @@ function reviewGateOf(input) {
 
 /**
  * Resolve plan.executionMode for durable automate checks (preflight).
+ * When `input.plan` is supplied and carries executionMode, that stamp is
+ * authoritative (top-level planExecutionMode/executionMode cannot disable it).
+ * Top-level values are only used when plan has no mode (tests / thin callers).
  * @param {object} input
  * @returns {string}
  */
 function planExecutionModeOf(input) {
-  return (
-    text(input.planExecutionMode) ||
-    text(object(input.plan).executionMode) ||
-    ''
-  );
+  const plan = object(input.plan);
+  const planHasPlanObject =
+    input.plan != null && typeof input.plan === 'object' && !Array.isArray(input.plan);
+  if (planHasPlanObject) {
+    const fromPlan = text(plan.executionMode);
+    if (fromPlan) return fromPlan;
+    // Plan object present but unstamped: allow top-level only as fill-in, not override.
+    return text(input.planExecutionMode) || text(input.executionMode) || '';
+  }
+  return text(input.planExecutionMode) || text(input.executionMode) || '';
 }
 
 /**
- * Resolve evaluationGate from input, phase slice, or plan.phases[].
+ * Matching plan.phases[] entry for the active phase id, or null.
  * @param {object} input
  * @returns {object|null}
  */
-function evaluationGateOf(input) {
-  if (input.evaluationGate != null && typeof input.evaluationGate === 'object') {
-    return input.evaluationGate;
-  }
-  const phase = phaseSlice(input);
-  if (phase.evaluationGate != null && typeof phase.evaluationGate === 'object') {
-    return phase.evaluationGate;
-  }
+function planPhaseEntry(input) {
   const plan = object(input.plan);
+  const phase = phaseSlice(input);
   const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
   if (!Array.isArray(plan.phases) || !phaseId) return null;
   const planPhase = plan.phases.find(
     (p) => object(p).id === phaseId || object(p).slug === phaseId,
   );
-  if (planPhase == null) return null;
-  const eg = object(planPhase).evaluationGate;
-  return eg != null && typeof eg === 'object' ? eg : null;
+  return planPhase != null && typeof planPhase === 'object' ? object(planPhase) : null;
+}
+
+/**
+ * Resolve evaluationGate. When a plan.phases[] entry exists for the phase,
+ * only that entry's evaluationGate is authoritative (top-level cannot spoof).
+ * Without a plan phase entry: phase slice, then top-level input.
+ * @param {object} input
+ * @returns {object|null}
+ */
+function evaluationGateOf(input) {
+  const planPhase = planPhaseEntry(input);
+  if (planPhase != null) {
+    const eg = planPhase.evaluationGate;
+    return eg != null && typeof eg === 'object' ? eg : null;
+  }
+  const phase = phaseSlice(input);
+  if (phase.evaluationGate != null && typeof phase.evaluationGate === 'object') {
+    return phase.evaluationGate;
+  }
+  if (input.evaluationGate != null && typeof input.evaluationGate === 'object') {
+    return input.evaluationGate;
+  }
+  return null;
+}
+
+/**
+ * Resolve decisionReview. Same authority rules as evaluationGateOf.
+ * @param {object} input
+ * @returns {object|null}
+ */
+function decisionReviewOf(input) {
+  const planPhase = planPhaseEntry(input);
+  if (planPhase != null) {
+    const dr = planPhase.decisionReview;
+    return dr != null && typeof dr === 'object' ? dr : null;
+  }
+  const phase = phaseSlice(input);
+  if (phase.decisionReview != null && typeof phase.decisionReview === 'object') {
+    return phase.decisionReview;
+  }
+  if (input.decisionReview != null && typeof input.decisionReview === 'object') {
+    return input.decisionReview;
+  }
+  return null;
 }
 
 /**
@@ -437,91 +492,29 @@ function checkPhaseDoneEvaluation(input) {
 }
 
 /**
- * Resolve lessons fields from input, phase/initiative slice, or plan.phases[].
- * Same lookup ladder as evaluationGateOf (plan phase is authoritative for automate stamps).
- * @param {object} input
- * @returns {{ lessonsState?: unknown, lessonsPath?: unknown, noneReason?: unknown }}
- */
-function lessonsFieldsOf(input) {
-  const phase = phaseSlice(input);
-  if (input.lessonsState != null || input.lessonsPath != null) {
-    return {
-      lessonsState: input.lessonsState,
-      lessonsPath: input.lessonsPath,
-      noneReason: input.noneReason,
-    };
-  }
-  if (phase.lessonsState != null || phase.lessonsPath != null) {
-    return {
-      lessonsState: phase.lessonsState,
-      lessonsPath: phase.lessonsPath,
-      noneReason: phase.noneReason,
-    };
-  }
-  const plan = object(input.plan);
-  const phaseId = text(input.phaseId) || text(phase.phaseId) || text(phase.id);
-  if (!Array.isArray(plan.phases) || !phaseId) return {};
-  const planPhase = plan.phases.find(
-    (p) => object(p).id === phaseId || object(p).slug === phaseId,
-  );
-  if (planPhase == null) return {};
-  const pp = object(planPhase);
-  return {
-    lessonsState: pp.lessonsState,
-    lessonsPath: pp.lessonsPath,
-    noneReason: pp.noneReason,
-  };
-}
-
-/**
- * Under durable automate stamp, lessons must be answered before phase-done (R2).
- * Non-automate: no-op allow (commitGuard still enforces requireLessons later).
+ * Under durable automate stamp, decisionReview must allow phase-done
+ * (operator PASS: status=passed + verifiedAt). Non-automate: no-op allow.
+ * Distinct code from evaluation so callers can diagnose which hardgate is open.
  * @param {object} input
  */
-function checkPhaseDoneLessons(input) {
+function checkPhaseDoneDecisionReview(input) {
   const planExecutionMode = planExecutionModeOf(input);
-  const fields = lessonsFieldsOf(input);
-  const result = phaseLessonsAllowsClose({
+  const result = decisionReviewAllowsPhaseDone({
     planExecutionMode: planExecutionMode || null,
+    executionMode: planExecutionMode || null,
     automateActive: input.automateActive === true,
-    lessonsState: fields.lessonsState,
-    lessonsPath: fields.lessonsPath,
-    noneReason: fields.noneReason,
-    phase: fields,
+    decisionReview: decisionReviewOf(input),
   });
   if (result.ok) return allow();
   return block(
-    'phase-done-lessons-open',
+    'phase-done-decision-review-open',
     result.reason ||
-      'phase-done under automate requires lessonsState recorded|none before advance',
-    'Distill phase lessons, present Proposed lessons for operator ratify, write lessons/<initiative>.md and stamp lessonsState=recorded + lessonsPath — or stamp lessonsState=none for a clean phase — then rerun `phase-done`. Silence is not an answer.',
+      'phase-done under automate requires decisionReview status=passed + verifiedAt (operator PASS)',
+    'Obtain operator decision-review PASS, stamp phases[].decisionReview { status: passed, verifiedAt }, then rerun `phase-done`. Agents never stamp PASS.',
   );
 }
 
-/**
- * Under durable automate stamp, reviewGate must satisfy phase-review honesty (R3):
- * mode both (or both-codex/grok/claude or external-both), or skipped with
- * operatorSkip+reason, or local only with non-empty overrideReason.
- * @param {object} input
- */
-function checkPhaseDoneAutomateReview(input) {
-  const planExecutionMode = planExecutionModeOf(input);
-  const result = phaseReviewAllowsClose({
-    planExecutionMode: planExecutionMode || null,
-    automateActive: input.automateActive === true,
-    reviewGate: reviewGateOf(input),
-  });
-  if (result.ok) return allow();
-  return block(
-    'phase-done-review-open',
-    result.reason ||
-      'phase-done under automate requires reviewGate mode both (or operator skip/local override)',
-    'Run `atomic-skills:review-code --mode=both`, stamp reviewGate (mode both + at + reviewFile), or record operator skip with operatorSkip+reason / local with overrideReason — then rerun `phase-done`.',
-  );
-}
-
-/**
- * Identity for phase-done: initiative must carry parentPlan + phaseId (or
+/** * Identity for phase-done: initiative must carry parentPlan + phaseId (or
  * callers pass them explicitly). Optional plan slice checks the phase exists.
  * @param {object} input
  * @returns {{allowed:boolean, blocked:boolean, code:string|null, reason:string|null,
@@ -606,10 +599,11 @@ function checkPhaseDoneTasks(input) {
  * Pure preflight for phase-done — runs BEFORE exit-gate verifiers / review.
  *
  * Validates identity (parentPlan+phaseId), optional plan DAG, that every
- * task is already done, and (when plan.executionMode is automate) that
- * evaluationGate allows close via phaseEvaluationAllowsClose. Does NOT require
+ * task is already done, and (when plan.executionMode is automate) that both
+ * evaluationGate (phaseEvaluationAllowsClose) and decisionReview
+ * (decisionReviewAllowsPhaseDone — operator PASS) allow close. Does NOT require
  * exit gates, reviewGate, lessons, or fingerprint — so evidence production may
- * proceed after a green preflight on non-automate (and after evaluation stamp
+ * proceed after a green preflight on non-automate (and after both stamps
  * on automate).
  *
  * On block: callers must produce zero gate-verifier runs, review, events,
@@ -631,14 +625,9 @@ export function preflightPhaseDone(input = {}) {
   // before exit-gate verifiers / review-code run.
   const evaluation = checkPhaseDoneEvaluation(safe);
   if (evaluation.blocked) return evaluation;
-  // R2: under durable automate, lessons must be *answered* (recorded+path or
-  // explicit none) before phase-done — silence is skip of distill/ratify.
-  const lessons = checkPhaseDoneLessons(safe);
-  if (lessons.blocked) return lessons;
-  // R3: under durable automate, reviewGate must be both (or operator skip/local
-  // with override) — dogfood local-without-both is blocked.
-  return checkPhaseDoneAutomateReview(safe);
-}
+  // Decision-review operator PASS (status=passed + verifiedAt) under automate.
+  // Same durable stamp as canRunPhaseDone; fails closed without the stamp.
+  return checkPhaseDoneDecisionReview(safe);}
 
 /**
  * Pure commit guard for phase-done — runs AFTER evidence / review / lessons.
@@ -689,32 +678,21 @@ export function commitGuardPhaseDone(input = {}) {
     );
   }
 
-  if (safe.requireReview !== false) {
-    const rg = reviewGateOf(safe);
-    if (!reviewGateComplete(rg)) {
-      return block(
-        'phase-done-review-open',
-        'phase-done requires a recorded reviewGate before the phase can advance',
-        'Run `atomic-skills:review-code <range>` and record reviewGate (passed + SHA + mode), then rerun `phase-done`.',
-      );
-    }
-    // Under durable automate, mode must be both* (or operator skip/local override)
-    // — not bare local without overrideReason (dogfood skip).
-    const planExecutionMode = planExecutionModeOf(safe);
-    const reviewHonesty = phaseReviewAllowsClose({
-      planExecutionMode: planExecutionMode || null,
-      automateActive: safe.automateActive === true,
-      reviewGate: rg,
-    });
-    if (!reviewHonesty.ok) {
-      return block(
-        'phase-done-review-open',
-        reviewHonesty.reason ||
-          'phase-done under automate requires reviewGate mode both',
-        'Run `atomic-skills:review-code --mode=both` and stamp reviewGate (mode both + at + reviewFile), or operator skip/local with overrideReason.',
-      );
-    }
-  }
+  const planMode = planExecutionModeOf(safe).toLowerCase();
+  const durableAutomate = planMode === 'automate' || safe.automateActive === true;
+  if (
+    safe.requireReview !== false &&
+    !reviewGateComplete(reviewGateOf(safe), { durableAutomate })
+  ) {
+    return block(
+      'phase-done-review-open',
+      durableAutomate
+        ? 'phase-done under durable automate requires reviewGate status=passed with mode both|external-both (skip/local forbidden)'
+        : 'phase-done requires a recorded reviewGate before the phase can advance',
+      durableAutomate
+        ? 'Run `atomic-skills:review-code <range> --mode=both`, stamp reviewGate {status:passed, at:HEAD, mode:both}, then rerun `phase-done`. Clear executionMode stamp only if leaving automate.'
+        : 'Run `atomic-skills:review-code <range>` and record reviewGate (passed + SHA + mode), then rerun `phase-done`.',
+    );  }
 
   if (safe.requireLessons !== false) {
     const phase = phaseSlice(safe);

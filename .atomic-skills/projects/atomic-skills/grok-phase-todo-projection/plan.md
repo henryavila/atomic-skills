@@ -1,0 +1,532 @@
+---
+schemaVersion: "0.1"
+slug: grok-phase-todo-projection
+title: Projeção de fases do project no TODO do Grok
+version: "1.0"
+status: archived
+started: 2026-07-24T18:38:57.644Z
+lastUpdated: 2026-07-25T10:04:24.064Z
+branch: plan/grok-phase-todo-projection
+currentPhase: F4
+parallelismAllowed: false
+principles:
+  - id: P1
+    title: SoT único
+    body: só a skill `project`/`done` muta estado canônico; TODO é projeção de
+      sessão.
+  - id: P2
+    title: Fases, não tasks
+    body: checklist Grok = trilho de fases; `T-00N` fica no YAML/aiDeck.
+  - id: P3
+    title: Identidade semântica
+    body: content sempre inclui o que a fase faz (`summary` || `title`), nunca só
+      `F0 (x/y)`.
+  - id: P4
+    title: Write-through
+    body: mutação → `refresh-state` → helper → `todo_write` (nessa ordem).
+  - id: P5
+    title: Reseed honesto
+    body: pós-compaction e no start; harness Grok não devolve snapshot de todos.
+  - id: P6
+    title: Host-local Grok
+    body: zero fork do core Grok; zero write em `plan.json` da sessão por shell.
+glossary:
+  - term: session todo
+    definition: Item do `todo_write` / checklist de sessão do Grok
+  - term: phase scaffold
+    definition: Conjunto de session todos = uma linha por fase do plan ativo
+  - term: helper
+    definition: Script zero-token que emite o payload JSON de `todo_write` a partir do SoT
+  - term: label canônico
+    definition: "`F{id} (done/total) — summary ou title`"
+  - term: refresh-state
+    definition: Chokepoint rollups + focus markers + focus.json + aiDeck series
+phases:
+  - id: F0
+    slug: grok-phase-todo-projection-f0-contrato-de-projecao-e-wire-up-de
+    title: Contrato de projeção e wire-up de prosa
+    goal: "Congelar em KB greppable: label F0 (n/N)—summary|title, SoT order,
+      paused, merge/reseed, anti-proc, Grok-local; SessionStart = hint only."
+    dependsOn: []
+    subPhaseCount: 2
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: F0-G1
+          description: KB freezes label summary|title, SoT order, paused, anti-proc,
+            Grok-local
+          status: met
+          verifier:
+            kind: shell
+            command: test -f docs/kb/grok-phase-todo-projection.md && rg -n
+              'summary|title|refresh-state|todo_write|paused|anti-proc|Grok-local|merge'
+              docs/kb/grok-phase-todo-projection.md
+            expectExitCode: 0
+          metAt: 2026-07-24T19:42:03.616Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T19:42:03.616Z
+            verifiedCommit: 9cba1ffa27b10da0c9a7646456545510ccbf87eb
+            passed: true
+            exitCode: 0
+            outputSummary: >-
+              4:checklist via the Grok session checklist tool (`todo_write`).
+              Prose-only here;
+
+              6:`refresh-state` / `emit-focus` — this doc is the **Grok
+              session-todo consumer**
+
+              10:producer+consumer); `docs/kb/grok-build-compatibility.md`
+              (Grok-local install and
+
+              21:| **anti-proc**: phase scaffold vs `proc:*` while plan anchored
+              | Multi-IDE mirror (Claude/Codex/Cursor todos) |
+
+              22:| Reseed / merge rules for session checklist tool | Using todo
+              completion to close phase/task (GATE-R2 stays) |
+
+              24:**Grok-local only.
+        - id: F0-G2
+          description: Manual HARD operator confirms label format and SoT order match
+            approved design
+          status: met
+          verifier:
+            kind: manual
+            description: Henry acks F0 contract in chat or gate-signoff with explicit PASS
+          metAt: 2026-07-24T19:42:03.616Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-24T19:42:03.616Z
+            verifiedCommit: 9cba1ffa27b10da0c9a7646456545510ccbf87eb
+            passed: true
+            outputSummary: Operator F0-G2 PASS + decision-review PASS
+    status: done
+    businessIntent:
+      value: Em sessões Grok o agente mantém no checklist nativo o trilho de fases do
+        plan com progresso e o que cada fase faz, sem duplicar SoT nem fechar
+        task via TODO.
+      workflow: Contrato em prosa → helper determinístico a partir do YAML → lint de
+        transitions → wire implement/reseed → dogfood.
+      rules: SoT só em .atomic-skills; label F0 (n/N) — summary|title; um in_progress
+        = fase corrente; reseed pós-compact; projeção só Grok; nunca todo
+        completed sem phase done.
+      outOfScope: Tasks T-00N no TODO; painel nativo Grok; write em plan.json da
+        sessão; multi-IDE mirror; MCP project-state.
+      doneWhen: KB+compat com contrato greppable e Henry PASS no gate manual F0-G2.
+    summary: "Contrato greppable: label, SoT, paused, reseed skill-level,
+      SessionStart só hint"
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T19:29:13.834Z
+      at: e886730817273eba9a2ce80b855e35e75691635b
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-24T19:32:34.509Z
+    reviewGate:
+      status: passed
+      at: 9cba1ffa27b10da0c9a7646456545510ccbf87eb
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f0-grok-phase-todo-projection-both.md
+      verifiedAt: 2026-07-24T19:42:03.616Z
+  - id: F1
+    slug: grok-phase-todo-projection-f1-helper-deterministico-de-projecao
+    title: Helper determinístico de projeção
+    goal: Script zero-token que, dado o repo, emite o array de session todos das
+      fases do plan pickFocus com label canônico e statuses corretos.
+    dependsOn:
+      - F0
+    subPhaseCount: 0
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: F1-G1
+          description: Helper unit tests cover label IDs status paused descriptor-only
+            empty focus
+          status: met
+          verifier:
+            kind: shell
+            command: node --test tests/project-session-todos.test.js
+            expectExitCode: 0
+          metAt: 2026-07-24T20:06:56.316Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T20:06:56.316Z
+            verifiedCommit: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
+            passed: true
+            exitCode: 0
+            outputSummary: >-
+              ✔ formatPhaseContent: materialized uses done/total and summary
+              (1.227542ms)
+
+              ✔ formatPhaseContent: descriptor-only uses em-dash total + not
+              materialized (0.082083ms)
+
+              ✔ formatPhaseContent: paused suffix (0.074875ms)
+
+              ✔ mapPhaseTodoStatus: paused wins → pending + paused flag
+              (0.5855ms)
+
+              ✔ mapPhaseTodoStatus: current → in_progress; done → completed;
+              else pending (0.173667ms)
+
+              ✔ mapPhaseTodoStatus: done|archived beats stale currentPhase →
+              completed (0.107708ms)
+
+              ✔ stableTodoId is planSlug colon phase id 
+        - id: F1-G2
+          description: "CLI json contract: merge field + todos with id content status shape"
+          status: met
+          verifier:
+            kind: shell
+            command: node scripts/project-session-todos.js --json . | node -e "let
+              d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const
+              j=JSON.parse(d); if(typeof
+              j.merge!=='boolean'||!Array.isArray(j.todos)) process.exit(1);
+              for(const t of j.todos){ if(!t.id||!t.content||!t.status)
+              process.exit(2);} process.exit(0)})"
+            expectExitCode: 0
+          metAt: 2026-07-24T20:06:56.316Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T20:06:56.316Z
+            verifiedCommit: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
+            passed: true
+            exitCode: 0
+            outputSummary: ""
+    status: done
+    summary: Helper + testes do contrato canônico (id, label, status, paused, merge)
+    businessIntent:
+      value: Agente e skills obtêm payload determinístico de session todos (fases do
+        plan ativo) sem inventar rollups nem tocar o SoT.
+      workflow: Implementar scripts/project-session-todos.js + CLI JSON → testes
+        golden (label, status, paused, descriptor-only, empty focus) → F1-G1/G2.
+      rules: Ids estáveis <planSlug>:Fn; content F0 (n/N) — summary|title ou (—)
+        descriptor-only; um in_progress = fase corrente; paused → pending + ·
+        paused; empty focus → [] sem wipe; zero write em ~/.grok/sessions /
+        frontmatter.
+      outOfScope: Chamar todo_write; mutar plan/initiative; inventar totals
+        descriptor-only; rede; helper em Claude/Codex mirror.
+      doneWhen: node --test tests/project-session-todos.test.js exit 0 e CLI --json
+        emite {merge,todos[]} com shape válido.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T20:06:56.316Z
+      at: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-24T20:00:09.377Z
+    reviewGate:
+      status: passed
+      at: 5fbdf9551dd8f2f610742713ebac83bb458dd34d
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f1-project-session-todos-both.md
+      verifiedAt: 2026-07-24T20:06:56.316Z
+  - id: F2
+    slug: grok-phase-todo-projection-f2-harden-do-emit-lint-estrutural
+    title: Harden do emit lint estrutural
+    goal: Lint estrutural exige refresh-state + helper em done/reconcile/phase-done
+      e mutadores de foco phase-reopen/switch/unblock/archive.
+    dependsOn:
+      - F1
+    subPhaseCount: 0
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: F2-G1
+          description: lint-transition-emits requires refresh-state+helper on close and
+            focus mutators
+          status: met
+          verifier:
+            kind: shell
+            command: node scripts/lint-transition-emits.js
+              skills/shared/project-assets/project-transitions.md
+            expectExitCode: 0
+          metAt: 2026-07-24T20:38:43.203Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T20:38:43.203Z
+            verifiedCommit: 794205171257913c57fc723a553b1caaf5712211
+            passed: true
+            exitCode: 0
+            outputSummary: >
+              lint-transition-emits: all transition blocks carry completion emit
+              instructions
+        - id: F2-G2
+          description: transition-emits unit tests pass
+          status: met
+          verifier:
+            kind: shell
+            command: node --test tests/transition-emits.test.js
+            expectExitCode: 0
+          metAt: 2026-07-24T20:38:43.203Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T20:38:43.203Z
+            verifiedCommit: 794205171257913c57fc723a553b1caaf5712211
+            passed: true
+            exitCode: 0
+            outputSummary: >-
+              ✔ project-transitions emits are structurally present in all
+              transition blocks (7.901209ms)
+
+              ✔ phase-done prose emits one aggregate phase event and forbids
+              bulk task-done close (2.011417ms)
+
+              ✔ done prose requires verifier handling before status mutation
+              (0.930958ms)
+
+              ✔ phase-done prose forbids defer/skip terminal and bulk-met
+              coercion (0.724708ms)
+
+              ✔ old done ordering is reported as verifier-before-don
+    status: done
+    summary: "Lint transitions: closes + phase-reopen/switch/unblock/archive"
+    businessIntent:
+      value: Mutações de status (done/reconcile/phase-done/focus) não perdem
+        refresh-state nem projeção Grok — lint estrutural falha se faltar.
+      workflow: Estender lint-transition-emits + testes → prosa project-transitions →
+        F2-G1/G2.
+      rules: Exigir refresh-state + menção project-session-todos nos closes; não
+        reescrever GATE-R2; não todo_write em shell; não completed sem phase
+        done.
+      outOfScope: Reescrever ordem verifier-before-status; multi-IDE; implementar
+        todo_write no host.
+      doneWhen: lint-transition-emits exit 0 no project-transitions.md e node --test
+        tests/transition-emits.test.js exit 0.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T20:38:43.203Z
+      at: 794205171257913c57fc723a553b1caaf5712211
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-24T20:32:16.227Z
+    reviewGate:
+      status: passed
+      at: 794205171257913c57fc723a553b1caaf5712211
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f2-transition-emits-both.md
+      verifiedAt: 2026-07-24T20:38:43.203Z
+  - id: F3
+    slug: grok-phase-todo-projection-f3-wire-implement-e-reseed-grok
+    title: Wire implement e reseed Grok
+    goal: implement + maestro reseed scaffold via helper+todo_write;
+      SessionStart/help only hint; anti-proc; compaction reseed documented.
+    dependsOn:
+      - F2
+    subPhaseCount: 0
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: F3-G1
+          description: implement + maestro mention project-session-todos, reseed,
+            compaction, anti-proc separately
+          status: met
+          verifier:
+            kind: shell
+            command: rg -n 'project-session-todos' skills/core/implement.md
+              skills/shared/implement-automate-maestro.md && rg -n
+              'reseed|compaction' skills/core/implement.md && rg -n 'proc'
+              skills/core/implement.md && rg -n
+              'project-session-todos|todo_write|hint'
+              skills/shared/project-assets/project-help.md
+              skills/shared/project-assets/hooks/session-start.sh
+            expectExitCode: 0
+          metAt: 2026-07-24T20:51:50.963Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T20:51:50.963Z
+            verifiedCommit: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+            passed: true
+            exitCode: 0
+            outputSummary: >-
+              85:2. Run `node "$(cat "$HOME/.atomic-skills/package-root"
+              2>/dev/null || echo .)/scripts/project-session-todos.js" --json`.
+
+              140:7. **Close it.** After the implementation commit and the loads
+              above, run `done <task-id>` via the project skill. The `done` flow
+              executes the per-task verifier before setting `status: done`,
+              writes evidence + `nextAction` + **`## Session handoff` in the
+              same durable sav
+        - id: F3-G2
+          description: Manual HARD dogfood implement start sees phase scaffold labels with
+            titles
+          status: met
+          verifier:
+            kind: manual
+            description: Henry runs implement or helper plus todo_write once and acks labels
+              show F0 n/N with title or summary
+          metAt: 2026-07-24T20:51:50.963Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-24T20:51:50.963Z
+            verifiedCommit: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+            passed: true
+            outputSummary: Operator F3-G2 dogfood PASS
+    status: done
+    summary: Implement reseeds scaffold; SessionStart só hint; anti-proc
+    businessIntent:
+      value: Sessões Grok reseedam trilho de fases no start/implement/compaction sem
+        SoT duplo nem proc:* competindo.
+      workflow: Wire implement/maestro → SessionStart hint + project help → F3-G1 +
+        dogfood manual F3-G2.
+      rules: merge:false no start; anti-proc com plan ancorado; SessionStart só hint
+        fail-open; host-thin pode todo_write sem product edits.
+      outOfScope: GATE-R2/claim exclusivity changes; T-00N todos; SessionStart chama
+        todo_write.
+      doneWhen: implement assets greppable helper/reseed/anti-proc; Henry dogfood PASS
+        F3-G2.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T20:51:50.963Z
+      at: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-24T20:51:50.963Z
+    reviewGate:
+      status: passed
+      at: d70b11b2f5541d2687ebf97235660ca6d7cd1a80
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f3-implement-reseed-both.md
+      verifiedAt: 2026-07-24T20:51:50.963Z
+  - id: F4
+    slug: grok-phase-todo-projection-f4-integracao-e-regressao
+    title: Integração e regressão
+    goal: Suite de regressão verde; parity de install intacta; checklist dogfood.
+    dependsOn:
+      - F3
+    subPhaseCount: 2
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: F4-G1
+          description: New unit tests plus install-uninstall-roundtrip and render
+            compatibility pass
+          status: met
+          verifier:
+            kind: shell
+            command: node --test tests/project-session-todos.test.js
+              tests/transition-emits.test.js
+              tests/install-uninstall-roundtrip.test.js tests/render.test.js
+            expectExitCode: 0
+          metAt: 2026-07-24T22:20:10.364Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-24T22:25:20.555Z
+            verifiedCommit: 765811595136d295f57d4f06eca425537279c0d3
+            passed: true
+            exitCode: 0
+            outputSummary: Plan F4-G1 full suite 86 pass exit 0 at post-fix1 HEAD
+              (session-todos+transition-emits+install-uninstall-roundtrip+render)
+        - id: F4-G2
+          description: Manual HARD Henry confirms dogfood checklist completed once on Grok
+          status: met
+          verifier:
+            kind: manual
+            description: Operator PASS after one real session saw phase scaffold update
+          metAt: 2026-07-24T22:20:10.364Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-24T22:25:20.555Z
+            verifiedCommit: 765811595136d295f57d4f06eca425537279c0d3
+            passed: true
+            outputSummary: Operator authorize continue automate (faça); session reseed
+              applied phase scaffold with identity labels via todo_write
+    status: done
+    summary: Regressão unit + install parity Grok + dogfood checklist
+    businessIntent:
+      value: A entrega fecha com regressão determinística verde e dogfood documentado
+        (seed → after-done → phase-done → reseed pós-compact), sem segundo SoT e
+        sem PASS inventado de gate manual.
+      workflow: T-001 endurece/expõe regressão package (unit + path de install/render
+        se no escopo) → T-002 documenta checklist dogfood no KB → F4-G1 shell +
+        F4-G2 PASS manual do operador.
+      rules: Não inventar PASS sem run do operador; checklist só no KB (sem segundo
+        helper); não mutar journal de install salvo se arquivo instalado novo
+        exigir reverse; preferir scripts em package-root sem superfície de
+        install.
+      outOfScope: Novo helper de projeção; multi-IDE mirror; write em plan.json da
+        sessão; fechar task via TODO; painel nativo Grok; T-00N no scaffold.
+      doneWhen: node --test nos testes de sessão/transitions (e parity install/render
+        se no G1) exit 0; checklist dogfood no KB com labels de identidade;
+        Henry PASS em F4-G2.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      verifiedAt: 2026-07-24T22:25:20.555Z
+      at: 765811595136d295f57d4f06eca425537279c0d3
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-24T22:20:10.364Z
+    reviewGate:
+      status: passed
+      at: 765811595136d295f57d4f06eca425537279c0d3
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-24-f4-session-todo-both.md
+      verifiedAt: 2026-07-24T22:25:20.555Z
+references:
+  - kind: file
+    label: design.md critic-approved
+    path: .atomic-skills/projects/atomic-skills/grok-phase-todo-projection/design.md
+  - kind: url
+    path: https://github.com/henryavila/atomic-skills/pull/36
+    label: "PR #36"
+planActive: false
+planTitle: Projeção de fases do project no TODO do Grok
+planEndReview:
+  mode: external-both
+  reviewFile: .atomic-skills/reviews/2026-07-24-plan-end-external-both-grok-phase-todo-projection.md
+  range: develop..3635a8314711a399b306fbd7e0601aaa3e83359a
+  verifiedAt: 2026-07-24T22:35:32.099Z
+  legs:
+    - provider: codex
+      status: succeeded
+      familyDifferent: true
+    - provider: grok
+      status: skipped
+      familyDifferent: false
+    - provider: claude
+      status: skipped
+      familyDifferent: true
+userValidatedAt: 2026-07-25T00:07:26.759Z
+---
+
+# Projeção de fases do project no TODO do Grok
+
+## 1. Context
+
+Projeção unidirecional skill-level: fases do plan ativo no `todo_write` do Grok com
+label `F0 (n/N) — summary|title`, SoT em `.atomic-skills/`, helper determinístico e
+harden de `refresh-state` nos closes. Não inventa identidade de fase (usa
+`title`/`summary` existentes). Não fecha task via TODO.
+
+## 2. Inviolable principles
+
+- **P1 SoT único** — só a skill `project`/`done` muta estado canônico; TODO é projeção de sessão.
+- **P2 Fases, não tasks** — checklist Grok = trilho de fases; `T-00N` fica no YAML/aiDeck.
+- **P3 Identidade semântica** — content sempre inclui o que a fase faz (`summary` || `title`), nunca só `F0 (x/y)`.
+- **P4 Write-through** — mutação → `refresh-state` → helper → `todo_write` (nessa ordem).
+- **P5 Reseed honesto** — pós-compaction e no start; harness Grok não devolve snapshot de todos.
+- **P6 Host-local Grok** — zero fork do core Grok; zero write em `plan.json` da sessão por shell.
+
+## 3. Phase tree
+
+_(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when running.)_
+
+## Reviews
+
+- finalize PR #36: MERGED into develop — https://github.com/henryavila/atomic-skills/pull/36
+
+- internal: clean — 2026-07-24 — Stage 8a self-loop
+- cross-model (codex): fail→applied — 2026-07-24 — provider gpt-5.5; 2 critical + 5 major applied into plan gates/prose; review file .atomic-skills/reviews/2026-07-24-1859-grok-phase-todo-projection.md
+
+
+## Session handoff (plan-level resume)
+- **Narrative:** Plan **archived**. Finalize PR #36 merged to develop. Phases already under phases/archive/. Worktree teardown not auto-run.
+- **Decision log:** operator finalize+archive; PR https://github.com/henryavila/atomic-skills/pull/36 state MERGED.
+- **Single nextAction:** optional: remove plan worktree / delete local branch (operator-prompted teardown)
+- **Verbatim state:** status=archived; PR=https://github.com/henryavila/atomic-skills/pull/36; references include PR #36
+- **Uncommitted changes:** archive checkpoint

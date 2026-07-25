@@ -9,6 +9,15 @@ phase initiative. It consumes the retained per-phase source sidecar written by
 then runs the deterministic businessIntent detector before the phase can become
 active.
 
+**R3 tasks core fingerprint.** `materialize-state.js` compares live sidecar
+`tasks[]` **core** (id, title normalized, files/outputs paths, scopeBoundary,
+acceptance, verifier) to the initiative being published. On mismatch it
+**refuses** (tasks-fingerprint refuse) and does not rename live files. Allowlist
+fields only: summary, weight, status, businessIntent, nextAction, rollups,
+evidence. **Red flag:** "I'll rewrite the sidecar tasks because they're better"
+→ STOP. To change SPEC: edit source / re-capture sidecar (re-spec path) — never
+as a silent side-effect of materialize.
+
 ## Contract
 
 ### Inputs
@@ -35,7 +44,10 @@ active.
 - Publish goes through the single authority `scripts/materialize-state.js`
   (recoverable staging + marker; initiative rename first, plan last).
 - A detector-backed gate result: `scripts/find-missing-business-intent.js` exits
-  `0` before the command reports the phase as active.
+  `0` (presence) **and** `scripts/find-weak-business-intent.js` exits `0`
+  (quality HARD-BLOCK) before the command reports the phase as active. On quality
+  fail: tell the operator to **rewrite** the weak fields — do **not** offer
+  approve-anyway (no test-only override in operator path).
 
 ### F4-G3 non-deferrable successor barrier
 
@@ -72,17 +84,27 @@ The command's load-bearing order is fixed:
 
 1. Load retained source sidecar.
 2. Run the phase-start lessons gate.
-3. Collect the user-written `businessIntent` spine.
+3. Collect the `businessIntent` spine — **Mode A** (user-written blank form) or
+   **Mode B** (automate pre-ratified complete spine from the phase-start package
+   ritual). Under Mode B, collection is **after** package ratify only; do not
+   invent or durable-write spine before that ratify.
 4. Reuse `decomposeOnePhase(phaseSource, ctx)` when raw phase body is present;
    otherwise reuse the parsed F2 sidecar capture.
 5. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
-6. Write the initiative with `businessIntent` and update the parent plan
-   descriptor atomically via `scripts/materialize-state.js`.
-7. Run `scripts/find-missing-business-intent.js`.
+6. Write the initiative with the **ratified** `businessIntent` and update the
+   parent plan descriptor atomically via `scripts/materialize-state.js`.
+7. Run `scripts/find-missing-business-intent.js` (presence).
+7b. Run `scripts/find-weak-business-intent.js` (quality HARD — rewrite fields on fail; no approve-anyway).
 8. Run `scripts/validate-state.js`.
 9. Run `scripts/refresh-state.js`.
 
 ## Pre-flight
+
+0. **Sidecar age opt-in (defaults N=14 days, K=12 tasks).** Run
+   `node -e "import('…/src/sidecar-age.js').then(m=>console.log(JSON.stringify(m.evaluateSidecarAge({sidecarPath:'…'}))))"`
+   or equivalent. If `shouldPrompt`, ask: "Revalidar SPEC desta fase?" Default
+   **não** re-decompõe — operator may continue. Age uses `capturedAt` → mtime →
+   `plan.started` (`src/sidecar-age.js`).
 
 1. Parse `{{ARG_VAR}}`. If absent, stop and ask for exactly one phase id or slug.
 2. Run the standard project initial detection from `skills/core/project.md`.
@@ -117,9 +139,17 @@ The command's load-bearing order is fixed:
 
 ## BusinessIntent Gate
 
-The user writes the five spine fields. The agent may draft labels and context,
-but unknown values stay visibly marked `[NEEDS CLARIFICATION]` until the user
-replaces them.
+Two collection modes — do not conflate them:
+
+### Mode A — default / Mode-1 / bare `project materialize` (proof-of-work blank form)
+
+**Proof-of-work (anti-rubber-stamp UX).** The user **writes** the five spine
+fields. The agent may offer **separate** questions or examples for context, but
+**must not** pre-fill / paste a drafted spine into the five fields of the user's
+answer surface for simple signature. Unknown values stay visibly marked
+`[NEEDS CLARIFICATION]` until the user replaces them. A generic **"ok" / "yes" /
+"do it" / "lgtm"** without the five fields is **not** acceptance — re-prompt
+(same discipline as ratify). `derived[]` remains optional and **ungated**.
 
 Ask via `{{ASK_USER_QUESTION_TOOL}}` for a single structured block:
 
@@ -132,7 +162,44 @@ doneWhen: ""
 derived: []
 ```
 
-Field rules:
+### Mode B — automate phase-start package exception (pre-ratified complete spine)
+
+When the caller is the **automate pure-maestro** phase-start package ritual
+(`implement --mode=automate` / `isAutomateActive`; see
+`skills/shared/implement-automate-maestro.md` +
+`docs/kb/project-lazy-materialization.md` § Host-thin automate) **and** the
+operator has already **explicitly ratified** a complete five-field spine in that
+package ritual (same turn / continuous package→ratify→materialize sequence):
+
+1. **Do not** dump Mode A's blank form for the operator to invent BI again.
+2. **Accept** the **pre-ratified complete spine** into materialize-state /
+   initiative + plan descriptor publish.
+3. **Still** refuse missing / blank / `[NEEDS CLARIFICATION]` fields and still
+   run presence + quality detectors after write (`find-missing-business-intent`,
+   `find-weak-business-intent`). Weak spine → rewrite, not approve-anyway.
+4. **Sequence authority:** package presentation drafts BI **ephemerally** →
+   operator validate-only → explicit ratify → **only then** this materialize
+   path **writes** the ratified spine. Materialize under automate does **not**
+   write BI **before** package ratify. Silent auto-PASS of an unratified draft
+   is forbidden.
+5. **Titles:** package task titles are advisory for review; durable title
+   renames are **not** a materialize side-effect (R3 fingerprint refuses silent
+   title rewrite — re-spec / sidecar re-capture required).
+
+**Fail-closed when Mode B preconditions are not met (HARD):**
+
+- Under **automate** (`executionMode: automate` / package-path caller —
+  `isAutomateActive` or durable plan stamp): if package ratify is **absent**,
+  the spine is incomplete, or this call is bare `materialize` **without** a
+  continuous package→ratify→materialize sequence → **STOP**. Do **not** dump
+  Mode A's blank form. Do **not** invent BI. Set handoff / `nextAction` to
+  present the phase-start package and await explicit ratify (e.g. `present
+  phase-start package for F{N} validate-only` / `await package ratify`). Resume
+  materialize only after ratify with the pre-ratified spine (this Mode B path).
+- **Mode A** is only for **Mode 1 / non-automate / bare `materialize` outside
+  the package ritual**. Never use Mode A as a silent fallback under automate.
+
+Field rules (both modes):
 
 - `value` states both business value and customer/user value.
 - `workflow` names the operational workflow this phase changes.
@@ -197,13 +264,18 @@ Reject the block when any required field is blank or still contains
    --plan <plan.md>`); do not hand-edit the pair and do not report the phase active.
    The detector runs after a successful publish because it checks the descriptor
    and the materialized initiative together.
-7. Run the detector with `{{BASH_TOOL}}`:
+7. Run the **presence** detector with `{{BASH_TOOL}}`:
    `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
    Pass the parent `plan.md` so unrelated legacy plans cannot block this materialization.
    A tree root (`.atomic-skills` or repo root) is reserved for explicit audits that
    intentionally scan every materialized phase.
    Exit code `0` is required. Any non-zero exit leaves the initiative and plan
    edits open for repair; do not report the phase as active.
+7b. Run the **quality** detector (HARD-BLOCK) with `{{BASH_TOOL}}`:
+   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-weak-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
+   Exit code `0` is required. On non-zero: print the weak fields/reasons and ask the
+   operator to **rewrite** them — do **not** offer approve-anyway. Re-run 7 then 7b
+   after the rewrite. Presence and quality are separate gates.
 8. Run schema validation with `{{BASH_TOOL}}`:
    `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md`.
    Pass the newly written initiative file explicitly; do not pass the `phases/`
@@ -236,7 +308,23 @@ Reject the block when any required field is blank or still contains
 ## Internal Callers
 
 `phase-done`, `switch`, and `phase-reopen` call this same procedure when their
-target next phase is descriptor-only. They pass the concrete phase id, then
-return to their own transition flow only after this procedure has produced a
-validated initiative and detector exit `0`. They do not duplicate the gate or
-write their own initiative file.
+target next phase is descriptor-only **and** the plan is **Mode 1 / non-automate**.
+They pass the concrete phase id, then return to their own transition flow only
+after this procedure has produced a validated initiative and detector exit `0`
+(Mode A blank-form BI). They do not duplicate the gate or write their own
+initiative file.
+
+**Automate exception (`executionMode: automate` / pure-maestro) — all three
+callers:** do **not** blank-form materialize (Mode A) a descriptor-only target
+as a separate invent-BI UX.
+
+- **`phase-done`:** advance the descriptor pointer only; handoff **single
+  nextAction** → phase-start package ritual; implement pure-maestro Step H/B
+  owns draft → validate-only → ratify → **Mode B** materialize with the
+  pre-ratified spine.
+- **`switch` / `phase-reopen`:** same package→ratify→Mode B path, **or refuse**
+  with zero initiative write and set **single nextAction** to present package /
+  await ratify. Never fall through to Mode A under automate.
+
+See `skills/shared/project-assets/project-transitions.md` § phase-done /
+§ phase-reopen / § switch and `skills/shared/implement-automate-maestro.md`.

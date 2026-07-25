@@ -1,0 +1,24 @@
+{
+  "id": "materialized-spawn-ok",
+  "description": "Post-ratify state: initiative present (materialized). Lease clean. Host-thin spawn helpers allow spawn. Models the machine side after operator validate-only package ratify + materialize.",
+  "plan": {
+    "schemaVersion": "0.1",
+    "slug": "fixture-ipa",
+    "status": "active",
+    "currentPhase": "F1",
+    "executionMode": "automate",
+    "phases": [
+      { "id": "F0", "status": "done", "slug": "f0-bootstrap" },
+      { "id": "F1", "status": "active", "slug": "f1-next" }
+    ]
+  },
+  "spawnInput": {
+    "leaseStatus": "missing",
+    "initiativePresent": true,
+    "phaseMaterialized": true
+  },
+  "expect": {
+    "canSpawnPhaseWriterOk": true,
+    "canSpawnHostThinPhaseWriterOk": true
+  }
+}

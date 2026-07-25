@@ -347,6 +347,127 @@ test('allows phase-done commit when tasks, gates met, review, lessons, and finge
   assert.equal(viaClassify.allowed, true);
 });
 
+const automateDecisionReviewPassed = {
+  status: 'passed',
+  verifiedAt: '2026-07-23T12:00:00.000Z',
+};
+
+test('B1: under durable automate, reviewGate skipped is blocked even with reason', () => {
+  const result = commitGuardPhaseDone(
+    happyCommitInput({
+      plan: {
+        executionMode: 'automate',
+        phases: [
+          {
+            id: 'F4',
+            slug: 'f4',
+            status: 'active',
+            dependsOn: [],
+            exitGate: { summary: 's', criteria: [] },
+            subPhaseCount: 0,
+            goal: 'g',
+            title: 'F4',
+            evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+            decisionReview: automateDecisionReviewPassed,
+          },
+        ],
+      },
+      reviewGate: {
+        status: 'skipped',
+        reason: 'operator: pad pad pad pad pad',
+      },
+    }),
+  );
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-review-open');
+  assert.match(result.reason, /automate|skip|both/i);
+});
+
+test('B1: under durable automate, reviewGate passed + mode local is blocked', () => {
+  const result = commitGuardPhaseDone(
+    happyCommitInput({
+      plan: {
+        executionMode: 'automate',
+        phases: [
+          {
+            id: 'F4',
+            slug: 'f4',
+            status: 'active',
+            dependsOn: [],
+            exitGate: { summary: 's', criteria: [] },
+            subPhaseCount: 0,
+            goal: 'g',
+            title: 'F4',
+            evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+            decisionReview: automateDecisionReviewPassed,
+          },
+        ],
+      },
+      reviewGate: { status: 'passed', at: FP, mode: 'local' },
+    }),
+  );
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-review-open');
+});
+
+test('B1: under durable automate, reviewGate passed + mode both is allowed', () => {
+  const result = commitGuardPhaseDone(
+    happyCommitInput({
+      plan: {
+        executionMode: 'automate',
+        phases: [
+          {
+            id: 'F4',
+            slug: 'f4',
+            status: 'active',
+            dependsOn: [],
+            exitGate: { summary: 's', criteria: [] },
+            subPhaseCount: 0,
+            goal: 'g',
+            title: 'F4',
+            evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+            decisionReview: automateDecisionReviewPassed,
+          },
+        ],
+      },
+      reviewGate: { status: 'passed', at: FP, mode: 'both' },
+    }),
+  );
+  assert.equal(result.allowed, true, result.reason);
+});
+
+test('plan.executionMode stamp is authoritative over top-level planExecutionMode:manual', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    planExecutionMode: 'manual',
+    executionMode: 'manual',
+    plan: {
+      executionMode: 'automate',
+      phases: [{ id: 'F0', slug: 'f0', status: 'active', dependsOn: [] }],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true);
+  assert.equal(result.code, 'phase-done-evaluation-open');
+});
+
+test('top-level evaluationGate cannot spoof missing plan.phases[] stamp', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'demo',
+    phaseId: 'F0',
+    plan: {
+      executionMode: 'automate',
+      phases: [{ id: 'F0', slug: 'f0', status: 'active', dependsOn: [] }],
+    },
+    evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+    decisionReview: automateDecisionReviewPassed,
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true);
+  assert.equal(result.code, 'phase-done-evaluation-open');
+});
+
 test('decidePhaseDoneTerminal returns empty effects when blocked and terminal writes when allowed', () => {
   const blocked = decidePhaseDoneTerminal(happyCommitInput({
     tasks: [{ id: 'T-001', status: 'active' }],
@@ -434,7 +555,7 @@ test('preflightPhaseDone blocks under automate without evaluationGate (R1)', () 
   assert.match(result.recommendedCommand || '', /evaluation/i);
 });
 
-test('preflightPhaseDone blocks under automate with evaluation but without lessons (R2)', () => {
+test('preflightPhaseDone blocks under automate with evaluation but without decisionReview', () => {
   const result = preflightPhaseDone({
     parentPlan: 'demo',
     phaseId: 'F0',
@@ -457,11 +578,11 @@ test('preflightPhaseDone blocks under automate with evaluation but without lesso
     tasks: [{ id: 'T-001', status: 'done' }],
   });
   assert.equal(result.blocked, true);
-  assert.equal(result.code, 'phase-done-lessons-open');
-  assert.match(result.recommendedCommand || '', /lessons|Proposed lessons|none/i);
+  assert.equal(result.code, 'phase-done-decision-review-open');
+  assert.match(result.reason || '', /decisionReview/);
 });
 
-test('preflightPhaseDone blocks under automate without reviewGate both (R3)', () => {
+test('preflightPhaseDone blocks automate when decisionReview pending', () => {
   const result = preflightPhaseDone({
     parentPlan: 'demo',
     phaseId: 'F0',
@@ -473,22 +594,19 @@ test('preflightPhaseDone blocks under automate without reviewGate both (R3)', ()
           slug: 'f0',
           status: 'active',
           dependsOn: [],
-          evaluationGate: {
-            status: 'passed',
-            verdict: 'pass',
-            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
-          },
-          lessonsState: 'none',
+          evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+          decisionReview: { status: 'pending' },
         },
       ],
     },
     tasks: [{ id: 'T-001', status: 'done' }],
   });
   assert.equal(result.blocked, true);
-  assert.equal(result.code, 'phase-done-review-open');
+  assert.equal(result.code, 'phase-done-decision-review-open');
+  assert.match(result.reason || '', /pending/i);
 });
 
-test('preflightPhaseDone allows automate when evaluation + lessons + review both', () => {
+test('preflightPhaseDone allows automate when evaluationGate and decisionReview both passed', () => {
   const result = preflightPhaseDone({
     parentPlan: 'demo',
     phaseId: 'F0',
@@ -500,17 +618,10 @@ test('preflightPhaseDone allows automate when evaluation + lessons + review both
           slug: 'f0',
           status: 'active',
           dependsOn: [],
-          evaluationGate: {
+          evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+          decisionReview: {
             status: 'passed',
-            verdict: 'pass',
-            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
-          },
-          lessonsState: 'none',
-          reviewGate: {
-            status: 'passed',
-            mode: 'both',
-            at: 'a'.repeat(40),
-            reviewFile: '.atomic-skills/reviews/f0-both.md',
+            verifiedAt: '2026-07-23T12:00:00.000Z',
           },
         },
       ],
@@ -519,6 +630,72 @@ test('preflightPhaseDone allows automate when evaluation + lessons + review both
   });
   assert.equal(result.allowed, true);
   assert.equal(result.blocked, false);
+});
+
+test('top-level executionMode automate: preflight/commitGuard block when decisionReview missing', () => {
+  const input = happyCommitInput({
+    executionMode: 'automate',
+    plan: {
+      phases: [
+        {
+          id: 'F4',
+          slug: 'f4',
+          status: 'active',
+          dependsOn: [],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'F4',
+          evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+        },
+      ],
+    },
+    evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+    reviewGate: { status: 'passed', at: FP, mode: 'both' },
+  });
+  const preflight = preflightPhaseDone(input);
+  assert.equal(preflight.blocked, true);
+  assert.equal(preflight.code, 'phase-done-decision-review-open');
+  const commit = commitGuardPhaseDone(input);
+  assert.equal(commit.blocked, true);
+  assert.equal(commit.code, 'phase-done-decision-review-open');
+});
+
+test('top-level executionMode automate: preflight/commitGuard allow when decisionReview passed+verifiedAt', () => {
+  const input = happyCommitInput({
+    executionMode: 'automate',
+    plan: {
+      phases: [
+        {
+          id: 'F4',
+          slug: 'f4',
+          status: 'active',
+          dependsOn: [],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'F4',
+          evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-07-23T12:00:00.000Z',
+          },
+        },
+      ],
+    },
+    evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
+    decisionReview: {
+      status: 'passed',
+      verifiedAt: '2026-07-23T12:00:00.000Z',
+    },
+    reviewGate: { status: 'passed', at: FP, mode: 'both' },
+  });
+  const preflight = preflightPhaseDone(input);
+  assert.equal(preflight.allowed, true, preflight.reason);
+  assert.equal(preflight.blocked, false);
+  const commit = commitGuardPhaseDone(input);
+  assert.equal(commit.allowed, true, commit.reason);
+  assert.equal(commit.blocked, false);
 });
 
 test('preflightPhaseDone non-automate still allows without evaluationGate', () => {

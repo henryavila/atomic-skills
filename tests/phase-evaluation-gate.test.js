@@ -98,15 +98,14 @@ describe('evaluationGateHonesty (shared helper)', () => {
     assert.match(r.reason || '', /operatorSkip/);
   });
 
-  it('accepts failed-dispositioned with disposition + reason', () => {
-    assert.deepEqual(
-      evaluationGateHonesty({
-        status: 'failed-dispositioned',
-        disposition: 'accept',
-        reason: 'major only; deferred to F2',
-      }),
-      { ok: true },
-    );
+  it('rejects failed-dispositioned under automate honesty (must re-dispatch or clear stamp)', () => {
+    const r = evaluationGateHonesty({
+      status: 'failed-dispositioned',
+      disposition: 'accept',
+      reason: 'major only; deferred to F2',
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /failed-dispositioned|forbids/i);
   });
 
   it('rejects null gate', () => {
@@ -165,7 +164,7 @@ describe('phaseEvaluationAllowsClose', () => {
         reason: 'operator: evaluator unavailable',
       },
     });
-    assert.equal(r.ok, true);
+    assert.equal(r.ok, true, r.reason);
   });
 
   it('rejects status skipped without operatorSkip true AND non-empty reason', () => {
@@ -193,7 +192,7 @@ describe('phaseEvaluationAllowsClose', () => {
     assert.equal(r.ok, false);
   });
 
-  it('allows failed-dispositioned with disposition + reason', () => {
+  it('blocks failed-dispositioned accept residual under automate', () => {
     const r = phaseEvaluationAllowsClose({
       planExecutionMode: 'automate',
       evaluationGate: {
@@ -202,7 +201,8 @@ describe('phaseEvaluationAllowsClose', () => {
         reason: 'major only; deferred to F2',
       },
     });
-    assert.equal(r.ok, true);
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /failed-dispositioned|mandatory|clearing/i);
   });
 });
 

@@ -5,19 +5,19 @@
  * and implement automate spine. No I/O.
  *
  * Precedence:
- * 1. Resolve automate via `automateActive === true` OR `isAutomateActive`
- *    (`planExecutionMode` / `cliMode` / `clearExecutionMode`). Stamp alone
- *    (`planExecutionMode: 'automate'`) → automate → `both` (fail-closed F3).
+ * 1. Resolve **durable** automate via `isDurableAutomateActive` (stamp-first:
+ *    `planExecutionMode: 'automate'` OR `automateActive: true`). Session
+ *    `clearExecutionMode` / `cliMode` do **not** leave durable automate —
+ *    same as plan-end / evaluation gates.
  * 2. explicitOverride ∈ {local, both, skip}:
- *    - Under automate, `local` | `skip` only honored when `overrideReason`
- *      is non-empty; otherwise return `both` (do not silently downgrade).
- *    - `skip` is the only full skip (record as --skip-review)
- *    - `local` is a downgrade from `both`, not a skip — still runs local review
- * 3. else if automate → `both` regardless of destructive
+ *    - Under durable automate, `local` | `skip` are **never** honored — always
+ *      `both` (mandatory phase review; reason cannot open a skip).
+ *    - Non-automate: `skip` is full skip; `local` is downgrade from `both`.
+ * 3. else if durable automate → `both` regardless of destructive
  * 4. else if destructive → `both` else `local` (non-automate DESTRUCTIVE ladder)
  */
 
-import { isAutomateActive } from './implement-mode.js';
+import { isDurableAutomateActive } from './plan-end-review.js';
 
 /** @typedef {'local' | 'both' | 'skip'} PhaseReviewMode */
 
@@ -45,7 +45,7 @@ function normalizeOverride(raw) {
 }
 
 /**
- * Resolve whether automate review cadence applies (fail-closed on stamp).
+ * Resolve whether durable automate review cadence applies (stamp-first).
  * @param {{
  *   automateActive?: boolean | null,
  *   planExecutionMode?: string | null,
@@ -56,11 +56,10 @@ function normalizeOverride(raw) {
  * @returns {boolean}
  */
 function resolveAutomate(input) {
-  if (input.automateActive === true) return true;
-  return isAutomateActive({
-    cliMode: input.cliMode,
+  return isDurableAutomateActive({
+    automateActive: input.automateActive === true,
     planExecutionMode: input.planExecutionMode,
-    clearExecutionMode: input.clearExecutionMode,
+    // intentionally ignore cliMode / clearExecutionMode for review picker
   });
 }
 
@@ -85,12 +84,8 @@ export function phaseReviewMode(input = {}) {
 
   if (override != null) {
     if (automate && (override === 'local' || override === 'skip')) {
-      const reason =
-        input.overrideReason != null ? String(input.overrideReason).trim() : '';
-      if (reason === '') {
-        // F3: under automate, local/skip without reason → stay both
-        return 'both';
-      }
+      // Mandatory review under automate: reason cannot downgrade or skip.
+      return 'both';
     }
     return override;
   }

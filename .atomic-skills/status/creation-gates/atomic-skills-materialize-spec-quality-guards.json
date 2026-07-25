@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "materialize-spec-quality-guards",
+  "projectId": "atomic-skills",
+  "sourcePath": ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/source.md",
+  "stage": "ready",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/plan.md",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f0-spine-quality-lint-skill-ux.md",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f1-sidecar-fingerprint-material.source.json",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f2-spec-smoke-overlap-sidecar-a.source.json",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f3-d9-measure-docs-p3.source.json",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f4-integration-and-regression.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/plan.md",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f0-spine-quality-lint-skill-ux.md",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f1-sidecar-fingerprint-material.source.json",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f2-spec-smoke-overlap-sidecar-a.source.json",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f3-d9-measure-docs-p3.source.json",
+    ".atomic-skills/projects/atomic-skills/materialize-spec-quality-guards/phases/f4-integration-and-regression.source.json"
+  ],
+  "status": "ready",
+  "updatedAt": "2026-07-22T10:44:34.692Z"
+}

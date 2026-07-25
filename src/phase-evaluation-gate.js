@@ -2,8 +2,8 @@
  * Pure phase evaluation gate (automate Step F → G HARD order).
  *
  * Under durable automate, phase-done must not run until the evaluation agent
- * has produced a disposition: pass, or skip with non-empty reason, or fail
- * with operator disposition accept|defer|fix recorded.
+ * has produced status=passed and verdict=pass. Skip / accept residual are
+ * forbidden while the stamp holds (clear executionMode to leave automate).
  *
  * Authenticity (R3 / F1):
  *   - status=passed requires verdict=pass AND non-empty reportPath
@@ -49,8 +49,7 @@ export function isDurableAutomateForEvaluation(input = {}) {
  * Pure honesty check for an evaluationGate object (no automate stamp).
  *
  * Shared by phaseEvaluationAllowsClose and GATE-R4 / checkEvaluationGate —
- * one definition; no divergent prose rules.
- *
+ * one definition; no divergent prose rules. *
  * Required-when (documented + enforced here):
  *   - passed → verdict === 'pass' AND non-empty reportPath
  *   - skipped → operatorSkip === true AND non-empty reason
@@ -65,7 +64,7 @@ export function evaluationGateHonesty(gate) {
     return {
       ok: false,
       reason:
-        'automate requires evaluationGate before phase-done (run evaluation agent, or record skip/disposition)',
+        'automate requires evaluationGate before phase-done (run evaluation agent — skip is forbidden under durable automate)',
     };
   }
 
@@ -112,27 +111,13 @@ export function evaluationGateHonesty(gate) {
           'evaluationGate status=skipped requires non-empty reason with operatorSkip=true',
       };
     }
-    return { ok: true };
-  }
+    return { ok: true };  }
 
   if (status === 'failed-dispositioned') {
-    const disposition =
-      gate.disposition != null
-        ? String(gate.disposition).trim().toLowerCase()
-        : '';
-    const reason = gate.reason != null ? String(gate.reason).trim() : '';
-    if (
-      (disposition === 'accept' ||
-        disposition === 'defer' ||
-        disposition === 'fix') &&
-      reason !== ''
-    ) {
-      return { ok: true };
-    }
     return {
       ok: false,
       reason:
-        'evaluationGate status=failed-dispositioned requires disposition accept|defer|fix and non-empty reason',
+        'automate forbids phase-done on failed-dispositioned evaluation — re-dispatch fix until evaluationGate status=passed verdict=pass (accept/defer residual requires clearing the automate stamp)',
     };
   }
 

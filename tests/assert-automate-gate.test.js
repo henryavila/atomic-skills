@@ -83,6 +83,9 @@ function writePlan(root, opts = {}) {
       ...(opts.lessonsState != null ? { lessonsState: opts.lessonsState } : {}),
       ...(opts.lessonsPath != null ? { lessonsPath: opts.lessonsPath } : {}),
       ...(opts.reviewGate !== undefined ? { reviewGate: opts.reviewGate } : {}),
+      ...(opts.decisionReview !== undefined
+        ? { decisionReview: opts.decisionReview }
+        : {}),
     },
   ];
 
@@ -155,11 +158,54 @@ function writePlan(root, opts = {}) {
       }
       if (rg.operatorSkip === true) lines.push('      operatorSkip: true');
     }
+    if (p.decisionReview != null) {
+      const dr = p.decisionReview;
+      lines.push('    decisionReview:');
+      if (dr.status != null) lines.push(`      status: ${dr.status}`);
+      if (dr.verifiedAt != null) lines.push(`      verifiedAt: "${dr.verifiedAt}"`);
+      if (dr.evidencePath != null) lines.push(`      evidencePath: "${dr.evidencePath}"`);
+    }
   }
   lines.push('---');
   lines.push('');
   lines.push('# plan');
   writeFileSync(join(planDir, 'plan.md'), lines.join('\n') + '\n', 'utf8');
+  // Host-thin spawn requires a materialized initiative (descriptor-only refuse).
+  const phasesDir = join(planDir, 'phases');
+  mkdirSync(phasesDir, { recursive: true });
+  const phaseId = (opts.currentPhase ?? 'F0').toLowerCase();
+  const phaseLabel = opts.currentPhase ?? 'F0';
+  writeFileSync(
+    join(phasesDir, `${phaseId}-demo.md`),
+    [
+      '---',
+      'schemaVersion: "0.1"',
+      `slug: ${phaseId}-demo`,
+      'title: demo',
+      'goal: demo',
+      'status: active',
+      'branch: plan/demo',
+      'started: 2026-07-21T00:00:00.000Z',
+      'lastUpdated: 2026-07-21T00:00:00.000Z',
+      'nextAction: none',
+      `parentPlan: ${slug}`,
+      `phaseId: ${phaseLabel}`,
+      'exitGates: []',
+      'stack: []',
+      'tasks: []',
+      'parked: []',
+      'emerged: []',
+      'businessIntent:',
+      '  value: demo value',
+      '  workflow: demo workflow',
+      '  rules: demo rules',
+      '  outOfScope: demo oos',
+      '  doneWhen: demo done',
+      '---',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
   return { projectId, slug, planDir, stateRoot: join(root, '.atomic-skills') };
 }
 
@@ -682,6 +728,10 @@ describe('assert-automate-gate CLI', () => {
             at: 'a'.repeat(40),
             reviewFile: '.atomic-skills/reviews/f0-both.md',
           },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-07-21T00:00:00.000Z',
+          },
         });
         const stateRoot = join(root, '.atomic-skills');
         writeCursor(join(stateRoot, 'status'), 'demo-plan', 'G');
@@ -823,6 +873,10 @@ describe('assert-automate-gate CLI', () => {
           at: 'a'.repeat(40),
           reviewFile: '.atomic-skills/reviews/f0-both.md',
         },
+        decisionReview: {
+          status: 'passed',
+          verifiedAt: '2026-07-21T00:00:00.000Z',
+        },
       });
       writePlan(root, {
         projectId: 'other',
@@ -945,6 +999,10 @@ describe('assert-automate-gate CLI', () => {
             mode: 'both',
             at: 'a'.repeat(40),
             reviewFile: '.atomic-skills/reviews/f0-both.md',
+          },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-07-21T00:00:00.000Z',
           },
         });
         const stateRoot = join(root, '.atomic-skills');

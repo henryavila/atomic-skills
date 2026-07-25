@@ -1,0 +1,25 @@
+{
+  "id": "descriptor-only-unratified",
+  "description": "Pre-package-ratify / unratified phase-start package state. There is no phaseStartPackageRatified durable field — the machine stop is descriptor-only (initiative missing). Host must present draft package → operator validate-only ratify → materialize before spawn.",
+  "plan": {
+    "schemaVersion": "0.1",
+    "slug": "fixture-ipa",
+    "status": "active",
+    "currentPhase": "F1",
+    "executionMode": "automate",
+    "phases": [
+      { "id": "F0", "status": "done", "slug": "f0-bootstrap" },
+      { "id": "F1", "status": "pending", "slug": "f1-next" }
+    ]
+  },
+  "spawnInput": {
+    "leaseStatus": "missing",
+    "initiativePresent": false,
+    "phaseMaterialized": false
+  },
+  "expect": {
+    "canSpawnPhaseWriterOk": false,
+    "canSpawnHostThinPhaseWriterOk": false,
+    "reasonPattern": "descriptor-only|initiative|materialize"
+  }
+}

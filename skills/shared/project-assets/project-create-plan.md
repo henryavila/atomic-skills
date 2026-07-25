@@ -107,7 +107,7 @@ Na criação, todo plano — solo ou concorrente — forka incondicionalmente su
 
 This is the **soft** form — detect + guided choice, never a silent multi-active; **record the chosen isolation verbatim, never default to "proceed".** The **hard** form (block a 2nd active plan that shares a tree with no distinct `branch:`) is `verify`'s `WARN → FAIL` promotion, the same dry-run→strict ladder as the other gates.
 
-**F0 businessIntent gate (active phase cannot start blank).** Collect the user-written `businessIntent` spine for F0 before materializing the active phase. Use {{ASK_USER_QUESTION_TOOL}} to ask for the five required fields (`value`, `workflow`, `rules`, `outOfScope`, `doneWhen`) in the install-configured communication language — the same canonical spine `materialize` collects for F1..N (which may also carry an optional `derived[]` of open-questions, never gated). Reject blank values and `[NEEDS CLARIFICATION]`; if the user cannot answer, stop before writing state. Store the ratified object as `<businessIntent>` and pass it into `materializeDecomposition`, so both the F0 plan descriptor and F0 initiative frontmatter carry the same business intent spine from creation.
+**F0 businessIntent gate (active phase cannot start blank).** Collect the user-written `businessIntent` spine for F0 before materializing the active phase. Use {{ASK_USER_QUESTION_TOOL}} to ask for the five required fields (`value`, `workflow`, `rules`, `outOfScope`, `doneWhen`) in the install-configured communication language — the same canonical spine `materialize` collects for F1..N (which may also carry an optional `derived[]` of open-questions, never gated). **Proof-of-work:** the agent must not pre-fill the five fields for signature; generic "ok"/"yes"/"do it" is not acceptance — re-prompt. Reject blank values and `[NEEDS CLARIFICATION]`; if the user cannot answer, stop before writing state. Store the ratified object as `<businessIntent>` and pass it into `materializeDecomposition`, so both the F0 plan descriptor and F0 initiative frontmatter carry the same business intent spine from creation. After write, run **presence** `find-missing-business-intent.js` **and quality** `find-weak-business-intent.js` (HARD — rewrite weak fields; no approve-anyway) on the new plan path before declaring Stage 6 complete.
 
 **Creation gate run record (resume / cancel boundary).** Before Stage 6 writes any canonical state file, write `.atomic-skills/status/creation-gates/<project-id>-<slug>.json` with:
 
@@ -163,8 +163,10 @@ For each entry, `mkdir -p` its parent dir, append the path to `filesWritten` and
 After writing every file, **normalize then validate**:
 
 ```bash
-# 0. Ensure every materialized phase has businessIntent on both state surfaces
+# 0. Ensure every materialized phase has businessIntent on both state surfaces (presence)
 node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<slug>/plan.md
+# 0b. Quality HARD-BLOCK — rewrite weak fields; do not approve-anyway
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-weak-business-intent.js" .atomic-skills/projects/<project-id>/<slug>/plan.md
 
 # 1. Auto-repair known drift (gate status synonyms, references kind/title,
 #    missing required initiative fields). Idempotent; safe to always run.
@@ -211,25 +213,40 @@ Resolve `<externalMode> = hostDefaultExternalMode(hostFamily)` from
 `codex`; Codex host → `grok`). Do **not** hardcode `--mode=codex` when the host
 default is Grok.
 
-Announce to the user:
+**Ask shape (HARD — anti agent-biased skip):**
 
-> The plan is materialized and passed internal review. Run a CROSS-MODEL REVIEW via host default external provider `<externalMode>` (`atomic-skills:review-plan --mode=<externalMode>`)? This catches same-model blind spots that internal review misses. Cost: ~$0.50–$1.50 per run, 5–10 minutes wall time. (y/N)
+1. **Never** mark skip as Recommended. **Never** put N/skip first in options.
+2. Present options in this order only:
+   - **A (first):** `y — rodar CROSS-MODEL agora via <externalMode>` (Recommended)
+   - **B:** `n — pular` — description: only if the operator types in Other:
+     `skip cross-model: <motivo em ≥1 frase>`
+3. On **y**: invoke `atomic-skills:review-plan` with args = `<plan path> --mode=<externalMode>` (skips Step 0a; runs the external sealed-envelope). Apply blocker/critical findings. Persist receipt with `provider` + `provider_version` via `buildProviderFields` (same-family remap → `provider: local`, never counts as CROSS-MODEL REVIEW).
+4. On **n without** a typed `skip cross-model: <motivo>` (≥15 chars after the prefix, not ban-list filler): **STOP and re-ask**. Do **not** write SKIPPED.
+5. On **n with** valid typed reason: write **exactly**:
+   `- cross-model: SKIPPED — operator: <verbatim reason after the prefix>`
+   Never write `not provided`, never invent a reason, never narrate "você escolheu pular" without quoting that operator line.
 
-- On `y`: invoke `atomic-skills:review-plan` with args = `<plan path> --mode=<externalMode>` (skips Step 0a; runs the external sealed-envelope for that provider). Apply blocker/critical findings before proceeding. Major findings: at minimum surface them; user decides per item. Persist receipt with `provider` + `provider_version` via `buildProviderFields` (same-family remap → `provider: local`, never counts as CROSS-MODEL REVIEW).
-- On `n`: continue, but record the skip as a `- cross-model: SKIPPED — <user reason or "not provided">` line in the plan's `## Reviews` section (the same section that carries the internal receipt). Legacy `- codex: SKIPPED` lines remain valid readers. The internal receipt still makes the plan pass Stage 8c; cross-model is offered, not required.
+Announce (cost note ok):
 
-Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md` exactly per the `review-plan` external sub-flow contract. The plan body MUST link to it from the same `## Reviews` section (appended after `## Self-review against code-quality gates`), as a `- cross-model (<provider>):` line (legacy `- codex:` still accepted).
+> O plano passou no review interno. Rodar CROSS-MODEL via `<externalMode>` (`atomic-skills:review-plan --mode=<externalMode>`)? Custo ~$0.50–$1.50, 5–10 min. Skip só com texto: `skip cross-model: <motivo>`.
+
+Persistence: review file → `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md`; link from `## Reviews` as `- cross-model (<provider>):` (legacy `- codex:` still accepted).
 
 **Stage 8c — Receipt gate (deterministic, HARD-BLOCK).**
 
-8a/8b are LLM steps; a prose "always runs" is exactly what let a batch of plans land unreviewed before this gate existed (a skill cannot enforce its own invocation). So the close of Stage 8 is a zero-token, deterministic check that the review actually left a receipt on the plan materialized by THIS run — the same kind of gate Stages 4/5 already use:
+8a/8b are LLM steps; the close of Stage 8 is zero-token and must prove (1) internal receipt and (2) no invalid cross-model SKIPPED:
 
 ```bash
 PLAN_PATH=".atomic-skills/projects/<projectId>/<planSlug>/plan.md"
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" "$PLAN_PATH"
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+node "$PKG_ROOT/scripts/find-unreviewed-plans.js" "$PLAN_PATH"
+node "$PKG_ROOT/scripts/find-invalid-cross-model-skips.js" "$PLAN_PATH"
 ```
 
-A non-zero exit means the newly materialized plan lacks a `## Reviews` section with a `- internal:` line — the internal review (8a) either did not run or left no receipt. This **HARD-BLOCKS** declaring that plan ready: re-run 8a so `review-plan` writes the receipt, then re-run the scoped gate. Resolve the script the same 3-path way Stage 6's normalize step does (repo `./scripts`, global npm root, `$HOME/.atomic-skills`). This gate checks only the newly materialized plan; the tree-wide backstop is `project verify` check #10, where pre-existing legacy or batch-created plans already on disk surface as report-only WARNs. Batch/programmatic materialization that bypasses this flow entirely is caught there, not here.
+- `find-unreviewed-plans` non-zero → missing `- internal:` — re-run 8a.
+- `find-invalid-cross-model-skips` non-zero → SKIPPED without `operator:` / short / banned reason — fix receipt or run 8b for real. **HARD-BLOCKS** declaring ready.
+
+Scoped to this plan path; tree-wide backstop remains `project verify`.
 
 ### Stage 9 — Announce
 
@@ -411,7 +428,7 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 
    Then update the creation gate's `filesPlanned` from the returned `{relativePath, content}[]`. For each returned path (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`), append the path to `filesWritten` and persist the gate, then write the canonical file before proceeding to the next path. Recording the path before the write makes rollback/resume safe if the session is interrupted between write attempts; deleting a recorded-but-never-created path is a no-op, while an unrecorded created file is forbidden. The output is the plan, the materialized F0 `.md`, and F1+ `.source.json` sidecars. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
 
-7. **Validate.** First run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<slug>/plan.md`; it must exit `0` because F0 is already materialized. This scoped gate checks the plan and F0 initiative just written without blocking on unrelated legacy plans; tree-wide detector runs remain an audit command, not this creation gate. Then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/plan.md` and `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/phases/<f0-phase-file>.md` (legacy fallback `.atomic-skills/plans/<slug>.md` + the emitted F0 initiative file). Do not validate the `phases/` directory as a proxy for all phases: descriptor-only F1+ entries are not `.md` initiatives yet, and `.source.json` sidecars are capture artifacts. On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
+7. **Validate.** First run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<slug>/plan.md`; it must exit `0` because F0 is already materialized. Then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-weak-business-intent.js" .atomic-skills/projects/<project-id>/<slug>/plan.md` — quality HARD-BLOCK; rewrite weak fields, no approve-anyway. This scoped gate checks the plan and F0 initiative just written without blocking on unrelated legacy plans; tree-wide detector runs remain an audit command, not this creation gate. Then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/plan.md` and `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/phases/<f0-phase-file>.md` (legacy fallback `.atomic-skills/plans/<slug>.md` + the emitted F0 initiative file). Do not validate the `phases/` directory as a proxy for all phases: descriptor-only F1+ entries are not `.md` initiatives yet, and `.source.json` sidecars are capture artifacts. On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
 
 8. **Update PROJECT-STATUS.md.** Append rows in that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`): the Plan to "Active Plans" and only the materialized F0 initiative to its plan's group. F1+ descriptor-only phases are visible through `plan.phases[]` and get initiative rows only after `materialize <phase>` writes their `.md` files. (Same content the `status` mutations write — `adopt` does it inline rather than calling out.)
 

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkEvaluationGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkEvaluationGate, checkDecisionReview, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1790,6 +1790,98 @@ test('plan schema: planEndReview accepts skip with reason; rejects unknown mode'
   );
 });
 
+// F3/T-010 — optional phases[].decisionReview (operator PASS hardgate)
+test('plan schema: decisionReview optional; absent still validates (non-automate)', () => {
+  const validators = buildValidators();
+  const without = basePlan();
+  assert.equal(
+    validators.validatePlan(without),
+    true,
+    `plan without decisionReview must validate: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+  assert.equal('decisionReview' in without.phases[0], false);
+});
+
+test('plan schema: decisionReview accepts pending|passed|failed with verifiedAt and evidencePath', () => {
+  const validators = buildValidators();
+  for (const status of ['pending', 'passed', 'failed']) {
+    const plan = basePlan({
+      executionMode: 'automate',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'parent-plan-f0',
+          title: 'F0',
+          goal: 'Do the first phase',
+          dependsOn: [],
+          subPhaseCount: 1,
+          exitGate: { summary: 'done', criteria: [] },
+          status: 'active',
+          decisionReview: {
+            status,
+            verifiedAt: '2026-07-23T12:00:00.000Z',
+            evidencePath:
+              '.atomic-skills/projects/demo/parent-plan/decisions/F0.jsonl',
+          },
+        },
+      ],
+    });
+    assert.equal(
+      validators.validatePlan(plan),
+      true,
+      `decisionReview status=${status} must validate: ${planErrorText(validators.validatePlan.errors)}`,
+    );
+  }
+});
+
+test('plan schema: decisionReview rejects unknown status and extra keys', () => {
+  const validators = buildValidators();
+  const badStatus = basePlan({
+    phases: [
+      {
+        id: 'F0',
+        slug: 'parent-plan-f0',
+        title: 'F0',
+        goal: 'Do the first phase',
+        dependsOn: [],
+        subPhaseCount: 1,
+        exitGate: { summary: 'done', criteria: [] },
+        status: 'active',
+        decisionReview: { status: 'ok' },
+      },
+    ],
+  });
+  assert.equal(
+    validators.validatePlan(badStatus),
+    false,
+    'unknown decisionReview.status must fail schema',
+  );
+  const extraKey = basePlan({
+    phases: [
+      {
+        id: 'F0',
+        slug: 'parent-plan-f0',
+        title: 'F0',
+        goal: 'Do the first phase',
+        dependsOn: [],
+        subPhaseCount: 1,
+        exitGate: { summary: 'done', criteria: [] },
+        status: 'active',
+        decisionReview: {
+          status: 'passed',
+          verifiedAt: '2026-07-23T12:00:00.000Z',
+          agentAutoPass: true,
+        },
+      },
+    ],
+  });
+  assert.equal(
+    validators.validatePlan(extraKey),
+    false,
+    'decisionReview additionalProperties must be false',
+  );
+});
+
 // GATE-R4 — evaluationGate under executionMode automate
 function automateDonePlan(evaluationGate, extra = {}) {
   return {
@@ -1820,8 +1912,15 @@ function automateDonePlan(evaluationGate, extra = {}) {
   };
 }
 
-test('GATE-R4 RED: automate done phase without evaluationGate violates', () => {
-  const v = checkEvaluationGate(automateDonePlan(undefined));
+test('GATE-R4: Mode-1 done phase without evaluationGate is OK after mid-plan automate stamp', () => {
+  // No automate-era markers → exempt (legacy close before stamp).
+  assert.deepEqual(checkEvaluationGate(automateDonePlan(undefined)), []);
+});
+
+test('GATE-R4 RED: closedUnderAutomate done phase without evaluationGate violates', () => {
+  const v = checkEvaluationGate(
+    automateDonePlan(undefined, { closedUnderAutomate: true }),
+  );
   assert.ok(v.length >= 1);
   assert.match(v[0], /evaluationGate/);
 });
@@ -1853,4 +1952,74 @@ test('GATE-R4: non-automate plan without evaluationGate is OK', () => {
   const plan = automateDonePlan(undefined);
   delete plan.executionMode;
   assert.deepEqual(checkEvaluationGate(plan), []);
+});
+
+// GATE-R4 — decisionReview honesty under executionMode automate
+const decisionReviewPassed = {
+  status: 'passed',
+  verifiedAt: '2026-07-23T12:00:00.000Z',
+};
+
+test('GATE-R4: Mode-1 done phase without decisionReview is OK after mid-plan automate stamp', () => {
+  // No evaluationGate / decisionReview / both-mode review → exempt.
+  assert.deepEqual(checkDecisionReview(automateDonePlan(undefined)), []);
+});
+
+test('GATE-R4 RED: automate-era phase (has evaluationGate) without decisionReview violates', () => {
+  const v = checkDecisionReview(
+    automateDonePlan({ status: 'passed', verdict: 'pass' }),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /decisionReview/);
+});
+
+test('GATE-R4 RED: automate done phase with decisionReview pending violates', () => {
+  const v = checkDecisionReview(
+    automateDonePlan(
+      { status: 'passed', verdict: 'pass' },
+      { decisionReview: { status: 'pending' } },
+    ),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /decisionReview|pending/i);
+});
+
+test('GATE-R4 RED: automate done phase with decisionReview passed but no verifiedAt', () => {
+  const v = checkDecisionReview(
+    automateDonePlan(
+      { status: 'passed', verdict: 'pass' },
+      { decisionReview: { status: 'passed' } },
+    ),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /verifiedAt|decisionReview/i);
+});
+
+test('GATE-R4 RED: decisionReview passed with non-ISO verifiedAt violates', () => {
+  const v = checkDecisionReview(
+    automateDonePlan(
+      { status: 'passed', verdict: 'pass' },
+      { decisionReview: { status: 'passed', verifiedAt: 'x' } },
+    ),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /ISO|timestamp|verifiedAt|decisionReview/i);
+});
+
+test('GATE-R4 GREEN: automate done phase with decisionReview passed + verifiedAt', () => {
+  assert.deepEqual(
+    checkDecisionReview(
+      automateDonePlan(
+        { status: 'passed', verdict: 'pass' },
+        { decisionReview: decisionReviewPassed },
+      ),
+    ),
+    [],
+  );
+});
+
+test('GATE-R4: non-automate plan without decisionReview is OK', () => {
+  const plan = automateDonePlan({ status: 'passed', verdict: 'pass' });
+  delete plan.executionMode;
+  assert.deepEqual(checkDecisionReview(plan), []);
 });

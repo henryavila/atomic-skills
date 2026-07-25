@@ -1,0 +1,114 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F2",
+  "slug": "materialize-spec-quality-guards-f2-spec-smoke-overlap-sidecar-a",
+  "title": "SPEC smoke, overlap, sidecar age (P2)",
+  "goal": "Verifier tautologico HARD no admit; overlap WARN/HARD; age gate opt-in no materialize.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Verifier smoke ban in lint-source --spec",
+      "scopeBoundary": [
+        "Do not relax existing four HOW fields. Use exact-match on command body after kind not aggressive substring bans. Do not auto-mutate old plan sources."
+      ],
+      "acceptance": [
+        "it - kind shell commands exit 0 true colon echo ok and empty body fail SPEC.; it - legitimate node --test path verifier passes smoke.; it - pass and fail fixtures are asserted in tests."
+      ],
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/lint-source-verifier-smoke.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/lint-source.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/lint-source-verifier-smoke.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Acceptance verifier overlap heuristic",
+      "scopeBoundary": [
+        "Heuristic uses basenames plus argv tokens only per design. Do not invent new schema keys."
+      ],
+      "acceptance": [
+        "it - design pass fixture and HARD-fail fixture assert correctly.; it - review-plan initiative-depth mentions overlap check.; it - messages include task id."
+      ],
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/lint-source-overlap.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/lint-source.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/lint-source-overlap.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/plan-initiative-depth.md"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "Sidecar age opt-in gate on materialize",
+      "scopeBoundary": [
+        "Do not auto re-decompose. Age uses capturedAt then mtime then plan.started. Do not block when operator continues."
+      ],
+      "acceptance": [
+        "it - helper returns shouldPrompt boolean with reasons.; it - skill preflight documents question and defaults N=14 K=12.; it - tests cover capturedAt vs mtime fallback."
+      ],
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/sidecar-age.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-materialize.md"
+        },
+        {
+          "kind": "file",
+          "path": "src/sidecar-age.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/sidecar-age.test.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F2-G1",
+      "description": "smoke and overlap unit tests pass",
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/lint-source-verifier-smoke.test.js tests/lint-source-overlap.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F2-G2",
+      "description": "sidecar-age tests pass",
+      "verifier": {
+        "kind": "test",
+        "command": "node --test tests/sidecar-age.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}
