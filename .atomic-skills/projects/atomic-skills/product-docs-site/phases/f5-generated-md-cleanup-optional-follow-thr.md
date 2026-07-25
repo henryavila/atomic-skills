@@ -27,6 +27,8 @@ tasksDone: 1
 tasksTotal: 1
 gatesMet: 1
 gatesTotal: 1
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: F5-G1
     description: check-docs reflects the post-site decision on docs/skills generation.
@@ -43,6 +45,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F5-G1
+    verifierLabel: "shell: npm run check-docs"
+    evidenceSummary: passed · 2026-07-17
 stack:
   - id: 1
     title: Generated MD cleanup (optional follow-through)
@@ -100,6 +104,7 @@ reviewGate:
     minor: 0
     nit: 0
   reviewFile: .atomic-skills/reviews/product-docs-site-f4-f5-codex-pass1.md
+planTitle: Product docs site from catalog SSOT
 ---
 
 # F5 generated MD cleanup

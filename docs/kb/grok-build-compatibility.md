@@ -287,4 +287,33 @@ withheld — that is intentional Soft fail-open. Install parity still requires
 the hook **files** to reverse cleanly on uninstall.
 
 Marketplace publish and MCP project-state servers remain non-goals (design D10).
-)
+
+## 8. Phase scaffold → session todos (Grok-local)
+
+While a plan is anchored, **Atomic Skills / the agent** projects **plan phases**
+(not tasks `T-00N`) into the Grok session checklist via the session checklist
+tool (`todo_write`). That **phase scaffold** is **Grok-local** only — the host
+product does not auto-project; Claude/Codex/Cursor do not get a mirrored todo
+board from this package; portable SoT remains `.atomic-skills/`.
+
+| Piece | Role |
+|---|---|
+| Contract | `docs/kb/grok-phase-todo-projection.md` (label, status map, SoT order, reseed/merge, **anti-proc**) |
+| Helper (shipped) | `scripts/project-session-todos.js` — emits `{ merge, todos[] }` for the agent |
+| Agent tool | session checklist tool (`todo_write`) applies the payload; never closes durable phase/task state |
+
+**Anti-competition (anti-proc).** A process scaffold (`proc:*` from bundled flows)
+must **not** compete with the phase scaffold while a plan is anchored. When
+pickFocus has a **winner**, apply the helper payload **as emitted** (`merge:
+false` full phase reseed) — including mid-flight / after-done updates (anti-proc:
+full replace clears competing `proc:*`). Empty focus / paused plan (**no
+winner**) → skip reseed / no-op (helper `merge: true` + empty todos; do **not**
+wipe the board). `merge: true` overlay is exceptional only when the board is
+already pure phase scaffold (no `proc:*`) — **not** the default while a winner
+is anchored.
+
+**SessionStart** Soft hooks may *hint* reseed but fail-open without hooks-trust;
+skill paths (`project` / `implement` start) reseed independently when a plan is
+anchored. The host does **not** auto-read `focus.json` for this board — the
+agent applies the session checklist tool (`todo_write`).
+
