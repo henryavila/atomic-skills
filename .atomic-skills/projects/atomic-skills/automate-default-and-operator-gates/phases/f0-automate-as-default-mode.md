@@ -1,4 +1,5 @@
----\nschemaVersion: "0.1"
+---
+schemaVersion: "0.1"
 slug: automate-default-and-operator-gates-f0-automate-as-default-mode
 title: Automate as default mode
 goal: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
@@ -6,10 +7,8 @@ goal: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
 status: active
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T10:55:34.860Z
-nextAction: Re-open decision-review AskUserQuestion WITH full package body in
-  same turn (see evidence
-  2026-07-26-f0-decision-review-ask-without-package-body.md), then PASS|FAIL
+lastUpdated: 2026-07-26T10:56:08.000Z
+nextAction: "Re-open decision-review AskUserQuestion WITH full package body in same turn (evidence 2026-07-26-f0-decision-review-ask-without-package-body.md), then PASS|FAIL"
 parentPlan: automate-default-and-operator-gates
 phaseId: F0
 businessIntent:
@@ -146,7 +145,9 @@ emerged: []
 summary: Tornar automate o default do implement com escape Mode 1.
 planTitle: Automate default + operator gates (decision-review + plan-end intent)
 planActive: true
-current: true\n---\n
+current: true
+---
+
 # Narrative / notes
 
 Initiative for phase **F0 — Automate as default mode**.
@@ -161,11 +162,11 @@ Initiative for phase **F0 — Automate as default mode**.
 
 ## Session handoff
 
-- **Narrative:** Pure-maestro F0 paused at decision-review. Failure analyzed: free-text "type PASS" after AskUserQuestion decline is forbidden. **F5 not created** — **F1 expanded** (ratified) to ship present-before-PASS **with** exclusive AskUserQuestion channel + decline re-Ask + hardgate matrix. F0 still needs operator PASS via AskUserQuestion only.
-- **Decision log:** stamp y; eval pass; lessons none; review both; declined AskUserQuestion → wrong free-text recovery; operator redirected fix into F1 not F5.
-- **Single nextAction:** F0 still open on decision-review: re-open AskUserQuestion PASS|FAIL (never free-text). F1 expanded for present+AskUserQuestion-only when F0 closes.
-- **Verbatim state:** F1 source `.atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/phases/f1-decision-review-read-bef.source.json` (T-001..T-004, F1-G3); plan F1 title/goal/exitGate updated; decisions F0.jsonl still 7 entries; cursor still G if present.
-- **Uncommitted changes:** see git status at snapshot.
+- **Narrative:** F0 close blocked. Host opened AskUserQuestion for decision-review claiming "package apresentado abaixo" but **did not display** the decision package body in that turn (operator screenshot). Evidence saved for F1 T-002/T-003. Not a PASS.
+- **Decision log:** Captured entry decision-review-ask-without-package-body on F0.jsonl + F1 dogfood evidence entry.
+- **Single nextAction:** Re-open decision-review AskUserQuestion WITH full package body in same turn (evidence 2026-07-26-f0-decision-review-ask-without-package-body.md), then PASS|FAIL
+- **Verbatim state:** evidence `.atomic-skills/reviews/2026-07-26-f0-decision-review-ask-without-package-body.md`; log `decisions/F0.jsonl`; F1 source T-002/T-003.
+- **Uncommitted changes:** clean after fix commit.
 
 
 ## Links
