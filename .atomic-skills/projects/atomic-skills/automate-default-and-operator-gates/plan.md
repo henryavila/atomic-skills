@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T02:04:34.265Z
+lastUpdated: 2026-07-26T03:18:00.819Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F0
 parallelismAllowed: false
@@ -310,6 +310,7 @@ phases:
 references: []
 planActive: true
 planTitle: Automate default + operator gates (decision-review + plan-end intent)
+executionMode: automate
 ---
 
 # Automate default + operator gates (decision-review + plan-end intent)
