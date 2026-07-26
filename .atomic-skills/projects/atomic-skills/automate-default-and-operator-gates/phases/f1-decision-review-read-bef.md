@@ -9,8 +9,9 @@ summary: Package present-before-PASS + canal AskUserQuestion-only em hardgates.
 status: active
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-26T22:31:25.506Z
-lastUpdated: 2026-07-26T22:46:27.662Z
-nextAction: Run phase-done after F1-G* + evaluation + decision-review
+lastUpdated: 2026-07-26T23:17:54.195Z
+nextAction: Re-open decision-review AskUserQuestion F1 WITH package body in same
+  turn (PASS|FAIL), then phase-done
 parentPlan: automate-default-and-operator-gates
 phaseId: F1
 businessIntent:
@@ -284,11 +285,11 @@ Initiative for phase **F1 — present-before-PASS + AskUserQuestion-only**.
 
 ## Session handoff
 
-- **Narrative:** F1 tasks T-001..T-004 closed post-merge re-verify. Phase writer claims merged from plan/automate-default-f1-writer. Ready for evaluation → phase-done path.
-- **Decision log:** operator-continue; F1 package ratify; materialize; phase writer claim report; merge FF; all verifiers green on primary.
-- **Single nextAction:** Run phase-done after F1-G* + evaluation + decision-review
-- **Verbatim state:** HEAD 8879297ae66517a51f9c5af952b67aed95b8ddb3; claim report .atomic-skills/status/claims/automate-default-and-operator-gates-F1.json; SHAs a552ef3b 53d182fd 11965811 8879297a.
-- **Uncommitted changes:** task close checkpoint pending.
+- **Narrative:** F1 code complete (T-001..T-004 done, gates met, eval/lessons/review stamped). Blocked on decision-review PASS with package in same AskUserQuestion turn (declined once — re-ask, no free-text).
+- **Decision log:** 5 entries in decisions/F1.jsonl including dogfood + merge + eval/lessons/review.
+- **Single nextAction:** Re-open decision-review AskUserQuestion F1 WITH package body in same turn (PASS|FAIL), then phase-done
+- **Verbatim state:** HEAD $(git rev-parse --short HEAD 2>/dev/null); cursor G; canRunPhaseDone needs decisionReview with packagePresentedAt.
+- **Uncommitted changes:** checkpoint after this save.
 
 
 ## Dogfood evidence

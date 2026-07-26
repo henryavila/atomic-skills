@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T22:46:27.662Z
+lastUpdated: 2026-07-26T22:47:22.480Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F1
 parallelismAllowed: false
@@ -263,6 +263,20 @@ phases:
         floors; Lekto product; forçar widget fora de AskUserQuestion.
       doneWhen: tests package green; present-before-PASS machine; AskUserQuestion-only
         + free-text ban greppable; F1-G1/G2/G3 met.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F1.md
+      verifiedAt: 2026-07-26T22:47:22.480Z
+      at: 001b1caf08ef01b1a3e9bc721ffde61b0d6310be
+    lessonsState: none
+    noneReason: clean phase — no failure signals
+    reviewGate:
+      status: passed
+      mode: both
+      at: 001b1caf08ef01b1a3e9bc721ffde61b0d6310be
+      reviewFile: .atomic-skills/reviews/2026-07-26-automate-default-F1-phase-both.md
+      verifiedAt: 2026-07-26T22:47:22.480Z
   - id: F2
     slug: automate-default-and-operator-gates-f2-plan-end-intent-vs-deliv
     title: Plan-end intent-vs-delivered cross-model review
