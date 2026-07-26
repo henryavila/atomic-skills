@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T22:26:55.511Z
+lastUpdated: 2026-07-26T22:31:25.506Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F1
 parallelismAllowed: false
@@ -204,7 +204,7 @@ phases:
               skills/shared/implement-automate-maestro.md
               skills/shared/implement-antipatterns.md skills/core/implement.md
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Package present-before-PASS + canal AskUserQuestion-only (sem
       free-text) em hardgates.
     context:
@@ -223,6 +223,20 @@ phases:
       surfacedAt: 2026-07-26T10:26:11.568Z
       surfacedDuring: F0-pure-maestro/decision-review-decline-recovery
       surfacedBy: ai
+    businessIntent:
+      value: Package present-before-PASS + canal AskUserQuestion-only (sem free-text)
+        para hardgates de operador sob automate.
+      workflow: TDD package builder → gate machine present evidence →
+        prosa/antipatterns AskUserQuestion-only + decline re-Ask → matriz
+        continue/ratify/disposition/stamp; greps F1-G*.
+      rules: Agents never write PASS; present package body no mesmo turno do
+        AskUserQuestion PASS|FAIL; decline re-Ask (bounded) ou STOP (nunca
+        free-text); session default + stamp alimentam gates; host-thin Iron Law
+        intact.
+      outOfScope: F2 intent-vs-delivered; F3 dogfood checklist full; F4 authenticity
+        floors; Lekto product; forçar widget fora de AskUserQuestion.
+      doneWhen: tests package green; present-before-PASS machine; AskUserQuestion-only
+        + free-text ban greppable; F1-G1/G2/G3 met.
   - id: F2
     slug: automate-default-and-operator-gates-f2-plan-end-intent-vs-deliv
     title: Plan-end intent-vs-delivered cross-model review
