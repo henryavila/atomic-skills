@@ -11,12 +11,13 @@ Mark each item **PASS** or **FAIL**. Soft language (“looks fine”) is invalid
 
 | Stop | When | Operator action | Not allowed |
 |------|------|-----------------|-------------|
-| **1. Package ratify** | Phase start (descriptor-only or new phase) | Validate drafted BI spine + objective/task list; **one** clear ratify (`ratify` / `aprovado` / clear accept) | Blank BI form; inventing task spine; mid-phase micro-acks |
-| **2. Decision-log PASS** | Phase end (after tasks + eval + review-code both) | Read decision log; **one** clear PASS or FAIL | Literal-token-only ceremony; auto-PASS by host |
+| **1. Package ratify** | Phase start (descriptor-only or new phase) | Validate drafted BI spine + objective/task list; **one** clear ratify via **AskUserQuestion** options | Blank BI form; inventing task spine; mid-phase micro-acks; free-text-only recovery after decline |
+| **2. Decision-log PASS** | Phase end (after tasks + eval + review-code both) | Read **decision package** body in the same turn; **one** PASS or FAIL via **AskUserQuestion** | Blind PASS without package body; auto-PASS by host; free-text "type decision-review PASS" |
 
 - **Max 2 human stops per phase** (package ratify + decision-log PASS).
 - **No mid-phase micro-approvals** (per-finding “ok?”, per-fix re-approval, evaluation “ok?”, both-review “ok?” when no disposition required).
-- **Clear PASS language** is enough (`aprovado`, `PASS`, `decision-review PASS`). Do **not** require only the magic string `decision-review PASS`.
+- **AskUserQuestion-only under automate** for operator hardgates: `operator-continue`, ratify, disposition, decision-review, stamp. Clear option labels map to durable tokens; free-text recovery after decline is forbidden (re-Ask or STOP).
+- **present-before-PASS:** decision package body must appear in the same AskUserQuestion turn as PASS|FAIL.
 
 Related session note: `.ai/memory/reference-implement-phase-agents-dogfood-stops.md`.
 
@@ -69,6 +70,20 @@ node scripts/assert-automate-gate.js --plan <slug> --project <project> --gate ph
 | D3 | Host/agent **never** wrote `decisionReview status=passed` without operator token in the **same turn** | ☐ | ☐ |
 | D4 | **Operator PASS on decision-review** recorded with clear PASS language (not literal-token-only) | ☐ | ☐ |
 | D5 | On FAIL, `decisionReview` stamped failed and `currentPhase` did **not** advance | ☐ | ☐ (N/A if PASS path) |
+| D6 | **present-before-PASS / read-before-PASS:** decision package body (path + entries table / summaryMarkdown, or no-decisions banner) shown in the **same hardgate turn** as PASS\|FAIL — not path-only, not "package apresentado" without body (dogfood: ask-without-package-body = FAIL) | ☐ | ☐ |
+| D7 | Stamp carries **`packagePresentedAt`** and/or **`packagePath`** present evidence; phase-done blocked without it under automate | ☐ | ☐ |
+| D8 | Decision-review channel is **AskUserQuestion-only** (PASS\|FAIL options); host did **not** ask free-text "type decision-review PASS" after decline; decline → re-Ask or STOP | ☐ | ☐ |
+
+## Operator hardgate channel (AskUserQuestion-only under automate)
+
+| # | Check | PASS | FAIL |
+|---|--------|------|------|
+| Q1 | **`operator-continue`** (post phase-done pause) collected via AskUserQuestion options mapping to durable token — not free-text chat recovery | ☐ | ☐ |
+| Q2 | Phase-start **ratify** via AskUserQuestion options (not free-text-only after decline) | ☐ | ☐ |
+| Q3 | Review **disposition** (`accept` \| `defer` \| `fix`) via AskUserQuestion options when required | ☐ | ☐ |
+| Q4 | **decision-review** PASS\|FAIL via AskUserQuestion with package body in the same turn | ☐ | ☐ |
+| Q5 | Durable **stamp** y/N (or equivalent) confirmations via AskUserQuestion when the host asks for stamp confirmation | ☐ | ☐ |
+| Q6 | Exclusive AskUserQuestion channel: decline of any hardgate → re-Ask (bounded) or STOP — **never** free-text "type the token" recovery | ☐ | ☐ |
 
 ## Phase close order
 

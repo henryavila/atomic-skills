@@ -67,13 +67,25 @@ After successful `phase-done` under durable `executionMode: automate`, the curso
 - Pure-maestro **Step A** (load / next-phase re-entry) **refuses** until continue.
 - **Do not** auto-materialize the next phase, auto-run multi-phase, or finalize.
 
-**Continue path (explicit token — generic ok is not enough):**
+**Continue path (explicit token — generic ok is not enough; AskUserQuestion-only under automate):**
 
-1. Operator re-enters with an explicit continue (implement re-entry + confirm continue, or skill flag that maps to the token) — **not** a bare "ok" / phase-done y alone when ratify rules apply.
+1. Host collects continue via **AskUserQuestion** options that map to the durable `operator-continue` token — **not** free-text "type operator-continue" recovery after decline. Decline → re-Ask (bounded) or STOP.
 2. Call `clearContinue(cursor, { continueToken: 'operator-continue' })` **or** `{ operatorContinue: true }` (same semantics; constant `OPERATOR_CONTINUE_TOKEN` in `src/maestro-cursor.js`) → durable write via `clearContinueFile` → step **H**.
 3. From **H**: materialize if descriptor-only (operator owns `businessIntent`); then advance to **A** for the next phase, or **I** for plan-end. Never jump pause → **C**/spawn.
 
 **Never** delete the cursor or lease file to force progress. Illegal jumps (e.g. **C→G**, `done` while step is **B**) are rejected by `isLegalTransition` / `cursorAllowsGate` and by assert under stamp. Non-automate plans do not require a cursor and **must not** call `recordPhaseDonePause` (non-automate phase-done unchanged).
+
+### Operator hardgate matrix — AskUserQuestion-only (automate)
+
+Under automate, these operator hardgates use **AskUserQuestion options only** (options map to durable tokens). **Free-text ban:** never recover a declined ask by telling the operator to type the token in chat. Decline → **re-Ask** (bounded) or **STOP** with nextAction to re-open AskUserQuestion.
+
+| Hardgate | Durable token / field | Options map (illustrative) | Free-text recovery |
+|----------|----------------------|----------------------------|--------------------|
+| **operator-continue** | `clearContinue` / `operator-continue` | Continue to next phase \| Stop | **Forbidden** |
+| **ratify** (phase-start package) | package ratify / BI spine accept | Ratify package \| Edit BI then ratify \| Reject | **Forbidden** |
+| **disposition** (review severity) | `accept` \| `defer` \| `fix` | Accept \| Defer \| Fix | **Forbidden** |
+| **decision-review** | `decisionReview` PASS\|FAIL + present evidence | PASS \| FAIL \| Re-show package | **Forbidden** — package body in same turn |
+| **stamp** (y/N confirmations) | durable stamp writes | Yes stamp \| No / cancel | **Forbidden** |
 
 ### Automate mode — pure maestro loop (when `isAutomateActive`)
 
