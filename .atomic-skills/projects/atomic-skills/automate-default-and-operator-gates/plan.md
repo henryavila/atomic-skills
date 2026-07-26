@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T03:21:56.000Z
+lastUpdated: 2026-07-26T03:23:39.137Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F0
 parallelismAllowed: false
@@ -111,8 +111,8 @@ phases:
           metAt: 2026-07-26T03:21:56.000Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-26T03:21:56.000Z
-            verifiedCommit: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+            verifiedAt: 2026-07-26T03:23:39.137Z
+            verifiedCommit: 5a1521b6cd5cba9868c313aac06ee86b85164eb6
             passed: true
             exitCode: 0
             outputSummary: F0-G1 re-verified at phase-done prep
@@ -127,8 +127,8 @@ phases:
           metAt: 2026-07-26T03:21:56.000Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-26T03:21:56.000Z
-            verifiedCommit: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+            verifiedAt: 2026-07-26T03:23:39.137Z
+            verifiedCommit: 5a1521b6cd5cba9868c313aac06ee86b85164eb6
             passed: true
             exitCode: 0
             outputSummary: F0-G2 re-verified at phase-done prep
@@ -151,15 +151,16 @@ phases:
       status: passed
       verdict: pass
       reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F0.md
-      verifiedAt: 2026-07-26T03:19:38.000Z
-      at: 5b5c136513618c219c390047c0cd1c8b745269ec
+      verifiedAt: 2026-07-26T03:23:39.137Z
+      at: 5a1521b6cd5cba9868c313aac06ee86b85164eb6
     lessonsState: none
     reviewGate:
       status: passed
       mode: both
-      at: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+      at: 5a1521b6cd5cba9868c313aac06ee86b85164eb6
       reviewFile: .atomic-skills/reviews/2026-07-26-automate-default-F0-phase-both.md
-      verifiedAt: 2026-07-26T03:21:56.000Z
+      verifiedAt: 2026-07-26T03:23:39.137Z
+    noneReason: no lessons distilled — clean phase (operator ratified)
   - id: F1
     slug: automate-default-and-operator-gates-f1-decision-review-read-bef
     title: Decision-review read-before-PASS

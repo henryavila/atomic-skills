@@ -430,6 +430,20 @@
             "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
           }
         },
+        "lessonsState": {
+          "type": "string",
+          "enum": ["recorded", "none"],
+          "description": "Automate pure-maestro Step G: distill + operator ratify outcome before phase-done. recorded = lessons written under lessons/ with non-empty lessonsPath; none = clean phase (explicit; silence is not an answer). Enforced by phaseLessonsAllowsClose / canRunPhaseDone / assert-automate-gate --gate phase-done when plan.executionMode is automate."
+        },
+        "lessonsPath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required-when lessonsState=recorded: path to lessons/<initiative-slug>.md after operator ratify. Enforced by phaseLessonsHonesty."
+        },
+        "noneReason": {
+          "type": "string",
+          "description": "Optional note when lessonsState=none (e.g. clean phase)."
+        },
         "decisionReview": {
           "type": "object",
           "additionalProperties": false,
