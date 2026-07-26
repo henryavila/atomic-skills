@@ -9,8 +9,8 @@ summary: Package present-before-PASS + canal AskUserQuestion-only em hardgates.
 status: active
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-26T22:31:25.506Z
-lastUpdated: 2026-07-26T22:31:25.506Z
-nextAction: "Start T-001: Decision package builder"
+lastUpdated: 2026-07-26T22:46:27.662Z
+nextAction: Run phase-done after F1-G* + evaluation + decision-review
 parentPlan: automate-default-and-operator-gates
 phaseId: F1
 businessIntent:
@@ -27,34 +27,52 @@ businessIntent:
     floors; Lekto product; forçar widget fora de AskUserQuestion.
   doneWhen: tests package green; present-before-PASS machine; AskUserQuestion-only
     + free-text ban greppable; F1-G1/G2/G3 met.
-tasksDone: 0
+tasksDone: 4
 tasksTotal: 4
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
-weightDone: 0
+weightDone: 8
 weightTotal: 8
 exitGates:
   - id: F1-G1
     description: Decision package unit tests pass.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/decision-review-package.test.js
       expectExitCode: 0
+    metAt: 2026-07-26T22:46:27.662Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T22:46:27.662Z
+      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      passed: true
+      exitCode: 0
+      outputSummary: F1-G1 green after F1 merge re-verify
     verifierLabel: "shell: node --test tests/decision-review-package.test.js"
+    evidenceSummary: passed · 2026-07-26
   - id: F1-G2
     description: Present-before-PASS + package evidence mandated in prose/gates.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'read-before-PASS|packagePresented|decision package'
         skills/shared/implement-decision-log.md
         skills/shared/implement-automate-maestro.md
       expectExitCode: 0
+    metAt: 2026-07-26T22:46:27.662Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T22:46:27.662Z
+      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      passed: true
+      exitCode: 0
+      outputSummary: F1-G2 green after F1 merge re-verify
     verifierLabel: "shell: rg -n 'read-before-PASS|packagePresented|decision package' …"
+    evidenceSummary: passed · 2026-07-26
   - id: F1-G3
     description: AskUserQuestion-only + free-text ban + decline path greppable.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'AskUserQuestion|free-text|re-Ask|operator-continue'
@@ -62,7 +80,16 @@ exitGates:
         skills/shared/implement-automate-maestro.md
         skills/shared/implement-antipatterns.md skills/core/implement.md
       expectExitCode: 0
+    metAt: 2026-07-26T22:46:27.662Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T22:46:27.662Z
+      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      passed: true
+      exitCode: 0
+      outputSummary: F1-G3 green after F1 merge re-verify
     verifierLabel: "shell: rg -n 'AskUserQuestion|free-text|re-Ask|operator-continue' …"
+    evidenceSummary: passed · 2026-07-26
 stack:
   - id: 1
     title: Decision-review present-before-PASS + AskUserQuestion-only hardgates
@@ -72,8 +99,8 @@ tasks:
   - id: T-001
     title: Decision package builder
     summary: Helper puro que monta o package do decision log para o host apresentar.
-    status: pending
-    lastUpdated: 2026-07-26T22:31:25.506Z
+    status: done
+    lastUpdated: 2026-07-26T22:45:39.054Z
     scopeBoundary:
       - Do not stamp decisionReview PASS from this helper. No network I/O.
     acceptance:
@@ -94,12 +121,20 @@ tasks:
       - kind: file
         path: src/decision-log.js
     weight: 2
+    closedAt: 2026-07-26T22:45:39.054Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T22:45:39.054Z
+      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/decision-review-package.test.js → pass 6/6
   - id: T-002
     title: Hardgate present then PASS (machine evidence)
     summary: Gate machine exige package apresentado antes do PASS; fail-closed sem
       evidência.
-    status: pending
-    lastUpdated: 2026-07-26T22:31:25.506Z
+    status: done
+    lastUpdated: 2026-07-26T22:45:39.054Z
     scopeBoundary:
       - Agents still never write PASS. Do not auto-PASS on empty package.
     acceptance:
@@ -134,12 +169,21 @@ tasks:
       - kind: file
         path: tests/decision-review-gate.test.js
     weight: 2
+    closedAt: 2026-07-26T22:45:39.054Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T22:45:39.054Z
+      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/decision-review-gate.test.js → pass 28/28 + rg
+        present-before-PASS
   - id: T-003
     title: AskUserQuestion-only decision-review + ban free-text recovery
     summary: PASS/FAIL só via AskUserQuestion; decline re-Ask ou STOP; proibido
       pedir digitar PASS no chat.
-    status: pending
-    lastUpdated: 2026-07-26T22:31:25.506Z
+    status: done
+    lastUpdated: 2026-07-26T22:45:39.054Z
     scopeBoundary:
       - Do not force a specific IDE widget beyond AskUserQuestion where
         available.
@@ -178,12 +222,20 @@ tasks:
       - kind: file
         path: docs/kb/implement-phase-agents-dogfood.md
     weight: 2
+    closedAt: 2026-07-26T22:45:39.054Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T22:45:39.054Z
+      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      passed: true
+      exitCode: 0
+      outputSummary: rg AskUserQuestion|free-text|re-Ask|operator-continue → exit 0
   - id: T-004
     title: Operator hardgate matrix (continue/ratify/disposition/stamp)
     summary: Mesma lei de canal AskUserQuestion-only para continue, ratify,
       disposition e stamp.
-    status: pending
-    lastUpdated: 2026-07-26T22:31:25.506Z
+    status: done
+    lastUpdated: 2026-07-26T22:45:39.054Z
     scopeBoundary:
       - Do not implement product UI outside skill prose + helpers already in
         plan.
@@ -211,6 +263,14 @@ tasks:
       - kind: file
         path: docs/kb/implement-phase-agents-dogfood.md
     weight: 2
+    closedAt: 2026-07-26T22:45:39.054Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T22:45:39.054Z
+      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      passed: true
+      exitCode: 0
+      outputSummary: rg AskUserQuestion|operator-continue|disposition|free-text|stamp → exit 0
 parked: []
 emerged: []
 planTitle: Automate default + operator gates (decision-review + plan-end intent)
@@ -224,11 +284,12 @@ Initiative for phase **F1 — present-before-PASS + AskUserQuestion-only**.
 
 ## Session handoff
 
-- **Narrative:** F1 materialized after phase-start package ratify (operator). Descriptor-only → initiative active with ratified BI spine. Ready for T-001.
-- **Decision log:** F0 phase-done; operator-continue (prossiga); F1 package ratify with drafted BI.
-- **Single nextAction:** Start T-001: Decision package builder
-- **Verbatim state:** initiative `.atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/phases/f1-decision-review-read-bef.md`; source `.atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/phases/f1-decision-review-read-bef.source.json`; dogfood evidence `.atomic-skills/reviews/2026-07-26-f0-decision-review-ask-without-package-body.md`.
-- **Uncommitted changes:** post-materialize checkpoint.
+- **Narrative:** F1 tasks T-001..T-004 closed post-merge re-verify. Phase writer claims merged from plan/automate-default-f1-writer. Ready for evaluation → phase-done path.
+- **Decision log:** operator-continue; F1 package ratify; materialize; phase writer claim report; merge FF; all verifiers green on primary.
+- **Single nextAction:** Run phase-done after F1-G* + evaluation + decision-review
+- **Verbatim state:** HEAD 8879297ae66517a51f9c5af952b67aed95b8ddb3; claim report .atomic-skills/status/claims/automate-default-and-operator-gates-F1.json; SHAs a552ef3b 53d182fd 11965811 8879297a.
+- **Uncommitted changes:** task close checkpoint pending.
+
 
 ## Dogfood evidence
 

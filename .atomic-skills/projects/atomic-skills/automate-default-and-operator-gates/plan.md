@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T22:31:25.506Z
+lastUpdated: 2026-07-26T22:46:27.662Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F1
 parallelismAllowed: false
@@ -166,6 +166,8 @@ phases:
       verifiedAt: 2026-07-26T22:24:32.445Z
       evidencePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F0.jsonl
       at: 95872f9fe798d25a6e9f4a8b56261c0952d55023
+      packagePresentedAt: 2026-07-26T22:24:32.445Z
+      packagePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F0.jsonl
   - id: F1
     slug: automate-default-and-operator-gates-f1-decision-review-read-bef
     title: Decision-review present-before-PASS + AskUserQuestion-only hardgates
@@ -180,23 +182,39 @@ phases:
       criteria:
         - id: F1-G1
           description: Decision package unit tests pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/decision-review-package.test.js
             expectExitCode: 0
+          metAt: 2026-07-26T22:46:27.662Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-26T22:46:27.662Z
+            verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+            passed: true
+            exitCode: 0
+            outputSummary: F1-G1 green after F1 merge re-verify
         - id: F1-G2
           description: Present-before-PASS + package evidence mandated in prose/gates.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'read-before-PASS|packagePresented|decision package'
               skills/shared/implement-decision-log.md
               skills/shared/implement-automate-maestro.md
             expectExitCode: 0
+          metAt: 2026-07-26T22:46:27.662Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-26T22:46:27.662Z
+            verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+            passed: true
+            exitCode: 0
+            outputSummary: F1-G2 green after F1 merge re-verify
         - id: F1-G3
           description: AskUserQuestion-only + free-text ban + decline path greppable.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'AskUserQuestion|free-text|re-Ask|operator-continue'
@@ -204,6 +222,14 @@ phases:
               skills/shared/implement-automate-maestro.md
               skills/shared/implement-antipatterns.md skills/core/implement.md
             expectExitCode: 0
+          metAt: 2026-07-26T22:46:27.662Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-26T22:46:27.662Z
+            verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+            passed: true
+            exitCode: 0
+            outputSummary: F1-G3 green after F1 merge re-verify
     status: active
     summary: Package present-before-PASS + canal AskUserQuestion-only (sem
       free-text) em hardgates.
