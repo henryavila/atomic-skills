@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T03:23:39.137Z
+lastUpdated: 2026-07-26T10:26:33.026Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F0
 parallelismAllowed: false
@@ -163,14 +163,15 @@ phases:
     noneReason: no lessons distilled — clean phase (operator ratified)
   - id: F1
     slug: automate-default-and-operator-gates-f1-decision-review-read-bef
-    title: Decision-review read-before-PASS
-    goal: Operator always sees phase decisions before PASS/FAIL. Blind PASS is
-      impossible under automate.
+    title: Decision-review present-before-PASS + AskUserQuestion-only hardgates
+    goal: Operator always sees the decision package before PASS/FAIL; under automate
+      every operator hardgate uses AskUserQuestion options only — free-text
+      token recovery is forbidden; decline re-asks or STOPs.
     dependsOn:
       - F0
     subPhaseCount: 0
     exitGate:
-      summary: 2 criteria to meet
+      summary: 3 criteria to meet
       criteria:
         - id: F1-G1
           description: Decision package unit tests pass.
@@ -180,7 +181,7 @@ phases:
             command: node --test tests/decision-review-package.test.js
             expectExitCode: 0
         - id: F1-G2
-          description: Maestro and decision-log prose mandate present-before-PASS.
+          description: Present-before-PASS + package evidence mandated in prose/gates.
           status: pending
           verifier:
             kind: shell
@@ -188,8 +189,35 @@ phases:
               skills/shared/implement-decision-log.md
               skills/shared/implement-automate-maestro.md
             expectExitCode: 0
+        - id: F1-G3
+          description: AskUserQuestion-only + free-text ban + decline path greppable.
+          status: pending
+          verifier:
+            kind: shell
+            command: rg -n 'AskUserQuestion|free-text|re-Ask|operator-continue'
+              skills/shared/implement-decision-log.md
+              skills/shared/implement-automate-maestro.md
+              skills/shared/implement-antipatterns.md skills/core/implement.md
+            expectExitCode: 0
     status: pending
-    summary: Exibir decisões antes do PASS no decision-review.
+    summary: Package present-before-PASS + canal AskUserQuestion-only (sem
+      free-text) em hardgates.
+    context:
+      solves: Blind PASS and free-text "type decision-review PASS" after
+        AskUserQuestion decline both break the human contract under automate.
+      trigger: "F0 pure-maestro dogfood: AskUserQuestion declined → host asked chat
+        typing of PASS; operator requested merge with F1 present-before-PASS."
+      assumesStillValid:
+        - Host has AskUserQuestion (or {{ASK_USER_QUESTION_TOOL}}).
+        - F1 package present remains load-bearing; channel law is additive.
+        - Operators accept re-Ask on decline instead of free-text tokens.
+      lastReviewedAt: 2026-07-26T10:26:11.558Z
+      ratifiedAt: 2026-07-26T10:26:11.568Z
+      ratifiedBy: human
+    provenance:
+      surfacedAt: 2026-07-26T10:26:11.568Z
+      surfacedDuring: F0-pure-maestro/decision-review-decline-recovery
+      surfacedBy: ai
   - id: F2
     slug: automate-default-and-operator-gates-f2-plan-end-intent-vs-deliv
     title: Plan-end intent-vs-delivered cross-model review
@@ -456,3 +484,12 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 ## Reviews
 
 - internal: .atomic-skills/reviews/2026-07-25-automate-default-and-operator-gates-internal.md (bootstrap clean)
+
+
+## F1 expansion (2026-07-26)
+
+F1 absorbs the **exclusive AskUserQuestion operator-channel** fix (no free-text
+token recovery after decline) **together with** present-before-PASS / decision
+package. Trigger: F0 pure-maestro asked the operator to type `decision-review PASS`
+after AskUserQuestion was declined. No separate F5 — implement with F1.
+

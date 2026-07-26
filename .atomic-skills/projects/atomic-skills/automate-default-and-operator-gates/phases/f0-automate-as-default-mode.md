@@ -7,9 +7,10 @@ goal: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
 status: active
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T03:56:33.403Z
-nextAction: Operator decision-review PASS on F0 package (decisions/F0.jsonl),
-  then assert-automate-gate --gate phase-done + terminal phase-done
+lastUpdated: 2026-07-26T10:26:11.825Z
+nextAction: "F0 still open on decision-review: re-open AskUserQuestion PASS|FAIL
+  (never free-text). F1 expanded for present+AskUserQuestion-only when F0
+  closes."
 parentPlan: automate-default-and-operator-gates
 phaseId: F0
 businessIntent:
@@ -163,10 +164,10 @@ Initiative for phase **F0 — Automate as default mode**.
 
 ## Session handoff
 
-- **Narrative:** Pure-maestro mid-flight on F0 close. Tasks T-001/T-002 done. Stamp executionMode automate. evaluationGate passed + report. lessonsState none (operator ratified). reviewGate mode both. Cursor step G. **Blocked on decision-review PASS** (operator declined/no token this turn — agents never auto-PASS).
-- **Decision log:** Mode-1 coded F0 tasks; automate stamp y; skip writer spawn; evaluation pass; lessons none; review both; schema lessonsState admitted.
-- **Single nextAction:** Operator decision-review PASS on F0 package (decisions/F0.jsonl), then assert-automate-gate --gate phase-done + terminal phase-done
-- **Verbatim state:** decisions path `.atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F0.jsonl` (7 entries); eval `.atomic-skills/reviews/eval-automate-default-and-operator-gates-F0.md`; review `.atomic-skills/reviews/2026-07-26-automate-default-F0-phase-both.md`; cursor `.atomic-skills/status/automate/automate-default-and-operator-gates.json` step G; canRunPhaseDone blocked: decisionReview required.
+- **Narrative:** Pure-maestro F0 paused at decision-review. Failure analyzed: free-text "type PASS" after AskUserQuestion decline is forbidden. **F5 not created** — **F1 expanded** (ratified) to ship present-before-PASS **with** exclusive AskUserQuestion channel + decline re-Ask + hardgate matrix. F0 still needs operator PASS via AskUserQuestion only.
+- **Decision log:** stamp y; eval pass; lessons none; review both; declined AskUserQuestion → wrong free-text recovery; operator redirected fix into F1 not F5.
+- **Single nextAction:** F0 still open on decision-review: re-open AskUserQuestion PASS|FAIL (never free-text). F1 expanded for present+AskUserQuestion-only when F0 closes.
+- **Verbatim state:** F1 source `.atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/phases/f1-decision-review-read-bef.source.json` (T-001..T-004, F1-G3); plan F1 title/goal/exitGate updated; decisions F0.jsonl still 7 entries; cursor still G if present.
 - **Uncommitted changes:** see git status at snapshot.
 
 

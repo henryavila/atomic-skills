@@ -2,12 +2,13 @@
   "captureVersion": "0.1",
   "phaseId": "F1",
   "slug": "automate-default-and-operator-gates-f1-decision-review-read-bef",
-  "title": "Decision-review read-before-PASS",
-  "goal": "Operator always sees phase decisions before PASS/FAIL. Blind PASS is impossible under automate.",
+  "title": "Decision-review present-before-PASS + AskUserQuestion-only hardgates",
+  "goal": "Operator always sees the decision package before PASS/FAIL; under automate every operator hardgate uses AskUserQuestion options only — free-text token recovery is forbidden; decline re-Asks or STOPs.",
   "tasks": [
     {
       "id": "T-001",
       "title": "Decision package builder",
+      "summary": "Helper puro que monta o package do decision log para o host apresentar.",
       "scopeBoundary": [
         "Do not stamp decisionReview PASS from this helper. No network I/O."
       ],
@@ -20,23 +21,15 @@
         "expectExitCode": 0
       },
       "outputs": [
-        {
-          "kind": "file",
-          "path": "src/decision-review-package.js"
-        },
-        {
-          "kind": "file",
-          "path": "tests/decision-review-package.test.js"
-        },
-        {
-          "kind": "file",
-          "path": "src/decision-log.js"
-        }
+        { "kind": "file", "path": "src/decision-review-package.js" },
+        { "kind": "file", "path": "tests/decision-review-package.test.js" },
+        { "kind": "file", "path": "src/decision-log.js" }
       ]
     },
     {
       "id": "T-002",
-      "title": "Hardgate present then PASS token",
+      "title": "Hardgate present then PASS (machine evidence)",
+      "summary": "Gate machine exige package apresentado antes do PASS; fail-closed sem evidência.",
       "scopeBoundary": [
         "Agents still never write PASS. Do not auto-PASS on empty package."
       ],
@@ -49,59 +42,59 @@
         "expectExitCode": 0
       },
       "outputs": [
-        {
-          "kind": "file",
-          "path": "skills/shared/implement-decision-log.md"
-        },
-        {
-          "kind": "file",
-          "path": "skills/shared/implement-automate-maestro.md"
-        },
-        {
-          "kind": "file",
-          "path": "skills/core/implement.md"
-        },
-        {
-          "kind": "file",
-          "path": "src/decision-review-gate.js"
-        },
-        {
-          "kind": "file",
-          "path": "src/automate-orchestrator-gates.js"
-        },
-        {
-          "kind": "file",
-          "path": "tests/decision-review-gate.test.js"
-        }
+        { "kind": "file", "path": "skills/shared/implement-decision-log.md" },
+        { "kind": "file", "path": "skills/shared/implement-automate-maestro.md" },
+        { "kind": "file", "path": "skills/core/implement.md" },
+        { "kind": "file", "path": "src/decision-review-gate.js" },
+        { "kind": "file", "path": "src/automate-orchestrator-gates.js" },
+        { "kind": "file", "path": "tests/decision-review-gate.test.js" }
       ]
     },
     {
       "id": "T-003",
-      "title": "Operator UX two-step AskUserQuestion",
+      "title": "AskUserQuestion-only decision-review + ban free-text recovery",
+      "summary": "PASS/FAIL só via AskUserQuestion; decline re-Ask ou STOP; proibido pedir digitar PASS no chat.",
       "scopeBoundary": [
-        "Do not force a specific IDE widget beyond AskUserQuestion where available."
+        "Do not force a specific IDE widget beyond AskUserQuestion where available.",
+        "Do not stamp PASS from agent. Do not invent free-text chat recovery after decline."
       ],
       "acceptance": [
-        "it - UX documents step present package then PASS or FAIL options.; it - Single-click PASS without package body in the same turn is forbidden in prose.; it - Dogfood checklist row covers decision package shown before PASS."
+        "it - UX documents two-step: present package body then AskUserQuestion PASS|FAIL options in the same hardgate turn.; it - Free-text recovery (e.g. host asks operator to type decision-review PASS) is forbidden in prose and antipatterns.; it - Decline/cancel of AskUserQuestion re-opens the same question (bounded) or STOPs with nextAction to re-open AskUserQuestion — never chat typing.; it - Single-click PASS without package body in the same turn is forbidden."
       ],
       "verifier": {
         "kind": "shell",
-        "command": "rg -n 'read-before-PASS|packagePresented|decision package' skills/shared/implement-decision-log.md skills/shared/implement-automate-maestro.md",
+        "command": "rg -n 'AskUserQuestion|free-text|type .*PASS|re-Ask|decline' skills/shared/implement-decision-log.md skills/shared/implement-automate-maestro.md skills/shared/implement-antipatterns.md skills/core/implement.md && rg -n 'read-before-PASS|packagePresented|decision package' skills/shared/implement-decision-log.md skills/shared/implement-automate-maestro.md",
         "expectExitCode": 0
       },
       "outputs": [
-        {
-          "kind": "file",
-          "path": "skills/shared/implement-decision-log.md"
-        },
-        {
-          "kind": "file",
-          "path": "skills/shared/implement-automate-maestro.md"
-        },
-        {
-          "kind": "file",
-          "path": "docs/kb/implement-phase-agents-dogfood.md"
-        }
+        { "kind": "file", "path": "skills/shared/implement-decision-log.md" },
+        { "kind": "file", "path": "skills/shared/implement-automate-maestro.md" },
+        { "kind": "file", "path": "skills/shared/implement-antipatterns.md" },
+        { "kind": "file", "path": "skills/core/implement.md" },
+        { "kind": "file", "path": "docs/kb/implement-phase-agents-dogfood.md" }
+      ]
+    },
+    {
+      "id": "T-004",
+      "title": "Operator hardgate matrix (continue/ratify/disposition/stamp)",
+      "summary": "Mesma lei de canal AskUserQuestion-only para continue, ratify, disposition e stamp.",
+      "scopeBoundary": [
+        "Do not implement product UI outside skill prose + helpers already in plan.",
+        "Do not change durable token semantics (operator-continue, ratify, accept|defer|fix, y/N stamp)."
+      ],
+      "acceptance": [
+        "it - Maestro lists operator hardgates continue ratify disposition decision-review stamp as AskUserQuestion-only.; it - Each maps options to durable tokens without free-text recovery.; it - Antipattern exists for type token in chat after decline.; it - Dogfood checklist row covers exclusive AskUserQuestion channel."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'AskUserQuestion|operator-continue|disposition|free-text|stamp' skills/shared/implement-automate-maestro.md skills/shared/implement-antipatterns.md skills/core/implement.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        { "kind": "file", "path": "skills/shared/implement-automate-maestro.md" },
+        { "kind": "file", "path": "skills/shared/implement-antipatterns.md" },
+        { "kind": "file", "path": "skills/core/implement.md" },
+        { "kind": "file", "path": "docs/kb/implement-phase-agents-dogfood.md" }
       ]
     }
   ],
@@ -118,10 +111,20 @@
     },
     {
       "id": "F1-G2",
-      "description": "Maestro and decision-log prose mandate present-before-PASS.",
+      "description": "Present-before-PASS + package evidence mandated in prose/gates.",
       "verifier": {
         "kind": "shell",
         "command": "rg -n 'read-before-PASS|packagePresented|decision package' skills/shared/implement-decision-log.md skills/shared/implement-automate-maestro.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F1-G3",
+      "description": "AskUserQuestion-only + free-text ban + decline path greppable.",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'AskUserQuestion|free-text|re-Ask|operator-continue' skills/shared/implement-decision-log.md skills/shared/implement-automate-maestro.md skills/shared/implement-antipatterns.md skills/core/implement.md",
         "expectExitCode": 0
       },
       "status": "pending"
