@@ -1,7 +1,7 @@
 # Session handoff — `automate-default-and-operator-gates`
 
 > **Continue from here.** Documento de retomada (não é design de produto).  
-> Atualizado: 2026-07-25 · sessão bootstrap + F4 ratificada · **zero código de F0 ainda**.
+> Atualizado: 2026-07-26 · F0 T-001/T-002 **done** (automate default + prosa). Próximo: `phase-done` F0.
 
 ---
 
@@ -19,23 +19,20 @@ node scripts/validate-state.js \
   .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/phases/f0-automate-as-default-mode.md
 ```
 
-**Single nextAction (produto skill):**
+**Single nextAction:**
 
 ```text
-Implement F0 T-001: flip isAutomateActive default true + tests
+Run phase-done for F0 (F0-G1 + F0-G2 exit gates + review policy). Do not auto-advance.
 ```
 
-Comando típico de execução:
+F0 T-001/T-002 already landed:
 
-```bash
-# Na worktree acima
-# Mode 1 (host codes) se estiver construindo a skill em si:
-implement automate-default-and-operator-gates --mode=1
-# ou pure-maestro (dogfood do próprio default — circular até F0 landar):
-# implement automate-default-and-operator-gates
-```
+- `feat(T-001): automate is default for isAutomateActive` (`96b8e898`)
+- `docs(T-002): prose for automate as default implement path` (`a588996a`)
+- checkpoints `68d6ee6d` (T-001), `c1c3620d` (T-002)
 
-**Recomendação:** F0 do plano *é* “automate default” — implementar em **Mode 1** (`--mode=1`) evita dependência circular (default ainda é Mode 1 no código atual).
+Bare `implement` is now automate-default. Use `--mode=1` only for session-writer escape.
+After phase-done: materialize F1 (descriptor-only until then).
 
 ---
 
@@ -45,7 +42,7 @@ implement automate-default-and-operator-gates --mode=1
 |-------|--------|
 | Worktree | `/Volumes/External/code/atomic-skills/.worktrees/automate-default-and-operator-gates` |
 | Branch | `plan/automate-default-and-operator-gates` |
-| HEAD (handoff) | `18a3d403` — `feat(project): add F4 receipt authenticity and close-path integrity` |
+| HEAD (handoff) | `c1c3620d` — `chore(project): checkpoint … F0 T-002` (F0 tasks done) |
 | Main tree | `/Volumes/External/code/atomic-skills` (branch `develop` — **não** tem o plano commitado; trabalhe na worktree) |
 | Plan | `.atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/plan.md` |
 | Design | `…/design.md` (critic approve_with_nits + F4 amendment) |
@@ -88,14 +85,14 @@ c09b572e docs(plan): contraste intenção × previsão × pressupostos
 | F3 | pending | `.source.json` | Dogfood checklist F0–F2 |
 | F4 | pending | `.source.json` | Receipt authenticity + close-path integrity |
 
-### F0 tasks (fazer agora)
+### F0 tasks
 
-| Task | Título | Outputs | Verifier |
-|------|--------|---------|----------|
-| **T-001** | Flip isAutomateActive and parse default | `src/implement-mode.js`, `tests/implement-mode.test.js` | `node --test tests/implement-mode.test.js` |
-| **T-002** | Skill prose and antipatterns for automate default | implement.md, maestro, antipatterns, kb | `rg` default / Mode 1 / --mode=1 |
+| Task | Status | Note |
+|------|--------|------|
+| **T-001** | **done** | `isAutomateActive` default ON; matrix in `tests/implement-mode.test.js` |
+| **T-002** | **done** | prose default + Mode 1 escape + antipattern + gate activation |
 
-**Gates F0:** F0-G1 testes; F0-G2 prosa.
+**Gates F0:** F0-G1 / F0-G2 still **pending** until `phase-done` runs them as exit gates.
 
 **BI F0 (spine):** value = automate default + Mode 1 escape; rules = host-thin, no auto-merge, session default alimenta gates; outOfScope = F1–F4.
 
@@ -144,12 +141,11 @@ Ler: `design.md` + `plan.md` §1b.
 ## 7. Checklist de retomada
 
 ```
-[ ] cd worktree; git status clean; HEAD ok
-[ ] Ler plan.md §1b + F0 BI + T-001/T-002
-[ ] Ler design.md Decisions 1–9 + F4 amendment
-[ ] implement F0 (recomendado --mode=1) ou TDD manual T-001
-[ ] node --test tests/implement-mode.test.js  → green
-[ ] prosa T-002 + F0-G2 rg
+[x] cd worktree; git status clean; HEAD ok
+[x] Ler plan.md §1b + F0 BI + T-001/T-002
+[x] implement F0 T-001/T-002 (Mode 1)
+[x] node --test tests/implement-mode.test.js  → green
+[x] prosa T-002 + F0-G2 rg
 [ ] phase-done F0 só após gates + review policy do plano
 [ ] depois: materialize F1 → … → F4
 [ ] opcional: git push -u origin plan/automate-default-and-operator-gates
@@ -176,11 +172,11 @@ Ler: `design.md` + `plan.md` §1b.
 Continuar plan automate-default-and-operator-gates na worktree
 /Volumes/External/code/atomic-skills/.worktrees/automate-default-and-operator-gates
 
-Ler SESSION-HANDOFF.md e plan.md. currentPhase=F0.
-Implementar T-001/T-002 (automate default) com --mode=1 se pure-maestro circular.
+Ler SESSION-HANDOFF.md e phases/f0-automate-as-default-mode.md ## Session handoff.
+currentPhase=F0; T-001/T-002 done. Run phase-done (F0-G1/G2 + review).
 Não reabrir F4 escopo. Não misturar com Lekto product.
 ```
 
 ---
 
-*Handoff sem código de implementação. Próxima sessão: F0 T-001.*
+*F0 tasks closed. Próxima sessão: phase-done F0 → materialize F1.*
