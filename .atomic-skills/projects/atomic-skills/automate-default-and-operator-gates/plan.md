@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T03:18:00.819Z
+lastUpdated: 2026-07-26T03:19:38.000Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F0
 parallelismAllowed: false
@@ -131,6 +131,12 @@ phases:
       doneWhen: implement-mode tests green for no-CLI no-stamp true; prose states
         automate default and Mode-1 escape; F0-G1 and F0-G2 met.
     summary: Tornar automate o default do implement com escape Mode 1.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F0.md
+      verifiedAt: 2026-07-26T03:19:38.000Z
+      at: 5b5c136513618c219c390047c0cd1c8b745269ec
   - id: F1
     slug: automate-default-and-operator-gates-f1-decision-review-read-bef
     title: Decision-review read-before-PASS
