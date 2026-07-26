@@ -7,8 +7,9 @@ goal: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
 status: active
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T03:21:56.000Z
-nextAction: Run phase-done after F0-G1/F0-G2 exit gates + review policy
+lastUpdated: 2026-07-26T03:56:33.403Z
+nextAction: Operator decision-review PASS on F0 package (decisions/F0.jsonl),
+  then assert-automate-gate --gate phase-done + terminal phase-done
 parentPlan: automate-default-and-operator-gates
 phaseId: F0
 businessIntent:
@@ -162,21 +163,12 @@ Initiative for phase **F0 — Automate as default mode**.
 
 ## Session handoff
 
-- **Narrative:** F0 tasks T-001 and T-002 are both `done`. Machine default
-  (`isAutomateActive` true with no CLI/stamp/clear) and skill prose (automate
-  default, Mode 1 `--mode=1`, superseded opt-in-only, gate activation P7,
-  bare-implement antipattern) match. Last task of F0 closed — run `phase-done`
-  next (exit gates F0-G1/F0-G2 + review); do not auto-advance.
-- **Decision log:** F0 coded under Mode 1 to avoid pure-maestro circularity.
-  F4 not reopened. Lekto product out of scope. Unstamp alone stays default-ON.
-- **Single nextAction:** Run `phase-done` after F0-G1/F0-G2 exit gates + review policy
-- **Verbatim state:** T-001 `node --test tests/implement-mode.test.js` pass 30/30
-  @ `96b8e898…`; T-002 `rg -n 'default|Mode 1|--mode=1' skills/core/implement.md
-  skills/shared/implement-automate-maestro.md` exit 0 @ `a588996a…`; paths
-  `src/implement-mode.js`, `tests/implement-mode.test.js`,
-  `skills/core/implement.md`, `skills/shared/implement-automate-maestro.md`,
-  `skills/shared/implement-antipatterns.md`, `docs/kb/project-lazy-materialization.md`.
-- **Uncommitted changes:** clean tree after T-002 checkpoint.
+- **Narrative:** Pure-maestro mid-flight on F0 close. Tasks T-001/T-002 done. Stamp executionMode automate. evaluationGate passed + report. lessonsState none (operator ratified). reviewGate mode both. Cursor step G. **Blocked on decision-review PASS** (operator declined/no token this turn — agents never auto-PASS).
+- **Decision log:** Mode-1 coded F0 tasks; automate stamp y; skip writer spawn; evaluation pass; lessons none; review both; schema lessonsState admitted.
+- **Single nextAction:** Operator decision-review PASS on F0 package (decisions/F0.jsonl), then assert-automate-gate --gate phase-done + terminal phase-done
+- **Verbatim state:** decisions path `.atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F0.jsonl` (7 entries); eval `.atomic-skills/reviews/eval-automate-default-and-operator-gates-F0.md`; review `.atomic-skills/reviews/2026-07-26-automate-default-F0-phase-both.md`; cursor `.atomic-skills/status/automate/automate-default-and-operator-gates.json` step G; canRunPhaseDone blocked: decisionReview required.
+- **Uncommitted changes:** see git status at snapshot.
+
 
 ## Links
 
