@@ -21,9 +21,18 @@
         "expectExitCode": 0
       },
       "outputs": [
-        { "kind": "file", "path": "src/decision-review-package.js" },
-        { "kind": "file", "path": "tests/decision-review-package.test.js" },
-        { "kind": "file", "path": "src/decision-log.js" }
+        {
+          "kind": "file",
+          "path": "src/decision-review-package.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/decision-review-package.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/decision-log.js"
+        }
       ]
     },
     {
@@ -34,7 +43,8 @@
         "Agents still never write PASS. Do not auto-PASS on empty package."
       ],
       "acceptance": [
-        "it - Fixed order requires host render decision package before PASS ask.; it - decisionReview records packagePresentedAt or package present evidence under automate.; it - decisionReviewAllowsPhaseDone or canRunPhaseDone fails closed without present evidence when automate active including no-stamp session default.; it - Antipattern documents Ask PASS without listing decisions."
+        "it - Fixed order requires host render decision package before PASS ask.; it - decisionReview records packagePresentedAt or package present evidence under automate.; it - decisionReviewAllowsPhaseDone or canRunPhaseDone fails closed without present evidence when automate active including no-stamp session default.; it - Antipattern documents Ask PASS without listing decisions.",
+        "it - Dogfood evidence ask-without-package-body (reviews/2026-07-26-f0-decision-review-ask-without-package-body.md) is treated as FAIL present-before-PASS until package body is in the same hardgate turn as PASS/FAIL AskUserQuestion."
       ],
       "verifier": {
         "kind": "shell",
@@ -42,12 +52,30 @@
         "expectExitCode": 0
       },
       "outputs": [
-        { "kind": "file", "path": "skills/shared/implement-decision-log.md" },
-        { "kind": "file", "path": "skills/shared/implement-automate-maestro.md" },
-        { "kind": "file", "path": "skills/core/implement.md" },
-        { "kind": "file", "path": "src/decision-review-gate.js" },
-        { "kind": "file", "path": "src/automate-orchestrator-gates.js" },
-        { "kind": "file", "path": "tests/decision-review-gate.test.js" }
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-decision-log.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "src/decision-review-gate.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/automate-orchestrator-gates.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/decision-review-gate.test.js"
+        }
       ]
     },
     {
@@ -59,7 +87,8 @@
         "Do not stamp PASS from agent. Do not invent free-text chat recovery after decline."
       ],
       "acceptance": [
-        "it - UX documents two-step: present package body then AskUserQuestion PASS|FAIL options in the same hardgate turn.; it - Free-text recovery (e.g. host asks operator to type decision-review PASS) is forbidden in prose and antipatterns.; it - Decline/cancel of AskUserQuestion re-opens the same question (bounded) or STOPs with nextAction to re-open AskUserQuestion — never chat typing.; it - Single-click PASS without package body in the same turn is forbidden."
+        "it - UX documents two-step: present package body then AskUserQuestion PASS|FAIL options in the same hardgate turn.; it - Free-text recovery (e.g. host asks operator to type decision-review PASS) is forbidden in prose and antipatterns.; it - Decline/cancel of AskUserQuestion re-opens the same question (bounded) or STOPs with nextAction to re-open AskUserQuestion — never chat typing.; it - Single-click PASS without package body in the same turn is forbidden.",
+        "it - Claiming package apresentado without rendering package body in the same AskUserQuestion turn is forbidden (dogfood 2026-07-26 screenshot + evidence file)."
       ],
       "verifier": {
         "kind": "shell",
@@ -67,11 +96,26 @@
         "expectExitCode": 0
       },
       "outputs": [
-        { "kind": "file", "path": "skills/shared/implement-decision-log.md" },
-        { "kind": "file", "path": "skills/shared/implement-automate-maestro.md" },
-        { "kind": "file", "path": "skills/shared/implement-antipatterns.md" },
-        { "kind": "file", "path": "skills/core/implement.md" },
-        { "kind": "file", "path": "docs/kb/implement-phase-agents-dogfood.md" }
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-decision-log.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-antipatterns.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/implement-phase-agents-dogfood.md"
+        }
       ]
     },
     {
@@ -91,10 +135,22 @@
         "expectExitCode": 0
       },
       "outputs": [
-        { "kind": "file", "path": "skills/shared/implement-automate-maestro.md" },
-        { "kind": "file", "path": "skills/shared/implement-antipatterns.md" },
-        { "kind": "file", "path": "skills/core/implement.md" },
-        { "kind": "file", "path": "docs/kb/implement-phase-agents-dogfood.md" }
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-antipatterns.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/implement-phase-agents-dogfood.md"
+        }
       ]
     }
   ],
@@ -129,5 +185,8 @@
       },
       "status": "pending"
     }
+  ],
+  "dogfoodEvidence": [
+    ".atomic-skills/reviews/2026-07-26-f0-decision-review-ask-without-package-body.md"
   ]
 }

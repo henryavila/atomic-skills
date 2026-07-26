@@ -493,3 +493,13 @@ token recovery after decline) **together with** present-before-PASS / decision
 package. Trigger: F0 pure-maestro asked the operator to type `decision-review PASS`
 after AskUserQuestion was declined. No separate F5 — implement with F1.
 
+### Dogfood evidence (2026-07-26) — ask without package body
+
+Live F0 close: AskUserQuestion asked PASS/FAIL with text "package apresentado abaixo"
+but **did not render** the decision package body in the same turn.
+
+- Evidence: `.atomic-skills/reviews/2026-07-26-f0-decision-review-ask-without-package-body.md`
+- Operator screenshot: session Image #1 (claim present, body missing)
+- Maps to F1 **T-002** (present-before-PASS) and **T-003** (AskUserQuestion with body in same turn)
+- F0 decision-review remains **not** PASSED on this capture
+

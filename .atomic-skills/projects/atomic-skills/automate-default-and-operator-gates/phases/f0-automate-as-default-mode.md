@@ -1,5 +1,4 @@
----
-schemaVersion: "0.1"
+---\nschemaVersion: "0.1"
 slug: automate-default-and-operator-gates-f0-automate-as-default-mode
 title: Automate as default mode
 goal: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
@@ -7,10 +6,10 @@ goal: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
 status: active
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T10:26:11.825Z
-nextAction: "F0 still open on decision-review: re-open AskUserQuestion PASS|FAIL
-  (never free-text). F1 expanded for present+AskUserQuestion-only when F0
-  closes."
+lastUpdated: 2026-07-26T10:55:34.860Z
+nextAction: Re-open decision-review AskUserQuestion WITH full package body in
+  same turn (see evidence
+  2026-07-26-f0-decision-review-ask-without-package-body.md), then PASS|FAIL
 parentPlan: automate-default-and-operator-gates
 phaseId: F0
 businessIntent:
@@ -147,9 +146,7 @@ emerged: []
 summary: Tornar automate o default do implement com escape Mode 1.
 planTitle: Automate default + operator gates (decision-review + plan-end intent)
 planActive: true
-current: true
----
-
+current: true\n---\n
 # Narrative / notes
 
 Initiative for phase **F0 — Automate as default mode**.
