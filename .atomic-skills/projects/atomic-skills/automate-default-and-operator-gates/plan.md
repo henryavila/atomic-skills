@@ -5,9 +5,9 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T10:26:33.026Z
+lastUpdated: 2026-07-26T22:26:55.511Z
 branch: plan/automate-default-and-operator-gates
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -108,14 +108,14 @@ phases:
             kind: shell
             command: node --test tests/implement-mode.test.js
             expectExitCode: 0
-          metAt: 2026-07-26T03:21:56.000Z
+          metAt: 2026-07-26T22:24:32.445Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-26T03:23:39.137Z
-            verifiedCommit: 5a1521b6cd5cba9868c313aac06ee86b85164eb6
+            verifiedAt: 2026-07-26T22:24:32.445Z
+            verifiedCommit: 95872f9fe798d25a6e9f4a8b56261c0952d55023
             passed: true
             exitCode: 0
-            outputSummary: F0-G1 re-verified at phase-done prep
+            outputSummary: F0-G1 re-verified at decision-review PASS / phase-done prep
         - id: F0-G2
           description: Skill prose states automate default and Mode-1 escape hatch.
           status: met
@@ -124,15 +124,15 @@ phases:
             command: rg -n 'default|Mode 1|--mode=1' skills/core/implement.md
               skills/shared/implement-automate-maestro.md
             expectExitCode: 0
-          metAt: 2026-07-26T03:21:56.000Z
+          metAt: 2026-07-26T22:24:32.445Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-26T03:23:39.137Z
-            verifiedCommit: 5a1521b6cd5cba9868c313aac06ee86b85164eb6
+            verifiedAt: 2026-07-26T22:24:32.445Z
+            verifiedCommit: 95872f9fe798d25a6e9f4a8b56261c0952d55023
             passed: true
             exitCode: 0
-            outputSummary: F0-G2 re-verified at phase-done prep
-    status: active
+            outputSummary: F0-G2 re-verified at decision-review PASS / phase-done prep
+    status: done
     businessIntent:
       value: Automate is the default implement path so multi-phase plans run
         pure-maestro without a mode flag, with Mode 1 only via explicit escape.
@@ -151,16 +151,21 @@ phases:
       status: passed
       verdict: pass
       reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F0.md
-      verifiedAt: 2026-07-26T03:23:39.137Z
-      at: 5a1521b6cd5cba9868c313aac06ee86b85164eb6
+      verifiedAt: 2026-07-26T22:24:32.445Z
+      at: 95872f9fe798d25a6e9f4a8b56261c0952d55023
     lessonsState: none
     reviewGate:
       status: passed
       mode: both
-      at: 5a1521b6cd5cba9868c313aac06ee86b85164eb6
+      at: 95872f9fe798d25a6e9f4a8b56261c0952d55023
       reviewFile: .atomic-skills/reviews/2026-07-26-automate-default-F0-phase-both.md
-      verifiedAt: 2026-07-26T03:23:39.137Z
+      verifiedAt: 2026-07-26T22:24:32.445Z
     noneReason: no lessons distilled — clean phase (operator ratified)
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-26T22:24:32.445Z
+      evidencePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F0.jsonl
+      at: 95872f9fe798d25a6e9f4a8b56261c0952d55023
   - id: F1
     slug: automate-default-and-operator-gates-f1-decision-review-read-bef
     title: Decision-review present-before-PASS + AskUserQuestion-only hardgates
@@ -502,4 +507,16 @@ but **did not render** the decision package body in the same turn.
 - Operator screenshot: session Image #1 (claim present, body missing)
 - Maps to F1 **T-002** (present-before-PASS) and **T-003** (AskUserQuestion with body in same turn)
 - F0 decision-review remains **not** PASSED on this capture
+
+
+## Self-review against code-quality gates (F0)
+
+- **G1 read-before-claim**: T-001/T-002 closed with verifier evidence + evaluation report path.
+- **G2 soft-language**: completion claims bound to evidence.passed / canRunPhaseDone.
+- **G6 reference-or-strike**: decision package path decisions/F0.jsonl presented in AskUserQuestion same turn as PASS.
+- **CROSS-MODEL REVIEW**: phase review mode both receipt at reviews/2026-07-26-automate-default-F0-phase-both.md.
+- **Review gate (G2)**: reviewGate passed mode both at 95872f9fe798d25a6e9f4a8b56261c0952d55023.
+- **Lessons (G1)**: lessonsState none (clean phase, operator ratified).
+- **decision-review**: operator PASS via AskUserQuestion with package body in same turn (2026-07-26T22:25:13.410Z).
+
 

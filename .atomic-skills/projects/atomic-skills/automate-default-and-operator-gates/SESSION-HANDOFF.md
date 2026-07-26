@@ -180,3 +180,11 @@ Não reabrir F4 escopo. Não misturar com Lekto product.
 ---
 
 *F0 tasks closed. Próxima sessão: phase-done F0 → materialize F1.*
+
+## F0 closed (2026-07-26)
+
+- decision-review **PASS** via AskUserQuestion with package body in the same turn.
+- phase-done terminal: F0 done/archived; `currentPhase: F1` (descriptor-only).
+- maestro cursor: `awaiting-operator-advance` (needs `operator-continue` before F1 package/materialize).
+- nextAction: present phase-start package for F1 validate-only
+

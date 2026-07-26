@@ -4,11 +4,11 @@ slug: automate-default-and-operator-gates-f0-automate-as-default-mode
 title: Automate as default mode
 goal: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
   docs/tests match.
-status: active
+status: archived
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T10:56:08.000Z
-nextAction: "Re-open decision-review AskUserQuestion WITH full package body in same turn (evidence 2026-07-26-f0-decision-review-ask-without-package-body.md), then PASS|FAIL"
+lastUpdated: 2026-07-26T22:25:13.696Z
+nextAction: present phase-start package for F1 validate-only
 parentPlan: automate-default-and-operator-gates
 phaseId: F0
 businessIntent:
@@ -38,15 +38,16 @@ exitGates:
       kind: shell
       command: node --test tests/implement-mode.test.js
       expectExitCode: 0
-    verifierLabel: "shell: node --test tests/implement-mode.test.js"
-    metAt: 2026-07-26T03:21:56.000Z
+    metAt: 2026-07-26T22:24:32.445Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-26T03:21:56.000Z
-      verifiedCommit: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+      verifiedAt: 2026-07-26T22:24:32.445Z
+      verifiedCommit: 95872f9fe798d25a6e9f4a8b56261c0952d55023
       passed: true
       exitCode: 0
-      outputSummary: node --test tests/implement-mode.test.js → tests 30 pass 30 fail 0
+      outputSummary: F0-G1 re-verified at phase-done
+    verifierLabel: "shell: node --test tests/implement-mode.test.js"
+    evidenceSummary: passed · 2026-07-26
   - id: F0-G2
     description: Skill prose states automate default and Mode-1 escape hatch.
     status: met
@@ -55,15 +56,16 @@ exitGates:
       command: rg -n 'default|Mode 1|--mode=1' skills/core/implement.md
         skills/shared/implement-automate-maestro.md
       expectExitCode: 0
-    verifierLabel: "shell: rg -n 'default|Mode 1|--mode=1' skills/core/implement.md sk…"
-    metAt: 2026-07-26T03:21:56.000Z
+    metAt: 2026-07-26T22:24:32.445Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-26T03:21:56.000Z
-      verifiedCommit: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+      verifiedAt: 2026-07-26T22:24:32.445Z
+      verifiedCommit: 95872f9fe798d25a6e9f4a8b56261c0952d55023
       passed: true
       exitCode: 0
-      outputSummary: rg -n 'default|Mode 1|--mode=1' implement.md maestro → exit 0
+      outputSummary: F0-G2 re-verified at phase-done
+    verifierLabel: "shell: rg -n 'default|Mode 1|--mode=1' skills/core/implement.md sk…"
+    evidenceSummary: passed · 2026-07-26
 stack:
   - id: 1
     title: Automate as default mode
@@ -162,11 +164,11 @@ Initiative for phase **F0 — Automate as default mode**.
 
 ## Session handoff
 
-- **Narrative:** F0 close blocked. Host opened AskUserQuestion for decision-review claiming "package apresentado abaixo" but **did not display** the decision package body in that turn (operator screenshot). Evidence saved for F1 T-002/T-003. Not a PASS.
-- **Decision log:** Captured entry decision-review-ask-without-package-body on F0.jsonl + F1 dogfood evidence entry.
-- **Single nextAction:** Re-open decision-review AskUserQuestion WITH full package body in same turn (evidence 2026-07-26-f0-decision-review-ask-without-package-body.md), then PASS|FAIL
-- **Verbatim state:** evidence `.atomic-skills/reviews/2026-07-26-f0-decision-review-ask-without-package-body.md`; log `decisions/F0.jsonl`; F1 source T-002/T-003.
-- **Uncommitted changes:** clean after fix commit.
+- **Narrative:** F0 closed via pure-maestro. decision-review PASS with package in same AskUserQuestion turn. evaluation/lessons/review/assert green. currentPhase advanced to F1 (descriptor-only). Automate pause: awaiting-operator-advance before next spawn/materialize.
+- **Decision log:** stamp y; skip writer; eval pass; lessons none; review both; schema lessonsState; dogfood ask-without-body captured for F1; decision-review PASS (package+options same turn).
+- **Single nextAction:** present phase-start package for F1 validate-only
+- **Verbatim state:** plan currentPhase F1; F0 status done; assert-automate-gate --gate phase-done exit 0; decisions/F0.jsonl; HEAD 95872f9fe798d25a6e9f4a8b56261c0952d55023.
+- **Uncommitted changes:** phase-done state pending checkpoint.
 
 
 ## Links
@@ -174,3 +176,12 @@ Initiative for phase **F0 — Automate as default mode**.
 - plan: `../plan.md`
 - design: `../design.md`
 - SESSION-HANDOFF: `../SESSION-HANDOFF.md`
+
+## Self-review against code-quality gates
+
+- G1: applied — T-001/T-002 + eval report
+- G2: applied — PASS via AskUserQuestion only
+- G6: applied — package path + evidence paths verbatim
+- Lessons: none (clean)
+- Review gate: both @ 95872f9fe798d25a6e9f4a8b56261c0952d55023
+- decision-review PASS @ 2026-07-26T22:25:13.410Z
