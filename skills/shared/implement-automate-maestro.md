@@ -3,6 +3,18 @@
 Consumed by `skills/core/implement.md` when `isAutomateActive`. Full Steps A–I,
 claim validation, complex-task review, evaluationGate, and plan-end gates.
 
+**Automate is the default implement path** (F0 — plan `automate-default-and-operator-gates`).
+Bare `implement` / no mode flag + no clear → pure-maestro. **Mode 1** requires explicit
+`--mode=1` / `mode:1`. Original opt-in-only principle (archived `implementation-automate-mode`
+P1) is **superseded**.
+
+**Gate activation rule (session default + stamp — P7 / critic F-001):** any path that runs
+pure-maestro under automate-default MUST feed the same activation into machine gates
+(`canRunPhaseDone`, `automatePlanEndGatesOk`, assert finalize, present-before-PASS when F1
+lands) via durable stamp **and/or** session `automateActive: true` / `isAutomateActive` —
+so first-session-before-stamp cannot skip present-before-PASS or intentVsDelivered. Do not
+treat "no stamp yet" as Mode 1 or as gate-off.
+
 Layer-1 STOP helpers (no spawn): `src/automate-orchestrator-gates.js`.
 Layer-2 assert CLI: `scripts/assert-automate-gate.js` (must run before C/E/G/I advances).
 Layer-2.5 thin **maestro cursor**: `src/maestro-cursor.js` — durable step pointer under `.atomic-skills/status/automate/<slug>.json` (not Layer 4; no spawn adapters).

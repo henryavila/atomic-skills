@@ -22,19 +22,23 @@ Referencia operacional para o ciclo `atomic-skills:project new plan` -> `materia
 ## After materialize — implement (including automate)
 
 Materialize only admits the phase for execution; it does not close tasks. Drive SPEC-admitted
-tasks with `atomic-skills:implement` (default Mode 1). Operators who want the host session as
-**pure maestro** (one code-only phase writer per phase, forced cross-model phase/complex
-review, plan-end `external-both` + user validation) pass **`--mode=automate`**. Full contract:
+tasks with `atomic-skills:implement`. **Automate is the default** (pure-maestro; plan
+`automate-default-and-operator-gates` F0 supersedes opt-in-only). Bare `implement` runs host-thin
+pure maestro (one code-only phase writer per phase, forced cross-model phase/complex review,
+plan-end `external-both` + user validation). **Mode 1** session-writer requires explicit
+**`--mode=1`**. Explicit `--mode=automate` remains valid. Full contract:
 `skills/core/implement.md` + `skills/shared/implement-automate-maestro.md`. Operator overview:
-`docs/concepts/project-tracking.md` § *Step 3.5 — Drive tasks (`implement`) and opt-in automate mode*.
+`docs/concepts/project-tracking.md` § *Step 3.5 — Drive tasks (`implement`)* (automate default;
+Mode 1 escape).
 
 ### Host-thin automate — phase-start package (draft → ratify → materialize)
 
-Under **`--mode=automate`** the host stays **host-thin** (dispatch / merge / verify / state only —
-no product source edits, no product entrypoint diagnostics). At every phase boundary and before
-each phase-writer spawn, automate runs the **phase-start package** ritual (shared at Step **B**
-and Step **H** in `implement-automate-maestro.md`). **Single sequenced contract** (no dual blank-form
-vs draft contradiction under automate):
+Under **automate** (`isAutomateActive` — default bare implement or `--mode=automate`) the host
+stays **host-thin** (dispatch / merge / verify / state only — no product source edits, no product
+entrypoint diagnostics). At every phase boundary and before each phase-writer spawn, automate
+runs the **phase-start package** ritual (shared at Step **B** and Step **H** in
+`implement-automate-maestro.md`). **Single sequenced contract** (no dual blank-form vs draft
+contradiction under automate):
 
 1. **Draft package only (ephemeral while descriptor-only):** present phase **objective** +
    **task list** (id + title, titles advisory) + **drafted** `businessIntent` spine. **No durable
