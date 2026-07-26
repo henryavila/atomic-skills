@@ -162,3 +162,4 @@
 {"ts":"2026-07-24T21:09:07.741Z","event":"task-done","projectId":"atomic-skills","planSlug":"grok-phase-todo-projection","phaseId":"F4","taskId":"T-001","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-24T21:09:07.804Z","event":"task-done","projectId":"atomic-skills","planSlug":"grok-phase-todo-projection","phaseId":"F4","taskId":"T-002","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-24T22:25:20.741Z","event":"phase-done","projectId":"atomic-skills","planSlug":"grok-phase-todo-projection","phaseId":"F4","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":10,"locAdded":506,"locRemoved":29,"commits":11}}
+{"ts":"2026-07-26T03:07:13.185Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-default-and-operator-gates","phaseId":"F0","taskId":"T-001","weight":1,"weightBasis":"count"}

@@ -308,6 +308,8 @@ phases:
       ratifiedBy: human
       lastReviewedAt: 2026-07-26T02:04:34.265Z
 references: []
+planActive: true
+planTitle: Automate default + operator gates (decision-review + plan-end intent)
 ---
 
 # Automate default + operator gates (decision-review + plan-end intent)
