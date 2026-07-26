@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T03:19:38.000Z
+lastUpdated: 2026-07-26T03:21:56.000Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F0
 parallelismAllowed: false
@@ -103,19 +103,35 @@ phases:
       criteria:
         - id: F0-G1
           description: implement-mode unit tests green with automate-default matrix.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/implement-mode.test.js
             expectExitCode: 0
+          metAt: 2026-07-26T03:21:56.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-26T03:21:56.000Z
+            verifiedCommit: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+            passed: true
+            exitCode: 0
+            outputSummary: F0-G1 re-verified at phase-done prep
         - id: F0-G2
           description: Skill prose states automate default and Mode-1 escape hatch.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'default|Mode 1|--mode=1' skills/core/implement.md
               skills/shared/implement-automate-maestro.md
             expectExitCode: 0
+          metAt: 2026-07-26T03:21:56.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-26T03:21:56.000Z
+            verifiedCommit: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+            passed: true
+            exitCode: 0
+            outputSummary: F0-G2 re-verified at phase-done prep
     status: active
     businessIntent:
       value: Automate is the default implement path so multi-phase plans run
@@ -137,6 +153,13 @@ phases:
       reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F0.md
       verifiedAt: 2026-07-26T03:19:38.000Z
       at: 5b5c136513618c219c390047c0cd1c8b745269ec
+    lessonsState: none
+    reviewGate:
+      status: passed
+      mode: both
+      at: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+      reviewFile: .atomic-skills/reviews/2026-07-26-automate-default-F0-phase-both.md
+      verifiedAt: 2026-07-26T03:21:56.000Z
   - id: F1
     slug: automate-default-and-operator-gates-f1-decision-review-read-bef
     title: Decision-review read-before-PASS

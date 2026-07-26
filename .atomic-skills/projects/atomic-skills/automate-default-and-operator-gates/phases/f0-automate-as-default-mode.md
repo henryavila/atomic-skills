@@ -7,7 +7,7 @@ goal: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
 status: active
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T03:09:20.000Z
+lastUpdated: 2026-07-26T03:21:56.000Z
 nextAction: Run phase-done after F0-G1/F0-G2 exit gates + review policy
 parentPlan: automate-default-and-operator-gates
 phaseId: F0
@@ -26,28 +26,44 @@ businessIntent:
     automate default and Mode-1 escape; F0-G1 and F0-G2 met.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 5
 weightTotal: 5
 exitGates:
   - id: F0-G1
     description: implement-mode unit tests green with automate-default matrix.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/implement-mode.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/implement-mode.test.js"
+    metAt: 2026-07-26T03:21:56.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T03:21:56.000Z
+      verifiedCommit: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/implement-mode.test.js → tests 30 pass 30 fail 0
   - id: F0-G2
     description: Skill prose states automate default and Mode-1 escape hatch.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'default|Mode 1|--mode=1' skills/core/implement.md
         skills/shared/implement-automate-maestro.md
       expectExitCode: 0
     verifierLabel: "shell: rg -n 'default|Mode 1|--mode=1' skills/core/implement.md sk…"
+    metAt: 2026-07-26T03:21:56.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T03:21:56.000Z
+      verifiedCommit: 25c08adc4311ddc52ba571de72bf8ec442fbc131
+      passed: true
+      exitCode: 0
+      outputSummary: rg -n 'default|Mode 1|--mode=1' implement.md maestro → exit 0
 stack:
   - id: 1
     title: Automate as default mode
