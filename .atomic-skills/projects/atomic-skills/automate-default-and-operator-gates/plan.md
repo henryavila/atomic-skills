@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-25T22:39:25.331Z
+lastUpdated: 2026-07-26T02:04:34.265Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F0
 parallelismAllowed: false
@@ -210,6 +210,103 @@ phases:
             expectExitCode: 0
     status: pending
     summary: Checklist dogfood dos três gates.
+  - id: F4
+    slug: automate-default-and-operator-gates-f4-receipt-auth
+    title: Receipt authenticity and close-path integrity
+    goal: Fail-closed authenticity for phase review dual-leg and evaluation floors;
+      major disposition tokens; decision-log statusRoot normalize; phase-done
+      mirror/assert path (no host hand-edit).
+    dependsOn:
+      - F3
+    subPhaseCount: 0
+    exitGate:
+      summary: 4 criteria to meet
+      criteria:
+        - id: F4-G1
+          description: phase-review authenticity tests pass (dual leg, min size,
+            non-binary reject stub/corrupt).
+          status: pending
+          verifier:
+            kind: shell
+            command: node --test tests/phase-review-gate.test.js && rg -n
+              'authenticity|dual-leg|stub|non-binary' src/phase-review-gate.js
+              skills/shared/implement-automate-maestro.md
+            expectExitCode: 0
+        - id: F4-G2
+          description: decision-log statusRoot normalize tests pass; double projects path
+            rejected or fixed.
+          status: pending
+          verifier:
+            kind: shell
+            command: node --test tests/decision-log.test.js
+            expectExitCode: 0
+        - id: F4-G3
+          description: Prose requires present dual-leg authenticity, disposition token,
+            canonical phase-done (no hand-edit).
+          status: pending
+          verifier:
+            kind: shell
+            command: rg -n
+              'authenticity|dual-leg|non-binary|disposition|statusRoot|hand-edit|mirror'
+              skills/shared/implement-automate-maestro.md
+              skills/shared/implement-antipatterns.md
+              skills/shared/project-assets/project-transitions.md
+              src/phase-review-gate.js src/decision-log.js
+            expectExitCode: 0
+        - id: F4-G4
+          description: assert or unit tests cover exitGate mirror / terminal pending block
+            under automate close.
+          status: pending
+          verifier:
+            kind: shell
+            command: node --test tests/lifecycle-order-guard.test.js && rg -n
+              'mirror|exitGate|hand-edit|terminal-pending' src/
+              skills/shared/project-assets/project-transitions.md
+              skills/shared/implement-antipatterns.md
+            expectExitCode: 0
+    status: pending
+    summary: "Hardening: authenticity de review dual-leg, disposition e integrity do
+      phase-done."
+    businessIntent:
+      value: Fases sob automate não podem carimbar reviewGate/evaluationGate passed
+        com receipt stub ou disposition major sem token do operador; phase-done
+        não deixa archive com exitGates mentindo; decision-log não aceita
+        statusRoot que duplica projects/.
+      workflow: "TDD: authenticity floor em phase-review-gate (dual path, min size,
+        non-binary); evaluation content floor; disposition major exige token
+        operator (decline != accept); decisionLogPath normaliza statusRoot;
+        assert mirror exitGates + validate-state no dir do plan e antipattern
+        hand-edit phase-done; prosa maestro/transitions; testes unitários e
+        greps de prosa."
+      rules: "Floor médio (não parser full codex). Não auto-merge. Não reabrir F0–F3.
+        Fora: post-merge Playwright, session-break, phase-done-apply script
+        completo, Layer 4. Host-thin permanece."
+      outOfScope: Post-merge e2e re-run (Cluster B); claims durable path;
+        session-break AskUserQuestion; phase-done-apply atômico completo; forçar
+        2 external providers; backlog produto Lekto; auto-PASS decision-review.
+      doneWhen: phase-done sob automate falha com stub/corrupt dual-leg; evaluation
+        thin sem floor falha; major sem disposition token bloqueia; statusRoot
+        double-projects rejeitado; mirror exitGates assert + prosa canônica;
+        F4-G* met.
+    provenance:
+      surfacedAt: 2026-07-26T02:04:34.265Z
+      surfacedDuring: plan-bootstrap/research-hardening
+      surfacedBy: ai
+    context:
+      solves: Carimbos reviewGate/evaluationGate e phase-done do dogfood mentiam
+        (stubs, disposition soft, archive gates pending, statusRoot errado).
+      trigger: "Pesquisa pós-dump + validação do operador: F4 no plano atual, núcleo
+        authenticity (floor médio), statusRoot e assert mirror phase-done."
+      assumesStillValid:
+        - phase-review-gate e evaluationGate continuam pointer-only até F4
+          estender honesty com I/O de arquivo
+        - F0–F3 do plano cobrem default/PASS cego/intent-vs-delivered e não
+          authenticity
+        - Operador aceita fail-closed mais duro em phase-done (stub bloqueia) em
+          troca de confiança no carimbo
+      ratifiedAt: 2026-07-26T02:04:34.265Z
+      ratifiedBy: human
+      lastReviewedAt: 2026-07-26T02:04:34.265Z
 references: []
 ---
 
@@ -247,7 +344,7 @@ O que o operador **precisa que deixe de ser verdade** depois deste plano:
 
 ### Coluna B — O que o plano prevê (entrega material)
 
-O que F0–F3 **vão implementar** se o plano fechar (escopo fechado):
+O que F0–F4 **vão implementar** se o plano fechar (escopo fechado):
 
 | Fase | Previsão de entrega |
 |------|---------------------|
@@ -255,8 +352,9 @@ O que F0–F3 **vão implementar** se o plano fechar (escopo fechado):
 | F1 | Helper de **decision package** + hardgate present-before-PASS + evidência machine (`packagePresentedAt` ou equivalente) + UX em dois passos. |
 | F2 | Collectors intent/delivered + brief plan-end + campo **`intentVsDelivered`** no receipt + wire em `planEndReviewOk` / assert finalize. |
 | F3 | Checklist dogfood dos três gates (prova operacional, não produto). |
+| F4 | Authenticity dual-leg (floor médio: dual path, min size, non-binary); evaluation content floor; disposition major com token operator; `statusRoot` normalize; phase-done mirror exitGates + assert + ban hand-edit. |
 
-**Previsão explícita de NÃO entrega neste plano:** authenticity de `review both` por fase (stubs F3–F6 do dump), re-run Playwright pós-merge, join `validate-state` archive, session-break pós-fase AskUserQuestion, auto-merge.
+**Previsão explícita de NÃO entrega neste plano (após F4):** re-run Playwright/e2e pós-merge (Cluster B); claims durable path; session-break pós-fase AskUserQuestion; script `phase-done-apply` atômico completo; auto-join argv de `validate-state` além do assert mirror; auto-merge.
 
 ### Coluna C — O que o plano assume que existe (e pode não existir)
 
@@ -285,7 +383,7 @@ Pressupostos **load-bearing**. Se falharem, a entrega de B não fecha a intenç�
 |-----|--------|
 | B fecha e C ok | A deve estar resolvida (dogfood F3). |
 | B fecha e C falhou em silêncio | Mesmo padrão do dump: carimbo verde, intenção aberta → **bug de plano/skill**. |
-| A precisa de algo fora de B | Emergir follow-up (não expandir F0–F3 em silêncio). |
+| A precisa de algo fora de B | Emergir follow-up (não expandir F0–F4 em silêncio). |
 
 ### Mapa intenção → fase → pressupostos críticos
 
@@ -294,7 +392,7 @@ Pressupostos **load-bearing**. Se falharem, a entrega de B não fecha a intenç�
 | I1 default automate | F0 | A8, A9, A10 |
 | I2 sem PASS cego | F1 | A1, A2, A3, A7 |
 | I3 intent vs delivered | F2 | A4, A5, A6, A8 |
-| I4 gates honestos | F1+F2 (+ F3 prova) | A1, A4, A5, A8 |
+| I4 gates honestos | F4 (+ F1/F2/F3 base) | A1, A2, A3, A4, A7, A8 |
 
 ## 2. Inviolable principles
 

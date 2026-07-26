@@ -136,10 +136,12 @@ not mark intention “done” by prose alone.
    `skills/core/automate.md`. Touch `src/implement-mode.js`, decision-log /
    decision-review gates, plan-end review, maestro/decision-log skill assets, KB.
 
-9. **Out of scope for this design (follow-up):** review-receipt authenticity matrix
-   for every phase (stub/corrupt F3–F6 in dogfood), post-merge Playwright re-run
-   enforcement, validate-state archive join, phase-end “new session vs continue”
-   AskUserQuestion — valuable dump follow-ups, not required to ship Decisions 1–7.
+9. **F4 absorbs first hardening slice (operator-ratified 2026-07-25):** phase review
+   dual-leg authenticity (medium floor), evaluation content floor, major disposition
+   tokens, decisionLog statusRoot normalize, phase-done mirror/assert + hand-edit ban.
+   **Still out of scope:** post-merge Playwright re-run, full validate-state auto-join
+   of all archives (optional later), phase-done-apply atomic script, session-break
+   AskUserQuestion, Layer 4 daemon.
 
 ## Chosen approach
 
