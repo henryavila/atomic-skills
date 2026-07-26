@@ -7,8 +7,8 @@ goal: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
 status: active
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T03:06:43.000Z
-nextAction: "Start T-002: update implement/maestro/antipatterns + kb for automate default"
+lastUpdated: 2026-07-26T03:09:20.000Z
+nextAction: Run phase-done after F0-G1/F0-G2 exit gates + review policy
 parentPlan: automate-default-and-operator-gates
 phaseId: F0
 businessIntent:
@@ -24,11 +24,11 @@ businessIntent:
     follow-ups.
   doneWhen: implement-mode tests green for no-CLI no-stamp true; prose states
     automate default and Mode-1 escape; F0-G1 and F0-G2 met.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 3
+weightDone: 5
 weightTotal: 5
 exitGates:
   - id: F0-G1
@@ -87,8 +87,9 @@ tasks:
     weight: 3
   - id: T-002
     title: Skill prose and antipatterns for automate default
-    status: pending
-    lastUpdated: 2026-07-25T22:39:25.331Z
+    status: done
+    closedAt: 2026-07-26T03:09:20.000Z
+    lastUpdated: 2026-07-26T03:09:20.000Z
     scopeBoundary:
       - Do not delete host-thin or never self-certify laws. Do not document
         silent Mode-1 fallback as allowed.
@@ -103,6 +104,15 @@ tasks:
       command: rg -n 'default|Mode 1|--mode=1' skills/core/implement.md
         skills/shared/implement-automate-maestro.md
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-26T03:09:20.000Z
+      verifiedCommit: a588996a17eeb36820c2f522b1ef8e34bec77c88
+      passed: true
+      exitCode: 0
+      outputSummary: rg -n 'default|Mode 1|--mode=1' skills/core/implement.md
+        skills/shared/implement-automate-maestro.md → exit 0 (matches include
+        automate default + --mode=1)
     outputs:
       - kind: file
         path: skills/core/implement.md
@@ -136,18 +146,21 @@ Initiative for phase **F0 — Automate as default mode**.
 
 ## Session handoff
 
-- **Narrative:** F0 T-001 closed. `isAutomateActive` is ON by default (no CLI,
-  no non-automate stamp, no clear). Mode 1 escape via `--mode=1` / `mode:1`.
-  Collateral: `tests/implement-automate-contract.test.js` updated for default-ON.
-  T-002 (prose/antipatterns/kb) is next.
-- **Decision log:** Mode 1 for this plan's F0 coding (circular pure-maestro until
-  default lands). F4 scope not reopened. No Lekto product work.
-- **Single nextAction:** Start T-002: update implement/maestro/antipatterns + kb for automate default
-- **Verbatim state:** `node --test tests/implement-mode.test.js` → pass 30/30;
-  HEAD at close `96b8e898a889a7fb4a3d48f6b62a2bc40623a3d8`; paths
+- **Narrative:** F0 tasks T-001 and T-002 are both `done`. Machine default
+  (`isAutomateActive` true with no CLI/stamp/clear) and skill prose (automate
+  default, Mode 1 `--mode=1`, superseded opt-in-only, gate activation P7,
+  bare-implement antipattern) match. Last task of F0 closed — run `phase-done`
+  next (exit gates F0-G1/F0-G2 + review); do not auto-advance.
+- **Decision log:** F0 coded under Mode 1 to avoid pure-maestro circularity.
+  F4 not reopened. Lekto product out of scope. Unstamp alone stays default-ON.
+- **Single nextAction:** Run `phase-done` after F0-G1/F0-G2 exit gates + review policy
+- **Verbatim state:** T-001 `node --test tests/implement-mode.test.js` pass 30/30
+  @ `96b8e898…`; T-002 `rg -n 'default|Mode 1|--mode=1' skills/core/implement.md
+  skills/shared/implement-automate-maestro.md` exit 0 @ `a588996a…`; paths
   `src/implement-mode.js`, `tests/implement-mode.test.js`,
-  `tests/implement-automate-contract.test.js`.
-- **Uncommitted changes:** clean tree after checkpoint (or only this state close).
+  `skills/core/implement.md`, `skills/shared/implement-automate-maestro.md`,
+  `skills/shared/implement-antipatterns.md`, `docs/kb/project-lazy-materialization.md`.
+- **Uncommitted changes:** clean tree after T-002 checkpoint.
 
 ## Links
 
