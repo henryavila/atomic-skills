@@ -1,18 +1,25 @@
 /**
- * Pure implement mode parse + automate-active detection (design D1, D14 / F2 T-009).
+ * Pure implement mode parse + automate-active detection
+ * (design D1, D14 / F2 T-009; F0 automate-default supersedes opt-in-only).
  *
  * No I/O. Skill bodies and transitions share these helpers so CLI flag,
  * plan executionMode stamp, and clear path resolve consistently.
  *
+ * Default (F0 — plan automate-default-and-operator-gates):
+ * - Absent CLI mode + no non-automate stamp + no clear → `isAutomateActive` **true**
+ *   (bare `implement` runs pure-maestro). Mode 1 requires explicit escape
+ *   (`--mode=1` / `mode:1` / known Mode-1 tokens).
+ *
  * Stamp lifecycle:
- * - First confirmed `implement --mode=automate` → after interactive operator `y`,
+ * - First confirmed automate entry → after interactive operator `y`,
  *   stamp plan frontmatter `executionMode: 'automate'` via `stampExecutionMode`.
  * - Stamp alone → `isAutomateActive({ planExecutionMode: 'automate' })` true
  *   until clear. **Do not** pass a non-explicit `cliMode: 'default'` from parse —
- *   absent mode returns `mode: undefined` so stamp re-entry works.
+ *   absent mode returns `mode: undefined` so stamp re-entry and default-ON work.
  * - Clear: CLI `--clear-execution-mode` (parse sets clearExecutionMode) and/or
  *   `clearExecutionModeStamp(plan)` removing the field; record in decision log.
- * - Plans without `executionMode` remain valid (optional schema field).
+ * - Plans without `executionMode` remain valid (optional schema field); absence
+ *   no longer means Mode 1 — it means automate-default for the session.
  */
 
 /** @typedef {'default' | 'mode1' | '1' | 'automate' | '2'} ImplementMode */
@@ -167,7 +174,7 @@ export function parseImplementMode(argvLike) {
 /**
  * Whether pure-maestro automate mode is active for this session.
  *
- * Precedence (design open-Q1 closed + M4 explicit non-automate CLI override):
+ * Precedence (F0 automate-default + M4 explicit non-automate CLI override):
  * 1. clearExecutionMode true → false (always wins)
  * 2. cliMode === 'automate' → true
  * 3. cliMode is a provided known non-automate mode (1/mode1/default/2/…)
@@ -175,12 +182,14 @@ export function parseImplementMode(argvLike) {
  *    plan-end gates use stamp alone — see plan-end-review)
  * 4. planExecutionMode / stamp === 'automate' with no CLI mode provided
  *    (undefined/null/omitted) → true (stamp-alone re-entry)
- * 5. else false
+ * 5. planExecutionMode is a known non-automate stamp (mode1/1/default/2/…)
+ *    → false (explicit durable Mode-1 / Mode-2 stamp)
+ * 6. else true — **automate is ON by default** when nothing opts out
+ *    (supersedes archived opt-in-only P1; plan automate-default-and-operator-gates)
  *
- * **F1:** if `cliMode` is `undefined`/`null`/blank → no CLI override; stamp wins.
- * Callers must pass `parseImplementMode(...).mode` as-is (undefined when absent).
- *
- * Automate is OFF by default when nothing is set.
+ * **Parse contract:** if `cliMode` is `undefined`/`null`/blank → no CLI override;
+ * stamp or default-ON applies. Callers must pass `parseImplementMode(...).mode`
+ * as-is (undefined when absent) — never invent `cliMode: 'default'`.
  *
  * @param {{
  *   cliMode?: string | null,
@@ -205,24 +214,32 @@ export function isAutomateActive(input = {}) {
     if (cli === 'automate') {
       return true;
     }
-    // Known non-automate CLI overrides stamp only when the mode was actually
-    // provided (cliRaw non-empty). parseImplementMode leaves mode undefined
-    // when no flag — so stamp re-entry is not broken by a synthetic 'default'.
+    // Known non-automate CLI overrides stamp/default only when the mode was
+    // actually provided (cliRaw non-empty). parseImplementMode leaves mode
+    // undefined when no flag — so stamp re-entry and default-ON stay intact.
     if (isKnownMode(cliRaw)) {
       return false;
     }
-    // Unknown cliMode: fall through to stamp (do not invent activate).
+    // Unknown cliMode: fall through to stamp / default-ON.
   }
 
-  const stamp =
+  const stampRaw =
     input.planExecutionMode != null && String(input.planExecutionMode).trim() !== ''
-      ? normalizeModeToken(String(input.planExecutionMode))
+      ? String(input.planExecutionMode)
       : '';
-  if (stamp === 'automate') {
-    return true;
+  if (stampRaw !== '') {
+    const stamp = normalizeModeToken(stampRaw);
+    if (stamp === 'automate') {
+      return true;
+    }
+    // Explicit non-automate durable stamp keeps automate off.
+    if (isKnownMode(stampRaw)) {
+      return false;
+    }
   }
 
-  return false;
+  // F0: bare implement / no opt-out → pure-maestro default ON.
+  return true;
 }
 
 /**

@@ -163,11 +163,17 @@ describe('implement automate helper wiring (imports + fail-closed)', () => {
     assert.equal(parsed.mode, 'automate');
     assert.equal(parsed.modeExplicit, true);
     assert.equal(isAutomateActive({ cliMode: 'automate' }), true);
-    assert.equal(isAutomateActive({}), false);
+    // F0: automate is ON by default when nothing opts out
+    assert.equal(isAutomateActive({}), true);
     assert.equal(
       isAutomateActive({ planExecutionMode: 'automate' }),
       true,
       'stamp alone re-enters automate',
+    );
+    assert.equal(
+      isAutomateActive({ cliMode: '1' }),
+      false,
+      'explicit Mode 1 escape stays off',
     );
     assert.equal(
       isAutomateActive({
