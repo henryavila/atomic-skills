@@ -350,6 +350,8 @@ test('allows phase-done commit when tasks, gates met, review, lessons, and finge
 const automateDecisionReviewPassed = {
   status: 'passed',
   verifiedAt: '2026-07-23T12:00:00.000Z',
+  packagePresentedAt: '2026-07-23T11:59:00.000Z',
+  packagePath: 'decisions/F0.jsonl',
 };
 
 test('B1: under durable automate, reviewGate skipped is blocked even with reason', () => {
@@ -622,6 +624,8 @@ test('preflightPhaseDone allows automate when evaluationGate and decisionReview 
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-23T12:00:00.000Z',
+            packagePresentedAt: '2026-07-23T11:59:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
           },
         },
       ],
@@ -679,6 +683,8 @@ test('top-level executionMode automate: preflight/commitGuard allow when decisio
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-23T12:00:00.000Z',
+            packagePresentedAt: '2026-07-23T11:59:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
           },
         },
       ],
@@ -687,6 +693,8 @@ test('top-level executionMode automate: preflight/commitGuard allow when decisio
     decisionReview: {
       status: 'passed',
       verifiedAt: '2026-07-23T12:00:00.000Z',
+      packagePresentedAt: '2026-07-23T11:59:00.000Z',
+      packagePath: 'decisions/F0.jsonl',
     },
     reviewGate: { status: 'passed', at: FP, mode: 'both' },
   });

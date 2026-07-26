@@ -164,6 +164,12 @@ function writePlan(root, opts = {}) {
       if (dr.status != null) lines.push(`      status: ${dr.status}`);
       if (dr.verifiedAt != null) lines.push(`      verifiedAt: "${dr.verifiedAt}"`);
       if (dr.evidencePath != null) lines.push(`      evidencePath: "${dr.evidencePath}"`);
+      if (dr.packagePresentedAt != null) {
+        lines.push(`      packagePresentedAt: "${dr.packagePresentedAt}"`);
+      }
+      if (dr.packagePath != null) {
+        lines.push(`      packagePath: "${dr.packagePath}"`);
+      }
     }
   }
   lines.push('---');
@@ -731,6 +737,8 @@ describe('assert-automate-gate CLI', () => {
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-21T00:00:00.000Z',
+            packagePresentedAt: '2026-07-21T00:00:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
           },
         });
         const stateRoot = join(root, '.atomic-skills');
@@ -876,6 +884,8 @@ describe('assert-automate-gate CLI', () => {
         decisionReview: {
           status: 'passed',
           verifiedAt: '2026-07-21T00:00:00.000Z',
+          packagePresentedAt: '2026-07-21T00:00:00.000Z',
+          packagePath: 'decisions/F0.jsonl',
         },
       });
       writePlan(root, {
@@ -1003,6 +1013,8 @@ describe('assert-automate-gate CLI', () => {
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-21T00:00:00.000Z',
+            packagePresentedAt: '2026-07-21T00:00:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
           },
         });
         const stateRoot = join(root, '.atomic-skills');

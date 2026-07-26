@@ -28,8 +28,11 @@ describe('shouldRunPureMaestro', () => {
   it('true for cli automate', () => {
     assert.equal(shouldRunPureMaestro({ cliMode: 'automate' }), true);
   });
-  it('false by default', () => {
-    assert.equal(shouldRunPureMaestro({}), false);
+  it('true by default (automate-default F0 — bare implement is pure-maestro)', () => {
+    assert.equal(shouldRunPureMaestro({}), true);
+  });
+  it('false for explicit Mode 1', () => {
+    assert.equal(shouldRunPureMaestro({ cliMode: '1' }), false);
   });
   it('stamp alone true; clear flag false', () => {
     assert.equal(shouldRunPureMaestro({ planExecutionMode: 'automate' }), true);
@@ -483,6 +486,8 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
   const decisionPassed = {
     status: 'passed',
     verifiedAt: '2026-07-23T12:00:00.000Z',
+    packagePresentedAt: '2026-07-23T11:59:00.000Z',
+    packagePath: 'decisions/F0.jsonl',
   };
   const reviewBoth = {
     status: 'passed',

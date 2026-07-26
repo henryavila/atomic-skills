@@ -1,13 +1,26 @@
 {
   "id": "phase-done-allowed",
-  "description": "decisionReview passed (with verifiedAt) + evaluationGate passed under automate ⇒ canRunPhaseDone true when other automate requirements are satisfied (mocked here as pure gate inputs).",
+  "description": "decisionReview passed (with verifiedAt + present-before-PASS package evidence) + evaluationGate passed under automate ⇒ canRunPhaseDone true when other automate requirements are satisfied (mocked here as pure gate inputs).",
   "phaseDoneInput": {
     "planExecutionMode": "automate",
-    "evaluationGate": { "status": "passed", "verdict": "pass" },
+    "evaluationGate": {
+      "status": "passed",
+      "verdict": "pass",
+      "reportPath": ".atomic-skills/reviews/eval-demo.md"
+    },
+    "lessonsState": "none",
+    "reviewGate": {
+      "status": "passed",
+      "mode": "both",
+      "at": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reviewFile": ".atomic-skills/reviews/f0-both.md"
+    },
     "decisionReview": {
       "status": "passed",
       "verifiedAt": "2026-07-23T12:00:00.000Z",
-      "evidencePath": "tests/fixtures/implement-phase-agents/decisions-sample.jsonl"
+      "evidencePath": "tests/fixtures/implement-phase-agents/decisions-sample.jsonl",
+      "packagePresentedAt": "2026-07-23T11:59:00.000Z",
+      "packagePath": "tests/fixtures/implement-phase-agents/decisions-sample.jsonl"
     }
   },
   "expect": {
