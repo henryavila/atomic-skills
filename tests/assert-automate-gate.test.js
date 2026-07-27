@@ -820,6 +820,46 @@ describe('assert-automate-gate CLI', () => {
       }
     });
 
+    it('exit 1 when intentVsDelivered missing under automate (F2 intent-vs-delivered)', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, {
+          executionMode: 'automate',
+          planEndReview: {
+            mode: 'external-both',
+            reviewFile: '.atomic-skills/reviews/x-plan-end.md',
+            verifiedAt: '2026-07-21T00:00:00.000Z',
+            legs: [
+              { provider: 'codex', status: 'succeeded', familyDifferent: true },
+            ],
+            // no intentVsDelivered
+          },
+          userValidatedAt: '2026-07-21T12:00:00.000Z',
+        });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'I');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'finalize',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /blocked/i);
+        assert.match(combined(r), /intentVsDelivered|intent-vs-delivered/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
     it('exit 0 when plan-end receipt + userValidatedAt ok', () => {
       const root = tmpRoot();
       try {

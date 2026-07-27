@@ -323,6 +323,12 @@ export function canRunPhaseDone(input = {}) {
 /**
  * Before finalize/archive: durable automate plan-end gates.
  *
+ * Under automate (stamp and/or automateActive), requires planEndReviewOk with
+ * forbidSkip — including non-empty `intentVsDelivered` rows (F2 intent-vs-delivered:
+ * status matched|partial|missing|extra) — AND operator-owned userValidationOk.
+ * Skip path stays HARD-CLOSED. Session clear alone does not open finalize while
+ * the stamp remains.
+ *
  * @param {Parameters<typeof automatePlanEndGatesOk>[0]} [input]
  * @returns {ReturnType<typeof automatePlanEndGatesOk>}
  */
