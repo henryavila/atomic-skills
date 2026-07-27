@@ -128,6 +128,18 @@ function writePlan(root, opts = {}) {
         );
       }
     }
+    // F2 intent-vs-delivered rows (required under automate finalize)
+    if (Array.isArray(r.intentVsDelivered)) {
+      lines.push('  intentVsDelivered:');
+      for (const row of r.intentVsDelivered) {
+        const id = row.id != null ? `id: ${JSON.stringify(String(row.id))}, ` : '';
+        const label =
+          row.label != null ? `label: ${JSON.stringify(String(row.label))}, ` : '';
+        lines.push(
+          `    - { ${id}${label}status: ${row.status} }`,
+        );
+      }
+    }
   }
   lines.push('phases:');
   for (const p of phases) {
@@ -819,6 +831,9 @@ describe('assert-automate-gate CLI', () => {
             verifiedAt: '2026-07-21T00:00:00.000Z',
             legs: [
               { provider: 'codex', status: 'succeeded', familyDifferent: true },
+            ],
+            intentVsDelivered: [
+              { id: 'ivd:1', label: 'demo intent', status: 'matched' },
             ],
           },
           userValidatedAt: '2026-07-21T12:00:00.000Z',
