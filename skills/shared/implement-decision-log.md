@@ -67,7 +67,7 @@ Optional fields (allowed, never required for append): `phaseId`, `taskId`,
 |----------|----------|
 | `routing` | Re-dispatch, stop, leave-automate, Mode-1 re-entry, spawn/skip phase agent. |
 | `tradeoff` | Product/eng tradeoff that changes behavior beyond pure task text. |
-| `review-disposition` | Review severity disposition: `accept` \| `defer` \| `fix` (or equivalent). |
+| `review-disposition` | Review severity disposition: `accept` \| `defer` \| `fix` (or equivalent). **Open major findings block phase-done** without one of these operator tokens (`majorDispositionAllowsClose`). **Decline ≠ accept:** AskUserQuestion decline/cancel is not a disposition — re-Ask or STOP; host judgment accept after decline fails the gate. |
 | `scope-exit` | Required violation of `scopeBoundary` / runtime scope exit. |
 | `manual-gate-delegation` | Manual gate parked, delegated, or operator-owned step deferred with reason. |
 | `env` | Verifier environment / tool / runtime choice that affects reproducibility. |

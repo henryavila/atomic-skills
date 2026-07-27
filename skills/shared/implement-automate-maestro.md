@@ -83,7 +83,7 @@ Under automate, these operator hardgates use **AskUserQuestion options only** (o
 |----------|----------------------|----------------------------|--------------------|
 | **operator-continue** | `clearContinue` / `operator-continue` | Continue to next phase \| Stop | **Forbidden** |
 | **ratify** (phase-start package) | package ratify / BI spine accept | Ratify package \| Edit BI then ratify \| Reject | **Forbidden** |
-| **disposition** (review severity) | `accept` \| `defer` \| `fix` | Accept \| Defer \| Fix | **Forbidden** |
+| **disposition** (review severity) | `accept` \| `defer` \| `fix` | Accept \| Defer \| Fix | **Forbidden** — **decline ≠ accept**; open majors block phase-done without token (`majorDispositionAllowsClose`) |
 | **decision-review** | `decisionReview` PASS\|FAIL + present evidence | PASS \| FAIL \| Re-show package | **Forbidden** — package body in same turn |
 | **stamp** (y/N confirmations) | durable stamp writes | Yes stamp \| No / cancel | **Forbidden** |
 
@@ -174,6 +174,6 @@ Under automate, **before orchestrator `done` on a complex task** (pure helper: `
 2. If complex → run **`review-code --mode=both`** on that validated range (`resolveReviewRoute` still applies same-family remap).
 3. **Severity gate:**
    - **blocker / critical** → **block `done`** until re-dispatch (code-only fix agent, max **2**) or operator disposition recorded in the decisions log.
-   - **major** → surface for operator triage; require disposition **`accept` | `defer` | `fix`** recorded before close (do not auto-close majors without a disposition).
+   - **major** → surface for operator triage; require disposition **`accept` | `defer` | `fix`** recorded before close (do not auto-close majors without a disposition). **Open major findings block phase-done** without that operator token (`majorDispositionAllowsClose` / `canRunPhaseDone`). **Decline ≠ accept:** AskUserQuestion decline is not disposition accept — re-Ask or STOP; host judgment accept after decline fails the gate.
 4. **Durable receipt:** leave a review receipt / evidence path (under `.atomic-skills/reviews/` when written) with **mode both** linked from the decisions log / handoff **before** `done`, or record operator skip with disposition + reason. `complexTaskAllowsDone` must return `ok` — no receipt + complex required ⇒ do not close.
 5. **Non-complex tasks** close with **verifier-only** under existing GATE-R2 (`complexTaskAllowsDone` path `verifier-only`) — no forced per-task cross-model `review-code --mode=both`.

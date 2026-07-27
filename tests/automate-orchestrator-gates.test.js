@@ -9,6 +9,8 @@ import {
   canRunPhaseDone,
   canFinalizeOrArchive,
   automateModeSnapshot,
+  majorDispositionAllowsClose,
+  MAJOR_DISPOSITION_TOKENS,
 } from '../src/automate-orchestrator-gates.js';
 import { complexTaskAllowsDone } from '../src/complex-task.js';
 import {
@@ -474,6 +476,79 @@ describe('complexTaskAllowsDone (complex-before-done under automate)', () => {
       }).ok,
       false,
     );
+  });
+});
+
+describe('majorDispositionAllowsClose (F4)', () => {
+  it('allows when no open major findings', () => {
+    assert.equal(majorDispositionAllowsClose({}).ok, true);
+    assert.equal(majorDispositionAllowsClose({ openMajorFindings: [] }).ok, true);
+  });
+
+  it('blocks open majors without disposition token', () => {
+    const r = majorDispositionAllowsClose({
+      openMajorFindings: [{ severity: 'major', summary: 'leaky path' }],
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /disposition|accept|defer|fix/i);
+  });
+
+  it('accepts operator disposition accept|defer|fix', () => {
+    for (const d of MAJOR_DISPOSITION_TOKENS) {
+      const r = majorDispositionAllowsClose({
+        openMajorFindings: [{ severity: 'major' }],
+        disposition: d,
+      });
+      assert.equal(r.ok, true, `token ${d}: ${r.reason}`);
+    }
+  });
+
+  it('decline is not accept', () => {
+    const r = majorDispositionAllowsClose({
+      openMajorFindings: [{ severity: 'major' }],
+      disposition: 'accept',
+      askUserQuestionDeclined: true,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /decline/i);
+  });
+
+  it('host judgment accept after decline fails gate', () => {
+    const r = majorDispositionAllowsClose({
+      openMajorFindings: [{ severity: 'major' }],
+      disposition: 'accept',
+      hostJudgmentAccept: true,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /host judgment|decline/i);
+  });
+
+  it('canRunPhaseDone blocks open majors without disposition', () => {
+    const r = canRunPhaseDone({
+      planExecutionMode: 'automate',
+      evaluationGate: {
+        status: 'passed',
+        verdict: 'pass',
+        reportPath: '.atomic-skills/reviews/eval-demo.md',
+      },
+      lessonsState: 'none',
+      reviewGate: {
+        status: 'passed',
+        mode: 'both',
+        at: 'a'.repeat(40),
+        reviewFile: '.atomic-skills/reviews/f0-both.md',
+        localReceiptPath: '.atomic-skills/reviews/f0-local.md',
+        codexReceiptPath: '.atomic-skills/reviews/f0-codex.md',
+      },
+      decisionReview: {
+        status: 'passed',
+        verifiedAt: '2026-07-23T12:00:00.000Z',
+        packagePresentedAt: '2026-07-23T11:59:00.000Z',
+      },
+      openMajorFindings: [{ severity: 'major', summary: 'open' }],
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /disposition|major/i);
   });
 });
 
