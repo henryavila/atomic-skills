@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-27T07:38:31.288Z
+lastUpdated: 2026-07-27T07:49:18.073Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F2
 parallelismAllowed: false
@@ -311,8 +311,21 @@ phases:
             command: rg -n 'intent-vs-delivered|intentVsDelivered'
               skills/shared/implement-automate-maestro.md src/plan-end-review.js
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Review plan-end intent vs delivered com campo no receipt.
+    businessIntent:
+      value: Plan-end sob automate responde "entregamos o que o plano prometeu?" via
+        intent-vs-delivered machine-checkable no receipt.
+      workflow: TDD collectors intent/delivered → brief + receipt intentVsDelivered +
+        wire planEndReviewOk/assert finalize → prosa Step I.
+      rules: Fail-closed se intentVsDelivered vazio sob automate (session default ou
+        stamp); external-both mantém ≥1 leg family-different; skip plan-end
+        HARD-CLOSED sob stamp; userValidationOk continua operator-owned; sem
+        auto-merge.
+      outOfScope: F3 dogfood checklist; F4 authenticity dual-leg floors; Playwright
+        pós-merge; Lekto product; auto-PASS user validation.
+      doneWhen: tests intent-surface + plan-end green; receipt exige
+        intentVsDelivered; assert finalize falha se ausente; F2-G1/G2 met.
   - id: F3
     slug: automate-default-and-operator-gates-f3-dogfood-checklist
     title: Dogfood checklist
