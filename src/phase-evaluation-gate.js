@@ -5,19 +5,39 @@
  * has produced status=passed and verdict=pass. Skip / accept residual are
  * forbidden while the stamp holds (clear executionMode to leave automate).
  *
- * Authenticity (R3 / F1):
+ * Authenticity (R3 / F1 + F4 content floor):
  *   - status=passed requires verdict=pass AND non-empty reportPath
  *     (path to evaluationReport under .atomic-skills/reviews/ or documented path)
  *   - status=skipped requires operatorSkip===true AND non-empty reason
  *     (legacy retroactive skips are expressible ONLY via this pair — never
  *     silent skip-by-reason alone)
+ *   - F4 content floor (when report content is checked): report file must meet
+ *     min bytes **or** carry structured keys (verdict/findings/businessIntent/
+ *     exitGates). Thin 2-line verdict-only fails under automate.
  *
  * Non-automate: gate inactive (allows close).
- * No I/O — reportPath is a non-empty string pointer; on-disk existence is
- * orchestrator/evaluator responsibility, not this pure helper.
+ * Pointer honesty is pure; content floor uses injected reportContents or
+ * optional readFile (medium floor — not full BI re-eval).
  */
 
+import { isAbsolute, resolve } from 'node:path';
 import { isDurableAutomateActive } from './plan-end-review.js';
+
+/**
+ * Minimum UTF-8 byte length for evaluationReport content floor (F4).
+ * Thin 2-line verdict-only reports fail this floor.
+ */
+export const EVALUATION_REPORT_MIN_BYTES = 120;
+
+/** Structured keys that satisfy the content floor without relying on size alone. */
+export const EVALUATION_REPORT_CONTENT_KEYS = Object.freeze([
+  'verdict',
+  'findings',
+  'businessIntent',
+  'businessIntentCheck',
+  'exitGates',
+  'exitGate',
+]);
 
 /**
  * Whether durable automate evaluation order applies (stamp-first).
@@ -44,6 +64,153 @@ export function isDurableAutomateForEvaluation(input = {}) {
  *   at?: string | null,
  * }} EvaluationGate
  */
+
+/**
+ * Evaluation report content floor (F4 medium authenticity).
+ * Accepts content meeting min bytes OR carrying structured content keys.
+ * Thin 2-line verdict-only fails.
+ *
+ * @param {string | Buffer | Uint8Array | null | undefined} content
+ * @param {{ minBytes?: number, label?: string }} [opts]
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function evaluationReportContentFloor(content, opts = {}) {
+  const label = opts.label != null ? String(opts.label) : 'evaluationReport';
+  const minBytes =
+    typeof opts.minBytes === 'number' && opts.minBytes > 0
+      ? opts.minBytes
+      : EVALUATION_REPORT_MIN_BYTES;
+
+  if (content == null) {
+    return {
+      ok: false,
+      reason: `evaluationGate report content floor: ${label} missing`,
+    };
+  }
+
+  /** @type {string} */
+  let text;
+  if (Buffer.isBuffer(content) || content instanceof Uint8Array) {
+    const buf = Buffer.isBuffer(content) ? content : Buffer.from(content);
+    if (buf.includes(0)) {
+      return {
+        ok: false,
+        reason: `evaluationGate report content floor: ${label} is binary/null-byte`,
+      };
+    }
+    text = buf.toString('utf8');
+  } else if (typeof content === 'string') {
+    text = content;
+  } else {
+    return {
+      ok: false,
+      reason: `evaluationGate report content floor: ${label} must be string or bytes`,
+    };
+  }
+
+  const bytes = Buffer.byteLength(text, 'utf8');
+  const nonEmptyLines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  // Thin 2-line verdict-only fails the floor under automate.
+  if (nonEmptyLines.length <= 2 && bytes < minBytes) {
+    return {
+      ok: false,
+      reason:
+        'evaluationGate report content floor: thin 2-line verdict-only report fails min content (need structured keys or min bytes)',
+    };
+  }
+
+  const lower = text.toLowerCase();
+  let keyHits = 0;
+  for (const key of EVALUATION_REPORT_CONTENT_KEYS) {
+    if (lower.includes(key.toLowerCase())) keyHits += 1;
+  }
+  // Structured accept: ≥2 content keys (e.g. verdict + findings) even if shorter
+  // than min when still multi-line; or full min-bytes body.
+  const structuredOk = keyHits >= 2 && nonEmptyLines.length >= 4;
+  const sizeOk = bytes >= minBytes && nonEmptyLines.length >= 3;
+
+  if (!structuredOk && !sizeOk) {
+    return {
+      ok: false,
+      reason: `evaluationGate report content floor: ${label} fails min keys/bytes (${bytes} bytes, ${keyHits} keys, ${nonEmptyLines.length} lines)`,
+    };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Content authenticity for evaluationGate.reportPath when content is available.
+ *
+ * @param {EvaluationGate | null | undefined} gate
+ * @param {{
+ *   reportContents?: Record<string, string | Buffer | Uint8Array> | null,
+ *   reportContent?: string | Buffer | Uint8Array | null,
+ *   readFile?: ((path: string) => string | Buffer) | null,
+ *   cwd?: string | null,
+ *   minBytes?: number,
+ * }} [opts]
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function evaluationGateAuthenticity(gate, opts = {}) {
+  if (gate == null || typeof gate !== 'object') {
+    return {
+      ok: false,
+      reason: 'evaluationGate authenticity requires gate object',
+    };
+  }
+  const status =
+    gate.status != null ? String(gate.status).trim().toLowerCase() : '';
+  if (status !== 'passed') {
+    return { ok: true };
+  }
+  const reportPath =
+    gate.reportPath != null ? String(gate.reportPath).trim() : '';
+  if (reportPath === '') {
+    return {
+      ok: false,
+      reason: 'evaluationGate authenticity requires non-empty reportPath',
+    };
+  }
+
+  let content = opts.reportContent != null ? opts.reportContent : null;
+  if (content == null && opts.reportContents != null) {
+    const map = opts.reportContents;
+    if (Object.prototype.hasOwnProperty.call(map, reportPath)) {
+      content = map[reportPath];
+    } else {
+      const base = reportPath.split(/[/\\]/).pop();
+      if (base && Object.prototype.hasOwnProperty.call(map, base)) {
+        content = map[base];
+      }
+    }
+  }
+  if (content == null && typeof opts.readFile === 'function') {
+    try {
+      const abs =
+        isAbsolute(reportPath) || !opts.cwd
+          ? reportPath
+          : resolve(String(opts.cwd), reportPath);
+      content = opts.readFile(abs);
+    } catch {
+      content = null;
+    }
+  }
+  if (content == null) {
+    return {
+      ok: false,
+      reason: `evaluationGate report content floor: missing content for reportPath ${reportPath}`,
+    };
+  }
+  return evaluationReportContentFloor(content, {
+    minBytes: opts.minBytes,
+    label: reportPath,
+  });
+}
 
 /**
  * Pure honesty check for an evaluationGate object (no automate stamp).
@@ -132,11 +299,18 @@ export function evaluationGateHonesty(gate) {
  *
  * When durable automate is off → true.
  * When on → evaluationGateHonesty(gate) (default-on authenticity for automate).
+ * Content floor (F4) applies when reportContents / reportContent / readFile /
+ * checkAuthenticity is set — thin 2-line verdict-only fails.
  *
  * @param {{
  *   automateActive?: boolean | null,
  *   planExecutionMode?: string | null,
  *   evaluationGate?: EvaluationGate | null,
+ *   reportContents?: Record<string, string | Buffer | Uint8Array> | null,
+ *   reportContent?: string | Buffer | Uint8Array | null,
+ *   readFile?: ((path: string) => string | Buffer) | null,
+ *   cwd?: string | null,
+ *   checkAuthenticity?: boolean | null,
  * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
  */
@@ -144,7 +318,24 @@ export function phaseEvaluationAllowsClose(input = {}) {
   if (!isDurableAutomateForEvaluation(input)) {
     return { ok: true };
   }
-  return evaluationGateHonesty(input.evaluationGate);
+  const honesty = evaluationGateHonesty(input.evaluationGate);
+  if (!honesty.ok) return honesty;
+
+  const shouldCheckContent =
+    input.checkAuthenticity === true ||
+    input.reportContents != null ||
+    input.reportContent != null ||
+    typeof input.readFile === 'function';
+
+  if (shouldCheckContent) {
+    return evaluationGateAuthenticity(input.evaluationGate, {
+      reportContents: input.reportContents,
+      reportContent: input.reportContent,
+      readFile: input.readFile,
+      cwd: input.cwd,
+    });
+  }
+  return honesty;
 }
 
 /**

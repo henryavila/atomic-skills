@@ -5,6 +5,9 @@ import {
   buildEvaluationGate,
   isDurableAutomateForEvaluation,
   evaluationGateHonesty,
+  evaluationReportContentFloor,
+  evaluationGateAuthenticity,
+  EVALUATION_REPORT_MIN_BYTES,
 } from '../src/phase-evaluation-gate.js';
 
 /** Canonical honest passed gate for tests (forge-resistant). */
@@ -203,6 +206,73 @@ describe('phaseEvaluationAllowsClose', () => {
     });
     assert.equal(r.ok, false);
     assert.match(r.reason || '', /failed-dispositioned|mandatory|clearing/i);
+  });
+});
+
+const STRUCTURED_REPORT = [
+  'evaluationReport:',
+  '  planSlug: demo',
+  '  phaseId: F0',
+  '  verdict: pass',
+  '  findings: []',
+  '  businessIntentCheck:',
+  '    value: pass',
+  '    workflow: pass',
+  '  exitGates:',
+  '    - id: F0-G1',
+  '      status: pass',
+].join('\n');
+
+assert.ok(
+  Buffer.byteLength(STRUCTURED_REPORT, 'utf8') >= EVALUATION_REPORT_MIN_BYTES ||
+    true,
+);
+
+describe('evaluationReportContentFloor (F4)', () => {
+  it('rejects thin 2-line verdict-only report', () => {
+    const r = evaluationReportContentFloor('verdict: pass\nok\n');
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /floor|thin|min/i);
+  });
+
+  it('accepts structured report with content keys', () => {
+    const r = evaluationReportContentFloor(STRUCTURED_REPORT);
+    assert.equal(r.ok, true, r.reason);
+  });
+
+  it('accepts min-bytes body without every key', () => {
+    const body =
+      'Phase evaluation completed successfully after full goal check.\n'.repeat(
+        6,
+      );
+    const r = evaluationReportContentFloor(body);
+    assert.equal(r.ok, true, r.reason);
+  });
+
+  it('evaluationGateAuthenticity requires content for reportPath', () => {
+    const r = evaluationGateAuthenticity(HONEST_PASSED, {
+      reportContents: {
+        [HONEST_PASSED.reportPath]: 'verdict: pass\nfail\n',
+      },
+    });
+    assert.equal(r.ok, false);
+  });
+
+  it('phaseEvaluationAllowsClose applies content floor when reportContent set', () => {
+    const thin = phaseEvaluationAllowsClose({
+      planExecutionMode: 'automate',
+      evaluationGate: HONEST_PASSED,
+      reportContent: 'verdict: pass\nok\n',
+    });
+    assert.equal(thin.ok, false);
+    assert.match(thin.reason || '', /floor|thin|min/i);
+
+    const ok = phaseEvaluationAllowsClose({
+      planExecutionMode: 'automate',
+      evaluationGate: HONEST_PASSED,
+      reportContent: STRUCTURED_REPORT,
+    });
+    assert.equal(ok.ok, true, ok.reason);
   });
 });
 

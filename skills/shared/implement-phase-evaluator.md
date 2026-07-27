@@ -61,12 +61,13 @@ evaluationReport:
 - **Major** findings surface for operator triage (accept/defer/fix) and require a recorded disposition before phase-done.
 - Soft language (`should` / `probably` / `looks done`) is banned in the verdict narrative (G2).
 
-### Persist report before gate stamp (HARD — authenticity R3)
+### Persist report before gate stamp (HARD — authenticity R3 + F4 content floor)
 
 1. Write the structured report to **`.atomic-skills/reviews/`** (e.g. `.atomic-skills/reviews/eval-<planSlug>-<phaseId>.md`) with the shape above.
 2. Return the **absolute or repo-relative `reportPath`** to the orchestrator.
 3. Orchestrator stamps via `buildEvaluationGate({ status: 'passed', verdict: 'pass', reportPath, at, verifiedAt })` — `buildEvaluationGate` **requires** non-empty `reportPath` for `passed` and refuses forge-friendly partial stamps.
 4. Do **not** stamp `evaluationGate` with `status: passed` without a real report path. Do **not** invent `skipped` without operator mandate (`operatorSkip: true` + non-empty reason).
+5. **Content floor (F4 medium):** `evaluationGate status=passed` requires the report file to exist with **min content keys** (`verdict` + `findings` / `businessIntent` / `exitGates`) **or** **min bytes** (`EVALUATION_REPORT_MIN_BYTES` in `src/phase-evaluation-gate.js`). A thin **2-line verdict-only** report **fails** the floor under automate (`evaluationReportContentFloor` / `evaluationGateAuthenticity` / `phaseEvaluationAllowsClose` with `reportContent`/`reportContents`/`checkAuthenticity`). Soft "looks good" is not a report.
 
 Evaluation pass does **not** finalize the plan and does **not** auto-run `phase-done` — it only unlocks the Step G assert + phase-done order.
 
