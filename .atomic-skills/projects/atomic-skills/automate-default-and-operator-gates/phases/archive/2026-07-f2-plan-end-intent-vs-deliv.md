@@ -5,11 +5,11 @@ title: Plan-end intent-vs-delivered cross-model review
 goal: Plan-end cross-model review compares intended vs delivered with a
   machine-checkable receipt field.
 summary: Review plan-end intent vs delivered com campo no receipt.
-status: active
+status: archived
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-27T07:49:18.073Z
-lastUpdated: 2026-07-27T07:49:18.073Z
-nextAction: "Start T-001: Intent and delivered surface collectors"
+lastUpdated: 2026-07-27T08:09:32.098Z
+nextAction: present phase-start package for F3 validate-only
 parentPlan: automate-default-and-operator-gates
 phaseId: F2
 businessIntent:
@@ -25,31 +25,49 @@ businessIntent:
     pós-merge; Lekto product; auto-PASS user validation.
   doneWhen: tests intent-surface + plan-end green; receipt exige
     intentVsDelivered; assert finalize falha se ausente; F2-G1/G2 met.
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
-weightDone: 0
+weightDone: 6
 weightTotal: 6
 exitGates:
   - id: F2-G1
     description: Intent surface and plan-end tests pass.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/plan-end-intent-surface.test.js
         tests/plan-end-review.test.js
       expectExitCode: 0
+    metAt: 2026-07-27T07:58:06.620Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T07:58:06.620Z
+      verifiedCommit: f9debea3d450c44721e776545b9fdc27fa18b5c3
+      passed: true
+      exitCode: 0
+      outputSummary: F2-G1 green
     verifierLabel: "shell: node --test tests/plan-end-intent-surface.test.js tests/pla…"
+    evidenceSummary: passed · 2026-07-27
   - id: F2-G2
     description: Maestro Step I requires intent-vs-delivered under automate.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'intent-vs-delivered|intentVsDelivered'
         skills/shared/implement-automate-maestro.md src/plan-end-review.js
       expectExitCode: 0
+    metAt: 2026-07-27T07:58:06.620Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T07:58:06.620Z
+      verifiedCommit: f9debea3d450c44721e776545b9fdc27fa18b5c3
+      passed: true
+      exitCode: 0
+      outputSummary: F2-G2 green
     verifierLabel: "shell: rg -n 'intent-vs-delivered|intentVsDelivered' skills/shared…"
+    evidenceSummary: passed · 2026-07-27
 stack:
   - id: 1
     title: Plan-end intent-vs-delivered cross-model review
@@ -59,8 +77,8 @@ tasks:
   - id: T-001
     title: Intent and delivered surface collectors
     summary: Intent and delivered surface collectors
-    status: pending
-    lastUpdated: 2026-07-27T07:49:18.073Z
+    status: done
+    lastUpdated: 2026-07-27T07:58:06.620Z
     scopeBoundary:
       - Pure read of plan and initiative shaped objects plus optional git SHA
         list. No network. No finalize side effects.
@@ -81,11 +99,19 @@ tasks:
       - kind: file
         path: tests/plan-end-intent-surface.test.js
     weight: 2
+    closedAt: 2026-07-27T07:58:06.620Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T07:58:06.620Z
+      verifiedCommit: f9debea3d450c44721e776545b9fdc27fa18b5c3
+      passed: true
+      exitCode: 0
+      outputSummary: plan-end-intent-surface tests 8 pass
   - id: T-002
     title: Plan-end brief and receipt contract
     summary: Plan-end brief and receipt contract
-    status: pending
-    lastUpdated: 2026-07-27T07:49:18.073Z
+    status: done
+    lastUpdated: 2026-07-27T07:58:06.620Z
     scopeBoundary:
       - Do not auto-merge. Skip path under durable automate stays HARD-CLOSED.
         Keep at least one family-different leg rule.
@@ -113,11 +139,19 @@ tasks:
       - kind: file
         path: tests/plan-end-review.test.js
     weight: 2
+    closedAt: 2026-07-27T07:58:06.620Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T07:58:06.620Z
+      verifiedCommit: f9debea3d450c44721e776545b9fdc27fa18b5c3
+      passed: true
+      exitCode: 0
+      outputSummary: plan-end-review + intent-surface tests pass
   - id: T-003
     title: Skill prose and finalize gate wire
     summary: Skill prose and finalize gate wire
-    status: pending
-    lastUpdated: 2026-07-27T07:49:18.073Z
+    status: done
+    lastUpdated: 2026-07-27T07:58:06.620Z
     scopeBoundary:
       - userValidationOk remains operator-owned after review. Do not auto-PASS
         user validation.
@@ -141,6 +175,14 @@ tasks:
       - kind: file
         path: src/automate-orchestrator-gates.js
     weight: 2
+    closedAt: 2026-07-27T07:58:06.620Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T07:58:06.620Z
+      verifiedCommit: f9debea3d450c44721e776545b9fdc27fa18b5c3
+      passed: true
+      exitCode: 0
+      outputSummary: rg intentVsDelivered prose + assert finalize wire
 parked: []
 emerged: []
 planTitle: Automate default + operator gates (decision-review + plan-end intent)
@@ -154,9 +196,13 @@ Initiative **F2 — plan-end intent-vs-delivered**.
 
 ## Session handoff
 
-- **Narrative:** F2 materialized after phase-start package ratify. Ready for T-001..T-003.
-- **Decision log:** F1 done; operator-continue; F2 package ratify.
-- **Single nextAction:** Start T-001: Intent and delivered surface collectors
-- **Verbatim state:** initiative `.atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/phases/f2-plan-end-intent-vs-deliv.md`; source `.atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/phases/f2-plan-end-intent-vs-deliv.source.json`.
-- **Uncommitted changes:** post-materialize.
+- **Narrative:** F2 phase-done. intent-vs-delivered plan-end shipped. currentPhase F3 descriptor-only. Cursor awaiting-operator-advance.
+- **Decision log:** package ratify; writer merge; eval/lessons/review; decision-review PASS with package.
+- **Single nextAction:** present phase-start package for F3 validate-only
+- **Verbatim state:** F2 archived; HEAD f9debea3d450c44721e776545b9fdc27fa18b5c3; assert phase-done 0.
+- **Uncommitted changes:** phase-done checkpoint.
+
+
+
+
 

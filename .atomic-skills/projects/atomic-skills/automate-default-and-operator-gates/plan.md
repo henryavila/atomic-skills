@@ -5,9 +5,9 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-27T07:49:18.073Z
+lastUpdated: 2026-07-27T08:09:31.819Z
 branch: plan/automate-default-and-operator-gates
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -297,21 +297,37 @@ phases:
       criteria:
         - id: F2-G1
           description: Intent surface and plan-end tests pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/plan-end-intent-surface.test.js
               tests/plan-end-review.test.js
             expectExitCode: 0
+          metAt: 2026-07-27T08:09:31.152Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-27T08:09:31.152Z
+            verifiedCommit: f9debea3d450c44721e776545b9fdc27fa18b5c3
+            passed: true
+            exitCode: 0
+            outputSummary: F2-G1 at phase-done
         - id: F2-G2
           description: Maestro Step I requires intent-vs-delivered under automate.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'intent-vs-delivered|intentVsDelivered'
               skills/shared/implement-automate-maestro.md src/plan-end-review.js
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-27T08:09:31.152Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-27T08:09:31.152Z
+            verifiedCommit: f9debea3d450c44721e776545b9fdc27fa18b5c3
+            passed: true
+            exitCode: 0
+            outputSummary: F2-G2 at phase-done
+    status: done
     summary: Review plan-end intent vs delivered com campo no receipt.
     businessIntent:
       value: Plan-end sob automate responde "entregamos o que o plano prometeu?" via
@@ -326,6 +342,27 @@ phases:
         pós-merge; Lekto product; auto-PASS user validation.
       doneWhen: tests intent-surface + plan-end green; receipt exige
         intentVsDelivered; assert finalize falha se ausente; F2-G1/G2 met.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F2.md
+      verifiedAt: 2026-07-27T08:09:31.152Z
+      at: f9debea3d450c44721e776545b9fdc27fa18b5c3
+    reviewGate:
+      status: passed
+      mode: both
+      at: f9debea3d450c44721e776545b9fdc27fa18b5c3
+      reviewFile: .atomic-skills/reviews/2026-07-27-automate-default-F2-phase-both.md
+      verifiedAt: 2026-07-27T08:09:31.152Z
+    lessonsState: none
+    noneReason: clean phase — no failure signals
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-27T08:09:31.152Z
+      evidencePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F2.jsonl
+      at: f9debea3d450c44721e776545b9fdc27fa18b5c3
+      packagePresentedAt: 2026-07-27T08:09:31.152Z
+      packagePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F2.jsonl
   - id: F3
     slug: automate-default-and-operator-gates-f3-dogfood-checklist
     title: Dogfood checklist
@@ -603,4 +640,10 @@ but **did not render** the decision package body in the same turn.
 - Review: both @ 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
 - decision-review PASS @ 2026-07-27T07:38:31.288Z
 
+
+
+## Self-review F2
+
+- intent-vs-delivered shipped; decision-review PASS with package same turn
+- HEAD f9debea3d450c44721e776545b9fdc27fa18b5c3
 
