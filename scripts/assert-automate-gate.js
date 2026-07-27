@@ -529,11 +529,23 @@ function loadReachableSet(path) {
 /**
  * @param {{ ok: boolean, reason?: string, planEndReviewOk?: boolean, userValidationOk?: boolean }} result
  * @param {string} [fallbackReason]
+ * @param {{ receipt?: object | null }} [ctx]
  */
-function formatBlocked(result, fallbackReason = 'gate blocked') {
+function formatBlocked(result, fallbackReason = 'gate blocked', ctx = {}) {
   if (result.reason) return result.reason;
   const bits = [];
-  if (result.planEndReviewOk === false) bits.push('planEndReviewOk=false');
+  if (result.planEndReviewOk === false) {
+    bits.push('planEndReviewOk=false');
+    // F2: surface empty/missing intentVsDelivered under automate finalize.
+    const receipt = ctx.receipt;
+    if (
+      receipt == null ||
+      !Array.isArray(receipt.intentVsDelivered) ||
+      receipt.intentVsDelivered.length === 0
+    ) {
+      bits.push('intentVsDelivered missing or empty (intent-vs-delivered required under automate)');
+    }
+  }
   if (result.userValidationOk === false) bits.push('userValidationOk=false');
   if (bits.length) return bits.join('; ');
   return fallbackReason;
@@ -983,7 +995,9 @@ export function runAssert(args, env = {}) {
     return okOut;
   }
 
-  // finalize
+  // finalize — under automate: plan-end external-both + non-empty intentVsDelivered
+  // (intent-vs-delivered) + operator userValidatedAt. userValidationOk stays
+  // operator-owned (never auto-stamped by review).
   const receipt = fm.planEndReview != null ? fm.planEndReview : null;
   const userValidatedAt =
     fm.userValidatedAt != null ? String(fm.userValidatedAt) : null;
@@ -995,7 +1009,7 @@ export function runAssert(args, env = {}) {
   if (!r.ok) {
     return {
       ok: false,
-      message: `blocked: ${formatBlocked(r, 'finalize plan-end gates')}`,
+      message: `blocked: ${formatBlocked(r, 'finalize plan-end gates', { receipt })}`,
       exitCode: 1,
     };
   }

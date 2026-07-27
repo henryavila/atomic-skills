@@ -18,31 +18,70 @@
     "phases"
   ],
   "properties": {
-    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
-    "slug": { "$ref": "common.schema.json#/$defs/slug" },
-    "title": { "type": "string", "minLength": 1 },
-    "version": { "type": "string", "minLength": 1 },
-    "status": { "type": "string", "enum": ["active", "paused", "done", "archived"] },
-    "started": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
-    "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
-    "deadline": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "schemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "slug": {
+      "$ref": "common.schema.json#/$defs/slug"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "paused",
+        "done",
+        "archived"
+      ]
+    },
+    "started": {
+      "$ref": "common.schema.json#/$defs/isoTimestamp"
+    },
+    "lastUpdated": {
+      "$ref": "common.schema.json#/$defs/isoTimestamp"
+    },
+    "deadline": {
+      "$ref": "common.schema.json#/$defs/isoTimestamp"
+    },
     "closedAtHardening": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enforcedFrom", "grandfatheredTaskIds"],
+      "required": [
+        "enforcedFrom",
+        "grandfatheredTaskIds"
+      ],
       "properties": {
-        "enforcedFrom": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+        "enforcedFrom": {
+          "$ref": "common.schema.json#/$defs/isoTimestamp"
+        },
         "grandfatheredTaskIds": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       },
       "description": "F4/T-003: opts this plan into the closedAt forward-only hard-gate. Written ONCE by scripts/harden-closedat.js. grandfatheredTaskIds = the done-without-closedAt tasks alive at the flip instant (exempt); every later done task must record closedAt. Never implies a retroactive closedAt (P3)."
     },
-    "branch": { "type": "string" },
+    "branch": {
+      "type": "string"
+    },
     "executionMode": {
       "type": "string",
-      "enum": ["automate", "mode1", "1", "default", "2"],
+      "enum": [
+        "automate",
+        "mode1",
+        "1",
+        "default",
+        "2"
+      ],
       "description": "Optional durable implement execution mode stamp (F2/T-009, design D14). Absent on pre-automate plans (still valid). First confirmed `implement --mode=automate` entry MUST stamp `automate` after interactive operator confirm; stamp alone re-enters pure-maestro + review cadence until `implement --clear-execution-mode` or a recorded clear mutation removes the field. Read with `isAutomateActive({ planExecutionMode })` from src/implement-mode.js."
     },
     "userValidatedAt": {
@@ -61,7 +100,9 @@
         },
         "mode": {
           "type": "string",
-          "enum": ["external-both"],
+          "enum": [
+            "external-both"
+          ],
           "description": "Plan-end review mode. Under automate this is always external-both (family-different externals only)."
         },
         "range": {
@@ -74,7 +115,9 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["status"],
+            "required": [
+              "status"
+            ],
             "properties": {
               "provider": {
                 "type": "string",
@@ -82,7 +125,11 @@
               },
               "status": {
                 "type": "string",
-                "enum": ["succeeded", "failed", "skipped"],
+                "enum": [
+                  "succeeded",
+                  "failed",
+                  "skipped"
+                ],
                 "description": "Per-leg outcome. Only succeeded + familyDifferent true + known external counts."
               },
               "familyDifferent": {
@@ -100,10 +147,60 @@
           "type": "string",
           "description": "Non-empty reason when skipPlanEndReview is true. Prefer SKIP_PLAN_END_REASON_TAXONOMY tokens from src/plan-end-review.js."
         },
-        "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
+        "verifiedAt": {
+          "$ref": "common.schema.json#/$defs/isoTimestamp"
+        },
+        "intentVsDelivered": {
+          "type": "array",
+          "description": "F2 intent-vs-delivered rows required under automate plan-end (status matched|partial|missing|extra).",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "matched",
+                  "partial",
+                  "missing",
+                  "extra"
+                ]
+              },
+              "intentId": {
+                "type": "string"
+              },
+              "deliveredId": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "phaseId": {
+                "type": "string"
+              },
+              "taskId": {
+                "type": "string"
+              }
+            }
+          }
+        }
       }
     },
-    "currentPhase": { "type": ["string", "null"] },
+    "currentPhase": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "planActive": {
       "type": "boolean",
       "description": "Derived focus marker (scripts/reconcile-focus.js): true iff status:'active'. Carried by the `phases` dataSource onto each phase row so the Home timeline scopes to active plans (the dashboard can't join). Never hand-authored."
@@ -112,17 +209,32 @@
       "type": "string",
       "description": "Derived denormalization (scripts/reconcile-focus.js): a copy of `title`, carried by the `phases` dataSource onto each phase row so a repeat-grouped widget can label the group with the human plan title instead of the slug (the dashboard can't join). Never hand-authored."
     },
-    "parallelismAllowed": { "type": "boolean" },
+    "parallelismAllowed": {
+      "type": "boolean"
+    },
     "principles": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "title", "body"],
+        "required": [
+          "id",
+          "title",
+          "body"
+        ],
         "properties": {
-          "id": { "type": "string", "minLength": 1 },
-          "title": { "type": "string", "minLength": 1 },
-          "body": { "type": "string", "minLength": 1 }
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -131,10 +243,19 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["term", "definition"],
+        "required": [
+          "term",
+          "definition"
+        ],
         "properties": {
-          "term": { "type": "string", "minLength": 1 },
-          "definition": { "type": "string", "minLength": 1 }
+          "term": {
+            "type": "string",
+            "minLength": 1
+          },
+          "definition": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -143,31 +264,57 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "title"],
+        "required": [
+          "id",
+          "title"
+        ],
         "properties": {
-          "id": { "type": "string", "minLength": 1 },
-          "title": { "type": "string", "minLength": 1 },
-          "domain": { "type": "string" }
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "domain": {
+            "type": "string"
+          }
         }
       }
     },
     "phases": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/phaseDescriptor" }
+      "items": {
+        "$ref": "#/$defs/phaseDescriptor"
+      }
     },
     "interPhaseGates": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["from", "to", "criteria"],
+        "required": [
+          "from",
+          "to",
+          "criteria"
+        ],
         "properties": {
-          "from": { "type": "string", "minLength": 1 },
-          "to": { "type": "string", "minLength": 1 },
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1
+          },
           "criteria": {
             "type": "array",
-            "items": { "type": "string", "minLength": 1 }
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }
@@ -175,67 +322,145 @@
     "supersedes": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "supersedeScope"],
+      "required": [
+        "path",
+        "supersedeScope"
+      ],
       "properties": {
-        "path": { "type": "string", "minLength": 1 },
-        "supersedeScope": { "type": "string", "enum": ["full", "partial"] },
-        "partialAreas": { "type": "array", "items": { "type": "string" } },
-        "remainsValid": { "type": "array", "items": { "type": "string" } }
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supersedeScope": {
+          "type": "string",
+          "enum": [
+            "full",
+            "partial"
+          ]
+        },
+        "partialAreas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "remainsValid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "spawnedFrom": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["plan", "phaseId", "mode"],
+      "required": [
+        "plan",
+        "phaseId",
+        "mode"
+      ],
       "description": "Fork child→parent origin edge (rung 7.5): points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema and the inline field migrated from legacy links.json. Durable edge fields are identity + mode only; fork rationale `context`/`provenance` is not persisted on this edge. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
       "properties": {
-        "plan": { "$ref": "common.schema.json#/$defs/slug" },
-        "phaseId": { "type": "string", "minLength": 1 },
-        "taskId": { "type": "string", "minLength": 1 },
-        "mode": { "type": "string", "enum": ["pause", "parallel"] }
+        "plan": {
+          "$ref": "common.schema.json#/$defs/slug"
+        },
+        "phaseId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "taskId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "pause",
+            "parallel"
+          ]
+        }
       }
     },
     "dependsOnPlans": {
       "description": "Operational plan dependency edges persisted on the blocked plan. Each entry points at a prerequisite plan in the same project. This is separate from `spawnedFrom` / `phases[].spawnedPlans`, which describe origin only.",
       "type": "array",
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/planDependency" }
+      "items": {
+        "$ref": "#/$defs/planDependency"
+      }
     },
     "references": {
       "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/artifactRef" }
+      "items": {
+        "$ref": "common.schema.json#/$defs/artifactRef"
+      }
     },
     "whatStaysValid": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   },
   "$defs": {
     "planDependency": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["plan", "createdBy"],
+      "required": [
+        "plan",
+        "createdBy"
+      ],
       "properties": {
-        "plan": { "$ref": "common.schema.json#/$defs/slug" },
-        "createdBy": { "type": "string", "enum": ["fork-plan", "manual"] },
+        "plan": {
+          "$ref": "common.schema.json#/$defs/slug"
+        },
+        "createdBy": {
+          "type": "string",
+          "enum": [
+            "fork-plan",
+            "manual"
+          ]
+        },
         "origin": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["phaseId", "mode"],
+          "required": [
+            "phaseId",
+            "mode"
+          ],
           "properties": {
-            "phaseId": { "type": "string", "minLength": 1 },
-            "taskId": { "type": "string", "minLength": 1 },
-            "mode": { "type": "string", "enum": ["pause", "parallel"] }
+            "phaseId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "parallel"
+              ]
+            }
           }
         },
         "release": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["archived"],
+          "required": [
+            "archived"
+          ],
           "properties": {
             "archived": {
               "type": "string",
-              "enum": ["blocked", "resolved"],
+              "enum": [
+                "blocked",
+                "resolved"
+              ],
               "default": "blocked",
               "description": "`archived` prerequisites block by default; `resolved` records an explicit decision that archiving satisfied this edge."
             }
@@ -245,29 +470,71 @@
       "allOf": [
         {
           "if": {
-            "properties": { "createdBy": { "const": "fork-plan" } },
-            "required": ["createdBy"]
+            "properties": {
+              "createdBy": {
+                "const": "fork-plan"
+              }
+            },
+            "required": [
+              "createdBy"
+            ]
           },
-          "then": { "required": ["origin"] }
+          "then": {
+            "required": [
+              "origin"
+            ]
+          }
         },
         {
           "if": {
-            "properties": { "createdBy": { "const": "manual" } },
-            "required": ["createdBy"]
+            "properties": {
+              "createdBy": {
+                "const": "manual"
+              }
+            },
+            "required": [
+              "createdBy"
+            ]
           },
-          "then": { "not": { "required": ["origin"] } }
+          "then": {
+            "not": {
+              "required": [
+                "origin"
+              ]
+            }
+          }
         }
       ]
     },
     "phaseDescriptor": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "slug", "title", "goal", "dependsOn", "subPhaseCount", "exitGate", "status"],
+      "required": [
+        "id",
+        "slug",
+        "title",
+        "goal",
+        "dependsOn",
+        "subPhaseCount",
+        "exitGate",
+        "status"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "slug": { "$ref": "common.schema.json#/$defs/slug" },
-        "title": { "type": "string", "minLength": 1 },
-        "goal": { "type": "string", "minLength": 1 },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slug": {
+          "$ref": "common.schema.json#/$defs/slug"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
         "summary": {
           "type": "string",
           "description": "Concise one-line human summary of what this phase does — distinct from the longer, technical `goal`. Authored + user-validated when phases are generated (post-decompose annotation; decompose.js format stays frozen per R-ORCH-10). Shown on the dashboard Home timeline. Helps a dev recall each phase + validates the AI's interpretation."
@@ -276,22 +543,50 @@
           "type": "object",
           "additionalProperties": false,
           "description": "F0/T-001 (phase-materialization): the load-bearing business spine — value/workflow/rules/outOfScope/doneWhen — authored + user-validated when the phase is materialized (D1 strong-lazy), persisted on both the plan phase descriptor and the initiative file (F-001), and surfaced for the materialize gate (D4). Optional + additive (mirrors `summary`): an absent block means a not-yet-activated/legacy surface. `derived[]` captures open questions + tentative answers (never gated). scripts/find-missing-business-intent.js (T-003) hard-blocks a materialized phase missing any spine field.",
-          "required": ["value", "workflow", "rules", "outOfScope", "doneWhen"],
+          "required": [
+            "value",
+            "workflow",
+            "rules",
+            "outOfScope",
+            "doneWhen"
+          ],
           "properties": {
-            "value": { "type": "string", "minLength": 1 },
-            "workflow": { "type": "string", "minLength": 1 },
-            "rules": { "type": "string", "minLength": 1 },
-            "outOfScope": { "type": "string", "minLength": 1 },
-            "doneWhen": { "type": "string", "minLength": 1 },
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "workflow": {
+              "type": "string",
+              "minLength": 1
+            },
+            "rules": {
+              "type": "string",
+              "minLength": 1
+            },
+            "outOfScope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "doneWhen": {
+              "type": "string",
+              "minLength": 1
+            },
             "derived": {
               "type": "array",
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["question"],
+                "required": [
+                  "question"
+                ],
                 "properties": {
-                  "question": { "type": "string", "minLength": 1 },
-                  "answer": { "type": "string" }
+                  "question": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "answer": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -299,55 +594,99 @@
         },
         "dependsOn": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "parallelWith": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "track": { "type": "string" },
-        "audience": { "type": "string" },
-        "subPhaseCount": { "type": "integer", "minimum": 0 },
+        "track": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "subPhaseCount": {
+          "type": "integer",
+          "minimum": 0
+        },
         "exitGate": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["summary", "criteria"],
+          "required": [
+            "summary",
+            "criteria"
+          ],
           "properties": {
-            "summary": { "type": "string", "minLength": 1 },
+            "summary": {
+              "type": "string",
+              "minLength": 1
+            },
             "criteria": {
               "type": "array",
-              "items": { "$ref": "common.schema.json#/$defs/exitCriterion" }
+              "items": {
+                "$ref": "common.schema.json#/$defs/exitCriterion"
+              }
             }
           }
         },
         "status": {
           "type": "string",
-          "enum": ["pending", "active", "paused", "done", "archived"]
+          "enum": [
+            "pending",
+            "active",
+            "paused",
+            "done",
+            "archived"
+          ]
         },
         "externalImports": {
           "type": "array",
-          "items": { "$ref": "common.schema.json#/$defs/artifactRef" }
+          "items": {
+            "$ref": "common.schema.json#/$defs/artifactRef"
+          }
         },
         "exitGateType": {
           "type": "string",
-          "enum": ["standard", "ui-gate", "custom"]
+          "enum": [
+            "standard",
+            "ui-gate",
+            "custom"
+          ]
         },
-        "provenance": { "$ref": "common.schema.json#/$defs/provenance" },
-        "context": { "$ref": "common.schema.json#/$defs/context" },
+        "provenance": {
+          "$ref": "common.schema.json#/$defs/provenance"
+        },
+        "context": {
+          "$ref": "common.schema.json#/$defs/context"
+        },
         "spawnedPlans": {
           "type": "array",
           "description": "Fork parent→child origin edge (rung 7.5): child plan slugs forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans and the inline field migrated from legacy links.json. Durable edge fields are child slugs only; fork rationale `context`/`provenance` is not persisted on this edge.",
-          "items": { "$ref": "common.schema.json#/$defs/slug" }
+          "items": {
+            "$ref": "common.schema.json#/$defs/slug"
+          }
         },
         "reviewGate": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status"],
+          "required": [
+            "status"
+          ],
           "description": "0.2 (G2 phase-review gate): the outcome of phase-done's review-code gate for THIS phase, written before the phase is set 'done' (project-transitions.md phase-done step 6/8). Shape only here; the cross-field honesty conditional (done + status:passed ⟹ `at` real git SHA + coherent `mode` (+ `reviewFile` when written); done + status:skipped ⟹ `reason` present) is enforced by scripts/validate-state.js GATE-R3, NOT the schema — same reason GATE-R2 lives in JS (keeps the aiDeck TS mirror additive-optional). An absent block on a legacy 'done' phase is tolerated (GATE-R2-consistent); `verify` WARNs on it. F4/T-004: `at` is constrained to gitSha so arbitrary non-SHA strings cannot anchor a passed review.",
           "properties": {
             "status": {
               "type": "string",
-              "enum": ["passed", "skipped"],
+              "enum": [
+                "passed",
+                "skipped"
+              ],
               "description": "passed = review-code ran and blocker/critical findings were resolved; skipped = --skip-review with a recorded reason."
             },
             "mode": {
@@ -386,23 +725,61 @@
               "type": "boolean",
               "description": "Under durable automate: required true when status=skipped (operator-owned full skip of phase review). Enforced by phaseReviewHonesty."
             },
-            "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
+            "verifiedAt": {
+              "$ref": "common.schema.json#/$defs/isoTimestamp"
+            },
+            "localReceiptPath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Local leg receipt path for dual-leg authenticity under mode both (F4)."
+            },
+            "codexReceiptPath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Codex/external leg receipt path for dual-leg authenticity under mode both (F4)."
+            },
+            "legs": {
+              "type": "array",
+              "description": "Optional dual-leg receipt list (≥2 path-bearing entries for mode both authenticity).",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "provider": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           }
         },
         "evaluationGate": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status"],
+          "required": [
+            "status"
+          ],
           "description": "Automate pure-maestro Step F→G: outcome of the phase evaluation agent before phase-done. Written by the orchestrator after the evaluator returns (or operator skip/disposition). Enforced by phaseEvaluationAllowsClose / evaluationGateHonesty / canRunPhaseDone when plan.executionMode is automate. Absent on non-automate phases. Authenticity (R3): passed requires non-empty reportPath + verdict pass; skipped requires operatorSkip true + non-empty reason (enforced in JS honesty helper, not JSON Schema if/then — same pattern as GATE-R3 reviewGate).",
           "properties": {
             "status": {
               "type": "string",
-              "enum": ["passed", "skipped", "failed-dispositioned"],
+              "enum": [
+                "passed",
+                "skipped",
+                "failed-dispositioned"
+              ],
               "description": "passed = evaluator verdict pass; skipped = operator skip with operatorSkip+reason; failed-dispositioned = residual findings with accept|defer|fix."
             },
             "verdict": {
               "type": "string",
-              "enum": ["pass", "fail"],
+              "enum": [
+                "pass",
+                "fail"
+              ],
               "description": "Required-when status=passed (must be pass). Enforced by evaluationGateHonesty."
             },
             "reportPath": {
@@ -416,7 +793,11 @@
             },
             "disposition": {
               "type": "string",
-              "enum": ["accept", "defer", "fix"],
+              "enum": [
+                "accept",
+                "defer",
+                "fix"
+              ],
               "description": "Required-when status=failed-dispositioned. Enforced by evaluationGateHonesty."
             },
             "reason": {
@@ -427,18 +808,43 @@
               "$ref": "common.schema.json#/$defs/gitSha",
               "description": "Plan-branch HEAD when evaluation concluded."
             },
-            "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
+            "verifiedAt": {
+              "$ref": "common.schema.json#/$defs/isoTimestamp"
+            }
           }
+        },
+        "lessonsState": {
+          "type": "string",
+          "enum": [
+            "recorded",
+            "none"
+          ],
+          "description": "Automate pure-maestro Step G: distill + operator ratify outcome before phase-done. recorded = lessons written under lessons/ with non-empty lessonsPath; none = clean phase (explicit; silence is not an answer). Enforced by phaseLessonsAllowsClose / canRunPhaseDone / assert-automate-gate --gate phase-done when plan.executionMode is automate."
+        },
+        "lessonsPath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required-when lessonsState=recorded: path to lessons/<initiative-slug>.md after operator ratify. Enforced by phaseLessonsHonesty."
+        },
+        "noneReason": {
+          "type": "string",
+          "description": "Optional note when lessonsState=none (e.g. clean phase)."
         },
         "decisionReview": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status"],
-          "description": "Automate pure-maestro operator PASS hardgate on the phase decision log before phase-done. Written only with explicit operator token in the same turn (never agent auto-PASS). Enforced by decisionReviewAllowsPhaseDone / canRunPhaseDone when plan.executionMode is automate. Absent/optional on non-automate phases.",
+          "required": [
+            "status"
+          ],
+          "description": "Automate pure-maestro operator PASS hardgate on the phase decision log before phase-done. Written only with explicit operator token in the same turn (never agent auto-PASS). Enforced by decisionReviewAllowsPhaseDone / canRunPhaseDone when plan.executionMode is automate (stamp) or session automateActive (automate-default). Absent/optional on non-automate phases. Under automate, status=passed also requires present-before-PASS evidence: packagePresentedAt and/or packagePath.",
           "properties": {
             "status": {
               "type": "string",
-              "enum": ["pending", "passed", "failed"],
+              "enum": [
+                "pending",
+                "passed",
+                "failed"
+              ],
               "description": "pending = awaiting operator; passed = operator PASS on decision log; failed = operator FAIL (do not advance currentPhase)."
             },
             "verifiedAt": {
@@ -453,14 +859,32 @@
             "at": {
               "$ref": "common.schema.json#/$defs/gitSha",
               "description": "Optional plan-branch HEAD when operator stamped decision-review."
+            },
+            "packagePresentedAt": {
+              "$ref": "common.schema.json#/$defs/isoTimestamp",
+              "description": "present-before-PASS / read-before-PASS: ISO timestamp when the host rendered the decision package to the operator before PASS/FAIL. Required (and/or packagePath) when status=passed under automate."
+            },
+            "packagePath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "present-before-PASS: path to the rendered decision package or decisions/<phaseId>.jsonl presented in the hardgate turn. Acceptable present evidence with or instead of packagePresentedAt."
             }
-          }        }
+          }
+        }
       },
       "allOf": [
         {
           "description": "Phases inserted mid-plan (with provenance) must articulate WHY via context. Original-materialization phases live without context — their narrative is the plan body.",
-          "if": { "required": ["provenance"] },
-          "then": { "required": ["context"] }
+          "if": {
+            "required": [
+              "provenance"
+            ]
+          },
+          "then": {
+            "required": [
+              "context"
+            ]
+          }
         }
       ]
     }

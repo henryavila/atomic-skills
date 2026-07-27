@@ -1,10 +1,12 @@
 /**
  * Pure decision-review gate (automate operator PASS hardgate on phase-done).
  *
- * Under durable automate, phase-done must not run until the operator has
- * stamped decisionReview with status=passed (and verifiedAt). Agents never
- * write PASS without explicit operator provenance — this module only checks
- * the stamp shape; it does not stamp.
+ * Under durable automate (session default automateActive OR plan stamp),
+ * phase-done must not run until the operator has stamped decisionReview with
+ * status=passed, verifiedAt, **and** package present evidence
+ * (packagePresentedAt ISO and/or packagePath) — present-before-PASS /
+ * read-before-PASS. Agents never write PASS without explicit operator
+ * provenance — this module only checks the stamp shape; it does not stamp.
  *
  * Non-automate: gate inactive (allows phase-done) even if field absent.
  * No I/O.
@@ -29,7 +31,9 @@ export function isIsoishTimestamp(value) {
 }
 
 /**
- * Whether durable automate decision-review order applies (stamp-first).
+ * Whether durable automate decision-review order applies (stamp-first **or**
+ * session automateActive — so first-session-before-stamp cannot skip
+ * present-before-PASS under automate-default).
  *
  * @param {{
  *   automateActive?: boolean | null,
@@ -52,11 +56,60 @@ export function isDurableAutomateForDecisionReview(input = {}) {
 }
 
 /**
+ * Package present-before-PASS evidence on decisionReview.
+ * Accepts packagePresentedAt (ISO) and/or non-empty packagePath.
+ *
+ * @param {{
+ *   packagePresentedAt?: string | null,
+ *   packagePath?: string | null,
+ * } | null | undefined} review
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+export function hasDecisionPackagePresentEvidence(review) {
+  if (review == null || typeof review !== 'object') {
+    return {
+      ok: false,
+      reason:
+        'present-before-PASS requires packagePresentedAt (ISO) and/or packagePath on decisionReview (decision package present evidence)',
+    };
+  }
+  const presentedAt =
+    review.packagePresentedAt != null
+      ? String(review.packagePresentedAt).trim()
+      : '';
+  const packagePath =
+    review.packagePath != null ? String(review.packagePath).trim() : '';
+
+  const hasPresentedAt = presentedAt !== '';
+  const hasPath = packagePath !== '';
+
+  if (!hasPresentedAt && !hasPath) {
+    return {
+      ok: false,
+      reason:
+        'present-before-PASS / read-before-PASS: decisionReview status=passed requires packagePresentedAt (ISO) and/or packagePath (decision package present evidence) — host must present decision package before operator PASS',
+    };
+  }
+
+  if (hasPresentedAt && !isIsoishTimestamp(presentedAt)) {
+    return {
+      ok: false,
+      reason:
+        'decisionReview packagePresentedAt must be an ISO timestamp (YYYY-MM-DD or full ISO-8601) when provided',
+    };
+  }
+
+  return { ok: true };
+}
+
+/**
  * @typedef {{
  *   status: 'pending' | 'passed' | 'failed',
  *   verifiedAt?: string | null,
  *   evidencePath?: string | null,
  *   at?: string | null,
+ *   packagePresentedAt?: string | null,
+ *   packagePath?: string | null,
  * }} DecisionReview
  */
 
@@ -67,8 +120,13 @@ export function isDurableAutomateForDecisionReview(input = {}) {
  * When on:
  *   - missing / non-object decisionReview → ok false
  *   - status !== 'passed' (pending|failed|unknown) → ok false
- *   - status === 'passed' without verifiedAt → ok false (recommended required)
- *   - status === 'passed' with verifiedAt → ok true
+ *   - status === 'passed' without verifiedAt → ok false
+ *   - status === 'passed' without package present evidence
+ *     (packagePresentedAt ISO and/or packagePath) → ok false (fail closed)
+ *   - status === 'passed' with verifiedAt + present evidence → ok true
+ *
+ * Session default (`automateActive: true`) without stamp also activates
+ * (no-stamp first session cannot skip present-before-PASS).
  *
  * @param {{
  *   automateActive?: boolean | null,
@@ -112,6 +170,11 @@ export function decisionReviewAllowsPhaseDone(input = {}) {
           'decisionReview status=passed requires verifiedAt as ISO timestamp (YYYY-MM-DD or full ISO-8601)',
       };
     }
+    // present-before-PASS: fail closed without package present evidence
+    const present = hasDecisionPackagePresentEvidence(review);
+    if (!present.ok) {
+      return { ok: false, reason: present.reason };
+    }
     return { ok: true };
   }
 
@@ -140,7 +203,9 @@ export function decisionReviewAllowsPhaseDone(input = {}) {
 /**
  * Immutable stamp helper for operator decision-review (orchestrator / host).
  * Does not mutate input. Does not authorize PASS — caller must have operator
- * token in the same turn before writing status=passed.
+ * token in the same turn before writing status=passed. Under automate, PASS
+ * stamps should include package present evidence (packagePresentedAt and/or
+ * packagePath) so decisionReviewAllowsPhaseDone can pass.
  *
  * @param {Partial<DecisionReview> & { status: DecisionReview['status'] }} fields
  * @returns {DecisionReview}
@@ -176,5 +241,11 @@ export function buildDecisionReview(fields) {
     out.evidencePath = String(fields.evidencePath);
   }
   if (fields.at != null) out.at = String(fields.at);
+  if (fields.packagePresentedAt != null) {
+    out.packagePresentedAt = String(fields.packagePresentedAt);
+  }
+  if (fields.packagePath != null) {
+    out.packagePath = String(fields.packagePath);
+  }
   return out;
 }

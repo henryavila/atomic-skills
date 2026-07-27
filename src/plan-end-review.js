@@ -1,5 +1,5 @@
 /**
- * Pure plan-end review and user-validation predicates (design D7, D9, D12).
+ * Pure plan-end review and user-validation predicates (design D7, D9, D12, F2/P4).
  *
  * planEndReviewOk =
  *   receipt exists
@@ -9,6 +9,8 @@
  *       AND non-empty reviewFile
  *       AND mode is 'external-both' only (F5 — not bare 'both')
  *       AND non-empty verifiedAt (ISO preferred / Date.parse finite)
+ *       AND (when forbidSkip/durableAutomate: non-empty intentVsDelivered rows
+ *            with status matched|partial|missing|extra — F2 intent-vs-delivered)
  *     )
  *     OR (NOT forbidSkip AND explicit skipPlanEndReview with non-empty reason)
  *   )
@@ -16,6 +18,9 @@
  * Under durable automate (`forbidSkip: true` / `automatePlanEndGatesOk`), the
  * skip path is HARD-CLOSED: review is mandatory. Agent- or operator-skips with
  * only a free-text reason cannot open finalize/archive while the stamp holds.
+ * Empty or missing `intentVsDelivered` also HARD-BLOCKs under automate
+ * (session default via automateActive **or** stamp) — generic external-both
+ * without intent-vs-delivered does not satisfy plan-end.
  *
  * A leg counts ONLY when ALL of:
  *   - status === 'succeeded'
@@ -25,7 +30,7 @@
  * userValidationOk: under automateActive === true, require a non-empty
  * ISO-8601-ish timestamp in userValidatedAt. When automate is not active
  * the gate does not apply (returns true). Stamp alone also activates via
- * durable plan-end resolution.
+ * durable plan-end resolution. Operator-owned — never auto-stamped by review.
  *
  * automatePlanEndGatesOk durable HARD-BLOCK (F4): uses **stamp only**:
  *   durableAutomate = planExecutionMode === 'automate' OR automateActive === true
@@ -45,6 +50,7 @@
  */
 
 import { EXTERNAL_PROVIDER_ORDER } from './cross-model-host-default.js';
+import { INTENT_VS_DELIVERED_STATUSES } from './plan-end-intent-surface.js';
 
 /**
  * Family-different external providers that count toward planEndReviewOk.
@@ -56,6 +62,12 @@ const KNOWN_EXTERNAL_PROVIDER_SET = new Set(KNOWN_EXTERNAL_PROVIDERS);
 
 /** Modes accepted on a non-skip plan-end receipt (F5: external-both only). */
 const PLAN_END_OK_MODES = new Set(['external-both']);
+
+/** Receipt row statuses for intent-vs-delivered (F2). */
+const INTENT_VS_DELIVERED_STATUS_SET = new Set(INTENT_VS_DELIVERED_STATUSES);
+
+/** Re-export for gate callers / assert formatters. */
+export { INTENT_VS_DELIVERED_STATUSES };
 
 /**
  * Guided `--skip-plan-end-review` reason taxonomy (non-empty required).
@@ -84,9 +96,18 @@ const ISO_TIMESTAMP_RE =
  *   familyDifferent?: boolean,
  * }} PlanEndReviewLeg
  *
+ * @typedef {{
+ *   id?: string,
+ *   label?: string,
+ *   status: 'matched' | 'partial' | 'missing' | 'extra' | string,
+ *   intentId?: string,
+ *   deliveredId?: string,
+ *   note?: string,
+ * }} IntentVsDeliveredRow
+ *
  * Finalize-shaped receipt: durable machine fields plus optional metadata
- * written by finalize/plan-end (`reviewFile`, `mode`, `range`, `verifiedAt`).
- * Extra keys are ignored by planEndReviewOk.
+ * written by finalize/plan-end (`reviewFile`, `mode`, `range`, `verifiedAt`,
+ * `intentVsDelivered`). Extra keys are ignored by planEndReviewOk.
  *
  * @typedef {{
  *   legs?: PlanEndReviewLeg[],
@@ -96,6 +117,7 @@ const ISO_TIMESTAMP_RE =
  *   mode?: string,
  *   range?: string,
  *   verifiedAt?: string,
+ *   intentVsDelivered?: IntentVsDeliveredRow[] | null,
  * }} PlanEndReviewReceipt
  */
 
@@ -137,6 +159,36 @@ function receiptShapeOk(receipt) {
 }
 
 /**
+ * Machine-checkable intent-vs-delivered section on the plan-end receipt (F2).
+ *
+ * Under automate, a non-empty array of rows is required; each row must carry
+ * status ∈ {matched, partial, missing, extra}. Empty array, missing field,
+ * non-array, or unknown status ⇒ fail closed.
+ *
+ * Outside automate this helper is optional (planEndReviewOk only calls it when
+ * forbidSkip/durableAutomate is set).
+ *
+ * @param {unknown} rows
+ * @returns {boolean}
+ */
+export function intentVsDeliveredOk(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return false;
+  for (const row of rows) {
+    if (row == null || typeof row !== 'object' || Array.isArray(row)) {
+      return false;
+    }
+    const status =
+      /** @type {{ status?: unknown }} */ (row).status != null
+        ? String(/** @type {{ status?: unknown }} */ (row).status)
+            .trim()
+            .toLowerCase()
+        : '';
+    if (!INTENT_VS_DELIVERED_STATUS_SET.has(status)) return false;
+  }
+  return true;
+}
+
+/**
  * Machine-checkable plan-end external review predicate (HARD-BLOCK finalize/archive).
  *
  * Accepts a bare receipt or a finalize-shaped object.
@@ -146,6 +198,8 @@ function receiptShapeOk(receipt) {
  *
  * Non-skip path requires ≥1 succeeded family-different known-provider leg
  * AND non-empty reviewFile + mode === 'external-both' + non-empty verifiedAt.
+ * Under automate (forbidSkip/durableAutomate): also requires non-empty
+ * `intentVsDelivered` rows with status matched|partial|missing|extra.
  * Skip path (non-automate only): skipPlanEndReview + non-empty reason.
  *
  * @param {PlanEndReviewReceipt | null | undefined} receipt
@@ -153,7 +207,8 @@ function receiptShapeOk(receipt) {
  *   forbidSkip?: boolean,
  *   durableAutomate?: boolean,
  * }} [opts] When `forbidSkip` or `durableAutomate` is true, skipPlanEndReview
- *   never counts as ok (automate mandatory review).
+ *   never counts as ok (automate mandatory review) and intentVsDelivered is
+ *   required (F2 intent-vs-delivered).
  * @returns {boolean}
  */
 export function planEndReviewOk(receipt, opts = {}) {
@@ -177,6 +232,10 @@ export function planEndReviewOk(receipt, opts = {}) {
   const legs = Array.isArray(receipt.legs) ? receipt.legs : [];
   const succeededCount = legs.filter(legCountsAsSucceededFamilyDifferent).length;
   if (succeededCount >= 1 && receiptShapeOk(receipt)) {
+    // F2: under automate, intent-vs-delivered section is mandatory.
+    if (forbidSkip && !intentVsDeliveredOk(receipt.intentVsDelivered)) {
+      return false;
+    }
     return true;
   }
 

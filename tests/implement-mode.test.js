@@ -35,7 +35,8 @@ describe('parseImplementMode', () => {
     const result = parseImplementMode(['my-plan']);
     assert.equal(result.mode, undefined);
     assert.equal(result.modeExplicit, false);
-    assert.equal(isAutomateActive({ cliMode: result.mode }), false);
+    // F0: bare implement / no CLI mode → automate default ON
+    assert.equal(isAutomateActive({ cliMode: result.mode }), true);
   });
 
   it('F1: parseImplementMode without mode flag + stamp automate → isAutomateActive true', () => {
@@ -139,12 +140,41 @@ describe('parseImplementMode', () => {
 });
 
 describe('isAutomateActive — CLI vs stamp vs clear precedence', () => {
-  it('OFF by default when nothing set', () => {
-    assert.equal(isAutomateActive({}), false);
-    assert.equal(isAutomateActive({ cliMode: undefined, planExecutionMode: undefined }), false);
+  it('ON by default when nothing set (F0 automate-default)', () => {
+    assert.equal(isAutomateActive({}), true);
+    assert.equal(isAutomateActive({ cliMode: undefined, planExecutionMode: undefined }), true);
+    assert.equal(isAutomateActive({ cliMode: null, planExecutionMode: null }), true);
+    // Explicit Mode 1 escape remains off
     assert.equal(isAutomateActive({ cliMode: 'default' }), false);
     assert.equal(isAutomateActive({ cliMode: 'mode1' }), false);
     assert.equal(isAutomateActive({ cliMode: '1' }), false);
+  });
+
+  it('F0: absent CLI mode and no stamp yields isAutomateActive true', () => {
+    assert.equal(
+      isAutomateActive({ cliMode: undefined, planExecutionMode: undefined }),
+      true,
+    );
+    const parsed = parseImplementMode(['my-plan']);
+    assert.equal(
+      isAutomateActive({
+        cliMode: parsed.mode,
+        planExecutionMode: undefined,
+        clearExecutionMode: parsed.clearExecutionMode,
+      }),
+      true,
+    );
+  });
+
+  it('F0: explicit --mode=1 / mode:1 yields isAutomateActive false', () => {
+    for (const argv of [['--mode=1'], ['mode:1'], ['--mode', '1'], ['--mode=mode1']]) {
+      const parsed = parseImplementMode(argv);
+      assert.equal(
+        isAutomateActive({ cliMode: parsed.mode, clearExecutionMode: parsed.clearExecutionMode }),
+        false,
+        `argv ${JSON.stringify(argv)}`,
+      );
+    }
   });
 
   it('cliMode === automate → true', () => {
@@ -248,21 +278,28 @@ describe('isAutomateActive — CLI vs stamp vs clear precedence', () => {
     );
   });
 
-  it('non-automate stamp does not activate', () => {
+  it('non-automate stamp keeps automate off; blank stamp falls through to default ON', () => {
     assert.equal(
       isAutomateActive({ planExecutionMode: 'mode1' }),
       false,
     );
     assert.equal(
-      isAutomateActive({ planExecutionMode: '' }),
+      isAutomateActive({ planExecutionMode: '1' }),
       false,
+    );
+    // Blank/absent stamp → automate-default (F0)
+    assert.equal(
+      isAutomateActive({ planExecutionMode: '' }),
+      true,
     );
   });
 
-  it('precedence matrix snapshot', () => {
+  it('precedence matrix snapshot (F0 automate-default)', () => {
     /** @type {Array<{input: Parameters<typeof isAutomateActive>[0], want: boolean}>} */
     const matrix = [
-      { input: {}, want: false },
+      // F0: no-CLI no-stamp → automate default ON
+      { input: {}, want: true },
+      { input: { cliMode: undefined, planExecutionMode: undefined }, want: true },
       { input: { cliMode: 'automate' }, want: true },
       { input: { planExecutionMode: 'automate' }, want: true },
       { input: { cliMode: 'automate', planExecutionMode: 'automate' }, want: true },
@@ -277,7 +314,7 @@ describe('isAutomateActive — CLI vs stamp vs clear precedence', () => {
         },
         want: false,
       },
-      // M4: explicit non-automate CLI overrides stamp
+      // M4: explicit non-automate CLI overrides stamp / default
       { input: { cliMode: 'mode1', planExecutionMode: 'automate' }, want: false },
       { input: { cliMode: '1', planExecutionMode: 'automate' }, want: false },
       { input: { cliMode: 'default', planExecutionMode: 'automate' }, want: false },
@@ -285,6 +322,8 @@ describe('isAutomateActive — CLI vs stamp vs clear precedence', () => {
       { input: { cliMode: '1', planExecutionMode: undefined }, want: false },
       // stamp-alone (no cliMode) still activates
       { input: { cliMode: undefined, planExecutionMode: 'automate' }, want: true },
+      // non-automate stamp alone stays off even under default-ON
+      { input: { planExecutionMode: 'mode1' }, want: false },
     ];
     for (const row of matrix) {
       assert.equal(
@@ -320,7 +359,7 @@ describe('executionMode stamp + clear path (T-009)', () => {
     );
   });
 
-  it('stamp alone keeps isAutomateActive true until clear', () => {
+  it('stamp alone keeps isAutomateActive true; unstamp alone falls to default ON (F0)', () => {
     const stamped = stampExecutionMode({ slug: 'p' }, 'automate');
     assert.equal(
       isAutomateActive({
@@ -333,10 +372,19 @@ describe('executionMode stamp + clear path (T-009)', () => {
     const cleared = clearExecutionModeStamp(stamped);
     assert.equal('executionMode' in cleared, false);
     assert.equal(hasAutomateStamp(cleared), false);
+    // F0: removing the stamp does not opt into Mode 1 — bare session is automate-default
     assert.equal(
       isAutomateActive({
         planExecutionMode: cleared.executionMode,
         clearExecutionMode: false,
+      }),
+      true,
+    );
+    // Session leave requires clear flag (or explicit Mode 1 CLI)
+    assert.equal(
+      isAutomateActive({
+        planExecutionMode: cleared.executionMode,
+        clearExecutionMode: true,
       }),
       false,
     );
@@ -356,9 +404,18 @@ describe('executionMode stamp + clear path (T-009)', () => {
       false,
     );
     const next = clearExecutionModeStamp(stamped);
+    // Session clear flag keeps automate off even after unstamp
+    assert.equal(
+      isAutomateActive({
+        planExecutionMode: next.executionMode,
+        clearExecutionMode: parsed.clearExecutionMode,
+      }),
+      false,
+    );
+    // Without the session clear flag, unstamp alone is default-ON (F0)
     assert.equal(
       isAutomateActive({ planExecutionMode: next.executionMode }),
-      false,
+      true,
     );
   });
 

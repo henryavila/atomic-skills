@@ -9,6 +9,11 @@ import {
   decidePhaseDoneTerminal,
   gatePassed,
 } from '../scripts/lifecycle-order-guard.js';
+import {
+  assertExitGateMirror,
+  exitGateMirrorAllowsArchive,
+  isExitGateMet,
+} from '../src/lifecycle-order-guard.js';
 
 function deepFreeze(value) {
   if (value == null || typeof value !== 'object') return value;
@@ -350,6 +355,8 @@ test('allows phase-done commit when tasks, gates met, review, lessons, and finge
 const automateDecisionReviewPassed = {
   status: 'passed',
   verifiedAt: '2026-07-23T12:00:00.000Z',
+  packagePresentedAt: '2026-07-23T11:59:00.000Z',
+  packagePath: 'decisions/F0.jsonl',
 };
 
 test('B1: under durable automate, reviewGate skipped is blocked even with reason', () => {
@@ -622,6 +629,8 @@ test('preflightPhaseDone allows automate when evaluationGate and decisionReview 
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-23T12:00:00.000Z',
+            packagePresentedAt: '2026-07-23T11:59:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
           },
         },
       ],
@@ -679,6 +688,8 @@ test('top-level executionMode automate: preflight/commitGuard allow when decisio
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-23T12:00:00.000Z',
+            packagePresentedAt: '2026-07-23T11:59:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
           },
         },
       ],
@@ -687,6 +698,8 @@ test('top-level executionMode automate: preflight/commitGuard allow when decisio
     decisionReview: {
       status: 'passed',
       verifiedAt: '2026-07-23T12:00:00.000Z',
+      packagePresentedAt: '2026-07-23T11:59:00.000Z',
+      packagePath: 'decisions/F0.jsonl',
     },
     reviewGate: { status: 'passed', at: FP, mode: 'both' },
   });
@@ -708,4 +721,49 @@ test('preflightPhaseDone non-automate still allows without evaluationGate', () =
     tasks: [{ id: 'T-001', status: 'done' }],
   });
   assert.equal(result.allowed, true);
+});
+
+// --- F4 exitGate mirror (src/lifecycle-order-guard.js) ---
+
+test('assertExitGateMirror: plan met + initiative pending fails (terminal-pending)', () => {
+  const r = assertExitGateMirror({
+    planCriteria: [{ id: 'F4-G1', status: 'met' }],
+    initiativeExitGates: [{ id: 'F4-G1', status: 'pending' }],
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'exitGate-mirror-terminal-pending');
+  assert.match(r.reason || '', /mirror|pending|hand-edit/i);
+});
+
+test('assertExitGateMirror: plan all met but initiative still has open gate fails', () => {
+  const r = exitGateMirrorAllowsArchive({
+    planCriteria: [
+      { id: 'F4-G1', status: 'met' },
+      { id: 'F4-G2', status: 'met' },
+    ],
+    initiativeExitGates: [
+      { id: 'F4-G1', status: 'met' },
+      { id: 'F4-G2', status: 'pending' },
+    ],
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.reason || '', /mirror|terminal-pending|pending/i);
+});
+
+test('assertExitGateMirror: both sides met allows archive', () => {
+  const r = assertExitGateMirror({
+    planCriteria: [{ id: 'F4-G1', status: 'met' }],
+    initiativeExitGates: [{ id: 'F4-G1', status: 'met' }],
+  });
+  assert.equal(r.ok, true);
+  assert.equal(isExitGateMet({ status: 'met' }), true);
+});
+
+test('assertExitGateMirror: planPhaseMet with pending initiative fails before archive', () => {
+  const r = assertExitGateMirror({
+    planPhaseMet: true,
+    initiativeExitGates: [{ id: 'G1', status: 'pending' }],
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.reason || '', /mirror|pending/i);
 });

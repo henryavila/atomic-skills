@@ -92,10 +92,54 @@ function assertPathSegment(name, value) {
 }
 
 /**
+ * Normalize statusRoot so decision paths never double `projects/<id>`.
+ *
+ * statusRoot must be the `.atomic-skills` root (or equivalent), **not**
+ * `.atomic-skills/projects/<projectId>`. When a caller accidentally passes a
+ * root ending in `projects/<projectId>` (or `projects/<any>`), strip that
+ * suffix so the canonical layout remains:
+ *   <statusRoot>/projects/<projectId>/<planSlug>/decisions/<phaseId>.jsonl
+ *
+ * @param {string | null | undefined} statusRoot
+ * @param {{ projectId?: string | null }} [opts]
+ * @returns {string}
+ */
+export function normalizeStatusRoot(statusRoot, opts = {}) {
+  if (statusRoot == null || String(statusRoot).trim() === '') {
+    return join(process.cwd(), '.atomic-skills');
+  }
+  let root = String(statusRoot).trim().replace(/[/\\]+$/, '');
+  const projectId =
+    opts.projectId != null ? String(opts.projectId).trim() : '';
+
+  // Prefer stripping .../projects/<projectId> when projectId known.
+  if (projectId) {
+    const suffix = `${sep}projects${sep}${projectId}`;
+    const altSuffix = `/projects/${projectId}`;
+    if (root.endsWith(suffix) || root.endsWith(altSuffix)) {
+      root = root.slice(0, root.length - (root.endsWith(suffix) ? suffix.length : altSuffix.length));
+      return root === '' ? sep : root;
+    }
+  }
+
+  // Generic: ends with /projects/<segment> → strip (reject double projects).
+  const m = root.match(/[/\\]projects[/\\]([^/\\]+)$/);
+  if (m) {
+    root = root.slice(0, m.index);
+    return root === '' ? sep : root;
+  }
+
+  return root;
+}
+
+/**
  * Resolve durable decision log path for a phase.
  *
  * Layout:
  *   <statusRoot>/projects/<projectId>/<planSlug>/decisions/<phaseId>.jsonl
+ *
+ * statusRoot is the `.atomic-skills` root. Paths ending in `projects/<id>` are
+ * normalized (F4) so callers never create double-projects trees.
  *
  * @param {{
  *   statusRoot?: string | null,
@@ -121,9 +165,12 @@ export function decisionLogPath(parts) {
   assertPathSegment('planSlug', planSlug);
   assertPathSegment('phaseId', phaseId);
 
-  const root = parts.statusRoot != null && String(parts.statusRoot).trim()
-    ? String(parts.statusRoot).trim()
-    : join(process.cwd(), '.atomic-skills');
+  const root = normalizeStatusRoot(
+    parts.statusRoot != null && String(parts.statusRoot).trim()
+      ? String(parts.statusRoot).trim()
+      : null,
+    { projectId },
+  );
   return join(root, 'projects', projectId, planSlug, 'decisions', `${phaseId}.jsonl`);
 }
 
@@ -355,15 +402,18 @@ function resolveLogPath(statusRootOrPath, locator = {}) {
         : join(process.cwd(), '.atomic-skills');
 
     if (projectId && planSlug && phaseId) {
+      const normalizedRoot = normalizeStatusRoot(statusRoot, {
+        projectId: String(projectId).trim(),
+      });
       const expected = decisionLogPath({
-        statusRoot,
+        statusRoot: normalizedRoot,
         projectId,
         planSlug,
         phaseId,
       });
       const confined = confineDecisionsPath(
         expected,
-        statusRoot,
+        normalizedRoot,
         String(projectId).trim(),
         String(planSlug).trim(),
       );
@@ -411,15 +461,18 @@ function resolveLogPath(statusRootOrPath, locator = {}) {
 
   // statusRoot string + locator segments
   if (locator.projectId && locator.planSlug && locator.phaseId) {
+    const normalizedRoot = normalizeStatusRoot(asString, {
+      projectId: String(locator.projectId).trim(),
+    });
     const expected = decisionLogPath({
-      statusRoot: asString,
+      statusRoot: normalizedRoot,
       projectId: locator.projectId,
       planSlug: locator.planSlug,
       phaseId: locator.phaseId,
     });
     const confined = confineDecisionsPath(
       expected,
-      asString,
+      normalizedRoot,
       String(locator.projectId).trim(),
       String(locator.planSlug).trim(),
     );

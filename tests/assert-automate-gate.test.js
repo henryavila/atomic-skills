@@ -128,6 +128,18 @@ function writePlan(root, opts = {}) {
         );
       }
     }
+    // F2 intent-vs-delivered rows (required under automate finalize)
+    if (Array.isArray(r.intentVsDelivered)) {
+      lines.push('  intentVsDelivered:');
+      for (const row of r.intentVsDelivered) {
+        const id = row.id != null ? `id: ${JSON.stringify(String(row.id))}, ` : '';
+        const label =
+          row.label != null ? `label: ${JSON.stringify(String(row.label))}, ` : '';
+        lines.push(
+          `    - { ${id}${label}status: ${row.status} }`,
+        );
+      }
+    }
   }
   lines.push('phases:');
   for (const p of phases) {
@@ -164,6 +176,12 @@ function writePlan(root, opts = {}) {
       if (dr.status != null) lines.push(`      status: ${dr.status}`);
       if (dr.verifiedAt != null) lines.push(`      verifiedAt: "${dr.verifiedAt}"`);
       if (dr.evidencePath != null) lines.push(`      evidencePath: "${dr.evidencePath}"`);
+      if (dr.packagePresentedAt != null) {
+        lines.push(`      packagePresentedAt: "${dr.packagePresentedAt}"`);
+      }
+      if (dr.packagePath != null) {
+        lines.push(`      packagePath: "${dr.packagePath}"`);
+      }
     }
   }
   lines.push('---');
@@ -731,6 +749,8 @@ describe('assert-automate-gate CLI', () => {
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-21T00:00:00.000Z',
+            packagePresentedAt: '2026-07-21T00:00:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
           },
         });
         const stateRoot = join(root, '.atomic-skills');
@@ -800,6 +820,46 @@ describe('assert-automate-gate CLI', () => {
       }
     });
 
+    it('exit 1 when intentVsDelivered missing under automate (F2 intent-vs-delivered)', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, {
+          executionMode: 'automate',
+          planEndReview: {
+            mode: 'external-both',
+            reviewFile: '.atomic-skills/reviews/x-plan-end.md',
+            verifiedAt: '2026-07-21T00:00:00.000Z',
+            legs: [
+              { provider: 'codex', status: 'succeeded', familyDifferent: true },
+            ],
+            // no intentVsDelivered
+          },
+          userValidatedAt: '2026-07-21T12:00:00.000Z',
+        });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'I');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'finalize',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /blocked/i);
+        assert.match(combined(r), /intentVsDelivered|intent-vs-delivered/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
     it('exit 0 when plan-end receipt + userValidatedAt ok', () => {
       const root = tmpRoot();
       try {
@@ -811,6 +871,9 @@ describe('assert-automate-gate CLI', () => {
             verifiedAt: '2026-07-21T00:00:00.000Z',
             legs: [
               { provider: 'codex', status: 'succeeded', familyDifferent: true },
+            ],
+            intentVsDelivered: [
+              { id: 'ivd:1', label: 'demo intent', status: 'matched' },
             ],
           },
           userValidatedAt: '2026-07-21T12:00:00.000Z',
@@ -876,6 +939,8 @@ describe('assert-automate-gate CLI', () => {
         decisionReview: {
           status: 'passed',
           verifiedAt: '2026-07-21T00:00:00.000Z',
+          packagePresentedAt: '2026-07-21T00:00:00.000Z',
+          packagePath: 'decisions/F0.jsonl',
         },
       });
       writePlan(root, {
@@ -1003,6 +1068,8 @@ describe('assert-automate-gate CLI', () => {
           decisionReview: {
             status: 'passed',
             verifiedAt: '2026-07-21T00:00:00.000Z',
+            packagePresentedAt: '2026-07-21T00:00:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
           },
         });
         const stateRoot = join(root, '.atomic-skills');

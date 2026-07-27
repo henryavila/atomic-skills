@@ -259,9 +259,90 @@ export function canDoneFromAutomateClaims(input = {}) {
   return claim;
 }
 
+/** Operator disposition tokens for open major findings (review-disposition). */
+export const MAJOR_DISPOSITION_TOKENS = Object.freeze([
+  'accept',
+  'defer',
+  'fix',
+]);
+
+const MAJOR_DISPOSITION_SET = new Set(MAJOR_DISPOSITION_TOKENS);
+
+/**
+ * Open major findings require an explicit operator disposition token before
+ * phase-done under automate (F4).
+ *
+ * - Tokens: **accept** | **defer** | **fix** (review-disposition category)
+ * - **Decline ≠ accept:** AskUserQuestion decline/cancel is not a disposition;
+ *   host judgment "accept" after decline fails closed
+ * - No open majors → ok (gate inactive)
+ *
+ * Pure — does not write decision log; caller must append review-disposition.
+ *
+ * @param {{
+ *   openMajorFindings?: unknown[] | null,
+ *   majorFindings?: unknown[] | null,
+ *   disposition?: string | null,
+ *   operatorDisposition?: string | null,
+ *   askUserQuestionDeclined?: boolean | null,
+ *   declined?: boolean | null,
+ *   hostJudgmentAccept?: boolean | null,
+ *   hostAcceptAfterDecline?: boolean | null,
+ * }} [input]
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function majorDispositionAllowsClose(input = {}) {
+  const findingsRaw = input.openMajorFindings ?? input.majorFindings;
+  const findings = Array.isArray(findingsRaw) ? findingsRaw : [];
+  if (findings.length === 0) {
+    return { ok: true };
+  }
+
+  const declined =
+    input.askUserQuestionDeclined === true || input.declined === true;
+  if (declined) {
+    return {
+      ok: false,
+      reason:
+        'open major findings: AskUserQuestion decline is not accept — re-Ask disposition accept|defer|fix or STOP (decline ≠ accept)',
+    };
+  }
+
+  if (
+    input.hostJudgmentAccept === true ||
+    input.hostAcceptAfterDecline === true
+  ) {
+    return {
+      ok: false,
+      reason:
+        'open major findings: host judgment accept after decline fails gate — disposition must be operator token accept|defer|fix (decline ≠ accept)',
+    };
+  }
+
+  const raw =
+    input.disposition != null
+      ? input.disposition
+      : input.operatorDisposition != null
+        ? input.operatorDisposition
+        : null;
+  const disposition =
+    raw != null ? String(raw).trim().toLowerCase() : '';
+
+  if (!MAJOR_DISPOSITION_SET.has(disposition)) {
+    return {
+      ok: false,
+      reason:
+        'open major findings block phase-done without review-disposition accept|defer|fix token from operator',
+    };
+  }
+
+  return { ok: true };
+}
+
 /**
  * Before phase-done under durable automate:
- * evaluation → lessons → phase review (both) → decisionReview.
+ * evaluation → lessons → phase review (both) → major disposition (when open)
+ * → decisionReview.
  *
  * Non-automate: inactive helpers return ok. Does not stamp any field.
  *
@@ -276,6 +357,14 @@ export function canDoneFromAutomateClaims(input = {}) {
  *   reviewGate?: unknown,
  *   phase?: object | null,
  *   decisionReview?: import('./decision-review-gate.js').DecisionReview | null,
+ *   openMajorFindings?: unknown[] | null,
+ *   majorFindings?: unknown[] | null,
+ *   disposition?: string | null,
+ *   operatorDisposition?: string | null,
+ *   askUserQuestionDeclined?: boolean | null,
+ *   declined?: boolean | null,
+ *   hostJudgmentAccept?: boolean | null,
+ *   hostAcceptAfterDecline?: boolean | null,
  * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
  */
@@ -314,6 +403,19 @@ export function canRunPhaseDone(input = {}) {
   });
   if (!review.ok) return review;
 
+  // F4: open major findings require operator disposition token before phase-done.
+  const major = majorDispositionAllowsClose({
+    openMajorFindings: input.openMajorFindings,
+    majorFindings: input.majorFindings,
+    disposition: input.disposition,
+    operatorDisposition: input.operatorDisposition,
+    askUserQuestionDeclined: input.askUserQuestionDeclined,
+    declined: input.declined,
+    hostJudgmentAccept: input.hostJudgmentAccept,
+    hostAcceptAfterDecline: input.hostAcceptAfterDecline,
+  });
+  if (!major.ok) return major;
+
   return decisionReviewAllowsPhaseDone({
     ...base,
     decisionReview: input.decisionReview,
@@ -322,6 +424,12 @@ export function canRunPhaseDone(input = {}) {
 
 /**
  * Before finalize/archive: durable automate plan-end gates.
+ *
+ * Under automate (stamp and/or automateActive), requires planEndReviewOk with
+ * forbidSkip — including non-empty `intentVsDelivered` rows (F2 intent-vs-delivered:
+ * status matched|partial|missing|extra) — AND operator-owned userValidationOk.
+ * Skip path stays HARD-CLOSED. Session clear alone does not open finalize while
+ * the stamp remains.
  *
  * @param {Parameters<typeof automatePlanEndGatesOk>[0]} [input]
  * @returns {ReturnType<typeof automatePlanEndGatesOk>}

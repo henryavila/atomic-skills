@@ -1,0 +1,31 @@
+{
+  "planSlug": "automate-default-and-operator-gates",
+  "phaseId": "F2",
+  "base": "9d2f225fcc3cd78b2043ea561205decd78e43b62",
+  "tasks": [
+    {
+      "taskId": "T-001",
+      "commitShas": ["340adccdbc6b186162f9ebfa935b477029a54dc1"],
+      "paths": ["src/plan-end-intent-surface.js", "tests/plan-end-intent-surface.test.js"],
+      "verifierCommand": "node --test tests/plan-end-intent-surface.test.js",
+      "exitCode": 0,
+      "transcript": "8 pass"
+    },
+    {
+      "taskId": "T-002",
+      "commitShas": ["88bc34b4e2d5fcb13dc3620eff0ca24596696e75"],
+      "paths": ["src/plan-end-review.js", "tests/plan-end-review.test.js"],
+      "verifierCommand": "node --test tests/plan-end-review.test.js tests/plan-end-intent-surface.test.js",
+      "exitCode": 0,
+      "transcript": "48+8 pass"
+    },
+    {
+      "taskId": "T-003",
+      "commitShas": ["f9debea3d450c44721e776545b9fdc27fa18b5c3"],
+      "paths": ["skills/core/implement.md", "skills/shared/implement-automate-maestro.md", "scripts/assert-automate-gate.js"],
+      "verifierCommand": "rg -n 'intent-vs-delivered|intentVsDelivered' skills/shared/implement-automate-maestro.md src/plan-end-review.js",
+      "exitCode": 0,
+      "transcript": "rg OK"
+    }
+  ]
+}

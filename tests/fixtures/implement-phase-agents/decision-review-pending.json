@@ -3,7 +3,18 @@
   "description": "executionMode automate + evaluationGate passed + decisionReview pending ⇒ canRunPhaseDone false (decision-review hardgate open).",
   "phaseDoneInput": {
     "planExecutionMode": "automate",
-    "evaluationGate": { "status": "passed", "verdict": "pass" },
+    "evaluationGate": {
+      "status": "passed",
+      "verdict": "pass",
+      "reportPath": ".atomic-skills/reviews/eval-demo.md"
+    },
+    "lessonsState": "none",
+    "reviewGate": {
+      "status": "passed",
+      "mode": "both",
+      "at": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reviewFile": ".atomic-skills/reviews/f0-both.md"
+    },
     "decisionReview": { "status": "pending" }
   },
   "expect": {

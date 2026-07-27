@@ -4,10 +4,26 @@ import {
   planEndReviewOk,
   userValidationOk,
   automatePlanEndGatesOk,
+  intentVsDeliveredOk,
   SKIP_PLAN_END_REASON_TAXONOMY,
   KNOWN_EXTERNAL_PROVIDERS,
+  INTENT_VS_DELIVERED_STATUSES,
   isDurableAutomateActive,
 } from '../src/plan-end-review.js';
+
+/** Minimal valid intent-vs-delivered rows for automate receipts (F2). */
+const SAMPLE_INTENT_VS_DELIVERED = [
+  {
+    id: 'ivd:demo-1',
+    label: 'Ship intent-vs-delivered gate',
+    status: 'matched',
+  },
+  {
+    id: 'ivd:demo-2',
+    label: 'Mode 1 explicit escape',
+    status: 'partial',
+  },
+];
 
 /** Non-skip success path requires full receipt shape (Fix A). */
 function shapedOk(overrides = {}) {
@@ -16,6 +32,7 @@ function shapedOk(overrides = {}) {
     reviewFile: '.atomic-skills/reviews/2026-07-17-demo-plan-end.md',
     verifiedAt: '2026-07-17T12:00:00.000Z',
     legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
+    intentVsDelivered: SAMPLE_INTENT_VS_DELIVERED,
     ...overrides,
   };
 }
@@ -376,6 +393,69 @@ describe('planEndReviewOk', () => {
     assert.ok(SKIP_PLAN_END_REASON_TAXONOMY.includes('no-family-different-provider'));
     assert.ok(SKIP_PLAN_END_REASON_TAXONOMY.includes('operator-accepted-residual-risk'));
   });
+
+  it('F2: empty or missing intentVsDelivered fails planEndReviewOk under automate (forbidSkip)', () => {
+    const base = shapedOk({ intentVsDelivered: undefined });
+    delete base.intentVsDelivered;
+    assert.equal(planEndReviewOk(base, { forbidSkip: true }), false);
+    assert.equal(planEndReviewOk(base, { durableAutomate: true }), false);
+    assert.equal(
+      planEndReviewOk(shapedOk({ intentVsDelivered: [] }), { forbidSkip: true }),
+      false,
+    );
+    assert.equal(
+      planEndReviewOk(
+        shapedOk({ intentVsDelivered: [{ label: 'x', status: 'unknown' }] }),
+        { forbidSkip: true },
+      ),
+      false,
+    );
+  });
+
+  it('F2: non-empty intentVsDelivered with matched|partial|missing|extra passes under automate', () => {
+    for (const status of INTENT_VS_DELIVERED_STATUSES) {
+      assert.equal(
+        planEndReviewOk(
+          shapedOk({
+            intentVsDelivered: [{ id: 'r1', label: `row-${status}`, status }],
+          }),
+          { forbidSkip: true },
+        ),
+        true,
+        `expected true for status ${status}`,
+      );
+    }
+  });
+
+  it('F2: intentVsDelivered optional outside automate (forbidSkip off)', () => {
+    const bare = shapedOk({ intentVsDelivered: undefined });
+    delete bare.intentVsDelivered;
+    assert.equal(planEndReviewOk(bare), true);
+    assert.equal(planEndReviewOk(shapedOk({ intentVsDelivered: [] })), true);
+  });
+});
+
+describe('intentVsDeliveredOk', () => {
+  it('false for empty missing non-array or bad status', () => {
+    assert.equal(intentVsDeliveredOk(null), false);
+    assert.equal(intentVsDeliveredOk(undefined), false);
+    assert.equal(intentVsDeliveredOk([]), false);
+    assert.equal(intentVsDeliveredOk('matched'), false);
+    assert.equal(intentVsDeliveredOk([{ status: 'nope' }]), false);
+    assert.equal(intentVsDeliveredOk([null]), false);
+  });
+
+  it('true for non-empty rows with allowed statuses', () => {
+    assert.equal(
+      intentVsDeliveredOk([
+        { status: 'matched' },
+        { status: 'partial' },
+        { status: 'missing' },
+        { status: 'extra' },
+      ]),
+      true,
+    );
+  });
 });
 
 describe('userValidationOk', () => {
@@ -486,6 +566,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
     reviewFile: '.atomic-skills/reviews/2026-07-17-demo-plan-end.md',
     verifiedAt: '2026-07-17T12:00:00.000Z',
     legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
+    intentVsDelivered: SAMPLE_INTENT_VS_DELIVERED,
   };
   const goodAt = '2026-07-17T19:00:00.000Z';
 
@@ -679,6 +760,48 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
     });
     assert.equal(r.ok, false);
     assert.equal(r.planEndReviewOk, false);
+  });
+
+  it('F2: empty intentVsDelivered fails under automate including session default', () => {
+    const withoutIvd = {
+      mode: 'external-both',
+      reviewFile: '.atomic-skills/reviews/2026-07-17-demo-plan-end.md',
+      verifiedAt: '2026-07-17T12:00:00.000Z',
+      legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
+    };
+    const stamp = automatePlanEndGatesOk({
+      planExecutionMode: 'automate',
+      receipt: withoutIvd,
+      userValidatedAt: goodAt,
+    });
+    assert.equal(stamp.ok, false);
+    assert.equal(stamp.planEndReviewOk, false);
+
+    const sessionDefault = automatePlanEndGatesOk({
+      automateActive: true,
+      receipt: { ...withoutIvd, intentVsDelivered: [] },
+      userValidatedAt: goodAt,
+    });
+    assert.equal(sessionDefault.ok, false);
+    assert.equal(sessionDefault.planEndReviewOk, false);
+  });
+
+  it('F2: intentVsDelivered rows with status matched|partial|missing|extra open finalize with userValidatedAt', () => {
+    const r = automatePlanEndGatesOk({
+      automateActive: true,
+      receipt: {
+        ...goodReceipt,
+        intentVsDelivered: [
+          { label: 'goal', status: 'matched' },
+          { label: 'extra path', status: 'extra' },
+          { label: 'pending', status: 'missing' },
+          { label: 'wip', status: 'partial' },
+        ],
+      },
+      userValidatedAt: goodAt,
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.planEndReviewOk, true);
   });
 });
 

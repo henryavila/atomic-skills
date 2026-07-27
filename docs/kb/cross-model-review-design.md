@@ -104,6 +104,28 @@ Skill wiring: `skills/core/review-code.md` / `review-plan.md` Flow D;
 `skills/shared/codex-bridge-assets/review-mode-ux.md`. Unit tests:
 `tests/external-both-merge.test.js`.
 
+## Plan-end intent-vs-delivered (automate F2 / P4)
+
+Under automate (session default **or** durable stamp), plan-end is not a generic
+code review — it answers **did we build what we planned?**
+
+| Piece | Role |
+|-------|------|
+| **Intent surface** | Phase goals, `businessIntent` spine, task acceptance, exit criteria (`buildIntentSurface`) |
+| **Delivered surface** | Task done status, claim SHAs, output paths (+ optional git SHA list) (`buildDeliveredSurface`) |
+| **Brief** | Markdown section **Intent vs delivered** checklist in the external-both context (`buildIntentVsDeliveredBrief`) |
+| **Receipt** | Non-empty `intentVsDelivered` rows with `status` ∈ `matched` \| `partial` \| `missing` \| `extra` |
+
+Machine gates (`planEndReviewOk` with `forbidSkip` / `automatePlanEndGatesOk` /
+`canFinalizeOrArchive` / `assert-automate-gate --gate finalize`) **fail closed** when
+`intentVsDelivered` is missing or empty under automate. Skip-with-reason stays
+HARD-CLOSED under durable automate. ≥1 succeeded family-different external leg
+(`codex` \| `grok` \| `claude`) and `mode: external-both` remain required.
+
+Helpers: `src/plan-end-intent-surface.js`, `src/plan-end-review.js`.
+Maestro Step I order: build surfaces → external-both → stamp receipt with
+`intentVsDelivered` → `userValidationOk` (operator-owned) → finalize.
+
 ## Anti-patterns
 
 - Adding "## Why we chose this approach" to the briefing
@@ -114,6 +136,7 @@ Skill wiring: `skills/core/review-code.md` / `review-plan.md` Flow D;
 - Treating same-family headless CLI as CROSS-MODEL REVIEW
 - Silently remapping same-family to local in CI without `--accept-same-family-as-local`
 - Dropping one external-both provider's findings when the other leg fails
+- Plan-end external-both **without** an Intent vs delivered brief / empty `intentVsDelivered` under automate
 
 ## References
 

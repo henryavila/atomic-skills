@@ -72,3 +72,5 @@ _(none)_
 
 _(empty)_
 | grok-phase-todo-projection | 2026-07-25 | plan/grok-phase-todo-projection | 5/5 |
+
+- [active] automate-default-and-operator-gates — F0 Automate as default mode

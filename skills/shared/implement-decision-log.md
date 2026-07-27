@@ -37,6 +37,13 @@ segments. `appendDecision` / `listDecisions` require `projectId` + `planSlug` +
 that escape the `decisions/` tree are **rejected**. Path id segments are
 allowlisted `[A-Za-z0-9._-]+`.
 
+**`statusRoot` must be the `.atomic-skills` root** — not
+`.atomic-skills/projects/<project-id>`. Canonical path is always
+`statusRoot/projects/<id>/<slug>/decisions/<phaseId>.jsonl`. If a caller passes a
+`statusRoot` ending in `projects/<id>`, `normalizeStatusRoot` / `decisionLogPath`
+**normalize** it (strip the suffix) so a double-`projects/` path is never written
+(F4 dogfood fix).
+
 **Format:** one JSON object per line (JSONL). Append-only — never rewrite prior
 lines to invent history. Empty file or missing file means zero entries. New log
 files are created mode `0o600` when possible.
@@ -67,7 +74,7 @@ Optional fields (allowed, never required for append): `phaseId`, `taskId`,
 |----------|----------|
 | `routing` | Re-dispatch, stop, leave-automate, Mode-1 re-entry, spawn/skip phase agent. |
 | `tradeoff` | Product/eng tradeoff that changes behavior beyond pure task text. |
-| `review-disposition` | Review severity disposition: `accept` \| `defer` \| `fix` (or equivalent). |
+| `review-disposition` | Review severity disposition: `accept` \| `defer` \| `fix` (or equivalent). **Open major findings block phase-done** without one of these operator tokens (`majorDispositionAllowsClose`). **Decline ≠ accept:** AskUserQuestion decline/cancel is not a disposition — re-Ask or STOP; host judgment accept after decline fails the gate. |
 | `scope-exit` | Required violation of `scopeBoundary` / runtime scope exit. |
 | `manual-gate-delegation` | Manual gate parked, delegated, or operator-owned step deferred with reason. |
 | `env` | Verifier environment / tool / runtime choice that affects reproducibility. |
@@ -132,24 +139,47 @@ evaluation and **before / as part of** phase-done preflight. Fixed order:
 
 ```text
 tasks done → evaluation agent → evaluationGate stamp
-  → decision-review operator PASS (this section)
-  → stamp phases[].decisionReview (status=passed + verifiedAt)
+  → buildDecisionPackage + host present decision package (read-before-PASS)
+  → AskUserQuestion PASS|FAIL (same hardgate turn as package body)
+  → stamp phases[].decisionReview (status=passed + verifiedAt + package present evidence)
   → canRunPhaseDone / assert-automate-gate --gate phase-done
   → phase-done with review-code --mode=both
 ```
 
+### present-before-PASS / read-before-PASS (HARD)
+
+1. Host builds the **decision package** via `buildDecisionPackage` from
+   `listDecisions` (`src/decision-review-package.js`) — `phaseId`, log `path`,
+   `entries[]` (`category`, `decision`, `why`, `impact`, `evidencePath`),
+   `empty`, `summaryMarkdown`.
+2. Host **presents the package body** (path + table / summaryMarkdown, or the
+   explicit **no-decisions** banner when empty) **in the same hardgate turn** as
+   the PASS|FAIL ask. Claiming "package apresentado" without rendering the body
+   is **FAIL present-before-PASS** (dogfood:
+   `.atomic-skills/reviews/2026-07-26-f0-decision-review-ask-without-package-body.md`).
+3. **Only after** present may the operator choose PASS or FAIL. Blind PASS /
+   single-click PASS without package body is forbidden.
+4. Machine stamp records present evidence: **`packagePresentedAt`** (ISO when
+   the host rendered the package) **and/or** **`packagePath`** (path to the
+   presented package / JSONL). Without present evidence,
+   `decisionReviewAllowsPhaseDone` / `canRunPhaseDone` **fail closed** under
+   automate — including **session default** (`automateActive` / no stamp yet)
+   and durable stamp.
+
 ### Operator PASS (closes the gate)
 
-1. Operator reads the phase `decisions/<phaseId>.jsonl` (and linked evidence).
+1. Operator reads the **decision package** presented in this turn (not a prior
+   turn, not "path only").
 2. Operator issues an **explicit token in the same turn** that authorizes PASS
-   (e.g. `decision-review PASS`, `ratify decision-review`, or equivalent clear
-   PASS language). Chat from a prior turn does **not** authorize a new stamp.
+   via **AskUserQuestion** options (PASS | FAIL) — not free-text chat recovery
+   (e.g. never "type `decision-review PASS`"). See AskUserQuestion-only section.
 3. **Only then** may the host stamp `phases[].decisionReview` via
-   `buildDecisionReview({ status: 'passed', verifiedAt: <ISO>, evidencePath? })`.
+   `buildDecisionReview({ status: 'passed', verifiedAt: <ISO>, packagePresentedAt: <ISO>, packagePath?, evidencePath? })`.
 4. Host/agent **never** writes `decisionReview status=passed` without that
    explicit operator token in the **same turn**. Silent auto-PASS is forbidden.
 5. Evaluation agent output, `evaluationGate`, and review-code receipts **must
-   not** substitute for decision-review PASS.
+   not** substitute for decision-review PASS. Empty package does **not**
+   auto-PASS — operator still chooses after seeing the no-decisions banner.
 
 ### Operator FAIL (does not advance)
 
@@ -157,25 +187,41 @@ tasks done → evaluation agent → evaluationGate stamp
 2. Host stamps `phases[].decisionReview` `{ status: 'failed', verifiedAt: <ISO> }`.
 3. **Do not** run phase-done terminal write; **do not advance** `currentPhase`.
 4. Resume path: reopen / re-dispatch / park; re-run decision-review after fixes
-   until a later operator PASS.
+   until a later operator PASS (present package again).
 
 ### Machine check
 
 - `decisionReviewAllowsPhaseDone` / `canRunPhaseDone` require `status=passed`
-  + `verifiedAt` under durable automate; pending / failed / absent → block.
+  + `verifiedAt` **+ package present evidence** (`packagePresentedAt` ISO
+  and/or `packagePath`) under durable automate (stamp **or** session
+  `automateActive`); pending / failed / absent / passed-without-present → block.
 - `assert-automate-gate --gate phase-done` fails closed without both
-  evaluationGate and decisionReview passed.
+  evaluationGate and decisionReview passed (with present evidence).
 - Non-automate plans: decisionReview field optional; gate inactive.
+
+### AskUserQuestion-only + free-text ban (HARD)
+
+- Decision-review PASS|FAIL is **AskUserQuestion-only** under automate (options
+  map to durable tokens). Host **must not** ask the operator to type
+  `decision-review PASS` / free-text recovery in chat after decline.
+- **Decline / cancel** of AskUserQuestion → **re-Ask** the same question
+  (bounded) **or STOP** with nextAction to re-open AskUserQuestion — never
+  free-text "type PASS".
+- Package body **must appear in the same AskUserQuestion turn** as PASS|FAIL
+  options (present-before-PASS).
 
 ---
 
-## Helper surface (`src/decision-log.js`)
+## Helper surface
 
 | Function | Role |
 |----------|------|
-| `decisionLogPath({ statusRoot, projectId, planSlug, phaseId })` | Resolve durable path |
+| `decisionLogPath({ statusRoot, projectId, planSlug, phaseId })` | Resolve durable path (`src/decision-log.js`) |
 | `appendDecision(statusRootOrPath, entry)` | Validate + append one entry; returns written row |
 | `listDecisions(statusRootOrPath, opts?)` | Read/parse entries for a phase path |
+| `buildDecisionPackage({ phaseId, path, entries })` | Pure present-before-PASS package (`src/decision-review-package.js`) |
+| `buildDecisionReview({ status, verifiedAt, packagePresentedAt?, packagePath?, … })` | Operator stamp shape (`src/decision-review-gate.js`) — does not authorize PASS |
+| `decisionReviewAllowsPhaseDone` / `hasDecisionPackagePresentEvidence` | Fail closed without present evidence under automate |
 | `DECISION_CATEGORIES` | Frozen minimum category list |
 | `REQUIRED_DECISION_FIELDS` | Frozen required field names |
 

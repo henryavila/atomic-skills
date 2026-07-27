@@ -1958,6 +1958,8 @@ test('GATE-R4: non-automate plan without evaluationGate is OK', () => {
 const decisionReviewPassed = {
   status: 'passed',
   verifiedAt: '2026-07-23T12:00:00.000Z',
+  packagePresentedAt: '2026-07-23T11:59:00.000Z',
+  packagePath: '.atomic-skills/projects/demo/parent-plan/decisions/F0.jsonl',
 };
 
 test('GATE-R4: Mode-1 done phase without decisionReview is OK after mid-plan automate stamp', () => {
@@ -2006,7 +2008,7 @@ test('GATE-R4 RED: decisionReview passed with non-ISO verifiedAt violates', () =
   assert.match(v[0], /ISO|timestamp|verifiedAt|decisionReview/i);
 });
 
-test('GATE-R4 GREEN: automate done phase with decisionReview passed + verifiedAt', () => {
+test('GATE-R4 GREEN: automate done phase with decisionReview passed + verifiedAt + present evidence', () => {
   assert.deepEqual(
     checkDecisionReview(
       automateDonePlan(
@@ -2016,6 +2018,22 @@ test('GATE-R4 GREEN: automate done phase with decisionReview passed + verifiedAt
     ),
     [],
   );
+});
+
+test('GATE-R4 RED: decisionReview passed without package present evidence (present-before-PASS)', () => {
+  const v = checkDecisionReview(
+    automateDonePlan(
+      { status: 'passed', verdict: 'pass' },
+      {
+        decisionReview: {
+          status: 'passed',
+          verifiedAt: '2026-07-23T12:00:00.000Z',
+        },
+      },
+    ),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /present-before-PASS|packagePresented|packagePath|decisionReview/i);
 });
 
 test('GATE-R4: non-automate plan without decisionReview is OK', () => {
