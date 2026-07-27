@@ -576,7 +576,10 @@ phases:
       at: 5d909e2ba5557bd14d9f94caa07355bb2319969b
       packagePresentedAt: 2026-07-27T08:42:51.592Z
       packagePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F4.jsonl
-references: []
+references:
+  - kind: url
+    path: https://github.com/henryavila/atomic-skills/pull/38
+    label: "PR #38"
 planActive: true
 planTitle: Automate default + operator gates (decision-review + plan-end intent)
 executionMode: automate
