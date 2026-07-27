@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-27T08:09:31.819Z
+lastUpdated: 2026-07-27T08:10:58.811Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F3
 parallelismAllowed: false
@@ -382,8 +382,15 @@ phases:
             kind: shell
             command: rg -n 'read-before-PASS|intentVsDelivered|default' docs/kb/
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Checklist dogfood dos três gates.
+    businessIntent:
+      value: Operador tem checklist durable que prova F0 default + F1
+        present-before-PASS + F2 intentVsDelivered sem memória de chat.
+      workflow: Escrever/atualizar docs/kb checklist rows + greps; zero product code.
+      rules: Só KB/checklist; sem app code; alinhar a F0–F2 já shipped.
+      outOfScope: F4 authenticity; product Lekto; reimplementar gates F0–F2.
+      doneWhen: F3-G1 rg green; file(s) com as rows listadas.
   - id: F4
     slug: automate-default-and-operator-gates-f4-receipt-auth
     title: Receipt authenticity and close-path integrity

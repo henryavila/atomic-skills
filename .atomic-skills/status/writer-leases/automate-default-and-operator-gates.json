@@ -1,0 +1,10 @@
+{
+  "planSlug": "automate-default-and-operator-gates",
+  "phaseId": "F3",
+  "startedAt": "2026-07-27T08:10:59.858Z",
+  "hostId": "grok-host-thin",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/automate-default-f3-writer",
+  "status": "active",
+  "writerBranch": "plan/automate-default-f3-writer",
+  "tokenHash": "5605bfc443b3fe7ce734da46a8a2998955540e04a2db213609a9450d6ab465c1"
+}
