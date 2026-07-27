@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-27T08:36:44.684Z
+lastUpdated: 2026-07-27T08:43:13.288Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F4
 parallelismAllowed: false
@@ -505,7 +505,7 @@ phases:
             passed: true
             exitCode: 0
             outputSummary: F4-G4 green
-    status: active
+    status: done
     summary: "Hardening: authenticity de review dual-leg, disposition e integrity do
       phase-done."
     businessIntent:
@@ -552,16 +552,30 @@ phases:
       status: passed
       verdict: pass
       reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F4.md
-      verifiedAt: 2026-07-27T08:32:15.086Z
-      at: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      at: 5d909e2ba5557bd14d9f94caa07355bb2319969b
+      verifiedAt: 2026-07-27T08:42:51.592Z
     reviewGate:
       status: passed
       mode: both
-      at: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
-      reviewFile: .atomic-skills/reviews/2026-07-27-automate-default-F4-phase-both.md
-      verifiedAt: 2026-07-27T08:32:15.086Z
+      at: 5d909e2ba5557bd14d9f94caa07355bb2319969b
+      reviewFile: .atomic-skills/reviews/2026-07-27-automate-default-F4-local.md
+      localReceiptPath: .atomic-skills/reviews/2026-07-27-automate-default-F4-local.md
+      codexReceiptPath: .atomic-skills/reviews/2026-07-27-automate-default-F4-codex.md
+      legs:
+        - path: .atomic-skills/reviews/2026-07-27-automate-default-F4-local.md
+          provider: local
+        - path: .atomic-skills/reviews/2026-07-27-automate-default-F4-codex.md
+          provider: codex
+      verifiedAt: 2026-07-27T08:42:51.592Z
     lessonsState: none
     noneReason: clean phase — authenticity floors shipped green
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-27T08:42:51.592Z
+      evidencePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F4.jsonl
+      at: 5d909e2ba5557bd14d9f94caa07355bb2319969b
+      packagePresentedAt: 2026-07-27T08:42:51.592Z
+      packagePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F4.jsonl
 references: []
 planActive: true
 planTitle: Automate default + operator gates (decision-review + plan-end intent)

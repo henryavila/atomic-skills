@@ -10,8 +10,8 @@ summary: "Hardening: authenticity de review dual-leg, disposition e integrity do
 status: archived
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-27T08:19:56.073Z
-lastUpdated: 2026-07-27T08:32:15.086Z
-nextAction: decision-review then phase-done F4 (last phase)
+lastUpdated: 2026-07-27T08:43:13.288Z
+nextAction: "Plan-end: external-both + userValidation + assert finalize (no auto-archive)"
 parentPlan: automate-default-and-operator-gates
 phaseId: F4
 businessIntent:
