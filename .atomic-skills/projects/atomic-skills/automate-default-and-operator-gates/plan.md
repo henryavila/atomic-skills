@@ -5,9 +5,9 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-26T22:47:22.480Z
+lastUpdated: 2026-07-27T07:38:31.288Z
 branch: plan/automate-default-and-operator-gates
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -187,14 +187,14 @@ phases:
             kind: shell
             command: node --test tests/decision-review-package.test.js
             expectExitCode: 0
-          metAt: 2026-07-26T22:46:27.662Z
+          metAt: 2026-07-27T07:38:06.657Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-26T22:46:27.662Z
-            verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+            verifiedAt: 2026-07-27T07:38:06.657Z
+            verifiedCommit: 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
             passed: true
             exitCode: 0
-            outputSummary: F1-G1 green after F1 merge re-verify
+            outputSummary: F1-G1 re-verified at phase-done
         - id: F1-G2
           description: Present-before-PASS + package evidence mandated in prose/gates.
           status: met
@@ -204,14 +204,14 @@ phases:
               skills/shared/implement-decision-log.md
               skills/shared/implement-automate-maestro.md
             expectExitCode: 0
-          metAt: 2026-07-26T22:46:27.662Z
+          metAt: 2026-07-27T07:38:06.657Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-26T22:46:27.662Z
-            verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+            verifiedAt: 2026-07-27T07:38:06.657Z
+            verifiedCommit: 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
             passed: true
             exitCode: 0
-            outputSummary: F1-G2 green after F1 merge re-verify
+            outputSummary: F1-G2 re-verified at phase-done
         - id: F1-G3
           description: AskUserQuestion-only + free-text ban + decline path greppable.
           status: met
@@ -222,15 +222,15 @@ phases:
               skills/shared/implement-automate-maestro.md
               skills/shared/implement-antipatterns.md skills/core/implement.md
             expectExitCode: 0
-          metAt: 2026-07-26T22:46:27.662Z
+          metAt: 2026-07-27T07:38:06.657Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-26T22:46:27.662Z
-            verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+            verifiedAt: 2026-07-27T07:38:06.657Z
+            verifiedCommit: 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
             passed: true
             exitCode: 0
-            outputSummary: F1-G3 green after F1 merge re-verify
-    status: active
+            outputSummary: F1-G3 re-verified at phase-done
+    status: done
     summary: Package present-before-PASS + canal AskUserQuestion-only (sem
       free-text) em hardgates.
     context:
@@ -267,16 +267,23 @@ phases:
       status: passed
       verdict: pass
       reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F1.md
-      verifiedAt: 2026-07-26T22:47:22.480Z
-      at: 001b1caf08ef01b1a3e9bc721ffde61b0d6310be
+      verifiedAt: 2026-07-27T07:38:06.657Z
+      at: 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
     lessonsState: none
     noneReason: clean phase — no failure signals
     reviewGate:
       status: passed
       mode: both
-      at: 001b1caf08ef01b1a3e9bc721ffde61b0d6310be
+      at: 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
       reviewFile: .atomic-skills/reviews/2026-07-26-automate-default-F1-phase-both.md
-      verifiedAt: 2026-07-26T22:47:22.480Z
+      verifiedAt: 2026-07-27T07:38:06.657Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-27T07:38:06.657Z
+      evidencePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F1.jsonl
+      at: 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
+      packagePresentedAt: 2026-07-27T07:38:06.657Z
+      packagePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F1.jsonl
   - id: F2
     slug: automate-default-and-operator-gates-f2-plan-end-intent-vs-deliv
     title: Plan-end intent-vs-delivered cross-model review
@@ -572,5 +579,15 @@ but **did not render** the decision package body in the same turn.
 - **Review gate (G2)**: reviewGate passed mode both at 95872f9fe798d25a6e9f4a8b56261c0952d55023.
 - **Lessons (G1)**: lessonsState none (clean phase, operator ratified).
 - **decision-review**: operator PASS via AskUserQuestion with package body in same turn (2026-07-26T22:25:13.410Z).
+
+
+## Self-review F1 (phase-done)
+
+- G1: T-001..T-004 + eval report paths
+- G2: decision-review PASS via AskUserQuestion with package body same turn
+- G6: decisions/F1.jsonl + packagePresentedAt/packagePath
+- Lessons: none
+- Review: both @ 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
+- decision-review PASS @ 2026-07-27T07:38:31.288Z
 
 

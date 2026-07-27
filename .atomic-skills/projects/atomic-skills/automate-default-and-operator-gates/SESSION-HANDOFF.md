@@ -188,3 +188,11 @@ Não reabrir F4 escopo. Não misturar com Lekto product.
 - maestro cursor: `awaiting-operator-advance` (needs `operator-continue` before F1 package/materialize).
 - nextAction: present phase-start package for F1 validate-only
 
+## F1 closed (2026-07-27)
+
+- decision-review **PASS** with package body in same AskUserQuestion turn
+  (packagePresentedAt + packagePath stamped).
+- phase-done: F1 archived; `currentPhase: F2` (descriptor-only).
+- maestro cursor: `awaiting-operator-advance`.
+- nextAction: present phase-start package for F2 validate-only (after operator-continue).
+

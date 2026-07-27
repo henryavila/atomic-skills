@@ -6,12 +6,11 @@ goal: Operator always sees the decision package before PASS/FAIL; under automate
   every operator hardgate uses AskUserQuestion options only — free-text token
   recovery is forbidden; decline re-Asks or STOPs.
 summary: Package present-before-PASS + canal AskUserQuestion-only em hardgates.
-status: active
+status: archived
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-26T22:31:25.506Z
-lastUpdated: 2026-07-26T23:17:54.195Z
-nextAction: Re-open decision-review AskUserQuestion F1 WITH package body in same
-  turn (PASS|FAIL), then phase-done
+lastUpdated: 2026-07-27T07:38:31.559Z
+nextAction: present phase-start package for F2 validate-only
 parentPlan: automate-default-and-operator-gates
 phaseId: F1
 businessIntent:
@@ -42,16 +41,16 @@ exitGates:
       kind: shell
       command: node --test tests/decision-review-package.test.js
       expectExitCode: 0
-    metAt: 2026-07-26T22:46:27.662Z
+    metAt: 2026-07-27T07:38:31.288Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-26T22:46:27.662Z
-      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      verifiedAt: 2026-07-27T07:38:31.288Z
+      verifiedCommit: 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
       passed: true
       exitCode: 0
-      outputSummary: F1-G1 green after F1 merge re-verify
+      outputSummary: F1-G1 met at phase-done
     verifierLabel: "shell: node --test tests/decision-review-package.test.js"
-    evidenceSummary: passed · 2026-07-26
+    evidenceSummary: passed · 2026-07-27
   - id: F1-G2
     description: Present-before-PASS + package evidence mandated in prose/gates.
     status: met
@@ -61,16 +60,16 @@ exitGates:
         skills/shared/implement-decision-log.md
         skills/shared/implement-automate-maestro.md
       expectExitCode: 0
-    metAt: 2026-07-26T22:46:27.662Z
+    metAt: 2026-07-27T07:38:31.288Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-26T22:46:27.662Z
-      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      verifiedAt: 2026-07-27T07:38:31.288Z
+      verifiedCommit: 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
       passed: true
       exitCode: 0
-      outputSummary: F1-G2 green after F1 merge re-verify
+      outputSummary: F1-G2 met at phase-done
     verifierLabel: "shell: rg -n 'read-before-PASS|packagePresented|decision package' …"
-    evidenceSummary: passed · 2026-07-26
+    evidenceSummary: passed · 2026-07-27
   - id: F1-G3
     description: AskUserQuestion-only + free-text ban + decline path greppable.
     status: met
@@ -81,16 +80,16 @@ exitGates:
         skills/shared/implement-automate-maestro.md
         skills/shared/implement-antipatterns.md skills/core/implement.md
       expectExitCode: 0
-    metAt: 2026-07-26T22:46:27.662Z
+    metAt: 2026-07-27T07:38:31.288Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-26T22:46:27.662Z
-      verifiedCommit: 8879297ae66517a51f9c5af952b67aed95b8ddb3
+      verifiedAt: 2026-07-27T07:38:31.288Z
+      verifiedCommit: 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06
       passed: true
       exitCode: 0
-      outputSummary: F1-G3 green after F1 merge re-verify
+      outputSummary: F1-G3 met at phase-done
     verifierLabel: "shell: rg -n 'AskUserQuestion|free-text|re-Ask|operator-continue' …"
-    evidenceSummary: passed · 2026-07-26
+    evidenceSummary: passed · 2026-07-27
 stack:
   - id: 1
     title: Decision-review present-before-PASS + AskUserQuestion-only hardgates
@@ -285,11 +284,11 @@ Initiative for phase **F1 — present-before-PASS + AskUserQuestion-only**.
 
 ## Session handoff
 
-- **Narrative:** F1 code complete (T-001..T-004 done, gates met, eval/lessons/review stamped). Blocked on decision-review PASS with package in same AskUserQuestion turn (declined once — re-ask, no free-text).
-- **Decision log:** 5 entries in decisions/F1.jsonl including dogfood + merge + eval/lessons/review.
-- **Single nextAction:** Re-open decision-review AskUserQuestion F1 WITH package body in same turn (PASS|FAIL), then phase-done
-- **Verbatim state:** HEAD $(git rev-parse --short HEAD 2>/dev/null); cursor G; canRunPhaseDone needs decisionReview with packagePresentedAt.
-- **Uncommitted changes:** checkpoint after this save.
+- **Narrative:** F1 phase-done. decision-review PASS with package in same AskUserQuestion turn. present-before-PASS + AskUserQuestion-only shipped. currentPhase F2 descriptor-only. Cursor awaiting-operator-advance.
+- **Decision log:** package builder; packagePresented fail-closed; free-text ban; hardgate matrix; eval/lessons/review; operator PASS.
+- **Single nextAction:** present phase-start package for F2 validate-only
+- **Verbatim state:** F1 archived; HEAD 65cb3fc9843d3a0c931cd96d32aaec9ac6691b06; assert phase-done exit 0; decisions/F1.jsonl.
+- **Uncommitted changes:** phase-done checkpoint.
 
 
 ## Dogfood evidence

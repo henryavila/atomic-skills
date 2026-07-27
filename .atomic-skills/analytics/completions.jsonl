@@ -169,3 +169,4 @@
 {"ts":"2026-07-26T22:45:39.320Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-default-and-operator-gates","phaseId":"F1","taskId":"T-002","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-26T22:45:39.462Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-default-and-operator-gates","phaseId":"F1","taskId":"T-003","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-26T22:45:39.572Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-default-and-operator-gates","phaseId":"F1","taskId":"T-004","weight":1,"weightBasis":"count"}
+{"ts":"2026-07-27T07:38:31.409Z","event":"phase-done","projectId":"atomic-skills","planSlug":"automate-default-and-operator-gates","phaseId":"F1","taskId":null,"weight":1,"weightBasis":"count"}
