@@ -7,11 +7,11 @@ goal: Fail-closed authenticity for phase review dual-leg and evaluation floors;
   mirror/assert path (no host hand-edit).
 summary: "Hardening: authenticity de review dual-leg, disposition e integrity do
   phase-done."
-status: active
+status: archived
 branch: plan/automate-default-and-operator-gates
 started: 2026-07-27T08:19:56.073Z
-lastUpdated: 2026-07-27T08:19:56.073Z
-nextAction: "Start T-001: Phase review dual-leg authenticity floor"
+lastUpdated: 2026-07-27T08:32:15.086Z
+nextAction: decision-review then phase-done F4 (last phase)
 parentPlan: automate-default-and-operator-gates
 phaseId: F4
 businessIntent:
@@ -34,33 +34,55 @@ businessIntent:
     thin sem floor falha; major sem disposition token bloqueia; statusRoot
     double-projects rejeitado; mirror exitGates assert + prosa canônica; F4-G*
     met.
-tasksDone: 0
+tasksDone: 5
 tasksTotal: 5
-gatesMet: 0
+gatesMet: 4
 gatesTotal: 4
+weightDone: 13
+weightTotal: 13
 exitGates:
   - id: F4-G1
     description: phase-review authenticity tests pass (dual leg, min size,
       non-binary reject stub/corrupt).
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/phase-review-gate.test.js
         tests/phase-review-authenticity.test.js 2>/dev/null; node --test
         tests/phase-review-gate.test.js
       expectExitCode: 0
+    metAt: 2026-07-27T08:32:15.086Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      passed: true
+      exitCode: 0
+      outputSummary: F4-G1 green
+    verifierLabel: "shell: node --test tests/phase-review-gate.test.js tests/phase-rev…"
+    evidenceSummary: passed · 2026-07-27
   - id: F4-G2
     description: decision-log statusRoot normalize tests pass; double projects path
       rejected or fixed.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/decision-log.test.js
       expectExitCode: 0
+    metAt: 2026-07-27T08:32:15.086Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      passed: true
+      exitCode: 0
+      outputSummary: F4-G2 green
+    verifierLabel: "shell: node --test tests/decision-log.test.js"
+    evidenceSummary: passed · 2026-07-27
   - id: F4-G3
     description: Prose requires present dual-leg authenticity, disposition token,
       canonical phase-done (no hand-edit).
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n
@@ -70,16 +92,36 @@ exitGates:
         skills/shared/project-assets/project-transitions.md
         src/phase-review-gate.js src/decision-log.js
       expectExitCode: 0
+    metAt: 2026-07-27T08:32:15.086Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      passed: true
+      exitCode: 0
+      outputSummary: F4-G3 green
+    verifierLabel: "shell: rg -n 'authenticity|dual-leg|non-binary|disposition|statusR…"
+    evidenceSummary: passed · 2026-07-27
   - id: F4-G4
     description: assert or unit tests cover exitGate mirror / terminal pending block
       under automate close.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/phase-done-mirror.test.js
         tests/lifecycle-order-guard.test.js 2>/dev/null; rg -n
         'exitGate|mirror|terminal-pending' src/ scripts/ tests/
       expectExitCode: 0
+    metAt: 2026-07-27T08:32:15.086Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      passed: true
+      exitCode: 0
+      outputSummary: F4-G4 green
+    verifierLabel: "shell: node --test tests/phase-done-mirror.test.js tests/lifecycle…"
+    evidenceSummary: passed · 2026-07-27
 stack:
   - id: 1
     title: Receipt authenticity and close-path integrity
@@ -89,8 +131,8 @@ tasks:
   - id: T-001
     title: Phase review dual-leg authenticity floor
     summary: Fail-closed dual-leg review receipts (anti-stub).
-    status: pending
-    lastUpdated: 2026-07-27T08:19:56.073Z
+    status: done
+    lastUpdated: 2026-07-27T08:32:15.086Z
     scopeBoundary:
       - "Medium floor only: dual receipt paths, min size, non-binary. Do not
         full-parse codex MB transcripts. Do not force two external providers at
@@ -115,11 +157,19 @@ tasks:
       - kind: file
         path: skills/shared/implement-automate-maestro.md
     weight: 3
+    closedAt: 2026-07-27T08:32:15.086Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      passed: true
+      exitCode: 0
+      outputSummary: phase-review-gate authenticity dual-leg tests green
   - id: T-002
     title: Evaluation report content floor
     summary: EvaluationGate thin report fails closed under automate.
-    status: pending
-    lastUpdated: 2026-07-27T08:19:56.073Z
+    status: done
+    lastUpdated: 2026-07-27T08:32:15.086Z
     scopeBoundary:
       - Extend evaluation authenticity beyond empty reportPath pointer. Do not
         re-run full BI semantic re-eval. Do not replace F2 intentVsDelivered.
@@ -142,11 +192,19 @@ tasks:
       - kind: file
         path: skills/shared/implement-phase-evaluator.md
     weight: 2
+    closedAt: 2026-07-27T08:32:15.086Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      passed: true
+      exitCode: 0
+      outputSummary: evaluation content floor tests green
   - id: T-003
     title: Major disposition requires operator token
     summary: Major findings need explicit operator disposition token.
-    status: pending
-    lastUpdated: 2026-07-27T08:19:56.073Z
+    status: done
+    lastUpdated: 2026-07-27T08:32:15.086Z
     scopeBoundary:
       - Do not auto-PASS decision-review. Decline of AskUserQuestion is not
         accept. Do not invent dispositions.
@@ -174,11 +232,19 @@ tasks:
       - kind: file
         path: skills/shared/implement-automate-maestro.md
     weight: 3
+    closedAt: 2026-07-27T08:32:15.086Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      passed: true
+      exitCode: 0
+      outputSummary: major disposition token tests green
   - id: T-004
     title: decisionLog statusRoot normalize
     summary: Reject double-projects statusRoot on decision log.
-    status: pending
-    lastUpdated: 2026-07-27T08:19:56.073Z
+    status: done
+    lastUpdated: 2026-07-27T08:32:15.086Z
     scopeBoundary:
       - Do not change JSONL entry schema fields. Do not move log outside
         projects tree.
@@ -200,11 +266,19 @@ tasks:
       - kind: file
         path: docs/kb/implement-decision-log.md
     weight: 2
+    closedAt: 2026-07-27T08:32:15.086Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      passed: true
+      exitCode: 0
+      outputSummary: decision-log statusRoot tests green
   - id: T-005
     title: Phase-done mirror exitGates assert and antipattern
     summary: Assert exitGate mirror; ban host hand-edit phase-done.
-    status: pending
-    lastUpdated: 2026-07-27T08:19:56.073Z
+    status: done
+    lastUpdated: 2026-07-27T08:32:15.086Z
     scopeBoundary:
       - Assert + prose + validate-state plan dir. Do not implement full
         phase-done-apply atomic script (P1-a deferred). Do not auto-repair Lekto
@@ -232,9 +306,18 @@ tasks:
       - kind: file
         path: tests/lifecycle-order-guard.test.js
     weight: 3
+    closedAt: 2026-07-27T08:32:15.086Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      passed: true
+      exitCode: 0
+      outputSummary: exitGate mirror + lifecycle-order-guard green
 parked: []
 emerged: []
 ---
+
 # F4 Receipt authenticity
 
 ## Session handoff

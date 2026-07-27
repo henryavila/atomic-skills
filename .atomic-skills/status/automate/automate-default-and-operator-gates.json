@@ -1,6 +1,12 @@
 {
-  "step": "C",
+  "step": "G",
   "phaseId": "F4",
   "redispatchCount": 0,
-  "updatedAt": "2026-07-27T08:19:56.456Z"
+  "updatedAt": "2026-07-27T08:41:33.261Z",
+  "lastAssert": {
+    "gate": "phase-done",
+    "ok": false,
+    "at": "2026-07-27T08:41:33.261Z",
+    "reason": "blocked: dual-leg authenticity: mode both requires dual receipt paths (localReceiptPath + codexReceiptPath, or legs[] with ≥2 paths) — single reviewFile alone is not enough"
+  }
 }

@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-27T08:19:56.073Z
+lastUpdated: 2026-07-27T08:36:44.684Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F4
 parallelismAllowed: false
@@ -435,25 +435,41 @@ phases:
         - id: F4-G1
           description: phase-review authenticity tests pass (dual leg, min size,
             non-binary reject stub/corrupt).
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/phase-review-gate.test.js
               tests/phase-review-authenticity.test.js 2>/dev/null; node --test
               tests/phase-review-gate.test.js
             expectExitCode: 0
+          metAt: 2026-07-27T08:32:15.086Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-27T08:32:15.086Z
+            verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+            passed: true
+            exitCode: 0
+            outputSummary: F4-G1 green
         - id: F4-G2
           description: decision-log statusRoot normalize tests pass; double projects path
             rejected or fixed.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/decision-log.test.js
             expectExitCode: 0
+          metAt: 2026-07-27T08:32:15.086Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-27T08:32:15.086Z
+            verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+            passed: true
+            exitCode: 0
+            outputSummary: F4-G2 green
         - id: F4-G3
           description: Prose requires present dual-leg authenticity, disposition token,
             canonical phase-done (no hand-edit).
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n
@@ -463,16 +479,32 @@ phases:
               skills/shared/project-assets/project-transitions.md
               src/phase-review-gate.js src/decision-log.js
             expectExitCode: 0
+          metAt: 2026-07-27T08:32:15.086Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-27T08:32:15.086Z
+            verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+            passed: true
+            exitCode: 0
+            outputSummary: F4-G3 green
         - id: F4-G4
           description: assert or unit tests cover exitGate mirror / terminal pending block
             under automate close.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/phase-done-mirror.test.js
               tests/lifecycle-order-guard.test.js 2>/dev/null; rg -n
               'exitGate|mirror|terminal-pending' src/ scripts/ tests/
             expectExitCode: 0
+          metAt: 2026-07-27T08:32:15.086Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-27T08:32:15.086Z
+            verifiedCommit: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+            passed: true
+            exitCode: 0
+            outputSummary: F4-G4 green
     status: active
     summary: "Hardening: authenticity de review dual-leg, disposition e integrity do
       phase-done."
@@ -516,6 +548,20 @@ phases:
       ratifiedAt: 2026-07-26T02:04:34.265Z
       ratifiedBy: human
       lastReviewedAt: 2026-07-26T02:04:34.265Z
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F4.md
+      verifiedAt: 2026-07-27T08:32:15.086Z
+      at: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+    reviewGate:
+      status: passed
+      mode: both
+      at: ee6d53f14fd20c40a1d7efbc61ded940046d87e7
+      reviewFile: .atomic-skills/reviews/2026-07-27-automate-default-F4-phase-both.md
+      verifiedAt: 2026-07-27T08:32:15.086Z
+    lessonsState: none
+    noneReason: clean phase — authenticity floors shipped green
 references: []
 planActive: true
 planTitle: Automate default + operator gates (decision-review + plan-end intent)
