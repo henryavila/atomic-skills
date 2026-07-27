@@ -37,6 +37,13 @@ segments. `appendDecision` / `listDecisions` require `projectId` + `planSlug` +
 that escape the `decisions/` tree are **rejected**. Path id segments are
 allowlisted `[A-Za-z0-9._-]+`.
 
+**`statusRoot` must be the `.atomic-skills` root** — not
+`.atomic-skills/projects/<project-id>`. Canonical path is always
+`statusRoot/projects/<id>/<slug>/decisions/<phaseId>.jsonl`. If a caller passes a
+`statusRoot` ending in `projects/<id>`, `normalizeStatusRoot` / `decisionLogPath`
+**normalize** it (strip the suffix) so a double-`projects/` path is never written
+(F4 dogfood fix).
+
 **Format:** one JSON object per line (JSONL). Append-only — never rewrite prior
 lines to invent history. Empty file or missing file means zero entries. New log
 files are created mode `0o600` when possible.

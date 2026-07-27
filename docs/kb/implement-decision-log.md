@@ -16,6 +16,11 @@ scope exits must be **durable and auditable** without chat history. The
 .atomic-skills/projects/<project-id>/<plan-slug>/decisions/<phaseId>.jsonl
 ```
 
+**`statusRoot` must be the `.atomic-skills` root** (not `.atomic-skills/projects/<id>`).
+Canonical resolve: `statusRoot/projects/<id>/<slug>/decisions/<phaseId>.jsonl`.
+`decisionLogPath` / `normalizeStatusRoot` (F4) **normalize or strip** a root that
+ends in `projects/<id>` so callers never create a double-`projects/` tree.
+
 One JSON object per line. Append-only.
 
 ## Entry fields (required)

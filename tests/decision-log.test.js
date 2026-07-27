@@ -7,6 +7,7 @@ import {
   DECISION_CATEGORIES,
   REQUIRED_DECISION_FIELDS,
   decisionLogPath,
+  normalizeStatusRoot,
   validateDecisionEntry,
   appendDecision,
   listDecisions,
@@ -54,6 +55,28 @@ describe('REQUIRED_DECISION_FIELDS', () => {
   });
 });
 
+describe('normalizeStatusRoot + decisionLogPath (F4 double-projects)', () => {
+  it('strips statusRoot ending in projects/id', () => {
+    const n = normalizeStatusRoot(
+      '/tmp/status/projects/atomic-skills',
+      { projectId: 'atomic-skills' },
+    );
+    assert.equal(n, '/tmp/status');
+  });
+
+  it('strips generic projects/<segment> suffix', () => {
+    const n = normalizeStatusRoot('/repo/.atomic-skills/projects/other-id');
+    assert.equal(n, '/repo/.atomic-skills');
+  });
+
+  it('leaves .atomic-skills root unchanged', () => {
+    assert.equal(
+      normalizeStatusRoot('/repo/.atomic-skills', { projectId: 'atomic-skills' }),
+      '/repo/.atomic-skills',
+    );
+  });
+});
+
 describe('decisionLogPath', () => {
   it('resolves per-phase durable path under plan tree', () => {
     const p = decisionLogPath({
@@ -73,6 +96,27 @@ describe('decisionLogPath', () => {
         'F1.jsonl',
       ),
     );
+  });
+
+  it('normalizes statusRoot ending in projects/id (no double projects)', () => {
+    const p = decisionLogPath({
+      statusRoot: '/tmp/status/projects/atomic-skills',
+      projectId: 'atomic-skills',
+      planSlug: 'implement-phase-agents',
+      phaseId: 'F1',
+    });
+    assert.equal(
+      p,
+      join(
+        '/tmp/status',
+        'projects',
+        'atomic-skills',
+        'implement-phase-agents',
+        'decisions',
+        'F1.jsonl',
+      ),
+    );
+    assert.doesNotMatch(p, /projects[/\\]atomic-skills[/\\]projects/);
   });
 
   it('rejects path traversal in phaseId', () => {
