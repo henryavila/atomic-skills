@@ -149,6 +149,49 @@
         },
         "verifiedAt": {
           "$ref": "common.schema.json#/$defs/isoTimestamp"
+        },
+        "intentVsDelivered": {
+          "type": "array",
+          "description": "F2 intent-vs-delivered rows required under automate plan-end (status matched|partial|missing|extra).",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "matched",
+                  "partial",
+                  "missing",
+                  "extra"
+                ]
+              },
+              "intentId": {
+                "type": "string"
+              },
+              "deliveredId": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "phaseId": {
+                "type": "string"
+              },
+              "taskId": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },

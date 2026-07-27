@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-27T08:43:13.288Z
+lastUpdated: 2026-07-27T09:11:22.430Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F4
 parallelismAllowed: false
@@ -580,6 +580,721 @@ references: []
 planActive: true
 planTitle: Automate default + operator gates (decision-review + plan-end intent)
 executionMode: automate
+planEndReview:
+  mode: external-both
+  reviewFile: .atomic-skills/reviews/2026-07-27-plan-end-automate-default-external-both.md
+  range: plan/automate-default-and-operator-gates F0..F4 @ 85927de02931
+  verifiedAt: 2026-07-27T09:06:37.261Z
+  legs:
+    - provider: codex
+      status: succeeded
+      familyDifferent: true
+    - provider: claude
+      status: succeeded
+      familyDifferent: true
+  intentVsDelivered:
+    - id: ivd:F0:goal
+      label: Flip default so bare implement enters pure-maestro; Mode 1 is explicit;
+        docs/tests match.
+      status: matched
+      intentId: F0:goal
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:value
+      label: Automate is the default implement path so multi-phase plans run
+        pure-maestro without a mode flag, with Mode 1 only via explicit escape.
+      status: matched
+      intentId: F0:bi:value
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:workflow
+      label: TDD isAutomateActive and parse matrix first, then update
+        implement/maestro prose and antipatterns so docs match machine default.
+      status: matched
+      intentId: F0:bi:workflow
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:rules
+      label: Mode 1 remains via --mode=1; host-thin Iron Law unchanged; no auto-merge;
+        durable stamp and clear path stay; session default must activate machine
+        gates even before stamp.
+      status: matched
+      intentId: F0:bi:rules
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:outOfScope
+      label: Decision package UX (F1); intent-vs-delivered plan-end (F2); dogfood
+        checklist (F3); review stub authenticity and post-merge e2e from dump
+        follow-ups.
+      status: matched
+      intentId: F0:bi:outOfScope
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:doneWhen
+      label: implement-mode tests green for no-CLI no-stamp true; prose states
+        automate default and Mode-1 escape; F0-G1 and F0-G2 met.
+      status: matched
+      intentId: F0:bi:doneWhen
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:exit:0
+      label: implement-mode unit tests green with automate-default matrix.
+      status: matched
+      intentId: F0:exit:0
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:exit:1
+      label: Skill prose states automate default and Mode-1 escape hatch.
+      status: matched
+      intentId: F0:exit:1
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F1:goal
+      label: Operator always sees the decision package before PASS/FAIL; under
+        automate every operator hardgate uses AskUserQuestion options only —
+        free-text token recovery is forbidden; decline re-asks or STOPs.
+      status: matched
+      intentId: F1:goal
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:bi:value
+      label: Package present-before-PASS + canal AskUserQuestion-only (sem free-text)
+        para hardgates de operador sob automate.
+      status: matched
+      intentId: F1:bi:value
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:bi:workflow
+      label: TDD package builder → gate machine present evidence → prosa/antipatterns
+        AskUserQuestion-only + decline re-Ask → matriz
+        continue/ratify/disposition/stamp; greps F1-G*.
+      status: matched
+      intentId: F1:bi:workflow
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:bi:rules
+      label: Agents never write PASS; present package body no mesmo turno do
+        AskUserQuestion PASS|FAIL; decline re-Ask (bounded) ou STOP (nunca
+        free-text); session default + stamp alimentam gates; host-thin Iron Law
+        intact.
+      status: matched
+      intentId: F1:bi:rules
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:bi:outOfScope
+      label: F2 intent-vs-delivered; F3 dogfood checklist full; F4 authenticity
+        floors; Lekto product; forçar widget fora de AskUserQuestion.
+      status: matched
+      intentId: F1:bi:outOfScope
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:bi:doneWhen
+      label: tests package green; present-before-PASS machine; AskUserQuestion-only +
+        free-text ban greppable; F1-G1/G2/G3 met.
+      status: matched
+      intentId: F1:bi:doneWhen
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:exit:0
+      label: Decision package unit tests pass.
+      status: matched
+      intentId: F1:exit:0
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:exit:1
+      label: Present-before-PASS + package evidence mandated in prose/gates.
+      status: matched
+      intentId: F1:exit:1
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:exit:2
+      label: AskUserQuestion-only + free-text ban + decline path greppable.
+      status: matched
+      intentId: F1:exit:2
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F2:goal
+      label: Plan-end cross-model review compares intended vs delivered with a
+        machine-checkable receipt field.
+      status: matched
+      intentId: F2:goal
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:bi:value
+      label: Plan-end sob automate responde "entregamos o que o plano prometeu?" via
+        intent-vs-delivered machine-checkable no receipt.
+      status: matched
+      intentId: F2:bi:value
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:bi:workflow
+      label: TDD collectors intent/delivered → brief + receipt intentVsDelivered +
+        wire planEndReviewOk/assert finalize → prosa Step I.
+      status: matched
+      intentId: F2:bi:workflow
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:bi:rules
+      label: Fail-closed se intentVsDelivered vazio sob automate (session default ou
+        stamp); external-both mantém ≥1 leg family-different; skip plan-end
+        HARD-CLOSED sob stamp; userValidationOk continua operator-owned; sem
+        auto-merge.
+      status: matched
+      intentId: F2:bi:rules
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:bi:outOfScope
+      label: F3 dogfood checklist; F4 authenticity dual-leg floors; Playwright
+        pós-merge; Lekto product; auto-PASS user validation.
+      status: matched
+      intentId: F2:bi:outOfScope
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:bi:doneWhen
+      label: tests intent-surface + plan-end green; receipt exige intentVsDelivered;
+        assert finalize falha se ausente; F2-G1/G2 met.
+      status: matched
+      intentId: F2:bi:doneWhen
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:exit:0
+      label: Intent surface and plan-end tests pass.
+      status: matched
+      intentId: F2:exit:0
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:exit:1
+      label: Maestro Step I requires intent-vs-delivered under automate.
+      status: matched
+      intentId: F2:exit:1
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F3:goal
+      label: Checklist so the next automate run proves the three gates without chat
+        memory.
+      status: matched
+      intentId: F3:goal
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:bi:value
+      label: Operador tem checklist durable que prova F0 default + F1
+        present-before-PASS + F2 intentVsDelivered sem memória de chat.
+      status: matched
+      intentId: F3:bi:value
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:bi:workflow
+      label: Escrever/atualizar docs/kb checklist rows + greps; zero product code.
+      status: matched
+      intentId: F3:bi:workflow
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:bi:rules
+      label: Só KB/checklist; sem app code; alinhar a F0–F2 já shipped.
+      status: matched
+      intentId: F3:bi:rules
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:bi:outOfScope
+      label: F4 authenticity; product Lekto; reimplementar gates F0–F2.
+      status: matched
+      intentId: F3:bi:outOfScope
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:bi:doneWhen
+      label: F3-G1 rg green; file(s) com as rows listadas.
+      status: matched
+      intentId: F3:bi:doneWhen
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:exit:0
+      label: Dogfood checklist covers default decision package and
+        intent-vs-delivered.
+      status: matched
+      intentId: F3:exit:0
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F4:goal
+      label: Fail-closed authenticity for phase review dual-leg and evaluation floors;
+        major disposition tokens; decision-log statusRoot normalize; phase-done
+        mirror/assert path (no host hand-edit).
+      status: matched
+      intentId: F4:goal
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:bi:value
+      label: Fases sob automate não podem carimbar reviewGate/evaluationGate passed
+        com receipt stub ou disposition major sem token do operador; phase-done
+        não deixa archive com exitGates mentindo; decision-log não aceita
+        statusRoot que duplica projects/.
+      status: matched
+      intentId: F4:bi:value
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:bi:workflow
+      label: "TDD: authenticity floor em phase-review-gate (dual path, min size,
+        non-binary); evaluation content floor; disposition major exige token
+        operator (decline != accept); decisionLogPath normaliza statusRoot;
+        assert mirror exitGates + validate-state no dir do plan e antipattern
+        hand-edit phase-done; prosa maestro/transitions; testes unitários e
+        greps de prosa."
+      status: matched
+      intentId: F4:bi:workflow
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:bi:rules
+      label: "Floor médio (não parser full codex). Não auto-merge. Não reabrir F0–F3.
+        Fora: post-merge Playwright, session-break, phase-done-apply script
+        completo, Layer 4. Host-thin permanece."
+      status: matched
+      intentId: F4:bi:rules
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:bi:outOfScope
+      label: Post-merge e2e re-run (Cluster B); claims durable path; session-break
+        AskUserQuestion; phase-done-apply atômico completo; forçar 2 external
+        providers; backlog produto Lekto; auto-PASS decision-review.
+      status: matched
+      intentId: F4:bi:outOfScope
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:bi:doneWhen
+      label: phase-done sob automate falha com stub/corrupt dual-leg; evaluation thin
+        sem floor falha; major sem disposition token bloqueia; statusRoot
+        double-projects rejeitado; mirror exitGates assert + prosa canônica;
+        F4-G* met.
+      status: matched
+      intentId: F4:bi:doneWhen
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:exit:0
+      label: phase-review authenticity tests pass (dual leg, min size, non-binary
+        reject stub/corrupt).
+      status: matched
+      intentId: F4:exit:0
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:exit:1
+      label: decision-log statusRoot normalize tests pass; double projects path
+        rejected or fixed.
+      status: matched
+      intentId: F4:exit:1
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:exit:2
+      label: Prose requires present dual-leg authenticity, disposition token,
+        canonical phase-done (no hand-edit).
+      status: matched
+      intentId: F4:exit:2
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:exit:3
+      label: assert or unit tests cover exitGate mirror / terminal pending block under
+        automate close.
+      status: matched
+      intentId: F4:exit:3
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:value
+      label: Automate is the default implement path so multi-phase plans run
+        pure-maestro without a mode flag, with Mode 1 only via explicit escape.
+      status: matched
+      intentId: F0:bi:value
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:workflow
+      label: TDD isAutomateActive and parse matrix first, then update
+        implement/maestro prose and antipatterns so docs match machine default.
+      status: matched
+      intentId: F0:bi:workflow
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:rules
+      label: Mode 1 remains via --mode=1; host-thin Iron Law unchanged; no auto-merge;
+        durable stamp and clear path stay; session default must activate machine
+        gates even before stamp.
+      status: matched
+      intentId: F0:bi:rules
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:outOfScope
+      label: Decision package UX (F1); intent-vs-delivered plan-end (F2); dogfood
+        checklist (F3); review stub authenticity and post-merge e2e from dump
+        follow-ups.
+      status: matched
+      intentId: F0:bi:outOfScope
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:bi:doneWhen
+      label: implement-mode tests green for no-CLI no-stamp true; prose states
+        automate default and Mode-1 escape; F0-G1 and F0-G2 met.
+      status: matched
+      intentId: F0:bi:doneWhen
+      phaseId: F0
+      note: phase tasks fully evidenced
+    - id: ivd:F0:T-001:acc:0
+      label: it - Absent CLI mode and no stamp yields isAutomateActive true.; it -
+        Explicit mode 1 or mode:1 yields isAutomateActive false.; it -
+        mode=automate and stamp-alone still true; clearExecutionMode still
+        false.; it - Unit matrix covers no-CLI no-stamp for automate-default.
+      status: matched
+      intentId: F0:T-001:acc:0
+      deliveredId: task:F0:T-001
+      phaseId: F0
+      taskId: T-001
+      note: task done with claim SHA(s)
+    - id: ivd:F0:T-002:acc:0
+      label: it - Prose states automate is default and Mode 1 requires explicit flag.;
+        it - Original opt-in only principle is marked superseded by this plan.;
+        it - Antipattern exists for assuming bare implement is session-writer
+        Mode 1.; it - Maestro notes gate activation rule for session default
+        plus stamp.
+      status: matched
+      intentId: F0:T-002:acc:0
+      deliveredId: task:F0:T-002
+      phaseId: F0
+      taskId: T-002
+      note: task done with claim SHA(s)
+    - id: ivd:F1:bi:value
+      label: Package present-before-PASS + canal AskUserQuestion-only (sem free-text)
+        para hardgates de operador sob automate.
+      status: matched
+      intentId: F1:bi:value
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:bi:workflow
+      label: TDD package builder → gate machine present evidence → prosa/antipatterns
+        AskUserQuestion-only + decline re-Ask → matriz
+        continue/ratify/disposition/stamp; greps F1-G*.
+      status: matched
+      intentId: F1:bi:workflow
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:bi:rules
+      label: Agents never write PASS; present package body no mesmo turno do
+        AskUserQuestion PASS|FAIL; decline re-Ask (bounded) ou STOP (nunca
+        free-text); session default + stamp alimentam gates; host-thin Iron Law
+        intact.
+      status: matched
+      intentId: F1:bi:rules
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:bi:outOfScope
+      label: F2 intent-vs-delivered; F3 dogfood checklist full; F4 authenticity
+        floors; Lekto product; forçar widget fora de AskUserQuestion.
+      status: matched
+      intentId: F1:bi:outOfScope
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:bi:doneWhen
+      label: tests package green; present-before-PASS machine; AskUserQuestion-only +
+        free-text ban greppable; F1-G1/G2/G3 met.
+      status: matched
+      intentId: F1:bi:doneWhen
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:goal
+      label: Operator always sees the decision package before PASS/FAIL; under
+        automate every operator hardgate uses AskUserQuestion options only —
+        free-text token recovery is forbidden; decline re-Asks or STOPs.
+      status: matched
+      intentId: F1:goal
+      phaseId: F1
+      note: phase tasks fully evidenced
+    - id: ivd:F1:T-001:acc:0
+      label: it - Helper builds package with phaseId path entries empty flag and
+        summaryMarkdown from listDecisions input.; it - Each entry exposes
+        category decision why impact evidencePath.; it - Empty log yields empty
+        true and explicit no-decisions banner text.; it - Unit tests cover
+        non-empty and empty packages.
+      status: matched
+      intentId: F1:T-001:acc:0
+      deliveredId: task:F1:T-001
+      phaseId: F1
+      taskId: T-001
+      note: task done with claim SHA(s)
+    - id: ivd:F1:T-002:acc:0
+      label: it - Fixed order requires host render decision package before PASS ask.;
+        it - decisionReview records packagePresentedAt or package present
+        evidence under automate.; it - decisionReviewAllowsPhaseDone or
+        canRunPhaseDone fails closed without present evidence when automate
+        active including no-stamp session default.; it - Antipattern documents
+        Ask PASS without listing decisions.
+      status: matched
+      intentId: F1:T-002:acc:0
+      deliveredId: task:F1:T-002
+      phaseId: F1
+      taskId: T-002
+      note: task done with claim SHA(s)
+    - id: ivd:F1:T-002:acc:1
+      label: it - Dogfood evidence ask-without-package-body
+        (reviews/2026-07-26-f0-decision-review-ask-without-package-body.md) is
+        treated as FAIL present-before-PASS until package body is in the same
+        hardgate turn as PASS/FAIL AskUserQuestion.
+      status: matched
+      intentId: F1:T-002:acc:1
+      deliveredId: task:F1:T-002
+      phaseId: F1
+      taskId: T-002
+      note: task done with claim SHA(s)
+    - id: ivd:F1:T-003:acc:0
+      label: "it - UX documents two-step: present package body then AskUserQuestion
+        PASS|FAIL options in the same hardgate turn.; it - Free-text recovery
+        (e.g. host asks operator to type decision-review PASS) is forbidden in
+        prose and antipatterns.; it - Decline/cancel of AskUserQuestion re-opens
+        the same question (bounded) or STOPs with nextAction to re-open
+        AskUserQuestion — never chat typing.; it - Single-click PASS without
+        package body in the same turn is forbidden."
+      status: matched
+      intentId: F1:T-003:acc:0
+      deliveredId: task:F1:T-003
+      phaseId: F1
+      taskId: T-003
+      note: task done with claim SHA(s)
+    - id: ivd:F1:T-003:acc:1
+      label: it - Claiming package apresentado without rendering package body in the
+        same AskUserQuestion turn is forbidden (dogfood 2026-07-26 screenshot +
+        evidence file).
+      status: matched
+      intentId: F1:T-003:acc:1
+      deliveredId: task:F1:T-003
+      phaseId: F1
+      taskId: T-003
+      note: task done with claim SHA(s)
+    - id: ivd:F1:T-004:acc:0
+      label: it - Maestro lists operator hardgates continue ratify disposition
+        decision-review stamp as AskUserQuestion-only.; it - Each maps options
+        to durable tokens without free-text recovery.; it - Antipattern exists
+        for type token in chat after decline.; it - Dogfood checklist row covers
+        exclusive AskUserQuestion channel.
+      status: matched
+      intentId: F1:T-004:acc:0
+      deliveredId: task:F1:T-004
+      phaseId: F1
+      taskId: T-004
+      note: task done with claim SHA(s)
+    - id: ivd:F2:bi:value
+      label: Plan-end sob automate responde "entregamos o que o plano prometeu?" via
+        intent-vs-delivered machine-checkable no receipt.
+      status: matched
+      intentId: F2:bi:value
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:bi:workflow
+      label: TDD collectors intent/delivered → brief + receipt intentVsDelivered +
+        wire planEndReviewOk/assert finalize → prosa Step I.
+      status: matched
+      intentId: F2:bi:workflow
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:bi:rules
+      label: Fail-closed se intentVsDelivered vazio sob automate (session default ou
+        stamp); external-both mantém ≥1 leg family-different; skip plan-end
+        HARD-CLOSED sob stamp; userValidationOk continua operator-owned; sem
+        auto-merge.
+      status: matched
+      intentId: F2:bi:rules
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:bi:outOfScope
+      label: F3 dogfood checklist; F4 authenticity dual-leg floors; Playwright
+        pós-merge; Lekto product; auto-PASS user validation.
+      status: matched
+      intentId: F2:bi:outOfScope
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:bi:doneWhen
+      label: tests intent-surface + plan-end green; receipt exige intentVsDelivered;
+        assert finalize falha se ausente; F2-G1/G2 met.
+      status: matched
+      intentId: F2:bi:doneWhen
+      phaseId: F2
+      note: phase tasks fully evidenced
+    - id: ivd:F2:T-001:acc:0
+      label: it - Builds intent surface from phase goals businessIntent tasks
+        acceptance and exit criteria when provided.; it - Builds delivered
+        surface from task evidence done status claim SHAs and outputs paths when
+        provided.; it - Exports markdown brief section Intent vs delivered
+        checklist for the review prompt.; it - Unit tests cover multi-phase
+        sample input.
+      status: matched
+      intentId: F2:T-001:acc:0
+      deliveredId: task:F2:T-001
+      phaseId: F2
+      taskId: T-001
+      note: task done with claim SHA(s)
+    - id: ivd:F2:T-002:acc:0
+      label: it - Under automate plan-end requires intent-vs-delivered brief in the
+        cross-model context.; it - Receipt or linked structured section includes
+        intentVsDelivered rows with status matched partial missing or extra.; it
+        - Empty intentVsDelivered fails planEndReviewOk or
+        automatePlanEndGatesOk under automate including session default.; it -
+        Docs state plan-end answers did we build what we planned.
+      status: matched
+      intentId: F2:T-002:acc:0
+      deliveredId: task:F2:T-002
+      phaseId: F2
+      taskId: T-002
+      note: task done with claim SHA(s)
+    - id: ivd:F2:T-003:acc:0
+      label: it - Step I order is build surfaces run external-both stamp receipt with
+        intentVsDelivered then userValidation then finalize.; it - assert
+        finalize fails if intentVsDelivered missing under automate.; it -
+        implement.md points at intent-vs-delivered plan-end rule.
+      status: matched
+      intentId: F2:T-003:acc:0
+      deliveredId: task:F2:T-003
+      phaseId: F2
+      taskId: T-003
+      note: task done with claim SHA(s)
+    - id: ivd:F3:bi:value
+      label: Operador tem checklist durable que prova F0 default + F1
+        present-before-PASS + F2 intentVsDelivered sem memória de chat.
+      status: matched
+      intentId: F3:bi:value
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:bi:workflow
+      label: Escrever/atualizar docs/kb checklist rows + greps; zero product code.
+      status: matched
+      intentId: F3:bi:workflow
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:bi:rules
+      label: Só KB/checklist; sem app code; alinhar a F0–F2 já shipped.
+      status: matched
+      intentId: F3:bi:rules
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:bi:outOfScope
+      label: F4 authenticity; product Lekto; reimplementar gates F0–F2.
+      status: matched
+      intentId: F3:bi:outOfScope
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:bi:doneWhen
+      label: F3-G1 rg green; file(s) com as rows listadas.
+      status: matched
+      intentId: F3:bi:doneWhen
+      phaseId: F3
+      note: phase tasks fully evidenced
+    - id: ivd:F3:T-001:acc:0
+      label: it - Rows cover bare implement activates automate.; it - Rows cover Mode
+        1 explicit escape.; it - Rows cover decision package shown before PASS.;
+        it - Rows cover plan-end receipt intentVsDelivered and finalize blocked
+        without it.; it - File docs/kb/automate-default-dogfood.md or dogfood
+        section exists with those rows.
+      status: matched
+      intentId: F3:T-001:acc:0
+      deliveredId: task:F3:T-001
+      phaseId: F3
+      taskId: T-001
+      note: task done with claim SHA(s)
+    - id: ivd:F4:bi:value
+      label: Fases sob automate não podem carimbar reviewGate/evaluationGate passed
+        com receipt stub ou disposition major sem token do operador; phase-done
+        não deixa archive com exitGates mentindo; decision-log não aceita
+        statusRoot que duplica projects/.
+      status: matched
+      intentId: F4:bi:value
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:bi:workflow
+      label: "TDD: authenticity floor em phase-review-gate (dual path, min size,
+        non-binary); evaluation content floor; disposition major exige token
+        operator (decline != accept); decisionLogPath normaliza statusRoot;
+        assert mirror exitGates + validate-state no dir do plan e antipattern
+        hand-edit phase-done; prosa maestro/transitions; testes unitários e
+        greps de prosa."
+      status: matched
+      intentId: F4:bi:workflow
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:bi:rules
+      label: "Floor médio (não parser full codex). Não auto-merge. Não reabrir F0–F3.
+        Fora: post-merge Playwright, session-break, phase-done-apply script
+        completo, Layer 4. Host-thin permanece."
+      status: matched
+      intentId: F4:bi:rules
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:bi:outOfScope
+      label: Post-merge e2e re-run (Cluster B); claims durable path; session-break
+        AskUserQuestion; phase-done-apply atômico completo; forçar 2 external
+        providers; backlog produto Lekto; auto-PASS decision-review.
+      status: matched
+      intentId: F4:bi:outOfScope
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:bi:doneWhen
+      label: phase-done sob automate falha com stub/corrupt dual-leg; evaluation thin
+        sem floor falha; major sem disposition token bloqueia; statusRoot
+        double-projects rejeitado; mirror exitGates assert + prosa canônica;
+        F4-G* met.
+      status: matched
+      intentId: F4:bi:doneWhen
+      phaseId: F4
+      note: phase tasks fully evidenced
+    - id: ivd:F4:T-001:acc:0
+      label: it - phaseReviewAllowsClose or honesty helper rejects one-line stub
+        codex/local under mode both.; it - rejects binary/null-byte receipt
+        content.; it - accepts dual non-stub receipts with min size and CLEAN or
+        findings.; it - unit tests cover stub reject and real dual accept.; it -
+        maestro Step G prose states dual-leg authenticity under automate.
+      status: matched
+      intentId: F4:T-001:acc:0
+      deliveredId: task:F4:T-001
+      phaseId: F4
+      taskId: T-001
+      note: task done with claim SHA(s)
+    - id: ivd:F4:T-002:acc:0
+      label: it - evaluationGate passed requires report file exists with min content
+        keys or min bytes.; it - thin 2-line verdict-only fails floor under
+        automate.; it - unit tests cover thin reject and structured accept.; it
+        - implement-phase-evaluator prose documents floor.
+      status: matched
+      intentId: F4:T-002:acc:0
+      deliveredId: task:F4:T-002
+      phaseId: F4
+      taskId: T-002
+      note: task done with claim SHA(s)
+    - id: ivd:F4:T-003:acc:0
+      label: it - open major findings block phase-done without review-disposition
+        accept or defer or fix token from operator.; it - host judgment accept
+        after decline fails gate.; it - decision-log and maestro prose state
+        decline is not accept.; it - unit or gate tests cover disposition
+        required path.
+      status: matched
+      intentId: F4:T-003:acc:0
+      deliveredId: task:F4:T-003
+      phaseId: F4
+      taskId: T-003
+      note: task done with claim SHA(s)
+    - id: ivd:F4:T-004:acc:0
+      label: it - statusRoot ending in projects/id is rejected or normalized to status
+        root without double projects.; it - canonical path remains
+        statusRoot/projects/id/slug/decisions/phase.jsonl.; it - unit tests
+        cover bad statusRoot and happy path.; it - docs mention statusRoot must
+        be .atomic-skills root.
+      status: matched
+      intentId: F4:T-004:acc:0
+      deliveredId: task:F4:T-004
+      phaseId: F4
+      taskId: T-004
+      note: task done with claim SHA(s)
+    - id: ivd:F4:T-005:acc:0
+      label: it - helper or guard fails when plan criteria met but initiative
+        exitGates pending before archive.; it - project-transitions and
+        antipatterns forbid hand-edit phase-done under automate.; it - prose
+        requires validate-state on plan directory before advance commit.; it -
+        unit or integration tests cover mirror pending block.
+      status: matched
+      intentId: F4:T-005:acc:0
+      deliveredId: task:F4:T-005
+      phaseId: F4
+      taskId: T-005
+      note: task done with claim SHA(s)
+userValidatedAt: 2026-07-27T09:11:22.430Z
 ---
 
 # Automate default + operator gates (decision-review + plan-end intent)
@@ -741,4 +1456,9 @@ but **did not render** the decision package body in the same turn.
 
 - intent-vs-delivered shipped; decision-review PASS with package same turn
 - HEAD f9debea3d450c44721e776545b9fdc27fa18b5c3
+
+## Reviews
+
+- plan-end external-both: .atomic-skills/reviews/2026-07-27-plan-end-automate-default-external-both.md (2026-07-27T09:06:37.261Z)
+- intentVsDelivered rows: 85 (matched=85 partial=0 missing=0 extra=0)
 
