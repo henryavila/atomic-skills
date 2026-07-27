@@ -112,3 +112,4 @@ Do **not** mark DOGFOOD PASS in memory, plan status, or PR text until this check
 - Fixture tests: `tests/implement-phase-agents-contract.test.js`
 - Memory: `.ai/memory/reference-implement-phase-agents.md`, `.ai/memory/reference-implement-phase-agents-dogfood-stops.md`
 - Operator realism: `docs/kb/automate-orchestrator-realism.md`
+- **Automate-default F0–F2 gates** (bare implement default, `--mode=1` escape, read-before-PASS / present-before-PASS, plan-end `intentVsDelivered` + finalize block): [`docs/kb/automate-default-dogfood.md`](./automate-default-dogfood.md)
