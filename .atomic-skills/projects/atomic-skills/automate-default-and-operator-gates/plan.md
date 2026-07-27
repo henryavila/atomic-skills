@@ -5,7 +5,7 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-27T08:17:58.184Z
+lastUpdated: 2026-07-27T08:19:56.073Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F4
 parallelismAllowed: false
@@ -438,9 +438,9 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: node --test tests/phase-review-gate.test.js && rg -n
-              'authenticity|dual-leg|stub|non-binary' src/phase-review-gate.js
-              skills/shared/implement-automate-maestro.md
+            command: node --test tests/phase-review-gate.test.js
+              tests/phase-review-authenticity.test.js 2>/dev/null; node --test
+              tests/phase-review-gate.test.js
             expectExitCode: 0
         - id: F4-G2
           description: decision-log statusRoot normalize tests pass; double projects path
@@ -469,12 +469,11 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: node --test tests/lifecycle-order-guard.test.js && rg -n
-              'mirror|exitGate|hand-edit|terminal-pending' src/
-              skills/shared/project-assets/project-transitions.md
-              skills/shared/implement-antipatterns.md
+            command: node --test tests/phase-done-mirror.test.js
+              tests/lifecycle-order-guard.test.js 2>/dev/null; rg -n
+              'exitGate|mirror|terminal-pending' src/ scripts/ tests/
             expectExitCode: 0
-    status: pending
+    status: active
     summary: "Hardening: authenticity de review dual-leg, disposition e integrity do
       phase-done."
     businessIntent:

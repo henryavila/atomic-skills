@@ -1,6 +1,6 @@
 {
-  "step": "awaiting-operator-advance",
-  "phaseId": "F3",
+  "step": "C",
+  "phaseId": "F4",
   "redispatchCount": 0,
-  "updatedAt": "2026-07-27T08:17:58.340Z"
+  "updatedAt": "2026-07-27T08:19:56.456Z"
 }
