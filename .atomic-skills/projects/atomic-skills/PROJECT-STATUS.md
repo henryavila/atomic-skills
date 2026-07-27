@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-25T21:40:04.000Z
+lastUpdated: 2026-07-27T13:31:24.000Z
 schemaVersion: "0.1"
 activePlans: 2
 activeInitiatives: 1
-archivedCount: 25
+archivedCount: 26
 ---
 
 # Project Status Index
@@ -57,6 +57,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| automate-default-and-operator-gates | 2026-07-27 | F4 | 5/5 | Automate default + operator gates (decision-review + plan-end intent) |
 | automate-skill-discipline | 2026-07-25 | F4 | 5/5 | Automate skill discipline remediation |
 | implementation-automate-mode | 2026-07-17 | F4 | 5/5 | Implementation Automate Mode |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final | 2026-07-10 | F3 | 4/4 | Reparo local e validacao final |
@@ -66,11 +67,8 @@ _(none)_
 | project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | help-command/f3-guarda-de-fidelidade-help-nunca-cita-um | 2026-07-08 | F3 | 4/4 | Comando `help` - F3 Guarda de fidelidade (help nunca cita um verbo que não existe) |
-| help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
 
 ## Ad-Hoc Sessions Log (last 5)
 
 _(empty)_
 | grok-phase-todo-projection | 2026-07-25 | plan/grok-phase-todo-projection | 5/5 |
-
-- [active] automate-default-and-operator-gates — F0 Automate as default mode

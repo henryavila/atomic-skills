@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: automate-default-and-operator-gates
 title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
-status: active
+status: archived
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-27T09:11:22.430Z
+lastUpdated: 2026-07-27T13:31:24.000Z
 branch: plan/automate-default-and-operator-gates
 currentPhase: F4
 parallelismAllowed: false
@@ -580,7 +580,7 @@ references:
   - kind: url
     path: https://github.com/henryavila/atomic-skills/pull/38
     label: "PR #38"
-planActive: true
+planActive: false
 planTitle: Automate default + operator gates (decision-review + plan-end intent)
 executionMode: automate
 planEndReview:
