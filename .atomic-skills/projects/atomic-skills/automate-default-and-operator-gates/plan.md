@@ -5,9 +5,9 @@ title: Automate default + operator gates (decision-review + plan-end intent)
 version: "1.0"
 status: active
 started: 2026-07-25T22:39:25.331Z
-lastUpdated: 2026-07-27T08:10:58.811Z
+lastUpdated: 2026-07-27T08:17:58.184Z
 branch: plan/automate-default-and-operator-gates
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -377,12 +377,20 @@ phases:
         - id: F3-G1
           description: Dogfood checklist covers default decision package and
             intent-vs-delivered.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'read-before-PASS|intentVsDelivered|default' docs/kb/
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-27T08:17:57.417Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-27T08:17:57.417Z
+            verifiedCommit: 9838128763f6a76a2103756272b0525f9d610674
+            passed: true
+            exitCode: 0
+            outputSummary: F3-G1 green
+    status: done
     summary: Checklist dogfood dos três gates.
     businessIntent:
       value: Operador tem checklist durable que prova F0 default + F1
@@ -391,6 +399,27 @@ phases:
       rules: Só KB/checklist; sem app code; alinhar a F0–F2 já shipped.
       outOfScope: F4 authenticity; product Lekto; reimplementar gates F0–F2.
       doneWhen: F3-G1 rg green; file(s) com as rows listadas.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-automate-default-and-operator-gates-F3.md
+      verifiedAt: 2026-07-27T08:17:57.417Z
+      at: 9838128763f6a76a2103756272b0525f9d610674
+    reviewGate:
+      status: passed
+      mode: both
+      at: 9838128763f6a76a2103756272b0525f9d610674
+      reviewFile: .atomic-skills/reviews/2026-07-27-automate-default-F3-phase-both.md
+      verifiedAt: 2026-07-27T08:17:57.417Z
+    lessonsState: none
+    noneReason: clean phase — docs-only checklist
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-27T08:17:57.417Z
+      evidencePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F3.jsonl
+      at: 9838128763f6a76a2103756272b0525f9d610674
+      packagePresentedAt: 2026-07-27T08:17:57.417Z
+      packagePath: .atomic-skills/projects/atomic-skills/automate-default-and-operator-gates/decisions/F3.jsonl
   - id: F4
     slug: automate-default-and-operator-gates-f4-receipt-auth
     title: Receipt authenticity and close-path integrity

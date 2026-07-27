@@ -1,0 +1,4 @@
+{"id":"82fea978-0684-400c-80fc-cdb9b0acb88f","category":"routing","decision":"f3-writer-merge","why":"dogfood checklist merge","evidencePath":"docs/kb/automate-default-dogfood.md","impact":"T-001 done","at":"2026-07-27T08:14:56.899Z"}
+{"id":"544b6db5-0c51-4aad-855d-2a2463765548","category":"gate","decision":"evaluation-pass-f3","why":"eval pass checklist delivery","evidencePath":".atomic-skills/reviews/eval-automate-default-and-operator-gates-F3.md","impact":"evaluationGate","at":"2026-07-27T08:14:56.903Z"}
+{"id":"3f08b18b-ebb7-4eb3-b06e-a2a4c1f5c3d8","category":"gate","decision":"lessons-none-f3","why":"operator none","evidencePath":"none","impact":"lessonsState none","at":"2026-07-27T08:14:56.903Z"}
+{"id":"045f1092-7eff-4d9a-8cbf-3dfae9ecf292","category":"gate","decision":"review-both-f3","why":"review both","evidencePath":".atomic-skills/reviews/2026-07-27-automate-default-F3-phase-both.md","impact":"reviewGate","at":"2026-07-27T08:14:56.903Z"}
