@@ -168,11 +168,25 @@ describe('implement-ready task contract', () => {
     )
   })
 
+  it('Step 1 HARD-GATES implement on ground-truth receipt (find-plans-missing-ground-truth)', () => {
+    const step1 = section(
+      IMPLEMENT,
+      '### Step 1 — Load the admitted tasks',
+      '### Automate mode — pure maestro loop',
+    )
+    assert.match(step1, /find-plans-missing-ground-truth\.js/)
+    assert.match(step1, /Ground-truth review HARD-GATE/i)
+    assert.match(step1, /complete-empty-repo|empty \/ no-product-code/i)
+    assert.match(step1, /REFUSE|HARD-GATE/)
+    assert.match(step1, /--mode=ground-truth/)
+    assert.match(IMPLEMENT, /find-plans-missing-ground-truth/)
+  })
+
   it('admits outputs[].path as targets instead of requiring Files', () => {
     const step1 = section(
       IMPLEMENT,
       '### Step 1 — Load the admitted tasks',
-      '### Step 2 — Execute one task',
+      '### Automate mode — pure maestro loop',
     )
 
     assert.match(step1, /`outputs\[\]\.path`/)

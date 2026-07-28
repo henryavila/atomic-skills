@@ -39,6 +39,7 @@ If the caller's tree already governs another plan than the one requested (`calle
 If `isAutomateActive` and you are about to spawn a phase writer, run orchestrator `done`, run `phase-done`, or finalize/archive **without** a fresh `assert-automate-gate` exit 0 for the matching `--gate` (spawn / claims|done / phase-done / finalize): STOP. Non-zero assert forbids advancing (including illegal maestro cursor step).
 If `isAutomateActive` and you are about to advance a pure-maestro step **without** updating the maestro cursor on that A–I boundary (or you are tempted to `rm` the cursor/lease file to force progress): STOP. Advance via `src/maestro-cursor.js`; never delete status files to skip gates.
 If `isAutomateActive` and the maestro cursor is **`awaiting-operator-advance`**, and you are about to run pure-maestro **Step A**, spawn, materialize-as-auto-chain, or multi-phase auto-run **without** `clearContinue` (`continueToken: 'operator-continue'` / `operatorContinue: true`): STOP. Pause is intentional; generic ok is not a continue token.
+If you are about to code or spawn a phase writer and `find-plans-missing-ground-truth.js` on the plan path is non-zero (or you skipped running it): STOP. Ground-truth review receipt is mandatory; empty-repo still requires a persisted complete-empty-repo result — no chat waiver.
 </HARD-GATE>
 
 ## Mindset
@@ -109,6 +110,33 @@ Resolve the active phase before accepting any pending task:
 5. If either side is missing `businessIntent`, any required field is absent, blank, empty after trimming, or still contains `[NEEDS CLARIFICATION]`, **refuse execution** (HARD-GATE): stop and instruct `atomic-skills:project materialize <phase-id>` for descriptor-only state, or re-materialize/re-question the `businessIntent` spine before implementation continues. This is not the loose checklist/degraded-mode path.
 
 After that hard pre-check passes, confirm each pending task carries the SPEC interior: one or more exact `outputs[].path` targets, `scopeBoundary[]` explicit exclusions (DO-NOT constraints), `acceptance[]`, and a deterministic `verifier:` (`kind shell|test|query`). A task missing any of these was not admitted (R-ORCH-23) — surface it and stop; do not improvise the missing spec.
+
+6. **Ground-truth review HARD-GATE (mandatory; cannot be skipped).** Before any
+   product coding, Mode 1 task loop, or automate phase-writer spawn, prove the
+   plan carries a durable plan↔code ground-truth receipt (Directions A+B). Run
+   via {{BASH_TOOL}} against the resolved plan file (not the tree-wide scan):
+
+   ```bash
+   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+   node "$PKG_ROOT/scripts/find-plans-missing-ground-truth.js" \
+     .atomic-skills/projects/<project-id>/<plan-slug>/plan.md
+   ```
+
+   - **Exit 0** → continue.
+   - **Non-zero** → **REFUSE** (HARD-GATE). Do not code, do not spawn a phase
+     writer, do not enter degraded mode for plan tasks. Surface the detector
+     output verbatim and instruct: run the **specialized** ground-truth mode
+     (not internal):
+     `atomic-skills:review-plan --mode=ground-truth <plan>`
+     (alias `--mode=gt`; Flow E — items 21–22; persists `## Ground-truth review`
+     with content floor and `- ground-truth: … | mode=ground-truth | fp=<hex> | …`
+     — see `skills/shared/project-assets/ground-truth-review.md`). Re-run the
+     detector until exit 0. Under automate, `assert-automate-gate --gate spawn`
+     also enforces this fence in JS (not prose-only).
+   - **Empty / no-product-code repo is not an exemption** — the review must
+     still have been run and persisted as `complete-empty-repo` (or complete
+     with A/B "none" + scan evidence). There is **no** operator skip flag and
+     **no** chat waiver that unlocks implement without the receipt.
 
 ### Automate mode — pure maestro loop (when `isAutomateActive`)
 
@@ -274,6 +302,9 @@ Resident **triggers** only — if a thought matches one, STOP and read its full 
 - "I'll skip assert-automate-gate — the pure helpers already exist in my head."
 - "Stamp is automate but I'll silently drop into Mode 1 coding without clear-execution-mode."
 - "Bare `implement` is session-writer Mode 1 — I'll code product source myself without `--mode=1`."
+- "No product code yet / greenfield — skip ground-truth and start coding."
+- "Internal review receipt exists — ground-truth is optional for implement."
+- "User said go ahead without the ground-truth section — waive the detector."
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
 ## Rationalization

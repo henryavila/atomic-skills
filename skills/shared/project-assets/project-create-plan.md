@@ -204,7 +204,25 @@ Invoke `atomic-skills:review-plan --mode=internal` with arg = the plan file path
 - Bare assertions without `verified_by:` or `unverified:` (G6)
 - Internal contradictions, broken dependencies, ambiguous tasks
 
-Apply the findings inline before proceeding to 8b. Re-run `review-plan --mode=internal` until it returns zero findings of severity major or higher. When it returns clean, `review-plan` writes the **internal receipt** — a `- internal:` line in the plan's `## Reviews` section (see `review-plan`'s Closing). That receipt is what Stage 8c's deterministic gate checks; an internal review that left no `- internal:` line is treated as **not run**.
+Apply the findings inline before proceeding. Re-run `review-plan --mode=internal` until it returns zero findings of severity major or higher. When it returns clean, `review-plan` writes the **internal receipt** — a `- internal:` line in `## Reviews`. That is **not** the ground-truth receipt (different mode / different line).
+
+**Stage 8a2 — Ground-truth review (always, specialized mode, no user prompt).**
+
+Invoke **separately** (attributable specialized type — do **not** fold into internal):
+
+```text
+atomic-skills:review-plan --mode=ground-truth <plan_path>
+```
+
+Alias: `--mode=gt`. This is **Flow E** in `review-plan` (items 21–22 only): plan premises vs code (phantoms) **and** code present that the plan is silent about. Procedure: `skills/shared/project-assets/ground-truth-review.md`. **Empty / no-product-code repos still run** and persist `Status: complete-empty-repo` with A/B "none" + scan evidence — silence is not a pass.
+
+When clean, it writes:
+
+1. `## Ground-truth review` (Status + ### A + ### B)
+2. `- ground-truth: … | mode=ground-truth | fp=<hex> | …` under `## Reviews`  
+   `mode=ground-truth` attributes Flow E; `fp=` is the plan-substance fingerprint (stale after plan/task edits).
+
+Stage 8c's deterministic gates check both receipts; either missing is treated as **not run**. `implement` HARD-BLOCKS without the ground-truth receipt.
 
 **Stage 8b — CROSS-MODEL REVIEW via host external default (intrusive-actions rule).**
 
@@ -234,19 +252,21 @@ Persistence: review file → `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>
 
 **Stage 8c — Receipt gate (deterministic, HARD-BLOCK).**
 
-8a/8b are LLM steps; the close of Stage 8 is zero-token and must prove (1) internal receipt and (2) no invalid cross-model SKIPPED:
+8a/8b are LLM steps; the close of Stage 8 is zero-token and must prove (1) internal receipt, (2) ground-truth receipt (even on empty repos), and (3) no invalid cross-model SKIPPED:
 
 ```bash
 PLAN_PATH=".atomic-skills/projects/<projectId>/<planSlug>/plan.md"
 PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
 node "$PKG_ROOT/scripts/find-unreviewed-plans.js" "$PLAN_PATH"
+node "$PKG_ROOT/scripts/find-plans-missing-ground-truth.js" "$PLAN_PATH"
 node "$PKG_ROOT/scripts/find-invalid-cross-model-skips.js" "$PLAN_PATH"
 ```
 
 - `find-unreviewed-plans` non-zero → missing `- internal:` — re-run 8a.
+- `find-plans-missing-ground-truth` non-zero → missing/incomplete ground-truth section, or `- ground-truth:` line without `mode=ground-truth` — re-run **8a2** (`--mode=ground-truth`; empty-repo → `complete-empty-repo`). **HARD-BLOCKS** declaring ready and later **HARD-BLOCKS** `implement`.
 - `find-invalid-cross-model-skips` non-zero → SKIPPED without `operator:` / short / banned reason — fix receipt or run 8b for real. **HARD-BLOCKS** declaring ready.
 
-Scoped to this plan path; tree-wide backstop remains `project verify`.
+Scoped to this plan path (only the newly materialized plan); tree-wide backstop remains `project verify`.
 
 ### Stage 9 — Announce
 
@@ -436,7 +456,7 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 
 10. **Activate first phase.** Same as Stage 7 of the default flow.
 
-11. **Adversarial review.** Same as Stages 8a + 8b + 8c of the default flow — internal review always (apply findings inline; `review-plan` writes the `- internal:` receipt), CROSS-MODEL REVIEW via host external default prompted to user (y/N), then the deterministic receipt gate `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" .atomic-skills` HARD-BLOCKS until the adopted plan carries a `## Reviews` receipt. Persist the external review file to `.atomic-skills/reviews/<…>.md` (with `provider` field) and link from the plan body's `## Reviews` section.
+11. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c of the default flow — internal (`--mode=internal`) always, then ground-truth as a **separate** specialized invocation (`--mode=ground-truth` / Flow E; empty repos use `complete-empty-repo` + `mode=ground-truth` in the Reviews line), CROSS-MODEL REVIEW via host external default prompted to user (y/N), then the deterministic receipt gates scoped to the plan path: `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist. Persist the external review file to `.atomic-skills/reviews/<…>.md` (with `provider` field) and link from the plan body's `## Reviews` section.
 
 12. **Announce.** Same as Stage 9 of the default flow:
     - Plan path

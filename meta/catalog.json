@@ -75,12 +75,13 @@
   {
     "id": "/atomic-skills:review-plan",
     "icon": "🔍",
-    "oneLiner": "Adversarial plan review with local/codex/both mode picker",
+    "oneLiner": "Adversarial plan review with local/ground-truth/codex/both modes",
     "facets": [
       "review",
       "planning",
       "adversarial",
-      "cross-model"
+      "cross-model",
+      "ground-truth"
     ],
     "summary": "Adversarially review an implementation plan before it runs — locally (fast, cheap), via a cross-model codex envelope (~$1-2), or both (default: local first, then codex on the cleaned plan in a sealed envelope) — hunting for gaps, missing edge cases, and optimistic assumptions, and approving only on cited evidence. Optionally cross-references the plan against its source PRD/spec.",
     "pros": [
@@ -97,6 +98,7 @@
     "examples": [
       "/atomic-skills:review-plan docs/plans/migration.md",
       "/atomic-skills:review-plan docs/plans/migration.md --mode=local",
+      "/atomic-skills:review-plan docs/plans/migration.md --mode=ground-truth",
       "/atomic-skills:review-plan docs/plans/migration.md --mode=both"
     ],
     "fields": [
@@ -110,7 +112,7 @@
         "name": "--mode",
         "kind": "option",
         "required": false,
-        "description": "Force a review mode (local, codex, grok, both*, external-both, or the v2.x alias internal). Skips the Step 0a picker."
+        "description": "Force a review mode (local, ground-truth/gt, codex, grok, both*, external-both, or the v2.x alias internal). Skips the Step 0a picker. ground-truth is specialized plan↔code Flow E (required before implement)."
       },
       {
         "name": "--model",

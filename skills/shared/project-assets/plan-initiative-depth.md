@@ -116,6 +116,7 @@ appear in the corresponding mode; `(codex/both)` likewise.
 
 **Mode:** local | codex | both
 **Cross-ref:** internal | <artifacts list> (local/both only)
+**Ground-truth:** complete | complete-empty-repo | complete-with-findings — premises=N impacts=K | detector exit 0
 **Initiatives discovered:** N/M phases (list any missing) | skipped (--no-initiatives) | N/A (no phases)
 **Iterations (local):** [N] (local/both only)
 **Codex iterations:** 2 (blind + informed) (codex/both only)
@@ -163,6 +164,7 @@ prefix; legacy `- codex:` is still a valid reader key for the codex provider):
 ## Reviews
 
 - internal: <zero findings | N finding(s) applied> @ <commitSha | uncommitted> (<ISO-8601 UTC>)
+- ground-truth: <complete | complete-empty-repo | complete-with-findings> | mode=ground-truth | fp=<12-hex> | premises=N | impacts=K @ <commitSha | uncommitted> (<ISO-8601 UTC>)
 - cross-model (<provider>): <PASSED | needs_changes (resolved) | SKIPPED — <reason>> — <reviews/<file>.md | n/a>
 ```
 
@@ -170,7 +172,18 @@ prefix; legacy `- codex:` is still a valid reader key for the codex provider):
   the `- internal:` line. Stamp the commit with {{BASH_TOOL}}
   `git rev-parse --short HEAD 2>/dev/null || echo uncommitted` and the time with
   `date -u +%Y-%m-%dT%H:%M:%SZ`; edit the body with {{REPLACE_TOOL}}. This line is
-  the **mandatory** receipt.
+  the **mandatory** adversarial-review receipt.
+- **Ground-truth (mandatory for implement; specialized mode only):** only
+  `review-plan --mode=ground-truth` (Flow E / alias `--mode=gt`) writes/refreshes
+  the `- ground-truth:` line **with `mode=ground-truth` + `fp=<hex>`** **and** the
+  `## Ground-truth review` section (Status + Scanned + ### A + ### B + Counts —
+  content floor) per `skills/shared/project-assets/ground-truth-review.md`. Empty
+  repos use `complete-empty-repo`. Prove with
+  `node …/scripts/find-plans-missing-ground-truth.js <plan_path>` exit 0.
+  Re-running updates the existing line, never duplicates. `implement` and
+  `assert-automate-gate --gate spawn` HARD-BLOCK without a valid/fresh receipt —
+  independent of `- internal:`. Missing `mode=` / `fp=` / thin section / stale
+  substance all fail the detector.
 - External modes (`codex`, `grok`, `both`, `both-codex`, `both-grok`, `external-both`):
   write/refresh a `- cross-model (<provider>):` line with the verdict and the
   persisted `reviews/<file>.md` path, where `<provider>` is `route.externalProvider`

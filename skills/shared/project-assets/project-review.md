@@ -43,8 +43,15 @@ Run the zero-token deterministic checks and report each PASS/WARN/FAIL — do NO
 ### 3. State⇄code coherence (read-only; composes `verify`)
 Run the `verify` pass over the resolved target by reading `{{ASSETS_PATH}}/project-verify.md` and executing its checks (schema, legacy, branch, scope, orphans, aiDeck, completion drift, review-gate). Fold its `VERIFY:` verdict into this report as the *coherence* leg. Do NOT duplicate the verify checks here — read that file and run them.
 
-### 4. Adversarial plan read (composes `review-plan`)
-Before this leg, run the delegated-write gate from the mutation policy because `review-plan` may rewrite the plan prose and write a receipt. If approved, invoke `atomic-skills:review-plan <plan_path> --mode=<local|both|…> --no-cross-ref` on the resolved plan. `review-plan` owns the self-loop checklist, the cross-ref + initiative-depth gates (it auto-discovers the phase initiatives), and — in `both*` — the sealed external envelope (host default or forced provider). Fold its `### Analysis Summary` verdict + counts + `provider` into this report. If the gate is denied or unavailable, print `review-plan: skipped (delegated write-capable leg not approved)`. This leg is the reason `review` exists beyond `verify`; when it runs, it is **delegated in full**, never re-derived here.
+### 4. Adversarial plan read (composes `review-plan` — two invocations)
+
+Before this leg, run the delegated-write gate from the mutation policy because `review-plan` may rewrite the plan prose and write receipts. If approved:
+
+1. **Internal / local (or both*):** invoke `atomic-skills:review-plan <plan_path> --mode=<local|both|…> --no-cross-ref`. Owns self-loop 1–20, cross-ref when requested, initiative-depth, external envelope when `both*`. Writes `- internal:` (and cross-model when applicable). **Does not** produce the ground-truth receipt.
+2. **Ground-truth (specialized, always when auditing a plan that will be implemented):** invoke **separately** `atomic-skills:review-plan <plan_path> --mode=ground-truth` (alias `--mode=gt`; Flow E — items 21–22 only). Persists `## Ground-truth review` + `- ground-truth: … | mode=ground-truth | …` (empty repos → `complete-empty-repo`). Required before `implement`.
+
+Fold both `### Analysis Summary` verdicts into this report. After leg 2, prove:
+`node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-plans-missing-ground-truth.js" <plan_path>` (exit 0 required for a clean audit). If the gate is denied or unavailable, print `review-plan: skipped (delegated write-capable leg not approved)` and note ground-truth may still be missing. This leg is the reason `review` exists beyond `verify`; when it runs, it is **delegated in full**, never re-derived here.
 
 **Pass `--no-cross-ref` (cross-ref prompt suppression).** `review-plan`'s Step 0a mode picker has a non-interactive abort, but its Step 0b cross-ref picker does **not** — without an explicit cross-ref flag it fires an interactive `{{ASK_USER_QUESTION_TOOL}}` (more so now that the frontmatter `references[]`/`supersedes` seed makes the "detected artifacts" option appear). `review` always passes `--no-cross-ref` to keep `review-plan` from asking an extra cross-ref question; the only prompt `project review` may issue is the delegated-write approval from the mutation policy above. A user who wants the cross-ref coverage runs `atomic-skills:review-plan <plan> --cross-ref=…` directly.
 

@@ -745,6 +745,7 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.ok(start >= 0 && end > start, 'Stage 8c block must be present');
     assert.match(stage8c, /PLAN_PATH="\.atomic-skills\/projects\/<projectId>\/<planSlug>\/plan\.md"/);
     assert.match(stage8c, /find-unreviewed-plans\.js" "\$PLAN_PATH"/);
+    assert.match(stage8c, /find-plans-missing-ground-truth\.js" "\$PLAN_PATH"/);
     assert.doesNotMatch(stage8c, /find-unreviewed-plans\.js" \.atomic-skills/);
     assert.match(stage8c, /only the newly materialized plan/i);
     assert.match(stage8c, /`project verify`/);

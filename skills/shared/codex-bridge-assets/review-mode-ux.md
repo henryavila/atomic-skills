@@ -18,6 +18,9 @@ Host matrix + same-family policy: `{{ASSETS_PATH}}/host-default-external.md`.
 | `external-both` | external Codex **then** Grok on the same cleaned artifact; merge via `src/external-both-merge.js` (key `file:line`+claim; higher severity wins; partial failure keeps good half) for human triage |
 
 Aliases: `--mode=internal` → `local` (review-plan compat).
+`review-plan` also accepts `--mode=ground-truth` / `--mode=gt` (specialized
+plan↔code Flow E — not listed in the interactive picker; pass the flag
+explicitly; not a same-family external route).
 
 ## Argument flags (in addition to skill-specific flags)
 

@@ -116,6 +116,11 @@ Run `node "$ROOT/scripts/find-unreviewed-plans.js" .atomic-skills` (deterministi
 - **PASS:** every plan carries an internal-review receipt.
 - **WARN** (report-only): `WARN review: <N> plan(s) carry no adversarial-review receipt (created before the gate existed, or materialized in a batch that bypassed Stage 8) — <projectId>/<slug>…`. This is the **warn** end of the soft→strict ladder whose **hard** end is `create-plan` Stage 8c (which HARD-BLOCKS a freshly-created plan with no receipt). Like check #8, `--fix` does NOT backfill it — the review must actually run: `atomic-skills:review-plan --mode=internal <plan>` writes a truthful receipt. A batch of plans materialized outside the creation flow (e.g. via `materializeDecomposition` directly) is exactly the case this surfaces.
 
+### 11. Ground-truth review receipt (read-only; implement HARD-GATE backstop)
+Run `node "$ROOT/scripts/find-plans-missing-ground-truth.js" .atomic-skills` (deterministic, zero-token). It reports every non-archived plan missing a valid plan↔code ground-truth receipt: `- ground-truth:` under `## Reviews` **and** a `## Ground-truth review` section with Status + ### A (premises) + ### B (code impacts). Empty/no-product-code repos still require an explicit `complete-empty-repo` result — silence is not a pass. `implement` HARD-BLOCKS without this receipt (Step 1.6).
+- **PASS:** every plan carries a complete ground-truth receipt.
+- **WARN** (report-only for legacy plans): `WARN ground-truth: <N> plan(s) lack plan↔code ground-truth receipt — run \`review-plan --mode=ground-truth\` (Flow E / alias \`--mode=gt\`) before implement — <projectId>/<slug>…`. Receipt must carry \`mode=ground-truth\` plus \`## Ground-truth review\` (A+B). `--fix` does NOT invent the section; the review must run. Creation Stage 8c HARD-BLOCKS new plans; implement HARD-BLOCKS coding without the receipt.
+
 ---
 
 ## Report shape
@@ -133,8 +138,9 @@ project verify — <repo-name> @ <branch>
 [8] review-gate WARN   1 done phase has no recorded reviewGate (aideck-multi-project/F2)
 [9] worktrees   FAIL   archived plan demo branch plan/demo has no PR/integration proof — run `finalize demo`, merge, then `archive demo`
 [10] review     WARN   2 plan(s) carry no adversarial-review receipt (curta/refatoracao, curta/web-app)
+[11] ground-truth WARN   1 plan lacks plan↔code ground-truth receipt (demo/greenfield)
 
-VERIFY: 6 warning(s), 1 failure(s)
+VERIFY: 7 warning(s), 1 failure(s)
 ```
 
 ## Red flags

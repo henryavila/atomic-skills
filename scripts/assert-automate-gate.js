@@ -61,6 +61,10 @@ import {
   claimTaskIdsFromReport,
 } from '../src/automate-complex-from-initiative.js';
 import { parseFrontmatter } from './validate-state.js';
+import {
+  findPlansMissingGroundTruth,
+  groundTruthGapMessage,
+} from './find-plans-missing-ground-truth.js';
 
 
 const BI_SPINE = ['value', 'workflow', 'rules', 'outOfScope', 'doneWhen'];
@@ -789,6 +793,21 @@ export function runAssert(args, env = {}) {
           exitCode: 1,
         };
       }
+    }
+    // Plan↔code ground-truth receipt (Flow E) — machine fence, not skill prose.
+    // Same detector implement Step 1.6 uses; missing/stale/thin → refuse spawn.
+    const gtMissing = findPlansMissingGroundTruth(resolved.planFile);
+    if (gtMissing.length > 0) {
+      const first = gtMissing[0];
+      const why = groundTruthGapMessage(first.reason);
+      const fpHint = first.fingerprint ? ` (current fp=${first.fingerprint})` : '';
+      return {
+        ok: false,
+        message:
+          `blocked: ground-truth review receipt missing or invalid — ${why}${fpHint}; `
+          + 'run `atomic-skills:review-plan --mode=ground-truth` then re-assert spawn',
+        exitCode: 1,
+      };
     }
     return { ok: true, message: 'ok', exitCode: 0 };
   }

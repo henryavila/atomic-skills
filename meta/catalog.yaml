@@ -142,19 +142,21 @@ core:
       - command: '/atomic-skills:review-plan docs/plans/migration.md'
         description: 'Interactive picker — chooses mode + cross-ref'
       - command: '/atomic-skills:review-plan docs/plans/migration.md --mode=local'
-        description: 'Force local-only self-loop'
+        description: 'Force local-only self-loop (consistency — not ground-truth)'
+      - command: '/atomic-skills:review-plan docs/plans/migration.md --mode=ground-truth'
+        description: 'Plan↔code ground-truth (A+B) — mandatory before implement; alias --mode=gt'
       - command: '/atomic-skills:review-plan docs/plans/migration.md --mode=both'
-        description: 'Local then codex (sealed envelope)'
+        description: 'Local then host external default (sealed envelope)'
     related: [review-code]
-    tags: [review, planning, adversarial, cross-model]
+    tags: [review, planning, adversarial, cross-model, ground-truth]
     ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: true
     mutates_repo: true
     network_required: true
-    one_liner: 'Adversarial plan review with local/codex/both mode picker'
+    one_liner: 'Adversarial plan review with local/ground-truth/codex/both modes'
     emoji: '🔍'
     version_added: '2.0.0'
-    argument_hint: '<plan.md> [--mode=local|codex|grok|claude|both*|ext-both] [--model=ID|--ask-model] [xref flags]'
+    argument_hint: '<plan.md> [--mode=local|ground-truth|gt|codex|grok|claude|both*|ext-both] [--model=ID|--ask-model] [xref flags]'
     args:
       - name: plan-path
         kind: positional
@@ -163,7 +165,7 @@ core:
       - name: '--mode'
         kind: option
         required: false
-        description: 'Force a review mode (local, codex, grok, both*, external-both, or the v2.x alias internal). Skips the Step 0a picker.'
+        description: 'Force a review mode (local, ground-truth/gt, codex, grok, both*, external-both, or the v2.x alias internal). Skips the Step 0a picker. ground-truth is specialized plan↔code Flow E (required before implement).'
       - name: '--model'
         kind: option
         required: false

@@ -10,6 +10,7 @@ import {
   mkdirSync,
   writeFileSync,
   rmSync,
+  readFileSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -23,9 +24,59 @@ import {
   OPERATOR_CONTINUE_TOKEN,
   AWAITING_OPERATOR_ADVANCE,
 } from '../src/maestro-cursor.js';
+import {
+  assessGroundTruthPlanFile,
+  planSubstanceText,
+} from '../src/ground-truth-review.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(ROOT, 'scripts', 'assert-automate-gate.js');
+
+/** Append a valid/fresh ground-truth receipt to plan.md (spawn fence requires it). */
+function stampGroundTruthOnPlan(planPath, extraInitiativePaths = []) {
+  const raw = readFileSync(planPath, 'utf8');
+  // strip any prior GT block for re-stamp
+  const base = raw.replace(/\n## Ground-truth review[\s\S]*$/m, '\n').replace(/\n## Reviews[\s\S]*$/m, '\n');
+  const extras = extraInitiativePaths.map((p) => {
+    try {
+      return planSubstanceText(readFileSync(p, 'utf8'));
+    } catch {
+      return '';
+    }
+  });
+  // draft without fp
+  const draftBody = `
+## Ground-truth review
+
+**Status:** complete
+**Codebase class:** thin
+**Scanned:** src/ → 0 (fixture)
+**Commit:** uncommitted
+**At:** 2026-07-21T00:00:00Z
+
+### A — Plan premises vs code
+
+| # | Premise | Result | Evidence |
+|---|---------|--------|----------|
+| — | none | ok | fixture |
+
+### B — Code present, plan silent (impact candidates)
+
+| # | Finding | Location | Impact | Disposition |
+|---|---------|----------|--------|-------------|
+| — | none | — | none | n/a |
+
+**Counts:** premises=0; impacts=0
+
+## Reviews
+
+- ground-truth: complete | mode=ground-truth | fp=PLACEHOLDER @ uncommitted (2026-07-21T00:00:00Z)
+`;
+  const draft = `${base.trimEnd()}\n${draftBody}`;
+  writeFileSync(planPath, draft, 'utf8');
+  const { fingerprint } = assessGroundTruthPlanFile(draft, { extraSubstance: extras });
+  writeFileSync(planPath, draft.replace('fp=PLACEHOLDER', `fp=${fingerprint}`), 'utf8');
+}
 
 const GOOD_SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
@@ -164,6 +215,12 @@ function writePlan(root, opts = {}) {
       if (rg.mode != null) lines.push(`      mode: ${rg.mode}`);
       if (rg.at != null) lines.push(`      at: "${rg.at}"`);
       if (rg.reviewFile != null) lines.push(`      reviewFile: "${rg.reviewFile}"`);
+      if (rg.localReceiptPath != null) {
+        lines.push(`      localReceiptPath: "${rg.localReceiptPath}"`);
+      }
+      if (rg.codexReceiptPath != null) {
+        lines.push(`      codexReceiptPath: "${rg.codexReceiptPath}"`);
+      }
       if (rg.reason != null) lines.push(`      reason: "${rg.reason}"`);
       if (rg.overrideReason != null) {
         lines.push(`      overrideReason: "${rg.overrideReason}"`);
@@ -224,6 +281,9 @@ function writePlan(root, opts = {}) {
     ].join('\n'),
     'utf8',
   );
+  // Spawn gate requires a valid/fresh ground-truth receipt (plan + initiatives fingerprint).
+  const initiativePath = join(phasesDir, `${phaseId}-demo.md`);
+  stampGroundTruthOnPlan(join(planDir, 'plan.md'), [initiativePath]);
   return { projectId, slug, planDir, stateRoot: join(root, '.atomic-skills') };
 }
 
@@ -376,6 +436,43 @@ describe('assert-automate-gate CLI', () => {
         assert.equal(r.status, 1, combined(r));
         assert.match(combined(r), /blocked/i);
         assert.match(combined(r), /lease/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('exit 1 when ground-truth receipt missing (machine fence)', () => {
+      const root = tmpRoot();
+      try {
+        const { planDir, stateRoot } = writePlan(root, { executionMode: 'automate' });
+        // Strip GT receipt that writePlan stamped
+        const planPath = join(planDir, 'plan.md');
+        const raw = readFileSync(planPath, 'utf8');
+        writeFileSync(
+          planPath,
+          raw
+            .replace(/\n## Ground-truth review[\s\S]*$/m, '\n')
+            .replace(/\n## Reviews[\s\S]*$/m, '\n')
+            + '\n## Reviews\n\n- internal: zero findings @ x (2026-07-21T00:00:00Z)\n',
+          'utf8',
+        );
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'C');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /ground-truth/i);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
@@ -745,6 +842,8 @@ describe('assert-automate-gate CLI', () => {
             mode: 'both',
             at: 'a'.repeat(40),
             reviewFile: '.atomic-skills/reviews/f0-both.md',
+            localReceiptPath: '.atomic-skills/reviews/f0-local.md',
+            codexReceiptPath: '.atomic-skills/reviews/f0-codex.md',
           },
           decisionReview: {
             status: 'passed',
@@ -935,6 +1034,8 @@ describe('assert-automate-gate CLI', () => {
           mode: 'both',
           at: 'a'.repeat(40),
           reviewFile: '.atomic-skills/reviews/f0-both.md',
+          localReceiptPath: '.atomic-skills/reviews/f0-local.md',
+          codexReceiptPath: '.atomic-skills/reviews/f0-codex.md',
         },
         decisionReview: {
           status: 'passed',
