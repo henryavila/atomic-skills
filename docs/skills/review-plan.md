@@ -2,7 +2,7 @@
 
 > **Iron Law:** `NO APPROVAL WITHOUT EVIDENCE.`
 
-**Adversarial plan review with local/codex/both mode picker**
+**Adversarial plan review with local/ground-truth/codex/both modes**
 
 A plan reviewed by its own author inherits every blind spot that wrote it — the gaps read as completeness from the inside. `review-plan` runs adversarial passes that actively hunt for what's missing: a fast local self-loop, a cross-model codex envelope that can't see your intent, or both. It surfaces the unhandled edge case, the optimistic assumption, and the silent dependency *before* execution turns them into rework — and never approves without cited evidence.
 
@@ -30,7 +30,7 @@ Adversarially review an implementation plan before it runs — locally (fast, ch
 | Name | Kind | Required | Description |
 |------|------|----------|-------------|
 | `plan-path` | positional | required | Path to the plan markdown file under review. |
-| `--mode` | option | optional | Force a review mode (local, codex, grok, both*, external-both, or the v2.x alias internal). Skips the Step 0a picker. |
+| `--mode` | option | optional | Force a review mode (local, ground-truth/gt, codex, grok, both*, external-both, or the v2.x alias internal). Skips the Step 0a picker. ground-truth is specialized plan↔code Flow E (required before implement). |
 | `--model` | option | optional | Force external reviewer model id (skips model picker). Use cli-default for empty --model flag. Also --model-codex / --model-grok / --ask-model. |
 | `--ask-model` | flag | optional | Prefer the catalog-recommended model for the external provider. |
 | `--no-cross-ref` | flag | optional | Skip the Step 0b cross-ref picker; force internal-only. |
@@ -40,8 +40,9 @@ Adversarially review an implementation plan before it runs — locally (fast, ch
 
 **Examples:**
 - `/atomic-skills:review-plan docs/plans/migration.md` — Interactive picker — chooses mode + cross-ref
-- `/atomic-skills:review-plan docs/plans/migration.md --mode=local` — Force local-only self-loop
-- `/atomic-skills:review-plan docs/plans/migration.md --mode=both` — Local then codex (sealed envelope)
+- `/atomic-skills:review-plan docs/plans/migration.md --mode=local` — Force local-only self-loop (consistency — not ground-truth)
+- `/atomic-skills:review-plan docs/plans/migration.md --mode=ground-truth` — Plan↔code ground-truth (A+B) — mandatory before implement; alias --mode=gt
+- `/atomic-skills:review-plan docs/plans/migration.md --mode=both` — Local then host external default (sealed envelope)
 
 ## Metadata
 
@@ -51,6 +52,6 @@ Adversarially review an implementation plan before it runs — locally (fast, ch
 
 **Related:** `review-code`
 
-**Tags:** `review`, `planning`, `adversarial`, `cross-model`
+**Tags:** `review`, `planning`, `adversarial`, `cross-model`, `ground-truth`
 
 **Version added:** `2.0.0`

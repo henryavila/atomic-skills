@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>🔍 Review Plan — Adversarial (Local + Codex) · Atomic Skills</title>
-<meta name="description" content="Adversarial plan review with local/codex/both mode picker">
+<meta name="description" content="Adversarial plan review with local/ground-truth/codex/both modes">
 <link rel="stylesheet" href="../../assets/ds.css">
 </head>
 <body>
@@ -30,7 +30,7 @@
         <span class="badge badge-module">core</span>
       </div>
       <h1>🔍 Review Plan — Adversarial (Local + Codex)</h1>
-      <p class="lede">Adversarial plan review with local/codex/both mode picker</p>
+      <p class="lede">Adversarial plan review with local/ground-truth/codex/both modes</p>
       <div class="iron-law">NO APPROVAL WITHOUT EVIDENCE.</div>
     </section>
 
@@ -62,8 +62,9 @@
       <h2>Examples</h2>
       <ul class="list-stack">
 <li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md</div><div class="desc">Interactive picker — chooses mode + cross-ref</div></li>
-<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=local</div><div class="desc">Force local-only self-loop</div></li>
-<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=both</div><div class="desc">Local then codex (sealed envelope)</div></li>
+<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=local</div><div class="desc">Force local-only self-loop (consistency — not ground-truth)</div></li>
+<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=ground-truth</div><div class="desc">Plan↔code ground-truth (A+B) — mandatory before implement; alias --mode=gt</div></li>
+<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=both</div><div class="desc">Local then host external default (sealed envelope)</div></li>
 </ul>
     </section>
   </main>
