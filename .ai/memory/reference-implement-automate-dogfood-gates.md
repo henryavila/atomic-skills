@@ -28,6 +28,20 @@ Pure-maestro must fail closed with **machine gates**, not prose alone. Dogfood o
 
 - Under automate, **do not hand off materialize** to the user as “you run materialize” — maestro Step H orchestrates (BI still operator authority, can draft from ratified source when mandate is full-plan automate).
 - **Never** `git add` `.atomic-skills/status/writer-leases/*.secret` or runtime lease residue.
+
+## Curta F0 dogfood follow-ups (2026-07-27)
+
+Landed after `docs/handoffs/automate-dogfood-curta-f0.md`:
+
+1. `appendDecision` **throws** (fail-loud); `tryAppendDecision` for non-throwing
+2. Claim report accepts `claims[]` as alias of `tasks[]`
+3. phase-done identity derives from `initiative` when `phase` slice lacks parentPlan/phaseId
+4. `validate-state <plan-dir>` collects plan.md + phases + **archive**
+5. Maestro `operatorOverrides` for redispatch over `MAX_REDISPATCH=2` (no hand-reset of counter)
+6. Hard rule: third-party repo → no commit on checked-out branch
+7. Automate successor: **pointer-only** (`pending`), never `active` without initiative
+8. Dual-leg receipts must be **distinct** paths; phase may use `external-both`; plan-end still requires it
+9. Backup branch `backup/local-lessons-schema-0c9f7288` deleted (`lessonsVerifiedAt` not incorporated)
 - Plan finalize still requires `external-both` + `userValidatedAt` (already hard in finalize).
 - Assert must run **before** mutating `currentPhase` / terminal state.
 

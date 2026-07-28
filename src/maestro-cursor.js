@@ -10,7 +10,8 @@
  *
  * Cursor shape:
  *   { step, phaseId, redispatchCount, claimReportPath?, leasePath?, updatedAt,
- *     lastAssert?: { gate, ok, at, reason? } }
+ *     lastAssert?: { gate, ok, at, reason? },
+ *     operatorOverrides?: Array<{ at, reason, gate?, priorCount? }> }
  *
  * Steps: A | B | C | D | D.5 | E | F | G | H | I | awaiting-operator-advance
  *
@@ -76,6 +77,13 @@ export const MAX_REDISPATCH = 2;
  * }} LastAssert
  *
  * @typedef {{
+ *   at: string,
+ *   reason: string,
+ *   gate?: string | null,
+ *   priorCount?: number | null,
+ * }} OperatorOverride
+ *
+ * @typedef {{
  *   step: MaestroStep | string,
  *   phaseId: string,
  *   redispatchCount: number,
@@ -83,6 +91,7 @@ export const MAX_REDISPATCH = 2;
  *   leasePath?: string | null,
  *   updatedAt: string,
  *   lastAssert?: LastAssert | null,
+ *   operatorOverrides?: OperatorOverride[] | null,
  * }} MaestroCursor
  *
  * @typedef {{
@@ -166,13 +175,15 @@ function normStep(step) {
  *
  * Forward spine: A→B→C→D→D.5→E→F→G→H→I
  * Pause: G → awaiting-operator-advance → H
- * Redispatch: E|F → C when redispatchCount < MAX_REDISPATCH
+ * Redispatch: E|F → C when redispatchCount < MAX_REDISPATCH, **or** when an
+ * operator override reason is supplied (first-class ceiling breach — dogfood
+ * F0: gates after tasks-done legitimately produce new work beyond 2 rounds).
  * Last-phase shortcuts: G→I, H→I
  * Next-phase: H→A (phaseId may change via advanceCursor opts)
  *
  * @param {string} from
  * @param {string} to
- * @param {{ redispatchCount?: number }} [ctx]
+ * @param {{ redispatchCount?: number, operatorOverride?: { reason?: string } | null }} [ctx]
  * @returns {boolean}
  */
 export function isLegalTransition(from, to, ctx = {}) {
@@ -204,7 +215,13 @@ export function isLegalTransition(from, to, ctx = {}) {
       ctx.redispatchCount != null && Number.isFinite(Number(ctx.redispatchCount))
         ? Number(ctx.redispatchCount)
         : 0;
-    return count < MAX_REDISPATCH;
+    if (count < MAX_REDISPATCH) return true;
+    // Over ceiling: only with explicit operator override reason (not mute reset)
+    const reason =
+      ctx.operatorOverride != null && typeof ctx.operatorOverride === 'object'
+        ? String(ctx.operatorOverride.reason ?? '').trim()
+        : '';
+    return reason !== '';
   }
 
   return false;
@@ -368,6 +385,7 @@ export function serializeCursor(cursor) {
  *   leasePath?: string | null,
  *   updatedAt?: string,
  *   now?: string,
+ *   operatorOverride?: { reason: string, gate?: string | null, at?: string | null } | null,
  * }} [opts]
  * @returns {CursorAdvanceResult}
  */
@@ -390,21 +408,62 @@ export function advanceCursor(cursor, nextStep, opts = {}) {
   }
 
   const redispatchCount = Number(c.redispatchCount) || 0;
-  if (!isLegalTransition(from, to, { redispatchCount })) {
+  const overrideReason =
+    opts.operatorOverride != null && typeof opts.operatorOverride === 'object'
+      ? String(opts.operatorOverride.reason ?? '').trim()
+      : '';
+  const operatorOverride =
+    overrideReason !== ''
+      ? {
+          reason: overrideReason,
+          gate:
+            opts.operatorOverride?.gate != null
+              ? String(opts.operatorOverride.gate).trim() || null
+              : null,
+          at:
+            opts.operatorOverride?.at != null &&
+            String(opts.operatorOverride.at).trim() !== ''
+              ? String(opts.operatorOverride.at).trim()
+              : null,
+        }
+      : null;
+
+  if (!isLegalTransition(from, to, { redispatchCount, operatorOverride })) {
     return {
       ok: false,
       reason: `illegal transition ${from} → ${to}` +
         (from === 'E' || from === 'F'
           ? to === 'C' && redispatchCount >= MAX_REDISPATCH
-            ? ` (redispatchCount ${redispatchCount} >= max ${MAX_REDISPATCH})`
+            ? ` (redispatchCount ${redispatchCount} >= max ${MAX_REDISPATCH}; pass operatorOverride: { reason, gate? })`
             : ''
           : ''),
     };
   }
 
   let nextCount = redispatchCount;
+  /** @type {OperatorOverride[] | undefined} */
+  let nextOverrides;
   if ((from === 'E' || from === 'F') && to === 'C') {
     nextCount = redispatchCount + 1;
+    // Record every ceiling-breach redispatch (count already at/over max before increment)
+    if (redispatchCount >= MAX_REDISPATCH && operatorOverride) {
+      const stampAt =
+        operatorOverride.at ||
+        (opts.updatedAt != null && String(opts.updatedAt).trim() !== ''
+          ? String(opts.updatedAt)
+          : opts.now != null && String(opts.now).trim() !== ''
+            ? String(opts.now)
+            : new Date().toISOString());
+      /** @type {OperatorOverride} */
+      const row = {
+        at: stampAt,
+        reason: operatorOverride.reason,
+        priorCount: redispatchCount,
+      };
+      if (operatorOverride.gate) row.gate = operatorOverride.gate;
+      const prior = Array.isArray(c.operatorOverrides) ? c.operatorOverrides : [];
+      nextOverrides = [...prior, row];
+    }
   }
 
   /** @type {MaestroCursor} */
@@ -422,6 +481,13 @@ export function advanceCursor(cursor, nextStep, opts = {}) {
           ? String(opts.now)
           : new Date().toISOString(),
   };
+
+  // Preserve prior overrides when not appending a new one this transition
+  if (nextOverrides != null) {
+    next.operatorOverrides = nextOverrides;
+  } else if (Array.isArray(c.operatorOverrides) && c.operatorOverrides.length > 0) {
+    next.operatorOverrides = c.operatorOverrides;
+  }
 
   // Optional paths: explicit null clears; undefined keeps prior; string sets
   if (opts.claimReportPath !== undefined) {

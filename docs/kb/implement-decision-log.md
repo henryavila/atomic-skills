@@ -1,7 +1,7 @@
 # Decision log (automate) — operator mental model
 
 **Canonical asset:** `skills/shared/implement-decision-log.md`  
-**Helper:** `src/decision-log.js` (`appendDecision`, `listDecisions`)
+**Helper:** `src/decision-log.js` (`appendDecision` throws on failure; `tryAppendDecision` for non-throwing; `listDecisions`)
 
 ## Why it exists
 

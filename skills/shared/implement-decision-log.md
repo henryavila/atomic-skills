@@ -37,6 +37,22 @@ segments. `appendDecision` / `listDecisions` require `projectId` + `planSlug` +
 that escape the `decisions/` tree are **rejected**. Path id segments are
 allowlisted `[A-Za-z0-9._-]+`.
 
+**Preferred call shape (object locator — do not pass a bare `.jsonl` path):**
+
+```js
+appendDecision(
+  { statusRoot: '.atomic-skills', projectId, planSlug, phaseId },
+  { category: 'routing', decision: '…', why: '…', impact: '…' },
+)
+// or: appendDecision(statusRoot, entry, { projectId, planSlug, phaseId })
+```
+
+**Fail-loud:** `appendDecision` **throws** on validation / path / I/O failure.
+Never treat a missing throw as success, and never ignore the return. For
+non-throwing probes use `tryAppendDecision` → check `r.ok` before reporting
+"appended" to the operator (dogfood: silent `{ok:false}` led to a false
+"decisions recorded" claim).
+
 **`statusRoot` must be the `.atomic-skills` root** — not
 `.atomic-skills/projects/<project-id>`. Canonical path is always
 `statusRoot/projects/<id>/<slug>/decisions/<phaseId>.jsonl`. If a caller passes a
@@ -217,7 +233,8 @@ tasks done → evaluation agent → evaluationGate stamp
 | Function | Role |
 |----------|------|
 | `decisionLogPath({ statusRoot, projectId, planSlug, phaseId })` | Resolve durable path (`src/decision-log.js`) |
-| `appendDecision(statusRootOrPath, entry)` | Validate + append one entry; returns written row |
+| `appendDecision(statusRootOrPath, entry, locator?)` | Validate + append; **throws** on failure; returns `{ ok: true, path, entry }` |
+| `tryAppendDecision(…)` | Non-throwing variant → `{ ok: false, error }` on failure (prefer throw path in host) |
 | `listDecisions(statusRootOrPath, opts?)` | Read/parse entries for a phase path |
 | `buildDecisionPackage({ phaseId, path, entries })` | Pure present-before-PASS package (`src/decision-review-package.js`) |
 | `buildDecisionReview({ status, verifiedAt, packagePresentedAt?, packagePath?, … })` | Operator stamp shape (`src/decision-review-gate.js`) — does not authorize PASS |

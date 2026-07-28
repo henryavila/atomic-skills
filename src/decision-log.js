@@ -576,6 +576,40 @@ function appendLogLine(path, line) {
  * Append a validated decision entry to the phase log.
  * Never stamps decision-review PASS.
  *
+ * **Fail-loud:** throws on validation / path / I/O failure. Do not ignore the
+ * return value — a successful call always returns `{ ok: true, path, entry }`.
+ * Prefer this over inventing success from a swallowed error.
+ *
+ * For non-throwing callers (batch / probe), use {@link tryAppendDecision}.
+ *
+ * Locator shape (preferred):
+ * `{ statusRoot, projectId, planSlug, phaseId }` — arbitrary file paths are
+ * rejected; path must resolve under `decisions/<phaseId>.jsonl`.
+ *
+ * @param {string | {
+ *   statusRoot?: string,
+ *   projectId?: string,
+ *   planSlug?: string,
+ *   phaseId?: string,
+ *   path?: string,
+ * }} statusRootOrPath
+ * @param {Partial<DecisionEntry> & Record<string, unknown>} entry
+ * @param {{ projectId?: string, planSlug?: string, phaseId?: string, path?: string }} [locator]
+ * @returns {{ ok: true, path: string, entry: DecisionEntry }}
+ */
+export function appendDecision(statusRootOrPath, entry, locator) {
+  const validated = validateDecisionEntry(entry);
+  const path = resolveLogPath(statusRootOrPath, locator ?? {});
+  ensureLogFile(path);
+  appendLogLine(path, `${JSON.stringify(validated)}\n`);
+  return { ok: true, path, entry: validated };
+}
+
+/**
+ * Non-throwing variant of {@link appendDecision}. Returns `{ ok: false, error }`
+ * instead of throwing. Prefer `appendDecision` in host/maestro paths so a failed
+ * append cannot be mistaken for success.
+ *
  * @param {string | {
  *   statusRoot?: string,
  *   projectId?: string,
@@ -587,13 +621,9 @@ function appendLogLine(path, line) {
  * @param {{ projectId?: string, planSlug?: string, phaseId?: string, path?: string }} [locator]
  * @returns {{ ok: true, path: string, entry: DecisionEntry } | { ok: false, error: string }}
  */
-export function appendDecision(statusRootOrPath, entry, locator) {
+export function tryAppendDecision(statusRootOrPath, entry, locator) {
   try {
-    const validated = validateDecisionEntry(entry);
-    const path = resolveLogPath(statusRootOrPath, locator ?? {});
-    ensureLogFile(path);
-    appendLogLine(path, `${JSON.stringify(validated)}\n`);
-    return { ok: true, path, entry: validated };
+    return appendDecision(statusRootOrPath, entry, locator);
   } catch (e) {
     return {
       ok: false,

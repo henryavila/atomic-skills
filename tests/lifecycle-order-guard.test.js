@@ -211,6 +211,41 @@ test('preflightPhaseDone blocks open tasks and missing identity', () => {
   assert.equal(noId.code, 'phase-done-missing-identity');
 });
 
+test('preflightPhaseDone derives identity from initiative when phase slice lacks it', () => {
+  // Dogfood: host passes { initiative, plan, phase, tasks } where `phase` is the
+  // plan descriptor (no parentPlan/phaseId) and identity lives on initiative.
+  const result = preflightPhaseDone({
+    initiative: {
+      parentPlan: 'demo-plan',
+      phaseId: 'F0',
+      tasks: [{ id: 'T-001', status: 'done' }],
+    },
+    phase: {
+      id: 'F0',
+      status: 'active',
+      goal: 'g',
+    },
+    plan: {
+      slug: 'demo-plan',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'foundation',
+          status: 'active',
+          dependsOn: [],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'F0',
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.allowed, true, result.reason || result.code);
+  assert.equal(result.blocked, false);
+});
+
 test('preflightPhaseDone blocks invalid phase DAG when plan is provided', () => {
   const result = preflightPhaseDone({
     parentPlan: 'p',

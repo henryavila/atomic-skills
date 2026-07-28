@@ -1428,6 +1428,38 @@ test('collectTargets (Inc2 R-XAGENT-05): a dir arg walks BOTH flat and nested pr
   }
 });
 
+test('collectTargets: direct plan-directory arg finds plan.md + phases + archive', () => {
+  // Dogfood: project-transitions says validate against the plan directory;
+  // validate-state <plan-dir> used to error "no plans found".
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-plan-dir-'));
+  try {
+    const planDir = join(dir, 'projects', 'curta', 'multi-model-capacity');
+    mkdirSync(join(planDir, 'phases', 'archive'), { recursive: true });
+    writeFileSync(join(planDir, 'plan.md'), '---\nslug: multi-model-capacity\n---\n');
+    writeFileSync(join(planDir, 'phases', 'f1-next.md'), '---\nslug: mmc-f1\n---\n');
+    writeFileSync(
+      join(planDir, 'phases', 'archive', 'f0-closed.md'),
+      '---\nslug: mmc-f0\n---\n',
+    );
+
+    const found = collectTargets([planDir]).map((p) =>
+      p.replace(/\\/g, '/').split('/').slice(-2).join('/'),
+    );
+    assert.ok(
+      found.includes('multi-model-capacity/plan.md') || found.includes('plan.md') ||
+        found.some((f) => f.endsWith('plan.md')),
+      `plan.md not collected from plan dir: ${found.join(', ')}`,
+    );
+    assert.ok(found.includes('phases/f1-next.md') || found.includes('f1-next.md'), `live phase: ${found.join(', ')}`);
+    assert.ok(
+      found.includes('archive/f0-closed.md') || found.includes('f0-closed.md'),
+      `archived phase: ${found.join(', ')}`,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('GATE-R2 wiring: validateFile REJECTS a schema-valid file whose met criterion lacks evidence', () => {
   const validators = buildValidators();
   const fm = metGate(

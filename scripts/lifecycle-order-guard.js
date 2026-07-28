@@ -521,9 +521,18 @@ function checkPhaseDoneDecisionReview(input) {
  *   exception:string|null, recommendedCommand:string|null}}
  */
 function checkPhaseDoneIdentity(input) {
+  // Prefer top-level identity, then phase descriptor, then initiative.
+  // phaseSlice prefers `phase` over `initiative` — when both are passed, a
+  // plan-level phase slice often lacks parentPlan/phaseId while the initiative
+  // carries them (dogfood: missing-identity despite initiative present).
   const phase = phaseSlice(input);
-  const parentPlan = text(input.parentPlan) || text(phase.parentPlan);
-  const phaseId = text(input.phaseId) || text(phase.phaseId);
+  const initiative = object(input.initiative);
+  const parentPlan =
+    text(input.parentPlan) ||
+    text(phase.parentPlan) ||
+    text(initiative.parentPlan);
+  const phaseId =
+    text(input.phaseId) || text(phase.phaseId) || text(initiative.phaseId);
 
   if (!parentPlan || !phaseId) {
     return block(

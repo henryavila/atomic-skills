@@ -10,6 +10,7 @@ import {
   normalizeStatusRoot,
   validateDecisionEntry,
   appendDecision,
+  tryAppendDecision,
   listDecisions,
 } from '../src/decision-log.js';
 
@@ -440,8 +441,21 @@ describe('appendDecision + listDecisions', () => {
     assert.equal(routing[0].id, 'a');
   });
 
-  it('reject path: empty decision returns ok false', () => {
-    const result = appendDecision(locator('reject'), {
+  it('reject path: empty decision throws (fail-loud)', () => {
+    assert.throws(
+      () =>
+        appendDecision(locator('reject'), {
+          category: 'env',
+          decision: '',
+          why: 'x',
+          impact: 'y',
+        }),
+      /empty or missing decision/,
+    );
+  });
+
+  it('tryAppendDecision returns ok false without throwing', () => {
+    const result = tryAppendDecision(locator('try-reject'), {
       category: 'env',
       decision: '',
       why: 'x',
@@ -451,77 +465,92 @@ describe('appendDecision + listDecisions', () => {
     assert.match(result.error || '', /empty or missing decision/);
   });
 
-  it('reject path: missing why returns ok false', () => {
-    const result = appendDecision(locator('reject-why'), {
-      category: 'env',
-      decision: 'use node',
-      impact: 'repro',
-    });
-    assert.equal(result.ok, false);
-    assert.match(result.error || '', /empty or missing why/);
+  it('reject path: missing why throws', () => {
+    assert.throws(
+      () =>
+        appendDecision(locator('reject-why'), {
+          category: 'env',
+          decision: 'use node',
+          impact: 'repro',
+        }),
+      /empty or missing why/,
+    );
   });
 
-  it('reject path: missing category returns ok false', () => {
-    const result = appendDecision(locator('reject2'), {
-      decision: 'something',
-      why: 'x',
-      impact: 'y',
-    });
-    assert.equal(result.ok, false);
-    assert.match(result.error || '', /missing category/);
+  it('reject path: missing category throws', () => {
+    assert.throws(
+      () =>
+        appendDecision(locator('reject2'), {
+          decision: 'something',
+          why: 'x',
+          impact: 'y',
+        }),
+      /missing category/,
+    );
   });
 
-  it('reject path: secret shape returns ok false', () => {
-    const result = appendDecision(locator('reject-secret'), {
-      category: 'env',
-      decision: 'config',
-      why: 'api_key=supersecretvalue123456',
-      impact: 'none',
-    });
-    assert.equal(result.ok, false);
-    assert.match(result.error || '', /secret shape/);
+  it('reject path: secret shape throws', () => {
+    assert.throws(
+      () =>
+        appendDecision(locator('reject-secret'), {
+          category: 'env',
+          decision: 'config',
+          why: 'api_key=supersecretvalue123456',
+          impact: 'none',
+        }),
+      /secret shape/,
+    );
   });
 
-  it('reject path: object.path outside decisions tree', () => {
+  it('reject path: object.path outside decisions tree throws', () => {
     const outside = join(root, 'evil.jsonl');
-    const result = appendDecision(
-      {
-        statusRoot,
-        projectId: 'atomic-skills',
-        planSlug: 'implement-phase-agents',
-        phaseId: 'F1',
-        path: outside,
-      },
-      baseEntry({ id: 'evil-1', at: '2026-07-22T12:00:00.000Z' }),
+    assert.throws(
+      () =>
+        appendDecision(
+          {
+            statusRoot,
+            projectId: 'atomic-skills',
+            planSlug: 'implement-phase-agents',
+            phaseId: 'F1',
+            path: outside,
+          },
+          baseEntry({ id: 'evil-1', at: '2026-07-22T12:00:00.000Z' }),
+        ),
+      /path override rejected|arbitrary path rejected/,
     );
-    assert.equal(result.ok, false);
-    assert.match(result.error || '', /path override rejected|arbitrary path rejected/);
     assert.equal(existsSync(outside), false);
   });
 
-  it('reject path: absolute path without segments', () => {
+  it('reject path: absolute path without segments throws', () => {
     const outside = join(root, 'abs-evil.jsonl');
-    const result = appendDecision(outside, baseEntry({
-      id: 'abs-1',
-      at: '2026-07-22T12:00:00.000Z',
-    }));
-    assert.equal(result.ok, false);
-    assert.match(result.error || '', /arbitrary path rejected/);
+    assert.throws(
+      () =>
+        appendDecision(
+          outside,
+          baseEntry({
+            id: 'abs-1',
+            at: '2026-07-22T12:00:00.000Z',
+          }),
+        ),
+      /arbitrary path rejected/,
+    );
     assert.equal(existsSync(outside), false);
   });
 
-  it('reject path: projectId traversal via locator', () => {
-    const result = appendDecision(
-      {
-        statusRoot,
-        projectId: '../evil',
-        planSlug: 'plan',
-        phaseId: 'F1',
-      },
-      baseEntry({ id: 'trav-1', at: '2026-07-22T12:00:00.000Z' }),
+  it('reject path: projectId traversal via locator throws', () => {
+    assert.throws(
+      () =>
+        appendDecision(
+          {
+            statusRoot,
+            projectId: '../evil',
+            planSlug: 'plan',
+            phaseId: 'F1',
+          },
+          baseEntry({ id: 'trav-1', at: '2026-07-22T12:00:00.000Z' }),
+        ),
+      /invalid projectId/,
     );
-    assert.equal(result.ok, false);
-    assert.match(result.error || '', /invalid projectId/);
   });
 
   it('listDecisions returns [] for missing file', () => {
@@ -552,24 +581,29 @@ describe('appendDecision + listDecisions', () => {
   });
 
   it('no API stamps decisionReview status PASS', () => {
-    const blocked = appendDecision(locator('no-pass'), {
-      category: 'routing',
-      decision: 'try to pass gate',
-      why: 'x',
-      impact: 'y',
-      decisionReview: { status: 'PASS' },
-    });
-    assert.equal(blocked.ok, false);
-    assert.match(blocked.error || '', /decision-review PASS|decisionReview/);
+    assert.throws(
+      () =>
+        appendDecision(locator('no-pass'), {
+          category: 'routing',
+          decision: 'try to pass gate',
+          why: 'x',
+          impact: 'y',
+          decisionReview: { status: 'PASS' },
+        }),
+      /decision-review PASS|decisionReview/,
+    );
 
-    const blocked2 = appendDecision(locator('no-pass'), {
-      category: 'routing',
-      decision: 'try status field',
-      why: 'x',
-      impact: 'y',
-      decisionReviewStatus: 'PASS',
-    });
-    assert.equal(blocked2.ok, false);
+    assert.throws(
+      () =>
+        appendDecision(locator('no-pass'), {
+          category: 'routing',
+          decision: 'try status field',
+          why: 'x',
+          impact: 'y',
+          decisionReviewStatus: 'PASS',
+        }),
+      /decision-review PASS|decisionReview|decisionReviewStatus/,
+    );
 
     // Successful append still has no decisionReview key
     const ok = appendDecision(locator('no-pass'), {
@@ -642,12 +676,14 @@ describe('appendDecision + listDecisions', () => {
     const outside = join(statusRoot, 'outside-target.txt');
     writeFileSync(outside, 'seed\n', 'utf8');
     symlinkSync(outside, path);
-    const result = appendDecision(
-      loc,
-      baseEntry({ id: 'sym-1', at: '2026-07-22T12:00:00.000Z' }),
+    assert.throws(
+      () =>
+        appendDecision(
+          loc,
+          baseEntry({ id: 'sym-1', at: '2026-07-22T12:00:00.000Z' }),
+        ),
+      /symlink/i,
     );
-    assert.equal(result.ok, false);
-    assert.match(result.error || '', /symlink/i);
     const outsideBody = readFileSync(outside, 'utf8');
     assert.equal(outsideBody.includes('sym-1'), false);
   });

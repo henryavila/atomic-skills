@@ -43,6 +43,25 @@ describe('parseClaimReport', () => {
     assert.equal(report.tasks[0].taskId, 'T-002');
   });
 
+  it('accepts claims[] as alias for tasks[] (dogfood)', () => {
+    const report = parseClaimReport({
+      planSlug: 'p',
+      phaseId: 'F0',
+      claims: [passClaim({ taskId: 'T-claims' })],
+    });
+    assert.ok(report);
+    assert.equal(report.tasks.length, 1);
+    assert.equal(report.tasks[0].taskId, 'T-claims');
+  });
+
+  it('accepts claimReport.claims nested alias', () => {
+    const report = parseClaimReport({
+      claimReport: { claims: [passClaim({ taskId: 'T-nested' })] },
+    });
+    assert.ok(report);
+    assert.equal(report.tasks[0].taskId, 'T-nested');
+  });
+
   it('parses JSON string', () => {
     const report = parseClaimReport(JSON.stringify({ tasks: [passClaim()] }));
     assert.ok(report);

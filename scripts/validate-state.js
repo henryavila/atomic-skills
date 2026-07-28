@@ -253,6 +253,22 @@ export function collectTargets(args) {
           seen.add(filePath);
         }
       };
+      // Collect plan.md + phases/ + phases/archive/ + lessons/ for one plan dir.
+      // Nested projects/<id>/<slug>/ layout AND when the CLI arg itself is already
+      // a plan directory (dogfood: validate-state <plan-dir> used to report
+      // "no plans found" even with plan.md present).
+      const collectPlanDir = (planPath) => {
+        if (!existsSync(planPath) || !statSync(planPath).isDirectory()) return;
+        const planMd = join(planPath, 'plan.md');
+        if (existsSync(planMd) && statSync(planMd).isFile() && !seen.has(planMd)) {
+          targets.push(planMd);
+          seen.add(planMd);
+        }
+        addMd(join(planPath, 'phases'));
+        addMd(join(planPath, 'phases', 'archive'));
+        addMd(join(planPath, 'lessons')); // Spec 2 / G1: per-initiative lessons files
+      };
+
       // Flat layout (legacy; live during the migration coexistence window).
       for (const sub of ['plans', 'initiatives']) {
         addMd(join(absPath, sub));
@@ -265,19 +281,13 @@ export function collectTargets(args) {
           const projPath = join(projectsDir, projId);
           if (!statSync(projPath).isDirectory()) continue;
           for (const planSlug of readdirSync(projPath)) {
-            const planPath = join(projPath, planSlug);
-            if (!statSync(planPath).isDirectory()) continue;
-            const planMd = join(planPath, 'plan.md');
-            if (existsSync(planMd) && statSync(planMd).isFile() && !seen.has(planMd)) {
-              targets.push(planMd);
-              seen.add(planMd);
-            }
-            addMd(join(planPath, 'phases'));
-            addMd(join(planPath, 'phases', 'archive'));
-            addMd(join(planPath, 'lessons')); // Spec 2 / G1: per-initiative lessons files
+            collectPlanDir(join(projPath, planSlug));
           }
         }
       }
+      // Direct plan-directory arg: .../projects/<id>/<slug>/ (has plan.md and/or phases/).
+      // Dogfood F0: phase-done docs say "validate against the plan directory".
+      collectPlanDir(absPath);
     }
   }
   return targets;

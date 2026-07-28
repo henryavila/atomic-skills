@@ -268,33 +268,38 @@ Invoked when the active initiative is the phase initiative of an active plan AND
      a. Assert every `tasks[].status` is already `done` (preflight + commit guard). Do **not** set open tasks to `done`, do **not** invent `closedAt`, and do **not** emit per-task `task-done` here — each task was closed earlier via the `done <task-id>` flow, which already emitted one `task-done` event per task (`appendCompletion` / `append-completion` with `projectId`, `planSlug`, `phaseId`, `taskId`). Emit exactly one `phase-done` completion event via `appendCompletion(root, { event: 'phase-done', projectId, planSlug, phaseId, taskId: null, actuals: computePhaseActuals(phaseStarted, { cwd: root, sinceCommit: phaseStartedCommit }) })`, where `phaseStartedCommit` is the phase initiative's `startedCommit` field (the immutable git SHA recorded at activation — **preferred**, rebase/squash/amend-proof) and `phaseStarted` is its `started` field (the PHASE timestamp — NOT `plan.started`, NOT the branch — used only as fallback when `startedCommit` is absent on a legacy phase), or `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/append-completion.js" --event phase-done --project <projectId> --plan <planSlug> --phase <phaseId> --actuals-since-commit <phase.startedCommit> --actuals-since <phase.started>` with no `--task`, carrying the phase's aggregate actuals once; do NOT duplicate those aggregate actuals onto prior per-task `task-done` lines. The helper computes the git diff from the anchor (or, fallback, phase.started) ->HEAD (filesChanged/locAdded/locRemoved/commits) and degrades to actuals OMITTED (no error) when git/diff is unavailable; never invent actuals. Leave `weight`/`weightBasis` absent unless already known so the helper defaults them to `1`/`'count'`.
      b. Mirror initiative `exitGates[]` from the authoritative phase criteria by `id`. Never convert `pending` or `deferred` gates to `met`. If the matching phase criterion is `met`, set the initiative gate `status: met`, copy `metAt`/`evidence` when present, or stamp `metAt: <now>` when absent. If the matching phase criterion is `deferred`, preserve `status: deferred` with its `deferredReason` (and any failed/attempted `evidence`), clear `metAt` if present, and **abort** — deferred is not terminal; return to Stage B. If the matching phase criterion is still `pending`, abort before archiving and return to Stage B; this is a gate leak. If an initiative-only gate has no matching phase criterion, preserve its current status and never coerce it to `met`.
      b2. **exitGate mirror assert (F4 HARD before archive):** call `assertExitGateMirror` / `exitGateMirrorAllowsArchive` from `src/lifecycle-order-guard.js` with plan criteria + initiative `exitGates`. When plan criteria are **met** but initiative gates remain **pending** (`terminal-pending`), **STOP** — do not archive, do not hand-edit phase-done. Complete the mirror first.
-     b3. **`validate-state` on the plan directory before advance commit (HARD under automate):** run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js"` against the **plan directory** (parent plan + active initiative paths) **before** the advance/archive microcommit. Non-zero exit ⇒ STOP with zero archive. Do **not** hand-edit phase-done frontmatter under automate to force green — only the canonical `phase-done` transition may write terminal status.
+     b3. **`validate-state` on the plan directory before advance commit (HARD under automate):** run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" <plan-dir>` where `<plan-dir>` is the nested plan folder (`projects/<project-id>/<plan-slug>/` — contains `plan.md`, `phases/`, `phases/archive/`). The collector walks that directory including **`phases/archive/`**, so a just-closed phase is not reported as orphan when only the plan file is checked. Non-zero exit ⇒ STOP with zero archive. Do **not** hand-edit phase-done frontmatter under automate to force green — only the canonical `phase-done` transition may write terminal status.
      c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
      d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done and all gates met) + per-gate `verifierLabel`/`evidenceSummary` by running `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` (rollups + focus markers + the `focus.json` digest), then save the initiative file.
    - Update the parent plan's matching phase descriptor to `status: done` — **only with `reviewGate` already recorded (step 6)**; GATE-R3 rejects a `done` phase whose review claim is missing its `at`/`reason` anchor. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode), and refresh the plan root `lastUpdated`.
    - **Post-close projection (shared — both terminal forks):** After durable phase status is `done` on the initiative **and** the parent plan phase descriptor, re-run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"`, then `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/project-session-todos.js" --json`, and apply the payload with the Grok session checklist tool (`todo_write`) when on Grok. SoT order: mutate (initiative + plan phase `done`) → `refresh-state` → `project-session-todos` → `todo_write`. Only after that durable `done` (or later `archived`) may the phase session todo be `completed` — never mark it completed to *cause* close, and never project `completed` before the plan phase descriptor is `done`.
    - Run `archive <slug>` on the just-closed initiative so its file moves to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
-   - For each newly-active phase id, set the phase descriptor to
-     `status: active` and refresh the plan root `lastUpdated`. If the matching initiative
-     file exists, set that initiative to `status: active` and refresh
-     `lastUpdated`, then run `refresh-state`.
-   - **Successor materialize — mode split (HARD under automate):**
-     - **Mode 1 / non-automate:** if the initiative file is absent
-       (descriptor-only), run `atomic-skills:project materialize <phase-id>` with
-       the full selected active phase id set so parallel-choice phases beyond the
-       first pass pre-flight (Mode A blank-form BI proof-of-work as in
+   - **Successor activation — mode split (HARD under automate):**
+     - **Mode 1 / non-automate:** for each newly-active phase id, set the phase
+       descriptor to `status: active` and refresh the plan root `lastUpdated`.
+       If the matching initiative file exists, set that initiative to
+       `status: active` and refresh `lastUpdated`, then run `refresh-state`. If
+       the initiative file is absent (descriptor-only), run
+       `atomic-skills:project materialize <phase-id>` with the full selected
+       active phase id set so parallel-choice phases beyond the first pass
+       pre-flight (Mode A blank-form BI proof-of-work as in
        `project-materialize.md`); do not propose `new initiative` for
        descriptor-only phases.
-     - **Automate (`executionMode: automate` / pure-maestro):** do **not**
-       blank-form materialize the successor here and do **not** invent BI from a
-       blank form as a separate UX. Advance the descriptor pointer only; set
-       session handoff **single nextAction** to the phase-start package ritual
-       (e.g. `present phase-start package for F{N} validate-only` / `await package
-       ratify`). **Step H/B of implement pure-maestro owns** draft package →
-       operator validate-only → explicit ratify → **then** materialize with the
-       pre-ratified spine (Mode B in `project-materialize.md`). Plan-level or
-       closed-initiative nextAction may point at that package ritual before the
-       successor initiative exists.
+     - **Automate (`executionMode: automate` / pure-maestro):** advance **only
+       the pointer** (`currentPhase: F{N}`) and leave the successor phase
+       descriptor **`pending`** until package → ratify → materialize. **Do not**
+       set the successor to `status: active` without a matching initiative —
+       `validate-state` rejects `active` with `[missing-initiative]` (dogfood
+       F0). Do **not** blank-form materialize the successor here and do **not**
+       invent BI from a blank form as a separate UX. Set session handoff
+       **single nextAction** to the phase-start package ritual (e.g. `present
+       phase-start package for F{N} validate-only` / `await package ratify`).
+       **Step H/B of implement pure-maestro owns** draft package → operator
+       validate-only → explicit ratify → **then** materialize with the
+       pre-ratified spine (Mode B in `project-materialize.md`), which is when
+       the successor becomes `active`. Plan-level or closed-initiative
+       nextAction may point at that package ritual before the successor
+       initiative exists.
    - **Post-successor projection (Mode 1 / when a successor was activated or materialized):** After successor activation and any Mode-1 `materialize`, re-run `refresh-state` → `project-session-todos` → `todo_write` on Grok so the new phase does not linger as `(—) · not materialized` after phase-done. Automate defers this reseed to the package ritual / next implement start (no blank-form materialize here). Apply the helper payload **as emitted**.
    - Save the plan + PROJECT-STATUS.md.
    - **Microcommit checkpoints**: stage explicit paths only and commit the phase-boundary state in small logical groups. Use separate commits for review metadata, lessons, archive move, and next-phase activation when those groups exist; the final plan advance commit is `rtk git commit -m "chore(project): advance <plan> <phase>"`. Never use `git add .` or `git add -A`.

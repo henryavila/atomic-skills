@@ -167,6 +167,23 @@ describe('legal transition table', () => {
       false,
     );
   });
+
+  it('allows redispatch over max only with operatorOverride.reason', () => {
+    assert.equal(
+      isLegalTransition('E', 'C', {
+        redispatchCount: MAX_REDISPATCH,
+        operatorOverride: { reason: '' },
+      }),
+      false,
+    );
+    assert.equal(
+      isLegalTransition('E', 'C', {
+        redispatchCount: MAX_REDISPATCH,
+        operatorOverride: { reason: 'evaluation found new major' },
+      }),
+      true,
+    );
+  });
 });
 
 describe('advanceCursor', () => {
@@ -217,7 +234,33 @@ describe('advanceCursor', () => {
 
     const r2 = advanceCursor({ ...base, step: 'E', redispatchCount: MAX_REDISPATCH }, 'C');
     assert.equal(r2.ok, false);
-    assert.match(r2.reason, /redispatchCount|illegal/i);
+    assert.match(r2.reason, /redispatchCount|illegal|operatorOverride/i);
+  });
+
+  it('redispatch over max with operatorOverride records audit row', () => {
+    const r = advanceCursor(
+      { ...base, step: 'F', redispatchCount: MAX_REDISPATCH },
+      'C',
+      {
+        updatedAt: '2026-07-27T12:00:00.000Z',
+        operatorOverride: {
+          reason: 'phase review found new inheritance route',
+          gate: 'phase-review',
+        },
+      },
+    );
+    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.cursor.step, 'C');
+    assert.equal(r.cursor.redispatchCount, MAX_REDISPATCH + 1);
+    assert.ok(Array.isArray(r.cursor.operatorOverrides));
+    assert.equal(r.cursor.operatorOverrides.length, 1);
+    assert.equal(
+      r.cursor.operatorOverrides[0].reason,
+      'phase review found new inheritance route',
+    );
+    assert.equal(r.cursor.operatorOverrides[0].gate, 'phase-review');
+    assert.equal(r.cursor.operatorOverrides[0].priorCount, MAX_REDISPATCH);
+    assert.equal(r.cursor.operatorOverrides[0].at, '2026-07-27T12:00:00.000Z');
   });
 
   it('preserves optional claimReportPath and leasePath', () => {

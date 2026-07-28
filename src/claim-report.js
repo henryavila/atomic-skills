@@ -109,11 +109,20 @@ export function parseClaimReport(raw) {
   if (typeof raw !== 'object') return null;
 
   const obj = /** @type {Record<string, unknown>} */ (raw);
+  // Canonical array key is `tasks`. Accept `claims` as alias (dogfood: writers
+  // invent `claims[]` when the maestro brief omits the key name).
+  const nested = obj.claimReport != null && typeof obj.claimReport === 'object'
+    ? /** @type {Record<string, unknown>} */ (obj.claimReport)
+    : null;
   const tasksRaw = Array.isArray(obj.tasks)
     ? obj.tasks
-    : Array.isArray(obj.claimReport?.tasks)
-      ? obj.claimReport.tasks
-      : null;
+    : Array.isArray(obj.claims)
+      ? obj.claims
+      : Array.isArray(nested?.tasks)
+        ? nested.tasks
+        : Array.isArray(nested?.claims)
+          ? nested.claims
+          : null;
 
   if (tasksRaw == null) {
     // Single task object with taskId (including empty string → preserve for errors)
