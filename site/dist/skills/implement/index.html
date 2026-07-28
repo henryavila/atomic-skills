@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>⚙️ Implement — Mode 2-aware Execution Driver · Atomic Skills</title>
-<meta name="description" content="Drive plan tasks to done; optional --mode=automate pure maestro">
+<meta name="description" content="Drive plan tasks to done; AS slug or path/to/plan.md; automate default">
 <link rel="stylesheet" href="../../assets/ds.css">
 </head>
 <body>
@@ -30,13 +30,13 @@
         <span class="badge badge-module">core</span>
       </div>
       <h1>⚙️ Implement — Mode 2-aware Execution Driver</h1>
-      <p class="lede">Drive plan tasks to done; optional --mode=automate pure maestro</p>
+      <p class="lede">Drive plan tasks to done; AS slug or path/to/plan.md; automate default</p>
       <div class="iron-law">CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).</div>
     </section>
 
     <section class="section card prose">
       <h2>Why it exists</h2>
-      <p>The lifecycle ends in execution, and execution is where state gets lost — work marked done on a claim, context evicted mid-task, a resume that cold-re-investigates. `implement` is a serial loop with durable checkpoints: code one task, gate it through verify-on-done (never a self-asserted pass), snapshot a self-sufficient `## Session handoff` block on observable events (after each task / before each dispatch / phase boundary) — never on a fabricated context-% gauge. Coding stays single-threaded; only heavy reads fan out. Opt-in `--mode=automate` makes the host a pure maestro (one code-only phase writer per phase; no silent Mode-1 fallback). The next session resumes from the handoff, and `resume` refuses on a dirty tree or a placeholder.</p>
+      <p>The lifecycle ends in execution, and execution is where state gets lost — work marked done on a claim, context evicted mid-task, a resume that cold-re-investigates. `implement` is a serial loop with durable checkpoints: code one task, gate it through verify-on-done (never a self-asserted pass), snapshot a self-sufficient `## Session handoff` block on observable events (after each task / before each dispatch / phase boundary) — never on a fabricated context-% gauge. Coding stays single-threaded; only heavy reads fan out. Bare implement defaults to pure maestro (one code-only phase writer per phase; no silent Mode-1 fallback). A foreign `path/to/plan.md` is first-class: entry choice Promote vs Foreign — never a late adopt. The next session resumes from the handoff, and `resume` refuses on a dirty tree or a placeholder.</p>
     </section>
 
     <section class="section">
@@ -45,7 +45,8 @@
 <li>A plan has been decomposed and its tasks admitted by the SPEC gate</li>
 <li>You are implementing a phase task-by-task and want verifier-gated completion</li>
 <li>Resuming a prior implementation session from its handoff block</li>
-<li>You want pure-maestro multi-phase execution with --mode=automate (phase writers + forced cross-model review)</li>
+<li>You want pure-maestro multi-phase execution (default; or explicit --mode=automate)</li>
+<li>You have a freeform path/to/plan.md and want implement discipline (promote or foreign)</li>
 </ul>
     </section>
 
@@ -63,6 +64,7 @@
       <ul class="list-stack">
 <li><div class="cmd">/atomic-skills:implement migration-self-host</div><div class="desc">Drive the active phase of a plan to done, task-by-task</div></li>
 <li><div class="cmd">/atomic-skills:implement my-plan --mode=automate</div><div class="desc">Pure maestro: one code-only phase writer per phase; stamps executionMode: automate</div></li>
+<li><div class="cmd">/atomic-skills:implement docs/plans/cutover.md</div><div class="desc">Foreign markdown — AskUserQuestion: Promote to AS or Implement as Foreign</div></li>
 <li><div class="cmd">/atomic-skills:implement</div><div class="desc">Implement the active plan/initiative; resume from its handoff if present</div></li>
 </ul>
     </section>
