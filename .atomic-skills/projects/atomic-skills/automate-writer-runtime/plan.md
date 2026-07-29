@@ -5,7 +5,7 @@ title: Automate writer runtime (1 + A + B)
 version: "1.0"
 status: archived
 started: 2026-07-29T15:42:49.201Z
-lastUpdated: 2026-07-29T17:03:10.727Z
+lastUpdated: 2026-07-29T17:04:08.270Z
 branch: plan/automate-writer-runtime
 currentPhase: null
 parallelismAllowed: false
@@ -211,17 +211,6 @@ phases:
       outOfScope: New features beyond 1+A+B. Installer rewrite.
       doneWhen: npm test exits 0 and docs/kb/automate-writer-runtime-dogfood.md exists.
 references: []
-integration:
-  required: true
-  base: develop
-  method: github-pr
-  prUrl: https://github.com/henryavila/atomic-skills/pull/39
-  prNumber: 39
-  publishedAt: 2026-07-29T17:03:10.727Z
-  head: 38f2e23f
-archivedAt: 2026-07-29T17:03:10.727Z
-archiveReason: "Operator finalize+archive after review-code local + PR #39
-  publish; residual majors documented (path-only fence, assert cwd)."
 ---
 
 # Automate writer runtime (1 + A + B)
@@ -272,3 +261,11 @@ Counts: A=0 phantoms actionable at bootstrap; B=0 silent systems.
 - **G2 soft-language**: decisions use fail-closed language; guarantee limits explicit.
 - **G6 reference-or-strike**: fence algorithm and cursor ownership sections added from critic nits.
 - **G10 gate-must-be-able-to-fail**: exit gates use shell commands that fail if files/tests missing.
+
+## Finalize / archive
+
+- **PR:** https://github.com/henryavila/atomic-skills/pull/39 (`plan/automate-writer-runtime` → `develop`)
+- **Published:** 2026-07-29T17:04:08.270Z
+- **Review:** local review-code (3 criticals fixed); Codex external deferred after tree mutation
+- **Archived:** operator request after finalize (2026-07-29T17:04:08.270Z)
+- **Caveats:** product fence path-set only (not process identity); run assert `--base-ref` in plan worktree
