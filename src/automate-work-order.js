@@ -292,6 +292,12 @@ export function buildPhaseWorkOrder(input = {}) {
     );
   }
 
+  if (tasks.length === 0) {
+    throw new Error(
+      'buildPhaseWorkOrder: no open SPEC-admitted tasks (fail closed) — nothing to prepare for a phase writer',
+    );
+  }
+
   /** @type {PhaseWorkOrder} */
   const order = {
     planSlug,

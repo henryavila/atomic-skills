@@ -21,6 +21,7 @@ import { execFileSync } from 'node:child_process';
 import {
   isLeaseBlocking,
   acquireLeaseFile,
+  clearLeaseFile,
   buildActiveLease,
   readLeaseResult,
 } from './writer-lease.js';
@@ -154,6 +155,8 @@ export function findInitiativePath(planFile, planFm, phaseId) {
   const phasesDir = join(planDir, 'phases');
   if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) return null;
   const want = String(phaseId || '').trim().toLowerCase();
+  const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const wantEsc = escapeRe(want);
   for (const name of readdirSync(phasesDir)) {
     if (!name.endsWith('.md') || name.endsWith('.source.json')) continue;
     const p = join(phasesDir, name);
@@ -168,10 +171,10 @@ export function findInitiativePath(planFile, planFm, phaseId) {
       const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
       if (!m) continue;
       // light scan for phaseId: F0 without full yaml dep when possible
-      if (new RegExp(`^phaseId:\\s*["']?${want}["']?\\s*$`, 'im').test(m[1])) {
+      if (new RegExp(`^phaseId:\\s*["']?${wantEsc}["']?\\s*$`, 'im').test(m[1])) {
         return p;
       }
-      if (new RegExp(`^id:\\s*["']?${want}["']?\\s*$`, 'im').test(m[1])) {
+      if (new RegExp(`^id:\\s*["']?${wantEsc}["']?\\s*$`, 'im').test(m[1])) {
         return p;
       }
     } catch {
@@ -179,7 +182,7 @@ export function findInitiativePath(planFile, planFm, phaseId) {
     }
   }
   // Fallback: first fN-*.md matching phase number
-  const num = want.replace(/^f/i, '');
+  const num = escapeRe(want.replace(/^f/i, ''));
   for (const name of readdirSync(phasesDir)) {
     if (new RegExp(`^f${num}-`, 'i').test(name) && name.endsWith('.md')) {
       return join(phasesDir, name);
@@ -248,6 +251,7 @@ export function preparePhaseRun(input) {
   const deps = input.deps || {};
   const leaseBlocking = deps.isLeaseBlocking || isLeaseBlocking;
   const acquire = deps.acquireLeaseFile || acquireLeaseFile;
+  const clearLease = deps.clearLeaseFile || clearLeaseFile;
   const buildLease = deps.buildActiveLease || buildActiveLease;
   const execGit =
     deps.execGit ||
@@ -297,18 +301,27 @@ export function preparePhaseRun(input) {
 
   // Resolve baseRef from plan worktree HEAD when not provided
   let baseRef = input.baseRef != null ? String(input.baseRef).trim() : '';
-  if (!baseRef && !input.skipWorktree) {
+  // Always pin baseRef to a full SHA when possible (never leave bare HEAD in meta).
+  if (!baseRef || baseRef === 'HEAD') {
     try {
       baseRef = execGit(['rev-parse', 'HEAD'], { cwd: planWorktreePath });
     } catch (err) {
-      return {
-        ok: false,
-        exitCode: 1,
-        message: `blocked: cannot resolve baseRef (git rev-parse HEAD): ${err instanceof Error ? err.message : String(err)}`,
-      };
+      if (!input.skipWorktree) {
+        return {
+          ok: false,
+          exitCode: 1,
+          message: `blocked: cannot resolve baseRef (git rev-parse HEAD): ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+      baseRef = baseRef || 'HEAD';
+    }
+  } else {
+    try {
+      baseRef = execGit(['rev-parse', String(baseRef)], { cwd: planWorktreePath });
+    } catch {
+      // keep operator-supplied ref if rev-parse fails in exotic test stubs
     }
   }
-  if (!baseRef) baseRef = 'HEAD';
 
   const worktreePath = resolve(
     input.worktreePath != null && String(input.worktreePath).trim() !== ''
@@ -359,42 +372,7 @@ export function preparePhaseRun(input) {
     };
   }
 
-  // Cut sibling worktree (unless skip or already exists)
-  if (!input.skipWorktree) {
-    try {
-      if (!exists(worktreePath)) {
-        mkdir(dirname(worktreePath), { recursive: true });
-        // Create branch from baseRef; if branch exists, attach without -b
-        try {
-          execGit(
-            ['worktree', 'add', '-b', writerBranch, worktreePath, baseRef],
-            { cwd: planWorktreePath },
-          );
-        } catch (firstErr) {
-          // Branch may already exist
-          try {
-            execGit(['worktree', 'add', worktreePath, writerBranch], {
-              cwd: planWorktreePath,
-            });
-          } catch (secondErr) {
-            return {
-              ok: false,
-              exitCode: 1,
-              message: `blocked: git worktree add failed: ${secondErr instanceof Error ? secondErr.message : String(secondErr)} (first: ${firstErr instanceof Error ? firstErr.message : String(firstErr)})`,
-            };
-          }
-        }
-      }
-    } catch (err) {
-      return {
-        ok: false,
-        exitCode: 1,
-        message: `blocked: worktree setup failed: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
-  }
-
-  // Acquire lease after path known
+  // Acquire lease BEFORE worktree cut so concurrent prepares fail closed without orphans.
   let leaseResult;
   try {
     const lease = buildLease({
@@ -412,6 +390,64 @@ export function preparePhaseRun(input) {
       exitCode: 1,
       message: `blocked: lease acquire failed: ${err instanceof Error ? err.message : String(err)}`,
     };
+  }
+
+  const clearOnFail = () => {
+    try {
+      if (leaseResult?.secret) {
+        clearLease(statusRoot, planSlug, leaseResult.secret);
+      }
+    } catch {
+      // best-effort
+    }
+  };
+
+  // Cut sibling worktree (unless skip or already exists)
+  if (!input.skipWorktree) {
+    try {
+      if (!exists(worktreePath)) {
+        mkdir(dirname(worktreePath), { recursive: true });
+        // Create branch from baseRef; if branch exists, attach without -b
+        try {
+          execGit(
+            ['worktree', 'add', '-b', writerBranch, worktreePath, baseRef],
+            { cwd: planWorktreePath },
+          );
+        } catch (firstErr) {
+          // Branch may already exist — refuse silent stale tip attach when tip ≠ baseRef
+          try {
+            const tip = execGit(['rev-parse', writerBranch], {
+              cwd: planWorktreePath,
+            });
+            if (tip !== baseRef) {
+              clearOnFail();
+              return {
+                ok: false,
+                exitCode: 1,
+                message: `blocked: writer branch ${writerBranch} exists at ${tip} but prepare baseRef is ${baseRef} — refuse stale attach (recreate branch or pass matching baseRef)`,
+              };
+            }
+            execGit(['worktree', 'add', worktreePath, writerBranch], {
+              cwd: planWorktreePath,
+            });
+          } catch (secondErr) {
+            clearOnFail();
+            return {
+              ok: false,
+              exitCode: 1,
+              message: `blocked: git worktree add failed: ${secondErr instanceof Error ? secondErr.message : String(secondErr)} (first: ${firstErr instanceof Error ? firstErr.message : String(firstErr)})`,
+            };
+          }
+        }
+      }
+    } catch (err) {
+      clearOnFail();
+      return {
+        ok: false,
+        exitCode: 1,
+        message: `blocked: worktree setup failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
   }
 
   const claimReportPath = resolve(
@@ -439,6 +475,7 @@ export function preparePhaseRun(input) {
     mkdir(dirname(claimReportPath), { recursive: true });
     // Do not pre-write claim report content — writer owns it
   } catch (err) {
+    clearOnFail();
     return {
       ok: false,
       exitCode: 1,

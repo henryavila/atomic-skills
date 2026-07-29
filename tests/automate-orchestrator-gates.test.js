@@ -498,6 +498,44 @@ describe('canDoneFromAutomateClaims (claim-bound automate done)', () => {
     });
     assert.equal(r.ok, true, r.reason);
   });
+
+  it('claimed-fail never satisfies canDoneFromAutomateClaims (requireAllClaimedPass)', () => {
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: {
+        tasks: [
+          {
+            ...goodTask,
+            status: 'claimed-fail',
+            exitCode: 1,
+            transcript: 'fail',
+          },
+        ],
+      },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /claimed-pass|claimed-fail|done gate/i);
+  });
+
+  it('requireProductFence fails closed when planBranchDiffPaths omitted', () => {
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: { tasks: [goodTask] },
+      requireProductFence: true,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /product fence required|planBranchDiffPaths/i);
+  });
+
+  it('requireProductFence ok with empty plan-branch product diff injected', () => {
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: { tasks: [goodTask] },
+      requireProductFence: true,
+      planBranchDiffPaths: [],
+    });
+    assert.equal(r.ok, true, r.reason);
+  });
 });
 
 describe('complexTaskAllowsDone (complex-before-done under automate)', () => {

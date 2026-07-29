@@ -222,13 +222,17 @@ export function canCloseTasksFromClaims(input = {}) {
  * list injected by CLI from `git diff --name-only <baseRef>..HEAD`), every
  * product path in that diff must appear in claim `paths[]` /
  * `claimPaths` — otherwise refuse done. State paths under `.atomic-skills/`
- * never trip the fence. Omit `planBranchDiffPaths` to leave fence inactive
- * (backward-compatible for unit shape tests).
+ * never trip the fence. When `requireProductFence: true` (durable stamp
+ * assert `--gate done`), omitting `planBranchDiffPaths` fails closed.
+ *
+ * Claim-pass bound: always passes `requireAllClaimedPass: true` to
+ * {@link canCloseTasksFromClaims} — `claimed-fail` never satisfies done.
  *
  * @param {{
  *   claimReport?: unknown,
  *   reachableSet?: Iterable<string> | ((sha: string) => boolean) | null,
  *   checkReachability?: boolean,
+ *   requireProductFence?: boolean,
  *   complexTasks?: Array<{
  *     task?: object | null,
  *     reviewReceipt?: object | null,
@@ -244,11 +248,13 @@ export function canCloseTasksFromClaims(input = {}) {
  */
 export function canDoneFromAutomateClaims(input = {}) {
   // Automate done: claim required + reachability on by default.
+  // Done is claim-pass-bound: claimed-fail never satisfies this gate.
   const checkReachability = input.checkReachability !== false;
   const claim = canCloseTasksFromClaims({
     claimReport: input.claimReport,
     reachableSet: input.reachableSet,
     checkReachability,
+    requireAllClaimedPass: true,
   });
   if (!claim.ok) return claim;
 
@@ -267,7 +273,18 @@ export function canDoneFromAutomateClaims(input = {}) {
     }
   }
 
-  // Product fence: only when caller injects plan-branch diff paths (CLI).
+  // Product fence (B): when requireProductFence is true (durable stamp done),
+  // planBranchDiffPaths MUST be injected — omit is fail-closed. When false/omit
+  // and paths provided, still evaluate fence.
+  const requireFence = input.requireProductFence === true;
+  if (requireFence && input.planBranchDiffPaths == null) {
+    return {
+      ok: false,
+      reason:
+        'plan-tree product fence required: inject planBranchDiffPaths (CLI --base-ref or --plan-diff-file)',
+      claimValidation: claim.claimValidation,
+    };
+  }
   if (input.planBranchDiffPaths != null) {
     const fence = planTreeProductFenceOk({
       planBranchDiffPaths: input.planBranchDiffPaths,

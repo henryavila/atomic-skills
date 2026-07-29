@@ -993,6 +993,8 @@ export function runAssert(args, env = {}) {
         checkReachability: args.checkReachability !== false,
         complexTasks,
         planBranchDiffPaths,
+        // Durable stamp: product fence injection is mandatory (review-code critical).
+        requireProductFence: hasAutomateStamp(fm),
       });
     } else {
       r = canCloseTasksFromClaims(input);
