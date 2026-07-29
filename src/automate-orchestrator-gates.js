@@ -36,6 +36,7 @@ import {
   validateClaimReport,
   validateClaimReachability,
 } from './claim-report.js';
+import { planTreeProductFenceOk } from './automate-product-fence.js';
 
 /**
  * Should the pure-maestro spine (not Mode 1 Step 2) run this session?
@@ -217,6 +218,13 @@ export function canCloseTasksFromClaims(input = {}) {
  * each entry must pass {@link complexTaskAllowsDone} (complex → both receipt
  * or operator disposition). Omit the array to skip complex checks (shape-only).
  *
+ * **Plan-tree product fence (B):** when `planBranchDiffPaths` is provided (path
+ * list injected by CLI from `git diff --name-only <baseRef>..HEAD`), every
+ * product path in that diff must appear in claim `paths[]` /
+ * `claimPaths` — otherwise refuse done. State paths under `.atomic-skills/`
+ * never trip the fence. Omit `planBranchDiffPaths` to leave fence inactive
+ * (backward-compatible for unit shape tests).
+ *
  * @param {{
  *   claimReport?: unknown,
  *   reachableSet?: Iterable<string> | ((sha: string) => boolean) | null,
@@ -229,8 +237,10 @@ export function canCloseTasksFromClaims(input = {}) {
  *     reason?: string | null,
  *     complexOptions?: { threshold?: number | string },
  *   }> | null,
+ *   planBranchDiffPaths?: Iterable<string> | null,
+ *   claimPaths?: Iterable<string> | null,
  * }} [input]
- * @returns {{ ok: boolean, reason?: string, claimValidation?: object }}
+ * @returns {{ ok: boolean, reason?: string, claimValidation?: object, productFence?: object }}
  */
 export function canDoneFromAutomateClaims(input = {}) {
   // Automate done: claim required + reachability on by default.
@@ -256,6 +266,29 @@ export function canDoneFromAutomateClaims(input = {}) {
       }
     }
   }
+
+  // Product fence: only when caller injects plan-branch diff paths (CLI).
+  if (input.planBranchDiffPaths != null) {
+    const fence = planTreeProductFenceOk({
+      planBranchDiffPaths: input.planBranchDiffPaths,
+      claimPaths: input.claimPaths,
+      claimReport: input.claimReport,
+    });
+    if (!fence.ok) {
+      return {
+        ok: false,
+        reason: fence.reason || 'plan-tree product fence failed',
+        claimValidation: claim.claimValidation,
+        productFence: fence,
+      };
+    }
+    return {
+      ok: true,
+      claimValidation: claim.claimValidation,
+      productFence: fence,
+    };
+  }
+
   return claim;
 }
 

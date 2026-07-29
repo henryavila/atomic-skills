@@ -728,6 +728,96 @@ describe('assert-automate-gate CLI', () => {
         rmSync(root, { recursive: true, force: true });
       }
     });
+
+    it('exit 1 when product fence fails under automate stamp (plan-diff-file)', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, { executionMode: 'automate' });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'E');
+        const claim = goodClaimReport();
+        const claimPath = join(root, 'claim-fence.json');
+        writeFileSync(claimPath, JSON.stringify(claim), 'utf8');
+        const sha = claim.tasks[0].commitShas[0];
+        const reachablePath = join(root, 'reachable-fence.txt');
+        writeFileSync(reachablePath, `${sha}\n`, 'utf8');
+        const diffPath = join(root, 'plan-diff.txt');
+        // host product path not in claim paths
+        writeFileSync(diffPath, 'src/host-only.js\n.atomic-skills/status/x.json\n', 'utf8');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+            '--claim-report',
+            claimPath,
+            '--reachable-file',
+            reachablePath,
+            '--plan-diff-file',
+            diffPath,
+            '--skip-last-assert',
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /product fence|not covered|host-only/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('exit 0 when product fence covered and claims valid under stamp', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, { executionMode: 'automate' });
+        const stateRoot = join(root, '.atomic-skills');
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'E');
+        const claim = goodClaimReport();
+        const claimPath = join(root, 'claim-fence-ok.json');
+        writeFileSync(claimPath, JSON.stringify(claim), 'utf8');
+        const sha = claim.tasks[0].commitShas[0];
+        const reachablePath = join(root, 'reachable-fence-ok.txt');
+        writeFileSync(reachablePath, `${sha}\n`, 'utf8');
+        const claimPaths = claim.tasks[0].paths || ['src/a.js'];
+        const diffPath = join(root, 'plan-diff-ok.txt');
+        writeFileSync(
+          diffPath,
+          `${claimPaths[0]}\n.atomic-skills/projects/x/plan.md\n`,
+          'utf8',
+        );
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+            '--claim-report',
+            claimPath,
+            '--reachable-file',
+            reachablePath,
+            '--plan-diff-file',
+            diffPath,
+            '--skip-last-assert',
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 0, combined(r));
+        assert.match(r.stdout, /^ok\b/m);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('phase-done', () => {

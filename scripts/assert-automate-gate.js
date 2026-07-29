@@ -22,6 +22,10 @@
  *                            task.reviewReceipt on initiative)
  *   --skip-cursor            Skip maestro cursor step check (debug only)
  *   --skip-last-assert       Do not write lastAssert on cursor (debug only)
+ *   --plan-diff-file <path>  Newline paths (git diff --name-only) for product fence
+ *   --base-ref <sha>         When set under --gate done + stamp, run
+ *                            `git diff --name-only <base-ref>..HEAD` and inject
+ *                            into plan-tree product fence
  *   --help
  *
  * Under durable executionMode: automate, gates also read the thin maestro
@@ -32,13 +36,17 @@
  *
  * --gate done also loads the phase initiative and builds complexTasks from
  * weight/tags + receipts (fail closed for complex without both receipt).
+ * With --plan-diff-file or --base-ref under stamp, also runs plan-tree
+ * product fence (product paths must be claim-covered).
  *
- * No auto-merge / no git worktree ops.
+ * No auto-merge / no git worktree ops (except optional read-only
+ * `git diff --name-only` when --base-ref is passed for the product fence).
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import {
   canSpawnPhaseWriter,
   canSpawnHostThinPhaseWriter,
@@ -177,6 +185,8 @@ Options:
   --check-reachability      Validate claim SHAs against reachable set
   --reachable-file <path>   Newline-separated SHAs for reachability
   --complex-receipts <path> JSON { "T-001": { mode, reviewFile } } for complex done
+  --plan-diff-file <path>   Newline paths for plan-tree product fence (done under stamp)
+  --base-ref <sha>          git diff --name-only <base-ref>..HEAD → product fence inject
   --skip-cursor             Skip maestro-cursor step check (debug / recovery only)
   --skip-last-assert        Do not write lastAssert (debug only)
   --help                    Show this help (exit 0)
@@ -932,6 +942,49 @@ export function runAssert(args, env = {}) {
         claimTaskIds: claimIds.length > 0 ? claimIds : null,
         receiptsByTaskId,
       });
+      /** @type {string[] | null} */
+      let planBranchDiffPaths = null;
+      if (args.planDiffFile != null && args.planDiffFile !== true) {
+        const pdf = resolve(cwd, String(args.planDiffFile));
+        if (!existsSync(pdf)) {
+          return {
+            ok: false,
+            message: `blocked: plan-diff file not found: ${pdf}`,
+            exitCode: 1,
+          };
+        }
+        try {
+          planBranchDiffPaths = readFileSync(pdf, 'utf8')
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter(Boolean);
+        } catch (err) {
+          return {
+            ok: false,
+            message: `blocked: cannot read plan-diff file: ${err instanceof Error ? err.message : String(err)}`,
+            exitCode: 1,
+          };
+        }
+      } else if (args.baseRef != null && args.baseRef !== true) {
+        // CLI boundary may collect git path lists (read-only) and inject.
+        try {
+          const out = execFileSync(
+            'git',
+            ['diff', '--name-only', `${String(args.baseRef)}..HEAD`],
+            { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+          );
+          planBranchDiffPaths = String(out)
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter(Boolean);
+        } catch (err) {
+          return {
+            ok: false,
+            message: `blocked: git diff for product fence failed: ${err instanceof Error ? err.message : String(err)}`,
+            exitCode: 1,
+          };
+        }
+      }
       r = canDoneFromAutomateClaims({
         ...input,
         // Align with canDoneFromAutomateClaims fail-closed default: reachability
@@ -939,6 +992,7 @@ export function runAssert(args, env = {}) {
         // Omitting --check-reachability must NOT force false (plan-end P2).
         checkReachability: args.checkReachability !== false,
         complexTasks,
+        planBranchDiffPaths,
       });
     } else {
       r = canCloseTasksFromClaims(input);
