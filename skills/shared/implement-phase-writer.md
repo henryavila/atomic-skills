@@ -190,6 +190,7 @@ The writer **never** runs the evaluation agent, never calls phase-done, never wr
 ## Cross-links
 
 - Maestro loop: `skills/core/implement.md` (Automate mode — pure maestro Steps A–I).
+- Layer 3 runner (host prepare/validate): `scripts/automate-phase-run.js` — sealed brief is the spawn payload.
 - Decision log (path, fields, operator-only PASS): `skills/shared/implement-decision-log.md`, `src/decision-log.js`.
 - Isolation + lease: `skills/shared/worktree-isolation.md`, `src/writer-lease.js`.
 - Evaluation agent (after all phase tasks done): `skills/shared/implement-phase-evaluator.md`.

@@ -18,6 +18,7 @@ treat "no stamp yet" as Mode 1 or as gate-off.
 Layer-1 STOP helpers (no spawn): `src/automate-orchestrator-gates.js`.
 Layer-2 assert CLI: `scripts/assert-automate-gate.js` (must run before C/E/G/I advances).
 Layer-2.5 thin **maestro cursor**: `src/maestro-cursor.js` — durable step pointer under `.atomic-skills/status/automate/<slug>.json` (not Layer 4; no spawn adapters).
+Layer-3 host-local runner: `scripts/automate-phase-run.js` (`prepare` / `validate`) — work-order, lease, sealed brief, claim validate (no Node spawn; no done).
 Realism note: `docs/kb/automate-orchestrator-realism.md`.
 
 ### HARD-GATE — assert-automate-gate before C / E / G / I
@@ -125,7 +126,7 @@ Package contents (always these three greppable parts):
 |------|------|---------------------|
 | **A** | Load phase | Active phase + `businessIntent` + SPEC-admitted pending tasks (Step 1 already hard-gated). |
 | **B** | Snapshot handoff → build phase work-order | Write/refresh `## Session handoff` (pre-dispatch checkpoint). Build a **phase work-order** for all pending tasks of **this phase only** (task ids, paths, `scopeBoundary`, `acceptance`, `verifier`). |
-| **C** | Spawn phase writer | **HARD-GATE first:** `assert-automate-gate --gate spawn` must exit 0 (`canSpawnPhaseWriter` / lease missing). Then **Acquire writer lease** with exclusive create (`acquireLeaseFile` / `writeLeaseFile` in `src/writer-lease.js` — `wx` / O_EXCL; returns `{ path, secret, lease }`; on-disk stores `tokenHash` only, mode `0o600`; fail if file already present). Hold the **secret** in memory for clear. Cut a **sibling** phase worktree from the git **common-dir** / primary root — **never nest** under `.worktrees/<plan-slug>/…`. Spawn **ONE** code-only **phase writer** with a **constructed brief** (work-order + scoped context — **MUST NOT** include orchestrator chat history). Concurrent phase writers forbidden even if `parallelismAllowed`. **Host product coding under `isAutomateActive` is forbidden** — the host does not edit product source next to this spawn; the phase writer owns product edits in the sibling worktree only. See **Step C spawn recipe** below for Grok/portable tool shape. |
+| **C** | Spawn phase writer | **HARD-GATE first:** `assert-automate-gate --gate spawn` must exit 0. Then Layer 3 **`automate-phase-run prepare`** (work-order + exclusive lease + sibling WT + sealed brief — never nest under plan WT). Spawn **ONE** code-only **phase writer** with the sealed brief (no host chat history). **Sync-wait** → **`automate-phase-run validate`** before merge. Concurrent phase writers forbidden. **Host product coding under `isAutomateActive` is forbidden**. Full order + Grok recipe: **Step C — runner prepare → spawn → validate** below. |
 | **D** | Sync wait → collect claim report | **SYNC WAIT** until the writer exits. Collect the **claim report** (per task: commit SHAs **or** base+head, paths ≥1 for open claims, verifier command + exit + transcript; claimed-pass requires `exitCode === 0`). Parse/validate with `src/claim-report.js` (`parseClaimReport` / `validateClaimReport`) — refuse self-certify; incomplete or overlapping claims do not close tasks. |
 | **D.5** | Merge sibling → plan branch | Orchestrator **merges sibling into plan branch before** any task re-verify or `done` (**git-ops only**). Content conflicts ⇒ re-dispatch a code-only fix agent (not hand-edit). Refuse resume mid-merge. Clear writer lease only with the **acquire secret** (`clearLeaseFile(statusRoot, planSlug, secret)` — verifies sha256 against on-disk `tokenHash`; forged public-fields clear fails) after sync-wait + claim collect + **merge settle**. |
 | **E** | Post-merge reachability → re-verify → done | **Claim-bound HARD-GATE first:** after D.5 merge settle, prove claim **reachability** on the plan branch, then `assert-automate-gate --gate done --claim-report <path> --check-reachability --reachable-file <shas>` must exit 0 (`canDoneFromAutomateClaims` / `canCloseTasksFromClaims` — claim-bound under durable stamp; missing/invalid/non-reachable claims block). Every claimed SHA and every `base`/`head` must be an ancestor of plan-branch `HEAD` (`git merge-base --is-ancestor <sha> HEAD` exit 0, or `validateClaimReachability`). Reject missing/non-ancestor claims — re-dispatch writer/fix; do not close on a tree that lacks the claimed commits. Then for each claimed task **on the MERGED plan tree only** (**post-merge** re-verify mandatory): re-run verifier (verify-claim / `done` path). Verifier fail ⇒ **do not** `done`; re-dispatch code-only fix agent (max **2**) or stop for operator — **never** silent Mode-1 self-code. **Complex path (below):** if `isComplexTask` after computing `destructiveDiff` from the **validated claim range** → `review-code --mode=both` + `complexTaskAllowsDone` (durable both receipt or operator disposition) before `done`. Non-complex → verifier-only GATE-R2. Only on verifier pass (+ complex review clear + durable receipt when required) → orchestrator `done <task-id>`. Phase writer never `done`. |
@@ -133,9 +134,35 @@ Package contents (always these three greppable parts):
 | **G** | phase-done | Fixed order (no skip): (1) all phase tasks `done` → (2) evaluation agent → **persist report** → stamp `phases[].evaluationGate` via `buildEvaluationGate` (authenticity R3: `passed` requires non-empty **`reportPath`**; `skipped` requires **`operatorSkip: true` + non-empty reason**) → (3) **Distill lessons** (project-transitions phase-done G1): draft from real failure signals → **`Proposed lessons:`** → operator **ratify/edit/reject** → write `lessons/<initiative-slug>.md` and stamp **`lessonsState: recorded` + `lessonsPath`**, OR stamp **`lessonsState: none`** for a clean phase (silence is not an answer) via `buildLessonsState` / `phaseLessonsAllowsClose` → (4) **`review-code --mode=both`** (default under automate) → stamp **`reviewGate`** with `mode: both` (or `both-*` / `external-both`) + `at` + `reviewFile` + **dual-leg authenticity** (`localReceiptPath` + `codexReceiptPath` or `legs[]` with ≥2 **distinct** paths — two legs pointing at the **same** consolidated file fail authenticity; persist each provider's raw output as its own receipt; medium floor: min size, **non-binary**, reject one-line **stub** — `phaseReviewHonesty` / `phaseReviewAuthenticity`); **local** only with non-empty **`overrideReason`**; full skip only with **`operatorSkip: true` + reason** (`phaseReviewAllowsClose`) → (5) **decision-review present-before-PASS:** `buildDecisionPackage` → host presents **decision package** body → **AskUserQuestion** PASS\|FAIL (same turn) → stamp `decisionReview` with `status=passed` + `verifiedAt` + **`packagePresentedAt` and/or `packagePath`** (fail closed without present evidence) → (6) **HARD-GATE:** `assert-automate-gate --gate phase-done` must exit 0 (`canRunPhaseDone` = evaluation **+** lessons **+** review **+** decisionReview) → (7) **then** terminal `phase-done` writes. **Phase review mode:** default is **`both`**; `both-*` and **`external-both` also satisfy** `phaseReviewAllowsClose` (stricter multi-provider is OK). **Plan-end** still requires receipt `mode: external-both` (bare `both` fails plan-end). Non-zero assert ⇒ do not run `phase-done`. Skipping distill/ratify/cross-model/decision-review under automate is forbidden. |
 | **H** | Next phase | **Only after operator continue** cleared `awaiting-operator-advance` (`clearContinue` with `operator-continue` token → **H**). Then re-enter Step A with a new writer (+ later a new evaluator); prior contexts discarded. Concurrent phase writers forbidden. **Materialize is not auto-run:** if the successor is descriptor-only, offer `project materialize` (operator fills `businessIntent`); Step A HARD-refuses until initiative exists **and** pause is cleared. Automate executes materialized phases — it does not invent spine or chain F_n→F_n+1 without continue. |
 | **I** | Plan end | After last phase — **fixed order (intent-vs-delivered):** (1) **build surfaces** — `buildIntentSurface` + `buildDeliveredSurface` from plan/initiative + claims/SHAs (`src/plan-end-intent-surface.js`) → (2) **Intent vs delivered brief** into the cross-model context (`buildIntentVsDeliveredBrief` / checklist) → (3) run plan-end **`review-code --mode=external-both` only** (receipt `mode` must be `external-both` — bare `both` fails `planEndReviewOk`) + legs **codex\|grok\|claude** that are family-different (≥1 succeeded) → (4) **stamp receipt** with non-empty **`intentVsDelivered`** rows (`status`: `matched` \| `partial` \| `missing` \| `extra`) + `reviewFile` / `verifiedAt` / legs → (5) **user validates** (`userValidationOk` / `userValidatedAt` — operator-owned; never auto-PASS) via durable stamp gates (`isDurableAutomateActive` / `canFinalizeOrArchive`) → (6) **HARD-GATE:** `assert-automate-gate --gate finalize` must exit 0 → only then finalize/archive. Empty/`missing` `intentVsDelivered` fails `planEndReviewOk` / `automatePlanEndGatesOk` under automate (session default **or** stamp). Skip path under durable automate stays HARD-CLOSED. Plan-end answers **did we build what we planned?** — generic diff review alone does not satisfy **intent-vs-delivered**. Never auto-archive after last phase green. Non-zero assert ⇒ HARD-BLOCK finalize/archive. |
-#### Step C — phase-writer spawn recipe (Grok + portable)
+#### Step C — runner prepare → spawn → validate (fixed order)
 
-After lease acquire + sibling worktree cut, spawn **exactly one** code-only phase writer. Order is fixed: **assert spawn → lease → sibling WT → constructed brief → spawn → sync-wait**.
+Under automate, Step C uses the Layer 3 host-local runner. **Order is fixed (HARD):**
+
+1. Advance maestro cursor to **C** (if not already).
+2. **`assert-automate-gate --gate spawn`** must exit 0.
+3. **`automate-phase-run prepare`** — work-order + lease + sibling WT + sealed brief + spawn instructions.
+4. **Host spawn** code-only phase writer (cwd = sibling WT; sealed brief only).
+5. **Sync-wait** until writer exits.
+6. **`automate-phase-run validate`** — claim report parse/validate (+ optional reachability); print merge commands.
+7. Only then D.5 merge → E assert done.
+
+Package-root resolution (same pattern as other scripts in `implement.md`):
+
+```bash
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+node "$PKG_ROOT/scripts/automate-phase-run.js" prepare \
+  --plan <slug> --phase <phaseId> [--project <id>] \
+  --plan-worktree <plan-wt-abs> [--repo-root <repo-root>]
+# hold leaseSecret from stdout in memory only — never commit
+# read sealedBriefPath; spawn writer with cwd=worktreePath
+
+# after writer exits:
+node "$PKG_ROOT/scripts/automate-phase-run.js" validate \
+  --claim-report <path> [--plan-branch <plan-branch>] [--writer-branch <branch>] \
+  [--check-reachability --reachable-file <shas>]
+```
+
+Validate **before** merge/`done`. Non-zero validate ⇒ re-dispatch writer/fix or stop — do not invent claim fields.
 
 {{#if ide.grok}}
 **Grok Build (required tool shape under automate):**
@@ -144,21 +171,21 @@ After lease acquire + sibling worktree cut, spawn **exactly one** code-only phas
 spawn_subagent(
   subagent_type: "general-purpose",   // NOT explore — explore is heavy-reads only
   // isolation / cwd = sibling phase worktree absolute path (never nest under plan WT)
-  // prompt / brief = sealed constructed brief path or full brief text
+  // prompt / brief = sealed brief from automate-phase-run prepare (path or full text)
   //   (work-order + code-only fence + claim-report shape; NO host chat history)
 )
 ```
 
-Then **sync-wait** until the subagent exits. Collect claim report from the path the brief named (canonical: `.atomic-skills/status/automate/<planSlug>-claims.json` or the path printed by the Layer 3 runner when present).
+Then **sync-wait** until the subagent exits. Collect claim report from the path prepare printed / brief named.
 
 - **`general-purpose`** = phase coding (product source in the sibling worktree).
 - **`explore`** = heavy read-only investigation only — never the phase-writer spawn.
 - **Host product coding under `isAutomateActive` is forbidden** next to this recipe. Iron Law single-writer-per-worktree applies to the **writer** in the sibling tree; it is **not** permission for the host to Mode-1-code the plan branch while automate is active.
 {{/if}}
 
-**Portable (all hosts):** use host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn_subagent` where available) with cwd = sibling worktree and a constructed brief only. Host-only Workflow/Task APIs stay behind `{{#if ide.*}}` blocks and are never the only path. Detail: `skills/shared/implement-phase-writer.md`.
+**Portable (all hosts):** use host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn_subagent` where available) with cwd = sibling worktree and sealed brief only. Host-only Workflow/Task APIs stay behind `{{#if ide.*}}` blocks and are never the only path. Detail: `skills/shared/implement-phase-writer.md`.
 
-**Honesty:** skill prose + this recipe make the correct tool call unambiguous; they do **not** process-force spawn. The hard close path is Layer 3 runner prepare/validate (when shipped) + plan-tree product fence on assert done — see `docs/kb/automate-orchestrator-realism.md`.
+**Honesty:** skill prose + this recipe make the correct tool call unambiguous; they do **not** process-force spawn. The hard channel is **`scripts/automate-phase-run.js` prepare/validate** + plan-tree product fence on assert done — see `docs/kb/automate-orchestrator-realism.md`.
 
 **Hard rules for the pure maestro path:**
 
