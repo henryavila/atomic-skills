@@ -5,7 +5,7 @@ title: Automate writer runtime (1 + A + B)
 version: "1.0"
 status: active
 started: 2026-07-29T15:42:49.201Z
-lastUpdated: 2026-07-29T15:43:53.678Z
+lastUpdated: 2026-07-29T15:50:31.824Z
 branch: plan/automate-writer-runtime
 currentPhase: F0
 parallelismAllowed: false
@@ -91,7 +91,7 @@ phases:
       hosting a daemon.
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -106,6 +106,20 @@ phases:
             expectExitCode: 0
     status: pending
     summary: CLI host-local prepare/validate + builders de work-order e brief selado.
+    businessIntent:
+      value: Operators get a host-local CLI that prepares work-order, lease, sealed
+        brief and validates claim reports so pure-maestro does not invent the
+        writer channel ad hoc.
+      workflow: Implement pure builders + scripts/automate-phase-run.js
+        prepare/validate with unit tests; wire Step C skill prose to the runner;
+        update realism Layer 3.
+      rules: No spawn from Node. No done/phase-done from runner. Sibling worktree
+        never nested under plan worktree. Never commit lease secrets. Compose
+        writer-lease and claim-report.
+      outOfScope: Product-source fence (F2). Layer 4 daemon. Concurrent phase writers.
+        Mode 2 Codex.
+      doneWhen: node --test for work-order, sealed-brief, phase-run pass and maestro
+        asset greps automate-phase-run.
   - id: F2
     slug: automate-writer-runtime-f2-plan-tree-product-source-fence-b
     title: Plan-tree product-source fence (B)
@@ -113,7 +127,7 @@ phases:
       paths changed outside claim-backed SHAs.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -127,6 +141,18 @@ phases:
             expectExitCode: 0
     status: pending
     summary: Cerca de product-source no plan tree no assert done sob automate.
+    businessIntent:
+      value: Under durable automate, orchestrator done fails closed when plan-branch
+        product paths changed outside claim-backed coverage.
+      workflow: Implement pure fence predicate, wire into canDoneFromAutomateClaims
+        and assert-automate-gate --gate done, document Step E and antipatterns.
+      rules: Pure predicate injects path lists (no git inside pure module). No chat
+        waiver. Preserve lastAssert. State paths under .atomic-skills do not
+        trip fence.
+      outOfScope: Layer 4. Claim lease-secret signing. Changing phase-done
+        evaluationGate beyond done path.
+      doneWhen: Fence unit tests and assert done integration tests pass; maestro
+        mentions fence.
   - id: F3
     slug: automate-writer-runtime-f3-integration-surface-and-dogfood-chec
     title: Integration surface and dogfood checklist
@@ -134,7 +160,7 @@ phases:
       without claiming Layer 4.
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -147,6 +173,15 @@ phases:
             expectExitCode: 0
     status: pending
     summary: Suite verde, superfície de pacote e checklist de dogfood 1+A+B.
+    businessIntent:
+      value: Full suite stays green and operators have a dogfood checklist for
+        prepare→spawn→validate→merge→assert done without claiming Layer 4.
+      workflow: Run full npm test, fix regressions, write dogfood checklist + memory
+        reference, link from realism.
+      rules: Do not bump major version. Do not claim dogfood already passed. Do not
+        document Layer 4 as done.
+      outOfScope: New features beyond 1+A+B. Installer rewrite.
+      doneWhen: npm test exits 0 and docs/kb/automate-writer-runtime-dogfood.md exists.
 references: []
 ---
 
