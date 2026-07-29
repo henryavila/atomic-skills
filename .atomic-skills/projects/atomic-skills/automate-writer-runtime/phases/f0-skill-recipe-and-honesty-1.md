@@ -4,11 +4,11 @@ slug: automate-writer-runtime-f0-skill-recipe-and-honesty-1
 title: Skill recipe and honesty (#1)
 goal: Make Grok (and portable) phase-writer spawn instructions explicit;
   document guarantee limits honestly.
-status: active
+status: done
 branch: plan/automate-writer-runtime
 started: 2026-07-29T15:42:49.201Z
-lastUpdated: 2026-07-29T15:43:53.678Z
-nextAction: "Start T-001: Grok phase-writer spawn recipe in implement and maestro"
+lastUpdated: 2026-07-29T16:26:58.973Z
+nextAction: null
 parentPlan: automate-writer-runtime
 phaseId: F0
 businessIntent:
@@ -26,14 +26,14 @@ businessIntent:
   doneWhen: Grok/portable phase-writer spawn recipe is greppable and
     realism/antipatterns state that prose alone does not force spawn while
     runner+fence are the hard close path.
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: G-F0-1
     description: Skill and docs name the Grok portable writer spawn path and honesty limits.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node -e "const fs=require('fs'); const
@@ -41,16 +41,19 @@ exitGates:
         for (const f of p){ if(!fs.existsSync(f)) process.exit(1);}
         console.log('ok')"
       expectExitCode: 0
-stack:
-  - id: 1
-    title: Skill recipe and honesty (#1)
-    type: task
-    openedAt: 2026-07-29T15:42:49.201Z
+    metAt: 2026-07-29T16:26:58.973Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-29T16:26:58.973Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
+stack: []
 tasks:
   - id: T-001
     title: Grok phase-writer spawn recipe in implement and maestro
-    status: pending
-    lastUpdated: 2026-07-29T15:42:49.201Z
+    status: done
+    lastUpdated: 2026-07-29T16:26:58.973Z
     scopeBoundary:
       - Do not implement runner CLI or fence helpers. Do not invent plugin agent
         types beyond general-purpose explore plan. Do not enable concurrent
@@ -83,10 +86,17 @@ tasks:
     summary: Documentar spawn general-purpose no Step C (Grok) e banir host
       product-code sob automate.
     weight: 2
+    closedAt: 2026-07-29T16:26:58.973Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-29T16:26:58.973Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
   - id: T-002
     title: Antipatterns and realism honesty for 1+A+B
-    status: pending
-    lastUpdated: 2026-07-29T15:42:49.201Z
+    status: done
+    lastUpdated: 2026-07-29T16:26:58.973Z
     scopeBoundary:
       - Do not claim Layer 4 is shipped. Do not remove existing Layer 1-2.5
         documentation.
@@ -114,6 +124,13 @@ tasks:
     summary: "Atualizar antipatterns e realism: prosa ≠ garantia; runner+fence =
       caminho duro."
     weight: 1
+    closedAt: 2026-07-29T16:26:58.973Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-29T16:26:58.973Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
 parked: []
 emerged: []
 summary: Receita de spawn Grok/portátil e honestidade Layer 3 (sem runtime ainda).
@@ -130,3 +147,10 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** Phase F0 implemented by isolated phase writer and merged FF onto plan/automate-writer-runtime (HEAD 06d0918d). Orchestrator re-ran plan-scoped verifiers (132 pass).
+- **Decision log:** Host-orchestrated single writer for F0–F3; residual full npm test failures treated as orthogonal (documented on T-009 evidence).
+- **Single nextAction:** phase-done already reflected in initiative status; advance plan currentPhase or finalize after operator review.
+- **Verbatim state:** node --test plan-scoped suite exit 0; claim report .atomic-skills/status/automate/automate-writer-runtime-claims.json
+- **Uncommitted changes:** clean tree expected after state checkpoint commit.

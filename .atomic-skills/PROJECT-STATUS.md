@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-07-29T15:43:53.678Z
+lastUpdated: 2026-07-29T16:27:11.367Z
 schemaVersion: "0.1"
-activePlans: 1
-activeInitiatives: 1
+activePlans: 0
+activeInitiatives: 0
 archivedCount: 25
 ---
 
@@ -20,7 +20,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
-| automate-writer-runtime | active | F0 | plan/automate-writer-runtime | 2026-07-29 | 1/4 |
 
 
 

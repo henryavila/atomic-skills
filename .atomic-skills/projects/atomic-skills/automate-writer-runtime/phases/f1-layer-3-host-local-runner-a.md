@@ -5,11 +5,11 @@ title: Layer 3 host-local runner (A)
 goal: Package CLI prepares one phase writer cycle and validates claims without
   hosting a daemon.
 summary: CLI host-local prepare/validate + builders de work-order e brief selado.
-status: pending
+status: done
 branch: plan/automate-writer-runtime
 started: 2026-07-29T15:50:31.824Z
-lastUpdated: 2026-07-29T15:50:31.824Z
-nextAction: "Start T-003: Pure work-order and sealed-brief builders"
+lastUpdated: 2026-07-29T16:26:58.973Z
+nextAction: null
 parentPlan: automate-writer-runtime
 phaseId: F1
 businessIntent:
@@ -26,25 +26,32 @@ businessIntent:
     Mode 2 Codex.
   doneWhen: node --test for work-order, sealed-brief, phase-run pass and maestro
     asset greps automate-phase-run.
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: G-F1-1
     description: Runner prepare validate covered by unit tests and skill wiring.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/automate-work-order.test.js
         tests/automate-sealed-brief.test.js tests/automate-phase-run.test.js
       expectExitCode: 0
+    metAt: 2026-07-29T16:26:58.973Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-29T16:26:58.973Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
 stack: []
 tasks:
   - id: T-003
     title: Pure work-order and sealed-brief builders
-    status: pending
-    lastUpdated: 2026-07-29T15:50:31.824Z
+    status: done
+    lastUpdated: 2026-07-29T16:26:58.973Z
     summary: Pure work-order and sealed-brief builders
     weight: 2
     scopeBoundary:
@@ -70,10 +77,17 @@ tasks:
         path: tests/automate-work-order.test.js
       - kind: file
         path: tests/automate-sealed-brief.test.js
+    closedAt: 2026-07-29T16:26:58.973Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-29T16:26:58.973Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
   - id: T-004
     title: CLI automate-phase-run prepare and validate
-    status: pending
-    lastUpdated: 2026-07-29T15:50:31.824Z
+    status: done
+    lastUpdated: 2026-07-29T16:26:58.973Z
     summary: CLI automate-phase-run prepare and validate
     weight: 3
     scopeBoundary:
@@ -99,10 +113,17 @@ tasks:
         path: tests/automate-phase-run.test.js
       - kind: file
         path: docs/kb/automate-orchestrator-realism.md
+    closedAt: 2026-07-29T16:26:58.973Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-29T16:26:58.973Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
   - id: T-005
     title: Skill Step C points at runner
-    status: pending
-    lastUpdated: 2026-07-29T15:50:31.824Z
+    status: done
+    lastUpdated: 2026-07-29T16:26:58.973Z
     summary: Skill Step C points at runner
     weight: 2
     scopeBoundary:
@@ -124,6 +145,13 @@ tasks:
         path: skills/shared/implement-automate-maestro.md
       - kind: file
         path: skills/shared/implement-phase-writer.md
+    closedAt: 2026-07-29T16:26:58.973Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-29T16:26:58.973Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
 parked: []
 emerged: []
 ---
@@ -133,3 +161,10 @@ emerged: []
 Initiative for phase **F1 — Layer 3 host-local runner (A)**.
 
 Materialized from sidecar with ratified BI (operator: implement via subagent).
+
+## Session handoff
+- **Narrative:** Phase F1 implemented by isolated phase writer and merged FF onto plan/automate-writer-runtime (HEAD 06d0918d). Orchestrator re-ran plan-scoped verifiers (132 pass).
+- **Decision log:** Host-orchestrated single writer for F0–F3; residual full npm test failures treated as orthogonal (documented on T-009 evidence).
+- **Single nextAction:** phase-done already reflected in initiative status; advance plan currentPhase or finalize after operator review.
+- **Verbatim state:** node --test plan-scoped suite exit 0; claim report .atomic-skills/status/automate/automate-writer-runtime-claims.json
+- **Uncommitted changes:** clean tree expected after state checkpoint commit.

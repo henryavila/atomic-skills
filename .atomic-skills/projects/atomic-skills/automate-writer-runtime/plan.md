@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: automate-writer-runtime
 title: Automate writer runtime (1 + A + B)
 version: "1.0"
-status: active
+status: done
 started: 2026-07-29T15:42:49.201Z
-lastUpdated: 2026-07-29T15:50:31.824Z
+lastUpdated: 2026-07-29T16:26:58.973Z
 branch: plan/automate-writer-runtime
-currentPhase: F0
+currentPhase: null
 parallelismAllowed: false
 principles:
   - id: P1
@@ -57,7 +57,7 @@ phases:
         - id: G-F0-1
           description: Skill and docs name the Grok portable writer spawn path and honesty
             limits.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node -e "const fs=require('fs'); const
@@ -65,7 +65,14 @@ phases:
               for (const f of p){ if(!fs.existsSync(f)) process.exit(1);}
               console.log('ok')"
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-29T16:26:58.973Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-29T16:26:58.973Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
+    status: done
     businessIntent:
       value: Operators running implement under automate get an explicit Grok/portable
         phase-writer spawn recipe and honest docs so the host does not treat
@@ -97,14 +104,21 @@ phases:
       criteria:
         - id: G-F1-1
           description: Runner prepare validate covered by unit tests and skill wiring.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/automate-work-order.test.js
               tests/automate-sealed-brief.test.js
               tests/automate-phase-run.test.js
             expectExitCode: 0
-    status: pending
+          metAt: 2026-07-29T16:26:58.973Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-29T16:26:58.973Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
+    status: done
     summary: CLI host-local prepare/validate + builders de work-order e brief selado.
     businessIntent:
       value: Operators get a host-local CLI that prepares work-order, lease, sealed
@@ -133,13 +147,20 @@ phases:
       criteria:
         - id: G-F2-1
           description: Fence unit tests and assert done integration pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/automate-product-fence.test.js
               tests/assert-automate-gate.test.js
             expectExitCode: 0
-    status: pending
+          metAt: 2026-07-29T16:26:58.973Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-29T16:26:58.973Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
+    status: done
     summary: Cerca de product-source no plan tree no assert done sob automate.
     businessIntent:
       value: Under durable automate, orchestrator done fails closed when plan-branch
@@ -166,12 +187,19 @@ phases:
       criteria:
         - id: G-F3-1
           description: Full npm test green and dogfood checklist published.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm test && test -f docs/kb/automate-writer-runtime-dogfood.md
             expectExitCode: 0
-    status: pending
+          metAt: 2026-07-29T16:26:58.973Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-29T16:26:58.973Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
+    status: done
     summary: Suite verde, superfície de pacote e checklist de dogfood 1+A+B.
     businessIntent:
       value: Full suite stays green and operators have a dogfood checklist for
