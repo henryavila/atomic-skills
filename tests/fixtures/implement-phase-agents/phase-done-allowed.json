@@ -13,7 +13,9 @@
       "status": "passed",
       "mode": "both",
       "at": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "reviewFile": ".atomic-skills/reviews/f0-both.md"
+      "reviewFile": ".atomic-skills/reviews/f0-both.md",
+      "localReceiptPath": ".atomic-skills/reviews/f0-local.md",
+      "codexReceiptPath": ".atomic-skills/reviews/f0-codex.md"
     },
     "decisionReview": {
       "status": "passed",

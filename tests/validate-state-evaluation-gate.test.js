@@ -41,7 +41,10 @@ function automateDonePlan(evaluationGate, extra = {}) {
 }
 
 test('GATE-R4 RED: automate done phase without evaluationGate violates', () => {
-  const v = checkEvaluationGate(automateDonePlan(undefined));
+  // Mid-plan Mode-1→automate exempt unless closedUnderAutomate / automate-era stamps.
+  const v = checkEvaluationGate(
+    automateDonePlan(undefined, { closedUnderAutomate: true }),
+  );
   assert.ok(v.length >= 1);
   assert.match(v[0], /evaluationGate/);
 });
@@ -102,17 +105,18 @@ test('GATE-R4 RED: skipped without operatorSkip (legacy silent skip rejected)', 
   assert.match(v[0], /operatorSkip/);
 });
 
-test('GATE-R4 GREEN: failed-dispositioned with disposition + reason', () => {
-  assert.deepEqual(
-    checkEvaluationGate(
-      automateDonePlan({
-        status: 'failed-dispositioned',
-        disposition: 'defer',
-        reason: 'major residual accepted for F2',
-      }),
-    ),
-    [],
+test('GATE-R4 RED: failed-dispositioned under automate is forbidden (re-dispatch until passed)', () => {
+  // Durable automate no longer accepts failed-dispositioned as a close path —
+  // residual accept/defer requires clearing the automate stamp (or re-eval pass).
+  const v = checkEvaluationGate(
+    automateDonePlan({
+      status: 'failed-dispositioned',
+      disposition: 'defer',
+      reason: 'major residual accepted for F2',
+    }),
   );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /failed-dispositioned|evaluationGate invalid/i);
 });
 
 test('GATE-R4: non-automate plan without evaluationGate is OK', () => {
@@ -121,10 +125,9 @@ test('GATE-R4: non-automate plan without evaluationGate is OK', () => {
   assert.deepEqual(checkEvaluationGate(plan), []);
 });
 
-test('GATE-R4: non-automate plan with present forged passed gate still honesty-checked', () => {
+test('GATE-R4: non-automate plan with forged passed gate is not honesty-checked (stamp inactive)', () => {
+  // Honesty for evaluationGate runs only under durable executionMode: automate.
   const plan = automateDonePlan({ status: 'passed', verdict: 'pass' });
   delete plan.executionMode;
-  const v = checkEvaluationGate(plan);
-  assert.ok(v.length >= 1);
-  assert.match(v[0], /reportPath/);
+  assert.deepEqual(checkEvaluationGate(plan), []);
 });
