@@ -231,7 +231,12 @@ Optional accelerator (Claude Code): fan the read-only investigation subagents ou
 {{/if}}
 
 {{#if ide.grok}}
-On Grok Build, heavy reads use `spawn_subagent` (explore). Prefer one focused read-only subagent unless the host clearly supports parallel spawn; coding stays single-threaded either way. Do not invent plugin agent types for v1 — tool vars + built-in explore/plan are enough.
+On Grok Build, **two different `spawn_subagent` roles** — do not conflate them:
+
+1. **Heavy reads only → `subagent_type: explore`.** Prefer one focused read-only subagent unless the host clearly supports parallel spawn. Explore never codes product source.
+2. **Phase writer under automate → `subagent_type: general-purpose` (NOT explore).** When `isAutomateActive`, pure-maestro Step C spawns the code-only phase writer via `spawn_subagent` with `subagent_type: general-purpose`, isolation/cwd = the **sibling** phase worktree (never nested under the plan worktree), and a **constructed/sealed brief** (work-order + code-only fence + claim-report shape — no host chat history). Sync-wait until the writer exits; collect the claim report. Full recipe: `skills/shared/implement-automate-maestro.md` Step C + `skills/shared/implement-phase-writer.md`.
+
+**Host product coding under `isAutomateActive` is forbidden** next to this spawn path. Single-writer-per-worktree (Iron Law) means: one **phase writer** codes in the sibling worktree — it does **not** mean the host session may code product source on the plan branch under automate. Under automate the host is orchestrator-only (dispatch / merge / re-verify / state); under explicit Mode 1 the host is the single-threaded coder. Do not invent plugin agent types for v1 — tool vars + built-in explore/plan/**general-purpose** are enough.
 {{/if}}
 
 ## Mode 2 — Codex cross-provider execution (the DEFAULT executor for spec-ready tasks when the lane is on)
@@ -309,6 +314,8 @@ Resident **triggers** only — if a thought matches one, STOP and read its full 
 - "I'll spawn two phase writers for independent phases in parallel under automate."
 - "I'll nest the phase worktree under the plan worktree to keep paths tidy."
 - "I'll skip assert-automate-gate — the pure helpers already exist in my head."
+- "I'll host-code product source on the plan branch under automate (Mode-1 plan-tree commit)."
+- "Skill prose said spawn — skip the Layer 3 automate-phase-run runner."
 - "Stamp is automate but I'll silently drop into Mode 1 coding without clear-execution-mode."
 - "Bare `implement` is session-writer Mode 1 — I'll code product source myself without `--mode=1`."
 - "No product code yet / greenfield — skip ground-truth and start coding."
