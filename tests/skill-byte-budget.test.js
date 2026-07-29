@@ -49,14 +49,17 @@ const BUDGETS = [
   // setup rules (F0) plus integrity operator surface (state join, sidecar lazy
   // descriptors, verify/cross-validation pointers) that must stay resident in
   // the thin router — not movable prose.
-  ['core/project.md', 24000, 'F1 — thin router (raised 22000→23000 2026-06-26; 23000→23500→24000 2026-07-16: integrity F0–F5 setup sentinel + structural setup + integrity operator surface)'],
+  ['core/project.md', 25000, 'F1 — thin router (raised 22000→23000 2026-06-26; 23000→23500→24000 2026-07-16 integrity F0–F5; 24000→25000 2026-07-29: foreign-plan / integrity surface headroom)'],
   // Raised 2026-07-16 integrity-remediation F3–F5: load/closure authority,
   // plan/worktree resume gate, verifier/concurrency/resolution policy, and
   // handoff checkpoint prose required on the implement driver surface.
   // Raised 2026-07-17 implementation-automate-mode F1–F4: pure-maestro Steps A–I,
   // executionMode stamp, writer-lease gates, complex both, plan-end pointers —
   // resident driver surface (lazy assets hold phase-writer/evaluator detail).
-  ['core/implement.md', 40000, 'F1 — lean driver (raised 22000→24500 2026-07-16 integrity F3–F5; 24500→40000 2026-07-17 automate F1–F4 pure-maestro spine + lease/stamp on driver)'],
+  // Raised 2026-07-29 automate-writer-runtime F0–F1: Grok general-purpose spawn
+  // pointer + Layer-3 runner package-root line on the driver (detail stays lazy in
+  // implement-automate-maestro / implement-phase-writer).
+  ['core/implement.md', 53000, 'F1 — lean driver (raised 22000→24500 2026-07-16 integrity F3–F5; 24500→40000 2026-07-17 automate F1–F4; 40000→53000 2026-07-29 automate-writer-runtime spawn recipe + Layer-3 runner pointer)'],
   // Raised 2026-07-16 for grok-build-integration F3–F5: multi-provider modes
   // (codex|grok|external-both), host-default picker, and CROSS-MODEL REVIEW
   // provider field. ~20B / ~700B over prior ceilings; content is resident
@@ -64,7 +67,7 @@ const BUDGETS = [
   ['core/review-code.md', 21000, 'F3/T3.1 (raised 20000→21000 2026-07-16: multi-provider review modes + host-default)'],
   // Raised 2026-07-17: external model selection flags + Step 0.model pointer
   // (discover/recommend/pick lives in review-mode-ux.md lazy asset).
-  ['core/review-plan.md', 25600, 'F3/T3.2 (raised 24000→25000 2026-07-16 multi-provider; 25000→25500 2026-07-17 model flags; 25500→25600 2026-07-21: claude third provider modes)'],
+  ['core/review-plan.md', 31000, 'F3/T3.2 (raised 24000→25000 2026-07-16 multi-provider; 25000→25500 2026-07-17 model flags; 25500→25600 2026-07-21 claude third provider; 25600→31000 2026-07-29: ground-truth mode + multi-provider resident surface)'],
   ['core/hunt.md', 14000, 'F3/T3.3'],
   ['core/debate.md', 15000, 'F3/T3.4'],
   ['core/parallel-dispatch.md', 13000, 'F2/T2.4'],

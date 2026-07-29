@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-23T20:20:00.000Z
+lastUpdated: 2026-07-29T17:03:10.876Z
 schemaVersion: "0.1"
 activePlans: 0
 activeInitiatives: 0
@@ -20,7 +20,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
-| _(none)_ | | | | | |
 
 
 
@@ -60,6 +59,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| automate-writer-runtime | 2026-07-29 | F3 | 4/4 | Automate writer runtime (1 + A + B) |
 | implement-phase-agents | 2026-07-23 | F5 | 6/6 | Implement phase agents (host-thin automate) |
 | implementation-automate-mode | 2026-07-17 | F4 | 5/5 | Implementation Automate Mode |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final | 2026-07-10 | F3 | 4/4 | Reparo local e validacao final |

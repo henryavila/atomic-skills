@@ -17,15 +17,81 @@ import {
   mkdtempSync,
   mkdirSync,
   writeFileSync,
+  readFileSync,
   rmSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  assessGroundTruthPlanFile,
+  planSubstanceText,
+} from '../src/ground-truth-review.js';
+import { findPlansMissingGroundTruth } from '../scripts/find-plans-missing-ground-truth.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSERT_SCRIPT = join(ROOT, 'scripts', 'assert-automate-gate.js');
+
+/**
+ * Stamp a valid ground-truth receipt so --gate spawn is not blocked by GT fence.
+ * Nested layout needs initiative substance as extraSubstance; flat layout
+ * auto-loads initiatives and double-counting extras makes the receipt stale.
+ */
+function stampGroundTruthOnPlan(planPath, extraInitiativePaths = []) {
+  const raw = readFileSync(planPath, 'utf8');
+  const base = raw
+    .replace(/\n## Ground-truth review[\s\S]*$/m, '\n')
+    .replace(/\n## Reviews[\s\S]*$/m, '\n');
+  const extras = extraInitiativePaths.map((p) => {
+    try {
+      return planSubstanceText(readFileSync(p, 'utf8'));
+    } catch {
+      return '';
+    }
+  });
+  const draftBody = `
+## Ground-truth review
+
+**Status:** complete
+**Codebase class:** thin
+**Scanned:** src/ → 0 (fixture)
+**Commit:** uncommitted
+**At:** 2026-07-21T00:00:00Z
+
+### A — Plan premises vs code
+
+| # | Premise | Result | Evidence |
+|---|---------|--------|----------|
+| — | none | ok | fixture |
+
+### B — Code present, plan silent (impact candidates)
+
+| # | Finding | Location | Impact | Disposition |
+|---|---------|----------|--------|-------------|
+| — | none | — | none | n/a |
+
+**Counts:** premises=0; impacts=0
+
+## Reviews
+
+- ground-truth: complete | mode=ground-truth | fp=PLACEHOLDER @ uncommitted (2026-07-21T00:00:00Z)
+`;
+  const draft = `${base.trimEnd()}\n${draftBody}`;
+  // Try with extras first (nested), then without (flat auto-load).
+  for (const extraSubstance of [extras, []]) {
+    const { fingerprint } = assessGroundTruthPlanFile(draft, {
+      extraSubstance,
+    });
+    writeFileSync(
+      planPath,
+      draft.replace('fp=PLACEHOLDER', `fp=${fingerprint}`),
+      'utf8',
+    );
+    const missing = findPlansMissingGroundTruth(planPath);
+    if (!missing || missing.length === 0) return;
+  }
+}
 describe('shouldRunPureMaestro', () => {
   it('true for cli automate', () => {
     assert.equal(shouldRunPureMaestro({ cliMode: 'automate' }), true);
@@ -166,10 +232,14 @@ describe('assert-automate-gate spawn descriptor-only', () => {
       '# plan',
       '',
     ].join('\n');
-    writeFileSync(join(planDir, 'plan.md'), planBody, 'utf8');
+    const planPath = join(planDir, 'plan.md');
+    writeFileSync(planPath, planBody, 'utf8');
+    /** @type {string[]} */
+    const initPaths = [];
     if (withInitiative) {
+      const initPath = join(phasesDir, 'f1-next.md');
       writeFileSync(
-        join(phasesDir, 'f1-next.md'),
+        initPath,
         [
           '---',
           'schemaVersion: "0.1"',
@@ -185,7 +255,9 @@ describe('assert-automate-gate spawn descriptor-only', () => {
         ].join('\n'),
         'utf8',
       );
+      initPaths.push(initPath);
     }
+    stampGroundTruthOnPlan(planPath, initPaths);
     return { stateRoot, planDir };
   }
 
@@ -398,6 +470,71 @@ describe('canDoneFromAutomateClaims (claim-bound automate done)', () => {
     });
     assert.equal(r.ok, false);
     assert.match(r.reason || '', /overlap|ambiguous/i);
+  });
+
+  it('product fence fails when plan-branch product path lacks claim coverage', () => {
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: { tasks: [goodTask] },
+      planBranchDiffPaths: ['src/a.js', 'src/host-only.js'],
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /product fence|not covered/i);
+  });
+
+  it('product fence ok when claim paths cover plan-branch product diff', () => {
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: { tasks: [goodTask] },
+      planBranchDiffPaths: ['src/a.js', '.atomic-skills/status/x.json'],
+    });
+    assert.equal(r.ok, true, r.reason);
+  });
+
+  it('product fence inactive when planBranchDiffPaths omitted', () => {
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: { tasks: [goodTask] },
+    });
+    assert.equal(r.ok, true, r.reason);
+  });
+
+  it('claimed-fail never satisfies canDoneFromAutomateClaims (requireAllClaimedPass)', () => {
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: {
+        tasks: [
+          {
+            ...goodTask,
+            status: 'claimed-fail',
+            exitCode: 1,
+            transcript: 'fail',
+          },
+        ],
+      },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /claimed-pass|claimed-fail|done gate/i);
+  });
+
+  it('requireProductFence fails closed when planBranchDiffPaths omitted', () => {
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: { tasks: [goodTask] },
+      requireProductFence: true,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /product fence required|planBranchDiffPaths/i);
+  });
+
+  it('requireProductFence ok with empty plan-branch product diff injected', () => {
+    const r = canDoneFromAutomateClaims({
+      checkReachability: false,
+      claimReport: { tasks: [goodTask] },
+      requireProductFence: true,
+      planBranchDiffPaths: [],
+    });
+    assert.equal(r.ok, true, r.reason);
   });
 });
 
@@ -778,8 +915,9 @@ describe('assert-automate-gate path safety + flat plan', () => {
       mkdirSync(join(stateRoot, 'plans'), { recursive: true });
       mkdirSync(join(stateRoot, 'initiatives'), { recursive: true });
       mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      const flatPlanPath = join(stateRoot, 'plans', 'flat-plan.md');
       writeFileSync(
-        join(stateRoot, 'plans', 'flat-plan.md'),
+        flatPlanPath,
         [
           '---',
           'schemaVersion: "0.1"',
@@ -798,8 +936,9 @@ describe('assert-automate-gate path safety + flat plan', () => {
         ].join('\n'),
         'utf8',
       );
+      const flatInitPath = join(stateRoot, 'initiatives', 'f1-work.md');
       writeFileSync(
-        join(stateRoot, 'initiatives', 'f1-work.md'),
+        flatInitPath,
         [
           '---',
           'schemaVersion: "0.1"',
@@ -815,6 +954,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
         ].join('\n'),
         'utf8',
       );
+      stampGroundTruthOnPlan(flatPlanPath, [flatInitPath]);
       const r = run(
         [
           '--plan',
@@ -1039,8 +1179,9 @@ describe('assert-automate-gate path safety + flat plan', () => {
       const phasesDir = join(planDir, 'phases');
       mkdirSync(phasesDir, { recursive: true });
       mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      const planPath = join(planDir, 'plan.md');
       writeFileSync(
-        join(planDir, 'plan.md'),
+        planPath,
         [
           '---',
           'schemaVersion: "0.1"',
@@ -1060,8 +1201,9 @@ describe('assert-automate-gate path safety + flat plan', () => {
         'utf8',
       );
       // Filename does not match slug, but frontmatter phaseId does
+      const initPath = join(phasesDir, 'actual-init.md');
       writeFileSync(
-        join(phasesDir, 'actual-init.md'),
+        initPath,
         [
           '---',
           'schemaVersion: "0.1"',
@@ -1077,6 +1219,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
         ].join('\n'),
         'utf8',
       );
+      stampGroundTruthOnPlan(planPath, [initPath]);
       const r = run(
         [
           '--plan',
@@ -1108,8 +1251,9 @@ describe('assert-automate-gate path safety + flat plan', () => {
       const phasesDir = join(planDir, 'phases');
       mkdirSync(phasesDir, { recursive: true });
       mkdirSync(join(stateRoot, 'status'), { recursive: true });
+      const planPath = join(planDir, 'plan.md');
       writeFileSync(
-        join(planDir, 'plan.md'),
+        planPath,
         [
           '---',
           'schemaVersion: "0.1"',
@@ -1128,8 +1272,9 @@ describe('assert-automate-gate path safety + flat plan', () => {
         ].join('\n'),
         'utf8',
       );
+      const initPath = join(phasesDir, 'f1-next.md');
       writeFileSync(
-        join(phasesDir, 'f1-next.md'),
+        initPath,
         [
           '---',
           'schemaVersion: "0.1"',
@@ -1145,6 +1290,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
         ].join('\n'),
         'utf8',
       );
+      stampGroundTruthOnPlan(planPath, [initPath]);
       const r = run(
         [
           '--plan',

@@ -74,6 +74,16 @@ The orchestrator builds a **constructed brief** for the phase writer. It is a se
 
 Portable spawn uses host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn_subagent` where available). Host-only Workflow/Task APIs stay behind host-conditional ide blocks (`ide.*`) and are never the only path.
 
+{{#if ide.grok}}
+**Grok Build phase-writer spawn (pure-maestro Step C):**
+
+- Tool: `spawn_subagent` with **`subagent_type: general-purpose`** (coding executor).
+- **Do not** use `subagent_type: explore` for phase coding — explore is reserved for heavy **read-only** investigation only.
+- Set isolation / cwd to the **sibling** phase worktree absolute path (never nest under the plan worktree).
+- Pass the **constructed/sealed brief** (this file's HARD fence + full work-order + claim-report shape). **No host chat history.**
+- Host **sync-waits** until the subagent exits, then validates the claim report. Host product coding under `isAutomateActive` is **forbidden** — the writer alone edits product source in the sibling tree.
+{{/if}}
+
 ---
 
 ## Claim report
@@ -180,6 +190,7 @@ The writer **never** runs the evaluation agent, never calls phase-done, never wr
 ## Cross-links
 
 - Maestro loop: `skills/core/implement.md` (Automate mode — pure maestro Steps A–I).
+- Layer 3 runner (host prepare/validate): `scripts/automate-phase-run.js` — sealed brief is the spawn payload.
 - Decision log (path, fields, operator-only PASS): `skills/shared/implement-decision-log.md`, `src/decision-log.js`.
 - Isolation + lease: `skills/shared/worktree-isolation.md`, `src/writer-lease.js`.
 - Evaluation agent (after all phase tasks done): `skills/shared/implement-phase-evaluator.md`.

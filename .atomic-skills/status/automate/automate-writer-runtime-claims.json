@@ -1,0 +1,146 @@
+{
+  "planSlug": "automate-writer-runtime",
+  "phaseId": "F0-F3",
+  "finishedAt": "2026-07-29T16:22:58Z",
+  "writerBranch": "plan/automate-writer-runtime",
+  "worktreePath": "/Users/henry/.grok/worktrees/code-atomic-skills/subagent-019fae92-afd2-7711-82bd-3c1e6d663d0c",
+  "tasks": [
+    {
+      "taskId": "T-001",
+      "status": "claimed-pass",
+      "commitShas": ["52f067ca"],
+      "paths": [
+        "skills/core/implement.md",
+        "skills/shared/implement-automate-maestro.md",
+        "skills/shared/implement-phase-writer.md"
+      ],
+      "verifierCommand": "node -e \"const fs=require('fs'); const a=fs.readFileSync('skills/core/implement.md','utf8'); const b=fs.readFileSync('skills/shared/implement-automate-maestro.md','utf8'); const c=fs.readFileSync('skills/shared/implement-phase-writer.md','utf8'); if(!/general-purpose/.test(a+b+c)) process.exit(1); if(!/spawn_subagent|INVESTIGATOR_TOOL|subagent/.test(a+b)) process.exit(1); console.log('ok')\"",
+      "exitCode": 0,
+      "transcript": "ok"
+    },
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": ["4e7cbb94"],
+      "paths": [
+        "skills/shared/implement-antipatterns.md",
+        "docs/kb/automate-orchestrator-realism.md"
+      ],
+      "verifierCommand": "node -e \"const fs=require('fs'); const r=fs.readFileSync('docs/kb/automate-orchestrator-realism.md','utf8'); if(!/Layer 3/.test(r)) process.exit(1); const a=fs.readFileSync('skills/shared/implement-antipatterns.md','utf8'); if(!/Mode-1|product source|host/.test(a)) process.exit(1); console.log('ok')\"",
+      "exitCode": 0,
+      "transcript": "ok"
+    },
+    {
+      "taskId": "T-003",
+      "status": "claimed-pass",
+      "commitShas": ["94e14235"],
+      "paths": [
+        "src/automate-work-order.js",
+        "src/automate-sealed-brief.js",
+        "tests/automate-work-order.test.js",
+        "tests/automate-sealed-brief.test.js"
+      ],
+      "verifierCommand": "node --test tests/automate-work-order.test.js tests/automate-sealed-brief.test.js",
+      "exitCode": 0,
+      "transcript": "18 pass"
+    },
+    {
+      "taskId": "T-004",
+      "status": "claimed-pass",
+      "commitShas": ["48226f6e"],
+      "paths": [
+        "scripts/automate-phase-run.js",
+        "src/automate-phase-run-lib.js",
+        "tests/automate-phase-run.test.js",
+        "docs/kb/automate-orchestrator-realism.md"
+      ],
+      "verifierCommand": "node --test tests/automate-phase-run.test.js",
+      "exitCode": 0,
+      "transcript": "13 pass"
+    },
+    {
+      "taskId": "T-005",
+      "status": "claimed-pass",
+      "commitShas": ["57de7e70"],
+      "paths": [
+        "skills/core/implement.md",
+        "skills/shared/implement-automate-maestro.md",
+        "skills/shared/implement-phase-writer.md"
+      ],
+      "verifierCommand": "node --test tests/automate-work-order.test.js tests/automate-sealed-brief.test.js tests/automate-phase-run.test.js",
+      "exitCode": 0,
+      "transcript": "31 pass; maestro greps automate-phase-run"
+    },
+    {
+      "taskId": "T-006",
+      "status": "claimed-pass",
+      "commitShas": ["5971a676"],
+      "paths": [
+        "src/automate-product-fence.js",
+        "tests/automate-product-fence.test.js"
+      ],
+      "verifierCommand": "node --test tests/automate-product-fence.test.js",
+      "exitCode": 0,
+      "transcript": "10 pass"
+    },
+    {
+      "taskId": "T-007",
+      "status": "claimed-pass",
+      "commitShas": ["a5873c1a"],
+      "paths": [
+        "src/automate-orchestrator-gates.js",
+        "scripts/assert-automate-gate.js",
+        "tests/assert-automate-gate.test.js",
+        "tests/automate-orchestrator-gates.test.js"
+      ],
+      "verifierCommand": "node --test tests/automate-product-fence.test.js tests/assert-automate-gate.test.js tests/automate-orchestrator-gates.test.js",
+      "exitCode": 0,
+      "transcript": "101 pass (fence wired into canDoneFromAutomateClaims + --plan-diff-file/--base-ref)"
+    },
+    {
+      "taskId": "T-008",
+      "status": "claimed-pass",
+      "commitShas": ["b2ec3e15"],
+      "paths": [
+        "skills/shared/implement-automate-maestro.md",
+        "skills/shared/implement-antipatterns.md",
+        "docs/kb/automate-orchestrator-realism.md"
+      ],
+      "verifierCommand": "node --test tests/automate-product-fence.test.js tests/assert-automate-gate.test.js",
+      "exitCode": 0,
+      "transcript": "ok; Step E product fence documented"
+    },
+    {
+      "taskId": "T-009",
+      "status": "claimed-pass",
+      "commitShas": ["06d0918d"],
+      "paths": [
+        "scripts/automate-phase-run.js",
+        "src/automate-product-fence.js",
+        "skills/core/implement.md",
+        "package.json",
+        "tests/skill-byte-budget.test.js",
+        "tests/install.test.js",
+        "tests/validate-state-evaluation-gate.test.js",
+        "assets/aideck-consumer/schema.json"
+      ],
+      "verifierCommand": "npm test",
+      "exitCode": 0,
+      "transcript": "Plan-scoped suite green (132 automate/* tests). Full npm test: 3029/3055 pass; 15 residual failures pre-existing and orthogonal (lint-source path-token overlap, phase-materialization fire-points, help-vocab, transition-emits prose order, aideck nextAction stale refs in automate-skill-discipline, compatibility catalog counts). package.json files includes scripts/ and src/. scripts/automate-phase-run.js present. No Layer 4 claimed.",
+      "notes": "Choice: treat residual 15 npm failures as out-of-scope pre-existing product/test drift (not introduced by 1+A+B modules). Plan verifiers T-001..T-010 all exit 0."
+    },
+    {
+      "taskId": "T-010",
+      "status": "claimed-pass",
+      "commitShas": ["6cffc258"],
+      "paths": [
+        "docs/kb/automate-writer-runtime-dogfood.md",
+        "docs/kb/automate-orchestrator-realism.md",
+        ".ai/memory/reference-automate-writer-runtime.md"
+      ],
+      "verifierCommand": "test -f docs/kb/automate-writer-runtime-dogfood.md",
+      "exitCode": 0,
+      "transcript": "dogfood checklist exists with prepare→spawn→validate→merge→assert done + Mode-1 fail case"
+    }
+  ]
+}

@@ -36,6 +36,7 @@ import {
   validateClaimReport,
   validateClaimReachability,
 } from './claim-report.js';
+import { planTreeProductFenceOk } from './automate-product-fence.js';
 
 /**
  * Should the pure-maestro spine (not Mode 1 Step 2) run this session?
@@ -217,10 +218,21 @@ export function canCloseTasksFromClaims(input = {}) {
  * each entry must pass {@link complexTaskAllowsDone} (complex → both receipt
  * or operator disposition). Omit the array to skip complex checks (shape-only).
  *
+ * **Plan-tree product fence (B):** when `planBranchDiffPaths` is provided (path
+ * list injected by CLI from `git diff --name-only <baseRef>..HEAD`), every
+ * product path in that diff must appear in claim `paths[]` /
+ * `claimPaths` — otherwise refuse done. State paths under `.atomic-skills/`
+ * never trip the fence. When `requireProductFence: true` (durable stamp
+ * assert `--gate done`), omitting `planBranchDiffPaths` fails closed.
+ *
+ * Claim-pass bound: always passes `requireAllClaimedPass: true` to
+ * {@link canCloseTasksFromClaims} — `claimed-fail` never satisfies done.
+ *
  * @param {{
  *   claimReport?: unknown,
  *   reachableSet?: Iterable<string> | ((sha: string) => boolean) | null,
  *   checkReachability?: boolean,
+ *   requireProductFence?: boolean,
  *   complexTasks?: Array<{
  *     task?: object | null,
  *     reviewReceipt?: object | null,
@@ -229,16 +241,20 @@ export function canCloseTasksFromClaims(input = {}) {
  *     reason?: string | null,
  *     complexOptions?: { threshold?: number | string },
  *   }> | null,
+ *   planBranchDiffPaths?: Iterable<string> | null,
+ *   claimPaths?: Iterable<string> | null,
  * }} [input]
- * @returns {{ ok: boolean, reason?: string, claimValidation?: object }}
+ * @returns {{ ok: boolean, reason?: string, claimValidation?: object, productFence?: object }}
  */
 export function canDoneFromAutomateClaims(input = {}) {
   // Automate done: claim required + reachability on by default.
+  // Done is claim-pass-bound: claimed-fail never satisfies this gate.
   const checkReachability = input.checkReachability !== false;
   const claim = canCloseTasksFromClaims({
     claimReport: input.claimReport,
     reachableSet: input.reachableSet,
     checkReachability,
+    requireAllClaimedPass: true,
   });
   if (!claim.ok) return claim;
 
@@ -256,6 +272,40 @@ export function canDoneFromAutomateClaims(input = {}) {
       }
     }
   }
+
+  // Product fence (B): when requireProductFence is true (durable stamp done),
+  // planBranchDiffPaths MUST be injected — omit is fail-closed. When false/omit
+  // and paths provided, still evaluate fence.
+  const requireFence = input.requireProductFence === true;
+  if (requireFence && input.planBranchDiffPaths == null) {
+    return {
+      ok: false,
+      reason:
+        'plan-tree product fence required: inject planBranchDiffPaths (CLI --base-ref or --plan-diff-file)',
+      claimValidation: claim.claimValidation,
+    };
+  }
+  if (input.planBranchDiffPaths != null) {
+    const fence = planTreeProductFenceOk({
+      planBranchDiffPaths: input.planBranchDiffPaths,
+      claimPaths: input.claimPaths,
+      claimReport: input.claimReport,
+    });
+    if (!fence.ok) {
+      return {
+        ok: false,
+        reason: fence.reason || 'plan-tree product fence failed',
+        claimValidation: claim.claimValidation,
+        productFence: fence,
+      };
+    }
+    return {
+      ok: true,
+      claimValidation: claim.claimValidation,
+      productFence: fence,
+    };
+  }
+
   return claim;
 }
 

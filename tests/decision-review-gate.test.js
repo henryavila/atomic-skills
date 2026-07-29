@@ -211,6 +211,8 @@ describe('canRunPhaseDone wires present-before-PASS', () => {
     mode: 'both',
     at: 'a'.repeat(40),
     reviewFile: '.atomic-skills/reviews/f0-both.md',
+    localReceiptPath: '.atomic-skills/reviews/f0-local.md',
+    codexReceiptPath: '.atomic-skills/reviews/f0-codex.md',
   };
 
   it('fails closed when passed without package present evidence', () => {

@@ -680,9 +680,15 @@
               "enum": [
                 "local",
                 "codex",
-                "both"
+                "grok",
+                "claude",
+                "both",
+                "both-codex",
+                "both-grok",
+                "both-claude",
+                "external-both"
               ],
-              "description": "which review mode ran (a destructive phase runs 'both' per G5). Required-when-passed by GATE-R3."
+              "description": "which review mode ran (automate/destructive default 'both'; plan-end uses external-both). Required-when-passed by GATE-R3."
             },
             "at": {
               "$ref": "#/definitions/gitSha",
@@ -695,10 +701,159 @@
             },
             "reason": {
               "type": "string",
-              "description": "why review was skipped. Required-when-skipped by GATE-R3."
+              "description": "why review was skipped. Required-when-skipped by GATE-R3. Under automate also used with operatorSkip for skip authenticity."
+            },
+            "overrideReason": {
+              "type": "string",
+              "description": "Under durable automate: non-empty reason required when mode is local (operator-owned downgrade from default both). Enforced by phaseReviewHonesty / canRunPhaseDone."
+            },
+            "operatorSkip": {
+              "type": "boolean",
+              "description": "Under durable automate: required true when status=skipped (operator-owned full skip of phase review). Enforced by phaseReviewHonesty."
             },
             "verifiedAt": {
               "$ref": "#/definitions/isoTimestamp"
+            },
+            "localReceiptPath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Local leg receipt path for dual-leg authenticity under mode both (F4)."
+            },
+            "codexReceiptPath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Codex/external leg receipt path for dual-leg authenticity under mode both (F4)."
+            },
+            "legs": {
+              "type": "array",
+              "description": "Optional dual-leg receipt list (≥2 path-bearing entries for mode both authenticity).",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "provider": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "evaluationGate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "description": "Automate pure-maestro Step F→G: outcome of the phase evaluation agent before phase-done. Written by the orchestrator after the evaluator returns (or operator skip/disposition). Enforced by phaseEvaluationAllowsClose / evaluationGateHonesty / canRunPhaseDone when plan.executionMode is automate. Absent on non-automate phases. Authenticity (R3): passed requires non-empty reportPath + verdict pass; skipped requires operatorSkip true + non-empty reason (enforced in JS honesty helper, not JSON Schema if/then — same pattern as GATE-R3 reviewGate).",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "passed",
+                "skipped",
+                "failed-dispositioned"
+              ],
+              "description": "passed = evaluator verdict pass; skipped = operator skip with operatorSkip+reason; failed-dispositioned = residual findings with accept|defer|fix."
+            },
+            "verdict": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail"
+              ],
+              "description": "Required-when status=passed (must be pass). Enforced by evaluationGateHonesty."
+            },
+            "reportPath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Required-when status=passed: non-empty path to the evaluationReport (typically under .atomic-skills/reviews/). Forge-resistant pointer; pure honesty checks non-empty string only (no I/O). Enforced by evaluationGateHonesty / phaseEvaluationAllowsClose / GATE-R4."
+            },
+            "operatorSkip": {
+              "type": "boolean",
+              "description": "Required-when status=skipped: must be true. Marks the skip as operator-owned. Legacy retroactive skips remain expressible ONLY via operatorSkip=true + non-empty reason — never silent reason-alone. Enforced by evaluationGateHonesty."
+            },
+            "disposition": {
+              "type": "string",
+              "enum": [
+                "accept",
+                "defer",
+                "fix"
+              ],
+              "description": "Required-when status=failed-dispositioned. Enforced by evaluationGateHonesty."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Required-when status is skipped (with operatorSkip=true) or failed-dispositioned. Enforced by evaluationGateHonesty."
+            },
+            "at": {
+              "$ref": "#/definitions/gitSha",
+              "description": "Plan-branch HEAD when evaluation concluded."
+            },
+            "verifiedAt": {
+              "$ref": "#/definitions/isoTimestamp"
+            }
+          }
+        },
+        "lessonsState": {
+          "type": "string",
+          "enum": [
+            "recorded",
+            "none"
+          ],
+          "description": "Automate pure-maestro Step G: distill + operator ratify outcome before phase-done. recorded = lessons written under lessons/ with non-empty lessonsPath; none = clean phase (explicit; silence is not an answer). Enforced by phaseLessonsAllowsClose / canRunPhaseDone / assert-automate-gate --gate phase-done when plan.executionMode is automate."
+        },
+        "lessonsPath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required-when lessonsState=recorded: path to lessons/<initiative-slug>.md after operator ratify. Enforced by phaseLessonsHonesty."
+        },
+        "noneReason": {
+          "type": "string",
+          "description": "Optional note when lessonsState=none (e.g. clean phase)."
+        },
+        "decisionReview": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "description": "Automate pure-maestro operator PASS hardgate on the phase decision log before phase-done. Written only with explicit operator token in the same turn (never agent auto-PASS). Enforced by decisionReviewAllowsPhaseDone / canRunPhaseDone when plan.executionMode is automate (stamp) or session automateActive (automate-default). Absent/optional on non-automate phases. Under automate, status=passed also requires present-before-PASS evidence: packagePresentedAt and/or packagePath.",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "passed",
+                "failed"
+              ],
+              "description": "pending = awaiting operator; passed = operator PASS on decision log; failed = operator FAIL (do not advance currentPhase)."
+            },
+            "verifiedAt": {
+              "$ref": "#/definitions/isoTimestamp",
+              "description": "Required when status=passed (operator PASS timestamp)."
+            },
+            "evidencePath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional path to decision log or PASS evidence (e.g. decisions/<phaseId>.jsonl)."
+            },
+            "at": {
+              "$ref": "#/definitions/gitSha",
+              "description": "Optional plan-branch HEAD when operator stamped decision-review."
+            },
+            "packagePresentedAt": {
+              "$ref": "#/definitions/isoTimestamp",
+              "description": "present-before-PASS / read-before-PASS: ISO timestamp when the host rendered the decision package to the operator before PASS/FAIL. Required (and/or packagePath) when status=passed under automate."
+            },
+            "packagePath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "present-before-PASS: path to the rendered decision package or decisions/<phaseId>.jsonl presented in the hardgate turn. Acceptable present evidence with or instead of packagePresentedAt."
             }
           }
         }
@@ -1014,6 +1169,49 @@
             },
             "verifiedAt": {
               "$ref": "#/definitions/isoTimestamp"
+            },
+            "intentVsDelivered": {
+              "type": "array",
+              "description": "F2 intent-vs-delivered rows required under automate plan-end (status matched|partial|missing|extra).",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "matched",
+                      "partial",
+                      "missing",
+                      "extra"
+                    ]
+                  },
+                  "intentId": {
+                    "type": "string"
+                  },
+                  "deliveredId": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "phaseId": {
+                    "type": "string"
+                  },
+                  "taskId": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },
