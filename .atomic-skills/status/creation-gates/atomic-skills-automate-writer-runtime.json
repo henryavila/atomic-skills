@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "automate-writer-runtime",
+  "projectId": "atomic-skills",
+  "sourcePath": ".atomic-skills/_drafts/automate-writer-runtime-source.md",
+  "stage": "materialized",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/plan.md",
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/phases/f0-skill-recipe-and-honesty-1.md",
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/phases/f1-layer-3-host-local-runner-a.source.json",
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/phases/f2-plan-tree-product-source-fence-b.source.json",
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/phases/f3-integration-surface-and-dogfood-chec.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/plan.md",
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/phases/f0-skill-recipe-and-honesty-1.md",
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/phases/f1-layer-3-host-local-runner-a.source.json",
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/phases/f2-plan-tree-product-source-fence-b.source.json",
+    ".atomic-skills/projects/atomic-skills/automate-writer-runtime/phases/f3-integration-surface-and-dogfood-chec.source.json"
+  ],
+  "status": "validated",
+  "updatedAt": "2026-07-29T15:42:49.279Z"
+}

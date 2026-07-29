@@ -1,0 +1,83 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "automate-writer-runtime-f3-integration-surface-and-dogfood-chec",
+  "title": "Integration surface and dogfood checklist",
+  "goal": "Full suite green; install path; operator dogfood checklist for 1+A+B without claiming Layer 4.",
+  "tasks": [
+    {
+      "id": "T-009",
+      "title": "Full test suite and package files sanity",
+      "scopeBoundary": [
+        "Do not bump major version. Do not reintroduce gitignore mutation for .atomic-skills."
+      ],
+      "acceptance": [
+        "it - npm test exits 0.; it - scripts/automate-phase-run.js exists under scripts/.; it - package.json files array still includes scripts/ and src/."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "npm test",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "package.json"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/automate-phase-run.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/automate-product-fence.js"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        }
+      ]
+    },
+    {
+      "id": "T-010",
+      "title": "Dogfood checklist doc",
+      "scopeBoundary": [
+        "Do not claim dogfood already passed. Do not document Layer 4 as done."
+      ],
+      "acceptance": [
+        "it - checklist has ordered steps prepare spawn validate merge assert done.; it - checklist documents fail case for Mode-1 plan-tree product commit.; it - reference file exists for session recovery."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "npm test && test -f docs/kb/automate-writer-runtime-dogfood.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/kb/automate-writer-runtime-dogfood.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/automate-orchestrator-realism.md"
+        },
+        {
+          "kind": "file",
+          "path": ".ai/memory/reference-automate-writer-runtime.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-F3-1",
+      "description": "Full npm test green and dogfood checklist published.",
+      "verifier": {
+        "kind": "shell",
+        "command": "npm test && test -f docs/kb/automate-writer-runtime-dogfood.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

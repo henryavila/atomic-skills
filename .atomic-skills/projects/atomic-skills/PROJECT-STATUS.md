@@ -1,7 +1,7 @@
 ---
-lastUpdated: 2026-07-27T13:31:24.000Z
+lastUpdated: 2026-07-29T15:43:53.678Z
 schemaVersion: "0.1"
-activePlans: 2
+activePlans: 1
 activeInitiatives: 1
 archivedCount: 26
 ---
@@ -20,6 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
+| automate-writer-runtime | active | F0 | plan/automate-writer-runtime | 2026-07-29 | 1/4 |
 | implement-phase-agents | active | F0 | plan/implement-phase-agents | 2026-07-22 | 1/6 |
 | materialize-spec-quality-guards | active | F0 | plan/materialize-spec-quality-guards | 2026-07-22 | 1/5 |
 ## Done Plans (not archived)
@@ -48,6 +49,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Path | Status | Phase | Branch | Tasks |
 |------|--------|-------|--------|-------|
+| automate-writer-runtime/phases/f0-skill-recipe-and-honesty-1.md | active | F0 | plan/automate-writer-runtime | 0/2 |
 | materialize-spec-quality-guards/phases/f0-spine-quality-lint-skill-ux.md | active | F0 | plan/materialize-spec-quality-guards | 0/3 |
 ## Active Initiatives (standalone)
 
