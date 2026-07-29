@@ -181,3 +181,20 @@ receipt fails closed.
 On done/phase-done, assert writes `lastAssert: { gate, ok, at }` on the maestro
 cursor. Skill must call `lastAssertAllows(cursor, gate)` before mutating task
 or phase terminal state — fail closed if assert was skipped or failed.
+
+### Plan-tree product fence (Layer B — assert done)
+
+Pure module: `src/automate-product-fence.js` (`planTreeProductFenceOk`).
+Wired into `canDoneFromAutomateClaims` / `assert-automate-gate --gate done` when
+the CLI injects plan-branch paths via `--plan-diff-file` or `--base-ref`
+(`git diff --name-only <baseRef>..HEAD`).
+
+- **Product path** = not under `.atomic-skills/` (state allowlist).
+- Uncovered product path on plan branch ⇒ **blocked** (fail closed).
+- Empty product diff ⇒ ok.
+- Fence blocks **close**, not process-forced spawn.
+- Migration: automate plans that previously closed with host Mode-1 product
+  commits on the plan tree will fail assert done until they use writer→merge
+  with claim path coverage.
+
+Dogfood checklist: `docs/kb/automate-writer-runtime-dogfood.md`.
