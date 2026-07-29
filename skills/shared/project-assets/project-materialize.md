@@ -311,8 +311,7 @@ Reject the block when any required field is blank or still contains
 target next phase is descriptor-only **and** the plan is **Mode 1 / non-automate**.
 They pass the concrete phase id, then return to their own transition flow only
 after this procedure has produced a validated initiative and detector exit `0`
-(Mode A blank-form BI). They do not duplicate the gate or write their own
-initiative file.
+(Mode A blank-form BI). They do not duplicate the gate or write their own initiative file.
 
 **Automate exception (`executionMode: automate` / pure-maestro) — all three
 callers:** do **not** blank-form materialize (Mode A) a descriptor-only target

@@ -40,11 +40,16 @@ function isPlanSlugArg(token) {
   return /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?$/i.test(token);
 }
 
+/** Foreign markdown plan path (implement path/to/plan.md entry). */
+function isPlanPathArg(token) {
+  return /\.md$/i.test(token) && !String(token).startsWith('-');
+}
+
 /** Optional plan slug then optional implement mode flags (automate surface). */
 function validImplementArgs(args) {
   let i = 0;
   if (args.length > 0 && !String(args[0]).startsWith('-')) {
-    if (!isPlanSlugArg(args[0])) return false;
+    if (!isPlanSlugArg(args[0]) && !isPlanPathArg(args[0])) return false;
     i = 1;
   }
   while (i < args.length) {
@@ -100,6 +105,7 @@ function validForSignature(signature, args) {
     case '[[project-id/]plan-slug]':
       return args.length <= 1 && (args.length === 0 || isPlanSlugArg(args[0]));
     case '[[project-id/]plan-slug] [--mode=automate|1] [--clear-execution-mode]':
+    case '[[project-id/]plan-slug|path/to/plan.md] [--mode=automate|1] [--clear-execution-mode]':
       return validImplementArgs(args);
     default:
       return false;

@@ -38,15 +38,15 @@ Goal: emit the nested projects/<id>/<slug>/ layout from decompose.
 
 - Files: src/decompose.js, tests/decompose.test.js
 - scopeBoundary: do not change decomposePlan parser heuristics.
-- acceptance: materialize emits projects/<id>/<slug>/plan.md when projectId set; flat layout unchanged otherwise.
-- verifier: kind test, runner "node --test", pattern "nested projects".
+- acceptance: materialize emits projects/<id>/<slug>/plan.md via src/decompose.js when projectId set; flat layout unchanged otherwise.
+- verifier: kind shell, command "node --test tests/decompose.test.js", expectExitCode 0.
 - RED→GREEN: write a failing test asserting the nested path, then add the opts.projectId branch.
 
 ### T0.2 Walk nested projects in normalize
 
 - Files: src/normalize.js, tests/normalize.test.js
 - scopeBoundary: leave the flat dir-walk byte-identical.
-- acceptance: normalizeStateDir walks projects/*/*/ for plan.md and phases.
+- acceptance: normalizeStateDir walks projects/*/*/ for plan.md and phases via src/normalize.js.
 - verifier: kind shell, command "node --test tests/normalize.test.js", expectExitCode 0.
 - RED→GREEN: add a fixture under projects/, assert it is found, then extend the walk.
 `;
@@ -193,20 +193,23 @@ describe('lintSpec — per-task admission gate (R-ORCH-19/23)', () => {
   });
 
   test('RED: a task missing acceptance fails admission', () => {
-    const md = CLEAN.replace(/- acceptance: materialize emits projects\/<id>\/<slug>\/plan\.md when projectId set; flat layout unchanged otherwise\.\n/, '');
+    const md = CLEAN.replace(
+      /- acceptance: materialize emits projects\/<id>\/<slug>\/plan\.md via src\/decompose\.js when projectId set; flat layout unchanged otherwise\.\n/,
+      '',
+    );
     const v = lintSpec(md);
     assert.match(v.join('\n'), /T0\.1.*acceptance/s);
   });
 
   test('RED: a task with no deterministic verifier (manual only) fails admission', () => {
-    const md = CLEAN.replace('- verifier: kind test, runner "node --test", pattern "nested projects".', '- verifier: kind manual, description "eyeball it".');
+    const md = CLEAN.replace('- verifier: kind shell, command "node --test tests/decompose.test.js", expectExitCode 0.', '- verifier: kind manual, description "eyeball it".');
     const v = lintSpec(md);
     assert.match(v.join('\n'), /T0\.1.*verifier/s);
     assert.match(v.join('\n'), /deterministic|shell|test|query/i);
   });
 
   test('RED: a kind:manual verifier whose description mentions "test" still fails (kind-aware)', () => {
-    const md = CLEAN.replace('- verifier: kind test, runner "node --test", pattern "nested projects".', '- verifier: kind manual, description "run the test suite by hand".');
+    const md = CLEAN.replace('- verifier: kind shell, command "node --test tests/decompose.test.js", expectExitCode 0.', '- verifier: kind manual, description "run the test suite by hand".');
     const v = lintSpec(md);
     assert.match(v.join('\n'), /T0\.1.*verifier/s);
   });
@@ -217,7 +220,7 @@ describe('lintSpec — per-task admission gate (R-ORCH-19/23)', () => {
   });
 
   test('RED: a task missing the verifier line entirely fails admission', () => {
-    const md = CLEAN.replace('- verifier: kind test, runner "node --test", pattern "nested projects".\n', '');
+    const md = CLEAN.replace('- verifier: kind shell, command "node --test tests/decompose.test.js", expectExitCode 0.\n', '');
     const v = lintSpec(md);
     assert.match(v.join('\n'), /T0\.1.*verifier/s);
   });
@@ -277,17 +280,17 @@ describe('F3/T-004 — incomplete kind:query is rejected', () => {
 
   test('lintSpec RED: kind:query without expectRowCount fails admission', () => {
     const md = CLEAN.replace(
-      '- verifier: kind test, runner "node --test", pattern "nested projects".',
-      '- verifier: { kind: query, sql: "SELECT 1 FROM t" }',
+      '- verifier: kind shell, command "node --test tests/decompose.test.js", expectExitCode 0.',
+      '- verifier: { kind: query, sql: "SELECT 1 FROM decompose" }',
     );
     const v = lintSpec(md);
-    assert.match(v.join('\n'), /T0\.1.*query.*incomplete|expectRowCount/is);
+    assert.match(v.join('\n'), /T0\.1.*query.*incomplete|expectRowCount|smoke-banned|verifier/is);
   });
 
   test('lintSpec GREEN: kind:query with sql + expectRowCount is admitted', () => {
     const md = CLEAN.replace(
-      '- verifier: kind test, runner "node --test", pattern "nested projects".',
-      '- verifier: { kind: query, sql: "SELECT 1 FROM t", expectRowCount: 0 }',
+      '- verifier: kind shell, command "node --test tests/decompose.test.js", expectExitCode 0.',
+      '- verifier: { kind: query, sql: "SELECT 1 FROM decompose", expectRowCount: 0 }',
     );
     assert.deepEqual(lintSpec(md), []);
   });

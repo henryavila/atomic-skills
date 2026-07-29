@@ -183,7 +183,7 @@ Then **sync-wait** until the subagent exits. Collect claim report from the path 
 - **Host product coding under `isAutomateActive` is forbidden** next to this recipe. Iron Law single-writer-per-worktree applies to the **writer** in the sibling tree; it is **not** permission for the host to Mode-1-code the plan branch while automate is active.
 {{/if}}
 
-**Portable (all hosts):** use host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn_subagent` where available) with cwd = sibling worktree and sealed brief only. Host-only Workflow/Task APIs stay behind `{{#if ide.*}}` blocks and are never the only path. Detail: `skills/shared/implement-phase-writer.md`.
+**Portable (all hosts):** use host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn_subagent` where available) with cwd = sibling worktree and sealed brief only. Host-only Workflow/Task APIs stay behind host-conditional `ide.*` blocks and are never the only path. Detail: `skills/shared/implement-phase-writer.md`.
 
 **Honesty:** skill prose + this recipe make the correct tool call unambiguous; they do **not** process-force spawn. The hard channel is **`scripts/automate-phase-run.js` prepare/validate** + plan-tree product fence on assert done — see `docs/kb/automate-orchestrator-realism.md`.
 

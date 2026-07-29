@@ -42,15 +42,16 @@ test('T-010 materialize supports direct and internal caller invocation', () => {
 
 test('T-010 phase-done materializes descriptor-only successors and preserves parallel choice pre-flight', () => {
   const doc = section(transitions, '## `phase-done`', '### Self-review against gates');
+  // Mode 1 / non-automate successor path (automate uses package→ratify→Mode B separately).
   assertInOrder(doc, [
-    'For each newly-active phase id',
-    'If the matching initiative',
-    'file exists, set that initiative to `status: active`',
-    'If the initiative file is absent',
-    '(descriptor-only), run `atomic-skills:project materialize <phase-id>`',
-    'the full selected active phase id set so parallel-choice phases beyond the',
-    'first pass pre-flight',
-    'do not propose `new initiative` for descriptor-only',
+    'for each newly-active phase id',
+    'If the matching initiative file exists, set that initiative to',
+    '`status: active`',
+    'the initiative file is absent (descriptor-only), run',
+    '`atomic-skills:project materialize <phase-id>` with the full selected',
+    'active phase id set so parallel-choice phases beyond the first pass',
+    'do not propose `new initiative` for',
+    'descriptor-only phases',
   ]);
 });
 
