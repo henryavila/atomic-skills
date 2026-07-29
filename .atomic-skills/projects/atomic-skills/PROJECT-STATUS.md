@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-29T16:27:11.367Z
+lastUpdated: 2026-07-29T17:03:10.876Z
 schemaVersion: "0.1"
 activePlans: 0
 activeInitiatives: 0
@@ -57,6 +57,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| automate-writer-runtime | 2026-07-29 | F3 | 4/4 | Automate writer runtime (1 + A + B) |
 | automate-default-and-operator-gates | 2026-07-27 | F4 | 5/5 | Automate default + operator gates (decision-review + plan-end intent) |
 | automate-skill-discipline | 2026-07-25 | F4 | 5/5 | Automate skill discipline remediation |
 | implementation-automate-mode | 2026-07-17 | F4 | 5/5 | Implementation Automate Mode |

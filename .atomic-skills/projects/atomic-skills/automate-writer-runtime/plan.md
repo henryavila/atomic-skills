@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: automate-writer-runtime
 title: Automate writer runtime (1 + A + B)
 version: "1.0"
-status: done
+status: archived
 started: 2026-07-29T15:42:49.201Z
-lastUpdated: 2026-07-29T16:26:58.973Z
+lastUpdated: 2026-07-29T17:03:10.727Z
 branch: plan/automate-writer-runtime
 currentPhase: null
 parallelismAllowed: false
@@ -211,6 +211,17 @@ phases:
       outOfScope: New features beyond 1+A+B. Installer rewrite.
       doneWhen: npm test exits 0 and docs/kb/automate-writer-runtime-dogfood.md exists.
 references: []
+integration:
+  required: true
+  base: develop
+  method: github-pr
+  prUrl: https://github.com/henryavila/atomic-skills/pull/39
+  prNumber: 39
+  publishedAt: 2026-07-29T17:03:10.727Z
+  head: 38f2e23f
+archivedAt: 2026-07-29T17:03:10.727Z
+archiveReason: "Operator finalize+archive after review-code local + PR #39
+  publish; residual majors documented (path-only fence, assert cwd)."
 ---
 
 # Automate writer runtime (1 + A + B)
