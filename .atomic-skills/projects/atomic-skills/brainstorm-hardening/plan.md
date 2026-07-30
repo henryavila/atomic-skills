@@ -262,6 +262,21 @@ phases:
         rewrite review-plan Stage 8 content beyond wire
       doneWhen: "G-F2-1..3 green: detector unit tests pass; Stage 4/B5 wire + stage-6
         + assert-creation-stage present; exempt lanes not false-positive"
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-brainstorm-hardening-F2.md
+      verifiedAt: 2026-07-30T17:30:24.078Z
+      at: eec9c3cd631a3a87dc43677df18e2c5b939193d6
+    lessonsState: none
+    reviewGate:
+      status: passed
+      mode: both
+      at: eec9c3cd631a3a87dc43677df18e2c5b939193d6
+      verifiedAt: 2026-07-30T17:30:24.082Z
+      reviewFile: .atomic-skills/reviews/2026-07-30-both-brainstorm-hardening-F2.md
+      localReceiptPath: .atomic-skills/reviews/2026-07-30-local-brainstorm-hardening-F2.md
+      codexReceiptPath: .atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening-F2.md
   - id: F3
     slug: brainstorm-hardening-f3-dogfood-pressure-tests-announce
     title: Dogfood, pressure tests, announce
