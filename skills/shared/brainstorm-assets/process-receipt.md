@@ -56,6 +56,7 @@ Create the directory if needed. One receipt per plan design. Do not invent a
 
 - Panel agreement is **not** `userApproved` or critic **Approved**.
 - Missing `interviewAccepted` or empty `researchDigest` means the process is incomplete.
-- Deterministic detectors (future `find-missing-design-process.js`) read this path;
-  keep the shape stable.
-- Exempt lanes (`adopt`, ad-hoc, single-task) do **not** require this receipt.
+- Helpers: `scripts/design-gates.js` (create / update / read / ready).
+- Detectors: `scripts/find-missing-design-process.js` (presence + ready) and
+  `scripts/find-weak-design.js` (quality of design.md + digest). Keep the shape stable.
+- Exempt lanes (`adopt`, ad-hoc, single-task) do **not** require this receipt (R-ORCH-03).
