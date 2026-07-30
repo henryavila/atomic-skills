@@ -375,6 +375,51 @@ phases:
 references: []
 planActive: true
 planTitle: Brainstorm hardening — process package for DESIGN front-half
+planEndReview:
+  mode: external-both
+  verifiedAt: 2026-07-30T17:39:46.000Z
+  reviewFile: .atomic-skills/reviews/plan-end-intent-vs-delivered-brainstorm-hardening.md
+  range: plan/brainstorm-hardening F0-F3
+  intentVsDelivered:
+    - id: F0-always-process
+      status: matched
+      intent: Always interview+research+debate --gate
+      delivered: skills/core/brainstorm.md + brainstorm-assets
+    - id: F0-draft-and-ratify
+      status: matched
+      intent: BI draft-and-ratify
+      delivered: stage-6 / create-plan
+    - id: F1-lint-required
+      status: matched
+      intent: lint-design Context/Non-goals/Interview
+      delivered: lint-design.js + tests
+    - id: F2-detectors
+      status: matched
+      intent: design-gates + detectors + assert-creation-stage
+      delivered: scripts + tests
+    - id: F2-stage-split
+      status: matched
+      intent: thin router + stage-N + Stage 4 HARD-BLOCK
+      delivered: new-plan/stage-1..9
+    - id: F2-exempt
+      status: matched
+      intent: R-ORCH-03 exempts
+      delivered: detector tests
+    - id: F3-dogfood
+      status: matched
+      intent: pressure-tests + dogfood
+      delivered: projects/atomic-skills/brainstorm-hardening/*
+    - id: F1-skill-prose-lag
+      status: partial
+      intent: skill/critic list new REQUIRED
+      delivered: docs/catalog updated; skill residual
+  legs:
+    - provider: codex
+      status: succeeded
+      familyDifferent: true
+    - provider: grok
+      status: succeeded
+      familyDifferent: true
 ---
 
 # Brainstorm hardening — process package for DESIGN front-half
