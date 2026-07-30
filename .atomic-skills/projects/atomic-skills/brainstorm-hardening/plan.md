@@ -5,9 +5,9 @@ title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
 status: active
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T17:08:29.746Z
+lastUpdated: 2026-07-30T17:32:34.025Z
 branch: plan/brainstorm-hardening
-currentPhase: F2
+currentPhase: F3
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -217,16 +217,24 @@ phases:
         - id: G-F2-1
           description: design-gates creation-gates detector and assert-creation-stage unit
             tests pass
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/design-gates.test.js tests/creation-gates.test.js
               tests/find-missing-design-process.test.js
               tests/find-weak-design.test.js tests/assert-creation-stage.test.js
+          metAt: 2026-07-30T17:32:34.025Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-30T17:32:34.025Z
+            verifiedCommit: c5c3329d56adc250dd8650cbe2ac5d4a8842ecd1
+            exitCode: 0
+            passed: true
+            outputSummary: G-F2-1 met
         - id: G-F2-2
           description: Stage 4 and brainstorm HARD-BLOCK detectors; stage router and
             stage-6 exist
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -q 'find-missing-design-process'
@@ -240,15 +248,31 @@ phases:
               tests/design-gates.test.js
               tests/find-missing-design-process.test.js
               tests/find-weak-design.test.js tests/assert-creation-stage.test.js
+          metAt: 2026-07-30T17:32:34.025Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-30T17:32:34.025Z
+            verifiedCommit: c5c3329d56adc250dd8650cbe2ac5d4a8842ecd1
+            exitCode: 0
+            passed: true
+            outputSummary: G-F2-2 met
         - id: G-F2-3
           description: detectors do not false-positive adopt/ad-hoc/single-task exempt lanes
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -q 'adopt|ad-hoc|adhoc|single-task|R-ORCH-03|exempt'
               tests/find-missing-design-process.test.js && node --test
               tests/find-missing-design-process.test.js
-    status: active
+          metAt: 2026-07-30T17:32:34.025Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-30T17:32:34.025Z
+            verifiedCommit: c5c3329d56adc250dd8650cbe2ac5d4a8842ecd1
+            exitCode: 0
+            passed: true
+            outputSummary: G-F2-3 met
+    status: done
     businessIntent:
       value: design-gates + detectors + assert-creation-stage enforce DESIGN fidelity;
         create-plan is thin router + stage-N; Stage 4 and brainstorm B5
@@ -277,6 +301,11 @@ phases:
       reviewFile: .atomic-skills/reviews/2026-07-30-both-brainstorm-hardening-F2.md
       localReceiptPath: .atomic-skills/reviews/2026-07-30-local-brainstorm-hardening-F2.md
       codexReceiptPath: .atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening-F2.md
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-30T17:32:33.000Z
+      packagePresentedAt: 2026-07-30T17:32:33.000Z
+      packagePath: .atomic-skills/reviews/decision-package-brainstorm-hardening-F2.md
   - id: F3
     slug: brainstorm-hardening-f3-dogfood-pressure-tests-announce
     title: Dogfood, pressure tests, announce
