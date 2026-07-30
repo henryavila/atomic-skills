@@ -27,6 +27,8 @@ tasksDone: 0
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
+weightDone: 0
+weightTotal: 3
 exitGates:
   - id: G-F0-1
     description: brainstorm.md has no skip-ladder; interview research debate always;
@@ -40,6 +42,7 @@ exitGates:
         skills/core/brainstorm.md && rg -q 'research-digest|B0b'
         skills/core/brainstorm.md && test -d skills/shared/brainstorm-assets &&
         test -f skills/shared/brainstorm-assets/interview.md"
+    verifierLabel: "shell: ! rg -q 'Run a panel ONLY when|skip the panel|skip straight…"
   - id: G-F0-2
     description: create-plan Stage 2 always-debate; BI draft-and-ratify; project tests green
     status: pending
@@ -52,6 +55,7 @@ exitGates:
         'draft-and-ratify|Drafted|drafts the'
         skills/shared/project-assets/project-create-plan.md && node --test
         tests/project.test.js"
+    verifierLabel: "shell: ! rg -q 'only when ≥2 viable approaches AND|must not pre-fi…"
 stack:
   - id: 1
     title: Skill rewrite, BI contract, lazy assets
@@ -124,6 +128,15 @@ tasks:
         drafts spine, user ratifies via AskUserQuestion); phrase must not
         pre-fill or user-written blank spine for BI is removed; tests assert
         brainstorm wiring and draft-and-ratify or businessIntent draft language
+    verifier:
+      kind: shell
+      command: "! rg -q 'only when ≥2 viable approaches AND'
+        skills/shared/project-assets/project-create-plan.md && ! rg -q 'must not
+        pre-fill the five fields' skills/shared/project-assets/project-create-plan.md
+        && rg -q 'draft-and-ratify|drafts the|Drafted|businessIntent'
+        skills/shared/project-assets/project-create-plan.md && rg -q 'debate
+        --gate|Interview|interview' skills/shared/project-assets/project-create-plan.md
+        && node --test tests/project.test.js"
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-create-plan.md
@@ -131,6 +144,9 @@ tasks:
         path: tests/project.test.js
 parked: []
 emerged: []
+planTitle: Brainstorm hardening — process package for DESIGN front-half
+planActive: true
+current: true
 ---
 
 # Narrative / notes
