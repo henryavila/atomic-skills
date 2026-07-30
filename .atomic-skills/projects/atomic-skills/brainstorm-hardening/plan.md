@@ -5,9 +5,9 @@ title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
 status: active
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T16:45:56.444Z
+lastUpdated: 2026-07-30T17:06:17.919Z
 branch: plan/brainstorm-hardening
-currentPhase: F1
+currentPhase: F2
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -154,12 +154,21 @@ phases:
         - id: G-F1-1
           description: lint-design rejects a design missing Interview or Non-goals or
             Context
-          status: pending
+          status: met
           verifier:
             kind: test
             runner: node
             pattern: tests/lint-design.test.js
-    status: active
+          metAt: 2026-07-30T17:06:17.919Z
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-07-30T17:06:17.919Z
+            verifiedCommit: 89fd6384e4d2347fb36e54302eb0e24d5d99eb31
+            exitCode: 0
+            testsCollected: 26
+            passed: true
+            outputSummary: G-F1-1 26 pass
+    status: done
     businessIntent:
       value: lint-design always rejects designs missing Context, Non-goals, or
         Interview with real content; tests lock the contract
@@ -187,6 +196,11 @@ phases:
       reviewFile: .atomic-skills/reviews/2026-07-30-both-brainstorm-hardening-F1.md
       localReceiptPath: .atomic-skills/reviews/2026-07-30-local-brainstorm-hardening-F1.md
       codexReceiptPath: .atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening-F1.md
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-30T17:06:17.000Z
+      packagePresentedAt: 2026-07-30T17:06:17.000Z
+      packagePath: .atomic-skills/reviews/decision-package-brainstorm-hardening-F1.md
   - id: F2
     slug: brainstorm-hardening-f2-receipts-stage-assert-create-plan-split
     title: Receipts, stage assert, create-plan split, Stage 4 wire
