@@ -647,10 +647,11 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
     assert.notEqual(stage7Start, -1, 'Stage 7 section must exist');
     const stage6 = content.slice(stage6Start, stage7Start);
-    assert.match(stage6, /Collect the user-written `businessIntent` spine for F0/);
+    assert.match(stage6, /draft-and-ratify|drafts the five-field `businessIntent` spine|Drafted/);
     assert.match(stage6, /businessIntent: <businessIntent>/);
     assert.match(stage6, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/plan\.md/);
     assert.doesNotMatch(stage6, /find-missing-business-intent\.js" \.atomic-skills\s/);
+    assert.doesNotMatch(stage6, /must not pre-fill the five fields/);
   });
 
   it('project-create-plan Stage 6 documents lazy outputs and explicit F0 validation', () => {
@@ -678,7 +679,7 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.notEqual(adoptStart, -1, 'adopt section must exist');
     assert.notEqual(gatesStart, -1, 'code-quality section must exist');
     const adopt = content.slice(adoptStart, gatesStart);
-    assert.match(adopt, /collect the same user-written F0 `businessIntent` spine/);
+    assert.match(adopt, /same F0 `businessIntent` spine as the default flow via \*\*draft-and-ratify\*\*/);
     assert.match(adopt, /businessIntent: <businessIntent>/);
     assert.match(adopt, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/plan\.md/);
     assert.doesNotMatch(adopt, /find-missing-business-intent\.js" \.atomic-skills\s/);
@@ -797,11 +798,29 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /PLAN precondition/);
     assert.match(content, /lint-design\.js/);
     assert.match(content, /HARD-BLOCKS/);
+    // Multi-phase always Interview + research-digest + debate --gate (no skip ladder).
+    assert.match(content, /Interview/);
+    assert.match(content, /research-digest/);
+    assert.match(content, /debate --gate/);
+    assert.doesNotMatch(content, /only when ≥2 viable approaches AND/);
     // superpowers survives only as an optional detect-and-degrade RENT probe (R-SP-27/28).
     assert.match(content, /command -v superpowers/);
     assert.match(content, /RENT probe/);
     assert.match(content, /minimal-source\.template\.md/);
     assert.match(content, /never errors out because superpowers is absent/);
+  });
+
+  it('project-create-plan Stage 6 businessIntent is draft-and-ratify not blank user spine', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
+    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
+    const stage6 = content.slice(stage6Start, stage7Start);
+    assert.match(stage6, /draft-and-ratify/);
+    assert.match(stage6, /drafts the five-field `businessIntent` spine|Drafted/);
+    assert.match(stage6, /Aprovar draft|Ajustar|Cancelar/);
+    assert.doesNotMatch(stage6, /must not pre-fill the five fields/);
+    assert.doesNotMatch(stage6, /Collect the user-written `businessIntent` spine for F0/);
   });
 
   it('project-create-plan documents the adopt flow in detail', () => {
