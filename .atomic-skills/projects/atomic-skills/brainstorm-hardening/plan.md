@@ -8,6 +8,7 @@ started: 2026-07-30T13:42:45.458Z
 lastUpdated: 2026-07-30T14:14:45.028Z
 branch: plan/brainstorm-hardening
 currentPhase: F0
+executionMode: automate
 parallelismAllowed: false
 principles:
   - id: P1
@@ -232,14 +233,17 @@ Incorporated after plan materialization: **BI draft-and-ratify** (Decision 9); *
 
 ## Reviews
 - cross-model (codex): needs_changes→applied | provider=codex | provider_version=codex-cli-0.146.0 | major=4 minor=1 | file=.atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening.md @ uncommitted (2026-07-30T13:54:39Z)
-- ground-truth: complete | mode=ground-truth | fp=3f427e2827c6 | premises=5 | impacts=3 @ uncommitted (2026-07-30T14:15:53Z)
+- ground-truth: complete | mode=ground-truth | fp=fe0677a663b4 | premises=5 | impacts=3 @ uncommitted (2026-07-30T15:43:43Z)
 - internal: clean | mode=local | major=0 @ uncommitted (2026-07-30T13:44:22Z)
 
 
 ## Ground-truth review
 
 **Status:** complete
-**Scanned:** skills/core/brainstorm.md, skills/shared/project-assets/project-create-plan.md, scripts/lint-design.js, tests/lint-design.test.js, tests/project.test.js, docs/skills/brainstorm.md, docs/design/project-onboarding/html-design-brief.md; plan creates scripts/design-gates.js, creation-gates.js, find-missing-design-process.js, find-weak-design.js, assert-creation-stage.js, new-plan/stage-*.md (not existence premises)
+**Codebase class:** populated
+**Scanned:** skills/core/brainstorm.md, skills/shared/project-assets/project-create-plan.md, scripts/lint-design.js, tests/lint-design.test.js, tests/project.test.js, docs/skills/brainstorm.md, docs/design/project-onboarding/html-design-brief.md; plan creates scripts/design-gates.js, creation-gates.js, find-missing-design-process.js, find-weak-design.js, assert-creation-stage.js, new-plan/stage-*.md (not existence premises); F0 initiative T-001..T-003 with restored T-003 verifier + executionMode: automate stamp
+**Commit:** cc60fd46 (plus uncommitted stamp/receipt refresh)
+**At:** 2026-07-30T15:43:43Z
 
 ### A — Plan premises vs code
 | Premise | Result | Evidence |
