@@ -64,12 +64,14 @@ IDEIA ──▶ DESIGN ──▶ PLANO ──▶ DECOMPOSE ──▶ MATERIALIZE
 
 ### O fluxo de criação de um Plano (`new plan`) — 9 estágios reais, em ordem, cada um gateia o próximo:
 
+O bootstrap é um **router fino** (`project-create-plan.md`): em cada turno o agente carrega **só** o arquivo do estágio atual (`new-plan/stage-N.md`), não o monólito inteiro. Avanço de estágio é monotônico via `assert-creation-stage` (pulo ilegal / `ready` cedo = HARD-BLOCK).
+
 1. **Validar slug.** Nome do plano.
-2. **DESIGN (brainstorm).** Antes de decompor qualquer plano, o WHAT/WHY + a abordagem escolhida têm que existir como um `design.md` aprovado por um crítico. Delega para a skill **`atomic-skills:brainstorm`** (frame → diverge → usuário ratifica → escreve → gate do crítico). Produz `design.md`.
+2. **DESIGN (brainstorm) — sempre o processo completo no multi-phase.** Antes de decompor, o WHAT/WHY + a abordagem escolhida têm que existir como um `design.md` aprovado por um crítico. Delega para **`atomic-skills:brainstorm`**, que **sempre** roda: **Interview / entrevista** (spine ratificada com o usuário) → **research-digest** (repo-only) → **`debate --gate` always** (sem ladder de skip) → usuário ratifica → escreve → **critic** → receipt em `design-gates`. Produz `design.md` + `research-digest.md`. (Raias ad-hoc / single-task / `adopt` permanecem isentas de DESIGN.)
 3. **Fonte do plano.** Com o `design.md` aprovado, produz o markdown "source plan" que o Estágio 5 consome (semeado das Decisões do design, ou apontado para um markdown existente, ou preenchido de template).
-4. **Receber o markdown + lint No-Placeholders.** Um lint determinístico (scan de string, zero-token, roda igual em qualquer host) **BLOQUEIA (HARD)** se houver marcador de template deixado para trás: `REPLACE_*`, `TODO`/`TBD`/`FIXME`, placeholders fuzzy (`<path>`, `<file>`, `<dir>`, `<…>`) ou hand-waving "similar to Task N". Nenhum arquivo é escrito até limpar. **Nenhuma raia é isenta deste gate.**
+4. **Receber o markdown + lint No-Placeholders + detectors de processo de DESIGN.** Um lint determinístico (scan de string, zero-token) **BLOQUEIA (HARD)** se houver marcador de template: `REPLACE_*`, `TODO`/`TBD`/`FIXME`, placeholders fuzzy (`<path>`, `<file>`, `<dir>`, `<…>`) ou hand-waving "similar to Task N". No multi-phase, o Estágio 4 também **HARD-BLOCK** se `lint-design` / `find-missing-design-process` / `find-weak-design` falharem (Interview, debate, digest, critic no receipt). Nenhum arquivo de plano é escrito até limpar. **Nenhuma raia é isenta do lint No-Placeholders.**
 5. **Decompose + SPEC per-task admission gate.** Quebra o plano em fases e tasks. Depois, o **gate SPEC** exige que cada task carregue seus **4 campos HOW**: `Files:` (caminhos exatos), `scopeBoundary:`, `acceptance:` (critérios), e um `verifier:` **determinístico** (`kind shell`/`test`/`query` — `manual` NÃO satisfaz). **Nenhuma task é admitida ao `implement` sem os 4.** Tasks destrutivas (deletam classe/tabela/coluna, mass-delete) exigem ainda **≥1 critério de aceite de impacto-de-DADOS**, não só de código (grep-zero de referências de código é necessário mas não suficiente).
-6. **Criar Plano + Initiatives.** Materializa a estrutura (lazy: só F0). Aqui se decide o isolamento: **worktree própria** (paralelo), **pausar as outras** (sequencial), ou **prosseguir** (aceitar drift). Escreve um *creation-gate run record* como autoridade de resume/cancel.
+6. **Criar Plano + Initiatives.** Materializa a estrutura (lazy: só F0). **businessIntent** no F0 é **draft-and-ratify** (agente drafta a spine value/workflow/rules/outOfScope/doneWhen; usuário ratifica — não “user writes from blank”). Isolamento: **worktree própria** (paralelo), **pausar as outras** (sequencial), ou **prosseguir** (aceitar drift). Escreve um *creation-gate run record* como autoridade de resume/cancel.
 7–9. **Resumos + peso + sinal de conclusão + validação com o usuário.** Cada fase e cada task recebem um `summary` de uma linha (no idioma configurado), um `weight` (proxy de complexidade) e um sinal de conclusão (`verifier` OU `outputs[].path`). Tudo é **validado com o usuário** antes de finalizar — uma correção de resumo é tratada como sinal de que a fase pode estar mal-escopada, não só mal-escrita.
 
 ### O loop de execução (por fase, depois que o plano existe):
@@ -219,8 +221,8 @@ A `project` é um orquestrador fino: ela **delega** partes do ciclo para skills 
 
 | Momento no ciclo | Skill irmã | Papel |
 |---|---|---|
-| DESIGN (Estágio 2 de `new plan`) | **`atomic-skills:brainstorm`** | Produz o `design.md` aprovado por crítico antes de decompor. |
-| Divergência / painel adversarial | **`atomic-skills:debate`** | Vozes independentes num debate de design. |
+| DESIGN (Estágio 2 de `new plan`) | **`atomic-skills:brainstorm`** | Multi-phase: Interview → research-digest → **always** `debate --gate` → critic → `design.md` + design-gates receipt. |
+| Divergência / painel adversarial | **`atomic-skills:debate`** | Vozes independentes em `debate --gate` (sempre no multi-phase DESIGN; painel = ACTOR, não decide). |
 | Decompose (Estágio 5) | *(interno, `src/decompose.js`)* | Quebra o plano em fases + tasks com o gate SPEC. |
 | Execução (pós-`materialize`) | **`atomic-skills:implement`** | Driver single-threaded que leva as tasks admitidas ao DONE. |
 | Fechamento de task / gate | **`atomic-skills:verify-claim`** | Transforma um "done/passa/fixed" num fato verificado de uma execução fresca. |
