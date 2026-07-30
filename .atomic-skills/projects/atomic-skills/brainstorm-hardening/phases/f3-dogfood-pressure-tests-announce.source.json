@@ -43,7 +43,11 @@
           "kind": "file",
           "path": "projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md"
         }
-      ]
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "test -f projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md && rg -q 'assert-creation-stage|draft-and-ratify|stage-' projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md && rg -q 'entrevista|debate|Interview|always|estágio|stage' docs/design/project-onboarding/html-design-brief.md"
+      }
     }
   ],
   "exitGates": [

@@ -5,7 +5,7 @@ title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
 status: active
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T17:32:34.025Z
+lastUpdated: 2026-07-30T17:33:08.095Z
 branch: plan/brainstorm-hardening
 currentPhase: F3
 executionMode: automate
@@ -314,7 +314,7 @@ phases:
       stage router and draft-and-ratify; onboarding Stage 2 text updated.
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -333,7 +333,17 @@ phases:
               projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md
               && rg -q 'skip interview|skip debate|assert-creation-stage|digest'
               projects/atomic-skills/brainstorm-hardening/pressure-tests.md
-    status: pending
+    status: active
+    businessIntent:
+      value: Pressure-tests and dogfood checklist lock fidelity gates; onboarding
+        mentions always interview/debate and stage process
+      workflow: T-010 pressure-tests.md scenarios; T-011 dogfood-checklist +
+        onboarding note
+      rules: Additive scenarios only; no full Inc3 re-run; no Stage 8 behavior
+        rewrite; no full onboarding HTML rewrite
+      outOfScope: Implementing new product detectors beyond F2; rewriting review-plan
+      doneWhen: "G-F3-1: pressure-tests and dogfood checklist exist and reference new
+        gates including assert-creation-stage"
 references: []
 planActive: true
 planTitle: Brainstorm hardening — process package for DESIGN front-half
@@ -367,7 +377,7 @@ Incorporated after plan materialization: **BI draft-and-ratify** (Decision 9); *
 
 ## Reviews
 - cross-model (codex): needs_changes→applied | provider=codex | provider_version=codex-cli-0.146.0 | major=4 minor=1 | file=.atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening.md @ uncommitted (2026-07-30T13:54:39Z)
-- ground-truth: complete | mode=ground-truth | fp=8928a1927bbf | premises=5 | impacts=3 @ uncommitted (2026-07-30T17:10:00Z)
+- ground-truth: complete | mode=ground-truth | fp=24ed10a220cb | premises=5 | impacts=3 @ uncommitted (2026-07-30T17:35:00Z)
 - internal: clean | mode=local | major=0 @ uncommitted (2026-07-30T13:44:22Z)
 
 
