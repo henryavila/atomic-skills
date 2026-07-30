@@ -182,3 +182,6 @@
 {"ts":"2026-07-27T08:32:15.434Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-default-and-operator-gates","phaseId":"F4","taskId":"T-004","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-27T08:32:15.518Z","event":"task-done","projectId":"atomic-skills","planSlug":"automate-default-and-operator-gates","phaseId":"F4","taskId":"T-005","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-27T08:43:13.435Z","event":"phase-done","projectId":"atomic-skills","planSlug":"automate-default-and-operator-gates","phaseId":"F4","taskId":null,"weight":1,"weightBasis":"count"}
+{"ts":"2026-07-30T15:57:17.529Z","event":"task-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F0","taskId":"T-001","weight":1,"weightBasis":"count"}
+{"ts":"2026-07-30T15:57:17.543Z","event":"task-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F0","taskId":"T-002","weight":1,"weightBasis":"count"}
+{"ts":"2026-07-30T15:57:17.545Z","event":"task-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F0","taskId":"T-003","weight":1,"weightBasis":"count"}

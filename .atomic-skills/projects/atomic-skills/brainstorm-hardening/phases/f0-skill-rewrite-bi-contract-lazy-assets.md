@@ -9,8 +9,8 @@ goal: Multi-phase brainstorm always runs interview then repo research digest
 status: active
 branch: plan/brainstorm-hardening
 started: 2026-07-30T14:14:45.028Z
-lastUpdated: 2026-07-30T14:14:45.028Z
-nextAction: "Start T-001: — Author brainstorm-assets lazy pack"
+lastUpdated: 2026-07-30T15:55:50.000Z
+nextAction: Run phase-done (after evaluation + lessons + review + decision-review)
 parentPlan: brainstorm-hardening
 phaseId: F0
 businessIntent:
@@ -23,11 +23,11 @@ businessIntent:
     assert-creation-stage, stage-N split completo, Stage 8, web research"
   doneWhen: "G-F0-1 e G-F0-2 verdes: brainstorm always interview/research/debate;
     create-plan sem must not pre-fill; draft-and-ratify presente"
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-F0-1
@@ -64,8 +64,8 @@ stack:
 tasks:
   - id: T-001
     title: — Author brainstorm-assets lazy pack
-    status: pending
-    lastUpdated: 2026-07-30T14:14:45.028Z
+    status: done
+    lastUpdated: 2026-07-30T15:55:50.000Z
     scopeBoundary:
       - do not rewrite skills/core/brainstorm.md process body in this task; do
         not touch review-plan or debate gate-mode beyond cross-links
@@ -89,10 +89,18 @@ tasks:
         path: skills/shared/brainstorm-assets/research.md
       - kind: file
         path: skills/shared/brainstorm-assets/process-receipt.md
+    closedAt: 2026-07-30T15:55:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T15:55:50.000Z
+      verifiedCommit: 62c43f8e55044acb06f34bd935240c077f03f915
+      exitCode: 0
+      passed: true
+      outputSummary: exit 0
   - id: T-002
     title: — Rewrite brainstorm.md process (always interview + research + debate)
-    status: pending
-    lastUpdated: 2026-07-30T14:14:45.028Z
+    status: done
+    lastUpdated: 2026-07-30T15:55:50.000Z
     scopeBoundary:
       - do not implement find-missing-design-process.js or
         assert-creation-stage.js here; do not change Stage 8 review-plan; do not
@@ -115,10 +123,18 @@ tasks:
         path: skills/core/brainstorm.md
       - kind: file
         path: docs/skills/brainstorm.md
+    closedAt: 2026-07-30T15:55:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T15:55:50.000Z
+      verifiedCommit: 62c43f8e55044acb06f34bd935240c077f03f915
+      exitCode: 0
+      passed: true
+      outputSummary: exit 0
   - id: T-003
     title: — Stage 2 brainstorm contract + businessIntent draft-and-ratify
-    status: pending
-    lastUpdated: 2026-07-30T14:14:45.028Z
+    status: done
+    lastUpdated: 2026-07-30T15:55:50.000Z
     scopeBoundary:
       - do not split create-plan into stage-N files in this task (F2 T-009); do
         not implement assert-creation-stage.js here
@@ -132,16 +148,47 @@ tasks:
       kind: shell
       command: "! rg -q 'only when ≥2 viable approaches AND'
         skills/shared/project-assets/project-create-plan.md && ! rg -q 'must not
-        pre-fill the five fields' skills/shared/project-assets/project-create-plan.md
-        && rg -q 'draft-and-ratify|drafts the|Drafted|businessIntent'
+        pre-fill the five fields'
+        skills/shared/project-assets/project-create-plan.md && rg -q
+        'draft-and-ratify|drafts the|Drafted|businessIntent'
         skills/shared/project-assets/project-create-plan.md && rg -q 'debate
-        --gate|Interview|interview' skills/shared/project-assets/project-create-plan.md
-        && node --test tests/project.test.js"
+        --gate|Interview|interview'
+        skills/shared/project-assets/project-create-plan.md && node --test
+        tests/project.test.js"
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-create-plan.md
       - kind: file
         path: tests/project.test.js
+    closedAt: 2026-07-30T15:55:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T15:55:50.000Z
+      verifiedCommit: 62c43f8e55044acb06f34bd935240c077f03f915
+      exitCode: 0
+      passed: true
+      outputSummary: >
+        re-ratify / CROSS-MODEL REVIEW tracking (612.051625ms)
+          ✔ project assets ship the templates (minimal-source, plan, initiative, bootstrap-*) (629.600583ms)
+          ✔ bootstrap-draft template ships with required markers (3-level camelCase) (656.184166ms)
+          ✔ minimal-source template has REPLACE markers + a phase H2 + exit_gate (620.166ms)
+        ✔ project skill (unified router + lazy assets) (42248.309042ms)
+
+        ℹ tests 66
+
+        ℹ suites 1
+
+        ℹ pass 66
+
+        ℹ fail 0
+
+        ℹ cancelled 0
+
+        ℹ skipped 0
+
+        ℹ todo 0
+
+        ℹ duration_ms 42788.540625
 parked: []
 emerged: []
 planTitle: Brainstorm hardening — process package for DESIGN front-half
@@ -160,3 +207,10 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** F0 pure-maestro complete through Step E — T-001/T-002/T-003 closed claim-bound after merge of impl/brainstorm-hardening-F0-writer. Product: brainstorm-assets, always-interview brainstorm.md, Stage 2 debate + BI draft-and-ratify.
+- **Decision log:** Claim report exclusivity rewritten to exclusive commitShas (chain base/head endpoints failed pure helper); executionMode: automate stamped; ground-truth fp refreshed.
+- **Single nextAction:** Run evaluation agent for F0, stamp evaluationGate, distill lessons, review-code --mode=both, then decision-review PASS|FAIL, then phase-done.
+- **Verbatim state:** claimReport=.atomic-skills/status/automate/brainstorm-hardening-claims.json; HEAD=$(git rev-parse --short HEAD); assert done exit 0 with base-ref cc60fd46.
+- **Uncommitted changes:** state close paths pending microcommit after refresh-state.
