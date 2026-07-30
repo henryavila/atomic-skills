@@ -344,6 +344,21 @@ phases:
       outOfScope: Implementing new product detectors beyond F2; rewriting review-plan
       doneWhen: "G-F3-1: pressure-tests and dogfood checklist exist and reference new
         gates including assert-creation-stage"
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-brainstorm-hardening-F3.md
+      verifiedAt: 2026-07-30T17:36:10.487Z
+      at: 2e3e1a23053a5da1fc8dc51bf153a436dede2d3a
+    lessonsState: none
+    reviewGate:
+      status: passed
+      mode: both
+      at: 2e3e1a23053a5da1fc8dc51bf153a436dede2d3a
+      verifiedAt: 2026-07-30T17:36:10.487Z
+      reviewFile: .atomic-skills/reviews/2026-07-30-both-brainstorm-hardening-F3.md
+      localReceiptPath: .atomic-skills/reviews/2026-07-30-local-brainstorm-hardening-F3.md
+      codexReceiptPath: .atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening-F3.md
 references: []
 planActive: true
 planTitle: Brainstorm hardening — process package for DESIGN front-half
