@@ -53,14 +53,27 @@ Full procedure in the **DESIGN integration** section.
 
 Read the source plan (either the file seeded from the approved design, the file the user pointed at, or the in-skill template the user filled in).
 
-**PLAN precondition — refuse without an approved design (R-ORCH-09).** Before decomposing, confirm a committed `design.md` exists for this plan and passes the section lint:
+**PLAN precondition — refuse without an approved design (R-ORCH-09).** Before decomposing, confirm a committed `design.md` exists for this plan and passes the section lint **and** the design-process detectors. Run in order (any non-zero exit **HARD-BLOCKS** — do not decompose):
 
 ```bash
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-design.js" projects/<project-id>/<slug>/design.md
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+DESIGN_MD="projects/<project-id>/<slug>/design.md"
+DIGEST_MD="projects/<project-id>/<slug>/research-digest.md"
+DESIGN_GATE=".atomic-skills/status/design-gates/<project-id>-<slug>.json"
+
+# 1) Section lint (Context, Non-goals, Interview, Decisions, Chosen approach)
+node "$PKG_ROOT/scripts/lint-design.js" "$DESIGN_MD"
 # add --migration when the plan is a one-way-door / migration (requires a Blast radius section)
+
+# 2) Process receipt present + status ready (Interview, debate, digest, critic, userApproved)
+node "$PKG_ROOT/scripts/find-missing-design-process.js" "$DESIGN_GATE"
+# R-ORCH-03 exempt lanes only: pass --lane adopt|ad-hoc|single-task (never silent skip)
+
+# 3) Quality: soft-language, non-goals≠echo, interview length, research digest strength
+node "$PKG_ROOT/scripts/find-weak-design.js" "$DESIGN_MD" "$DIGEST_MD"
 ```
 
-A non-zero exit (missing file, or a missing/empty required section) **HARD-BLOCKS** the plan — do not decompose. Either run `atomic-skills:brainstorm` to produce the design, or, for a lane triage explicitly exempted from DESIGN (ad-hoc / single-task per R-ORCH-03, or `adopt` capturing a pre-lifecycle plan), record that exemption verbatim. PLAN never starts on a design that does not lint clean.
+A non-zero exit (missing file, missing/empty required section, design-gates not ready, or weak design/digest) **HARD-BLOCKS** the plan — do not decompose. Either run `atomic-skills:brainstorm` to produce the design and process receipt, or, for a lane triage explicitly exempted from DESIGN (ad-hoc / single-task per R-ORCH-03, or `adopt` capturing a pre-lifecycle plan), record that exemption verbatim and pass `--lane` to the detectors. PLAN never starts on a design that does not lint clean **and** prove process.
 
 **No-Placeholders precondition — reject authored fill-me markers (R-ORCH-12).** The source plan itself must be free of leftover template/placeholder markers before it can decompose:
 

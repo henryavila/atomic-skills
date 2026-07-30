@@ -639,6 +639,38 @@ describe('project skill (unified router + lazy assets)', () => {
     }
   });
 
+  it('project-create-plan Stage 4 HARD-BLOCKs with lint-design then design process detectors', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const start = content.indexOf('### Stage 4 — Receive markdown plan');
+    const end = content.indexOf('### Stage 5 — Decompose');
+    assert.ok(start >= 0 && end > start, 'Stage 4 section must exist');
+    const stage4 = content.slice(start, end);
+    assert.match(stage4, /scripts\/lint-design\.js/);
+    assert.match(stage4, /scripts\/find-missing-design-process\.js/);
+    assert.match(stage4, /scripts\/find-weak-design\.js/);
+    assert.match(stage4, /HARD-BLOCK/);
+    // Order: lint-design before find-missing before find-weak
+    const lintIdx = stage4.indexOf('lint-design.js');
+    const missIdx = stage4.indexOf('find-missing-design-process.js');
+    const weakIdx = stage4.indexOf('find-weak-design.js');
+    assert.ok(lintIdx >= 0 && missIdx > lintIdx && weakIdx > missIdx, 'detector order');
+  });
+
+  it('brainstorm B5 HARD-BLOCKs handoff unless design-gates / detectors ready', () => {
+    install();
+    const brainstorm = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/brainstorm.md'),
+      'utf8',
+    );
+    const start = brainstorm.indexOf('### B5');
+    assert.ok(start >= 0, 'B5 section must exist');
+    const b5 = brainstorm.slice(start, start + 2500);
+    assert.match(b5, /design-gates/);
+    assert.match(b5, /find-missing-design-process/);
+    assert.match(b5, /HARD-BLOCK/);
+  });
+
   it('project-create-plan collects F0 businessIntent before materializing the active phase', () => {
     install();
     const content = readAsset('project-create-plan.md');

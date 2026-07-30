@@ -70,9 +70,25 @@ Invoke the critic per `skills/shared/debate-assets/critic.md` — a **fresh, ind
 
 ### B5 — Handoff
 
-{{READ_TOOL}} `skills/shared/brainstorm-assets/process-receipt.md` and ensure `.atomic-skills/status/design-gates/<projectId>-<slug>.json` records Interview, digest, debate, critic, and user approval (`status: ready` when complete).
+{{READ_TOOL}} `skills/shared/brainstorm-assets/process-receipt.md` and write/update `.atomic-skills/status/design-gates/<projectId>-<slug>.json` so Interview, digest, debate, critic, and user approval are recorded (`status: ready` only when complete). Helpers: `scripts/design-gates.js`.
 
-Only on critic **Approved** AND explicit user approval: announce the design path, the headline decision, and hand off — `atomic-skills:project new plan <plan-slug>` consumes the approved `design.md` as its source-of-truth for the PLAN stage. brainstorm's job ends here; it never writes the plan itself.
+**HARD-BLOCK before handoff** — refuse to hand off to `project new plan` unless the process receipt is ready and the design is not weak:
+
+```bash
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+DESIGN_MD="projects/<project-id>/<plan-slug>/design.md"
+DIGEST_MD="projects/<project-id>/<plan-slug>/research-digest.md"
+DESIGN_GATE=".atomic-skills/status/design-gates/<projectId>-<slug>.json"
+
+node "$PKG_ROOT/scripts/lint-design.js" "$DESIGN_MD"
+node "$PKG_ROOT/scripts/find-missing-design-process.js" "$DESIGN_GATE"
+node "$PKG_ROOT/scripts/find-weak-design.js" "$DESIGN_MD" "$DIGEST_MD"
+# optional: node "$PKG_ROOT/scripts/design-gates.js" ready . <projectId> <slug>
+```
+
+Any non-zero exit **HARD-BLOCKS** handoff — fix Interview/debate/digest/critic/user approval or rewrite weak sections; do not announce handoff on a partial receipt. Ad-hoc / single-task / `adopt` never take this multi-phase path (R-ORCH-03).
+
+Only on critic **Approved** AND explicit user approval AND detectors exit 0: announce the design path, the headline decision, and hand off — `atomic-skills:project new plan <plan-slug>` consumes the approved `design.md` as its source-of-truth for the PLAN stage. brainstorm's job ends here; it never writes the plan itself.
 
 ## The design doc
 
