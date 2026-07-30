@@ -5,7 +5,7 @@ title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
 status: active
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T16:42:05.400Z
+lastUpdated: 2026-07-30T16:45:56.444Z
 branch: plan/brainstorm-hardening
 currentPhase: F1
 executionMode: automate
@@ -147,7 +147,7 @@ phases:
       with real content; tests lock the contract.
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -159,7 +159,19 @@ phases:
             kind: test
             runner: node
             pattern: tests/lint-design.test.js
-    status: pending
+    status: active
+    businessIntent:
+      value: lint-design always rejects designs missing Context, Non-goals, or
+        Interview with real content; tests lock the contract
+      workflow: T-004 expand REQUIRED in lint-design.js + tests; T-005 fixture
+        coverage and docs/skills/brainstorm.md for new sections
+      rules: No design-gates or creation-stage logic; no lint-source SPEC change; no
+        mass-edit of historical projects/*/design.md; Decisions and Chosen
+        approach remain; Blast radius stays migration-only
+      outOfScope: F2 design-gates scripts, assert-creation-stage, stage-N split, Stage
+        8 review-plan rewrite
+      doneWhen: "G-F1-1 green: lint-design rejects a design missing Interview or
+        Non-goals or Context; tests cover missing sections"
   - id: F2
     slug: brainstorm-hardening-f2-receipts-stage-assert-create-plan-split
     title: Receipts, stage assert, create-plan split, Stage 4 wire
@@ -269,7 +281,7 @@ Incorporated after plan materialization: **BI draft-and-ratify** (Decision 9); *
 
 ## Reviews
 - cross-model (codex): needs_changes→applied | provider=codex | provider_version=codex-cli-0.146.0 | major=4 minor=1 | file=.atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening.md @ uncommitted (2026-07-30T13:54:39Z)
-- ground-truth: complete | mode=ground-truth | fp=fe0677a663b4 | premises=5 | impacts=3 @ uncommitted (2026-07-30T15:43:43Z)
+- ground-truth: complete | mode=ground-truth | fp=c50e47fd3992 | premises=5 | impacts=3 @ uncommitted (2026-07-30T16:50:00Z)
 - internal: clean | mode=local | major=0 @ uncommitted (2026-07-30T13:44:22Z)
 
 
@@ -277,7 +289,7 @@ Incorporated after plan materialization: **BI draft-and-ratify** (Decision 9); *
 
 **Status:** complete
 **Codebase class:** populated
-**Scanned:** skills/core/brainstorm.md, skills/shared/project-assets/project-create-plan.md, scripts/lint-design.js, tests/lint-design.test.js, tests/project.test.js, docs/skills/brainstorm.md, docs/design/project-onboarding/html-design-brief.md; plan creates scripts/design-gates.js, creation-gates.js, find-missing-design-process.js, find-weak-design.js, assert-creation-stage.js, new-plan/stage-*.md (not existence premises); F0 initiative T-001..T-003 with restored T-003 verifier + executionMode: automate stamp
+**Scanned:** skills/core/brainstorm.md, skills/shared/project-assets/project-create-plan.md, scripts/lint-design.js, tests/lint-design.test.js, tests/project.test.js, docs/skills/brainstorm.md; F0 delivered (assets+always-debate+draft-and-ratify); F1 materializing lint-design REQUIRED expand; F2 detectors still plan outputs not premises
 **Commit:** cc60fd46 (plus uncommitted stamp/receipt refresh)
 **At:** 2026-07-30T15:43:43Z
 
