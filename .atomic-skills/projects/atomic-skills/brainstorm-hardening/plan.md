@@ -5,7 +5,7 @@ title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
 status: active
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T17:06:17.919Z
+lastUpdated: 2026-07-30T17:08:29.746Z
 branch: plan/brainstorm-hardening
 currentPhase: F2
 executionMode: automate
@@ -210,7 +210,7 @@ phases:
       Stage 4 and brainstorm B5; exempt adopt ad-hoc single-task.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 4
     exitGate:
       summary: 3 criteria to meet
       criteria:
@@ -248,7 +248,20 @@ phases:
             command: rg -q 'adopt|ad-hoc|adhoc|single-task|R-ORCH-03|exempt'
               tests/find-missing-design-process.test.js && node --test
               tests/find-missing-design-process.test.js
-    status: pending
+    status: active
+    businessIntent:
+      value: design-gates + detectors + assert-creation-stage enforce DESIGN fidelity;
+        create-plan is thin router + stage-N; Stage 4 and brainstorm B5
+        HARD-BLOCK without receipts; adopt/ad-hoc/single-task exempt
+      workflow: T-006 design/creation-gates helpers; T-007 detectors; T-008 wire Stage
+        4 + B5; T-009 split create-plan into stage-N + assert stage advance
+      rules: Exempt R-ORCH-03 adopt/ad-hoc/single-task; monotonic stage advance only
+        via assert-creation-stage; no Stage 8 rewrite; detectors must fail on
+        missing process
+      outOfScope: F3 dogfood/pressure; F0/F1 product already done; web research;
+        rewrite review-plan Stage 8 content beyond wire
+      doneWhen: "G-F2-1..3 green: detector unit tests pass; Stage 4/B5 wire + stage-6
+        + assert-creation-stage present; exempt lanes not false-positive"
   - id: F3
     slug: brainstorm-hardening-f3-dogfood-pressure-tests-announce
     title: Dogfood, pressure tests, announce
@@ -310,7 +323,7 @@ Incorporated after plan materialization: **BI draft-and-ratify** (Decision 9); *
 
 ## Reviews
 - cross-model (codex): needs_changes→applied | provider=codex | provider_version=codex-cli-0.146.0 | major=4 minor=1 | file=.atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening.md @ uncommitted (2026-07-30T13:54:39Z)
-- ground-truth: complete | mode=ground-truth | fp=c50e47fd3992 | premises=5 | impacts=3 @ uncommitted (2026-07-30T16:50:00Z)
+- ground-truth: complete | mode=ground-truth | fp=8928a1927bbf | premises=5 | impacts=3 @ uncommitted (2026-07-30T17:10:00Z)
 - internal: clean | mode=local | major=0 @ uncommitted (2026-07-30T13:44:22Z)
 
 

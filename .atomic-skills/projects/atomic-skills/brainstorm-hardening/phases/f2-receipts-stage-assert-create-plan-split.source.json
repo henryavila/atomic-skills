@@ -167,7 +167,11 @@
           "kind": "file",
           "path": "tests/assert-creation-stage.test.js"
         }
-      ]
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "test -f skills/shared/project-assets/new-plan/stage-1.md && test -f skills/shared/project-assets/new-plan/stage-6.md && test -f skills/shared/project-assets/new-plan/stage-9.md && rg -q 'stage-6|new-plan/stage' skills/shared/project-assets/project-create-plan.md && rg -q 'draft-and-ratify|Drafted|drafts the' skills/shared/project-assets/new-plan/stage-6.md && rg -q 'assert-creation-stage' skills/shared/project-assets/project-create-plan.md skills/shared/project-assets/new-plan/stage-6.md skills/shared/project-assets/new-plan/stage-9.md && node --test tests/project.test.js tests/assert-creation-stage.test.js"
+      }
     }
   ],
   "exitGates": [
