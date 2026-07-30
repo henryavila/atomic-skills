@@ -1,0 +1,65 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "brainstorm-hardening-f1-expand-lint-design-and-skill-docs-contr",
+  "title": "Expand lint-design and skill docs contract",
+  "goal": "lint-design always requires Context, Non-goals, and Interview sections with real content; tests lock the contract.",
+  "tasks": [
+    {
+      "id": "T-004",
+      "title": "— Expand lint-design REQUIRED sections",
+      "scopeBoundary": [
+        "do not add design-gates receipt logic here; do not change lint-source.js SPEC gate"
+      ],
+      "acceptance": [
+        "REQUIRED always includes Context Non-goals Interview; Decisions and Chosen approach remain; Blast radius stays migration-only; empty bodies fail; tests cover missing Interview Non-goals Context"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/lint-design.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/lint-design.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/lint-design.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-005",
+      "title": "— Fixture coverage and docs for new lint sections",
+      "scopeBoundary": [
+        "do not mass-edit historical projects/*/design.md files"
+      ],
+      "acceptance": [
+        "tests mention Interview Non-goals Context; docs/skills/brainstorm.md documents new lint-required sections"
+      ],
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/lint-design.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "docs/skills/brainstorm.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-F1-1",
+      "description": "lint-design rejects a design missing Interview or Non-goals or Context",
+      "verifier": {
+        "kind": "test",
+        "runner": "node",
+        "pattern": "tests/lint-design.test.js"
+      },
+      "status": "pending"
+    }
+  ]
+}

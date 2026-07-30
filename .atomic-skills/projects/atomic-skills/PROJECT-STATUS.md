@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-07-29T17:03:10.876Z
+lastUpdated: 2026-07-30T13:43:48.000Z
 schemaVersion: "0.1"
-activePlans: 0
-activeInitiatives: 0
+activePlans: 1
+activeInitiatives: 1
 archivedCount: 26
 ---
 
@@ -19,9 +19,16 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 ## Active Plans
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
-|------|--------|---------------|--------|---------|
-| implement-phase-agents | active | F0 | plan/implement-phase-agents | 2026-07-22 | 1/6 |
-| materialize-spec-quality-guards | active | F0 | plan/materialize-spec-quality-guards | 2026-07-22 | 1/5 |
+|------|--------|---------------|--------|---------|--------|
+| brainstorm-hardening | active | F0 | plan/brainstorm-hardening | 2026-07-30 | 1/4 |
+
+### brainstorm-hardening — Initiatives
+
+| Slug | Status | Phase | nextAction |
+|------|--------|-------|-----------|
+| brainstorm-hardening-f0-skill-rewrite-and-lazy-assets | active | F0 | Start T-001: Author brainstorm-assets lazy pack |
+
+
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
