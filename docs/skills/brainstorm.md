@@ -4,11 +4,11 @@
 
 **Interview, research, debate --gate, then critic-gated design.md**
 
-The failure this prevents is premature convergence — locking onto the first workable approach and writing it up as "the design". `brainstorm` widens before it narrows: it runs a user **Interview**, a repo **research-digest**, always invokes `atomic-skills:debate --gate`, lets the user ratify, writes a sectioned `design.md`, and gates it with `lint-design` plus a fresh independent critic — never panel consensus. Detail lives in `skills/shared/brainstorm-assets/`. PLAN refuses to start without that approved, lint-clean design.
+The failure this prevents is premature convergence — locking onto the first workable approach and writing it up as "the design". `brainstorm` widens before it narrows: it runs a user **Interview**, a repo **research-digest**, always invokes `atomic-skills:debate --gate`, lets the user ratify, writes a sectioned `design.md`, and gates it with `lint-design` plus a fresh independent critic — never panel consensus. `lint-design` always requires **Context**, **Non-goals**, **Interview**, **Decisions**, and **Chosen approach** (real content, not empty/TODO); **Blast radius** is required only for migrations. Detail lives in `skills/shared/brainstorm-assets/`. PLAN refuses to start without that approved, lint-clean design.
 
 ## Purpose
 
-Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. Multi-phase always runs B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write + `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under `brainstorm-assets/`). The head of the lifecycle chain that `project new plan` decomposes.
+Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. Multi-phase always runs B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write + `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under `brainstorm-assets/`). Section lint requires Context, Non-goals, Interview, Decisions, and Chosen approach on every design (Blast radius migration-only). The head of the lifecycle chain that `project new plan` decomposes.
 
 ## Usage
 

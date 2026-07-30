@@ -10,9 +10,12 @@
  *
  * Required sections (case-insensitive, any heading level, ignored inside code
  * fences):
- *   - Decisions       — heading matches /\bdecisions?\b/      (always)
- *   - Chosen approach  — heading matches /chosen[-\s]+approach/ (always)
- *   - Blast radius     — heading matches /blast[-\s]+radius/    (only with --migration)
+ *   - Context          — heading matches /\bcontext\b/          (always)
+ *   - Non-goals        — heading matches /non[-\s]+goals?/      (always)
+ *   - Interview        — heading matches /\binterview\b/        (always)
+ *   - Decisions        — heading matches /\bdecisions?\b/       (always)
+ *   - Chosen approach   — heading matches /chosen[-\s]+approach/ (always)
+ *   - Blast radius      — heading matches /blast[-\s]+radius/    (only with --migration)
  * Each required section must carry real content (a non-blank line that is not a
  * heading and not a bare placeholder like TODO / TBD / REPLACE_* / <...>).
  *
@@ -29,6 +32,9 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
 const REQUIRED = [
+  { key: 'context', label: 'Context', re: /\bcontext\b/, migrationOnly: false },
+  { key: 'non-goals', label: 'Non-goals', re: /non[-\s]+goals?/, migrationOnly: false },
+  { key: 'interview', label: 'Interview', re: /\binterview\b/, migrationOnly: false },
   { key: 'decisions', label: 'Decisions', re: /\bdecisions?\b/, migrationOnly: false },
   { key: 'chosen-approach', label: 'Chosen approach', re: /chosen[-\s]+approach/, migrationOnly: false },
   { key: 'blast-radius', label: 'Blast radius', re: /blast[-\s]+radius/, migrationOnly: true },
