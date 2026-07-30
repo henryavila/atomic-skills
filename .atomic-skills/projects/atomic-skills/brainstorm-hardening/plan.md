@@ -103,6 +103,21 @@ phases:
         assert-creation-stage, stage-N split completo, Stage 8, web research"
       doneWhen: "G-F0-1 e G-F0-2 verdes: brainstorm always interview/research/debate;
         create-plan sem must not pre-fill; draft-and-ratify presente"
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-brainstorm-hardening-F0.md
+      verifiedAt: 2026-07-30T16:00:52.437Z
+      at: e591f7595975652372c5a0347c91fa96f14d3315
+    lessonsState: none
+    reviewGate:
+      status: passed
+      mode: both
+      at: ab41c2ec6e39bdc429572670a4a4e132590311cd
+      verifiedAt: 2026-07-30T16:14:22.243Z
+      reviewFile: .atomic-skills/reviews/2026-07-30-both-brainstorm-hardening-F0.md
+      localReceiptPath: .atomic-skills/reviews/2026-07-30-local-brainstorm-hardening-F0.md
+      codexReceiptPath: .atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening-F0.md
   - id: F1
     slug: brainstorm-hardening-f1-expand-lint-design-and-skill-docs-contr
     title: Expand lint-design and skill docs contract
