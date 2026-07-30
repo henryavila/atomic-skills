@@ -8,8 +8,8 @@ goal: design-gates + find-missing/weak-design + assert-creation-stage monotonic;
 status: active
 branch: plan/brainstorm-hardening
 started: 2026-07-30T17:08:29.746Z
-lastUpdated: 2026-07-30T17:08:29.746Z
-nextAction: "Start T-006: — design-gates and creation-gates helpers"
+lastUpdated: 2026-07-30T17:23:28.000Z
+nextAction: Run phase-done after evaluation/review/decision-review
 parentPlan: brainstorm-hardening
 phaseId: F2
 businessIntent:
@@ -25,10 +25,12 @@ businessIntent:
     rewrite review-plan Stage 8 content beyond wire
   doneWhen: "G-F2-1..3 green: detector unit tests pass; Stage 4/B5 wire + stage-6
     + assert-creation-stage present; exempt lanes not false-positive"
-tasksDone: 0
+tasksDone: 4
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 3
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: G-F2-1
     description: design-gates creation-gates detector and assert-creation-stage unit
@@ -39,6 +41,7 @@ exitGates:
       command: node --test tests/design-gates.test.js tests/creation-gates.test.js
         tests/find-missing-design-process.test.js tests/find-weak-design.test.js
         tests/assert-creation-stage.test.js
+    verifierLabel: "shell: node --test tests/design-gates.test.js tests/creation-gates…"
   - id: G-F2-2
     description: Stage 4 and brainstorm HARD-BLOCK detectors; stage router and stage-6 exist
     status: pending
@@ -53,6 +56,7 @@ exitGates:
         skills/shared/project-assets/new-plan/stage-6.md && node --test
         tests/design-gates.test.js tests/find-missing-design-process.test.js
         tests/find-weak-design.test.js tests/assert-creation-stage.test.js
+    verifierLabel: "shell: rg -q 'find-missing-design-process' skills/shared/project-a…"
   - id: G-F2-3
     description: detectors do not false-positive adopt/ad-hoc/single-task exempt lanes
     status: pending
@@ -61,6 +65,7 @@ exitGates:
       command: rg -q 'adopt|ad-hoc|adhoc|single-task|R-ORCH-03|exempt'
         tests/find-missing-design-process.test.js && node --test
         tests/find-missing-design-process.test.js
+    verifierLabel: "shell: rg -q 'adopt|ad-hoc|adhoc|single-task|R-ORCH-03|exempt' tes…"
 stack:
   - id: 1
     title: Receipts, stage assert, create-plan split, Stage 4 wire
@@ -69,8 +74,8 @@ stack:
 tasks:
   - id: T-006
     title: — design-gates and creation-gates helpers
-    status: pending
-    lastUpdated: 2026-07-30T17:08:29.746Z
+    status: done
+    lastUpdated: 2026-07-30T17:23:28.000Z
     scopeBoundary:
       - do not change find-weak-business-intent rules; do not write plan.md
         product state beyond helpers under status/
@@ -93,11 +98,18 @@ tasks:
         path: tests/design-gates.test.js
       - kind: file
         path: tests/creation-gates.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T17:23:28.000Z
+      verifiedCommit: e84fa3a0827dc4f7afee608b89d4708d6ab200f0
+      exitCode: 0
+      passed: true
+      outputSummary: exit 0
   - id: T-007
     title: — Detectors find-missing-design-process find-weak-design
       assert-creation-stage
-    status: pending
-    lastUpdated: 2026-07-30T17:08:29.746Z
+    status: done
+    lastUpdated: 2026-07-30T17:23:28.000Z
     scopeBoundary:
       - do not false-fail adopt/ad-hoc paths; CLI takes explicit plan design or
         creation-gate path
@@ -123,10 +135,17 @@ tasks:
         path: tests/find-weak-design.test.js
       - kind: file
         path: tests/assert-creation-stage.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T17:23:28.000Z
+      verifiedCommit: e84fa3a0827dc4f7afee608b89d4708d6ab200f0
+      exitCode: 0
+      passed: true
+      outputSummary: exit 0
   - id: T-008
     title: — Wire Stage 4 and brainstorm B5 to detectors
-    status: pending
-    lastUpdated: 2026-07-30T17:08:29.746Z
+    status: done
+    lastUpdated: 2026-07-30T17:23:28.000Z
     scopeBoundary:
       - do not change Stage 8 receipt scripts; stage-N split may still be
         incomplete until T-009 but detector names must appear in the create-plan
@@ -152,11 +171,18 @@ tasks:
         path: skills/core/brainstorm.md
       - kind: file
         path: tests/project.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T17:23:28.000Z
+      verifiedCommit: e84fa3a0827dc4f7afee608b89d4708d6ab200f0
+      exitCode: 0
+      passed: true
+      outputSummary: exit 0
   - id: T-009
     title: — Split create-plan into thin router plus stage-N.md and assert stage
       advance
-    status: pending
-    lastUpdated: 2026-07-30T17:08:29.746Z
+    status: done
+    lastUpdated: 2026-07-30T17:23:28.000Z
     scopeBoundary:
       - do not rewrite Stage 8 review-plan skill body; keep adopt path either as
         stage file or thin pointer without expanding adopt into novel behavior;
@@ -208,8 +234,18 @@ tasks:
         path: tests/project.test.js
       - kind: file
         path: tests/assert-creation-stage.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T17:23:28.000Z
+      verifiedCommit: e84fa3a0827dc4f7afee608b89d4708d6ab200f0
+      exitCode: 0
+      passed: true
+      outputSummary: exit 0
 parked: []
 emerged: []
+planTitle: Brainstorm hardening — process package for DESIGN front-half
+planActive: true
+current: true
 ---
 
 # Narrative / notes
