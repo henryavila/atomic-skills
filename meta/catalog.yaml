@@ -732,8 +732,11 @@ core:
       **research-digest**, always invokes `atomic-skills:debate --gate`, lets
       the user ratify, writes a sectioned `design.md`, and gates it with
       `lint-design` plus a fresh independent critic — never panel consensus.
-      Detail lives in `skills/shared/brainstorm-assets/`. PLAN refuses to start
-      without that approved, lint-clean design.
+      `lint-design` always requires **Context**, **Non-goals**, **Interview**,
+      **Decisions**, and **Chosen approach** (real content, not empty/TODO);
+      **Blast radius** is required only for migrations. Detail lives in
+      `skills/shared/brainstorm-assets/`. PLAN refuses to start without that
+      approved, lint-clean design.
     purpose: >
       Drive an open idea to a committed, section-linted, critic-approved
       design.md — diverging across real alternatives before converging — so
@@ -741,7 +744,9 @@ core:
       approach that happened to work. Multi-phase always runs B0 Interview →
       B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write +
       `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under
-      `brainstorm-assets/`). The head of the lifecycle chain that
+      `brainstorm-assets/`). Section lint requires Context, Non-goals,
+      Interview, Decisions, and Chosen approach on every design (Blast radius
+      migration-only). The head of the lifecycle chain that
       `project new plan` decomposes.
     when_to_use:
       - 'Starting a multi-phase plan whose approach is not yet decided'

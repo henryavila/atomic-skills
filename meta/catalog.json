@@ -665,7 +665,7 @@
       "lifecycle",
       "core"
     ],
-    "summary": "Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. Multi-phase always runs B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write + `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under `brainstorm-assets/`). The head of the lifecycle chain that `project new plan` decomposes.",
+    "summary": "Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. Multi-phase always runs B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write + `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under `brainstorm-assets/`). Section lint requires Context, Non-goals, Interview, Decisions, and Chosen approach on every design (Blast radius migration-only). The head of the lifecycle chain that `project new plan` decomposes.",
     "pros": [
       "Starting a multi-phase plan whose approach is not yet decided",
       "You need a committed design.md before decomposing into tasks",
