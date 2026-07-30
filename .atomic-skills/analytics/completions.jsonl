@@ -196,3 +196,4 @@
 {"ts":"2026-07-30T17:32:34.106Z","event":"phase-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F2","taskId":null,"weight":1,"weightBasis":"count"}
 {"ts":"2026-07-30T17:36:07.610Z","event":"task-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F3","taskId":"T-010","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-30T17:36:07.634Z","event":"task-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F3","taskId":"T-011","weight":1,"weightBasis":"count"}
+{"ts":"2026-07-30T17:38:25.973Z","event":"phase-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F3","taskId":null,"weight":1,"weightBasis":"count"}

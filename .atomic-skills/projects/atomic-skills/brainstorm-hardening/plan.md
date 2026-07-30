@@ -5,7 +5,7 @@ title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
 status: active
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T17:33:08.095Z
+lastUpdated: 2026-07-30T17:38:25.919Z
 branch: plan/brainstorm-hardening
 currentPhase: F3
 executionMode: automate
@@ -321,7 +321,7 @@ phases:
         - id: G-F3-1
           description: pressure-tests and dogfood checklist exist and reference new gates
             including assert-creation-stage
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test -f
@@ -333,7 +333,15 @@ phases:
               projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md
               && rg -q 'skip interview|skip debate|assert-creation-stage|digest'
               projects/atomic-skills/brainstorm-hardening/pressure-tests.md
-    status: active
+          metAt: 2026-07-30T17:38:25.919Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-30T17:38:25.919Z
+            verifiedCommit: 5bcc346d7f6fe4e8895bf767297a6121ba1cb2e5
+            exitCode: 0
+            passed: true
+            outputSummary: G-F3-1 met
+    status: done
     businessIntent:
       value: Pressure-tests and dogfood checklist lock fidelity gates; onboarding
         mentions always interview/debate and stage process
@@ -359,6 +367,11 @@ phases:
       reviewFile: .atomic-skills/reviews/2026-07-30-both-brainstorm-hardening-F3.md
       localReceiptPath: .atomic-skills/reviews/2026-07-30-local-brainstorm-hardening-F3.md
       codexReceiptPath: .atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening-F3.md
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-30T17:38:25.000Z
+      packagePresentedAt: 2026-07-30T17:38:25.000Z
+      packagePath: .atomic-skills/reviews/decision-package-brainstorm-hardening-F3.md
 references: []
 planActive: true
 planTitle: Brainstorm hardening — process package for DESIGN front-half
