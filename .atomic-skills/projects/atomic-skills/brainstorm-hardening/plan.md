@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: brainstorm-hardening
 title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
-status: active
+status: done
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T17:38:25.919Z
+lastUpdated: 2026-07-30T17:47:41.000Z
 branch: plan/brainstorm-hardening
 currentPhase: F3
 executionMode: automate
@@ -373,7 +373,6 @@ phases:
       packagePresentedAt: 2026-07-30T17:38:25.000Z
       packagePath: .atomic-skills/reviews/decision-package-brainstorm-hardening-F3.md
 references: []
-planActive: true
 planTitle: Brainstorm hardening — process package for DESIGN front-half
 planEndReview:
   mode: external-both
@@ -420,6 +419,7 @@ planEndReview:
     - provider: grok
       status: succeeded
       familyDifferent: true
+userValidatedAt: 2026-07-30T17:47:41.000Z
 ---
 
 # Brainstorm hardening — process package for DESIGN front-half
