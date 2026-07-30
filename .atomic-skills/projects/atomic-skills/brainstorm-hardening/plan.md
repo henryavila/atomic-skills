@@ -200,6 +200,8 @@ phases:
               projects/atomic-skills/brainstorm-hardening/pressure-tests.md
     status: pending
 references: []
+planActive: true
+planTitle: Brainstorm hardening — process package for DESIGN front-half
 ---
 
 # Brainstorm hardening — process package for DESIGN front-half
