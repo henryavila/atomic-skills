@@ -7,8 +7,8 @@ goal: lint-design always requires Context, Non-goals, and Interview sections
 status: active
 branch: plan/brainstorm-hardening
 started: 2026-07-30T16:45:56.444Z
-lastUpdated: 2026-07-30T16:45:56.444Z
-nextAction: "Start T-004: — Expand lint-design REQUIRED sections"
+lastUpdated: 2026-07-30T16:50:40.000Z
+nextAction: Run phase-done (after evaluation + lessons + review + decision-review)
 parentPlan: brainstorm-hardening
 phaseId: F1
 businessIntent:
@@ -23,10 +23,12 @@ businessIntent:
     8 review-plan rewrite
   doneWhen: "G-F1-1 green: lint-design rejects a design missing Interview or
     Non-goals or Context; tests cover missing sections"
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: G-F1-1
     description: lint-design rejects a design missing Interview or Non-goals or Context
@@ -35,6 +37,7 @@ exitGates:
       kind: test
       runner: node
       pattern: tests/lint-design.test.js
+    verifierLabel: "test: node tests/lint-design.test.js"
 stack:
   - id: 1
     title: Expand lint-design and skill docs contract
@@ -43,8 +46,8 @@ stack:
 tasks:
   - id: T-004
     title: — Expand lint-design REQUIRED sections
-    status: pending
-    lastUpdated: 2026-07-30T16:45:56.444Z
+    status: done
+    lastUpdated: 2026-07-30T16:50:40.000Z
     scopeBoundary:
       - do not add design-gates or creation-stage logic here; do not change
         lint-source.js SPEC gate
@@ -60,10 +63,31 @@ tasks:
         path: scripts/lint-design.js
       - kind: file
         path: tests/lint-design.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T16:50:40.000Z
+      verifiedCommit: d1b21407b4bb29cf77dc6014c8b8bf52ff8070d6
+      exitCode: 0
+      passed: true
+      outputSummary: |2
+         lintDesignMd — heading detection edge cases (0.976333ms)
+        ▶ lintDesignMd — guards
+          ✔ empty string → violations (not a crash) (0.054583ms)
+          ✔ non-string input → single violation (0.147792ms)
+          ✔ parseSections is exported and returns normalized titles (0.039459ms)
+        ✔ lintDesignMd — guards (0.337ms)
+        ℹ tests 26
+        ℹ suites 5
+        ℹ pass 26
+        ℹ fail 0
+        ℹ cancelled 0
+        ℹ skipped 0
+        ℹ todo 0
+        ℹ duration_ms 121.754917
   - id: T-005
     title: — Fixture coverage and docs for new lint sections
-    status: pending
-    lastUpdated: 2026-07-30T16:45:56.444Z
+    status: done
+    lastUpdated: 2026-07-30T16:50:40.000Z
     scopeBoundary:
       - do not mass-edit historical projects/*/design.md files
     acceptance:
@@ -78,8 +102,18 @@ tasks:
         path: tests/lint-design.test.js
       - kind: file
         path: docs/skills/brainstorm.md
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T16:50:40.000Z
+      verifiedCommit: d1b21407b4bb29cf77dc6014c8b8bf52ff8070d6
+      exitCode: 0
+      passed: true
+      outputSummary: exit 0
 parked: []
 emerged: []
+planTitle: Brainstorm hardening — process package for DESIGN front-half
+planActive: true
+current: true
 ---
 
 # Narrative / notes
