@@ -658,23 +658,24 @@
   {
     "id": "/atomic-skills:brainstorm",
     "icon": "💡",
-    "oneLiner": "Diverge, decide, then write a critic-gated design.md before any plan",
+    "oneLiner": "Interview, research, debate --gate, then critic-gated design.md",
     "facets": [
       "design",
       "brainstorming",
       "lifecycle",
       "core"
     ],
-    "summary": "Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. The head of the lifecycle chain that `project new plan` decomposes.",
+    "summary": "Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. Multi-phase always runs B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write + `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under `brainstorm-assets/`). The head of the lifecycle chain that `project new plan` decomposes.",
     "pros": [
       "Starting a multi-phase plan whose approach is not yet decided",
-      "There are ≥2 viable approaches and the decision is expensive to reverse",
-      "You need a committed design.md before decomposing into tasks"
+      "You need a committed design.md before decomposing into tasks",
+      "You want Interview + research + debate recorded before PLAN"
     ],
     "cons": [
       "An ad-hoc or single-task change (triage exempts it from DESIGN)",
       "The design is already committed and critic-approved",
-      "You only need divergent perspectives, not a committed artifact (use debate)"
+      "You only need divergent perspectives, not a committed artifact (use debate)",
+      "Retroactive capture of a pre-lifecycle plan (`project adopt` — no DESIGN gate)"
     ],
     "examples": [
       "/atomic-skills:brainstorm \"self-host the project lifecycle\"",
