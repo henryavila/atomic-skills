@@ -639,28 +639,67 @@ describe('project skill (unified router + lazy assets)', () => {
     }
   });
 
+  it('project-create-plan Stage 4 HARD-BLOCKs with lint-design then design process detectors', () => {
+    install();
+    const router = readAsset('project-create-plan.md');
+    const stage4 = readAsset('new-plan/stage-4.md');
+    // Router still names the detectors (summary); full procedure in stage-4.md
+    assert.match(router, /find-missing-design-process/);
+    assert.match(router, /find-weak-design/);
+    assert.match(router, /HARD-BLOCK/);
+    assert.match(stage4, /scripts\/lint-design\.js/);
+    assert.match(stage4, /scripts\/find-missing-design-process\.js/);
+    assert.match(stage4, /scripts\/find-weak-design\.js/);
+    assert.match(stage4, /HARD-BLOCK/);
+    const lintIdx = stage4.indexOf('lint-design.js');
+    const missIdx = stage4.indexOf('find-missing-design-process.js');
+    const weakIdx = stage4.indexOf('find-weak-design.js');
+    assert.ok(lintIdx >= 0 && missIdx > lintIdx && weakIdx > missIdx, 'detector order');
+  });
+
+  it('brainstorm B5 HARD-BLOCKs handoff unless design-gates / detectors ready', () => {
+    install();
+    const brainstorm = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/brainstorm.md'),
+      'utf8',
+    );
+    const start = brainstorm.indexOf('### B5');
+    assert.ok(start >= 0, 'B5 section must exist');
+    const b5 = brainstorm.slice(start, start + 2500);
+    assert.match(b5, /design-gates/);
+    assert.match(b5, /find-missing-design-process/);
+    assert.match(b5, /HARD-BLOCK/);
+  });
+
+  it('project-create-plan is a thin router that defers to new-plan/stage-N.md + assert-creation-stage', () => {
+    install();
+    const router = readAsset('project-create-plan.md');
+    assert.match(router, /thin router|new-plan\/stage/);
+    assert.match(router, /new-plan\/stage-N\.md|new-plan\/stage-\{\{|stage-6\.md/);
+    assert.match(router, /assert-creation-stage/);
+    for (const n of [1, 4, 6, 9]) {
+      const stage = readAsset(`new-plan/stage-${n}.md`);
+      assert.match(stage, /## Contract/, `stage-${n} Contract`);
+    }
+    const stage6 = readAsset('new-plan/stage-6.md');
+    assert.match(stage6, /draft-and-ratify|Drafted|drafts the/);
+    assert.match(stage6, /assert-creation-stage/);
+    assert.match(readAsset('new-plan/stage-9.md'), /assert-creation-stage/);
+  });
+
   it('project-create-plan collects F0 businessIntent before materializing the active phase', () => {
     install();
-    const content = readAsset('project-create-plan.md');
-    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
-    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
-    assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
-    assert.notEqual(stage7Start, -1, 'Stage 7 section must exist');
-    const stage6 = content.slice(stage6Start, stage7Start);
-    assert.match(stage6, /Collect the user-written `businessIntent` spine for F0/);
+    const stage6 = readAsset('new-plan/stage-6.md');
+    assert.match(stage6, /draft-and-ratify|drafts the five-field `businessIntent` spine|Drafted/);
     assert.match(stage6, /businessIntent: <businessIntent>/);
     assert.match(stage6, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/plan\.md/);
     assert.doesNotMatch(stage6, /find-missing-business-intent\.js" \.atomic-skills\s/);
+    assert.doesNotMatch(stage6, /must not pre-fill the five fields/);
   });
 
   it('project-create-plan Stage 6 documents lazy outputs and explicit F0 validation', () => {
     install();
-    const content = readAsset('project-create-plan.md');
-    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
-    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
-    assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
-    assert.notEqual(stage7Start, -1, 'Stage 7 section must exist');
-    const stage6 = content.slice(stage6Start, stage7Start);
+    const stage6 = readAsset('new-plan/stage-6.md');
     assert.match(stage6, /f0-<phase-slug>\.md/);
     assert.match(stage6, /f<N>-<phase-slug>\.source\.json/);
     assert.match(stage6, /only the materialized F0 initiative/);
@@ -678,7 +717,7 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.notEqual(adoptStart, -1, 'adopt section must exist');
     assert.notEqual(gatesStart, -1, 'code-quality section must exist');
     const adopt = content.slice(adoptStart, gatesStart);
-    assert.match(adopt, /collect the same user-written F0 `businessIntent` spine/);
+    assert.match(adopt, /same F0 `businessIntent` spine as the default flow via \*\*draft-and-ratify\*\*/);
     assert.match(adopt, /businessIntent: <businessIntent>/);
     assert.match(adopt, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/plan\.md/);
     assert.doesNotMatch(adopt, /find-missing-business-intent\.js" \.atomic-skills\s/);
@@ -690,10 +729,8 @@ describe('project skill (unified router + lazy assets)', () => {
 
   it('project-create-plan persists creation gates for new plan and adopt resume/rollback', () => {
     install();
+    const stage6 = readAsset('new-plan/stage-6.md');
     const content = readAsset('project-create-plan.md');
-    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
-    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
-    const stage6 = content.slice(stage6Start, stage7Start);
     const adoptStart = content.indexOf('## `adopt <file.md>`');
     const gatesStart = content.indexOf('## Code-quality gates');
     const adopt = content.slice(adoptStart, gatesStart);
@@ -738,11 +775,10 @@ describe('project skill (unified router + lazy assets)', () => {
 
   it('project-create-plan scopes the Stage 8c receipt gate to the newly materialized plan', () => {
     install();
-    const content = readAsset('project-create-plan.md');
-    const start = content.indexOf('**Stage 8c — Receipt gate');
-    const end = content.indexOf('### Stage 9');
-    const stage8c = content.slice(start, end);
-    assert.ok(start >= 0 && end > start, 'Stage 8c block must be present');
+    const stage8 = readAsset('new-plan/stage-8.md');
+    const start = stage8.indexOf('**Stage 8c — Receipt gate');
+    assert.ok(start >= 0, 'Stage 8c block must be present in stage-8.md');
+    const stage8c = stage8.slice(start);
     assert.match(stage8c, /PLAN_PATH="\.atomic-skills\/projects\/<projectId>\/<planSlug>\/plan\.md"/);
     assert.match(stage8c, /find-unreviewed-plans\.js" "\$PLAN_PATH"/);
     assert.match(stage8c, /find-plans-missing-ground-truth\.js" "\$PLAN_PATH"/);
@@ -754,9 +790,10 @@ describe('project skill (unified router + lazy assets)', () => {
   it('project-create-plan references templates via ASSETS_PATH (no raw skills/shared path)', () => {
     install();
     const content = readAsset('project-create-plan.md');
-    // Rendered ASSETS_PATH form, not the raw source path.
-    assert.match(content, /plan\.template\.md/);
-    assert.match(content, /initiative\.template\.md/);
+    const stage6 = readAsset('new-plan/stage-6.md');
+    // Templates live on Stage 6 materialize path (stage file + any router pointer).
+    assert.match(stage6, /plan\.template\.md/);
+    assert.match(stage6, /initiative\.template\.md/);
     assert.ok(
       !content.includes('skills/shared/project-status-assets'),
       'must not reference the raw source asset path'
@@ -764,6 +801,10 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.ok(
       !content.includes('skills/shared/project-plan-assets'),
       'must not reference the raw source asset path'
+    );
+    assert.ok(
+      !stage6.includes('skills/shared/project-status-assets'),
+      'stage-6 must not reference the raw source asset path'
     );
   });
 
@@ -787,21 +828,38 @@ describe('project skill (unified router + lazy assets)', () => {
 
   it('project-create-plan wires DESIGN to atomic-skills:brainstorm with a PLAN precondition (R-ORCH-07/08/09)', () => {
     install();
-    const content = readAsset('project-create-plan.md');
-    // DESIGN is owned by brainstorm; the superpowers delegation is removed (R-ORCH-08).
-    assert.match(content, /## DESIGN integration \(brainstorm\)/);
-    assert.match(content, /atomic-skills:brainstorm/);
-    assert.ok(!/superpowers:brainstorm/.test(content), 'must not delegate to superpowers:brainstorm');
-    assert.ok(!/superpowers:write-execution-plan/.test(content), 'must not delegate to superpowers:write-execution-plan');
-    // PLAN refuses without an approved, lint-clean design.md (R-ORCH-09).
-    assert.match(content, /PLAN precondition/);
-    assert.match(content, /lint-design\.js/);
-    assert.match(content, /HARD-BLOCKS/);
+    const router = readAsset('project-create-plan.md');
+    const stage2 = readAsset('new-plan/stage-2.md');
+    const stage3 = readAsset('new-plan/stage-3.md');
+    const stage4 = readAsset('new-plan/stage-4.md');
+    // DESIGN is owned by brainstorm (stage-2); superpowers is not a delegate.
+    assert.match(stage2, /atomic-skills:brainstorm/);
+    assert.ok(!/superpowers:brainstorm/.test(router + stage2), 'must not delegate to superpowers:brainstorm');
+    assert.ok(!/superpowers:write-execution-plan/.test(router + stage2), 'must not delegate to superpowers:write-execution-plan');
+    // PLAN refuses without an approved, lint-clean design.md (R-ORCH-09) — Stage 4.
+    assert.match(stage4, /PLAN precondition/);
+    assert.match(stage4, /lint-design\.js/);
+    assert.match(stage4, /HARD-BLOCKS|HARD-BLOCK/);
+    // Multi-phase always Interview + research-digest + debate --gate (no skip ladder).
+    assert.match(stage2, /Interview/);
+    assert.match(stage2, /research-digest/);
+    assert.match(stage2, /debate --gate/);
+    assert.doesNotMatch(stage2, /only when ≥2 viable approaches AND/);
     // superpowers survives only as an optional detect-and-degrade RENT probe (R-SP-27/28).
-    assert.match(content, /command -v superpowers/);
-    assert.match(content, /RENT probe/);
-    assert.match(content, /minimal-source\.template\.md/);
-    assert.match(content, /never errors out because superpowers is absent/);
+    assert.match(stage2, /command -v superpowers/);
+    assert.match(stage2, /RENT probe/);
+    assert.match(stage3, /minimal-source\.template\.md/);
+    assert.match(stage2, /brainstorm owns DESIGN|never delegated to superpowers/);
+  });
+
+  it('project-create-plan Stage 6 businessIntent is draft-and-ratify not blank user spine', () => {
+    install();
+    const stage6 = readAsset('new-plan/stage-6.md');
+    assert.match(stage6, /draft-and-ratify/);
+    assert.match(stage6, /drafts the five-field `businessIntent` spine|Drafted/);
+    assert.match(stage6, /Aprovar draft|Ajustar|Cancelar/);
+    assert.doesNotMatch(stage6, /must not pre-fill the five fields/);
+    assert.doesNotMatch(stage6, /Collect the user-written `businessIntent` spine for F0/);
   });
 
   it('project-create-plan documents the adopt flow in detail', () => {
@@ -811,7 +869,7 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /Validate the input/);
     assert.match(content, /Collision check/);
     assert.match(content, /Preview \+ explicit confirmation/);
-    assert.match(content, /materializeDecomposition/);
+    assert.match(content, /materialize|decompose-plan\.js" materialize/);
     assert.match(content, /roll back/);
     assert.match(content, /Failure-mode summary/);
   });

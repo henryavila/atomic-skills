@@ -85,7 +85,7 @@ Compact index (name · one-liner · Iron Law).
 | 🎯 | [`hunt`](docs/skills/hunt.md) | Adversarial tests from the spec, not the code — depth over breadth | `NO HUNT WITHOUT BOUNDED SCOPE.` |
 | 🚀 | [`parallel-dispatch`](docs/skills/parallel-dispatch.md) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
 | 👁️ | [`parallel-dispatch-audit`](docs/skills/parallel-dispatch-audit.md) | Verify each batch deliverable on disk; fix or escalate with evidence | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.` |
-| 💡 | [`brainstorm`](docs/skills/brainstorm.md) | Diverge, decide, then write a critic-gated design.md before any plan | `NO PLAN WITHOUT AN APPROVED DESIGN.` |
+| 💡 | [`brainstorm`](docs/skills/brainstorm.md) | Interview, research, debate --gate, then critic-gated design.md | `NO PLAN WITHOUT AN APPROVED DESIGN.` |
 | 🎨 | [`design-brief`](docs/skills/design-brief.md) | Generate DS + screens prompts for a design agent, contamination-free | `NEVER SILENCE BEHAVIOUR OR PHILOSOPHY — SILENCE IS FOR VISUAL FORM ONLY.` |
 | 🎭 | [`debate`](docs/skills/debate.md) | Roundtable of independent subagent personas for divergent thinking | `NO SYNTHESIS WITHOUT INDEPENDENT VOICES.` |
 | ⚙️ | [`implement`](docs/skills/implement.md) | Drive plan tasks to done; AS slug or path/to/plan.md; automate default | `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).` |

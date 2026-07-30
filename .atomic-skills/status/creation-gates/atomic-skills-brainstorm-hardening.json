@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "brainstorm-hardening",
+  "projectId": "atomic-skills",
+  "sourcePath": "projects/atomic-skills/brainstorm-hardening/source.md",
+  "stage": "ready",
+  "businessIntentAccepted": true,
+  "status": "ready",
+  "updatedAt": "2026-07-30T13:54:57Z"
+}
