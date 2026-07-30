@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: brainstorm-hardening
 title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
-status: done
+status: archived
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T17:47:41.000Z
+lastUpdated: 2026-07-30T17:50:58.000Z
 branch: plan/brainstorm-hardening
 currentPhase: F3
 executionMode: automate
@@ -372,7 +372,10 @@ phases:
       verifiedAt: 2026-07-30T17:38:25.000Z
       packagePresentedAt: 2026-07-30T17:38:25.000Z
       packagePath: .atomic-skills/reviews/decision-package-brainstorm-hardening-F3.md
-references: []
+references:
+  - kind: url
+    path: https://github.com/henryavila/atomic-skills/pull/40
+    label: "PR #40"
 planTitle: Brainstorm hardening — process package for DESIGN front-half
 planEndReview:
   mode: external-both
