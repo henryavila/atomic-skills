@@ -172,6 +172,21 @@ phases:
         8 review-plan rewrite
       doneWhen: "G-F1-1 green: lint-design rejects a design missing Interview or
         Non-goals or Context; tests cover missing sections"
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-brainstorm-hardening-F1.md
+      verifiedAt: 2026-07-30T16:53:08.003Z
+      at: 090b5d7fac54811950dda0f2eaee60ed5f12d008
+    lessonsState: none
+    reviewGate:
+      status: passed
+      mode: both
+      at: 090b5d7fac54811950dda0f2eaee60ed5f12d008
+      verifiedAt: 2026-07-30T16:59:34.872Z
+      reviewFile: .atomic-skills/reviews/2026-07-30-both-brainstorm-hardening-F1.md
+      localReceiptPath: .atomic-skills/reviews/2026-07-30-local-brainstorm-hardening-F1.md
+      codexReceiptPath: .atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening-F1.md
   - id: F2
     slug: brainstorm-hardening-f2-receipts-stage-assert-create-plan-split
     title: Receipts, stage assert, create-plan split, Stage 4 wire
