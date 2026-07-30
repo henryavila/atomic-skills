@@ -11,47 +11,60 @@ Sintomas (ground truth):
 - `scripts/lint-design.js` exige apenas `Decisions` + `Chosen approach` (+ `Blast radius` se `--migration`). `Context` e `Non-goals` são soft.
 - Não existe `skills/shared/brainstorm-assets/`.
 - Não há receipt de processo de DESIGN (só o doc + critic).
+- **`project-create-plan.md` é monólito** — carregar tudo no context aumenta a chance de o agente ignorar o meio.
+- **businessIntent “must not pre-fill”** está errado de produto: o padrão correto é **draft-and-ratify** (agente drafta, user valida) — já usado em `materialize` / `new initiative`.
+- **Gap maior:** o agente não segue fielmente a skill; **mais texto piora** a fidelidade. Melhora real = stages fatiados + exit codes, não mais Red Flags.
 
 Referência externa: BMAD brainstorming / product-brief (facilitador + HALT + research digests + coach≠quiz) — portar **mecanismos**, não technique CSV nem meta de 100+ ideas.
 
-Este design fixa o WHAT/WHY e a abordagem escolhida para endurecer o brainstorm **sem** mudar Stage 8 (`review-plan`) nem lanes isentas (ad-hoc / single-task / `adopt`).
+Este design fixa o WHAT/WHY e a abordagem escolhida para endurecer o brainstorm **e** a fidelidade de execução de `new plan` **sem** mudar Stage 8 (`review-plan`) nem lanes isentas (ad-hoc / single-task / `adopt`).
 
 ## Interview
 
-**Ratificado com o usuário (sessão `project new plan brainstorm-hardening`, 2026-07-30).**
+**Ratificado com o usuário (sessão `project new plan brainstorm-hardening`, 2026-07-30 + follow-up fidelidade).**
 
 | Campo | Conteúdo ratificado |
 |-------|---------------------|
-| **Problema** | Brainstorm fraco: sem entrevista, debate condicional, sem enforcer de processo |
-| **In-scope** | (1) Entrevista obrigatória B0 com eco+ratify; (2) research via subagents com digests (**repo only**); (3) `debate --gate` **sempre** no multi-phase; (4) lints + enforcers zero-token; (5) lazy `brainstorm-assets/` |
-| **Out-of-scope** | Technique CSV BMAD; 100+ ideas; advanced-elicitation skill; session-resume multi-dia; mudar Stage 8 review-plan; debate em ad-hoc/adopt; research **web**; skip oficial de debate no multi-phase |
-| **Done-when (design)** | `design.md` lint-clean + critic Approved + user approval → handoff a decompose |
-| **Stakes** | Muda o contrato de todo `new plan` multi-phase (comportamento de agente + gates); one-way door de **processo** (expectativa do operador), não de schema de dados |
-| **Fork principal** | Always debate (kill skip ladder) |
-
-Proof-of-work: slug, objetivo, multi-select IN, OUT (incl. no-web), fork de debate e síntese pós-painel ratificados via `ask_user_question` — não genérico “ok”.
+| **Problema** | Brainstorm fraco + agente ignora skill; monólito + “must not pre-fill” BI errado |
+| **In-scope** | (1) Entrevista B0; (2) research digests repo-only; (3) debate always; (4) lints/enforcers/receipts; (5) lazy brainstorm-assets; (6) **BI draft-and-ratify**; (7) **new-plan router fino + stage-N.md**; (8) **creation-gates.stage monotônico + assert-creation-stage** |
+| **Out-of-scope** | Technique CSV BMAD; 100+ ideas; advanced-elicitation; session-resume multi-dia; mudar Stage 8; debate em ad-hoc/adopt; research web; skip debate multi-phase; “polícia” LLM re-lendo a skill inteira |
+| **Done-when (design)** | design lint-clean + critic Approved + user approval |
+| **Stakes** | One-way door de **processo** (expectativa do operador em todo multi-phase new plan) |
+| **Fork principal** | Always debate; fidelity via **stage files + exit codes**, não mais prosa |
 
 ## Decisions
 
-1. **Interview first (HARD).** Antes de research e debate, o multi-phase brainstorm **entrevista** o usuário (problema, in-scope, out-of-scope/non-goals, done-when do design, stakes, fontes). Eco + ratify; genérico “ok/yes/lgtm” **não** conta. O conteúdo ratificado vira seções canônicas no `design.md` (`## Interview` e alimenta `## Context` / `## Non-goals`). Template e script de perguntas vivem em `skills/shared/brainstorm-assets/interview.md` (lazy).
+1. **Interview first (HARD).** Antes de research e debate, o multi-phase brainstorm **entrevista** o usuário (problema, in-scope, out-of-scope/non-goals, done-when do design, stakes, fontes). Eco + ratify; genérico “ok/yes/lgtm” **não** conta. Conteúdo ratificado → seções no `design.md` (`## Interview` + Context / Non-goals). Template lazy: `skills/shared/brainstorm-assets/interview.md`.
 
-2. **Debate is always-on for multi-phase DESIGN.** Remover o DESIGN gate ladder que pula o painel. Multi-phase brainstorm **sempre** invoca `atomic-skills:debate --gate` com agenda = decision questions do frame. Debate permanece **ACTOR**; critic + usuário decidem. Lanes ad-hoc / single-task / `adopt` **permanecem** isentas de DESIGN (R-ORCH-03) — sem debate forçado lá.
+2. **Debate is always-on for multi-phase DESIGN.** Remover o ladder de skip. Multi-phase **sempre** `atomic-skills:debate --gate`. Debate = ACTOR; critic + user decidem. Ad-hoc / single-task / `adopt` **permanecem** isentos (R-ORCH-03).
 
-3. **Anti-theater no debate.** Receipt / synthesis exige `ready_for_validation: yes` e evidência de contrarian. **Barra objetiva (v1):** se o frame listou ≥2 abordagens, `## Rejected alternatives` deve conter ≥1 entrada nomeada **ou** a synthesis `dissent[]` deve ter ≥1 objection não vazia. Se o frame listou 1 abordagem, o contrarian ainda roda e o receipt grava `single_approach: true` + a objection do contrarian (aceita ou rejeitada com razão em Rejected alternatives ou Decisions). Três vozes que só concordam **sem** dissent/rejected **não** fecham o gate de processo.
+3. **Anti-theater no debate.** `ready_for_validation: yes` + contrarian. **Barra v1:** se ≥2 abordagens no frame → ≥1 `Rejected alternatives` **ou** `dissent[]` não vazio; se 1 abordagem → contrarian ainda roda + `single_approach: true` + objection registrada. Três vozes que só concordam sem dissent/rejected **não** fecham o gate.
 
-4. **Research repo com digest (HARD no multi-phase).** Sempre ≥1 subagent de recon no repo; parent recebe digest com paths + claims (ou `assumed:` explícito). **Sem research web** neste plano. Prompt/schema do digest em `brainstorm-assets/research.md`. **Barra objetiva de digest fraco (v1):** falha se (a) zero caminhos de repo citados, **ou** (b) menos de 3 bullets não-placeholder, **ou** (c) só filler (`ok`/`lgtm`/`README`). Path canônico do digest: `projects/<id>/<slug>/research-digest.md` (referenciado no receipt).
+4. **Research repo com digest (HARD no multi-phase).** ≥1 subagent repo; digest em `projects/<id>/<slug>/research-digest.md`. **Sem web.** **Fraco se:** zero paths, ou menos de 3 bullets úteis, ou só filler. Schema em `brainstorm-assets/research.md`.
 
 5. **Enforcers determinísticos (presença + qualidade + receipt).**  
-   - Expandir `lint-design.js`: seções **sempre** obrigatórias passam a incluir `Context`, `Non-goals`, e `Interview` (além de Decisions + Chosen approach; Blast radius continua migration-only).  
-   - Novo `find-missing-design-process.js`: receipt `design-gates/<projectId>-<slug>.json` com campos mínimos (`interviewAccepted`, `debateGate`, `researchDigest`, `criticVerdict`, `userApproved`, `status`).  
-   - Novo `find-weak-design.js`: soft-language G2, non-goals não eco de decisions, context/interview com comprimento mínimo, digest sem paths.  
-   - **Wire:** `project new plan` Stage 4 (e handoff do brainstorm) HARD-BLOCK se lint ou process detectors falharem.
+   - `lint-design.js`: sempre exige Context, Non-goals, Interview (+ Decisions, Chosen approach; Blast radius migration-only).  
+   - `find-missing-design-process.js` + `design-gates/<projectId>-<slug>.json` (`interviewAccepted`, `debateGate`, `researchDigest`, `criticVerdict`, `userApproved`, `status`).  
+   - `find-weak-design.js`: G2, non-goals ≠ echo, min length, digest fraco.  
+   - Wire Stage 4 create-plan + brainstorm B5 HARD-BLOCK.
 
-6. **Skill thin + lazy assets.** `brainstorm.md` = Iron Laws, ordem B0→B0b→B0c→B1→B2→B3→B4→B5, lista de enforcers. Detalhe de entrevista/research/receipt em `skills/shared/brainstorm-assets/{interview,research,process-receipt}.md`.
+6. **Skill thin + lazy assets (brainstorm).** `brainstorm.md` = Iron Laws + ordem B0→B5 + lista de enforcers. Detalhe em `brainstorm-assets/{interview,research,process-receipt}.md`.
 
-7. **Grandfathering.** Designs **novos** fail-closed. Isenções = lanes já documentadas (ad-hoc / single-task / `adopt`). Sem flag `grandfathered` setável pelo agente. Designs legados pré-skill não são migrados em massa neste plano.
+7. **Grandfathering.** Designs novos fail-closed. Isenções = ad-hoc / single-task / `adopt`. Sem flag `grandfathered` setável pelo agente. Sem migração em massa de designs legados.
 
-8. **Sem mudança em Stage 8.** Review do plano materializado continua `review-plan` (internal / ground-truth / cross-model). Debate não substitui review-plan.
+8. **Sem mudança em Stage 8.** Continua `review-plan` (internal / ground-truth / cross-model). Debate ≠ review-plan.
+
+9. **businessIntent = draft-and-ratify (HARD).** O agente **sempre** drafta a spine (`value`, `workflow`, `rules`, `outOfScope`, `doneWhen`) e apresenta via `{{ASK_USER_QUESTION_TOOL}}` para o user **Aprovar draft / Ajustar / Cancelar**. **Remover** a regra “must not pre-fill” / “user writes from blank” de `project-create-plan` Stage 6. Proof-of-work = ratify explícito do bloco (não “ok” genérico sem spine). Alinha com `materialize` / `new initiative`. Qualidade continua em `find-weak-business-intent`.
+
+10. **new plan = router fino + stage files (HARD, anti-ignore).** `project-create-plan.md` deixa de ser monólito load-bearing. Vira **router** (~1 tela): lista de estágios 1–9 + “leia **só** `project-assets/new-plan/stage-N.md` do estágio atual”. Cada stage file: **Contract (≤5 linhas)** + asks + commands + advance. Detalhe longo (schema, rationalization walls) fica lazy ou em KB — **não** no path quente. **Motivação:** quanto mais texto no hot path, maior a chance de o agente ignorar partes.
+
+11. **creation-gates.stage monotônico + assert-creation-stage (HARD).** O JSON `.atomic-skills/status/creation-gates/<projectId>-<slug>.json` carrega `stage` com ordem fixa (ex.: `slug → design → source → decompose-confirm → bi-ratified → materialized → summaries → reviews → ready`). Script `scripts/assert-creation-stage.js` (e helpers em `scripts/creation-gates.js` se couber):  
+    - recusa avançar se o estágio atual não fechou (receipt fields / files);  
+    - recusa declarar `ready` sem sequência;  
+    - Stage 6/9 e resume leem esse stage como autoridade (já parcialmente previsto no creation-gate record).  
+    Agente pode pular prosa; **não** fecha o plano sem o script exit 0.
+
+12. **Fidelidade = prova, não volume de Red Flags.** Não adicionar paredes de rationalization como mecanismo principal. Cada Iron Law nova deste plano tem **1 exit code** ou **1 campo de receipt**. Pressure-tests documentam escapes (skip interview, skip debate, skip stage, more-text-worse) mapeados a detector/fail — não a “lembre-se do parágrafo”.
 
 ## Chosen approach
 
@@ -59,67 +72,65 @@ Proof-of-work: slug, objetivo, multi-select IN, OUT (incl. no-web), fork de deba
 
 | # | Abordagem | Resumo |
 |---|-----------|--------|
-| A | **Prosa-only skill rewrite** | Reescrever `brainstorm.md` com interview + always-debate; sem novos scripts | Rápido; agentes pulam — o bug original |
-| B | **Lint-only** | Expandir `lint-design` (Non-goals/Context/Interview) + skill rewrite; sem receipt | Barato; não prova debate/research |
-| C | **Full process package (escolhida)** | Skill rewrite + lazy assets + always debate + research digests + lint expand + design-gates receipt + find-missing/weak + wire Stage 4 | Cobre presença e processo; custo de implementação e tokens no happy path |
-| D | **BMAD-port profundo** | Technique library, session resume, advanced elicitation | Fora de escopo; dilui o job de DESIGN |
+| A | Prosa-only skill rewrite | Mais instruções; agentes pulam |
+| B | Lint-only | Doc ok, processo não |
+| C | **Full process + fidelity package (escolhida)** | Interview/debate/research + lints/receipts + **router/stage files** + **assert-creation-stage** + **BI draft-and-ratify** |
+| D | BMAD-port profundo | Non-goal |
+| E | Subagent “polícia” re-lê skill | Caro, não prova estado; rejeitado |
 
-### Recomendação: **C**, com mitigações do painel
+### Recomendação: **C**
 
-- **Interview no `design.md`** (não `interview.md` irmão) — uma superfície canônica; template lazy.  
-- **Stack enforcer enxuto mas real:** 1 lint de seções + 1 receipt de processo + 1 quality weak — não cinco detectors cosméticos.  
-- **Research always no multi-phase** (usuário) com anti-digest-vazio (Kai/Aria).  
-- **Always debate** (usuário) com anti-theater (Kai), sem escape `debate: skipped` no multi-phase.
-
-### Por quê não A/B/D
-
-- A: disciplina soft — falha sob pressão de token (pressure-tests Inc3 já mostraram escapes).  
-- B: `Non-goals` no doc sem prova de interview/debate.  
-- D: non-goal explícito.
+- Interview em seções do `design.md`; template lazy.  
+- Enforcer enxuto: lint + design-gates + weak + **creation stage assert**.  
+- Research always multi-phase (repo-only) + anti-digest-vazio.  
+- Always debate + anti-theater.  
+- **Menos monólito, mais stage file + exit code.**
 
 ## Blast radius
 
 | Superfície | Impacto | Contenção |
 |------------|---------|-----------|
-| Todo `project new plan` multi-phase | Mais turns (interview + research + debate) | Só multi-phase; ad-hoc/adopt intactos |
-| `lint-design.js` | Designs antigos sem Interview/Non-goals/Context falham se re-lintados no hot path | Stage 4 só no create; legado não re-lintado em massa; `adopt` isento de DESIGN |
-| `project-create-plan.md` Stage 2/4 | Texto do ladder e preconditions | Diff localizado + testes de string em `project.test.js` |
-| Token cost | Debate+research sempre | Digest repo-only; sem web; **v1 bound:** 1 round gate-mode (3 vozes + contrarian framing) fecha se anti-theater passa — sem 2º round obrigatório; anti-theater evita rounds extras performáticos |
-
-Não é migração de dados/schema de plan/initiative. Processo de agente + lints + receipts.
+| Todo `project new plan` multi-phase | Mais turns + stage discipline | Só multi-phase; adopt/ad-hoc intactos |
+| `lint-design.js` | Designs re-lintados no hot path | Stage 4 create; legado sem mass re-lint; adopt isento DESIGN |
+| `project-create-plan.md` | Split em router + stage-N | Diff grande mas localizado; testes de string/wiring |
+| creation-gates schema | Campo `stage` monotônico | Versionar schema 0.1; resume lê stage |
+| Token / context | Stage file só do passo atual | **Reduz** carga vs monólito |
+| BI UX | Draft agent + ratify user | Mais barato que blank prompt |
 
 ## Non-goals
 
 - Portar BMAD technique CSV, 100+ ideas, progressive technique flow  
 - Nova skill `advanced-elicitation`  
-- Session-resume multi-dia com `stepsCompleted` estilo BMAD  
-- Alterar Stage 8 (`review-plan` internal/gt/cross-model)  
-- Forçar debate em ad-hoc, single-task ou `adopt`  
-- Research web / market recon  
-- Escape hatch `debate: skipped` no multi-phase  
-- Migrar em massa designs legados para o novo formato  
-- Substituir o critic por consenso de painel  
+- Session-resume multi-dia estilo BMAD  
+- Alterar Stage 8 (`review-plan`)  
+- Forçar debate em ad-hoc / single-task / `adopt`  
+- Research web  
+- Escape `debate: skipped` no multi-phase  
+- Migrar em massa designs legados  
+- Substituir critic por consenso de painel  
+- LLM-polícia que re-lê a skill inteira a cada turno  
+- Engordar Red Flags como substituto de detector  
 
 ## Rejected alternatives
 
-| Alternativa | Quem | Por que rejeitada |
-|-------------|------|-------------------|
-| `interview.md` arquivo canônico separado | Aria | Cargo-cult + drift; usuário ratificou seções no design (Marco + síntese) |
-| Lint-only no hot path (sem receipt) | Marco | Não prova interview/debate/research; usuário exigiu enforcers de processo |
-| Research condicional (só se tocou repo) | Marco | Usuário ratificou research digests como IN; mitiga-se com anti-weak digest, não skip |
-| Ladder invertido / skip com motivo | (opção de fork) | Usuário escolheu always debate; skip oficial reabre o buraco |
-| Always-3-full-rounds de debate | — | Overkill; 1 round gate-mode com contrarian + anti-theater basta no v1 |
-| BMAD-port profundo (D) | — | Non-goal; dilui DESIGN |
+| Alternativa | Por que rejeitada |
+|-------------|-------------------|
+| `interview.md` canônico separado | Drift; seções no design.md |
+| Lint-only / prosa-only | Não prova processo |
+| Research condicional | User ratificou always repo digest |
+| Ladder / skip debate | User chose always |
+| BI blank-prompt (“must not pre-fill”) | Errado de produto; draft-and-ratify |
+| Manter create-plan monólito + mais seções | Aumenta ignore rate |
+| Polícia LLM re-read skill | Sem prova; custo alto |
 
 ## Open questions
 
-1. **Schema exato do receipt** (`design-gates/*.json`) — campos mínimos já decididos (`interviewAccepted`, `debateGate`, `researchDigest`, `criticVerdict`, `userApproved`, `status`); extensões opcionais na task de implementação. **Ordem de ship:** definir schema + fixtures **antes** de ligar HARD-BLOCK no Stage 4 (senão o gate vira no-op ou arbitrário).  
-2. **Research digest path:** decidido em Decisions §4 → `projects/<id>/<slug>/research-digest.md`.  
-3. **Critic tier:** **non-change** (já em Non-goals / `critic.md`); não reabrir.  
-4. **Lista explícita de isenções no detector** (ad-hoc / adopt / single-task) — sim na implementação de `find-missing-design-process` para não false-positive; detalhe de wiring na task, não na decisão de produto.
+1. **Nomes exatos dos stages** no enum monotônico — fechar na task de `assert-creation-stage` com fixture.  
+2. **Quantos stage-N.md** (um por Stage 1–9 vs agrupar 8a/8a2/8b) — preferência v1: **um arquivo por Stage 1–9**; 8a/8a2/8b seções no `stage-8.md` (um load).  
+3. **Onde mora o router** — `project-create-plan.md` vira o router (in-place) vs novo `project-create-plan-router.md` + shim; preferência: **in-place thin** + `project-assets/new-plan/stage-*.md` para não quebrar paths de teste existentes.  
 
 ## Self-review against code-quality gates
 
-- **G1 read-before-claim:** applied — claims sobre skip ladder e lint REQUIRED citam `skills/core/brainstorm.md` B1 e `scripts/lint-design.js` REQUIRED (digest de recon 2026-07-30).  
-- **G2 soft-language:** applied — 0 hedges de ban list no corpo de Decisions/Approach.  
-- **G6 reference-or-strike:** applied — comportamento atual verificado por explore agents nos paths listados em Context; decisões novas marcadas como design (não “já existe no código”).
+- **G1 read-before-claim:** applied — sintomas citam brainstorm B1, lint-design REQUIRED, create-plan monólito (sessão 2026-07-30).  
+- **G2 soft-language:** applied.  
+- **G6 reference-or-strike:** decisões novas = design; comportamento atual verificado na sessão de create.

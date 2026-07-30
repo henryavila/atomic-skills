@@ -5,7 +5,7 @@ title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
 status: active
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T13:42:45.458Z
+lastUpdated: 2026-07-30T14:14:45.028Z
 branch: plan/brainstorm-hardening
 currentPhase: F0
 parallelismAllowed: false
@@ -27,62 +27,85 @@ principles:
   - id: P5
     title: No Stage 8 rewrite
     body: plan review remains `review-plan`; this plan only hardens DESIGN.
+  - id: P6
+    title: Fidelity via stage files + exit codes
+    body: less hot-path text, more assert scripts; more skill prose increases ignore
+      rate.
 glossary:
   - term: multi-phase DESIGN
     definition: Full brainstorm path used by `project new plan` (not ad-hoc / adopt)
   - term: design-gates receipt
-    definition: JSON under
-      `.atomic-skills/status/design-gates/<projectId>-<slug>.json` proving
-      interview+research+debate+critic+user
+    definition: JSON under `.atomic-skills/status/design-gates/<projectId>-<slug>.json`
   - term: research-digest
-    definition: "`projects/<id>/<slug>/research-digest.md` with ≥3 non-placeholder
-      bullets and ≥1 repo path"
+    definition: "`projects/<id>/<slug>/research-digest.md` with enough
+      non-placeholder bullets and at least one repo path"
   - term: anti-theater
-    definition: "Gate rule: contrarian + dissent/rejected-alternatives when ≥2 approaches"
+    definition: Contrarian + dissent or rejected alternatives when two or more approaches
+  - term: draft-and-ratify
+    definition: Agent drafts businessIntent spine; user approves or edits via
+      AskUserQuestion
+  - term: creation stage
+    definition: Monotonic `stage` field on creation-gates JSON; advanced only by
+      assert-creation-stage
+  - term: stage file
+    definition: "`skills/shared/project-assets/new-plan/stage-N.md` loaded only for
+      the current stage"
 phases:
   - id: F0
-    slug: brainstorm-hardening-f0-skill-rewrite-and-lazy-assets
-    title: Skill rewrite and lazy assets
-    summary: Reescreve brainstorm com entrevista, research e debate always + assets lazy
+    slug: brainstorm-hardening-f0-skill-rewrite-bi-contract-lazy-assets
+    title: Skill rewrite, BI contract, lazy assets
+    summary: Brainstorm always + assets + BI draft-and-ratify no create-plan
     goal: Multi-phase brainstorm always runs interview then repo research digest
       then debate --gate then user ratify then write then critic; kill skip
-      ladder; thin skill body plus brainstorm-assets.
+      ladder; thin brainstorm body plus brainstorm-assets; create-plan Stage 2
+      matches; businessIntent is draft-and-ratify not blank prompt.
     dependsOn: []
     subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: G-F0-1
-          description: brainstorm.md has no skip-ladder phrase and always-debate plus
-            interview plus research steps are present; brainstorm-assets dir
-            exists
+          description: brainstorm.md has no skip-ladder; interview research debate always;
+            brainstorm-assets exist
           status: pending
           verifier:
             kind: shell
-            command: "! rg -q 'Run a panel ONLY when|skip the panel|skip straight to B2|skip straight to B3' skills/core/brainstorm.md && rg -q 'debate --gate' skills/core/brainstorm.md && rg -q 'Interview|entrevista' skills/core/brainstorm.md && rg -q 'research-digest|B0b' skills/core/brainstorm.md && test -d skills/shared/brainstorm-assets && test -f skills/shared/brainstorm-assets/interview.md"
+            command: "! rg -q 'Run a panel ONLY when|skip the panel|skip straight to B2|skip
+              straight to B3' skills/core/brainstorm.md && rg -q 'debate --gate'
+              skills/core/brainstorm.md && rg -q 'Interview|entrevista'
+              skills/core/brainstorm.md && rg -q 'research-digest|B0b'
+              skills/core/brainstorm.md && test -d
+              skills/shared/brainstorm-assets && test -f
+              skills/shared/brainstorm-assets/interview.md"
         - id: G-F0-2
-          description: project-create-plan Stage 2 text matches always-debate contract and project tests assert it
+          description: create-plan Stage 2 always-debate; BI draft-and-ratify; project
+            tests green
           status: pending
           verifier:
             kind: shell
-            command: "! rg -q 'only when ≥2 viable approaches AND|Run a panel ONLY when' skills/shared/project-assets/project-create-plan.md && rg -q 'debate --gate|Interview|interview' skills/shared/project-assets/project-create-plan.md && rg -q 'always|Interview|debate --gate|find-missing-design-process|brainstorm' tests/project.test.js && node --test tests/project.test.js"
-
+            command: "! rg -q 'only when ≥2 viable approaches AND|must not pre-fill the five
+              fields' skills/shared/project-assets/project-create-plan.md && rg
+              -q 'debate --gate|Interview|interview'
+              skills/shared/project-assets/project-create-plan.md && rg -q
+              'draft-and-ratify|Drafted|drafts the'
+              skills/shared/project-assets/project-create-plan.md && node --test
+              tests/project.test.js"
     status: active
     businessIntent:
-      value: "Operador e agente não pulam entrevista/debate: multi-phase brainstorm
-        deixa de convergir cedo e materializa design com escopo ratificado"
-      workflow: T-001 templates lazy; T-002 brainstorm.md always
-        interview+research+debate; T-003 project-create-plan Stage 2 + tests
-      rules: Sem always-debate no adopt/ad-hoc; skill thin + assets; não implementar
-        detectors F2 nesta fase
-      outOfScope: "Fora: expandir lint-design REQUIRED, design-gates JSON,
-        find-missing/weak, Stage 8 review-plan, research web, technique BMAD"
-      doneWhen: brainstorm sem skip-ladder + debate --gate + brainstorm-assets existe;
-        project.test.js e Stage 2 text verdes
+      value: Operador e agente nao pulam entrevista/debate; new plan vira stage files
+        + exit codes; BI draft-and-ratify
+      workflow: T-001 assets; T-002 brainstorm rewrite; T-003 Stage2 + BI
+        draft-and-ratify
+      rules: Sem always-debate em adopt/ad-hoc; skill thin; detectors e stage split em
+        F2; sem engordar Red Flags
+      outOfScope: "Fora desta fase: lint-design expand, design-gates scripts,
+        assert-creation-stage, stage-N split completo, Stage 8, web research"
+      doneWhen: "G-F0-1 e G-F0-2 verdes: brainstorm always interview/research/debate;
+        create-plan sem must not pre-fill; draft-and-ratify presente"
   - id: F1
     slug: brainstorm-hardening-f1-expand-lint-design-and-skill-docs-contr
     title: Expand lint-design and skill docs contract
-    summary: Expande lint-design para exigir Interview, Context e Non-goals
+    summary: lint-design exige Interview, Context e Non-goals
     goal: lint-design always requires Context, Non-goals, and Interview sections
       with real content; tests lock the contract.
     dependsOn:
@@ -101,12 +124,12 @@ phases:
             pattern: tests/lint-design.test.js
     status: pending
   - id: F2
-    slug: brainstorm-hardening-f2-process-receipt-enforcers-and-stage-4-w
-    title: Process receipt enforcers and Stage 4 wire
-    summary: Receipt design-gates + detectors find-missing/weak e wire no Stage 4
-    goal: design-gates receipt plus find-missing-design-process plus
-      find-weak-design; HARD-BLOCK on create-plan Stage 4 and brainstorm B5
-      handoff; exempt adopt ad-hoc single-task.
+    slug: brainstorm-hardening-f2-receipts-stage-assert-create-plan-split
+    title: Receipts, stage assert, create-plan split, Stage 4 wire
+    summary: Receipts, assert-creation-stage, stage-N split, wire Stage 4
+    goal: design-gates + find-missing/weak-design + assert-creation-stage monotonic;
+      split create-plan into thin router plus new-plan/stage-N.md; HARD-BLOCK
+      Stage 4 and brainstorm B5; exempt adopt ad-hoc single-task.
     dependsOn:
       - F1
     subPhaseCount: 0
@@ -114,30 +137,46 @@ phases:
       summary: 3 criteria to meet
       criteria:
         - id: G-F2-1
-          description: design-gates and detector unit tests pass
+          description: design-gates creation-gates detector and assert-creation-stage unit
+            tests pass
           status: pending
           verifier:
             kind: shell
-            command: node --test tests/design-gates.test.js tests/find-missing-design-process.test.js tests/find-weak-design.test.js
+            command: node --test tests/design-gates.test.js tests/creation-gates.test.js
+              tests/find-missing-design-process.test.js
+              tests/find-weak-design.test.js tests/assert-creation-stage.test.js
         - id: G-F2-2
-          description: Stage 4 and brainstorm B5 HARD-BLOCK on detectors (names + HARD language + detector tests)
+          description: Stage 4 and brainstorm HARD-BLOCK detectors; stage router and
+            stage-6 exist
           status: pending
           verifier:
             kind: shell
-            command: "rg -q 'find-missing-design-process' skills/shared/project-assets/project-create-plan.md && rg -q 'find-weak-design' skills/shared/project-assets/project-create-plan.md && rg -q 'HARD-BLOCK|HARD_BLOCK|find-missing-design-process' skills/shared/project-assets/project-create-plan.md && rg -q 'design-gates|find-missing-design-process' skills/core/brainstorm.md && node --test tests/design-gates.test.js tests/find-missing-design-process.test.js tests/find-weak-design.test.js"
+            command: rg -q 'find-missing-design-process'
+              skills/shared/project-assets/project-create-plan.md && rg -q
+              'find-weak-design'
+              skills/shared/project-assets/project-create-plan.md && test -f
+              skills/shared/project-assets/new-plan/stage-6.md && rg -q
+              'assert-creation-stage'
+              skills/shared/project-assets/project-create-plan.md
+              skills/shared/project-assets/new-plan/stage-6.md && node --test
+              tests/design-gates.test.js
+              tests/find-missing-design-process.test.js
+              tests/find-weak-design.test.js tests/assert-creation-stage.test.js
         - id: G-F2-3
-          description: detectors do not false-positive adopt/ad-hoc/single-task exempt lanes (negative tests)
+          description: detectors do not false-positive adopt/ad-hoc/single-task exempt lanes
           status: pending
           verifier:
             kind: shell
-            command: "rg -q 'adopt|ad-hoc|adhoc|single-task|R-ORCH-03|exempt' tests/find-missing-design-process.test.js && node --test tests/find-missing-design-process.test.js"
+            command: rg -q 'adopt|ad-hoc|adhoc|single-task|R-ORCH-03|exempt'
+              tests/find-missing-design-process.test.js && node --test
+              tests/find-missing-design-process.test.js
     status: pending
   - id: F3
     slug: brainstorm-hardening-f3-dogfood-pressure-tests-announce
     title: Dogfood, pressure tests, announce
-    summary: Pressure-tests, dogfood checklist e nota de onboarding
-    goal: Prove the hardened path on a dry-run checklist; pressure-test skip
-      escapes; update onboarding brief Stage 2 text.
+    summary: Pressure-tests de fidelidade + dogfood + onboarding
+    goal: Pressure-test skip escapes and more-text-worse; dogfood checklist includes
+      stage router and draft-and-ratify; onboarding Stage 2 text updated.
     dependsOn:
       - F2
     subPhaseCount: 0
@@ -145,12 +184,20 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-F3-1
-          description: pressure-tests and dogfood checklist exist and reference the new
-            gates
+          description: pressure-tests and dogfood checklist exist and reference new gates
+            including assert-creation-stage
           status: pending
           verifier:
             kind: shell
-            command: "test -f projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md && test -f projects/atomic-skills/brainstorm-hardening/pressure-tests.md && rg -q 'find-missing-design-process|design-gates|Interview|debate' projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md && rg -q 'skip interview|skip debate|empty digest|digest' projects/atomic-skills/brainstorm-hardening/pressure-tests.md"
+            command: test -f
+              projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md
+              && test -f
+              projects/atomic-skills/brainstorm-hardening/pressure-tests.md &&
+              rg -q
+              'find-missing-design-process|design-gates|assert-creation-stage|Interview|debate'
+              projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md
+              && rg -q 'skip interview|skip debate|assert-creation-stage|digest'
+              projects/atomic-skills/brainstorm-hardening/pressure-tests.md
     status: pending
 references: []
 ---
@@ -159,19 +206,20 @@ references: []
 
 ## 1. Context
 
-Enduresce o `atomic-skills:brainstorm` (Stage 2 de `project new plan`): entrevista obrigatória, research repo com digests, `debate --gate` sempre no multi-phase, lints + receipts zero-token, lazy `brainstorm-assets/`. Fonte de verdade: `projects/atomic-skills/brainstorm-hardening/design.md` (critic Approved, user-ratified).
+Endurece brainstorm + fidelidade de new plan: interview, research, debate always, enforcers, BI draft-and-ratify, router fino + stage-N, assert-creation-stage. Design: `projects/atomic-skills/brainstorm-hardening/design.md`.
 
 ## 2. Inviolable principles
 
-- **P1 Process over soft prose** — gate sem script/exit code não é gate.
-- **P2 One canonical design surface** — interview content lives in `design.md`; templates are lazy assets only.
-- **P3 Debate is actor, never judge** — critic + user decide; anti-theater requires dissent or rejected alternatives.
-- **P4 Exempt lanes stay exempt** — ad-hoc / single-task / `adopt` skip DESIGN (R-ORCH-03); enforcers must not false-positive them.
-- **P5 No Stage 8 rewrite** — plan review remains `review-plan`; this plan only hardens DESIGN.
+See frontmatter `principles:`.
 
 ## 3. Phase tree
 
-_(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when running.)_
+_(Canonical list in frontmatter `phases:`.)_
+
+
+## Amendment — fidelity package (2026-07-30)
+
+Incorporated after plan materialization: **BI draft-and-ratify** (Decision 9); **thin router + stage-N.md** (Decision 10); **creation-gates.stage + assert-creation-stage** (Decision 11); **P6 fidelity via exit codes not more prose** (Decision 12). Source tasks T-003 expanded, T-006–T-009, T-010–T-011. Design.md Decisions 9–12.
 
 ## Self-review against code-quality gates
 
@@ -182,14 +230,14 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 ## Reviews
 - cross-model (codex): needs_changes→applied | provider=codex | provider_version=codex-cli-0.146.0 | major=4 minor=1 | file=.atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening.md @ uncommitted (2026-07-30T13:54:39Z)
-- ground-truth: complete | mode=ground-truth | fp=148164380611 | premises=5 | impacts=3 @ uncommitted (2026-07-30T13:54:40Z)
+- ground-truth: complete | mode=ground-truth | fp=3f427e2827c6 | premises=5 | impacts=3 @ uncommitted (2026-07-30T14:15:53Z)
 - internal: clean | mode=local | major=0 @ uncommitted (2026-07-30T13:44:22Z)
 
 
 ## Ground-truth review
 
 **Status:** complete
-**Scanned:** skills/core/brainstorm.md, skills/shared/project-assets/project-create-plan.md, scripts/lint-design.js, tests/lint-design.test.js, tests/project.test.js, docs/skills/brainstorm.md, docs/design/project-onboarding/html-design-brief.md; plan creates scripts/design-gates.js, find-missing-design-process.js, find-weak-design.js (not existence premises)
+**Scanned:** skills/core/brainstorm.md, skills/shared/project-assets/project-create-plan.md, scripts/lint-design.js, tests/lint-design.test.js, tests/project.test.js, docs/skills/brainstorm.md, docs/design/project-onboarding/html-design-brief.md; plan creates scripts/design-gates.js, creation-gates.js, find-missing-design-process.js, find-weak-design.js, assert-creation-stage.js, new-plan/stage-*.md (not existence premises)
 
 ### A — Plan premises vs code
 | Premise | Result | Evidence |

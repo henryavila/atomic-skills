@@ -9,7 +9,7 @@
       "id": "T-004",
       "title": "— Expand lint-design REQUIRED sections",
       "scopeBoundary": [
-        "do not add design-gates receipt logic here; do not change lint-source.js SPEC gate"
+        "do not add design-gates or creation-stage logic here; do not change lint-source.js SPEC gate"
       ],
       "acceptance": [
         "REQUIRED always includes Context Non-goals Interview; Decisions and Chosen approach remain; Blast radius stays migration-only; empty bodies fail; tests cover missing Interview Non-goals Context"

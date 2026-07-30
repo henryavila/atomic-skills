@@ -3,20 +3,20 @@
   "phaseId": "F3",
   "slug": "brainstorm-hardening-f3-dogfood-pressure-tests-announce",
   "title": "Dogfood, pressure tests, announce",
-  "goal": "Prove the hardened path on a dry-run checklist; pressure-test skip escapes; update onboarding brief Stage 2 text.",
+  "goal": "Pressure-test skip escapes and more-text-worse; dogfood checklist includes stage router and draft-and-ratify; onboarding Stage 2 text updated.",
   "tasks": [
     {
-      "id": "T-009",
-      "title": "— Pressure-test red-flags for skip-interview and skip-debate",
+      "id": "T-010",
+      "title": "— Pressure-test red-flags for skip paths and fidelity escapes",
       "scopeBoundary": [
         "do not re-run full Inc3 suite; additive scenarios only for this plan"
       ],
       "acceptance": [
-        "file documents at least 3 scenarios skip interview under time pressure skip debate because obvious empty research digest theater; each maps to a Red-Flag or detector fail"
+        "documents at least 5 scenarios including skip interview under time pressure, skip debate because obvious, empty research digest theater, skip creation stage without assert, more text in monólito increases ignore; each maps to a Red-Flag or detector or assert-creation-stage fail"
       ],
       "verifier": {
         "kind": "shell",
-        "command": "test -f projects/atomic-skills/brainstorm-hardening/pressure-tests.md && rg -q 'skip interview|skip debate|empty digest|digest' projects/atomic-skills/brainstorm-hardening/pressure-tests.md"
+        "command": "test -f projects/atomic-skills/brainstorm-hardening/pressure-tests.md && rg -q 'skip interview|skip debate|empty digest|assert-creation-stage|monolito|ignore' projects/atomic-skills/brainstorm-hardening/pressure-tests.md"
       },
       "outputs": [
         {
@@ -26,13 +26,13 @@
       ]
     },
     {
-      "id": "T-010",
+      "id": "T-011",
       "title": "— Dogfood checklist and onboarding note",
       "scopeBoundary": [
-        "do not rewrite entire onboarding HTML; only the new plan / brainstorm stage description; no Stage 8 wording changes required"
+        "do not rewrite entire onboarding HTML; only new plan / brainstorm stage description; no Stage 8 behavior changes"
       ],
       "acceptance": [
-        "dogfood-checklist lists interview research-digest debate critic lint detectors Stage 4; onboarding brief Stage 2 mentions interview and always debate"
+        "dogfood-checklist lists interview research-digest debate critic lint design-gates assert-creation-stage stage-N router draft-and-ratify Stage 4; onboarding brief mentions interview always debate and thin stage process"
       ],
       "outputs": [
         {
@@ -49,10 +49,10 @@
   "exitGates": [
     {
       "id": "G-F3-1",
-      "description": "pressure-tests and dogfood checklist exist and reference the new gates",
+      "description": "pressure-tests and dogfood checklist exist and reference new gates including assert-creation-stage",
       "verifier": {
         "kind": "shell",
-        "command": "test -f projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md && test -f projects/atomic-skills/brainstorm-hardening/pressure-tests.md"
+        "command": "test -f projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md && test -f projects/atomic-skills/brainstorm-hardening/pressure-tests.md && rg -q 'find-missing-design-process|design-gates|assert-creation-stage|Interview|debate' projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md && rg -q 'skip interview|skip debate|assert-creation-stage|digest' projects/atomic-skills/brainstorm-hardening/pressure-tests.md"
       },
       "status": "pending"
     }
