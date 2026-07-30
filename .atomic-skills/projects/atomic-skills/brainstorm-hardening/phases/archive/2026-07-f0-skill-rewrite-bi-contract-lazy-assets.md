@@ -6,11 +6,12 @@ goal: Multi-phase brainstorm always runs interview then repo research digest
   then debate --gate then user ratify then write then critic; kill skip ladder;
   thin brainstorm body plus brainstorm-assets; create-plan Stage 2 matches;
   businessIntent is draft-and-ratify not blank prompt.
-status: active
+status: done
 branch: plan/brainstorm-hardening
 started: 2026-07-30T14:14:45.028Z
-lastUpdated: 2026-07-30T15:55:50.000Z
-nextAction: Run phase-done (after evaluation + lessons + review + decision-review)
+lastUpdated: 2026-07-30T16:42:05.400Z
+nextAction: Operator clearContinue (operator-continue) then present phase-start
+  package for F1
 parentPlan: brainstorm-hardening
 phaseId: F0
 businessIntent:
@@ -25,7 +26,7 @@ businessIntent:
     create-plan sem must not pre-fill; draft-and-ratify presente"
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 3
 weightTotal: 3
@@ -33,7 +34,7 @@ exitGates:
   - id: G-F0-1
     description: brainstorm.md has no skip-ladder; interview research debate always;
       brainstorm-assets exist
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: "! rg -q 'Run a panel ONLY when|skip the panel|skip straight to B2|skip
@@ -42,10 +43,19 @@ exitGates:
         skills/core/brainstorm.md && rg -q 'research-digest|B0b'
         skills/core/brainstorm.md && test -d skills/shared/brainstorm-assets &&
         test -f skills/shared/brainstorm-assets/interview.md"
+    metAt: 2026-07-30T16:42:05.400Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T16:42:05.400Z
+      verifiedCommit: 0f996601001ef281d954f8552ba8e24bde1dea77
+      exitCode: 0
+      passed: true
+      outputSummary: G-F0-1 exit 0 at phase-done
     verifierLabel: "shell: ! rg -q 'Run a panel ONLY when|skip the panel|skip straight…"
+    evidenceSummary: passed · 2026-07-30
   - id: G-F0-2
     description: create-plan Stage 2 always-debate; BI draft-and-ratify; project tests green
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: "! rg -q 'only when ≥2 viable approaches AND|must not pre-fill the five
@@ -55,7 +65,16 @@ exitGates:
         'draft-and-ratify|Drafted|drafts the'
         skills/shared/project-assets/project-create-plan.md && node --test
         tests/project.test.js"
+    metAt: 2026-07-30T16:42:05.400Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-30T16:42:05.400Z
+      verifiedCommit: 0f996601001ef281d954f8552ba8e24bde1dea77
+      exitCode: 0
+      passed: true
+      outputSummary: G-F0-2 exit 0 at phase-done
     verifierLabel: "shell: ! rg -q 'only when ≥2 viable approaches AND|must not pre-fi…"
+    evidenceSummary: passed · 2026-07-30
 stack:
   - id: 1
     title: Skill rewrite, BI contract, lazy assets
@@ -214,3 +233,11 @@ _(plan doc, external refs)_
 - **Single nextAction:** Run evaluation agent for F0, stamp evaluationGate, distill lessons, review-code --mode=both, then decision-review PASS|FAIL, then phase-done.
 - **Verbatim state:** claimReport=.atomic-skills/status/automate/brainstorm-hardening-claims.json; HEAD=$(git rev-parse --short HEAD); assert done exit 0 with base-ref cc60fd46.
 - **Uncommitted changes:** state close paths pending microcommit after refresh-state.
+
+
+## Self-review against code-quality gates (phase-done)
+
+- G1 read-before-claim: exit gates re-ran G-F0-1/G-F0-2 exit 0; claim-bound done evidence on T-001..T-003
+- G2 soft-language: scanned phase close notes; 0 ban-list hedges
+- G6 reference-or-strike: receipts at .atomic-skills/reviews/eval-brainstorm-hardening-F0.md and both review legs
+- **CROSS-MODEL REVIEW**: ran via review-code mode=both (local + codex) at HEAD = 0f996601001e, file=.atomic-skills/reviews/2026-07-30-both-brainstorm-hardening-F0.md

@@ -5,9 +5,9 @@ title: Brainstorm hardening — process package for DESIGN front-half
 version: "1.0"
 status: active
 started: 2026-07-30T13:42:45.458Z
-lastUpdated: 2026-07-30T14:14:45.028Z
+lastUpdated: 2026-07-30T16:42:05.400Z
 branch: plan/brainstorm-hardening
-currentPhase: F0
+currentPhase: F1
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -68,7 +68,7 @@ phases:
         - id: G-F0-1
           description: brainstorm.md has no skip-ladder; interview research debate always;
             brainstorm-assets exist
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: "! rg -q 'Run a panel ONLY when|skip the panel|skip straight to B2|skip
@@ -78,10 +78,18 @@ phases:
               skills/core/brainstorm.md && test -d
               skills/shared/brainstorm-assets && test -f
               skills/shared/brainstorm-assets/interview.md"
+          metAt: 2026-07-30T16:42:40.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-30T16:42:40.000Z
+            verifiedCommit: 0f996601001ef281d954f8552ba8e24bde1dea77
+            exitCode: 0
+            passed: true
+            outputSummary: G-F0-1 exit 0 at phase-done
         - id: G-F0-2
           description: create-plan Stage 2 always-debate; BI draft-and-ratify; project
             tests green
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: "! rg -q 'only when ≥2 viable approaches AND|must not pre-fill the five
@@ -91,7 +99,15 @@ phases:
               'draft-and-ratify|Drafted|drafts the'
               skills/shared/project-assets/project-create-plan.md && node --test
               tests/project.test.js"
-    status: active
+          metAt: 2026-07-30T16:42:40.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-30T16:42:40.000Z
+            verifiedCommit: 0f996601001ef281d954f8552ba8e24bde1dea77
+            exitCode: 0
+            passed: true
+            outputSummary: G-F0-2 exit 0 at phase-done
+    status: done
     businessIntent:
       value: Operador e agente nao pulam entrevista/debate; new plan vira stage files
         + exit codes; BI draft-and-ratify
@@ -118,6 +134,11 @@ phases:
       reviewFile: .atomic-skills/reviews/2026-07-30-both-brainstorm-hardening-F0.md
       localReceiptPath: .atomic-skills/reviews/2026-07-30-local-brainstorm-hardening-F0.md
       codexReceiptPath: .atomic-skills/reviews/2026-07-30-codex-brainstorm-hardening-F0.md
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-07-30T16:40:44.000Z
+      packagePresentedAt: 2026-07-30T16:40:44.000Z
+      packagePath: .atomic-skills/reviews/decision-package-brainstorm-hardening-F0.md
   - id: F1
     slug: brainstorm-hardening-f1-expand-lint-design-and-skill-docs-contr
     title: Expand lint-design and skill docs contract
