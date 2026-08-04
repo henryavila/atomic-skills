@@ -5,13 +5,14 @@ Audit whether **product intent was actually delivered end-to-end** — not wheth
 **Parse {{ARG_VAR}} into mode / axes / out / depth / flags BEFORE any Intent Package file read or report write.**
 
 Accepted shape (must match catalog args):
-`[intent-source] [--mode=audit|audit-and-fix|reaudit] [--axes=…] [--max-fix-rounds=N] [--no-fix] [--out=path]`
+`[intent-source] [--mode=audit|audit-and-fix|reaudit] [--axes=…] [--depth=light|full] [--max-fix-rounds=N] [--no-fix] [--out=path]`
 
 | Token | Default | Meaning |
 |-------|---------|---------|
 | **intent-source** | (empty → ask once) | Path to handoff / plan / design / acceptance doc, OR freeform decision list |
 | **`--mode`** | `audit` | `audit` (**default, read-only** findings report), `reaudit` (re-check report), `audit-and-fix` (optional advanced: in-skill fix loop) |
 | **`--axes`** | `product,residual` | Comma list of audit legs; `backend`/`frontend` remain valid opt-ins |
+| **`--depth`** | `full` | `full` (default): product+residual agents (or equivalent fan-out). `light`: matrix + residual protocol (parent greps OK) — still forbids CLOSED on CRITICAL / residual opt-out / load-bearing NO |
 | **`--max-fix-rounds`** | `2` | Max fix→reaudit loops in `audit-and-fix` |
 | **`--no-fix`** | off | Force read-only even if mode says fix |
 | **`--out`** | `.atomic-skills/reviews/audit-delivery-<slug>-<YYYYMMDD>.md` | Report path |
@@ -23,9 +24,11 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 ## Assets (lazy — read on demand from `{{ASSETS_PATH}}/`)
 
 - {{READ_TOOL}} `{{ASSETS_PATH}}/intent-package.md` — Intent Package template + HARD-GATE admission (Phase 0)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/spec-package.md` — Spec Package strip (anti-success-framing; axis brief criteria only)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/matrices.md` — staged evidence S/C/U/O/T/X, Matrix C must-not, multi-hop RESOLVED bar
 - {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` — domain-agnostic residual protocol (OLD_TERMS × surfaces)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/verdict-gate.md` — CLOSED/PARTIAL/OPEN rules + Accept Record schema (Phase 3)
-- {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2 spawn)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2 spawn; Spec Package only)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md` — fresh-context reaudit brief (Phase 5 / reaudit re-run)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — entry path when `--mode=reaudit` (load report, recover package, append-only)
 
@@ -75,16 +78,22 @@ You are proving **what was promised is present in the running system** (code + o
 | Review a **diff** for logic bugs without product criteria | `atomic-skills:review-code` |
 | One claim + one deterministic command ("tests pass") | `atomic-skills:verify-claim` |
 | Plan premises vs code before implement | `atomic-skills:review-plan --mode=ground-truth` |
+| Plan-end lifecycle inventory only (`intentVsDelivered` rows matched\|partial\|missing\|extra) | Plan-end `review-code --mode=external-both` under automate finalize — **not** a substitute for this skill on phase close |
+| Parallel-dispatch WP correctness / fan-out hygiene | `atomic-skills:parallel-dispatch-audit` |
 | Write adversarial tests for one class | `atomic-skills:hunt` |
 | No decisions / handoff / problems list exists yet | `atomic-skills:brainstorm` or write the handoff first |
+
+**Phase close is hard:** every `phase-done` (Mode-1 + pure-maestro) **requires** a real `audit-delivery` run and durable `deliveryAuditGate` — never tip-only, never skippable. Plan-end `intentVsDelivered` stays separate and is **not** a substitute.
 
 ## Relationship to sibling skills
 
 ```text
 review-code          →  is the PATCH correct?     (intent FORBIDDEN)
-audit-delivery       →  is INTENT delivered?      (intent REQUIRED)
+audit-delivery       →  is INTENT delivered?      (intent REQUIRED)  — hard on phase-done
 verify-claim         →  does THIS verifier pass?  (binary)
 review-plan ground-truth → does the PLAN match the tree?
+plan-end intentVsDelivered → lifecycle inventory at finalize (not system residual audit)
+parallel-dispatch-audit → WP/fan-out audit (not delivery residual)
 ```
 
 Never collapse audit-delivery into a sealed anti-intent briefing. That is the failure mode that made `review-code` look "inferior" for delivery audits.
@@ -120,29 +129,50 @@ Present the Intent Package to the operator in compact form and proceed (no long 
 
 ## Phase 1 — Build matrices (operator, same session)
 
-From the Intent Package, write two matrices (draft into the report file early via {{WRITE_TOOL}}):
+{{READ_TOOL}} `{{ASSETS_PATH}}/matrices.md` for staged columns **S C U O T X**, **Matrix C must-not**, and the **multi-hop** RESOLVED bar. Draft matrices into the report early via {{WRITE_TOOL}}.
 
 ### Matrix A — Decisions
 
-| ID | Decision (verbatim short) | Expected evidence chain | Status | Evidence |
-|----|---------------------------|-------------------------|--------|----------|
-| D1 | … | config → job/service → API → UI → test | ? | |
+| ID | Decision (verbatim short) | Expected evidence chain | S | C | U | O | T | X | Status | Evidence |
+|----|---------------------------|-------------------------|---|---|---|---|---|---|--------|----------|
+| D1 | … | config → job/service → API → UI → test | ? | ? | ? | ? | ? | ? | ? | |
 
 ### Matrix B — Original problems
 
-| ID | Problem | Expected fix shape | Status | Evidence |
-|----|---------|-------------------|--------|----------|
-| P1 | … | … | ? | |
+| ID | Problem | Expected fix shape | S | C | U | O | T | X | Status | Evidence |
+|----|---------|-------------------|---|---|---|---|---|---|--------|----------|
+| P1 | … | … | ? | ? | ? | ? | ? | ? | ? | |
+
+### Matrix C — must-not (negative space)
+
+Seed from non-goals / outOfScope / mustNot / vocabulary OLD. **RESOLVED** = searched-and-absent with evidence (not assumed absent).
+
+| ID | Must NOT | Seed | Status | Evidence |
+|----|----------|------|--------|----------|
+| MN1 | … | non-goals / OLD | ? | |
 
 Status values only: `RESOLVED` | `PARTIAL` | `NO` | `N/A`.
 
 **Evidence bar (G1):** status ≠ empty speculation. Prefer `path:line` from current tree. Agent reports without cites are claims, not evidence — re-read yourself or reject the row as unverified.
 
+**Staged + multi-hop:** **RESOLVED is forbidden** if any **required stage** is `?` or fail. Load-bearing RESOLVED requires **≥2 chain hops** (multi-hop) **or** explicit single-surface waiver. See `matrices.md`.
+
+## Depth (`--depth=full` default | `--depth=light`)
+
+| Depth | Behavior | CLOSED still blocked when |
+|-------|----------|---------------------------|
+| **`full`** (default) | Fan-out product + residual agents (or equivalent full axis set) | CRITICAL residual; residual opt-out/invalid; load-bearing Dn/Pn **NO**; staged/multi-hop bar fails |
+| **`light`** | Matrix A/B/C + residual protocol via **parent greps** OK (agents optional) | Same hard blocks — light **never** allows CLOSED on CRITICAL / residual opt-out / load-bearing **NO** |
+
+`--depth=light` reduces fan-out cost; it does **not** soften the verdict gate.
+
 ## Phase 2 — Fan-out audit agents (parallel)
 
-Spawn **read-only** agents via {{INVESTIGATOR_TOOL}} (explore / read-only capability). One agent per selected axis. Do **not** share findings between parallel legs (prevents anchoring).
+**When `--depth=full` (default):** spawn **read-only** agents via {{INVESTIGATOR_TOOL}} (explore / read-only capability). One agent per selected axis. Do **not** share findings between parallel legs (prevents anchoring).
 
-**Before each leg spawn:** {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md`. Fill `{{AXIS}}`, `{{INTENT_PACKAGE}}`, `{{AXIS_MISSION}}`, and `{{AXIS_CHECKLIST}}` for that leg only. Paste the filled brief as the agent prompt body.
+**When `--depth=light`:** operator may run residual protocol greps in-parent (see residual-hunt-protocol) without full agent fan-out — still fill matrices + ledger.
+
+**Before each leg spawn:** {{READ_TOOL}} `{{ASSETS_PATH}}/spec-package.md` and `{{ASSETS_PATH}}/axis-brief-template.md`. Fill `{{AXIS}}`, `{{INTENT_PACKAGE}}` with the **Spec Package only** (no success narrative / shipping narrative), plus `{{AXIS_MISSION}}` and `{{AXIS_CHECKLIST}}` for that leg only. Paste the filled brief as the agent prompt body.
 
 **Default axes: `product` + `residual`** (not backend/frontend alone).
 
@@ -161,10 +191,10 @@ Add `backend` / `frontend` (or domain axes e.g. `api,worker,admin,docs`) via `--
 
 ### Agent prompt rules (each leg)
 
-1. Paste the **Intent Package** (decisions + problems) — intent is required.
+1. Paste the **Spec Package** (structured Dn/Pn/acceptance/terms — **not** success narrative) — criteria required.
 2. Paste **only that axis checklist** + key file hints if known.
 3. Demand output: checklist table + gaps prioritized CRITICAL/HIGH/MEDIUM/LOW + confidence % + "not verified".
-4. Forbid: applying fixes, rewriting docs as the product, inventing decisions not in the package.
+4. Forbid: applying fixes, rewriting docs as the product, inventing decisions not in the Spec Package, treating green tests alone as RESOLVED.
 5. Adversarial stance: search for incomplete fixes and dual paths, not happy-path confirmation.
 
 ### Operator merge (after all legs return)
@@ -200,16 +230,23 @@ Persist the report with {{WRITE_TOOL}} to `--out` (or default path). Structure:
 # Audit Delivery — <slug>
 **Date:** …
 **Mode:** audit | audit-and-fix | reaudit
+**Depth:** full | light
 **Intent sources:** …
 **Verdict:** CLOSED | PARTIAL | OPEN
 
 ## Intent Package
 …
 
-## Matrix A — Decisions
+## Spec Package (criteria strip — no success narrative)
+…
+
+## Matrix A — Decisions (stages S C U O T X)
 …
 
 ## Matrix B — Problems
+…
+
+## Matrix C — must-not
 …
 
 ## Findings Ledger
@@ -376,6 +413,9 @@ Before declaring the audit complete, append:
 - "The fix agent said done, no need to reaudit"
 - "One more fix round after plateau — it'll converge"
 - "I can invent decisions the handoff never made"
+- "Plan-end intentVsDelivered already ran — skip audit-delivery on phase-done"
+- "Light depth means I can CLOSED with CRITICAL residual"
+- "RESOLVED with one hop and three required stages still ?"
 
 If you thought any of the above: STOP. Return to the phase you were skipping.
 
