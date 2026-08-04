@@ -37,8 +37,8 @@ if the report only stores a path:
 - Problems P1…Pn
 - Non-goals / SSOT paths when present
 
-If recovery yields &lt;2 decisions and &lt;1 problem: **ABORT** (same Intent Package
-gate as a fresh audit).
+If recovery yields fewer than 2 decisions **or** fewer than 1 problem: **ABORT**
+(same Intent Package gate as a fresh audit).
 
 ### 3. Recover Findings Ledger (pre-fix / last open set)
 
