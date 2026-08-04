@@ -1,14 +1,22 @@
 Audit whether **product intent was actually delivered end-to-end** — not whether a git diff looks correct.
 
-If {{ARG_VAR}} is provided, parse it as:
+## Step 0 — Parse {{ARG_VAR}} first (HARD)
+
+**Parse {{ARG_VAR}} into mode / axes / out / depth / flags BEFORE any Intent Package file read or report write.**
+
+Accepted shape (must match catalog args):
 `[intent-source] [--mode=audit|audit-and-fix|reaudit] [--axes=…] [--max-fix-rounds=N] [--no-fix] [--out=path]`
 
-- **intent-source** — path to handoff / plan / design / acceptance doc, OR a freeform decision list. Empty → ask.
-- **`--mode`** — `audit` (default, read-only findings), `audit-and-fix` (orchestrate fixes + reaudit), `reaudit` (re-check an existing findings file).
-- **`--axes`** — comma list of audit legs (default: `backend,frontend,product,residual`). Drop unused legs.
-- **`--max-fix-rounds`** — max fix→reaudit loops in `audit-and-fix` (default `2`).
-- **`--no-fix`** — force read-only even if mode says fix.
-- **`--out`** — report path (default `.atomic-skills/reviews/audit-delivery-<slug>-<YYYYMMDD>.md`).
+| Token | Default | Meaning |
+|-------|---------|---------|
+| **intent-source** | (empty → ask once) | Path to handoff / plan / design / acceptance doc, OR freeform decision list |
+| **`--mode`** | `audit` | `audit` (read-only findings), `audit-and-fix` (orchestrate fixes + reaudit), `reaudit` (re-check existing findings file) |
+| **`--axes`** | `backend,frontend,product,residual` | Comma list of audit legs; drop unused legs |
+| **`--max-fix-rounds`** | `2` | Max fix→reaudit loops in `audit-and-fix` |
+| **`--no-fix`** | off | Force read-only even if mode says fix |
+| **`--out`** | `.atomic-skills/reviews/audit-delivery-<slug>-<YYYYMMDD>.md` | Report path |
+
+Record parsed values in-session. Do **not** open intent sources, spawn auditors, or {{WRITE_TOOL}} the report until this parse completes. Unknown flags → warn and ignore (or abort if ambiguous with intent-source).
 
 This skill is the **intent-vs-delivered** counterpart to `review-code` (blind diff) and the **system-level** counterpart to `verify-claim` (single binary verifier).
 
