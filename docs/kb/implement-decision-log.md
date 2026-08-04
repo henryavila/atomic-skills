@@ -46,5 +46,9 @@ decision-review. No secrets or writer-lease secrets in the log.
 2. Confirm every re-dispatch, skip, disposition, and scope exit has an entry.
 3. Read linked `evidencePath` receipts when non-`none`.
 4. Record **decision-review PASS** (or FAIL) yourself — the agent will not.
+5. Confirm **`audit-delivery` ran** for this phase and `phases[].deliveryAuditGate` is
+   `status: passed` + non-empty `reportPath` + verdict `CLOSED|PARTIAL` (never skipped;
+   plan-end `intentVsDelivered` is not a substitute).
 
 Full contract, append triggers, and helper surface live in the skill asset.
+See also `src/phase-delivery-audit-gate.js` / `docs/kb/automate-orchestrator-realism.md`.

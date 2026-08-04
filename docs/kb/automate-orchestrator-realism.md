@@ -14,7 +14,7 @@ What *is* machine-checked today:
 | Layer | What | Enforceability |
 |-------|------|----------------|
 | Pure helpers | mode, claim report, lease acquire, plan-end predicates, evaluation gate, `automate-orchestrator-gates` | Strong if the agent *calls* them |
-| Schema / validate-state | executionMode, planEndReview shape, evaluationGate shape, reviewGate GATE-R3 | Strong on disk state |
+| Schema / validate-state | executionMode, planEndReview shape, evaluationGate, reviewGate GATE-R3, deliveryAuditGate | Strong on disk state |
 | Skill prose | Steps A–I, code-only fence, materialize refuse | Soft — model discipline |
 | Full maestro runtime | spawn + sync-wait + merge loop | **Not built** |
 
@@ -30,12 +30,12 @@ Pure functions the skill **must** call before advancing. Already landed:
 
 - `canSpawnPhaseWriter` — lease status
 - `canCloseTasksFromClaims` — claim validate + optional reachability
-- `canRunPhaseDone` — evaluationGate under durable stamp
-- `canFinalizeOrArchive` — plan-end + user validation (stamp-first)
+- `canRunPhaseDone` — evaluationGate **and** lessonsState **and** reviewGate **and** deliveryAuditGate under durable stamp (Mode-1 + pure-maestro hard-require delivery audit)
+- `canFinalizeOrArchive` — plan-end + user validation (stamp-first); plan-end `intentVsDelivered` is **not** a substitute for per-phase `deliveryAuditGate`
 
 **Next cheap wins:** wire the same predicates into `validate-state` as
-**warnings → errors** under `executionMode: automate` (evaluationGate present
-on done phases; planEndReview when status archived/finalizing).
+**warnings → errors** under `executionMode: automate` (evaluationGate + deliveryAuditGate
+present on done phases; planEndReview when status archived/finalizing).
 
 ### Layer 2 — Thin CLI “assert” (**landed** — F0)
 
@@ -45,7 +45,7 @@ node scripts/assert-automate-gate.js --plan <slug> --gate spawn|claims|done|phas
 
 **Path:** `scripts/assert-automate-gate.js` (unit tests: `tests/assert-automate-gate.test.js`).
 Wraps Layer-1 helpers: lease read → `canSpawnPhaseWriter`; claim report →
-`canCloseTasksFromClaims`; plan `evaluationGate` → `canRunPhaseDone`; plan-end
+`canCloseTasksFromClaims`; plan evaluation/lessons/review/**deliveryAudit** → `canRunPhaseDone`; plan-end
 receipt + `userValidatedAt` → `canFinalizeOrArchive`.
 
 Reads disk state, prints `ok` / `blocked: <reason>`, exit 1 on block. Skill prose
@@ -168,6 +168,27 @@ Dogfood: `reviewGate.mode: local` without real `review-code --mode=both`. Under 
 | `status: skipped` | `operatorSkip: true` + non-empty `reason` |
 
 Helper: `src/phase-review-gate.js` (`phaseReviewAllowsClose`). Code: `phase-done-review-open`.
+
+### Delivery audit (hard on every phase-done — never skippable)
+
+Dogfood risk: soft-suggest `audit-delivery` after phase-done, stamp `status: skipped` /
+`operatorSkip`, or treat review-code / green suite / plan-end `intentVsDelivered` as
+substitutes. **Illegal.**
+
+Under Mode-1 **and** pure-maestro, every `phase-done` requires a real
+`atomic-skills:audit-delivery` run and durable stamp before advance:
+
+| `deliveryAuditGate` | Required |
+|---------------------|----------|
+| `status: passed` | non-empty `reportPath` to real report under `.atomic-skills/reviews/`, verdict `CLOSED` \| `PARTIAL`, `verifiedAt` |
+| `verdict: OPEN` | **never** stamps passed / never allows phase-done |
+| `status: skipped` / `operatorSkip` | **illegal** — honesty fails closed |
+
+Helpers: `src/phase-delivery-audit-gate.js` (`deliveryAuditGateHonesty`,
+`deliveryAuditAllowsClose`, `buildDeliveryAuditGate`, authenticity floor on report
+body). Codes include `phase-done-delivery-audit-open`. Plan-end lifecycle
+`intentVsDelivered` (`matched`\|`partial`\|`missing`\|`extra`) is **not** a
+substitute for this phase gate.
 
 ### Complex before done (auto-loaded on assert --gate done)
 

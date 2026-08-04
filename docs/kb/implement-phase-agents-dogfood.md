@@ -39,7 +39,8 @@ node scripts/assert-automate-gate.js --plan <slug> --project <project> --gate ph
 | P1 | `assert-automate-gate --gate spawn` **blocks** while active phase is descriptor-only / initiative missing | ☐ | ☐ |
 | P2 | After package ratify + materialize + clean lease, `--gate spawn` **exits 0** | ☐ | ☐ |
 | P3 | With `decisionReview` pending (or missing) under automate, `--gate phase-done` **exits non-zero** | ☐ | ☐ |
-| P4 | After operator PASS stamps `decisionReview` **and** `evaluationGate` is passed+pass, `--gate phase-done` **exits 0** | ☐ | ☐ |
+| P4 | After operator PASS stamps `decisionReview` **and** `evaluationGate` / `lessonsState` / `reviewGate` / **`deliveryAuditGate`** are all honest-passed, `--gate phase-done` **exits 0** | ☐ | ☐ |
+| P5 | Missing / skipped / OPEN `deliveryAuditGate` alone → `--gate phase-done` **exits non-zero** (audit-delivery never skippable) | ☐ | ☐ |
 
 ## Host-thin + phase agent (product path)
 
@@ -90,10 +91,14 @@ node scripts/assert-automate-gate.js --plan <slug> --project <project> --gate ph
 | # | Check | PASS | FAIL |
 |---|--------|------|------|
 | C1 | All phase tasks `done` **before** evaluation agent | ☐ | ☐ |
-| C2 | Evaluation agent ran; `phases[].evaluationGate` stamped `{ status: passed, verdict: pass }` | ☐ | ☐ |
-| C3 | Decision-review operator PASS **after** evaluationGate | ☐ | ☐ |
-| C4 | `assert-automate-gate --gate phase-done` **ok** before `phase-done` | ☐ | ☐ |
-| C5 | `phase-done` used `review-code --mode=both` (not `external-both` at phase close) | ☐ | ☐ |
+| C2 | Evaluation agent ran; `phases[].evaluationGate` stamped authentic `passed` + `reportPath` (or legal operatorSkip) | ☐ | ☐ |
+| C3 | Lessons distill + operator ratify → `lessonsState: recorded`+path **or** explicit `none` | ☐ | ☐ |
+| C4 | `review-code --mode=both` at phase close (not `external-both`); honest `reviewGate` stamped | ☐ | ☐ |
+| C5 | Decision-review operator PASS **after** evaluationGate (present-before-PASS) | ☐ | ☐ |
+| C6 | **`atomic-skills:audit-delivery` ran** for phase Intent Package / BI spine; report under `.atomic-skills/reviews/` | ☐ | ☐ |
+| C7 | `phases[].deliveryAuditGate` stamped `{ status: passed, reportPath, verdict: CLOSED\|PARTIAL, verifiedAt }` — **no** skip/operatorSkip; OPEN never passed | ☐ | ☐ |
+| C8 | `assert-automate-gate --gate phase-done` **ok** before `phase-done` (evaluation + lessons + review + delivery audit) | ☐ | ☐ |
+| C9 | Plan-end `intentVsDelivered` was **not** treated as a substitute for C6–C7 | ☐ | ☐ |
 
 ## Aggregate dogfood result
 

@@ -21,6 +21,11 @@ Related (host-thin phase agents, package ratify, AskUserQuestion channel, phase 
 | **F1** read-before-PASS | Blind decision-review PASS (package not shown) | `packagePresentedAt` / `packagePath` + AskUserQuestion body |
 | **F2** intent-vs-delivered | Plan-end generic review without intent vs delivered | receipt `intentVsDelivered[]`; `assert-automate-gate --gate finalize` |
 
+**Not this checklist:** per-phase **`deliveryAuditGate`** (run `atomic-skills:audit-delivery`,
+stamp `CLOSED|PARTIAL` + `reportPath` before every `phase-done`) is hard and never skippable —
+see [`implement-phase-agents-dogfood.md`](./implement-phase-agents-dogfood.md) C6–C9 and
+`src/phase-delivery-audit-gate.js`. Plan-end `intentVsDelivered` is **not** a substitute.
+
 ## Preflight (optional machine helpers)
 
 ```bash

@@ -64,9 +64,13 @@ contradiction under automate):
    closed-initiative nextAction may point at the package ritual before the successor initiative
    exists. Preserve active initiative handoff until phase-done.
 8. Phase close under automate still requires the **decision-review** mandatory manual hardgate
-   (operator PASS only — agents never write decision-review PASS) after evaluationGate, before
-   `phase-done`. See `skills/shared/implement-decision-log.md` and
-   `src/automate-orchestrator-gates.js` (`canRunPhaseDone` = evaluationGate **AND** decisionReview).
+   (operator PASS only — agents never write decision-review PASS) after evaluationGate, **plus**
+   lessonsState, reviewGate, and a real **`audit-delivery` → `deliveryAuditGate`** (never
+   skippable; OPEN never stamps passed), before `phase-done`. Plan-end `intentVsDelivered` is
+   **not** a substitute. See `skills/shared/implement-decision-log.md`,
+   `skills/shared/project-assets/project-transitions.md`, and
+   `src/automate-orchestrator-gates.js` / `src/phase-delivery-audit-gate.js`
+   (`canRunPhaseDone` / `deliveryAuditAllowsClose`).
 
 Spine quality HARD rules (`find-weak-business-intent.js`) are unchanged by this package ritual —
 materialize still refuses weak / missing spine; automate must not stamp BI PASS without
