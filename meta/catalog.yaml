@@ -1115,7 +1115,7 @@ core:
     one_liner: 'Intent-vs-delivered system audit with residual hunt and reaudit gate'
     emoji: '📦'
     version_added: '2.4.0'
-    argument_hint: '[intent-source] [--mode=audit|reaudit|audit-and-fix] [--axes=…] [--depth=light|full] [--out=path]'
+    argument_hint: '[intent-source] [--mode=…] [--axes=…] [--depth=…] [--cross=off|residual|critic|reaudit] [--out=path]'
     args:
       - name: intent-source
         kind: positional
@@ -1128,7 +1128,7 @@ core:
       - name: '--axes'
         kind: option
         required: false
-        description: 'Comma list of audit legs (default product,residual). backend/frontend remain valid; exclude residual logs and caps verdict PARTIAL.'
+        description: 'Comma list of audit legs (default product,residual). backend/frontend/prosecution (NO-only) remain valid; exclude residual logs and caps verdict PARTIAL.'
       - name: '--depth'
         kind: option
         required: false
@@ -1141,6 +1141,10 @@ core:
         kind: flag
         required: false
         description: 'Force read-only even if mode would fix.'
+      - name: '--cross'
+        kind: option
+        required: false
+        description: 'Optional cross-model residual/critic/reaudit (off|residual|critic|reaudit). Default off. External brief = Spec Package / ledger claims only + anti-success-framing — never seal intent out of Spec Package.'
       - name: '--out'
         kind: option
         required: false
