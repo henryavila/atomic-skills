@@ -171,3 +171,10 @@ current: true
 Canonical detail: `docs/plans/audit-delivery-hardening.md` § F0.
 
 Drive with `atomic-skills:implement`.
+
+## Session handoff
+- **Narrative:** Pure-maestro implement of audit-delivery-hardening on develop. Ground-truth fresh (fp=2ccd6be13dae). executionMode: automate stamped. F0 phase-start package ratified under operator-delegated operational authority. Next: spawn F0 phase writer for T-001…T-005.
+- **Decision log:** Use AS inventory (not foreign lane). Durable automate stamp. F0 BI package ratified as-is (no BI edits).
+- **Single nextAction:** Run assert-automate-gate --gate spawn, automate-phase-run prepare, spawn F0 phase writer.
+- **Verbatim state:** plan=.atomic-skills/projects/atomic-skills/audit-delivery-hardening/plan.md; phase=F0; branch=develop; cursor step=B; PKG_ROOT via $HOME/.atomic-skills/package-root
+- **Uncommitted changes:** plan.md executionMode stamp + handoff; unrelated automate-writer-runtime refresh-state noise may remain dirty.

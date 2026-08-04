@@ -8,6 +8,7 @@ started: 2026-08-04T11:51:14Z
 lastUpdated: 2026-08-04T18:00:00Z
 branch: develop
 currentPhase: F0
+executionMode: automate
 parallelismAllowed: false
 principles:
   - id: P1
