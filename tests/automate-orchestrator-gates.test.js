@@ -709,12 +709,19 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
     localReceiptPath: '.atomic-skills/reviews/f0-local.md',
     codexReceiptPath: '.atomic-skills/reviews/f0-codex.md',
   };
+  const deliveryAuditPassed = {
+    status: 'passed',
+    verdict: 'CLOSED',
+    reportPath: '.atomic-skills/reviews/audit-delivery-demo.md',
+    verifiedAt: '2026-08-04T15:00:00.000Z',
+  };
   const fullPhaseDoneOk = {
     planExecutionMode: 'automate',
     evaluationGate: evalPassed,
     lessonsState: 'none',
     reviewGate: reviewBoth,
     decisionReview: decisionPassed,
+    deliveryAuditGate: deliveryAuditPassed,
   };
 
   it('phase-done blocked under stamp without evaluation', () => {
@@ -762,9 +769,16 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
     assert.match(r.reason || '', /failed|decisionReview/i);
   });
 
-  it('automate + eval + lessons + review both + decisionReview passed → allow', () => {
+  it('automate + eval + lessons + review both + decisionReview + deliveryAudit passed → allow', () => {
     const r = canRunPhaseDone(fullPhaseDoneOk);
     assert.equal(r.ok, true, r.reason);
+  });
+
+  it('automate full chain without deliveryAuditGate → block', () => {
+    const { deliveryAuditGate: _omit, ...rest } = fullPhaseDoneOk;
+    const r = canRunPhaseDone(rest);
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /deliveryAuditGate|audit-delivery/i);
   });
 
   it('non-automate skips decisionReview (and evaluation)', () => {
