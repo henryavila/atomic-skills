@@ -23,6 +23,7 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 ## Assets (lazy — read on demand from `{{ASSETS_PATH}}/`)
 
 - {{READ_TOOL}} `{{ASSETS_PATH}}/intent-package.md` — Intent Package template + HARD-GATE admission (Phase 0)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` — domain-agnostic residual protocol (OLD_TERMS × surfaces)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2 spawn)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md` — fresh-context reaudit brief (Phase 5 / reaudit re-run)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — entry path when `--mode=reaudit` (load report, recover package, append-only)
@@ -134,9 +135,11 @@ Default axes and focus:
 | **backend** | SSOT, transitions, jobs, recovery, API force/CAS paths, tests assert **canonical** statuses |
 | **frontend** | Work surface / CTAs, phase priority, client band-aids that rewrite server truth, e2e mocks |
 | **product** | Trace each Dn/Pn config→code→UI→test; counter-evidence hunt |
-| **residual** | Monorepo half-migration: MCP, skills, ops docs, scripts, legacy string greps, dead dual paths |
+| **residual** | Monorepo half-migration via residual-hunt-protocol: OLD_TERMS/NEW_TERMS × surface inventory |
 
 Customize axes when the domain is not a note pipeline — e.g. `api,worker,admin,docs` — but keep **≥1 residual monorepo leg** unless the operator explicitly opts out with `--axes` excluding residual (log that choice).
+
+**Residual leg:** {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` before spawn. Fill axis brief with protocol steps (derive OLD_TERMS/NEW_TERMS → × surface inventory → classify storage|alias|teaching|dead). **Invalid residual** (no derived terms, "nothing found" as fake success) blocks CLOSED.
 
 ### Agent prompt rules (each leg)
 
@@ -286,9 +289,18 @@ Optional: offer commit of report + fixes (do not push unless asked).
 
 ---
 
-## Residual hunt — default red-flag greps
+## Residual hunt
 
-Always run a residual leg (or parent greps) for patterns adapted to the Intent Package. Examples (replace with domain terms):
+{{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` and execute the protocol (do not improvise only domain greps).
+
+Summary:
+
+1. Derive **OLD_TERMS** / **NEW_TERMS** from Intent Package vocabulary + SSOT.
+2. Cross terms × **surface inventory**; classify hits: storage | alias | teaching | dead.
+3. Cover residual classes: dual SSOT, client rewrite, recovery gap, force/admin legacy, teaching surfaces, false-green fixtures, config/env drift.
+4. **Invalid residual** (starved terms / fake empty success) **blocks CLOSED**.
+
+Illustrative greps only (e.g. replace with package terms — not universal steps):
 
 - Legacy status/enum strings still used as **storage or poll defaults** (not mere input aliases)
 - Client helpers that **rewrite** server status from side channels
