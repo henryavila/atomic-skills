@@ -5,9 +5,9 @@ title: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 version: "1.0"
 status: active
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T15:13:32.839Z
+lastUpdated: 2026-08-04T15:21:31.612Z
 branch: develop
-currentPhase: F3
+currentPhase: F4
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -234,7 +234,7 @@ phases:
     dependsOn:
       - F2
     subPhaseCount: 0
-    status: active
+    status: done
     businessIntent:
       value: Maintainers cannot ship dead assets; operators get a readable skill body with full report/checklist SSOT in assets.
       workflow: Thin rewrite; checklist+report assets; audit-delivery-assets.test.js; INVESTIGATOR fallback prose.
@@ -246,11 +246,50 @@ phases:
       criteria:
         - id: G-F3-1
           description: validate-skills + asset wire test + report/checklists
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run validate-skills && node --test tests/audit-delivery-assets.test.js && test -f skills/shared/audit-delivery-assets/report-template.md && test -f skills/shared/audit-delivery-assets/checklists/product.md && test -f skills/shared/audit-delivery-assets/checklists/residual.md && test -f skills/shared/audit-delivery-assets/findings-ledger.md && rg -q 'INVESTIGATOR|unavailable|degraded' skills/core/audit-delivery.md
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-08-04T15:21:30.447Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 69ee6e72a34bf6d64f18f5497d3997aa6a49f9ce
+            outputSummary: G-F3-1
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-audit-delivery-hardening-F3.md
+      verifiedAt: 2026-08-04T15:21:30.447Z
+      at: 69ee6e72a34bf6d64f18f5497d3997aa6a49f9ce
+    lessonsState: none
+    noneReason: F3 clean
+    reviewGate:
+      status: passed
+      mode: both
+      at: 69ee6e72a34bf6d64f18f5497d3997aa6a49f9ce
+      verifiedAt: 2026-08-04T15:21:30.447Z
+      reviewFile: .atomic-skills/reviews/2026-08-04-both-audit-delivery-hardening-F3.md
+      localReceiptPath: .atomic-skills/reviews/2026-08-04-local-audit-delivery-hardening-F3.md
+      codexReceiptPath: .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-F3.md
+      legs:
+        - provider: local
+          receiptPath: .atomic-skills/reviews/2026-08-04-local-audit-delivery-hardening-F3.md
+        - provider: codex
+          receiptPath: .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-F3.md
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-08-04T15:21:30.447Z
+      packagePresentedAt: 2026-08-04T15:21:30.447Z
+      packagePath: .atomic-skills/reviews/decision-package-audit-delivery-hardening-F3.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-audit-delivery-hardening-F3.md
+      verdict: CLOSED
+      verifiedAt: 2026-08-04T15:21:30.447Z
+      at: 69ee6e72a34bf6d64f18f5497d3997aa6a49f9ce
   - id: F4
     slug: audit-delivery-hardening-f4-p2-advanced-dogfood
     title: P2 advanced + dogfood close
