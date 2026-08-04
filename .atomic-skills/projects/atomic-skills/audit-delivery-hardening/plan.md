@@ -5,7 +5,7 @@ title: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 version: "1.0"
 status: active
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T15:13:02.006Z
+lastUpdated: 2026-08-04T15:13:32.839Z
 branch: develop
 currentPhase: F3
 executionMode: automate
@@ -234,7 +234,7 @@ phases:
     dependsOn:
       - F2
     subPhaseCount: 0
-    status: pending
+    status: active
     businessIntent:
       value: Maintainers cannot ship dead assets; operators get a readable skill body with full report/checklist SSOT in assets.
       workflow: Thin rewrite; checklist+report assets; audit-delivery-assets.test.js; INVESTIGATOR fallback prose.
@@ -375,4 +375,4 @@ Human narrative / expanded acceptance: **[docs/plans/audit-delivery-hardening.md
 
 - internal: 6 finding(s) applied (plan) + initiative T-001/G-F0-1 fixed @ b899f49b (2026-08-04T12:05:08Z)
 - cross-model (codex): needs_changes (resolved on plan gates F-002..F-005; F-001 initiative polarity fixed 2026-08-04) — .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=88f15561cac3 | premises=12 | impacts=7 @ uncommitted (2026-08-04T14:57:54.255Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=14c32f1f9b2d | premises=12 | impacts=7 @ uncommitted (2026-08-04T15:13:32.839Z)
