@@ -21,6 +21,7 @@ Verify a completion claim by executing its deterministic verifier and citing the
 - The claim is a human-judgement / UI observation (use the manual-acceptance gate)
 - There is no deterministic verifier (the task failed SPEC admission — surface it)
 - You are diagnosing a bug, not verifying a fix (use fix)
+- Post-ship residual / multi-surface delivery proof (use audit-delivery — hard on phase-done)
 
 ## Reference
 
@@ -38,7 +39,7 @@ Verify a completion claim by executing its deterministic verifier and citing the
 
 **Dependencies:** `git`
 
-**Related:** `implement`, `fix`, `project`
+**Related:** `implement`, `fix`, `project`, `audit-delivery`
 
 **Tags:** `quality`, `verification`, `gate`, `core`
 
