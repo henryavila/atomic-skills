@@ -24,6 +24,15 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 
 - {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2 spawn)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md` — fresh-context reaudit brief (Phase 5 / reaudit re-run)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — entry path when `--mode=reaudit` (load report, recover package, append-only)
+
+## Mode table
+
+| Mode | Product tree | Report | Entry |
+|------|--------------|--------|-------|
+| **`audit`** (default) | Read-only | Write new / overwrite draft at `--out` | Step 0 → Phase 0…3 → stop |
+| **`audit-and-fix`** | Writable in Phase 4 fix WPs only | Write + update through reaudit | Step 0 → full phases; honor `--no-fix` / `--max-fix-rounds` |
+| **`reaudit`** | **Read-only** | **Append-only** reaudit section on existing report | **Requires `--out`** (or explicit report path). {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` and follow it — do **not** start a greenfield Intent Package hunt first |
 
 ## Iron Law
 
@@ -65,6 +74,8 @@ Never collapse audit-delivery into a sealed anti-intent briefing. That is the fa
 ---
 
 ## Phase 0 — Resolve intent source (HARD-GATE)
+
+**If `--mode=reaudit`:** skip greenfield intent discovery. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` and execute that procedure (load `--out`, recover package + ledger, reaudit append). The HARD-GATE below applies only when recovering the package fails.
 
 <HARD-GATE>
 Do not open audit agents until you have a written **Intent Package**:
