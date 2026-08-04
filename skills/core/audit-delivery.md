@@ -22,6 +22,7 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 
 ## Assets (lazy — read on demand from `{{ASSETS_PATH}}/`)
 
+- {{READ_TOOL}} `{{ASSETS_PATH}}/intent-package.md` — Intent Package template + HARD-GATE admission (Phase 0)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2 spawn)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md` — fresh-context reaudit brief (Phase 5 / reaudit re-run)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — entry path when `--mode=reaudit` (load report, recover package, append-only)
@@ -77,22 +78,25 @@ Never collapse audit-delivery into a sealed anti-intent briefing. That is the fa
 
 **If `--mode=reaudit`:** skip greenfield intent discovery. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` and execute that procedure (load `--out`, recover package + ledger, reaudit append). The HARD-GATE below applies only when recovering the package fails.
 
-<HARD-GATE>
-Do not open audit agents until you have a written **Intent Package**:
+{{READ_TOOL}} `{{ASSETS_PATH}}/intent-package.md` and fill the micro skeleton from sources below.
 
-1. **Decisions** (closed product/engineering choices) — numbered D1…Dn
-2. **Original problems** the change claimed to solve — P1…Pn
-3. **Acceptance / happy paths** (when present)
-4. **Non-goals / "do not reopen"** (when present)
-5. **Key SSOT paths** (status enums, hub phases, config defaults, migrations)
+<HARD-GATE>
+Do not open audit agents until you have a written **Intent Package** that passes admission:
+
+1. **Spine** — **Decisions** D1…Dn (≥2) **or** **Original problems** P1…Pn (≥1) (both preferred)
+2. **Acceptance / doneWhen** — ≥1 checkable criterion (happy path or plan `doneWhen`); required, not optional
+3. **Vocabulary delta** — non-empty OLD→NEW table when migration/rename-shaped; else mark `vocabulary: none (additive)` with reason
+4. **Surface inventory** — ≥3 delivery surfaces **or** explicit `single-surface: true` flag logged in the report
+5. **Non-goals / "do not reopen"** (when present) and **Key SSOT paths** (status enums, hub phases, config defaults, migrations)
 
 Sources (try in order; cite paths you used):
 - Explicit path in {{ARG_VAR}}
 - `docs/plans/HANDOFF-*.md`, plan markdown, design.md, PRD acceptance section
 - User-pasted decision table in the current message
 
-If after asking once you still lack ≥2 decisions **or** ≥1 original problem: **ABORT**.
-Redirect: "audit-delivery needs an Intent Package. Write a short handoff (decisions + problems) or point at the plan section, then re-run."
+**Abort** (after asking once) when any admission rule fails. Point the operator at the Intent Package template / micro skeleton in `{{ASSETS_PATH}}/intent-package.md`, then re-run. Do not soft-proceed with a partial package.
+
+Example redirect: "audit-delivery needs a full Intent Package (decisions/problems + acceptance + vocabulary when migrating + surface inventory). Fill the template or point at the plan section, then re-run."
 </HARD-GATE>
 
 Present the Intent Package to the operator in compact form and proceed (no long re-approval unless they object).
