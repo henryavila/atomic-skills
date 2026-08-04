@@ -35,10 +35,11 @@ Prove product intent was delivered end-to-end across code and ops surfaces, with
 |------|------|----------|-------------|
 | `intent-source` | positional | optional | Path to handoff/plan/design or freeform decision list. If omitted, skill asks once then aborts without Intent Package. |
 | `--mode` | option | optional | audit (default, read-only), reaudit (re-run after fixes; requires --out), audit-and-fix (optional advanced in-skill fix loop). |
-| `--axes` | option | optional | Comma list of audit legs (default product,residual). backend/frontend remain valid; exclude residual logs and caps verdict PARTIAL. |
+| `--axes` | option | optional | Comma list of audit legs (default product,residual). backend/frontend/prosecution (NO-only) remain valid; exclude residual logs and caps verdict PARTIAL. |
 | `--depth` | option | optional | full (default) product+residual agents; light = matrix + residual protocol (parent greps OK). light still forbids CLOSED on CRITICAL / residual opt-out / load-bearing NO. |
 | `--max-fix-rounds` | option | optional | Max fix→reaudit loops in audit-and-fix (default 2). |
 | `--no-fix` | flag | optional | Force read-only even if mode would fix. |
+| `--cross` | option | optional | Optional cross-model residual/critic/reaudit (off|residual|critic|reaudit). Default off. External brief = Spec Package / ledger claims only + anti-success-framing — never seal intent out of Spec Package. |
 | `--out` | option | optional | Report path under .atomic-skills/reviews/ (default auto slug). Required for --mode=reaudit. |
 
 **Examples:**
