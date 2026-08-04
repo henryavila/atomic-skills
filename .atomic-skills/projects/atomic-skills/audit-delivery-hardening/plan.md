@@ -332,7 +332,7 @@ Human narrative / expanded acceptance: **[docs/plans/audit-delivery-hardening.md
 **Codebase class:** populated
 **Scanned:** skills/core/, skills/shared/audit-delivery-assets/, meta/catalog.yaml, docs/skills/, scripts/validate-skills.js, src/render.js, tests/skill-byte-budget.test.js, skills/shared/implement-automate-maestro.md → premises re-verified 2026-08-04 implement entry; create-targets still absent
 **Commit:** b899f49b | uncommitted plan/initiative/skill WIP
-**At:** 2026-08-04T14:19:14Z
+**At:** 2026-08-04T14:23:34Z
 
 ### A — Plan premises vs code
 
@@ -369,4 +369,4 @@ Human narrative / expanded acceptance: **[docs/plans/audit-delivery-hardening.md
 
 - internal: 6 finding(s) applied (plan) + initiative T-001/G-F0-1 fixed @ b899f49b (2026-08-04T12:05:08Z)
 - cross-model (codex): needs_changes (resolved on plan gates F-002..F-005; F-001 initiative polarity fixed 2026-08-04) — .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=2ccd6be13dae | premises=12 | impacts=7 @ b899f49b (2026-08-04T14:19:14Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=addd1b294875 | premises=12 | impacts=7 @ uncommitted (2026-08-04T14:23:34Z)

@@ -197,3 +197,8 @@
 {"ts":"2026-07-30T17:36:07.610Z","event":"task-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F3","taskId":"T-010","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-30T17:36:07.634Z","event":"task-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F3","taskId":"T-011","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-30T17:38:25.973Z","event":"phase-done","projectId":"atomic-skills","planSlug":"brainstorm-hardening","phaseId":"F3","taskId":null,"weight":1,"weightBasis":"count"}
+{"ts":"2026-08-04T14:33:10.619Z","event":"task-done","projectId":"atomic-skills","planSlug":"audit-delivery-hardening","phaseId":"F0","taskId":"T-001","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-04T14:33:10.634Z","event":"task-done","projectId":"atomic-skills","planSlug":"audit-delivery-hardening","phaseId":"F0","taskId":"T-002","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-04T14:33:10.642Z","event":"task-done","projectId":"atomic-skills","planSlug":"audit-delivery-hardening","phaseId":"F0","taskId":"T-003","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-04T14:33:10.653Z","event":"task-done","projectId":"atomic-skills","planSlug":"audit-delivery-hardening","phaseId":"F0","taskId":"T-004","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-04T14:33:10.948Z","event":"task-done","projectId":"atomic-skills","planSlug":"audit-delivery-hardening","phaseId":"F0","taskId":"T-005","weight":1,"weightBasis":"count"}

@@ -1,0 +1,12 @@
+{
+  "planSlug": "audit-delivery-hardening",
+  "phaseId": "F0",
+  "baseRef": "8a2b43f199023c5b3df58fe5c2ea55581a505612",
+  "worktreePath": "/Volumes/External/code/audit-delivery-hardening-F0-writer",
+  "writerBranch": "impl/audit-delivery-hardening-F0-writer",
+  "sealedBriefPath": "/Volumes/External/code/atomic-skills/.atomic-skills/status/automate/audit-delivery-hardening-F0-sealed-brief.md",
+  "claimReportPath": "/Volumes/External/code/atomic-skills/.atomic-skills/status/automate/audit-delivery-hardening-claims.json",
+  "claimReportPathForBrief": ".atomic-skills/status/automate/audit-delivery-hardening-claims.json",
+  "leasePath": "/Volumes/External/code/atomic-skills/.atomic-skills/status/writer-leases/audit-delivery-hardening.json",
+  "preparedAt": "2026-08-04T14:23:54.037Z"
+}
