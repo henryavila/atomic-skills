@@ -1,82 +1,121 @@
 {
   "planSlug": "audit-delivery-hardening",
-  "phaseId": "F1",
-  "worktreePath": "/Volumes/External/code/audit-delivery-hardening-F1-writer",
-  "writerBranch": "impl/audit-delivery-hardening-F1-writer",
-  "finishedAt": "2026-08-04T14:53:55.000Z",
+  "phaseId": "F2",
+  "worktreePath": "/Volumes/External/code/audit-delivery-hardening-F2-writer",
+  "writerBranch": "impl/audit-delivery-hardening-F2-writer",
+  "finishedAt": "2026-08-04T15:11:42.000Z",
   "tasks": [
     {
-      "taskId": "T-006",
+      "taskId": "T-011",
       "status": "claimed-pass",
       "commitShas": [
-        "8f309b132f49e018fe8295703e9c371c400a640e"
+        "6a740fafe82f825bde96c3aef0418ef199b8b6df"
       ],
       "paths": [
-        "skills/shared/audit-delivery-assets/intent-package.md",
-        "skills/core/audit-delivery.md"
+        "skills/shared/audit-delivery-assets/matrices.md"
       ],
-      "verifierCommand": "test -f skills/shared/audit-delivery-assets/intent-package.md && rg -n 'Intent Package|vocabulary|surface inventory|acceptance' skills/core/audit-delivery.md skills/shared/audit-delivery-assets/intent-package.md",
+      "verifierCommand": "test -f skills/shared/audit-delivery-assets/matrices.md && rg -n 'S.*C.*U|required stage|RESOLVED' skills/shared/audit-delivery-assets/matrices.md",
       "exitCode": 0,
-      "transcript": "intent-package.md created with micro skeleton, admission (spine + acceptance + vocabulary + surface inventory), abort table. Phase 0 HARD-GATE wired. Verifier exit 0."
+      "transcript": "matrices.md present; stages S C U O T X + required stage + RESOLVED gate greps matched (exit 0)"
     },
     {
-      "taskId": "T-007",
+      "taskId": "T-012",
       "status": "claimed-pass",
       "commitShas": [
-        "b378c6b1414a315e4cf6d8d26ce1d326d471467b"
+        "b2368712071d4c1a62c741cb4d008740182ac629"
       ],
       "paths": [
-        "skills/shared/audit-delivery-assets/residual-hunt-protocol.md",
-        "skills/core/audit-delivery.md"
+        "skills/shared/audit-delivery-assets/matrices.md"
       ],
-      "verifierCommand": "test -f skills/shared/audit-delivery-assets/residual-hunt-protocol.md && rg -n 'OLD_TERMS|surface inventory|invalid residual' skills/shared/audit-delivery-assets/residual-hunt-protocol.md skills/core/audit-delivery.md",
+      "verifierCommand": "rg -n 'must-not|Must NOT|Matrix C|mustNot' skills/shared/audit-delivery-assets/ skills/core/audit-delivery.md",
       "exitCode": 0,
-      "transcript": "residual-hunt-protocol.md: OLD_TERMS/NEW_TERMS x surfaces, classify storage|alias|teaching|dead, invalid residual blocks CLOSED. Body residual section wired. Verifier exit 0."
+      "transcript": "Matrix C / must-not / mustNot present in matrices.md and audit-delivery.md (exit 0)"
     },
     {
-      "taskId": "T-008",
+      "taskId": "T-013",
       "status": "claimed-pass",
       "commitShas": [
-        "e5566b1fde88f19d4bfadc746f52f10a3b98589a"
+        "afb9549fcdc75ffdcb243b936ddda5469bf930f2"
+      ],
+      "paths": [
+        "skills/shared/audit-delivery-assets/spec-package.md",
+        "skills/shared/audit-delivery-assets/axis-brief-template.md",
+        "skills/shared/audit-delivery-assets/intent-package.md"
+      ],
+      "verifierCommand": "test -f skills/shared/audit-delivery-assets/spec-package.md && rg -n 'Spec Package|success narrative|shipping narrative' skills/shared/audit-delivery-assets/ skills/core/audit-delivery.md",
+      "exitCode": 0,
+      "transcript": "spec-package.md present; Spec Package + success/shipping narrative greps matched; axis brief uses Spec Package only (exit 0)"
+    },
+    {
+      "taskId": "T-014",
+      "status": "claimed-pass",
+      "commitShas": [
+        "885f8f9ffca4861ffe2ff16a88f6effdfaaf4516"
+      ],
+      "paths": [
+        "skills/shared/audit-delivery-assets/matrices.md"
+      ],
+      "verifierCommand": "rg -n 'multi-hop|chain|2 hops|≥2' skills/shared/audit-delivery-assets/ skills/core/audit-delivery.md",
+      "exitCode": 0,
+      "transcript": "multi-hop / ≥2 chain hops documented in matrices.md and body (exit 0)"
+    },
+    {
+      "taskId": "T-015",
+      "status": "claimed-pass",
+      "commitShas": [
+        "a0412781e246364dbe234bf720766eba0d6af6cf",
+        "6b94aea299197c47770e6e5bd98b362f00230fd7"
       ],
       "paths": [
         "skills/core/audit-delivery.md",
         "meta/catalog.yaml"
       ],
-      "verifierCommand": "rg -n 'product,residual|product \\+ residual|cap.*PARTIAL|exclude.residual' skills/core/audit-delivery.md meta/catalog.yaml",
+      "verifierCommand": "rg -n 'depth=light|depth=full|--depth' skills/core/audit-delivery.md meta/catalog.yaml",
       "exitCode": 0,
-      "transcript": "Default --axes product,residual; backend/frontend opt-in; exclude residual logs and caps PARTIAL. Catalog arg default updated. Verifier exit 0."
+      "transcript": "--depth / depth=light / depth=full in body + catalog; full default; light CLOSED hard rules (exit 0)"
     },
     {
-      "taskId": "T-009",
+      "taskId": "T-016",
       "status": "claimed-pass",
       "commitShas": [
-        "204a8b76a713654e2d91966ecb8975b4de7ffb12"
+        "5d1430ace2ecdf53f69ce04290a85b6cfe151ef2"
       ],
       "paths": [
-        "skills/shared/audit-delivery-assets/verdict-gate.md",
-        "skills/core/audit-delivery.md"
-      ],
-      "verifierCommand": "test -f skills/shared/audit-delivery-assets/verdict-gate.md && rg -n 'Accept Record|CRITICAL|CLOSED|green suite' skills/shared/audit-delivery-assets/verdict-gate.md skills/core/audit-delivery.md",
-      "exitCode": 0,
-      "transcript": "verdict-gate.md Accept Record schema; CRITICAL never to CLOSED; HIGH needs Accept Record or PARTIAL; green suite never upgrades. Phase 3 + report section. Verifier exit 0."
-    },
-    {
-      "taskId": "T-010",
-      "status": "claimed-pass",
-      "commitShas": [
-        "ba29ddf068dd36ea748141ffb36815bdf54dd1f4"
-      ],
-      "paths": [
-        "skills/core/audit-delivery.md",
-        "meta/catalog.yaml",
         "docs/skills/audit-delivery.md",
-        "meta/catalog.json",
-        "site/dist/skills/audit-delivery/index.html"
+        "docs/skills/parallel-dispatch-audit.md",
+        "docs/skills/review-plan.md",
+        "docs/skills/verify-claim.md",
+        "site/dist/skills/audit-delivery/index.html",
+        "site/dist/skills/parallel-dispatch-audit/index.html",
+        "site/dist/skills/review-plan/index.html",
+        "site/dist/skills/verify-claim/index.html"
       ],
-      "verifierCommand": "rg -n 'read-only|re-run|composition|parallel-dispatch' skills/core/audit-delivery.md",
+      "verifierCommand": "rg -n 'audit-delivery' meta/catalog.yaml docs/skills/ && rg -n 'intentVsDelivered|plan-end|parallel-dispatch-audit|when_not|phase-done|hard' meta/catalog.yaml docs/skills/audit-delivery.md",
       "exitCode": 0,
-      "transcript": "Primary composition audit→fix/parallel-dispatch→re-run; audit-and-fix optional advanced. Catalog examples prefer re-run. Verifier exit 0."
+      "transcript": "catalog when_not disambiguates plan-end intentVsDelivered + parallel-dispatch-audit; phase-done hard in docs (exit 0). Note: catalog.yaml sibling when_not edits landed in T-015 catalog SHA; docs exclusive here."
+    },
+    {
+      "taskId": "T-017",
+      "status": "claimed-pass",
+      "commitShas": [
+        "a0a9048c4f278fede8b9a5809c4c974146c825c8"
+      ],
+      "paths": [
+        "src/phase-delivery-audit-gate.js",
+        "src/automate-orchestrator-gates.js",
+        "scripts/assert-automate-gate.js",
+        "skills/core/implement.md",
+        "skills/shared/implement-automate-maestro.md",
+        "skills/shared/implement-antipatterns.md",
+        "tests/phase-delivery-audit-gate.test.js",
+        "tests/automate-orchestrator-gates.test.js",
+        "tests/decision-review-gate.test.js",
+        "tests/fixtures/implement-phase-agents/phase-done-allowed.json",
+        "meta/catalog.json"
+      ],
+      "verifierCommand": "test -f src/phase-delivery-audit-gate.js && rg -n 'deliveryAuditGate|deliveryAuditAllowsClose|audit-delivery' skills/core/implement.md skills/shared/implement-automate-maestro.md skills/shared/implement-antipatterns.md src/automate-orchestrator-gates.js && rg -n 'deliveryAudit' tests/",
+      "exitCode": 0,
+      "transcript": "phase-delivery-audit-gate.js present; deliveryAuditGate/deliveryAuditAllowsClose wired in implement + maestro + antipatterns + canRunPhaseDone; unit tests skip/missing/CLOSED pass (node --test tests/phase-delivery-audit-gate.test.js 26 pass). G-F2-1 green."
     }
   ]
 }

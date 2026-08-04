@@ -5,9 +5,9 @@ title: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 version: "1.0"
 status: active
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T14:57:54.255Z
+lastUpdated: 2026-08-04T15:13:02.006Z
 branch: develop
-currentPhase: F2
+currentPhase: F3
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -170,7 +170,7 @@ phases:
     dependsOn:
       - F1
     subPhaseCount: 0
-    status: active
+    status: done
     businessIntent:
       value: Auditors prove multi-hop delivery and negative space; phase close cannot ship without a durable delivery audit — never optional, never skippable.
       workflow: matrices+must-not; spec-package; multi-hop bar; --depth; catalog when_not; implement deliveryAuditGate + canRunPhaseDone/assert phase-done.
@@ -182,11 +182,50 @@ phases:
       criteria:
         - id: G-F2-1
           description: Stages + Spec Package + depth + deliveryAuditGate hard-wired (no skip)
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test -f skills/shared/audit-delivery-assets/matrices.md && test -f skills/shared/audit-delivery-assets/spec-package.md && test -f src/phase-delivery-audit-gate.js && rg -q -- '--depth' skills/core/audit-delivery.md && rg -q -- '--depth' meta/catalog.yaml && rg -q 'deliveryAuditGate|deliveryAuditAllowsClose' skills/core/implement.md src/automate-orchestrator-gates.js && rg -q 'audit-delivery' meta/catalog.yaml && rg -q 'intentVsDelivered|plan-end|parallel-dispatch-audit' meta/catalog.yaml && ! rg -q 'soft-suggest|soft suggest only|optional audit-delivery' skills/core/implement.md skills/shared/implement-automate-maestro.md
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-08-04T15:13:01.204Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: a130e8980a0fc65738d1bb2013fd8139d0bd85e4
+            outputSummary: G-F2-1
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-audit-delivery-hardening-F2.md
+      verifiedAt: 2026-08-04T15:13:01.204Z
+      at: a130e8980a0fc65738d1bb2013fd8139d0bd85e4
+    lessonsState: none
+    noneReason: F2 clean phase
+    reviewGate:
+      status: passed
+      mode: both
+      at: a130e8980a0fc65738d1bb2013fd8139d0bd85e4
+      verifiedAt: 2026-08-04T15:13:01.204Z
+      reviewFile: .atomic-skills/reviews/2026-08-04-both-audit-delivery-hardening-F2.md
+      localReceiptPath: .atomic-skills/reviews/2026-08-04-local-audit-delivery-hardening-F2.md
+      codexReceiptPath: .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-F2.md
+      legs:
+        - provider: local
+          receiptPath: .atomic-skills/reviews/2026-08-04-local-audit-delivery-hardening-F2.md
+        - provider: codex
+          receiptPath: .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-F2.md
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-08-04T15:13:01.204Z
+      packagePresentedAt: 2026-08-04T15:13:01.204Z
+      packagePath: .atomic-skills/reviews/decision-package-audit-delivery-hardening-F2.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-audit-delivery-hardening-F2.md
+      verdict: CLOSED
+      verifiedAt: 2026-08-04T15:13:01.204Z
+      at: a130e8980a0fc65738d1bb2013fd8139d0bd85e4
   - id: F3
     slug: audit-delivery-hardening-f3-p1-thin-body-guards
     title: P1 thin body + assets + guards
