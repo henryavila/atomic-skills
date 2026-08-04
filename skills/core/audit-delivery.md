@@ -132,6 +132,8 @@ Status values only: `RESOLVED | PARTIAL | NO | N/A`. **RESOLVED is forbidden** i
 
 **When `--depth=full`:** spawn **read-only** agents via {{INVESTIGATOR_TOOL}}. One agent per selected axis. Do **not** share findings between parallel legs.
 
+**Fallback:** if {{INVESTIGATOR_TOOL}} is unavailable (IDE cannot spawn agents), run axes **sequential inline** in the current context. Log an explicit degradation warning: "Audit-delivery axes running inline in shared context — isolation degraded." Still load Spec Package + that axis checklist; still forbid cross-axis anchoring by finishing one axis ledger section before starting the next. Residual parent greps from `residual-hunt-protocol.md` remain valid under this fallback and under `--depth=light`.
+
 **When `--depth=light`:** residual protocol greps may run in-parent — still fill matrices + ledger.
 
 **Before each leg:** {{READ_TOOL}} `{{ASSETS_PATH}}/spec-package.md` and `{{ASSETS_PATH}}/axis-brief-template.md`. Fill `{{AXIS}}`, Spec Package only (no success / shipping narrative), `{{AXIS_MISSION}}`, and `{{AXIS_CHECKLIST}}` from `checklists/product.md` or `checklists/residual.md`.
