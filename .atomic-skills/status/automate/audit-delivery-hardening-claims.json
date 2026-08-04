@@ -1,82 +1,82 @@
 {
   "planSlug": "audit-delivery-hardening",
-  "phaseId": "F0",
-  "worktreePath": "/Volumes/External/code/audit-delivery-hardening-F0-writer",
-  "writerBranch": "impl/audit-delivery-hardening-F0-writer",
-  "finishedAt": "2026-08-04T14:29:34Z",
+  "phaseId": "F1",
+  "worktreePath": "/Volumes/External/code/audit-delivery-hardening-F1-writer",
+  "writerBranch": "impl/audit-delivery-hardening-F1-writer",
+  "finishedAt": "2026-08-04T14:53:55.000Z",
   "tasks": [
     {
-      "taskId": "T-001",
+      "taskId": "T-006",
       "status": "claimed-pass",
       "commitShas": [
-        "08a5bb0793539e66412d4ac8e765e986fb452865"
+        "8f309b132f49e018fe8295703e9c371c400a640e"
+      ],
+      "paths": [
+        "skills/shared/audit-delivery-assets/intent-package.md",
+        "skills/core/audit-delivery.md"
+      ],
+      "verifierCommand": "test -f skills/shared/audit-delivery-assets/intent-package.md && rg -n 'Intent Package|vocabulary|surface inventory|acceptance' skills/core/audit-delivery.md skills/shared/audit-delivery-assets/intent-package.md",
+      "exitCode": 0,
+      "transcript": "intent-package.md created with micro skeleton, admission (spine + acceptance + vocabulary + surface inventory), abort table. Phase 0 HARD-GATE wired. Verifier exit 0."
+    },
+    {
+      "taskId": "T-007",
+      "status": "claimed-pass",
+      "commitShas": [
+        "b378c6b1414a315e4cf6d8d26ce1d326d471467b"
+      ],
+      "paths": [
+        "skills/shared/audit-delivery-assets/residual-hunt-protocol.md",
+        "skills/core/audit-delivery.md"
+      ],
+      "verifierCommand": "test -f skills/shared/audit-delivery-assets/residual-hunt-protocol.md && rg -n 'OLD_TERMS|surface inventory|invalid residual' skills/shared/audit-delivery-assets/residual-hunt-protocol.md skills/core/audit-delivery.md",
+      "exitCode": 0,
+      "transcript": "residual-hunt-protocol.md: OLD_TERMS/NEW_TERMS x surfaces, classify storage|alias|teaching|dead, invalid residual blocks CLOSED. Body residual section wired. Verifier exit 0."
+    },
+    {
+      "taskId": "T-008",
+      "status": "claimed-pass",
+      "commitShas": [
+        "e5566b1fde88f19d4bfadc746f52f10a3b98589a"
       ],
       "paths": [
         "skills/core/audit-delivery.md",
-        "skills/shared/audit-delivery-assets/axis-brief-template.md",
-        "skills/shared/audit-delivery-assets/reaudit-brief-template.md",
-        "docs/skills/audit-delivery.md",
         "meta/catalog.yaml"
       ],
-      "verifierCommand": "! rg -q 'Present in Portuguese|FECHADO|RESOLVIDO|Reauditoria|Resumo executivo' skills/core/audit-delivery.md skills/shared/audit-delivery-assets",
+      "verifierCommand": "rg -n 'product,residual|product \\+ residual|cap.*PARTIAL|exclude.residual' skills/core/audit-delivery.md meta/catalog.yaml",
       "exitCode": 0,
-      "transcript": "EN SSOT: RESOLVED|PARTIAL|NO|N/A and CLOSED|PARTIAL|OPEN (+REGRESSION on reaudit). Removed Present-in-Portuguese rule; English template headers. rg banned strings: no matches; exit 0."
+      "transcript": "Default --axes product,residual; backend/frontend opt-in; exclude residual logs and caps PARTIAL. Catalog arg default updated. Verifier exit 0."
     },
     {
-      "taskId": "T-002",
+      "taskId": "T-009",
       "status": "claimed-pass",
       "commitShas": [
-        "fb0d72cc8d70270e73176e4ec7f451cf77732dc0"
+        "204a8b76a713654e2d91966ecb8975b4de7ffb12"
       ],
       "paths": [
+        "skills/shared/audit-delivery-assets/verdict-gate.md",
         "skills/core/audit-delivery.md"
       ],
-      "verifierCommand": "rg -n 'Parse.*ARG_VAR|BEFORE any|parse.*before' skills/core/audit-delivery.md",
+      "verifierCommand": "test -f skills/shared/audit-delivery-assets/verdict-gate.md && rg -n 'Accept Record|CRITICAL|CLOSED|green suite' skills/shared/audit-delivery-assets/verdict-gate.md skills/core/audit-delivery.md",
       "exitCode": 0,
-      "transcript": "Step 0 HARD added: Parse {{ARG_VAR}} into mode/axes/out/depth/flags BEFORE any Intent Package file read or report write. Flags match catalog. rg matched L3/L5; exit 0."
+      "transcript": "verdict-gate.md Accept Record schema; CRITICAL never to CLOSED; HIGH needs Accept Record or PARTIAL; green suite never upgrades. Phase 3 + report section. Verifier exit 0."
     },
     {
-      "taskId": "T-003",
+      "taskId": "T-010",
       "status": "claimed-pass",
       "commitShas": [
-        "559b027d02c5581f36c667c366faca3674bb9eaa"
+        "ba29ddf068dd36ea748141ffb36815bdf54dd1f4"
       ],
       "paths": [
-        "skills/core/audit-delivery.md"
-      ],
-      "verifierCommand": "rg -n 'axis-brief-template|reaudit-brief-template|ASSETS_PATH' skills/core/audit-delivery.md",
-      "exitCode": 0,
-      "transcript": "Assets index + Phase 2 fills axis-brief-template; Phase 5 fills reaudit-brief-template via {{READ_TOOL}} {{ASSETS_PATH}}. rg matched multiple lines; exit 0."
-    },
-    {
-      "taskId": "T-004",
-      "status": "claimed-pass",
-      "commitShas": [
-        "3bc6641375e9baa608edbfea2e41cf997aa4b917"
-      ],
-      "paths": [
-        "skills/shared/audit-delivery-assets/reaudit-entry.md",
-        "skills/core/audit-delivery.md"
-      ],
-      "verifierCommand": "test -f skills/shared/audit-delivery-assets/reaudit-entry.md && rg -n 'reaudit-entry|mode=reaudit|--out' skills/core/audit-delivery.md",
-      "exitCode": 0,
-      "transcript": "Created reaudit-entry.md (load report, recover package, append-only, --out required, RO product tree). Mode table + Phase 0 branch for mode=reaudit. File exists; rg matches; exit 0."
-    },
-    {
-      "taskId": "T-005",
-      "status": "claimed-pass",
-      "commitShas": [
-        "c70dc0efa96ac18206e8bcd6eadb028e8dfdacec",
-        "5d91d33689c7475f8ea7e2023cd7413d41e30232"
-      ],
-      "paths": [
+        "skills/core/audit-delivery.md",
         "meta/catalog.yaml",
         "docs/skills/audit-delivery.md",
-        "meta/catalog.json"
+        "meta/catalog.json",
+        "site/dist/skills/audit-delivery/index.html"
       ],
-      "verifierCommand": "npm run validate-skills && rg -n 'argument_hint|read-only|audit-and-fix' meta/catalog.yaml",
+      "verifierCommand": "rg -n 'read-only|re-run|composition|parallel-dispatch' skills/core/audit-delivery.md",
       "exitCode": 0,
-      "transcript": "argument_hint (108 chars) includes --mode flags, --no-fix, --out=path. Description/examples state default read-only; mutates_repo true retained. npm run validate-skills: All 16 skills valid. Follow-up commit synced docs/skills from husky generate-docs. exit 0."
+      "transcript": "Primary composition audit→fix/parallel-dispatch→re-run; audit-and-fix optional advanced. Catalog examples prefer re-run. Verifier exit 0."
     }
   ]
 }

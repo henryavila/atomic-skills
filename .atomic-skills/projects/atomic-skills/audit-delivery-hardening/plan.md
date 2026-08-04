@@ -5,9 +5,9 @@ title: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 version: "1.0"
 status: active
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T14:47:56.119Z
+lastUpdated: 2026-08-04T14:55:35.303Z
 branch: develop
-currentPhase: F1
+currentPhase: F2
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -112,7 +112,7 @@ phases:
     dependsOn:
       - F0
     subPhaseCount: 0
-    status: active
+    status: done
     businessIntent:
       value: A green suite cannot close delivery; half-migration residual and missing acceptance/vocabulary cannot reach CLOSED.
       workflow: Intent package asset+gate; residual-hunt-protocol; default axes; verdict-gate+Accept Record; composition note over in-skill fix PM loop.
@@ -124,11 +124,44 @@ phases:
       criteria:
         - id: G-F1-1
           description: Intent + residual + verdict assets; axes; admission/Accept/CRITICAL rules greppable
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test -f skills/shared/audit-delivery-assets/intent-package.md && test -f skills/shared/audit-delivery-assets/residual-hunt-protocol.md && test -f skills/shared/audit-delivery-assets/verdict-gate.md && rg -q 'product,residual|product \+ residual' skills/core/audit-delivery.md && rg -q 'Accept Record|CRITICAL' skills/shared/audit-delivery-assets/verdict-gate.md && rg -q 'PARTIAL|cap' skills/core/audit-delivery.md skills/shared/audit-delivery-assets/verdict-gate.md && rg -q 'acceptance|vocabulary|surface inventory|HARD-GATE' skills/shared/audit-delivery-assets/intent-package.md skills/core/audit-delivery.md
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-08-04T14:55:35.303Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 5f3191de3dcafb8d502bb6d75fd8ad4bdef23405
+            outputSummary: G-F1-1 green
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-audit-delivery-hardening-F1.md
+      verifiedAt: 2026-08-04T14:55:35.303Z
+      at: 5f3191de3dcafb8d502bb6d75fd8ad4bdef23405
+    lessonsState: none
+    noneReason: "F1 clean: all task+exit gate green; evaluation note-only"
+    reviewGate:
+      status: passed
+      mode: both
+      at: 5f3191de3dcafb8d502bb6d75fd8ad4bdef23405
+      verifiedAt: 2026-08-04T14:55:35.303Z
+      reviewFile: .atomic-skills/reviews/2026-08-04-both-audit-delivery-hardening-F1.md
+      localReceiptPath: .atomic-skills/reviews/2026-08-04-local-audit-delivery-hardening-F1.md
+      codexReceiptPath: .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-F1.md
+      legs:
+        - provider: local
+          receiptPath: .atomic-skills/reviews/2026-08-04-local-audit-delivery-hardening-F1.md
+        - provider: codex
+          receiptPath: .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-F1.md
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-08-04T14:55:35.303Z
+      packagePresentedAt: 2026-08-04T14:55:35.303Z
+      packagePath: .atomic-skills/reviews/decision-package-audit-delivery-hardening-F1.md
   - id: F2
     slug: audit-delivery-hardening-f2-p1-evidence-ecosystem
     title: P1 evidence + ecosystem
