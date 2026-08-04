@@ -1073,7 +1073,7 @@ core:
       server status, recovery that never heals the new residual state.
       `audit-delivery` is the intent-vs-delivered gate `review-code` cannot
       be — it requires an Intent Package, fans out specialized auditors
-      (including a monorepo residual hunt), and refuses FECHADO without
+      (including a monorepo residual hunt), and refuses CLOSED without
       reaudit after fixes.
     purpose: >
       Prove product intent was delivered end-to-end across code and ops
@@ -1092,7 +1092,7 @@ core:
       - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md'
         description: 'Audit-only against a handoff Intent Package'
       - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix'
-        description: 'Audit, fix residual in parallel WPs, reaudit to FECHADO/PARCIAL'
+        description: 'Audit, fix residual in parallel WPs, reaudit to CLOSED/PARTIAL'
       - command: '/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md'
         description: 'Re-check a prior findings ledger after manual fixes'
     related: [review-code, verify-claim, review-plan, parallel-dispatch, fix]

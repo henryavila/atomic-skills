@@ -15,9 +15,9 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 ## Iron Law
 
 NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.
-- Every decision / original problem must land in a matrix row with status `RESOLVIDO | PARCIAL | NÃO | N/A` and `file:line` evidence.
+- Every decision / original problem must land in a matrix row with status `RESOLVED | PARTIAL | NO | N/A` and `file:line` evidence.
 - A green diff, green suite, or "looks shipped" narrative is **not** a closed audit.
-- Closing requires either **FECHADO** (zero CRITICAL residual) or an explicit residual list the operator accepts — never silent partial.
+- Closing requires either **CLOSED** (zero CRITICAL residual) or an explicit residual list the operator accepts — never silent partial.
 
 ## Mindset
 
@@ -89,7 +89,7 @@ From the Intent Package, write two matrices (draft into the report file early vi
 |----|---------|-------------------|--------|----------|
 | P1 | … | … | ? | |
 
-Status values only: `RESOLVIDO` | `PARCIAL` | `NÃO` | `N/A`.
+Status values only: `RESOLVED` | `PARTIAL` | `NO` | `N/A`.
 
 **Evidence bar (G1):** status ≠ empty speculation. Prefer `path:line` from current tree. Agent reports without cites are claims, not evidence — re-read yourself or reject the row as unverified.
 
@@ -125,7 +125,7 @@ Merge into one **Findings Ledger**:
 
 Dedup by mechanism (same root cause → one finding). Prefer higher severity.
 
-**Pass residual is mandatory** if any decision is PARCIAL/NÃO or any CRITICAL/HIGH exists — even if product leg said "mostly done".
+**Pass residual is mandatory** if any decision is PARTIAL/NO or any CRITICAL/HIGH exists — even if product leg said "mostly done".
 
 ## Phase 3 — Verdict gate
 
@@ -133,11 +133,11 @@ Compute global verdict:
 
 | Verdict | Rule |
 |---------|------|
-| **FECHADO** | All Dn/Pn are RESOLVIDO or N/A; zero CRITICAL residual; HIGH residual empty **or** operator-accepted in writing |
-| **PARCIAL** | Core happy path RESOLVIDO but residual CRITICAL/HIGH remain OR any Dn/Pn PARCIAL |
-| **ABERTO** | Any Dn/Pn NÃO on a load-bearing decision, or audit could not verify key chains |
+| **CLOSED** | All Dn/Pn are RESOLVED or N/A; zero CRITICAL residual; HIGH residual empty **or** operator-accepted in writing |
+| **PARTIAL** | Core happy path RESOLVED but residual CRITICAL/HIGH remain OR any Dn/Pn PARTIAL |
+| **OPEN** | Any Dn/Pn NO on a load-bearing decision, or audit could not verify key chains |
 
-Never upgrade PARCIAL → FECHADO because tests are green. Tests are one evidence source, not the gate.
+Never upgrade PARTIAL → CLOSED because tests are green. Tests are one evidence source, not the gate.
 
 Persist the report with {{WRITE_TOOL}} to `--out` (or default path). Structure:
 
@@ -146,7 +146,7 @@ Persist the report with {{WRITE_TOOL}} to `--out` (or default path). Structure:
 **Date:** …
 **Mode:** audit | audit-and-fix | reaudit
 **Intent sources:** …
-**Verdict:** FECHADO | PARCIAL | ABERTO
+**Verdict:** CLOSED | PARTIAL | OPEN
 
 ## Intent Package
 …
@@ -179,7 +179,7 @@ Only enter Phase 4 when:
 - `--no-fix` is absent, and
 - Findings Ledger has ≥1 CRITICAL or HIGH (or operator explicitly asks to fix MEDIUM too).
 
-If verdict is already FECHADO: do not invent fix work.
+If verdict is already CLOSED: do not invent fix work.
 </HARD-GATE>
 
 ### 4.1 Partition work packages
@@ -216,7 +216,7 @@ Treat agent confidence as zero without diff + command output (`verify-claim` spi
 Spawn a **fresh** adversarial reaudit agent (clean context preferred):
 
 - Input: original Intent Package + Findings Ledger (pre-fix) + list of claimed fixes
-- Task: for **each** original finding, RESOLVIDO / PARCIAL / NÃO / REGRESSÃO with `file:line`
+- Task: for **each** original finding, RESOLVED / PARTIAL / NO / REGRESSION with `file:line`
 - Grep red-flag patterns from residual leg again
 - Output: final verdict + remaining residual only
 
@@ -227,14 +227,14 @@ If plateau (count did not decrease): **STOP**, escalate to operator with residua
 
 ## Phase 6 — Closing
 
-Present in Portuguese (Brazilian) unless the project skill language differs:
+Present the closing summary:
 
 ```markdown
 ### Audit Delivery — Summary
 
 **Intent source:** …
 **Mode:** …
-**Verdict:** FECHADO | PARCIAL | ABERTO
+**Verdict:** CLOSED | PARTIAL | OPEN
 **Decisions:** R/P/N/A counts
 **Problems:** R/P/N/A counts
 **Findings:** C/H/M/L counts (open after last reaudit)
@@ -283,19 +283,19 @@ Bound by `docs/kb/code-quality-gates.md`: **G1** (read-before-claim), **G2** (no
 Before declaring the audit complete, append:
 
 ```
-- G1 read-before-claim: every RESOLVIDO/PARCIAL/NÃO cites file:line or command output
-- G2 soft-language: verdict is FECHADO|PARCIAL|ABERTO only — no "looks good"/"should be fine"
+- G1 read-before-claim: every RESOLVED/PARTIAL/NO cites file:line or command output
+- G2 soft-language: verdict is CLOSED|PARTIAL|OPEN only — no "looks good"/"should be fine"
 - G6 reference-or-strike: agent summaries without cites were re-read or struck
 ```
 
 ## Red Flags
 
 - "The suite is green, so delivery is closed"
-- "I'll skip residual because the product axis said majoritariamente sim"
+- "I'll skip residual because the product axis said mostly yes"
 - "review-code already ran, this is redundant"
 - "I'll seal intent out of the auditor briefing so it is unbiased" (wrong skill — use review-code for that)
 - "I'll fix in the parent while agents run on the same files"
-- "PARCIAL is good enough for FECHADO if the handoff said shipped"
+- "PARTIAL is good enough for CLOSED if the handoff said shipped"
 - "Docs/MCP don't count — only backend"
 - "The fix agent said done, no need to reaudit"
 - "One more fix round after plateau — it'll converge"
@@ -312,7 +312,7 @@ If you thought any of the above: STOP. Return to the phase you were skipping.
 | "Intent biases the auditor" | Here intent **is** the spec; without it you audit a different product |
 | "Residual docs are noise" | Ops/MCP/skills **are** runtime for agents and humans — lying docs are HIGH |
 | "Reaudit is wasteful after fixes" | First reaudit of the SM work re-opened CRITICAL heal-on-approve — skip reaudit ships limbo |
-| "FECHADO with known CRITICAL if we track it" | Tracked CRITICAL = PARCIAL; FECHADO means zero CRITICAL residual |
+| "CLOSED with known CRITICAL if we track it" | Tracked CRITICAL = PARTIAL; CLOSED means zero CRITICAL residual |
 | "I'll merge all axes into one agent" | Parallel specialized legs catch disjoint gaps; one soup agent dilutes residual hunt |
 
 ## Pressure-test record (authoring)
@@ -321,7 +321,7 @@ Dogfood scenario that motivated this skill (2026-08-01, Lekto note pipeline SM):
 
 1. **Time + authority + plausibility:** "SM shipped, suite green, just review-code it" → would miss MCP legacy poll, `rejected` force gap, client `applyDraftsReady`, reclaim skip-with-drafts.
 2. **Sunk cost + fatigue + green suite:** after large SM commit, skip residual monorepo hunt → delivery claim false.
-3. **Reaudit skip after fixes:** first fix round left on-demand heal missing → CRITICAL residual; second reaudit required for FECHADO.
+3. **Reaudit skip after fixes:** first fix round left on-demand heal missing → CRITICAL residual; second reaudit required for CLOSED.
 
 Counters encoded above: Iron Law, mandatory residual axis, Phase 5 reaudit, verdict table, Red Flags / Rationalization rows.
 

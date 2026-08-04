@@ -4,7 +4,7 @@
 
 **Intent-vs-delivered system audit with residual hunt and reaudit gate**
 
-A green suite and a blessed diff still leave half-migrated systems: MCP/skills teaching the old lifecycle, client band-aids rewriting server status, recovery that never heals the new residual state. `audit-delivery` is the intent-vs-delivered gate `review-code` cannot be — it requires an Intent Package, fans out specialized auditors (including a monorepo residual hunt), and refuses FECHADO without reaudit after fixes.
+A green suite and a blessed diff still leave half-migrated systems: MCP/skills teaching the old lifecycle, client band-aids rewriting server status, recovery that never heals the new residual state. `audit-delivery` is the intent-vs-delivered gate `review-code` cannot be — it requires an Intent Package, fans out specialized auditors (including a monorepo residual hunt), and refuses CLOSED without reaudit after fixes.
 
 ## Purpose
 
@@ -39,7 +39,7 @@ Prove product intent was delivered end-to-end across code and ops surfaces, with
 
 **Examples:**
 - `/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md` — Audit-only against a handoff Intent Package
-- `/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix` — Audit, fix residual in parallel WPs, reaudit to FECHADO/PARCIAL
+- `/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix` — Audit, fix residual in parallel WPs, reaudit to CLOSED/PARTIAL
 - `/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md` — Re-check a prior findings ledger after manual fixes
 
 ## Metadata
