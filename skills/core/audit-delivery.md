@@ -24,6 +24,7 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 
 - {{READ_TOOL}} `{{ASSETS_PATH}}/intent-package.md` — Intent Package template + HARD-GATE admission (Phase 0)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` — domain-agnostic residual protocol (OLD_TERMS × surfaces)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/verdict-gate.md` — CLOSED/PARTIAL/OPEN rules + Accept Record schema (Phase 3)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2 spawn)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md` — fresh-context reaudit brief (Phase 5 / reaudit re-run)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — entry path when `--mode=reaudit` (load report, recover package, append-only)
@@ -164,15 +165,19 @@ Dedup by mechanism (same root cause → one finding). Prefer higher severity.
 
 ## Phase 3 — Verdict gate
 
-Compute global verdict:
+{{READ_TOOL}} `{{ASSETS_PATH}}/verdict-gate.md` and apply severity closing rules.
 
 | Verdict | Rule |
 |---------|------|
-| **CLOSED** | All Dn/Pn are RESOLVED or N/A; zero CRITICAL residual; HIGH residual empty **or** operator-accepted in writing |
-| **PARTIAL** | Core happy path RESOLVED but residual CRITICAL/HIGH remain OR any Dn/Pn PARTIAL |
-| **OPEN** | Any Dn/Pn NO on a load-bearing decision, or audit could not verify key chains |
+| **CLOSED** | All load-bearing Dn/Pn are RESOLVED or N/A; **zero CRITICAL** residual; every open **HIGH** has a durable **Accept Record** (or no open HIGH); residual ran and is valid (not excluded) |
+| **PARTIAL** | Core happy path RESOLVED but residual CRITICAL/HIGH remain without Accept Records, any Dn/Pn PARTIAL, residual excluded/invalid, or HIGH only "accepted" in chat |
+| **OPEN** | Any load-bearing Dn/Pn NO, audit could not verify key chains, or CRITICAL residual remains |
 
-Never upgrade PARTIAL → CLOSED because tests are green. Tests are one evidence source, not the gate.
+**Hard rules:**
+
+- **CRITICAL never** Accept-Recorded to **CLOSED** — shipping with CRITICAL residual is PARTIAL or OPEN only.
+- **HIGH** needs per-finding **Accept Record** (finding id, risk, mitigation, operator, at; optional expires) or verdict stays PARTIAL.
+- A **green suite** alone never upgrades verdict. Tests are evidence for matrix rows, not the gate.
 
 Persist the report with {{WRITE_TOOL}} to `--out` (or default path). Structure:
 
@@ -197,6 +202,10 @@ Persist the report with {{WRITE_TOOL}} to `--out` (or default path). Structure:
 
 ## Residual (ordered)
 …
+
+## Accept Records
+| Finding | Risk | Mitigation | Operator | At | Expires |
+|---------|------|------------|----------|-----|---------|
 
 ## Tests / commands observed (if any)
 …
@@ -359,7 +368,7 @@ If you thought any of the above: STOP. Return to the phase you were skipping.
 | "Intent biases the auditor" | Here intent **is** the spec; without it you audit a different product |
 | "Residual docs are noise" | Ops/MCP/skills **are** runtime for agents and humans — lying docs are HIGH |
 | "Reaudit is wasteful after fixes" | First reaudit of the SM work re-opened CRITICAL heal-on-approve — skip reaudit ships limbo |
-| "CLOSED with known CRITICAL if we track it" | Tracked CRITICAL = PARTIAL; CLOSED means zero CRITICAL residual |
+| "CLOSED with known CRITICAL if we track it" | CRITICAL never Accept-Recorded to CLOSED; tracked CRITICAL = PARTIAL/OPEN |
 | "I'll merge all axes into one agent" | Parallel specialized legs catch disjoint gaps; one soup agent dilutes residual hunt |
 
 ## Pressure-test record (authoring)
