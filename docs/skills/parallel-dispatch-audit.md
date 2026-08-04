@@ -19,6 +19,7 @@ Independently verify what a parallel-dispatch batch actually produced — readin
 **When NOT to use:**
 - Agents are still running (commits less than 2 min old)
 - You want to refactor what agents wrote (out of scope)
+- System residual / intent-vs-delivered delivery audit (use audit-delivery — hard on phase-done; plan-end intentVsDelivered is separate)
 
 ## Reference
 
@@ -37,7 +38,7 @@ Independently verify what a parallel-dispatch batch actually produced — readin
 
 **Dependencies:** `git`
 
-**Related:** `parallel-dispatch`
+**Related:** `parallel-dispatch`, `audit-delivery`
 
 **Tags:** `parallelism`, `audit`, `review`, `quality`
 

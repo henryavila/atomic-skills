@@ -237,6 +237,12 @@ describe('canRunPhaseDone wires present-before-PASS', () => {
       lessonsState: 'none',
       reviewGate: reviewBoth,
       decisionReview: passedWithPresent,
+      deliveryAuditGate: {
+        status: 'passed',
+        verdict: 'CLOSED',
+        reportPath: '.atomic-skills/reviews/audit-delivery-demo.md',
+        verifiedAt: '2026-08-04T15:00:00.000Z',
+      },
     });
     assert.equal(r.ok, true, r.reason);
   });

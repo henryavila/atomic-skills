@@ -22,6 +22,7 @@ Adversarially review an implementation plan before it runs — locally (fast, ch
 - Plan is still brainstorming (not structured yet)
 - Trivial plan (skip review entirely)
 - Codex CLI not installed and you need codex mode (use --mode=local)
+- Post-ship residual / intent-vs-delivered system audit (use audit-delivery — hard on phase-done)
 
 ## Reference
 
@@ -50,7 +51,7 @@ Adversarially review an implementation plan before it runs — locally (fast, ch
 
 **Dependencies:** `codex`, `git`
 
-**Related:** `review-code`
+**Related:** `review-code`, `audit-delivery`
 
 **Tags:** `review`, `planning`, `adversarial`, `cross-model`, `ground-truth`
 

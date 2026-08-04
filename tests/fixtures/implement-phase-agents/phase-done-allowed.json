@@ -23,6 +23,12 @@
       "evidencePath": "tests/fixtures/implement-phase-agents/decisions-sample.jsonl",
       "packagePresentedAt": "2026-07-23T11:59:00.000Z",
       "packagePath": "tests/fixtures/implement-phase-agents/decisions-sample.jsonl"
+    },
+    "deliveryAuditGate": {
+      "status": "passed",
+      "verdict": "CLOSED",
+      "reportPath": ".atomic-skills/reviews/audit-delivery-demo.md",
+      "verifiedAt": "2026-08-04T15:00:00.000Z"
     }
   },
   "expect": {

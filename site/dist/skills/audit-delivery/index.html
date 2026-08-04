@@ -46,6 +46,7 @@
 <li>You suspect half-migration (docs/MCP/client still on old model)</li>
 <li>After a large feature, before calling closed-beta / merge done</li>
 <li>review-code looked fine but product acceptance still feels wrong</li>
+<li>Before every phase-done — hard delivery audit (implement stamps deliveryAuditGate)</li>
 </ul>
     </section>
 
@@ -56,14 +57,17 @@
 <li>One claim + one deterministic verifier (use verify-claim)</li>
 <li>No decisions/problems written yet (write handoff first)</li>
 <li>Plan premises vs tree before implement (use review-plan ground-truth)</li>
+<li>Plan-end lifecycle inventory only — intentVsDelivered matched|partial|missing|extra at finalize (not a substitute for this skill on phase-done)</li>
+<li>Parallel-dispatch WP / fan-out hygiene only (use parallel-dispatch-audit)</li>
 </ul>
     </section>
 
     <section class="section">
       <h2>Examples</h2>
       <ul class="list-stack">
-<li><div class="cmd">/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md</div><div class="desc">Default read-only audit against a handoff Intent Package</div></li>
+<li><div class="cmd">/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md</div><div class="desc">Default read-only full-depth audit against a handoff Intent Package</div></li>
 <li><div class="cmd">/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md</div><div class="desc">Re-run after fix/parallel-dispatch — re-check ledger (read-only product tree)</div></li>
+<li><div class="cmd">/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --depth=light</div><div class="desc">Light depth: matrix + residual greps; still forbids CLOSED on CRITICAL / residual opt-out / load-bearing NO</div></li>
 <li><div class="cmd">/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix</div><div class="desc">Optional advanced: in-skill fix WPs + reaudit (prefer composition + re-run)</div></li>
 </ul>
     </section>

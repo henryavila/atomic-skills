@@ -138,6 +138,7 @@ core:
       - 'Plan is still brainstorming (not structured yet)'
       - 'Trivial plan (skip review entirely)'
       - 'Codex CLI not installed and you need codex mode (use --mode=local)'
+      - 'Post-ship residual / intent-vs-delivered system audit (use audit-delivery — hard on phase-done)'
     examples:
       - command: '/atomic-skills:review-plan docs/plans/migration.md'
         description: 'Interactive picker — chooses mode + cross-ref'
@@ -147,7 +148,7 @@ core:
         description: 'Plan↔code ground-truth (A+B) — mandatory before implement; alias --mode=gt'
       - command: '/atomic-skills:review-plan docs/plans/migration.md --mode=both'
         description: 'Local then host external default (sealed envelope)'
-    related: [review-code]
+    related: [review-code, audit-delivery]
     tags: [review, planning, adversarial, cross-model, ground-truth]
     ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: true
@@ -698,10 +699,11 @@ core:
     when_not_to_use:
       - 'Agents are still running (commits less than 2 min old)'
       - 'You want to refactor what agents wrote (out of scope)'
+      - 'System residual / intent-vs-delivered delivery audit (use audit-delivery — hard on phase-done; plan-end intentVsDelivered is separate)'
     examples:
       - command: '/atomic-skills:parallel-dispatch-audit onboard-ci'
         description: 'Audit batch by slug'
-    related: [parallel-dispatch]
+    related: [parallel-dispatch, audit-delivery]
     tags: [parallelism, audit, review, quality]
     ide_compatibility: [claude-code]
     requires_args: false
@@ -995,12 +997,13 @@ core:
       - 'The claim is a human-judgement / UI observation (use the manual-acceptance gate)'
       - 'There is no deterministic verifier (the task failed SPEC admission — surface it)'
       - 'You are diagnosing a bug, not verifying a fix (use fix)'
+      - 'Post-ship residual / multi-surface delivery proof (use audit-delivery — hard on phase-done)'
     examples:
       - command: '/atomic-skills:verify-claim T-004'
         description: 'Run the task''s verifier, derive a binary verdict, cite the evidence'
       - command: '/atomic-skills:verify-claim "the parser handles empty input"'
         description: 'Gate an "it works" claim on a fresh, captured run'
-    related: [implement, fix, project]
+    related: [implement, fix, project, audit-delivery]
     tags: [quality, verification, gate, core]
     ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
@@ -1086,19 +1089,24 @@ core:
       - 'You suspect half-migration (docs/MCP/client still on old model)'
       - 'After a large feature, before calling closed-beta / merge done'
       - 'review-code looked fine but product acceptance still feels wrong'
+      - 'Before every phase-done — hard delivery audit (implement stamps deliveryAuditGate)'
     when_not_to_use:
       - 'You only need blind diff correctness (use review-code)'
       - 'One claim + one deterministic verifier (use verify-claim)'
       - 'No decisions/problems written yet (write handoff first)'
       - 'Plan premises vs tree before implement (use review-plan ground-truth)'
+      - 'Plan-end lifecycle inventory only — intentVsDelivered matched|partial|missing|extra at finalize (not a substitute for this skill on phase-done)'
+      - 'Parallel-dispatch WP / fan-out hygiene only (use parallel-dispatch-audit)'
     examples:
       - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md'
-        description: 'Default read-only audit against a handoff Intent Package'
+        description: 'Default read-only full-depth audit against a handoff Intent Package'
       - command: '/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md'
         description: 'Re-run after fix/parallel-dispatch — re-check ledger (read-only product tree)'
+      - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --depth=light'
+        description: 'Light depth: matrix + residual greps; still forbids CLOSED on CRITICAL / residual opt-out / load-bearing NO'
       - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix'
         description: 'Optional advanced: in-skill fix WPs + reaudit (prefer composition + re-run)'
-    related: [review-code, verify-claim, review-plan, parallel-dispatch, fix]
+    related: [review-code, verify-claim, review-plan, parallel-dispatch, parallel-dispatch-audit, fix, implement]
     tags: [review, quality, delivery, adversarial, core]
     ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
@@ -1107,7 +1115,7 @@ core:
     one_liner: 'Intent-vs-delivered system audit with residual hunt and reaudit gate'
     emoji: '📦'
     version_added: '2.4.0'
-    argument_hint: '[intent-source] [--mode=audit|audit-and-fix|reaudit] [--axes=…] [--max-fix-rounds=N] [--no-fix] [--out=path]'
+    argument_hint: '[intent-source] [--mode=audit|reaudit|audit-and-fix] [--axes=…] [--depth=light|full] [--out=path]'
     args:
       - name: intent-source
         kind: positional
@@ -1121,6 +1129,10 @@ core:
         kind: option
         required: false
         description: 'Comma list of audit legs (default product,residual). backend/frontend remain valid; exclude residual logs and caps verdict PARTIAL.'
+      - name: '--depth'
+        kind: option
+        required: false
+        description: 'full (default) product+residual agents; light = matrix + residual protocol (parent greps OK). light still forbids CLOSED on CRITICAL / residual opt-out / load-bearing NO.'
       - name: '--max-fix-rounds'
         kind: option
         required: false

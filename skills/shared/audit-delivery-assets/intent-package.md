@@ -114,8 +114,8 @@ Proceed unless the operator objects. Do not re-litigate decisions in chat.
 
 ---
 
-## Out of scope for this asset (later phases)
+## Out of scope for this asset
 
 - Full `businessIntent` importer from project YAML (F4).
-- Spec Package (strip success narrative) — F2.
-- Matrix C / must-not rows — F2.
+- Spec Package strip — see `spec-package.md` (axis briefs).
+- Staged matrices / Matrix C must-not / multi-hop — see `matrices.md`.

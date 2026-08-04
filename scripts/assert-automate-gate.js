@@ -172,7 +172,7 @@ Gates:
   done          canDoneFromAutomateClaims under stamp (claim-bound + complex from initiative)
                 + reachability ON by default (pass --reachable-file <shas>; use --gate claims for shape-only)
                 + cursor step E under stamp + lastAssert written
-  phase-done    canRunPhaseDone (evaluation + lessons + review both + decisionReview under durable automate)
+  phase-done    canRunPhaseDone (evaluation + lessons + review both + decisionReview + deliveryAuditGate under durable automate; delivery audit never skippable)
                 + cursor step G under stamp + lastAssert written
   finalize      canFinalizeOrArchive (plan-end + userValidatedAt under stamp)
                 + cursor step I under stamp
@@ -1033,6 +1033,12 @@ export function runAssert(args, env = {}) {
         : fm.decisionReview != null
           ? fm.decisionReview
           : null;
+    const deliveryAuditGate =
+      phase != null && phase.deliveryAuditGate != null
+        ? phase.deliveryAuditGate
+        : fm.deliveryAuditGate != null
+          ? fm.deliveryAuditGate
+          : null;
     const r = canRunPhaseDone({
       planExecutionMode,
       evaluationGate,
@@ -1054,12 +1060,13 @@ export function runAssert(args, env = {}) {
           : null,
       reviewGate,
       decisionReview,
+      deliveryAuditGate,
       phase,
     });
     if (!r.ok) {
       const out = {
         ok: false,
-        message: `blocked: ${formatBlocked(r, 'phase-done evaluation/lessons/review/decision gate')}`,
+        message: `blocked: ${formatBlocked(r, 'phase-done evaluation/lessons/review/decision/deliveryAudit gate')}`,
         exitCode: 1,
       };
       maybeRecordLastAssert(statusRoot, slug, fm, args, gate, out);

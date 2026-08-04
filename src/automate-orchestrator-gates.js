@@ -13,7 +13,8 @@
  *     receipt or operator disposition; non-complex ⇒ verifier-only)
  *
  * phase-done under durable automate (order, all required):
- *   evaluation → lessons → phase review (both) → decisionReview
+ *   evaluation → lessons → phase review (both) → major disposition →
+ *   decisionReview → deliveryAuditGate (audit-delivery; never skippable)
  *
  * No I/O (except optional FS wrappers re-exported only via comment — call
  * writer-lease / claim-report directly for disk).
@@ -31,12 +32,15 @@ import { phaseEvaluationAllowsClose } from './phase-evaluation-gate.js';
 import { phaseLessonsAllowsClose } from './phase-lessons-gate.js';
 import { phaseReviewAllowsClose } from './phase-review-gate.js';
 import { decisionReviewAllowsPhaseDone } from './decision-review-gate.js';
+import { deliveryAuditAllowsClose } from './phase-delivery-audit-gate.js';
 import { complexTaskAllowsDone } from './complex-task.js';
 import {
   validateClaimReport,
   validateClaimReachability,
 } from './claim-report.js';
 import { planTreeProductFenceOk } from './automate-product-fence.js';
+
+export { deliveryAuditAllowsClose } from './phase-delivery-audit-gate.js';
 
 /**
  * Should the pure-maestro spine (not Mode 1 Step 2) run this session?
@@ -392,9 +396,10 @@ export function majorDispositionAllowsClose(input = {}) {
 /**
  * Before phase-done under durable automate:
  * evaluation → lessons → phase review (both) → major disposition (when open)
- * → decisionReview.
+ * → decisionReview → deliveryAuditGate (audit-delivery; never skippable).
  *
  * Non-automate: inactive helpers return ok. Does not stamp any field.
+ * Mode-1 still has implement.md HARD-GATE prose requiring audit-delivery.
  *
  * @param {{
  *   automateActive?: boolean | null,
@@ -407,6 +412,7 @@ export function majorDispositionAllowsClose(input = {}) {
  *   reviewGate?: unknown,
  *   phase?: object | null,
  *   decisionReview?: import('./decision-review-gate.js').DecisionReview | null,
+ *   deliveryAuditGate?: import('./phase-delivery-audit-gate.js').DeliveryAuditGate | null,
  *   openMajorFindings?: unknown[] | null,
  *   majorFindings?: unknown[] | null,
  *   disposition?: string | null,
@@ -466,9 +472,17 @@ export function canRunPhaseDone(input = {}) {
   });
   if (!major.ok) return major;
 
-  return decisionReviewAllowsPhaseDone({
+  const decision = decisionReviewAllowsPhaseDone({
     ...base,
     decisionReview: input.decisionReview,
+  });
+  if (!decision.ok) return decision;
+
+  // F2 T-017: audit-delivery hard-gate — never skippable (no operatorSkip).
+  return deliveryAuditAllowsClose({
+    ...base,
+    deliveryAuditGate: input.deliveryAuditGate,
+    phase: input.phase,
   });
 }
 
