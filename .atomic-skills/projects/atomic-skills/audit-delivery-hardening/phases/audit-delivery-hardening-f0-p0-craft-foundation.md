@@ -6,11 +6,11 @@ goal: Make audit-delivery craft-correct under Atomic Skills conventions so later
   product teeth sit on a body that loads assets, speaks EN SSOT, parses flags
   first, and has a real reaudit entry path.
 summary: EN enums, parse-first, wire assets, reaudit entry, catalog args
-status: active
+status: done
 branch: develop
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T14:33:10.587Z
-nextAction: Run evaluation agent then phase-done for F0
+lastUpdated: 2026-08-04T14:46:45.728Z
+nextAction: null
 parentPlan: audit-delivery-hardening
 phaseId: F0
 businessIntent:
@@ -32,14 +32,14 @@ parked: []
 emerged: []
 tasksDone: 5
 tasksTotal: 5
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 5
 weightTotal: 5
 exitGates:
   - id: G-F0-1
     description: EN SSOT + assets wired + reaudit-entry file + validate-skills
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: npm run validate-skills && test -f
@@ -50,7 +50,15 @@ exitGates:
         Portuguese|FECHADO|RESOLVIDO|Reauditoria|Resumo executivo'
         skills/core/audit-delivery.md skills/shared/audit-delivery-assets
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-04T14:46:09.315Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: dac81210d2448fed038b1ca9ad9fd233602b99e5
+      outputSummary: validate-skills + asset wires + EN ban green
     verifierLabel: "shell: npm run validate-skills && test -f skills/shared/audit-deli…"
+    evidenceSummary: passed · 2026-08-04
 tasks:
   - id: T-001
     title: EN-only enums + drop hard PT language
@@ -85,14 +93,11 @@ tasks:
         path: meta/catalog.yaml
     closedAt: 2026-08-04T14:33:10.587Z
     evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-04T14:33:10.587Z
       passed: true
       exitCode: 0
-      command: "! rg -q 'Present in Portuguese|FECHADO|RESOLVIDO|Reauditoria|Resumo
-        executivo' skills/core/audit-delivery.md
-        skills/shared/audit-delivery-assets"
-      verifiedAt: 2026-08-04T14:33:10.587Z
       verifiedCommit: b6c33f2d84922137afc34bfdf1501d257f6c1147
-      closeFingerprint: b6c33f2d84922137afc34bfdf1501d257f6c1147
       outputSummary: "EN SSOT: RESOLVED|PARTIAL|NO|N/A and CLOSED|PARTIAL|OPEN
         (+REGRESSION on reaudit). Removed Present-in-Portuguese rule; English
         template headers. rg banned strings: no matches; exit 0."
@@ -116,13 +121,11 @@ tasks:
         path: skills/core/audit-delivery.md
     closedAt: 2026-08-04T14:33:10.587Z
     evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-04T14:33:10.587Z
       passed: true
       exitCode: 0
-      command: rg -n 'Parse.*ARG_VAR|BEFORE any|parse.*before'
-        skills/core/audit-delivery.md
-      verifiedAt: 2026-08-04T14:33:10.587Z
       verifiedCommit: b6c33f2d84922137afc34bfdf1501d257f6c1147
-      closeFingerprint: b6c33f2d84922137afc34bfdf1501d257f6c1147
       outputSummary: "Step 0 HARD added: Parse {{ARG_VAR}} into
         mode/axes/out/depth/flags BEFORE any Intent Package file read or report
         write. Flags match catalog. rg matched L3/L5; exit 0."
@@ -146,13 +149,11 @@ tasks:
         path: skills/core/audit-delivery.md
     closedAt: 2026-08-04T14:33:10.587Z
     evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-04T14:33:10.587Z
       passed: true
       exitCode: 0
-      command: rg -n 'axis-brief-template|reaudit-brief-template|ASSETS_PATH'
-        skills/core/audit-delivery.md
-      verifiedAt: 2026-08-04T14:33:10.587Z
       verifiedCommit: b6c33f2d84922137afc34bfdf1501d257f6c1147
-      closeFingerprint: b6c33f2d84922137afc34bfdf1501d257f6c1147
       outputSummary: Assets index + Phase 2 fills axis-brief-template; Phase 5 fills
         reaudit-brief-template via {{READ_TOOL}} {{ASSETS_PATH}}. rg matched
         multiple lines; exit 0.
@@ -179,13 +180,11 @@ tasks:
         path: skills/core/audit-delivery.md
     closedAt: 2026-08-04T14:33:10.587Z
     evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-04T14:33:10.587Z
       passed: true
       exitCode: 0
-      command: test -f skills/shared/audit-delivery-assets/reaudit-entry.md && rg -n
-        'reaudit-entry|mode=reaudit|--out' skills/core/audit-delivery.md
-      verifiedAt: 2026-08-04T14:33:10.587Z
       verifiedCommit: b6c33f2d84922137afc34bfdf1501d257f6c1147
-      closeFingerprint: b6c33f2d84922137afc34bfdf1501d257f6c1147
       outputSummary: Created reaudit-entry.md (load report, recover package,
         append-only, --out required, RO product tree). Mode table + Phase 0
         branch for mode=reaudit. File exists; rg matches; exit 0.
@@ -212,20 +211,17 @@ tasks:
         path: docs/skills/audit-delivery.md
     closedAt: 2026-08-04T14:33:10.587Z
     evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-04T14:33:10.587Z
       passed: true
       exitCode: 0
-      command: npm run validate-skills && rg -n
-        'argument_hint|read-only|audit-and-fix' meta/catalog.yaml
-      verifiedAt: 2026-08-04T14:33:10.587Z
       verifiedCommit: b6c33f2d84922137afc34bfdf1501d257f6c1147
-      closeFingerprint: b6c33f2d84922137afc34bfdf1501d257f6c1147
       outputSummary: "argument_hint (108 chars) includes --mode flags, --no-fix,
         --out=path. Description/examples state default read-only; mutates_repo
         true retained. npm run validate-skills: All 16 skills valid. Follow-up
         commit synced docs/skills from husky generate-docs. exit 0."
 planTitle: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 planActive: true
-current: true
 ---
 
 # F0 — P0 craft foundation
@@ -234,10 +230,10 @@ Canonical detail: `docs/plans/audit-delivery-hardening.md` § F0.
 
 Drive with `atomic-skills:implement`.
 
-## Session handoff
-- **Narrative:** F0 T-001..T-005 closed on merged develop after post-merge re-verify. Phase writer merged; claim-bound assert done passed. Awaiting evaluation + lessons + review-code both + phase-done.
-- **Decision log:** Automate stamp; F0 package ratify; claim report exclusivity fixed (drop shared base/head); catalog.json added to T-005 claim paths for product fence.
-- **Single nextAction:** Spawn F0 evaluation agent; stamp evaluationGate; distill lessons; review-code --mode=both; assert phase-done; terminal phase-done.
-- **Verbatim state:** HEAD=b6c33f2d84922137afc34bfdf1501d257f6c1147; claim=`.atomic-skills/status/automate/audit-delivery-hardening-claims.json`; baseRef=8a2b43f1; exit gate G-F0-1 exit 0 on merged tree.
-- **Uncommitted changes:** initiative close dirty until checkpoint commit.
 
+## Session handoff
+- **Narrative:** F0 craft foundation closed through pure-maestro. All tasks done, G-F0-1 met, evaluation pass, lessons none, review both, decision-review PASS. Cursor pauses at awaiting-operator-advance.
+- **Decision log:** Automate stamp; F0 ratify; codex P2 fixed (schema + reaudit OR + site); dual-leg review CLEAN.
+- **Single nextAction:** Operator continue (operator-continue) then present phase-start package for F1 validate-only / ratify / materialize.
+- **Verbatim state:** HEAD=dac81210d2448fed038b1ca9ad9fd233602b99e5; phase F0 status done; currentPhase→F1 pending materialize from sidecar.
+- **Uncommitted changes:** phase-done state writes pending checkpoint.
