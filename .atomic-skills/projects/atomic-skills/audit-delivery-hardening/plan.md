@@ -5,7 +5,7 @@ title: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 version: "1.0"
 status: active
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T15:21:31.612Z
+lastUpdated: 2026-08-04T15:21:55.387Z
 branch: develop
 currentPhase: F4
 executionMode: automate
@@ -298,7 +298,7 @@ phases:
     dependsOn:
       - F3
     subPhaseCount: 0
-    status: pending
+    status: active
     businessIntent:
       value: Large rewrites get prosecution + dual reaudit + optional cross residual; fix path is a documented recipe; dogfood proves false-CLOSED and skip-audit stay closed.
       workflow: prosecution axis; full-depth critic; dual reaudit; fix-composition recipe; optional --cross; BI import + dogfood-checklist.md (includes deliveryAuditGate never-skip).
@@ -414,4 +414,4 @@ Human narrative / expanded acceptance: **[docs/plans/audit-delivery-hardening.md
 
 - internal: 6 finding(s) applied (plan) + initiative T-001/G-F0-1 fixed @ b899f49b (2026-08-04T12:05:08Z)
 - cross-model (codex): needs_changes (resolved on plan gates F-002..F-005; F-001 initiative polarity fixed 2026-08-04) — .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=14c32f1f9b2d | premises=12 | impacts=7 @ uncommitted (2026-08-04T15:13:32.839Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=cefc65d5f80a | premises=12 | impacts=7 @ uncommitted (2026-08-04T15:21:55.387Z)
