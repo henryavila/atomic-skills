@@ -5,7 +5,7 @@ title: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 version: "1.0"
 status: active
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T15:32:56.688Z
+lastUpdated: 2026-08-04T15:33:31.897Z
 branch: develop
 currentPhase: F4
 executionMode: automate
@@ -356,6 +356,38 @@ phases:
       at: 85e0f2786d1f9f24be1904ffae64623f0ee89df3
 planActive: true
 planTitle: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
+planEndReview:
+  mode: external-both
+  verifiedAt: 2026-08-04T15:33:31.897Z
+  at: 26bac83c9ab4bebb5b4d02a79fde91e1fc0e4b4f
+  reviewFile: .atomic-skills/reviews/2026-08-04-plan-end-external-both-audit-delivery-hardening.md
+  intentVsDelivered:
+    - intent: F0 craft EN enums + parse-first + assets + reaudit-entry + catalog
+      delivered: skills/core/audit-delivery.md EN SSOT; reaudit-entry.md; validate-skills
+      status: matched
+    - intent: F1 Intent Package + residual protocol + Accept Record + product,residual default
+      delivered: intent-package.md residual-hunt-protocol.md verdict-gate.md body axes
+      status: matched
+    - intent: F2 staged evidence + Spec Package + depth + deliveryAuditGate hard
+      delivered: matrices.md spec-package.md --depth phase-delivery-audit-gate.js 26 tests
+      status: matched
+    - intent: F3 thin body + lazy assets + static graph + INVESTIGATOR fallback
+      delivered: body ~209 lines + checklists/report + audit-delivery-assets.test.js
+      status: partial
+      note: thin body ~209 lines vs 120-180 aspirational; behavior in assets
+    - intent: F4 prosecution + critic merge + dual reaudit + fix recipe + dogfood
+      delivered: prosecution/critic-merge/fix-composition-recipe + dogfood-checklist
+      status: matched
+    - intent: Separate skill vs review-code iron law
+      delivered: catalog when_not + implement antipatterns; no collapse
+      status: matched
+  legs:
+    - provider: local
+      receiptPath: .atomic-skills/reviews/2026-08-04-plan-end-local-audit-delivery-hardening.md
+      status: succeeded
+    - provider: codex
+      receiptPath: .atomic-skills/reviews/2026-08-04-plan-end-codex-audit-delivery-hardening.md
+      status: succeeded
 ---
 
 # audit-delivery hardening
