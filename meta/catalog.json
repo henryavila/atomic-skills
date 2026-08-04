@@ -942,7 +942,7 @@
       "adversarial",
       "core"
     ],
-    "summary": "Prove product intent was delivered end-to-end across code and ops surfaces, with residual hunt and reaudit — not patch correctness alone. Default is read-only findings; mutation only under audit-and-fix.",
+    "summary": "Prove product intent was delivered end-to-end across code and ops surfaces, with residual hunt and reaudit — not patch correctness alone. Default is read-only findings; primary fix path is composition + re-run.",
     "pros": [
       "A handoff/plan claims a redesign shipped and you need proof",
       "You suspect half-migration (docs/MCP/client still on old model)",
@@ -957,8 +957,8 @@
     ],
     "examples": [
       "/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md",
-      "/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix",
-      "/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md"
+      "/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md",
+      "/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix"
     ],
     "fields": [
       {
@@ -971,13 +971,13 @@
         "name": "--mode",
         "kind": "option",
         "required": false,
-        "description": "audit (default, read-only), audit-and-fix (fix + reaudit loop), reaudit (re-check existing report; requires --out)."
+        "description": "audit (default, read-only), reaudit (re-run after fixes; requires --out), audit-and-fix (optional advanced in-skill fix loop)."
       },
       {
         "name": "--axes",
         "kind": "option",
         "required": false,
-        "description": "Comma list of audit legs (default backend,frontend,product,residual)."
+        "description": "Comma list of audit legs (default product,residual). backend/frontend remain valid; exclude residual logs and caps verdict PARTIAL."
       },
       {
         "name": "--max-fix-rounds",

@@ -1065,9 +1065,9 @@ core:
       actually delivered end-to-end (not just present in a diff). Default mode
       is read-only (audit): builds a decision/problem matrix from handoff/plan/docs,
       fans out specialized read-only auditors, writes a findings report.
-      Optional --mode=audit-and-fix dispatches fixes + reaudit; --mode=reaudit
-      re-checks an existing report. Complements review-code (blind diff) and
-      verify-claim (binary verifier).
+      Prefer composition: audit → fix/parallel-dispatch → re-run reaudit.
+      Optional advanced --mode=audit-and-fix keeps an in-skill fix loop.
+      Complements review-code (blind diff) and verify-claim (binary verifier).
     value_pitch: >
       A green suite and a blessed diff still leave half-migrated systems:
       MCP/skills teaching the old lifecycle, client band-aids rewriting
@@ -1075,12 +1075,12 @@ core:
       `audit-delivery` is the intent-vs-delivered gate `review-code` cannot
       be — it requires an Intent Package, fans out specialized auditors
       (including a monorepo residual hunt), and refuses CLOSED without
-      reaudit after fixes. Default is read-only; opt into audit-and-fix
-      only when you want orchestrated residual fixes.
+      residual proof. Default is read-only; compose with fix/parallel-dispatch
+      and re-run reaudit rather than treating audit-and-fix as the primary path.
     purpose: >
       Prove product intent was delivered end-to-end across code and ops
       surfaces, with residual hunt and reaudit — not patch correctness alone.
-      Default is read-only findings; mutation only under audit-and-fix.
+      Default is read-only findings; primary fix path is composition + re-run.
     when_to_use:
       - 'A handoff/plan claims a redesign shipped and you need proof'
       - 'You suspect half-migration (docs/MCP/client still on old model)'
@@ -1094,10 +1094,10 @@ core:
     examples:
       - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md'
         description: 'Default read-only audit against a handoff Intent Package'
-      - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix'
-        description: 'Opt-in: audit, fix residual in parallel WPs, reaudit to CLOSED/PARTIAL'
       - command: '/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md'
-        description: 'Re-check a prior findings ledger after manual fixes (read-only product tree)'
+        description: 'Re-run after fix/parallel-dispatch — re-check ledger (read-only product tree)'
+      - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix'
+        description: 'Optional advanced: in-skill fix WPs + reaudit (prefer composition + re-run)'
     related: [review-code, verify-claim, review-plan, parallel-dispatch, fix]
     tags: [review, quality, delivery, adversarial, core]
     ide_compatibility: [claude-code, gemini, cursor, codex]
@@ -1116,11 +1116,11 @@ core:
       - name: '--mode'
         kind: option
         required: false
-        description: 'audit (default, read-only), audit-and-fix (fix + reaudit loop), reaudit (re-check existing report; requires --out).'
+        description: 'audit (default, read-only), reaudit (re-run after fixes; requires --out), audit-and-fix (optional advanced in-skill fix loop).'
       - name: '--axes'
         kind: option
         required: false
-        description: 'Comma list of audit legs (default backend,frontend,product,residual).'
+        description: 'Comma list of audit legs (default product,residual). backend/frontend remain valid; exclude residual logs and caps verdict PARTIAL.'
       - name: '--max-fix-rounds'
         kind: option
         required: false

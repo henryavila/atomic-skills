@@ -10,8 +10,8 @@ Accepted shape (must match catalog args):
 | Token | Default | Meaning |
 |-------|---------|---------|
 | **intent-source** | (empty → ask once) | Path to handoff / plan / design / acceptance doc, OR freeform decision list |
-| **`--mode`** | `audit` | `audit` (read-only findings), `audit-and-fix` (orchestrate fixes + reaudit), `reaudit` (re-check existing findings file) |
-| **`--axes`** | `backend,frontend,product,residual` | Comma list of audit legs; drop unused legs |
+| **`--mode`** | `audit` | `audit` (**default, read-only** findings report), `reaudit` (re-check report), `audit-and-fix` (optional advanced: in-skill fix loop) |
+| **`--axes`** | `product,residual` | Comma list of audit legs; `backend`/`frontend` remain valid opt-ins |
 | **`--max-fix-rounds`** | `2` | Max fix→reaudit loops in `audit-and-fix` |
 | **`--no-fix`** | off | Force read-only even if mode says fix |
 | **`--out`** | `.atomic-skills/reviews/audit-delivery-<slug>-<YYYYMMDD>.md` | Report path |
@@ -22,6 +22,9 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 
 ## Assets (lazy — read on demand from `{{ASSETS_PATH}}/`)
 
+- {{READ_TOOL}} `{{ASSETS_PATH}}/intent-package.md` — Intent Package template + HARD-GATE admission (Phase 0)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` — domain-agnostic residual protocol (OLD_TERMS × surfaces)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/verdict-gate.md` — CLOSED/PARTIAL/OPEN rules + Accept Record schema (Phase 3)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2 spawn)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md` — fresh-context reaudit brief (Phase 5 / reaudit re-run)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — entry path when `--mode=reaudit` (load report, recover package, append-only)
@@ -30,9 +33,24 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 
 | Mode | Product tree | Report | Entry |
 |------|--------------|--------|-------|
-| **`audit`** (default) | Read-only | Write new / overwrite draft at `--out` | Step 0 → Phase 0…3 → stop |
-| **`audit-and-fix`** | Writable in Phase 4 fix WPs only | Write + update through reaudit | Step 0 → full phases; honor `--no-fix` / `--max-fix-rounds` |
-| **`reaudit`** | **Read-only** | **Append-only** reaudit section on existing report | **Requires `--out`** (or explicit report path). {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` and follow it — do **not** start a greenfield Intent Package hunt first |
+| **`audit`** (default) | **Read-only** | Write new / overwrite draft at `--out` | Step 0 → Phase 0…3 → **stop** |
+| **`reaudit`** | **Read-only** | **Append-only** reaudit section on existing report | **Requires `--out`**. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — do **not** start a greenfield Intent Package hunt first |
+| **`audit-and-fix`** (optional / advanced) | Writable in Phase 4 fix WPs only | Write + update through reaudit | Prefer **composition** below; use only when operator wants in-skill fix PM |
+
+## Primary composition (preferred over audit-and-fix)
+
+`audit-and-fix` is a **recipe/composition option**, not the primary identity of this skill. Default path is **read-only audit**.
+
+```text
+1. atomic-skills:audit-delivery <intent>          # read-only report + ledger
+2. fix / parallel-dispatch (or manual WPs)        # close CRITICAL/HIGH outside auditor
+3. re-run: audit-delivery --mode=reaudit --out=…  # or fresh audit against same package
+4. optional: review-code on the fix range         # blind patch correctness
+```
+
+- After step 1 with PARTIAL/OPEN, **do not** treat the auditor as a fix project manager by default.
+- Partition findings → `atomic-skills:parallel-dispatch` / `atomic-skills:fix` → **re-run** audit-delivery (reaudit or new audit with same Intent Package).
+- Keep `--mode=audit-and-fix` for operators who explicitly want the in-skill fix→reaudit loop (Phase 4–5).
 
 ## Iron Law
 
@@ -77,22 +95,25 @@ Never collapse audit-delivery into a sealed anti-intent briefing. That is the fa
 
 **If `--mode=reaudit`:** skip greenfield intent discovery. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` and execute that procedure (load `--out`, recover package + ledger, reaudit append). The HARD-GATE below applies only when recovering the package fails.
 
-<HARD-GATE>
-Do not open audit agents until you have a written **Intent Package**:
+{{READ_TOOL}} `{{ASSETS_PATH}}/intent-package.md` and fill the micro skeleton from sources below.
 
-1. **Decisions** (closed product/engineering choices) — numbered D1…Dn
-2. **Original problems** the change claimed to solve — P1…Pn
-3. **Acceptance / happy paths** (when present)
-4. **Non-goals / "do not reopen"** (when present)
-5. **Key SSOT paths** (status enums, hub phases, config defaults, migrations)
+<HARD-GATE>
+Do not open audit agents until you have a written **Intent Package** that passes admission:
+
+1. **Spine** — **Decisions** D1…Dn (≥2) **or** **Original problems** P1…Pn (≥1) (both preferred)
+2. **Acceptance / doneWhen** — ≥1 checkable criterion (happy path or plan `doneWhen`); required, not optional
+3. **Vocabulary delta** — non-empty OLD→NEW table when migration/rename-shaped; else mark `vocabulary: none (additive)` with reason
+4. **Surface inventory** — ≥3 delivery surfaces **or** explicit `single-surface: true` flag logged in the report
+5. **Non-goals / "do not reopen"** (when present) and **Key SSOT paths** (status enums, hub phases, config defaults, migrations)
 
 Sources (try in order; cite paths you used):
 - Explicit path in {{ARG_VAR}}
 - `docs/plans/HANDOFF-*.md`, plan markdown, design.md, PRD acceptance section
 - User-pasted decision table in the current message
 
-If after asking once you still lack ≥2 decisions **or** ≥1 original problem: **ABORT**.
-Redirect: "audit-delivery needs an Intent Package. Write a short handoff (decisions + problems) or point at the plan section, then re-run."
+**Abort** (after asking once) when any admission rule fails. Point the operator at the Intent Package template / micro skeleton in `{{ASSETS_PATH}}/intent-package.md`, then re-run. Do not soft-proceed with a partial package.
+
+Example redirect: "audit-delivery needs a full Intent Package (decisions/problems + acceptance + vocabulary when migrating + surface inventory). Fill the template or point at the plan section, then re-run."
 </HARD-GATE>
 
 Present the Intent Package to the operator in compact form and proceed (no long re-approval unless they object).
@@ -123,16 +144,20 @@ Spawn **read-only** agents via {{INVESTIGATOR_TOOL}} (explore / read-only capabi
 
 **Before each leg spawn:** {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md`. Fill `{{AXIS}}`, `{{INTENT_PACKAGE}}`, `{{AXIS_MISSION}}`, and `{{AXIS_CHECKLIST}}` for that leg only. Paste the filled brief as the agent prompt body.
 
-Default axes and focus:
+**Default axes: `product` + `residual`** (not backend/frontend alone).
 
-| Axis | Mission |
-|------|---------|
-| **backend** | SSOT, transitions, jobs, recovery, API force/CAS paths, tests assert **canonical** statuses |
-| **frontend** | Work surface / CTAs, phase priority, client band-aids that rewrite server truth, e2e mocks |
-| **product** | Trace each Dn/Pn config→code→UI→test; counter-evidence hunt |
-| **residual** | Monorepo half-migration: MCP, skills, ops docs, scripts, legacy string greps, dead dual paths |
+| Axis | Default? | Mission |
+|------|----------|---------|
+| **product** | yes | Trace each Dn/Pn config→code→UI→test; counter-evidence hunt |
+| **residual** | yes | Monorepo half-migration via residual-hunt-protocol: OLD_TERMS/NEW_TERMS × surface inventory |
+| **backend** | opt-in | SSOT, transitions, jobs, recovery, API force/CAS paths, tests assert **canonical** statuses |
+| **frontend** | opt-in | Work surface / CTAs, phase priority, client band-aids that rewrite server truth, e2e mocks |
 
-Customize axes when the domain is not a note pipeline — e.g. `api,worker,admin,docs` — but keep **≥1 residual monorepo leg** unless the operator explicitly opts out with `--axes` excluding residual (log that choice).
+Add `backend` / `frontend` (or domain axes e.g. `api,worker,admin,docs`) via `--axes` when useful. Keep **≥1 residual monorepo leg** unless the operator explicitly opts to exclude residual.
+
+**Exclude residual (HARD cap):** if `--axes` omits `residual` (exclude residual), **log** that choice in the report and **cap** global verdict at **PARTIAL** — never CLOSED without a residual leg (invalid residual / skipped residual both block CLOSED).
+
+**Residual leg:** {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` before spawn. Fill axis brief with protocol steps (derive OLD_TERMS/NEW_TERMS → × surface inventory → classify storage|alias|teaching|dead). **Invalid residual** (no derived terms, "nothing found" as fake success) blocks CLOSED.
 
 ### Agent prompt rules (each leg)
 
@@ -155,15 +180,19 @@ Dedup by mechanism (same root cause → one finding). Prefer higher severity.
 
 ## Phase 3 — Verdict gate
 
-Compute global verdict:
+{{READ_TOOL}} `{{ASSETS_PATH}}/verdict-gate.md` and apply severity closing rules.
 
 | Verdict | Rule |
 |---------|------|
-| **CLOSED** | All Dn/Pn are RESOLVED or N/A; zero CRITICAL residual; HIGH residual empty **or** operator-accepted in writing |
-| **PARTIAL** | Core happy path RESOLVED but residual CRITICAL/HIGH remain OR any Dn/Pn PARTIAL |
-| **OPEN** | Any Dn/Pn NO on a load-bearing decision, or audit could not verify key chains |
+| **CLOSED** | All load-bearing Dn/Pn are RESOLVED or N/A; **zero CRITICAL** residual; every open **HIGH** has a durable **Accept Record** (or no open HIGH); residual ran and is valid (not excluded) |
+| **PARTIAL** | Core happy path RESOLVED but residual CRITICAL/HIGH remain without Accept Records, any Dn/Pn PARTIAL, residual excluded/invalid, or HIGH only "accepted" in chat |
+| **OPEN** | Any load-bearing Dn/Pn NO, audit could not verify key chains, or CRITICAL residual remains |
 
-Never upgrade PARTIAL → CLOSED because tests are green. Tests are one evidence source, not the gate.
+**Hard rules:**
+
+- **CRITICAL never** Accept-Recorded to **CLOSED** — shipping with CRITICAL residual is PARTIAL or OPEN only.
+- **HIGH** needs per-finding **Accept Record** (finding id, risk, mitigation, operator, at; optional expires) or verdict stays PARTIAL.
+- A **green suite** alone never upgrades verdict. Tests are evidence for matrix rows, not the gate.
 
 Persist the report with {{WRITE_TOOL}} to `--out` (or default path). Structure:
 
@@ -189,15 +218,21 @@ Persist the report with {{WRITE_TOOL}} to `--out` (or default path). Structure:
 ## Residual (ordered)
 …
 
+## Accept Records
+| Finding | Risk | Mitigation | Operator | At | Expires |
+|---------|------|------------|----------|-----|---------|
+
 ## Tests / commands observed (if any)
 …
 
 ## Confidence %
 ```
 
-If `--mode=audit` or `--no-fix`: **STOP here**. Present summary + report path. Do not fix.
+If `--mode=audit` (default) or `--no-fix`: **STOP here**. Present summary + report path. Prefer primary **composition**: fix / parallel-dispatch outside this skill, then **re-run** audit-delivery (`--mode=reaudit --out=…` or a fresh audit). Do not fix in the audit session unless operator chose `audit-and-fix`.
 
-## Phase 4 — Fix orchestration (`audit-and-fix` only)
+## Phase 4 — Fix orchestration (`audit-and-fix` only — optional advanced)
+
+**Not the default path.** Prefer composition (audit → parallel-dispatch/fix → re-run). Enter only when `--mode=audit-and-fix`.
 
 <HARD-GATE>
 Only enter Phase 4 when:
@@ -237,9 +272,13 @@ For each agent "done" report:
 
 Treat agent confidence as zero without diff + command output (`verify-claim` spirit).
 
-## Phase 5 — Reaudit (mandatory after any fix round)
+## Phase 5 — Reaudit (after fixes — composition or audit-and-fix)
 
-Spawn a **fresh** adversarial reaudit agent (clean context preferred):
+After **any** fix round (external composition or Phase 4), re-check delivery:
+
+**Preferred:** re-run `audit-delivery --mode=reaudit --out=<report>` (or a fresh `--mode=audit` on the same Intent Package).
+
+When still inside `audit-and-fix`, spawn a **fresh** adversarial reaudit agent (clean context preferred):
 
 1. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md`.
 2. Fill `{{INTENT_PACKAGE}}`, `{{FINDINGS_LEDGER}}` (pre-fix), and `{{CLAIMED_FIXES}}`.
@@ -251,8 +290,7 @@ Spawn a **fresh** adversarial reaudit agent (clean context preferred):
 
 Operator re-reads any CRITICAL still claimed fixed (G1).
 
-If residual CRITICAL/HIGH remain and fix rounds &lt; `--max-fix-rounds`: return to Phase 4.
-If plateau (count did not decrease): **STOP**, escalate to operator with residual list — do not churn.
+If residual CRITICAL/HIGH remain and (composition) operator continues fixing, **re-run** reaudit after the next fix batch. Inside `audit-and-fix`, if rounds &lt; `--max-fix-rounds`: return to Phase 4. If plateau (count did not decrease): **STOP**, escalate to operator with residual list — do not churn.
 
 ## Phase 6 — Closing
 
@@ -282,9 +320,18 @@ Optional: offer commit of report + fixes (do not push unless asked).
 
 ---
 
-## Residual hunt — default red-flag greps
+## Residual hunt
 
-Always run a residual leg (or parent greps) for patterns adapted to the Intent Package. Examples (replace with domain terms):
+{{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` and execute the protocol (do not improvise only domain greps).
+
+Summary:
+
+1. Derive **OLD_TERMS** / **NEW_TERMS** from Intent Package vocabulary + SSOT.
+2. Cross terms × **surface inventory**; classify hits: storage | alias | teaching | dead.
+3. Cover residual classes: dual SSOT, client rewrite, recovery gap, force/admin legacy, teaching surfaces, false-green fixtures, config/env drift.
+4. **Invalid residual** (starved terms / fake empty success) **blocks CLOSED**.
+
+Illustrative greps only (e.g. replace with package terms — not universal steps):
 
 - Legacy status/enum strings still used as **storage or poll defaults** (not mere input aliases)
 - Client helpers that **rewrite** server status from side channels
@@ -341,7 +388,7 @@ If you thought any of the above: STOP. Return to the phase you were skipping.
 | "Intent biases the auditor" | Here intent **is** the spec; without it you audit a different product |
 | "Residual docs are noise" | Ops/MCP/skills **are** runtime for agents and humans — lying docs are HIGH |
 | "Reaudit is wasteful after fixes" | First reaudit of the SM work re-opened CRITICAL heal-on-approve — skip reaudit ships limbo |
-| "CLOSED with known CRITICAL if we track it" | Tracked CRITICAL = PARTIAL; CLOSED means zero CRITICAL residual |
+| "CLOSED with known CRITICAL if we track it" | CRITICAL never Accept-Recorded to CLOSED; tracked CRITICAL = PARTIAL/OPEN |
 | "I'll merge all axes into one agent" | Parallel specialized legs catch disjoint gaps; one soup agent dilutes residual hunt |
 
 ## Pressure-test record (authoring)
@@ -358,4 +405,4 @@ Counters encoded above: Iron Law, mandatory residual axis, Phase 5 reaudit, verd
 
 ## Closing note
 
-`audit-delivery` does **not** replace `review-code`. After `audit-and-fix`, recommend a **blind** `review-code` on the fix range so intent-driven fixes still get anti-intent correctness review.
+`audit-delivery` does **not** replace `review-code`. Primary identity is **read-only** intent-vs-delivered audit. After composition (fix / parallel-dispatch) or optional `audit-and-fix`, recommend a **blind** `review-code` on the fix range and a **re-run** of audit-delivery so residual closure is proven.
