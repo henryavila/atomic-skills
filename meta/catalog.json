@@ -987,7 +987,7 @@
         "name": "--axes",
         "kind": "option",
         "required": false,
-        "description": "Comma list of audit legs (default product,residual). backend/frontend remain valid; exclude residual logs and caps verdict PARTIAL."
+        "description": "Comma list of audit legs (default product,residual). backend/frontend/prosecution (NO-only) remain valid; exclude residual logs and caps verdict PARTIAL."
       },
       {
         "name": "--depth",
@@ -1006,6 +1006,12 @@
         "kind": "flag",
         "required": false,
         "description": "Force read-only even if mode would fix."
+      },
+      {
+        "name": "--cross",
+        "kind": "option",
+        "required": false,
+        "description": "Optional cross-model residual/critic/reaudit (off|residual|critic|reaudit). Default off. External brief = Spec Package / ledger claims only + anti-success-framing — never seal intent out of Spec Package."
       },
       {
         "name": "--out",

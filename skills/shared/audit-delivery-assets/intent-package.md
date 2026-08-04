@@ -114,8 +114,46 @@ Proceed unless the operator objects. Do not re-litigate decisions in chat.
 
 ---
 
+## businessIntent import (phase / plan YAML)
+
+When the intent-source is a **project phase** or **plan** that carries a
+`businessIntent:` block (value / workflow / rules / outOfScope / doneWhen),
+**draft** the Intent Package from that block, then **operator-ratify** before
+Phase 1.
+
+### Mapping
+
+| businessIntent field | Intent Package field |
+|----------------------|----------------------|
+| `value` | Spine seed — why delivery matters; extract ≥1 original problem **or** ≥2 decision candidates |
+| `workflow` | Acceptance candidates + surface hints (steps imply surfaces) |
+| `rules` | Non-goals / must-not / load-bearing constraints (Matrix C seeds) |
+| `outOfScope` | **Non-goals / do-not-reopen** (verbatim short bullets) |
+| `doneWhen` | **Acceptance / doneWhen** criteria (≥1 checkable row required for admission) |
+
+### Draft procedure
+
+1. Locate `businessIntent` on the active phase initiative or plan frontmatter.
+2. Fill the micro skeleton:
+   - **Problems / Decisions** from `value` + `workflow` (prefer plan wording; do not invent product choices beyond the block).
+   - **Acceptance** from `doneWhen` (split compound sentences into checkable A1…An).
+   - **Non-goals** from `outOfScope` + hard constraints from `rules`.
+   - **Vocabulary / surfaces** — still required when migration-shaped; BI alone rarely supplies OLD→NEW — ask or pull from design/handoff if missing.
+3. Present the draft compactly (operator present-form).
+4. **Operator ratifies** (or edits) before HARD-GATE admission. Unratified BI draft does **not** skip admission — incomplete spine/acceptance/vocabulary/surfaces still **ABORT**.
+
+### Abort / degrade
+
+| Case | Action |
+|------|--------|
+| No `businessIntent` on source | Skip import; use handoff/plan/docs as usual |
+| BI present but `doneWhen` empty | ABORT until acceptance exists |
+| BI-only draft fails spine (≥2 D or ≥1 P) | Ask once for decisions/problems; do not soft-proceed |
+
+---
+
 ## Out of scope for this asset
 
-- Full `businessIntent` importer from project YAML (F4).
 - Spec Package strip — see `spec-package.md` (axis briefs).
 - Staged matrices / Matrix C must-not / multi-hop — see `matrices.md`.
+- Machine schema validator for businessIntent beyond this draft mapping.
