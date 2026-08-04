@@ -5,7 +5,7 @@ title: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 version: "1.0"
 status: active
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T14:46:45.728Z
+lastUpdated: 2026-08-04T14:47:56.119Z
 branch: develop
 currentPhase: F1
 executionMode: automate
@@ -112,7 +112,7 @@ phases:
     dependsOn:
       - F0
     subPhaseCount: 0
-    status: pending
+    status: active
     businessIntent:
       value: A green suite cannot close delivery; half-migration residual and missing acceptance/vocabulary cannot reach CLOSED.
       workflow: Intent package asset+gate; residual-hunt-protocol; default axes; verdict-gate+Accept Record; composition note over in-skill fix PM loop.
@@ -264,9 +264,9 @@ Human narrative / expanded acceptance: **[docs/plans/audit-delivery-hardening.md
 
 **Status:** complete-with-findings
 **Codebase class:** populated
-**Scanned:** skills/core/, skills/shared/audit-delivery-assets/, meta/catalog.yaml, docs/skills/, scripts/validate-skills.js, src/render.js, tests/skill-byte-budget.test.js, skills/shared/implement-automate-maestro.md → premises re-verified 2026-08-04 implement entry; create-targets still absent
+**Scanned:** skills/core/, skills/shared/audit-delivery-assets/, meta/catalog.yaml, docs/skills/, scripts/validate-skills.js, src/render.js, tests/skill-byte-budget.test.js, skills/shared/implement-automate-maestro.md → premises re-verified 2026-08-04 implement entry; create-targets still absent for F1+ (intent-package, residual-hunt-protocol, verdict-gate)
 **Commit:** b899f49b | uncommitted plan/initiative/skill WIP
-**At:** 2026-08-04T14:23:34Z
+**At:** 2026-08-04T14:48:32Z
 
 ### A — Plan premises vs code
 
@@ -303,4 +303,4 @@ Human narrative / expanded acceptance: **[docs/plans/audit-delivery-hardening.md
 
 - internal: 6 finding(s) applied (plan) + initiative T-001/G-F0-1 fixed @ b899f49b (2026-08-04T12:05:08Z)
 - cross-model (codex): needs_changes (resolved on plan gates F-002..F-005; F-001 initiative polarity fixed 2026-08-04) — .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=addd1b294875 | premises=12 | impacts=7 @ uncommitted (2026-08-04T14:23:34Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=e4e6d4fc8dc1 | premises=12 | impacts=7 @ uncommitted (2026-08-04T14:48:32Z)

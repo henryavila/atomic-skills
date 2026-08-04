@@ -1,7 +1,7 @@
 {
-  "step": "awaiting-operator-advance",
-  "phaseId": "F0",
+  "step": "A",
+  "phaseId": "F1",
   "redispatchCount": 0,
-  "updatedAt": "2026-08-04T14:46:45.770Z",
+  "updatedAt": "2026-08-04T14:47:56.206Z",
   "claimReportPath": "/Volumes/External/code/atomic-skills/.atomic-skills/status/automate/audit-delivery-hardening-claims.json"
 }
