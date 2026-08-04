@@ -170,3 +170,5 @@ load-bearing renames.
 <!-- multi-hop: load-bearing RESOLVED requires ≥2 chain hops or single-surface waiver -->
 
 <!-- Matrix C: must-not RESOLVED means searched-and-absent (mustNot seed) -->
+
+<!-- multi-hop: load-bearing RESOLVED requires ≥2 chain hops or single-surface waiver -->
