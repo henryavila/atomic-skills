@@ -36,7 +36,7 @@
 
     <section class="section card prose">
       <h2>Why it exists</h2>
-      <p>A green suite and a blessed diff still leave half-migrated systems: MCP/skills teaching the old lifecycle, client band-aids rewriting server status, recovery that never heals the new residual state. `audit-delivery` is the intent-vs-delivered gate `review-code` cannot be — it requires an Intent Package, fans out specialized auditors (including a monorepo residual hunt), and refuses FECHADO without reaudit after fixes.</p>
+      <p>A green suite and a blessed diff still leave half-migrated systems: MCP/skills teaching the old lifecycle, client band-aids rewriting server status, recovery that never heals the new residual state. `audit-delivery` is the intent-vs-delivered gate `review-code` cannot be — it requires an Intent Package, fans out specialized auditors (including a monorepo residual hunt), and refuses CLOSED without reaudit after fixes. Default is read-only; opt into audit-and-fix only when you want orchestrated residual fixes.</p>
     </section>
 
     <section class="section">
@@ -62,9 +62,9 @@
     <section class="section">
       <h2>Examples</h2>
       <ul class="list-stack">
-<li><div class="cmd">/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md</div><div class="desc">Audit-only against a handoff Intent Package</div></li>
-<li><div class="cmd">/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix</div><div class="desc">Audit, fix residual in parallel WPs, reaudit to FECHADO/PARCIAL</div></li>
-<li><div class="cmd">/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md</div><div class="desc">Re-check a prior findings ledger after manual fixes</div></li>
+<li><div class="cmd">/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md</div><div class="desc">Default read-only audit against a handoff Intent Package</div></li>
+<li><div class="cmd">/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix</div><div class="desc">Opt-in: audit, fix residual in parallel WPs, reaudit to CLOSED/PARTIAL</div></li>
+<li><div class="cmd">/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md</div><div class="desc">Re-check a prior findings ledger after manual fixes (read-only product tree)</div></li>
 </ul>
     </section>
   </main>
