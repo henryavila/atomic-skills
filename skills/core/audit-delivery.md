@@ -10,14 +10,14 @@ Accepted shape (must match catalog args):
 | Token | Default | Meaning |
 |-------|---------|---------|
 | **intent-source** | (empty → ask once) | Path to handoff / plan / design / acceptance doc, OR freeform decision list |
-| **`--mode`** | `audit` | `audit` (**default, read-only** findings report), `reaudit` (re-check report), `audit-and-fix` (optional advanced: in-skill fix loop) |
-| **`--axes`** | `product,residual` | Comma list of audit legs; `backend`/`frontend` remain valid opt-ins |
-| **`--depth`** | `full` | `full` (default): product+residual agents (or equivalent fan-out). `light`: matrix + residual protocol (parent greps OK) — still forbids CLOSED on CRITICAL / residual opt-out / load-bearing NO |
+| **`--mode`** | `audit` | `audit` (**default, read-only**), `reaudit`, `audit-and-fix` (optional advanced fix loop) |
+| **`--axes`** | `product,residual` | Comma list; `backend`/`frontend` remain opt-ins |
+| **`--depth`** | `full` | `full`: product+residual agents. `light`: matrix + residual protocol (parent greps OK) — still forbids CLOSED on CRITICAL / residual opt-out / load-bearing NO |
 | **`--max-fix-rounds`** | `2` | Max fix→reaudit loops in `audit-and-fix` |
 | **`--no-fix`** | off | Force read-only even if mode says fix |
 | **`--out`** | `.atomic-skills/reviews/audit-delivery-<slug>-<YYYYMMDD>.md` | Report path |
 
-Record parsed values in-session. Do **not** open intent sources, spawn auditors, or {{WRITE_TOOL}} the report until this parse completes. Unknown flags → warn and ignore (or abort if ambiguous with intent-source).
+Record parsed values in-session. Do **not** open intent sources, spawn auditors, or {{WRITE_TOOL}} the report until parse completes.
 
 This skill is the **intent-vs-delivered** counterpart to `review-code` (blind diff) and the **system-level** counterpart to `verify-claim` (single binary verifier).
 
@@ -28,21 +28,27 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 - {{READ_TOOL}} `{{ASSETS_PATH}}/matrices.md` — staged evidence S/C/U/O/T/X, Matrix C must-not, multi-hop RESOLVED bar
 - {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` — domain-agnostic residual protocol (OLD_TERMS × surfaces)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/verdict-gate.md` — CLOSED/PARTIAL/OPEN rules + Accept Record schema (Phase 3)
-- {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2 spawn; Spec Package only)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2; Spec Package only)
 - {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md` — fresh-context reaudit brief (Phase 5 / reaudit re-run)
-- {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — entry path when `--mode=reaudit` (load report, recover package, append-only)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — entry path when `--mode=reaudit`
+- {{READ_TOOL}} `{{ASSETS_PATH}}/report-template.md` — report SSOT including Accept Register + vocabulary + surfaces
+- {{READ_TOOL}} `{{ASSETS_PATH}}/findings-ledger.md` — merge/dedup ledger rules
+- {{READ_TOOL}} `{{ASSETS_PATH}}/severity.md` — CRITICAL/HIGH/MEDIUM/LOW labels
+- {{READ_TOOL}} `{{ASSETS_PATH}}/closing-summary.md` — operator closing block
+- {{READ_TOOL}} `{{ASSETS_PATH}}/checklists/product.md` — product axis checklist (into `{{AXIS_CHECKLIST}}`)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/checklists/residual.md` — residual axis checklist
 
 ## Mode table
 
 | Mode | Product tree | Report | Entry |
 |------|--------------|--------|-------|
-| **`audit`** (default) | **Read-only** | Write new / overwrite draft at `--out` | Step 0 → Phase 0…3 → **stop** |
-| **`reaudit`** | **Read-only** | **Append-only** reaudit section on existing report | **Requires `--out`**. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — do **not** start a greenfield Intent Package hunt first |
-| **`audit-and-fix`** (optional / advanced) | Writable in Phase 4 fix WPs only | Write + update through reaudit | Prefer **composition** below; use only when operator wants in-skill fix PM |
+| **`audit`** (default) | **Read-only** | Write/overwrite at `--out` | Step 0 → Phase 0…3 → **stop** |
+| **`reaudit`** | **Read-only** | **Append-only** on existing report | **Requires `--out`**. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` |
+| **`audit-and-fix`** (optional) | Writable in Phase 4 only | Write + reaudit | Prefer **composition** below |
 
 ## Primary composition (preferred over audit-and-fix)
 
-`audit-and-fix` is a **recipe/composition option**, not the primary identity of this skill. Default path is **read-only audit**.
+`audit-and-fix` is a **recipe/composition option**, not the primary identity. Default path is **read-only audit**.
 
 ```text
 1. atomic-skills:audit-delivery <intent>          # read-only report + ledger
@@ -51,398 +57,151 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 4. optional: review-code on the fix range         # blind patch correctness
 ```
 
-- After step 1 with PARTIAL/OPEN, **do not** treat the auditor as a fix project manager by default.
-- Partition findings → `atomic-skills:parallel-dispatch` / `atomic-skills:fix` → **re-run** audit-delivery (reaudit or new audit with same Intent Package).
-- Keep `--mode=audit-and-fix` for operators who explicitly want the in-skill fix→reaudit loop (Phase 4–5).
+After PARTIAL/OPEN, **do not** treat the auditor as a fix PM by default. Keep `--mode=audit-and-fix` only when the operator explicitly wants the in-skill fix→reaudit loop.
 
 ## Iron Law
 
 NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.
 - Every decision / original problem must land in a matrix row with status `RESOLVED | PARTIAL | NO | N/A` and `file:line` evidence.
 - A green diff, green suite, or "looks shipped" narrative is **not** a closed audit.
-- Closing requires either **CLOSED** (zero CRITICAL residual) or an explicit residual list the operator accepts — never silent partial.
+- Closing requires **CLOSED** (zero CRITICAL residual) or an explicit residual list the operator accepts — never silent partial.
 
 ## Mindset
 
-You are proving **what was promised is present in the running system** (code + ops surfaces that teach the truth), not blessing the author's story.
-
-- **Intent is load-bearing here** (opposite of `review-code`). Without decisions, problems, and acceptance criteria, abort.
-- Prefer **counter-evidence**: half-migrated paths, legacy vocabulary still taught as current, band-aids that mask backend bugs, recovery that never heals, docs/MCP/skills that lie.
-- Orchestrate; do not solo-read a monorepo when fan-out is possible.
-- Be adversarial: if Pass 1 found nothing on a large rewrite, Pass residual is mandatory.
+Prove **what was promised is present in the running system** (code + ops surfaces that teach the truth). Intent is load-bearing (opposite of `review-code`). Prefer counter-evidence: half-migrated paths, legacy vocabulary taught as current, band-aids, recovery that never heals, lying docs/MCP/skills. Orchestrate; be adversarial.
 
 ## Don't use when
 
 | Situation | Use instead |
 |-----------|-------------|
-| Review a **diff** for logic bugs without product criteria | `atomic-skills:review-code` |
-| One claim + one deterministic command ("tests pass") | `atomic-skills:verify-claim` |
+| Review a **diff** without product criteria | `atomic-skills:review-code` |
+| One claim + one deterministic command | `atomic-skills:verify-claim` |
 | Plan premises vs code before implement | `atomic-skills:review-plan --mode=ground-truth` |
-| Plan-end lifecycle inventory only (`intentVsDelivered` rows matched\|partial\|missing\|extra) | Plan-end `review-code --mode=external-both` under automate finalize — **not** a substitute for this skill on phase close |
-| Parallel-dispatch WP correctness / fan-out hygiene | `atomic-skills:parallel-dispatch-audit` |
-| Write adversarial tests for one class | `atomic-skills:hunt` |
-| No decisions / handoff / problems list exists yet | `atomic-skills:brainstorm` or write the handoff first |
+| Plan-end lifecycle inventory only (`intentVsDelivered`) | Plan-end under automate finalize — **not** a substitute on phase close |
+| Parallel-dispatch WP / fan-out hygiene | `atomic-skills:parallel-dispatch-audit` |
+| No decisions / handoff yet | `atomic-skills:brainstorm` or write the handoff first |
 
-**Phase close is hard:** every `phase-done` (Mode-1 + pure-maestro) **requires** a real `audit-delivery` run and durable `deliveryAuditGate` — never tip-only, never skippable. Plan-end `intentVsDelivered` stays separate and is **not** a substitute.
-
-## Relationship to sibling skills
+**Phase close is hard:** every `phase-done` (Mode-1 + pure-maestro) **requires** a real `audit-delivery` run and durable `deliveryAuditGate` — never tip-only, never skippable. Plan-end `intentVsDelivered` is **not** a substitute.
 
 ```text
-review-code          →  is the PATCH correct?     (intent FORBIDDEN)
-audit-delivery       →  is INTENT delivered?      (intent REQUIRED)  — hard on phase-done
-verify-claim         →  does THIS verifier pass?  (binary)
-review-plan ground-truth → does the PLAN match the tree?
-plan-end intentVsDelivered → lifecycle inventory at finalize (not system residual audit)
-parallel-dispatch-audit → WP/fan-out audit (not delivery residual)
+review-code → PATCH correct? (intent FORBIDDEN)
+audit-delivery → INTENT delivered? (intent REQUIRED) — hard on phase-done
+verify-claim → THIS verifier pass? (binary)
 ```
 
-Never collapse audit-delivery into a sealed anti-intent briefing. That is the failure mode that made `review-code` look "inferior" for delivery audits.
+Never collapse audit-delivery into a sealed anti-intent briefing.
 
 ---
 
 ## Phase 0 — Resolve intent source (HARD-GATE)
 
-**If `--mode=reaudit`:** skip greenfield intent discovery. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` and execute that procedure (load `--out`, recover package + ledger, reaudit append). The HARD-GATE below applies only when recovering the package fails.
+**If `--mode=reaudit`:** {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` (load `--out`, recover package + ledger, append). HARD-GATE below only if package recovery fails.
 
-{{READ_TOOL}} `{{ASSETS_PATH}}/intent-package.md` and fill the micro skeleton from sources below.
+{{READ_TOOL}} `{{ASSETS_PATH}}/intent-package.md` and fill the micro skeleton.
 
 <HARD-GATE>
-Do not open audit agents until you have a written **Intent Package** that passes admission:
+Do not open audit agents until a written **Intent Package** passes admission:
 
-1. **Spine** — **Decisions** D1…Dn (≥2) **or** **Original problems** P1…Pn (≥1) (both preferred)
-2. **Acceptance / doneWhen** — ≥1 checkable criterion (happy path or plan `doneWhen`); required, not optional
-3. **Vocabulary delta** — non-empty OLD→NEW table when migration/rename-shaped; else mark `vocabulary: none (additive)` with reason
-4. **Surface inventory** — ≥3 delivery surfaces **or** explicit `single-surface: true` flag logged in the report
-5. **Non-goals / "do not reopen"** (when present) and **Key SSOT paths** (status enums, hub phases, config defaults, migrations)
+1. **Spine** — Decisions D1…Dn (≥2) **or** Original problems P1…Pn (≥1) (both preferred)
+2. **Acceptance / doneWhen** — ≥1 checkable criterion
+3. **Vocabulary delta** — non-empty OLD→NEW when migration/rename-shaped; else `vocabulary: none (additive)` with reason
+4. **Surface inventory** — ≥3 surfaces **or** `single-surface: true` logged in the report
+5. **Non-goals** (when present) and **Key SSOT paths**
 
-Sources (try in order; cite paths you used):
-- Explicit path in {{ARG_VAR}}
-- `docs/plans/HANDOFF-*.md`, plan markdown, design.md, PRD acceptance section
-- User-pasted decision table in the current message
+Sources: {{ARG_VAR}} path → `docs/plans/HANDOFF-*.md` / plan / design / PRD → user-pasted table.
 
-**Abort** (after asking once) when any admission rule fails. Point the operator at the Intent Package template / micro skeleton in `{{ASSETS_PATH}}/intent-package.md`, then re-run. Do not soft-proceed with a partial package.
-
-Example redirect: "audit-delivery needs a full Intent Package (decisions/problems + acceptance + vocabulary when migrating + surface inventory). Fill the template or point at the plan section, then re-run."
+**Abort** (after asking once) when admission fails. Do not soft-proceed with a partial package.
 </HARD-GATE>
 
-Present the Intent Package to the operator in compact form and proceed (no long re-approval unless they object).
+Present the Intent Package compactly and proceed unless the operator objects.
 
-## Phase 1 — Build matrices (operator, same session)
+## Phase 1 — Build matrices
 
-{{READ_TOOL}} `{{ASSETS_PATH}}/matrices.md` for staged columns **S C U O T X**, **Matrix C must-not**, and the **multi-hop** RESOLVED bar. Draft matrices into the report early via {{WRITE_TOOL}}.
+{{READ_TOOL}} `{{ASSETS_PATH}}/matrices.md` for stages **S C U O T X**, **Matrix C must-not**, and the **multi-hop** RESOLVED bar. Draft matrices into the report via {{WRITE_TOOL}} (skeleton in `report-template.md`).
 
-### Matrix A — Decisions
-
-| ID | Decision (verbatim short) | Expected evidence chain | S | C | U | O | T | X | Status | Evidence |
-|----|---------------------------|-------------------------|---|---|---|---|---|---|--------|----------|
-| D1 | … | config → job/service → API → UI → test | ? | ? | ? | ? | ? | ? | ? | |
-
-### Matrix B — Original problems
-
-| ID | Problem | Expected fix shape | S | C | U | O | T | X | Status | Evidence |
-|----|---------|-------------------|---|---|---|---|---|---|--------|----------|
-| P1 | … | … | ? | ? | ? | ? | ? | ? | ? | |
-
-### Matrix C — must-not (negative space)
-
-Seed from non-goals / outOfScope / mustNot / vocabulary OLD. **RESOLVED** = searched-and-absent with evidence (not assumed absent).
-
-| ID | Must NOT | Seed | Status | Evidence |
-|----|----------|------|--------|----------|
-| MN1 | … | non-goals / OLD | ? | |
-
-Status values only: `RESOLVED` | `PARTIAL` | `NO` | `N/A`.
-
-**Evidence bar (G1):** status ≠ empty speculation. Prefer `path:line` from current tree. Agent reports without cites are claims, not evidence — re-read yourself or reject the row as unverified.
-
-**Staged + multi-hop:** **RESOLVED is forbidden** if any **required stage** is `?` or fail. Load-bearing RESOLVED requires **≥2 chain hops** (multi-hop) **or** explicit single-surface waiver. See `matrices.md`.
+Status values only: `RESOLVED | PARTIAL | NO | N/A`. **RESOLVED is forbidden** if any **required stage** is `?` or fail. Load-bearing RESOLVED needs **≥2 chain hops** or single-surface waiver. Agent reports without cites are claims — re-read or reject (G1).
 
 ## Depth (`--depth=full` default | `--depth=light`)
 
 | Depth | Behavior | CLOSED still blocked when |
 |-------|----------|---------------------------|
-| **`full`** (default) | Fan-out product + residual agents (or equivalent full axis set) | CRITICAL residual; residual opt-out/invalid; load-bearing Dn/Pn **NO**; staged/multi-hop bar fails |
-| **`light`** | Matrix A/B/C + residual protocol via **parent greps** OK (agents optional) | Same hard blocks — light **never** allows CLOSED on CRITICAL / residual opt-out / load-bearing **NO** |
+| **`full`** (default) | Fan-out product + residual agents | CRITICAL residual; residual opt-out/invalid; load-bearing **NO**; staged/multi-hop bar fails |
+| **`light`** | Matrix A/B/C + residual protocol via **parent greps** OK | Same hard blocks — light **never** softens the verdict gate |
 
-`--depth=light` reduces fan-out cost; it does **not** soften the verdict gate.
+## Phase 2 — Fan-out audit agents
 
-## Phase 2 — Fan-out audit agents (parallel)
+**When `--depth=full`:** spawn **read-only** agents via {{INVESTIGATOR_TOOL}}. One agent per selected axis. Do **not** share findings between parallel legs.
 
-**When `--depth=full` (default):** spawn **read-only** agents via {{INVESTIGATOR_TOOL}} (explore / read-only capability). One agent per selected axis. Do **not** share findings between parallel legs (prevents anchoring).
+**When `--depth=light`:** residual protocol greps may run in-parent — still fill matrices + ledger.
 
-**When `--depth=light`:** operator may run residual protocol greps in-parent (see residual-hunt-protocol) without full agent fan-out — still fill matrices + ledger.
+**Before each leg:** {{READ_TOOL}} `{{ASSETS_PATH}}/spec-package.md` and `{{ASSETS_PATH}}/axis-brief-template.md`. Fill `{{AXIS}}`, Spec Package only (no success / shipping narrative), `{{AXIS_MISSION}}`, and `{{AXIS_CHECKLIST}}` from `checklists/product.md` or `checklists/residual.md`.
 
-**Before each leg spawn:** {{READ_TOOL}} `{{ASSETS_PATH}}/spec-package.md` and `{{ASSETS_PATH}}/axis-brief-template.md`. Fill `{{AXIS}}`, `{{INTENT_PACKAGE}}` with the **Spec Package only** (no success narrative / shipping narrative), plus `{{AXIS_MISSION}}` and `{{AXIS_CHECKLIST}}` for that leg only. Paste the filled brief as the agent prompt body.
+**Default axes: `product` + `residual`.** Opt-in: `backend` / `frontend` / domain axes via `--axes`. Keep **≥1 residual** leg unless operator excludes residual.
 
-**Default axes: `product` + `residual`** (not backend/frontend alone).
+**Exclude residual (HARD cap):** log exclusion; **cap** verdict at **PARTIAL** — never CLOSED without a valid residual leg.
 
-| Axis | Default? | Mission |
-|------|----------|---------|
-| **product** | yes | Trace each Dn/Pn config→code→UI→test; counter-evidence hunt |
-| **residual** | yes | Monorepo half-migration via residual-hunt-protocol: OLD_TERMS/NEW_TERMS × surface inventory |
-| **backend** | opt-in | SSOT, transitions, jobs, recovery, API force/CAS paths, tests assert **canonical** statuses |
-| **frontend** | opt-in | Work surface / CTAs, phase priority, client band-aids that rewrite server truth, e2e mocks |
+**Residual leg:** {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md`. **Invalid residual** (starved terms / fake empty success) blocks CLOSED.
 
-Add `backend` / `frontend` (or domain axes e.g. `api,worker,admin,docs`) via `--axes` when useful. Keep **≥1 residual monorepo leg** unless the operator explicitly opts to exclude residual.
+Agent rules: Spec Package only; that axis checklist only; output checklist + CRITICAL→LOW gaps + confidence + "not verified"; forbid fixes and inventing decisions; adversarial stance.
 
-**Exclude residual (HARD cap):** if `--axes` omits `residual` (exclude residual), **log** that choice in the report and **cap** global verdict at **PARTIAL** — never CLOSED without a residual leg (invalid residual / skipped residual both block CLOSED).
-
-**Residual leg:** {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` before spawn. Fill axis brief with protocol steps (derive OLD_TERMS/NEW_TERMS → × surface inventory → classify storage|alias|teaching|dead). **Invalid residual** (no derived terms, "nothing found" as fake success) blocks CLOSED.
-
-### Agent prompt rules (each leg)
-
-1. Paste the **Spec Package** (structured Dn/Pn/acceptance/terms — **not** success narrative) — criteria required.
-2. Paste **only that axis checklist** + key file hints if known.
-3. Demand output: checklist table + gaps prioritized CRITICAL/HIGH/MEDIUM/LOW + confidence % + "not verified".
-4. Forbid: applying fixes, rewriting docs as the product, inventing decisions not in the Spec Package, treating green tests alone as RESOLVED.
-5. Adversarial stance: search for incomplete fixes and dual paths, not happy-path confirmation.
-
-### Operator merge (after all legs return)
-
-Merge into one **Findings Ledger**:
-
-| # | Title | Sev | Axis | Evidence | Impact | Suggested fix (one-liner) |
-|---|-------|-----|------|----------|--------|---------------------------|
-
-Dedup by mechanism (same root cause → one finding). Prefer higher severity.
-
-**Pass residual is mandatory** if any decision is PARTIAL/NO or any CRITICAL/HIGH exists — even if product leg said "mostly done".
+**Operator merge:** {{READ_TOOL}} `{{ASSETS_PATH}}/findings-ledger.md` and `severity.md`. Dedup by mechanism. Pass residual is mandatory if any Dn/Pn is PARTIAL/NO or any CRITICAL/HIGH exists.
 
 ## Phase 3 — Verdict gate
 
-{{READ_TOOL}} `{{ASSETS_PATH}}/verdict-gate.md` and apply severity closing rules.
+{{READ_TOOL}} `{{ASSETS_PATH}}/verdict-gate.md`.
 
 | Verdict | Rule |
 |---------|------|
-| **CLOSED** | All load-bearing Dn/Pn are RESOLVED or N/A; **zero CRITICAL** residual; every open **HIGH** has a durable **Accept Record** (or no open HIGH); residual ran and is valid (not excluded) |
-| **PARTIAL** | Core happy path RESOLVED but residual CRITICAL/HIGH remain without Accept Records, any Dn/Pn PARTIAL, residual excluded/invalid, or HIGH only "accepted" in chat |
-| **OPEN** | Any load-bearing Dn/Pn NO, audit could not verify key chains, or CRITICAL residual remains |
+| **CLOSED** | Load-bearing Dn/Pn RESOLVED or N/A; **zero CRITICAL**; every open HIGH has durable **Accept Record**; residual valid and not excluded |
+| **PARTIAL** | Core path OK but residual CRITICAL/HIGH without Accept Records, any PARTIAL Dn/Pn, residual excluded/invalid, or chat-only HIGH accept |
+| **OPEN** | Load-bearing **NO**, unverified key chains, or CRITICAL residual remains |
 
-**Hard rules:**
+**Hard rules:** CRITICAL never Accept-Recorded to CLOSED; HIGH needs Accept Record or PARTIAL; green suite alone never upgrades verdict.
 
-- **CRITICAL never** Accept-Recorded to **CLOSED** — shipping with CRITICAL residual is PARTIAL or OPEN only.
-- **HIGH** needs per-finding **Accept Record** (finding id, risk, mitigation, operator, at; optional expires) or verdict stays PARTIAL.
-- A **green suite** alone never upgrades verdict. Tests are evidence for matrix rows, not the gate.
+{{WRITE_TOOL}} report to `--out` using `{{ASSETS_PATH}}/report-template.md` (Accept Register included).
 
-Persist the report with {{WRITE_TOOL}} to `--out` (or default path). Structure:
+If `--mode=audit` or `--no-fix`: **STOP**. Prefer composition → re-run reaudit. Do not fix unless `audit-and-fix`.
 
-```markdown
-# Audit Delivery — <slug>
-**Date:** …
-**Mode:** audit | audit-and-fix | reaudit
-**Depth:** full | light
-**Intent sources:** …
-**Verdict:** CLOSED | PARTIAL | OPEN
+## Phase 4 — Fix orchestration (`audit-and-fix` only)
 
-## Intent Package
-…
-
-## Spec Package (criteria strip — no success narrative)
-…
-
-## Matrix A — Decisions (stages S C U O T X)
-…
-
-## Matrix B — Problems
-…
-
-## Matrix C — must-not
-…
-
-## Findings Ledger
-…
-
-## Residual (ordered)
-…
-
-## Accept Records
-| Finding | Risk | Mitigation | Operator | At | Expires |
-|---------|------|------------|----------|-----|---------|
-
-## Tests / commands observed (if any)
-…
-
-## Confidence %
-```
-
-If `--mode=audit` (default) or `--no-fix`: **STOP here**. Present summary + report path. Prefer primary **composition**: fix / parallel-dispatch outside this skill, then **re-run** audit-delivery (`--mode=reaudit --out=…` or a fresh audit). Do not fix in the audit session unless operator chose `audit-and-fix`.
-
-## Phase 4 — Fix orchestration (`audit-and-fix` only — optional advanced)
-
-**Not the default path.** Prefer composition (audit → parallel-dispatch/fix → re-run). Enter only when `--mode=audit-and-fix`.
+**Not the default.** Prefer composition.
 
 <HARD-GATE>
-Only enter Phase 4 when:
-- mode is `audit-and-fix`, and
-- `--no-fix` is absent, and
-- Findings Ledger has ≥1 CRITICAL or HIGH (or operator explicitly asks to fix MEDIUM too).
-
-If verdict is already CLOSED: do not invent fix work.
+Enter only when mode is `audit-and-fix`, `--no-fix` absent, and ledger has ≥1 CRITICAL/HIGH (or operator asks for MEDIUM). If already CLOSED: no invented fix work.
 </HARD-GATE>
 
-### 4.1 Partition work packages
+Partition disjoint WPs (parallel-dispatch discipline). Spawn fix agents with exclusive paths + SSOT vocabulary; parent does not edit product files while agents run. Verify each "done" via **diff** + scoped tests ({{BASH_TOOL}}); mark FIXED / STILL OPEN / REGRESSED.
 
-Group findings into **disjoint file scopes** (same discipline as `parallel-dispatch`):
+## Phase 5 — Reaudit
 
-- Prove path sets do not intersect ({{GREP_TOOL}} / path lists).
-- Hard dependency → serial WP, not parallel.
-- Cap parallel fix agents (default ≤4). Prefer backend / frontend / docs-mcp splits.
-
-### 4.2 Spawn fix agents
-
-Each fix agent gets:
-
-- Only its findings + exclusive path allowlist
-- Canonical vocabulary / SSOT paths from Intent Package
-- "Implement fully; run scoped tests; return summary + residual in scope"
-- Forbidden: touch paths outside allowlist
-
-Operator remains orchestrator: no product edits in the parent session while fix agents run (reduces merge thrash). Exception: tiny comment-only if agents cannot.
-
-### 4.3 Verify claims of fix agents
-
-For each agent "done" report:
-
-1. Read the **diff** (not the narrative) for its paths.
-2. Run **scoped tests** they claim ({{BASH_TOOL}}) when cheap.
-3. Mark each finding: FIXED / STILL OPEN / REGRESSED.
-
-Treat agent confidence as zero without diff + command output (`verify-claim` spirit).
-
-## Phase 5 — Reaudit (after fixes — composition or audit-and-fix)
-
-After **any** fix round (external composition or Phase 4), re-check delivery:
-
-**Preferred:** re-run `audit-delivery --mode=reaudit --out=<report>` (or a fresh `--mode=audit` on the same Intent Package).
-
-When still inside `audit-and-fix`, spawn a **fresh** adversarial reaudit agent (clean context preferred):
-
-1. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md`.
-2. Fill `{{INTENT_PACKAGE}}`, `{{FINDINGS_LEDGER}}` (pre-fix), and `{{CLAIMED_FIXES}}`.
-3. Use the filled brief as the reaudit agent prompt.
-
-- Task: for **each** original finding, RESOLVED / PARTIAL / NO / REGRESSION with `file:line`
-- Grep red-flag patterns from residual leg again
-- Output: final verdict + remaining residual only (structure from the template)
-
-Operator re-reads any CRITICAL still claimed fixed (G1).
-
-If residual CRITICAL/HIGH remain and (composition) operator continues fixing, **re-run** reaudit after the next fix batch. Inside `audit-and-fix`, if rounds &lt; `--max-fix-rounds`: return to Phase 4. If plateau (count did not decrease): **STOP**, escalate to operator with residual list — do not churn.
+After any fix round: prefer `audit-delivery --mode=reaudit --out=<report>`. Inside `audit-and-fix`, {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md`, fill package + pre-fix ledger + claimed fixes, spawn fresh reaudit. Operator re-reads CRITICAL claimed fixed (G1). Plateau → STOP and escalate; do not churn past `--max-fix-rounds`.
 
 ## Phase 6 — Closing
 
-Present the closing summary:
-
-```markdown
-### Audit Delivery — Summary
-
-**Intent source:** …
-**Mode:** …
-**Verdict:** CLOSED | PARTIAL | OPEN
-**Decisions:** R/P/N/A counts
-**Problems:** R/P/N/A counts
-**Findings:** C/H/M/L counts (open after last reaudit)
-**Fix rounds:** N
-**Report:** `.atomic-skills/reviews/…`
-
-| # | Residual | Sev | Next action |
-|---|----------|-----|-------------|
-| 1 | … | … | … |
-
-**Suggestion:** run `atomic-skills:review-code` on the fix diff for blind correctness;
-run full suite / smoke before release.
-```
-
-Optional: offer commit of report + fixes (do not push unless asked).
+{{READ_TOOL}} `{{ASSETS_PATH}}/closing-summary.md` and present counts + residual next actions + report path.
 
 ---
 
 ## Residual hunt
 
-{{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` and execute the protocol (do not improvise only domain greps).
-
-Summary:
-
-1. Derive **OLD_TERMS** / **NEW_TERMS** from Intent Package vocabulary + SSOT.
-2. Cross terms × **surface inventory**; classify hits: storage | alias | teaching | dead.
-3. Cover residual classes: dual SSOT, client rewrite, recovery gap, force/admin legacy, teaching surfaces, false-green fixtures, config/env drift.
-4. **Invalid residual** (starved terms / fake empty success) **blocks CLOSED**.
-
-Illustrative greps only (e.g. replace with package terms — not universal steps):
-
-- Legacy status/enum strings still used as **storage or poll defaults** (not mere input aliases)
-- Client helpers that **rewrite** server status from side channels
-- Recovery/reclaim that **skips** the new terminal/residual states
-- Force/reprocess paths that only accept **old** failure labels
-- Ops docs / MCP / agent skills teaching **pre-change** lifecycle as current truth
-- Tests that seed obsolete fixtures while asserting new names (false green)
-- Config defaults vs `.env.example` / checklists that contradict product decisions
-
-Record matches as findings even if "out of the feature PR".
-
-## Severity
-
-- **CRITICAL** — user/ops hits wrong path in normal use; approve/reprocess stuck; data limbo; security
-- **HIGH** — half-migrated surface that will mislead agents/ops or break a secondary path
-- **MEDIUM** — docs/comments drift, weak tests, asymmetric counts without data loss
-- **LOW** — naming hygiene, dead exports, optional refactors
+{{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` (and `checklists/residual.md`). Derive OLD/NEW terms × surfaces; classify storage|alias|teaching|dead; invalid residual **blocks CLOSED**. Domain greps are examples only.
 
 ## Code-quality gates
 
-Bound by `docs/kb/code-quality-gates.md`: **G1** (read-before-claim), **G2** (no soft language in verdict), **G6** (reference-or-strike). Fix agents additionally honor G3/G4/G7 when writing tests.
-
-## Self-review against gates
-
-Before declaring the audit complete, append:
-
-```
-- G1 read-before-claim: every RESOLVED/PARTIAL/NO cites file:line or command output
-- G2 soft-language: verdict is CLOSED|PARTIAL|OPEN only — no "looks good"/"should be fine"
-- G6 reference-or-strike: agent summaries without cites were re-read or struck
-```
+Bound by `docs/kb/code-quality-gates.md`: **G1**, **G2**, **G6** (fix agents also G3/G4/G7). Before complete, append self-review: every RESOLVED/PARTIAL/NO cites evidence; verdict is CLOSED|PARTIAL|OPEN only; agent summaries without cites re-read or struck.
 
 ## Red Flags
 
-- "The suite is green, so delivery is closed"
-- "I'll skip residual because the product axis said mostly yes"
-- "review-code already ran, this is redundant"
-- "I'll seal intent out of the auditor briefing so it is unbiased" (wrong skill — use review-code for that)
-- "I'll fix in the parent while agents run on the same files"
-- "PARTIAL is good enough for CLOSED if the handoff said shipped"
-- "Docs/MCP don't count — only backend"
-- "The fix agent said done, no need to reaudit"
-- "One more fix round after plateau — it'll converge"
-- "I can invent decisions the handoff never made"
-- "Plan-end intentVsDelivered already ran — skip audit-delivery on phase-done"
-- "Light depth means I can CLOSED with CRITICAL residual"
-- "RESOLVED with one hop and three required stages still ?"
+- "Suite green ⇒ delivery closed" / "Skip residual — product mostly yes"
+- "review-code already ran, this is redundant" / "Seal intent out of the auditor" (wrong skill)
+- "PARTIAL is good enough for CLOSED if handoff said shipped"
+- "Docs/MCP don't count" / "Fix agent said done — skip reaudit"
+- "One more fix round after plateau" / invent decisions not in the package
+- "Plan-end intentVsDelivered ⇒ skip audit-delivery on phase-done"
+- "Light depth ⇒ CLOSED with CRITICAL" / "RESOLVED with one hop and stages still ?"
 
 If you thought any of the above: STOP. Return to the phase you were skipping.
 
-## Rationalization
-
-| Temptation | Reality |
-|------------|---------|
-| "Diff review is enough" | Diff review forbids intent; half-migrated systems live outside the patch |
-| "Tests prove delivery" | Tests prove exercised paths; residual surfaces and false-green fixtures remain |
-| "Intent biases the auditor" | Here intent **is** the spec; without it you audit a different product |
-| "Residual docs are noise" | Ops/MCP/skills **are** runtime for agents and humans — lying docs are HIGH |
-| "Reaudit is wasteful after fixes" | First reaudit of the SM work re-opened CRITICAL heal-on-approve — skip reaudit ships limbo |
-| "CLOSED with known CRITICAL if we track it" | CRITICAL never Accept-Recorded to CLOSED; tracked CRITICAL = PARTIAL/OPEN |
-| "I'll merge all axes into one agent" | Parallel specialized legs catch disjoint gaps; one soup agent dilutes residual hunt |
-
-## Pressure-test record (authoring)
-
-Dogfood scenario that motivated this skill (2026-08-01, Lekto note pipeline SM):
-
-1. **Time + authority + plausibility:** "SM shipped, suite green, just review-code it" → would miss MCP legacy poll, `rejected` force gap, client `applyDraftsReady`, reclaim skip-with-drafts.
-2. **Sunk cost + fatigue + green suite:** after large SM commit, skip residual monorepo hunt → delivery claim false.
-3. **Reaudit skip after fixes:** first fix round left on-demand heal missing → CRITICAL residual; second reaudit required for CLOSED.
-
-Counters encoded above: Iron Law, mandatory residual axis, Phase 5 reaudit, verdict table, Red Flags / Rationalization rows.
-
----
-
 ## Closing note
 
-`audit-delivery` does **not** replace `review-code`. Primary identity is **read-only** intent-vs-delivered audit. After composition (fix / parallel-dispatch) or optional `audit-and-fix`, recommend a **blind** `review-code` on the fix range and a **re-run** of audit-delivery so residual closure is proven.
+`audit-delivery` does **not** replace `review-code`. Primary identity is **read-only** intent-vs-delivered audit. After composition or optional `audit-and-fix`, recommend blind `review-code` on the fix range and a **re-run** of audit-delivery so residual closure is proven.
