@@ -1,8 +1,8 @@
 # Reaudit entry (`--mode=reaudit`)
 
 Entry path when the operator re-checks a **prior** audit-delivery report after
-manual fixes or an interrupted fix loop. Full dual residual-blind reaudit is a
-later product tooth; this asset covers **load → recover → re-run → append**.
+manual fixes or an interrupted fix loop. Covers **load → recover → dual reaudit
+(ledger + residual-blind) → append**.
 
 ## Preconditions (HARD)
 
@@ -44,18 +44,42 @@ If recovery yields fewer than 2 decisions **or** fewer than 1 problem: **ABORT**
 
 Build the list of findings still open (or all original findings if status is
 unclear). Prefer the last **Residual** / open CRITICAL+HIGH rows; include any
-findings marked FIXED that the operator wants re-checked.
+findings marked FIXED that the operator wants re-checked. Keep stable finding
+ids/titles for the ledger retest.
 
-### 4. Spawn reaudit
+### 4. Dual reaudit (ledger + residual-blind)
+
+After fixes (or whenever the product tree may have changed), run **both** passes.
+Union residuals. **Claimed fix narratives are not evidence.**
+
+#### Pass A — Per-finding ledger retest
 
 {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md`. Fill:
 
-- `{{INTENT_PACKAGE}}` — recovered package
+- `{{INTENT_PACKAGE}}` — recovered package (criteria only)
 - `{{FINDINGS_LEDGER}}` — recovered open / claimed set
-- `{{CLAIMED_FIXES}}` — operator notes or empty ("manual / unknown since last audit")
+- `{{CLAIMED_FIXES}}` — agent/operator claims (for **disprove** targets only — not proof)
 
-Spawn a **fresh** adversarial reaudit agent with the filled brief. Product tree
-stays read-only.
+Spawn a **fresh** adversarial reaudit agent. For **each** ledger finding:
+`RESOLVED | PARTIAL | NO | REGRESSION` + `file:line`. Product tree stays read-only.
+
+#### Pass B — Residual-blind
+
+Second **fresh** context (or sequential leg with isolation):
+
+- **Do not** include claimed-fix narratives, FIXED stories, or "we closed X" prose
+- Spec Package / vocabulary OLD×NEW + surface inventory only
+- Re-run residual protocol greps (`residual-hunt-protocol.md`) blind to fix claims
+- Emit residual hits as findings; invalid residual still blocks CLOSED
+
+#### Union + plateau
+
+1. **Union** residual: merge Pass A open items with Pass B residual hits (dedup by
+   mechanism; keep higher severity).
+2. **Plateau** on open CRITICAL+HIGH: if open C+H count does not decrease vs the
+   prior reaudit/audit round, **STOP** further auto fix churn — escalate to
+   operator with residual list. Do not invent more rounds past
+   `--max-fix-rounds` when in `audit-and-fix`.
 
 ### 5. Append results
 
@@ -66,12 +90,17 @@ stays read-only.
 
 **Previous verdict:** …
 **Verdict:** CLOSED | PARTIAL | OPEN
+**Open CRITICAL+HIGH (this round):** N (plateau: yes|no)
 
-### Finding → status
+### Pass A — Ledger retest
 | # | Finding | Status | Evidence | Notes |
 |---|---------|--------|----------|-------|
 
-### Residual (ordered)
+### Pass B — Residual-blind
+| # | Hit | Sev | Class | Evidence |
+|---|-----|-----|-------|----------|
+
+### Union residual (ordered)
 1. …
 
 ### Confidence %
@@ -82,5 +111,6 @@ Statuses: `RESOLVED | PARTIAL | NO | REGRESSION` with `file:line`.
 
 ### 6. Stop
 
-Present the new verdict + residual + report path. Do **not** auto-enter fix
-mode. Operator may re-run with `--mode=audit-and-fix` if they want fix WPs.
+Present the new verdict + residual + report path + plateau flag. Do **not**
+auto-enter fix mode. Operator may compose fix WPs then re-run reaudit, or use
+`--mode=audit-and-fix` if they want the in-skill loop (still bound by plateau).
