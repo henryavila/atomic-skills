@@ -1062,10 +1062,11 @@ core:
     title: 'Audit Delivery — Intent vs Delivered'
     description: >-
       Adversarial audit that product decisions and original problems were
-      actually delivered end-to-end (not just present in a diff). Builds a
-      decision/problem matrix from handoff/plan/docs, fans out specialized
-      read-only auditors, optional fix dispatch, then re-audits until closed
-      or residual is explicit. Complements review-code (blind diff) and
+      actually delivered end-to-end (not just present in a diff). Default mode
+      is read-only (audit): builds a decision/problem matrix from handoff/plan/docs,
+      fans out specialized read-only auditors, writes a findings report.
+      Optional --mode=audit-and-fix dispatches fixes + reaudit; --mode=reaudit
+      re-checks an existing report. Complements review-code (blind diff) and
       verify-claim (binary verifier).
     value_pitch: >
       A green suite and a blessed diff still leave half-migrated systems:
@@ -1074,10 +1075,12 @@ core:
       `audit-delivery` is the intent-vs-delivered gate `review-code` cannot
       be — it requires an Intent Package, fans out specialized auditors
       (including a monorepo residual hunt), and refuses CLOSED without
-      reaudit after fixes.
+      reaudit after fixes. Default is read-only; opt into audit-and-fix
+      only when you want orchestrated residual fixes.
     purpose: >
       Prove product intent was delivered end-to-end across code and ops
       surfaces, with residual hunt and reaudit — not patch correctness alone.
+      Default is read-only findings; mutation only under audit-and-fix.
     when_to_use:
       - 'A handoff/plan claims a redesign shipped and you need proof'
       - 'You suspect half-migration (docs/MCP/client still on old model)'
@@ -1090,11 +1093,11 @@ core:
       - 'Plan premises vs tree before implement (use review-plan ground-truth)'
     examples:
       - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md'
-        description: 'Audit-only against a handoff Intent Package'
+        description: 'Default read-only audit against a handoff Intent Package'
       - command: '/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix'
-        description: 'Audit, fix residual in parallel WPs, reaudit to CLOSED/PARTIAL'
+        description: 'Opt-in: audit, fix residual in parallel WPs, reaudit to CLOSED/PARTIAL'
       - command: '/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md'
-        description: 'Re-check a prior findings ledger after manual fixes'
+        description: 'Re-check a prior findings ledger after manual fixes (read-only product tree)'
     related: [review-code, verify-claim, review-plan, parallel-dispatch, fix]
     tags: [review, quality, delivery, adversarial, core]
     ide_compatibility: [claude-code, gemini, cursor, codex]
@@ -1104,7 +1107,7 @@ core:
     one_liner: 'Intent-vs-delivered system audit with residual hunt and reaudit gate'
     emoji: '📦'
     version_added: '2.4.0'
-    argument_hint: '[intent-source] [--mode=audit|audit-and-fix|reaudit] [--axes=…] [--max-fix-rounds=N]'
+    argument_hint: '[intent-source] [--mode=audit|audit-and-fix|reaudit] [--axes=…] [--max-fix-rounds=N] [--no-fix] [--out=path]'
     args:
       - name: intent-source
         kind: positional
@@ -1113,7 +1116,7 @@ core:
       - name: '--mode'
         kind: option
         required: false
-        description: 'audit (default, read-only), audit-and-fix (fix + reaudit loop), reaudit (re-check existing report).'
+        description: 'audit (default, read-only), audit-and-fix (fix + reaudit loop), reaudit (re-check existing report; requires --out).'
       - name: '--axes'
         kind: option
         required: false
@@ -1129,7 +1132,7 @@ core:
       - name: '--out'
         kind: option
         required: false
-        description: 'Report path under .atomic-skills/reviews/ (default auto slug).'
+        description: 'Report path under .atomic-skills/reviews/ (default auto slug). Required for --mode=reaudit.'
     dependencies: [git]
     output_artifacts:
       - '.atomic-skills/reviews/audit-delivery-*.md'
