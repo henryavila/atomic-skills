@@ -10,7 +10,7 @@ Accepted shape (must match catalog args):
 | Token | Default | Meaning |
 |-------|---------|---------|
 | **intent-source** | (empty → ask once) | Path to handoff / plan / design / acceptance doc, OR freeform decision list |
-| **`--mode`** | `audit` | `audit` (read-only findings), `audit-and-fix` (orchestrate fixes + reaudit), `reaudit` (re-check existing findings file) |
+| **`--mode`** | `audit` | `audit` (**default, read-only** findings report), `reaudit` (re-check report), `audit-and-fix` (optional advanced: in-skill fix loop) |
 | **`--axes`** | `product,residual` | Comma list of audit legs; `backend`/`frontend` remain valid opt-ins |
 | **`--max-fix-rounds`** | `2` | Max fix→reaudit loops in `audit-and-fix` |
 | **`--no-fix`** | off | Force read-only even if mode says fix |
@@ -33,9 +33,24 @@ This skill is the **intent-vs-delivered** counterpart to `review-code` (blind di
 
 | Mode | Product tree | Report | Entry |
 |------|--------------|--------|-------|
-| **`audit`** (default) | Read-only | Write new / overwrite draft at `--out` | Step 0 → Phase 0…3 → stop |
-| **`audit-and-fix`** | Writable in Phase 4 fix WPs only | Write + update through reaudit | Step 0 → full phases; honor `--no-fix` / `--max-fix-rounds` |
-| **`reaudit`** | **Read-only** | **Append-only** reaudit section on existing report | **Requires `--out`** (or explicit report path). {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` and follow it — do **not** start a greenfield Intent Package hunt first |
+| **`audit`** (default) | **Read-only** | Write new / overwrite draft at `--out` | Step 0 → Phase 0…3 → **stop** |
+| **`reaudit`** | **Read-only** | **Append-only** reaudit section on existing report | **Requires `--out`**. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-entry.md` — do **not** start a greenfield Intent Package hunt first |
+| **`audit-and-fix`** (optional / advanced) | Writable in Phase 4 fix WPs only | Write + update through reaudit | Prefer **composition** below; use only when operator wants in-skill fix PM |
+
+## Primary composition (preferred over audit-and-fix)
+
+`audit-and-fix` is a **recipe/composition option**, not the primary identity of this skill. Default path is **read-only audit**.
+
+```text
+1. atomic-skills:audit-delivery <intent>          # read-only report + ledger
+2. fix / parallel-dispatch (or manual WPs)        # close CRITICAL/HIGH outside auditor
+3. re-run: audit-delivery --mode=reaudit --out=…  # or fresh audit against same package
+4. optional: review-code on the fix range         # blind patch correctness
+```
+
+- After step 1 with PARTIAL/OPEN, **do not** treat the auditor as a fix project manager by default.
+- Partition findings → `atomic-skills:parallel-dispatch` / `atomic-skills:fix` → **re-run** audit-delivery (reaudit or new audit with same Intent Package).
+- Keep `--mode=audit-and-fix` for operators who explicitly want the in-skill fix→reaudit loop (Phase 4–5).
 
 ## Iron Law
 
@@ -213,9 +228,11 @@ Persist the report with {{WRITE_TOOL}} to `--out` (or default path). Structure:
 ## Confidence %
 ```
 
-If `--mode=audit` or `--no-fix`: **STOP here**. Present summary + report path. Do not fix.
+If `--mode=audit` (default) or `--no-fix`: **STOP here**. Present summary + report path. Prefer primary **composition**: fix / parallel-dispatch outside this skill, then **re-run** audit-delivery (`--mode=reaudit --out=…` or a fresh audit). Do not fix in the audit session unless operator chose `audit-and-fix`.
 
-## Phase 4 — Fix orchestration (`audit-and-fix` only)
+## Phase 4 — Fix orchestration (`audit-and-fix` only — optional advanced)
+
+**Not the default path.** Prefer composition (audit → parallel-dispatch/fix → re-run). Enter only when `--mode=audit-and-fix`.
 
 <HARD-GATE>
 Only enter Phase 4 when:
@@ -255,9 +272,13 @@ For each agent "done" report:
 
 Treat agent confidence as zero without diff + command output (`verify-claim` spirit).
 
-## Phase 5 — Reaudit (mandatory after any fix round)
+## Phase 5 — Reaudit (after fixes — composition or audit-and-fix)
 
-Spawn a **fresh** adversarial reaudit agent (clean context preferred):
+After **any** fix round (external composition or Phase 4), re-check delivery:
+
+**Preferred:** re-run `audit-delivery --mode=reaudit --out=<report>` (or a fresh `--mode=audit` on the same Intent Package).
+
+When still inside `audit-and-fix`, spawn a **fresh** adversarial reaudit agent (clean context preferred):
 
 1. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md`.
 2. Fill `{{INTENT_PACKAGE}}`, `{{FINDINGS_LEDGER}}` (pre-fix), and `{{CLAIMED_FIXES}}`.
@@ -269,8 +290,7 @@ Spawn a **fresh** adversarial reaudit agent (clean context preferred):
 
 Operator re-reads any CRITICAL still claimed fixed (G1).
 
-If residual CRITICAL/HIGH remain and fix rounds &lt; `--max-fix-rounds`: return to Phase 4.
-If plateau (count did not decrease): **STOP**, escalate to operator with residual list — do not churn.
+If residual CRITICAL/HIGH remain and (composition) operator continues fixing, **re-run** reaudit after the next fix batch. Inside `audit-and-fix`, if rounds &lt; `--max-fix-rounds`: return to Phase 4. If plateau (count did not decrease): **STOP**, escalate to operator with residual list — do not churn.
 
 ## Phase 6 — Closing
 
@@ -385,4 +405,4 @@ Counters encoded above: Iron Law, mandatory residual axis, Phase 5 reaudit, verd
 
 ## Closing note
 
-`audit-delivery` does **not** replace `review-code`. After `audit-and-fix`, recommend a **blind** `review-code` on the fix range so intent-driven fixes still get anti-intent correctness review.
+`audit-delivery` does **not** replace `review-code`. Primary identity is **read-only** intent-vs-delivered audit. After composition (fix / parallel-dispatch) or optional `audit-and-fix`, recommend a **blind** `review-code` on the fix range and a **re-run** of audit-delivery so residual closure is proven.
