@@ -4,11 +4,11 @@
 
 **Intent-vs-delivered system audit with residual hunt and reaudit gate**
 
-A green suite and a blessed diff still leave half-migrated systems: MCP/skills teaching the old lifecycle, client band-aids rewriting server status, recovery that never heals the new residual state. `audit-delivery` is the intent-vs-delivered gate `review-code` cannot be — it requires an Intent Package, fans out specialized auditors (including a monorepo residual hunt), and refuses CLOSED without reaudit after fixes. **Default is read-only** (`--mode=audit`); product mutation only under opt-in `--mode=audit-and-fix`.
+A green suite and a blessed diff still leave half-migrated systems: MCP/skills teaching the old lifecycle, client band-aids rewriting server status, recovery that never heals the new residual state. `audit-delivery` is the intent-vs-delivered gate `review-code` cannot be — it requires an Intent Package, fans out specialized auditors (including a monorepo residual hunt), and refuses CLOSED without reaudit after fixes. Default is read-only; opt into audit-and-fix only when you want orchestrated residual fixes.
 
 ## Purpose
 
-Prove product intent was delivered end-to-end across code and ops surfaces, with residual hunt and reaudit — not patch correctness alone. Default mode is read-only findings; mutation only under `audit-and-fix`.
+Prove product intent was delivered end-to-end across code and ops surfaces, with residual hunt and reaudit — not patch correctness alone. Default is read-only findings; mutation only under audit-and-fix.
 
 ## Usage
 
