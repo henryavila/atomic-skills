@@ -5,7 +5,7 @@ title: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 version: "1.0"
 status: active
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T15:21:55.387Z
+lastUpdated: 2026-08-04T15:32:56.688Z
 branch: develop
 currentPhase: F4
 executionMode: automate
@@ -298,7 +298,7 @@ phases:
     dependsOn:
       - F3
     subPhaseCount: 0
-    status: active
+    status: done
     businessIntent:
       value: Large rewrites get prosecution + dual reaudit + optional cross residual; fix path is a documented recipe; dogfood proves false-CLOSED and skip-audit stay closed.
       workflow: prosecution axis; full-depth critic; dual reaudit; fix-composition recipe; optional --cross; BI import + dogfood-checklist.md (includes deliveryAuditGate never-skip).
@@ -310,11 +310,50 @@ phases:
       criteria:
         - id: G-F4-1
           description: P2 docs/assets + dogfood hard-gate + tests green
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run validate-skills && node --test tests/audit-delivery-assets.test.js && test -f .atomic-skills/projects/atomic-skills/audit-delivery-hardening/dogfood-checklist.md && rg -q 'deliveryAuditGate|never skip|hard-gate' .atomic-skills/projects/atomic-skills/audit-delivery-hardening/dogfood-checklist.md && test -f skills/shared/audit-delivery-assets/fix-composition-recipe.md
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-08-04T15:32:55.253Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 85e0f2786d1f9f24be1904ffae64623f0ee89df3
+            outputSummary: G-F4-1
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-audit-delivery-hardening-F4.md
+      verifiedAt: 2026-08-04T15:32:55.253Z
+      at: 85e0f2786d1f9f24be1904ffae64623f0ee89df3
+    lessonsState: none
+    noneReason: F4 clean last phase
+    reviewGate:
+      status: passed
+      mode: both
+      at: 85e0f2786d1f9f24be1904ffae64623f0ee89df3
+      verifiedAt: 2026-08-04T15:32:55.253Z
+      reviewFile: .atomic-skills/reviews/2026-08-04-both-audit-delivery-hardening-F4.md
+      localReceiptPath: .atomic-skills/reviews/2026-08-04-local-audit-delivery-hardening-F4.md
+      codexReceiptPath: .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-F4.md
+      legs:
+        - provider: local
+          receiptPath: .atomic-skills/reviews/2026-08-04-local-audit-delivery-hardening-F4.md
+        - provider: codex
+          receiptPath: .atomic-skills/reviews/2026-08-04-codex-audit-delivery-hardening-F4.md
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-08-04T15:32:55.253Z
+      packagePresentedAt: 2026-08-04T15:32:55.253Z
+      packagePath: .atomic-skills/reviews/decision-package-audit-delivery-hardening-F4.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-audit-delivery-hardening-F4.md
+      verdict: CLOSED
+      verifiedAt: 2026-08-04T15:32:55.253Z
+      at: 85e0f2786d1f9f24be1904ffae64623f0ee89df3
 planActive: true
 planTitle: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 ---
