@@ -20,6 +20,11 @@ Record parsed values in-session. Do **not** open intent sources, spawn auditors,
 
 This skill is the **intent-vs-delivered** counterpart to `review-code` (blind diff) and the **system-level** counterpart to `verify-claim` (single binary verifier).
 
+## Assets (lazy — read on demand from `{{ASSETS_PATH}}/`)
+
+- {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md` — per-leg adversarial audit brief (Phase 2 spawn)
+- {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md` — fresh-context reaudit brief (Phase 5 / reaudit re-run)
+
 ## Iron Law
 
 NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.
@@ -104,6 +109,8 @@ Status values only: `RESOLVED` | `PARTIAL` | `NO` | `N/A`.
 ## Phase 2 — Fan-out audit agents (parallel)
 
 Spawn **read-only** agents via {{INVESTIGATOR_TOOL}} (explore / read-only capability). One agent per selected axis. Do **not** share findings between parallel legs (prevents anchoring).
+
+**Before each leg spawn:** {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md`. Fill `{{AXIS}}`, `{{INTENT_PACKAGE}}`, `{{AXIS_MISSION}}`, and `{{AXIS_CHECKLIST}}` for that leg only. Paste the filled brief as the agent prompt body.
 
 Default axes and focus:
 
@@ -223,10 +230,13 @@ Treat agent confidence as zero without diff + command output (`verify-claim` spi
 
 Spawn a **fresh** adversarial reaudit agent (clean context preferred):
 
-- Input: original Intent Package + Findings Ledger (pre-fix) + list of claimed fixes
+1. {{READ_TOOL}} `{{ASSETS_PATH}}/reaudit-brief-template.md`.
+2. Fill `{{INTENT_PACKAGE}}`, `{{FINDINGS_LEDGER}}` (pre-fix), and `{{CLAIMED_FIXES}}`.
+3. Use the filled brief as the reaudit agent prompt.
+
 - Task: for **each** original finding, RESOLVED / PARTIAL / NO / REGRESSION with `file:line`
 - Grep red-flag patterns from residual leg again
-- Output: final verdict + remaining residual only
+- Output: final verdict + remaining residual only (structure from the template)
 
 Operator re-reads any CRITICAL still claimed fixed (G1).
 
