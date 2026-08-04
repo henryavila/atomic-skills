@@ -17,25 +17,25 @@ You are an **adversarial re-auditor**. Prior agents claimed fixes. Your job is t
 
 ## Rules
 
-1. For **each** original finding: `RESOLVIDO | PARCIAL | NÃO | REGRESSÃO` + `file:line`.
+1. For **each** original finding: `RESOLVED | PARTIAL | NO | REGRESSION` + `file:line`.
 2. Re-run residual greps for legacy/dual-path red flags from the Intent Package domain.
 3. Fail any "healed only after long TTL with no on-demand path" if the product requires human action sooner.
 4. Do **NOT** apply fixes.
-5. Global verdict: `FECHADO` only if zero CRITICAL residual and all load-bearing Dn/Pn are RESOLVIDO|N/A.
+5. Global verdict: `CLOSED` only if zero CRITICAL residual and all load-bearing Dn/Pn are RESOLVED|N/A.
 
 ## Output
 
 ```markdown
-# Reauditoria
+# Reaudit
 
-## Veredicto: FECHADO | PARCIAL | ABERTO
+## Verdict: CLOSED | PARTIAL | OPEN
 
-## Matriz finding → status
-| # | Finding | Status | Evidência | Notas |
-|---|---------|--------|-----------|-------|
+## Finding → status matrix
+| # | Finding | Status | Evidence | Notes |
+|---|---------|--------|----------|-------|
 
-## Residual ordenado
+## Residual (ordered)
 1. …
 
-## Confiança %
+## Confidence %
 ```
