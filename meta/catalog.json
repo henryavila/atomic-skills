@@ -187,7 +187,7 @@
       "Nothing to review (clean tree, no commits ahead of base)",
       "Trivial change already heavily reviewed",
       "Codex CLI not installed and you need codex mode (use --mode=local)",
-      "You need intent-vs-delivered / half-migration proof (use audit-delivery)"
+      "You need intent-vs-delivered / half-migration proof (use audit-delivery — hard on phase-done; not a substitute for deliveryAuditGate)"
     ],
     "examples": [
       "/atomic-skills:review-code",
@@ -818,7 +818,7 @@
       "implement",
       "core"
     ],
-    "summary": "Read admitted Tasks (AS inventory or foreign work-order sidecar) and drive them to done one at a time, gating each completion on its deterministic verifier and keeping durable state recoverable across sessions.",
+    "summary": "Read admitted Tasks (AS inventory or foreign work-order sidecar) and drive them to done one at a time, gating each completion on its deterministic verifier and keeping durable state recoverable across sessions. Every phase-done hard-requires a real audit-delivery run and durable deliveryAuditGate (CLOSED|PARTIAL + reportPath) — never skippable; plan-end intentVsDelivered is not a substitute.",
     "pros": [
       "A plan has been decomposed and its tasks admitted by the SPEC gate",
       "You are implementing a phase task-by-task and want verifier-gated completion",
@@ -829,7 +829,8 @@
     "cons": [
       "There is no plan/design yet (use brainstorm, then project new plan)",
       "A one-off bug fix with a known root cause (use fix)",
-      "You only need to verify a single claim, not drive a plan (use verify-claim)"
+      "You only need to verify a single claim, not drive a plan (use verify-claim)",
+      "You only need intent-vs-delivered residual proof without driving a plan (use audit-delivery)"
     ],
     "examples": [
       "/atomic-skills:implement migration-self-host",
@@ -863,7 +864,8 @@
     "refs": [
       "/atomic-skills:project",
       "/atomic-skills:verify-claim",
-      "/atomic-skills:fix"
+      "/atomic-skills:fix",
+      "/atomic-skills:audit-delivery"
     ]
   },
   {
@@ -948,7 +950,7 @@
       "adversarial",
       "core"
     ],
-    "summary": "Prove product intent was delivered end-to-end across code and ops surfaces, with residual hunt and reaudit — not patch correctness alone. Default is read-only findings; primary fix path is composition + re-run.",
+    "summary": "Prove product intent was delivered end-to-end across code and ops surfaces, with residual hunt and reaudit — not patch correctness alone. Default is read-only findings (report still written); primary fix path is composition + re-run; implement stamps deliveryAuditGate before phase-done.",
     "pros": [
       "A handoff/plan claims a redesign shipped and you need proof",
       "You suspect half-migration (docs/MCP/client still on old model)",

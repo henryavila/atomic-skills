@@ -227,7 +227,7 @@ core:
       - 'Nothing to review (clean tree, no commits ahead of base)'
       - 'Trivial change already heavily reviewed'
       - 'Codex CLI not installed and you need codex mode (use --mode=local)'
-      - 'You need intent-vs-delivered / half-migration proof (use audit-delivery)'
+      - 'You need intent-vs-delivered / half-migration proof (use audit-delivery — hard on phase-done; not a substitute for deliveryAuditGate)'
     examples:
       - command: '/atomic-skills:review-code'
         description: 'No argument — picks scope (wip/branch/all) then mode'
@@ -908,7 +908,14 @@ core:
   implement:
     name: implement
     title: 'Implement — Mode 2-aware Execution Driver'
-    description: 'Drive SPEC-admitted tasks of an Atomic Skills plan — or a foreign path/to/plan.md — to DONE. Automate (pure maestro) is the default; --mode=1 is the session-writer escape. Foreign markdown asks at entry: Promote to AS (adopt) or Implement as Foreign (colocated sidecar, worktree, FINALIZE/ARCHIVE). Close only through verify-on-done; event-driven handoffs make resume cheap.'
+    description: >-
+      Drive SPEC-admitted tasks of an Atomic Skills plan — or a foreign
+      path/to/plan.md — to DONE. Automate (pure maestro) is the default;
+      --mode=1 is the session-writer escape. Foreign markdown asks at entry:
+      Promote to AS (adopt) or Implement as Foreign (colocated sidecar, worktree,
+      FINALIZE/ARCHIVE). Close only through verify-on-done; every phase-done
+      hard-requires audit-delivery + deliveryAuditGate (never skippable).
+      Event-driven handoffs make resume cheap.
     value_pitch: >
       The lifecycle ends in execution, and execution is where state gets
       lost — work marked done on a claim, context evicted mid-task, a resume
@@ -919,13 +926,18 @@ core:
       phase boundary) — never on a fabricated context-% gauge. Coding stays
       single-threaded; only heavy reads fan out. Bare implement defaults to
       pure maestro (one code-only phase writer per phase; no silent Mode-1
-      fallback). A foreign `path/to/plan.md` is first-class: entry choice
-      Promote vs Foreign — never a late adopt. The next session resumes from
-      the handoff, and `resume` refuses on a dirty tree or a placeholder.
+      fallback). Phase close hard-runs `audit-delivery` and stamps
+      `deliveryAuditGate` (CLOSED|PARTIAL + reportPath) — not a tip. A foreign
+      `path/to/plan.md` is first-class: entry choice Promote vs Foreign — never
+      a late adopt. The next session resumes from the handoff, and `resume`
+      refuses on a dirty tree or a placeholder.
     purpose: >
       Read admitted Tasks (AS inventory or foreign work-order sidecar) and
       drive them to done one at a time, gating each completion on its
       deterministic verifier and keeping durable state recoverable across sessions.
+      Every phase-done hard-requires a real audit-delivery run and durable
+      deliveryAuditGate (CLOSED|PARTIAL + reportPath) — never skippable; plan-end
+      intentVsDelivered is not a substitute.
     when_to_use:
       - 'A plan has been decomposed and its tasks admitted by the SPEC gate'
       - 'You are implementing a phase task-by-task and want verifier-gated completion'
@@ -936,6 +948,7 @@ core:
       - 'There is no plan/design yet (use brainstorm, then project new plan)'
       - 'A one-off bug fix with a known root cause (use fix)'
       - 'You only need to verify a single claim, not drive a plan (use verify-claim)'
+      - 'You only need intent-vs-delivered residual proof without driving a plan (use audit-delivery)'
     examples:
       - command: '/atomic-skills:implement migration-self-host'
         description: 'Drive the active phase of a plan to done, task-by-task'
@@ -945,7 +958,7 @@ core:
         description: 'Foreign markdown — AskUserQuestion: Promote to AS or Implement as Foreign'
       - command: '/atomic-skills:implement'
         description: 'Implement the active plan/initiative; resume from its handoff if present'
-    related: [project, verify-claim, fix]
+    related: [project, verify-claim, fix, audit-delivery]
     tags: [execution, lifecycle, implement, core]
     ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
@@ -1067,10 +1080,12 @@ core:
       Adversarial audit that product decisions and original problems were
       actually delivered end-to-end (not just present in a diff). Default mode
       is read-only (audit): builds a decision/problem matrix from handoff/plan/docs,
-      fans out specialized read-only auditors, writes a findings report.
+      fans out specialized read-only auditors, writes a findings report under
+      .atomic-skills/reviews/ (product tree stays RO unless optional audit-and-fix).
       Prefer composition: audit → fix/parallel-dispatch → re-run reaudit.
       Optional advanced --mode=audit-and-fix keeps an in-skill fix loop.
       Complements review-code (blind diff) and verify-claim (binary verifier).
+      Status SSOT: RESOLVED|PARTIAL|NO|N/A; verdict CLOSED|PARTIAL|OPEN; reaudit REGRESSION.
     value_pitch: >
       A green suite and a blessed diff still leave half-migrated systems:
       MCP/skills teaching the old lifecycle, client band-aids rewriting
@@ -1080,10 +1095,12 @@ core:
       (including a monorepo residual hunt), and refuses CLOSED without
       residual proof. Default is read-only; compose with fix/parallel-dispatch
       and re-run reaudit rather than treating audit-and-fix as the primary path.
+      Hard on every phase-done via implement deliveryAuditGate (never skippable).
     purpose: >
       Prove product intent was delivered end-to-end across code and ops
       surfaces, with residual hunt and reaudit — not patch correctness alone.
-      Default is read-only findings; primary fix path is composition + re-run.
+      Default is read-only findings (report still written); primary fix path is
+      composition + re-run; implement stamps deliveryAuditGate before phase-done.
     when_to_use:
       - 'A handoff/plan claims a redesign shipped and you need proof'
       - 'You suspect half-migration (docs/MCP/client still on old model)'

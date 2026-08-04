@@ -23,7 +23,7 @@ Adversarially review code changes — a git ref (branch, commit, range), a scope
 - Nothing to review (clean tree, no commits ahead of base)
 - Trivial change already heavily reviewed
 - Codex CLI not installed and you need codex mode (use --mode=local)
-- You need intent-vs-delivered / half-migration proof (use audit-delivery)
+- You need intent-vs-delivered / half-migration proof (use audit-delivery — hard on phase-done; not a substitute for deliveryAuditGate)
 
 ## Reference
 

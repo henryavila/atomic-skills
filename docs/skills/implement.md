@@ -4,11 +4,11 @@
 
 **Drive plan tasks to done; AS slug or path/to/plan.md; automate default**
 
-The lifecycle ends in execution, and execution is where state gets lost — work marked done on a claim, context evicted mid-task, a resume that cold-re-investigates. `implement` is a serial loop with durable checkpoints: code one task, gate it through verify-on-done (never a self-asserted pass), snapshot a self-sufficient `## Session handoff` block on observable events (after each task / before each dispatch / phase boundary) — never on a fabricated context-% gauge. Coding stays single-threaded; only heavy reads fan out. Bare implement defaults to pure maestro (one code-only phase writer per phase; no silent Mode-1 fallback). A foreign `path/to/plan.md` is first-class: entry choice Promote vs Foreign — never a late adopt. The next session resumes from the handoff, and `resume` refuses on a dirty tree or a placeholder.
+The lifecycle ends in execution, and execution is where state gets lost — work marked done on a claim, context evicted mid-task, a resume that cold-re-investigates. `implement` is a serial loop with durable checkpoints: code one task, gate it through verify-on-done (never a self-asserted pass), snapshot a self-sufficient `## Session handoff` block on observable events (after each task / before each dispatch / phase boundary) — never on a fabricated context-% gauge. Coding stays single-threaded; only heavy reads fan out. Bare implement defaults to pure maestro (one code-only phase writer per phase; no silent Mode-1 fallback). Phase close hard-runs `audit-delivery` and stamps `deliveryAuditGate` (CLOSED|PARTIAL + reportPath) — not a tip. A foreign `path/to/plan.md` is first-class: entry choice Promote vs Foreign — never a late adopt. The next session resumes from the handoff, and `resume` refuses on a dirty tree or a placeholder.
 
 ## Purpose
 
-Read admitted Tasks (AS inventory or foreign work-order sidecar) and drive them to done one at a time, gating each completion on its deterministic verifier and keeping durable state recoverable across sessions.
+Read admitted Tasks (AS inventory or foreign work-order sidecar) and drive them to done one at a time, gating each completion on its deterministic verifier and keeping durable state recoverable across sessions. Every phase-done hard-requires a real audit-delivery run and durable deliveryAuditGate (CLOSED|PARTIAL + reportPath) — never skippable; plan-end intentVsDelivered is not a substitute.
 
 ## Usage
 
@@ -23,6 +23,7 @@ Read admitted Tasks (AS inventory or foreign work-order sidecar) and drive them 
 - There is no plan/design yet (use brainstorm, then project new plan)
 - A one-off bug fix with a known root cause (use fix)
 - You only need to verify a single claim, not drive a plan (use verify-claim)
+- You only need intent-vs-delivered residual proof without driving a plan (use audit-delivery)
 
 ## Reference
 
@@ -44,7 +45,7 @@ Read admitted Tasks (AS inventory or foreign work-order sidecar) and drive them 
 
 **Dependencies:** `git`
 
-**Related:** `project`, `verify-claim`, `fix`
+**Related:** `project`, `verify-claim`, `fix`, `audit-delivery`
 
 **Tags:** `execution`, `lifecycle`, `implement`, `core`
 
