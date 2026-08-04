@@ -1120,7 +1120,7 @@ core:
       - name: '--axes'
         kind: option
         required: false
-        description: 'Comma list of audit legs (default backend,frontend,product,residual).'
+        description: 'Comma list of audit legs (default product,residual). backend/frontend remain valid; exclude residual logs and caps verdict PARTIAL.'
       - name: '--max-fix-rounds'
         kind: option
         required: false

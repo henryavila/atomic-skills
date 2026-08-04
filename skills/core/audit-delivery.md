@@ -11,7 +11,7 @@ Accepted shape (must match catalog args):
 |-------|---------|---------|
 | **intent-source** | (empty → ask once) | Path to handoff / plan / design / acceptance doc, OR freeform decision list |
 | **`--mode`** | `audit` | `audit` (read-only findings), `audit-and-fix` (orchestrate fixes + reaudit), `reaudit` (re-check existing findings file) |
-| **`--axes`** | `backend,frontend,product,residual` | Comma list of audit legs; drop unused legs |
+| **`--axes`** | `product,residual` | Comma list of audit legs; `backend`/`frontend` remain valid opt-ins |
 | **`--max-fix-rounds`** | `2` | Max fix→reaudit loops in `audit-and-fix` |
 | **`--no-fix`** | off | Force read-only even if mode says fix |
 | **`--out`** | `.atomic-skills/reviews/audit-delivery-<slug>-<YYYYMMDD>.md` | Report path |
@@ -128,16 +128,18 @@ Spawn **read-only** agents via {{INVESTIGATOR_TOOL}} (explore / read-only capabi
 
 **Before each leg spawn:** {{READ_TOOL}} `{{ASSETS_PATH}}/axis-brief-template.md`. Fill `{{AXIS}}`, `{{INTENT_PACKAGE}}`, `{{AXIS_MISSION}}`, and `{{AXIS_CHECKLIST}}` for that leg only. Paste the filled brief as the agent prompt body.
 
-Default axes and focus:
+**Default axes: `product` + `residual`** (not backend/frontend alone).
 
-| Axis | Mission |
-|------|---------|
-| **backend** | SSOT, transitions, jobs, recovery, API force/CAS paths, tests assert **canonical** statuses |
-| **frontend** | Work surface / CTAs, phase priority, client band-aids that rewrite server truth, e2e mocks |
-| **product** | Trace each Dn/Pn config→code→UI→test; counter-evidence hunt |
-| **residual** | Monorepo half-migration via residual-hunt-protocol: OLD_TERMS/NEW_TERMS × surface inventory |
+| Axis | Default? | Mission |
+|------|----------|---------|
+| **product** | yes | Trace each Dn/Pn config→code→UI→test; counter-evidence hunt |
+| **residual** | yes | Monorepo half-migration via residual-hunt-protocol: OLD_TERMS/NEW_TERMS × surface inventory |
+| **backend** | opt-in | SSOT, transitions, jobs, recovery, API force/CAS paths, tests assert **canonical** statuses |
+| **frontend** | opt-in | Work surface / CTAs, phase priority, client band-aids that rewrite server truth, e2e mocks |
 
-Customize axes when the domain is not a note pipeline — e.g. `api,worker,admin,docs` — but keep **≥1 residual monorepo leg** unless the operator explicitly opts out with `--axes` excluding residual (log that choice).
+Add `backend` / `frontend` (or domain axes e.g. `api,worker,admin,docs`) via `--axes` when useful. Keep **≥1 residual monorepo leg** unless the operator explicitly opts to exclude residual.
+
+**Exclude residual (HARD cap):** if `--axes` omits `residual` (exclude residual), **log** that choice in the report and **cap** global verdict at **PARTIAL** — never CLOSED without a residual leg (invalid residual / skipped residual both block CLOSED).
 
 **Residual leg:** {{READ_TOOL}} `{{ASSETS_PATH}}/residual-hunt-protocol.md` before spawn. Fill axis brief with protocol steps (derive OLD_TERMS/NEW_TERMS → × surface inventory → classify storage|alias|teaching|dead). **Invalid residual** (no derived terms, "nothing found" as fake success) blocks CLOSED.
 
