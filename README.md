@@ -91,6 +91,7 @@ Compact index (name · one-liner · Iron Law).
 | ⚙️ | [`implement`](docs/skills/implement.md) | Drive plan tasks to done; AS slug or path/to/plan.md; automate default | `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).` |
 | ✅ | [`verify-claim`](docs/skills/verify-claim.md) | No success claim without fresh verification — run it, cite it | `NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.` |
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Consolidate scattered memory into .ai/memory/ and wire it to the IDE | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
+| 📦 | [`audit-delivery`](docs/skills/audit-delivery.md) | Intent-vs-delivered system audit with residual hunt and reaudit gate | `NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.` |
 [SKILLS_TABLE_END]: #
 
 [SKILL_DETAILS_START]: #

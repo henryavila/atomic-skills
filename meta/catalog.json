@@ -184,7 +184,8 @@
     "cons": [
       "Nothing to review (clean tree, no commits ahead of base)",
       "Trivial change already heavily reviewed",
-      "Codex CLI not installed and you need codex mode (use --mode=local)"
+      "Codex CLI not installed and you need codex mode (use --mode=local)",
+      "You need intent-vs-delivered / half-migration proof (use audit-delivery)"
     ],
     "examples": [
       "/atomic-skills:review-code",
@@ -235,7 +236,8 @@
     "refs": [
       "/atomic-skills:review-plan",
       "/atomic-skills:fix",
-      "/atomic-skills:hunt"
+      "/atomic-skills:hunt",
+      "/atomic-skills:audit-delivery"
     ]
   },
   {
@@ -927,6 +929,87 @@
     ],
     "refs": [
       "/atomic-skills:save-and-push"
+    ]
+  },
+  {
+    "id": "/atomic-skills:audit-delivery",
+    "icon": "📦",
+    "oneLiner": "Intent-vs-delivered system audit with residual hunt and reaudit gate",
+    "facets": [
+      "review",
+      "quality",
+      "delivery",
+      "adversarial",
+      "core"
+    ],
+    "summary": "Prove product intent was delivered end-to-end across code and ops surfaces, with residual hunt and reaudit — not patch correctness alone.",
+    "pros": [
+      "A handoff/plan claims a redesign shipped and you need proof",
+      "You suspect half-migration (docs/MCP/client still on old model)",
+      "After a large feature, before calling closed-beta / merge done",
+      "review-code looked fine but product acceptance still feels wrong"
+    ],
+    "cons": [
+      "You only need blind diff correctness (use review-code)",
+      "One claim + one deterministic verifier (use verify-claim)",
+      "No decisions/problems written yet (write handoff first)",
+      "Plan premises vs tree before implement (use review-plan ground-truth)"
+    ],
+    "examples": [
+      "/atomic-skills:audit-delivery docs/plans/HANDOFF-note-pipeline-state-machine.md",
+      "/atomic-skills:audit-delivery docs/plans/HANDOFF-x.md --mode=audit-and-fix",
+      "/atomic-skills:audit-delivery --mode=reaudit --out=.atomic-skills/reviews/audit-delivery-x.md"
+    ],
+    "fields": [
+      {
+        "name": "intent-source",
+        "kind": "positional",
+        "required": false,
+        "description": "Path to handoff/plan/design or freeform decision list. If omitted, skill asks once then aborts without Intent Package."
+      },
+      {
+        "name": "--mode",
+        "kind": "option",
+        "required": false,
+        "description": "audit (default, read-only), audit-and-fix (fix + reaudit loop), reaudit (re-check existing report)."
+      },
+      {
+        "name": "--axes",
+        "kind": "option",
+        "required": false,
+        "description": "Comma list of audit legs (default backend,frontend,product,residual)."
+      },
+      {
+        "name": "--max-fix-rounds",
+        "kind": "option",
+        "required": false,
+        "description": "Max fix→reaudit loops in audit-and-fix (default 2)."
+      },
+      {
+        "name": "--no-fix",
+        "kind": "flag",
+        "required": false,
+        "description": "Force read-only even if mode would fix."
+      },
+      {
+        "name": "--out",
+        "kind": "option",
+        "required": false,
+        "description": "Report path under .atomic-skills/reviews/ (default auto slug)."
+      }
+    ],
+    "deps": [
+      "git"
+    ],
+    "outputs": [
+      ".atomic-skills/reviews/audit-delivery-*.md"
+    ],
+    "refs": [
+      "/atomic-skills:review-code",
+      "/atomic-skills:verify-claim",
+      "/atomic-skills:review-plan",
+      "/atomic-skills:parallel-dispatch",
+      "/atomic-skills:fix"
     ]
   }
 ]
