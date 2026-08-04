@@ -6,6 +6,11 @@ import {
   buildDeliveryAuditGate,
   isDurableAutomateForDeliveryAudit,
   DELIVERY_AUDIT_PASS_VERDICTS,
+  deliveryAuditReportContentFloor,
+  deliveryAuditGateAuthenticity,
+  parseDeliveryAuditReportVerdict,
+  reportHasOpenCriticalResidual,
+  DELIVERY_AUDIT_REPORT_MIN_BYTES,
 } from '../src/phase-delivery-audit-gate.js';
 import { canRunPhaseDone } from '../src/automate-orchestrator-gates.js';
 
@@ -16,6 +21,20 @@ const HONEST_CLOSED = {
   reportPath: '.atomic-skills/reviews/audit-delivery-demo-f2.md',
   verifiedAt: '2026-08-04T15:00:00.000Z',
 };
+
+const SAMPLE_REPORT = `# Audit Delivery — demo
+
+**Verdict:** CLOSED
+
+## Intent Package
+Decisions D1..Dn
+
+## Residual
+none CRITICAL
+
+## Findings
+All RESOLVED
+`;
 
 const evalPassed = {
   status: 'passed',
@@ -275,5 +294,85 @@ describe('canRunPhaseDone requires deliveryAuditGate', () => {
     });
     assert.equal(r.ok, false);
     assert.match(r.reason || '', /OPEN/);
+  });
+});
+
+describe('deliveryAuditReportContentFloor', () => {
+  it('rejects missing / one-line stub', () => {
+    assert.equal(deliveryAuditReportContentFloor(null).ok, false);
+    assert.equal(deliveryAuditReportContentFloor('CLOSED only').ok, false);
+  });
+
+  it('accepts multi-line structured report', () => {
+    const r = deliveryAuditReportContentFloor(SAMPLE_REPORT);
+    assert.equal(r.ok, true, r.reason);
+  });
+
+  it('exports min bytes constant', () => {
+    assert.ok(DELIVERY_AUDIT_REPORT_MIN_BYTES >= 100);
+  });
+});
+
+describe('parseDeliveryAuditReportVerdict / open CRITICAL', () => {
+  it('parses Verdict line', () => {
+    assert.equal(parseDeliveryAuditReportVerdict(SAMPLE_REPORT), 'CLOSED');
+    assert.equal(
+      parseDeliveryAuditReportVerdict('**Verdict:** PARTIAL\n'),
+      'PARTIAL',
+    );
+  });
+
+  it('detects open CRITICAL residual rows', () => {
+    assert.equal(reportHasOpenCriticalResidual(SAMPLE_REPORT), false);
+    assert.equal(
+      reportHasOpenCriticalResidual(
+        '## Residual\n- open CRITICAL dual path still taught\n',
+      ),
+      true,
+    );
+  });
+});
+
+describe('deliveryAuditGateAuthenticity', () => {
+  it('no-op without content or FS hooks', () => {
+    assert.deepEqual(
+      deliveryAuditGateAuthenticity(HONEST_CLOSED),
+      { ok: true },
+    );
+  });
+
+  it('fails when exists says missing', () => {
+    const r = deliveryAuditGateAuthenticity(HONEST_CLOSED, {
+      exists: () => false,
+      checkAuthenticity: true,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /does not exist|unavailable/i);
+  });
+
+  it('fails when stamp verdict mismatches body', () => {
+    const r = deliveryAuditGateAuthenticity(
+      { ...HONEST_CLOSED, verdict: 'PARTIAL' },
+      { reportContent: SAMPLE_REPORT },
+    );
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /does not match|PARTIAL|CLOSED/);
+  });
+
+  it('fails CLOSED with open CRITICAL residual in body', () => {
+    const body = `# Audit\n**Verdict:** CLOSED\n## Residual\n- open CRITICAL leftover\n## Intent\nD1\n`;
+    const r = deliveryAuditGateAuthenticity(HONEST_CLOSED, {
+      reportContent: body,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /CRITICAL/);
+  });
+
+  it('accepts honest CLOSED with full report content', () => {
+    const r = deliveryAuditGateAuthenticity(HONEST_CLOSED, {
+      reportContent: SAMPLE_REPORT,
+      exists: () => true,
+    });
+    assert.equal(r.ok, true, r.reason);
   });
 });

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkEvaluationGate, checkDecisionReview, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkEvaluationGate, checkDecisionReview, checkDeliveryAuditGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -2072,4 +2072,67 @@ test('GATE-R4: non-automate plan without decisionReview is OK', () => {
   const plan = automateDonePlan({ status: 'passed', verdict: 'pass' });
   delete plan.executionMode;
   assert.deepEqual(checkDecisionReview(plan), []);
+});
+
+// GATE-R4 — deliveryAuditGate honesty under executionMode automate
+test('GATE-R4: Mode-1 done phase without deliveryAuditGate is OK after mid-plan automate stamp', () => {
+  assert.deepEqual(checkDeliveryAuditGate(automateDonePlan(undefined)), []);
+});
+
+test('GATE-R4 RED: automate-era phase (evaluationGate present) without deliveryAuditGate violates', () => {
+  const v = checkDeliveryAuditGate(
+    automateDonePlan({
+      status: 'passed',
+      verdict: 'pass',
+      reportPath: '.atomic-skills/reviews/eval.md',
+    }),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /deliveryAuditGate/);
+});
+
+test('GATE-R4 RED: automate done phase with skipped deliveryAuditGate violates', () => {
+  const v = checkDeliveryAuditGate(
+    automateDonePlan(
+      { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval.md' },
+      {
+        deliveryAuditGate: {
+          status: 'skipped',
+          operatorSkip: true,
+          reason: 'waive',
+        },
+      },
+    ),
+  );
+  assert.ok(v.length >= 1);
+  assert.match(v[0], /deliveryAuditGate|skipped|illegal/i);
+});
+
+test('GATE-R4 GREEN: automate done phase with honest deliveryAuditGate CLOSED', () => {
+  assert.deepEqual(
+    checkDeliveryAuditGate(
+      automateDonePlan(
+        { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval.md' },
+        {
+          deliveryAuditGate: {
+            status: 'passed',
+            verdict: 'CLOSED',
+            reportPath: '.atomic-skills/reviews/audit.md',
+            verifiedAt: '2026-08-04T12:00:00.000Z',
+          },
+        },
+      ),
+    ),
+    [],
+  );
+});
+
+test('GATE-R4: non-automate plan without deliveryAuditGate is OK', () => {
+  const plan = automateDonePlan({
+    status: 'passed',
+    verdict: 'pass',
+    reportPath: '.atomic-skills/reviews/eval.md',
+  });
+  delete plan.executionMode;
+  assert.deepEqual(checkDeliveryAuditGate(plan), []);
 });

@@ -870,6 +870,45 @@
               "description": "present-before-PASS: path to the rendered decision package or decisions/<phaseId>.jsonl presented in the hardgate turn. Acceptable present evidence with or instead of packagePresentedAt."
             }
           }
+        },
+        "deliveryAuditGate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reportPath",
+            "verdict"
+          ],
+          "description": "Implement hard-gate on every phase-done (Mode-1 + pure-maestro): real atomic-skills:audit-delivery run stamped before phase-done. NEVER skippable (no operatorSkip, no status=skipped). Enforced by deliveryAuditGateHonesty / deliveryAuditAllowsClose / canRunPhaseDone / assert-automate-gate --gate phase-done / lifecycle preflight when plan.executionMode is automate. Plan-end intentVsDelivered is not a substitute. OPEN never stamps passed.",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "passed"
+              ],
+              "description": "Only status=passed is legal. Skip path does not exist for this gate."
+            },
+            "reportPath": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Non-empty path to the audit-delivery report (typically under .atomic-skills/reviews/). Pure honesty checks non-empty string; assert CLI also checks file existence + content floor."
+            },
+            "verdict": {
+              "type": "string",
+              "enum": [
+                "CLOSED",
+                "PARTIAL"
+              ],
+              "description": "EN skill SSOT. OPEN never stamps passed. PARTIAL only under Accept Record rules (report content)."
+            },
+            "verifiedAt": {
+              "$ref": "common.schema.json#/$defs/isoTimestamp"
+            },
+            "at": {
+              "$ref": "common.schema.json#/$defs/gitSha",
+              "description": "Plan-branch HEAD when the audit-delivery run concluded."
+            }
+          }
         }
       },
       "allOf": [

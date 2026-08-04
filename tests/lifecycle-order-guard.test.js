@@ -394,6 +394,13 @@ const automateDecisionReviewPassed = {
   packagePath: 'decisions/F0.jsonl',
 };
 
+const automateDeliveryAuditPassed = {
+  status: 'passed',
+  verdict: 'CLOSED',
+  reportPath: '.atomic-skills/reviews/audit-demo.md',
+  verifiedAt: '2026-07-23T12:01:00.000Z',
+};
+
 test('B1: under durable automate, reviewGate skipped is blocked even with reason', () => {
   const result = commitGuardPhaseDone(
     happyCommitInput({
@@ -411,6 +418,7 @@ test('B1: under durable automate, reviewGate skipped is blocked even with reason
             title: 'F4',
             evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
             decisionReview: automateDecisionReviewPassed,
+            deliveryAuditGate: automateDeliveryAuditPassed,
           },
         ],
       },
@@ -442,6 +450,7 @@ test('B1: under durable automate, reviewGate passed + mode local is blocked', ()
             title: 'F4',
             evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
             decisionReview: automateDecisionReviewPassed,
+            deliveryAuditGate: automateDeliveryAuditPassed,
           },
         ],
       },
@@ -469,6 +478,7 @@ test('B1: under durable automate, reviewGate passed + mode both is allowed', () 
             title: 'F4',
             evaluationGate: { status: 'passed', verdict: 'pass', reportPath: '.atomic-skills/reviews/eval-demo.md' },
             decisionReview: automateDecisionReviewPassed,
+            deliveryAuditGate: automateDeliveryAuditPassed,
           },
         ],
       },
@@ -648,7 +658,7 @@ test('preflightPhaseDone blocks automate when decisionReview pending', () => {
   assert.match(result.reason || '', /pending/i);
 });
 
-test('preflightPhaseDone allows automate when evaluationGate and decisionReview both passed', () => {
+test('preflightPhaseDone allows automate when evaluationGate and decisionReview and deliveryAuditGate all passed', () => {
   const result = preflightPhaseDone({
     parentPlan: 'demo',
     phaseId: 'F0',
@@ -666,6 +676,12 @@ test('preflightPhaseDone allows automate when evaluationGate and decisionReview 
             verifiedAt: '2026-07-23T12:00:00.000Z',
             packagePresentedAt: '2026-07-23T11:59:00.000Z',
             packagePath: 'decisions/F0.jsonl',
+          },
+          deliveryAuditGate: {
+            status: 'passed',
+            verdict: 'CLOSED',
+            reportPath: '.atomic-skills/reviews/audit-demo.md',
+            verifiedAt: '2026-07-23T12:01:00.000Z',
           },
         },
       ],
@@ -705,7 +721,13 @@ test('top-level executionMode automate: preflight/commitGuard block when decisio
   assert.equal(commit.code, 'phase-done-decision-review-open');
 });
 
-test('top-level executionMode automate: preflight/commitGuard allow when decisionReview passed+verifiedAt', () => {
+test('top-level executionMode automate: preflight/commitGuard allow when decisionReview + deliveryAuditGate passed', () => {
+  const deliveryAuditGate = {
+    status: 'passed',
+    verdict: 'CLOSED',
+    reportPath: '.atomic-skills/reviews/audit-demo.md',
+    verifiedAt: '2026-07-23T12:01:00.000Z',
+  };
   const input = happyCommitInput({
     executionMode: 'automate',
     plan: {
@@ -726,6 +748,7 @@ test('top-level executionMode automate: preflight/commitGuard allow when decisio
             packagePresentedAt: '2026-07-23T11:59:00.000Z',
             packagePath: 'decisions/F0.jsonl',
           },
+          deliveryAuditGate,
         },
       ],
     },
@@ -736,6 +759,7 @@ test('top-level executionMode automate: preflight/commitGuard allow when decisio
       packagePresentedAt: '2026-07-23T11:59:00.000Z',
       packagePath: 'decisions/F0.jsonl',
     },
+    deliveryAuditGate,
     reviewGate: { status: 'passed', at: FP, mode: 'both' },
   });
   const preflight = preflightPhaseDone(input);
@@ -801,4 +825,129 @@ test('assertExitGateMirror: planPhaseMet with pending initiative fails before ar
   });
   assert.equal(r.ok, false);
   assert.match(r.reason || '', /mirror|pending/i);
+});
+
+test('preflightPhaseDone under automate blocks without deliveryAuditGate', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'p',
+    phaseId: 'F0',
+    automateActive: true,
+    plan: {
+      executionMode: 'automate',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'f0',
+          status: 'active',
+          dependsOn: [],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'F0',
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval.md',
+          },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-08-04T12:00:00.000Z',
+            packagePresentedAt: '2026-08-04T11:59:00.000Z',
+          },
+          // no deliveryAuditGate
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true, result.reason);
+  assert.equal(result.code, 'phase-done-delivery-audit-open');
+  assert.match(result.recommendedCommand || '', /audit-delivery/);
+});
+
+test('preflightPhaseDone under automate allows honest deliveryAuditGate on phase', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'p',
+    phaseId: 'F0',
+    plan: {
+      executionMode: 'automate',
+      phases: [
+        {
+          id: 'F0',
+          slug: 'f0',
+          status: 'active',
+          dependsOn: [],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'F0',
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval.md',
+          },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-08-04T12:00:00.000Z',
+            packagePresentedAt: '2026-08-04T11:59:00.000Z',
+          },
+          deliveryAuditGate: {
+            status: 'passed',
+            verdict: 'CLOSED',
+            reportPath: '.atomic-skills/reviews/audit.md',
+            verifiedAt: '2026-08-04T12:01:00.000Z',
+          },
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, false, result.reason);
+  assert.equal(result.allowed, true);
+});
+
+test('plan-root deliveryAuditGate cannot spoof when phase entry exists', () => {
+  const result = preflightPhaseDone({
+    parentPlan: 'p',
+    phaseId: 'F0',
+    deliveryAuditGate: {
+      status: 'passed',
+      verdict: 'CLOSED',
+      reportPath: '.atomic-skills/reviews/root-spoof.md',
+    },
+    plan: {
+      executionMode: 'automate',
+      deliveryAuditGate: {
+        status: 'passed',
+        verdict: 'CLOSED',
+        reportPath: '.atomic-skills/reviews/root-spoof.md',
+      },
+      phases: [
+        {
+          id: 'F0',
+          slug: 'f0',
+          status: 'active',
+          dependsOn: [],
+          exitGate: { summary: 's', criteria: [] },
+          subPhaseCount: 0,
+          goal: 'g',
+          title: 'F0',
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval.md',
+          },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-08-04T12:00:00.000Z',
+            packagePresentedAt: '2026-08-04T11:59:00.000Z',
+          },
+          // phase stamp missing — root must not unlock
+        },
+      ],
+    },
+    tasks: [{ id: 'T-001', status: 'done' }],
+  });
+  assert.equal(result.blocked, true, result.reason);
+  assert.equal(result.code, 'phase-done-delivery-audit-open');
 });

@@ -16,6 +16,7 @@
 import { validatePhaseDag } from '../src/transition.js';
 import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
 import { decisionReviewAllowsPhaseDone } from '../src/decision-review-gate.js';
+import { deliveryAuditAllowsClose } from '../src/phase-delivery-audit-gate.js';
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
   SPLIT_PHASE: 'split-phase',
@@ -471,6 +472,35 @@ function decisionReviewOf(input) {
 }
 
 /**
+ * Resolve deliveryAuditGate. Same anti-spoof rules as evaluationGateOf:
+ * when a plan.phases[] entry exists for the phase, only that entry's
+ * deliveryAuditGate is authoritative (plan-root cannot spoof).
+ * @param {object} input
+ * @returns {object|null}
+ */
+function deliveryAuditGateOf(input) {
+  const planPhase = planPhaseEntry(input);
+  if (planPhase != null) {
+    const dg = planPhase.deliveryAuditGate;
+    return dg != null && typeof dg === 'object' ? dg : null;
+  }
+  const phase = phaseSlice(input);
+  if (
+    phase.deliveryAuditGate != null &&
+    typeof phase.deliveryAuditGate === 'object'
+  ) {
+    return phase.deliveryAuditGate;
+  }
+  if (
+    input.deliveryAuditGate != null &&
+    typeof input.deliveryAuditGate === 'object'
+  ) {
+    return input.deliveryAuditGate;
+  }
+  return null;
+}
+
+/**
  * Under durable automate stamp, evaluationGate must allow phase-done (R1).
  * Non-automate: no-op allow.
  * @param {object} input
@@ -511,6 +541,27 @@ function checkPhaseDoneDecisionReview(input) {
     result.reason ||
       'phase-done under automate requires decisionReview status=passed + verifiedAt (operator PASS)',
     'Obtain operator decision-review PASS, stamp phases[].decisionReview { status: passed, verifiedAt }, then rerun `phase-done`. Agents never stamp PASS.',
+  );
+}
+
+/**
+ * Under durable automate, deliveryAuditGate must allow phase-done (never skippable).
+ * Non-automate: no-op allow (Mode-1 uses implement HARD-GATE prose).
+ * @param {object} input
+ */
+function checkPhaseDoneDeliveryAudit(input) {
+  const planExecutionMode = planExecutionModeOf(input);
+  const result = deliveryAuditAllowsClose({
+    planExecutionMode: planExecutionMode || null,
+    automateActive: input.automateActive === true,
+    deliveryAuditGate: deliveryAuditGateOf(input),
+  });
+  if (result.ok) return allow();
+  return block(
+    'phase-done-delivery-audit-open',
+    result.reason ||
+      'phase-done under automate requires deliveryAuditGate (run audit-delivery, stamp CLOSED|PARTIAL + reportPath — skip is illegal)',
+    'Run `atomic-skills:audit-delivery`, write the report under `.atomic-skills/reviews/`, stamp phases[].deliveryAuditGate via buildDeliveryAuditGate, then rerun `phase-done`.',
   );
 }
 
@@ -636,7 +687,11 @@ export function preflightPhaseDone(input = {}) {
   if (evaluation.blocked) return evaluation;
   // Decision-review operator PASS (status=passed + verifiedAt) under automate.
   // Same durable stamp as canRunPhaseDone; fails closed without the stamp.
-  return checkPhaseDoneDecisionReview(safe);}
+  const decisionReview = checkPhaseDoneDecisionReview(safe);
+  if (decisionReview.blocked) return decisionReview;
+  // Delivery audit hard-gate (never skippable under durable automate).
+  return checkPhaseDoneDeliveryAudit(safe);
+}
 
 /**
  * Pure commit guard for phase-done — runs AFTER evidence / review / lessons.

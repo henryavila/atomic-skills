@@ -35,6 +35,7 @@ import {
 } from '../src/state-invariants.js';
 import { phaseEvaluationAllowsClose } from '../src/phase-evaluation-gate.js';
 import { decisionReviewAllowsPhaseDone } from '../src/decision-review-gate.js';
+import { deliveryAuditGateHonesty } from '../src/phase-delivery-audit-gate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -615,6 +616,12 @@ export function phaseClosedUnderAutomate(phase) {
   if (phase.decisionReview != null && typeof phase.decisionReview === 'object') {
     return true;
   }
+  if (
+    phase.deliveryAuditGate != null &&
+    typeof phase.deliveryAuditGate === 'object'
+  ) {
+    return true;
+  }
   const rg = phase.reviewGate;
   if (rg != null && typeof rg === 'object') {
     const mode = rg.mode != null ? String(rg.mode).trim().toLowerCase() : '';
@@ -767,6 +774,49 @@ export function checkDecisionReview(frontmatter) {
 }
 
 /**
+ * GATE-R4 (deliveryAudit leg) — audit-delivery stamp honesty under durable automate.
+ *
+ * When plan.executionMode is automate, every phase with status:'done' that was
+ * closed under automate must carry a deliveryAuditGate that
+ * deliveryAuditGateHonesty accepts (passed + CLOSED|PARTIAL + reportPath;
+ * skip/operatorSkip illegal). Absent gate on an automate-era done phase is a
+ * HARD violation. Pure honesty only (no FS) — assert CLI owns content floor.
+ *
+ * @param {object} frontmatter - parsed plan frontmatter
+ * @returns {string[]}
+ */
+export function checkDeliveryAuditGate(frontmatter) {
+  const violations = [];
+  if (frontmatter == null || typeof frontmatter !== 'object') return violations;
+  const planExecutionMode =
+    frontmatter.executionMode != null
+      ? String(frontmatter.executionMode).trim().toLowerCase()
+      : '';
+  const durableAutomate = planExecutionMode === 'automate';
+  if (!durableAutomate) return violations;
+  const phases = Array.isArray(frontmatter.phases) ? frontmatter.phases : [];
+  for (const phase of phases) {
+    if (phase?.status !== 'done') continue;
+    if (!phaseClosedUnderAutomate(phase)) continue;
+    const label = `phase ${phase.id ?? '?'}`;
+    const dg = phase.deliveryAuditGate;
+    if (dg == null || typeof dg !== 'object') {
+      violations.push(
+        `${label}: executionMode automate requires deliveryAuditGate on done phases closed under automate — run atomic-skills:audit-delivery and stamp status=passed + CLOSED|PARTIAL + reportPath (skip is illegal)`,
+      );
+      continue;
+    }
+    const honesty = deliveryAuditGateHonesty(dg);
+    if (!honesty.ok) {
+      violations.push(
+        `${label}: deliveryAuditGate invalid under automate — ${honesty.reason}`,
+      );
+    }
+  }
+  return violations;
+}
+
+/**
  * Validate a single file. Returns { ok, kind, errors[] }.
  */
 export function validateFile(filePath, validators) {
@@ -810,6 +860,7 @@ export function validateFile(filePath, validators) {
     ...checkReviewGate(parsed.frontmatter), // GATE-R3 (G2): done phase's review claim must be honest
     ...checkEvaluationGate(parsed.frontmatter), // GATE-R4: automate evaluationGate honesty
     ...checkDecisionReview(parsed.frontmatter), // GATE-R4: automate decisionReview honesty (operator PASS)
+    ...checkDeliveryAuditGate(parsed.frontmatter), // GATE-R4: automate deliveryAuditGate honesty (never skippable)
   ];
   if (invariantViolations.length > 0) {
     return { ok: false, kind, errors: invariantViolations };

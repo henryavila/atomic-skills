@@ -44,7 +44,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import {
@@ -55,6 +55,7 @@ import {
   canRunPhaseDone,
   canFinalizeOrArchive,
 } from '../src/automate-orchestrator-gates.js';
+import { deliveryAuditAllowsClose } from '../src/phase-delivery-audit-gate.js';
 import { readLeaseResult } from '../src/writer-lease.js';
 import {
   readCursorResult,
@@ -1033,12 +1034,16 @@ export function runAssert(args, env = {}) {
         : fm.decisionReview != null
           ? fm.decisionReview
           : null;
+    // Phase-only resolution (anti-spoof): when a phases[] entry exists, do NOT
+    // fall back to plan-root fm.deliveryAuditGate (review finding #5).
     const deliveryAuditGate =
       phase != null && phase.deliveryAuditGate != null
         ? phase.deliveryAuditGate
-        : fm.deliveryAuditGate != null
-          ? fm.deliveryAuditGate
-          : null;
+        : phase != null
+          ? null
+          : fm.deliveryAuditGate != null
+            ? fm.deliveryAuditGate
+            : null;
     const r = canRunPhaseDone({
       planExecutionMode,
       evaluationGate,
@@ -1071,6 +1076,36 @@ export function runAssert(args, env = {}) {
       };
       maybeRecordLastAssert(statusRoot, slug, fm, args, gate, out);
       return out;
+    }
+    // Assert-side content authenticity (I/O): report exists + content floor +
+    // stamp verdict matches body; CLOSED forbidden with open CRITICAL residual.
+    if (planExecutionMode === 'automate' || stamped) {
+      const repoRoot = cwd;
+      const auth = deliveryAuditAllowsClose({
+        planExecutionMode: 'automate',
+        deliveryAuditGate,
+        phase,
+        checkAuthenticity: true,
+        cwd: repoRoot,
+        exists: (p) => {
+          try {
+            return existsSync(isAbsolute(p) ? p : resolve(repoRoot, p));
+          } catch {
+            return false;
+          }
+        },
+        readFile: (p) =>
+          readFileSync(isAbsolute(p) ? p : resolve(repoRoot, p), 'utf8'),
+      });
+      if (!auth.ok) {
+        const out = {
+          ok: false,
+          message: `blocked: ${auth.reason || 'deliveryAuditGate authenticity failed'}`,
+          exitCode: 1,
+        };
+        maybeRecordLastAssert(statusRoot, slug, fm, args, gate, out);
+        return out;
+      }
     }
     const okOut = { ok: true, message: 'ok', exitCode: 0 };
     maybeRecordLastAssert(statusRoot, slug, fm, args, gate, okOut);

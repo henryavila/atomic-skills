@@ -155,17 +155,290 @@ export function deliveryAuditGateHonesty(gate) {
   return { ok: true };
 }
 
+/** Min report body size for assert-side content floor (medium). */
+export const DELIVERY_AUDIT_REPORT_MIN_BYTES = 200;
+
+/** Greppable content markers for a real audit-delivery report. */
+export const DELIVERY_AUDIT_REPORT_CONTENT_KEYS = Object.freeze([
+  'verdict',
+  'intent',
+  'residual',
+  'matrix',
+  'findings',
+]);
+
+/**
+ * Pure content floor for an audit-delivery report body (no FS).
+ * Accepts multi-line bodies with min bytes and/or structured keys.
+ * Thin one/two-line stubs fail.
+ *
+ * @param {string | Buffer | Uint8Array | null | undefined} content
+ * @param {{ minBytes?: number, label?: string }} [opts]
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function deliveryAuditReportContentFloor(content, opts = {}) {
+  const label = opts.label != null ? String(opts.label) : 'audit-delivery report';
+  const minBytes =
+    typeof opts.minBytes === 'number' && opts.minBytes > 0
+      ? opts.minBytes
+      : DELIVERY_AUDIT_REPORT_MIN_BYTES;
+
+  if (content == null) {
+    return {
+      ok: false,
+      reason: `deliveryAuditGate report content floor: ${label} missing`,
+    };
+  }
+
+  /** @type {string} */
+  let text;
+  if (Buffer.isBuffer(content) || content instanceof Uint8Array) {
+    const buf = Buffer.isBuffer(content) ? content : Buffer.from(content);
+    if (buf.includes(0)) {
+      return {
+        ok: false,
+        reason: `deliveryAuditGate report content floor: ${label} is binary/null-byte`,
+      };
+    }
+    text = buf.toString('utf8');
+  } else if (typeof content === 'string') {
+    text = content;
+  } else {
+    return {
+      ok: false,
+      reason: `deliveryAuditGate report content floor: ${label} must be string or bytes`,
+    };
+  }
+
+  const bytes = Buffer.byteLength(text, 'utf8');
+  const nonEmptyLines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  if (nonEmptyLines.length <= 1) {
+    return {
+      ok: false,
+      reason: `deliveryAuditGate report content floor: ${label} is a one-line stub`,
+    };
+  }
+
+  const lower = text.toLowerCase();
+  let keyHits = 0;
+  for (const key of DELIVERY_AUDIT_REPORT_CONTENT_KEYS) {
+    if (lower.includes(key.toLowerCase())) keyHits += 1;
+  }
+  const structuredOk = keyHits >= 2 && nonEmptyLines.length >= 4;
+  const sizeOk = bytes >= minBytes && nonEmptyLines.length >= 3;
+
+  if (!structuredOk && !sizeOk) {
+    return {
+      ok: false,
+      reason: `deliveryAuditGate report content floor: ${label} fails min keys/bytes (${bytes} bytes, ${keyHits} keys, ${nonEmptyLines.length} lines)`,
+    };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Extract EN verdict token from report body (**Verdict:** / Verdict: lines).
+ * @param {string} text
+ * @returns {string} uppercase CLOSED|PARTIAL|OPEN or ''
+ */
+export function parseDeliveryAuditReportVerdict(text) {
+  if (typeof text !== 'string' || !text.trim()) return '';
+  const m = text.match(
+    /\*{0,2}verdict\*{0,2}\s*:\s*\*{0,2}\s*(CLOSED|PARTIAL|OPEN)\b/i,
+  );
+  return m ? m[1].toUpperCase() : '';
+}
+
+/**
+ * Detect open CRITICAL residual rows that would forbid CLOSED.
+ * Heuristic: residual/ledger section lines mentioning CRITICAL without
+ * RESOLVED/Accept/N/A closure markers.
+ *
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function reportHasOpenCriticalResidual(text) {
+  if (typeof text !== 'string' || !text.trim()) return false;
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    if (!/\bcritical\b/i.test(line)) continue;
+    // Skip headings / prose that are not open findings
+    if (/^#{1,6}\s/.test(line.trim())) continue;
+    if (/\b(never|forbids?|illegal|zero\s+critical|no\s+critical)\b/i.test(line)) {
+      continue;
+    }
+    // Closed / accepted residual is OK
+    if (
+      /\b(resolved|accept\s*record|accepted|n\/a|none)\b/i.test(line) &&
+      !/\b(unresolved|still\s+open|open\s+critical)\b/i.test(line)
+    ) {
+      continue;
+    }
+    // Open residual language
+    if (
+      /\b(open|unresolved|remaining|still|residual)\b/i.test(line) ||
+      /^\s*[-*|]\s*.*\bcritical\b/i.test(line)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Content authenticity for deliveryAuditGate.reportPath when content/I/O available.
+ * Pure when content is injected; optional readFile for assert CLI.
+ *
+ * @param {DeliveryAuditGate | null | undefined} gate
+ * @param {{
+ *   reportContents?: Record<string, string | Buffer | Uint8Array> | null,
+ *   reportContent?: string | Buffer | Uint8Array | null,
+ *   readFile?: ((path: string) => string | Buffer) | null,
+ *   exists?: ((path: string) => boolean) | null,
+ *   cwd?: string | null,
+ *   minBytes?: number,
+ *   checkAuthenticity?: boolean,
+ * }} [opts]
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function deliveryAuditGateAuthenticity(gate, opts = {}) {
+  if (opts.checkAuthenticity === false) {
+    return { ok: true };
+  }
+  if (gate == null || typeof gate !== 'object') {
+    return {
+      ok: false,
+      reason: 'deliveryAuditGate authenticity requires gate object',
+    };
+  }
+  const status =
+    gate.status != null ? String(gate.status).trim().toLowerCase() : '';
+  if (status !== 'passed') {
+    // Non-passed shapes handled by honesty (fail closed elsewhere).
+    return { ok: true };
+  }
+
+  const reportPath =
+    gate.reportPath != null ? String(gate.reportPath).trim() : '';
+  if (reportPath === '') {
+    return {
+      ok: false,
+      reason:
+        'deliveryAuditGate authenticity requires non-empty reportPath when status=passed',
+    };
+  }
+
+  /** @type {string | Buffer | Uint8Array | null | undefined} */
+  let content = opts.reportContent;
+  if (content == null && opts.reportContents != null) {
+    content =
+      opts.reportContents[reportPath] ??
+      opts.reportContents[reportPath.replace(/^\.\//, '')];
+  }
+
+  const cwd =
+    opts.cwd != null && String(opts.cwd).trim() !== ''
+      ? String(opts.cwd).trim()
+      : null;
+
+  if (content == null && typeof opts.exists === 'function') {
+    const abs = cwd
+      ? // eslint-disable-next-line n/no-unsupported-features/node-builtins
+        `${cwd.replace(/\/$/, '')}/${reportPath.replace(/^\.\//, '')}`
+      : reportPath;
+    if (!opts.exists(abs) && !opts.exists(reportPath)) {
+      return {
+        ok: false,
+        reason: `deliveryAuditGate reportPath does not exist: ${reportPath}`,
+      };
+    }
+  }
+
+  if (content == null && typeof opts.readFile === 'function') {
+    try {
+      const abs = cwd
+        ? `${cwd.replace(/\/$/, '')}/${reportPath.replace(/^\.\//, '')}`
+        : reportPath;
+      try {
+        content = opts.readFile(abs);
+      } catch {
+        content = opts.readFile(reportPath);
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        reason: `deliveryAuditGate reportPath unreadable: ${reportPath} (${err instanceof Error ? err.message : String(err)})`,
+      };
+    }
+  }
+
+  // Without content and without FS hooks, authenticity is a no-op (pure callers).
+  if (content == null) {
+    if (typeof opts.readFile === 'function' || typeof opts.exists === 'function') {
+      return {
+        ok: false,
+        reason: `deliveryAuditGate report content unavailable for authenticity: ${reportPath}`,
+      };
+    }
+    return { ok: true };
+  }
+
+  const floor = deliveryAuditReportContentFloor(content, {
+    minBytes: opts.minBytes,
+    label: reportPath,
+  });
+  if (!floor.ok) return floor;
+
+  const text =
+    typeof content === 'string'
+      ? content
+      : Buffer.isBuffer(content)
+        ? content.toString('utf8')
+        : Buffer.from(content).toString('utf8');
+
+  const stampVerdict = normalizeVerdict(gate.verdict);
+  const bodyVerdict = parseDeliveryAuditReportVerdict(text);
+  if (bodyVerdict && stampVerdict && bodyVerdict !== stampVerdict) {
+    return {
+      ok: false,
+      reason: `deliveryAuditGate stamp verdict=${stampVerdict} does not match report body Verdict=${bodyVerdict}`,
+    };
+  }
+
+  if (stampVerdict === 'CLOSED' && reportHasOpenCriticalResidual(text)) {
+    return {
+      ok: false,
+      reason:
+        'deliveryAuditGate verdict=CLOSED forbidden while report still lists open CRITICAL residual',
+    };
+  }
+
+  return { ok: true };
+}
+
 /**
  * Whether phase-done may proceed under the delivery-audit order.
  *
  * When durable automate is off → true (Mode-1 uses implement HARD-GATE prose).
  * When on → deliveryAuditGateHonesty on gate from input or phase.deliveryAuditGate.
+ * When authenticity opts supply content/FS hooks, also run content authenticity.
  *
  * @param {{
  *   automateActive?: boolean | null,
  *   planExecutionMode?: string | null,
  *   deliveryAuditGate?: DeliveryAuditGate | null,
  *   phase?: { deliveryAuditGate?: DeliveryAuditGate | null } | null,
+ *   reportContent?: string | Buffer | null,
+ *   reportContents?: Record<string, string | Buffer> | null,
+ *   readFile?: ((path: string) => string | Buffer) | null,
+ *   exists?: ((path: string) => boolean) | null,
+ *   cwd?: string | null,
+ *   checkAuthenticity?: boolean,
  * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
  */
@@ -183,7 +456,17 @@ export function deliveryAuditAllowsClose(input = {}) {
         ? phase.deliveryAuditGate
         : null;
 
-  return deliveryAuditGateHonesty(gate);
+  const honesty = deliveryAuditGateHonesty(gate);
+  if (!honesty.ok) return honesty;
+
+  return deliveryAuditGateAuthenticity(gate, {
+    reportContent: input.reportContent,
+    reportContents: input.reportContents,
+    readFile: input.readFile,
+    exists: input.exists,
+    cwd: input.cwd,
+    checkAuthenticity: input.checkAuthenticity,
+  });
 }
 
 /**
