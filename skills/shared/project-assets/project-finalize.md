@@ -305,8 +305,9 @@ by `planEndReviewOk(receipt, { forbidSkip: true })` / `automatePlanEndGatesOk`.
    `integrationRef`/`develop`…HEAD as resolved in Step 1). Same range used for the
    Step 2 diff preview.
 2. **Mode:** `atomic-skills:review-code <range> --mode=external-both`.
-   - Same-family legs are filtered by `resolveReviewRoute` (Grok host → Codex only;
-     Codex host → Grok only). A **single** remaining family-different external leg
+   - Same-family legs are filtered by `resolveReviewRoute` / `externalBothLegs`
+     (Grok host → Codex then Claude; Codex host → Grok then Claude; Claude host →
+     Codex then Grok). A **single** remaining family-different external leg
      is OK when that leg `succeeded`.
    - Collect per-leg status `succeeded | failed | skipped` (absent ⇒ skipped).
    - Partial success (one of two externals succeeded) satisfies the ≥1 rule; merge

@@ -126,4 +126,26 @@ describe('three-provider external matrix (audit)', () => {
     }
     assert.ok(env.includes('codex → grok → claude') || env.includes('codex → grok → claude'.replace(/ /g, ' ')));
   });
+
+  it('review-mode-ux host-aware picker prefers family-different legs (not static Grok+Codex)', () => {
+    const modeUx = readFileSync(
+      join(ROOT, 'skills/shared/codex-bridge-assets/review-mode-ux.md'),
+      'utf8',
+    );
+    // Must document host → legs matrix for all three hosts
+    assert.match(modeUx, /externalBothLegs/);
+    assert.match(modeUx, /crossFamilyLegs/);
+    assert.match(modeUx, /Grok host[\s\S]*codex[\s\S]*claude|codex.*claude/i);
+    assert.ok(modeUx.includes('Codex then Claude'), 'Grok host external-both label');
+    assert.ok(modeUx.includes('Grok then Claude'), 'Codex host external-both label');
+    assert.ok(modeUx.includes('Codex then Grok'), 'Claude host external-both label');
+    // both-claude must NOT be aliased to Grok (historical UX bug)
+    assert.ok(
+      !/both-grok.*both-claude.*[Ff]orce Grok|both-claude.*forced Grok/.test(modeUx),
+      'both-claude must not be documented as forced Grok',
+    );
+    assert.match(modeUx, /both-claude`?\s*\|?\s*local → forced Claude|`both-claude` \| local → forced Claude/);
+    // Primary picker excludes same-family
+    assert.match(modeUx, /Do not\*\* list the same-family external|does \*\*not\*\* offer "Grok only"/i);
+  });
 });

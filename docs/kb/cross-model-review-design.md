@@ -7,9 +7,10 @@ Use `review-plan` / `review-code` with an **external** mode when:
 - Code change is in a critical path (auth, data, infra)
 - You want a second opinion from a **different model family** than the host (mitigates self-preference bias)
 
-External modes: `--mode=codex`, `--mode=grok`, `--mode=both` (local → host
-external default), `--mode=both-codex`, `--mode=both-grok`,
-`--mode=external-both` (Codex then Grok, then merge — see below).
+External modes: `--mode=codex`, `--mode=grok`, `--mode=claude`, `--mode=both`
+(local → host external default), `--mode=both-codex`, `--mode=both-grok`,
+`--mode=both-claude`, `--mode=external-both` (family-filtered legs in order
+**codex → grok → claude**, then merge — see below).
 
 Use `--mode=local` (same-model sealed self-loop) when:
 - Quick sanity check
@@ -80,10 +81,13 @@ Grok → codex).
 
 ## external-both merge contract
 
-When `--mode=external-both`, **collect** Codex envelope then Grok envelope on the
-**same cleaned artifact** (no re-capture, no triage/edit between legs). One
-provider failure records `status: failed` and **continues** the other leg
-(single-provider modes still abort). Then **merge**, then **human triage**.
+When `--mode=external-both`, **collect** each remaining family-different
+envelope in order **codex → grok → claude** (same-family host leg skipped) on
+the **same cleaned artifact** (no re-capture, no triage/edit between legs).
+Examples: Grok host → Codex then Claude; Claude host → Codex then Grok; Codex
+host → Grok then Claude. One provider failure records `status: failed` and
+**continues** the other leg (single-provider modes still abort). Then **merge**,
+then **human triage**.
 
 Helper: `src/external-both-merge.js` (`mergeExternalBothFindings`). CLI:
 `scripts/merge-external-both.js` (via package-root).
