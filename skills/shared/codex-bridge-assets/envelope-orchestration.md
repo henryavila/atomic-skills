@@ -114,8 +114,22 @@ surfaces the error.
    → timeout, abort with retry suggestion; other non-zero → provider error,
    abort.
 
+5b. **Capacity / session-limit gate (before validation)** — read
+   `<OUTPUT_PATH>` + stderr log and run
+   `classifyProviderLimitFailure` from `src/provider-limit-failure.js`
+   (provider-agnostic; **required for Claude** — session limit often **exits 0**
+   with `You've hit your session limit · resets …` on stdout). On match:
+   - **Do not** run validation, Pass 2, or corrective retries (`doNotRetry`).
+   - `external-both`: record `{ status: failed, error, kind }` for this leg and
+     **continue** other providers (merge keeps successful half).
+   - single-provider / external leg of `both*`: **ABORT** with
+     `formatProviderLimitFailureMessage` (suggest family-different `--mode=`,
+     e.g. codex when Claude is limited).
+
 6. **Pass 1 validation** — `{{ASSETS_PATH}}/validation-checklist.txt` (universal
-   checks 1-9). Failure → 1 corrective retry. Failure again → escalate raw.
+   checks 1-9). Failure → 1 corrective retry **unless** the raw output classifies
+   as a limit failure (then go to 5b path — never retry a session/rate limit).
+   Failure again → escalate raw.
 
 7. **Build Pass 2 briefing (informed)** — Pass 1 briefing (without
    `Begin review now.`) + contents of `{{ASSETS_PATH}}/pass2-prompt-suffix.txt`,
@@ -125,11 +139,12 @@ surfaces the error.
    `/tmp/cross-model-briefing-pass2-<PROVIDER>-<ts>.md`.
 
 8. **Pass 2 invocation (informed)** — same command as step 5 with the pass-2
-   briefing path and output path.
+   briefing path and output path. Re-run **step 5b** on Pass 2 output (session
+   limit can hit mid-envelope after Pass 1 succeeded).
 
 9. **Pass 2 validation** — universal checks 1-9 + Pass-2-only checks 10-13 from
-   `{{ASSETS_PATH}}/validation-checklist.txt`. Failure → 1 corrective retry.
-   Failure again → escalate raw.
+   `{{ASSETS_PATH}}/validation-checklist.txt`. Failure → 1 corrective retry
+   **unless** limit-classified (5b). Failure again → escalate raw.
 
 10. **Persistence**
     - {{BASH_TOOL}}: `mkdir -p .atomic-skills/reviews/`

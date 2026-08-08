@@ -129,7 +129,36 @@ run_with_timeout <TIMEOUT_SECONDS> claude \
 
 ## Exit codes and failure signals
 
-- `0` with non-empty `<OUTPUT_PATH>`: ok, parse the output file.
+**CRITICAL — session limit often exits 0.** Claude Code may print only:
+
+```text
+You've hit your session limit · resets 5:10pm (America/Sao_Paulo)
+```
+
+to **stdout**, with **exit code 0** and a non-empty `<OUTPUT_PATH>`. That is
+**NOT** a successful review. Classify **immediately after every invoke**:
+
+```bash
+PKG="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+# Capture invoke exit code BEFORE this check (e.g. INVOKE_EC=$?).
+node "$PKG/scripts/classify-provider-limit.js" \
+  --provider=claude --exit="$INVOKE_EC" \
+  --stdout="<OUTPUT_PATH>" --stderr="<STDERR_PATH>" \
+  --mode="${REVIEW_MODE:-claude}"
+# exit 0 → not a limit failure (continue to validation)
+# exit 2 → session/rate/usage/auth limit (message on stderr; see table)
+```
+
+Pure helper: `src/provider-limit-failure.js` (`classifyProviderLimitFailure`). On match:
+
+| Mode | Behavior |
+|------|----------|
+| `external-both` | Record leg `{ status: failed, error: <message>, kind: session-limit }`, **continue** other legs. **Do not** corrective-retry Claude. |
+| single / `both*` external leg | **ABORT** this external leg. Suggest `--mode=codex` (or other family-different provider) **or** wait until `resetsAt`. **Do not** burn Pass-2 or validation retry. |
+
+Other signals:
+
+- `0` with non-empty `<OUTPUT_PATH>` **and** `classifyProviderLimitFailure` returns null: ok, parse the output file.
 - `124`: timeout (`timeout` / `gtimeout`).
 - `142` or SIGALRM-killed: timeout (perl `alarm` fallback).
 - Non-zero **or** stderr containing auth failure markers: abort with preflight auth message.

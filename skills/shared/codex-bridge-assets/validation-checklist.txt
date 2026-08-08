@@ -47,6 +47,14 @@ On failure: 1 corrective retry, then escalate raw to user.
     - `### Emerged`
 13. **Each `F-XXX-blind` mentioned in reconciliation must exist in Pass 1 output** (cross-reference)
 
+## Capacity / session-limit (before corrective retry)
+
+If stdout/stderr matches a provider limit banner (especially Claude
+`You've hit your session limit · resets …` — often **exit 0**), **do not**
+run a corrective retry. Classify via `src/provider-limit-failure.js`
+(`classifyProviderLimitFailure`) and follow envelope step **5b** (abort or
+mark external-both leg failed). Retrying only burns more quota.
+
 ## On validation failure
 
 Build a corrective prompt naming exactly what failed, e.g.:
