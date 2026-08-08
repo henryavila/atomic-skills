@@ -4,6 +4,8 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 
 ## Arquivos de memória
 
+- [reference-cross-model-review-host-picker.md](reference-cross-model-review-host-picker.md) — Picker host-aware (Grok→codex+claude, não Grok+Codex fixo); Claude session limit exit 0 + `classify-provider-limit` (sem retry).
+
 - [reference-automate-writer-runtime.md](reference-automate-writer-runtime.md) — Plan `automate-writer-runtime`: skill recipe (#1) + Layer 3 runner (A) + plan-tree product fence (B). Not Layer 4.
 
 - [reference-implement-phase-agents.md](reference-implement-phase-agents.md) — Plan `implement-phase-agents`: host-thin phase agents, decision-review hardgate, two-stop dogfood UX, package→ratify→materialize Mode B. Supersedes prior “hand bare materialize to user” full-plan automate path; links dogfood-stops note.
