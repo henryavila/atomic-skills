@@ -60,7 +60,7 @@ import {
   removeManifest,
   readEffects,
   atomicWriteJsonNoFollow,
-} from '@henryavila/minimalist-installer';
+} from './minimalist-installer.js';
 import { MANIFEST_DIR } from './manifest.js';
 import { buildInstaller } from './installer.js';
 import { withSharedRuntimeLocks } from './runtime-locks.js';

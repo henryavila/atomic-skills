@@ -44,7 +44,7 @@ import {
   assertNoIncompleteTransaction,
   acquireInstallLocks,
   atomicWriteJsonNoFollow,
-} from '@henryavila/minimalist-installer';
+} from '../minimalist-installer.js';
 import { createStageRuntimeArtifactsEffect } from './effects/stage-runtime-artifacts.js';
 import {
   createAutoUpdateRuntimeProvider,

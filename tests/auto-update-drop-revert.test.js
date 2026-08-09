@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineInstaller } from '@henryavila/minimalist-installer';
+import { defineInstaller } from '../src/minimalist-installer.js';
 import { createStageRuntimeArtifactsEffect } from '../src/runtime-layers/effects/stage-runtime-artifacts.js';
 import {
   createAutoUpdateRuntimeProvider,

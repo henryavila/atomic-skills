@@ -1,4 +1,4 @@
-import { defineInstaller } from '@henryavila/minimalist-installer';
+import { defineInstaller } from './minimalist-installer.js';
 import { createSkillsProvider } from './providers/skills-provider.js';
 import { createAutoUpdateRuntimeProvider } from './runtime-layers/auto-update.js';
 import { createStageRuntimeArtifactsEffect } from './runtime-layers/effects/stage-runtime-artifacts.js';

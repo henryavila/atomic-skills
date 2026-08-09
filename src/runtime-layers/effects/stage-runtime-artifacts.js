@@ -9,7 +9,7 @@ import {
   readFileNoFollow,
   writeFileNoFollow,
   unlinkNoFollow,
-} from '@henryavila/minimalist-installer';
+} from '../../minimalist-installer.js';
 
 /**
  * Custom effect: `stageRuntimeArtifacts`.

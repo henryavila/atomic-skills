@@ -28,7 +28,7 @@ import {
   TX_STATE_COMPLETE,
   assertNoIncompleteTransaction,
   hashContent,
-} from '@henryavila/minimalist-installer';
+} from '../src/minimalist-installer.js';
 
 import {
   classifyJournalTrust,

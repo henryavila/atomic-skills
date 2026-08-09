@@ -20,7 +20,7 @@ async function loadInstaller() {
     const root = process.env.ATOMIC_SKILLS_UPSTREAM_MI_ROOT;
     return import(pathToFileURL(join(root, 'src/index.js')).href);
   }
-  return import('@henryavila/minimalist-installer');
+  return import('../src/minimalist-installer.js');
 }
 
 describe('installer data safety (consumer)', () => {

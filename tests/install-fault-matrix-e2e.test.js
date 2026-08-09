@@ -30,7 +30,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineInstaller, describeRecovery, TX_STATE_INCOMPLETE } from '@henryavila/minimalist-installer';
+import { defineInstaller, describeRecovery, TX_STATE_INCOMPLETE } from '../src/minimalist-installer.js';
 
 import {
   installSkills,

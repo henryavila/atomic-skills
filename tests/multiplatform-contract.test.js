@@ -23,6 +23,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
+import '../src/minimalist-installer-platform.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'src');
@@ -54,7 +55,7 @@ async function loadMi() {
     const root = process.env.ATOMIC_SKILLS_UPSTREAM_MI_ROOT;
     return import(pathToFileURL(join(root, 'src/index.js')).href);
   }
-  return import('@henryavila/minimalist-installer');
+  return import('../src/minimalist-installer.js');
 }
 
 function miPackageRoot() {

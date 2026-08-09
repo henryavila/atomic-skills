@@ -4,7 +4,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { defineInstaller, createFileSetProvider } from '@henryavila/minimalist-installer';
+import { defineInstaller, createFileSetProvider } from '../src/minimalist-installer.js';
 
 // T-F3-1 smoke: prove atomic-skills can consume @henryavila/minimalist-installer
 // through the file: link end-to-end (not just that imports resolve). The full

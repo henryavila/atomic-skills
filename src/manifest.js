@@ -14,7 +14,7 @@ import {
   writeManifest as engineWriteManifest,
   removeManifest as engineRemoveManifest,
   MANIFEST_FILE as ENGINE_MANIFEST_FILE,
-} from '@henryavila/minimalist-installer';
+} from './minimalist-installer.js';
 
 export const MANIFEST_DIR = '.atomic-skills';
 export const MANIFEST_FILE = ENGINE_MANIFEST_FILE;
