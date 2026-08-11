@@ -50,7 +50,7 @@ Override render lens; rewrite `audience` in YAML only if user ratifies a permane
 
 ## Creation (not this command)
 
-L1+L2 are authored in `new-plan/stage-process-map.md` during `new plan` / `adopt`. This command is the **day-2 viewer / re-render**, not a substitute for creation.
+L1+L2 are authored in `new-plan/stage-process-map.md` during `new plan` / `adopt`. That stage **must** AskUserQuestion (not skippable) for **display surface** (browser | TUI | both), **show** the map there, then ratify — free-text chat does not count. This command is the **day-2 viewer / re-render**, not a substitute for creation.
 
 ## Red flags
 

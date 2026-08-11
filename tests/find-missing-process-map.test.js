@@ -27,6 +27,24 @@ describe('CREATION_STAGES includes process-map before reviews', () => {
   });
 });
 
+describe('stage-process-map.md show-before-ratify contract', () => {
+  it('requires non-skippable display surface (browser|TUI) before ratify', () => {
+    const stage = readFileSync(
+      join(ROOT, 'skills', 'shared', 'project-assets', 'new-plan', 'stage-process-map.md'),
+      'utf8'
+    );
+    assert.match(stage, /Non-skippable questions \(HARD\)/);
+    assert.match(stage, /Display surface/);
+    assert.match(stage, /No browser|browser/i);
+    assert.match(stage, /No TUI|TUI/i);
+    assert.match(stage, /not skippable/i);
+    assert.match(stage, /Show the map|Show for the operator|Show the map \(inescapable/i);
+    assert.match(stage, /WITHOUT ratifiedAt|without `ratifiedAt`|Do not set `ratifiedAt` yet/i);
+    // Must not open/show only after ratify as the sole path
+    assert.match(stage, /before.*aprov|before.*ratif|antes de aprov/i);
+  });
+});
+
 describe('checkPlanProcessMap', () => {
   let dir;
   let planMd;

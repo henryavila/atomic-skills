@@ -36,6 +36,13 @@
 > Dev = domínio de alto nível, **não** implementação.  
 > Grafo único; `copy.layperson` / `copy.developer` só mudam texto.
 
+### Iron Law P5 — SHOW BEFORE RATIFY (surface is chosen, not assumed)
+
+> Antes de ratificar, o operador **vê** o mapa.  
+> AskUserQuestion **não skippable**: **browser** | **TUI** | **ambos**.  
+> Chat livre (“ok”, “abre aí”, “tanto faz”) **não** conta.  
+> Ratificar sem exibir o mapa na superfície escolhida é **violação**.
+
 ---
 
 ## Paths canônicos (nested)
@@ -68,24 +75,26 @@ processMap:
 
 Na criação do plano (`new plan` / `adopt`), **depois** de materializar + summaries e **antes** de reviews/`ready`:
 
-1. **AskUserQuestion — audiência** (leigo / dev / ambos).  
+1. **AskUserQuestion — audiência** (leigo / dev / ambos) — **não skippable**.  
 2. **Draft** do grafo canônico a partir de:
    - `design.md` + source narrative (objetivo, valor, gates de negócio)
    - **não** copiar cegamente `phases[].title`
    - opcionais / always quando o design os contiver  
 3. Preencher `copy.layperson` e `copy.developer` (ambas as lentes se `both` ou a pedida + rascunho da outra se `both`).  
-4. **Ratify** via AskUserQuestion (Aprovar / Ajustar / Cancelar).  
-   Generic “ok” **não** conta.  
-5. Escrever `process/process.yaml`.  
-6. Validar com schema + lint de tokens de implementação.  
-7. Avançar creation-gate → `process-map`.
+4. Escrever draft L1 **sem** `ratifiedAt` + render L2.  
+5. **AskUserQuestion — superfície de exibição** (browser / TUI / ambos) — **não skippable**.  
+6. **Mostrar** o mapa na(s) superfície(s) escolhida(s).  
+7. **Ratify** via AskUserQuestion (Aprovar / Ajustar / Cancelar) — **não skippable**.  
+   Generic “ok” **não** conta. Só depois: stamp `ratifiedAt`, re-render L2.  
+8. Validar com schema + lint + `find-missing-process-map --strict-html`.  
+9. Avançar creation-gate → `process-map`.
 
-### L2 — Exibição HTML (inescapável)
+### L2 — Exibição (inescapável na criação)
 
 1. `node scripts/render-process-map.js <process.yaml> -o <map.html> --audience <…>`  
-2. Abrir no browser (ou `project process`).  
-3. `contentSha` do HTML deve casar com L1.  
-4. `--check` em CI / verify.
+2. Superfície escolhida: abrir no browser e/ou mapa completo no TUI (transcript).  
+3. `contentSha` do HTML deve casar com L1 após ratify.  
+4. `--check` em CI / verify. Dia-a-dia: `project process` reabre o HTML.
 
 ---
 
@@ -147,6 +156,8 @@ Complementares. Nenhum substitui o outro.
 - “Pulo o mapa, o phase tree no aiDeck basta”  
 - “Gero o YAML a partir de phases[] renomeadas”  
 - “HTML escrito à mão com etapas que não estão no YAML”  
+- “Confirmo no TUI sem mostrar o mapa (browser ou TUI completo)”  
+- “Default browser / skip da pergunta de superfície”  
 - “Mapa só para planos de produto; tooling AS não precisa” — **não**: todo multi-phase  
 - “Adopt isento” — **não**: adopt também HARD-BLOCK sem mapa  
 

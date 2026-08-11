@@ -184,7 +184,7 @@ Always run `previewDecomposition(result)` and display it before any file write. 
 
 10. **Activate first phase.** Same as Stage 7 (`new-plan/stage-7.md`).
 
-11. **Process map (inescapable — Iron Law P1).** Same as `new-plan/stage-process-map.md`: AskUserQuestion audience → draft L1 objective journey (not phase rename) → ratify → write `process/process.yaml` with `ratifiedAt` → render `process/map.html` → `find-missing-process-map.js --strict-html` HARD-BLOCK → advance creation-gate `process-map`. **adopt is not exempt.**
+11. **Process map (inescapable — Iron Law P1).** Same as `new-plan/stage-process-map.md`: AskUserQuestion audience (**not skippable**) → draft L1 objective journey (not phase rename) → write draft L1 + render L2 → AskUserQuestion display surface browser|TUI|both (**not skippable**) → **show** map on chosen surface(s) → AskUserQuestion ratify (**not skippable**) → stamp `ratifiedAt` + re-render → `find-missing-process-map.js --strict-html` HARD-BLOCK → advance creation-gate `process-map`. Free-text “ok” never counts. **adopt is not exempt.**
 
 12. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c (`new-plan/stage-8.md`) — internal always, ground-truth specialized, CROSS-MODEL via host default, then `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist. Precondition: gate already at `process-map`.
 
