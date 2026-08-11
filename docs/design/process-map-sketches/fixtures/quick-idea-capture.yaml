@@ -1,0 +1,94 @@
+schemaVersion: '0.1'
+planSlug: quick-idea-capture
+actor: Dev / operador do Atomic Skills
+scenario: Registrar uma ideia em segundos sem poluir o modelo de plano e iniciativas.
+youAreHere: null
+audience: both
+ratifiedAt: '2026-08-10T00:00:00.000Z'
+ratifiedBy: construction-sketch
+stages:
+  - id: antes
+    kind: done
+    mapsToPhases: []
+    sourcedFrom: pré-condição Context
+    copy:
+      layperson:
+        name: Ideia solta na cabeça
+        youGain: Ainda nada — risco de esquecer ou virar trabalho cedo demais
+        unlocks: Motivação para capturar
+      developer:
+        name: Intenção ainda fora do sistema
+        youGain: Nada persistido no estado do projeto
+        unlocks: Pressão para um caminho de captura barato
+  - id: capturar-barato
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: F0 goal + P1
+    copy:
+      layperson:
+        name: Anotar a ideia em segundos
+        youGain: Fica guardada sem virar projeto
+        unlocks: Ideia fora da cabeça, ainda fora do plano
+      developer:
+        name: Append barato no inbox
+        youGain: Inbox markdown atualizado; caminho "só salvar" sem análise cara
+        unlocks: Captura end-to-end sem tocar plan/initiative
+  - id: listar
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: F0 idea list
+    copy:
+      layperson:
+        name: Ver o que está pendente
+        youGain: Lembra o que capturou
+        unlocks: Escolher o que vira trabalho
+      developer:
+        name: Listar o inbox
+        youGain: Visão scannable das ideias pendentes
+        unlocks: Seleção antes do promote
+  - id: promover
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: F1
+    copy:
+      layperson:
+        name: Transformar em trabalho de verdade
+        youGain: Ideia vira tarefa ou projeto com a sua confirmação
+        unlocks: Trabalho real sem bagunçar o painel
+      developer:
+        name: Promote com ratify via ladder
+        youGain: Roteia para task ou initiative e marca triaged
+        unlocks: Reuso da máquina de emergência sem reinventar classificação
+  - id: analisar-na-captura
+    kind: optional
+    mapsToPhases: []
+    sourcedFrom: fork Analisar
+    copy:
+      layperson:
+        name: Pensar um pouco na hora
+        youGain: Captura mais clara quando vale a pena
+        unlocks: Inbox mais rico — ainda sem promover
+      developer:
+        name: Fork "Analisar" na captura
+        youGain: Mais contexto no inbox sem promover
+        unlocks: Qualidade de entrada sob demanda
+  - id: nao-poluir
+    kind: always
+    mapsToPhases: []
+    sourcedFrom: P4
+    copy:
+      layperson:
+        name: Inbox não é o plano
+        youGain: Painel de projeto limpo
+        unlocks: Disciplina contínua
+      developer:
+        name: Inbox fora do modelo plan/initiative
+        youGain: Estado de execução não poluído por ideias cruas
+        unlocks: Separação inbox vs trabalho ativo
+edges:
+  - { from: antes, to: capturar-barato, style: solid }
+  - { from: capturar-barato, to: listar, style: solid }
+  - { from: listar, to: promover, style: solid }
+  - { from: capturar-barato, to: analisar-na-captura, style: dashed }
+  - { from: analisar-na-captura, to: listar, style: dashed }
+  - { from: promover, to: nao-poluir, style: solid }

@@ -38,6 +38,7 @@ describe('creation-gates', () => {
       'bi-ratified',
       'materialized',
       'summaries',
+      'process-map',
       'reviews',
       'ready',
     ]);

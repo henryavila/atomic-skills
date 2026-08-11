@@ -24,6 +24,8 @@ Este repo tem a skill `atomic-skills:project` (router fino + detalhe lazy em `sk
 
 Planos multi-fase usam materialização lazy: `new plan` cria o `plan.md`, materializa só a F0 e mantém F1..N como descritores até `atomic-skills:project materialize <phase>`. O contrato operacional, incluindo `descriptor-only` vs `materializada`, gate `businessIntent`, D9 como hipótese e D10 como non-goal, está em `docs/kb/project-lazy-materialization.md`.
 
+**Process map (Iron Law P1):** todo plano multi-phase **obrigatoriamente** cria L1 `process/process.yaml` (visão macro do **objetivo**, não a árvore de fases) + L2 `process/map.html` (HTML determinístico a partir do YAML) no stage `process-map` antes de `reviews`/`ready`. Ver `docs/kb/process-map.md`. Comando dia-a-dia: `atomic-skills:project process`.
+
 ## Install / Uninstall parity (HARD RULE)
 
 Every persistent mutation the installer (`src/install.js`) makes MUST have a

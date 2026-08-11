@@ -3,9 +3,12 @@
  * creation-gates.js — helpers for monotonic `stage` on the new-plan creation
  * run record at `.atomic-skills/status/creation-gates/<projectId>-<slug>.json`.
  *
- * Ordered stages (Decision 11 / assert-creation-stage):
+ * Ordered stages (Decision 11 / assert-creation-stage + process-map Iron Law):
  *   slug → design → source → decompose-confirm → bi-ratified →
- *   materialized → summaries → reviews → ready
+ *   materialized → summaries → process-map → reviews → ready
+ *
+ * `process-map` is mandatory (docs/kb/process-map.md): L1 process.yaml + L2 map.html
+ * before reviews/ready. Skipping it is illegal.
  *
  * Advance is monotonic only: you may stay or move forward one-or-more steps
  * only via `assertAdvance` / `advanceCreationStage` after the current stage
@@ -40,6 +43,7 @@ export const CREATION_STAGES = Object.freeze([
   'bi-ratified',
   'materialized',
   'summaries',
+  'process-map',
   'reviews',
   'ready',
 ]);

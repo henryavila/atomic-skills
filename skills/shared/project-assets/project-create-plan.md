@@ -32,7 +32,9 @@ Run with {{BASH_TOOL}}:
 
 Stages run in order. Each stage gates the next. After a stage closes, advance with `scripts/assert-creation-stage.js` (illegal skips / early `ready` **HARD-BLOCK**).
 
-Monotonic `stage` enum: `slug → design → source → decompose-confirm → bi-ratified → materialized → summaries → reviews → ready`.
+Monotonic `stage` enum: `slug → design → source → decompose-confirm → bi-ratified → materialized → summaries → process-map → reviews → ready`.
+
+**Iron Law P1 (process map):** no multi-phase plan reaches `ready` without L1 `process/process.yaml` (ratified) + L2 `process/map.html`. Detail: `docs/kb/process-map.md` + `new-plan/stage-process-map.md`.
 
 ```bash
 PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
@@ -52,6 +54,7 @@ node "$PKG_ROOT/scripts/assert-creation-stage.js" "$GATE" --ready --write
 | 5 | Stage 5 — Decompose | `{{ASSETS_PATH}}/new-plan/stage-5.md` |
 | 6 | Stage 6 — Create Plan + Initiatives | `{{ASSETS_PATH}}/new-plan/stage-6.md` |
 | 7 | Stage 7 — Activate first phase | `{{ASSETS_PATH}}/new-plan/stage-7.md` |
+| 7b | Stage process-map — L1 YAML + L2 HTML (**inescapable**) | `{{ASSETS_PATH}}/new-plan/stage-process-map.md` |
 | 8 | Stage 8 — Adversarial review (always runs) | `{{ASSETS_PATH}}/new-plan/stage-8.md` |
 | 9 | Stage 9 — Announce | `{{ASSETS_PATH}}/new-plan/stage-9.md` |
 
@@ -181,9 +184,11 @@ Always run `previewDecomposition(result)` and display it before any file write. 
 
 10. **Activate first phase.** Same as Stage 7 (`new-plan/stage-7.md`).
 
-11. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c (`new-plan/stage-8.md`) — internal always, ground-truth specialized, CROSS-MODEL via host default, then `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist.
+11. **Process map (inescapable — Iron Law P1).** Same as `new-plan/stage-process-map.md`: AskUserQuestion audience → draft L1 objective journey (not phase rename) → ratify → write `process/process.yaml` with `ratifiedAt` → render `process/map.html` → `find-missing-process-map.js --strict-html` HARD-BLOCK → advance creation-gate `process-map`. **adopt is not exempt.**
 
-12. **Announce.** Same as Stage 9 (`new-plan/stage-9.md`):
+12. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c (`new-plan/stage-8.md`) — internal always, ground-truth specialized, CROSS-MODEL via host default, then `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist. Precondition: gate already at `process-map`.
+
+13. **Announce.** Same as Stage 9 (`new-plan/stage-9.md`):
     - Plan path
     - 1 initiative created + N descriptor-only source sidecars retained
     - Active phase: `<F0> — <title>`

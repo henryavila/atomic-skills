@@ -1,0 +1,137 @@
+schemaVersion: '0.1'
+planSlug: quality-judge-program
+actor: Henry (operador / product owner)
+scenario: Quero confiar nas cifras antes de lançar — sem adivinhar harmonia sozinho.
+youAreHere: usar
+audience: both
+ratifiedAt: '2026-08-10T00:00:00.000Z'
+ratifiedBy: construction-sketch
+stages:
+  - id: ferramenta
+    kind: done
+    mapsToPhases: []
+    sourcedFrom: §0.2 Já
+    copy:
+      layperson:
+        name: Ferramenta pronta
+        youGain: O sistema diz se confia, se você deve revisar, ou se deve desconfiar — e mostra trechos
+        unlocks: Parar de adivinhar a harmonia sozinho
+      developer:
+        name: Juiz de três camadas operacional
+        youGain: Veredito CONFIO / REVISA / DESCONFIE e candidatos A/B por trecho
+        unlocks: Pipeline de qualidade utilizável sem reabrir detecção do zero
+  - id: usar
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: §0.1 P0
+    copy:
+      layperson:
+        name: Usar no dia a dia
+        youGain: Você só gasta ouvido onde o sistema pediu
+        unlocks: Confiança no fluxo com o sample de 3
+      developer:
+        name: Rotina de calibração no sample
+        youGain: Rodar o juiz no sample de 3; triar a fila; gravar decisões A/B
+        unlocks: Base empírica antes de fechar a regra de GO
+  - id: regra-go
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: §0.1 P1
+    copy:
+      layperson:
+        name: Combinar o que é "pronto"
+        youGain: Todo mundo sabe o que pode lançar vs ainda não
+        unlocks: Separar "acorde certo" de "no tempo certo"
+      developer:
+        name: Política de GO de produto
+        youGain: Escolher dual (conteúdo + placement), só conteúdo, ou legado
+        unlocks: Gate explícito de produto antes de expandir o corpus
+  - id: mais-musicas
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: §0.1 P2
+    copy:
+      layperson:
+        name: Testar em mais músicas
+        youGain: O critério vale para muitas músicas, não só 3
+        unlocks: Números oficiais de confiança
+      developer:
+        name: Expandir e estabilizar o critério
+        youGain: Rodar corpus maior; aceitar ou ajustar limiar de CONFIO
+        unlocks: Critério estável para GO de release
+  - id: go-release
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: §0.1 P6
+    copy:
+      layperson:
+        name: Fechar o release
+        youGain: Você assina com evidência, não com feeling
+        unlocks: Versão de qualidade fechada
+      developer:
+        name: GO oficial com pasta de evidências
+        youGain: Assinatura + artefatos de confiança para tag / fase de qualidade
+        unlocks: Release-credible com trilha auditável
+  - id: segunda-orelha
+    kind: optional
+    mapsToPhases: []
+    sourcedFrom: §0.1 P3
+    copy:
+      layperson:
+        name: Segunda orelha humana
+        youGain: Saber se o "certo" humano também é discutível
+        unlocks: Não exigir perfeição impossível do sistema
+      developer:
+        name: Peer review de gabarito
+        youGain: Comparar gabarito humano em casos duvidosos
+        unlocks: Gate de honestidade no critério
+  - id: api-paga
+    kind: optional
+    mapsToPhases: []
+    sourcedFrom: §0.1 P4
+    copy:
+      layperson:
+        name: Terceiro palpite pago
+        youGain: Desempate barato em casos difíceis
+        unlocks: Menos trechos para você ouvir
+      developer:
+        name: Sinal externo de acordes
+        youGain: API comercial como terceiro voto no desempate
+        unlocks: Menos carga na fila de review manual
+  - id: explicador
+    kind: optional
+    mapsToPhases: []
+    sourcedFrom: §0.1 P5
+    copy:
+      layperson:
+        name: Explicar a dúvida em português
+        youGain: Menos intimidação na fila de revisão
+        unlocks: Mais conforto ao usar o juiz
+      developer:
+        name: Assistente de explicação A vs B
+        youGain: Texto simples do conflito harmônico
+        unlocks: Conforto operacional (não substitui o GO)
+  - id: manutencao
+    kind: always
+    mapsToPhases: []
+    sourcedFrom: §0.1 P7
+    copy:
+      layperson:
+        name: Não deixar o critério envelhecer
+        youGain: Próximas versões ainda confiáveis
+        unlocks: Saúde contínua do processo
+      developer:
+        name: Revalidar quando o detector muda
+        youGain: Re-rodar conjunto fixo se mudar detecção ou gabarito
+        unlocks: Critério não vira mentira silenciosa
+edges:
+  - { from: ferramenta, to: usar, style: solid }
+  - { from: usar, to: regra-go, style: solid }
+  - { from: regra-go, to: mais-musicas, style: solid }
+  - { from: mais-musicas, to: go-release, style: solid }
+  - { from: mais-musicas, to: segunda-orelha, style: dashed }
+  - { from: mais-musicas, to: api-paga, style: dashed }
+  - { from: segunda-orelha, to: go-release, style: dashed }
+  - { from: api-paga, to: go-release, style: dashed }
+  - { from: explicador, to: usar, style: dashed }
+  - { from: go-release, to: manutencao, style: solid }

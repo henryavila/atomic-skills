@@ -1,0 +1,107 @@
+schemaVersion: '0.1'
+planSlug: help-command
+actor: Dev retomando um projeto no meio do ciclo
+scenario: Em uma tela — onde estou e qual o próximo passo, sem adivinhar o comando.
+youAreHere: null
+audience: both
+ratifiedAt: '2026-08-10T00:00:00.000Z'
+ratifiedBy: construction-sketch
+stages:
+  - id: estado-opaco
+    kind: done
+    mapsToPhases: []
+    sourcedFrom: Context dor
+    copy:
+      layperson:
+        name: Voltei e me perdi
+        youGain: (dor) Não sei o que fazer agora
+        unlocks: Demanda por orientação
+      developer:
+        name: Sessão fria sem GPS
+        youGain: (dor) Fase e próximo passo não óbvios
+        unlocks: Necessidade de um verbo de orientação read-only
+  - id: contrato-existe
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: fase contrato
+    copy:
+      layperson:
+        name: Existe um "me orienta"
+        youGain: Posso pedir onde estou
+        unlocks: Pedir GPS sem inventar fluxo
+      developer:
+        name: Verbo help no sistema
+        youGain: Comando read-only, fail-open, no router da skill project
+        unlocks: Dispatch estável para o helper de orientação
+  - id: mapa-deterministico
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: helper determinístico
+    copy:
+      layperson:
+        name: A resposta não é chute
+        youGain: Confio que o próximo passo é o certo
+        unlocks: Confiança no GPS
+      developer:
+        name: Helper estado para próximo passo
+        youGain: Classificação determinística a partir do estado real
+        unlocks: GPS que não inventa comando
+  - id: uma-tela
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: render de ensino
+    copy:
+      layperson:
+        name: Tudo em uma tela
+        youGain: Onde estou, o que fazer, por quê e o que fazer se travar
+        unlocks: Orientação sem abrir o dashboard
+      developer:
+        name: Bloco de ensino no terminal
+        youGain: Bloco VOCÊ ESTÁ AQUI / FEITO / PRÓXIMO / POR QUÊ / SE TRAVAR
+        unlocks: View de ensino além do resumo de cinco linhas
+  - id: fidelidade
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: guarda de verbos
+    copy:
+      layperson:
+        name: Não me manda fazer o impossível
+        youGain: Só sugere o que existe de verdade
+        unlocks: Hábito de confiar no help
+      developer:
+        name: Guarda de verbos vivos
+        youGain: GPS nunca cita comando que não existe no pack
+        unlocks: Fidelidade do mapa de orientação
+  - id: guia-html
+    kind: optional
+    mapsToPhases: []
+    sourcedFrom: help --html
+    copy:
+      layperson:
+        name: Ver o guia em página
+        youGain: Entender o sistema sem ler um manual enorme
+        unlocks: Onboarding visual
+      developer:
+        name: Abrir o guia visual offline
+        youGain: Mesmo conceito de GPS em página HTML local
+        unlocks: Doc estável do modelo mental da skill project
+  - id: nextaction-sot
+    kind: always
+    mapsToPhases: []
+    sourcedFrom: P2
+    copy:
+      layperson:
+        name: O próximo passo continua atualizado
+        youGain: Toda vez que volto, o GPS ainda serve
+        unlocks: Orientação em qualquer sessão fria
+      developer:
+        name: nextAction autorado nas transições
+        youGain: Help e resumo barato nunca divergem no comando sugerido
+        unlocks: SoT único do próximo passo
+edges:
+  - { from: estado-opaco, to: contrato-existe, style: solid }
+  - { from: contrato-existe, to: mapa-deterministico, style: solid }
+  - { from: mapa-deterministico, to: uma-tela, style: solid }
+  - { from: uma-tela, to: fidelidade, style: solid }
+  - { from: uma-tela, to: guia-html, style: dashed }
+  - { from: fidelidade, to: nextaction-sot, style: solid }

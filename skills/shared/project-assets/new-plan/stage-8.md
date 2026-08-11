@@ -4,7 +4,8 @@
 
 Internal + ground-truth + cross-model review + receipt gates. Advance to `reviews`. Do not rewrite review-plan skill.
 
-**creation-gates stage target:** `reviews`
+**creation-gates stage target:** `reviews`  
+**Precondition:** creation-gate already at `process-map` (L1+L2 done). If still on `summaries`, **STOP** and run `new-plan/stage-process-map.md` first — Iron Law P1.
 
 After this stage closes, advance with:
 

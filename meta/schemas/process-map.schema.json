@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atomic-skills.henryavila.com/schemas/process-map.schema.json",
+  "title": "atomic-skills Plan Process Map (L1)",
+  "description": "Canonical process-map SoT at projects/<id>/<slug>/process/process.yaml. Macro vision of the plan objective — NOT the phase/task tree. Iron Law: NO PLAN WITHOUT PROCESS MAP. See docs/kb/process-map.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "planSlug",
+    "actor",
+    "scenario",
+    "stages",
+    "audience",
+    "ratifiedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "planSlug": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Who lives the journey (operator, end-user, etc.)"
+    },
+    "scenario": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One sentence: what the actor wants to achieve"
+    },
+    "youAreHere": {
+      "type": ["string", "null"],
+      "description": "Stage id pin, or null when not applicable"
+    },
+    "audience": {
+      "type": "string",
+      "enum": ["layperson", "developer", "both"]
+    },
+    "ratifiedAt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO timestamp when the operator ratified L1"
+    },
+    "ratifiedBy": {
+      "type": "string",
+      "description": "Optional operator identity"
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "copy"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["done", "main", "optional", "always"]
+          },
+          "mapsToPhases": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional weak links to plan phase ids — never the source of the graph"
+          },
+          "sourcedFrom": {
+            "type": "string",
+            "description": "Construction provenance (review only; not shown in HTML by default)"
+          },
+          "copy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["layperson", "developer"],
+            "properties": {
+              "layperson": { "$ref": "#/$defs/copyBlock" },
+              "developer": { "$ref": "#/$defs/copyBlock" }
+            }
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "style"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "style": {
+            "type": "string",
+            "enum": ["solid", "dashed"]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "copyBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "youGain", "unlocks"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "youGain": { "type": "string", "minLength": 1 },
+        "unlocks": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
