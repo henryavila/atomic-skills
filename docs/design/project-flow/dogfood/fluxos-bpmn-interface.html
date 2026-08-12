@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nível 2 · Fluxo de interface · Sugestão PDTI</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#e8f1ff',
+        primaryTextColor: '#0f172a',
+        primaryBorderColor: '#2563eb',
+        secondaryColor: '#ecfdf5',
+        secondaryBorderColor: '#059669',
+        tertiaryColor: '#fff7ed',
+        lineColor: '#64748b',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+        fontSize: '13px',
+        actorBkg: '#eff6ff',
+        actorBorder: '#2563eb',
+        actorTextColor: '#0f172a',
+        signalColor: '#334155',
+        signalTextColor: '#0f172a',
+        noteBkgColor: '#f8fafc',
+        noteBorderColor: '#94a3b8',
+        noteTextColor: '#0f172a',
+        activationBkgColor: '#dbeafe',
+        activationBorderColor: '#2563eb',
+      },
+      sequence: {
+        mirrorActors: false,
+        actorMargin: 52,
+        messageMargin: 30,
+        boxMargin: 8,
+        width: 176,
+        height: 42,
+        useMaxWidth: true,
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: 'basis',
+        padding: 18,
+        nodeSpacing: 32,
+        rankSpacing: 44,
+      },
+      securityLevel: 'loose',
+    });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const nodes = document.querySelectorAll('.diagram[data-mermaid]');
+      let i = 0;
+      for (const el of nodes) {
+        const code = el.getAttribute('data-mermaid');
+        try {
+          const { svg } = await mermaid.render(`d-${i++}-${Date.now()}`, code);
+          el.innerHTML = svg;
+          const s = el.querySelector('svg');
+          if (s) {
+            s.removeAttribute('height');
+            s.style.width = '100%';
+            s.style.height = 'auto';
+          }
+        } catch (e) {
+          el.innerHTML = `<pre class="err">${e}</pre>`;
+        }
+      }
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --surface: #fff;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --soft: #334155;
+      --line: #e2e8f0;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --blue-mid: #bfdbfe;
+      --green: #059669;
+      --green-soft: #ecfdf5;
+      --green-mid: #a7f3d0;
+      --amber: #d97706;
+      --amber-soft: #fffbeb;
+      --rose: #e11d48;
+      --rose-soft: #fff1f2;
+      --violet: #7c3aed;
+      --violet-soft: #f5f3ff;
+      --radius: 16px;
+      --shadow: 0 1px 2px rgba(15,23,42,.04), 0 10px 28px rgba(15,23,42,.06);
+      --max: 1180px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--ink);
+      background:
+        radial-gradient(900px 400px at 0% 0%, #dbeafe55, transparent 50%),
+        radial-gradient(700px 360px at 100% 0%, #ddd6fe44, transparent 48%),
+        var(--bg);
+      line-height: 1.5;
+    }
+
+    .top {
+      position: sticky; top: 0; z-index: 40;
+      backdrop-filter: blur(12px);
+      background: rgba(241,245,249,.9);
+      border-bottom: 1px solid var(--line);
+    }
+    .top-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: .85rem 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand strong { display: block; font-size: .98rem; letter-spacing: -.02em; }
+    .brand span { font-size: .78rem; color: var(--muted); }
+    .links { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .links a {
+      text-decoration: none;
+      font-size: .78rem;
+      font-weight: 650;
+      color: var(--soft);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      padding: .4rem .75rem;
+      border-radius: 999px;
+    }
+    .links a.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+    main { max-width: var(--max); margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
+
+    .levels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .85rem;
+      margin-bottom: 1.1rem;
+    }
+    @media (max-width: 800px) { .levels { grid-template-columns: 1fr; } }
+    .level {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1rem 1.15rem;
+      border-left: 4px solid var(--blue);
+    }
+    .level.n2 { border-left-color: var(--violet); outline: 2px solid #ddd6fe; }
+    .level .tag {
+      display: inline-block;
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: .22rem .5rem;
+      border-radius: 999px;
+      margin-bottom: .45rem;
+    }
+    .level.n1 .tag { background: var(--blue-soft); color: var(--blue); }
+    .level.n2 .tag { background: var(--violet-soft); color: var(--violet); }
+    .level h2 { margin: 0 0 .35rem; font-size: 1.02rem; }
+    .level p { margin: 0; color: var(--muted); font-size: .88rem; }
+
+    .sec { margin-bottom: 2rem; }
+    .sec-head { margin-bottom: .85rem; }
+    .sec-head h2 {
+      margin: 0 0 .3rem;
+      font-size: 1.2rem;
+      letter-spacing: -.02em;
+    }
+    .sec-head p { margin: 0; color: var(--muted); font-size: .9rem; max-width: 72ch; }
+
+    .shell {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .shell-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: .5rem;
+      padding: .7rem 1rem;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fcfcfd, #f8fafc);
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--soft);
+    }
+    .shell-bar .hint { font-weight: 500; color: var(--muted); font-size: .75rem; }
+
+    .diagram { padding: 1rem; overflow-x: auto; min-height: 120px; }
+    .diagram .err { color: var(--rose); white-space: pre-wrap; font-size: .85rem; }
+
+    /* stacked flow blocks — same shell as Parte A */
+    .flow-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* ========== SWIMLANES ========== */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      margin: .65rem 0 .85rem;
+    }
+    .pill {
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .3rem .65rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+    }
+    .pill.getin { color: var(--blue); background: var(--blue-soft); border-color: var(--blue-mid); }
+    .pill.sys { color: var(--green); background: var(--green-soft); border-color: var(--green-mid); }
+    .pill.lider { color: var(--violet); background: var(--violet-soft); border-color: #ddd6fe; }
+    .pill.ui { color: var(--amber); background: var(--amber-soft); border-color: #fde68a; }
+
+    .bpmn-wrap { overflow-x: auto; }
+    .bpmn {
+      min-width: 1000px;
+      display: grid;
+      grid-template-columns: 96px repeat(4, minmax(210px, 1fr));
+      border-top: 1px solid var(--line);
+    }
+    .corner {
+      background: #f8fafc;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+    }
+    .etapa-h {
+      background: #f8fafc;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: .7rem .6rem;
+      text-align: center;
+      position: relative;
+    }
+    .etapa-h .num {
+      display: inline-flex;
+      width: 1.45rem; height: 1.45rem;
+      align-items: center; justify-content: center;
+      border-radius: 8px;
+      font-size: .72rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: .25rem;
+    }
+    .e1 .num { background: var(--blue); }
+    .e2 .num { background: #0ea5e9; }
+    .e3 .num { background: var(--violet); }
+    .e4 .num { background: var(--green); }
+    .etapa-h strong { display: block; font-size: .86rem; }
+    .etapa-h span { display: block; font-size: .7rem; color: var(--muted); margin-top: .1rem; }
+    .etapa-h:not(.e4)::after {
+      content: "→";
+      position: absolute;
+      right: -.55rem;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+      width: 1.05rem; height: 1.05rem;
+      border-radius: 99px;
+      background: var(--ink);
+      color: #fff;
+      font-size: .65rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+    }
+
+    .lane-label {
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: .76rem;
+      font-weight: 800;
+      padding: .4rem;
+    }
+    .lane-label.getin { color: var(--blue); background: var(--blue-soft); border-left: 4px solid var(--blue); }
+    .lane-label.sys { color: var(--green); background: var(--green-soft); border-left: 4px solid var(--green); }
+    .lane-label.lider { color: var(--violet); background: var(--violet-soft); border-left: 4px solid var(--violet); }
+
+    .cell {
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: .6rem .5rem;
+      min-height: 110px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: .4rem;
+    }
+    .cell.empty {
+      background: repeating-linear-gradient(-45deg, #fafafa, #fafafa 6px, #f4f4f5 6px, #f4f4f5 12px);
+    }
+    .cell.empty .idle {
+      margin: auto;
+      font-size: .7rem;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    .flow-step {
+      background: #fff;
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      padding: .42rem .5rem;
+      font-size: .75rem;
+      position: relative;
+    }
+    .flow-step + .flow-step { margin-top: .12rem; }
+    .flow-step + .flow-step::before {
+      content: "↓";
+      position: absolute;
+      top: -.68rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: .68rem;
+      font-weight: 800;
+      color: #94a3b8;
+      background: #fff;
+      width: 1rem;
+      text-align: center;
+      line-height: 1;
+    }
+    .flow-step .who {
+      font-size: .6rem;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: .12rem;
+    }
+    .flow-step.getin { border-color: var(--blue-mid); }
+    .flow-step.getin .who { color: var(--blue); }
+    .flow-step.sys { border-color: var(--green-mid); }
+    .flow-step.sys .who { color: var(--green); }
+    .flow-step.lider { border-color: #ddd6fe; }
+    .flow-step.lider .who { color: var(--violet); }
+    .flow-step.ui {
+      background: linear-gradient(180deg, #fffbeb, #fff);
+      border-color: #fde68a;
+    }
+    .flow-step.ui .who { color: var(--amber); }
+    .flow-step strong { display: block; font-size: .78rem; line-height: 1.25; }
+    .flow-step p { margin: .12rem 0 0; color: var(--muted); font-size: .7rem; line-height: 1.35; }
+
+    /* decision lives in LÍDER row */
+    .lider-decision {
+      border: 2px solid var(--violet);
+      border-radius: 12px;
+      background: linear-gradient(180deg, #f5f3ff, #fff);
+      padding: .5rem;
+    }
+    .lider-decision .title {
+      text-align: center;
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: var(--violet);
+      margin-bottom: .4rem;
+    }
+    .lider-decision .opt {
+      text-align: center;
+      font-size: .7rem;
+      color: var(--amber);
+      font-weight: 700;
+      margin-bottom: .4rem;
+      padding: .25rem;
+      background: var(--amber-soft);
+      border-radius: 8px;
+      border: 1px solid #fde68a;
+    }
+    .lider-decision .paths {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .4rem;
+    }
+    .lider-decision .path {
+      border-radius: 10px;
+      padding: .45rem;
+      font-size: .7rem;
+      border: 1.5px solid var(--line);
+      background: #fff;
+    }
+    .lider-decision .path.accept { border-color: var(--green-mid); background: var(--green-soft); }
+    .lider-decision .path.refuse { border-color: #fecdd3; background: var(--rose-soft); }
+    .lider-decision .path strong {
+      display: block;
+      font-size: .76rem;
+      margin-bottom: .25rem;
+    }
+    .lider-decision .path.accept strong { color: var(--green); }
+    .lider-decision .path.refuse strong { color: var(--rose); }
+    .lider-decision .path ol {
+      margin: 0;
+      padding-left: 1rem;
+      color: var(--soft);
+      font-size: .68rem;
+    }
+    .lider-decision .path li { margin: .15rem 0; }
+    .lider-decision .then {
+      margin-top: .35rem;
+      text-align: center;
+      font-size: .65rem;
+      font-weight: 800;
+      color: #94a3b8;
+    }
+
+    /* system reactions under decision - clear mapping */
+    .sys-react {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .4rem;
+    }
+    .sys-react .r {
+      border-radius: 10px;
+      padding: .45rem;
+      font-size: .7rem;
+      border: 1.5px solid var(--line);
+    }
+    .sys-react .r.accept { border-color: var(--green-mid); background: var(--green-soft); }
+    .sys-react .r.refuse { border-color: #fecdd3; background: var(--rose-soft); }
+    .sys-react .r strong { display: block; font-size: .74rem; margin-bottom: .2rem; }
+    .sys-react .r.accept strong { color: var(--green); }
+    .sys-react .r.refuse strong { color: var(--rose); }
+    .sys-react .r span { color: var(--soft); font-size: .68rem; line-height: 1.3; display: block; }
+    .sys-react .link {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-size: .65rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .flow-ribbon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .45rem;
+      flex-wrap: wrap;
+      padding: .7rem 1rem;
+      border-top: 1px solid var(--line);
+      background: #f8fafc;
+      font-size: .78rem;
+      color: var(--soft);
+      font-weight: 650;
+    }
+    .flow-ribbon .node {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: .28rem .65rem;
+      font-weight: 800;
+      font-size: .72rem;
+    }
+    .flow-ribbon .node.e1 { color: var(--blue); border-color: var(--blue-mid); background: var(--blue-soft); }
+    .flow-ribbon .node.e2 { color: #0284c7; border-color: #bae6fd; background: #f0f9ff; }
+    .flow-ribbon .node.e3 { color: var(--violet); border-color: #ddd6fe; background: var(--violet-soft); }
+    .flow-ribbon .node.e4 { color: var(--green); border-color: var(--green-mid); background: var(--green-soft); }
+    .flow-ribbon .arr { color: #94a3b8; font-weight: 800; }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: .75rem;
+      margin-top: .25rem;
+    }
+    @media (max-width: 900px) { .compare { grid-template-columns: 1fr; } }
+    .compare a {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      box-shadow: var(--shadow);
+    }
+    .compare .t {
+      font-size: .7rem;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .25rem;
+    }
+    .compare strong { font-size: .95rem; }
+    .compare p { margin: .3rem 0 0; font-size: .82rem; color: var(--muted); }
+
+    footer {
+      max-width: var(--max);
+      margin: 0 auto 2rem;
+      padding: 0 1.25rem;
+      font-size: .76rem;
+      color: var(--muted);
+    }
+    footer code {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: .72rem;
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: .1rem .35rem;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div class="brand">
+        <strong>Sugestão PDTI · Fluxo de interface</strong>
+        <span>Nível 2 · partes A/B/C · <em>não canônico</em> (XOR simplificado) · fonte: <a href="fluxo-completo.html">fluxo completo</a> + JSON</span>
+      </div>
+      <div class="links">
+        <a href="fluxos-usuario-sistema.html">Nível 1 · processo de negócio</a>
+        <a class="primary" href="#fluxo">Nível 2 · partes A/B/C</a>
+        <a href="fluxo-completo.html"><strong>Canônico · fluxo completo</strong></a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="levels">
+      <article class="level n1">
+        <div class="tag">Nível 1 · outro arquivo</div>
+        <h2>Processo de negócio</h2>
+        <p>O que acontece e quem decide — sem botões, e-mail ou modais.</p>
+      </article>
+      <article class="level n2">
+        <div class="tag">Nível 2 · esta página</div>
+        <h2>Interface e ações no app</h2>
+        <p>Clique, tela, modal e quem age em cada etapa. Mesmo processo, mais detalhe de UI.</p>
+      </article>
+    </div>
+
+    <!-- ========== 1 SEQUENCE FLOWS — estilo Parte A em todos (sem opt/alt) ========== -->
+    <section class="sec" id="fluxo">
+      <div class="sec-head">
+        <h2>1. Fluxo principal + ponto de decisão</h2>
+        <p>
+          <strong>Atenção:</strong> esta página é <em>legada / não canônica</em> — caminhos lineares sem as 3 decisões XOR do modelo.
+          Fonte de verdade: <a href="fluxo-completo.html"><strong>fluxo completo</strong></a>
+          + <a href="fluxo-sugestao.json">fluxo-sugestao.json</a>
+          (validação do envio, edição, aceite/recusa; status 10 → 1 / 11).
+          Abaixo: blocos no formato Parte A (barra + sequência linear), sem caixas <code>opt</code>/<code>alt</code>.
+        </p>
+      </div>
+
+      <div class="flow-stack">
+        <!-- Parte A -->
+        <div class="shell">
+          <div class="shell-bar">
+            <span>Parte A · Até o líder ver a sugestão</span>
+            <span class="hint">Caminho feliz da criação até a tela · GETIN → Sistema → Líder</span>
+          </div>
+          <div
+            class="diagram"
+            data-mermaid="sequenceDiagram
+  autonumber
+  actor G as GETIN
+  participant App as Sistema
+  actor L as Líder
+
+  rect rgb(239, 246, 255)
+  Note over G,App: 1. Criar sugestão
+  G->>App: Abre lista de solicitações PDTI
+  App-->>G: Mostra lista e a ação Sugerir necessidade
+  G->>App: Clica em Sugerir necessidade
+  App-->>G: Abre o formulário
+  G->>App: Preenche e clica Enviar
+  App->>App: Valida permissão, dados e gestor da área
+  App->>App: Grava a sugestão como pendente
+  App-->>G: Mostra confirmação de sucesso
+  end
+
+  rect rgb(240, 249, 255)
+  Note over App,L: 2. Avisar o líder
+  App->>L: Envia e-mail com resumo e botão Validar
+  end
+
+  rect rgb(245, 243, 255)
+  Note over L,App: 3. Abrir a validação
+  L->>App: Clica em Validar no e-mail
+  App->>App: Pede login se necessário
+  App-->>L: Mostra a tela da sugestão pendente
+  end
+"></div>
+        </div>
+
+        <!-- Parte B1 — aceitar (linear, sem opt) -->
+        <div class="shell" id="decisao">
+          <div class="shell-bar">
+            <span>Parte B · Se o líder aceitar</span>
+            <span class="hint">Continua da tela da sugestão · inclui edição se houver · depois entra no funil</span>
+          </div>
+          <div
+            class="diagram"
+            data-mermaid="sequenceDiagram
+  autonumber
+  actor L as Líder
+  participant App as Sistema
+  actor G as GETIN
+
+  rect rgb(245, 243, 255)
+  Note over L,App: Continua da tela da sugestão (fim da Parte A)
+  L->>App: Se quiser, edita campos e clica Salvar
+  App-->>L: Se salvou, confirma conteúdo atualizado
+  L->>App: Clica Aceitar
+  App-->>L: Abre modal Confirmar aceite?
+  L->>App: Confirma no modal
+  App->>App: Adota a sugestão
+  App-->>L: Mostra tela de sucesso
+  end
+
+  rect rgb(236, 253, 245)
+  Note over App,G: 4. Depois da decisão — funil normal
+  App->>App: Mantém a área-alvo no funil
+  G->>App: Segue análise como pedido normal
+  end
+"></div>
+        </div>
+
+        <!-- Parte B2 — recusar (linear, sem opt) -->
+        <div class="shell">
+          <div class="shell-bar">
+            <span>Parte B · Se o líder recusar</span>
+            <span class="hint">Continua da tela da sugestão · inclui edição se houver · encerra e avisa a GETIN</span>
+          </div>
+          <div
+            class="diagram"
+            data-mermaid="sequenceDiagram
+  autonumber
+  actor L as Líder
+  participant App as Sistema
+  actor G as GETIN
+
+  rect rgb(245, 243, 255)
+  Note over L,App: Continua da tela da sugestão (fim da Parte A)
+  L->>App: Se quiser, edita campos e clica Salvar
+  App-->>L: Se salvou, confirma conteúdo atualizado
+  L->>App: Clica Recusar
+  App-->>L: Abre modal com motivo opcional
+  L->>App: Confirma recusa no modal
+  App->>App: Marca sugestão como recusada
+  App-->>L: Mostra tela de confirmação
+  App-->>G: Envia notificação ou e-mail de recusa
+  end
+
+  rect rgb(254, 242, 242)
+  Note over G: 4. Depois da decisão — encerra, sem funil
+  end
+"></div>
+        </div>
+
+        <!-- Parte C — erro: dois blocos lineares separados, sem alt -->
+        <div class="shell" id="desvio-erro">
+          <div class="shell-bar">
+            <span>Parte C · Se der erro ao criar (fluxo separado)</span>
+            <span class="hint">Só na criação · não envia e-mail até o envio ser válido</span>
+          </div>
+          <div
+            class="diagram"
+            data-mermaid="sequenceDiagram
+  autonumber
+  actor G as GETIN
+  participant App as Sistema
+
+  rect rgb(254, 242, 242)
+  Note over G,App: Envio inválido
+  G->>App: Preenche formulário e clica Enviar
+  App->>App: Valida permissão, dados e gestor da área
+  App-->>G: Mostra mensagem de erro no formulário
+  Note over G: Exemplos: área sem gestor, dados faltando, sem permissão
+  end
+
+  rect rgb(239, 246, 255)
+  Note over G,App: Correção e reenvio válido
+  G->>App: Ajusta os dados e clica Enviar de novo
+  App->>App: Valida novamente
+  App->>App: Grava a sugestão como pendente
+  App-->>G: Mostra confirmação de sucesso
+  Note over App: A partir daqui segue a Parte A — etapa 2 (avisar o líder)
+  end
+"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 2 SWIMLANES ========== -->
+    <section class="sec" id="raias">
+      <div class="sec-head">
+        <h2>2. Quem faz o quê em cada etapa</h2>
+        <p>
+          Colunas = etapas no tempo (esquerda → direita).
+          Linhas = quem age. A decisão e a bifurcação ficam na raia do <strong>líder</strong>;
+          o sistema só reage a cada caminho.
+        </p>
+      </div>
+
+      <div class="legend">
+        <span class="pill getin">GETIN</span>
+        <span class="pill sys">Sistema</span>
+        <span class="pill lider">Líder</span>
+        <span class="pill ui">Ação de tela / e-mail</span>
+      </div>
+
+      <div class="shell">
+        <div class="shell-bar">
+          <span>Raias por etapa · setas no topo e dentro das células</span>
+          <span class="hint">Célula hachurada = esse ator não age na etapa</span>
+        </div>
+
+        <div class="bpmn-wrap">
+          <div class="bpmn">
+            <div class="corner"></div>
+            <div class="etapa-h e1">
+              <div class="num">1</div>
+              <strong>Criar sugestão</strong>
+              <span>GETIN no painel</span>
+            </div>
+            <div class="etapa-h e2">
+              <div class="num">2</div>
+              <strong>Avisar o líder</strong>
+              <span>E-mail</span>
+            </div>
+            <div class="etapa-h e3">
+              <div class="num">3</div>
+              <strong>Decidir</strong>
+              <span>Tela + escolha do líder</span>
+            </div>
+            <div class="etapa-h e4">
+              <div class="num">4</div>
+              <strong>Depois da decisão</strong>
+              <span>Funil ou fim</span>
+            </div>
+
+            <!-- GETIN -->
+            <div class="lane-label getin">GETIN</div>
+            <div class="cell">
+              <div class="flow-step getin ui">
+                <div class="who">Tela</div>
+                <strong>Abre lista PDTI</strong>
+                <p>Painel de solicitações</p>
+              </div>
+              <div class="flow-step getin ui">
+                <div class="who">Botão</div>
+                <strong>Sugerir necessidade</strong>
+                <p>Abre o formulário</p>
+              </div>
+              <div class="flow-step getin ui">
+                <div class="who">Formulário</div>
+                <strong>Preenche e envia</strong>
+                <p>Área, problema, objetivos…</p>
+              </div>
+              <div class="flow-step getin">
+                <div class="who">Resultado</div>
+                <strong>Vê sucesso ou erro</strong>
+                <p>Erro: corrige e reenvia</p>
+              </div>
+            </div>
+            <div class="cell empty"><span class="idle">sem ação</span></div>
+            <div class="cell empty"><span class="idle">sem ação</span></div>
+            <div class="cell">
+              <div class="flow-step getin">
+                <div class="who">Se aceitou</div>
+                <strong>Segue o funil normal</strong>
+                <p>Analisa a solicitação da área</p>
+              </div>
+              <div class="flow-step getin ui">
+                <div class="who">Se recusou</div>
+                <strong>Recebe o aviso</strong>
+                <p>E-mail / alerta com motivo</p>
+              </div>
+            </div>
+
+            <!-- SISTEMA -->
+            <div class="lane-label sys">Sistema</div>
+            <div class="cell">
+              <div class="flow-step sys">
+                <div class="who">App</div>
+                <strong>Valida e grava</strong>
+                <p>Permissão, dados, gestor da área</p>
+              </div>
+            </div>
+            <div class="cell">
+              <div class="flow-step sys ui">
+                <div class="who">E-mail</div>
+                <strong>Envia aviso ao líder</strong>
+                <p>Resumo + botão Validar</p>
+              </div>
+            </div>
+            <div class="cell">
+              <div class="flow-step sys ui">
+                <div class="who">Tela</div>
+                <strong>Mostra a sugestão</strong>
+                <p>Após login, se preciso</p>
+              </div>
+              <div class="flow-step sys">
+                <div class="who">App</div>
+                <strong>Espera a decisão do líder</strong>
+                <p>Não escolhe o caminho — só reage</p>
+              </div>
+              <div class="sys-react">
+                <div class="link">reação conforme a escolha do líder ↓</div>
+                <div class="r accept">
+                  <strong>Se aceitar</strong>
+                  <span>Abre modal de confirmação → adota a sugestão → tela de sucesso</span>
+                </div>
+                <div class="r refuse">
+                  <strong>Se recusar</strong>
+                  <span>Abre modal (motivo) → marca recusada → notifica GETIN</span>
+                </div>
+              </div>
+            </div>
+            <div class="cell">
+              <div class="sys-react">
+                <div class="r accept">
+                  <strong>Se aceitou</strong>
+                  <span>Mantém a área-alvo e segue o funil PDTI</span>
+                </div>
+                <div class="r refuse">
+                  <strong>Se recusou</strong>
+                  <span>Encerra a sugestão · sem funil</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- LÍDER — decision here -->
+            <div class="lane-label lider">Líder</div>
+            <div class="cell empty"><span class="idle">sem ação</span></div>
+            <div class="cell">
+              <div class="flow-step lider ui">
+                <div class="who">E-mail</div>
+                <strong>Lê o aviso</strong>
+                <p>Vê o resumo da sugestão</p>
+              </div>
+              <div class="flow-step lider ui">
+                <div class="who">Botão</div>
+                <strong>Clica em Validar</strong>
+                <p>Abre o link no navegador</p>
+              </div>
+            </div>
+            <div class="cell">
+              <div class="flow-step lider ui">
+                <div class="who">Tela</div>
+                <strong>Entra e revisa a sugestão</strong>
+                <p>Login se ainda não estiver autenticado</p>
+              </div>
+              <div class="lider-decision">
+                <div class="title">Decisão do líder (bifurcação aqui)</div>
+                <div class="opt">Opcional antes de decidir: editar texto e salvar</div>
+                <div class="paths">
+                  <div class="path accept">
+                    <strong>✓ Aceitar</strong>
+                    <ol>
+                      <li>Clica Aceitar</li>
+                      <li>Confirma no modal</li>
+                      <li>Vira dono da solicitação</li>
+                    </ol>
+                  </div>
+                  <div class="path refuse">
+                    <strong>× Recusar</strong>
+                    <ol>
+                      <li>Clica Recusar</li>
+                      <li>Motivo opcional no modal</li>
+                      <li>Confirma e encerra</li>
+                    </ol>
+                  </div>
+                </div>
+                <div class="then">↓ cada caminho continua na etapa 4</div>
+              </div>
+            </div>
+            <div class="cell">
+              <div class="flow-step lider">
+                <div class="who">Resultado</div>
+                <strong>Vê a confirmação final</strong>
+                <p>Aceite: segue com a GETIN. Recusa: fim.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-ribbon">
+          <span class="node e1">1 Criar</span>
+          <span class="arr">→</span>
+          <span class="node e2">2 Avisar</span>
+          <span class="arr">→</span>
+          <span class="node e3">3 Decidir</span>
+          <span class="arr">→</span>
+          <span class="node e4">4 Depois</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="compare">
+      <a href="fluxos-usuario-sistema.html">
+        <div class="t">Nível 1</div>
+        <strong>Processo de negócio</strong>
+        <p>Comparar marcos e regras sem detalhe de tela.</p>
+      </a>
+      <a href="#fluxo">
+        <div class="t">Nível 2 · partes</div>
+        <strong>Interface em blocos A/B/C</strong>
+        <p>Sequências lineares e raias, sem opt/alt.</p>
+      </a>
+      <a href="fluxo-completo.html">
+        <div class="t">Fluxo único</div>
+        <strong>Tudo junto · pan e zoom</strong>
+        <p>Um diagrama com criação, erro, decisão e os dois caminhos.</p>
+      </a>
+    </div>
+  </main>
+
+  <footer>
+    <code>docs/fluxos-bpmn-interface.html</code> ·
+    <code>http://localhost:8765/fluxo-completo.html</code>
+  </footer>
+</body>
+</html>

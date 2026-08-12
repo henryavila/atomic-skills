@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fluxo completo · Sugestão PDTI</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#e8f1ff',
+        primaryTextColor: '#0f172a',
+        primaryBorderColor: '#2563eb',
+        secondaryColor: '#ecfdf5',
+        secondaryBorderColor: '#059669',
+        tertiaryColor: '#fff7ed',
+        lineColor: '#64748b',
+        textColor: '#0f172a',
+        mainBkg: '#eff6ff',
+        nodeBorder: '#2563eb',
+        clusterBkg: '#f8fafc',
+        clusterBorder: '#cbd5e1',
+        titleColor: '#0f172a',
+        edgeLabelBackground: '#ffffff',
+        // Notas de fase neutras (evita wash amarelo do tema default)
+        noteBkgColor: '#f8fafc',
+        noteTextColor: '#0f172a',
+        noteBorderColor: '#cbd5e1',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+        fontSize: '14px',
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: 'basis',
+        padding: 20,
+        nodeSpacing: 36,
+        rankSpacing: 56,
+        useMaxWidth: false,
+      },
+      sequence: {
+        // Atores no topo e na base → lifelines cobrem o diagrama inteiro
+        mirrorActors: true,
+        actorMargin: 72,
+        messageMargin: 36,
+        boxMargin: 10,
+        bottomMarginAdj: 1,
+        width: 196,
+        height: 46,
+        useMaxWidth: false,
+      },
+      securityLevel: 'loose',
+    });
+
+    const TONES = {
+      blue:   { bg: '#eff6ff', border: '#2563eb', text: '#1e3a8a', soft: '#dbeafe' },
+      sky:    { bg: '#f0f9ff', border: '#0284c7', text: '#0c4a6e', soft: '#e0f2fe' },
+      violet: { bg: '#f5f3ff', border: '#7c3aed', text: '#4c1d95', soft: '#ede9fe' },
+      green:  { bg: '#ecfdf5', border: '#059669', text: '#065f46', soft: '#d1fae5' },
+      rose:   { bg: '#fff1f2', border: '#e11d48', text: '#9f1239', soft: '#ffe4e6' },
+      amber:  { bg: '#fffbeb', border: '#d97706', text: '#92400e', soft: '#fef3c7' },
+      slate:  { bg: '#f8fafc', border: '#64748b', text: '#0f172a', soft: '#e2e8f0' },
+    };
+
+    let MODEL = null;
+    let activeTab = 'sequencia';
+    let scale = 1;
+    const MIN = 0.3;
+    const MAX = 2.8;
+    const STEP = 0.1;
+    const PAD = 40;
+    const rendered = new Set();
+    let renderGen = 0;
+    let mermaidIdSeq = 0;
+    const $ = (id) => document.getElementById(id);
+
+    // ─── Load & validate ───────────────────────────────────────────
+    async function loadModel() {
+      const res = await fetch('fluxo-sugestao.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Falha ao carregar fluxo-sugestao.json (${res.status})`);
+      return res.json();
+    }
+
+    function validateModel(m) {
+      const errors = [];
+      const warnings = [];
+      if (!m.flowId) errors.push('flowId ausente');
+      if (!m.actors?.length) errors.push('actors vazio');
+      if (!m.nodes || !m.entry) errors.push('nodes/entry ausentes');
+
+      const actorIds = new Set((m.actors || []).map((a) => a.id));
+      const nodeIds = new Set(Object.keys(m.nodes || {}));
+      const branchById = new Map();
+
+      if (m.entry && !nodeIds.has(m.entry)) errors.push(`entry "${m.entry}" não existe`);
+
+      for (const [id, node] of Object.entries(m.nodes || {})) {
+        if (!['sequence', 'decision', 'end'].includes(node.type)) {
+          errors.push(`${id}: type inválido "${node.type}"`);
+        }
+        if (!node.processLabel) {
+          warnings.push(`${id}: sem processLabel (rótulo de negócio)`);
+        }
+        if (node.type === 'sequence') {
+          if (!node.messages?.length) warnings.push(`${id}: sequence sem messages`);
+          for (const msg of node.messages || []) {
+            if (!actorIds.has(msg.from)) errors.push(`${id}: from "${msg.from}" desconhecido`);
+            if (!actorIds.has(msg.to)) errors.push(`${id}: to "${msg.to}" desconhecido`);
+            if (!String(msg.text || '').trim()) warnings.push(`${id}: mensagem sem text`);
+          }
+          if (!node.next) errors.push(`${id}: sequence sem next (só end omite next)`);
+          else if (!nodeIds.has(node.next)) errors.push(`${id}: next "${node.next}" inexistente`);
+        }
+        if (node.type === 'decision') {
+          if (node.kind !== 'xor') warnings.push(`${id}: kind "${node.kind}" (esperado xor)`);
+          if (!node.branches || node.branches.length < 2) {
+            errors.push(`${id}: decisão xor exige >= 2 ramos`);
+          }
+          const whens = new Set();
+          for (const b of node.branches || []) {
+            if (!b.id) errors.push(`${id}: branch sem id`);
+            else if (branchById.has(b.id)) errors.push(`branch id duplicado "${b.id}"`);
+            else branchById.set(b.id, { nodeId: id, branch: b });
+            if (!b.when) errors.push(`${id}/${b.id || '?'}: when ausente`);
+            if (b.when && whens.has(b.when)) errors.push(`${id}: when duplicado "${b.when}"`);
+            if (b.when) whens.add(b.when);
+            if (!b.next || !nodeIds.has(b.next)) errors.push(`${id}/${b.id || '?'}: next inválido`);
+          }
+          if (node.actor && !actorIds.has(node.actor)) {
+            errors.push(`${id}: actor "${node.actor}" desconhecido`);
+          }
+        }
+        if (node.type === 'end' && node.next) {
+          warnings.push(`${id}: end não deve ter next`);
+        }
+      }
+
+      const decisions = Object.values(m.nodes || {}).filter((n) => n.type === 'decision');
+      if (decisions.length !== 3) {
+        errors.push(`Esperadas 3 decisões (validação, edição, aceite/recusa); há ${decisions.length}`);
+      }
+      if (!m.nodes?.D1) errors.push('Decisão D1 (validação) ausente');
+      if (!m.nodes?.D_edit) errors.push('Decisão de edição (D_edit) ausente');
+      if (!m.nodes?.D2) errors.push('Decisão D2 (aceite/recusa) ausente');
+
+      const d2 = m.nodes?.D2;
+      if (d2?.type === 'decision') {
+        const branches = d2.branches || [];
+        const acc = branches.find((b) => b.when === 'lider_aceita');
+        const ref = branches.find((b) => b.when === 'lider_recusa');
+        if (!acc) errors.push('D2: ramo lider_aceita ausente');
+        else if (Number(acc.statusTo) !== 1) errors.push('D2.accept deve ter statusTo=1');
+        if (!ref) errors.push('D2: ramo lider_recusa ausente');
+        else if (Number(ref.statusTo) !== 11) errors.push('D2.refuse deve ter statusTo=11');
+      }
+
+      // status 10 na gravação pendente
+      const s1ok = m.nodes?.S1ok;
+      const has10 = (s1ok?.effects || []).some((e) => Number(e.statusTo) === 10);
+      if (s1ok && !has10) {
+        warnings.push('S1ok: esperado effects com statusTo=10 (pendente da área)');
+      }
+      if (m.states?.nodes?.pendente && Number(m.states.nodes.pendente.status) !== 10) {
+        errors.push('states.pendente deve ter status 10');
+      }
+
+      // Reachability from entry (BFS, treat loops as visited)
+      if (m.entry && nodeIds.has(m.entry)) {
+        const seen = new Set();
+        const q = [m.entry];
+        while (q.length) {
+          const id = q.shift();
+          if (seen.has(id)) continue;
+          seen.add(id);
+          const n = m.nodes[id];
+          if (!n) continue;
+          if (n.type === 'sequence' && n.next) q.push(n.next);
+          if (n.type === 'decision') {
+            for (const b of n.branches || []) {
+              if (b.next) q.push(b.next);
+            }
+          }
+        }
+        for (const id of nodeIds) {
+          if (!seen.has(id)) warnings.push(`${id}: nó inalcançável a partir de entry`);
+        }
+      }
+
+      // states transitions ↔ branches
+      if (m.states?.transitions) {
+        for (const t of m.states.transitions) {
+          if (!t.via) continue;
+          const hit = branchById.get(t.via);
+          if (!hit) {
+            errors.push(`states ${t.id}: via "${t.via}" sem branch correspondente`);
+            continue;
+          }
+          const b = hit.branch;
+          if (t.when && b.when && t.when !== b.when) {
+            errors.push(`states ${t.id}: when "${t.when}" ≠ branch "${b.when}"`);
+          }
+          if (t.statusTo != null && b.statusTo != null && Number(t.statusTo) !== Number(b.statusTo)) {
+            errors.push(`states ${t.id}: statusTo ${t.statusTo} ≠ branch ${b.statusTo}`);
+          }
+        }
+      }
+
+      return { ok: errors.length === 0, errors, warnings };
+    }
+
+    // ─── Walk trunk for sequence layout ────────────────────────────
+    /** Linear path from entry, expanding decisions as side-by-side branch panels. */
+    function walkLayout(m) {
+      const steps = [];
+      const visited = new Set();
+      let cur = m.entry;
+      let guard = 0;
+      while (cur && guard++ < 50) {
+        if (visited.has(cur)) {
+          steps.push({ kind: 'loop-ref', nodeId: cur, node: m.nodes[cur] });
+          break;
+        }
+        const node = m.nodes[cur];
+        if (!node) break;
+
+        if (node.type === 'sequence') {
+          visited.add(cur);
+          steps.push({ kind: 'sequence', nodeId: cur, node });
+          cur = node.next;
+        } else if (node.type === 'decision') {
+          visited.add(cur);
+          const branchPanels = (node.branches || []).map((b) => {
+            const chain = collectBranchChain(m, b.next, visited, 0);
+            return { branch: b, chain };
+          });
+          steps.push({ kind: 'decision', nodeId: cur, node, branchPanels });
+          // After exclusive branches, no single trunk continuation
+          cur = null;
+        } else if (node.type === 'end') {
+          visited.add(cur);
+          steps.push({ kind: 'end', nodeId: cur, node });
+          cur = null;
+        } else {
+          break;
+        }
+      }
+      if (guard >= 50) {
+        steps.push({
+          kind: 'loop-ref',
+          nodeId: cur || m.entry,
+          node: m.nodes[cur] || m.nodes[m.entry],
+          truncated: true,
+        });
+      }
+      return steps;
+    }
+
+    /**
+     * Collect linear chain until end or cycle.
+     * Loop-ref when next/reentry hits trunkVisited or local cycle (any type).
+     * Nested decisions expand with depth cap to avoid stack overflow.
+     */
+    function collectBranchChain(m, startId, trunkVisited, depth = 0) {
+      const chain = [];
+      if (depth > 12) {
+        chain.push({ kind: 'loop-ref', nodeId: startId, node: m.nodes[startId], truncated: true });
+        return chain;
+      }
+      let cur = startId;
+      let guard = 0;
+      const local = new Set();
+      while (cur && guard++ < 40) {
+        if (local.has(cur) || trunkVisited.has(cur)) {
+          chain.push({ kind: 'loop-ref', nodeId: cur, node: m.nodes[cur] });
+          break;
+        }
+        const node = m.nodes[cur];
+        if (!node) break;
+        local.add(cur);
+
+        if (node.type === 'sequence') {
+          chain.push({ kind: 'sequence', nodeId: cur, node });
+          if (!node.next) break;
+          // next already visited (trunk decision/loop or local) → loop-ref
+          if (trunkVisited.has(node.next) || local.has(node.next)) {
+            chain.push({ kind: 'loop-ref', nodeId: node.next, node: m.nodes[node.next] });
+            break;
+          }
+          if (m.nodes[node.next]?.type === 'decision') {
+            const nested = m.nodes[node.next];
+            const visitedNext = new Set([...trunkVisited, ...local, node.next]);
+            const branchPanels = (nested.branches || []).map((b) => ({
+              branch: b,
+              chain: collectBranchChain(m, b.next, visitedNext, depth + 1),
+            }));
+            chain.push({ kind: 'decision', nodeId: node.next, node: nested, branchPanels });
+            break;
+          }
+          cur = node.next;
+        } else if (node.type === 'end') {
+          chain.push({ kind: 'end', nodeId: cur, node });
+          break;
+        } else if (node.type === 'decision') {
+          // Decision as branch start (rare): expand or loop if already visited
+          if (trunkVisited.has(cur)) {
+            chain.push({ kind: 'loop-ref', nodeId: cur, node });
+            break;
+          }
+          const visitedHere = new Set([...trunkVisited, ...local]);
+          const branchPanels = (node.branches || []).map((b) => ({
+            branch: b,
+            chain: collectBranchChain(m, b.next, visitedHere, depth + 1),
+          }));
+          chain.push({ kind: 'decision', nodeId: cur, node, branchPanels });
+          break;
+        } else break;
+      }
+      return chain;
+    }
+
+    // ─── Sequence = ONE continuous Mermaid diagram (no HTML cards) ──
+    function esc(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function mmdLabel(s) {
+      return String(s ?? '')
+        .replace(/[<>&]/g, '')
+        .replace(/"/g, "'")
+        .replace(/·/g, '-')
+        .replace(/#/g, 'n.')
+        .replace(/\n/g, ' ')
+        .replace(/:/g, ' -');
+    }
+
+    const TONE_RGB = {
+      blue: '239, 246, 255',
+      sky: '240, 249, 255',
+      violet: '245, 243, 255',
+      green: '236, 253, 245',
+      rose: '254, 242, 242',
+      amber: '255, 251, 235',
+      slate: '248, 250, 252',
+    };
+
+    /** Note over max 2 participants (Mermaid rule). Prefer primary human actor + App. */
+    function noteSpan(messages, actors, fallback) {
+      const ids = new Set();
+      for (const msg of messages || []) {
+        ids.add(msg.from);
+        ids.add(msg.to);
+      }
+      // Prefer L over G when both appear (fase de validação do líder)
+      const humans = ['L', 'G'].filter((id) => ids.has(id));
+      if (ids.has('App') && humans.length) return `${humans[0]},App`;
+      if (humans.length >= 2) return `${humans[0]},${humans[1]}`;
+      if (ids.has('App')) return 'App';
+      if (humans.length === 1) return humans[0];
+      const rest = [...ids];
+      if (rest.length >= 2) return `${rest[0]},${rest[1]}`;
+      if (rest.length === 1) return rest[0];
+      return fallback || 'App';
+    }
+
+    function endNoteSpan(actors) {
+      const ids = (actors || []).map((a) => a.id);
+      if (ids.includes('G') && ids.includes('L')) return 'G,L';
+      if (ids.length >= 2) return `${ids[0]},${ids[ids.length - 1]}`;
+      return ids[0] || 'App';
+    }
+
+    /**
+     * Sequence as one Mermaid diagram.
+     * Decisions = UML alt/else (sem níveis/fundos de painel — polish mínimo).
+     */
+    function buildSequenceMermaid(m) {
+      const lines = ['sequenceDiagram', '  autonumber'];
+      for (const a of m.actors || []) {
+        const kind = a.kind === 'participant' ? 'participant' : 'actor';
+        lines.push(`  ${kind} ${a.id} as ${mmdLabel(a.label || a.id)}`);
+      }
+      lines.push('');
+
+      function pushMsg(msg) {
+        const text = mmdLabel(msg.text);
+        const arrow = msg.async ? '-->>' : '->>';
+        lines.push(`  ${msg.from}${arrow}${msg.to}: ${text}`);
+      }
+
+      function branchLabel(b) {
+        let lab = mmdLabel(b.label || b.when || '');
+        if (b.statusTo != null) lab += ` → ${b.statusTo}`;
+        return lab;
+      }
+
+      function phaseNoteLabel(node) {
+        const base = mmdLabel(node.processLabel || node.title || '');
+        const who = node.processWho ? ` (${mmdLabel(node.processWho)})` : '';
+        return base + who;
+      }
+
+      function emitSequence(step) {
+        const node = step.node;
+        const rgb = TONE_RGB[node.tone] || TONE_RGB.slate;
+        const span = noteSpan(node.messages, m.actors, 'App');
+        lines.push(`  rect rgb(${rgb})`);
+        lines.push(`  Note over ${span}: ${phaseNoteLabel(node)}`);
+        for (const msg of node.messages || []) pushMsg(msg);
+        for (const e of node.effects || []) {
+          if (e.statusTo != null) {
+            lines.push(`  Note over App: status ${e.statusTo} - ${mmdLabel(e.label)}`);
+          } else if (e.label) {
+            lines.push(`  Note over App: ${mmdLabel(e.label)}`);
+          }
+        }
+        lines.push('  end');
+        lines.push('');
+      }
+
+      function emitEnd(step) {
+        const label = mmdLabel(step.node.processLabel || step.node.title);
+        const span = endNoteSpan(m.actors);
+        if (step.node.tone === 'green') {
+          lines.push(`  rect rgb(${TONE_RGB.green})`);
+          lines.push(`  Note over ${span}: ${label}`);
+          lines.push('  end');
+        } else if (step.node.tone === 'rose') {
+          lines.push(`  rect rgb(${TONE_RGB.rose})`);
+          lines.push(`  Note over ${span}: ${label}`);
+          lines.push('  end');
+        } else {
+          lines.push(`  Note over App: ${label}`);
+        }
+        lines.push('');
+      }
+
+      function emitLoop(step) {
+        const title = mmdLabel(step.node?.title || step.node?.processLabel || 'passo anterior');
+        if (step.truncated) {
+          lines.push(`  Note over App: … truncado (${title})`);
+        } else if (step.node?.type === 'decision') {
+          lines.push(`  Note over App: ↺ corrige e revalida (${title})`);
+        } else {
+          lines.push(`  Note over App: ↺ volta a (${title})`);
+        }
+        lines.push('');
+      }
+
+      function emitDecision(step) {
+        const panels = step.branchPanels || [];
+        if (!panels.length) return;
+
+        const q = mmdLabel(step.node.processLabel || step.node.question || step.node.title || '');
+        const actor = (m.actors || []).find((a) => a.id === step.node.actor);
+        const who = mmdLabel(actor?.label || step.node.processWho || '');
+        const span = step.node.actor
+          ? noteSpan(
+              [{ from: step.node.actor, to: 'App' }, { from: 'App', to: step.node.actor }],
+              m.actors,
+              'App',
+            )
+          : 'App';
+        if (q) {
+          lines.push(`  Note over ${span}: ◆ ${q}${who ? ` (${who})` : ''}`);
+        }
+
+        panels.forEach((panel, i) => {
+          const cond = branchLabel(panel.branch);
+          if (i === 0) lines.push(`  alt ${cond}`);
+          else lines.push(`  else ${cond}`);
+          emitChain(panel.chain);
+        });
+        lines.push('  end');
+        lines.push('');
+      }
+
+      function emitChain(chain) {
+        for (const step of chain) {
+          if (step.kind === 'sequence') emitSequence(step);
+          else if (step.kind === 'decision') emitDecision(step);
+          else if (step.kind === 'end') emitEnd(step);
+          else if (step.kind === 'loop-ref') emitLoop(step);
+        }
+      }
+
+      emitChain(walkLayout(m));
+      return lines.join('\n');
+    }
+
+    function clearFontOverrides(el) {
+      if (!el) return;
+      el.removeAttribute('font-weight');
+      el.removeAttribute('font-size');
+      if (el.style) {
+        el.style.removeProperty('font-weight');
+        el.style.removeProperty('font-size');
+      }
+    }
+
+    /**
+     * Polish mínimo da sequência (sem fundos de painel / sem níveis).
+     * - canto alt → ◇
+     * - moldura .loopLine sólida slate
+     * - nota de pergunta ◆ → ◇ (mesmo padrão Mermaid, sem barra/nível)
+     * - lifelines estendidas atrás do conteúdo
+     */
+    function polishSequenceSvg(host) {
+      const svg = host.querySelector('svg');
+      if (!svg) return;
+      if (svg.dataset.sequencePolished === '1') return;
+      svg.dataset.sequencePolished = '1';
+
+      // remove restos de experimentos de fill/nível, se houver
+      svg.querySelectorAll('[data-alt-fill], [data-else-overlay], [data-decision-bar]').forEach((n) => n.remove());
+
+      svg.querySelectorAll('text').forEach((t) => {
+        const v = (t.textContent || '').trim();
+        if (v === 'alt' || v === '◇ decisão' || v.startsWith('◇ decis')) {
+          t.textContent = '◇';
+          t.setAttribute('fill', '#64748b');
+          clearFontOverrides(t);
+        }
+      });
+
+      svg.querySelectorAll('.loopLine, path.loopLine, line.loopLine, rect.loopLine').forEach((el) => {
+        el.setAttribute('stroke', '#64748b');
+        el.setAttribute('stroke-width', '1.75');
+        el.setAttribute('stroke-dasharray', '0');
+        el.setAttribute('fill', 'none');
+      });
+
+      // Pergunta de decisão: só normaliza ◆ → ◇; sem fundo especial de “nível”
+      svg.querySelectorAll('text').forEach((textEl) => {
+        let raw = (textEl.textContent || '').trim().replace(/\u00a0/g, ' ');
+        if (!/^[◆◇]/.test(raw) || raw === '◇' || raw === '◆') return;
+        const body = raw.replace(/^[◆◇]\s*/, '');
+        textEl.textContent = `◇ ${body}`;
+        clearFontOverrides(textEl);
+      });
+
+      extendActorLifelines(svg);
+    }
+
+    /**
+     * Estende e reordena SOMENTE lifelines reais (nunca .loopLine do alt).
+     * mirrorActors já alonga bastante; reforçamos se o conteúdo passar da base.
+     */
+    function extendActorLifelines(svg) {
+      const lifelines = [
+        ...svg.querySelectorAll('line.actor-line'),
+        ...svg.querySelectorAll('line[data-et="life-line"]'),
+      ].filter((line, i, arr) => arr.indexOf(line) === i)
+        .filter((line) => !line.classList?.contains('loopLine'))
+        .filter((line) => !(line.getAttribute('class') || '').includes('loopLine'));
+
+      if (!lifelines.length) return;
+
+      let maxY = 0;
+      svg.querySelectorAll('*').forEach((el) => {
+        try {
+          if (typeof el.getBBox !== 'function') return;
+          if (el.tagName === 'line' && (
+            el.classList?.contains('actor-line')
+            || el.getAttribute('data-et') === 'life-line'
+          )) return;
+          const b = el.getBBox();
+          if (!b || !isFinite(b.y)) return;
+          maxY = Math.max(maxY, b.y + b.height);
+        } catch (_) { /* ignore */ }
+      });
+      if (!maxY) return;
+
+      const bottom = maxY + 12;
+      for (const line of lifelines) {
+        const y1 = parseFloat(line.getAttribute('y1') || '0');
+        const y2 = parseFloat(line.getAttribute('y2') || '0');
+        const top = Math.min(y1, y2);
+        line.setAttribute('y1', String(top));
+        if (bottom > Math.max(y1, y2)) line.setAttribute('y2', String(bottom));
+        line.setAttribute('stroke', '#94a3b8');
+        line.setAttribute('stroke-width', '1.25');
+        line.setAttribute('stroke-dasharray', '5 5');
+        line.setAttribute('stroke-opacity', '0.55');
+        line.style.pointerEvents = 'none';
+      }
+
+      // Colocar lifelines no FUNDO do SVG (depois de <defs>)
+      const defs = svg.querySelector('defs');
+      let ref = defs ? defs.nextSibling : svg.firstChild;
+      for (let i = lifelines.length - 1; i >= 0; i--) {
+        svg.insertBefore(lifelines[i], ref);
+        ref = lifelines[i];
+      }
+
+      const vb = svg.viewBox?.baseVal;
+      if (vb && bottom > vb.height - 4) {
+        const newH = Math.ceil(bottom + 28);
+        svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.width} ${newH}`);
+        const h = parseFloat(svg.getAttribute('height') || String(newH));
+        if (h < newH) svg.setAttribute('height', String(Math.round(newH * 1.05)));
+      }
+    }
+
+    // ─── Render: Flow (Mermaid LR from model) ──────────────────────
+
+    /** Rótulo de negócio para o PO — nunca IDs técnicos (S1, D1…). */
+    function processLabel(node) {
+      if (!node) return '';
+      if (node.type === 'decision') {
+        return mmdLabel(node.processLabel || node.question || node.title || '');
+      }
+      return mmdLabel(node.processLabel || node.title || '');
+    }
+
+    function branchEdgeLabel(b) {
+      // Curto e legível na seta (sem when técnico)
+      return mmdLabel((b.label || b.when || '').replace(/·/g, '-'));
+    }
+
+    function buildFlowMermaid(m) {
+      // Visão macro para validação com PO: só linguagem de negócio.
+      // IDs Mermaid internos = chaves do JSON (invisíveis no rótulo).
+      const lines = [
+        'flowchart LR',
+        '  %% Fonte: fluxo-sugestao.json · rótulos = processLabel (sem códigos S/D)',
+      ];
+      for (const [id, node] of Object.entries(m.nodes)) {
+        const who = node.processWho ? `\\n(${mmdLabel(node.processWho)})` : '';
+        if (node.type === 'sequence') {
+          lines.push(`  ${id}["${processLabel(node)}${who}"]`);
+        } else if (node.type === 'decision') {
+          lines.push(`  ${id}{"${processLabel(node)}${who}"}`);
+        } else if (node.type === 'end') {
+          lines.push(`  ${id}((${processLabel(node)}))`);
+        }
+      }
+      for (const [id, node] of Object.entries(m.nodes)) {
+        if (node.type === 'sequence' && node.next) {
+          if (node.loop) lines.push(`  ${id} -->|revalida| ${node.next}`);
+          else lines.push(`  ${id} --> ${node.next}`);
+        }
+        if (node.type === 'decision') {
+          for (const b of node.branches) {
+            lines.push(`  ${id} -->|${branchEdgeLabel(b)}| ${b.next}`);
+          }
+        }
+      }
+      // Fins: verde = sucesso/funil · rose/red = recusa/sem funil (significado semântico)
+      lines.push('  classDef blue fill:#eff6ff,stroke:#2563eb,color:#0f172a');
+      lines.push('  classDef rose fill:#fff1f2,stroke:#e11d48,color:#9f1239');
+      lines.push('  classDef green fill:#ecfdf5,stroke:#059669,color:#065f46');
+      lines.push('  classDef violet fill:#f5f3ff,stroke:#7c3aed,color:#0f172a');
+      lines.push('  classDef sky fill:#f0f9ff,stroke:#0284c7,color:#0f172a');
+      lines.push('  classDef slate fill:#f8fafc,stroke:#64748b,color:#0f172a');
+      lines.push('  classDef endOk fill:#059669,stroke:#047857,color:#ffffff');
+      lines.push('  classDef endBad fill:#e11d48,stroke:#be123c,color:#ffffff');
+      lines.push('  classDef endn fill:#0f172a,stroke:#0f172a,color:#fff');
+      lines.push('  classDef dec fill:#fffbeb,stroke:#d97706,color:#0f172a');
+      for (const [id, node] of Object.entries(m.nodes)) {
+        if (node.type === 'decision') {
+          lines.push(`  class ${id} dec`);
+        } else if (node.type === 'end') {
+          if (node.tone === 'green') lines.push(`  class ${id} endOk`);
+          else if (node.tone === 'rose') lines.push(`  class ${id} endBad`);
+          else lines.push(`  class ${id} endn`);
+        } else if (node.tone && ['blue','rose','green','violet','sky','slate'].includes(node.tone)) {
+          lines.push(`  class ${id} ${node.tone}`);
+        }
+      }
+      return lines.join('\n');
+    }
+
+    // ─── Render: States (Mermaid from model) ───────────────────────
+    function buildStatesMermaid(m) {
+      const st = m.states;
+      const lines = ['stateDiagram-v2', '  direction LR'];
+      lines.push('  [*] --> ' + st.entry);
+      for (const [id, node] of Object.entries(st.nodes)) {
+        const status = node.status != null ? `\\nstatus ${node.status}` : '';
+        lines.push(`  state "${mmdLabel(node.label)}${status}" as ${id}`);
+      }
+      for (const t of st.transitions) {
+        const lab = mmdLabel(t.label || t.when || '');
+        lines.push(`  ${t.from} --> ${t.to}: ${lab}`);
+      }
+      lines.push('  nova --> [*]');
+      lines.push('  recusada --> [*]');
+      return lines.join('\n');
+    }
+
+    // ─── Mermaid helper ────────────────────────────────────────────
+    async function renderMermaidInto(host, code, key, gen) {
+      try {
+        const id = `mmd-${key}-${++mermaidIdSeq}`;
+        const { svg } = await mermaid.render(id, code);
+        if (gen != null && gen !== renderGen) return false; // stale
+        host.innerHTML = svg;
+        const s = host.querySelector('svg');
+        if (s) {
+          s.removeAttribute('style');
+          s.style.maxWidth = 'none';
+          s.style.width = 'auto';
+          s.style.height = 'auto';
+          s.style.display = 'block';
+          const vb = s.viewBox?.baseVal;
+          if (vb?.width && vb?.height) {
+            const factor = key === 'sequencia' ? 1.05 : 1.1;
+            s.setAttribute('width', String(Math.round(vb.width * factor)));
+            s.setAttribute('height', String(Math.round(vb.height * factor)));
+          }
+        }
+        if (key === 'sequencia') polishSequenceSvg(host);
+        return true;
+      } catch (e) {
+        if (gen != null && gen !== renderGen) return false;
+        host.innerHTML = `<pre class="err">${esc(String(e))}</pre>`;
+        return false;
+      }
+    }
+
+    // ─── Pan / zoom ────────────────────────────────────────────────
+    function naturalSize() {
+      const el = activeDiagramEl();
+      if (!el) return { w: 0, h: 0 };
+      return { w: el.offsetWidth, h: el.offsetHeight };
+    }
+    function activeDiagramEl() {
+      return document.querySelector(`.diagram-panel[data-tab="${activeTab}"] .diagram`);
+    }
+    function applyStageGeometry() {
+      const vp = $('viewport');
+      const sizer = $('sizer');
+      const stage = $('stage');
+      const { w, h } = naturalSize();
+      if (!w || !h) return null;
+      const contentW = w + PAD * 2;
+      const contentH = h + PAD * 2;
+      const scaledW = contentW * scale;
+      const scaledH = contentH * scale;
+      const sizerW = Math.max(vp.clientWidth, Math.ceil(scaledW));
+      const sizerH = Math.max(vp.clientHeight, Math.ceil(scaledH));
+      sizer.style.width = `${sizerW}px`;
+      sizer.style.height = `${sizerH}px`;
+      const left = Math.max(0, (sizerW - scaledW) / 2);
+      const top = 0;
+      stage.style.left = `${left}px`;
+      stage.style.top = `${top}px`;
+      stage.style.transform = `scale(${scale})`;
+      $('zoom-label').textContent = `${Math.round(scale * 100)}%`;
+      return { left, top, scaledW, scaledH };
+    }
+    function centerHorizontally(scrollTop = 0) {
+      const vp = $('viewport');
+      const geo = applyStageGeometry();
+      if (!geo) return;
+      vp.scrollLeft = geo.scaledW > vp.clientWidth ? (geo.scaledW - vp.clientWidth) / 2 : 0;
+      vp.scrollTop = scrollTop;
+    }
+    function setScale(next, anchor = null) {
+      const prev = scale || 1;
+      scale = Math.min(MAX, Math.max(MIN, next));
+      const vp = $('viewport');
+      const stage = $('stage');
+      const prevLeft = parseFloat(stage.style.left) || 0;
+      const prevTop = parseFloat(stage.style.top) || 0;
+      let contentX, contentY, cx, cy;
+      if (anchor) {
+        const rect = vp.getBoundingClientRect();
+        cx = anchor.clientX - rect.left;
+        cy = anchor.clientY - rect.top;
+        contentX = (vp.scrollLeft + cx - prevLeft) / prev;
+        contentY = (vp.scrollTop + cy - prevTop) / prev;
+      } else {
+        contentX = (vp.scrollLeft + vp.clientWidth / 2 - prevLeft) / prev;
+        contentY = (vp.scrollTop + vp.clientHeight / 2 - prevTop) / prev;
+      }
+      const geo = applyStageGeometry();
+      if (!geo) return;
+      if (anchor) {
+        vp.scrollLeft = contentX * scale + geo.left - cx;
+        vp.scrollTop = contentY * scale + geo.top - cy;
+      } else {
+        vp.scrollLeft = contentX * scale + geo.left - vp.clientWidth / 2;
+        vp.scrollTop = contentY * scale + geo.top - vp.clientHeight / 2;
+      }
+    }
+    function fitToView() {
+      const vp = $('viewport');
+      const { w, h } = naturalSize();
+      if (!w || !h) return;
+      const fitX = (vp.clientWidth - 24) / (w + PAD * 2);
+      const fitY = (vp.clientHeight - 24) / (h + PAD * 2);
+      scale = Math.max(MIN, Math.min(MAX, Math.min(fitX, fitY, 1)));
+      centerHorizontally(0);
+    }
+    function resetZoom() {
+      scale = 1;
+      centerHorizontally(0);
+    }
+    function enablePanZoom() {
+      const vp = $('viewport');
+      let panning = false, ox = 0, oy = 0, sx = 0, sy = 0;
+      vp.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 && e.button !== 1) return;
+        panning = true;
+        ox = e.clientX; oy = e.clientY;
+        sx = vp.scrollLeft; sy = vp.scrollTop;
+        vp.setPointerCapture(e.pointerId);
+        vp.classList.add('is-panning');
+        e.preventDefault();
+      });
+      vp.addEventListener('pointermove', (e) => {
+        if (!panning) return;
+        vp.scrollLeft = sx - (e.clientX - ox);
+        vp.scrollTop = sy - (e.clientY - oy);
+      });
+      const end = (e) => {
+        if (!panning) return;
+        panning = false;
+        vp.classList.remove('is-panning');
+        try { vp.releasePointerCapture(e.pointerId); } catch (_) {}
+      };
+      vp.addEventListener('pointerup', end);
+      vp.addEventListener('pointercancel', end);
+      vp.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          setScale(scale + (e.deltaY > 0 ? -STEP : STEP), e);
+        }
+      }, { passive: false });
+      window.addEventListener('keydown', (e) => {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        if (e.key === '=' || e.key === '+') { e.preventDefault(); setScale(scale + STEP); }
+        if (e.key === '-') { e.preventDefault(); setScale(scale - STEP); }
+        if (e.key === '0') { e.preventDefault(); resetZoom(); }
+      });
+    }
+
+    // ─── Tabs ──────────────────────────────────────────────────────
+    const TAB_META = {
+      sequencia: {
+        hint: 'Sequência contínua · decisões UML (alt/else) · ramos exclusivos · N2 sem cancel/timeout',
+      },
+      fluxo: {
+        hint: 'Visão macro para o PO · 3 decisões (validar envio, editar, aceitar/recusar) · só linguagem de negócio',
+      },
+      estados: {
+        hint: 'Máquina de status gerada do mesmo JSON · 10 pendente → 1 / 11',
+      },
+    };
+
+    async function renderTab(tabId) {
+      const panel = document.querySelector(`.diagram-panel[data-tab="${tabId}"]`);
+      const host = panel?.querySelector('.diagram');
+      if (!host || !MODEL) return;
+      if (rendered.has(tabId) && host.childElementCount && !host.querySelector('.err')) return;
+
+      // se só tinha erro, permitir retry
+      if (host.querySelector('.err')) rendered.delete(tabId);
+
+      const gen = renderGen;
+      host.classList.remove('is-html');
+      let ok = false;
+      if (tabId === 'sequencia') {
+        ok = await renderMermaidInto(host, buildSequenceMermaid(MODEL), 'sequencia', gen);
+      } else if (tabId === 'fluxo') {
+        ok = await renderMermaidInto(host, buildFlowMermaid(MODEL), 'fluxo', gen);
+      } else if (tabId === 'estados') {
+        ok = await renderMermaidInto(host, buildStatesMermaid(MODEL), 'estados', gen);
+      }
+      if (ok && gen === renderGen) rendered.add(tabId);
+      else if (!ok) rendered.delete(tabId);
+    }
+
+    async function switchTab(tabId) {
+      if (!TAB_META[tabId]) return;
+      activeTab = tabId;
+      renderGen += 1;
+      document.querySelectorAll('[data-tab-btn]').forEach((b) => {
+        const on = b.getAttribute('data-tab-btn') === tabId;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.setAttribute('tabindex', on ? '0' : '-1');
+      });
+      document.querySelectorAll('.diagram-panel').forEach((p) => {
+        const on = p.getAttribute('data-tab') === tabId;
+        p.hidden = !on;
+        p.setAttribute('aria-hidden', on ? 'false' : 'true');
+      });
+      $('tab-hint').textContent = TAB_META[tabId].hint;
+      await renderTab(tabId);
+      // Padrão: 100% (não encolher com fit). "Ajustar" continua no botão da toolbar.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resetZoom());
+      });
+      history.replaceState(null, '', `#${tabId}`);
+    }
+
+    function showValidation(result) {
+      const el = $('val-status');
+      if (!el) return;
+      if (result.ok) {
+        el.className = 'val ok';
+        el.textContent = result.warnings.length
+          ? `Grafo OK · ${result.warnings.length} aviso(s)`
+          : 'Grafo válido · pronto para validação por IA';
+        el.title = result.warnings.join('\n') || MODEL.flowId;
+      } else {
+        el.className = 'val bad';
+        el.textContent = `Grafo inválido · ${result.errors.length} erro(s)`;
+        el.title = result.errors.join('\n');
+      }
+    }
+
+    // ─── Boot ──────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', async () => {
+      $('btn-in').addEventListener('click', () => setScale(scale + STEP));
+      $('btn-out').addEventListener('click', () => setScale(scale - STEP));
+      $('btn-reset').addEventListener('click', resetZoom);
+      $('btn-fit').addEventListener('click', fitToView);
+      document.querySelectorAll('[data-tab-btn]').forEach((b) => {
+        b.addEventListener('click', () => switchTab(b.getAttribute('data-tab-btn')));
+      });
+      enablePanZoom();
+
+      try {
+        MODEL = await loadModel();
+        const result = validateModel(MODEL);
+        showValidation(result);
+        window.__FLUXO_MODEL__ = MODEL;
+        window.__FLUXO_VALIDATE__ = () => validateModel(MODEL);
+        if (!result.ok) {
+          console.error('fluxo-sugestao.json inválido', result.errors);
+          const host = document.querySelector('.diagram-panel[data-tab="sequencia"] .diagram');
+          if (host) {
+            host.innerHTML = `<pre class="err">Grafo inválido — correção necessária antes de renderizar.\n\n${esc(result.errors.join('\n'))}</pre>`;
+          }
+          return;
+        }
+        const hash = (location.hash || '#sequencia').slice(1);
+        await switchTab(TAB_META[hash] ? hash : 'sequencia');
+      } catch (e) {
+        $('val-status').className = 'val bad';
+        $('val-status').textContent = String(e.message || e);
+        document.querySelector('.diagram-panel[data-tab="sequencia"] .diagram').innerHTML =
+          `<pre class="err">${esc(String(e))}</pre>`;
+      }
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --surface: #fff;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --soft: #334155;
+      --line: #e2e8f0;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%; overflow: hidden;
+      font-family: var(--font); color: var(--ink); background: var(--bg);
+    }
+    .app { display: grid; grid-template-rows: auto 1fr; height: 100%; min-height: 100vh; }
+
+    .top {
+      z-index: 20;
+      background: rgba(255,255,255,.96);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      padding: .55rem 1rem .5rem;
+      display: flex; flex-direction: column; gap: .45rem;
+    }
+    .top-row {
+      display: flex; flex-wrap: wrap; gap: .55rem 1rem;
+      align-items: center; justify-content: space-between;
+    }
+    .brand strong { display: block; font-size: .95rem; letter-spacing: -.02em; }
+    .brand span { font-size: .72rem; color: var(--muted); }
+
+    .tabs { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+    .tabs button {
+      appearance: none; border: 1px solid var(--line); background: #f8fafc;
+      color: var(--soft); font: inherit; font-size: .78rem; font-weight: 650;
+      padding: .42rem .85rem; border-radius: 999px; cursor: pointer;
+    }
+    .tabs button:hover { border-color: #94a3b8; }
+    .tabs button.is-active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .tabs .tab-meta {
+      font-size: .68rem; font-weight: 600; color: var(--muted); margin-left: .15rem;
+    }
+    .tabs button.is-active .tab-meta { color: #cbd5e1; }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+    .toolbar button, .toolbar a {
+      appearance: none; border: 1px solid var(--line); background: var(--surface);
+      color: var(--soft); font: inherit; font-size: .76rem; font-weight: 650;
+      padding: .38rem .65rem; border-radius: 999px; cursor: pointer; text-decoration: none;
+    }
+    .toolbar button:hover, .toolbar a:hover { border-color: #94a3b8; }
+    .toolbar button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .toolbar .zoom {
+      min-width: 3.2rem; text-align: center; font-variant-numeric: tabular-nums;
+      color: var(--muted); font-size: .76rem; font-weight: 700; padding: 0 .3rem;
+    }
+
+    .hint-bar {
+      font-size: .72rem; color: var(--muted);
+      display: flex; flex-wrap: wrap; gap: .3rem 1rem; align-items: center;
+    }
+    .hint-bar strong { color: var(--soft); font-weight: 650; }
+    .hint-bar kbd {
+      font-family: ui-monospace, Menlo, monospace; font-size: .66rem;
+      background: #f1f5f9; border: 1px solid var(--line); border-radius: 4px; padding: .05rem .28rem;
+    }
+    .val {
+      font-size: .7rem; font-weight: 700; padding: .2rem .55rem; border-radius: 999px;
+      border: 1px solid var(--line);
+    }
+    .val.ok { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+    .val.bad { background: #fff1f2; color: #9f1239; border-color: #fecdd3; }
+
+    #viewport {
+      position: relative; overflow: auto; overscroll-behavior: contain;
+      background:
+        radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0) 0 0 / 22px 22px,
+        #f8fafc;
+      cursor: grab; scrollbar-gutter: stable both-edges;
+    }
+    #viewport.is-panning { cursor: grabbing; user-select: none; }
+    #sizer { position: relative; min-width: 100%; min-height: 100%; }
+    #stage {
+      position: absolute; top: 0; left: 0;
+      transform-origin: 0 0; will-change: transform; padding: 40px;
+    }
+    .diagram-panel { display: inline-block; }
+    .diagram-panel[hidden] { display: none !important; }
+    .diagram {
+      display: inline-block; background: #fff; border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 16px 40px rgba(15,23,42,.08);
+      padding: 1.1rem 1.25rem;
+    }
+    .diagram.is-html { padding: 0; overflow: hidden; }
+    .diagram svg { display: block; max-width: none !important; }
+    .err {
+      margin: 0; padding: 1rem; color: #9f1239; white-space: pre-wrap;
+      font-size: .85rem; max-width: 70ch;
+    }
+
+    /* Sequence: moldura alt simples (sem fill de nível) */
+    .diagram svg .loopLine {
+      stroke: #64748b !important;
+      stroke-width: 1.75px !important;
+      stroke-dasharray: 0 !important;
+      fill: none !important;
+    }
+    .diagram svg line.actor-line,
+    .diagram svg line[data-et="life-line"] {
+      stroke: #94a3b8 !important;
+      stroke-opacity: 0.55 !important;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="top-row">
+        <div class="brand">
+          <strong>Fluxo completo · interface</strong>
+          <span>Fonte canônica <code>fluxo-sugestao.json</code> · três projeções · pan/zoom · N2</span>
+        </div>
+
+        <nav class="tabs" role="tablist" aria-label="Tipo de diagrama">
+          <button type="button" role="tab" id="tab-btn-sequencia" data-tab-btn="sequencia"
+            class="is-active" aria-selected="true" aria-controls="panel-sequencia" tabindex="0">
+            Sequência
+          </button>
+          <button type="button" role="tab" id="tab-btn-fluxo" data-tab-btn="fluxo"
+            aria-selected="false" aria-controls="panel-fluxo" tabindex="-1">
+            Fluxo do processo
+          </button>
+          <button type="button" role="tab" id="tab-btn-estados" data-tab-btn="estados"
+            aria-selected="false" aria-controls="panel-estados" tabindex="-1">
+            Estados
+            <span class="tab-meta">status</span>
+          </button>
+        </nav>
+
+        <div class="toolbar">
+          <button type="button" id="btn-out" title="Diminuir zoom">−</button>
+          <span class="zoom" id="zoom-label">100%</span>
+          <button type="button" id="btn-in" title="Aumentar zoom">+</button>
+          <button type="button" id="btn-fit" class="primary" title="Ajustar à tela">Ajustar</button>
+          <button type="button" id="btn-reset" title="100%">100%</button>
+          <a href="fluxo-sugestao.json" target="_blank" title="Modelo canônico">JSON</a>
+          <a href="fluxos-bpmn-interface.html" title="Visões legadas A/B/C">Partes A/B/C</a>
+          <a href="fluxos-usuario-sistema.html" title="Visão Nível 1 (não canônica para XOR)">Nível 1</a>
+        </div>
+      </div>
+
+      <div class="hint-bar">
+        <span class="val" id="val-status">Carregando grafo…</span>
+        <span><strong id="tab-hint">Tronco + portões XOR coloridos</strong></span>
+        <span>Arrastar = pan · <kbd>Ctrl</kbd>+scroll = zoom</span>
+        <span>Ramos = exclusivos · status só em notas/ramos · sem cancel/timeout nesta projeção N2</span>
+      </div>
+    </header>
+
+    <div id="viewport" title="Arraste para navegar · Ctrl+scroll para zoom">
+      <div id="sizer">
+        <div id="stage">
+          <div class="diagram-panel" role="tabpanel" id="panel-sequencia" data-tab="sequencia"
+            aria-labelledby="tab-btn-sequencia" aria-hidden="false">
+            <div class="diagram" aria-label="Diagrama de sequência"></div>
+          </div>
+          <div class="diagram-panel" role="tabpanel" id="panel-fluxo" data-tab="fluxo" hidden
+            aria-labelledby="tab-btn-fluxo" aria-hidden="true">
+            <div class="diagram" aria-label="Diagrama de fluxo do processo"></div>
+          </div>
+          <div class="diagram-panel" role="tabpanel" id="panel-estados" data-tab="estados" hidden
+            aria-labelledby="tab-btn-estados" aria-hidden="true">
+            <div class="diagram" aria-label="Diagrama de estados do registro"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

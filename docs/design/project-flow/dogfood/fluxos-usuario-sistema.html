@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fluxos · Sugestão de necessidade PDTI</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      themeVariables: {
+        background: 'transparent',
+        primaryColor: '#e8f1ff',
+        primaryTextColor: '#0f172a',
+        primaryBorderColor: '#2563eb',
+        secondaryColor: '#ecfdf5',
+        secondaryTextColor: '#0f172a',
+        secondaryBorderColor: '#059669',
+        tertiaryColor: '#fff7ed',
+        tertiaryTextColor: '#0f172a',
+        tertiaryBorderColor: '#ea580c',
+        lineColor: '#64748b',
+        textColor: '#0f172a',
+        mainBkg: '#e8f1ff',
+        nodeBorder: '#2563eb',
+        clusterBkg: '#f8fafc',
+        clusterBorder: '#cbd5e1',
+        titleColor: '#0f172a',
+        edgeLabelBackground: '#ffffff',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+        fontSize: '14px',
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: 'basis',
+        padding: 20,
+        nodeSpacing: 36,
+        rankSpacing: 56,
+        diagramPadding: 12,
+      },
+      securityLevel: 'loose',
+    });
+
+    async function renderAll() {
+      const nodes = document.querySelectorAll('.diagram[data-mermaid]');
+      let i = 0;
+      for (const el of nodes) {
+        const code = el.getAttribute('data-mermaid');
+        const id = `mmd-${i++}`;
+        try {
+          const { svg } = await mermaid.render(id, code);
+          el.innerHTML = svg;
+          const svgEl = el.querySelector('svg');
+          if (svgEl) {
+            svgEl.removeAttribute('height');
+            svgEl.style.width = '100%';
+            svgEl.style.maxWidth = '100%';
+            svgEl.style.height = 'auto';
+          }
+        } catch (err) {
+          el.innerHTML = `<pre class="err">${String(err)}</pre>`;
+        }
+      }
+    }
+
+    function switchView(name) {
+      document.querySelectorAll('[data-view]').forEach((p) => {
+        p.hidden = p.getAttribute('data-view') !== name;
+      });
+      document.querySelectorAll('[data-nav]').forEach((b) => {
+        const on = b.getAttribute('data-nav') === name;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      history.replaceState(null, '', `#${name}`);
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.querySelectorAll('[data-nav]').forEach((b) => {
+        b.addEventListener('click', () => switchView(b.getAttribute('data-nav')));
+      });
+      const hash = (location.hash || '#jornada').slice(1);
+      const valid = ['jornada', 'getin', 'lider', 'sistema', 'excecoes'];
+      switchView(valid.includes(hash) ? hash : 'jornada');
+      await renderAll();
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --surface: #ffffff;
+      --ink: #0f172a;
+      --ink-soft: #334155;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --line-strong: #cbd5e1;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --blue-mid: #dbeafe;
+      --green: #059669;
+      --green-soft: #ecfdf5;
+      --amber: #d97706;
+      --amber-soft: #fffbeb;
+      --rose: #e11d48;
+      --rose-soft: #fff1f2;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.06);
+      --radius: 18px;
+      --radius-sm: 12px;
+      --max: 1120px;
+      --header-h: 72px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--ink);
+      background:
+        radial-gradient(900px 420px at 0% -10%, #dbeafe88, transparent 55%),
+        radial-gradient(700px 360px at 100% 0%, #d1fae588, transparent 50%),
+        var(--bg);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* —— header —— */
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      backdrop-filter: saturate(1.2) blur(14px);
+      background: rgba(244, 246, 249, 0.82);
+      border-bottom: 1px solid var(--line);
+    }
+    .top-inner {
+      width: min(var(--max), calc(100% - 2rem));
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+    .brand strong {
+      font-size: 0.98rem;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+    }
+    .brand span {
+      font-size: 0.78rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tabs {
+      display: flex;
+      gap: 0.35rem;
+      padding: 0.28rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+      overflow-x: auto;
+      max-width: 100%;
+    }
+    .tabs button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: 0.15s ease;
+    }
+    .tabs button:hover { color: var(--ink); background: var(--bg); }
+    .tabs button.is-active {
+      color: #fff;
+      background: var(--ink);
+    }
+
+    /* —— layout —— */
+    main {
+      width: min(var(--max), calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 1.5rem 0 3.5rem;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; }
+      .tabs { border-radius: 14px; }
+    }
+
+    .hero-card, .canon-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .hero-card {
+      padding: 1.35rem 1.4rem 1.25rem;
+    }
+    .hero-card .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--blue);
+      background: var(--blue-soft);
+      border: 1px solid var(--blue-mid);
+      padding: 0.28rem 0.6rem;
+      border-radius: 999px;
+      margin-bottom: 0.85rem;
+    }
+    .hero-card h1 {
+      margin: 0 0 0.55rem;
+      font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+    }
+    .hero-card p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 0.95rem;
+      max-width: 52ch;
+    }
+
+    .canon-card {
+      padding: 1rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+    .canon-card h2 {
+      margin: 0;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .canon-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .canon-list li {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 0.65rem;
+      align-items: start;
+      font-size: 0.88rem;
+      color: var(--ink-soft);
+    }
+    .canon-list .n {
+      width: 28px;
+      height: 28px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--blue);
+      background: var(--blue-soft);
+      border: 1px solid var(--blue-mid);
+    }
+    .canon-list strong {
+      display: block;
+      color: var(--ink);
+      font-size: 0.88rem;
+      margin-bottom: 0.05rem;
+    }
+
+    /* —— panels —— */
+    .panel[hidden] { display: none !important; }
+    .panel-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 0.75rem 1.25rem;
+      margin: 0.35rem 0 1rem;
+    }
+    .panel-head h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .panel-head p {
+      margin: 0.25rem 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      max-width: 60ch;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .chip {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 0.32rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--muted);
+    }
+    .chip.blue { background: var(--blue-soft); border-color: var(--blue-mid); color: var(--blue); }
+    .chip.green { background: var(--green-soft); border-color: #a7f3d0; color: var(--green); }
+    .chip.amber { background: var(--amber-soft); border-color: #fde68a; color: var(--amber); }
+    .chip.rose { background: var(--rose-soft); border-color: #fecdd3; color: var(--rose); }
+
+    .diagram-shell {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .diagram-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fbfcfe, #f8fafc);
+    }
+    .diagram-toolbar .title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--ink-soft);
+    }
+    .diagram-toolbar .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .diagram {
+      padding: 1.25rem 1rem 1.5rem;
+      min-height: 280px;
+      overflow-x: auto;
+      background:
+        linear-gradient(90deg, transparent 49%, #f1f5f9 50%, transparent 51%),
+        linear-gradient(transparent 49%, #f1f5f9 50%, transparent 51%);
+      background-size: 24px 24px;
+    }
+    .diagram svg { display: block; margin: 0 auto; }
+    .diagram .err {
+      color: var(--rose);
+      white-space: pre-wrap;
+      font-size: 0.85rem;
+      padding: 1rem;
+    }
+
+    /* —— journey rail (custom, not mermaid) —— */
+    .journey {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      position: relative;
+      padding: 0.25rem;
+    }
+    @media (max-width: 900px) {
+      .journey { grid-template-columns: 1fr; gap: 0.75rem; }
+      .journey::before { display: none; }
+    }
+    .journey::before {
+      content: "";
+      position: absolute;
+      top: 42px;
+      left: 12%;
+      right: 12%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--green));
+      opacity: 0.35;
+      z-index: 0;
+    }
+    .j-step {
+      position: relative;
+      z-index: 1;
+      padding: 0.85rem;
+      text-align: center;
+    }
+    .j-step .badge {
+      width: 42px;
+      height: 42px;
+      margin: 0 auto 0.7rem;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 0.9rem;
+      color: #fff;
+      background: var(--blue);
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+    }
+    .j-step:nth-child(2) .badge { background: #0ea5e9; }
+    .j-step:nth-child(3) .badge { background: var(--green); box-shadow: 0 8px 18px rgba(5,150,105,0.22); }
+    .j-step:nth-child(4) .badge { background: #0f766e; }
+    .j-step h3 {
+      margin: 0 0 0.35rem;
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+    }
+    .j-step p {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .j-step .who {
+      display: inline-block;
+      margin-top: 0.55rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--blue);
+      background: var(--blue-soft);
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+    }
+    .j-step:nth-child(3) .who { color: var(--green); background: var(--green-soft); }
+    .j-step:nth-child(4) .who { color: #0f766e; background: #ccfbf1; }
+
+    /* —— dual columns —— */
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    @media (max-width: 860px) {
+      .split { grid-template-columns: 1fr; }
+    }
+    .mini {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.05rem;
+    }
+    .mini h3 {
+      margin: 0 0 0.65rem;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .mini ol {
+      margin: 0;
+      padding: 0 0 0 1.1rem;
+      color: var(--ink-soft);
+      font-size: 0.88rem;
+    }
+    .mini li { margin: 0.35rem 0; padding-left: 0.15rem; }
+    .mini li::marker { font-weight: 700; color: var(--blue); }
+
+    /* —— exception grid —— */
+    .ex-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+    }
+    @media (max-width: 700px) {
+      .ex-grid { grid-template-columns: 1fr; }
+    }
+    .ex {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.05rem;
+      border-left: 4px solid var(--rose);
+    }
+    .ex h3 {
+      margin: 0 0 0.35rem;
+      font-size: 0.92rem;
+    }
+    .ex p {
+      margin: 0;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+    .ex .sys {
+      margin-top: 0.55rem;
+      font-size: 0.82rem;
+      color: var(--ink-soft);
+    }
+    .ex .sys strong { color: var(--rose); }
+
+    /* —— table —— */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-top: 1rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+    }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child {
+      font-weight: 700;
+      color: var(--blue);
+      white-space: nowrap;
+      width: 7.5rem;
+    }
+
+    footer {
+      width: min(var(--max), calc(100% - 2rem));
+      margin: 0 auto 2rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    footer code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.74rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      padding: 0.1rem 0.35rem;
+      border-radius: 5px;
+    }
+
+    @media print {
+      .top { position: static; }
+      .tabs { display: none; }
+      .panel[hidden] { display: block !important; break-inside: avoid; page-break-inside: avoid; }
+      .panel { margin-bottom: 2rem; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div class="brand">
+        <strong>Sugestão de necessidade PDTI</strong>
+        <span>Nível 1 · processo de negócio · <em>não canônico para XOR/status</em> ·
+          <a href="fluxos-bpmn-interface.html" style="color:inherit;font-weight:650">N2 partes</a>
+          ·
+          <a href="fluxo-completo.html" style="color:inherit;font-weight:650">canônico · fluxo completo</a>
+        </span>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="Vistas do fluxo">
+        <button type="button" data-nav="jornada" class="is-active" role="tab" aria-selected="true">Jornada</button>
+        <button type="button" data-nav="getin" role="tab">GETIN</button>
+        <button type="button" data-nav="lider" role="tab">Líder</button>
+        <button type="button" data-nav="sistema" role="tab">Sistema</button>
+        <button type="button" data-nav="excecoes" role="tab">Exceções</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Canon: single source of truth for all views -->
+    <div class="hero">
+      <article class="hero-card">
+        <div class="eyebrow">Nível 1 · visão de negócio (não canônica para XOR)</div>
+        <h1>Um processo, quatro marcos, três papéis</h1>
+        <p>
+          Vistas de jornada por papel. O líder <strong>pode editar</strong> antes de aceitar ou recusar.
+          Para decisões XOR, status 10/1/11 e sequência canônica, use o
+          <a href="fluxo-completo.html"><strong>fluxo completo</strong></a>
+          (<a href="fluxo-sugestao.json">JSON</a>).
+        </p>
+      </article>
+      <aside class="canon-card">
+        <h2>Cânone (fonte única)</h2>
+        <ol class="canon-list">
+          <li>
+            <span class="n">1</span>
+            <div>
+              <strong>Sugerir</strong>
+              GETIN cria a sugestão para uma área com gestor definido.
+            </div>
+          </li>
+          <li>
+            <span class="n">2</span>
+            <div>
+              <strong>Avisar</strong>
+              Sistema notifica o líder com resumo e link de validação.
+            </div>
+          </li>
+          <li>
+            <span class="n">3</span>
+            <div>
+              <strong>Decidir</strong>
+              Líder (opcionalmente) edita, depois aceita ou recusa.
+            </div>
+          </li>
+          <li>
+            <span class="n">4</span>
+            <div>
+              <strong>Seguir</strong>
+              Se aceita → funil normal com a área-alvo; se recusa → GETIN avisada.
+            </div>
+          </li>
+        </ol>
+      </aside>
+    </div>
+
+    <!-- ========== VIEW: Jornada ========== -->
+    <section class="panel" data-view="jornada" role="tabpanel">
+      <div class="panel-head">
+        <div>
+          <h2>Jornada ponta a ponta</h2>
+          <p>Mapa mestre do processo. Use as abas para detalhar cada papel — o conteúdo não muda de regra.</p>
+        </div>
+        <div class="chips">
+          <span class="chip blue">GETIN</span>
+          <span class="chip green">Líder</span>
+          <span class="chip amber">Sistema</span>
+        </div>
+      </div>
+
+      <div class="diagram-shell">
+        <div class="diagram-toolbar">
+          <span class="title">Linha do tempo · 4 marcos</span>
+          <span class="hint">Fonte canônica compartilhada com as outras abas</span>
+        </div>
+        <div class="journey">
+          <div class="j-step">
+            <div class="badge">1</div>
+            <h3>Sugerir</h3>
+            <p>GETIN preenche área, problema e justificativa e envia.</p>
+            <span class="who">GETIN + Sistema</span>
+          </div>
+          <div class="j-step">
+            <div class="badge">2</div>
+            <h3>Avisar</h3>
+            <p>E-mail em texto simples com o conteúdo e o botão Validar.</p>
+            <span class="who">Sistema → Líder</span>
+          </div>
+          <div class="j-step">
+            <div class="badge">3</div>
+            <h3>Decidir</h3>
+            <p>Líder revisa, pode editar, aceita (adota) ou recusa.</p>
+            <span class="who">Líder + Sistema</span>
+          </div>
+          <div class="j-step">
+            <div class="badge">4</div>
+            <h3>Seguir</h3>
+            <p>Aceite → fluxo PDTI normal. Recusa → notifica GETIN e encerra.</p>
+            <span class="who">Sistema + GETIN</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="diagram-shell" style="margin-top:1rem">
+        <div class="diagram-toolbar">
+          <span class="title">Diagrama de sequência do processo</span>
+          <span class="hint">Mesmas regras da linha do tempo</span>
+        </div>
+        <div
+          class="diagram"
+          data-mermaid="flowchart TB
+  classDef person fill:#eff6ff,stroke:#2563eb,color:#0f172a,stroke-width:1.5px
+  classDef system fill:#ecfdf5,stroke:#059669,color:#0f172a,stroke-width:1.5px
+  classDef decision fill:#fffbeb,stroke:#d97706,color:#0f172a,stroke-width:1.5px
+  classDef endn fill:#f8fafc,stroke:#64748b,color:#0f172a,stroke-width:1.5px
+
+  G([Gerente GETIN]):::person
+  L([Líder da área]):::person
+
+  S1[Recebe e valida a sugestão]:::system
+  S2[Grava como pendente]:::system
+  S3[Envia e-mail ao líder]:::system
+  S4[Exige login e abre a tela]:::system
+  S5[Confirma que o líder pode decidir]:::system
+  ED{Líder edita o texto?}:::decision
+  S6[Salva ajustes permitidos]:::system
+  DEC{Aceitar ou recusar?}:::decision
+  S7[Adota: vira solicitação da área]:::system
+  S8[Recusa e registra motivo]:::system
+  S9[Notifica a GETIN]:::system
+  S10[Segue o funil normal PDTI]:::system
+  F1([Fim — fluxo GETIN]):::endn
+  F2([Fim — sugestão recusada]):::endn
+
+  G -->|Cria sugestão| S1 --> S2 --> S3
+  S3 -->|Avisa| L
+  L -->|Abre o link| S4 --> S5 --> ED
+  ED -->|Sim| S6 --> DEC
+  ED -->|Não| DEC
+  DEC -->|Aceitar| S7 --> S10 --> F1
+  DEC -->|Recusar| S8 --> S9 --> F2
+"></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Marco</th>
+              <th>Pessoa</th>
+              <th>Sistema</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1 · Sugerir</td>
+              <td>GETIN preenche e envia</td>
+              <td>Valida permissão, dados e gestor da área; grava pendente</td>
+              <td>Sugestão criada</td>
+            </tr>
+            <tr>
+              <td>2 · Avisar</td>
+              <td>Líder recebe o e-mail</td>
+              <td>Monta resumo em texto simples e envia o link</td>
+              <td>Líder informado</td>
+            </tr>
+            <tr>
+              <td>3 · Decidir</td>
+              <td>Líder revisa, pode editar, aceita ou recusa</td>
+              <td>Autentica, autoriza, aplica a decisão</td>
+              <td>Adotada ou recusada</td>
+            </tr>
+            <tr>
+              <td>4 · Seguir</td>
+              <td>GETIN retoma o funil (se aceita)</td>
+              <td>Mantém a área-alvo; notifica GETIN se recusa</td>
+              <td>Fluxo normal ou encerrado</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========== VIEW: GETIN ========== -->
+    <section class="panel" data-view="getin" role="tabpanel" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>Vista do gerente GETIN</h2>
+          <p>Somente o que a GETIN faz e vê. Criação da sugestão (marco 1) e, se houver recusa, o aviso (marco 4).</p>
+        </div>
+        <div class="chips">
+          <span class="chip blue">Papel: GETIN</span>
+          <span class="chip">Marcos 1 e 4</span>
+        </div>
+      </div>
+
+      <div class="diagram-shell">
+        <div class="diagram-toolbar">
+          <span class="title">Passos da GETIN</span>
+          <span class="hint">Inclui retorno de erro sem inventar outro fluxo</span>
+        </div>
+        <div
+          class="diagram"
+          data-mermaid="flowchart LR
+  classDef step fill:#eff6ff,stroke:#2563eb,color:#0f172a,stroke-width:1.5px
+  classDef ok fill:#ecfdf5,stroke:#059669,color:#0f172a,stroke-width:1.5px
+  classDef bad fill:#fff1f2,stroke:#e11d48,color:#0f172a,stroke-width:1.5px
+  classDef q fill:#fffbeb,stroke:#d97706,color:#0f172a,stroke-width:1.5px
+
+  A1[Entra no sistema]:::step --> A2[Abre solicitações PDTI]:::step
+  A2 --> A3[Inicia: sugerir necessidade]:::step
+  A3 --> A4[Informa área, problema,<br/>descrição, justificativa<br/>e objetivos]:::step
+  A4 --> A5[Confirma envio]:::step
+  A5 --> A6{Aceito?}:::q
+  A6 -->|Sim| A7[Vê confirmação:<br/>líder será avisado]:::ok
+  A6 -->|Não| A8[Vê mensagem de erro<br/>ex.: área sem gestor]:::bad
+  A8 --> A4
+"></div>
+      </div>
+
+      <div class="split">
+        <div class="mini">
+          <h3><span class="chip blue">O que a GETIN fornece</span></h3>
+          <ol>
+            <li>Área de destino (com um gestor claro)</li>
+            <li>Problema, descrição e justificativa</li>
+            <li>Objetivos estratégicos (pelo menos um)</li>
+            <li>Tipo e custo, se quiser (opcional)</li>
+          </ol>
+        </div>
+        <div class="mini">
+          <h3><span class="chip green">O que a GETIN recebe de volta</span></h3>
+          <ol>
+            <li>Confirmação de criação, ou erro objetivo</li>
+            <li>Se o líder recusar: notificação com área, problema e motivo</li>
+            <li>Se o líder aceitar: a solicitação entra no funil normal</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== VIEW: Líder ========== -->
+    <section class="panel" data-view="lider" role="tabpanel" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>Vista do líder da área</h2>
+          <p>
+            Marcos 2 e 3. O líder <strong>sempre pode editar</strong> o conteúdo permitido
+            antes de aceitar ou recusar — isso é parte do mesmo fluxo da jornada.
+          </p>
+        </div>
+        <div class="chips">
+          <span class="chip green">Papel: Líder</span>
+          <span class="chip amber">Edição opcional</span>
+          <span class="chip">Marcos 2 e 3</span>
+        </div>
+      </div>
+
+      <div class="diagram-shell">
+        <div class="diagram-toolbar">
+          <span class="title">Do e-mail à decisão</span>
+          <span class="hint">Edição é opcional, mas existe em todas as vistas</span>
+        </div>
+        <div
+          class="diagram"
+          data-mermaid="flowchart TB
+  classDef step fill:#ecfdf5,stroke:#059669,color:#0f172a,stroke-width:1.5px
+  classDef q fill:#fffbeb,stroke:#d97706,color:#0f172a,stroke-width:1.5px
+  classDef ok fill:#eff6ff,stroke:#2563eb,color:#0f172a,stroke-width:1.5px
+  classDef endn fill:#f8fafc,stroke:#64748b,color:#0f172a,stroke-width:1.5px
+
+  B1[Recebe o e-mail]:::step --> B2[Lê o resumo da sugestão]:::step
+  B2 --> B3[Clica em Validar]:::step
+  B3 --> B4[Faz login se ainda não estiver autenticado]:::step
+  B4 --> B5[Vê a sugestão na tela]:::step
+  B5 --> B6{Quer ajustar o texto?}:::q
+  B6 -->|Sim| B7[Edita campos permitidos<br/>e salva]:::step
+  B7 --> B8
+  B6 -->|Não| B8{Decisão final}:::q
+  B8 -->|Aceitar| B9[Confirma aceite]:::ok
+  B8 -->|Recusar| B10[Informa motivo opcional<br/>e confirma]:::ok
+  B9 --> B11([Fim — passa a ser dono<br/>da solicitação]):::endn
+  B10 --> B12([Fim — GETIN é avisada]):::endn
+"></div>
+      </div>
+
+      <div class="split">
+        <div class="mini">
+          <h3><span class="chip green">Pode editar</span></h3>
+          <ol>
+            <li>Problema, descrição e justificativa</li>
+            <li>Tipo, objetivos e custo (quando existirem)</li>
+          </ol>
+        </div>
+        <div class="mini">
+          <h3><span class="chip rose">Não pode</span></h3>
+          <ol>
+            <li>Decidir se não for o gestor da área</li>
+            <li>Aceitar ou recusar de novo depois da decisão</li>
+            <li>Operar a sugestão pelo painel Nova (fora de escopo)</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== VIEW: Sistema ========== -->
+    <section class="panel" data-view="sistema" role="tabpanel" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>Vista do sistema</h2>
+          <p>
+            Operações de médio/alto nível alinhadas aos 4 marcos.
+            Linguagem de negócio: validar, gravar, notificar, autorizar — sem nomes de código.
+          </p>
+        </div>
+        <div class="chips">
+          <span class="chip amber">Sistema</span>
+          <span class="chip">Mesmo cânone</span>
+        </div>
+      </div>
+
+      <div class="diagram-shell">
+        <div class="diagram-toolbar">
+          <span class="title">Pipeline interno por marco</span>
+          <span class="hint">Três blocos = Sugerir · Decidir · Seguir</span>
+        </div>
+        <div
+          class="diagram"
+          data-mermaid="flowchart TB
+  classDef sys fill:#ecfdf5,stroke:#059669,color:#0f172a,stroke-width:1.5px
+  classDef q fill:#fffbeb,stroke:#d97706,color:#0f172a,stroke-width:1.5px
+  classDef endn fill:#f8fafc,stroke:#64748b,color:#0f172a,stroke-width:1.5px
+
+  subgraph M1[Marco 1 — Sugerir]
+    C1[Recebe o formulário]:::sys --> C2[Valida: só gerente GETIN]:::sys
+    C2 --> C3[Valida campos obrigatórios]:::sys
+    C3 --> C4[Confere gestor único da área]:::sys
+    C4 --> C5[Grava sugestão pendente<br/>com área-alvo e autor]:::sys
+    C5 --> C6[Localiza o líder da área]:::sys
+    C6 --> C7[Monta e-mail em texto simples]:::sys
+    C7 --> C8[Envia e-mail com botão Validar]:::sys
+  end
+
+  subgraph M3[Marco 3 — Decidir]
+    D1[Exige sessão autenticada]:::sys --> D2[Carrega a sugestão]:::sys
+    D2 --> D3[Valida: gestor da área<br/>e ainda pendente]:::sys
+    D3 --> D4{Tipo de ação}:::q
+    D4 -->|Salvar texto| D5[Atualiza conteúdo permitido]:::sys
+    D4 -->|Aceitar| D6[Transfere a solicitação ao líder<br/>e tira do estado pendente]:::sys
+    D4 -->|Recusar| D7[Marca recusada<br/>e guarda motivo se houver]:::sys
+  end
+
+  subgraph M4[Marco 4 — Seguir]
+    E1[Libera o funil normal da GETIN]:::sys
+    E2[Usa a área-alvo da sugestão]:::sys
+    E3[Notifica autor e gerente GETIN]:::sys
+    E4([Continua como pedido normal]):::endn
+    E5([Encerra a sugestão]):::endn
+    E1 --> E2 --> E4
+    E3 --> E5
+  end
+
+  M1 --> M3
+  D5 --> D4
+  D6 --> E1
+  D7 --> E3
+"></div>
+      </div>
+
+      <div class="split">
+        <div class="mini">
+          <h3><span class="chip amber">Regras fixas do sistema</span></h3>
+          <ol>
+            <li>Só gerente GETIN cria sugestão</li>
+            <li>Só gestor da área decide enquanto pendente</li>
+            <li>Aceite não reutiliza o fluxo “aceite GETIN”</li>
+            <li>Recusa avisa a GETIN e encerra</li>
+          </ol>
+        </div>
+        <div class="mini">
+          <h3><span class="chip blue">Após o aceite</span></h3>
+          <ol>
+            <li>A solicitação passa a ser do líder</li>
+            <li>A área-alvo da sugestão manda no funil</li>
+            <li>GETIN analisa como pedido normal</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== VIEW: Exceções ========== -->
+    <section class="panel" data-view="excecoes" role="tabpanel" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>Exceções e bloqueios</h2>
+          <p>Não são fluxos alternativos de negócio — são interrupções do mesmo processo.</p>
+        </div>
+        <div class="chips">
+          <span class="chip rose">Bloqueio</span>
+        </div>
+      </div>
+
+      <div class="ex-grid">
+        <article class="ex">
+          <h3>Área sem gestor único</h3>
+          <p>GETIN tenta criar sugestão para área sem gestor (ou com gestores ambíguos).</p>
+          <p class="sys"><strong>Sistema:</strong> bloqueia a criação e explica o motivo.</p>
+        </article>
+        <article class="ex">
+          <h3>Quem não é GETIN tenta criar</h3>
+          <p>Usuário sem papel de gerente GETIN abre a ação de sugerir.</p>
+          <p class="sys"><strong>Sistema:</strong> ação indisponível / não autorizada.</p>
+        </article>
+        <article class="ex">
+          <h3>Quem não é gestor tenta decidir</h3>
+          <p>Outra pessoa abre o link ou a tela da sugestão pendente.</p>
+          <p class="sys"><strong>Sistema:</strong> nega acesso à leitura decisória e às mutações.</p>
+        </article>
+        <article class="ex">
+          <h3>Decisão repetida</h3>
+          <p>Líder tenta aceitar ou recusar de novo após a primeira decisão.</p>
+          <p class="sys"><strong>Sistema:</strong> rejeita a segunda ação; não regrava ownership.</p>
+        </article>
+      </div>
+
+      <div class="diagram-shell" style="margin-top:1rem">
+        <div class="diagram-toolbar">
+          <span class="title">Mapa de bloqueios</span>
+          <span class="hint">Derivado do cânone — não altera marcos 1–4</span>
+        </div>
+        <div
+          class="diagram"
+          data-mermaid="flowchart LR
+  classDef bad fill:#fff1f2,stroke:#e11d48,color:#0f172a,stroke-width:1.5px
+  classDef stop fill:#f8fafc,stroke:#94a3b8,color:#0f172a,stroke-width:1.5px
+
+  E1[Área sem gestor único]:::bad --> X1[Bloqueia criação]:::stop
+  E2[Não é gerente GETIN]:::bad --> X2[Ação indisponível]:::stop
+  E3[Não é gestor da área]:::bad --> X3[Nega acesso]:::stop
+  E4[Já aceita ou recusada]:::bad --> X4[Impede nova decisão]:::stop
+"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Plano <code>sugestao-necessidade-pdti</code> · modelo único de fluxo ·
+    abas = vistas do mesmo processo · sirva via HTTP (não use <code>file://</code> no Windows).
+  </footer>
+</body>
+</html>
