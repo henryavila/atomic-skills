@@ -5,9 +5,9 @@ title: Project Flow — schema, painel e dentes no implement
 version: "1.0"
 status: active
 started: 2026-08-13T16:51:58.727Z
-lastUpdated: 2026-08-13T21:42:42.676Z
+lastUpdated: 2026-08-13T21:45:25.165Z
 branch: plan/project-flow
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -69,7 +69,7 @@ phases:
           evidence:
             verifierKind: shell
             verifiedAt: 2026-08-13T21:42:42.676Z
-            verifiedCommit: adea1fea1547670042ed8cd11e8b373a6f60fd72
+            verifiedCommit: c7f4c29d8cd24fc2314c7cc930260f1fcf7ea067
             passed: true
             exitCode: 0
             outputSummary: 30/30 tests; dogfood+machines; sequence probe invalid; exit 0
@@ -83,11 +83,11 @@ phases:
           evidence:
             verifierKind: shell
             verifiedAt: 2026-08-13T21:42:42.676Z
-            verifiedCommit: adea1fea1547670042ed8cd11e8b373a6f60fd72
+            verifiedCommit: c7f4c29d8cd24fc2314c7cc930260f1fcf7ea067
             passed: true
             exitCode: 0
             outputSummary: schemaVersion const 1.0; no PDTI strings in validate-flow.js; exit 0
-    status: active
+    status: done
     businessIntent:
       value: O PO navega e valida um fluxo operacional (negócio + conversa + estados). O shape 1.0 no disco passa a ser o MODEL. Implement recusa plano sem flow ratificado.
       workflow: Schema "1.0" novo → validate-flow + dogfood reescrito → (F1/F2 depois). Draft do grafo a partir de design/source/BI, nunca de phases[].
@@ -99,13 +99,13 @@ phases:
       verdict: pass
       reportPath: .atomic-skills/reviews/eval-project-flow-F0.md
       verifiedAt: 2026-08-13T21:42:42.676Z
-      at: adea1fea1547670042ed8cd11e8b373a6f60fd72
+      at: c7f4c29d8cd24fc2314c7cc930260f1fcf7ea067
     lessonsState: recorded
     lessonsPath: .atomic-skills/projects/atomic-skills/project-flow/lessons/project-flow-f0-modelo-no-disco.md
     reviewGate:
       status: passed
       mode: local
-      at: adea1fea1547670042ed8cd11e8b373a6f60fd72
+      at: c7f4c29d8cd24fc2314c7cc930260f1fcf7ea067
       reviewFile: .atomic-skills/reviews/project-flow-F0-phase-local.md
       overrideReason: operator requested review-code --mode=local for this implement session
       verifiedAt: 2026-08-13T21:42:42.676Z
@@ -114,7 +114,7 @@ phases:
       reportPath: .atomic-skills/reviews/audit-delivery-project-flow-F0.md
       verdict: PARTIAL
       verifiedAt: 2026-08-13T21:42:42.676Z
-      at: adea1fea1547670042ed8cd11e8b373a6f60fd72
+      at: c7f4c29d8cd24fc2314c7cc930260f1fcf7ea067
     decisionReview:
       status: pending
       packagePath: .atomic-skills/reviews/project-flow-F0-decision-package.md
