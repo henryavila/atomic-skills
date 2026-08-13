@@ -17,7 +17,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project                              → compact summary (no-args, cheap; no browser)
 /atomic-skills:project status [--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]
 /atomic-skills:project help [--html]         → GPS de terminal: onde estou + próximo passo (alias: `next`; `--html` abre o guia visual)
-/atomic-skills:project process [--check] [--audience=…]  → process map L2 (HTML) from L1 YAML — mandatory artefact of every plan
+/atomic-skills:project flow|process [--check] [--open] [--strict] → day-2 project flow (`process` alias)
 /atomic-skills:project verify [--fix]        → state ⇄ code check (READ-ONLY unless `--fix`; normalization gate only)
 /atomic-skills:project reconcile             → dispose detection-drift candidates (signal→ask→verifier/ack; done stays closure authority)
 /atomic-skills:project review [<slug>] [--with-code] [--mode=local|both]  → mutation-gated audit (delegated reviews; never closes/advances)
@@ -50,7 +50,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 |---|---|
 | `status`, `status --browser`, `--terminal`, `--list`, `--plan`, `--phase`, `--stack`, `--archived`, `--report`, disambiguation | `{{READ_TOOL}} {{ASSETS_PATH}}/project-view.md` |
 | `help`, `help --html`, `next` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-help.md` |
-| `process`, `process --check`, `process --audience=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-process-map.md` |
+| `flow`, `process`, `flow --check`, `process --check`, `--open`, `--strict` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-flow.md` |
 | `verify`, `verify --fix` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-verify.md` |
 | `review`, `review <slug>`, `review --with-code`, `review --mode=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-review.md` |
 | first-time setup (project setup sentinel absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
