@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv from 'ajv/dist/2020.js';
-import { IMPLEMENTATION_TOKEN_RE } from './render-process-map.js';
+
+const IMPLEMENTATION_TOKEN_RE =
+  /\bT-\d{3,}\b|\bF\d+\b(?!-)|verifier:|materialize\b|implementar\b|exitGate\b|scopeBoundary\b|\/[\w.-]+\.(js|ts|py|md)\b/i;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const schemaPath = join(__dirname, '..', '..', 'meta', 'schemas', 'flow.schema.json');

@@ -168,6 +168,11 @@ describe('validateFlow — domain isolation', () => {
       assert.equal(haystack.includes(token), false, `domain token leaked: ${token}`);
     }
   });
+
+  it('does not import render-process-map', () => {
+    const src = readFileSync(join(ROOT, 'scripts', 'lib', 'validate-flow.js'), 'utf8');
+    assert.equal(src.includes('render-process-map'), false);
+  });
 });
 
 describe('assertValidFlow', () => {

@@ -14,4 +14,4 @@ Produto: `/atomic-skills:project flow` substitui o process-map. Pacote: `docs/de
 
 **Não copiar:** `validateProcessMap` (não usa AJV). Copiar: `src/app-map/validate.js`.  
 **Não usar:** prompt de 17 arquivos / glossário “FATIA”. Recortes = PR1–PR5.  
-**Dogfood** `fluxo-sugestao.json` é `version: 2` — PR1 envelopa para schema 1.0. Status 10/1/11 e 3 decisões = instância PDTI, não regra de core.
+**Dogfood** `fluxo-sugestao.json` já é schema 1.0. Status 10/1/11 e os 3 ids XOR permanecem dados de instância PDTI, não regras de core.
