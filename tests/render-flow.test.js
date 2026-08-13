@@ -4,7 +4,16 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -17,9 +26,24 @@ import {
 import { assertValidFlow } from '../scripts/lib/validate-flow.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const CLI = join(ROOT, 'scripts', 'render-flow.js');
 const DS = readFileSync(join(ROOT, 'site', 'assets', 'ds.css'), 'utf8');
 const DOGFOOD = join(ROOT, 'docs', 'design', 'project-flow', 'dogfood', 'fluxo-sugestao.json');
 const MINIMAL = join(ROOT, 'docs', 'design', 'project-flow', 'dogfood', 'minimal-xor.json');
+const SPAWN_OPTS = { encoding: 'utf8', timeout: 60_000, maxBuffer: 8 * 1024 * 1024 };
+
+function runCli(args, cwd) {
+  return spawnSync(process.execPath, [CLI, ...args], { ...SPAWN_OPTS, cwd });
+}
+
+function withTmp(fn) {
+  const dir = mkdtempSync(join(tmpdir(), 'render-flow-'));
+  try {
+    return fn(dir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 function loadJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
@@ -116,10 +140,8 @@ describe('self-contained HTML', () => {
   it('never contains map.html as an output contract', () => {
     const built = buildFlowHtml(loadJson(MINIMAL), DS);
     assert.equal(built.html.includes('map.html'), false);
-    const cli = readFileSync(join(ROOT, 'scripts', 'render-flow.js'), 'utf8');
+    const cli = readFileSync(CLI, 'utf8');
     assert.ok(cli.includes('flow.html'));
-    assert.equal(cli.includes('map.html'), false);
-    assert.equal(cli.includes('process-map.html'), false);
   });
 
   it('has no Date.now, ISO timestamps, absolute paths, or /Volumes/', () => {
@@ -151,6 +173,21 @@ describe('mermaid source snapshot', () => {
     assert.match(min.mermaid.sequence, /sequenceDiagram/);
     assert.match(min.mermaid.flow, /flowchart/);
     assert.equal(min.mermaid.states, null);
+  });
+
+  it('strips mermaid delimiters |[]{} from labels so flowchart source stays well-formed', () => {
+    const doc = clone(MINIMAL);
+    doc.graph.nodes.S1.processLabel = 'Submit [request] {now}';
+    doc.graph.nodes.S1.messages[0].text = 'Sends the request | [ok] {x}';
+    doc.graph.nodes.D1.processLabel = 'Accept {the} request?';
+    doc.graph.nodes.D1.branches[0].label = 'Accepts | maybe';
+    const built = buildFlowHtml(doc, DS);
+    assert.equal(/-->\|[^|\n]*\|[^|\n]*\|/.test(built.mermaid.flow), false);
+    assert.match(built.mermaid.flow, /-->\|Accepts \/ maybe\|/);
+    assert.equal(built.mermaid.flow.includes('Submit [request]'), false);
+    assert.equal(built.mermaid.flow.includes('{the}'), false);
+    assert.match(built.mermaid.flow, /Submit request now/);
+    assert.match(built.mermaid.sequence, /Sends the request \/ ok x/);
   });
 });
 
@@ -191,5 +228,85 @@ describe('helpers', () => {
 
   it('sha256 is hex', () => {
     assert.match(sha256('flow'), /^[a-f0-9]{64}$/);
+  });
+});
+
+describe('render-flow CLI', () => {
+  it('refuses map.html and process-map.html (exit 2, no write)', () => {
+    withTmp((dir) => {
+      const input = join(dir, 'flow.json');
+      writeFileSync(input, readFileSync(MINIMAL));
+      for (const name of ['map.html', 'process-map.html', 'foo.map.html']) {
+        const out = join(dir, name);
+        const r = runCli([input, '-o', out]);
+        assert.equal(r.status, 2, name);
+        assert.equal(existsSync(out), false, name);
+        assert.match(r.stderr, /process-map/i);
+      }
+    });
+  });
+
+  it('defaults to basename flow.html next to the input', () => {
+    withTmp((dir) => {
+      const input = join(dir, 'flow.json');
+      writeFileSync(input, readFileSync(MINIMAL));
+      const r = runCli([input]);
+      assert.equal(r.status, 0, r.stderr);
+      assert.equal(existsSync(join(dir, 'flow.html')), true);
+      assert.match(r.stdout, /flow\.html/);
+    });
+  });
+
+  it('--check exits 0 in sync then 1 on drift', () => {
+    withTmp((dir) => {
+      const input = join(dir, 'flow.json');
+      const html = join(dir, 'flow.html');
+      writeFileSync(input, readFileSync(MINIMAL));
+      const wrote = runCli([input, '-o', html]);
+      assert.equal(wrote.status, 0, wrote.stderr);
+      const ok = runCli(['--check', input, html]);
+      assert.equal(ok.status, 0, ok.stderr);
+      assert.match(ok.stdout, /in sync/i);
+      writeFileSync(html, `${readFileSync(html, 'utf8')}\n<!-- drift -->\n`);
+      const drift = runCli(['--check', input, html]);
+      assert.equal(drift.status, 1);
+      assert.match(drift.stderr, /DRIFT/);
+    });
+  });
+
+  it('invalid JSON exits 2; invalid flow exits 1', () => {
+    withTmp((dir) => {
+      const badJson = join(dir, 'bad.json');
+      writeFileSync(badJson, '{not-json');
+      const json = runCli([badJson, '-o', join(dir, 'flow.html')]);
+      assert.equal(json.status, 2);
+      assert.match(json.stderr, /Invalid JSON/i);
+
+      const broken = clone(MINIMAL);
+      broken.graph.nodes.S1.next = 'does-not-exist';
+      const badFlow = join(dir, 'broken.json');
+      writeFileSync(badFlow, JSON.stringify(broken));
+      const flow = runCli([badFlow, '-o', join(dir, 'flow.html')]);
+      assert.equal(flow.status, 1);
+      assert.match(flow.stderr, /invalid/i);
+    });
+  });
+
+  it('inlines mermaid 11.12.0 (large HTML, runtime pin present)', () => {
+    withTmp((dir) => {
+      const input = join(dir, 'flow.json');
+      const htmlPath = join(dir, 'out.html');
+      writeFileSync(input, readFileSync(MINIMAL));
+      const r = runCli([input, '-o', htmlPath]);
+      assert.equal(r.status, 0, r.stderr);
+      const html = readFileSync(htmlPath, 'utf8');
+      const runtime = html.match(/<script id="flow-mermaid-runtime">([\s\S]*?)<\/script>/);
+      assert.ok(runtime, 'expected #flow-mermaid-runtime');
+      assert.ok(
+        runtime[1].includes('11.12.0') || runtime[1].includes('globalThis["mermaid"]'),
+        'expected mermaid pin or globalThis assignment',
+      );
+      assert.ok(html.length > 2_000_000, `expected inlined mermaid (~2.8M), got ${html.length}`);
+    });
   });
 });

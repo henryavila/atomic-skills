@@ -93,7 +93,9 @@ function refuseMapFilename(outPath) {
   const base = basename(outPath);
   const forbidden = ['map', 'html'].join('.');
   if (base === forbidden || base.endsWith(`.${forbidden}`) || base === ['process-map', 'html'].join('.')) {
-    console.error(`Refusing to write ${base} — output must be ${DEFAULT_HTML_NAME}`);
+    console.error(
+      `Refusing process-map filename ${base} — map.html, *.map.html, and process-map.html are refused; default is ${DEFAULT_HTML_NAME}`,
+    );
     process.exit(2);
   }
 }

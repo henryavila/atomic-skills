@@ -52,7 +52,13 @@ function mermaidRuntime() {
     if (!existsSync(MERMAID_PATH)) {
       throw new Error(`Missing pinned mermaid ${MERMAID_PIN}`);
     }
-    mermaidRuntimeCache = readFileSync(MERMAID_PATH, 'utf8');
+    const src = readFileSync(MERMAID_PATH, 'utf8');
+    const hasPin = src.includes(MERMAID_PIN);
+    const hasGlobal = src.includes('globalThis["mermaid"]') || src.includes("globalThis['mermaid']");
+    if (!src.trim() || (!hasPin && !hasGlobal)) {
+      throw new Error(`Pinned mermaid ${MERMAID_PIN} is empty or invalid`);
+    }
+    mermaidRuntimeCache = src;
   }
   return mermaidRuntimeCache;
 }
@@ -337,12 +343,15 @@ function collectBranchChain(m, startId, trunkVisited, depth = 0) {
 
 function mmdLabel(s) {
   return String(s ?? '')
-    .replace(/[<>&]/g, '')
+    .replace(/[<>&\[\]{}]/g, '')
+    .replace(/\|/g, '/')
     .replace(/"/g, "'")
     .replace(/·/g, '-')
     .replace(/#/g, 'n.')
     .replace(/\n/g, ' ')
-    .replace(/:/g, ' -');
+    .replace(/:/g, ' -')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function firstActorId(actors, fallback = 'A') {
