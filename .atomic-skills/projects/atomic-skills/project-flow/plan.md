@@ -302,12 +302,12 @@ Descriptor `phases/f2-comando-e-dentes.source.json` é a fonte até o materializ
 - **G2 soft-language**: scanned plan body + frontmatter against the EN ban list (`should|probably|may|typically|usually|I think|it seems|in theory|tends to`); 0 occurrences after this pass.
 - **G6 reference-or-strike**: each exit criterion carries a `verifier:` shell command. FAILS-when is in the criterion description. Context points at design.md + LEDGER + MODEL via `references:`.
 - **G10 gate-must-be-able-to-fail**: G-F0-1 rewritten to fail on current tip (dogfood sem `machines[]`; probe `type: sequence` ainda valida). G-F0-2 continua verde no tip — guarda de regressão, ver Alignment notes.
-- **Ground-truth (Flow E 2026-08-13T21:50:00Z):** Status=complete-with-findings; mode=ground-truth; fp=c41b6e0feae5; premises=18 (false=1 `ds-`); impacts=6; re-run after F1 materialize (T-006 verifier `--bg-canvas|--fg-default`; ds.css consume). Code premises unchanged. render-flow.js still absent (F1 output). Plano = AS 2026-08-13; não é PR2 Mermaid / 86c1c2d4.
+- **Ground-truth (Flow E 2026-08-13T21:50:00Z):** Status=complete-with-findings; mode=ground-truth; fp=628d08df5a72; premises=18 (false=1 `ds-`); impacts=6; re-run after F1 materialize (T-006 verifier `--bg-canvas|--fg-default`; ds.css consume). Code premises unchanged. render-flow.js still absent (F1 output). Plano = AS 2026-08-13; não é PR2 Mermaid / 86c1c2d4.
 
 ## Reviews
 
 - internal: 11 finding(s) applied/recorded @ uncommitted (2026-08-13T18:09:11Z)
-- ground-truth: complete-with-findings | mode=ground-truth | fp=c41b6e0feae5 | premises=18 | impacts=6 @ 23d9a55d (2026-08-13T21:50:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=628d08df5a72 | premises=18 | impacts=6 @ 23d9a55d (2026-08-13T21:50:00Z)
 
 ## Ground-truth review
 
