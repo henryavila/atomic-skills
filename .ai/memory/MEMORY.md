@@ -4,7 +4,7 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 
 ## Arquivos de memória
 
-- [reference-project-flow.md](reference-project-flow.md) — Project Flow substitui process-map (descarte completo, 2026-08-12). Dentes = implement entry HARD em **qualquer plano** + comando `project flow`. HTML gerado = `flow/flow.html` (nunca `map.html`). Q8-A: `ratifiedGraphSha`. Próxima sessão: cascata PR1. Entrada `docs/design/project-flow/HANDOFF.md`.
+- [reference-project-flow.md](reference-project-flow.md) — Project Flow substitui process-map. Iron Law **NO IMPLEMENT WITHOUT VALIDATED FLOW** (PR4): implement Step 1.7 + spawn JS fence. Ready sem flow é legal. `process.yaml` nunca satisfaz. KB `docs/kb/flow.md`. HTML = `flow/flow.html`.
 
 - [reference-cross-model-review-host-picker.md](reference-cross-model-review-host-picker.md) — Picker host-aware (Grok→codex+claude, não Grok+Codex fixo); Claude session limit exit 0 + `classify-provider-limit` (sem retry).
 

@@ -218,6 +218,25 @@ describe('checkPlanFlow', () => {
       false,
     );
   });
+
+  it('KB flow.md is canonical; process-map.md is a superseded redirect', () => {
+    const flowKb = readFileSync(join(ROOT, 'docs', 'kb', 'flow.md'), 'utf8');
+    const pmKb = readFileSync(join(ROOT, 'docs', 'kb', 'process-map.md'), 'utf8');
+    assert.match(flowKb, /NO IMPLEMENT WITHOUT VALIDATED FLOW/);
+    assert.match(flowKb, /find-missing-flow/);
+    assert.match(pmKb, /superseded/i);
+    assert.match(pmKb, /docs\/kb\/flow\.md|flow\.md/);
+  });
+
+  it('stage-process-map.md is a redirect stub, not a live write path', () => {
+    const stage = readFileSync(
+      join(ROOT, 'skills', 'shared', 'project-assets', 'new-plan', 'stage-process-map.md'),
+      'utf8',
+    );
+    assert.match(stage, /redirect|superseded/i);
+    assert.doesNotMatch(stage, /--advance process-map --write/);
+    assert.doesNotMatch(stage, /Never skip/);
+  });
 });
 
 describe('find-missing-flow CLI', () => {

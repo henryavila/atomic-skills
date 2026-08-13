@@ -182,6 +182,27 @@ describe('implement-ready task contract', () => {
     assert.match(IMPLEMENT, /find-plans-missing-ground-truth/)
   })
 
+  it('Step 1.7 HARD-GATES implement on validated flow (find-missing-flow --strict)', () => {
+    const step1 = section(
+      IMPLEMENT,
+      '### Step 1 — Load the admitted tasks',
+      '### Automate mode — pure maestro loop',
+    )
+    assert.match(step1, /Validated flow HARD-GATE/i)
+    assert.match(step1, /find-missing-flow\.js/)
+    assert.match(step1, /--strict/)
+    assert.match(step1, /atomic-skills:project flow/)
+    assert.match(step1, /process\.yaml/)
+    assert.match(step1, /REFUSE|HARD-GATE/)
+    assert.match(step1, /operatorSkip|no chat waiver/i)
+    assert.match(IMPLEMENT, /find-missing-flow/)
+    assert.match(IMPLEMENT, /process\.yaml exists — skip flow/)
+    assert.match(IMPLEMENT, /User said waive flow/)
+    assert.match(IMPLEMENT, /I'll run project flow ceremony inside implement/)
+    assert.match(IMPLEMENT, /Ad-hoc with a plan file/)
+    assert.match(IMPLEMENT, /Foreign sidecar is the flow path/)
+  })
+
   it('admits outputs[].path as targets instead of requiring Files', () => {
     const step1 = section(
       IMPLEMENT,

@@ -380,6 +380,11 @@ describe('implement skill prose — foreign lane contract', () => {
     assert.match(foreign, /worktree/i);
     assert.match(foreign, /\.implement\.yaml/);
     assert.match(foreign, /ground-truth|Ground-truth/i);
+    assert.match(foreign, /find-missing-flow\.js/);
+    assert.match(foreign, /--strict/);
+    assert.match(foreign, /flowPathsForPlan|dirname\(plan\.md\)\/flow/);
+    assert.match(foreign, /atomic-skills:project flow/);
+    assert.match(foreign, /process\.yaml/);
     assert.match(foreign, /automate/i);
     assert.match(foreign, /never.*promote|no promote|Promote is entry-time only/i);
     assert.match(foreign, /project adopt|atomic-skills:project adopt/i);

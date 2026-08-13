@@ -29,9 +29,32 @@ import {
   planSubstanceText,
 } from '../src/ground-truth-review.js';
 import { findPlansMissingGroundTruth } from '../scripts/find-plans-missing-ground-truth.js';
+import {
+  buildFlowRatification,
+  flowPathsForPlan,
+} from '../scripts/find-missing-flow.js';
+import { contentFingerprint, normalizeFlow } from '../scripts/lib/render-flow.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSERT_SCRIPT = join(ROOT, 'scripts', 'assert-automate-gate.js');
+const MINIMAL_FLOW = JSON.parse(
+  readFileSync(
+    join(ROOT, 'docs', 'design', 'project-flow', 'dogfood', 'minimal-xor.json'),
+    'utf8',
+  ),
+);
+
+/** Write ratified flow next to plan.md so --gate spawn is not blocked by flow fence. */
+function stampValidFlowOnPlan(planPath, planSlug = 'demo-plan') {
+  const paths = flowPathsForPlan(planPath);
+  mkdirSync(join(paths.planDir, 'flow'), { recursive: true });
+  let doc = structuredClone(MINIMAL_FLOW);
+  doc.planSlug = planSlug;
+  doc = buildFlowRatification(doc, { ratifiedAt: '2026-08-13T12:00:00.000Z' });
+  writeFileSync(paths.flowJson, `${JSON.stringify(doc, null, 2)}\n`);
+  const sha = contentFingerprint(normalizeFlow(doc));
+  writeFileSync(paths.flowHtml, `<html data-flow-content-sha="${sha}"></html>\n`);
+}
 
 /**
  * Stamp a valid ground-truth receipt so --gate spawn is not blocked by GT fence.
@@ -258,6 +281,7 @@ describe('assert-automate-gate spawn descriptor-only', () => {
       initPaths.push(initPath);
     }
     stampGroundTruthOnPlan(planPath, initPaths);
+    stampValidFlowOnPlan(planPath, 'demo-plan');
     return { stateRoot, planDir };
   }
 
@@ -969,6 +993,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
         'utf8',
       );
       stampGroundTruthOnPlan(flatPlanPath, [flatInitPath]);
+      stampValidFlowOnPlan(flatPlanPath, 'flat-plan');
       const r = run(
         [
           '--plan',
@@ -1234,6 +1259,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
         'utf8',
       );
       stampGroundTruthOnPlan(planPath, [initPath]);
+      stampValidFlowOnPlan(planPath, 'demo-plan');
       const r = run(
         [
           '--plan',
@@ -1305,6 +1331,7 @@ describe('assert-automate-gate path safety + flat plan', () => {
         'utf8',
       );
       stampGroundTruthOnPlan(planPath, [initPath]);
+      stampValidFlowOnPlan(planPath, 'demo-plan');
       const r = run(
         [
           '--plan',

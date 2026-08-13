@@ -121,6 +121,11 @@ Run `node "$ROOT/scripts/find-plans-missing-ground-truth.js" .atomic-skills` (de
 - **PASS:** every plan carries a complete ground-truth receipt.
 - **WARN** (report-only for legacy plans): `WARN ground-truth: <N> plan(s) lack plan↔code ground-truth receipt — run \`review-plan --mode=ground-truth\` (Flow E / alias \`--mode=gt\`) before implement — <projectId>/<slug>…`. Receipt must carry \`mode=ground-truth\` plus \`## Ground-truth review\` (A+B). `--fix` does NOT invent the section; the review must run. Creation Stage 8c HARD-BLOCKS new plans; implement HARD-BLOCKS coding without the receipt.
 
+### 12. Validated flow (read-only; implement HARD-GATE backstop)
+Run `node "$ROOT/scripts/find-missing-flow.js" <selected-plan.md> --strict` (or `.atomic-skills` to scan nested plans). Report only — `--fix` does not draft or ratify. `process.yaml` / `map.html` never count as success. `implement` HARD-BLOCKS coding/spawn without a ratified artefact (Step 1.7). Unblock: `atomic-skills:project flow`. Ready without flow is legal; this check does **not** fail creation/`ready`.
+- **PASS:** selected plan(s) have valid L1 `flow/flow.json` + L2 `flow/flow.html` + `ratifiedAt` + matching `ratifiedGraphSha` + matching HTML content-sha.
+- **WARN** (report-only): `WARN flow: <N> plan(s) lack a ratified flow artefact — run \`atomic-skills:project flow\` before implement — <projectId>/<slug>…`. Do not invent `ratifiedAt`. Do not treat cards as the flow.
+
 ---
 
 ## Report shape
@@ -139,8 +144,9 @@ project verify — <repo-name> @ <branch>
 [9] worktrees   FAIL   archived plan demo branch plan/demo has no PR/integration proof — run `finalize demo`, merge, then `archive demo`
 [10] review     WARN   2 plan(s) carry no adversarial-review receipt (curta/refatoracao, curta/web-app)
 [11] ground-truth WARN   1 plan lacks plan↔code ground-truth receipt (demo/greenfield)
+[12] flow        WARN   1 plan lacks ratified flow artefact (demo/greenfield)
 
-VERIFY: 7 warning(s), 1 failure(s)
+VERIFY: 8 warning(s), 1 failure(s)
 ```
 
 ## Red flags

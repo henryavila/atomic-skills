@@ -12,7 +12,9 @@ Produto: `/atomic-skills:project flow` substitui o process-map. Pacote: `docs/de
 
 **PR2 (2026-08-13):** `scripts/lib/render-flow.js` + `scripts/render-flow.js` + `tests/render-flow.test.js`. HTML self-contained (`flow.html`, nunca `map.html`). Mermaid 11.12.0 vendored em `assets/flow/` (offline, inlined). Tabs Sequência/Fluxo; Estados só se `states` existir. Sem domínio PDTI no renderer.
 
-**PR3 (2026-08-13):** `scripts/find-missing-flow.js` + `project flow` day-2 (`project-flow.md`; `process` alias). `buildFlowRatification` only stamp writer. `CREATION_STAGES` is `summaries → reviews` (no cards stage). Leftover `process-map` remaps to `reviews`. Ready without flow is legal. Sem `stage-flow.md`. Próxima sessão = **PR4** (implement HARD + Iron Law rewrite).
+**PR3 (2026-08-13):** `scripts/find-missing-flow.js` + `project flow` day-2 (`project-flow.md`; `process` alias). `buildFlowRatification` only stamp writer. `CREATION_STAGES` is `summaries → reviews` (no cards stage). Leftover `process-map` remaps to `reviews`. Ready without flow is legal. Sem `stage-flow.md`.
+
+**PR4 (2026-08-13):** Iron Law **NO IMPLEMENT WITHOUT VALIDATED FLOW**. `implement` Step 1.7 + `assert-automate-gate --gate spawn` (`checkPlanFlow` strict). `process.yaml` never satisfies. KB `docs/kb/flow.md`; `process-map.md` superseded. `stage-process-map.md` is a redirect stub. Sem stage `flow`.
 
 **Nome do HTML:** `flow/flow.html`. **Abolido** o nome `map` (`map.html` do process-map não migra).
 

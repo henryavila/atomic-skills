@@ -57,6 +57,21 @@ Before any product coding or phase-writer spawn:
 3. Empty / greenfield repo still requires a **complete-empty-repo** (or equivalent) receipt — no chat waiver.
 4. HARD-GATE: no receipt → no coding, no spawn.
 
+## F1.5 — Validated flow (mandatory)
+
+Same detector as implement Step 1.7 on the **source** `plan.md` (not the sidecar):
+
+1. Run via {{BASH_TOOL}}:
+
+   ```bash
+   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+   node "$PKG_ROOT/scripts/find-missing-flow.js" <source-plan.md> --strict
+   ```
+
+2. Paths: `dirname(plan.md)/flow/` via `flowPathsForPlan` — **never** `.implement.yaml`.
+3. **Exit 0** → continue. **Non-zero** → **REFUSE**. Instruct `atomic-skills:project flow`.
+4. `process.yaml` never satisfies. No `operatorSkip`, no chat waiver. implement does **not** run show+ratify.
+
 ## F2 — Parse + admit pass (SPEC)
 
 1. Read the source markdown; `parseForeignPlanMarkdown` → structure class S0–S3 + candidate phases/tasks.
@@ -144,6 +159,10 @@ After finalize stamp:
 - "Checklist item is checked — mark done without verifier." → STOP.
 - "S3 prose — just start coding." → STOP. Admit/decompose first.
 - "Skip ground-truth — it's a one-off doc." → STOP.
+- "process.yaml exists — skip flow." → STOP. Same detector; cards never satisfy.
+- "User said waive flow." → STOP. No chat waiver.
+- "I'll run project flow ceremony inside implement." → STOP. Command unblocks; implement only checks.
+- "Foreign sidecar is the flow path." → STOP. `dirname(plan.md)/flow/` only.
 - "Host will fix the phase writer failure under automate." → STOP. Re-dispatch or halt.
 - "Write status into `.atomic-skills/projects` for foreign." → STOP. Wrong lane.
 

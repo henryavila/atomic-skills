@@ -193,6 +193,8 @@ describe('project skill (unified router + lazy assets)', () => {
     const content = readRouter();
     assert.match(content, /Iron Law/);
     assert.match(content, /NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE/);
+    assert.match(content, /NO IMPLEMENT WITHOUT VALIDATED FLOW/);
+    assert.doesNotMatch(content, /NO PLAN WITHOUT PROCESS MAP/);
   });
 
   it('router holds the always-resident invariants (gate-status, ratify, reconciliation, ladder)', () => {
