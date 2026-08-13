@@ -7,7 +7,7 @@ status: active
 started: 2026-08-13T16:51:58.727Z
 lastUpdated: 2026-08-13T21:47:54.910Z
 branch: plan/project-flow
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -133,17 +133,59 @@ phases:
       criteria:
         - id: G-F1-1
           description: FAILS when render-flow uses Mermaid/Graphviz/D2 (import or sequenceDiagram/flowchart/stateDiagram in HTML), emits map.html, or omits one of the three native surfaces
-          status: pending
+          status: met
+          metAt: 2026-08-13T22:00:22.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-08-13T22:00:22.000Z
+            verifiedCommit: 80f51680c780879fac5bcd049067ffe1bc913340
+            passed: true
+            exitCode: 0
+            outputSummary: G-F1-1 exit 0
           verifier:
             kind: shell
             command: node --test tests/render-flow.test.js && ! rg -qi 'mermaid|graphviz|d2' scripts/lib/render-flow.js scripts/render-flow.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-f1-g1.html && ! rg -qi 'mermaid|sequencediagram|statediagram|graphviz' /tmp/project-flow-f1-g1.html && rg -qi 'sequência|messages' /tmp/project-flow-f1-g1.html && rg -qi 'machine' /tmp/project-flow-f1-g1.html && rg -qi 'bpm|fluxo|activity' /tmp/project-flow-f1-g1.html && ! rg -q 'map\.html' scripts/render-flow.js
         - id: G-F1-2
           description: FAILS when the generated dogfood HTML still looks like a prototype (no DS custom properties from site/assets/ds.css, surfaces collapsed, mermaid present). Do not look for a `ds-` class prefix — ds.css has none.
-          status: pending
+          status: met
+          metAt: 2026-08-13T22:00:22.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-08-13T22:00:22.000Z
+            verifiedCommit: 80f51680c780879fac5bcd049067ffe1bc913340
+            passed: true
+            exitCode: 0
+            outputSummary: G-F1-2 exit 0
           verifier:
             kind: shell
             command: node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-f1-gate.html && rg -q -- '--bg-canvas|--fg-default' /tmp/project-flow-f1-gate.html && ! rg -qi 'mermaid' /tmp/project-flow-f1-gate.html
-    status: active
+    status: done
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-project-flow-F1.md
+      verifiedAt: 2026-08-13T22:02:00Z
+      at: 80f51680c780879fac5bcd049067ffe1bc913340
+    lessonsState: none
+    noneReason: no failure signal on F1; exclusive SHAs already recorded as L-001
+    reviewGate:
+      status: passed
+      mode: local
+      at: 80f51680c780879fac5bcd049067ffe1bc913340
+      reviewFile: .atomic-skills/reviews/project-flow-F1-phase-local.md
+      overrideReason: operator requested review-code --mode=local for this implement session
+      verifiedAt: 2026-08-13T22:02:00Z
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-project-flow-F1.md
+      verdict: PARTIAL
+      verifiedAt: 2026-08-13T22:02:00Z
+      at: 80f51680c780879fac5bcd049067ffe1bc913340
+    decisionReview:
+      status: pending
+      packagePath: .atomic-skills/reviews/project-flow-F1-decision-package.md
+      packagePresentedAt: 2026-08-13T22:02:00Z
+      evidencePath: .atomic-skills/projects/atomic-skills/project-flow/decisions/F1.jsonl
     businessIntent:
       value: O PO navega e valida o fluxo nas três camadas (conversa/messages, BPM, machines) num painel HTML próprio, no design system do repo. F1 fecha impecável; o primeiro incremento pode ser tosco.
       workflow: render-flow (lib) → CLI grava flow.html (nunca map.html) → polish com tokens --bg-canvas/--fg-default de site/assets/ds.css (só consume).

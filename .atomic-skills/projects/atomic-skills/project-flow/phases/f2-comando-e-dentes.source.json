@@ -144,6 +144,22 @@
         {
           "kind": "file",
           "path": "docs/kb/process-map.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/new-plan/stage-process-map.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/new-plan/stage-7.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-process-map.md"
+        },
+        {
+          "kind": "file",
+          "path": "tests/find-missing-process-map.test.js"
         }
       ],
       "summary": "CREATION_STAGES e Iron Law trocam process-map por flow.",

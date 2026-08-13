@@ -6,7 +6,7 @@ goal: Render próprio (HTML/CSS/SVG no repo, sem Mermaid/Graphviz/D2) projeta
   sequência + fluxo BPM + máquinas a partir de flow.json. Primeiro incremento
   pode ser tosco. Exit = UI impecável no DS do repo (`site/assets/ds.css`).
   Artefato canônico `flow/flow.html`. Sem editor.
-status: active
+status: done
 branch: plan/project-flow
 started: 2026-08-13T21:47:54.910Z
 lastUpdated: 2026-08-13T21:47:54.910Z
@@ -26,18 +26,18 @@ businessIntent:
     pacote npm, editor no browser, mudar validate-flow.
   doneWhen: "G-F1-1: HTML próprio com as três superfícies, sem mermaid/map.html.
     G-F1-2: HTML usa --bg-canvas|--fg-default e não tem mermaid."
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
-weightDone: 0
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-F1-1
     description: FAILS when render-flow uses Mermaid/Graphviz/D2 (import or
       sequenceDiagram/flowchart/stateDiagram in HTML), emits map.html, or omits
       one of the three native surfaces
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/render-flow.test.js && ! rg -qi 'mermaid|graphviz|d2'
@@ -51,11 +51,20 @@ exitGates:
         /tmp/project-flow-f1-g1.html && rg -qi 'bpm|fluxo|activity'
         /tmp/project-flow-f1-g1.html && ! rg -q 'map\.html'
         scripts/render-flow.js
+    metAt: 2026-08-13T22:00:22.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-13T22:00:22.000Z
+      verifiedCommit: 80f51680c780879fac5bcd049067ffe1bc913340
+      passed: true
+      exitCode: 0
+      outputSummary: G-F1-1 exit 0; 19/19 tests; no mermaid/map.html; three surfaces
     verifierLabel: "shell: node --test tests/render-flow.test.js && ! rg -qi 'mermaid|…"
+    evidenceSummary: passed · 2026-08-13
   - id: G-F1-2
     description: FAILS when the generated dogfood HTML still looks like a prototype
       (no DS tokens, surfaces collapsed, mermaid present)
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node scripts/render-flow.js
@@ -63,7 +72,16 @@ exitGates:
         /tmp/project-flow-f1-gate.html && rg -q -- '--bg-canvas|--fg-default'
         /tmp/project-flow-f1-gate.html && ! rg -qi 'mermaid'
         /tmp/project-flow-f1-gate.html
+    metAt: 2026-08-13T22:00:22.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-13T22:00:22.000Z
+      verifiedCommit: 80f51680c780879fac5bcd049067ffe1bc913340
+      passed: true
+      exitCode: 0
+      outputSummary: G-F1-2 exit 0; --bg-canvas|--fg-default present; no mermaid
     verifierLabel: "shell: node scripts/render-flow.js docs/design/project-flow/dogfoo…"
+    evidenceSummary: passed · 2026-08-13
 stack:
   - id: 1
     title: Painel de 3 camadas
@@ -72,8 +90,16 @@ stack:
 tasks:
   - id: T-004
     title: Renderer puro das 3 camadas
+    closedAt: 2026-08-13T22:00:22.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-13T22:00:22.000Z
+      verifiedCommit: 80f51680c780879fac5bcd049067ffe1bc913340
+      passed: true
+      exitCode: 0
+      outputSummary: 19/19 tests; exit 0
     description: Renderer HTML das três camadas, sem Mermaid.
-    status: pending
+    status: done
     lastUpdated: 2026-08-13T21:47:54.910Z
     scopeBoundary:
       - do not import mermaid or graphviz or d2; do not reuse .worktrees
@@ -95,8 +121,16 @@ tasks:
         path: tests/render-flow.test.js
   - id: T-005
     title: CLI render-flow e path flow.html
+    closedAt: 2026-08-13T22:00:22.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-13T22:00:22.000Z
+      verifiedCommit: 80f51680c780879fac5bcd049067ffe1bc913340
+      passed: true
+      exitCode: 0
+      outputSummary: 19/19 tests; exit 0
     description: CLI grava flow.html e checa content-sha; nunca map.html.
-    status: pending
+    status: done
     lastUpdated: 2026-08-13T21:47:54.910Z
     scopeBoundary:
       - do not add find-missing-flow.js here; do not write ratifiedAt; do not
@@ -119,8 +153,16 @@ tasks:
         path: tests/render-flow.test.js
   - id: T-006
     title: UI impecável no DS
+    closedAt: 2026-08-13T22:00:22.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-13T22:00:22.000Z
+      verifiedCommit: 80f51680c780879fac5bcd049067ffe1bc913340
+      passed: true
+      exitCode: 0
+      outputSummary: 19/19 tests; exit 0
     description: Visual no DS; F1 não fecha enquanto parecer protótipo.
-    status: pending
+    status: done
     lastUpdated: 2026-08-13T21:47:54.910Z
     scopeBoundary:
       - do not add a browser visual editor; do not introduce mermaid; do not

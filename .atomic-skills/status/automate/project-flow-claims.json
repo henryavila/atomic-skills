@@ -1,40 +1,45 @@
 {
   "planSlug": "project-flow",
-  "phaseId": "F0",
-  "worktreePath": "/home/henry/atomic-skills/.worktrees/project-flow-F0-writer",
-  "writerBranch": "impl/project-flow-F0-writer",
-  "finishedAt": "2026-08-13T21:32:24Z",
+  "phaseId": "F1",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/project-flow-F1-writer",
+  "writerBranch": "impl/project-flow-F1-writer",
+  "finishedAt": "2026-08-13T21:58:30Z",
   "tasks": [
     {
-      "taskId": "T-001",
+      "taskId": "T-004",
       "status": "claimed-pass",
-      "commitShas": ["820357f5a5ae6964cd10dcf7066e7c2e61f48115"],
-      "paths": ["meta/schemas/flow.schema.json"],
-      "verifierCommand": "node -e \"const s=require('./meta/schemas/flow.schema.json'); if(s.properties.schemaVersion.const!=='1.0') process.exit(1); if(!JSON.stringify(s).includes('activity')) process.exit(1); if(JSON.stringify(s).includes('\\\"const\\\":\\\"sequence\\\"')) process.exit(1);\"",
-      "exitCode": 0,
-      "transcript": ""
-    },
-    {
-      "taskId": "T-002",
-      "status": "claimed-pass",
-      "commitShas": ["5cfe6486803c0471391c6c1af2c201bf27bd9203"],
-      "paths": ["scripts/lib/validate-flow.js", "tests/validate-flow.test.js"],
-      "verifierCommand": "node --test tests/validate-flow.test.js",
-      "exitCode": 0,
-      "transcript": "✔ assertValidFlow (0.555406ms)\nℹ tests 30\nℹ suites 8\nℹ pass 30\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 135.629227"
-    },
-    {
-      "taskId": "T-003",
-      "status": "claimed-pass",
-      "commitShas": ["c556e6428fdd3848f2ebac82262daf5bcc0eefc4"],
+      "commitShas": ["9b894b0ab7246a5c02dbc8cd3d851707d4fc3f5b"],
       "paths": [
-        "docs/design/project-flow/dogfood/fluxo-sugestao.json",
-        "docs/design/project-flow/dogfood/minimal-xor.json",
-        "tests/validate-flow.test.js"
+        "scripts/lib/render-flow.js",
+        "tests/render-flow.test.js"
       ],
-      "verifierCommand": "node --test tests/validate-flow.test.js && node -e \"import { validateFlow } from './scripts/lib/validate-flow.js'; import { readFileSync } from 'node:fs'; const d=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8')); const r=validateFlow(d); if(!r.valid) { console.error(r.errors); process.exit(1); } if(!Array.isArray(d.machines) || d.machines.length<1) process.exit(1);\"",
+      "verifierCommand": "node --test tests/render-flow.test.js",
       "exitCode": 0,
-      "transcript": "✔ assertValidFlow (0.556829ms)\nℹ tests 30\nℹ suites 8\nℹ pass 30\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 141.437748"
+      "transcript": "✔ buildFlowHtml — MODEL dogfood\n✔ determinism and validation\n✔ render-flow CLI\n✔ T-006 DS polish\nℹ tests 19\nℹ suites 4\nℹ pass 19\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0"
+    },
+    {
+      "taskId": "T-005",
+      "status": "claimed-pass",
+      "commitShas": ["ce7718f9fe5cd722a4255d4aeda1c3f1cfbc66b7"],
+      "paths": [
+        "scripts/render-flow.js",
+        "tests/render-flow.test.js"
+      ],
+      "verifierCommand": "node --test tests/render-flow.test.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-render.html && test -f /tmp/project-flow-render.html && ! rg -q 'map\\.html' scripts/render-flow.js",
+      "exitCode": 0,
+      "transcript": "ℹ tests 19\nℹ suites 4\nℹ pass 19\nℹ fail 0\nWrote /tmp/project-flow-render.html\ncontent-sha 10853fa6d6fa8100b57946d60c2db2cc8fabd91b3f17b58eeb80d9e7861e8804"
+    },
+    {
+      "taskId": "T-006",
+      "status": "claimed-pass",
+      "commitShas": ["1ec9ed2f8797266ea9da63eba28c973acda45ce2"],
+      "paths": [
+        "scripts/lib/render-flow.js",
+        "tests/render-flow.test.js"
+      ],
+      "verifierCommand": "node --test tests/render-flow.test.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-polish.html && rg -q -- '--bg-canvas|--fg-default' /tmp/project-flow-polish.html && ! rg -qi 'mermaid' /tmp/project-flow-polish.html",
+      "exitCode": 0,
+      "transcript": "ℹ tests 19\nℹ suites 4\nℹ pass 19\nℹ fail 0\nWrote /tmp/project-flow-polish.html\ncontent-sha 10853fa6d6fa8100b57946d60c2db2cc8fabd91b3f17b58eeb80d9e7861e8804"
     }
   ]
 }
