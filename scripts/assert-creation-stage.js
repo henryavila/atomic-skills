@@ -27,6 +27,7 @@ import {
   assertCanAdvance,
   advanceCreationStage,
   validateCreationGateStage,
+  normalizeCreationStage,
 } from './creation-gates.js';
 
 /**
@@ -45,7 +46,7 @@ export function assertAtStage(gate, expectedStage) {
   if (!CREATION_STAGES.includes(expectedStage)) {
     return { ok: false, reason: `unknown-expected-stage:${expectedStage}` };
   }
-  const cur = String(gate.stage);
+  const cur = normalizeCreationStage(gate.stage);
   const curIdx = STAGE_INDEX[cur];
   const expIdx = STAGE_INDEX[expectedStage];
   if (curIdx < expIdx) {
@@ -68,7 +69,7 @@ export function assertAdvance(gate, toStage, opts = {}) {
   if (issues.length) {
     return { ok: false, reason: issues.join(',') };
   }
-  return assertCanAdvance(String(gate.stage), toStage, opts);
+  return assertCanAdvance(normalizeCreationStage(gate.stage), toStage, opts);
 }
 
 /**
@@ -82,7 +83,7 @@ export function assertReady(gate, opts = {}) {
   if (issues.length) {
     return { ok: false, reason: issues.join(',') };
   }
-  const cur = String(gate.stage);
+  const cur = normalizeCreationStage(gate.stage);
   if (cur === 'ready') return { ok: true };
   if (opts.advancing) {
     return assertCanAdvance(cur, 'ready', { allowSkip: false });
@@ -197,9 +198,10 @@ stages: ${CREATION_STAGES.join(' → ')}`);
   }
 
   if (args.ready) {
-    const r = assertReady(gate, { advancing: args.write && gate.stage !== 'ready' });
-    // When --write and current is reviews, allow advance to ready.
-    if (args.write && gate.stage === 'reviews') {
+    const current = normalizeCreationStage(gate.stage);
+    const r = assertReady(gate, { advancing: args.write && current !== 'ready' });
+    // When --write and current is reviews (or remapped process-map), allow advance to ready.
+    if (args.write && current === 'reviews') {
       const adv = assertAdvance(gate, 'ready');
       if (!adv.ok) {
         console.error(`assert-creation-stage: ${adv.reason}`);

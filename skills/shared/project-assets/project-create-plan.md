@@ -32,9 +32,9 @@ Run with {{BASH_TOOL}}:
 
 Stages run in order. Each stage gates the next. After a stage closes, advance with `scripts/assert-creation-stage.js` (illegal skips / early `ready` **HARD-BLOCK**).
 
-Monotonic `stage` enum: `slug → design → source → decompose-confirm → bi-ratified → materialized → summaries → process-map → reviews → ready`.
+Monotonic `stage` enum: `slug → design → source → decompose-confirm → bi-ratified → materialized → summaries → reviews → ready`.
 
-**Iron Law P1 (process map):** no multi-phase plan reaches `ready` without L1 `process/process.yaml` (ratified) + L2 `process/map.html`. Detail: `docs/kb/process-map.md` + `new-plan/stage-process-map.md`.
+There is **no** `process-map` or `flow` creation stage. Drafting `flow/flow.json` is optional. Ready without flow is legal. Day-2: `project flow`. Leftover gate stage `process-map` reads as `reviews`.
 
 ```bash
 PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
@@ -54,7 +54,6 @@ node "$PKG_ROOT/scripts/assert-creation-stage.js" "$GATE" --ready --write
 | 5 | Stage 5 — Decompose | `{{ASSETS_PATH}}/new-plan/stage-5.md` |
 | 6 | Stage 6 — Create Plan + Initiatives | `{{ASSETS_PATH}}/new-plan/stage-6.md` |
 | 7 | Stage 7 — Activate first phase | `{{ASSETS_PATH}}/new-plan/stage-7.md` |
-| 7b | Stage process-map — L1 YAML + L2 HTML (**inescapable**) | `{{ASSETS_PATH}}/new-plan/stage-process-map.md` |
 | 8 | Stage 8 — Adversarial review (always runs) | `{{ASSETS_PATH}}/new-plan/stage-8.md` |
 | 9 | Stage 9 — Announce | `{{ASSETS_PATH}}/new-plan/stage-9.md` |
 
@@ -184,9 +183,9 @@ Always run `previewDecomposition(result)` and display it before any file write. 
 
 10. **Activate first phase.** Same as Stage 7 (`new-plan/stage-7.md`).
 
-11. **Process map (inescapable — Iron Law P1).** Same as `new-plan/stage-process-map.md`: AskUserQuestion audience (**not skippable**) → draft L1 objective journey (not phase rename) → write draft L1 + render L2 → AskUserQuestion display surface browser|TUI|both (**not skippable**) → **show** map on chosen surface(s) → AskUserQuestion ratify (**not skippable**) → stamp `ratifiedAt` + re-render → `find-missing-process-map.js --strict-html` HARD-BLOCK → advance creation-gate `process-map`. Free-text “ok” never counts. **adopt is not exempt.**
+11. **Flow draft (optional, not a gate).** Agent MAY write `flow/flow.json` from design/source/`businessIntent` (never from `phases[]`) and render `flow/flow.html`. Do **not** stop creation for it. Ready without flow is legal. Day-2: `project flow`.
 
-12. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c (`new-plan/stage-8.md`) — internal always, ground-truth specialized, CROSS-MODEL via host default, then `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist. Precondition: gate already at `process-map`.
+12. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c (`new-plan/stage-8.md`) — internal always, ground-truth specialized, CROSS-MODEL via host default, then `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist. Precondition: gate at `summaries` (or remapped `process-map` → `reviews`). Do **not** stop to run `stage-process-map`.
 
 13. **Announce.** Same as Stage 9 (`new-plan/stage-9.md`):
     - Plan path
