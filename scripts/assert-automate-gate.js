@@ -74,6 +74,7 @@ import {
   findPlansMissingGroundTruth,
   groundTruthGapMessage,
 } from './find-plans-missing-ground-truth.js';
+import { checkPlanFlow } from './find-missing-flow.js';
 
 
 const BI_SPINE = ['value', 'workflow', 'rules', 'outOfScope', 'doneWhen'];
@@ -817,6 +818,17 @@ export function runAssert(args, env = {}) {
         message:
           `blocked: ground-truth review receipt missing or invalid — ${why}${fpHint}; `
           + 'run `atomic-skills:review-plan --mode=ground-truth` then re-assert spawn',
+        exitCode: 1,
+      };
+    }
+    // Validated flow (Iron Law) — same detector implement Step 1 uses.
+    // process.yaml / map.html never satisfy. No operatorSkip / chat waiver.
+    const flow = checkPlanFlow(resolved.planFile, { strict: true });
+    if (!flow.ok) {
+      return {
+        ok: false,
+        message:
+          'blocked: missing/invalid validated flow; run `atomic-skills:project flow`',
         exitCode: 1,
       };
     }

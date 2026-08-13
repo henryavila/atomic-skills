@@ -42,6 +42,7 @@ If `isAutomateActive` and you are about to spawn a phase writer, run orchestrato
 If `isAutomateActive` and you are about to advance a pure-maestro step **without** updating the maestro cursor on that A–I boundary (or you are tempted to `rm` the cursor/lease file to force progress): STOP. Advance via `src/maestro-cursor.js`; never delete status files to skip gates.
 If `isAutomateActive` and the maestro cursor is **`awaiting-operator-advance`**, and you are about to run pure-maestro **Step A**, spawn, materialize-as-auto-chain, or multi-phase auto-run **without** `clearContinue` (`continueToken: 'operator-continue'` / `operatorContinue: true`): STOP. Pause is intentional; generic ok is not a continue token.
 If you are about to code or spawn a phase writer and `find-plans-missing-ground-truth.js` on the plan path is non-zero (or you skipped running it): STOP. Ground-truth review receipt is mandatory; empty-repo still requires a persisted complete-empty-repo result — no chat waiver.
+If you are about to code or spawn a phase writer and `find-missing-flow.js --strict` on the plan path is non-zero (or you skipped running it): STOP. Validated flow is mandatory. `process.yaml` never satisfies. Instruct `atomic-skills:project flow`. No operatorSkip, no chat waiver. Ad-hoc without a plan file is N/A; a plan file always gates.
 </HARD-GATE>
 
 ## Mindset
@@ -146,6 +147,26 @@ After that hard pre-check passes, confirm each pending task carries the SPEC int
      still have been run and persisted as `complete-empty-repo` (or complete
      with A/B "none" + scan evidence). There is **no** operator skip flag and
      **no** chat waiver that unlocks implement without the receipt.
+
+7. **Validated flow HARD-GATE (mandatory; cannot be skipped).** Before any
+   product coding, Mode 1 task loop, or automate phase-writer spawn, prove the
+   plan carries a ratified flow artefact. Ready without flow is legal;
+   `process.yaml` NEVER satisfies; implement does **not** run show+ratify.
+   Run via {{BASH_TOOL}} against the resolved plan file:
+
+   ```bash
+   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+   node "$PKG_ROOT/scripts/find-missing-flow.js" \
+     .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --strict
+   ```
+
+   - **Exit 0** → continue.
+   - **Non-zero** → **REFUSE** (HARD-GATE). Do not code, do not spawn. Surface
+     the detector and instruct `atomic-skills:project flow`. Re-run until exit
+     0. Automate: `assert-automate-gate --gate spawn` also fences this in JS.
+   - **No** `operatorSkip`, **no** chat waiver. Foreign: same detector on the
+     source `plan.md` (`dirname(plan.md)/flow/` via `flowPathsForPlan`, never
+     the sidecar). Ad-hoc without a plan file is N/A; a plan file always gates.
 
 ### Automate mode — pure maestro loop (when `isAutomateActive`)
 
@@ -327,6 +348,11 @@ Resident **triggers** only — if a thought matches one, STOP and read its full 
 - "No product code yet / greenfield — skip ground-truth and start coding."
 - "Internal review receipt exists — ground-truth is optional for implement."
 - "User said go ahead without the ground-truth section — waive the detector."
+- "process.yaml exists — skip flow."
+- "User said waive flow."
+- "I'll run project flow ceremony inside implement."
+- "Ad-hoc with a plan file — skip flow (only no plan file is N/A)."
+- "Foreign sidecar is the flow path."
 - "This is path/to/plan.md — I'll just code the checklist (skip entry AskUserQuestion)."
 - "Foreign lane finished — promote/adopt into .atomic-skills at FINALIZE."
 - "Foreign plan — skip worktree / skip ground-truth / mark done without verifier on the sidecar."
