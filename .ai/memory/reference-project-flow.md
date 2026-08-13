@@ -8,6 +8,10 @@ Produto: `/atomic-skills:project flow` substitui o process-map. Pacote: `docs/de
 
 **Q8-A (operador aprovou):** classe ground-truth. Artefato = graph válido + `flow.html` sha + `ratifiedAt` + `ratifiedGraphSha` == sha atual. Só `buildFlowRatification` no comando escreve o stamp. Sem receipt extra. Sem re-Ask no implement.
 
+**PR1 (2026-08-13):** `meta/schemas/flow.schema.json` + `scripts/lib/validate-flow.js` + `tests/validate-flow.test.js`. Dogfood envelopado (`schemaVersion: "1.0"` + lifecycle + `graph`). Fixture `dogfood/minimal-xor.json`. Sem skill/HTML/detector. Próxima sessão = **PR2** (`render-flow.js`).
+
+**Cascata PR1–PR4 (2026-08-13, execute-plan `fa94153b`):** empilhada localmente em `execute-plan/fa94153b-pr-4-featflow-implement-entry-hard-remove-process-map-ob` (`86c1c2d4`). Worktree: `.worktrees/execute-plan-fa94153b-pr-4`. Sem push/PR GitHub. PR5 (arch-legacy) fora. `develop` NÃO tem o stack. Validar nesse branch; Iron Law no tip = NO IMPLEMENT WITHOUT VALIDATED FLOW.
+
 **Nome do HTML:** `flow/flow.html`. **Abolido** o nome `map` (`map.html` do process-map não migra).
 
 **Não copiar:** `validateProcessMap` (não usa AJV). Copiar: `src/app-map/validate.js`.  
