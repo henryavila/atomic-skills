@@ -1,11 +1,11 @@
 # HANDOFF — Project Flow
 
-**Ler este arquivo primeiro.** É o cold-start da próxima sessão. Não use o prompt de 17 arquivos.
+**Ler `LEDGER.md` primeiro** (decisões / regras / etapas). Este HANDOFF é cold-start operacional.
 
 | Campo | Valor |
 |-------|--------|
-| **Status** | Design **ratificado** (2026-08-12). **PR1 no disco** (schema 1.0 + `validate-flow` + fixtures). Código de render/skill **ainda não existe**. Próxima sessão = **PR2**. |
-| **Modo** | Cascata PR1 → PR5. Começar na **PR2**. Não implementar outras PRs na mesma sessão a menos que o operador peça. |
+| **Status** | `LEDGER.md` + `MODEL.md` **ratificado**. PR1 semente. **Não retomar PR2 Mermaid.** Próximo = plano de implementação (tudo: schema, painel 3 camadas, dentes). |
+| **Modo** | Modelo fechado. Sem código até o plano. |
 | **Repo** | `/home/henry/atomic-skills` only. Não editar arch-legacy / worktrees de feature. |
 | **Não fazer** | git commit / push / PR no GitHub a menos que o operador peça. |
 

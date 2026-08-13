@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "projectId": "atomic-skills",
+  "slug": "project-flow",
+  "sourcePath": "projects/atomic-skills/project-flow/source.md",
+  "stage": "decompose-confirm",
+  "businessIntentAccepted": false,
+  "filesPlanned": [],
+  "filesWritten": [],
+  "status": "pending",
+  "updatedAt": "2026-08-13T16:45:27.230Z"
+}

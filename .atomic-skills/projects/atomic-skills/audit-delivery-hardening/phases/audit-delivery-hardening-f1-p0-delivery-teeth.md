@@ -205,7 +205,6 @@ tasks:
         Verifier exit 0.
 startedCommit: ed413703ad1540885c48f355a00c4c128f54867f
 planTitle: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
-planActive: true
 ---
 
 # F1 — P0 delivery teeth

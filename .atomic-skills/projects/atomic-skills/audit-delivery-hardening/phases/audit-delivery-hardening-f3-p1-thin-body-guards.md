@@ -162,7 +162,6 @@ tasks:
         axes with isolation degraded warning (exit 0)"
 startedCommit: 845776142dc6cc9d3ef44403af0b36ac0e73b86f
 planTitle: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
-planActive: true
 ---
 
 # F3 — P1 thin body + assets + guards

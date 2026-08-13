@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: audit-delivery-hardening
 title: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 version: "1.0"
-status: active
+status: paused
 started: 2026-08-04T11:51:14Z
-lastUpdated: 2026-08-04T15:33:31.897Z
+lastUpdated: 2026-08-13T16:50:00Z
 branch: develop
 currentPhase: F4
 executionMode: automate
@@ -13,53 +13,79 @@ parallelismAllowed: false
 principles:
   - id: P1
     title: Separate skill, opposite iron law
-    body: audit-delivery requires Intent Package; review-code forbids intent in the briefing. Never collapse into a review-code mode.
+    body: audit-delivery requires Intent Package; review-code forbids intent in the
+      briefing. Never collapse into a review-code mode.
   - id: P2
     title: Read-only default, compose for fix
-    body: Default path writes the report only. Fix via fix/parallel-dispatch then re-run audit-delivery. audit-and-fix is recipe/advanced, not the identity.
+    body: Default path writes the report only. Fix via fix/parallel-dispatch then
+      re-run audit-delivery. audit-and-fix is recipe/advanced, not the identity.
   - id: P3
     title: Residual is the differentiator
-    body: Half-migration monorepo hunt is mandatory; opt-out caps verdict at PARTIAL. CRITICAL residual never yields CLOSED.
+    body: Half-migration monorepo hunt is mandatory; opt-out caps verdict at
+      PARTIAL. CRITICAL residual never yields CLOSED.
   - id: P4
     title: Spec Package not success story
-    body: Agents get structured criteria (Dn/Pn, chains, terms); shipping narrative and suite-green praise stay out of auditor briefs.
+    body: Agents get structured criteria (Dn/Pn, chains, terms); shipping narrative
+      and suite-green praise stay out of auditor briefs.
   - id: P5
     title: EN skill source
-    body: Status/verdict enums and templates are English SSOT; runtime COMMUNICATION_LANGUAGE handles operator language.
+    body: Status/verdict enums and templates are English SSOT; runtime
+      COMMUNICATION_LANGUAGE handles operator language.
   - id: P6
     title: Medium-thin body + lazy assets
-    body: Body holds iron law, mode dispatch, HARD-GATEs, phase spine; checklists and protocols live under audit-delivery-assets and are READ on demand.
+    body: Body holds iron law, mode dispatch, HARD-GATEs, phase spine; checklists
+      and protocols live under audit-delivery-assets and are READ on demand.
   - id: P7
     title: Hard-gate phase-done — never skippable
-    body: implement (Mode-1 + pure-maestro) must run audit-delivery and stamp durable deliveryAuditGate before every phase-done. No operatorSkip, no soft-suggest-only, no waiver. OPEN blocks; CLOSED allows; PARTIAL only under skill Accept Record rules. Plan-end intentVsDelivered remains separate and is not a substitute.
+    body: implement (Mode-1 + pure-maestro) must run audit-delivery and stamp
+      durable deliveryAuditGate before every phase-done. No operatorSkip, no
+      soft-suggest-only, no waiver. OPEN blocks; CLOSED allows; PARTIAL only
+      under skill Accept Record rules. Plan-end intentVsDelivered remains
+      separate and is not a substitute.
 glossary:
   - term: Intent Package
-    definition: Operator-facing decisions, problems, acceptance, vocabulary delta, surface inventory used to admit the audit.
+    definition: Operator-facing decisions, problems, acceptance, vocabulary delta,
+      surface inventory used to admit the audit.
   - term: Spec Package
     definition: Stripped structured criteria given to audit agents (no success narrative).
   - term: residual hunt
-    definition: Domain-agnostic monorepo search for dual paths and teaching surfaces still on pre-change truth (OLD_TERMS × surfaces).
+    definition: Domain-agnostic monorepo search for dual paths and teaching surfaces
+      still on pre-change truth (OLD_TERMS × surfaces).
   - term: Accept Record
-    definition: Durable per-HIGH residual acceptance in the report (risk, mitigation, operator, timestamp); never used for CRITICAL→CLOSED.
+    definition: Durable per-HIGH residual acceptance in the report (risk,
+      mitigation, operator, timestamp); never used for CRITICAL→CLOSED.
   - term: lifecycle intentVsDelivered
-    definition: Plan-end automate receipt rows (matched|partial|missing|extra) — not this skill's system residual audit.
+    definition: Plan-end automate receipt rows (matched|partial|missing|extra) — not
+      this skill's system residual audit.
   - term: CLOSED
-    definition: Audit verdict — all load-bearing rows RESOLVED|N/A, zero CRITICAL residual, HIGH empty or Accept-Recorded.
+    definition: Audit verdict — all load-bearing rows RESOLVED|N/A, zero CRITICAL
+      residual, HIGH empty or Accept-Recorded.
 phases:
   - id: F0
     slug: audit-delivery-hardening-f0-p0-craft-foundation
     title: P0 craft foundation
     summary: EN enums, parse-first, wire assets, reaudit entry, catalog args
-    goal: Make audit-delivery craft-correct under Atomic Skills conventions so later product teeth sit on a body that loads assets, speaks EN SSOT, parses flags first, and has a real reaudit entry path.
+    goal: Make audit-delivery craft-correct under Atomic Skills conventions so later
+      product teeth sit on a body that loads assets, speaks EN SSOT, parses
+      flags first, and has a real reaudit entry path.
     dependsOn: []
     subPhaseCount: 5
     status: done
     businessIntent:
-      value: Operators and agents get a skill source that installs and reads like other core skills — no orphan templates, no hardcoded PT output rule, reaudit mode that actually loads a prior report.
-      workflow: T-001 EN rewrite of body+existing assets; T-002 parse-first step; T-003 wire axis/reaudit templates; T-004 reaudit-entry asset + mode table; T-005 catalog argument_hint and RO-default clarity; validate-skills.
-      rules: No merge into review-code; no product residual protocol invent here (F1); version_added may stay aspirational until publish; mutates_repo true stays with RO default documented.
-      outOfScope: Staged evidence, Matrix C, Spec Package strip, thin-body target line count, prosecution axis, fix orchestration rewrite, dogfood checklist.
-      doneWhen: validate-skills green; body references axis-brief + reaudit-entry; no Present-in-Portuguese rule; EN status/verdict enums in body and assets.
+      value: Operators and agents get a skill source that installs and reads like
+        other core skills — no orphan templates, no hardcoded PT output rule,
+        reaudit mode that actually loads a prior report.
+      workflow: T-001 EN rewrite of body+existing assets; T-002 parse-first step;
+        T-003 wire axis/reaudit templates; T-004 reaudit-entry asset + mode
+        table; T-005 catalog argument_hint and RO-default clarity;
+        validate-skills.
+      rules: No merge into review-code; no product residual protocol invent here (F1);
+        version_added may stay aspirational until publish; mutates_repo true
+        stays with RO default documented.
+      outOfScope: Staged evidence, Matrix C, Spec Package strip, thin-body target line
+        count, prosecution axis, fix orchestration rewrite, dogfood checklist.
+      doneWhen: validate-skills green; body references axis-brief + reaudit-entry; no
+        Present-in-Portuguese rule; EN status/verdict enums in body and assets.
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -68,7 +94,13 @@ phases:
           status: met
           verifier:
             kind: shell
-            command: npm run validate-skills && test -f skills/shared/audit-delivery-assets/reaudit-entry.md && rg -q 'axis-brief-template' skills/core/audit-delivery.md && rg -q 'reaudit-brief-template' skills/core/audit-delivery.md && rg -q 'reaudit-entry' skills/core/audit-delivery.md && ! rg -q 'Present in Portuguese|FECHADO|RESOLVIDO|Reauditoria|Resumo executivo' skills/core/audit-delivery.md skills/shared/audit-delivery-assets
+            command: npm run validate-skills && test -f
+              skills/shared/audit-delivery-assets/reaudit-entry.md && rg -q
+              'axis-brief-template' skills/core/audit-delivery.md && rg -q
+              'reaudit-brief-template' skills/core/audit-delivery.md && rg -q
+              'reaudit-entry' skills/core/audit-delivery.md && ! rg -q 'Present
+              in Portuguese|FECHADO|RESOLVIDO|Reauditoria|Resumo executivo'
+              skills/core/audit-delivery.md skills/shared/audit-delivery-assets
             expectExitCode: 0
           evidence:
             verifierKind: shell
@@ -84,7 +116,8 @@ phases:
       verifiedAt: 2026-08-04T14:35:54.447Z
       at: 4c638539a7dca302b7223d742b17b4be59c2baff
     lessonsState: none
-    noneReason: "F0 clean phase: all task verifiers + exit gate G-F0-1 green; evaluation findings note-only; no failure signals requiring lessons file"
+    noneReason: "F0 clean phase: all task verifiers + exit gate G-F0-1 green;
+      evaluation findings note-only; no failure signals requiring lessons file"
     reviewGate:
       status: passed
       mode: both
@@ -114,26 +147,44 @@ phases:
     slug: audit-delivery-hardening-f1-p0-delivery-teeth
     title: P0 delivery teeth
     summary: Intent Package hard, residual protocol, axes, verdict Accept Record
-    goal: Close false-CLOSED paths — hard Intent Package admission, domain-agnostic residual protocol, product+residual defaults, severity closing rules with Accept Records; demote audit-and-fix from primary identity.
+    goal: Close false-CLOSED paths — hard Intent Package admission, domain-agnostic
+      residual protocol, product+residual defaults, severity closing rules with
+      Accept Records; demote audit-and-fix from primary identity.
     dependsOn:
       - F0
     subPhaseCount: 0
     status: done
     businessIntent:
-      value: A green suite cannot close delivery; half-migration residual and missing acceptance/vocabulary cannot reach CLOSED.
-      workflow: Intent package asset+gate; residual-hunt-protocol; default axes; verdict-gate+Accept Record; composition note over in-skill fix PM loop.
-      rules: CRITICAL never accepted to CLOSED; residual opt-out caps PARTIAL; Lekto greps are examples only.
-      outOfScope: Multi-hop stage columns, Matrix C, Spec Package, --depth, critic topology, static asset graph test.
-      doneWhen: intent-package, residual-hunt-protocol, verdict-gate assets exist and body encodes product+residual default and Accept Record rules.
+      value: A green suite cannot close delivery; half-migration residual and missing
+        acceptance/vocabulary cannot reach CLOSED.
+      workflow: Intent package asset+gate; residual-hunt-protocol; default axes;
+        verdict-gate+Accept Record; composition note over in-skill fix PM loop.
+      rules: CRITICAL never accepted to CLOSED; residual opt-out caps PARTIAL; Lekto
+        greps are examples only.
+      outOfScope: Multi-hop stage columns, Matrix C, Spec Package, --depth, critic
+        topology, static asset graph test.
+      doneWhen: intent-package, residual-hunt-protocol, verdict-gate assets exist and
+        body encodes product+residual default and Accept Record rules.
     exitGate:
       summary: 1 criterion to meet
       criteria:
         - id: G-F1-1
-          description: Intent + residual + verdict assets; axes; admission/Accept/CRITICAL rules greppable
+          description: Intent + residual + verdict assets; axes; admission/Accept/CRITICAL
+            rules greppable
           status: met
           verifier:
             kind: shell
-            command: test -f skills/shared/audit-delivery-assets/intent-package.md && test -f skills/shared/audit-delivery-assets/residual-hunt-protocol.md && test -f skills/shared/audit-delivery-assets/verdict-gate.md && rg -q 'product,residual|product \+ residual' skills/core/audit-delivery.md && rg -q 'Accept Record|CRITICAL' skills/shared/audit-delivery-assets/verdict-gate.md && rg -q 'PARTIAL|cap' skills/core/audit-delivery.md skills/shared/audit-delivery-assets/verdict-gate.md && rg -q 'acceptance|vocabulary|surface inventory|HARD-GATE' skills/shared/audit-delivery-assets/intent-package.md skills/core/audit-delivery.md
+            command: test -f skills/shared/audit-delivery-assets/intent-package.md && test
+              -f skills/shared/audit-delivery-assets/residual-hunt-protocol.md
+              && test -f skills/shared/audit-delivery-assets/verdict-gate.md &&
+              rg -q 'product,residual|product \+ residual'
+              skills/core/audit-delivery.md && rg -q 'Accept Record|CRITICAL'
+              skills/shared/audit-delivery-assets/verdict-gate.md && rg -q
+              'PARTIAL|cap' skills/core/audit-delivery.md
+              skills/shared/audit-delivery-assets/verdict-gate.md && rg -q
+              'acceptance|vocabulary|surface inventory|HARD-GATE'
+              skills/shared/audit-delivery-assets/intent-package.md
+              skills/core/audit-delivery.md
             expectExitCode: 0
           evidence:
             verifierKind: shell
@@ -178,26 +229,49 @@ phases:
     slug: audit-delivery-hardening-f2-p1-evidence-ecosystem
     title: P1 evidence + ecosystem
     summary: Stages, Spec Package, depth, catalog disambiguation, implement hard-gate
-    goal: Raise evidence bar (staged S/C/U/O/T/X, must-not, multi-hop, Spec Package strip), disambiguate vs plan-end intentVsDelivered, and hard-wire deliveryAuditGate so every phase-done requires a real audit-delivery run with no skip path.
+    goal: Raise evidence bar (staged S/C/U/O/T/X, must-not, multi-hop, Spec Package
+      strip), disambiguate vs plan-end intentVsDelivered, and hard-wire
+      deliveryAuditGate so every phase-done requires a real audit-delivery run
+      with no skip path.
     dependsOn:
       - F1
     subPhaseCount: 0
     status: done
     businessIntent:
-      value: Auditors prove multi-hop delivery and negative space; phase close cannot ship without a durable delivery audit — never optional, never skippable.
-      workflow: matrices+must-not; spec-package; multi-hop bar; --depth; catalog when_not; implement deliveryAuditGate + canRunPhaseDone/assert phase-done.
-      rules: No operatorSkip on deliveryAuditGate; no soft-suggest-only; no anti-intent sealing of Spec IDs; plan-end intentVsDelivered is not a substitute for the phase gate.
-      outOfScope: Full body thin rewrite, asset reachability test, prosecution, dual reaudit, cross-model.
-      doneWhen: matrices and spec-package assets exist; --depth in body+catalog; deliveryAuditGate helpers + implement HARD-GATE prose; skip shapes rejected.
+      value: Auditors prove multi-hop delivery and negative space; phase close cannot
+        ship without a durable delivery audit — never optional, never skippable.
+      workflow: matrices+must-not; spec-package; multi-hop bar; --depth; catalog
+        when_not; implement deliveryAuditGate + canRunPhaseDone/assert
+        phase-done.
+      rules: No operatorSkip on deliveryAuditGate; no soft-suggest-only; no
+        anti-intent sealing of Spec IDs; plan-end intentVsDelivered is not a
+        substitute for the phase gate.
+      outOfScope: Full body thin rewrite, asset reachability test, prosecution, dual
+        reaudit, cross-model.
+      doneWhen: matrices and spec-package assets exist; --depth in body+catalog;
+        deliveryAuditGate helpers + implement HARD-GATE prose; skip shapes
+        rejected.
     exitGate:
       summary: 1 criterion to meet
       criteria:
         - id: G-F2-1
-          description: Stages + Spec Package + depth + deliveryAuditGate hard-wired (no skip)
+          description: Stages + Spec Package + depth + deliveryAuditGate hard-wired (no
+            skip)
           status: met
           verifier:
             kind: shell
-            command: test -f skills/shared/audit-delivery-assets/matrices.md && test -f skills/shared/audit-delivery-assets/spec-package.md && test -f src/phase-delivery-audit-gate.js && rg -q -- '--depth' skills/core/audit-delivery.md && rg -q -- '--depth' meta/catalog.yaml && rg -q 'deliveryAuditGate|deliveryAuditAllowsClose' skills/core/implement.md src/automate-orchestrator-gates.js && rg -q 'audit-delivery' meta/catalog.yaml && rg -q 'intentVsDelivered|plan-end|parallel-dispatch-audit' meta/catalog.yaml && ! rg -q 'soft-suggest|soft suggest only|optional audit-delivery' skills/core/implement.md skills/shared/implement-automate-maestro.md
+            command: test -f skills/shared/audit-delivery-assets/matrices.md && test -f
+              skills/shared/audit-delivery-assets/spec-package.md && test -f
+              src/phase-delivery-audit-gate.js && rg -q -- '--depth'
+              skills/core/audit-delivery.md && rg -q -- '--depth'
+              meta/catalog.yaml && rg -q
+              'deliveryAuditGate|deliveryAuditAllowsClose'
+              skills/core/implement.md src/automate-orchestrator-gates.js && rg
+              -q 'audit-delivery' meta/catalog.yaml && rg -q
+              'intentVsDelivered|plan-end|parallel-dispatch-audit'
+              meta/catalog.yaml && ! rg -q 'soft-suggest|soft suggest
+              only|optional audit-delivery' skills/core/implement.md
+              skills/shared/implement-automate-maestro.md
             expectExitCode: 0
           evidence:
             verifierKind: shell
@@ -242,17 +316,22 @@ phases:
     slug: audit-delivery-hardening-f3-p1-thin-body-guards
     title: P1 thin body + assets + guards
     summary: Medium-thin body, checklists, report template, static wire test
-    goal: Prevent skill rot — thin resident spine, complete lazy assets (checklists/report/ledger), INVESTIGATOR fallback, static test that every asset is reachable from the body.
+    goal: Prevent skill rot — thin resident spine, complete lazy assets
+      (checklists/report/ledger), INVESTIGATOR fallback, static test that every
+      asset is reachable from the body.
     dependsOn:
       - F2
     subPhaseCount: 0
     status: done
     businessIntent:
-      value: Maintainers cannot ship dead assets; operators get a readable skill body with full report/checklist SSOT in assets.
-      workflow: Thin rewrite; checklist+report assets; audit-delivery-assets.test.js; INVESTIGATOR fallback prose.
+      value: Maintainers cannot ship dead assets; operators get a readable skill body
+        with full report/checklist SSOT in assets.
+      workflow: Thin rewrite; checklist+report assets; audit-delivery-assets.test.js;
+        INVESTIGATOR fallback prose.
       rules: Body keeps iron law and HARD-GATEs resident; detail is lazy.
       outOfScope: P2 prosecution/critic/cross; dogfood narrative file.
-      doneWhen: validate-skills + asset wire test green; report and product/residual checklists exist.
+      doneWhen: validate-skills + asset wire test green; report and product/residual
+        checklists exist.
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -261,7 +340,14 @@ phases:
           status: met
           verifier:
             kind: shell
-            command: npm run validate-skills && node --test tests/audit-delivery-assets.test.js && test -f skills/shared/audit-delivery-assets/report-template.md && test -f skills/shared/audit-delivery-assets/checklists/product.md && test -f skills/shared/audit-delivery-assets/checklists/residual.md && test -f skills/shared/audit-delivery-assets/findings-ledger.md && rg -q 'INVESTIGATOR|unavailable|degraded' skills/core/audit-delivery.md
+            command: npm run validate-skills && node --test
+              tests/audit-delivery-assets.test.js && test -f
+              skills/shared/audit-delivery-assets/report-template.md && test -f
+              skills/shared/audit-delivery-assets/checklists/product.md && test
+              -f skills/shared/audit-delivery-assets/checklists/residual.md &&
+              test -f skills/shared/audit-delivery-assets/findings-ledger.md &&
+              rg -q 'INVESTIGATOR|unavailable|degraded'
+              skills/core/audit-delivery.md
             expectExitCode: 0
           evidence:
             verifierKind: shell
@@ -306,17 +392,26 @@ phases:
     slug: audit-delivery-hardening-f4-p2-advanced-dogfood
     title: P2 advanced + dogfood close
     summary: Prosecution, critic, dual reaudit, fix recipe, optional cross, BI import
-    goal: Optional power-user topology and fix composition without making every run heavy; dogfood checklist locks false-CLOSED modes and the non-skippable phase-done hard-gate (already shipped in F2).
+    goal: Optional power-user topology and fix composition without making every run
+      heavy; dogfood checklist locks false-CLOSED modes and the non-skippable
+      phase-done hard-gate (already shipped in F2).
     dependsOn:
       - F3
     subPhaseCount: 0
     status: done
     businessIntent:
-      value: Large rewrites get prosecution + dual reaudit + optional cross residual; fix path is a documented recipe; dogfood proves false-CLOSED and skip-audit stay closed.
-      workflow: prosecution axis; full-depth critic; dual reaudit; fix-composition recipe; optional --cross; BI import + dogfood-checklist.md (includes deliveryAuditGate never-skip).
-      rules: Advanced features default off or full-depth only; never replace residual protocol; never reintroduce skip on phase delivery audit.
-      outOfScope: Dashboard UI for reports; machine Accept Record schema validator beyond markdown; auto leg in project review composer.
-      doneWhen: Recipe + dogfood checklist (with hard-gate row) exist; advanced flags documented; validate-skills + asset test still green.
+      value: Large rewrites get prosecution + dual reaudit + optional cross residual;
+        fix path is a documented recipe; dogfood proves false-CLOSED and
+        skip-audit stay closed.
+      workflow: prosecution axis; full-depth critic; dual reaudit; fix-composition
+        recipe; optional --cross; BI import + dogfood-checklist.md (includes
+        deliveryAuditGate never-skip).
+      rules: Advanced features default off or full-depth only; never replace residual
+        protocol; never reintroduce skip on phase delivery audit.
+      outOfScope: Dashboard UI for reports; machine Accept Record schema validator
+        beyond markdown; auto leg in project review composer.
+      doneWhen: Recipe + dogfood checklist (with hard-gate row) exist; advanced flags
+        documented; validate-skills + asset test still green.
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -325,7 +420,13 @@ phases:
           status: met
           verifier:
             kind: shell
-            command: npm run validate-skills && node --test tests/audit-delivery-assets.test.js && test -f .atomic-skills/projects/atomic-skills/audit-delivery-hardening/dogfood-checklist.md && rg -q 'deliveryAuditGate|never skip|hard-gate' .atomic-skills/projects/atomic-skills/audit-delivery-hardening/dogfood-checklist.md && test -f skills/shared/audit-delivery-assets/fix-composition-recipe.md
+            command: npm run validate-skills && node --test
+              tests/audit-delivery-assets.test.js && test -f
+              .atomic-skills/projects/atomic-skills/audit-delivery-hardening/dogfood-checklist.md
+              && rg -q 'deliveryAuditGate|never skip|hard-gate'
+              .atomic-skills/projects/atomic-skills/audit-delivery-hardening/dogfood-checklist.md
+              && test -f
+              skills/shared/audit-delivery-assets/fix-composition-recipe.md
             expectExitCode: 0
           evidence:
             verifierKind: shell
@@ -366,7 +467,6 @@ phases:
       verdict: CLOSED
       verifiedAt: 2026-08-04T15:32:55.253Z
       at: 85e0f2786d1f9f24be1904ffae64623f0ee89df3
-planActive: true
 planTitle: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
 planEndReview:
   mode: external-both
@@ -377,14 +477,16 @@ planEndReview:
       label: F0 craft EN enums + parse-first + assets + reaudit-entry + catalog
       note: skills/core/audit-delivery.md EN SSOT; reaudit-entry.md; validate-skills
     - status: matched
-      label: F1 Intent Package + residual protocol + Accept Record + product,residual default
+      label: F1 Intent Package + residual protocol + Accept Record + product,residual
+        default
       note: intent-package.md residual-hunt-protocol.md verdict-gate.md body axes
     - status: matched
       label: F2 staged evidence + Spec Package + depth + deliveryAuditGate hard
       note: matrices.md spec-package.md --depth phase-delivery-audit-gate.js 26 tests
     - status: partial
       label: F3 thin body + lazy assets + static graph + INVESTIGATOR fallback
-      note: body ~209 lines + checklists/report + audit-delivery-assets.test.js (thin body ~209 lines vs 120-180 aspirational; behavior in assets)
+      note: body ~209 lines + checklists/report + audit-delivery-assets.test.js (thin
+        body ~209 lines vs 120-180 aspirational; behavior in assets)
     - status: matched
       label: F4 prosecution + critic merge + dual reaudit + fix recipe + dogfood
       note: prosecution/critic-merge/fix-composition-recipe + dogfood-checklist

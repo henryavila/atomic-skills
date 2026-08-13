@@ -280,7 +280,6 @@ tasks:
         green.
 startedCommit: c14a45144e81862c86e57521c3fb286ba96d2f2b
 planTitle: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
-planActive: true
 ---
 
 # F2 — P1 evidence + ecosystem

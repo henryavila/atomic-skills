@@ -226,8 +226,6 @@ tasks:
         modes + deliveryAuditGate never skip hard-gate (exit 0)
 startedCommit: abbedeb1c0388b7bea339e7182358ca8af047a25
 planTitle: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
-planActive: true
-current: true
 ---
 
 # F4 — P2 advanced + dogfood close

@@ -221,7 +221,6 @@ tasks:
         true retained. npm run validate-skills: All 16 skills valid. Follow-up
         commit synced docs/skills from husky generate-docs. exit 0."
 planTitle: audit-delivery hardening — P0 craft + teeth, P1 evidence, P2 advanced
-planActive: true
 ---
 
 # F0 — P0 craft foundation
