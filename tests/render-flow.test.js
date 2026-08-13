@@ -4,7 +4,9 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -18,7 +20,16 @@ import {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DS = readFileSync(join(ROOT, 'site', 'assets', 'ds.css'), 'utf8');
 const DOGFOOD = join(ROOT, 'docs', 'design', 'project-flow', 'dogfood', 'fluxo-sugestao.json');
+const CLI = join(ROOT, 'scripts', 'render-flow.js');
 const UI_WORD_RE = /\b(click|modal|screen)\b|clica|\btela\b/i;
+
+function runCli(args, opts = {}) {
+  return spawnSync(process.execPath, [CLI, ...args], {
+    encoding: 'utf8',
+    cwd: ROOT,
+    ...opts,
+  });
+}
 
 function loadDogfood() {
   return JSON.parse(readFileSync(DOGFOOD, 'utf8'));
@@ -137,5 +148,57 @@ describe('determinism and validation', () => {
     const { html } = buildFlowHtml(loadDogfood(), DS);
     assert.ok(!/20\d{2}-\d{2}-\d{2}T/.test(html));
     assert.ok(!html.includes(ROOT));
+  });
+});
+
+describe('render-flow CLI', () => {
+  it('writes HTML to -o and names the artifact flow.html', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-flow-'));
+    const out = join(dir, 'flow.html');
+    const result = runCli([DOGFOOD, '-o', out]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(existsSync(out));
+    const html = readFileSync(out, 'utf8');
+    assert.ok(html.includes('id="fl-sequence"'));
+    assert.ok(html.includes('id="fl-bpm"'));
+    assert.ok(html.includes('id="fl-machines"'));
+    assert.ok(out.endsWith('flow.html'));
+  });
+
+  it('prints HTML on --stdout', () => {
+    const result = runCli(['--stdout', DOGFOOD]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.startsWith('<!DOCTYPE html>'));
+    assert.ok(result.stdout.includes('Sequência'));
+    assert.ok(result.stdout.includes('id="fl-machines"'));
+  });
+
+  it('--check exits 0 when on-disk HTML matches content-sha', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-flow-check-'));
+    const out = join(dir, 'flow.html');
+    const write = runCli([DOGFOOD, '-o', out]);
+    assert.equal(write.status, 0, write.stderr);
+    const check = runCli(['--check', DOGFOOD, out]);
+    assert.equal(check.status, 0, check.stderr + check.stdout);
+    assert.match(check.stdout + check.stderr, /content-sha/i);
+    writeFileSync(out, `${readFileSync(out, 'utf8')}\n<!-- drift -->\n`);
+    const drift = runCli(['--check', DOGFOOD, out]);
+    assert.notEqual(drift.status, 0);
+  });
+
+  it('defaults to flow.html next to the input when -o is omitted', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-flow-default-'));
+    const input = join(dir, 'fluxo.json');
+    writeFileSync(input, readFileSync(DOGFOOD));
+    const result = runCli([input]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(existsSync(join(dir, 'flow.html')));
+    assert.equal(existsSync(join(dir, 'map.html')), false);
+  });
+
+  it('CLI source never mentions the abolished map filename', () => {
+    const src = readFileSync(CLI, 'utf8');
+    assert.equal(src.includes('map.html'), false);
+    assert.ok(src.includes('flow.html'));
   });
 });
