@@ -12,6 +12,12 @@ Produto: `/atomic-skills:project flow` substitui o process-map. Pacote: `docs/de
 
 **Cascata PR1–PR4 (2026-08-13, execute-plan `fa94153b`):** empilhada localmente em `execute-plan/fa94153b-pr-4-featflow-implement-entry-hard-remove-process-map-ob` (`86c1c2d4`). Worktree: `.worktrees/execute-plan-fa94153b-pr-4`. Sem push/PR GitHub. PR5 (arch-legacy) fora. `develop` NÃO tem o stack. Validar nesse branch; Iron Law no tip = NO IMPLEMENT WITHOUT VALIDATED FLOW.
 
+**SSOT 2026-08-13:** `docs/design/project-flow/LEDGER.md` — decisões, regras, etapas. Alinhamento visual no ledger §1–§2. Fase = desenho do modelo. Mermaid-PR2 morta. Não mergear `86c1c2d4`.
+
+**Plano AS (2026-08-13):** `plan/project-flow` em `.worktrees/project-flow`. Estado: `.atomic-skills/projects/atomic-skills/project-flow/plan.md`. F0 ativa.
+
+**Ground-truth Flow E (2026-08-13):** `complete-with-findings` `fp=62300106c524` premises=18 (false=1: `ds-`) impacts=6. G-F1-2 corrigido para `--bg-canvas|--fg-default`. Materialize: T-006 `ds-`; T-010 write-path extra; `IMPLEMENTATION_TOKEN_RE` em validate-flow.
+
 **Nome do HTML:** `flow/flow.html`. **Abolido** o nome `map` (`map.html` do process-map não migra).
 
 **Não copiar:** `validateProcessMap` (não usa AJV). Copiar: `src/app-map/validate.js`.  

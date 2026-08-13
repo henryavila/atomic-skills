@@ -1,0 +1,112 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "project-flow-f1-painel-de-3-camadas",
+  "title": "Painel de 3 camadas",
+  "goal": "Render próprio (HTML/CSS/SVG no repo, sem Mermaid/Graphviz/D2) projeta sequência + fluxo BPM + máquinas a partir de flow.json. Primeiro incremento pode ser tosco. Exit = UI impecável no DS do repo (`site/assets/ds.css`). Artefato canônico `flow/flow.html`. Sem editor.",
+  "tasks": [
+    {
+      "id": "T-004",
+      "title": "Renderer puro das 3 camadas",
+      "scopeBoundary": [
+        "do not import mermaid or graphviz or d2; do not reuse .worktrees execute-plan Mermaid HTML; do not write project flow skill command; do not drop process-map stage"
+      ],
+      "acceptance": [
+        "given MODEL dogfood, render returns HTML containing three distinct surfaces (sequence, bpm, machines); labels on bpm omit click words; messages appear on sequence; transitions show kind label target; mutating a next id changes the output; no mermaid script tag or mermaid.initialize"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/render-flow.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/lib/render-flow.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/render-flow.test.js"
+        }
+      ],
+      "summary": "Renderer HTML das três camadas, sem Mermaid.",
+      "weight": 3
+    },
+    {
+      "id": "T-005",
+      "title": "CLI render-flow e path flow.html",
+      "scopeBoundary": [
+        "do not add find-missing-flow.js here; do not write ratifiedAt; do not emit map.html"
+      ],
+      "acceptance": [
+        "`node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/flow.html` writes HTML; --check exits 0 on matching content-sha; --stdout prints HTML; output filename is flow.html not map.html"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/render-flow.test.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-render.html && test -f /tmp/project-flow-render.html && ! rg -q 'map\\\\.html' scripts/render-flow.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/render-flow.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/render-flow.test.js"
+        }
+      ],
+      "summary": "CLI grava flow.html e checa content-sha; nunca map.html.",
+      "weight": 2
+    },
+    {
+      "id": "T-006",
+      "title": "UI impecável no DS",
+      "scopeBoundary": [
+        "do not add a browser visual editor; do not introduce mermaid; do not change validate-flow rules; site/assets/ds.css is read/consumed, not redesigned"
+      ],
+      "acceptance": [
+        "generated HTML uses DS tokens from site/assets/ds.css (inline or linked); three surfaces remain visually distinct (separate landmarks or tabs); typography and spacing match DS scale; no tool watermark; golden HTML snapshot updates only when visual contract changes"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/render-flow.test.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-polish.html && rg -q 'ds-|data-flow-|Sequência|sequence' /tmp/project-flow-polish.html && ! rg -qi 'mermaid' /tmp/project-flow-polish.html"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/lib/render-flow.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/render-flow.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "site/assets/ds.css"
+        }
+      ],
+      "summary": "Visual no DS; F1 não fecha enquanto parecer protótipo.",
+      "weight": 3
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-F1-1",
+      "description": "FAILS when render-flow emits mermaid or map.html or omits one of the three surfaces",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/render-flow.test.js && ! rg -qi 'mermaid|graphviz|d2' scripts/lib/render-flow.js scripts/render-flow.js"
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-F1-2",
+      "description": "FAILS when the generated dogfood HTML still looks like a prototype (no DS tokens, surfaces collapsed, mermaid present)",
+      "verifier": {
+        "kind": "shell",
+        "command": "node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-f1-gate.html && rg -q 'ds-|data-flow' /tmp/project-flow-f1-gate.html && ! rg -qi 'mermaid' /tmp/project-flow-f1-gate.html"
+      },
+      "status": "pending"
+    }
+  ],
+  "summary": "Painel próprio das três camadas; nasce tosco e só fecha impecável no DS."
+}
