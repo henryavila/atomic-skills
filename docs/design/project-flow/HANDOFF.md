@@ -4,8 +4,8 @@
 
 | Campo | Valor |
 |-------|--------|
-| **Status** | Design **ratificado** (2026-08-12, duas sessões Grok). Código **ainda não existe**. Próxima sessão = **PR1**. |
-| **Modo** | Cascata PR1 → PR5. Começar na **PR1**. Não implementar outras PRs na mesma sessão a menos que o operador peça. |
+| **Status** | Design **ratificado** (2026-08-12). **PR1 no disco** (schema 1.0 + `validate-flow` + fixtures). Código de render/skill **ainda não existe**. Próxima sessão = **PR2**. |
+| **Modo** | Cascata PR1 → PR5. Começar na **PR2**. Não implementar outras PRs na mesma sessão a menos que o operador peça. |
 | **Repo** | `/home/henry/atomic-skills` only. Não editar arch-legacy / worktrees de feature. |
 | **Não fazer** | git commit / push / PR no GitHub a menos que o operador peça. |
 
@@ -18,54 +18,54 @@
 3. **Validação é o comando `project flow` (manual, a qualquer momento).** Show + AskUserQuestion + `buildFlowRatification` (`ratifiedAt` + `ratifiedGraphSha`). Chat “ok” não conta. O `implement` **não** roda a cerimônia — só checa o detector. Classe ground-truth (Q8-A): sem receipt extra, sem re-Ask no implement.
 4. **Day-2 em qualquer momento da vida do plano:** gerar / atualizar / exibir / ratify / `--check`. HTML nunca é SoT. Mudou o grafo → re-render; se já havia `ratifiedAt`, re-ratify.
 5. **Editável** = agente reescreve `flow.json` no loop “Ajustar” + re-render. **Não** editor visual no browser (non-goal).
-6. **Cascata = PR1 na próxima sessão.** Design + overrides desta sessão já estão no disco.
+6. **Cascata = PR2 na próxima sessão.** PR1 (schema + validate + fixtures) já está no disco.
 7. Protótipo já **provou** plan → grafo + visual (sessão que gerou a tela). Aqui productizamos no monorepo, genérico, sem domínio PDTI no core.
 
 Glossário: o design chama os recortes de **PR1–PR5**. Não inventar “FATIA”.
 
 ---
 
-## O que a próxima sessão implementa (só PR1)
+## PR1 — feito (2026-08-13)
 
-**Title:** `feat(flow): schema 1.0 + core validator + dogfood fixture`
+- `meta/schemas/flow.schema.json`
+- `scripts/lib/validate-flow.js` (AJV 2020 + regras de grafo; sem domínio PDTI)
+- `tests/validate-flow.test.js` — 15/15
+- Dogfood envelopado em `schemaVersion: "1.0"` + lifecycle + `graph{entry,nodes}`
+- Fixture `dogfood/minimal-xor.json`
+
+## O que a próxima sessão implementa (só PR2)
+
+**Title:** `feat(flow): deterministic render-flow HTML (mermaid projections)`
 
 Criar:
 
-- `meta/schemas/flow.schema.json`
-- `scripts/lib/validate-flow.js` — AJV + regras de grafo (padrão `src/app-map/validate.js`, **não** o hand-roll de `validateProcessMap`)
-- `tests/validate-flow.test.js`
-- Dogfood envelopado: `docs/design/project-flow/dogfood/fluxo-sugestao.json` hoje é `version: 2` com `entry`/`nodes` no topo — precisa `schemaVersion: "1.0"` + lifecycle + aninhar grafo em `graph`
-- Segunda fixture mínima (2 actors, 1 xor, **sem** status 10/1/11)
+- `scripts/lib/render-flow.js` — pure: validate → normalize → HTML string
+- `scripts/render-flow.js` — CLI (`-o`, `--check`, `--stdout`)
+- CSS/JS shell extraído de `dogfood/fluxo-completo.html` **sem** `validateModel` de domínio
+- Mermaid pin (offline); golden test content-sha / mermaid source snapshot
+- Output canônico: `flow/flow.html` (nunca `map.html`)
 
-Done-when PR1:
+Done-when PR2:
 
-- AJV + regras core passam no dogfood envelopado
-- Fixture mínima passa
-- Casos de erro: next quebrado, xor 1 branch, actor inválido
-- Domínio PDTI **não** aparece no validator
-- Sem skill, sem stage, sem HTML, sem Iron Law, sem detector
-
-**Padrão AJV do repo:** `src/app-map/validate.js` (`ajv/dist/2020.js`).  
-`process-map.schema.json` **nunca é compilado**; `validateProcessMap` reimplementa o schema na mão — **não copiar**.
+- `node scripts/render-flow.js dogfood.json -o /tmp/flow.html` offline
+- tabs Sequência + Fluxo + Estados
+- sem fetch de JSON externo
+- **não** emite `map.html`
 
 ---
 
-## Cold-start PR1 (só estes arquivos)
+## Cold-start PR2 (só estes arquivos)
 
-Ler nesta ordem. Não abrir o HTML de 1139 linhas. Não abrir `pdti-feature-design.md` como spec.
+Ler nesta ordem. Não abrir `pdti-feature-design.md` como spec.
 
 1. Este `HANDOFF.md`
-2. `design.md` — D1, D2, schema mínimo, PR1 (não precisa reler PR2–PR5 para implementar PR1)
-3. `analysis/01-impl-audit.md` — o que é genérico vs o que é domínio (proibido no core)
-4. `dogfood/fluxo-sugestao.json` — fixture a envelopar (não é schema 1.0 ainda)
-5. `src/app-map/validate.js` — padrão a copiar
-6. `test/app-map/schema.test.js` **ou** `tests/routing-schema.test.js` — estilo de teste AJV
-7. `meta/schemas/process-map.schema.json` — só convenção `$id` / draft 2020-12 / `additionalProperties` (não o modelo de cards)
-8. `references/README.md` — PDTI é instância, não regra
+2. `design.md` — D3, D5, PR2
+3. `scripts/lib/validate-flow.js` + `meta/schemas/flow.schema.json` (já no disco)
+4. `dogfood/fluxo-sugestao.json` (já schema 1.0) e `dogfood/minimal-xor.json`
+5. `scripts/lib/render-process-map.js` — padrão de pipeline (pure lib + content-sha), **não** o modelo de cards
+6. Trechos de `dogfood/fluxo-completo.html` — só `walkLayout` / `collectBranchChain` / `buildSequence` / `buildFlow` / `buildStates` / chrome. **Apagar** `validateModel` domain-hardcoded.
 
-Opcional se `journey` entrar no schema como objeto **opcional não usado**: `scripts/lib/render-process-map.js` linhas 12–18 e 68–169 (lint dual-copy). **Não** é superfície de produto.
-
-**Não ler para PR1:** `fluxo-completo.html`, `fluxos-*.html`, `project.md` inteiro, `stage-process-map.md`, `render-process-map.js` CLI, `find-missing-process-map.js`, `pdti-feature-*.md` completo, KB `process-map.md`.
+**Não ler para PR2:** skill bodies, `CREATION_STAGES`, `implement.md`, Iron Law, `find-missing-process-map.js`, `pdti-feature-*.md` completo, KB `process-map.md`. Sem skill, sem detector, sem stage.
 
 ---
 
@@ -134,14 +134,21 @@ docs/design/project-flow/
 
 ---
 
-## Verificação PR1 (antes de declarar done)
+## Verificação PR1 (feito)
 
 ```bash
 node --test tests/validate-flow.test.js
-# ou o comando equivalente do package.json se registrar
+# 15/15 pass (2026-08-13)
 ```
 
-Mostrar: paths criados, 1 caso ok, 1 caso fail. Não claim done sem rodar o teste.
+## Verificação PR2 (antes de declarar done)
+
+```bash
+node --test tests/render-flow.test.js
+node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/flow.html
+```
+
+Mostrar: path do HTML, tabs presentes, sem `map.html`. Não claim done sem rodar o teste.
 
 ---
 

@@ -1,10 +1,10 @@
 # Design — Project Flow (grafo + UI determinística)
 
-**Status:** ratificado pelo operador 2026-08-12 (sessão noite) — process-map **descartado**, não dual-read. Código ainda não implementado.  
+**Status:** ratificado pelo operador 2026-08-12 (sessão noite) — process-map **descartado**, não dual-read. **PR1 no disco** (2026-08-13).  
 **Substitui:** process map L1/L2 (`docs/kb/process-map.md`) — descarte completo na PR4.  
 **Dogfood fixture:** `docs/design/project-flow/dogfood/fluxo-sugestao.json`  
 **Data:** 2026-08-12  
-**Implementação:** cascata PR1→PR5; próxima sessão começa na PR1. Ver `HANDOFF.md`.
+**Implementação:** cascata PR1→PR5; próxima sessão começa na PR2. Ver `HANDOFF.md`.
 
 ---
 

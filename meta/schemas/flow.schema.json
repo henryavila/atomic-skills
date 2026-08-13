@@ -1,0 +1,359 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atomic-skills.henryavila.com/schemas/flow.schema.json",
+  "title": "atomic-skills Plan Flow (L1)",
+  "description": "Canonical flow SoT at projects/<id>/<slug>/flow/flow.json. Graph (sequence / xor / end) is the product layer. states is optional. journey is residual and unused by the viewer. See docs/design/project-flow/design.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "planSlug",
+    "actor",
+    "scenario",
+    "audience",
+    "actors",
+    "graph"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "planSlug": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Who lives the flow (display string; not necessarily an actors[].id)"
+    },
+    "scenario": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One sentence: what the actor wants to achieve"
+    },
+    "audience": {
+      "type": "string",
+      "enum": ["layperson", "developer", "both"]
+    },
+    "youAreHere": {
+      "type": ["string", "null"],
+      "description": "Optional pin. When journey.stages exist, must be a stage id."
+    },
+    "ratifiedAt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO timestamp written only by buildFlowRatification after show + AskUserQuestion"
+    },
+    "ratifiedBy": {
+      "type": "string"
+    },
+    "ratifiedGraphSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "sha256 hex of graph at the moment of ratification. Optional until stamped."
+    },
+    "actors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/actor" }
+    },
+    "graph": { "$ref": "#/$defs/graph" },
+    "states": { "$ref": "#/$defs/states" },
+    "journey": { "$ref": "#/$defs/journey" },
+    "invariants": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "kind"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["actor", "participant"]
+        }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry", "nodes"],
+      "properties": {
+        "entry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nodes": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["sequence", "decision", "end"]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "type": { "const": "sequence" } },
+                  "required": ["type"]
+                },
+                "then": { "$ref": "#/$defs/sequenceNode" }
+              },
+              {
+                "if": {
+                  "properties": { "type": { "const": "decision" } },
+                  "required": ["type"]
+                },
+                "then": { "$ref": "#/$defs/decisionNode" }
+              },
+              {
+                "if": {
+                  "properties": { "type": { "const": "end" } },
+                  "required": ["type"]
+                },
+                "then": { "$ref": "#/$defs/endNode" }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "sequenceNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "processLabel", "messages", "next"],
+      "properties": {
+        "type": { "const": "sequence" },
+        "processLabel": { "type": "string", "minLength": 1 },
+        "processWho": { "type": "string" },
+        "title": { "type": "string" },
+        "tone": { "type": "string" },
+        "messages": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/message" }
+        },
+        "effects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/effect" }
+        },
+        "next": { "type": "string", "minLength": 1 },
+        "loop": { "type": "boolean" },
+        "stage": { "type": "string" }
+      }
+    },
+    "decisionNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "kind", "processLabel", "actor", "branches"],
+      "properties": {
+        "type": { "const": "decision" },
+        "kind": { "const": "xor" },
+        "processLabel": { "type": "string", "minLength": 1 },
+        "processWho": { "type": "string" },
+        "title": { "type": "string" },
+        "tone": { "type": "string" },
+        "actor": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+        },
+        "question": { "type": "string" },
+        "branches": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/branch" }
+        }
+      }
+    },
+    "endNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "processLabel"],
+      "properties": {
+        "type": { "const": "end" },
+        "processLabel": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "tone": { "type": "string" }
+      }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "text"],
+      "properties": {
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1 },
+        "async": { "type": "boolean" }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "statusTo": { "type": "number" },
+        "label": { "type": "string", "minLength": 1 }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "when", "label", "next"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.]*$"
+        },
+        "when": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "next": { "type": "string", "minLength": 1 },
+        "tone": { "type": "string" },
+        "hint": { "type": "string" },
+        "statusTo": { "type": "number" }
+      }
+    },
+    "states": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry", "nodes", "transitions"],
+      "properties": {
+        "entry": { "type": "string", "minLength": 1 },
+        "nodes": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": { "$ref": "#/$defs/stateNode" }
+        },
+        "transitions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stateTransition" }
+        }
+      }
+    },
+    "stateNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "status": { "type": "number" },
+        "description": { "type": "string" },
+        "terminal": { "type": "boolean" }
+      }
+    },
+    "stateTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "when", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "when": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "via": { "type": "string", "minLength": 1 },
+        "statusTo": { "type": "number" }
+      }
+    },
+    "journey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stages"],
+      "description": "Residual optional layer. Not a product surface. Viewer never renders cards.",
+      "properties": {
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/journeyStage" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/journeyEdge" }
+        }
+      }
+    },
+    "journeyStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "copy"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["done", "main", "optional", "always"]
+        },
+        "mapsToPhases": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "sourcedFrom": { "type": "string" },
+        "copy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["layperson", "developer"],
+          "properties": {
+            "layperson": { "$ref": "#/$defs/copyBlock" },
+            "developer": { "$ref": "#/$defs/copyBlock" }
+          }
+        }
+      }
+    },
+    "copyBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "youGain", "unlocks"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "youGain": { "type": "string", "minLength": 1 },
+        "unlocks": { "type": "string", "minLength": 1 }
+      }
+    },
+    "journeyEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "style"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "style": {
+          "type": "string",
+          "enum": ["solid", "dashed"]
+        }
+      }
+    }
+  }
+}

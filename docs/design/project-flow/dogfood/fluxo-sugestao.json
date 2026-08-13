@@ -1,224 +1,396 @@
 {
-  "flowId": "sugestao-pdti-n2",
-  "version": 2,
+  "schemaVersion": "1.0",
+  "planSlug": "sugestao-necessidade-pdti",
   "title": "Sugestão de necessidade PDTI · interface",
   "description": "Fonte canônica do fluxo Nível 2. IDs técnicos (S1, D1…) são só para máquina/IA; abas Sequência/Fluxo usam processLabel legível para validação com o PO. Três decisões XOR: validação do envio, edição pelo líder, aceite/recusa. Escopo N2: sem cancelamento de modal, timeout de e-mail, link expirado nem falha de entrega.",
+  "scenario": "GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.",
+  "actor": "GETIN",
+  "audience": "both",
   "actors": [
-    { "id": "G", "label": "GETIN", "kind": "actor" },
-    { "id": "App", "label": "Sistema", "kind": "participant" },
-    { "id": "L", "label": "Líder", "kind": "actor" }
+    {
+      "id": "G",
+      "label": "GETIN",
+      "kind": "actor"
+    },
+    {
+      "id": "App",
+      "label": "Sistema",
+      "kind": "participant"
+    },
+    {
+      "id": "L",
+      "label": "Líder",
+      "kind": "actor"
+    }
   ],
-  "entry": "S1",
-  "nodes": {
-    "S1": {
-      "type": "sequence",
-      "title": "Criar sugestão",
-      "processLabel": "Criar sugestão",
-      "processWho": "GETIN",
-      "tone": "blue",
-      "messages": [
-        { "from": "G", "to": "App", "text": "Abre lista de solicitações PDTI", "async": false },
-        { "from": "App", "to": "G", "text": "Mostra lista com ação Sugerir necessidade", "async": true },
-        { "from": "G", "to": "App", "text": "Clica em Sugerir necessidade", "async": false },
-        { "from": "App", "to": "G", "text": "Abre o formulário", "async": true },
-        { "from": "G", "to": "App", "text": "Preenche e clica Enviar", "async": false },
-        { "from": "App", "to": "App", "text": "Valida permissão, dados e líder da área", "async": false }
-      ],
-      "next": "D1"
-    },
-    "D1": {
-      "type": "decision",
-      "kind": "xor",
-      "title": "Validação do envio",
-      "processLabel": "Envio válido?",
-      "processWho": "Sistema",
-      "actor": "App",
-      "question": "O envio é válido?",
-      "branches": [
-        {
-          "id": "D1.fail",
-          "when": "validacao_falhou",
-          "label": "Envio inválido",
-          "tone": "rose",
-          "hint": "Área sem líder, dados faltando ou sem permissão",
-          "next": "S1e"
-        },
-        {
-          "id": "D1.ok",
-          "when": "validacao_ok",
-          "label": "Envio válido",
-          "tone": "blue",
-          "hint": "Grava e segue o fluxo principal",
-          "next": "S1ok"
-        }
-      ]
-    },
-    "S1e": {
-      "type": "sequence",
-      "title": "Corrigir envio inválido",
-      "processLabel": "Corrigir e reenviar",
-      "processWho": "GETIN",
-      "tone": "rose",
-      "messages": [
-        { "from": "App", "to": "G", "text": "Mostra erro (líder, dados ou permissão)", "async": true },
-        { "from": "G", "to": "App", "text": "Ajusta os dados e clica Enviar de novo", "async": false },
-        { "from": "App", "to": "App", "text": "Valida novamente", "async": false }
-      ],
-      "next": "D1",
-      "loop": true
-    },
-    "S1ok": {
-      "type": "sequence",
-      "title": "Gravar sugestão pendente",
-      "processLabel": "Gravar como pendente",
-      "processWho": "Sistema",
-      "tone": "blue",
-      "messages": [
-        { "from": "App", "to": "App", "text": "Grava como pendente da área", "async": false },
-        { "from": "App", "to": "G", "text": "Confirmação de sucesso", "async": true }
-      ],
-      "next": "S2",
-      "effects": [{ "statusTo": 10, "label": "Sugestão GETIN pendente da área" }]
-    },
-    "S2": {
-      "type": "sequence",
-      "title": "Avisar o líder",
-      "processLabel": "Avisar o líder",
-      "processWho": "Sistema",
-      "tone": "sky",
-      "messages": [
-        { "from": "App", "to": "L", "text": "E-mail com resumo e botão Validar", "async": true }
-      ],
-      "next": "S3"
-    },
-    "S3": {
-      "type": "sequence",
-      "title": "Abrir a validação",
-      "processLabel": "Abrir a validação",
-      "processWho": "Líder",
-      "tone": "violet",
-      "messages": [
-        { "from": "L", "to": "App", "text": "Clica em Validar no e-mail", "async": false },
-        { "from": "App", "to": "L", "text": "Solicita login (se necessário)", "async": true },
-        { "from": "App", "to": "L", "text": "Tela da sugestão pendente", "async": true }
-      ],
-      "next": "D_edit"
-    },
-    "D_edit": {
-      "type": "decision",
-      "kind": "xor",
-      "title": "Edição do conteúdo",
-      "processLabel": "Editar o conteúdo?",
-      "processWho": "Líder",
-      "actor": "L",
-      "question": "O líder edita a sugestão antes de decidir?",
-      "branches": [
-        {
-          "id": "D_edit.yes",
-          "when": "lider_edita",
-          "label": "Edita",
-          "tone": "violet",
-          "hint": "Altera campos e salva · continua pendente",
-          "next": "S3edit"
-        },
-        {
-          "id": "D_edit.no",
-          "when": "segue_sem_editar",
-          "label": "Não edita",
-          "tone": "slate",
-          "hint": "Vai direto para aceitar ou recusar",
-          "next": "D2"
-        }
-      ]
-    },
-    "S3edit": {
-      "type": "sequence",
-      "title": "Editar e salvar",
-      "processLabel": "Editar e salvar",
-      "processWho": "Líder",
-      "tone": "violet",
-      "messages": [
-        { "from": "L", "to": "App", "text": "Edita campos e clica Salvar", "async": false },
-        { "from": "App", "to": "L", "text": "Confirma conteúdo atualizado", "async": true }
-      ],
-      "next": "D2"
-    },
-    "D2": {
-      "type": "decision",
-      "kind": "xor",
-      "title": "Resposta do líder",
-      "processLabel": "Aceitar ou recusar?",
-      "processWho": "Líder",
-      "actor": "L",
-      "question": "Aceitar ou recusar a sugestão?",
-      "branches": [
-        {
-          "id": "D2.accept",
-          "when": "lider_aceita",
-          "label": "Aceita",
-          "tone": "green",
-          "hint": "Adota e entra no funil",
-          "next": "S4a",
-          "statusTo": 1
-        },
-        {
-          "id": "D2.refuse",
-          "when": "lider_recusa",
-          "label": "Recusa",
-          "tone": "rose",
-          "hint": "Terminal nesta entrega · avisa GETIN",
-          "next": "S4b",
-          "statusTo": 11
-        }
-      ]
-    },
-    "S4a": {
-      "type": "sequence",
-      "title": "Aceitar a sugestão",
-      "processLabel": "Aceitar e entrar no funil",
-      "processWho": "Líder + Sistema + GETIN",
-      "tone": "green",
-      "messages": [
-        { "from": "L", "to": "App", "text": "Clica Aceitar", "async": false },
-        { "from": "App", "to": "L", "text": "Modal Confirmar aceite?", "async": true },
-        { "from": "L", "to": "App", "text": "Confirma no modal", "async": false },
-        { "from": "App", "to": "App", "text": "Adota e vira solicitação no funil", "async": false },
-        { "from": "App", "to": "L", "text": "Tela de sucesso", "async": true }
-      ],
-      "next": "end_accept",
-      "effects": [
-        { "statusTo": 1, "label": "Nova solicitação · funil" },
-        { "label": "Depois: GETIN analisa como pedido normal" }
-      ]
-    },
-    "S4b": {
-      "type": "sequence",
-      "title": "Recusar a sugestão",
-      "processLabel": "Recusar e avisar a GETIN",
-      "processWho": "Líder + Sistema",
-      "tone": "rose",
-      "messages": [
-        { "from": "L", "to": "App", "text": "Clica Recusar", "async": false },
-        { "from": "App", "to": "L", "text": "Modal com motivo opcional", "async": true },
-        { "from": "L", "to": "App", "text": "Confirma recusa no modal", "async": false },
-        { "from": "App", "to": "App", "text": "Marca como recusada", "async": false },
-        { "from": "App", "to": "L", "text": "Tela de confirmação", "async": true },
-        { "from": "App", "to": "G", "text": "Notificação ou e-mail de recusa", "async": true }
-      ],
-      "next": "end_refuse",
-      "effects": [{ "statusTo": 11, "label": "Sugestão GETIN recusada pela área" }]
-    },
-    "end_accept": {
-      "type": "end",
-      "title": "Fim · entrou no funil",
-      "processLabel": "Fim · no funil",
-      "tone": "green"
-    },
-    "end_refuse": {
-      "type": "end",
-      "title": "Fim · sem funil",
-      "processLabel": "Fim · sem funil",
-      "tone": "rose"
+  "graph": {
+    "entry": "S1",
+    "nodes": {
+      "S1": {
+        "type": "sequence",
+        "title": "Criar sugestão",
+        "processLabel": "Criar sugestão",
+        "processWho": "GETIN",
+        "tone": "blue",
+        "messages": [
+          {
+            "from": "G",
+            "to": "App",
+            "text": "Abre lista de solicitações PDTI",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "G",
+            "text": "Mostra lista com ação Sugerir necessidade",
+            "async": true
+          },
+          {
+            "from": "G",
+            "to": "App",
+            "text": "Clica em Sugerir necessidade",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "G",
+            "text": "Abre o formulário",
+            "async": true
+          },
+          {
+            "from": "G",
+            "to": "App",
+            "text": "Preenche e clica Enviar",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "App",
+            "text": "Valida permissão, dados e líder da área",
+            "async": false
+          }
+        ],
+        "next": "D1"
+      },
+      "D1": {
+        "type": "decision",
+        "kind": "xor",
+        "title": "Validação do envio",
+        "processLabel": "Envio válido?",
+        "processWho": "Sistema",
+        "actor": "App",
+        "question": "O envio é válido?",
+        "branches": [
+          {
+            "id": "D1.fail",
+            "when": "validacao_falhou",
+            "label": "Envio inválido",
+            "tone": "rose",
+            "hint": "Área sem líder, dados faltando ou sem permissão",
+            "next": "S1e"
+          },
+          {
+            "id": "D1.ok",
+            "when": "validacao_ok",
+            "label": "Envio válido",
+            "tone": "blue",
+            "hint": "Grava e segue o fluxo principal",
+            "next": "S1ok"
+          }
+        ]
+      },
+      "S1e": {
+        "type": "sequence",
+        "title": "Corrigir envio inválido",
+        "processLabel": "Corrigir e reenviar",
+        "processWho": "GETIN",
+        "tone": "rose",
+        "messages": [
+          {
+            "from": "App",
+            "to": "G",
+            "text": "Mostra erro (líder, dados ou permissão)",
+            "async": true
+          },
+          {
+            "from": "G",
+            "to": "App",
+            "text": "Ajusta os dados e clica Enviar de novo",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "App",
+            "text": "Valida novamente",
+            "async": false
+          }
+        ],
+        "next": "D1",
+        "loop": true
+      },
+      "S1ok": {
+        "type": "sequence",
+        "title": "Gravar sugestão pendente",
+        "processLabel": "Gravar como pendente",
+        "processWho": "Sistema",
+        "tone": "blue",
+        "messages": [
+          {
+            "from": "App",
+            "to": "App",
+            "text": "Grava como pendente da área",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "G",
+            "text": "Confirmação de sucesso",
+            "async": true
+          }
+        ],
+        "next": "S2",
+        "effects": [
+          {
+            "statusTo": 10,
+            "label": "Sugestão GETIN pendente da área"
+          }
+        ]
+      },
+      "S2": {
+        "type": "sequence",
+        "title": "Avisar o líder",
+        "processLabel": "Avisar o líder",
+        "processWho": "Sistema",
+        "tone": "sky",
+        "messages": [
+          {
+            "from": "App",
+            "to": "L",
+            "text": "E-mail com resumo e botão Validar",
+            "async": true
+          }
+        ],
+        "next": "S3"
+      },
+      "S3": {
+        "type": "sequence",
+        "title": "Abrir a validação",
+        "processLabel": "Abrir a validação",
+        "processWho": "Líder",
+        "tone": "violet",
+        "messages": [
+          {
+            "from": "L",
+            "to": "App",
+            "text": "Clica em Validar no e-mail",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "L",
+            "text": "Solicita login (se necessário)",
+            "async": true
+          },
+          {
+            "from": "App",
+            "to": "L",
+            "text": "Tela da sugestão pendente",
+            "async": true
+          }
+        ],
+        "next": "D_edit"
+      },
+      "D_edit": {
+        "type": "decision",
+        "kind": "xor",
+        "title": "Edição do conteúdo",
+        "processLabel": "Editar o conteúdo?",
+        "processWho": "Líder",
+        "actor": "L",
+        "question": "O líder edita a sugestão antes de decidir?",
+        "branches": [
+          {
+            "id": "D_edit.yes",
+            "when": "lider_edita",
+            "label": "Edita",
+            "tone": "violet",
+            "hint": "Altera campos e salva · continua pendente",
+            "next": "S3edit"
+          },
+          {
+            "id": "D_edit.no",
+            "when": "segue_sem_editar",
+            "label": "Não edita",
+            "tone": "slate",
+            "hint": "Vai direto para aceitar ou recusar",
+            "next": "D2"
+          }
+        ]
+      },
+      "S3edit": {
+        "type": "sequence",
+        "title": "Editar e salvar",
+        "processLabel": "Editar e salvar",
+        "processWho": "Líder",
+        "tone": "violet",
+        "messages": [
+          {
+            "from": "L",
+            "to": "App",
+            "text": "Edita campos e clica Salvar",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "L",
+            "text": "Confirma conteúdo atualizado",
+            "async": true
+          }
+        ],
+        "next": "D2"
+      },
+      "D2": {
+        "type": "decision",
+        "kind": "xor",
+        "title": "Resposta do líder",
+        "processLabel": "Aceitar ou recusar?",
+        "processWho": "Líder",
+        "actor": "L",
+        "question": "Aceitar ou recusar a sugestão?",
+        "branches": [
+          {
+            "id": "D2.accept",
+            "when": "lider_aceita",
+            "label": "Aceita",
+            "tone": "green",
+            "hint": "Adota e entra no funil",
+            "next": "S4a",
+            "statusTo": 1
+          },
+          {
+            "id": "D2.refuse",
+            "when": "lider_recusa",
+            "label": "Recusa",
+            "tone": "rose",
+            "hint": "Terminal nesta entrega · avisa GETIN",
+            "next": "S4b",
+            "statusTo": 11
+          }
+        ]
+      },
+      "S4a": {
+        "type": "sequence",
+        "title": "Aceitar a sugestão",
+        "processLabel": "Aceitar e entrar no funil",
+        "processWho": "Líder + Sistema + GETIN",
+        "tone": "green",
+        "messages": [
+          {
+            "from": "L",
+            "to": "App",
+            "text": "Clica Aceitar",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "L",
+            "text": "Modal Confirmar aceite?",
+            "async": true
+          },
+          {
+            "from": "L",
+            "to": "App",
+            "text": "Confirma no modal",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "App",
+            "text": "Adota e vira solicitação no funil",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "L",
+            "text": "Tela de sucesso",
+            "async": true
+          }
+        ],
+        "next": "end_accept",
+        "effects": [
+          {
+            "statusTo": 1,
+            "label": "Nova solicitação · funil"
+          },
+          {
+            "label": "Depois: GETIN analisa como pedido normal"
+          }
+        ]
+      },
+      "S4b": {
+        "type": "sequence",
+        "title": "Recusar a sugestão",
+        "processLabel": "Recusar e avisar a GETIN",
+        "processWho": "Líder + Sistema",
+        "tone": "rose",
+        "messages": [
+          {
+            "from": "L",
+            "to": "App",
+            "text": "Clica Recusar",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "L",
+            "text": "Modal com motivo opcional",
+            "async": true
+          },
+          {
+            "from": "L",
+            "to": "App",
+            "text": "Confirma recusa no modal",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "App",
+            "text": "Marca como recusada",
+            "async": false
+          },
+          {
+            "from": "App",
+            "to": "L",
+            "text": "Tela de confirmação",
+            "async": true
+          },
+          {
+            "from": "App",
+            "to": "G",
+            "text": "Notificação ou e-mail de recusa",
+            "async": true
+          }
+        ],
+        "next": "end_refuse",
+        "effects": [
+          {
+            "statusTo": 11,
+            "label": "Sugestão GETIN recusada pela área"
+          }
+        ]
+      },
+      "end_accept": {
+        "type": "end",
+        "title": "Fim · entrou no funil",
+        "processLabel": "Fim · no funil",
+        "tone": "green"
+      },
+      "end_refuse": {
+        "type": "end",
+        "title": "Fim · sem funil",
+        "processLabel": "Fim · sem funil",
+        "tone": "rose"
+      }
     }
   },
   "states": {
