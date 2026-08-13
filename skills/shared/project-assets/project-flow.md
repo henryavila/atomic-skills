@@ -13,31 +13,34 @@ This is a **day-2** command. It is **not** a creation stage. Ready without flow 
 .atomic-skills/projects/<project-id>/<plan-slug>/flow/flow.html   # generated, NEVER map.html
 ```
 
-Foreign plan: `dirname(plan.md)/flow/` — same `flowPathsForPlan(plan.md)`.
+Foreign / any source markdown: `dirname(<source.md>)/flow/` — same `flowPathsForPlan(<source.md>)`. Filename need not be `plan.md`.
 
 ## Grammar
 
 ```
-/atomic-skills:project flow [--check] [--open] [--strict]
+/atomic-skills:project flow [<path-to-source.md>] [--check] [--open] [--strict]
+/atomic-skills:project flow --plan <path-to-source.md> [--check] [--open] [--strict]
 /atomic-skills:project process   → same as flow (alias)
 ```
 
 Parse {{ARG_VAR}} first.
 
-| Flag | Action |
+| Flag / arg | Action |
 |------|--------|
+| `<path-to-source.md>` or `--plan <path>` | bind this file (AS `plan.md` or foreign `docs/cutover.md`); paths via `flowPathsForPlan` |
 | `--check` or `--strict` | run the detector only (step `--check`) |
 | `--open` | generate/update if needed, then show |
 | no flag | generate / update / show / ratify loop |
 
 ## 1. Resolve plan
 
-Same nested-first resolution as `status` / no-args (`{{ASSETS_PATH}}/project-view.md`). Ambiguous → disambiguation there.
+1. If {{ARG_VAR}} has an existing `*.md` path (positional or `--plan`), that file **is** the plan. `PLAN_MD` = that path (any filename). Resolve L1/L2 with `flowPathsForPlan(PLAN_MD)` — **never** the sidecar.
+2. Else same nested-first resolution as `status` / no-args (`{{ASSETS_PATH}}/project-view.md`). Ambiguous → disambiguation there.
 
-No plan → tell the user this is **day-2**. They can run `new plan` (flow draft is optional, not a gate) or point at a plan file. Stop.
+No plan and no source file → tell the user this is **day-2**. They can run `new plan` (flow draft is optional, not a gate) or `project flow path/to/source.md`. Stop.
 
 ```
-PLAN_MD=<resolved plan.md>
+PLAN_MD=<resolved plan.md or source.md>
 PLAN_DIR=<dirname of PLAN_MD>
 L1=$PLAN_DIR/flow/flow.json
 L2=$PLAN_DIR/flow/flow.html

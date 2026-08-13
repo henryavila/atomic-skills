@@ -18,10 +18,17 @@ import { fileURLToPath } from 'node:url';
 import {
   buildFlowRatification,
   checkPlanFlow,
+  findPlanMarkdownFiles,
   flowPathsForPlan,
   graphSha,
 } from '../scripts/find-missing-flow.js';
-import { buildFlowHtml, sha256, stableStringify } from '../scripts/lib/render-flow.js';
+import {
+  buildFlowHtml,
+  contentFingerprint,
+  normalizeFlow,
+  sha256,
+  stableStringify,
+} from '../scripts/lib/render-flow.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = join(ROOT, 'scripts', 'find-missing-flow.js');
@@ -183,7 +190,7 @@ describe('checkPlanFlow', () => {
     assert.equal(r.ok, false);
     assert.ok(r.issues.some((i) => /flow\.json|missing L1/.test(i)), r.issues.join('; '));
     assert.ok(
-      r.issues.some((i) => /process\.yaml|map\.html/.test(i)) || !existsSync(paths.flowJson),
+      r.issues.some((i) => /process\.yaml \/ map\.html do not satisfy flow/.test(i)),
       r.issues.join('; '),
     );
   });
@@ -282,6 +289,73 @@ describe('find-missing-flow CLI', () => {
       assert.equal(r.status, 1);
       const report = JSON.parse(r.stdout);
       assert.equal(report.ok, false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('treats any existing *.md file as the plan (foreign cutover.md, not plan.md)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'flow-cutover-'));
+    try {
+      const docs = join(dir, 'docs');
+      mkdirSync(docs, { recursive: true });
+      const source = join(docs, 'cutover.md');
+      writeFileSync(source, '# Cutover\n\nForeign source, not named plan.md.\n');
+
+      assert.deepEqual(findPlanMarkdownFiles(source), [source]);
+
+      const missing = runCli(['--strict', '--json', source]);
+      assert.equal(missing.status, 1, missing.stderr || missing.stdout);
+      const missingReport = JSON.parse(missing.stdout);
+      assert.equal(missingReport.ok, false);
+      assert.notEqual(missingReport.note, 'no-plans');
+      assert.ok(
+        (missingReport.results?.[0]?.issues ?? []).some((i) => /missing L1|flow\.json/.test(i)),
+        JSON.stringify(missingReport),
+      );
+
+      mkdirSync(join(docs, 'process'), { recursive: true });
+      writeFileSync(
+        join(docs, 'process', 'process.yaml'),
+        'planSlug: cutover\nactor: x\nscenario: y\nstages: []\n',
+      );
+      const yamlOnly = runCli(['--strict', '--json', source]);
+      assert.equal(yamlOnly.status, 1, yamlOnly.stderr || yamlOnly.stdout);
+      const yamlReport = JSON.parse(yamlOnly.stdout);
+      assert.equal(yamlReport.ok, false);
+      assert.notEqual(yamlReport.note, 'no-plans');
+      const yamlIssues = yamlReport.results?.[0]?.issues ?? [];
+      assert.ok(yamlIssues.some((i) => /missing L1|flow\.json/.test(i)), yamlIssues.join('; '));
+      assert.ok(
+        yamlIssues.some((i) => /process\.yaml \/ map\.html do not satisfy flow/.test(i)),
+        yamlIssues.join('; '),
+      );
+
+      let doc = cloneMinimal();
+      doc.planSlug = 'cutover';
+      doc = buildFlowRatification(doc, { ratifiedAt: '2026-08-13T12:00:00.000Z' });
+      const paths = flowPathsForPlan(source);
+      mkdirSync(join(paths.planDir, 'flow'), { recursive: true });
+      writeFileSync(paths.flowJson, `${JSON.stringify(doc, null, 2)}\n`);
+      const sha = contentFingerprint(normalizeFlow(doc));
+      writeFileSync(paths.flowHtml, `<html data-flow-content-sha="${sha}"></html>\n`);
+      const ok = runCli(['--strict', source]);
+      assert.equal(ok.status, 0, ok.stderr || ok.stdout);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not treat note: no-plans as success when the user passed a file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'flow-not-md-'));
+    try {
+      const notMd = join(dir, 'notes.txt');
+      writeFileSync(notMd, 'not markdown\n');
+      const r = runCli(['--json', '--strict', notMd]);
+      assert.notEqual(r.status, 0);
+      if (r.stdout.trim()) {
+        assert.doesNotMatch(r.stdout, /"note":\s*"no-plans"/);
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

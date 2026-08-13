@@ -383,8 +383,18 @@ describe('implement skill prose — foreign lane contract', () => {
     assert.match(foreign, /find-missing-flow\.js/);
     assert.match(foreign, /--strict/);
     assert.match(foreign, /flowPathsForPlan|dirname\(plan\.md\)\/flow/);
-    assert.match(foreign, /atomic-skills:project flow/);
+    assert.match(foreign, /atomic-skills:project flow <source-plan\.md>/);
+    assert.match(foreign, /--plan <source-plan\.md>/);
+    assert.match(foreign, /flowPathsForPlan/);
     assert.match(foreign, /process\.yaml/);
+
+    const flowSkill = readFileSync(
+      join(ROOT, 'skills', 'shared', 'project-assets', 'project-flow.md'),
+      'utf8',
+    );
+    assert.match(flowSkill, /flow \[<path-to-source\.md>\]/);
+    assert.match(flowSkill, /--plan <path-to-source\.md>/);
+    assert.match(flowSkill, /flowPathsForPlan/);
     assert.match(foreign, /automate/i);
     assert.match(foreign, /never.*promote|no promote|Promote is entry-time only/i);
     assert.match(foreign, /project adopt|atomic-skills:project adopt/i);

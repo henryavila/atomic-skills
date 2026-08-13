@@ -1,7 +1,12 @@
 # Process map — design samples + generator
 
-**Canon:** [`docs/kb/process-map.md`](../../kb/process-map.md)  
-**Iron Law P1:** NO PLAN WITHOUT PROCESS MAP  
+> **SUPERSEDED (2026-08-13).** Process-map is not a plan obligation. Canon:
+> [`docs/kb/flow.md`](../../kb/flow.md) — **NO IMPLEMENT WITHOUT VALIDATED FLOW**.
+> `process.yaml` never satisfies implement. This folder is historical sketches
+> + a non-obligation renderer. Do not treat P1 below as live product law.
+
+**Historical notes (not current obligation):** [`docs/kb/process-map.md`](../../kb/process-map.md)  
+**Iron Law P1 (superseded):** NO PLAN WITHOUT PROCESS MAP  
 **Iron Law P2:** MAP IS NOT THE PHASE TREE  
 **Iron Law P3:** TWO LAYERS (YAML SoT → HTML view)  
 **Iron Law P4:** AUDIENCE IS A LENS  

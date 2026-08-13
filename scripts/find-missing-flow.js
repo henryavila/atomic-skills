@@ -11,10 +11,13 @@
  * (stamp via buildFlowRatification).
  *
  * Usage:
- *   node scripts/find-missing-flow.js [path-to-plan.md | .atomic-skills | repo]
+ *   node scripts/find-missing-flow.js [path-to-any.md | .atomic-skills | repo]
  *   node scripts/find-missing-flow.js --strict …
  *   node scripts/find-missing-flow.js --json …
  *   node scripts/find-missing-flow.js --ratify <flow.json> [--ratified-by <who>]
+ *
+ * An existing *.md file (AS plan.md or foreign cutover.md) is the plan.
+ * `note: no-plans` is only for directory scans, never for a passed file.
  *
  * Exit 0 = all ok; exit 1 = missing/invalid; exit 2 = usage/IO.
  */
@@ -168,8 +171,9 @@ export function checkPlanFlow(planMdPath, opts = {}) {
 }
 
 /**
- * Discover nested plan.md files under a root.
- * Duplicated from find-missing-process-map (PR4 may delete that walker).
+ * Discover plan markdown files under a root.
+ * An existing *.md file (any name — AS plan.md or foreign source.md) is the plan.
+ * Directory roots still walk nested projects/<id>/<slug>/plan.md.
  * @param {string} root
  * @returns {string[]}
  */
@@ -178,8 +182,8 @@ export function findPlanMarkdownFiles(root) {
   /** @type {string[]} */
   const out = [];
 
-  if (existsSync(abs) && abs.endsWith('plan.md') && statSync(abs).isFile()) {
-    return [abs];
+  if (existsSync(abs) && statSync(abs).isFile()) {
+    return /\.md$/i.test(abs) ? [abs] : [];
   }
 
   const projects = join(abs, 'projects');
@@ -288,12 +292,15 @@ function main() {
     process.exit(2);
   }
 
+  const passedFile = statSync(resolved).isFile();
   const plans = findPlanMarkdownFiles(resolved);
-  if (plans.length === 0 && resolved.endsWith('plan.md')) {
-    plans.push(resolved);
-  }
 
   if (plans.length === 0) {
+    // A passed file is never "no-plans" success (foreign cutover.md must gate).
+    if (passedFile) {
+      console.error(`find-missing-flow: not a plan markdown file: ${target}`);
+      process.exit(2);
+    }
     if (json) {
       console.log(JSON.stringify({ ok: true, results: [], note: 'no-plans' }));
     } else {

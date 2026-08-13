@@ -59,7 +59,7 @@ Before any product coding or phase-writer spawn:
 
 ## F1.5 — Validated flow (mandatory)
 
-Same detector as implement Step 1.7 on the **source** `plan.md` (not the sidecar):
+Same detector as implement Step 1.7 on the **source** markdown (any `*.md` name — not the sidecar):
 
 1. Run via {{BASH_TOOL}}:
 
@@ -68,8 +68,10 @@ Same detector as implement Step 1.7 on the **source** `plan.md` (not the sidecar
    node "$PKG_ROOT/scripts/find-missing-flow.js" <source-plan.md> --strict
    ```
 
-2. Paths: `dirname(plan.md)/flow/` via `flowPathsForPlan` — **never** `.implement.yaml`.
-3. **Exit 0** → continue. **Non-zero** → **REFUSE**. Instruct `atomic-skills:project flow`.
+2. Paths: `dirname(<source.md>)/flow/` via `flowPathsForPlan` — **never** `.implement.yaml`.
+3. **Exit 0** → continue. **Non-zero** → **REFUSE**. Instruct
+   `atomic-skills:project flow <source-plan.md>` (alias `--plan <source-plan.md>`).
+   That command resolves through `flowPathsForPlan` so foreign unblock writes next to the source.
 4. `process.yaml` never satisfies. No `operatorSkip`, no chat waiver. implement does **not** run show+ratify.
 
 ## F2 — Parse + admit pass (SPEC)
