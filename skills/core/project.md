@@ -125,9 +125,9 @@ NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.
 
 Every code-modifying session must be anchored to an active initiative — a phase at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, or a standalone unit (its own degenerate 1-phase plan); legacy flat fallback `.atomic-skills/initiatives/<slug>.md` — or the user must explicitly declare "ad-hoc".
 
-**Also (P1 — `docs/kb/process-map.md`):** NO PLAN WITHOUT PROCESS MAP.
+**Also:** NO IMPLEMENT WITHOUT VALIDATED FLOW (`docs/kb/flow.md`).
 
-Every multi-phase plan MUST carry a ratified L1 `process/process.yaml` (macro vision of the **objective**, not the phase tree) and a generated L2 `process/map.html`. Created in `new plan` / `adopt` at creation-gate stage `process-map` (**inescapable** before `reviews`/`ready`). HTML only renders L1; never invent stages from `phases[]`. Detector: `scripts/find-missing-process-map.js`. Day-2 open: `project process`.
+Ready without flow is legal. `process.yaml` never satisfies. `implement` HARD-GATES at entry with `scripts/find-missing-flow.js --strict` (exit 0 continue; non-zero REFUSE — instruct `project flow`). Day-2: `project flow` (`process` alias). No `process-map` or `flow` creation stage. Never invent nodes from `phases[]`.
 
 ## Pre-mutation gates (apply before ANY mutating subcommand)
 
@@ -223,7 +223,7 @@ If any of these thoughts appeared: STOP and validate.
 - "The initiative is legacy snake_case but the change is small — I'll edit without migrating"
 - "Phase has 3 tasks left but the exit gate is met, I'll just mark phase done"
 - "I'll mark a gate `done`" (gates are `pending`/`met`/`deferred` only)
-- "I'll skip the process map / generate it later / use phases as the map"
+- "I'll invent flow nodes from phases[]"
 
 ## Rationalization
 

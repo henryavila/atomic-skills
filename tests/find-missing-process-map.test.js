@@ -18,30 +18,25 @@ const ROOT = join(import.meta.dirname, '..');
 const DS = readFileSync(join(ROOT, 'site', 'assets', 'ds.css'), 'utf8');
 const FIX = join(ROOT, 'docs', 'design', 'process-map-sketches', 'fixtures', 'quality-judge-program.yaml');
 
-describe('CREATION_STAGES includes process-map before reviews', () => {
+describe('CREATION_STAGES has no process-map; summaries immediately followed by reviews', () => {
   it('order', () => {
     const iSum = CREATION_STAGES.indexOf('summaries');
     const iPm = CREATION_STAGES.indexOf('process-map');
     const iRev = CREATION_STAGES.indexOf('reviews');
-    assert.ok(iSum >= 0 && iPm === iSum + 1 && iRev === iPm + 1);
+    assert.equal(iPm, -1);
+    assert.ok(iSum >= 0 && iRev === iSum + 1);
   });
 });
 
-describe('stage-process-map.md show-before-ratify contract', () => {
-  it('requires non-skippable display surface (browser|TUI) before ratify', () => {
+describe('stage-process-map.md is a redirect stub, not a live write path', () => {
+  it('does not advance process-map or require show-before-ratify', () => {
     const stage = readFileSync(
       join(ROOT, 'skills', 'shared', 'project-assets', 'new-plan', 'stage-process-map.md'),
-      'utf8'
+      'utf8',
     );
-    assert.match(stage, /Non-skippable questions \(HARD\)/);
-    assert.match(stage, /Display surface/);
-    assert.match(stage, /No browser|browser/i);
-    assert.match(stage, /No TUI|TUI/i);
-    assert.match(stage, /not skippable/i);
-    assert.match(stage, /Show the map|Show for the operator|Show the map \(inescapable/i);
-    assert.match(stage, /WITHOUT ratifiedAt|without `ratifiedAt`|Do not set `ratifiedAt` yet/i);
-    // Must not open/show only after ratify as the sole path
-    assert.match(stage, /before.*aprov|before.*ratif|antes de aprov/i);
+    assert.match(stage, /redirect|superseded/i);
+    assert.doesNotMatch(stage, /--advance process-map --write/);
+    assert.doesNotMatch(stage, /Never skip/);
   });
 });
 

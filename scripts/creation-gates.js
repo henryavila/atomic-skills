@@ -3,12 +3,13 @@
  * creation-gates.js — helpers for monotonic `stage` on the new-plan creation
  * run record at `.atomic-skills/status/creation-gates/<projectId>-<slug>.json`.
  *
- * Ordered stages (Decision 11 / assert-creation-stage + process-map Iron Law):
+ * Ordered stages (Decision 11 / assert-creation-stage):
  *   slug → design → source → decompose-confirm → bi-ratified →
- *   materialized → summaries → process-map → reviews → ready
+ *   materialized → summaries → reviews → ready
  *
- * `process-map` is mandatory (docs/kb/process-map.md): L1 process.yaml + L2 map.html
- * before reviews/ready. Skipping it is illegal.
+ * `process-map` is not a creation stage. Readers remap leftover `process-map`
+ * receipts to `reviews` (normalizeCreationStage). Direct skip of other
+ * stages is still illegal. Ready without flow is legal.
  *
  * Advance is monotonic only: you may stay or move forward one-or-more steps
  * only via `assertAdvance` / `advanceCreationStage` after the current stage
@@ -43,7 +44,6 @@ export const CREATION_STAGES = Object.freeze([
   'bi-ratified',
   'materialized',
   'summaries',
-  'process-map',
   'reviews',
   'ready',
 ]);
@@ -51,6 +51,18 @@ export const CREATION_STAGES = Object.freeze([
 export const STAGE_INDEX = Object.freeze(
   Object.fromEntries(CREATION_STAGES.map((s, i) => [s, i])),
 );
+
+/**
+ * One-shot remap: leftover creation-gate stage `process-map` reads as `reviews`.
+ * Mid-creation plans stuck on the removed cards stage advance to reviews.
+ * @param {unknown} stage
+ * @returns {string}
+ */
+export function normalizeCreationStage(stage) {
+  const s = stage == null ? '' : String(stage);
+  if (s === 'process-map') return 'reviews';
+  return s;
+}
 
 /**
  * Absolute path of the creation-gates receipt.
@@ -77,7 +89,11 @@ export function readCreationGate(pathOrRoot, projectId, slug) {
       : resolve(pathOrRoot);
   if (!existsSync(path)) return null;
   try {
-    return JSON.parse(readFileSync(path, 'utf8'));
+    const gate = JSON.parse(readFileSync(path, 'utf8'));
+    if (gate && typeof gate === 'object' && gate.stage != null) {
+      gate.stage = normalizeCreationStage(gate.stage);
+    }
+    return gate;
   } catch (err) {
     throw new Error(`creation-gates: corrupt receipt at ${path}: ${err.message}`);
   }
@@ -88,7 +104,10 @@ export function readCreationGate(pathOrRoot, projectId, slug) {
  * @param {object} partial
  */
 export function buildCreationGate(partial = {}) {
-  const stage = partial.stage != null ? String(partial.stage) : CREATION_STAGES[0];
+  const stage =
+    partial.stage != null
+      ? normalizeCreationStage(partial.stage)
+      : CREATION_STAGES[0];
   if (!CREATION_STAGES.includes(stage)) {
     throw new Error(
       `creation-gates: unknown stage '${stage}' (allowed: ${CREATION_STAGES.join(', ')})`,
@@ -145,16 +164,18 @@ export function createCreationGate(stateRoot, projectId, slug, partial = {}, opt
  */
 export function assertCanAdvance(fromStage, toStage, opts = {}) {
   const allowSkip = opts.allowSkip === true;
-  if (!CREATION_STAGES.includes(fromStage)) {
+  const from = normalizeCreationStage(fromStage);
+  const to = String(toStage);
+  if (!CREATION_STAGES.includes(from)) {
     return { ok: false, reason: `unknown-from-stage:${fromStage}` };
   }
-  if (!CREATION_STAGES.includes(toStage)) {
+  if (!CREATION_STAGES.includes(to)) {
     return { ok: false, reason: `unknown-to-stage:${toStage}` };
   }
-  const fromIdx = STAGE_INDEX[fromStage];
-  const toIdx = STAGE_INDEX[toStage];
+  const fromIdx = STAGE_INDEX[from];
+  const toIdx = STAGE_INDEX[to];
   if (toIdx < fromIdx) {
-    return { ok: false, reason: `reverse-stage:${fromStage}->${toStage}` };
+    return { ok: false, reason: `reverse-stage:${from}->${to}` };
   }
   if (toIdx === fromIdx) {
     return { ok: true };
@@ -162,7 +183,7 @@ export function assertCanAdvance(fromStage, toStage, opts = {}) {
   if (!allowSkip && toIdx > fromIdx + 1) {
     return {
       ok: false,
-      reason: `illegal-stage-skip:${fromStage}->${toStage} (next is ${CREATION_STAGES[fromIdx + 1]})`,
+      reason: `illegal-stage-skip:${from}->${to} (next is ${CREATION_STAGES[fromIdx + 1]})`,
     };
   }
   return { ok: true };
@@ -186,7 +207,8 @@ export function advanceCreationStage(path, toStage, opts = {}) {
   } catch (err) {
     throw new Error(`creation-gates: corrupt ${abs}: ${err.message}`);
   }
-  const fromStage = gate.stage != null ? String(gate.stage) : CREATION_STAGES[0];
+  const fromStage =
+    gate.stage != null ? normalizeCreationStage(gate.stage) : CREATION_STAGES[0];
   const check = assertCanAdvance(fromStage, toStage, opts);
   if (!check.ok) {
     const err = new Error(`creation-gates: ${check.reason}`);
@@ -217,7 +239,8 @@ export function validateCreationGateStage(gate) {
   if (gate.schemaVersion !== SCHEMA_VERSION) {
     issues.push(`bad-schemaVersion:${gate.schemaVersion}`);
   }
-  if (gate.stage == null || !CREATION_STAGES.includes(String(gate.stage))) {
+  const stage = gate.stage == null ? '' : normalizeCreationStage(gate.stage);
+  if (!CREATION_STAGES.includes(stage)) {
     issues.push(`invalid-stage:${gate.stage}`);
   }
   return issues;
@@ -309,6 +332,6 @@ function main(argv) {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main(process.argv.slice(2));
 }
