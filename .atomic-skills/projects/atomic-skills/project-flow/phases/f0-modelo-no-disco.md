@@ -12,8 +12,8 @@ goal: 'Schema `"1.0"` expressa o MODEL
 status: active
 branch: plan/project-flow
 started: 2026-08-13T16:51:58.727Z
-lastUpdated: 2026-08-13T19:10:00Z
-nextAction: "spawn fresh writer after ratify — F0 work-order T-001/T-002/T-003"
+lastUpdated: 2026-08-13T21:36:42.056Z
+nextAction: Run `phase-done` after evaluation + local review + audit-delivery
 parentPlan: project-flow
 phaseId: F0
 businessIntent:
@@ -28,11 +28,11 @@ businessIntent:
     Arch, editor visual, pacote npm, feature PDTI.
   doneWhen: 'node --test tests/validate-flow.test.js verde no MODEL. Dogfood
     valida. type: sequence e states único falham. schemaVersion continua "1.0".'
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 7
 weightTotal: 7
 exitGates:
   - id: G-F0-1
@@ -42,12 +42,15 @@ exitGates:
     verifier:
       kind: shell
       command: node --test tests/validate-flow.test.js && node -e "import {
-        validateFlow } from './scripts/lib/validate-flow.js'; import { readFileSync
-        } from 'node:fs'; const dog=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8'));
-        if(!validateFlow(dog).valid) process.exit(1); if(!Array.isArray(dog.machines)||dog.machines.length<1)
-        process.exit(1); const old={schemaVersion:'1.0',planSlug:'probe',title:'p',scenario:'x',actor:'Requester',audience:'layperson',actors:[{id:'U',label:'Requester',kind:'actor'}],graph:{entry:'S1',nodes:{S1:{type:'sequence',processLabel:'x',messages:[{from:'U',to:'U',text:'t',async:false}],next:'E'},E:{type:'end',processLabel:'done'}}}};
+        validateFlow } from './scripts/lib/validate-flow.js'; import {
+        readFileSync } from 'node:fs'; const
+        dog=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8'));
+        if(!validateFlow(dog).valid) process.exit(1);
+        if(!Array.isArray(dog.machines)||dog.machines.length<1) process.exit(1);
+        const
+        old={schemaVersion:'1.0',planSlug:'probe',title:'p',scenario:'x',actor:'Requester',audience:'layperson',actors:[{id:'U',label:'Requester',kind:'actor'}],graph:{entry:'S1',nodes:{S1:{type:'sequence',processLabel:'x',messages:[{from:'U',to:'U',text:'t',async:false}],next:'E'},E:{type:'end',processLabel:'done'}}}};
         if(validateFlow(old).valid) process.exit(1);"
-    verifierLabel: "shell: node --test tests/validate-flow.test.js && validateFlow(dogfood)+machines + reject sequence"
+    verifierLabel: 'shell: node --test tests/validate-flow.test.js && node -e "import …'
   - id: G-F0-2
     description: FAILS when schemaVersion is not 1.0 or when PDTI status rules live
       in validate-flow.js
@@ -67,8 +70,8 @@ stack:
 tasks:
   - id: T-001
     title: Substituir flow.schema.json pelo MODEL
-    status: pending
-    lastUpdated: 2026-08-13T16:51:58.727Z
+    status: done
+    lastUpdated: 2026-08-13T21:36:42.056Z
     summary: Troca o JSON Schema para os tipos MODEL sem mudar a string 1.0.
     weight: 2
     scopeBoundary:
@@ -82,14 +85,26 @@ tasks:
         decision and single states object are not valid node/root shapes
     verifier:
       kind: shell
-      command: node -e "const s=require('./meta/schemas/flow.schema.json'); if(s.properties.schemaVersion.const!=='1.0') process.exit(1); if(!JSON.stringify(s).includes('activity')) process.exit(1); if(JSON.stringify(s).includes('\"const\":\"sequence\"')) process.exit(1);"
+      command: node -e "const s=require('./meta/schemas/flow.schema.json');
+        if(s.properties.schemaVersion.const!=='1.0') process.exit(1);
+        if(!JSON.stringify(s).includes('activity')) process.exit(1);
+        if(JSON.stringify(s).includes('\"const\":\"sequence\"'))
+        process.exit(1);"
     outputs:
       - kind: file
         path: meta/schemas/flow.schema.json
+    closedAt: 2026-08-13T21:36:42.056Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-13T21:36:42.056Z
+      verifiedCommit: 1699cb80217fb7dc40e407b9e86cc543f6e335bd
+      passed: true
+      exitCode: 0
+      outputSummary: schemaVersion 1.0; activity present; const sequence absent; exit 0
   - id: T-002
     title: Reescrever validate-flow para os tipos MODEL
-    status: pending
-    lastUpdated: 2026-08-13T16:51:58.727Z
+    status: done
+    lastUpdated: 2026-08-13T21:36:42.056Z
     summary: Validador AJV+grafo cobre activity/xor/and/join/machines/effects.
     weight: 3
     scopeBoundary:
@@ -104,8 +119,9 @@ tasks:
         machines require >=1 node; effects key required (empty array valid);
         schemaVersion 1.0 with type sequence fails; tests cover broken next,
         one-branch xor, ghost actor, missing effects key, empty machine nodes;
-        xor.when is unique per xor; invalid via fails; event.kind is timer|error;
-        subprocess.ref is in subgraphs; cycle is next to an ancestor
+        xor.when is unique per xor; invalid via fails; event.kind is
+        timer|error; subprocess.ref is in subgraphs; cycle is next to an
+        ancestor
     verifier:
       kind: shell
       command: node --test tests/validate-flow.test.js
@@ -114,10 +130,18 @@ tasks:
         path: scripts/lib/validate-flow.js
       - kind: file
         path: tests/validate-flow.test.js
+    closedAt: 2026-08-13T21:36:42.056Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-13T21:36:42.056Z
+      verifiedCommit: 1699cb80217fb7dc40e407b9e86cc543f6e335bd
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/validate-flow.test.js: 30 pass, 0 fail, exit 0"
   - id: T-003
     title: Reescrever fixtures dogfood para o MODEL
-    status: pending
-    lastUpdated: 2026-08-13T16:51:58.727Z
+    status: done
+    lastUpdated: 2026-08-13T21:36:42.056Z
     summary: Dogfood PDTI reescrito; clique só em messages; ≥1 machine.
     weight: 2
     scopeBoundary:
@@ -130,7 +154,13 @@ tasks:
         xor + 1 machine; type sequence and root states object fail validateFlow
     verifier:
       kind: shell
-      command: node --test tests/validate-flow.test.js && node -e "import { validateFlow } from './scripts/lib/validate-flow.js'; import { readFileSync } from 'node:fs'; const d=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8')); const r=validateFlow(d); if(!r.valid) { console.error(r.errors); process.exit(1); } if(!Array.isArray(d.machines) || d.machines.length<1) process.exit(1);"
+      command: node --test tests/validate-flow.test.js && node -e "import {
+        validateFlow } from './scripts/lib/validate-flow.js'; import {
+        readFileSync } from 'node:fs'; const
+        d=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8'));
+        const r=validateFlow(d); if(!r.valid) { console.error(r.errors);
+        process.exit(1); } if(!Array.isArray(d.machines) || d.machines.length<1)
+        process.exit(1);"
     outputs:
       - kind: file
         path: docs/design/project-flow/dogfood/fluxo-sugestao.json
@@ -138,6 +168,14 @@ tasks:
         path: docs/design/project-flow/dogfood/minimal-xor.json
       - kind: file
         path: tests/validate-flow.test.js
+    closedAt: 2026-08-13T21:36:42.056Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-08-13T21:36:42.056Z
+      verifiedCommit: 1699cb80217fb7dc40e407b9e86cc543f6e335bd
+      passed: true
+      exitCode: 0
+      outputSummary: 30/30 tests pass; validateFlow(dogfood) valid; machines.length>=1; exit 0
 parked: []
 emerged: []
 planTitle: Project Flow — schema, painel e dentes no implement
@@ -160,8 +198,8 @@ _(record decisions here as they are made)_
 - MODEL: `docs/design/project-flow/MODEL.md`
 
 ## Session handoff
-- **Narrative:** Pure-maestro em `plan/project-flow` (worktree `/home/henry/atomic-skills/.worktrees/project-flow`). F0 materializada, BI completo nos dois lados. Initiative alinhada ao plano atualizado (T-001 verifier de introspecção, T-003 `validateFlow(dogfood)+machines`, G-F0-1 do plan.md, T-002 acceptance MODEL). Ground-truth detector exit 0. Sem lease. Operador pediu automate + review local + ir até o final; avaliação humana no plan-end.
-- **Decision log:** (1) Alvo = `project-flow` (único plano desta branch). (2) `parseImplementMode` sem flag → `isAutomateActive` true. (3) Review desta sessão = `review-code --mode=local` com overrideReason do operador. (4) SPEC F0 restaurado de `source.md` + constraints do plan.md antes do spawn. (5) Ratify do package F0 = invocação `implement` do plano atualizado + BI já materializado + “vá até o final”.
-- **Single nextAction:** spawn fresh writer after ratify — F0 work-order T-001/T-002/T-003
-- **Verbatim state:** `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-plans-missing-ground-truth.js" .atomic-skills/projects/atomic-skills/project-flow/plan.md` → `find-plans-missing-ground-truth: every plan carries a ground-truth review receipt ✓` exit 0. HEAD `d67e0f2f`. Branch `plan/project-flow`.
-- **Uncommitted changes:** initiative + handoff dirty until explicit-path microcommit of `.atomic-skills/projects/atomic-skills/project-flow/phases/f0-modelo-no-disco.md`
+- **Narrative:** F0 tasks T-001/T-002/T-003 closed on merged HEAD 1699cb80217fb7dc40e407b9e86cc543f6e335bd after writer merge 1699cb80. Verifiers exit 0 (30/30 tests; dogfood+machines; sequence rejected). T-002 complex closed with local review + operator disposition accept. Cursor at E; lease cleared.
+- **Decision log:** Automate default + local review. Claim report exclusive commitShas. lastAssert done recorded (no executionMode stamp). T-002 disposition accept.
+- **Single nextAction:** Run `phase-done` after evaluation + local review + audit-delivery
+- **Verbatim state:** `node --test tests/validate-flow.test.js` → 30 pass 0 fail exit 0. G-F0-1 exit 0. G-F0-2 exit 0. HEAD `1699cb80217fb7dc40e407b9e86cc543f6e335bd`.
+- **Uncommitted changes:** initiative close dirty until checkpoint commits.

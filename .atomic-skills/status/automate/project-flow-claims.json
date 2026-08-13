@@ -1,0 +1,40 @@
+{
+  "planSlug": "project-flow",
+  "phaseId": "F0",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/project-flow-F0-writer",
+  "writerBranch": "impl/project-flow-F0-writer",
+  "finishedAt": "2026-08-13T21:32:24Z",
+  "tasks": [
+    {
+      "taskId": "T-001",
+      "status": "claimed-pass",
+      "commitShas": ["820357f5a5ae6964cd10dcf7066e7c2e61f48115"],
+      "paths": ["meta/schemas/flow.schema.json"],
+      "verifierCommand": "node -e \"const s=require('./meta/schemas/flow.schema.json'); if(s.properties.schemaVersion.const!=='1.0') process.exit(1); if(!JSON.stringify(s).includes('activity')) process.exit(1); if(JSON.stringify(s).includes('\\\"const\\\":\\\"sequence\\\"')) process.exit(1);\"",
+      "exitCode": 0,
+      "transcript": ""
+    },
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": ["5cfe6486803c0471391c6c1af2c201bf27bd9203"],
+      "paths": ["scripts/lib/validate-flow.js", "tests/validate-flow.test.js"],
+      "verifierCommand": "node --test tests/validate-flow.test.js",
+      "exitCode": 0,
+      "transcript": "✔ assertValidFlow (0.555406ms)\nℹ tests 30\nℹ suites 8\nℹ pass 30\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 135.629227"
+    },
+    {
+      "taskId": "T-003",
+      "status": "claimed-pass",
+      "commitShas": ["c556e6428fdd3848f2ebac82262daf5bcc0eefc4"],
+      "paths": [
+        "docs/design/project-flow/dogfood/fluxo-sugestao.json",
+        "docs/design/project-flow/dogfood/minimal-xor.json",
+        "tests/validate-flow.test.js"
+      ],
+      "verifierCommand": "node --test tests/validate-flow.test.js && node -e \"import { validateFlow } from './scripts/lib/validate-flow.js'; import { readFileSync } from 'node:fs'; const d=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8')); const r=validateFlow(d); if(!r.valid) { console.error(r.errors); process.exit(1); } if(!Array.isArray(d.machines) || d.machines.length<1) process.exit(1);\"",
+      "exitCode": 0,
+      "transcript": "✔ assertValidFlow (0.556829ms)\nℹ tests 30\nℹ suites 8\nℹ pass 30\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 141.437748"
+    }
+  ]
+}
