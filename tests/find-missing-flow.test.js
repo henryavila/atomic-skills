@@ -148,6 +148,16 @@ describe('checkPlanFlow', () => {
     assert.equal(r.ok, true, r.issues.join('; '));
   });
 
+  it('valid unstamped L1+L2 fails --strict and passes non-strict', () => {
+    writeValidFlow({ stamp: false });
+    const loose = checkPlanFlow(planMd);
+    assert.equal(loose.ok, true, loose.issues.join('; '));
+    const strict = checkPlanFlow(planMd, { strict: true });
+    assert.equal(strict.ok, false);
+    assert.ok(strict.issues.some((i) => /ratifiedAt/.test(i)), strict.issues.join('; '));
+    assert.ok(strict.issues.some((i) => /ratifiedGraphSha/.test(i)), strict.issues.join('; '));
+  });
+
   it('fails --strict when graph mutated after stamp (sha diverge)', () => {
     writeValidFlow({ mutateGraph: true });
     const r = checkPlanFlow(planMd, { strict: true });
@@ -186,7 +196,10 @@ describe('checkPlanFlow', () => {
     checkPlanFlow(planMd, { strict: true });
     assert.equal(existsSync(mapHtml), false);
     const src = readFileSync(CLI, 'utf8');
-    assert.equal(/\bwriteFileSync\b/.test(src), false);
+    assert.equal(/writeFileSync\([^)]*map\.html/.test(src), false);
+    const detector = runCli([planMd]);
+    assert.notEqual(detector.status, 2);
+    assert.equal(existsSync(mapHtml), false);
   });
 
   it('without --strict still fails when json exists but is invalid', () => {
@@ -211,6 +224,32 @@ describe('find-missing-flow CLI', () => {
   it('exits 2 when the target path does not exist', () => {
     const r = runCli([join(tmpdir(), 'no-such-plan-dir-xyz', 'plan.md')]);
     assert.equal(r.status, 2);
+  });
+
+  it(' --ratify stamps via buildFlowRatification (skill invocation)', () => {
+    const skill = readFileSync(
+      join(ROOT, 'skills', 'shared', 'project-assets', 'project-flow.md'),
+      'utf8',
+    );
+    assert.match(skill, /find-missing-flow\.js" --ratify "\$L1" --ratified-by operator/);
+    assert.doesNotMatch(skill, /from process\.argv\[1\]/);
+    assert.doesNotMatch(skill, /--input-type=module/);
+
+    const dir = mkdtempSync(join(tmpdir(), 'flow-ratify-'));
+    try {
+      const l1 = join(dir, 'flow.json');
+      const doc = cloneMinimal();
+      writeFileSync(l1, `${JSON.stringify(doc, null, 2)}\n`);
+      const r = runCli(['--ratify', l1, '--ratified-by', 'operator']);
+      assert.equal(r.status, 0, r.stderr);
+      assert.equal(r.stderr.includes('SyntaxError'), false);
+      const next = JSON.parse(readFileSync(l1, 'utf8'));
+      assert.match(next.ratifiedAt, /^\d{4}-\d{2}-\d{2}T/);
+      assert.equal(next.ratifiedBy, 'operator');
+      assert.equal(next.ratifiedGraphSha, graphSha(doc.graph));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('exits 1 and supports --json / --strict for a missing flow', () => {

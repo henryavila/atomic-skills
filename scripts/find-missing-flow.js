@@ -6,18 +6,20 @@
  *   flow/flow.json   (L1, valid graph; --strict also requires ratification stamp)
  *   flow/flow.html   (L2; --strict checks data-flow-content-sha vs L1 contentSha)
  *
- * process.yaml / map.html NEVER count as success. This script is read-only
- * and never writes map.html.
+ * process.yaml / map.html NEVER count as success. Detector default is
+ * read-only and never writes map.html. `--ratify` is the only write path
+ * (stamp via buildFlowRatification).
  *
  * Usage:
  *   node scripts/find-missing-flow.js [path-to-plan.md | .atomic-skills | repo]
  *   node scripts/find-missing-flow.js --strict …
  *   node scripts/find-missing-flow.js --json …
+ *   node scripts/find-missing-flow.js --ratify <flow.json> [--ratified-by <who>]
  *
  * Exit 0 = all ok; exit 1 = missing/invalid; exit 2 = usage/IO.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { validateFlow } from './lib/validate-flow.js';
@@ -213,8 +215,68 @@ export function checkAll(planPaths, opts = {}) {
   };
 }
 
+function flagValue(args, flag) {
+  const i = args.indexOf(flag);
+  if (i === -1) return undefined;
+  const v = args[i + 1];
+  if (!v || v.startsWith('--')) return undefined;
+  return v;
+}
+
+/**
+ * Read flow.json, stamp via buildFlowRatification, write back.
+ * @param {string} flowJsonPath
+ * @param {{ ratifiedBy?: string }} [opts]
+ */
+export function ratifyFlowFile(flowJsonPath, opts = {}) {
+  const abs = resolve(flowJsonPath);
+  if (!existsSync(abs)) {
+    const err = new Error(`find-missing-flow: not found: ${flowJsonPath}`);
+    err.exitCode = 2;
+    throw err;
+  }
+  let raw;
+  try {
+    raw = JSON.parse(readFileSync(abs, 'utf8'));
+  } catch (err) {
+    const wrapped = new Error(
+      `find-missing-flow: L1 parse error: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    wrapped.exitCode = 1;
+    throw wrapped;
+  }
+  const v = validateFlow(raw);
+  if (!v.valid) {
+    const wrapped = new Error(
+      `find-missing-flow: L1 invalid:\n${v.errors.map((e) => `  - ${formatFlowError(e)}`).join('\n')}`,
+    );
+    wrapped.exitCode = 1;
+    throw wrapped;
+  }
+  const next = buildFlowRatification(raw, { ratifiedBy: opts.ratifiedBy });
+  writeFileSync(abs, `${JSON.stringify(next, null, 2)}\n`);
+  return next;
+}
+
 function main() {
   const args = process.argv.slice(2);
+  if (args.includes('--ratify')) {
+    const flowJson = flagValue(args, '--ratify');
+    if (!flowJson) {
+      console.error('usage: find-missing-flow.js --ratify <flow.json> [--ratified-by <who>]');
+      process.exit(2);
+    }
+    try {
+      const next = ratifyFlowFile(flowJson, { ratifiedBy: flagValue(args, '--ratified-by') });
+      console.log(`find-missing-flow: ratified ${resolve(flowJson)}`);
+      console.log(`ratifiedGraphSha ${next.ratifiedGraphSha}`);
+      process.exit(0);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(err && typeof err === 'object' && 'exitCode' in err ? err.exitCode : 1);
+    }
+  }
+
   const json = args.includes('--json');
   const strict = args.includes('--strict');
   const positional = args.filter((a) => !a.startsWith('--'));

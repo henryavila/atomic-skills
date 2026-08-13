@@ -86,14 +86,7 @@ Host cannot run the tool → **STOP**. Do not invent a stamp.
 Never hand-write `ratifiedAt` or `ratifiedGraphSha`. Run:
 
 ```bash
-node --input-type=module -e '
-import { readFileSync, writeFileSync } from "node:fs";
-import { buildFlowRatification } from process.argv[1];
-const path = process.argv[2];
-const doc = JSON.parse(readFileSync(path, "utf8"));
-const next = buildFlowRatification(doc, { ratifiedBy: "operator" });
-writeFileSync(path, JSON.stringify(next, null, 2) + "\n");
-' "$PKG_ROOT/scripts/find-missing-flow.js" "$L1"
+node "$PKG_ROOT/scripts/find-missing-flow.js" --ratify "$L1" --ratified-by operator
 node "$PKG_ROOT/scripts/render-flow.js" "$L1" -o "$L2"
 ```
 

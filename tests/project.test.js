@@ -221,6 +221,25 @@ describe('project skill (unified router + lazy assets)', () => {
     }
   });
 
+  it('router dispatches flow and process to project-flow.md, not project-process-map.md', () => {
+    install();
+    const content = readRouter();
+    assert.match(
+      content,
+      /\|\s*`flow`, `process`\s*\|\s*`Read .*?project-flow\.md`\s*\|/,
+      'flow and process must dispatch to project-flow.md',
+    );
+    const table = content.slice(
+      content.indexOf('## Dispatch table'),
+      content.indexOf('Lazy-load is NOT optional'),
+    );
+    assert.doesNotMatch(
+      table,
+      /project-process-map\.md/,
+      'dispatch must not load project-process-map.md as the procedure',
+    );
+  });
+
   it('router dispatches help, help --html, and next to project-help.md', () => {
     install();
     const content = readRouter();
