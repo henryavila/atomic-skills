@@ -258,7 +258,7 @@ function collectSequence(normalized) {
 
 /** Layout CSS — tokens from inlined ds.css only. Classes are fl-* (not a ds- prefix). */
 export const FLOW_CSS = `/* flow layout — tokens from inlined ds.css only */
-.fl-shell{max-width:1080px;margin:0 auto;padding:var(--space-12) var(--space-10) var(--space-24)}
+.fl-shell{max-width:1080px;margin:0 auto;padding:var(--space-12) var(--space-10) var(--space-24);font-family:var(--font-sans);color:var(--fg-default)}
 .fl-header{display:flex;flex-direction:column;gap:var(--space-6);margin-bottom:var(--space-12);padding-bottom:var(--space-10);border-bottom:1px solid var(--border-default)}
 .fl-eyebrow{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-subtle);letter-spacing:var(--tracking-wide);text-transform:uppercase}
 .fl-title{margin:0;font-size:var(--fs-3xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight);line-height:var(--lh-tight)}
@@ -268,13 +268,14 @@ export const FLOW_CSS = `/* flow layout — tokens from inlined ds.css only */
 .fl-meta strong{color:var(--fg-muted);font-weight:var(--fw-medium)}
 .fl-toc{display:flex;flex-wrap:wrap;gap:var(--space-4);margin:var(--space-4) 0 0;padding:0;list-style:none}
 .fl-toc a{display:inline-flex;align-items:center;height:30px;padding:0 var(--space-6);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font-size:var(--fs-sm);font-weight:var(--fw-medium);text-decoration:none}
-.fl-toc a:hover{color:var(--status-info);border-color:var(--status-info-line);text-decoration:none}
-.fl-surface{margin:var(--space-12) 0;padding:var(--space-10);background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm)}
+.fl-toc a:hover,.fl-toc a:focus-visible{color:var(--status-info);border-color:var(--status-info-line);text-decoration:none}
+.fl-toc a:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+.fl-surface{margin:var(--space-12) 0;padding:var(--space-10);background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);border-left-width:4px}
 .fl-surface h2{margin:0 0 var(--space-8);font-size:var(--fs-xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight)}
 .fl-lede{margin:0 0 var(--space-8);color:var(--fg-muted);font-size:var(--fs-sm);line-height:var(--lh-relaxed)}
-.fl-sequence{border-color:var(--status-info-line)}
-.fl-bpm{border-color:var(--status-warning-line)}
-.fl-machines{border-color:var(--status-success-line)}
+.fl-sequence{border-left-color:var(--status-info)}
+.fl-bpm{border-left-color:var(--status-warning)}
+.fl-machines{border-left-color:var(--status-success)}
 .fl-messages,.fl-nodes,.fl-states,.fl-transitions,.fl-effects,.fl-branches{margin:0;padding:0;list-style:none}
 .fl-msg{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:var(--space-3) var(--space-4);align-items:start;padding:var(--space-6) 0;border-top:1px solid var(--border-subtle)}
 .fl-msg:first-child{border-top:0;padding-top:0}
@@ -453,11 +454,15 @@ ${transitions}
  * @returns {string}
  */
 export function renderFlowHtml(normalized, dsCss) {
-  const css = typeof dsCss === 'string' ? dsCss : '';
+  if (
+    typeof dsCss !== 'string' ||
+    !dsCss.includes('--bg-canvas') ||
+    !dsCss.includes('--fg-default')
+  ) {
+    throw new Error('dsCss must include --bg-canvas and --fg-default from site/assets/ds.css');
+  }
   const fp = contentFingerprint(normalized);
-  const styleBlock = css.trim()
-    ? `${css.trim()}\n\n${FLOW_CSS.trim()}`
-    : FLOW_CSS.trim();
+  const styleBlock = `${dsCss.trim()}\n\n${FLOW_CSS.trim()}`;
   const title = `Fluxo — ${normalized.title}`;
 
   const html = `<!DOCTYPE html>
@@ -480,23 +485,23 @@ ${styleBlock}
       <span><strong>Ator:</strong> ${escapeHtml(normalized.actor)}</span>
       <span><strong>Plano:</strong> ${escapeHtml(normalized.planSlug)}</span>
     </div>
-    <nav class="fl-toc" aria-label="Camadas do fluxo">
+    <nav class="fl-toc" role="navigation" aria-label="Camadas do fluxo">
       <a href="#fl-sequence">Sequência</a>
       <a href="#fl-bpm">Fluxo BPM</a>
       <a href="#fl-machines">Máquinas</a>
     </nav>
   </header>
-  <section id="fl-sequence" class="fl-surface fl-sequence" aria-labelledby="fl-sequence-title">
+  <section id="fl-sequence" class="fl-surface fl-sequence" role="region" data-surface="sequence" aria-labelledby="fl-sequence-title">
     <h2 id="fl-sequence-title">Sequência</h2>
     <p class="fl-lede">Conversa (messages) entre atores. Pode narrar interface.</p>
     ${renderSequence(normalized)}
   </section>
-  <section id="fl-bpm" class="fl-surface fl-bpm" aria-labelledby="fl-bpm-title">
+  <section id="fl-bpm" class="fl-surface fl-bpm" role="region" data-surface="bpm" aria-labelledby="fl-bpm-title">
     <h2 id="fl-bpm-title">Fluxo BPM</h2>
     <p class="fl-lede">Atividades de negócio: activity, xor, and, join, subprocess, event, end.</p>
     ${renderBpm(normalized)}
   </section>
-  <section id="fl-machines" class="fl-surface fl-machines" aria-labelledby="fl-machines-title">
+  <section id="fl-machines" class="fl-surface fl-machines" role="region" data-surface="machines" aria-labelledby="fl-machines-title">
     <h2 id="fl-machines-title">Máquinas</h2>
     <p class="fl-lede">Estados e transições. Cada efeito mostra kind, label e target.</p>
     ${renderMachines(normalized)}
