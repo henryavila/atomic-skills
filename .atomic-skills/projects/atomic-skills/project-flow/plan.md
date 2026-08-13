@@ -5,7 +5,7 @@ title: Project Flow — schema, painel e dentes no implement
 version: "1.0"
 status: active
 started: 2026-08-13T16:51:58.727Z
-lastUpdated: 2026-08-13T21:47:54.910Z
+lastUpdated: 2026-08-13T22:02:11.796Z
 branch: plan/project-flow
 currentPhase: F2
 parallelismAllowed: false
@@ -199,7 +199,7 @@ phases:
     goal: "`project flow` gera/atualiza/exibe/ratifica; generate lê design/source/businessIntent e não phases[]; ratify = show + AskUserQuestion + só buildFlowRatification; detector `--strict` exige M4 + stamp do documento (grafo+messages+machines) + flow.html sha; `implement` recusa sem flow em todo plano que implement aceita (AS multi/1-phase, foreign); ad-hoc sem plan file = N/A; process-map sai do write path; Iron Law vira NO IMPLEMENT WITHOUT VALIDATED FLOW. Reusar do worktree só `flowPathsForPlan` e `buildFlowRatification`."
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 4
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -215,7 +215,13 @@ phases:
           verifier:
             kind: shell
             command: rg -q 'find-missing-flow' skills/core/implement.md && node -e "import { CREATION_STAGES } from './scripts/creation-gates.js'; if(CREATION_STAGES.includes('process-map')) process.exit(1);"
-    status: pending
+    status: active
+    businessIntent:
+      value: Todo plano que implement aceita tem flow ratificado. O PO gera, vê e carimba o fluxo no comando project flow. Sem process-map no write path.
+      workflow: detector --strict (M4 + stamp + flow.html sha) → comando project flow (generate/update/show/ratify/--check/--open) → implement Step 1 + spawn recusam sem flow → CREATION_STAGES sem process-map.
+      rules: Só buildFlowRatification escreve ratifiedAt/ratifiedGraphSha. Sem operatorSkip. Sem stage flow inescapável. Ready sem flow é legal. Reusar do worktree 86c1c2d4 só flowPathsForPlan e buildFlowRatification. Sem mergear HTML Mermaid.
+      outOfScope: Pacote npm, editor visual, copiar Arch, feature PDTI, reabrir Mermaid como produto.
+      doneWhen: "G-F2-1: `node --test tests/find-missing-flow.test.js tests/flow-ratification.test.js` exit 0 e `--check` no dogfood; process.yaml sozinho não passa `--strict`. G-F2-2: `rg find-missing-flow skills/core/implement.md` e CREATION_STAGES sem process-map."
 references:
   - kind: file
     path: projects/atomic-skills/project-flow/design.md
@@ -296,12 +302,12 @@ Descriptor `phases/f2-comando-e-dentes.source.json` é a fonte até o materializ
 - **G2 soft-language**: scanned plan body + frontmatter against the EN ban list (`should|probably|may|typically|usually|I think|it seems|in theory|tends to`); 0 occurrences after this pass.
 - **G6 reference-or-strike**: each exit criterion carries a `verifier:` shell command. FAILS-when is in the criterion description. Context points at design.md + LEDGER + MODEL via `references:`.
 - **G10 gate-must-be-able-to-fail**: G-F0-1 rewritten to fail on current tip (dogfood sem `machines[]`; probe `type: sequence` ainda valida). G-F0-2 continua verde no tip — guarda de regressão, ver Alignment notes.
-- **Ground-truth (Flow E 2026-08-13T21:50:00Z):** Status=complete-with-findings; mode=ground-truth; fp=2fdb262d8637; premises=18 (false=1 `ds-`); impacts=6; re-run after F1 materialize (T-006 verifier `--bg-canvas|--fg-default`; ds.css consume). Code premises unchanged. render-flow.js still absent (F1 output). Plano = AS 2026-08-13; não é PR2 Mermaid / 86c1c2d4.
+- **Ground-truth (Flow E 2026-08-13T21:50:00Z):** Status=complete-with-findings; mode=ground-truth; fp=c41b6e0feae5; premises=18 (false=1 `ds-`); impacts=6; re-run after F1 materialize (T-006 verifier `--bg-canvas|--fg-default`; ds.css consume). Code premises unchanged. render-flow.js still absent (F1 output). Plano = AS 2026-08-13; não é PR2 Mermaid / 86c1c2d4.
 
 ## Reviews
 
 - internal: 11 finding(s) applied/recorded @ uncommitted (2026-08-13T18:09:11Z)
-- ground-truth: complete-with-findings | mode=ground-truth | fp=2fdb262d8637 | premises=18 | impacts=6 @ 23d9a55d (2026-08-13T21:50:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=c41b6e0feae5 | premises=18 | impacts=6 @ 23d9a55d (2026-08-13T21:50:00Z)
 
 ## Ground-truth review
 
