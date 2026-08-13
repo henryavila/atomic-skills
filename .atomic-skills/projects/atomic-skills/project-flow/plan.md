@@ -272,20 +272,20 @@ Descriptor `phases/f2-comando-e-dentes.source.json` é a fonte até o materializ
 - **G2 soft-language**: scanned plan body + frontmatter against the EN ban list (`should|probably|may|typically|usually|I think|it seems|in theory|tends to`); 0 occurrences after this pass.
 - **G6 reference-or-strike**: each exit criterion carries a `verifier:` shell command. FAILS-when is in the criterion description. Context points at design.md + LEDGER + MODEL via `references:`.
 - **G10 gate-must-be-able-to-fail**: G-F0-1 rewritten to fail on current tip (dogfood sem `machines[]`; probe `type: sequence` ainda valida). G-F0-2 continua verde no tip — guarda de regressão, ver Alignment notes.
-- **Ground-truth (Flow E 2026-08-13T18:42:34Z):** Status=complete-with-findings; mode=ground-truth; fp=e9944180413a; premises=18 (false=1 `ds-`); impacts=6; detector exit 0. Plano = AS 2026-08-13 (render próprio); não é PR2 Mermaid / 86c1c2d4.
+- **Ground-truth (Flow E 2026-08-13T21:22:46Z):** Status=complete-with-findings; mode=ground-truth; fp=ad58bc9e1c75; premises=18 (false=1 `ds-`); impacts=6; detector re-run after F0 SPEC alignment (T-001/T-003 verifiers + G-F0-1). Code premises unchanged. Plano = AS 2026-08-13 (render próprio); não é PR2 Mermaid / 86c1c2d4.
 
 ## Reviews
 
 - internal: 11 finding(s) applied/recorded @ uncommitted (2026-08-13T18:09:11Z)
-- ground-truth: complete-with-findings | mode=ground-truth | fp=e9944180413a | premises=18 | impacts=6 @ uncommitted (2026-08-13T18:42:34Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=ad58bc9e1c75 | premises=18 | impacts=6 @ f2f6257a (2026-08-13T21:22:46Z)
 
 ## Ground-truth review
 
 **Status:** complete-with-findings
 **Codebase class:** populated
 **Scanned:** meta/schemas/flow.schema.json, scripts/lib/validate-flow.js, scripts/lib/render-process-map.js, scripts/find-missing-process-map.js, scripts/creation-gates.js, scripts/assert-automate-gate.js, skills/core/implement.md, skills/core/project.md, skills/shared/project-assets/{project-process-map,project-create-plan,new-plan/stage-7,stage-8,stage-9,stage-process-map}.md, tests/{validate-flow,creation-gates,find-missing-process-map}.test.js, site/assets/ds.css, docs/design/project-flow/dogfood/*, .worktrees/execute-plan-fa94153b-pr-4/scripts/find-missing-flow.js → 217 files under scripts/+skills/core+skills/shared/project-assets+meta/schemas+docs/kb+site/assets+docs/design/project-flow
-**Commit:** uncommitted
-**At:** 2026-08-13T18:42:34Z
+**Commit:** f2f6257a
+**At:** 2026-08-13T21:22:46Z
 
 ### A — Plan premises vs code
 
