@@ -68,7 +68,7 @@
       ],
       "verifier": {
         "kind": "shell",
-        "command": "node --test tests/render-flow.test.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-polish.html && rg -q 'ds-|data-flow-|Sequência|sequence' /tmp/project-flow-polish.html && ! rg -qi 'mermaid' /tmp/project-flow-polish.html"
+        "command": "node --test tests/render-flow.test.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-polish.html && rg -q -- '--bg-canvas|--fg-default' /tmp/project-flow-polish.html && ! rg -qi 'mermaid' /tmp/project-flow-polish.html"
       },
       "outputs": [
         {
@@ -78,10 +78,6 @@
         {
           "kind": "file",
           "path": "tests/render-flow.test.js"
-        },
-        {
-          "kind": "file",
-          "path": "site/assets/ds.css"
         }
       ],
       "summary": "Visual no DS; F1 não fecha enquanto parecer protótipo.",
@@ -91,10 +87,10 @@
   "exitGates": [
     {
       "id": "G-F1-1",
-      "description": "FAILS when render-flow emits mermaid or map.html or omits one of the three surfaces",
+      "description": "FAILS when render-flow uses Mermaid/Graphviz/D2 (import or sequenceDiagram/flowchart/stateDiagram in HTML), emits map.html, or omits one of the three native surfaces",
       "verifier": {
         "kind": "shell",
-        "command": "node --test tests/render-flow.test.js && ! rg -qi 'mermaid|graphviz|d2' scripts/lib/render-flow.js scripts/render-flow.js"
+        "command": "node --test tests/render-flow.test.js && ! rg -qi 'mermaid|graphviz|d2' scripts/lib/render-flow.js scripts/render-flow.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-f1-g1.html && ! rg -qi 'mermaid|sequencediagram|statediagram|graphviz' /tmp/project-flow-f1-g1.html && rg -qi 'sequência|messages' /tmp/project-flow-f1-g1.html && rg -qi 'machine' /tmp/project-flow-f1-g1.html && rg -qi 'bpm|fluxo|activity' /tmp/project-flow-f1-g1.html && ! rg -q 'map\\.html' scripts/render-flow.js"
       },
       "status": "pending"
     },
@@ -103,7 +99,7 @@
       "description": "FAILS when the generated dogfood HTML still looks like a prototype (no DS tokens, surfaces collapsed, mermaid present)",
       "verifier": {
         "kind": "shell",
-        "command": "node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-f1-gate.html && rg -q 'ds-|data-flow' /tmp/project-flow-f1-gate.html && ! rg -qi 'mermaid' /tmp/project-flow-f1-gate.html"
+        "command": "node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-f1-gate.html && rg -q -- '--bg-canvas|--fg-default' /tmp/project-flow-f1-gate.html && ! rg -qi 'mermaid' /tmp/project-flow-f1-gate.html"
       },
       "status": "pending"
     }
