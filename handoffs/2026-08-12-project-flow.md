@@ -1,14 +1,19 @@
 # Handoff pointer — Project Flow
 
-**Cold-start path:**
+**Cold-start da próxima sessão:**
 
 ```
 docs/design/project-flow/HANDOFF.md
 ```
 
-Pacote completo (design, análise, dogfood JSON/HTML, process-map do mesmo plano, design/plan da feature PDTI como referência de domínio da fixture).
+Não usar prompt de 17 arquivos. Começar na **PR1** (`feat(flow): schema 1.0 + core validator + dogfood fixture`).
 
-**Produto:** `/project flow` — valida grafo + render determinístico (substitui process map linear).  
-**Repo:** este monorepo only. Não continuar no arch-legacy.
+**Travado (2026-08-12):**
 
-**Próximo:** ler HANDOFF → design.md → PR1 schema+validate.
+- Process-map descartado (sem dual-read, sem cards).
+- Gate = entry do `implement` (qualquer plano AS/foreign). Validação = `project flow`. Ready sem flow é legal.
+- Artefato: `flow/flow.json` + `flow/flow.html` (nunca `map.html`) + `ratifiedAt` + `ratifiedGraphSha`.
+- Q8-A: classe ground-truth. Sem receipt extra. Sem re-Ask no implement.
+- Q7: `states` só se a chave existir (default temporário).
+
+**Repo:** `/home/henry/atomic-skills`. Sem arch-legacy.

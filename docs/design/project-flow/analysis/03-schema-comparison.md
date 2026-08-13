@@ -1,5 +1,7 @@
 # Análise 03 — Comparação de schemas
 
+> **Nota 2026-08-12:** journey/cards não é produto. O unificado canônico é lifecycle + **graph** + states opcional. Campo `covers` nesta nota **não** entrou no schema (`stage` no design). Ver `HANDOFF.md`.
+
 ## Lado a lado
 
 | Concern | process.yaml | fluxo-sugestao.json |

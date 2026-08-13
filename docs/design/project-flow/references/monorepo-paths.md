@@ -3,7 +3,9 @@
 Package root: `/home/henry/atomic-skills`  
 (`cat ~/.atomic-skills/package-root`)
 
-## Process map (legado a evoluir)
+## Process map (legado a **apagar** na PR4 — não evoluir)
+
+Obrigação viva no código até a PR3. Depois some do write path. Não é o modelo do produto.
 
 | Artefato | Path |
 |----------|------|
@@ -43,10 +45,15 @@ node "$PKG_ROOT/scripts/render-process-map.js" path/to/process.yaml -o path/to/m
 node "$PKG_ROOT/scripts/find-missing-process-map.js" path/to/plan.md --strict-html
 ```
 
+## Padrão AJV a copiar (PR1)
+
+`src/app-map/validate.js` + `meta/schemas/app-map.schema.json`  
+**Não** copiar `validateProcessMap` (hand-roll, schema morto).
+
 ## Alvo (a criar)
 
 ```bash
-node "$PKG_ROOT/scripts/render-flow.js" path/to/flow.json -o path/to/map.html
+node "$PKG_ROOT/scripts/render-flow.js" path/to/flow.json -o path/to/flow.html
 node "$PKG_ROOT/scripts/find-missing-flow.js" path/to/plan.md --strict-html
 ```
 

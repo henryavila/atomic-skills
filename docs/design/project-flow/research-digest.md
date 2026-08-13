@@ -49,6 +49,36 @@
 
 ## Implicações para o design
 
-- Reusar **pipeline** process-map, não o **schema de stage cards** como grafo.
+- Reusar **pipeline** (pure lib + CLI + content-sha), não o **schema de stage cards**.
 - Productizar dogfood **depois** de strip de domínio.
 - Fechar buraco verify/implement no mesmo esforço que o detector flow.
+- AJV canônico do repo = `src/app-map/validate.js`. Process-map **não** compila o próprio schema.
+
+---
+
+## Sessão 2026-08-12 noite — crítica de prompt + ratificação
+
+**Método:** 4 agentes explore (design, analyses, process-map impl, skills/dogfood) + painel Della/Flynn/Priya/Aria.
+
+### Achados
+
+8. **`fluxo-sugestao.json` não é schema 1.0.** Top-level `flowId`/`version: 2`/`entry`/`nodes`. PR1 = envelopar (`schemaVersion`, lifecycle, `graph{entry,nodes}`).
+9. **`validateProcessMap` nunca chama Ajv.** `process-map.schema.json` não é compilado em lugar nenhum. Copiar process-map como “validate” reproduz o débito.
+10. **Prompt de 17 arquivos é abuso.** Cold-start listado ≈ 4240 linhas / 191 KB; PR1 precisa de ~8 arquivos. HTML 1139 linhas e `pdti-feature-design.md` contaminam o core.
+11. **“FATIA” não existe no design.** Recortes canônicos = PR1–PR5.
+12. **Dogfood HTML `validateModel` é o anti-exemplo** (3 decisões, D1/D_edit/D2, status 10/1/11). Extrair só builders na PR2.
+
+### Ratificação do operador (mesma sessão)
+
+- Process-map: **descarte completo**. Sem dual-read, sem cards, sem journey como ready.
+- Obrigação (sessão noite): graph + show-before-ratify antes de `reviews`/`ready`.
+- Day-2: gerar/atualizar/exibir a qualquer momento.
+- Editável = JSON + loop Ajustar. Sem editor no browser.
+- Implementação: **cascata**, sessão seguinte (reboot). Esta sessão só persistiu docs.
+
+### Override do operador (sessão seguinte, mesmo dia)
+
+- Dentes **não** ficam no fim do `new plan`. Ficam no **entry do `implement`**: automático, inicial, não-skippável.
+- Sem o artefato (graph válido + `ratifiedAt` + HTML sha) é impossível implementar.
+- Validação humana = comando `project flow` (manual, qualquer momento). Implement só checa o detector — não roda show+ratify.
+- `ready` sem flow é legal. Stage `process-map` morre; não nasce stage `flow` inescapável.

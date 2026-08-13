@@ -1,9 +1,10 @@
 # Design — Project Flow (grafo + UI determinística)
 
-**Status:** draft de handoff para implementação no monorepo atomic-skills  
-**Substitui / evolui:** process map L1/L2 (`docs/kb/process-map.md`)  
+**Status:** ratificado pelo operador 2026-08-12 (sessão noite) — process-map **descartado**, não dual-read. Código ainda não implementado.  
+**Substitui:** process map L1/L2 (`docs/kb/process-map.md`) — descarte completo na PR4.  
 **Dogfood fixture:** `docs/design/project-flow/dogfood/fluxo-sugestao.json`  
 **Data:** 2026-08-12  
+**Implementação:** cascata PR1→PR5; próxima sessão começa na PR1. Ver `HANDOFF.md`.
 
 ---
 
@@ -13,7 +14,7 @@ Todo plano multi-phase AS é obrigado a carregar um **process map** (Iron Law P1
 
 Durante a feature `sugestao-necessidade-pdti` (repo arch-legacy) nasceu um segundo artefato: grafo JSON + viewer HTML com três projeções Mermaid (Sequência, Fluxo do processo, Estados). Esse protótipo prova o valor de produto — e prova que o process map atual não cobre o caso.
 
-O produto **Project Flow** unifica a obrigação de mapa de processo com a capacidade do protótipo, como artefato de primeira classe do monorepo atomic-skills. O código e fixtures de referência migram para cá; o repo da feature deixa de ser dono do viewer.
+O produto **Project Flow** **substitui** o process-map (operador, 2026-08-12: *“é um lixo, descarte completamente”*). Não há dual-read de produto nem aba de cards. O modelo é o grafo do protótipo (sequence / xor / end + Sequência / Fluxo / Estados). O código e fixtures de referência migram para cá; o repo da feature deixa de ser dono do viewer.
 
 ---
 
@@ -22,11 +23,11 @@ O produto **Project Flow** unifica a obrigação de mapa de processo com a capac
 | Campo | Conteúdo |
 |-------|----------|
 | **Problema** | Process map obrigatório não expressa nem renderiza grafo operacional; protótipo útil está acoplado a um plano de feature e fora do AS. |
-| **In-scope** | Schema de flow genérico; validação determinística; render self-contained (seq+fluxo+estados); skill `/project flow` + stage de criação; migração do process map; fixture dogfood PDTI; ports de context/design/plan de referência. |
-| **Out-of-scope** | Fills/níveis de aninhamento visual de `alt` (adiado); AND-gateway/join paralelos (v1); i18n multi-locale completo; Filament/app-map; implementar a feature PDTI em si. |
-| **Done-when** | Qualquer plano multi-phase pode ter `flow/flow.json` validado + HTML gerado offline byte-estável; `project flow --check` verde; dogfood fixture passa; process-map legado dual-read ou migrado; docs/Iron Law atualizados. |
-| **Stakes** | Iron Law P1 de todo plano; scripts/gates de criação; DX do `new plan`; compat com planos existentes só com process.yaml. |
-| **Fontes** | process-map schema/render/detector; dogfood JSON+HTML; KB process-map; project router. |
+| **In-scope** | Schema de flow genérico; validação determinística; render self-contained (seq+fluxo+estados); skill `/project flow` (comando, não stage de criação); hard-gate inicial do `implement`; descarte do process-map; fixture dogfood PDTI; ports de context/design/plan de referência. |
+| **Out-of-scope** | Fills/níveis de aninhamento visual de `alt` (adiado); AND-gateway/join paralelos (v1); i18n multi-locale completo; Filament/app-map; implementar a feature PDTI em si; editor visual no browser; aba/cards de journey (process-map); stage `flow` inescapável no `new plan`. |
+| **Done-when** | `implement` recusa sem artefato de flow ratificado; `project flow` gera/atualiza/exibe/ratifica a qualquer momento; process-map removido do write path e da obrigação P1; dogfood fixture passa sem regras PDTI no core. Ready sem flow é legal. |
+| **Stakes** | Iron Law nova: **NO IMPLEMENT WITHOUT VALIDATED FLOW**; DX do `new plan` (sem cerimônia extra); planos existentes bloqueiam no primeiro `implement` até o comando ratificar. |
+| **Fontes** | process-map (pipeline a copiar, schema de cards a jogar fora); dogfood JSON+HTML; `src/app-map/validate.js` (padrão AJV); project router. |
 
 ---
 
@@ -39,19 +40,19 @@ Arquivo canônico por plano:
 ```
 .atomic-skills/projects/<project-id>/<plan-slug>/flow/
   flow.json     # L1 SoT
-  map.html      # L2 gerado (não editar à mão)
+  flow.html     # HTML gerado (não editar à mão; **não** se chama map)
 ```
 
 Camadas no mesmo JSON (`schemaVersion: "1.0"`):
 
 | Camada | Obrigatória? | Conteúdo | Projeção UI |
 |--------|--------------|----------|-------------|
-| **Lifecycle** | sim (plan multi-phase) | `planSlug`, `scenario`, `actor`, `audience`, `ratifiedAt`, `youAreHere?` | chrome / gates |
-| **journey** (L0) | recomendada | stages dual-copy + edges (o que o process map era) | aba ou modo “Jornada” / compat map cards |
-| **graph** (L1) | se há UI/branching a validar | actors, entry, nodes sequence/decision/end | Sequência + Fluxo |
+| **Lifecycle** | sim no artefato (quando o flow existe) | `planSlug`, `scenario`, `actor`, `audience`, `ratifiedAt`, `ratifiedGraphSha`, `youAreHere?` | chrome / gates |
+| **graph** (L1) | **obrigatório** para `implement` de **qualquer plano** (operador 2026-08-12) | `entry` + `nodes` sequence/decision/end. **`actors[]` é raiz do JSON** (dogfood v2), não dentro de `graph`. | Sequência + Fluxo |
 | **states** (L2) | se há máquina de status | entry, nodes, transitions com `via` | Estados |
+| **journey** (L0) | **não é produto** | residual opcional no schema; sem UI de cards | — |
 
-Planos só-tooling podem ser **journey-only** (equivalente ao map atual). Feature com interface deve autorar **graph**; **states** quando existirem códigos de status de domínio.
+Tooling-only também leva **graph** (pode ser curto: sequences + xor se houver). Não existe **implement** com cards de process-map. `states` só se a chave existir no JSON (Q7). `ready` sem flow é legal.
 
 ### D2 — Validação core ≠ validação de domínio
 
@@ -71,20 +72,36 @@ Padrão idêntico ao process-map:
 - Mermaid: versão **pinada** e preferencialmente **vendored** (offline); determinismo de contrato = Mermaid source estável + content-sha do L1; SVG pode variar levemente entre versões — documentar pin  
 - `data-flow-content-sha` no `<html>` como `data-pm-content-sha`
 
-### D4 — Comando e Iron Law
+### D4 — Comando + hard-gate de implement (não stage de criação)
 
-- Comando day-2: **`/atomic-skills:project flow`** (`--check`, `--open`, opcional `--audience` se journey dual).  
-- Alias **`process`** por um minor: re-render flow se existir; senão legado process-map.  
-- Stage de criação: renomear semanticamente para flow; manter id de gate `process-map` **ou** alias `flow` com migração de `creation-gates` (preferir **novo id `flow`** + dual accept no detector por 1 release).  
-- Atualizar Iron Law: **NO PLAN WITHOUT FLOW** (journey e/ou graph conforme política abaixo).  
-- **HARD:** wire `find-missing-flow` em `project verify` e gate de `implement` (o map prometia e não cumpria).
+Operador 2026-08-12 (override): validar o fluxo **não** é obrigação do fim do `new plan`. É gate **automático, inicial e não-skippável** do `implement`. A validação humana é o comando.
 
-Política mínima de “tem flow suficiente”:
+- Comando: **`/atomic-skills:project flow`** — generate / update / show / ratify / `--check` / `--open`. Único escritor de `ratifiedAt` (AskUserQuestion depois do show; chat “ok” não conta).  
+- Alias **`process`**: só chama flow. Sem fallback para cards.  
+- **Sem** stage `flow` inescapável. PR3 **remove** o stage `process-map` da criação (`summaries` → `reviews`). Agente **pode** draftar `flow.json` no `new plan`; não é gate.  
+- Iron Law (PR4): **NO IMPLEMENT WITHOUT VALIDATED FLOW**. Vale para **todo plano** que o `implement` aceita (AS multi-phase, AS 1-phase, foreign). `process.yaml` não cumpre. `ready` sem flow é legal. Ad-hoc sem arquivo de plano = sem gate (não é plano).  
+- **HARD no entry do implement** (mesmo sítio do ground-truth, Step 1): `find-missing-flow <plan.md> --strict` exit 0. Non-zero → REFUSE (não code, não spawn). Mensagem: corre `atomic-skills:project flow`. Sem `operatorSkip`, sem chat waiver. `assert-automate-gate --gate spawn` também enforce em JS (AS). Foreign: mesmo detector no `plan.md` fonte (não tem `assert-automate-gate` de inventário).  
+- `implement` **não** roda show+ratify. Só checa o artefato.  
+- `project verify`: backstop read-only (como ground-truth).
 
-| Tipo de plano | Mínimo |
-|---------------|--------|
-| Multi-phase qualquer | `flow.json` com lifecycle + **journey** ratificado **ou** legacy `process.yaml` (janela de migração) |
-| Plano com UI/branching material (agent julga; humano ratifica) | + **graph** |
+**Artefato que prova validação** (detector `--strict` exit 0):
+
+| Peça | Exigência |
+|------|-----------|
+| `flow/flow.json` | schema 1.0 + lifecycle + **graph** válido (AJV + regras core) |
+| `ratifiedAt` | ISO8601 escrito **só** por `buildFlowRatification` no comando, após show + AskUserQuestion. Chat “ok” não conta. |
+| `ratifiedGraphSha` | sha do `graph` no momento do stamp. Detector: deve == sha atual do graph. |
+| `flow/flow.html` | existe; content-sha casa com o L1. Nome **flow**, nunca `map.html`. |
+| Grafo mudou depois do stamp | `ratifiedGraphSha` diverge → falha → re-ratify |
+
+Política mínima de “tem flow suficiente” (para o detector / implement):
+
+| Tipo de plano | Path do artefato | Mínimo |
+|---------------|------------------|--------|
+| AS (multi-phase ou 1-phase) | `<planDir>/flow/flow.json` + `flow.html` | artefato acima |
+| Foreign (`path/to/plan.md`) | `dirname(plan.md)/flow/flow.json` + `flow.html` — **mesmo** `flowPathsForPlan(planMd)`; **não** misturar no `.implement.yaml` | artefato acima |
+| Ad-hoc / sem plan file | — | gate N/A |
+| JSON já tem chave `states` | (mesmo path) | + **states** válido (Q7) |
 
 ### D5 — Projeções da UI L2
 
@@ -93,23 +110,25 @@ Sempre a partir do mesmo `flow.json`:
 1. **Sequência** — se `graph` presente: `sequenceDiagram` contínuo, `alt`/`else` por XOR, notes de phase/effects; polish leve (◇, lifelines) sem fills de nível.  
 2. **Fluxo do processo** — flowchart com `processLabel` / `processWho`.  
 3. **Estados** — se `states` presente; senão aba oculta.  
-4. **Jornada** (opcional v1.1) — cards dual-lens a partir de `journey` (substitui map.html legado visualmente).
+4. **Jornada / cards** — **cancelado**. Process-map descartado; não reimplementar.
 
 Zoom default **100%**; pan/zoom; tabs. Chrome a partir de `title` / meta — zero copy N2 hardcoded.
 
 ### D6 — Origem do grafo (agente + humano)
 
-- Agente **draft** a partir de `design.md` / source / businessIntent — **proibido** colapsar `phases[]` em stages/nodes 1:1 (P2).  
-- Show na superfície escolhida → ratify → `ratifiedAt`.  
+- Agente **draft** a partir de `design.md` / source / businessIntent — **proibido** colapsar `phases[]` em stages/nodes 1:1 (P2). Draft pode ser no `new plan` (opcional) ou no primeiro `project flow`.  
+- **`project flow`** show (`--open` / TUI) → AskUserQuestion → `ratifiedAt`. Não é stage de criação; não há picker de surface inescapável no `new plan`.  
 - Day-2: reabrir, ajustar JSON, re-render; HTML nunca é SoT.
 
-### D7 — Migração process-map
+### D7 — Descarte process-map (sem dual-read de produto)
 
-1. Dual-read: detector aceita `flow/flow.json` **ou** `process/process.yaml` ratificado.  
-2. Migrator: `process.yaml` → `flow.json` com só `journey` + lifecycle.  
-3. Fixture: copiar dogfood JSON → align schema 1.0 (adicionar lifecycle fields; strip nada de graph se já válido).  
-4. Deprecate write path de `process.yaml` na criação.  
-5. Docs KB: `process-map.md` → supersede / redirect para `flow.md`.
+Operador 2026-08-12: descarte completo. `process.yaml` **nunca** cumpre o detector de flow / implement.
+
+1. PR3: comando `project flow` + detector; **tirar** stage `process-map` da criação (sem nascer stage `flow` inescapável). Alias `process` → flow.  
+2. PR4: implement HARD no entry + verify backstop; apagar write path do process-map (stage, detector, KB, grammar P1).  
+3. Planos existentes com só `process.yaml`: **ready pode ficar**; o **primeiro `implement` recusa**. Primeiro `project flow` drafta **graph** a partir do design/source (pode copiar `actor`/`scenario` do yaml se existir; **não** promover stages de cards a nós).  
+4. Fixture dogfood: envelopar JSON v2 → schema 1.0 (`graph` + `states` + lifecycle).  
+5. KB: `flow.md` canônico; `process-map.md` status superseded → redirect.
 
 ### D8 — Destino do protótipo arch-legacy
 
@@ -121,11 +140,11 @@ Zoom default **100%**; pan/zoom; tabs. Chrome a partir de `title` / meta — zer
 
 ## Chosen approach
 
-**Abordagem escolhida: substituir process-map por Flow unificado em camadas, com cut-over dual-read** (não “só embelezar map.html”, não “segundo comando eterno paralelo”).
+**Abordagem escolhida: substituir process-map por Flow (grafo), descarte completo, cascata PR1→PR5** (não “só embelezar map.html”, não dual-read, não “segundo comando eterno paralelo”).
 
 Razões:
 
-1. O monorepo já tem o **padrão de produto** certo (schema + pure render + detector + stage + content-sha).  
+1. O monorepo já tem o **padrão de produto** certo (schema + pure render + detector + content-sha). Sem stage de criação.  
 2. O protótipo dogfood tem o **modelo de grafo** certo (sequence/decision/end + states).  
 3. Fundir sem camadas misturaria marcos de valor com mensagens de UI.  
 4. Paralelo eterno (`process` + `flow`) dobra Iron Laws e confunde agentes.
@@ -136,6 +155,7 @@ Razões:
 |-------------|-------------------|
 | Só melhorar CSS do map.html | edges já existem e não são desenhados; sem schema de decision/messages |
 | Manter process.yaml e gerar Mermaid a partir dele | expressividade insuficiente; seria inventar dados na render |
+| Dual-read `process.yaml` **ou** `flow.json` por um release | operador descartou; cards não cumprem a obrigação |
 | `/project flow` para sempre ao lado de process | dual SoT permanente; dogfood já mostrou a dor |
 | HTML client-only com fetch+CDN como contrato L2 | quebra file://, offline e determinismo (process-map já resolveu) |
 | Validação domain no core | impede “qualquer fluxo” |
@@ -156,6 +176,7 @@ Razões:
   "youAreHere": "stageId|null",
   "ratifiedAt": "ISO8601?",
   "ratifiedBy": "string?",
+  "ratifiedGraphSha": "hex?",
   "actors": [{ "id": "string", "label": "string", "kind": "actor|participant" }],
   "journey": {
     "stages": [/* process-map stage shape */],
@@ -214,7 +235,7 @@ Razões:
 }
 ```
 
-**Extração do dogfood:** `fluxo-sugestao.json` v2 ≈ `graph` + `states` + actors; falta envelopar com lifecycle + opcionalmente `journey` a partir de `process.yaml` do mesmo plano (já em `dogfood/`).
+**Extração do dogfood:** `fluxo-sugestao.json` v2 ≈ `graph` + `states` + actors; falta envelopar com lifecycle. **Não** projetar `process.yaml` → `journey` como entrega — journey não é produto.
 
 ---
 
@@ -223,9 +244,9 @@ Razões:
 | Área | Arquivos (monorepo) |
 |------|---------------------|
 | Schema | `meta/schemas/flow.schema.json` |
-| Scripts | `scripts/lib/render-flow.js`, `scripts/render-flow.js`, `scripts/find-missing-flow.js`, migrator opcional |
-| Tests | `tests/render-flow.test.js`, `tests/find-missing-flow.test.js`, golden em `docs/design/project-flow/` ou `docs/design/flow-sketches/` |
-| Skills | `skills/core/project.md` grammar; `project-flow.md`; `new-plan/stage-flow.md`; create-plan stage list; verify; implement HARD-GATE |
+| Scripts | `scripts/lib/validate-flow.js` (PR1), `scripts/lib/render-flow.js`, `scripts/render-flow.js`, `scripts/find-missing-flow.js` |
+| Tests | `tests/validate-flow.test.js` (PR1), `tests/render-flow.test.js`, `tests/find-missing-flow.test.js`, golden em `docs/design/project-flow/` |
+| Skills | `skills/core/project.md` grammar; `project-flow.md`; create-plan + `stage-7`/`stage-8`/`stage-9` (**remove** process-map, **não** criar `stage-flow.md`); verify backstop; implement Step 1 HARD-GATE |
 | KB | `docs/kb/flow.md`; supersede `process-map.md` |
 | Plugin mirror | `~/.grok/plugins/atomic-skills` via install (não editar só o mirror) |
 
@@ -235,8 +256,8 @@ Razões:
 
 | Porta | Risco | Contenção |
 |-------|-------|-----------|
-| Mudar Iron Law / stage id | Planos mid-creation; gates JSON | Dual stage accept; dual-read detector 1+ release |
-| HTML gerado diferente | Diffs barulhentos em plans | content-sha; não commitar map.html em todos os plans se política for generate-on-open (alinhar com process-map atual: **HTML no disk**) |
+| Mudar Iron Law / stage id | Planos mid-creation no `process-map`; `assertCanAdvance` **proíbe skip** | PR3 **remove** o stage do enum; **remap** one-shot `process-map` → `reviews`; new plan: `summaries` → `reviews` |
+| HTML gerado diferente | Diffs barulhentos em plans | content-sha; HTML no disk como `flow.html` (nunca `map.html`) |
 | Quebrar `project process` | Operadores treinados | Alias → flow ou legado |
 | Fixture domain vaza para core | Produto não-genérico | Testes com **segunda** fixture mínima (2 actors, 1 xor, sem status) |
 
@@ -260,23 +281,27 @@ Resolvidas por default neste design (operador pode override):
 | # | Questão | Default no design |
 |---|---------|-------------------|
 | Q1 | Nome do comando | `flow` (`process` alias) |
-| Q2 | Path no plan | `flow/flow.json` + `flow/map.html` |
-| Q3 | Journey-only suficiente para “ready”? | Sim, durante e após migração; graph exigido só quando o stage/humano ratifica necessidade de UI flow |
+| Q2 | Path no plan | `flow/flow.json` + `flow/flow.html` (**não** `map.html`) |
+| Q3 | Journey-only / ready sem flow? | **Ready sem flow é legal.** Implement exige **graph** ratificado (artefato). Process-map descartado — cards nunca cumprem o gate. |
 | Q4 | Mermaid vendor vs CDN | Vendor/pin no bundle do render (offline) |
-| Q5 | Manter dual copy layperson/dev | Sim em `journey`; graph usa `processLabel` único (língua do plano) |
+| Q5 | Dual copy layperson/dev | **Morto com journey.** Graph usa `processLabel` único (língua do plano). Sem UI de audience no comando v1. |
+| Q6 | Gate de implement em 1-phase / foreign / ad-hoc? | **Travada 2026-08-12:** **todo e qualquer plano** (AS multi/1-phase + foreign). Ad-hoc sem plan file = N/A. |
+| Q7 | Como o detector sabe que o plano “tem máquina de status”? | **Escalado.** Default temporário: `states` só obrigatório se a chave `states` existir; não inferir do domínio. |
+| Q8 | `ratifiedAt` sozinho prova show+AskUserQuestion? | **Travada 2026-08-12 (opção A):** classe ground-truth. Artefato = graph válido + HTML sha + `ratifiedAt` + `ratifiedGraphSha` == sha atual. Só o comando (`buildFlowRatification`) escreve o stamp. Sem receipt extra. Sem re-Ask no implement. Não é atestado de clique humano. |
 
-Se o operador discordar de Q1–Q5 antes do PR1, ajustar só `design.md` e seguir.
+Q1–Q4, Q6, Q8 travadas. Q5 morta. Q7 default temporário.
 
 ---
 
 ## Key Decisions
 
-1. **Flow unificado em camadas** substitui process-map como SoT de processo do plano.  
+1. **Graph flow** substitui process-map. Cards/journey não são produto.  
 2. **Core validation genérica**; domínio só em dados de fixture/plan.  
-3. **Render determinístico self-contained** no padrão process-map.  
-4. **Comando `project flow`** + stage + detector + verify/implement.  
-5. **Cut-over dual-read**; dogfood PDTI é fixture, não regra.  
-6. **Produto e handoff só neste monorepo**; arch-legacy deixa de carregar o viewer.
+3. **Render determinístico self-contained** (pipeline: pure lib + CLI + content-sha; padrão AJV = app-map, não `validateProcessMap`).  
+4. **Comando `project flow`** (ratify) + detector + **implement HARD no entry**. Sem stage de criação. Alias `process` só aponta para flow.  
+5. **Descarte process-map** (sem dual-read). Dogfood PDTI é fixture, não regra.  
+6. **Produto e handoff só neste monorepo**; arch-legacy deixa de carregar o viewer.  
+7. **Impossível implementar sem o artefato.** Validação = comando, a qualquer momento. Editável = JSON + Ajustar, não canvas.
 
 ---
 
@@ -285,30 +310,30 @@ Se o operador discordar de Q1–Q5 antes do PR1, ajustar só `design.md` e segui
 ### PR1 — Schema + validate core + fixture
 
 - **Title:** `feat(flow): schema 1.0 + core validator + dogfood fixture`  
-- **Touches:** `meta/schemas/flow.schema.json`, `scripts/lib/validate-flow.js` (ou parte de render-flow), tests, move/align `docs/design/project-flow/dogfood/fluxo-sugestao.json` → fixture de teste  
+- **Touches:** `meta/schemas/flow.schema.json` (inclui `ratifiedGraphSha`), `scripts/lib/validate-flow.js` (padrão `src/app-map/validate.js` / `ajv/dist/2020.js` — **não** fundir em render-flow nesta PR), `tests/validate-flow.test.js`, envelopar `docs/design/project-flow/dogfood/fluxo-sugestao.json` (`schemaVersion: "1.0"` + lifecycle + `actors` raiz + `graph{entry,nodes}`)  
 - **Deps:** none  
-- **Done when:** AJV valida dogfood envelopado; fixture mínima genérica valida; domínio PDTI **não** está no validator
+- **Done when:** AJV + regras core passam no dogfood envelopado e na fixture mínima (2 actors, 1 xor, sem status 10/1/11); erros: next quebrado, xor 1 branch, actor inválido; `ratifiedGraphSha` no schema (opcional até haver stamp); domínio PDTI **não** está no validator
 
-### PR2 — Render L2 (Sequência + Fluxo + Estados)
+### PR2 — Render `flow.html` (Sequência + Fluxo + Estados)
 
 - **Title:** `feat(flow): deterministic render-flow HTML (mermaid projections)`  
-- **Touches:** `scripts/lib/render-flow.js`, `scripts/render-flow.js`, CSS/JS shell extraído de `dogfood/fluxo-completo.html`, mermaid pin, golden test content-sha / mermaid source snapshot  
+- **Touches:** `scripts/lib/render-flow.js`, `scripts/render-flow.js`, CSS/JS shell extraído de `dogfood/fluxo-completo.html`, mermaid pin, golden test content-sha / mermaid source snapshot. Output canônico: `flow/flow.html`.  
 - **Deps:** PR1  
-- **Done when:** `node scripts/render-flow.js dogfood.json -o /tmp/x.html` offline; tabs seq/fluxo/estados; sem fetch de JSON externo
+- **Done when:** `node scripts/render-flow.js dogfood.json -o /tmp/flow.html` offline; tabs seq/fluxo/estados; sem fetch de JSON externo; **não** emite `map.html`
 
-### PR3 — Detector + skill day-2 + stage criação
+### PR3 — Detector + skill day-2; process-map sai da criação
 
-- **Title:** `feat(project): flow command, creation stage, find-missing-flow`  
-- **Touches:** `find-missing-flow.js`, `project-flow.md`, `stage-flow.md`, router grammar, creation-gates stage id, dual-read com process-map  
+- **Title:** `feat(project): flow command + find-missing-flow; drop process-map stage`  
+- **Touches:** `scripts/find-missing-flow.js` + test; `project-flow.md`; `skills/core/project.md` grammar; `project-create-plan.md` (enum + passo 11 adopt); `new-plan/stage-7.md`, `stage-8.md` (precondition hoje é `process-map`), `stage-9.md`; **`scripts/creation-gates.js` `CREATION_STAGES`** + `tests/creation-gates.test.js` (hoje afirma `process-map` antes de `reviews`); `tests/find-missing-process-map.test.js` (contrato do stage — atualizar ou aposentar). **Não** adicionar `stage-flow.md`.  
 - **Deps:** PR2  
-- **Done when:** `project flow --check` documentado; stage show-before-ratify; process alias
+- **Done when:** `project flow --check` / generate / update / show / ratify (`buildFlowRatification` escreve `ratifiedAt` + `ratifiedGraphSha`); detector `--strict` falha se sha diverge; alias `process` só chama flow; `new plan` vai `summaries` → `reviews` sem cards e sem bloquear ready; mid-creation parado em `process-map` é **remapado** para `reviews` (advance direto é skip ilegal no enum atual)
 
-### PR4 — Verify/implement gates + KB + migrator
+### PR4 — Implement HARD no entry + KB + remoção process-map
 
-- **Title:** `feat(flow): verify/implement HARD path + process.yaml migrator + kb`  
-- **Touches:** project-verify, implement.md, `docs/kb/flow.md`, migrator script, deprecate notes on process-map  
+- **Title:** `feat(flow): implement entry HARD + remove process-map obligation`  
+- **Touches:** `skills/core/implement.md` Step 1 (junto do ground-truth); `implement-antipatterns.md`; `scripts/assert-automate-gate.js` spawn (espelho JS do ground-truth, não prosa-only); `src/automate-orchestrator-gates.js` se o fence entrar no helper; `project-verify.md`; `docs/kb/flow.md`; delete write path process-map; `CLAUDE.md` / `project.md` Iron Law. Texto P1 **não** muda antes desta PR (PR3 só tira o stage).  
 - **Deps:** PR3  
-- **Done when:** verify lista flow; migrator process→journey; KB canônico
+- **Done when:** implement recusa **qualquer plano** (AS ou foreign) sem artefato (inclui `ratifiedGraphSha` casado); comando é o unblock; foreign usa `dirname(plan.md)/flow/` (não o sidecar); KB canônico `flow.md`; `process.yaml` não passa o detector; stage/detector/render de cards fora do write path. Ad-hoc sem plan file não entra.
 
 ### PR5 — Cleanup dogfood no arch-legacy (repo externo)
 
@@ -328,7 +353,10 @@ Se o operador discordar de Q1–Q5 antes do PR1, ajustar só `design.md` e segui
 
 ## Handoff for implementers
 
-1. Comece por **PR1** com fixture em `dogfood/`.  
-2. Extraia builders de `dogfood/fluxo-completo.html` (`walkLayout`, `buildSequenceMermaid`, `buildFlowMermaid`, `buildStatesMermaid`) **sem** domain validate.  
-3. Não reabra experimento de fill de nível.  
-4. Leia `migration.md` antes de tocar Iron Law / creation-gates.
+Cold-start operacional: `HANDOFF.md` (não um prompt de 17 arquivos).
+
+1. **PR1** — schema + validate + envelope dogfood + fixture mínima. Padrão AJV = `src/app-map/validate.js`.  
+2. **PR2** — extrair builders de `dogfood/fluxo-completo.html` **sem** `validateModel` de domínio.  
+3. Não reabra fill de nível. Não reimplemente cards.  
+4. `migration.md` antes de tocar Iron Law / creation-gates (PR3+).  
+5. Não editar `CLAUDE.md` / texto P1 até a **PR4**. PR3 só tira o stage.

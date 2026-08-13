@@ -1,5 +1,7 @@
 # Análise 02 — Integração Atomic Skills
 
+> **SUPERSEDED (2026-08-12 noite):** o operador descartou process-map e dual-read. A tabela “substituir + dual-read temporário” abaixo é histórica. Canônico: `HANDOFF.md` + `design.md` D7 + `migration.md`.
+
 ## Lifecycle process-map atual
 
 ```
