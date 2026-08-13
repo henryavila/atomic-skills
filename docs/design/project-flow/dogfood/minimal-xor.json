@@ -13,19 +13,18 @@
     "entry": "S1",
     "nodes": {
       "S1": {
-        "type": "sequence",
-        "processLabel": "Submit request",
-        "processWho": "Requester",
+        "type": "activity",
+        "label": "Submit request",
+        "who": "Requester",
         "messages": [
           { "from": "U", "to": "R", "text": "Sends the request", "async": false }
         ],
         "next": "D1"
       },
       "D1": {
-        "type": "decision",
-        "kind": "xor",
-        "processLabel": "Accept?",
-        "actor": "R",
+        "type": "xor",
+        "label": "Accept?",
+        "who": "Reviewer",
         "question": "Accept the request?",
         "branches": [
           {
@@ -44,12 +43,46 @@
       },
       "end_ok": {
         "type": "end",
-        "processLabel": "Accepted"
+        "label": "Accepted"
       },
       "end_no": {
         "type": "end",
-        "processLabel": "Rejected"
+        "label": "Rejected"
       }
     }
-  }
+  },
+  "machines": [
+    {
+      "id": "request",
+      "label": "Request",
+      "entry": "open",
+      "nodes": {
+        "open": { "label": "Open" },
+        "accepted": { "label": "Accepted", "terminal": true },
+        "rejected": { "label": "Rejected", "terminal": true }
+      },
+      "transitions": [
+        {
+          "id": "T_yes",
+          "from": "open",
+          "to": "accepted",
+          "when": "accepts",
+          "label": "Accepts",
+          "via": "D1.yes",
+          "effects": []
+        },
+        {
+          "id": "T_no",
+          "from": "open",
+          "to": "rejected",
+          "when": "rejects",
+          "label": "Rejects",
+          "via": "D1.no",
+          "effects": [
+            { "kind": "notify", "label": "Tell requester", "target": "U" }
+          ]
+        }
+      ]
+    }
+  ]
 }
