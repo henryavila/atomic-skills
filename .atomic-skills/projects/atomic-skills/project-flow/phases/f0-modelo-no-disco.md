@@ -12,8 +12,8 @@ goal: 'Schema `"1.0"` expressa o MODEL
 status: active
 branch: plan/project-flow
 started: 2026-08-13T16:51:58.727Z
-lastUpdated: 2026-08-13T16:53:55Z
-nextAction: "Start T-001: Substituir flow.schema.json pelo MODEL"
+lastUpdated: 2026-08-13T19:10:00Z
+nextAction: "spawn fresh writer after ratify — F0 work-order T-001/T-002/T-003"
 parentPlan: project-flow
 phaseId: F0
 businessIntent:
@@ -37,12 +37,17 @@ weightTotal: 7
 exitGates:
   - id: G-F0-1
     description: FAILS when old shape still validates — type sequence or single
-      states object must be invalid; MODEL dogfood must pass
+      states object must be invalid; MODEL dogfood must pass with machines[]
     status: pending
     verifier:
       kind: shell
-      command: node --test tests/validate-flow.test.js
-    verifierLabel: "shell: node --test tests/validate-flow.test.js"
+      command: node --test tests/validate-flow.test.js && node -e "import {
+        validateFlow } from './scripts/lib/validate-flow.js'; import { readFileSync
+        } from 'node:fs'; const dog=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8'));
+        if(!validateFlow(dog).valid) process.exit(1); if(!Array.isArray(dog.machines)||dog.machines.length<1)
+        process.exit(1); const old={schemaVersion:'1.0',planSlug:'probe',title:'p',scenario:'x',actor:'Requester',audience:'layperson',actors:[{id:'U',label:'Requester',kind:'actor'}],graph:{entry:'S1',nodes:{S1:{type:'sequence',processLabel:'x',messages:[{from:'U',to:'U',text:'t',async:false}],next:'E'},E:{type:'end',processLabel:'done'}}}};
+        if(validateFlow(old).valid) process.exit(1);"
+    verifierLabel: "shell: node --test tests/validate-flow.test.js && validateFlow(dogfood)+machines + reject sequence"
   - id: G-F0-2
     description: FAILS when schemaVersion is not 1.0 or when PDTI status rules live
       in validate-flow.js
@@ -77,7 +82,7 @@ tasks:
         decision and single states object are not valid node/root shapes
     verifier:
       kind: shell
-      command: node --test tests/validate-flow.test.js
+      command: node -e "const s=require('./meta/schemas/flow.schema.json'); if(s.properties.schemaVersion.const!=='1.0') process.exit(1); if(!JSON.stringify(s).includes('activity')) process.exit(1); if(JSON.stringify(s).includes('\"const\":\"sequence\"')) process.exit(1);"
     outputs:
       - kind: file
         path: meta/schemas/flow.schema.json
@@ -90,13 +95,17 @@ tasks:
     scopeBoundary:
       - do not copy validateProcessMap; do not add PDTI domain rules (status 10,
         three decisions, ids D1); do not implement render-flow or
-        find-missing-flow; subgraphs max depth is a named constant (8)
+        find-missing-flow; subgraphs max depth is a named constant (8); if T-001
+        drops journey, drop IMPLEMENTATION_TOKEN_RE import and the journey walk
+        (scripts/lib/validate-flow.js:5 and :251-322)
     acceptance:
       - neighbors walk activity xor and join subprocess event end; actorRef on
         messages; xor and and require >=2 branches; join.of must name an and;
         machines require >=1 node; effects key required (empty array valid);
         schemaVersion 1.0 with type sequence fails; tests cover broken next,
-        one-branch xor, ghost actor, missing effects key, empty machine nodes
+        one-branch xor, ghost actor, missing effects key, empty machine nodes;
+        xor.when is unique per xor; invalid via fails; event.kind is timer|error;
+        subprocess.ref is in subgraphs; cycle is next to an ancestor
     verifier:
       kind: shell
       command: node --test tests/validate-flow.test.js
@@ -121,7 +130,7 @@ tasks:
         xor + 1 machine; type sequence and root states object fail validateFlow
     verifier:
       kind: shell
-      command: node --test tests/validate-flow.test.js
+      command: node --test tests/validate-flow.test.js && node -e "import { validateFlow } from './scripts/lib/validate-flow.js'; import { readFileSync } from 'node:fs'; const d=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8')); const r=validateFlow(d); if(!r.valid) { console.error(r.errors); process.exit(1); } if(!Array.isArray(d.machines) || d.machines.length<1) process.exit(1);"
     outputs:
       - kind: file
         path: docs/design/project-flow/dogfood/fluxo-sugestao.json
@@ -146,4 +155,13 @@ _(record decisions here as they are made)_
 
 ## Links
 
-_(plan doc, external refs)_
+- plan: `.atomic-skills/projects/atomic-skills/project-flow/plan.md`
+- source: `projects/atomic-skills/project-flow/source.md`
+- MODEL: `docs/design/project-flow/MODEL.md`
+
+## Session handoff
+- **Narrative:** Pure-maestro em `plan/project-flow` (worktree `/home/henry/atomic-skills/.worktrees/project-flow`). F0 materializada, BI completo nos dois lados. Initiative alinhada ao plano atualizado (T-001 verifier de introspecção, T-003 `validateFlow(dogfood)+machines`, G-F0-1 do plan.md, T-002 acceptance MODEL). Ground-truth detector exit 0. Sem lease. Operador pediu automate + review local + ir até o final; avaliação humana no plan-end.
+- **Decision log:** (1) Alvo = `project-flow` (único plano desta branch). (2) `parseImplementMode` sem flag → `isAutomateActive` true. (3) Review desta sessão = `review-code --mode=local` com overrideReason do operador. (4) SPEC F0 restaurado de `source.md` + constraints do plan.md antes do spawn. (5) Ratify do package F0 = invocação `implement` do plano atualizado + BI já materializado + “vá até o final”.
+- **Single nextAction:** spawn fresh writer after ratify — F0 work-order T-001/T-002/T-003
+- **Verbatim state:** `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-plans-missing-ground-truth.js" .atomic-skills/projects/atomic-skills/project-flow/plan.md` → `find-plans-missing-ground-truth: every plan carries a ground-truth review receipt ✓` exit 0. HEAD `d67e0f2f`. Branch `plan/project-flow`.
+- **Uncommitted changes:** initiative + handoff dirty until explicit-path microcommit of `.atomic-skills/projects/atomic-skills/project-flow/phases/f0-modelo-no-disco.md`
