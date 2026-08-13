@@ -205,17 +205,59 @@ phases:
       criteria:
         - id: G-F2-1
           description: FAILS when find-missing-flow --strict or project flow --check accepts a document missing any M4 piece, when process.yaml alone satisfies the detector, or when those tests omit a --check path on the migrated dogfood fixture
-          status: pending
+          status: met
+          metAt: 2026-08-13T22:20:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-08-13T22:20:00.000Z
+            verifiedCommit: 4d36cd3f7b4557607319e8c344c01d0fc21df3df
+            passed: true
+            exitCode: 0
+            outputSummary: G-F2-1 26 tests exit 0
           verifier:
             kind: shell
             command: node --test tests/find-missing-flow.test.js tests/flow-ratification.test.js && rg -q -- '--check' tests/flow-ratification.test.js && rg -q 'process.yaml' tests/find-missing-flow.test.js
         - id: G-F2-2
           description: FAILS when implement can spawn without flow or when CREATION_STAGES still lists process-map
-          status: pending
+          status: met
+          metAt: 2026-08-13T22:20:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-08-13T22:20:00.000Z
+            verifiedCommit: 4d36cd3f7b4557607319e8c344c01d0fc21df3df
+            passed: true
+            exitCode: 0
+            outputSummary: G-F2-2 exit 0
           verifier:
             kind: shell
             command: rg -q 'find-missing-flow' skills/core/implement.md && node -e "import { CREATION_STAGES } from './scripts/creation-gates.js'; if(CREATION_STAGES.includes('process-map')) process.exit(1);"
-    status: active
+    status: done
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-project-flow-F2.md
+      verifiedAt: 2026-08-13T22:20:00Z
+      at: 4d36cd3f7b4557607319e8c344c01d0fc21df3df
+    lessonsState: none
+    noneReason: F2 verifiers green; no new failure signal beyond L-001
+    reviewGate:
+      status: passed
+      mode: local
+      at: 4d36cd3f7b4557607319e8c344c01d0fc21df3df
+      reviewFile: .atomic-skills/reviews/project-flow-F2-phase-local.md
+      overrideReason: operator requested review-code --mode=local for this implement session
+      verifiedAt: 2026-08-13T22:20:00Z
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-project-flow-F2.md
+      verdict: CLOSED
+      verifiedAt: 2026-08-13T22:20:00Z
+      at: 4d36cd3f7b4557607319e8c344c01d0fc21df3df
+    decisionReview:
+      status: pending
+      packagePath: .atomic-skills/reviews/project-flow-F2-decision-package.md
+      packagePresentedAt: 2026-08-13T22:20:00Z
+      evidencePath: .atomic-skills/projects/atomic-skills/project-flow/decisions/F2.jsonl
     businessIntent:
       value: Todo plano que implement aceita tem flow ratificado. O PO gera, vê e carimba o fluxo no comando project flow. Sem process-map no write path.
       workflow: detector --strict (M4 + stamp + flow.html sha) → comando project flow (generate/update/show/ratify/--check/--open) → implement Step 1 + spawn recusam sem flow → CREATION_STAGES sem process-map.

@@ -1,45 +1,79 @@
 {
   "planSlug": "project-flow",
-  "phaseId": "F1",
-  "worktreePath": "/home/henry/atomic-skills/.worktrees/project-flow-F1-writer",
-  "writerBranch": "impl/project-flow-F1-writer",
-  "finishedAt": "2026-08-13T21:58:30Z",
+  "phaseId": "F2",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/project-flow-F2-writer",
+  "writerBranch": "impl/project-flow-F2-writer",
+  "finishedAt": "2026-08-13T22:16:56Z",
   "tasks": [
     {
-      "taskId": "T-004",
+      "taskId": "T-007",
       "status": "claimed-pass",
-      "commitShas": ["9b894b0ab7246a5c02dbc8cd3d851707d4fc3f5b"],
+      "commitShas": ["e681fbd616d6d21dd4f060641a47f3a404664fe8"],
+      "base": null,
+      "head": null,
       "paths": [
-        "scripts/lib/render-flow.js",
-        "tests/render-flow.test.js"
+        "scripts/find-missing-flow.js",
+        "tests/find-missing-flow.test.js"
       ],
-      "verifierCommand": "node --test tests/render-flow.test.js",
+      "verifierCommand": "node --test tests/find-missing-flow.test.js",
       "exitCode": 0,
-      "transcript": "✔ buildFlowHtml — MODEL dogfood\n✔ determinism and validation\n✔ render-flow CLI\n✔ T-006 DS polish\nℹ tests 19\nℹ suites 4\nℹ pass 19\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0"
+      "transcript": "ℹ tests 20\nℹ suites 4\nℹ pass 20\nℹ fail 0\n--strict / --check exit 0 only with valid flow.json + ≥1 messages + ≥1 machine/state + ratifiedAt + matching ratifiedGraphSha + matching flow.html content-sha; process.yaml alone fails"
     },
     {
-      "taskId": "T-005",
+      "taskId": "T-008",
       "status": "claimed-pass",
-      "commitShas": ["ce7718f9fe5cd722a4255d4aeda1c3f1cfbc66b7"],
+      "commitShas": ["cbb2a9147edc204d76e946a8e0c029adf5ae62fb"],
+      "base": null,
+      "head": null,
       "paths": [
-        "scripts/render-flow.js",
-        "tests/render-flow.test.js"
+        "skills/core/project.md",
+        "skills/shared/project-assets/project-flow.md",
+        "scripts/lib/flow-ratification.js",
+        "tests/flow-ratification.test.js"
       ],
-      "verifierCommand": "node --test tests/render-flow.test.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-render.html && test -f /tmp/project-flow-render.html && ! rg -q 'map\\.html' scripts/render-flow.js",
+      "verifierCommand": "test -f skills/shared/project-assets/project-flow.md && rg -q 'project flow|buildFlowRatification' skills/core/project.md skills/shared/project-assets/project-flow.md && rg -q 'buildFlowRatification' scripts/lib/flow-ratification.js && node --test tests/flow-ratification.test.js",
       "exitCode": 0,
-      "transcript": "ℹ tests 19\nℹ suites 4\nℹ pass 19\nℹ fail 0\nWrote /tmp/project-flow-render.html\ncontent-sha 10853fa6d6fa8100b57946d60c2db2cc8fabd91b3f17b58eeb80d9e7861e8804"
+      "transcript": "project-flow.md present; grammar+dispatch alias process→project-flow.md; buildFlowRatification is the only stamp writer; --check on migrated dogfood fixture exit 0; process.yaml alone fails --check\nℹ tests 6\nℹ suites 3\nℹ pass 6\nℹ fail 0"
     },
     {
-      "taskId": "T-006",
+      "taskId": "T-009",
       "status": "claimed-pass",
-      "commitShas": ["1ec9ed2f8797266ea9da63eba28c973acda45ce2"],
+      "commitShas": ["adeccc3c30a4a94a224fff022e49a823a875f012"],
+      "base": null,
+      "head": null,
       "paths": [
-        "scripts/lib/render-flow.js",
-        "tests/render-flow.test.js"
+        "skills/core/implement.md",
+        "scripts/assert-automate-gate.js",
+        "tests/assert-automate-gate.test.js",
+        "docs/kb/flow.md"
       ],
-      "verifierCommand": "node --test tests/render-flow.test.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-polish.html && rg -q -- '--bg-canvas|--fg-default' /tmp/project-flow-polish.html && ! rg -qi 'mermaid' /tmp/project-flow-polish.html",
+      "verifierCommand": "rg -q 'find-missing-flow' skills/core/implement.md && rg -q 'find-missing-flow' scripts/assert-automate-gate.js && rg -q 'NO IMPLEMENT WITHOUT VALIDATED FLOW|validated flow' docs/kb/flow.md && node --test tests/assert-automate-gate.test.js",
       "exitCode": 0,
-      "transcript": "ℹ tests 19\nℹ suites 4\nℹ pass 19\nℹ fail 0\nWrote /tmp/project-flow-polish.html\ncontent-sha 10853fa6d6fa8100b57946d60c2db2cc8fabd91b3f17b58eeb80d9e7861e8804"
+      "transcript": "implement Step 1 + HARD-GATE run find-missing-flow --strict; spawn fails closed without artifact / with only process.yaml; docs/kb/flow.md states Iron Law + command; no operatorSkip\nℹ tests 35\nℹ suites 6\nℹ pass 35\nℹ fail 0"
+    },
+    {
+      "taskId": "T-010",
+      "status": "claimed-pass",
+      "commitShas": ["af59723da5fc60fd2647cdf462d343e921a2d31f"],
+      "base": null,
+      "head": null,
+      "paths": [
+        "scripts/creation-gates.js",
+        "tests/creation-gates.test.js",
+        "skills/core/project.md",
+        "skills/shared/project-assets/project-create-plan.md",
+        "skills/shared/project-assets/new-plan/stage-8.md",
+        "skills/shared/project-assets/new-plan/stage-9.md",
+        "CLAUDE.md",
+        "docs/kb/process-map.md",
+        "skills/shared/project-assets/new-plan/stage-process-map.md",
+        "skills/shared/project-assets/new-plan/stage-7.md",
+        "skills/shared/project-assets/project-process-map.md",
+        "tests/find-missing-process-map.test.js"
+      ],
+      "verifierCommand": "node -e \"import { CREATION_STAGES } from './scripts/creation-gates.js'; if(CREATION_STAGES.includes('process-map')) process.exit(1); const i=CREATION_STAGES.indexOf('summaries'); const j=CREATION_STAGES.indexOf('reviews'); if(!(i>=0 && j===i+1)) process.exit(1);\" && rg -q 'NO IMPLEMENT WITHOUT VALIDATED FLOW' skills/core/project.md CLAUDE.md && node --test tests/creation-gates.test.js",
+      "exitCode": 0,
+      "transcript": "CREATION_STAGES summaries→reviews (no process-map); leftover process-map remaps to reviews; Iron Law NO IMPLEMENT WITHOUT VALIDATED FLOW in project.md + CLAUDE.md; process aliases to flow; ready without flow legal; find-missing-process-map.js retained as legacy reader\nℹ tests 11\nℹ suites 1\nℹ pass 11\nℹ fail 0"
     }
   ]
 }
