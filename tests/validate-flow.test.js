@@ -14,6 +14,35 @@ import {
 } from '../scripts/lib/validate-flow.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const DOGFOOD = join(ROOT, 'docs', 'design', 'project-flow', 'dogfood', 'fluxo-sugestao.json');
+const MINIMAL = join(ROOT, 'docs', 'design', 'project-flow', 'dogfood', 'minimal-xor.json');
+const UI_WORD_RE = /\b(click|modal|screen)\b/i;
+
+function loadJson(path) {
+  return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function collectNodeLabels(nodes) {
+  const labels = [];
+  if (!nodes || typeof nodes !== 'object') return labels;
+  for (const node of Object.values(nodes)) {
+    if (typeof node?.label === 'string') labels.push(node.label);
+    if (typeof node?.title === 'string') labels.push(node.title);
+  }
+  return labels;
+}
+
+function collectMessageTexts(nodes) {
+  const texts = [];
+  if (!nodes || typeof nodes !== 'object') return texts;
+  for (const node of Object.values(nodes)) {
+    if (!Array.isArray(node?.messages)) continue;
+    for (const message of node.messages) {
+      if (typeof message?.text === 'string') texts.push(message.text);
+    }
+  }
+  return texts;
+}
 
 function messages(result) {
   return (result.errors ?? []).map((e) => e.message ?? String(e)).join('\n');
@@ -93,6 +122,52 @@ function validDoc() {
 function cloneValid() {
   return structuredClone(validDoc());
 }
+
+describe('validateFlow — fixtures', () => {
+  it('accepts the rewritten dogfood fixture (schema 1.0 + graph + machines)', () => {
+    const doc = loadJson(DOGFOOD);
+    const result = validateFlow(doc);
+    assert.equal(result.valid, true, messages(result));
+    assert.equal(doc.schemaVersion, '1.0');
+    assert.ok(Array.isArray(doc.machines) && doc.machines.length >= 1);
+    assert.ok(Object.keys(doc.machines[0].nodes).length >= 1);
+    assert.ok(Array.isArray(doc.machines[0].transitions));
+    for (const transition of doc.machines[0].transitions) {
+      assert.equal(Array.isArray(transition.effects), true);
+    }
+  });
+
+  it('keeps click/modal/screen words out of BPM labels and only in messages', () => {
+    const doc = loadJson(DOGFOOD);
+    const labels = collectNodeLabels(doc.graph.nodes);
+    for (const label of labels) {
+      assert.equal(UI_WORD_RE.test(label), false, `BPM label leaked UI word: ${label}`);
+    }
+    const texts = collectMessageTexts(doc.graph.nodes);
+    assert.ok(
+      texts.some((text) => UI_WORD_RE.test(text) || /clica|modal|tela/i.test(text)),
+      'expected click/modal/screen narration in messages[]',
+    );
+    for (const text of texts) {
+      if (UI_WORD_RE.test(text) || /clica|modal|tela/i.test(text)) {
+        assert.ok(true);
+      }
+    }
+  });
+
+  it('accepts the minimal fixture (2 actors, 1 xor, 1 machine)', () => {
+    const doc = loadJson(MINIMAL);
+    const result = validateFlow(doc);
+    assert.equal(result.valid, true, messages(result));
+    assert.equal(doc.actors.length, 2);
+    const xorCount = Object.values(doc.graph.nodes).filter((n) => n.type === 'xor').length;
+    assert.equal(xorCount, 1);
+    assert.equal(doc.machines.length, 1);
+    const blob = JSON.stringify(doc);
+    assert.equal(/\bstatusTo\b/.test(blob), false);
+    assert.equal(/\b"status":\s*(10|1|11)\b/.test(blob), false);
+  });
+});
 
 describe('validateFlow — MODEL document', () => {
   it('accepts a schema 1.0 document with activity, xor, messages and machines', () => {
