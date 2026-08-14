@@ -70,6 +70,11 @@ describe('flowPathsForPlan', () => {
     assert.equal(paths.flowHtml, join(paths.planDir, 'flow', 'flow.html'));
     assert.equal(paths.flowHtml.includes('map.html'), false);
   });
+
+  it('flowPathsForPlan also returns flowBrief', () => {
+    const p = flowPathsForPlan('/tmp/demo/plan.md');
+    assert.equal(p.flowBrief, join('/tmp/demo', 'flow', 'brief.json'));
+  });
 });
 
 describe('flowDocumentSha', () => {

@@ -34,7 +34,7 @@ import { contentFingerprint, normalizeFlow } from './lib/render-flow.js';
 
 /**
  * @param {string} planMdPath
- * @returns {{ planPath: string, planDir: string, flowJson: string, flowHtml: string }}
+ * @returns {{ planPath: string, planDir: string, flowJson: string, flowHtml: string, flowBrief: string }}
  */
 export function flowPathsForPlan(planMdPath) {
   const planDir = dirname(resolve(planMdPath));
@@ -43,6 +43,7 @@ export function flowPathsForPlan(planMdPath) {
     planDir,
     flowJson: join(planDir, 'flow', 'flow.json'),
     flowHtml: join(planDir, 'flow', 'flow.html'),
+    flowBrief: join(planDir, 'flow', 'brief.json'),
   };
 }
 
