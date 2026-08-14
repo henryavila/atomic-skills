@@ -78,7 +78,7 @@ Acessibilidade: `<title>` / `<desc>` no SVG. Testes: `data-*` no SVG. Sem segund
 
 Tudo no render. Sem layout no cliente.
 
-**Sequência (TB).** Colunas = `actors[]` na ordem do JSON. Cabeçalho no topo e na base. Lifeline pontilhada `--fg-faint` atrás. Cada mensagem na ordem do walk = fileira; seta sólida ou tracejada (`async`); número à esquerda. XOR = ramos **em sequência vertical** (exclusivos), não lado a lado. Loop (`next` ancestral) = um arco tracejado `--status-warning` da última mensagem **até o ◇ da decisão** (ponta no losango/pergunta). Sem pastilha «volta», sem nota solta.
+**Sequência (TB).** Colunas = `actors[]` na ordem do JSON. Cabeçalho no topo e na base. Lifeline pontilhada `--fg-faint` atrás. Cada mensagem na ordem do walk = fileira; seta sólida ou tracejada (`async`); número à esquerda. XOR = ramos **em sequência vertical** (exclusivos), não lado a lado. Loop (`next` ancestral) = um arco tracejado `--status-warning` da última mensagem **em direção ao ◇ da decisão**, ponta parando ~14px antes do losango (vão; não encostar no ◇). Sem pastilha «volta», sem nota solta.
 
 **Fluxo (TB, não LR).** Tronco numa coluna. `activity` retângulo arredondado; `xor` losango; `and`/`join` barra; `event` círculo fino; `end` círculo cheio; `subprocess` retângulo com marca. Ramos XOR/AND = colunas irmãs abaixo do portão. Rótulo de negócio. Sem id técnico (`S1`, `D2`) no desenho.
 
@@ -129,7 +129,7 @@ Não inventar paleta, sombra de nó, fill semântico azul/amber, nem “quadro s
 | Seta async | — | idem + dash 5 4 | — |
 | Faixa XOR | wash `color-mix(in srgb, var(--bg-elevated) 55%, transparent)`, **sem** stroke | trilho esquerdo `--status-warning-line` 2px | `◇ {pergunta}` 12 semibold `--status-warning` |
 | Pastilha de ramo | `--bg-sunken` | `--status-warning-line` 1px, rx pill | 11 semibold `--status-warning` |
-| Loop | — | arco tracejado `--status-warning` da última msg até o ◇ da decisão, ponta no losango | sem pastilha, sem texto «volta» |
+| Loop | — | arco tracejado `--status-warning` da última msg rumo ao ◇, ponta com vão (~14px) antes do losango | sem pastilha, sem texto «volta» |
 | Activity / subprocess | `--bg-elevated` | `--border-default` `--node-sw` 1.25, rx 8; subprocess + marca interna 5px | 12 medium `--fg-default`; `who` mono 10 `--fg-subtle` |
 | XOR losango | warning 10% sobre `--bg-surface` | `--status-warning-line` 1.25 | 12 semibold; sem id técnico |
 | AND / join | `--fg-muted` | — | barra 36×8 |

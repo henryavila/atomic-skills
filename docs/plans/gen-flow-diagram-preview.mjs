@@ -227,11 +227,11 @@ function drawSequence(normalized, steps) {
         const prev = [...rows].reverse().find((p) => p.y < r.y && p.type === 'msg');
         const xFrom = prev ? cx(prev.to || prev.from) : railX + 96;
         const yMsg = prev ? prev.y : r.y;
-        const xTip = railX + 18;
-        const yTip = target ? target.y - 2 : yTop;
+        const xTip = railX + 20;
+        const yTip = target ? target.y + 16 : yTop + 16;
         const xMid = Math.min(xFrom, xTip + 120) - 36;
         return `<g data-loop-ref="${esc(r.xorId)}">
-          <path class="loop-arc" d="M${xFrom} ${yMsg} C${xMid} ${yMsg + 36}, ${xTip + 8} ${yTip + 64}, ${xTip} ${yTip + 10}"/>
+          <path class="loop-arc" d="M${xFrom} ${yMsg} C${xMid} ${yMsg + 36}, ${xTip + 10} ${yTip + 56}, ${xTip} ${yTip + 10}"/>
           <polygon class="loop-head" points="${xTip},${yTip} ${xTip - 5},${yTip + 10} ${xTip + 6},${yTip + 8}"/>
         </g>`;
       }

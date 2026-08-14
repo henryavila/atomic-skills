@@ -236,7 +236,7 @@ export const GEOM = {
 - `actors[]` in JSON order, `x = pad + i * actorWidth`
 - Walk `walkSteps`; for each activity/event, emit one row per `messages[]` (`y` increments by `messageRow`)
 - On xor: open a band (`x` at left pad, `y` at current, `question` from `node.question || node.label`); each branch gets `{ id, label, y, height }` stacked vertically; recurse into `chain` (messages + nested bands)
-- `loop-ref` → `{ label, y, nodeId, xorId }` in `loops` (draw: dashed arc from last message **to the XOR ◇**; no «volta» pill)
+- `loop-ref` → `{ label, y, nodeId, xorId }` in `loops` (draw: dashed arc from last message toward the XOR ◇, tip stops ~14px short; no «volta» pill)
 - `width` / `height` from extents + pad
 
 **Step 4: Re-run — expect PASS**
@@ -761,4 +761,4 @@ Applied after adversarial local review. Not a ground-truth receipt.
 
 ## Reviews
 
-- ground-truth: complete-with-findings | mode=ground-truth | fp=edcbcb324803 | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=3757951d4416 | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
