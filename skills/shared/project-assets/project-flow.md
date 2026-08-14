@@ -78,11 +78,24 @@ Skip this whole write/lint path when `$L1` is already stamped and the sha still 
 
 ## 3. Show (`--open` or default)
 
-Show `$L2` (browser and/or TUI) **before** any ratify question.
+Show `$L2` **before** any ratify question. **Always via HTTP web server** — Never `file://`. Never open `$L2` as a file.
 
-**Browser:** open `$L2` with the WSL-aware `open_url` contract in `{{ASSETS_PATH}}/project-view.md` / `help --html`. Never bare `xdg-open`.
+**Web server (mandatory):** start or reuse the preview via {{BASH_TOOL}}. Prefer the checkout that has the script (worktree first):
 
-**TUI:** print a complete structured summary from `$L1` (not a one-liner): `actor` · `scenario` · graph `entry` · each node id/type/`label` · messages · machines. Path to `$L2`.
+```bash
+SERVE=""
+for c in "$PWD/scripts/serve-flow.js" "$PKG_ROOT/scripts/serve-flow.js"; do
+  [ -f "$c" ] && SERVE="$c" && break
+done
+[ -n "$SERVE" ] || { echo "serve-flow.js not found"; exit 1; }
+FLOW_URL=$(node "$SERVE" --up "$L2")
+```
+
+Stdout is the URL only (`http://127.0.0.1:<port>/flow.html`). Empty or not `http://` → do not claim shown. Then open `$FLOW_URL` with the WSL-aware `open_url` contract in `{{ASSETS_PATH}}/project-view.md`. Never bare `xdg-open`. Print `FLOW_URL` to the operator.
+
+`--check` / `--strict` do **not** start the server.
+
+**TUI:** also print a complete structured summary from `$L1` (not a one-liner): `actor` · `scenario` · graph `entry` · each node id/type/`label` · messages · machines. Path to `$L2`. HTTP URL is the visual; the path is not a substitute.
 
 If `--open` only: show and stop.
 
@@ -154,3 +167,5 @@ Agent rewrites `$BRIEF` and/or `$L1` (labels, xor branches, nodes, messages, mac
 - Asking when `find-weak-flow-draft` failed
 - Putting `brief.json` into `--strict` / implement
 - Adding a creation stage `flow`
+- Opening `$L2` / `file://` instead of `serve-flow.js --up`
+- Skipping the web server because a TUI summary exists

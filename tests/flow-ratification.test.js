@@ -92,6 +92,8 @@ describe('buildFlowRatification', () => {
     assert.match(skill, /before show|Do not show/i);
     assert.match(skill, /does \*\*not\*\* require `brief\.json`|--strict` does \*\*not\*\* require/);
     assert.match(skill, /phases\[\]/);
+    assert.match(skill, /serve-flow\.js/);
+    assert.match(skill, /--up/);
   });
 });
 
