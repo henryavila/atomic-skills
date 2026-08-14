@@ -40,6 +40,25 @@ flags com valor `0` faz todo `open` seguir junction — não é path-nofollow.
 Env de teste/CI: `MINIMALIST_INSTALLER_PATH_BACKEND=path` força o backend
 portátil (path-nofollow no Unix, windows-noreparse no win32).
 
+## Windows stale node_modules (2026-08-14)
+
+Sintoma idêntico a UNSUPPORTED_PLATFORM no Grok/Windows mesmo com pin
+`12c7884…` (SHA que **já** tem `windows-noreparse` no GitHub). Causa: cópia
+local de `node_modules/@henryavila/minimalist-installer` desatualizada
+(~598 linhas sem o backend; GitHub ~1255). npm `--force` sozinho pode
+reportar "up to date" porque o lock aponta o SHA certo.
+
+**Recovery:** apagar o pacote e reinstalar:
+
+```text
+rm -rf node_modules/@henryavila/minimalist-installer
+npm install @henryavila/minimalist-installer@github:henryavila/minimalist-installer#<pin>
+```
+
+Verificar: `getPathSafetyBackend()` → `{ kind: 'windows-noreparse' }` no win32.
+Node 22.x no Windows **não** exporta `fs.constants.O_NOFOLLOW` nem
+`O_DIRECTORY` — isso é esperado; o backend lstat cobre o caso.
+
 ## Enforcers
 
 Ver `padroes-testing.md` § Multiplataforma: `tests/multiplatform-contract.test.js`,
