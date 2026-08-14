@@ -132,8 +132,12 @@ function drawSequence(normalized, steps) {
 
   let y = 78;
   for (const r of rows) {
+    if (r.type === 'loop') {
+      r.y = y;
+      continue;
+    }
     r.y = y;
-    y += r.type === 'msg' ? ROW : r.type === 'loop' ? 38 : 30;
+    y += r.type === 'msg' ? ROW : 30;
   }
   const bodyBottom = y + 16;
   const height = bodyBottom + 44;
@@ -221,18 +225,14 @@ function drawSequence(normalized, steps) {
         const target = rows.find((q) => q.type === 'xor-q' && q.xorId === r.xorId);
         const yTop = target ? target.y + 10 : r.y - 48;
         const prev = [...rows].reverse().find((p) => p.y < r.y && p.type === 'msg');
-        const xFrom = prev ? cx(prev.to || prev.from) : railX + 80;
-        const pill = '↺ volta';
-        const pw = 78;
-        const xPill = railX + 18;
-        const yMsg = prev ? prev.y + 6 : r.y;
+        const xFrom = prev ? cx(prev.to || prev.from) : railX + 96;
+        const yMsg = prev ? prev.y : r.y;
+        const xTip = railX + 18;
+        const yTip = target ? target.y - 2 : yTop;
+        const xMid = Math.min(xFrom, xTip + 120) - 36;
         return `<g data-loop-ref="${esc(r.xorId)}">
-          <path class="loop-arc" d="M${xFrom} ${yMsg} C${xFrom - 10} ${r.y}, ${xPill + pw + 8} ${r.y}, ${xPill + pw} ${r.y}"/>
-          <line class="hair" x1="${railX}" y1="${r.y}" x2="${xPill}" y2="${r.y}"/>
-          <line class="loop-arc" x1="${railX}" y1="${r.y}" x2="${railX}" y2="${yTop + 8}"/>
-          <polygon class="loop-head" points="${railX},${yTop} ${railX - 4},${yTop + 9} ${railX + 4},${yTop + 9}"/>
-          <rect class="pill" x="${xPill}" y="${r.y - 12}" width="${pw}" height="24" rx="12"/>
-          <text class="pill-t" x="${xPill + pw / 2}" y="${r.y + 4}" text-anchor="middle">${esc(pill)}</text>
+          <path class="loop-arc" d="M${xFrom} ${yMsg} C${xMid} ${yMsg + 36}, ${xTip + 8} ${yTip + 64}, ${xTip} ${yTip + 10}"/>
+          <polygon class="loop-head" points="${xTip},${yTip} ${xTip - 5},${yTip + 10} ${xTip + 6},${yTip + 8}"/>
         </g>`;
       }
       return '';
