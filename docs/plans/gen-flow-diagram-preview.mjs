@@ -119,8 +119,12 @@ function drawSequence(normalized, steps) {
         }
         rows[start].end = rows.length - 1;
       } else if (s.kind === 'loop-ref') {
-        const label = s.node?.label || s.nodeId;
-        rows.push({ type: 'loop', text: `↺ volta a ${label}`, depth });
+        rows.push({
+          type: 'loop',
+          xorId: s.nodeId,
+          label: s.node?.question || s.node?.label || s.nodeId,
+          depth,
+        });
       }
     }
   };
@@ -129,7 +133,7 @@ function drawSequence(normalized, steps) {
   let y = 78;
   for (const r of rows) {
     r.y = y;
-    y += r.type === 'msg' ? ROW : 30;
+    y += r.type === 'msg' ? ROW : r.type === 'loop' ? 38 : 30;
   }
   const bodyBottom = y + 16;
   const height = bodyBottom + 44;
@@ -203,8 +207,33 @@ function drawSequence(normalized, steps) {
           <text class="pill-t" data-branch-label="${esc(r.label)}" x="${railX + 18 + pw / 2}" y="${r.y + 4}" text-anchor="middle">${esc(r.label)}</text>
         </g>`;
       }
-      if (r.type === 'loop' || r.type === 'join') {
-        return `<text class="loop" x="${GUTTER + 8 + r.depth * 14}" y="${r.y + 4}">${esc(r.text)}</text>`;
+      if (r.type === 'join') {
+        const railX = 22 + r.depth * 14;
+        const pw = Math.max(88, r.text.length * 6.2 + 18);
+        return `<g data-join-ref="1">
+          <line class="hair" x1="${railX}" y1="${r.y}" x2="${railX + 18}" y2="${r.y}"/>
+          <rect class="pill" x="${railX + 18}" y="${r.y - 12}" width="${pw}" height="24" rx="12"/>
+          <text class="pill-t" x="${railX + 18 + pw / 2}" y="${r.y + 4}" text-anchor="middle">${esc(r.text)}</text>
+        </g>`;
+      }
+      if (r.type === 'loop') {
+        const railX = 22 + Math.max(0, r.depth - 1) * 14;
+        const target = rows.find((q) => q.type === 'xor-q' && q.xorId === r.xorId);
+        const yTop = target ? target.y + 10 : r.y - 48;
+        const prev = [...rows].reverse().find((p) => p.y < r.y && p.type === 'msg');
+        const xFrom = prev ? cx(prev.to || prev.from) : railX + 80;
+        const pill = '↺ volta';
+        const pw = 78;
+        const xPill = railX + 18;
+        const yMsg = prev ? prev.y + 6 : r.y;
+        return `<g data-loop-ref="${esc(r.xorId)}">
+          <path class="loop-arc" d="M${xFrom} ${yMsg} C${xFrom - 10} ${r.y}, ${xPill + pw + 8} ${r.y}, ${xPill + pw} ${r.y}"/>
+          <line class="hair" x1="${railX}" y1="${r.y}" x2="${xPill}" y2="${r.y}"/>
+          <line class="loop-arc" x1="${railX}" y1="${r.y}" x2="${railX}" y2="${yTop + 8}"/>
+          <polygon class="loop-head" points="${railX},${yTop} ${railX - 4},${yTop + 9} ${railX + 4},${yTop + 9}"/>
+          <rect class="pill" x="${xPill}" y="${r.y - 12}" width="${pw}" height="24" rx="12"/>
+          <text class="pill-t" x="${xPill + pw / 2}" y="${r.y + 4}" text-anchor="middle">${esc(pill)}</text>
+        </g>`;
       }
       return '';
     })

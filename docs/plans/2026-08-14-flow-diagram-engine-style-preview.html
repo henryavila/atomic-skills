@@ -282,6 +282,8 @@ svg.diagram text { fill: var(--fg-default); }
 .pill { fill: var(--pill-fill); stroke: var(--pill-stroke); stroke-width: 1; }
 .pill-t { fill: var(--pill-fg); font-size: 11px; font-weight: 600; }
 .loop { fill: var(--fg-muted); font-size: 11px; }
+.loop-arc { fill: none; stroke: var(--status-warning); stroke-width: 1.25; stroke-dasharray: 4 3; }
+.loop-head { fill: var(--status-warning); }
 .act { fill: var(--act-fill); stroke: var(--act-stroke); stroke-width: var(--node-sw); }
 .act-t { fill: var(--act-fg); font-size: 12px; font-weight: 500; }
 .who { fill: var(--fg-subtle); font-size: 10px; font-family: var(--font-mono); }
@@ -378,44 +380,44 @@ body.is-compare .compare { display: grid; grid-template-columns: repeat(3, minma
     <div class="fl-stage" id="fl-stage">
 
       <section id="fl-sequence" class="fl-surface" role="tabpanel" data-surface="sequence">
-        <svg class="diagram" id="seq-svg" data-surface="sequence" viewBox="0 0 668 1476" xmlns="http://www.w3.org/2000/svg" role="img">
+        <svg class="diagram" id="seq-svg" data-surface="sequence" viewBox="0 0 668 1484" xmlns="http://www.w3.org/2000/svg" role="img">
     <title>Diagrama de sequência — PDTI</title>
     <desc>GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.</desc>
     <g data-actor-id="G">
         <rect class="actor-box" x="66" y="16" width="168" height="34" rx="8"/>
         <text class="actor-label" x="150" y="38" text-anchor="middle">GETIN</text>
-        <line class="lifeline" data-lifeline="G" x1="150" y1="50" x2="150" y2="1432"/>
-        <rect class="actor-box" x="66" y="1440" width="168" height="26" rx="8"/>
-        <text class="actor-label" x="150" y="1458" text-anchor="middle" style="font-size:11px">GETIN</text>
+        <line class="lifeline" data-lifeline="G" x1="150" y1="50" x2="150" y2="1440"/>
+        <rect class="actor-box" x="66" y="1448" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="1466" text-anchor="middle" style="font-size:11px">GETIN</text>
       </g>
 <g data-actor-id="App">
         <rect class="actor-box" x="262" y="16" width="168" height="34" rx="8"/>
         <text class="actor-label" x="346" y="38" text-anchor="middle">Sistema</text>
-        <line class="lifeline" data-lifeline="App" x1="346" y1="50" x2="346" y2="1432"/>
-        <rect class="actor-box" x="262" y="1440" width="168" height="26" rx="8"/>
-        <text class="actor-label" x="346" y="1458" text-anchor="middle" style="font-size:11px">Sistema</text>
+        <line class="lifeline" data-lifeline="App" x1="346" y1="50" x2="346" y2="1440"/>
+        <rect class="actor-box" x="262" y="1448" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="1466" text-anchor="middle" style="font-size:11px">Sistema</text>
       </g>
 <g data-actor-id="L">
         <rect class="actor-box" x="458" y="16" width="168" height="34" rx="8"/>
         <text class="actor-label" x="542" y="38" text-anchor="middle">Líder</text>
-        <line class="lifeline" data-lifeline="L" x1="542" y1="50" x2="542" y2="1432"/>
-        <rect class="actor-box" x="458" y="1440" width="168" height="26" rx="8"/>
-        <text class="actor-label" x="542" y="1458" text-anchor="middle" style="font-size:11px">Líder</text>
+        <line class="lifeline" data-lifeline="L" x1="542" y1="50" x2="542" y2="1440"/>
+        <rect class="actor-box" x="458" y="1448" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="1466" text-anchor="middle" style="font-size:11px">Líder</text>
       </g>
     <g data-xor-rail="D1">
-        <rect class="xor-wash" x="8" y="278" width="652" height="1126" rx="10"/>
-        <line class="xor-rail" x1="22" y1="286" x2="22" y2="1396"/>
+        <rect class="xor-wash" x="8" y="278" width="652" height="1134" rx="10"/>
+        <line class="xor-rail" x1="22" y1="286" x2="22" y2="1404"/>
         <text class="xor-q" x="38" y="298">◇ O envio é válido?</text>
       </g>
 <g data-xor-rail="D_edit">
-        <rect class="xor-wash" x="22" y="722" width="624" height="682" rx="10"/>
-        <line class="xor-rail" x1="36" y1="730" x2="36" y2="1396"/>
-        <text class="xor-q" x="52" y="742">◇ O líder edita a sugestão antes de decidir?</text>
+        <rect class="xor-wash" x="22" y="730" width="624" height="682" rx="10"/>
+        <line class="xor-rail" x1="36" y1="738" x2="36" y2="1404"/>
+        <text class="xor-q" x="52" y="750">◇ O líder edita a sugestão antes de decidir?</text>
       </g>
 <g data-xor-rail="D2">
-        <rect class="xor-wash" x="36" y="854" width="596" height="484" rx="10"/>
-        <line class="xor-rail" x1="50" y1="862" x2="50" y2="1330"/>
-        <text class="xor-q" x="66" y="874">◇ Aceitar ou recusar a sugestão?</text>
+        <rect class="xor-wash" x="36" y="862" width="596" height="484" rx="10"/>
+        <line class="xor-rail" x1="50" y1="870" x2="50" y2="1338"/>
+        <text class="xor-q" x="66" y="882">◇ Aceitar ou recusar a sugestão?</text>
       </g>
     <g data-from="G" data-to="App" data-n="1">
           <text class="num" x="16" y="82">1</text>
@@ -475,146 +477,157 @@ body.is-compare .compare { display: grid; grid-template-columns: repeat(3, minma
           <circle cx="346" cy="426" r="3" class="arrow-head"/>
           <text class="msg" x="356" y="430">Valida novamente</text>
         </g>
-<text class="loop" x="74" y="466">↺ volta a Envio válido?</text>
+<g data-loop-ref="D1">
+          <path class="loop-arc" d="M346 432 C336 462, 126 462, 118 462"/>
+          <line class="hair" x1="22" y1="462" x2="40" y2="462"/>
+          <line class="loop-arc" x1="22" y1="462" x2="22" y2="312"/>
+          <polygon class="loop-head" points="22,304 18,313 26,313"/>
+          <rect class="pill" x="40" y="450" width="78" height="24" rx="12"/>
+          <text class="pill-t" x="79" y="466" text-anchor="middle">↺ volta</text>
+        </g>
 <g>
-          <line class="hair" x1="22" y1="492" x2="40" y2="492"/>
-          <rect class="pill" x="40" y="480" width="104" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Envio válido" x="92" y="496" text-anchor="middle">Envio válido</text>
+          <line class="hair" x1="22" y1="500" x2="40" y2="500"/>
+          <rect class="pill" x="40" y="488" width="104" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Envio válido" x="92" y="504" text-anchor="middle">Envio válido</text>
         </g>
 <g data-from="App" data-to="App" data-n="10">
-          <text class="num" x="16" y="526">10</text>
-          <circle cx="346" cy="522" r="3" class="arrow-head"/>
-          <text class="msg" x="356" y="526">Grava como pendente da área</text>
+          <text class="num" x="16" y="534">10</text>
+          <circle cx="346" cy="530" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="534">Grava como pendente da área</text>
         </g>
 <g data-from="App" data-to="G" data-n="11">
-          <text class="num" x="16" y="562">11</text>
-          <line class="arrow async" x1="338" y1="558" x2="166" y2="558"/>
-          <polygon class="arrow-head" points="158,558 166,554 166,562"/>
-          <text class="msg" x="248" y="550" text-anchor="middle">Confirmação de sucesso</text>
+          <text class="num" x="16" y="570">11</text>
+          <line class="arrow async" x1="338" y1="566" x2="166" y2="566"/>
+          <polygon class="arrow-head" points="158,566 166,562 166,570"/>
+          <text class="msg" x="248" y="558" text-anchor="middle">Confirmação de sucesso</text>
         </g>
 <g data-from="App" data-to="L" data-n="12">
-          <text class="num" x="16" y="598">12</text>
-          <line class="arrow async" x1="354" y1="594" x2="526" y2="594"/>
-          <polygon class="arrow-head" points="534,594 526,590 526,598"/>
-          <text class="msg" x="444" y="574" text-anchor="middle">E-mail com resumo e botão</text><text class="msg" x="444" y="586" text-anchor="middle">Validar</text>
+          <text class="num" x="16" y="606">12</text>
+          <line class="arrow async" x1="354" y1="602" x2="526" y2="602"/>
+          <polygon class="arrow-head" points="534,602 526,598 526,606"/>
+          <text class="msg" x="444" y="582" text-anchor="middle">E-mail com resumo e botão</text><text class="msg" x="444" y="594" text-anchor="middle">Validar</text>
         </g>
 <g data-from="L" data-to="App" data-n="13">
-          <text class="num" x="16" y="634">13</text>
-          <line class="arrow" x1="534" y1="630" x2="362" y2="630"/>
-          <polygon class="arrow-head" points="354,630 362,626 362,634"/>
-          <text class="msg" x="444" y="622" text-anchor="middle">Clica em Validar no e-mail</text>
+          <text class="num" x="16" y="642">13</text>
+          <line class="arrow" x1="534" y1="638" x2="362" y2="638"/>
+          <polygon class="arrow-head" points="354,638 362,634 362,642"/>
+          <text class="msg" x="444" y="630" text-anchor="middle">Clica em Validar no e-mail</text>
         </g>
 <g data-from="App" data-to="L" data-n="14">
-          <text class="num" x="16" y="670">14</text>
-          <line class="arrow async" x1="354" y1="666" x2="526" y2="666"/>
-          <polygon class="arrow-head" points="534,666 526,662 526,670"/>
-          <text class="msg" x="444" y="658" text-anchor="middle">Solicita login (se necessário)</text>
+          <text class="num" x="16" y="678">14</text>
+          <line class="arrow async" x1="354" y1="674" x2="526" y2="674"/>
+          <polygon class="arrow-head" points="534,674 526,670 526,678"/>
+          <text class="msg" x="444" y="666" text-anchor="middle">Solicita login (se necessário)</text>
         </g>
 <g data-from="App" data-to="L" data-n="15">
-          <text class="num" x="16" y="706">15</text>
-          <line class="arrow async" x1="354" y1="702" x2="526" y2="702"/>
-          <polygon class="arrow-head" points="534,702 526,698 526,706"/>
-          <text class="msg" x="444" y="694" text-anchor="middle">Tela da sugestão pendente</text>
+          <text class="num" x="16" y="714">15</text>
+          <line class="arrow async" x1="354" y1="710" x2="526" y2="710"/>
+          <polygon class="arrow-head" points="534,710 526,706 526,714"/>
+          <text class="msg" x="444" y="702" text-anchor="middle">Tela da sugestão pendente</text>
         </g>
 
 <g>
-          <line class="hair" x1="36" y1="768" x2="54" y2="768"/>
-          <rect class="pill" x="54" y="756" width="72" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Edita" x="90" y="772" text-anchor="middle">Edita</text>
+          <line class="hair" x1="36" y1="776" x2="54" y2="776"/>
+          <rect class="pill" x="54" y="764" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Edita" x="90" y="780" text-anchor="middle">Edita</text>
         </g>
 <g data-from="L" data-to="App" data-n="16">
-          <text class="num" x="16" y="802">16</text>
-          <line class="arrow" x1="534" y1="798" x2="362" y2="798"/>
-          <polygon class="arrow-head" points="354,798 362,794 362,802"/>
-          <text class="msg" x="444" y="790" text-anchor="middle">Edita campos e clica Salvar</text>
+          <text class="num" x="16" y="810">16</text>
+          <line class="arrow" x1="534" y1="806" x2="362" y2="806"/>
+          <polygon class="arrow-head" points="354,806 362,802 362,810"/>
+          <text class="msg" x="444" y="798" text-anchor="middle">Edita campos e clica Salvar</text>
         </g>
 <g data-from="App" data-to="L" data-n="17">
-          <text class="num" x="16" y="838">17</text>
-          <line class="arrow async" x1="354" y1="834" x2="526" y2="834"/>
-          <polygon class="arrow-head" points="534,834 526,830 526,838"/>
-          <text class="msg" x="444" y="826" text-anchor="middle">Confirma conteúdo atualizado</text>
+          <text class="num" x="16" y="846">17</text>
+          <line class="arrow async" x1="354" y1="842" x2="526" y2="842"/>
+          <polygon class="arrow-head" points="534,842 526,838 526,846"/>
+          <text class="msg" x="444" y="834" text-anchor="middle">Confirma conteúdo atualizado</text>
         </g>
 
 <g>
-          <line class="hair" x1="50" y1="900" x2="68" y2="900"/>
-          <rect class="pill" x="68" y="888" width="72" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Aceita" x="104" y="904" text-anchor="middle">Aceita</text>
+          <line class="hair" x1="50" y1="908" x2="68" y2="908"/>
+          <rect class="pill" x="68" y="896" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Aceita" x="104" y="912" text-anchor="middle">Aceita</text>
         </g>
 <g data-from="L" data-to="App" data-n="18">
-          <text class="num" x="16" y="934">18</text>
-          <line class="arrow" x1="534" y1="930" x2="362" y2="930"/>
-          <polygon class="arrow-head" points="354,930 362,926 362,934"/>
-          <text class="msg" x="444" y="922" text-anchor="middle">Clica Aceitar</text>
+          <text class="num" x="16" y="942">18</text>
+          <line class="arrow" x1="534" y1="938" x2="362" y2="938"/>
+          <polygon class="arrow-head" points="354,938 362,934 362,942"/>
+          <text class="msg" x="444" y="930" text-anchor="middle">Clica Aceitar</text>
         </g>
 <g data-from="App" data-to="L" data-n="19">
-          <text class="num" x="16" y="970">19</text>
-          <line class="arrow async" x1="354" y1="966" x2="526" y2="966"/>
-          <polygon class="arrow-head" points="534,966 526,962 526,970"/>
-          <text class="msg" x="444" y="958" text-anchor="middle">Modal Confirmar aceite?</text>
+          <text class="num" x="16" y="978">19</text>
+          <line class="arrow async" x1="354" y1="974" x2="526" y2="974"/>
+          <polygon class="arrow-head" points="534,974 526,970 526,978"/>
+          <text class="msg" x="444" y="966" text-anchor="middle">Modal Confirmar aceite?</text>
         </g>
 <g data-from="L" data-to="App" data-n="20">
-          <text class="num" x="16" y="1006">20</text>
-          <line class="arrow" x1="534" y1="1002" x2="362" y2="1002"/>
-          <polygon class="arrow-head" points="354,1002 362,998 362,1006"/>
-          <text class="msg" x="444" y="994" text-anchor="middle">Confirma no modal</text>
+          <text class="num" x="16" y="1014">20</text>
+          <line class="arrow" x1="534" y1="1010" x2="362" y2="1010"/>
+          <polygon class="arrow-head" points="354,1010 362,1006 362,1014"/>
+          <text class="msg" x="444" y="1002" text-anchor="middle">Confirma no modal</text>
         </g>
 <g data-from="App" data-to="App" data-n="21">
-          <text class="num" x="16" y="1042">21</text>
-          <circle cx="346" cy="1038" r="3" class="arrow-head"/>
-          <text class="msg" x="356" y="1042">Adota e vira solicitação no</text><text class="msg" x="356" y="1054">funil</text>
+          <text class="num" x="16" y="1050">21</text>
+          <circle cx="346" cy="1046" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="1050">Adota e vira solicitação no</text><text class="msg" x="356" y="1062">funil</text>
         </g>
 <g data-from="App" data-to="L" data-n="22">
-          <text class="num" x="16" y="1078">22</text>
-          <line class="arrow async" x1="354" y1="1074" x2="526" y2="1074"/>
-          <polygon class="arrow-head" points="534,1074 526,1070 526,1078"/>
-          <text class="msg" x="444" y="1066" text-anchor="middle">Tela de sucesso</text>
+          <text class="num" x="16" y="1086">22</text>
+          <line class="arrow async" x1="354" y1="1082" x2="526" y2="1082"/>
+          <polygon class="arrow-head" points="534,1082 526,1078 526,1086"/>
+          <text class="msg" x="444" y="1074" text-anchor="middle">Tela de sucesso</text>
         </g>
 <g>
-          <line class="hair" x1="50" y1="1110" x2="68" y2="1110"/>
-          <rect class="pill" x="68" y="1098" width="72" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Recusa" x="104" y="1114" text-anchor="middle">Recusa</text>
+          <line class="hair" x1="50" y1="1118" x2="68" y2="1118"/>
+          <rect class="pill" x="68" y="1106" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Recusa" x="104" y="1122" text-anchor="middle">Recusa</text>
         </g>
 <g data-from="L" data-to="App" data-n="23">
-          <text class="num" x="16" y="1144">23</text>
-          <line class="arrow" x1="534" y1="1140" x2="362" y2="1140"/>
-          <polygon class="arrow-head" points="354,1140 362,1136 362,1144"/>
-          <text class="msg" x="444" y="1132" text-anchor="middle">Clica Recusar</text>
+          <text class="num" x="16" y="1152">23</text>
+          <line class="arrow" x1="534" y1="1148" x2="362" y2="1148"/>
+          <polygon class="arrow-head" points="354,1148 362,1144 362,1152"/>
+          <text class="msg" x="444" y="1140" text-anchor="middle">Clica Recusar</text>
         </g>
 <g data-from="App" data-to="L" data-n="24">
-          <text class="num" x="16" y="1180">24</text>
-          <line class="arrow async" x1="354" y1="1176" x2="526" y2="1176"/>
-          <polygon class="arrow-head" points="534,1176 526,1172 526,1180"/>
-          <text class="msg" x="444" y="1168" text-anchor="middle">Modal com motivo opcional</text>
+          <text class="num" x="16" y="1188">24</text>
+          <line class="arrow async" x1="354" y1="1184" x2="526" y2="1184"/>
+          <polygon class="arrow-head" points="534,1184 526,1180 526,1188"/>
+          <text class="msg" x="444" y="1176" text-anchor="middle">Modal com motivo opcional</text>
         </g>
 <g data-from="L" data-to="App" data-n="25">
-          <text class="num" x="16" y="1216">25</text>
-          <line class="arrow" x1="534" y1="1212" x2="362" y2="1212"/>
-          <polygon class="arrow-head" points="354,1212 362,1208 362,1216"/>
-          <text class="msg" x="444" y="1204" text-anchor="middle">Confirma recusa no modal</text>
+          <text class="num" x="16" y="1224">25</text>
+          <line class="arrow" x1="534" y1="1220" x2="362" y2="1220"/>
+          <polygon class="arrow-head" points="354,1220 362,1216 362,1224"/>
+          <text class="msg" x="444" y="1212" text-anchor="middle">Confirma recusa no modal</text>
         </g>
 <g data-from="App" data-to="App" data-n="26">
-          <text class="num" x="16" y="1252">26</text>
-          <circle cx="346" cy="1248" r="3" class="arrow-head"/>
-          <text class="msg" x="356" y="1252">Marca como recusada</text>
+          <text class="num" x="16" y="1260">26</text>
+          <circle cx="346" cy="1256" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="1260">Marca como recusada</text>
         </g>
 <g data-from="App" data-to="L" data-n="27">
-          <text class="num" x="16" y="1288">27</text>
-          <line class="arrow async" x1="354" y1="1284" x2="526" y2="1284"/>
-          <polygon class="arrow-head" points="534,1284 526,1280 526,1288"/>
-          <text class="msg" x="444" y="1276" text-anchor="middle">Tela de confirmação</text>
+          <text class="num" x="16" y="1296">27</text>
+          <line class="arrow async" x1="354" y1="1292" x2="526" y2="1292"/>
+          <polygon class="arrow-head" points="534,1292 526,1288 526,1296"/>
+          <text class="msg" x="444" y="1284" text-anchor="middle">Tela de confirmação</text>
         </g>
 <g data-from="App" data-to="G" data-n="28">
-          <text class="num" x="16" y="1324">28</text>
-          <line class="arrow async" x1="338" y1="1320" x2="166" y2="1320"/>
-          <polygon class="arrow-head" points="158,1320 166,1316 166,1324"/>
-          <text class="msg" x="248" y="1312" text-anchor="middle">Notificação ou e-mail de recusa</text>
+          <text class="num" x="16" y="1332">28</text>
+          <line class="arrow async" x1="338" y1="1328" x2="166" y2="1328"/>
+          <polygon class="arrow-head" points="158,1328 166,1324 166,1332"/>
+          <text class="msg" x="248" y="1320" text-anchor="middle">Notificação ou e-mail de recusa</text>
         </g>
 <g>
-          <line class="hair" x1="36" y1="1356" x2="54" y2="1356"/>
-          <rect class="pill" x="54" y="1344" width="83" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Não edita" x="95.5" y="1360" text-anchor="middle">Não edita</text>
+          <line class="hair" x1="36" y1="1364" x2="54" y2="1364"/>
+          <rect class="pill" x="54" y="1352" width="83" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não edita" x="95.5" y="1368" text-anchor="middle">Não edita</text>
         </g>
-<text class="loop" x="88" y="1390">→ Aceitar ou recusar a sugestão?</text>
+<g data-join-ref="1">
+          <line class="hair" x1="50" y1="1394" x2="68" y2="1394"/>
+          <rect class="pill" x="68" y="1382" width="216.4" height="24" rx="12"/>
+          <text class="pill-t" x="176.2" y="1398" text-anchor="middle">→ Aceitar ou recusar a sugestão?</text>
+        </g>
   </svg>
       </section>
 
