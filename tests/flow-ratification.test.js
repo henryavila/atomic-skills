@@ -87,6 +87,11 @@ describe('buildFlowRatification', () => {
     assert.match(skill, /show/i);
     assert.match(skill, /must not exist|Do \*\*not\*\* ask/);
     assert.match(skill, /how the work actually happens/);
+    assert.match(skill, /brief\.json/);
+    assert.match(skill, /find-weak-flow-draft/);
+    assert.match(skill, /before show|Do not show/i);
+    assert.match(skill, /does \*\*not\*\* require `brief\.json`|--strict` does \*\*not\*\* require/);
+    assert.match(skill, /phases\[\]/);
   });
 });
 

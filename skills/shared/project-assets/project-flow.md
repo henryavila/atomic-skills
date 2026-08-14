@@ -11,6 +11,7 @@ This is a **day-2** command. It is **not** a creation stage. Ready without flow 
 ```
 .atomic-skills/projects/<project-id>/<plan-slug>/flow/flow.json   # L1 SoT
 .atomic-skills/projects/<project-id>/<plan-slug>/flow/flow.html   # generated, NEVER map.html
+.atomic-skills/projects/<project-id>/<plan-slug>/flow/brief.json  # authoring worksheet (not MODEL)
 ```
 
 Foreign / any source markdown: `dirname(<source.md>)/flow/` — same `flowPathsForPlan(<source.md>)`. Filename need not be `plan.md`.
@@ -44,23 +45,36 @@ PLAN_MD=<resolved plan.md or source.md>
 PLAN_DIR=<dirname of PLAN_MD>
 L1=$PLAN_DIR/flow/flow.json
 L2=$PLAN_DIR/flow/flow.html
+BRIEF=$PLAN_DIR/flow/brief.json
 PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
 ```
 
 ## 2. Generate / update (`flow.json` missing or stale)
 
-If `$L1` is missing: agent **MAY** draft a graph from `design.md` / source / ratified `businessIntent`. **Forbidden** to invent nodes from `phases[]`.
+**Brief first.** If `$BRIEF` is missing, write it from `design.md` / source / ratified `businessIntent`. Four fields: `actor`, `scenario`, `decisions[]` (`id` + `question` + `outcomes[]`), `stateChanges[]` (`id` + `states[]`). Never from `phases[]`. The operator does **not** see the brief.
 
-Write draft `$L1` **without** `ratifiedAt` / `ratifiedGraphSha` (only `buildFlowRatification` may stamp). Then render via {{BASH_TOOL}}:
+If `$L1` is missing or the graph is stale vs the brief: draft `$L1` **only from the brief**. xor node id = `decisions[].id`. machine id = `stateChanges[].id`. Activities unfold the scenario (they are not 1:1 with phases). **Forbidden** to invent nodes from `phases[]`.
+
+Write draft `$L1` **without** `ratifiedAt` / `ratifiedGraphSha` (only `buildFlowRatification` may stamp). Then lint **before show**:
 
 ```bash
 mkdir -p "$PLAN_DIR/flow"
+node "$PKG_ROOT/scripts/find-weak-flow-draft.js" "$PLAN_MD"
+```
+
+Exit ≠ 0 → fix brief and/or graph and re-run. **Do not show. Do not ask.**
+
+When the detector is exit 0, render via {{BASH_TOOL}}:
+
+```bash
 node "$PKG_ROOT/scripts/render-flow.js" "$L1" -o "$L2"
 ```
 
 If the graph changed after a previous stamp (`ratifiedGraphSha` ≠ current document sha), treat the stamp as stale — require re-ratify (step 5). Re-render HTML after every L1 rewrite.
 
-`process.yaml` / `map.html` are **not** a flow. Ignore them as success.
+Skip this whole write/lint path when `$L1` is already stamped and the sha still matches (step 3: show and stop).
+
+`process.yaml` / `map.html` are **not** a flow. Ignore them as success. `--strict` does **not** require `brief.json`.
 
 ## 3. Show (`--open` or default)
 
@@ -117,7 +131,7 @@ Run via {{BASH_TOOL}}:
 node "$PKG_ROOT/scripts/find-missing-flow.js" "$PLAN_MD" --strict
 ```
 
-`--check` on the command is this detector `--strict` path. Exit ≠ 0 → surface issues; do not claim green.
+`--check` on the command is this detector `--strict` path. Exit ≠ 0 → surface issues; do not claim green. This path does **not** require `brief.json`.
 
 ## 7. Re-ratify when the graph changed
 
@@ -125,7 +139,7 @@ If `$L1` has a stamp and the current document sha diverges: the previous approva
 
 ## 8. Edit path (Ajustar)
 
-Agent rewrites `$L1` (labels, xor branches, nodes, messages, machines) + re-render `$L2`. **No visual editor.** Then show (step 3) and re-ask ratify.
+Agent rewrites `$BRIEF` and/or `$L1` (labels, xor branches, nodes, messages, machines). Re-run `find-weak-flow-draft.js` (do not show on failure). Then re-render `$L2`. **No visual editor.** Then show (step 3) and re-ask ratify.
 
 ## Red flags
 
@@ -137,4 +151,6 @@ Agent rewrites `$L1` (labels, xor branches, nodes, messages, machines) + re-rend
 - Asking when the drawing is already approved and unchanged
 - Putting detector / hash / `--strict` / function names in the question
 - Blocking `ready` because flow is missing
+- Asking when `find-weak-flow-draft` failed
+- Putting `brief.json` into `--strict` / implement
 - Adding a creation stage `flow`
