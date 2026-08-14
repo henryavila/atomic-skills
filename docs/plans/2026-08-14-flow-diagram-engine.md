@@ -10,7 +10,7 @@
 
 **Design:** `docs/plans/2026-08-14-flow-diagram-engine-design.md`
 
-**Look (ratified 2026-08-14):** **A · Linha**. Visual SoT: design §4 + `docs/plans/2026-08-14-flow-diagram-engine-style-preview.html` (A selected; content = PDTI `fluxo-sugestao.json`, already MODEL 1.0). Do not draw B · Bloco or C · Quadro. Tokens only from `ds.css`. Regenerate preview with `node docs/plans/gen-flow-diagram-preview.mjs`.
+**Look (ratified 2026-08-14):** **A · Linha**. Visual SoT: design §4 + the HTML that **the engine** emits. PDTI `fluxo-sugestao.json` is **L1 data only** (a real graph to validate against) — do not copy PDTI mermaid, CSS, or walk from `fluxo-completo.html`. Do not keep a parallel drawer (`gen-flow-diagram-preview.mjs` must call `flow-layout` / `flow-draw` / chrome, not reimplement them). Do not draw B · Bloco or C · Quadro. Do not emit a look picker. Tokens only from `ds.css`. Chrome = full-page app (HANDOFF occupancy: grid `auto 1fr` + sizer/stage), not a max-width document.
 
 **Do not:** change schema, brief, ratification, `serve-flow`, `--strict`, or finalize F0–F2. Do not commit automate `prepare.json` / `sealed-brief.md`.
 
@@ -294,12 +294,12 @@ node --test tests/flow-draw.test.js
 
 **Step 3: `drawSequenceSvg(layout)`**
 
-- `<svg data-surface="sequence" viewBox="0 0 W H" xmlns="http://www.w3.org/2000/svg">`
+- `<svg data-surface="sequence" width="W" height="H" viewBox="0 0 W H" xmlns="http://www.w3.org/2000/svg">` — `width`/`height` attrs required (`.sheet` is inline-block; SVG with only viewBox + `height:auto` collapses to 0)
 - `<title>` / `<desc>`
-- Actor headers (top + bottom) as `<g data-actor-id>`
-- Lifelines: dashed `<line data-lifeline>` using `var(--fg-faint)` / `#424a5a`
+- Actor headers (top + bottom) as `<g data-actor-id>`. Top lives in `<g data-actor-stick>` and tracks viewport scroll (names stay visible). Hover on a lifeline hit-target (`data-actor-label`) shows the actor name.
+- Lifelines: dashed `<line data-lifeline>` using `var(--fg-faint)` / `#424a5a`. **Paint order:** XOR wash → lifelines → rail/question/messages/pills → feet → sticky heads. Wash must not cover the towers.
 - Messages: `<g data-from data-to>` line + text; async = dasharray. **No visible row numbers** (no `<text class="num">`, no 1/2/3 in the gutter). `data-n` is optional and must not be painted.
-- XOR: `<g data-xor-rail="{xorId}">` — left rail only (`var(--status-warning-line)`), no enclosing stroked rect; `◇ {question}` note; per branch a hairline + pill + `<text data-branch-label>`; wash `color-mix(in srgb, var(--bg-elevated) 55%, transparent)` *without* stroke. Paint tokens = design §4 Look A (actor `--bg-elevated`, arrow `--fg-muted`, async dash 5 4).
+- XOR: `<g data-xor-rail="{xorId}">` — left rail only (`var(--status-warning-line)`), no enclosing stroked rect; `◇ {question}` note; per branch a hairline + pill + `<text data-branch-label>`. Wash **only** on `depth === 0`, `color-mix(in srgb, var(--bg-elevated) 18%, transparent)`, no stroke, **behind** lifelines. Nested xor = rail + pill, no extra wash (stacked fills would go dark). `BLOCK_LEAD` 18px above xor-q / branch / join. Paint tokens = design §4 Look A (actor `--bg-elevated`, arrow `--fg-muted`, async dash 5 4).
 - Escape all text (`escapeHtml` from `scripts/lib/render-site.js:80`)
 - Double-render of the same layout must be byte-identical (no random ids)
 
@@ -573,25 +573,37 @@ Expected FAIL: lists still emitted; `role="tablist"` absent; current HTML has no
 
 **Step 3: Rewrite `renderFlowHtml`**
 
-Keep the existing shell (verified_by: `scripts/lib/render-flow.js:468-514`): `<!DOCTYPE html>`, `lang="pt-BR"`, `data-fl-slug`, `data-fl-content-sha`, inlined `dsCss` + `FLOW_CSS`, `<header class="fl-header">` (eyebrow, `h1.fl-title`, `p.fl-scenario`, `fl-meta` actor + plan), and `<footer class="fl-footer">` (content-sha prefix + schema). Do **not** delete the header/footer — only replace the nav + the three list `<section>`s.
+Keep the document spine (verified_by: `scripts/lib/render-flow.js:468-514`): `<!DOCTYPE html>`, `lang="pt-BR"`, `data-fl-slug`, `data-fl-content-sha`, inlined `dsCss` + `FLOW_CSS`. Keep `h1.fl-title`, `p.fl-scenario`, actor + plan (`fl-meta`), and the content-sha string (may live in the hint bar; class `fl-footer` still wraps that string so existing tests keep a handle). **Chrome is the HANDOFF app, not a document card:** `html,body { height:100%; overflow:hidden }`, wrapper `.app` grid `auto 1fr`, compact top, `#fl-viewport` fills the remaining row. Do **not** keep a max-width article layout.
 
-Structure of the **replaced** middle (header/footer omitted here):
+Structure:
 
 ```html
-<nav class="fl-toc" role="tablist">
-  <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
-  <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
-  <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
-</nav>
-<div class="fl-toolbar">… + − 100% ajustar …</div>
-<p class="fl-hint" id="fl-hint">…</p>
-<div class="fl-viewport" id="fl-viewport">
-  <section id="fl-sequence" class="fl-surface" role="tabpanel" data-surface="sequence">SVG</section>
-  <section id="fl-bpm" hidden role="tabpanel" data-surface="bpm">…</section>
-  <section id="fl-machines" hidden role="tabpanel" data-surface="machines">…</section>
+<div class="app">
+  <header class="fl-header top">
+    <div class="top-row">
+      <div class="brand"><h1 class="fl-title">…</h1><p class="fl-scenario">…</p></div>
+      <nav class="fl-toc" role="tablist">
+        <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
+        <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
+        <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
+      </nav>
+      <div class="fl-toolbar">… + − 100% À altura|À largura PDF … theme switch …</div>
+    </div>
+    <p class="fl-hint" id="fl-hint">… <span class="fl-meta">ator / plano</span> <span class="fl-footer">content-sha</span></p>
+  </header>
+  <div class="fl-viewport" id="fl-viewport">
+    <div id="fl-sizer">
+      <div id="fl-stage">
+        <section id="fl-sequence" class="fl-surface" role="tabpanel" data-surface="sequence"><div class="sheet">SVG</div></section>
+        <section id="fl-bpm" hidden role="tabpanel" data-surface="bpm">…</section>
+        <section id="fl-machines" hidden role="tabpanel" data-surface="machines">…</section>
+      </div>
+    </div>
+  </div>
 </div>
 <script>
-/* tabs + pan/zoom only. No layout. No mermaid. No Date.now. */
+/* tabs + pan/zoom only. No layout. No mermaid. No Date.now.
+   sizer grows to scaled content (HANDOFF applyStageGeometry). */
 </script>
 ```
 
@@ -611,9 +623,10 @@ Design §3 says “Estados” for the third tab. Keep **Máquinas** so the secti
 - BPM always rendered
 - Keep `finalizeHtml` (CRLF strip + trailing whitespace) so determinism tests stay honest
 - Keep `data-fl-content-sha="${contentFingerprint(normalized)}"`
-- Inline JS: click tab → `hidden` / `aria-selected`; pointer pan on `#fl-viewport`; wheel+ctrl scale a wrapper; buttons. Default scale 1. Deterministic (no random, no `Date.now`)
+- Inline JS: click tab → `hidden` / `aria-selected`; pointer pan on `#fl-viewport`; wheel+ctrl zoom by setting the visible SVG `width`/`height` to viewBox × scale (**not** CSS `transform: scale` — that blurs). `#fl-sizer` = max(viewport, sheet + pad) so **both axes scroll**. Default scale 1 unless `localStorage['as-flow-zoom:'+data-fl-slug]` has a previous factor (`scripts/lib/flow-zoom.js`). Persist on every scale change. Another process (other slug) does not share it. Deterministic HTML (no random, no `Date.now`; zoom is runtime like theme).
 - Keep the existing color-scheme switch (`renderColorSchemeSwitch` + `colorSchemeBootScript` from `scripts/lib/color-scheme.js`). Do not invent a second theme key. Theme is runtime (`data-theme` / `localStorage.as-color-scheme`); it must not appear in layout math or SVG geometry.
-- `FLOW_CSS`: chrome + viewport (`overflow: auto`), keep DS tokens, no `.ds-` classes
+- PDF button calls `buildFlowPdf` / `pdfFilename` from `scripts/lib/flow-pdf.js` (no new npm dep). One JPEG page per surface (Sequência, Fluxo, Máquinas), light paper, filename `{slug}-fluxo.pdf`. Runtime download — not HTML bytes.
+- `FLOW_CSS`: full-page app (html/body 100% hidden overflow; `.app` grid `auto 1fr`; viewport `overflow:auto`; SVG `max-width:none` **and** intrinsic `width`/`height` attrs). DS tokens only, no `.ds-` classes. No look picker, no B/C token blocks.
 - Delete list CSS (`.fl-msg`, `.fl-nodes`, …) if unused
 
 **Step 4: Re-run `tests/render-flow.test.js` — expect PASS**
@@ -697,9 +710,10 @@ Applied after adversarial local review. Not a ground-truth receipt.
 7. Nested xor + and/join/event/subprocess tests added; event `kind` is `timer|error`.
 8. Tab labels locked; G1/G6 premises table added; G2 soft-language tokens removed.
 9. Dogfood `S1e→D1` is loop-ref; AND/join is one box; empty sequence selects Fluxo.
-10. Ground-truth: keep header/footer; xor-first entry (live L1) has a walk test.
-11. Look A · Linha ratified (2026-08-14). Draw tokens = design §4. Preview HTML is fixture only.
+10. Ground-truth: keep `fl-title` / `fl-scenario` / content-sha handle; xor-first entry (live L1) has a walk test. Chrome is full-page app (not a max-width document footer).
+11. Look A · Linha ratified (2026-08-14). Draw tokens = design §4. Anything shown to the operator is engine output (`flow-layout` + `flow-draw` + chrome). PDTI JSON is input data only.
 12. Color scheme: system + light + dark. Tokens in `ds.css`; switch already in `renderFlowHtml`. Task 7 keeps it.
+13. App chrome (2026-08-14): HANDOFF `fluxo-completo.html` occupancy — viewport fills the page; sizer+stage; explore X and Y. B/C/compare removed from preview.
 
 ## Ground-truth review
 
@@ -761,4 +775,4 @@ Applied after adversarial local review. Not a ground-truth receipt.
 
 ## Reviews
 
-- ground-truth: complete-with-findings | mode=ground-truth | fp=83407f6ca2ba | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=fcc87d2dc346 | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)

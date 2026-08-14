@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-fl-slug="sugestao-necessidade-pdti">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prévia de estilo — engine de diagrama</title>
+<title>Sugestão de necessidade PDTI · interface</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -37,17 +37,39 @@
   --status-info-line: color-mix(in srgb, var(--status-info) 42%, var(--border-default));
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
-  --fs-2xs: 10px; --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-xl: 20px; --fs-3xl: 32px;
+  --fs-2xs: 10px; --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px;
   --fw-medium: 500; --fw-semibold: 600;
-  --space-3: 6px; --space-4: 8px; --space-6: 12px; --space-8: 16px; --space-10: 20px;
-  --space-12: 24px; --space-16: 32px; --space-24: 48px;
+  --space-3: 6px; --space-4: 8px; --space-6: 12px; --space-8: 16px;
   --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px; --radius-pill: 999px;
   --tracking-tight: -0.015em; --tracking-wide: 0.04em;
-  --lh-tight: 1.15; --lh-relaxed: 1.65;
   --shadow-sm: 0 2px 4px -2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.045);
   --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px #88c4ff;
+  --actor-fill: var(--bg-elevated);
+  --actor-stroke: var(--border-default);
+  --actor-fg: var(--fg-default);
+  --life: var(--fg-faint);
+  --arrow: var(--fg-muted);
+  --msg: var(--fg-default);
+  --xor-wash: color-mix(in srgb, var(--bg-elevated) 18%, transparent);
+  --xor-rail: var(--status-warning-line);
+  --pill-fill: var(--bg-sunken);
+  --pill-stroke: var(--status-warning-line);
+  --pill-fg: var(--status-warning);
+  --act-fill: var(--bg-elevated);
+  --act-stroke: var(--border-default);
+  --act-fg: var(--fg-default);
+  --xor-fill: color-mix(in srgb, var(--status-warning) 10%, var(--bg-surface));
+  --xor-edge: var(--status-warning-line);
+  --end-fill: var(--status-success);
+  --end-stroke: var(--status-success);
+  --end-bad-fill: var(--status-error);
+  --st-fill: var(--bg-sunken);
+  --st-stroke: var(--border-default);
+  --st-entry-stroke: var(--status-info);
+  --st-term-stroke: var(--status-success);
+  --edge: var(--fg-faint);
+  --node-sw: 1.25;
 }
-
 @media (prefers-color-scheme: light) {
   html:not([data-theme="dark"]) {
     color-scheme: light;
@@ -87,194 +109,122 @@ html[data-theme="light"] {
 html[data-theme="dark"] { color-scheme: dark; }
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg-canvas); color: var(--fg-default); font-family: var(--font-sans); }
-body { min-height: 100vh; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: var(--bg-canvas); color: var(--fg-default);
+  font-family: var(--font-sans);
+}
+.app { display: grid; grid-template-rows: auto 1fr; height: 100%; min-height: 100%; }
 
-/* ── picker ── */
-.picker {
-  position: sticky; top: 0; z-index: 20;
-  background: color-mix(in srgb, var(--bg-canvas) 88%, transparent);
-  backdrop-filter: blur(14px);
+.top {
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg-canvas) 92%, transparent);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-default);
-  padding: 16px 24px 14px;
+  padding: 10px 16px 8px;
+  display: flex; flex-direction: column; gap: 8px;
 }
-.picker-inner { max-width: 1120px; margin: 0 auto; }
-.picker h1 { margin: 0 0 4px; font-size: 16px; font-weight: 600; letter-spacing: var(--tracking-tight); }
-.picker p { margin: 0 0 12px; color: var(--fg-muted); font-size: 13px; max-width: 78ch; }
-.looks { display: flex; flex-wrap: wrap; gap: 8px; }
-.looks button {
-  appearance: none; border: 1px solid var(--border-default); background: var(--bg-elevated);
-  color: var(--fg-muted); font: 500 12px var(--font-sans); height: 30px; padding: 0 12px;
-  border-radius: var(--radius-pill); cursor: pointer;
+.top-row {
+  display: flex; flex-wrap: wrap; gap: 10px 16px;
+  align-items: center; justify-content: space-between;
 }
-.looks button[aria-pressed="true"] {
-  background: var(--fg-default); color: var(--bg-canvas); border-color: var(--fg-default);
+.brand { min-width: 0; flex: 1 1 220px; }
+.brand .fl-title {
+  margin: 0; font-size: 15px; font-weight: 600;
+  letter-spacing: var(--tracking-tight); line-height: 1.25;
 }
-.looks button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.brand .fl-scenario {
+  margin: 2px 0 0; font-size: 12px; color: var(--fg-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 72ch;
+}
+.fl-toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; }
+.fl-toc button {
+  appearance: none; display: inline-flex; align-items: center; height: 30px; padding: 0 12px;
+  border-radius: var(--radius-pill); border: 1px solid var(--border-default); background: var(--bg-elevated);
+  color: var(--fg-muted); font: 500 12px var(--font-sans); cursor: pointer;
+}
+.fl-toc button[aria-selected="true"] { color: var(--bg-canvas); background: var(--fg-default); border-color: var(--fg-default); }
+.fl-toc button:focus-visible, .toolbar button:focus-visible, .theme-switch button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.toolbar button {
+  appearance: none; height: 28px; min-width: 28px; padding: 0 8px; border-radius: 6px;
+  border: 1px solid var(--border-default); background: var(--bg-surface); color: var(--fg-muted);
+  font: 600 12px var(--font-sans); cursor: pointer;
+}
+.toolbar button.primary { background: var(--fg-default); color: var(--bg-canvas); border-color: var(--fg-default); }
+.toolbar .zoom { font: 700 12px var(--font-mono); color: var(--fg-subtle); padding: 0 6px; min-width: 3.2rem; text-align: center; }
 .theme-switch {
   display: inline-flex; border: 1px solid var(--border-default); border-radius: var(--radius-pill);
-  background: var(--bg-elevated); overflow: hidden;
+  background: var(--bg-elevated); overflow: hidden; margin-left: 4px;
 }
 .theme-switch button {
   appearance: none; border: 0; background: transparent; color: var(--fg-muted);
   font: 500 11px var(--font-sans); height: 28px; padding: 0 10px; cursor: pointer;
 }
 .theme-switch button[aria-checked="true"] { background: var(--bg-surface); color: var(--fg-default); }
-.picker-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.badge {
-  display: inline-block; margin-left: 6px; font-family: var(--font-mono); font-size: 9px;
-  letter-spacing: .06em; text-transform: uppercase; opacity: .7;
+.hint-bar {
+  font-size: 12px; color: var(--fg-subtle);
+  display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center;
 }
+.hint-bar .val {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default); color: var(--fg-muted); background: var(--bg-elevated);
+}
+.hint-bar kbd {
+  font: 600 11px var(--font-mono); background: var(--bg-sunken);
+  border: 1px solid var(--border-default); border-radius: 4px; padding: 0 5px;
+}
+.hint-bar .fl-meta { display: inline-flex; flex-wrap: wrap; gap: 10px; }
+.hint-bar .fl-meta span { font-size: 12px; color: var(--fg-subtle); }
+.hint-bar .fl-meta strong { color: var(--fg-muted); font-weight: 500; }
 
-/* ── shell ── */
-.fl-shell { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
-.fl-header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-default); }
-.fl-eyebrow { font-family: var(--font-mono); font-size: 11px; color: var(--fg-subtle); letter-spacing: var(--tracking-wide); text-transform: uppercase; margin: 0; }
-.fl-title { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: var(--tracking-tight); line-height: 1.15; }
-.fl-scenario { margin: 0; color: var(--fg-muted); font-size: 14px; line-height: 1.65; max-width: 68ch; }
-.fl-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.fl-meta span { font-size: 12px; color: var(--fg-subtle); }
-.fl-meta strong { color: var(--fg-muted); font-weight: 500; }
-
-.chrome-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 0; }
-.fl-toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
-.fl-toc button {
-  appearance: none; display: inline-flex; align-items: center; height: 30px; padding: 0 12px;
-  border-radius: var(--radius-pill); border: 1px solid var(--border-default); background: var(--bg-elevated);
-  color: var(--fg-muted); font: 500 12px var(--font-sans); cursor: pointer;
+#fl-viewport {
+  position: relative; overflow: auto; overscroll-behavior: contain;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 1px 1px, var(--border-default) 1px, transparent 0) 0 0 / 22px 22px,
+    var(--bg-sunken);
+  cursor: grab; scrollbar-gutter: stable both-edges;
 }
-.fl-toc button[aria-selected="true"] { color: var(--status-info); border-color: var(--status-info-line); }
-.toolbar { display: flex; align-items: center; gap: 6px; }
-.toolbar button {
-  appearance: none; height: 28px; min-width: 28px; padding: 0 8px; border-radius: 6px;
-  border: 1px solid var(--border-default); background: var(--bg-surface); color: var(--fg-muted);
-  font: 600 12px var(--font-sans); cursor: pointer;
+#fl-viewport.is-panning { cursor: grabbing; user-select: none; }
+#fl-sizer { position: relative; min-width: 100%; min-height: 100%; }
+#fl-stage {
+  position: absolute; top: 0; left: 0;
+  padding: 40px;
 }
-.toolbar .zoom { font: 700 12px var(--font-mono); color: var(--fg-subtle); padding: 0 6px; }
-.hint { margin: 10px 0 0; font-size: 12px; color: var(--fg-subtle); }
-.hint kbd { font: 600 11px var(--font-mono); background: var(--bg-sunken); border: 1px solid var(--border-default); border-radius: 4px; padding: 0 5px; }
-
-.fl-viewport {
-  margin-top: 16px; background: var(--bg-surface); border: 1px solid var(--border-default);
-  border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); overflow: auto; min-height: 420px;
-  cursor: grab;
+.diagram-panel { display: inline-block; }
+.diagram-panel[hidden] { display: none !important; }
+.sheet {
+  display: inline-block;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: 18px 20px;
 }
-.fl-viewport.is-panning { cursor: grabbing; }
-.fl-stage { transform-origin: 0 0; padding: 16px; }
-.fl-surface[hidden] { display: none; }
-.fl-footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-default); font: 11px var(--font-mono); color: var(--fg-faint); }
-
-/* ── look tokens (the thing being validated) ── */
-[data-look="line"] {
-  --actor-fill: var(--bg-elevated);
-  --actor-stroke: var(--border-default);
-  --actor-fg: var(--fg-default);
-  --life: var(--fg-faint);
-  --arrow: var(--fg-muted);
-  --msg: var(--fg-default);
-  --num: var(--fg-subtle);
-  --xor-wash: color-mix(in srgb, var(--bg-elevated) 55%, transparent);
-  --xor-rail: var(--status-warning-line);
-  --pill-fill: var(--bg-sunken);
-  --pill-stroke: var(--status-warning-line);
-  --pill-fg: var(--status-warning);
-  --act-fill: var(--bg-elevated);
-  --act-stroke: var(--border-default);
-  --act-fg: var(--fg-default);
-  --xor-fill: color-mix(in srgb, var(--status-warning) 10%, var(--bg-surface));
-  --xor-edge: var(--status-warning-line);
-  --end-fill: var(--status-success);
-  --end-stroke: var(--status-success);
-  --end-bad-fill: var(--status-error);
-  --bar-fill: var(--fg-muted);
-  --evt-fill: var(--bg-canvas);
-  --evt-stroke: var(--status-error-line);
-  --st-fill: var(--bg-sunken);
-  --st-stroke: var(--border-default);
-  --st-entry-stroke: var(--status-info);
-  --st-term-stroke: var(--status-success);
-  --edge: var(--fg-faint);
-  --node-sw: 1.25;
-  --actor-rx: 8;
-  --act-rx: 8;
+svg.diagram {
+  display: block; max-width: none; font-family: var(--font-sans);
+  shape-rendering: geometricPrecision; text-rendering: geometricPrecision;
 }
-[data-look="block"] {
-  --actor-fill: var(--status-info-bg);
-  --actor-stroke: var(--status-info-line);
-  --actor-fg: var(--fg-default);
-  --life: color-mix(in srgb, var(--status-info) 35%, var(--fg-faint));
-  --arrow: var(--status-info);
-  --msg: var(--fg-default);
-  --num: var(--status-info);
-  --xor-wash: color-mix(in srgb, var(--status-warning) 12%, transparent);
-  --xor-rail: var(--status-warning);
-  --pill-fill: var(--status-warning-bg);
-  --pill-stroke: var(--status-warning);
-  --pill-fg: var(--status-warning);
-  --act-fill: var(--status-info-bg);
-  --act-stroke: var(--status-info-line);
-  --act-fg: var(--fg-default);
-  --xor-fill: var(--status-warning-bg);
-  --xor-edge: var(--status-warning);
-  --end-fill: var(--status-success);
-  --end-stroke: #047857;
-  --end-bad-fill: var(--status-error);
-  --bar-fill: var(--fg-default);
-  --evt-fill: var(--status-error-bg);
-  --evt-stroke: var(--status-error);
-  --st-fill: var(--bg-elevated);
-  --st-stroke: var(--border-strong);
-  --st-entry-stroke: var(--status-info);
-  --st-term-stroke: var(--status-success);
-  --edge: var(--fg-subtle);
-  --node-sw: 1.5;
-  --actor-rx: 8;
-  --act-rx: 8;
-}
-[data-look="frame"] {
-  --actor-fill: none;
-  --actor-stroke: var(--border-strong);
-  --actor-fg: var(--fg-muted);
-  --life: var(--fg-faint);
-  --arrow: var(--fg-subtle);
-  --msg: var(--fg-muted);
-  --num: var(--fg-faint);
-  --xor-wash: none;
-  --xor-rail: var(--status-warning);
-  --pill-fill: none;
-  --pill-stroke: var(--status-warning-line);
-  --pill-fg: var(--status-warning);
-  --act-fill: none;
-  --act-stroke: var(--border-strong);
-  --act-fg: var(--fg-default);
-  --xor-fill: none;
-  --xor-edge: var(--status-warning);
-  --end-fill: none;
-  --end-stroke: var(--status-success);
-  --end-bad-fill: none;
-  --bar-fill: var(--fg-muted);
-  --evt-fill: none;
-  --evt-stroke: var(--status-error);
-  --st-fill: none;
-  --st-stroke: var(--border-strong);
-  --st-entry-stroke: var(--status-info);
-  --st-term-stroke: var(--status-success);
-  --edge: var(--fg-faint);
-  --node-sw: 1;
-  --actor-rx: 4;
-  --act-rx: 4;
-}
-
-svg.diagram { display: block; max-width: 100%; height: auto; font-family: var(--font-sans); }
 svg.diagram text { fill: var(--fg-default); }
 .actor-box { fill: var(--actor-fill); stroke: var(--actor-stroke); stroke-width: 1; }
-.actor-label { fill: var(--actor-fg); font-size: 12px; font-weight: 600; }
-.lifeline { stroke: var(--life); stroke-width: 1; stroke-dasharray: 3 5; }
+.actor-label { fill: var(--actor-fg); font-size: 11px; font-weight: 600; }
+.actor-stick-bg { fill: var(--bg-surface); }
+.actor-stick-rule { stroke: var(--border-default); stroke-width: 1; }
+.lifeline { stroke: var(--life); stroke-width: 1; stroke-dasharray: 3 5; pointer-events: none; }
+.life-hit { stroke: transparent; stroke-width: 20; fill: none; }
+#actor-tip {
+  position: fixed; z-index: 40; pointer-events: none;
+  background: var(--bg-elevated); color: var(--fg-default);
+  border: 1px solid var(--border-default); border-radius: 6px;
+  padding: 3px 8px; font: 600 12px var(--font-sans);
+  box-shadow: var(--shadow-sm);
+}
+#actor-tip[hidden] { display: none; }
 .arrow { stroke: var(--arrow); stroke-width: 1.25; fill: none; }
 .arrow.async { stroke-dasharray: 5 4; }
 .arrow-head { fill: var(--arrow); }
 .msg { fill: var(--msg); font-size: 12px; }
-.num { fill: var(--num); font-family: var(--font-mono); font-size: 10px; }
 .xor-wash { fill: var(--xor-wash); stroke: none; }
 .xor-rail { stroke: var(--xor-rail); stroke-width: 2; fill: none; }
 .xor-q { fill: var(--status-warning); font-size: 12px; font-weight: 600; }
@@ -295,129 +245,83 @@ svg.diagram text { fill: var(--fg-default); }
 .end-bad { fill: var(--end-bad-fill); stroke: var(--status-error); stroke-width: 1.5; }
 .end-t { fill: var(--fg-muted); font-size: 11px; }
 .end-hole { fill: var(--bg-canvas); }
-.bar { fill: var(--bar-fill); }
-.evt { fill: var(--evt-fill); stroke: var(--evt-stroke); stroke-width: 1.5; }
-.sub-mark { fill: none; stroke: var(--act-stroke); stroke-width: 1; }
 .st { fill: var(--st-fill); stroke: var(--st-stroke); stroke-width: 1.15; }
 .st.entry { stroke: var(--st-entry-stroke); stroke-width: 1.75; }
 .st.term { stroke: var(--st-term-stroke); stroke-width: 1.75; }
 .st-t { fill: var(--fg-default); font-size: 12px; font-weight: 500; }
 .fx { fill: var(--fg-subtle); font-size: 10px; font-family: var(--font-mono); }
 .mach-title { fill: var(--fg-muted); font-size: 12px; font-weight: 600; }
-
-/* ── compare ── */
-.compare { display: none; max-width: 1280px; margin: 0 auto; padding: 20px 16px 64px; }
-body.is-compare .fl-shell, body.is-compare .notes { display: none; }
-body.is-compare .compare { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.col { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 12px; overflow: hidden; }
-.col h2 { margin: 0; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border-subtle); }
-.col .mini { padding: 8px; overflow: hidden; }
-.col svg { width: 100%; height: auto; }
-
-/* ── notes ── */
-.notes { max-width: 1080px; margin: 0 auto 80px; padding: 0 24px; display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
-.card { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 12px; padding: 16px 18px; }
-.card h2 { margin: 0 0 8px; font-size: 14px; }
-.card ul { margin: 0; padding-left: 18px; color: var(--fg-muted); font-size: 13px; line-height: 1.55; }
-.card.span { grid-column: 1 / -1; }
-@media (max-width: 860px) {
-  .notes, body.is-compare .compare { grid-template-columns: 1fr; }
-  .fl-title { font-size: 24px; }
-}
 </style>
 </head>
 <body data-look="line">
-
-<header class="picker">
-  <div class="picker-inner">
-    <h1>Estilo do diagrama — A · Linha ratificado</h1>
-    <p>
-      Operador travou <strong>A · Linha</strong> (2026-08-14). B e C ficam só como contraste.
-      Prévia do grafo PDTI <code>fluxo-sugestao.json</code> (já no MODEL 1.0: activity / xor / end + machine). 28 mensagens, 3 XOR, loop S1e→D1, 4 estados. Não é o engine.</p>
-    <div class="picker-row">
-    <div class="looks" role="tablist" aria-label="Looks">
-      <button type="button" data-look="line" aria-pressed="true">A · Linha <span class="badge">recomendado</span></button>
-      <button type="button" data-look="block">B · Bloco</button>
-      <button type="button" data-look="frame">C · Quadro</button>
-      <button type="button" data-look="compare">Os 3 juntos</button>
-    </div>
-    <div class="theme-switch" role="radiogroup" aria-label="Aparência">
-      <button type="button" role="radio" data-theme-set="system" aria-checked="true">Sistema</button>
-      <button type="button" role="radio" data-theme-set="light" aria-checked="false">Claro</button>
-      <button type="button" role="radio" data-theme-set="dark" aria-checked="false">Escuro</button>
-    </div>
-    </div>
-  </div>
-</header>
-
-<div class="fl-shell" id="shell">
-  <header class="fl-header">
-    <p class="fl-eyebrow">Fluxo operacional · 3 camadas</p>
-    <h1 class="fl-title">Sugestão de necessidade PDTI · interface</h1>
-    <p class="fl-scenario">GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.</p>
-    <div class="fl-meta">
-      <span><strong>Ator:</strong> GETIN</span>
-      <span><strong>Plano:</strong> sugestao-necessidade-pdti</span>
-    </div>
-    <div class="chrome-row">
-      <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
-        <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
-        <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
-        <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
-      </nav>
-      <div class="toolbar" aria-label="Zoom">
-        <button type="button" id="z-out" title="Afastar">−</button>
-        <span class="zoom" id="z-lab">100%</span>
-        <button type="button" id="z-in" title="Aproximar">+</button>
-        <button type="button" id="z-100">100%</button>
-        <button type="button" id="z-fit">Ajustar</button>
+  <div class="app">
+    <header class="top">
+      <div class="top-row">
+        <div class="brand">
+          <h1 class="fl-title">Sugestão de necessidade PDTI · interface</h1>
+          <p class="fl-scenario">GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.</p>
+        </div>
+        <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
+          <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
+          <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
+          <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
+        </nav>
+        <div class="toolbar" aria-label="Zoom">
+          <button type="button" id="z-out" title="Afastar">−</button>
+          <span class="zoom" id="z-lab">100%</span>
+          <button type="button" id="z-in" title="Aproximar">+</button>
+          <button type="button" id="z-100">100%</button>
+          <button type="button" id="z-fit" class="primary" data-fit="height" title="Ajustar à altura">À altura</button>
+          <button type="button" id="btn-pdf" title="Baixar PDF do fluxo (anexo)">PDF</button>
+          <div class="theme-switch" role="radiogroup" aria-label="Aparência">
+            <button type="button" role="radio" data-theme-set="system" aria-checked="true">Sistema</button>
+            <button type="button" role="radio" data-theme-set="light" aria-checked="false">Claro</button>
+            <button type="button" role="radio" data-theme-set="dark" aria-checked="false">Escuro</button>
+          </div>
+        </div>
       </div>
-    </div>
-    <p class="hint">Arraste para pan · <kbd>Ctrl</kbd>+roda para zoom. Default 100%.</p>
-  </header>
+      <div class="hint-bar">
+        <span class="val">Look A · Linha</span>
+        <span class="fl-meta">
+          <span><strong>Ator:</strong> GETIN</span>
+          <span><strong>Plano:</strong> sugestao-necessidade-pdti</span>
+        </span>
+        <span id="tab-hint">Tronco + trilho XOR</span>
+        <span>Arrastar = pan · <kbd>Ctrl</kbd>+scroll = zoom</span>
+      </div>
+    </header>
 
-  <div class="fl-viewport" id="fl-viewport">
-    <div class="fl-stage" id="fl-stage">
-
-      <section id="fl-sequence" class="fl-surface" role="tabpanel" data-surface="sequence">
-        <svg class="diagram" id="seq-svg" data-surface="sequence" viewBox="0 0 668 1446" xmlns="http://www.w3.org/2000/svg" role="img">
+    <div id="fl-viewport" title="Arraste para navegar · Ctrl+scroll para zoom">
+      <div id="fl-sizer">
+        <div id="fl-stage">
+          <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+            <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="668" height="1626" viewBox="0 0 668 1626" xmlns="http://www.w3.org/2000/svg" role="img">
     <title>Diagrama de sequência — PDTI</title>
     <desc>GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.</desc>
+    <rect class="xor-wash" x="8" y="294" width="652" height="1260" rx="10"/>
     <g data-actor-id="G">
-        <rect class="actor-box" x="66" y="16" width="168" height="34" rx="8"/>
-        <text class="actor-label" x="150" y="38" text-anchor="middle">GETIN</text>
-        <line class="lifeline" data-lifeline="G" x1="150" y1="50" x2="150" y2="1402"/>
-        <rect class="actor-box" x="66" y="1410" width="168" height="26" rx="8"/>
-        <text class="actor-label" x="150" y="1428" text-anchor="middle" style="font-size:11px">GETIN</text>
+        <line class="lifeline" data-lifeline="G" x1="150" y1="50" x2="150" y2="1582"/>
+        <line class="life-hit" data-actor-label="GETIN" x1="150" y1="50" x2="150" y2="1582"/>
       </g>
 <g data-actor-id="App">
-        <rect class="actor-box" x="262" y="16" width="168" height="34" rx="8"/>
-        <text class="actor-label" x="346" y="38" text-anchor="middle">Sistema</text>
-        <line class="lifeline" data-lifeline="App" x1="346" y1="50" x2="346" y2="1402"/>
-        <rect class="actor-box" x="262" y="1410" width="168" height="26" rx="8"/>
-        <text class="actor-label" x="346" y="1428" text-anchor="middle" style="font-size:11px">Sistema</text>
+        <line class="lifeline" data-lifeline="App" x1="346" y1="50" x2="346" y2="1582"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="1582"/>
       </g>
 <g data-actor-id="L">
-        <rect class="actor-box" x="458" y="16" width="168" height="34" rx="8"/>
-        <text class="actor-label" x="542" y="38" text-anchor="middle">Líder</text>
-        <line class="lifeline" data-lifeline="L" x1="542" y1="50" x2="542" y2="1402"/>
-        <rect class="actor-box" x="458" y="1410" width="168" height="26" rx="8"/>
-        <text class="actor-label" x="542" y="1428" text-anchor="middle" style="font-size:11px">Líder</text>
+        <line class="lifeline" data-lifeline="L" x1="542" y1="50" x2="542" y2="1582"/>
+        <line class="life-hit" data-actor-label="Líder" x1="542" y1="50" x2="542" y2="1582"/>
       </g>
     <g data-xor-rail="D1">
-        <rect class="xor-wash" x="8" y="278" width="652" height="1096" rx="10"/>
-        <line class="xor-rail" x1="22" y1="286" x2="22" y2="1366"/>
-        <text class="xor-q" x="38" y="298">◇ O envio é válido?</text>
+        <line class="xor-rail" x1="22" y1="304" x2="22" y2="1546"/>
+        <text class="xor-q" x="38" y="316">◇ O envio é válido?</text>
       </g>
 <g data-xor-rail="D_edit">
-        <rect class="xor-wash" x="22" y="692" width="624" height="682" rx="10"/>
-        <line class="xor-rail" x1="36" y1="700" x2="36" y2="1366"/>
-        <text class="xor-q" x="52" y="712">◇ O líder edita a sugestão antes de decidir?</text>
+        <line class="xor-rail" x1="36" y1="772" x2="36" y2="1546"/>
+        <text class="xor-q" x="52" y="784">◇ O líder edita a sugestão antes de decidir?</text>
       </g>
 <g data-xor-rail="D2">
-        <rect class="xor-wash" x="36" y="824" width="596" height="484" rx="10"/>
-        <line class="xor-rail" x1="50" y1="832" x2="50" y2="1300"/>
-        <text class="xor-q" x="66" y="844">◇ Aceitar ou recusar a sugestão?</text>
+        <line class="xor-rail" x1="50" y1="940" x2="50" y2="1444"/>
+        <text class="xor-q" x="66" y="952">◇ Aceitar ou recusar a sugestão?</text>
       </g>
     <g data-from="G" data-to="App">
           <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
@@ -450,157 +354,184 @@ body.is-compare .compare { display: grid; grid-template-columns: repeat(3, minma
         </g>
 
 <g>
-          <line class="hair" x1="22" y1="324" x2="40" y2="324"/>
-          <rect class="pill" x="40" y="312" width="118" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Envio inválido" x="99" y="328" text-anchor="middle">Envio inválido</text>
+          <line class="hair" x1="22" y1="360" x2="40" y2="360"/>
+          <rect class="pill" x="40" y="348" width="118" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Envio inválido" x="99" y="364" text-anchor="middle">Envio inválido</text>
         </g>
 <g data-from="App" data-to="G">
-          <line class="arrow async" x1="338" y1="354" x2="166" y2="354"/>
-          <polygon class="arrow-head" points="158,354 166,350 166,358"/>
-          <text class="msg" x="248" y="334" text-anchor="middle">Mostra erro (líder, dados ou</text><text class="msg" x="248" y="346" text-anchor="middle">permissão)</text>
+          <line class="arrow async" x1="338" y1="390" x2="166" y2="390"/>
+          <polygon class="arrow-head" points="158,390 166,386 166,394"/>
+          <text class="msg" x="248" y="370" text-anchor="middle">Mostra erro (líder, dados ou</text><text class="msg" x="248" y="382" text-anchor="middle">permissão)</text>
         </g>
 <g data-from="G" data-to="App">
-          <line class="arrow" x1="158" y1="390" x2="330" y2="390"/>
-          <polygon class="arrow-head" points="338,390 330,386 330,394"/>
-          <text class="msg" x="248" y="370" text-anchor="middle">Ajusta os dados e clica Enviar</text><text class="msg" x="248" y="382" text-anchor="middle">de novo</text>
+          <line class="arrow" x1="158" y1="426" x2="330" y2="426"/>
+          <polygon class="arrow-head" points="338,426 330,422 330,430"/>
+          <text class="msg" x="248" y="406" text-anchor="middle">Ajusta os dados e clica Enviar</text><text class="msg" x="248" y="418" text-anchor="middle">de novo</text>
         </g>
 <g data-from="App" data-to="App">
-          <circle cx="346" cy="426" r="3" class="arrow-head"/>
-          <text class="msg" x="356" y="430">Valida novamente</text>
+          <circle cx="346" cy="462" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="466">Valida novamente</text>
         </g>
 <g data-loop-ref="D1">
-          <path class="loop-arc" d="M346 426 C124 462, 50 354, 40 308"/>
-          <polygon class="loop-head" points="40,298 35,308 46,306"/>
+          <path class="loop-arc" d="M346 462 C124 498, 50 372, 40 326"/>
+          <polygon class="loop-head" points="40,316 35,326 46,324"/>
         </g>
 <g>
-          <line class="hair" x1="22" y1="462" x2="40" y2="462"/>
-          <rect class="pill" x="40" y="450" width="104" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Envio válido" x="92" y="466" text-anchor="middle">Envio válido</text>
+          <line class="hair" x1="22" y1="516" x2="40" y2="516"/>
+          <rect class="pill" x="40" y="504" width="104" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Envio válido" x="92" y="520" text-anchor="middle">Envio válido</text>
         </g>
 <g data-from="App" data-to="App">
-          <circle cx="346" cy="492" r="3" class="arrow-head"/>
-          <text class="msg" x="356" y="496">Grava como pendente da área</text>
+          <circle cx="346" cy="546" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="550">Grava como pendente da área</text>
         </g>
 <g data-from="App" data-to="G">
-          <line class="arrow async" x1="338" y1="528" x2="166" y2="528"/>
-          <polygon class="arrow-head" points="158,528 166,524 166,532"/>
-          <text class="msg" x="248" y="520" text-anchor="middle">Confirmação de sucesso</text>
+          <line class="arrow async" x1="338" y1="582" x2="166" y2="582"/>
+          <polygon class="arrow-head" points="158,582 166,578 166,586"/>
+          <text class="msg" x="248" y="574" text-anchor="middle">Confirmação de sucesso</text>
         </g>
 <g data-from="App" data-to="L">
-          <line class="arrow async" x1="354" y1="564" x2="526" y2="564"/>
-          <polygon class="arrow-head" points="534,564 526,560 526,568"/>
-          <text class="msg" x="444" y="544" text-anchor="middle">E-mail com resumo e botão</text><text class="msg" x="444" y="556" text-anchor="middle">Validar</text>
+          <line class="arrow async" x1="354" y1="618" x2="526" y2="618"/>
+          <polygon class="arrow-head" points="534,618 526,614 526,622"/>
+          <text class="msg" x="444" y="598" text-anchor="middle">E-mail com resumo e botão</text><text class="msg" x="444" y="610" text-anchor="middle">Validar</text>
         </g>
 <g data-from="L" data-to="App">
-          <line class="arrow" x1="534" y1="600" x2="362" y2="600"/>
-          <polygon class="arrow-head" points="354,600 362,596 362,604"/>
-          <text class="msg" x="444" y="592" text-anchor="middle">Clica em Validar no e-mail</text>
+          <line class="arrow" x1="534" y1="654" x2="362" y2="654"/>
+          <polygon class="arrow-head" points="354,654 362,650 362,658"/>
+          <text class="msg" x="444" y="646" text-anchor="middle">Clica em Validar no e-mail</text>
         </g>
 <g data-from="App" data-to="L">
-          <line class="arrow async" x1="354" y1="636" x2="526" y2="636"/>
-          <polygon class="arrow-head" points="534,636 526,632 526,640"/>
-          <text class="msg" x="444" y="628" text-anchor="middle">Solicita login (se necessário)</text>
+          <line class="arrow async" x1="354" y1="690" x2="526" y2="690"/>
+          <polygon class="arrow-head" points="534,690 526,686 526,694"/>
+          <text class="msg" x="444" y="682" text-anchor="middle">Solicita login (se necessário)</text>
         </g>
 <g data-from="App" data-to="L">
-          <line class="arrow async" x1="354" y1="672" x2="526" y2="672"/>
-          <polygon class="arrow-head" points="534,672 526,668 526,676"/>
-          <text class="msg" x="444" y="664" text-anchor="middle">Tela da sugestão pendente</text>
+          <line class="arrow async" x1="354" y1="726" x2="526" y2="726"/>
+          <polygon class="arrow-head" points="534,726 526,722 526,730"/>
+          <text class="msg" x="444" y="718" text-anchor="middle">Tela da sugestão pendente</text>
         </g>
 
 <g>
-          <line class="hair" x1="36" y1="738" x2="54" y2="738"/>
-          <rect class="pill" x="54" y="726" width="72" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Edita" x="90" y="742" text-anchor="middle">Edita</text>
+          <line class="hair" x1="36" y1="828" x2="54" y2="828"/>
+          <rect class="pill" x="54" y="816" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Edita" x="90" y="832" text-anchor="middle">Edita</text>
         </g>
 <g data-from="L" data-to="App">
-          <line class="arrow" x1="534" y1="768" x2="362" y2="768"/>
-          <polygon class="arrow-head" points="354,768 362,764 362,772"/>
-          <text class="msg" x="444" y="760" text-anchor="middle">Edita campos e clica Salvar</text>
+          <line class="arrow" x1="534" y1="858" x2="362" y2="858"/>
+          <polygon class="arrow-head" points="354,858 362,854 362,862"/>
+          <text class="msg" x="444" y="850" text-anchor="middle">Edita campos e clica Salvar</text>
         </g>
 <g data-from="App" data-to="L">
-          <line class="arrow async" x1="354" y1="804" x2="526" y2="804"/>
-          <polygon class="arrow-head" points="534,804 526,800 526,808"/>
-          <text class="msg" x="444" y="796" text-anchor="middle">Confirma conteúdo atualizado</text>
+          <line class="arrow async" x1="354" y1="894" x2="526" y2="894"/>
+          <polygon class="arrow-head" points="534,894 526,890 526,898"/>
+          <text class="msg" x="444" y="886" text-anchor="middle">Confirma conteúdo atualizado</text>
         </g>
 
 <g>
-          <line class="hair" x1="50" y1="870" x2="68" y2="870"/>
-          <rect class="pill" x="68" y="858" width="72" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Aceita" x="104" y="874" text-anchor="middle">Aceita</text>
+          <line class="hair" x1="50" y1="996" x2="68" y2="996"/>
+          <rect class="pill" x="68" y="984" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Aceita" x="104" y="1000" text-anchor="middle">Aceita</text>
         </g>
 <g data-from="L" data-to="App">
-          <line class="arrow" x1="534" y1="900" x2="362" y2="900"/>
-          <polygon class="arrow-head" points="354,900 362,896 362,904"/>
-          <text class="msg" x="444" y="892" text-anchor="middle">Clica Aceitar</text>
+          <line class="arrow" x1="534" y1="1026" x2="362" y2="1026"/>
+          <polygon class="arrow-head" points="354,1026 362,1022 362,1030"/>
+          <text class="msg" x="444" y="1018" text-anchor="middle">Clica Aceitar</text>
         </g>
 <g data-from="App" data-to="L">
-          <line class="arrow async" x1="354" y1="936" x2="526" y2="936"/>
-          <polygon class="arrow-head" points="534,936 526,932 526,940"/>
-          <text class="msg" x="444" y="928" text-anchor="middle">Modal Confirmar aceite?</text>
+          <line class="arrow async" x1="354" y1="1062" x2="526" y2="1062"/>
+          <polygon class="arrow-head" points="534,1062 526,1058 526,1066"/>
+          <text class="msg" x="444" y="1054" text-anchor="middle">Modal Confirmar aceite?</text>
         </g>
 <g data-from="L" data-to="App">
-          <line class="arrow" x1="534" y1="972" x2="362" y2="972"/>
-          <polygon class="arrow-head" points="354,972 362,968 362,976"/>
-          <text class="msg" x="444" y="964" text-anchor="middle">Confirma no modal</text>
+          <line class="arrow" x1="534" y1="1098" x2="362" y2="1098"/>
+          <polygon class="arrow-head" points="354,1098 362,1094 362,1102"/>
+          <text class="msg" x="444" y="1090" text-anchor="middle">Confirma no modal</text>
         </g>
 <g data-from="App" data-to="App">
-          <circle cx="346" cy="1008" r="3" class="arrow-head"/>
-          <text class="msg" x="356" y="1012">Adota e vira solicitação no</text><text class="msg" x="356" y="1024">funil</text>
+          <circle cx="346" cy="1134" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="1138">Adota e vira solicitação no</text><text class="msg" x="356" y="1150">funil</text>
         </g>
 <g data-from="App" data-to="L">
-          <line class="arrow async" x1="354" y1="1044" x2="526" y2="1044"/>
-          <polygon class="arrow-head" points="534,1044 526,1040 526,1048"/>
-          <text class="msg" x="444" y="1036" text-anchor="middle">Tela de sucesso</text>
+          <line class="arrow async" x1="354" y1="1170" x2="526" y2="1170"/>
+          <polygon class="arrow-head" points="534,1170 526,1166 526,1174"/>
+          <text class="msg" x="444" y="1162" text-anchor="middle">Tela de sucesso</text>
         </g>
 <g>
-          <line class="hair" x1="50" y1="1080" x2="68" y2="1080"/>
-          <rect class="pill" x="68" y="1068" width="72" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Recusa" x="104" y="1084" text-anchor="middle">Recusa</text>
+          <line class="hair" x1="50" y1="1224" x2="68" y2="1224"/>
+          <rect class="pill" x="68" y="1212" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Recusa" x="104" y="1228" text-anchor="middle">Recusa</text>
         </g>
 <g data-from="L" data-to="App">
-          <line class="arrow" x1="534" y1="1110" x2="362" y2="1110"/>
-          <polygon class="arrow-head" points="354,1110 362,1106 362,1114"/>
-          <text class="msg" x="444" y="1102" text-anchor="middle">Clica Recusar</text>
+          <line class="arrow" x1="534" y1="1254" x2="362" y2="1254"/>
+          <polygon class="arrow-head" points="354,1254 362,1250 362,1258"/>
+          <text class="msg" x="444" y="1246" text-anchor="middle">Clica Recusar</text>
         </g>
 <g data-from="App" data-to="L">
-          <line class="arrow async" x1="354" y1="1146" x2="526" y2="1146"/>
-          <polygon class="arrow-head" points="534,1146 526,1142 526,1150"/>
-          <text class="msg" x="444" y="1138" text-anchor="middle">Modal com motivo opcional</text>
+          <line class="arrow async" x1="354" y1="1290" x2="526" y2="1290"/>
+          <polygon class="arrow-head" points="534,1290 526,1286 526,1294"/>
+          <text class="msg" x="444" y="1282" text-anchor="middle">Modal com motivo opcional</text>
         </g>
 <g data-from="L" data-to="App">
-          <line class="arrow" x1="534" y1="1182" x2="362" y2="1182"/>
-          <polygon class="arrow-head" points="354,1182 362,1178 362,1186"/>
-          <text class="msg" x="444" y="1174" text-anchor="middle">Confirma recusa no modal</text>
+          <line class="arrow" x1="534" y1="1326" x2="362" y2="1326"/>
+          <polygon class="arrow-head" points="354,1326 362,1322 362,1330"/>
+          <text class="msg" x="444" y="1318" text-anchor="middle">Confirma recusa no modal</text>
         </g>
 <g data-from="App" data-to="App">
-          <circle cx="346" cy="1218" r="3" class="arrow-head"/>
-          <text class="msg" x="356" y="1222">Marca como recusada</text>
+          <circle cx="346" cy="1362" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="1366">Marca como recusada</text>
         </g>
 <g data-from="App" data-to="L">
-          <line class="arrow async" x1="354" y1="1254" x2="526" y2="1254"/>
-          <polygon class="arrow-head" points="534,1254 526,1250 526,1258"/>
-          <text class="msg" x="444" y="1246" text-anchor="middle">Tela de confirmação</text>
+          <line class="arrow async" x1="354" y1="1398" x2="526" y2="1398"/>
+          <polygon class="arrow-head" points="534,1398 526,1394 526,1402"/>
+          <text class="msg" x="444" y="1390" text-anchor="middle">Tela de confirmação</text>
         </g>
 <g data-from="App" data-to="G">
-          <line class="arrow async" x1="338" y1="1290" x2="166" y2="1290"/>
-          <polygon class="arrow-head" points="158,1290 166,1286 166,1294"/>
-          <text class="msg" x="248" y="1282" text-anchor="middle">Notificação ou e-mail de recusa</text>
+          <line class="arrow async" x1="338" y1="1434" x2="166" y2="1434"/>
+          <polygon class="arrow-head" points="158,1434 166,1430 166,1438"/>
+          <text class="msg" x="248" y="1426" text-anchor="middle">Notificação ou e-mail de recusa</text>
         </g>
 <g>
-          <line class="hair" x1="36" y1="1326" x2="54" y2="1326"/>
-          <rect class="pill" x="54" y="1314" width="83" height="24" rx="12"/>
-          <text class="pill-t" data-branch-label="Não edita" x="95.5" y="1330" text-anchor="middle">Não edita</text>
+          <line class="hair" x1="36" y1="1488" x2="54" y2="1488"/>
+          <rect class="pill" x="54" y="1476" width="83" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não edita" x="95.5" y="1492" text-anchor="middle">Não edita</text>
         </g>
 <g data-join-ref="1">
-          <line class="hair" x1="50" y1="1356" x2="68" y2="1356"/>
-          <rect class="pill" x="68" y="1344" width="216.4" height="24" rx="12"/>
-          <text class="pill-t" x="176.2" y="1360" text-anchor="middle">→ Aceitar ou recusar a sugestão?</text>
+          <line class="hair" x1="50" y1="1536" x2="68" y2="1536"/>
+          <rect class="pill" x="68" y="1524" width="216.4" height="24" rx="12"/>
+          <text class="pill-t" x="176.2" y="1540" text-anchor="middle">→ Aceitar ou recusar a sugestão?</text>
         </g>
-  </svg>
-      </section>
-
-      <section id="fl-bpm" class="fl-surface" role="tabpanel" data-surface="bpm" hidden>
-        <svg class="diagram" id="bpm-svg" data-surface="bpm" viewBox="0 0 840 910" xmlns="http://www.w3.org/2000/svg" role="img">
+    <g data-actor-id="G">
+        <rect class="actor-box" x="66" y="1590" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="1608" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="App">
+        <rect class="actor-box" x="262" y="1590" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="1608" text-anchor="middle">Sistema</text>
+      </g>
+<g data-actor-id="L">
+        <rect class="actor-box" x="458" y="1590" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="1608" text-anchor="middle">Líder</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="668" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="668" y2="41.5"/>
+    <g data-actor-id="G">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="App">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+<g data-actor-id="L">
+        <rect class="actor-box" x="458" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="26" text-anchor="middle">Líder</text>
+      </g>
+  </g>
+  </svg></div>
+          </section>
+          <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+            <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="840" height="910" viewBox="0 0 840 910" xmlns="http://www.w3.org/2000/svg" role="img">
     <title>Diagrama de processo — PDTI</title>
     <g>
           <path class="edge" d="M342 260 C272 260, 272 154, 352 154"/>
@@ -715,11 +646,10 @@ body.is-compare .compare { display: grid; grid-template-columns: repeat(3, minma
           <circle class="end-hole" cx="578" cy="802" r="5"/>
           <text class="end-t" x="578" y="826" text-anchor="middle">Fim · sem funil</text>
         </g>
-  </svg>
-      </section>
-
-      <section id="fl-machines" class="fl-surface" role="tabpanel" data-surface="machines" hidden>
-        <svg class="diagram" id="mach-svg" data-surface="machines" viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg" role="img">
+  </svg></div>
+          </section>
+          <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+            <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="780" height="280" viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg" role="img">
     <title>Máquina de estados — Sugestão PDTI</title>
     <text class="mach-title" x="16" y="22">Sugestão PDTI</text>
     <g data-machine-id="sugestao">
@@ -774,134 +704,471 @@ body.is-compare .compare { display: grid; grid-template-columns: repeat(3, minma
         <text class="st-t" x="350" y="239" text-anchor="middle">Recusada</text>
       </g>
     </g>
-  </svg>
-      </section>
-
+  </svg></div>
+          </section>
+        </div>
+      </div>
     </div>
   </div>
-
-  <footer class="fl-footer">prévia de estilo · não é L2 · tokens de site/assets/ds.css · medidas do design (ator 196 / fileira 36 / nó 200×48)</footer>
-</div>
-
-<section class="compare" id="compare" aria-label="Três looks lado a lado"></section>
-
-<section class="notes">
-  <article class="card">
-    <h2>A · Linha <span class="badge">recomendado</span></h2>
-    <ul>
-      <li>O que o design já descreve: stroke + wash 8%, trilho amber, sem caixa <code>alt</code>/<code>else</code>.</li>
-      <li>Atividade = placa elevada. XOR = losango oco com wash. Fim = ponto cheio.</li>
-      <li>Cabe no produto escuro. Pouca tinta, lê como documento.</li>
-    </ul>
-  </article>
-  <article class="card">
-    <h2>B · Bloco</h2>
-    <ul>
-      <li>Preenchimento semântico (info / warning / success). Mais PDTI, menos “folha”.</li>
-      <li>Tipo do nó é óbvio à distância. Mais barulho, mais cor.</li>
-      <li>Setas e lifelines azuis. Pastilhas XOR cheias.</li>
-    </ul>
-  </article>
-  <article class="card">
-    <h2>C · Quadro</h2>
-    <ul>
-      <li>Só linha. Sem fill, sem wash. Quadro-branco no escuro.</li>
-      <li>Máxima calma; risco de sumir no canvas <code>#0a0d12</code>.</li>
-      <li>Fim = anel, não disco.</li>
-    </ul>
-  </article>
-  <article class="card span">
-    <h2>Já travado (não está em votação)</h2>
-    <ul>
-      <li>3 superfícies, engine SVG própria, tokens só de <code>ds.css</code>. Paleta dark default; light via sistema ou switch.</li>
-      <li>XOR = trilho + pastilha. Sem retângulo <code>alt</code>/<code>else</code>.</li>
-      <li>BPM sem id técnico. Chrome: Sequência / Fluxo / Máquinas + pan/zoom 100%.</li>
-      <li>Mesmas medidas do design. Schema / brief / <code>--strict</code> / finalize F0–F2 intocados.</li>
-      <li>Conteúdo da prévia = grafo PDTI <code>fluxo-sugestao.json</code> (28 mensagens, 3 XOR, loop, 4 estados). Já estava no MODEL 1.0.</li>
-    </ul>
-  </article>
-</section>
-
+  <div id="actor-tip" hidden></div>
 <script>
+/**
+ * Build a multi-page PDF (one JPEG per flow surface) for attachment.
+ * Runtime download only — not part of HTML bytes / content-sha.
+ */
+
+/**
+ * @param {unknown} slug
+ * @returns {string}
+ */
+function pdfFilename(slug) {
+  const s = String(slug || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return s ? `${s}-fluxo.pdf` : 'fluxo.pdf';
+}
+
+/**
+ * @param {string} s
+ * @returns {Uint8Array}
+ */
+function enc(s) {
+  return new TextEncoder().encode(s);
+}
+
+/**
+ * @param {Uint8Array[]} chunks
+ * @returns {Uint8Array}
+ */
+function concat(chunks) {
+  let n = 0;
+  for (const c of chunks) n += c.length;
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const c of chunks) {
+    out.set(c, o);
+    o += c.length;
+  }
+  return out;
+}
+
+/**
+ * @param {{ pages: Array<{ jpeg: Uint8Array|ArrayBuffer, width: number, height: number, ptWidth?: number, ptHeight?: number }> }} input
+ * @returns {Uint8Array}
+ */
+function buildFlowPdf(input) {
+  const list = Array.isArray(input?.pages) ? input.pages : [];
+  if (!list.length) throw new Error('buildFlowPdf: pages required');
+
+  const header = enc('%PDF-1.4\n%\x80\x80\x80\x80\n');
+  const bodyParts = [];
+  const offsets = [0];
+  let pos = header.length;
+
+  function pushObj(num, payload) {
+    const start = enc(`${num} 0 obj\n`);
+    const end = enc('\nendobj\n');
+    offsets[num] = pos;
+    const chunk = concat([start, payload, end]);
+    bodyParts.push(chunk);
+    pos += chunk.length;
+  }
+
+  const n = list.length;
+  const kids = list.map((_, i) => `${3 + i * 3} 0 R`).join(' ');
+  pushObj(1, enc('<< /Type /Catalog /Pages 2 0 R >>'));
+  pushObj(2, enc(`<< /Type /Pages /Kids [ ${kids} ] /Count ${n} >>`));
+
+  list.forEach((p, i) => {
+    const pageNo = 3 + i * 3;
+    const contentNo = pageNo + 1;
+    const imageNo = pageNo + 2;
+    const ptW = Number(p.ptWidth) || Number(p.width) || 595;
+    const ptH = Number(p.ptHeight) || Number(p.height) || 842;
+    const raw = p.jpeg;
+    const jpeg = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
+    const pxW = Math.max(1, Number(p.width) || 1);
+    const pxH = Math.max(1, Number(p.height) || 1);
+    const content = `q ${ptW} 0 0 ${ptH} 0 0 cm /Im0 Do Q`;
+    pushObj(
+      pageNo,
+      enc(
+        `<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 ${ptW} ${ptH} ] /Resources << /XObject << /Im0 ${imageNo} 0 R >> >> /Contents ${contentNo} 0 R >>`,
+      ),
+    );
+    pushObj(contentNo, enc(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
+    pushObj(
+      imageNo,
+      concat([
+        enc(
+          `<< /Type /XObject /Subtype /Image /Width ${pxW} /Height ${pxH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`,
+        ),
+        jpeg,
+        enc('\nendstream'),
+      ]),
+    );
+  });
+
+  const xrefStart = pos;
+  const maxObj = 2 + n * 3;
+  let xref = `xref\n0 ${maxObj + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i <= maxObj; i += 1) {
+    xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  return concat([
+    header,
+    ...bodyParts,
+    enc(xref),
+    enc(`trailer\n<< /Size ${maxObj + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`),
+  ]);
+}
+
 (function () {
-  const body = document.body;
-  const lookBtns = [...document.querySelectorAll('.looks [data-look]')];
   const tabs = [...document.querySelectorAll('.fl-toc [data-tab]')];
   const panels = [...document.querySelectorAll('.fl-surface[data-surface]')];
   const stage = document.getElementById('fl-stage');
   const viewport = document.getElementById('fl-viewport');
+  const sizer = document.getElementById('fl-sizer');
   const lab = document.getElementById('z-lab');
-  const compare = document.getElementById('compare');
-  let scale = 1;
-
-  function setLook(look) {
-    const compareMode = look === 'compare';
-    body.classList.toggle('is-compare', compareMode);
-    if (!compareMode) body.setAttribute('data-look', look);
-    lookBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.look === look)));
-    if (compareMode) mountCompare();
+  const hint = document.getElementById('tab-hint');
+  const tip = document.getElementById('actor-tip');
+  const HINTS = {
+    sequence: 'Tronco + trilho XOR',
+    bpm: 'Caixa / losango / fim · sem id técnico',
+    machines: 'Estados + efeitos nas arestas',
+  };
+  const MIN = 0.3, MAX = 2.8, STEP = 0.1, PAD = 40;
+  const zoomKey = "as-flow-zoom:" + (document.documentElement.getAttribute('data-fl-slug') || 'default');
+  function readZoom() {
+    try {
+      const n = parseFloat(localStorage.getItem(zoomKey));
+      if (Number.isFinite(n)) return Math.min(MAX, Math.max(MIN, n));
+    } catch (e) {}
+    return 1;
   }
-
-  function mountCompare() {
-    if (compare.dataset.ready) return;
-    const seq = document.getElementById('seq-svg').outerHTML;
-    const bpm = document.getElementById('bpm-svg').outerHTML;
-    const labels = [
-      ['line', 'A · Linha'],
-      ['block', 'B · Bloco'],
-      ['frame', 'C · Quadro'],
-    ];
-    compare.innerHTML = labels.map(([look, title]) => `
-      <article class="col" data-look="${look}">
-        <h2>${title}</h2>
-        <div class="mini">${seq}${bpm}</div>
-      </article>`).join('');
-    compare.dataset.ready = '1';
+  function saveZoom() {
+    try { localStorage.setItem(zoomKey, String(scale)); } catch (e) {}
   }
+  let scale = readZoom();
 
-  lookBtns.forEach((b) => b.addEventListener('click', () => setLook(b.dataset.look)));
-
+  function visibleSvg() {
+    return document.querySelector('.diagram-panel:not([hidden]) svg');
+  }
+  function svgNative(svg) {
+    if (!svg) return { w: 0, h: 0 };
+    if (!svg.dataset.nw) {
+      const vb = svg.viewBox && svg.viewBox.baseVal;
+      svg.dataset.nw = String((vb && vb.width) || svg.width.baseVal.value || 0);
+      svg.dataset.nh = String((vb && vb.height) || svg.height.baseVal.value || 0);
+    }
+    return { w: +svg.dataset.nw, h: +svg.dataset.nh };
+  }
+  function applySvgScale() {
+    const svg = visibleSvg();
+    if (!svg) return;
+    const n = svgNative(svg);
+    svg.setAttribute('width', String(n.w * scale));
+    svg.setAttribute('height', String(n.h * scale));
+  }
+  function naturalSize() {
+    applySvgScale();
+    const sheet = document.querySelector('.diagram-panel:not([hidden]) .sheet');
+    if (!sheet) return { w: 0, h: 0 };
+    let w = sheet.offsetWidth;
+    let h = sheet.offsetHeight;
+    if (!w || !h) {
+      const n = svgNative(visibleSvg());
+      w = n.w * scale + 40;
+      h = n.h * scale + 36;
+    }
+    return { w, h };
+  }
+  function applyStageGeometry() {
+    const { w, h } = naturalSize();
+    if (!w || !h) return null;
+    const contentW = w + PAD * 2;
+    const contentH = h + PAD * 2;
+    const sizerW = Math.max(viewport.clientWidth, Math.ceil(contentW));
+    const sizerH = Math.max(viewport.clientHeight, Math.ceil(contentH));
+    sizer.style.width = sizerW + 'px';
+    sizer.style.height = sizerH + 'px';
+    const left = Math.max(0, (sizerW - contentW) / 2);
+    const top = 0;
+    stage.style.left = left + 'px';
+    stage.style.top = top + 'px';
+    stage.style.transform = '';
+    lab.textContent = Math.round(scale * 100) + '%';
+    updateStickyActors();
+    return { left, top, scaledW: contentW, scaledH: contentH };
+  }
+  function updateStickyActors() {
+    const svg = document.getElementById('seq-svg');
+    const layer = svg && svg.querySelector('[data-actor-stick]');
+    const seq = document.getElementById('fl-sequence');
+    if (!svg || !layer || !seq || seq.hidden) return;
+    const vb = svg.viewBox.baseVal;
+    const svgRect = svg.getBoundingClientRect();
+    if (!vb.width || svgRect.width < 1) return;
+    const k = vb.width / svgRect.width;
+    const visibleTop = (viewport.getBoundingClientRect().top - svgRect.top) * k;
+    layer.setAttribute('transform', 'translate(0 ' + Math.max(0, visibleTop) + ')');
+  }
+  function centerHorizontally(scrollTop) {
+    const geo = applyStageGeometry();
+    if (!geo) return;
+    viewport.scrollLeft = geo.scaledW > viewport.clientWidth ? (geo.scaledW - viewport.clientWidth) / 2 : 0;
+    viewport.scrollTop = scrollTop == null ? 0 : scrollTop;
+  }
+  function setScale(next, anchor) {
+    const prev = scale || 1;
+    scale = Math.min(MAX, Math.max(MIN, next));
+    const prevLeft = parseFloat(stage.style.left) || 0;
+    const prevTop = parseFloat(stage.style.top) || 0;
+    let contentX, contentY, cx, cy;
+    if (anchor) {
+      const rect = viewport.getBoundingClientRect();
+      cx = anchor.clientX - rect.left;
+      cy = anchor.clientY - rect.top;
+      contentX = (viewport.scrollLeft + cx - prevLeft) / prev;
+      contentY = (viewport.scrollTop + cy - prevTop) / prev;
+    } else {
+      contentX = (viewport.scrollLeft + viewport.clientWidth / 2 - prevLeft) / prev;
+      contentY = (viewport.scrollTop + viewport.clientHeight / 2 - prevTop) / prev;
+    }
+    const geo = applyStageGeometry();
+    if (!geo) return;
+    if (anchor) {
+      viewport.scrollLeft = contentX * scale + geo.left - cx;
+      viewport.scrollTop = contentY * scale + geo.top - cy;
+    } else {
+      viewport.scrollLeft = contentX * scale + geo.left - viewport.clientWidth / 2;
+      viewport.scrollTop = contentY * scale + geo.top - viewport.clientHeight / 2;
+    }
+    saveZoom();
+  }
   function showTab(name) {
     tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
-    panels.forEach((p) => { p.hidden = p.dataset.surface !== name; });
+    panels.forEach((p) => {
+      const on = p.dataset.surface === name;
+      p.hidden = !on;
+      p.setAttribute('aria-hidden', String(!on));
+    });
+    if (hint) hint.textContent = HINTS[name] || '';
+    if (tip) tip.hidden = true;
+    requestAnimationFrame(function () { centerHorizontally(0); });
   }
   tabs.forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
 
-  function applyZoom() {
-    stage.style.transform = `scale(${scale})`;
-    lab.textContent = `${Math.round(scale * 100)}%`;
-  }
-  document.getElementById('z-in').onclick = () => { scale = Math.min(2, scale + 0.1); applyZoom(); };
-  document.getElementById('z-out').onclick = () => { scale = Math.max(0.4, scale - 0.1); applyZoom(); };
-  document.getElementById('z-100').onclick = () => { scale = 1; applyZoom(); };
+  document.getElementById('z-in').onclick = () => setScale(scale + STEP);
+  document.getElementById('z-out').onclick = () => setScale(scale - STEP);
+  document.getElementById('z-100').onclick = () => { scale = 1; centerHorizontally(0); saveZoom(); };
   document.getElementById('z-fit').onclick = () => {
-    const svg = panels.find((p) => !p.hidden)?.querySelector('svg');
-    if (!svg) return;
-    const vb = svg.viewBox.baseVal;
-    scale = Math.min(viewport.clientWidth / (vb.width + 32), viewport.clientHeight / (vb.height + 32), 1);
-    applyZoom();
+    const btn = document.getElementById('z-fit');
+    const n = svgNative(visibleSvg());
+    if (!n.w || !n.h) return;
+    const fitX = (viewport.clientWidth - 24) / (n.w + PAD * 2 + 40);
+    const fitY = (viewport.clientHeight - 24) / (n.h + PAD * 2 + 36);
+    const axis = btn.getAttribute('data-fit') === 'width' ? 'width' : 'height';
+    const next = axis === 'width' ? fitX : fitY;
+    scale = Math.max(MIN, Math.min(MAX, next));
+    centerHorizontally(0);
+    const other = axis === 'height' ? 'width' : 'height';
+    btn.setAttribute('data-fit', other);
+    btn.textContent = other === 'width' ? 'À largura' : 'À altura';
+    btn.title = other === 'width' ? 'Ajustar à largura' : 'Ajustar à altura';
+    saveZoom();
   };
+
+  const EXPORT_SVG_CSS = [
+    'svg.diagram{font-family:Inter,ui-sans-serif,system-ui,sans-serif}',
+    'svg.diagram text{fill:#12161d}',
+    '.actor-box{fill:#eef2f7;stroke:#d5dce6;stroke-width:1}',
+    '.actor-label{fill:#12161d;font-size:11px;font-weight:600}',
+    '.actor-stick-bg{fill:#ffffff}',
+    '.actor-stick-rule{stroke:#d5dce6;stroke-width:1}',
+    '.lifeline{stroke:#98a1ad;stroke-width:1;stroke-dasharray:3 5}',
+    '.life-hit{stroke:none}',
+    '.arrow{stroke:#4a5565;stroke-width:1.25;fill:none}',
+    '.arrow.async{stroke-dasharray:5 4}',
+    '.arrow-head{fill:#4a5565}',
+    '.msg{fill:#12161d;font-size:12px}',
+    '.xor-wash{fill:rgba(238,242,247,.18);stroke:none}',
+    '.xor-rail{stroke:#c9a36a;stroke-width:2;fill:none}',
+    '.xor-q{fill:#b8860b;font-size:12px;font-weight:600}',
+    '.hair{stroke:#e8edf3;stroke-width:1}',
+    '.pill{fill:#e8edf4;stroke:#c9a36a;stroke-width:1}',
+    '.pill-t{fill:#b8860b;font-size:11px;font-weight:600}',
+    '.loop{fill:#4a5565;font-size:11px}',
+    '.loop-arc{fill:none;stroke:#b8860b;stroke-width:1.25;stroke-dasharray:4 3}',
+    '.loop-head{fill:#b8860b}',
+    '.act{fill:#eef2f7;stroke:#d5dce6;stroke-width:1.25}',
+    '.act-t{fill:#12161d;font-size:12px;font-weight:500}',
+    '.who{fill:#6b7585;font-size:10px;font-family:ui-monospace,monospace}',
+    '.diamond{fill:#fff8eb;stroke:#c9a36a;stroke-width:1.25}',
+    '.xor-t{fill:#12161d;font-size:12px;font-weight:600}',
+    '.edge{stroke:#98a1ad;stroke-width:1.15;fill:none}',
+    '.edge-t{fill:#6b7585;font-size:11px}',
+    '.end-ok{fill:#4cc28e;stroke:#4cc28e;stroke-width:1.5}',
+    '.end-bad{fill:#ff5c5c;stroke:#ff5c5c;stroke-width:1.5}',
+    '.end-t{fill:#4a5565;font-size:11px}',
+    '.end-hole{fill:#ffffff}',
+    '.st{fill:#e8edf4;stroke:#d5dce6;stroke-width:1.15}',
+    '.st.entry{stroke:#5fb1ff;stroke-width:1.75}',
+    '.st.term{stroke:#4cc28e;stroke-width:1.75}',
+    '.st-t{fill:#12161d;font-size:12px;font-weight:500}',
+    '.fx{fill:#6b7585;font-size:10px;font-family:ui-monospace,monospace}',
+    '.mach-title{fill:#4a5565;font-size:12px;font-weight:600}',
+  ].join('');
+
+  function nativeBox(svg) {
+    const vb = svg.viewBox && svg.viewBox.baseVal;
+    if (vb && vb.width && vb.height) return { w: vb.width, h: vb.height };
+    return { w: svg.width.baseVal.value, h: svg.height.baseVal.value };
+  }
+  function svgToImage(svg) {
+    return new Promise((resolve, reject) => {
+      const clone = svg.cloneNode(true);
+      const n = nativeBox(svg);
+      clone.setAttribute('width', String(n.w));
+      clone.setAttribute('height', String(n.h));
+      const stick = clone.querySelector('[data-actor-stick]');
+      if (stick) stick.removeAttribute('transform');
+      const ns = 'http://www.w3.org/2000/svg';
+      const style = document.createElementNS(ns, 'style');
+      style.textContent = EXPORT_SVG_CSS;
+      const bg = document.createElementNS(ns, 'rect');
+      bg.setAttribute('width', '100%');
+      bg.setAttribute('height', '100%');
+      bg.setAttribute('fill', '#ffffff');
+      clone.insertBefore(style, clone.firstChild);
+      clone.insertBefore(bg, style.nextSibling);
+      const xml = new XMLSerializer().serializeToString(clone);
+      const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }));
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Falha ao rasterizar o diagrama')); };
+      img.src = url;
+    });
+  }
+  function jpegFromCanvas(canvas) {
+    const url = canvas.toDataURL('image/jpeg', 0.92);
+    const bin = atob(url.slice(url.indexOf(',') + 1));
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  async function rasterSurface(svg, heading, title, scenario) {
+    const n = nativeBox(svg);
+    const img = await svgToImage(svg);
+    const scale = 2;
+    const head = 64 * scale;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(n.w * scale));
+    canvas.height = Math.max(1, Math.round(head + n.h * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#12161d';
+    ctx.font = '600 ' + (16 * scale) + 'px Inter, ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText(title, 16 * scale, 22 * scale);
+    ctx.fillStyle = '#4a5565';
+    ctx.font = '500 ' + (11 * scale) + 'px Inter, ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText(heading, 16 * scale, 38 * scale);
+    if (scenario) {
+      ctx.fillStyle = '#6b7585';
+      ctx.fillText(scenario, 16 * scale, 52 * scale);
+    }
+    ctx.drawImage(img, 0, head, n.w * scale, n.h * scale);
+    const jpeg = jpegFromCanvas(canvas);
+    const ptW = 539;
+    const ptH = ptW * (canvas.height / canvas.width);
+    return { jpeg, width: canvas.width, height: canvas.height, ptWidth: ptW, ptHeight: ptH };
+  }
+  document.getElementById('btn-pdf').onclick = async () => {
+    const btn = document.getElementById('btn-pdf');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'PDF…';
+    try {
+      const title = (document.querySelector('.fl-title') || {}).textContent || 'Fluxo';
+      const scenario = (document.querySelector('.fl-scenario') || {}).textContent || '';
+      const slug = document.documentElement.getAttribute('data-fl-slug') || '';
+      const specs = [
+        ['seq-svg', 'Sequência'],
+        ['bpm-svg', 'Fluxo'],
+        ['mach-svg', 'Máquinas'],
+      ];
+      const pages = [];
+      for (const [id, label] of specs) {
+        const svg = document.getElementById(id);
+        if (!svg) continue;
+        pages.push(await rasterSurface(svg, label, title, scenario));
+      }
+      if (!pages.length) throw new Error('Nenhum diagrama para exportar');
+      const bytes = buildFlowPdf({ pages });
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = pdfFilename(slug);
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (err) {
+      console.error(err);
+      if (hint) hint.textContent = (err && err.message) || 'Falha ao gerar PDF';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'PDF';
+    }
+  };
+
   viewport.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return;
+    if (!(e.ctrlKey || e.metaKey)) return;
     e.preventDefault();
-    scale = Math.min(2, Math.max(0.4, scale + (e.deltaY < 0 ? 0.08 : -0.08)));
-    applyZoom();
+    setScale(scale + (e.deltaY > 0 ? -STEP : STEP), e);
   }, { passive: false });
 
   let pan = false, sx = 0, sy = 0, sl = 0, st = 0;
   viewport.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 && e.button !== 1) return;
     pan = true;
     viewport.classList.add('is-panning');
     sx = e.clientX; sy = e.clientY; sl = viewport.scrollLeft; st = viewport.scrollTop;
     viewport.setPointerCapture(e.pointerId);
+    e.preventDefault();
   });
   viewport.addEventListener('pointermove', (e) => {
-    if (!pan) return;
-    viewport.scrollLeft = sl - (e.clientX - sx);
-    viewport.scrollTop = st - (e.clientY - sy);
+    if (pan) {
+      viewport.scrollLeft = sl - (e.clientX - sx);
+      viewport.scrollTop = st - (e.clientY - sy);
+      return;
+    }
+    if (!tip) return;
+    const hit = e.target && e.target.closest && e.target.closest('[data-actor-label]');
+    if (!hit) { tip.hidden = true; return; }
+    tip.hidden = false;
+    tip.textContent = hit.getAttribute('data-actor-label') || '';
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top = (e.clientY + 12) + 'px';
   });
-  viewport.addEventListener('pointerup', () => { pan = false; viewport.classList.remove('is-panning'); });
+  viewport.addEventListener('pointerleave', () => { if (tip) tip.hidden = true; });
+  viewport.addEventListener('scroll', () => updateStickyActors(), { passive: true });
+  const endPan = (e) => {
+    if (!pan) return;
+    pan = false;
+    viewport.classList.remove('is-panning');
+    try { viewport.releasePointerCapture(e.pointerId); } catch (err) {}
+  };
+  viewport.addEventListener('pointerup', endPan);
+  viewport.addEventListener('pointercancel', endPan);
+  window.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); setScale(scale + STEP); }
+    if (e.key === '-') { e.preventDefault(); setScale(scale - STEP); }
+    if (e.key === '0') { e.preventDefault(); scale = 1; centerHorizontally(0); saveZoom(); }
+  });
+  window.addEventListener('resize', () => applyStageGeometry());
+  requestAnimationFrame(function () { centerHorizontally(0); });
 })();
 </script>
 </body>

@@ -90,7 +90,7 @@ Tudo no render. Sem layout no cliente.
 
 ## Seção 3 — Chrome, arquivos, prova
 
-**Chrome.** Uma viewport. Abas Sequência / Fluxo / Estados. Aba vazia some (0 messages ou 0 machines). Fluxo BPM sempre existe. `+` `−` `100%` `ajustar`; pan arrastando; `Ctrl`+roda. Hint curto, sem jargão de domínio.
+**Chrome.** App de página inteira (grid `auto 1fr`, viewport no 1fr). Abas Sequência / Fluxo / Máquinas. Aba vazia some (0 messages ou 0 machines). Fluxo BPM sempre existe. `+` `−` `100%`; o botão de ajuste **alterna** entre caber na altura e caber na largura (`À altura` / `À largura`). Pan arrastando; `Ctrl`+roda. Sizer cresce com o zoom para explorar X e Y. Hint curto, sem jargão de domínio.
 
 **Arquivos.**
 
@@ -123,11 +123,11 @@ Não inventar paleta, sombra de nó, fill semântico azul/amber, nem “quadro s
 
 | Peça | Fill | Stroke | Tipo |
 |------|------|--------|------|
-| Ator (topo + base) | `--bg-elevated` | `--border-default` 1px, rx 8 | 12px semibold `--fg-default` |
-| Lifeline | — | `--fg-faint` 1px dash 3 5 | — |
+| Ator (topo + base) | `--bg-elevated` | `--border-default` 1px, rx 8 | mesmo chip 168×26, 11px. Sticky com `STICK_PAD` 8px (não colar na borda). O topo pode parecer um pouco maior que o rodapé — aceito. |
+| Lifeline | — | `--fg-faint` 1px dash 3 5 | Pintada **depois** da faixa XOR (a wash não tapa a torre). Hover na linha mostra o nome do ator. |
 | Seta sync | — | `--fg-muted` 1.25, cabeça cheia | mensagem 12 `--fg-default`; sem número de fileira |
 | Seta async | — | idem + dash 5 4 | — |
-| Faixa XOR | wash `color-mix(in srgb, var(--bg-elevated) 55%, transparent)`, **sem** stroke | trilho esquerdo `--status-warning-line` 2px | `◇ {pergunta}` 12 semibold `--status-warning` |
+| Faixa XOR | wash **só no XOR de profundidade 0**, `color-mix(in srgb, var(--bg-elevated) 18%, transparent)`, **sem** stroke. XOR aninhado = trilho + pastilha, sem segunda wash (10 níveis não escurecem). | trilho esquerdo `--status-warning-line` 2px | `◇ {pergunta}` 12 semibold `--status-warning`. Folga `BLOCK_LEAD` 18px acima de pergunta / ramo / join (não há caixa divisor). |
 | Pastilha de ramo | `--bg-sunken` | `--status-warning-line` 1px, rx pill | 11 semibold `--status-warning` |
 | Loop | — | arco tracejado `--status-warning` da última msg rumo ao ◇, ponta com vão curto (~5px) | sem pastilha, sem texto «volta» |
 | Activity / subprocess | `--bg-elevated` | `--border-default` `--node-sw` 1.25, rx 8; subprocess + marca interna 5px | 12 medium `--fg-default`; `who` mono 10 `--fg-subtle` |
@@ -139,9 +139,9 @@ Não inventar paleta, sombra de nó, fill semântico azul/amber, nem “quadro s
 | Estado | `--bg-sunken` | `--border-default`; entry `--status-info` 1.75; terminal anel duplo `--status-success` | pílula 12 medium |
 | Aresta BPM / máquina | — | `--fg-faint` 1.15 | rótulo 11 `--fg-subtle`; efeito mono 10 |
 
-Chrome: header atual (eyebrow / título / cenário / ator) + tabs pílula Sequência / Fluxo / Máquinas + viewport `--bg-surface` card + `+` `−` `100%` `Ajustar`. Zoom default 100%. Sem segundo painel de lista.
+Chrome: **app de página inteira** (modo `fluxo-completo.html` do HANDOFF, não documento com `max-width`). `html, body { height:100%; overflow:hidden }`. `.app` = grid `auto 1fr`. Topo compacto: título + cenário numa linha, tabs pílula Sequência / Fluxo / Máquinas, `+` `−` `100%`, botão que alterna `À altura` / `À largura`, **PDF** (baixa `{slug}-fluxo.pdf`: Sequência + Fluxo + Máquinas, papel claro, uma página por superfície; anexo a requisito). Switch de tema. Viewport (`#fl-viewport`) ocupa o resto; fundo pontilhado; cartão `.sheet` com o SVG. `#fl-sizer` cresce com o conteúdo. Zoom muda `width`/`height` do SVG (viewBox × fator) — vetor nítido; **proibido** `transform: scale` no stage (embaça). Zoom persiste **por processo** em `localStorage` (`as-flow-zoom:<data-fl-slug>`). Reabrir o mesmo fluxo restaura o fator; outro slug tem o seu. Não entra no HTML gerado / content-sha. SVG `max-width: none`. Explora X e Y (scroll + arrastar). Sem attrs o cartão inline-block colapsa a 0. Zoom default 100%. Sem picker B/C. Sem segundo painel de lista. Sem footer de documento.
 
-**Fixture visual:** a prévia usa o grafo PDTI `docs/design/project-flow/dogfood/fluxo-sugestao.json` (já schema 1.0 / MODEL — sem reescrever tipos). Não o recorte curto de `project-flow/flow.json`.
+**Dados de validação:** o grafo PDTI `docs/design/project-flow/dogfood/fluxo-sugestao.json` (já schema 1.0 / MODEL) é só L1 — um fluxo real para o olho. O desenho e o chrome vêm da engine (`flow-layout` + `flow-draw` + `render-flow`). Sem drawer paralelo. Sem reescrever tipos. Sem copiar mermaid/walk do HTML PDTI.
 
 **Tema (2026-08-14):** Sistema / Claro / Escuro. Default = `prefers-color-scheme` (`data-theme` ausente). Override = `html[data-theme=light|dark]` + `localStorage.as-color-scheme`. Switch no header (`scripts/lib/color-scheme.js`). Look A usa **nomes** de token, não hex — a paleta light em `site/assets/ds.css` (`--bg-canvas: #f4f6fa`, `--fg-default: #12161d`) re-pinta o mesmo SVG. HTML gerado permanece determinístico (o tema é runtime).
 
