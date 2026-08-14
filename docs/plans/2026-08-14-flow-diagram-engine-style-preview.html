@@ -7,8 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==="light"||v==="dark"?v:"system"}catch(e){return"system"}}function apply(mode){var r=document.documentElement;if(mode==="light"||mode==="dark")r.setAttribute("data-theme",mode);else r.removeAttribute("data-theme");document.querySelectorAll("[data-theme-set]").forEach(function(b){b.setAttribute("aria-checked",String(b.getAttribute("data-theme-set")===mode))})}apply(read());document.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("[data-theme-set]");if(!b)return;var mode=b.getAttribute("data-theme-set");try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener("DOMContentLoaded",function(){apply(read())})})();</script>
 <style>
 :root {
+  color-scheme: dark;
   --bg-sunken: #07090d;
   --bg-canvas: #0a0d12;
   --bg-surface: #12161d;
@@ -46,6 +48,44 @@
   --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px #88c4ff;
 }
 
+@media (prefers-color-scheme: light) {
+  html:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg-sunken: #e8edf4;
+    --bg-canvas: #f4f6fa;
+    --bg-surface: #ffffff;
+    --bg-elevated: #eef2f7;
+    --bg-overlay: #e2e8f0;
+    --border-subtle: #e8edf3;
+    --border-default: #d5dce6;
+    --border-strong: #b8c2d0;
+    --fg-default: #12161d;
+    --fg-muted: #4a5565;
+    --fg-subtle: #6b7585;
+    --fg-faint: #98a1ad;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
+    --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px #1565c0;
+  }
+}
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg-sunken: #e8edf4;
+  --bg-canvas: #f4f6fa;
+  --bg-surface: #ffffff;
+  --bg-elevated: #eef2f7;
+  --bg-overlay: #e2e8f0;
+  --border-subtle: #e8edf3;
+  --border-default: #d5dce6;
+  --border-strong: #b8c2d0;
+  --fg-default: #12161d;
+  --fg-muted: #4a5565;
+  --fg-subtle: #6b7585;
+  --fg-faint: #98a1ad;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
+  --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px #1565c0;
+}
+html[data-theme="dark"] { color-scheme: dark; }
+
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg-canvas); color: var(--fg-default); font-family: var(--font-sans); }
 body { min-height: 100vh; }
@@ -71,6 +111,16 @@ body { min-height: 100vh; }
   background: var(--fg-default); color: var(--bg-canvas); border-color: var(--fg-default);
 }
 .looks button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.theme-switch {
+  display: inline-flex; border: 1px solid var(--border-default); border-radius: var(--radius-pill);
+  background: var(--bg-elevated); overflow: hidden;
+}
+.theme-switch button {
+  appearance: none; border: 0; background: transparent; color: var(--fg-muted);
+  font: 500 11px var(--font-sans); height: 28px; padding: 0 10px; cursor: pointer;
+}
+.theme-switch button[aria-checked="true"] { background: var(--bg-surface); color: var(--fg-default); }
+.picker-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .badge {
   display: inline-block; margin-left: 6px; font-family: var(--font-mono); font-size: 9px;
   letter-spacing: .06em; text-transform: uppercase; opacity: .7;
@@ -282,11 +332,18 @@ body.is-compare .compare { display: grid; grid-template-columns: repeat(3, minma
       Operador travou <strong>A · Linha</strong> (2026-08-14). B e C ficam só como contraste.
       Prévia estática (não é o engine). Recorte do fluxo vivo <em>Carimbar o fluxo antes de executar o plano</em>.
     </p>
+    <div class="picker-row">
     <div class="looks" role="tablist" aria-label="Looks">
       <button type="button" data-look="line" aria-pressed="true">A · Linha <span class="badge">recomendado</span></button>
       <button type="button" data-look="block">B · Bloco</button>
       <button type="button" data-look="frame">C · Quadro</button>
       <button type="button" data-look="compare">Os 3 juntos</button>
+    </div>
+    <div class="theme-switch" role="radiogroup" aria-label="Aparência">
+      <button type="button" role="radio" data-theme-set="system" aria-checked="true">Sistema</button>
+      <button type="button" role="radio" data-theme-set="light" aria-checked="false">Claro</button>
+      <button type="button" role="radio" data-theme-set="dark" aria-checked="false">Escuro</button>
+    </div>
     </div>
   </div>
 </header>
@@ -553,7 +610,7 @@ body.is-compare .compare { display: grid; grid-template-columns: repeat(3, minma
   <article class="card span">
     <h2>Já travado (não está em votação)</h2>
     <ul>
-      <li>3 superfícies, engine SVG própria, tokens só de <code>ds.css</code>, dark-first.</li>
+      <li>3 superfícies, engine SVG própria, tokens só de <code>ds.css</code>. Paleta dark default; light via sistema ou switch.</li>
       <li>XOR = trilho + pastilha. Sem retângulo <code>alt</code>/<code>else</code>.</li>
       <li>BPM sem id técnico. Chrome: Sequência / Fluxo / Máquinas + pan/zoom 100%.</li>
       <li>Mesmas medidas do design. Schema / brief / <code>--strict</code> / finalize F0–F2 intocados.</li>

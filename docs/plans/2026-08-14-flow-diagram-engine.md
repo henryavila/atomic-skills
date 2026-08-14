@@ -612,6 +612,7 @@ Design §3 says “Estados” for the third tab. Keep **Máquinas** so the secti
 - Keep `finalizeHtml` (CRLF strip + trailing whitespace) so determinism tests stay honest
 - Keep `data-fl-content-sha="${contentFingerprint(normalized)}"`
 - Inline JS: click tab → `hidden` / `aria-selected`; pointer pan on `#fl-viewport`; wheel+ctrl scale a wrapper; buttons. Default scale 1. Deterministic (no random, no `Date.now`)
+- Keep the existing color-scheme switch (`renderColorSchemeSwitch` + `colorSchemeBootScript` from `scripts/lib/color-scheme.js`). Do not invent a second theme key. Theme is runtime (`data-theme` / `localStorage.as-color-scheme`); it must not appear in layout math or SVG geometry.
 - `FLOW_CSS`: chrome + viewport (`overflow: auto`), keep DS tokens, no `.ds-` classes
 - Delete list CSS (`.fl-msg`, `.fl-nodes`, …) if unused
 
@@ -698,6 +699,7 @@ Applied after adversarial local review. Not a ground-truth receipt.
 9. Dogfood `S1e→D1` is loop-ref; AND/join is one box; empty sequence selects Fluxo.
 10. Ground-truth: keep header/footer; xor-first entry (live L1) has a walk test.
 11. Look A · Linha ratified (2026-08-14). Draw tokens = design §4. Preview HTML is fixture only.
+12. Color scheme: system + light + dark. Tokens in `ds.css`; switch already in `renderFlowHtml`. Task 7 keeps it.
 
 ## Ground-truth review
 
@@ -759,4 +761,4 @@ Applied after adversarial local review. Not a ground-truth receipt.
 
 ## Reviews
 
-- ground-truth: complete-with-findings | mode=ground-truth | fp=56d8cbe63534 | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=02a0bae4b6fc | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)

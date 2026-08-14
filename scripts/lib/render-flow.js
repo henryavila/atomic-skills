@@ -9,6 +9,7 @@
 import { createHash } from 'node:crypto';
 import { assertValidFlow, SCHEMA_VERSION } from './validate-flow.js';
 import { escapeHtml } from './render-site.js';
+import { colorSchemeBootScript, renderColorSchemeSwitch } from './color-scheme.js';
 
 const NEXT_TYPES = new Set(['activity', 'join', 'subprocess', 'event']);
 const BRANCH_TYPES = new Set(['xor', 'and']);
@@ -263,7 +264,7 @@ export const FLOW_CSS = `/* flow layout — tokens from inlined ds.css only */
 .fl-eyebrow{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-subtle);letter-spacing:var(--tracking-wide);text-transform:uppercase}
 .fl-title{margin:0;font-size:var(--fs-3xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight);line-height:var(--lh-tight)}
 .fl-scenario{margin:0;color:var(--fg-muted);font-size:var(--fs-md);line-height:var(--lh-relaxed);max-width:68ch}
-.fl-meta{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center}
+.fl-meta{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center;justify-content:space-between}
 .fl-meta span{font-size:var(--fs-sm);color:var(--fg-subtle)}
 .fl-meta strong{color:var(--fg-muted);font-weight:var(--fw-medium)}
 .fl-toc{display:flex;flex-wrap:wrap;gap:var(--space-4);margin:var(--space-4) 0 0;padding:0;list-style:none}
@@ -471,6 +472,7 @@ export function renderFlowHtml(normalized, dsCss) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
+<script>${colorSchemeBootScript()}</script>
 <style>
 ${styleBlock}
 </style>
@@ -484,6 +486,7 @@ ${styleBlock}
     <div class="fl-meta">
       <span><strong>Ator:</strong> ${escapeHtml(normalized.actor)}</span>
       <span><strong>Plano:</strong> ${escapeHtml(normalized.planSlug)}</span>
+      ${renderColorSchemeSwitch({ locale: 'pt' })}
     </div>
     <nav class="fl-toc" role="navigation" aria-label="Camadas do fluxo">
       <a href="#fl-sequence">Sequência</a>

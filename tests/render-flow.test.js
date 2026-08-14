@@ -228,6 +228,16 @@ describe('T-006 DS polish', () => {
     assert.ok(html.includes('role="navigation"') || html.includes('role="tablist"'));
   });
 
+  it('includes system/light/dark switch and boot script', () => {
+    const { html } = buildFlowHtml(loadDogfood(), DS);
+    assert.match(html, /data-theme-set="system"/);
+    assert.match(html, /data-theme-set="light"/);
+    assert.match(html, /data-theme-set="dark"/);
+    assert.match(html, /as-color-scheme/);
+    assert.match(html, />Sistema</);
+    assert.doesNotMatch(html, /Date\.now/);
+  });
+
   it('uses DS type and space tokens and no ds- class prefix', () => {
     assert.ok(FLOW_CSS.includes('var(--fs-3xl)'));
     assert.ok(FLOW_CSS.includes('var(--space-12)'));
