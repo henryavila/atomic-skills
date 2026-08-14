@@ -1141,12 +1141,18 @@ function pageHtml({ title, scenario, actor, planSlug, seq, bpm, mach }) {
 <html lang="pt-BR" data-fl-slug="${esc(planSlug)}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f6fa" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
 <title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==="light"||v==="dark"?v:"system"}catch(e){return"system"}}function apply(mode){var r=document.documentElement;if(mode==="light"||mode==="dark")r.setAttribute("data-theme",mode);else r.removeAttribute("data-theme");document.querySelectorAll("[data-theme-set]").forEach(function(b){b.setAttribute("aria-checked",String(b.getAttribute("data-theme-set")===mode))})}apply(read());document.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("[data-theme-set]");if(!b)return;var mode=b.getAttribute("data-theme-set");try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener("DOMContentLoaded",function(){apply(read())})})();</script>
+<script>(function(){var K="as-color-scheme";var NEXT={system:"light",light:"dark",dark:"system"};var LABEL={system:"Aparência: automático. Toque para claro",light:"Aparência: claro. Toque para escuro",dark:"Aparência: escuro. Toque para automático"};function read(){try{var v=localStorage.getItem(K);return v==="light"||v==="dark"?v:"system"}catch(e){return"system"}}function paintMeta(mode){var dark=mode==="dark"||(mode==="system"&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches);document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",dark?"#0a0d12":"#f4f6fa")})}function apply(mode){var r=document.documentElement;if(mode==="light"||mode==="dark")r.setAttribute("data-theme",mode);else r.removeAttribute("data-theme");var c=document.getElementById("theme-cycle");if(c){c.setAttribute("data-mode",mode);c.setAttribute("aria-label",LABEL[mode]||LABEL.system);c.title=LABEL[mode]||LABEL.system}paintMeta(mode)}apply(read());document.addEventListener("click",function(e){var cycle=e.target&&e.target.closest&&e.target.closest("[data-theme-cycle]");if(!cycle)return;var mode=NEXT[read()];try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener("DOMContentLoaded",function(){apply(read())})})();</script>
 <style>
 :root {
   color-scheme: dark;
@@ -1248,12 +1254,39 @@ html[data-theme="light"] {
 html[data-theme="dark"] { color-scheme: dark; }
 
 *, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: manipulation; }
 html, body {
-  margin: 0; height: 100%; overflow: hidden;
+  margin: 0;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--bg-canvas); color: var(--fg-default);
   font-family: var(--font-sans);
 }
-.app { display: grid; grid-template-rows: auto 1fr; height: 100%; min-height: 100%; }
+.app {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "top dock"
+    "view view";
+  height: 100%; height: 100dvh;
+  min-height: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+.top { grid-area: top; }
+.dock {
+  grid-area: dock;
+  display: flex; align-items: center;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg-canvas) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-default);
+  padding: 10px 16px 8px 0;
+}
+#fl-viewport { grid-area: view; }
 
 .top {
   z-index: 20;
@@ -1268,6 +1301,8 @@ html, body {
   align-items: center; justify-content: space-between;
 }
 .brand { min-width: 0; flex: 1 1 220px; }
+.brand-line { display: flex; align-items: flex-start; gap: 8px; }
+.brand-line .fl-title { flex: 1; min-width: 0; }
 .brand .fl-title {
   margin: 0; font-size: 15px; font-weight: 600;
   letter-spacing: var(--tracking-tight); line-height: 1.25;
@@ -1296,7 +1331,7 @@ html, body {
   background: color-mix(in srgb, var(--bg-canvas) 14%, transparent);
   color: inherit; opacity: 0.7;
 }
-.fl-toc button:focus-visible, .toolbar button:focus-visible, .theme-switch button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.fl-toc button:focus-visible, .toolbar button:focus-visible, .theme-cycle:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .toolbar button {
   appearance: none; height: 28px; min-width: 28px; padding: 0 8px; border-radius: 6px;
@@ -1305,15 +1340,20 @@ html, body {
 }
 .toolbar button.primary { background: var(--fg-default); color: var(--bg-canvas); border-color: var(--fg-default); }
 .toolbar .zoom { font: 700 12px var(--font-mono); color: var(--fg-subtle); padding: 0 6px; min-width: 3.2rem; text-align: center; }
-.theme-switch {
-  display: inline-flex; border: 1px solid var(--border-default); border-radius: var(--radius-pill);
-  background: var(--bg-elevated); overflow: hidden; margin-left: 4px;
+.theme-cycle {
+  appearance: none; flex: 0 0 auto;
+  width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated); color: var(--fg-muted);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.theme-switch button {
-  appearance: none; border: 0; background: transparent; color: var(--fg-muted);
-  font: 500 11px var(--font-sans); height: 28px; padding: 0 10px; cursor: pointer;
-}
-.theme-switch button[aria-checked="true"] { background: var(--bg-surface); color: var(--fg-default); }
+.theme-cycle svg { display: none; width: 18px; height: 18px; }
+.theme-cycle:not([data-mode]) .i-system,
+.theme-cycle[data-mode="system"] .i-system,
+.theme-cycle[data-mode="light"] .i-light,
+.theme-cycle[data-mode="dark"] .i-dark { display: block; }
 .hint-bar {
   font-size: 12px; color: var(--fg-subtle);
   display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center;
@@ -1332,7 +1372,9 @@ html, body {
 
 #fl-viewport {
   position: relative; overflow: auto; overscroll-behavior: contain;
-  min-height: 0;
+  min-width: 0; min-height: 0;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
   background:
     radial-gradient(circle at 1px 1px, var(--border-default) 1px, transparent 0) 0 0 / 22px 22px,
     var(--bg-sunken);
@@ -1422,6 +1464,102 @@ svg.diagram text { fill: var(--fg-default); }
 .edge-note { fill: var(--fg-subtle); font-size: 10px; }
 .fx-pill { fill: var(--bg-sunken); stroke: var(--border-default); stroke-width: 1; }
 .fx-pill-t { fill: var(--fg-muted); font-size: 9px; font-weight: 600; }
+
+.gesture-hint {
+  display: none;
+  position: absolute; z-index: 15; left: 50%; bottom: 16px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  padding: 8px 12px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  color: var(--fg-muted); font: 600 12px var(--font-sans);
+  pointer-events: none; text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.gesture-hint[hidden] { display: none !important; }
+
+@media (max-width: 860px), ((pointer: coarse) and (hover: none)) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "top"
+      "view"
+      "dock";
+  }
+  .top {
+    padding: 8px 12px 8px;
+    gap: 8px;
+  }
+  .top-row { gap: 8px; width: 100%; min-width: 0; }
+  .brand { flex: 1 1 100%; min-width: 0; width: 100%; }
+  .brand .fl-title {
+    font-size: 14px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .brand .fl-scenario {
+    white-space: nowrap; max-width: 100%;
+    font-size: 11px;
+  }
+  .fl-toc {
+    flex: 1 1 100%;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+    width: 100%; min-width: 0;
+  }
+  .fl-toc button {
+    height: 44px; padding: 0 6px; justify-content: center;
+    font-size: 13px; min-width: 0; width: 100%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .fl-toc button kbd { display: none; }
+  .dock {
+    border-bottom: 0;
+    border-top: 1px solid var(--border-default);
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    min-width: 0;
+  }
+  .toolbar {
+    width: 100%; min-width: 0;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  .toolbar button {
+    height: 44px; min-width: 44px; padding: 0 10px;
+    font-size: 13px; -webkit-tap-highlight-color: transparent;
+  }
+  .toolbar .zoom { min-width: 3.4rem; font-size: 13px; }
+  .theme-cycle { width: 44px; height: 44px; }
+  .theme-cycle svg { width: 20px; height: 20px; }
+  .hint-bar { display: none; }
+  .gesture-hint { display: block; }
+  #fl-viewport {
+    scrollbar-gutter: auto;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  #fl-stage { padding: 16px; }
+  .sheet { padding: 10px 12px; border-radius: 10px; }
+}
+
+@media (max-width: 860px) and (max-height: 500px) {
+  .brand .fl-scenario { display: none; }
+  .fl-toc button { height: 36px; }
+  .toolbar button { height: 36px; }
+  .theme-cycle { width: 36px; height: 36px; }
+  .top { padding: 6px 10px; gap: 6px; }
+  .gesture-hint { display: none; }
+}
+
+@media (pointer: coarse) {
+  .fl-toc button, .toolbar button, .theme-cycle {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .fl-toc button:active, .toolbar button:active, .theme-cycle:active {
+    filter: brightness(1.08);
+  }
+}
 </style>
 </head>
 <body data-look="line">
@@ -1429,7 +1567,14 @@ svg.diagram text { fill: var(--fg-default); }
     <header class="top">
       <div class="top-row">
         <div class="brand">
-          <h1 class="fl-title">${esc(title)}</h1>
+          <div class="brand-line">
+            <h1 class="fl-title">${esc(title)}</h1>
+            <button type="button" class="theme-cycle" id="theme-cycle" data-theme-cycle data-mode="system" aria-label="Aparência: automático. Toque para claro" title="Aparência: automático. Toque para claro">
+              <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3a9 9 0 0 0 0 18V3z" fill="currentColor"/></svg>
+              <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+              <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.2 3.2a8.5 8.5 0 1 0 5.6 14.3A8.5 8.5 0 0 1 15.2 3.2z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
           <p class="fl-scenario">${esc(scenario)}</p>
         </div>
         <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
@@ -1437,19 +1582,6 @@ svg.diagram text { fill: var(--fg-default); }
           <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm" title="Fluxo (2)">Fluxo <kbd>2</kbd></button>
           <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines" title="Estados (3)">Estados <kbd>3</kbd></button>
         </nav>
-        <div class="toolbar" aria-label="Zoom">
-          <button type="button" id="z-out" title="Afastar">−</button>
-          <span class="zoom" id="z-lab">100%</span>
-          <button type="button" id="z-in" title="Aproximar">+</button>
-          <button type="button" id="z-100">100%</button>
-          <button type="button" id="z-fit" class="primary" data-fit="height" title="Ajustar à altura">À altura</button>
-          <button type="button" id="btn-pdf" title="Baixar PDF do fluxo (anexo)">PDF</button>
-          <div class="theme-switch" role="radiogroup" aria-label="Aparência">
-            <button type="button" role="radio" data-theme-set="system" aria-checked="true">Sistema</button>
-            <button type="button" role="radio" data-theme-set="light" aria-checked="false">Claro</button>
-            <button type="button" role="radio" data-theme-set="dark" aria-checked="false">Escuro</button>
-          </div>
-        </div>
       </div>
       <div class="hint-bar">
         <span class="val">Look A · Linha</span>
@@ -1462,7 +1594,7 @@ svg.diagram text { fill: var(--fg-default); }
       </div>
     </header>
 
-    <div id="fl-viewport" title="Arraste para navegar · Ctrl+scroll para zoom">
+    <div id="fl-viewport" title="Arraste para navegar · pinça ou Ctrl+scroll para zoom">
       <div id="fl-sizer">
         <div id="fl-stage">
           <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
@@ -1476,7 +1608,18 @@ svg.diagram text { fill: var(--fg-default); }
           </section>
         </div>
       </div>
+      <div class="gesture-hint" id="gesture-hint">Arraste · pinça = zoom</div>
     </div>
+    <footer class="dock">
+      <div class="toolbar" aria-label="Zoom">
+        <button type="button" id="z-out" title="Afastar">−</button>
+        <span class="zoom" id="z-lab">100%</span>
+        <button type="button" id="z-in" title="Aproximar">+</button>
+        <button type="button" id="z-100">100%</button>
+        <button type="button" id="z-fit" class="primary" data-fit="height" title="Ajustar à altura">À altura</button>
+        <button type="button" id="btn-pdf" title="Baixar PDF do fluxo (anexo)">PDF</button>
+      </div>
+    </footer>
   </div>
   <div id="actor-tip" hidden></div>
 <script>
@@ -1495,19 +1638,22 @@ __PDF_LIB__
     bpm: 'Caixa / losango / fim · sem id técnico',
     machines: 'Laço = permanece · pastilha = efeito',
   };
-  const MIN = ${FLOW_ZOOM_MIN}, MAX = ${FLOW_ZOOM_MAX}, STEP = 0.1, PAD = 40;
-  const zoomKey = ${JSON.stringify(FLOW_ZOOM_KEY_PREFIX)} + (document.documentElement.getAttribute('data-fl-slug') || 'default');
+  const MIN = ${FLOW_ZOOM_MIN}, MAX = ${FLOW_ZOOM_MAX}, STEP = 0.1;
+  const phoneUi = window.matchMedia('(max-width: 860px), (pointer: coarse) and (hover: none)').matches;
+  const PAD = phoneUi ? 16 : 40;
+  const zoomKey = ${JSON.stringify(FLOW_ZOOM_KEY_PREFIX)} + (document.documentElement.getAttribute('data-fl-slug') || 'default') + (phoneUi ? ':m' : '');
   function readZoom() {
     try {
       const n = parseFloat(localStorage.getItem(zoomKey));
       if (Number.isFinite(n)) return Math.min(MAX, Math.max(MIN, n));
     } catch (e) {}
-    return 1;
+    return null;
   }
   function saveZoom() {
     try { localStorage.setItem(zoomKey, String(scale)); } catch (e) {}
   }
-  let scale = readZoom();
+  const savedZoom = readZoom();
+  let scale = savedZoom == null ? 1 : savedZoom;
 
   function visibleSvg() {
     return document.querySelector('.diagram-panel:not([hidden]) svg');
@@ -1520,6 +1666,14 @@ __PDF_LIB__
       svg.dataset.nh = String((vb && vb.height) || svg.height.baseVal.value || 0);
     }
     return { w: +svg.dataset.nw, h: +svg.dataset.nh };
+  }
+  function fitScale(axis) {
+    const n = svgNative(visibleSvg());
+    if (!n.w || !n.h) return 1;
+    const fitX = (viewport.clientWidth - 24) / (n.w + PAD * 2 + 40);
+    const fitY = (viewport.clientHeight - 24) / (n.h + PAD * 2 + 36);
+    const next = axis === 'height' ? fitY : fitX;
+    return Math.max(MIN, Math.min(MAX, next));
   }
   function applySvgScale() {
     const svg = visibleSvg();
@@ -1613,7 +1767,10 @@ __PDF_LIB__
     });
     if (hint) hint.textContent = HINTS[name] || '';
     if (tip) tip.hidden = true;
-    requestAnimationFrame(function () { centerHorizontally(0); });
+    requestAnimationFrame(function () {
+      if (phoneUi) scale = fitScale('width');
+      centerHorizontally(0);
+    });
   }
   tabs.forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
 
@@ -1622,13 +1779,8 @@ __PDF_LIB__
   document.getElementById('z-100').onclick = () => { scale = 1; centerHorizontally(0); saveZoom(); };
   document.getElementById('z-fit').onclick = () => {
     const btn = document.getElementById('z-fit');
-    const n = svgNative(visibleSvg());
-    if (!n.w || !n.h) return;
-    const fitX = (viewport.clientWidth - 24) / (n.w + PAD * 2 + 40);
-    const fitY = (viewport.clientHeight - 24) / (n.h + PAD * 2 + 36);
     const axis = btn.getAttribute('data-fit') === 'width' ? 'width' : 'height';
-    const next = axis === 'width' ? fitX : fitY;
-    scale = Math.max(MIN, Math.min(MAX, next));
+    scale = fitScale(axis);
     centerHorizontally(0);
     const other = axis === 'height' ? 'width' : 'height';
     btn.setAttribute('data-fit', other);
@@ -1778,11 +1930,20 @@ __PDF_LIB__
       if (!pages.length) throw new Error('Nenhum diagrama para exportar');
       const bytes = buildFlowPdf({ pages });
       const blob = new Blob([bytes], { type: 'application/pdf' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = pdfFilename(slug);
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      const url = URL.createObjectURL(blob);
+      const name = pdfFilename(slug);
+      const isiOS = /iP(ad|hone|od)/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isiOS) {
+        const opened = window.open(url, '_blank');
+        if (!opened) location.href = url;
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (err) {
       console.error(err);
       if (hint) hint.textContent = (err && err.message) || 'Falha ao gerar PDF';
@@ -1798,8 +1959,24 @@ __PDF_LIB__
     setScale(scale + (e.deltaY > 0 ? -STEP : STEP), e);
   }, { passive: false });
 
+  const gHint = document.getElementById('gesture-hint');
+  function hideGestureHint() {
+    if (gHint) gHint.hidden = true;
+  }
+  if (gHint && phoneUi) setTimeout(hideGestureHint, 4200);
+
+  function showActorTip(hit, x, y) {
+    if (!tip || !hit) return;
+    tip.hidden = false;
+    tip.textContent = hit.getAttribute('data-actor-label') || '';
+    const tw = 12;
+    tip.style.left = Math.min(window.innerWidth - 8, Math.max(8, x + tw)) + 'px';
+    tip.style.top = Math.min(window.innerHeight - 8, Math.max(8, y + tw)) + 'px';
+  }
+
   let pan = false, sx = 0, sy = 0, sl = 0, st = 0;
   viewport.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') return;
     if (e.button !== 0 && e.button !== 1) return;
     pan = true;
     viewport.classList.add('is-panning');
@@ -1813,16 +1990,20 @@ __PDF_LIB__
       viewport.scrollTop = st - (e.clientY - sy);
       return;
     }
-    if (!tip) return;
+    if (e.pointerType === 'touch') return;
     const hit = e.target && e.target.closest && e.target.closest('[data-actor-label]');
-    if (!hit) { tip.hidden = true; return; }
-    tip.hidden = false;
-    tip.textContent = hit.getAttribute('data-actor-label') || '';
-    tip.style.left = (e.clientX + 12) + 'px';
-    tip.style.top = (e.clientY + 12) + 'px';
+    if (!hit) { if (tip) tip.hidden = true; return; }
+    showActorTip(hit, e.clientX, e.clientY);
+  });
+  viewport.addEventListener('click', (e) => {
+    const hit = e.target && e.target.closest && e.target.closest('[data-actor-label]');
+    if (!hit) { if (tip) tip.hidden = true; return; }
+    if (!phoneUi) return;
+    showActorTip(hit, e.clientX, e.clientY);
+    setTimeout(() => { if (tip) tip.hidden = true; }, 2200);
   });
   viewport.addEventListener('pointerleave', () => { if (tip) tip.hidden = true; });
-  viewport.addEventListener('scroll', () => updateStickyActors(), { passive: true });
+  viewport.addEventListener('scroll', () => { updateStickyActors(); hideGestureHint(); }, { passive: true });
   const endPan = (e) => {
     if (!pan) return;
     pan = false;
@@ -1831,6 +2012,51 @@ __PDF_LIB__
   };
   viewport.addEventListener('pointerup', endPan);
   viewport.addEventListener('pointercancel', endPan);
+
+  function touchDist(a, b) {
+    const dx = a.clientX - b.clientX;
+    const dy = a.clientY - b.clientY;
+    return Math.hypot(dx, dy);
+  }
+  let pinch = null;
+  let gestureBase = null;
+  let usingGesture = false;
+  viewport.addEventListener('touchstart', (e) => {
+    hideGestureHint();
+    if (e.touches.length === 2) {
+      pinch = {
+        d: touchDist(e.touches[0], e.touches[1]),
+        scale,
+      };
+    }
+  }, { passive: true });
+  viewport.addEventListener('touchmove', (e) => {
+    if (usingGesture || e.touches.length !== 2 || !pinch || pinch.d < 1) return;
+    e.preventDefault();
+    const d = touchDist(e.touches[0], e.touches[1]);
+    const mid = {
+      clientX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+      clientY: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+    };
+    setScale(pinch.scale * (d / pinch.d), mid);
+  }, { passive: false });
+  viewport.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) pinch = null;
+  });
+  viewport.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+    usingGesture = true;
+    gestureBase = scale;
+  }, { passive: false });
+  viewport.addEventListener('gesturechange', (e) => {
+    e.preventDefault();
+    if (gestureBase == null) return;
+    setScale(gestureBase * e.scale, e);
+  }, { passive: false });
+  viewport.addEventListener('gestureend', () => {
+    usingGesture = false;
+    gestureBase = null;
+  });
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey) {
       if (e.key === '=' || e.key === '+') { e.preventDefault(); setScale(scale + STEP); }
@@ -1848,7 +2074,13 @@ __PDF_LIB__
     showTab(name);
   });
   window.addEventListener('resize', () => applyStageGeometry());
-  requestAnimationFrame(function () { centerHorizontally(0); });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => applyStageGeometry());
+  }
+  requestAnimationFrame(function () {
+    if (savedZoom == null && phoneUi) scale = fitScale('width');
+    centerHorizontally(0);
+  });
 })();
 </script>
 </body>
