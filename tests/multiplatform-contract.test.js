@@ -187,6 +187,7 @@ describe('multiplatform static guards (minimalist-installer package)', () => {
     const pkgRoot = miPackageRoot();
     const src = read(join(pkgRoot, 'src/path-safety.js'));
     assert.match(src, /path-nofollow/);
+    assert.match(src, /windows-noreparse/);
     assert.match(src, /O_NOFOLLOW/);
     assert.doesNotMatch(
       src,
@@ -196,6 +197,7 @@ describe('multiplatform static guards (minimalist-installer package)', () => {
       src,
       /O_NOFOLLOW === 'number' && process\.platform !== 'win32'/,
     );
+    assert.doesNotMatch(src, /O_NOFOLLOW['"]?\s*[:=]\s*0/);
 
     const mi = await loadMi();
     assert.equal(typeof mi.getPathSafetyBackend, 'function');
@@ -203,14 +205,16 @@ describe('multiplatform static guards (minimalist-installer package)', () => {
     assert.equal(typeof mi.entryPath, 'function');
   });
 
-  it('host can always select a backend when O_NOFOLLOW exists', async () => {
-    assert.equal(typeof fsConstants.O_NOFOLLOW, 'number');
+  it('host can always select a no-follow backend', async () => {
     const mi = await loadMi();
     const backend = mi.getPathSafetyBackend();
-    assert.ok(
-      backend.kind === 'fd-relative' || backend.kind === 'path-nofollow',
-      JSON.stringify(backend),
-    );
+    const ok = backend.kind === 'fd-relative'
+      || backend.kind === 'path-nofollow'
+      || backend.kind === 'windows-noreparse';
+    assert.ok(ok, JSON.stringify(backend));
+    if (process.platform === 'win32' && typeof fsConstants.O_NOFOLLOW !== 'number') {
+      assert.equal(backend.kind, 'windows-noreparse');
+    }
   });
 });
 
@@ -236,7 +240,11 @@ describe('multiplatform behavioral — forced path-nofollow (macOS/Windows class
     process.env.MINIMALIST_INSTALLER_PATH_BACKEND = 'path';
     mi.resetPathSafetyBackendForTests();
     try {
-      assert.equal(mi.getPathSafetyBackend().kind, 'path-nofollow');
+      const kind = mi.getPathSafetyBackend().kind;
+      assert.ok(
+        kind === 'path-nofollow' || kind === 'windows-noreparse',
+        kind,
+      );
       home = mkdtempSync(join(tmpdir(), 'as-mp-mi-'));
       projectDir = join(home, 'proj');
       mkdirSync(projectDir, { recursive: true });
