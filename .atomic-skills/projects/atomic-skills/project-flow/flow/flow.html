@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-fl-slug="project-flow" data-fl-content-sha="4d7f75f0f83ad5a8fabbc450653debba14aab822936920b8f36769da42944aff">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fluxo — Carimbar o fluxo antes de executar o plano</title>
+<style>
+/*
+ * Atomic Skills product docs — shared design-system tokens.
+ * Extracted from docs/design/project-onboarding/index.html (aiDeck foundations).
+ * Dark-first only. Site pages link this file; onboarding may keep its inline copy.
+ */
+
+/* ─────────────────────────────────────────────────────────────────────
+   aiDeck Design System — Foundations (v2)
+   Dark-first only. Light theme is explicitly out of scope.
+
+   Tokens are intentionally domain-agnostic — `status-success` not
+   `phase-done`, `chart-1..8` not `verifier-shell`.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Fonts — Inter (sans) + JetBrains Mono (identifiers). System stacks fall
+   back when webfonts are unavailable (offline-friendly). */
+
+:root {
+  /* ── Surfaces ───────────────────────────────────────────────── */
+  --bg-sunken:      #07090d;   /* inputs, code blocks, deepest wells */
+  --bg-canvas:      #0a0d12;   /* page background */
+  --bg-surface:     #12161d;   /* widget cards, section panels */
+  --bg-elevated:    #1a1f28;   /* hover, popovers, dropdowns */
+  --bg-overlay:     #232936;   /* selected rows, focus halos */
+  --bg-highlight:   #2d3340;   /* highest — used sparingly */
+
+  /* ── Glass ──────────────────────────────────────────────────── */
+  --glass-thin:     rgba(18, 22, 29, 0.55);
+  --glass-medium:   rgba(18, 22, 29, 0.72);
+  --glass-thick:    rgba(10, 13, 18, 0.85);
+  --glass-border:   rgba(255, 255, 255, 0.06);
+  --glass-blur:     saturate(180%) blur(20px);
+  --glass-blur-sm:  saturate(160%) blur(10px);
+
+  /* ── Borders ────────────────────────────────────────────────── */
+  --border-subtle:  #1a2029;
+  --border-default: #262d38;
+  --border-strong:  #3d4656;
+  --border-bright:  #555f72;
+
+  /* ── Foreground ─────────────────────────────────────────────── */
+  --fg-default:     #e9eef5;   /* primary text — body, headings */
+  --fg-muted:       #98a1ad;   /* secondary — captions, labels */
+  --fg-subtle:      #6b7585;   /* tertiary — metadata */
+  --fg-faint:       #424a5a;   /* lowest — disabled */
+  --fg-on-accent:   #08090d;   /* text on saturated chip fill */
+
+  /* ── Semantic status ────────────────────────────────────────── */
+  --status-success: #4cc28e;   /* emerald   — passed, done, healthy */
+  --status-warning: #e0a44a;   /* amber     — needs attention, blocked */
+  --status-error:   #ff5c5c;   /* coral red — failed, critical, broken */
+  --status-info:    #5fb1ff;   /* azure     — active, running, current */
+  --status-neutral: #8b95a3;   /* slate     — idle, pending, unknown */
+
+  --status-success-bg: color-mix(in srgb, var(--status-success) 14%, var(--bg-surface));
+  --status-warning-bg: color-mix(in srgb, var(--status-warning) 14%, var(--bg-surface));
+  --status-error-bg:   color-mix(in srgb, var(--status-error)   16%, var(--bg-surface));
+  --status-info-bg:    color-mix(in srgb, var(--status-info)    14%, var(--bg-surface));
+  --status-neutral-bg: var(--bg-elevated);
+
+  --status-success-line: color-mix(in srgb, var(--status-success) 42%, var(--border-default));
+  --status-warning-line: color-mix(in srgb, var(--status-warning) 42%, var(--border-default));
+  --status-error-line:   color-mix(in srgb, var(--status-error)   48%, var(--border-default));
+  --status-info-line:    color-mix(in srgb, var(--status-info)    42%, var(--border-default));
+  --status-neutral-line: var(--border-default);
+
+  /* ── Accents ────────────────────────────────────────────────── */
+  --accent-primary: var(--status-info);
+  --accent-focus:   #88c4ff;
+  --accent-link:    #88c4ff;
+
+  /* ── Typography stacks ──────────────────────────────────────── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+               "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono",
+               "Menlo", "Consolas", monospace;
+  --font-display: var(--font-sans);
+
+  /* ── Type scale ─────────────────────────────────────────────── */
+  --fs-2xs: 10px;
+  --fs-xs:  11px;
+  --fs-sm:  12px;
+  --fs-base:13px;
+  --fs-md:  14px;
+  --fs-lg:  16px;
+  --fs-xl:  20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  --fs-4xl: 40px;
+  --fs-5xl: 56px;
+
+  --lh-tight:  1.15;
+  --lh-snug:   1.35;
+  --lh-normal: 1.5;
+  --lh-relaxed:1.65;
+
+  --tracking-tight:  -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-wider:  0.08em;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* ── Spacing (4px base) ─────────────────────────────────────── */
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  10px;
+  --space-6:  12px;
+  --space-7:  14px;
+  --space-8:  16px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --space-14: 28px;
+  --space-16: 32px;
+  --space-20: 40px;
+  --space-24: 48px;
+  --space-32: 64px;
+
+  /* ── Radii ──────────────────────────────────────────────────── */
+  --radius-none: 0;
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-pill: 999px;
+
+  --border-width: 1px;
+
+  /* ── Elevation ──────────────────────────────────────────────── */
+  --highlight-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --highlight-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.075);
+  --shadow-sm:      0 2px 4px -2px rgba(0, 0, 0, 0.5),
+                    var(--highlight-inset);
+  --shadow-md:      0 8px 24px -8px rgba(0, 0, 0, 0.6),
+                    0 2px 6px -2px rgba(0, 0, 0, 0.4),
+                    var(--highlight-inset);
+  --shadow-focus:   0 0 0 2px var(--bg-canvas),
+                    0 0 0 4px var(--accent-focus);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-canvas);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "calt" 0;
+}
+
+code {
+  font-size: 0.92em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.35em;
+}
+
+pre {
+  margin: 0;
+  padding: var(--space-8);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+}
+
+pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ── Layout chrome for product docs ───────────────────────────────── */
+
+.site-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-10) var(--space-24);
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
+  padding-bottom: var(--space-10);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.site-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--fg-default);
+  text-decoration: none;
+}
+
+.site-brand:hover {
+  text-decoration: none;
+}
+
+.site-brand-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.site-brand-sub {
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: var(--fg-default);
+  background: var(--bg-elevated);
+  text-decoration: none;
+}
+
+.site-nav a.active {
+  color: var(--status-info);
+  background: var(--status-info-bg);
+  border-color: var(--status-info-line);
+}
+
+.site-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.site-footer {
+  margin-top: var(--space-24);
+  padding-top: var(--space-10);
+  border-top: 1px solid var(--border-default);
+  color: var(--fg-subtle);
+  font-size: var(--fs-sm);
+}
+
+h1, h2, h3 {
+  margin: 0;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--fw-semibold);
+}
+
+h1 {
+  font-size: var(--fs-3xl);
+}
+
+h2 {
+  font-size: var(--fs-xl);
+  margin-top: var(--space-4);
+}
+
+h3 {
+  font-size: var(--fs-lg);
+}
+
+.lede {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-md);
+  line-height: var(--lh-relaxed);
+  max-width: 68ch;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10) var(--space-12);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-8);
+}
+
+.card a.card-title {
+  color: var(--fg-default);
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+}
+
+.card a.card-title:hover {
+  color: var(--accent-link);
+  text-decoration: underline;
+}
+
+.card .one-liner {
+  margin: var(--space-4) 0 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+}
+
+.iron-law {
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  background: color-mix(in srgb, var(--status-warning) 10%, var(--bg-surface));
+  border: 1px solid var(--status-warning-line);
+  border-radius: var(--radius-md);
+  color: var(--status-warning);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.badge-tested {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-line);
+  color: var(--status-success);
+}
+
+.badge-theoretical {
+  background: var(--status-neutral-bg);
+  border-color: var(--status-neutral-line);
+  color: var(--fg-muted);
+}
+
+.badge-module {
+  background: var(--status-info-bg);
+  border-color: var(--status-info-line);
+  color: var(--status-info);
+}
+
+ul.plain {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--fg-muted);
+}
+
+ul.plain li + li {
+  margin-top: var(--space-3);
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+}
+
+table.docs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+table.docs th,
+table.docs td {
+  padding: var(--space-6) var(--space-8);
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+table.docs th {
+  color: var(--fg-subtle);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  background: var(--bg-elevated);
+}
+
+table.docs tr:last-child td {
+  border-bottom: 0;
+}
+
+table.docs td {
+  color: var(--fg-default);
+}
+
+.eyebrow {
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.install-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.back-link {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+.prose p {
+  margin: 0;
+  color: var(--fg-muted);
+  max-width: 70ch;
+  line-height: var(--lh-relaxed);
+}
+
+.prose p + p {
+  margin-top: var(--space-6);
+}
+
+.list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list-stack li {
+  padding: var(--space-6) var(--space-8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.list-stack .cmd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--status-info);
+}
+
+.list-stack .desc {
+  margin-top: var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+}
+
+.footnote {
+  color: var(--fg-subtle);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+  max-width: 70ch;
+}
+
+/* ── Project guide spine ────────────────────────────────────────────── */
+
+ol.spine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spine-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 7.5rem;
+  max-width: 11rem;
+  flex: 1 1 7.5rem;
+  padding: var(--space-6) var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+.spine-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--status-info);
+}
+
+.spine-note {
+  font-size: var(--fs-2xs);
+  color: var(--fg-muted);
+  line-height: var(--lh-snug);
+}
+
+.spine-arrow {
+  display: none;
+}
+
+.list-stack .cmd-args {
+  margin-left: var(--space-2);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+/* flow layout — tokens from inlined ds.css only */
+.fl-shell{max-width:1080px;margin:0 auto;padding:var(--space-12) var(--space-10) var(--space-24);font-family:var(--font-sans);color:var(--fg-default)}
+.fl-header{display:flex;flex-direction:column;gap:var(--space-6);margin-bottom:var(--space-12);padding-bottom:var(--space-10);border-bottom:1px solid var(--border-default)}
+.fl-eyebrow{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-subtle);letter-spacing:var(--tracking-wide);text-transform:uppercase}
+.fl-title{margin:0;font-size:var(--fs-3xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight);line-height:var(--lh-tight)}
+.fl-scenario{margin:0;color:var(--fg-muted);font-size:var(--fs-md);line-height:var(--lh-relaxed);max-width:68ch}
+.fl-meta{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center}
+.fl-meta span{font-size:var(--fs-sm);color:var(--fg-subtle)}
+.fl-meta strong{color:var(--fg-muted);font-weight:var(--fw-medium)}
+.fl-toc{display:flex;flex-wrap:wrap;gap:var(--space-4);margin:var(--space-4) 0 0;padding:0;list-style:none}
+.fl-toc a{display:inline-flex;align-items:center;height:30px;padding:0 var(--space-6);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font-size:var(--fs-sm);font-weight:var(--fw-medium);text-decoration:none}
+.fl-toc a:hover,.fl-toc a:focus-visible{color:var(--status-info);border-color:var(--status-info-line);text-decoration:none}
+.fl-toc a:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+.fl-surface{margin:var(--space-12) 0;padding:var(--space-10);background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);border-left-width:4px}
+.fl-surface h2{margin:0 0 var(--space-8);font-size:var(--fs-xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight)}
+.fl-lede{margin:0 0 var(--space-8);color:var(--fg-muted);font-size:var(--fs-sm);line-height:var(--lh-relaxed)}
+.fl-sequence{border-left-color:var(--status-info)}
+.fl-bpm{border-left-color:var(--status-warning)}
+.fl-machines{border-left-color:var(--status-success)}
+.fl-messages,.fl-nodes,.fl-states,.fl-transitions,.fl-effects,.fl-branches{margin:0;padding:0;list-style:none}
+.fl-msg{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:var(--space-3) var(--space-4);align-items:start;padding:var(--space-6) 0;border-top:1px solid var(--border-subtle)}
+.fl-msg:first-child{border-top:0;padding-top:0}
+.fl-msg-from,.fl-msg-to{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--status-info)}
+.fl-msg-to{text-align:right}
+.fl-msg-arrow{color:var(--fg-faint);font-size:var(--fs-sm)}
+.fl-msg-text{grid-column:1/-1;margin:0;color:var(--fg-default);font-size:var(--fs-sm);line-height:var(--lh-snug)}
+.fl-msg[data-async="true"] .fl-msg-text{color:var(--fg-muted)}
+.fl-nodes{display:flex;flex-direction:column;gap:var(--space-6)}
+.fl-node{position:relative;padding:var(--space-8);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-lg)}
+.fl-node[data-node-type="xor"]{border-color:var(--status-warning-line)}
+.fl-node[data-node-type="and"]{border-color:var(--status-info-line)}
+.fl-node[data-node-type="end"]{border-color:var(--status-success-line)}
+.fl-node[data-node-type="event"]{border-color:var(--status-error-line)}
+.fl-node-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4);margin-bottom:var(--space-3)}
+.fl-node-type{display:inline-flex;align-items:center;height:22px;padding:0 var(--space-5);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-sunken);color:var(--fg-muted);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:var(--fw-medium);letter-spacing:var(--tracking-wide);text-transform:uppercase}
+.fl-node-label{margin:0;font-size:var(--fs-md);font-weight:var(--fw-semibold)}
+.fl-node-who,.fl-node-next,.fl-node-meta{margin:var(--space-2) 0 0;font-size:var(--fs-xs);color:var(--fg-subtle);font-family:var(--font-mono)}
+.fl-branches{display:flex;flex-direction:column;gap:var(--space-3);margin-top:var(--space-4)}
+.fl-branch{padding:var(--space-4) var(--space-5);border-radius:var(--radius-md);background:var(--bg-sunken);border:1px solid var(--border-subtle);font-size:var(--fs-sm)}
+.fl-machine{margin:0 0 var(--space-10);padding:var(--space-8);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-lg)}
+.fl-machine:last-child{margin-bottom:0}
+.fl-machine h3{margin:0 0 var(--space-6);font-size:var(--fs-lg)}
+.fl-states{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-bottom:var(--space-6)}
+.fl-state{display:inline-flex;align-items:center;height:26px;padding:0 var(--space-5);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-sunken);font-size:var(--fs-xs)}
+.fl-state[data-terminal="true"]{border-color:var(--status-success-line);color:var(--status-success)}
+.fl-tr{padding:var(--space-6) 0;border-top:1px solid var(--border-subtle)}
+.fl-tr-edge{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-subtle)}
+.fl-tr-label{display:block;margin:var(--space-2) 0;font-size:var(--fs-sm);font-weight:var(--fw-medium)}
+.fl-effect{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:baseline;margin-top:var(--space-3);font-size:var(--fs-sm)}
+.fl-kind{font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--status-info)}
+.fl-target{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-muted)}
+.fl-empty{margin:0;color:var(--fg-subtle);font-size:var(--fs-sm)}
+.fl-footer{margin-top:var(--space-16);padding-top:var(--space-10);border-top:1px solid var(--border-default);font-size:var(--fs-xs);color:var(--fg-faint);font-family:var(--font-mono)}
+@media (max-width:560px){.fl-shell{padding:var(--space-8) var(--space-6) var(--space-16)}.fl-title{font-size:var(--fs-2xl)}.fl-msg{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="fl-shell">
+  <header class="fl-header">
+    <p class="fl-eyebrow">Fluxo operacional · 3 camadas</p>
+    <h1 class="fl-title">Carimbar o fluxo antes de executar o plano</h1>
+    <p class="fl-scenario">O operador carimba o fluxo operacional de um plano; sem o carimbo, a execução recusa.</p>
+    <div class="fl-meta">
+      <span><strong>Ator:</strong> Operador</span>
+      <span><strong>Plano:</strong> project-flow</span>
+    </div>
+    <nav class="fl-toc" role="navigation" aria-label="Camadas do fluxo">
+      <a href="#fl-sequence">Sequência</a>
+      <a href="#fl-bpm">Fluxo BPM</a>
+      <a href="#fl-machines">Máquinas</a>
+    </nav>
+  </header>
+  <section id="fl-sequence" class="fl-surface fl-sequence" role="region" data-surface="sequence" aria-labelledby="fl-sequence-title">
+    <h2 id="fl-sequence-title">Sequência</h2>
+    <p class="fl-lede">Conversa (messages) entre atores. Pode narrar interface.</p>
+    <ol class="fl-messages">
+<li class="fl-msg" data-from="Op" data-to="Ag" data-async="false" data-node="Draftar">
+  <span class="fl-msg-from">Operador</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Agente</span>
+  <p class="fl-msg-text">Pede project flow no plano</p>
+</li>
+<li class="fl-msg" data-from="Ag" data-to="Ag" data-async="false" data-node="Draftar">
+  <span class="fl-msg-from">Agente</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Agente</span>
+  <p class="fl-msg-text">Lê o desenho, a fonte e o intent de negócio — não a lista de fases</p>
+</li>
+<li class="fl-msg" data-from="Ag" data-to="Sys" data-async="false" data-node="Draftar">
+  <span class="fl-msg-from">Agente</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Atomic Skills</span>
+  <p class="fl-msg-text">Grava flow.json sem carimbo</p>
+</li>
+<li class="fl-msg" data-from="Sys" data-to="Sys" data-async="false" data-node="Draftar">
+  <span class="fl-msg-from">Atomic Skills</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Atomic Skills</span>
+  <p class="fl-msg-text">Gera flow.html com conversa, processo e estados</p>
+</li>
+<li class="fl-msg" data-from="Sys" data-to="Sys" data-async="false" data-node="ChecarParaExecutar">
+  <span class="fl-msg-from">Atomic Skills</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Atomic Skills</span>
+  <p class="fl-msg-text">Roda o detector em modo estrito no arquivo do plano</p>
+</li>
+<li class="fl-msg" data-from="Ag" data-to="Op" data-async="true" data-node="Mostrar">
+  <span class="fl-msg-from">Agente</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Operador</span>
+  <p class="fl-msg-text">Abre o painel HTML e resume o grafo no terminal</p>
+</li>
+<li class="fl-msg" data-from="Ag" data-to="Op" data-async="false" data-node="Mostrar">
+  <span class="fl-msg-from">Agente</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Operador</span>
+  <p class="fl-msg-text">Pergunta se aprova, ajusta ou cancela — chat ok não conta</p>
+</li>
+<li class="fl-msg" data-from="Op" data-to="Sys" data-async="false" data-node="Executar">
+  <span class="fl-msg-from">Operador</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Atomic Skills</span>
+  <p class="fl-msg-text">Pede implement no plano</p>
+</li>
+<li class="fl-msg" data-from="Sys" data-to="Sys" data-async="false" data-node="Executar">
+  <span class="fl-msg-from">Atomic Skills</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Atomic Skills</span>
+  <p class="fl-msg-text">O detector em modo estrito passa; a execução começa</p>
+</li>
+<li class="fl-msg" data-from="Sys" data-to="Op" data-async="true" data-node="Recusar">
+  <span class="fl-msg-from">Atomic Skills</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Operador</span>
+  <p class="fl-msg-text">Recusa. process.yaml não vale. Rode project flow e carimbe.</p>
+</li>
+<li class="fl-msg" data-from="Sys" data-to="Sys" data-async="false" data-node="Carimbar">
+  <span class="fl-msg-from">Atomic Skills</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Atomic Skills</span>
+  <p class="fl-msg-text">Só o carimbo oficial grava a data e o hash do documento</p>
+</li>
+<li class="fl-msg" data-from="Sys" data-to="Op" data-async="true" data-node="Carimbar">
+  <span class="fl-msg-from">Atomic Skills</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Operador</span>
+  <p class="fl-msg-text">Confirma o fluxo carimbado</p>
+</li>
+<li class="fl-msg" data-from="Op" data-to="Ag" data-async="false" data-node="Ajustar">
+  <span class="fl-msg-from">Operador</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Agente</span>
+  <p class="fl-msg-text">Diz o que está errado no grafo, nas mensagens ou nas máquinas</p>
+</li>
+<li class="fl-msg" data-from="Ag" data-to="Sys" data-async="false" data-node="Ajustar">
+  <span class="fl-msg-from">Agente</span>
+  <span class="fl-msg-arrow" aria-hidden="true">→</span>
+  <span class="fl-msg-to">Atomic Skills</span>
+  <p class="fl-msg-text">Reescreve flow.json e regenera o painel — sem editor visual</p>
+</li>
+</ol>
+  </section>
+  <section id="fl-bpm" class="fl-surface fl-bpm" role="region" data-surface="bpm" aria-labelledby="fl-bpm-title">
+    <h2 id="fl-bpm-title">Fluxo BPM</h2>
+    <p class="fl-lede">Atividades de negócio: activity, xor, and, join, subprocess, event, end.</p>
+    <ol class="fl-nodes">
+<li class="fl-node" data-node-id="TemArquivo" data-node-type="xor">
+  <div class="fl-node-head">
+    <span class="fl-node-type">xor</span>
+    <h3 class="fl-node-label">O pedido tem arquivo de plano?</h3>
+  </div>
+  <p class="fl-node-who">Atomic Skills</p>
+  <ul class="fl-branches">
+<li class="fl-branch" data-branch-id="TemArquivo.nao" data-next="FimNaoSeAplica"><strong>Sem arquivo</strong> → FimNaoSeAplica</li>
+<li class="fl-branch" data-branch-id="TemArquivo.sim" data-next="QualPedido"><strong>Com arquivo</strong> → QualPedido</li>
+</ul>
+</li>
+<li class="fl-node" data-node-id="FimNaoSeAplica" data-node-type="end">
+  <div class="fl-node-head">
+    <span class="fl-node-type">end</span>
+    <h3 class="fl-node-label">Fim · não se aplica</h3>
+  </div>
+
+
+</li>
+<li class="fl-node" data-node-id="QualPedido" data-node-type="xor">
+  <div class="fl-node-head">
+    <span class="fl-node-type">xor</span>
+    <h3 class="fl-node-label">Validar o fluxo ou executar o plano?</h3>
+  </div>
+  <p class="fl-node-who">Operador</p>
+  <ul class="fl-branches">
+<li class="fl-branch" data-branch-id="QualPedido.flow" data-next="Draftar"><strong>Validar o fluxo</strong> → Draftar</li>
+<li class="fl-branch" data-branch-id="QualPedido.implement" data-next="ChecarParaExecutar"><strong>Executar o plano</strong> → ChecarParaExecutar</li>
+</ul>
+</li>
+<li class="fl-node" data-node-id="Draftar" data-node-type="activity" data-next="Mostrar">
+  <div class="fl-node-head">
+    <span class="fl-node-type">activity</span>
+    <h3 class="fl-node-label">Draftar o grafo a partir do desenho</h3>
+  </div>
+  <p class="fl-node-who">Agente</p>
+  <p class="fl-node-next" data-next="Mostrar">→ Mostrar</p>
+</li>
+<li class="fl-node" data-node-id="ChecarParaExecutar" data-node-type="xor">
+  <div class="fl-node-head">
+    <span class="fl-node-type">xor</span>
+    <h3 class="fl-node-label">O fluxo está carimbado e atual?</h3>
+  </div>
+  <p class="fl-node-who">Atomic Skills</p>
+  <ul class="fl-branches">
+<li class="fl-branch" data-branch-id="ChecarParaExecutar.ok" data-next="Executar"><strong>Carimbo válido</strong> → Executar</li>
+<li class="fl-branch" data-branch-id="ChecarParaExecutar.falta" data-next="Recusar"><strong>Falta ou o grafo mudou</strong> → Recusar</li>
+</ul>
+</li>
+<li class="fl-node" data-node-id="Mostrar" data-node-type="activity" data-next="Decidir">
+  <div class="fl-node-head">
+    <span class="fl-node-type">activity</span>
+    <h3 class="fl-node-label">Mostrar conversa, processo e estados</h3>
+  </div>
+  <p class="fl-node-who">Agente</p>
+  <p class="fl-node-next" data-next="Decidir">→ Decidir</p>
+</li>
+<li class="fl-node" data-node-id="Executar" data-node-type="activity" data-next="FimEmExecucao">
+  <div class="fl-node-head">
+    <span class="fl-node-type">activity</span>
+    <h3 class="fl-node-label">Entrar na execução</h3>
+  </div>
+  <p class="fl-node-who">Atomic Skills</p>
+  <p class="fl-node-next" data-next="FimEmExecucao">→ FimEmExecucao</p>
+</li>
+<li class="fl-node" data-node-id="Recusar" data-node-type="activity" data-next="FimRecusado">
+  <div class="fl-node-head">
+    <span class="fl-node-type">activity</span>
+    <h3 class="fl-node-label">Recusar a execução</h3>
+  </div>
+  <p class="fl-node-who">Atomic Skills</p>
+  <p class="fl-node-next" data-next="FimRecusado">→ FimRecusado</p>
+</li>
+<li class="fl-node" data-node-id="Decidir" data-node-type="xor">
+  <div class="fl-node-head">
+    <span class="fl-node-type">xor</span>
+    <h3 class="fl-node-label">Aprovar este fluxo?</h3>
+  </div>
+  <p class="fl-node-who">Operador</p>
+  <ul class="fl-branches">
+<li class="fl-branch" data-branch-id="Decidir.aprova" data-next="Carimbar"><strong>Aprova</strong> → Carimbar</li>
+<li class="fl-branch" data-branch-id="Decidir.ajusta" data-next="Ajustar"><strong>Ajusta</strong> → Ajustar</li>
+<li class="fl-branch" data-branch-id="Decidir.cancela" data-next="FimSemCarimbo"><strong>Cancela</strong> → FimSemCarimbo</li>
+</ul>
+</li>
+<li class="fl-node" data-node-id="FimEmExecucao" data-node-type="end">
+  <div class="fl-node-head">
+    <span class="fl-node-type">end</span>
+    <h3 class="fl-node-label">Fim · em execução</h3>
+  </div>
+
+
+</li>
+<li class="fl-node" data-node-id="FimRecusado" data-node-type="end">
+  <div class="fl-node-head">
+    <span class="fl-node-type">end</span>
+    <h3 class="fl-node-label">Fim · recusado</h3>
+  </div>
+
+
+</li>
+<li class="fl-node" data-node-id="Carimbar" data-node-type="activity" data-next="FimCarimbado">
+  <div class="fl-node-head">
+    <span class="fl-node-type">activity</span>
+    <h3 class="fl-node-label">Carimbar o documento</h3>
+  </div>
+  <p class="fl-node-who">Atomic Skills</p>
+  <p class="fl-node-next" data-next="FimCarimbado">→ FimCarimbado</p>
+</li>
+<li class="fl-node" data-node-id="Ajustar" data-node-type="activity" data-next="Mostrar">
+  <div class="fl-node-head">
+    <span class="fl-node-type">activity</span>
+    <h3 class="fl-node-label">Ajustar o grafo</h3>
+  </div>
+  <p class="fl-node-who">Operador + Agente</p>
+  <p class="fl-node-next" data-next="Mostrar">→ Mostrar</p>
+</li>
+<li class="fl-node" data-node-id="FimSemCarimbo" data-node-type="end">
+  <div class="fl-node-head">
+    <span class="fl-node-type">end</span>
+    <h3 class="fl-node-label">Fim · sem carimbo</h3>
+  </div>
+
+
+</li>
+<li class="fl-node" data-node-id="FimCarimbado" data-node-type="end">
+  <div class="fl-node-head">
+    <span class="fl-node-type">end</span>
+    <h3 class="fl-node-label">Fim · carimbado</h3>
+  </div>
+
+
+</li>
+
+</ol>
+  </section>
+  <section id="fl-machines" class="fl-surface fl-machines" role="region" data-surface="machines" aria-labelledby="fl-machines-title">
+    <h2 id="fl-machines-title">Máquinas</h2>
+    <p class="fl-lede">Estados e transições. Cada efeito mostra kind, label e target.</p>
+    <article class="fl-machine" data-machine-id="artefato">
+  <h3>Artefato de flow</h3>
+  <ol class="fl-states"><li class="fl-state" data-state-id="ausente" data-terminal="false">Ausente</li><li class="fl-state" data-state-id="rascunho" data-terminal="false">Rascunho</li><li class="fl-state" data-state-id="mostrado" data-terminal="false">Mostrado</li><li class="fl-state" data-state-id="carimbado" data-terminal="false">Carimbado</li><li class="fl-state" data-state-id="obsoleto" data-terminal="false">Obsoleto</li><li class="fl-state" data-state-id="cancelado" data-terminal="true">Cancelado</li><li class="fl-state" data-state-id="recusado" data-terminal="true">Recusado na execução</li><li class="fl-state" data-state-id="em_execucao" data-terminal="true">Em execução</li><li class="fl-state" data-state-id="nao_aplica" data-terminal="true">Não se aplica</li></ol>
+  <ol class="fl-transitions">
+<li class="fl-tr" data-transition-id="T_nao_aplica" data-from="ausente" data-to="nao_aplica">
+  <span class="fl-tr-edge">ausente → nao_aplica</span>
+  <span class="fl-tr-label">Pedido sem arquivo de plano</span>
+
+</li>
+<li class="fl-tr" data-transition-id="T_draft" data-from="ausente" data-to="rascunho">
+  <span class="fl-tr-edge">ausente → rascunho</span>
+  <span class="fl-tr-label">Drafta o grafo</span>
+  <ul class="fl-effects">
+<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.json"><span class="fl-kind">write</span> <span class="fl-effect-label">Grava o rascunho do grafo</span> <span class="fl-target">flow.json</span></li>
+<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.html"><span class="fl-kind">write</span> <span class="fl-effect-label">Gera o painel</span> <span class="fl-target">flow.html</span></li>
+</ul>
+</li>
+<li class="fl-tr" data-transition-id="T_redraft" data-from="obsoleto" data-to="rascunho">
+  <span class="fl-tr-edge">obsoleto → rascunho</span>
+  <span class="fl-tr-label">Redesenha depois que o grafo mudou</span>
+  <ul class="fl-effects">
+<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.json"><span class="fl-kind">write</span> <span class="fl-effect-label">Atualiza o rascunho</span> <span class="fl-target">flow.json</span></li>
+</ul>
+</li>
+<li class="fl-tr" data-transition-id="T_show" data-from="rascunho" data-to="mostrado">
+  <span class="fl-tr-edge">rascunho → mostrado</span>
+  <span class="fl-tr-label">Mostra as três camadas</span>
+  <ul class="fl-effects">
+<li class="fl-effect" data-effect-kind="notify" data-effect-target="Op"><span class="fl-kind">notify</span> <span class="fl-effect-label">Mostra o painel ao operador</span> <span class="fl-target">Op</span></li>
+</ul>
+</li>
+<li class="fl-tr" data-transition-id="T_aprova" data-from="mostrado" data-to="carimbado">
+  <span class="fl-tr-edge">mostrado → carimbado</span>
+  <span class="fl-tr-label">Operador aprova</span>
+  <ul class="fl-effects">
+<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.json"><span class="fl-kind">write</span> <span class="fl-effect-label">Grava data e hash do documento</span> <span class="fl-target">flow.json</span></li>
+</ul>
+</li>
+<li class="fl-tr" data-transition-id="T_ajusta" data-from="mostrado" data-to="rascunho">
+  <span class="fl-tr-edge">mostrado → rascunho</span>
+  <span class="fl-tr-label">Operador pede ajuste</span>
+  <ul class="fl-effects">
+<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.json"><span class="fl-kind">write</span> <span class="fl-effect-label">Reescreve o grafo</span> <span class="fl-target">flow.json</span></li>
+</ul>
+</li>
+<li class="fl-tr" data-transition-id="T_cancela" data-from="mostrado" data-to="cancelado">
+  <span class="fl-tr-edge">mostrado → cancelado</span>
+  <span class="fl-tr-label">Operador cancela</span>
+  <ul class="fl-effects">
+<li class="fl-effect" data-effect-kind="notify" data-effect-target="Op"><span class="fl-kind">notify</span> <span class="fl-effect-label">Ready continua legal; execução não</span> <span class="fl-target">Op</span></li>
+</ul>
+</li>
+<li class="fl-tr" data-transition-id="T_executa" data-from="carimbado" data-to="em_execucao">
+  <span class="fl-tr-edge">carimbado → em_execucao</span>
+  <span class="fl-tr-label">Detector libera a execução</span>
+
+</li>
+<li class="fl-tr" data-transition-id="T_recusa_ausente" data-from="ausente" data-to="recusado">
+  <span class="fl-tr-edge">ausente → recusado</span>
+  <span class="fl-tr-label">Execução sem artefato</span>
+  <ul class="fl-effects">
+<li class="fl-effect" data-effect-kind="notify" data-effect-target="Op"><span class="fl-kind">notify</span> <span class="fl-effect-label">Recusa e manda carimbar no comando</span> <span class="fl-target">Op</span></li>
+</ul>
+</li>
+<li class="fl-tr" data-transition-id="T_recusa_obsoleto" data-from="obsoleto" data-to="recusado">
+  <span class="fl-tr-edge">obsoleto → recusado</span>
+  <span class="fl-tr-label">Execução com grafo mudado</span>
+  <ul class="fl-effects">
+<li class="fl-effect" data-effect-kind="notify" data-effect-target="Op"><span class="fl-kind">notify</span> <span class="fl-effect-label">Recusa até recarimbar</span> <span class="fl-target">Op</span></li>
+</ul>
+</li>
+<li class="fl-tr" data-transition-id="T_obsoleto" data-from="carimbado" data-to="obsoleto">
+  <span class="fl-tr-edge">carimbado → obsoleto</span>
+  <span class="fl-tr-label">Grafo mudou depois do carimbo</span>
+  <ul class="fl-effects">
+<li class="fl-effect" data-effect-kind="other" data-effect-target="ratifiedGraphSha"><span class="fl-kind">other</span> <span class="fl-effect-label">Hash do carimbo deixa de bater</span> <span class="fl-target">ratifiedGraphSha</span></li>
+</ul>
+</li>
+  </ol>
+</article>
+  </section>
+  <footer class="fl-footer">
+    content-sha 4d7f75f0f83ad5a8 · schema 1.0
+  </footer>
+</div>
+</body>
+</html>
