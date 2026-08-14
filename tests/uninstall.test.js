@@ -10,17 +10,19 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { install, removeRuntimeArtifacts, installRuntimeArtifacts } from '../src/install.js';
 import { uninstall, pruneEmptyParents } from '../src/uninstall.js';
+import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 function withHome(fakeHome, fn) {
-  const original = process.env.HOME;
+  const restoreHome = isolateHomedir(fakeHome);
   const originalSkip = process.env.ATOMIC_SKILLS_SKIP_GROK_HOST;
-  process.env.HOME = fakeHome;
   process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = '1';
-  return Promise.resolve(fn()).finally(() => {
-    if (original === undefined) delete process.env.HOME;
-    else process.env.HOME = original;
+  return Promise.resolve().then(() => {
+    assertIsolatedHomedir(fakeHome);
+    return fn();
+  }).finally(() => {
+    restoreHome();
     if (originalSkip === undefined) delete process.env.ATOMIC_SKILLS_SKIP_GROK_HOST;
     else process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = originalSkip;
   });
