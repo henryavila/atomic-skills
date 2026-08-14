@@ -90,7 +90,7 @@ Tudo no render. Sem layout no cliente.
 
 ## Seção 3 — Chrome, arquivos, prova
 
-**Chrome.** App de página inteira (grid `auto 1fr`, viewport no 1fr). Abas Sequência / Fluxo / Máquinas. Aba vazia some (0 messages ou 0 machines). Fluxo BPM sempre existe. `+` `−` `100%`; o botão de ajuste **alterna** entre caber na altura e caber na largura (`À altura` / `À largura`). Pan arrastando; `Ctrl`+roda. Sizer cresce com o zoom para explorar X e Y. Hint curto, sem jargão de domínio.
+**Chrome.** App de página inteira (grid `auto 1fr`, viewport no 1fr). Abas Sequência / Fluxo / Estados (`data-tab=machines` permanece). Teclas `1` `2` `3` alternam as abas (hint `kbd` na pílula). Aba vazia some (0 messages ou 0 machines). Fluxo BPM sempre existe. `+` `−` `100%`; o botão de ajuste **alterna** entre caber na altura e caber na largura (`À altura` / `À largura`). Pan arrastando; `Ctrl`+roda. Sizer cresce com o zoom para explorar X e Y. Hint curto, sem jargão de domínio.
 
 **Arquivos.**
 
@@ -137,9 +137,9 @@ Não inventar paleta, sombra de nó, fill semântico azul/amber, nem “quadro s
 | End ok (sucesso) | `--status-success` | `--status-success` | disco cheio r=10 |
 | End outro | `--status-error` + furo `--bg-canvas` | `--status-error` | anel |
 | Estado | `--bg-sunken` | `--border-default`; entry `--status-info` 1.75; terminal anel duplo `--status-success` | pílula 12 medium |
-| Aresta BPM / máquina | — | `--fg-faint` 1.15 | rótulo 11 `--fg-subtle`; efeito mono 10 |
+| Aresta BPM / máquina | — | `--fg-faint` 1.15, cabeça preenchida no sentido | rótulo 11 `--fg-subtle` (pintado por cima do nó, halo da superfície); efeito mono 10. Volta = tracejado warning. |
 
-Chrome: **app de página inteira** (modo `fluxo-completo.html` do HANDOFF, não documento com `max-width`). `html, body { height:100%; overflow:hidden }`. `.app` = grid `auto 1fr`. Topo compacto: título + cenário numa linha, tabs pílula Sequência / Fluxo / Máquinas, `+` `−` `100%`, botão que alterna `À altura` / `À largura`, **PDF** (baixa `{slug}-fluxo.pdf`: Sequência + Fluxo + Máquinas, papel claro, uma página por superfície; anexo a requisito). Switch de tema. Viewport (`#fl-viewport`) ocupa o resto; fundo pontilhado; cartão `.sheet` com o SVG. `#fl-sizer` cresce com o conteúdo. Zoom muda `width`/`height` do SVG (viewBox × fator) — vetor nítido; **proibido** `transform: scale` no stage (embaça). Zoom persiste **por processo** em `localStorage` (`as-flow-zoom:<data-fl-slug>`). Reabrir o mesmo fluxo restaura o fator; outro slug tem o seu. Não entra no HTML gerado / content-sha. SVG `max-width: none`. Explora X e Y (scroll + arrastar). Sem attrs o cartão inline-block colapsa a 0. Zoom default 100%. Sem picker B/C. Sem segundo painel de lista. Sem footer de documento.
+Chrome: **app de página inteira** (modo `fluxo-completo.html` do HANDOFF, não documento com `max-width`). `html, body { height:100%; overflow:hidden }`. `.app` = grid `auto 1fr`. Topo compacto: título + cenário numa linha, tabs pílula Sequência / Fluxo / Estados (`1` `2` `3`), `+` `−` `100%`, botão que alterna `À altura` / `À largura`, **PDF** (baixa `{slug}-fluxo.pdf`: Sequência + Fluxo + Estados, papel claro, uma página por superfície; anexo a requisito). Switch de tema. Viewport (`#fl-viewport`) ocupa o resto; fundo pontilhado; cartão `.sheet` com o SVG. `#fl-sizer` cresce com o conteúdo. Zoom muda `width`/`height` do SVG (viewBox × fator) — vetor nítido; **proibido** `transform: scale` no stage (embaça). Zoom persiste **por processo** em `localStorage` (`as-flow-zoom:<data-fl-slug>`). Reabrir o mesmo fluxo restaura o fator; outro slug tem o seu. Não entra no HTML gerado / content-sha. SVG `max-width: none`. Explora X e Y (scroll + arrastar). Sem attrs o cartão inline-block colapsa a 0. Zoom default 100%. Sem picker B/C. Sem segundo painel de lista. Sem footer de documento.
 
 **Dados de validação:** o grafo PDTI `docs/design/project-flow/dogfood/fluxo-sugestao.json` (já schema 1.0 / MODEL) é só L1 — um fluxo real para o olho. O desenho e o chrome vêm da engine (`flow-layout` + `flow-draw` + `render-flow`). Sem drawer paralelo. Sem reescrever tipos. Sem copiar mermaid/walk do HTML PDTI.
 

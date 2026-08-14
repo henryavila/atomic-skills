@@ -45,7 +45,7 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-function wrap(text, max = 34) {
+function wrap(text, max = 34, maxLines = 2) {
   const words = String(text).split(/\s+/);
   const lines = [];
   let cur = '';
@@ -57,7 +57,23 @@ function wrap(text, max = 34) {
     } else cur = next;
   }
   if (cur) lines.push(cur);
-  return lines.slice(0, 2);
+  return lines.slice(0, maxLines);
+}
+
+function haloText(cls, x, y, text, anchor = 'middle', attrs = '') {
+  return `<text class="${cls}" x="${x}" y="${y}" text-anchor="${anchor}"${attrs ? ` ${attrs}` : ''}>${esc(text)}</text>`;
+}
+
+function stackInBox(x, top, height, items) {
+  const block = items.reduce((sum, it) => sum + it.h, 0);
+  let y = top + (height - block) / 2;
+  return items
+    .map((it) => {
+      const mid = y + it.h / 2;
+      y += it.h;
+      return `<text class="${it.cls}" x="${x}" y="${mid}" text-anchor="middle" dominant-baseline="central">${esc(it.text)}</text>`;
+    })
+    .join('');
 }
 
 function walkSteps(normalized) {
@@ -285,73 +301,430 @@ function drawSequence(normalized, steps) {
   </svg>`;
 }
 
-function drawBpm(normalized) {
-  const nodes = normalized.graph.nodes;
-  const NW = 200;
-  const NH = 48;
-  const RANK = 78;
-  const COL = 236;
-  const placed = new Map();
-  const edges = [];
-  let minX = 0;
-  let maxX = 0;
-  let maxY = 0;
+function nodeMetrics(node) {
+  const type = node.type;
+  if (type === 'xor') return { w: 200, h: 84 };
+  if (type === 'and' || type === 'join') return { w: 36, h: 8 };
+  if (type === 'end') return { w: 24, h: 44 };
+  if (type === 'event') return { w: 28, h: 46 };
+  const lines = wrap(node.label, 22, 2).length;
+  const extra = node.who ? 1 : 0;
+  return { w: 200, h: 18 + (lines + extra) * 14 + 10 };
+}
 
-  function place(id, x, y) {
-    if (!id || !nodes[id]) return null;
-    if (placed.has(id)) return placed.get(id);
-    const node = nodes[id];
-    const box = { id, type: node.type, label: node.label, who: node.who, x, y };
-    placed.set(id, box);
-    minX = Math.min(minX, x - 120);
-    maxX = Math.max(maxX, x + 120);
-    maxY = Math.max(maxY, y + 80);
+function bpmPorts(box) {
+  const { x, y, type } = box;
+  const m = nodeMetrics(box);
+  if (type === 'xor') {
+    return {
+      top: { x, y },
+      bottom: { x, y: y + m.h },
+      left: { x: x - m.w / 2, y: y + m.h / 2 },
+      right: { x: x + m.w / 2, y: y + m.h / 2 },
+    };
+  }
+  if (type === 'end' || type === 'event') {
+    const cy = y + (type === 'end' ? 12 : 14);
+    const r = type === 'end' ? 10 : 12;
+    return {
+      top: { x, y: cy - r },
+      bottom: { x, y: cy + r },
+      left: { x: x - r, y: cy },
+      right: { x: x + r, y: cy },
+    };
+  }
+  if (type === 'and' || type === 'join') {
+    return {
+      top: { x, y },
+      bottom: { x, y: y + 8 },
+      left: { x: x - 18, y: y + 4 },
+      right: { x: x + 18, y: y + 4 },
+    };
+  }
+  return {
+    top: { x, y },
+    bottom: { x, y: y + m.h },
+    left: { x: x - m.w / 2, y: y + m.h / 2 },
+    right: { x: x + m.w / 2, y: y + m.h / 2 },
+  };
+}
 
-    if (node.type === 'end') return box;
-
-    if (node.type === 'xor' || node.type === 'and') {
-      const br = node.branches || [];
-      const n = br.length;
-      br.forEach((b, i) => {
-        const kx = x + (i - (n - 1) / 2) * COL;
-        const child = place(b.next, kx, y + RANK + 16);
-        if (child) edges.push({ from: id, to: child.id, label: b.label });
-      });
-      return box;
+function routeOrthogonal(from, to, kind) {
+  const a = bpmPorts(from);
+  const b = bpmPorts(to);
+  if (kind === 'back') {
+    const p1 = a.left;
+    const p2 = b.left;
+    const side = Math.min(p1.x, p2.x) - 52;
+    const midY = p2.y + 26;
+    return `M${p1.x} ${p1.y} L${side} ${p1.y} L${side} ${midY} L${p2.x} ${midY} L${p2.x} ${p2.y}`;
+  }
+  const dx = to.x - from.x;
+  let p1 = a.bottom;
+  if (from.type === 'xor') {
+    if (dx < -30) p1 = { x: (a.left.x + a.bottom.x) / 2, y: (a.left.y + a.bottom.y) / 2 };
+    else if (dx > 30) p1 = { x: (a.right.x + a.bottom.x) / 2, y: (a.right.y + a.bottom.y) / 2 };
+  } else if (from.type === 'and') {
+    if (dx < -30) p1 = a.left;
+    else if (dx > 30) p1 = a.right;
+  }
+  let p2 = b.top;
+  if (kind === 'join' && Math.abs(dx) > 30) {
+    p2 = from.x < to.x ? b.left : b.right;
+  }
+  if (Math.abs(p1.x - p2.x) < 1.5 && Math.abs(p1.y - p2.y) > 1) {
+    return `M${p1.x} ${p1.y} L${p2.x} ${p2.y}`;
+  }
+  if (p2 === b.left || p2 === b.right) {
+    return `M${p1.x} ${p1.y} L${p1.x} ${p2.y} L${p2.x} ${p2.y}`;
+  }
+  if (p2.y > p1.y + 8) {
+    if (Math.abs(p1.x - a.left.x) < 1 || Math.abs(p1.x - a.right.x) < 1 || (from.type === 'xor' && Math.abs(dx) > 30)) {
+      return `M${p1.x} ${p1.y} L${p2.x} ${p1.y} L${p2.x} ${p2.y}`;
     }
+    const midY = (p1.y + p2.y) / 2;
+    return `M${p1.x} ${p1.y} L${p1.x} ${midY} L${p2.x} ${midY} L${p2.x} ${p2.y}`;
+  }
+  const midY = Math.max(p1.y, p2.y) + 24;
+  return `M${p1.x} ${p1.y} L${p1.x} ${midY} L${p2.x} ${midY} L${p2.x} ${p2.y}`;
+}
 
-    if (node.next) {
-      if (placed.has(node.next)) {
-        edges.push({ from: id, to: node.next, label: '' });
-      } else {
-        const child = place(node.next, x, y + RANK);
-        if (child) edges.push({ from: id, to: child.id, label: '' });
+function pathPoints(d) {
+  return [...d.matchAll(/[ML]\s*([-\d.]+)\s+([-\d.]+)/g)].map((m) => ({ x: +m[1], y: +m[2] }));
+}
+
+function endTangent(d) {
+  const c = /C\s*([-\d.]+)\s+([-\d.]+),\s*([-\d.]+)\s+([-\d.]+),\s*([-\d.]+)\s+([-\d.]+)\s*$/.exec(d);
+  if (c) return { from: { x: +c[3], y: +c[4] }, to: { x: +c[5], y: +c[6] } };
+  const pts = pathPoints(d);
+  if (pts.length < 2) return null;
+  return { from: pts[pts.length - 2], to: pts[pts.length - 1] };
+}
+
+function arrowPoly(d, cls = 'edge-head') {
+  const t = endTangent(d);
+  if (!t) return '';
+  const ang = Math.atan2(t.to.y - t.from.y, t.to.x - t.from.x);
+  const len = 8;
+  const w = 3.6;
+  const { x, y } = t.to;
+  const x1 = x - len * Math.cos(ang) + w * Math.sin(ang);
+  const y1 = y - len * Math.sin(ang) - w * Math.cos(ang);
+  const x2 = x - len * Math.cos(ang) - w * Math.sin(ang);
+  const y2 = y - len * Math.sin(ang) + w * Math.cos(ang);
+  return `<polygon class="${cls}" points="${x},${y} ${x1},${y1} ${x2},${y2}"/>`;
+}
+
+function longestSeg(d) {
+  const pts = [...d.matchAll(/[ML]\s*([-\d.]+)\s+([-\d.]+)/g)].map((m) => ({
+    x: +m[1],
+    y: +m[2],
+  }));
+  if (pts.length < 2) return { x: 0, y: 0, horiz: true };
+  let best = { a: pts[0], b: pts[1], len: 0 };
+  for (let i = 1; i < pts.length; i += 1) {
+    const len = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    if (len > best.len) best = { a: pts[i - 1], b: pts[i], len };
+  }
+  return {
+    x: (best.a.x + best.b.x) / 2,
+    y: (best.a.y + best.b.y) / 2,
+    horiz: Math.abs(best.b.x - best.a.x) >= Math.abs(best.b.y - best.a.y),
+  };
+}
+
+function analyzeBpm(nodes, entry) {
+  const forwardIn = Object.create(null);
+  const seen = new Set();
+  function outs(node) {
+    if (!node || node.type === 'end') return [];
+    if (node.type === 'xor' || node.type === 'and') {
+      return (node.branches || []).map((b) => ({ to: b.next, label: b.label || '' }));
+    }
+    return node.next ? [{ to: node.next, label: '' }] : [];
+  }
+  function dfs(id, path) {
+    const node = nodes[id];
+    if (!node) return;
+    seen.add(id);
+    for (const e of outs(node)) {
+      if (!e.to || !nodes[e.to]) continue;
+      if (path.has(e.to)) continue;
+      forwardIn[e.to] = (forwardIn[e.to] || 0) + 1;
+      if (!seen.has(e.to)) {
+        const next = new Set(path);
+        next.add(e.to);
+        dfs(e.to, next);
       }
     }
+  }
+  dfs(entry, new Set([entry]));
+  const joinIds = new Set(Object.keys(forwardIn).filter((id) => forwardIn[id] > 1));
+  return { joinIds };
+}
+
+function drawBpm(normalized) {
+  const nodes = normalized.graph.nodes;
+  const entry = normalized.graph.entry;
+  const COL = 248;
+  const GAP = 56;
+  const { joinIds } = analyzeBpm(nodes, entry);
+  const placed = new Map();
+  const edges = [];
+
+  function isStubBranch(start, path) {
+    let cur = start;
+    const local = new Set();
+    while (cur && nodes[cur] && !local.has(cur)) {
+      local.add(cur);
+      const node = nodes[cur];
+      if (node.type === 'xor' || node.type === 'and' || node.type === 'end') return false;
+      if (joinIds.has(cur) && cur !== start) return false;
+      if (!node.next) return false;
+      if (path.has(node.next)) return true;
+      if (joinIds.has(node.next) || placed.has(node.next)) return false;
+      cur = node.next;
+    }
+    return false;
+  }
+
+  function joinAfter(start) {
+    let cur = start;
+    const local = new Set();
+    while (cur && nodes[cur] && !local.has(cur)) {
+      local.add(cur);
+      const node = nodes[cur];
+      if (node.type === 'xor' || node.type === 'and' || node.type === 'end') return null;
+      if (node.next && joinIds.has(node.next)) return node.next;
+      cur = node.next;
+    }
+    return null;
+  }
+
+  function placeNode(id, x, y) {
+    if (placed.has(id)) return placed.get(id);
+    const node = nodes[id];
+    const box = {
+      id,
+      type: node.type,
+      label: node.label,
+      who: node.who,
+      question: node.question,
+      next: node.next,
+      x,
+      y,
+    };
+    placed.set(id, box);
     return box;
   }
 
-  place(normalized.graph.entry, 420, 40);
-  const width = Math.max(840, maxX - minX + 80);
-  const height = maxY + 40;
-  const dx = 40 - minX;
+  function placeFrom(id, x, y, path) {
+    let cur = id;
+    let cy = y;
+    let prev = null;
+    let guard = 0;
+    while (cur && nodes[cur] && guard++ < 48) {
+      if (path.has(cur) && placed.has(cur)) {
+        if (prev) edges.push({ from: prev, to: cur, label: '', kind: 'back' });
+        return { bottom: cy, last: prev };
+      }
+      if (placed.has(cur)) {
+        if (prev) edges.push({ from: prev, to: cur, label: '', kind: 'join' });
+        const hit = placed.get(cur);
+        return { bottom: hit.y + nodeMetrics(hit).h, last: cur };
+      }
+      const node = nodes[cur];
+      placeNode(cur, x, cy);
+      if (prev) edges.push({ from: prev, to: cur, label: '', kind: 'seq' });
+      const h = nodeMetrics(node).h;
+      if (node.type === 'end') return { bottom: cy + h, last: cur };
+      if (node.type === 'xor' || node.type === 'and') {
+        return placeGate(cur, x, cy, new Set([...path, cur]));
+      }
+      prev = cur;
+      cur = node.next;
+      cy += h + GAP;
+    }
+    return { bottom: cy, last: prev };
+  }
+
+  function placeUntilJoin(start, x, y, path, joinId) {
+    let cur = start;
+    let cy = y;
+    let prev = null;
+    while (cur && nodes[cur] && cur !== joinId && !placed.has(cur) && !path.has(cur)) {
+      const node = nodes[cur];
+      if (node.type === 'xor' || node.type === 'and') {
+        placeNode(cur, x, cy);
+        if (prev) edges.push({ from: prev, to: cur, label: '', kind: 'seq' });
+        return placeGate(cur, x, cy, new Set([...path, cur]));
+      }
+      placeNode(cur, x, cy);
+      if (prev) edges.push({ from: prev, to: cur, label: '', kind: 'seq' });
+      const h = nodeMetrics(node).h;
+      if (node.type === 'end') return { bottom: cy + h, last: cur };
+      prev = cur;
+      cur = node.next;
+      cy += h + GAP;
+    }
+    if (prev) return { bottom: placed.get(prev).y + nodeMetrics(placed.get(prev)).h, last: prev };
+    return { bottom: cy, last: prev };
+  }
+
+  function placeGate(gateId, x, y, path) {
+    const node = nodes[gateId];
+    const branches = node.branches || [];
+    const gh = nodeMetrics(node).h;
+    const specs = branches.map((branch) => {
+      const target = branch.next;
+      if (!target || !nodes[target]) return { branch, kind: 'empty' };
+      if (path.has(target)) return { branch, kind: 'back', target };
+      if (placed.has(target) || joinIds.has(target)) {
+        return { branch, kind: 'to-join', target };
+      }
+      if (isStubBranch(target, path)) return { branch, kind: 'stub', start: target };
+      return { branch, kind: 'content', start: target, join: joinAfter(target) };
+    });
+    const contents = specs.filter((s) => s.kind === 'content');
+    const toJoins = specs.filter((s) => s.kind === 'to-join');
+    const stubs = specs.filter((s) => s.kind === 'stub' || s.kind === 'back');
+
+    if (contents.length <= 1 && toJoins.length === 0) {
+      stubs.forEach((s, i) => {
+        if (s.kind === 'back') {
+          edges.push({ from: gateId, to: s.target, label: s.branch.label, kind: 'back' });
+          return;
+        }
+        const sx = x - COL * (i + 1);
+        const startY = y + gh + GAP;
+        placeFrom(s.start, sx, startY, path);
+        edges.push({ from: gateId, to: s.start, label: s.branch.label, kind: 'branch' });
+      });
+      if (contents[0]) {
+        const startY = y + gh + GAP;
+        const r = placeFrom(contents[0].start, x, startY, path);
+        edges.push({ from: gateId, to: contents[0].start, label: contents[0].branch.label, kind: 'branch' });
+        return r;
+      }
+      return { bottom: y + gh, last: gateId };
+    }
+
+    const colSpecs = specs.filter((s) => s.kind === 'content' || s.kind === 'to-join' || s.kind === 'stub');
+    const n = Math.max(colSpecs.length, 1);
+    const cols = [];
+    colSpecs.forEach((s, i) => {
+      const kx = x + (i - (n - 1) / 2) * COL;
+      const startY = y + gh + GAP;
+      if (s.kind === 'to-join') {
+        cols.push({ spec: s, last: null, bottom: startY });
+        edges.push({ from: gateId, to: s.target, label: s.branch.label, kind: 'branch' });
+      } else if (s.kind === 'stub') {
+        const r = placeFrom(s.start, kx, startY, path);
+        edges.push({ from: gateId, to: s.start, label: s.branch.label, kind: 'branch' });
+        cols.push({ spec: s, last: r.last, bottom: r.bottom });
+      } else {
+        const r = placeUntilJoin(s.start, kx, startY, path, s.join);
+        edges.push({ from: gateId, to: s.start, label: s.branch.label, kind: 'branch' });
+        cols.push({ spec: s, last: r.last, bottom: r.bottom });
+      }
+    });
+
+    const joinHits = [
+      ...contents.map((s) => s.join),
+      ...toJoins.map((s) => s.target),
+    ].filter(Boolean);
+    const uniqueJoins = [...new Set(joinHits)];
+    const joinId = uniqueJoins.length === 1 ? uniqueJoins[0] : null;
+    const maxBottom = Math.max(y + gh + GAP, ...cols.map((c) => c.bottom));
+
+    if (joinId && !placed.has(joinId)) {
+      const jy = maxBottom + GAP;
+      const r = placeFrom(joinId, x, jy, path);
+      for (const c of cols) {
+        if (c.last && c.last !== joinId) {
+          edges.push({ from: c.last, to: joinId, label: '', kind: 'join' });
+        }
+      }
+      return r;
+    }
+    if (joinId && placed.has(joinId)) {
+      for (const c of cols) {
+        if (c.last && c.last !== joinId) {
+          edges.push({ from: c.last, to: joinId, label: '', kind: 'join' });
+        }
+      }
+      const hit = placed.get(joinId);
+      return { bottom: hit.y + nodeMetrics(hit).h, last: joinId };
+    }
+    return { bottom: maxBottom, last: gateId };
+  }
+
+  placeFrom(entry, 0, 28, new Set());
+
+  const seenEdge = new Set();
+  const uniq = [];
+  for (const e of edges) {
+    const key = `${e.from}>${e.to}|${e.label}|${e.kind}`;
+    if (seenEdge.has(key)) continue;
+    seenEdge.add(key);
+    uniq.push(e);
+  }
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const b of placed.values()) {
+    const m = nodeMetrics(b);
+    minX = Math.min(minX, b.x - m.w / 2);
+    maxX = Math.max(maxX, b.x + m.w / 2);
+    minY = Math.min(minY, b.y);
+    maxY = Math.max(maxY, b.y + m.h + (b.type === 'end' || b.type === 'event' ? 4 : 0));
+  }
+  minX -= 72;
+  maxX += 36;
+  minY -= 16;
+  maxY += 20;
+  const dx = 24 - minX;
+  const dy = 24 - minY;
+  for (const b of placed.values()) {
+    b.x += dx;
+    b.y += dy;
+  }
+  const width = Math.ceil(maxX + dx + 24);
+  const height = Math.ceil(maxY + dy + 24);
 
   const nodeSvg = [...placed.values()]
     .map((b) => {
-      const x = b.x + dx;
-      const y = b.y;
+      const { x, y } = b;
       if (b.type === 'xor') {
-        const pts = `${x},${y} ${x + 108},${y + 36} ${x},${y + 72} ${x - 108},${y + 36}`;
-        const lines = wrap(b.label.replace(/\?$/, '') + '?', 18);
-        const ty = y + 32 - (lines.length - 1) * 7;
+        const hw = 100;
+        const hh = 42;
+        const pts = `${x},${y} ${x + hw},${y + hh} ${x},${y + hh * 2} ${x - hw},${y + hh}`;
+        const q = (b.label || b.question || '').replace(/\?$/, '') + '?';
+        const lines = wrap(q, 16, 2);
+        const items = [
+          ...lines.map((ln) => ({ text: ln, cls: 'xor-t', h: 14 })),
+          ...(b.who ? [{ text: b.who, cls: 'who', h: 12 }] : []),
+        ];
         return `<g data-node-id="${esc(b.id)}" data-shape="diamond">
           <polygon class="diamond" points="${pts}"/>
-          ${lines.map((ln, i) => `<text class="xor-t" x="${x}" y="${ty + i * 14}" text-anchor="middle">${esc(ln)}</text>`).join('')}
-          ${b.who ? `<text class="who" x="${x}" y="${y - 6}" text-anchor="middle">${esc(b.who)}</text>` : ''}
+          ${stackInBox(x, y, hh * 2, items)}
+        </g>`;
+      }
+      if (b.type === 'and' || b.type === 'join') {
+        return `<g data-node-id="${esc(b.id)}" data-shape="bar">
+          <rect class="bar" x="${x - 18}" y="${y}" width="36" height="8" rx="2"/>
+        </g>`;
+      }
+      if (b.type === 'event') {
+        return `<g data-node-id="${esc(b.id)}" data-shape="circle">
+          <circle class="evt" cx="${x}" cy="${y + 14}" r="12"/>
+          <text class="end-t" x="${x}" y="${y + 40}" text-anchor="middle">${esc(b.label)}</text>
         </g>`;
       }
       if (b.type === 'end') {
-        const ok = /funil/.test(b.label) && !/sem/.test(b.label);
+        const ok = !/recus|reject|fail|sem |error|inválid/i.test(b.label);
         const cls = ok ? 'end-ok' : 'end-bad';
         return `<g data-node-id="${esc(b.id)}" data-shape="circle">
           <circle class="${cls}" cx="${x}" cy="${y + 12}" r="10"/>
@@ -359,36 +732,59 @@ function drawBpm(normalized) {
           <text class="end-t" x="${x}" y="${y + 36}" text-anchor="middle">${esc(b.label)}</text>
         </g>`;
       }
-      const lines = wrap(b.label, 26);
-      return `<g data-node-id="${esc(b.id)}" data-shape="rect" data-next="${esc(nodes[b.id].next || '')}">
-        <rect class="act" x="${x - NW / 2}" y="${y}" width="${NW}" height="${NH}" rx="8"/>
-        ${lines.map((ln, i) => `<text class="act-t" x="${x}" y="${y + 20 + i * 14}" text-anchor="middle">${esc(ln)}</text>`).join('')}
+      const lines = wrap(b.label, 22, 2);
+      const h = nodeMetrics(b).h;
+      const nextAttr = b.next ? ` data-next="${esc(b.next)}"` : '';
+      const mark =
+        b.type === 'subprocess'
+          ? `<rect class="sub-mark" x="${x - 95}" y="${y + 5}" width="190" height="${h - 10}" rx="4"/>`
+          : '';
+      const items = [
+        ...lines.map((ln) => ({ text: ln, cls: 'act-t', h: 14 })),
+        ...(b.who ? [{ text: b.who, cls: 'who', h: 12 }] : []),
+      ];
+      return `<g data-node-id="${esc(b.id)}" data-shape="rect"${nextAttr}>
+        <rect class="act" x="${x - 100}" y="${y}" width="200" height="${h}" rx="8"/>
+        ${mark}
+        ${stackInBox(x, y, h, items)}
       </g>`;
     })
     .join('\n');
 
-  const edgeSvg = edges
+  const routed = uniq
     .map((e) => {
       const a = placed.get(e.from);
       const b = placed.get(e.to);
-      if (!a || !b) return '';
-      const x1 = a.x + dx;
-      const y1 = a.type === 'xor' ? a.y + 72 : a.type === 'end' ? a.y + 12 : a.y + NH;
-      const x2 = b.x + dx;
-      const y2 = b.type === 'xor' ? b.y + 36 : b.y;
-      if (b.y + 8 < a.y) {
-        const side = Math.min(x1, x2) - 70;
-        return `<g>
-          <path class="edge" d="M${x1} ${y1} C${side} ${y1}, ${side} ${y2}, ${x2 - 108} ${y2}"/>
-          <text class="loop" x="${side + 8}" y="${(y1 + y2) / 2}">↺</text>
-        </g>`;
+      if (!a || !b) return null;
+      const d = routeOrthogonal(a, b, e.kind);
+      return { ...e, d };
+    })
+    .filter(Boolean);
+
+  const edgeSvg = routed
+    .map((e) => {
+      const cls = e.kind === 'back' ? 'edge back' : 'edge';
+      return `<path class="${cls}" d="${e.d}"/>`;
+    })
+    .join('\n');
+  const headSvg = routed
+    .map((e) => arrowPoly(e.d, e.kind === 'back' ? 'edge-head back' : 'edge-head'))
+    .join('\n');
+
+  const labelSvg = routed
+    .map((e) => {
+      if (!e.label) return '';
+      const mid = longestSeg(e.d);
+      const lines = wrap(e.label, 18, 2);
+      if (mid.horiz) {
+        const y0 = mid.y - 8 - (lines.length - 1) * 12;
+        return lines
+          .map((ln, i) => haloText('edge-t', mid.x, y0 + i * 12, ln, 'middle'))
+          .join('');
       }
-      const mx = (x1 + x2) / 2;
-      const my = (y1 + y2) / 2;
-      return `<g>
-        <path class="edge" d="M${x1} ${y1} L${x2} ${y2}"/>
-        ${e.label ? `<text class="edge-t" x="${mx + 6}" y="${my - 4}">${esc(e.label)}</text>` : ''}
-      </g>`;
+      return lines
+        .map((ln, i) => haloText('edge-t', mid.x + 8, mid.y + i * 12, ln, 'start'))
+        .join('');
     })
     .join('\n');
 
@@ -396,94 +792,346 @@ function drawBpm(normalized) {
     <title>Diagrama de processo — PDTI</title>
     ${edgeSvg}
     ${nodeSvg}
+    ${headSvg}
+    ${labelSvg}
   </svg>`;
 }
 
+const KIND_PT = {
+  write: 'Grava',
+  email: 'E-mail',
+  notify: 'Avisa',
+};
+
+function estW(s, px = 11) {
+  return Math.ceil(String(s || '').length * px * 0.58);
+}
+
 function drawMachines(normalized) {
-  const m = normalized.machines[0];
-  const ids = Object.keys(m.nodes);
-  const W = 148;
+  const machines = normalized.machines || [];
+  const W = 168;
   const H = 32;
-  const gap = 88;
-  const x0 = 40;
-  const y0 = 88;
-  const pos = {
-    rascunho: { x: x0, y: y0 },
-    pendente: { x: x0 + W + gap, y: y0 },
-    ativo: { x: x0 + 2 * (W + gap), y: y0 },
-    recusada: { x: x0 + W + gap, y: y0 + 130 },
-  };
-  for (const id of ids) {
-    if (!pos[id]) pos[id] = { x: x0 + ids.indexOf(id) * (W + gap), y: y0 };
+  const GAP_X = 292;
+  const ROW_Y = 188;
+  const PAD_X = 72;
+  const PAD_Y = 168;
+  const TITLE = 44;
+  const STACK = 48;
+
+  function cap1(s) {
+    const t = String(s || '');
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
   }
 
-  const states = ids
-    .map((id) => {
-      const n = m.nodes[id];
-      const p = pos[id];
-      const entry = m.entry === id;
-      const term = n.terminal === true;
-      const cls = `st${entry ? ' entry' : ''}${term ? ' term' : ''}`;
-      const inner = term
-        ? `<rect class="st term" x="${p.x + 3}" y="${p.y + 3}" width="${W - 6}" height="${H - 6}" rx="13" fill="none"/>`
-        : '';
-      return `<g data-state-id="${esc(id)}">
+  function splitTitle(label) {
+    let s = String(label || '').replace(/^Líder\s+/i, '');
+    const i = s.indexOf(' · ');
+    if (i > 0) return { title: cap1(s.slice(0, i)), note: s.slice(i + 3) };
+    return { title: cap1(s), note: '' };
+  }
+
+  function captionSize(t) {
+    const { title, note } = splitTitle(t.label);
+    const fx = t.effects || [];
+    const titleLines = wrap(title, 18, 2);
+    const noteLines = note ? wrap(note, 20, 1) : [];
+    const fxRows = fx.map((e) => {
+      const kind = KIND_PT[e.kind] || e.kind;
+      const words = wrap(e.label, 18, 2);
+      return { e, kind, kindW: Math.max(40, estW(kind, 9) + 12), words };
+    });
+    let inner = Math.max(80, ...titleLines.map((ln) => estW(ln, 11)));
+    noteLines.forEach((ln) => {
+      inner = Math.max(inner, estW(ln, 10));
+    });
+    fxRows.forEach((row) => {
+      row.words.forEach((ln) => {
+        inner = Math.max(inner, row.kindW + 6 + estW(ln, 10));
+      });
+    });
+    const padX = 8;
+    const padY = 6;
+    const h =
+      padY +
+      titleLines.length * 13 +
+      noteLines.length * 11 +
+      fxRows.reduce((s, row) => s + row.words.length * 14, 0) +
+      padY;
+    return {
+      titleLines,
+      noteLines,
+      fxRows,
+      w: inner + padX * 2,
+      h,
+      padX,
+      padY,
+    };
+  }
+
+  function captionBox(t, attachX, attachY, place) {
+    const c = captionSize(t);
+    let x;
+    let y;
+    if (place === 'above') {
+      x = attachX - c.w / 2;
+      y = attachY - c.h;
+    } else if (place === 'above-left') {
+      x = attachX - c.w + 18;
+      y = attachY - c.h;
+    } else if (place === 'above-right') {
+      x = attachX - 18;
+      y = attachY - c.h;
+    } else if (place === 'below') {
+      x = attachX - c.w / 2;
+      y = attachY;
+    } else if (place === 'left') {
+      x = attachX - c.w;
+      y = attachY - c.h / 2;
+    } else {
+      x = attachX;
+      y = attachY - c.h / 2;
+    }
+    return { t, ...c, x, y };
+  }
+
+  function paintCaption(box) {
+    const { t, x, y, w, h, padX, padY, titleLines, noteLines, fxRows } = box;
+    let cy = y + padY + 9;
+    const parts = [
+      `<g data-transition-id="${esc(t.id || '')}" data-from="${esc(t.from)}" data-to="${esc(t.to)}">`,
+      `<rect class="edge-cap" x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/>`,
+    ];
+    titleLines.forEach((ln) => {
+      parts.push(
+        `<text class="edge-title" x="${x + padX}" y="${cy}" dominant-baseline="central">${esc(ln)}</text>`,
+      );
+      cy += 13;
+    });
+    noteLines.forEach((ln) => {
+      parts.push(
+        `<text class="edge-note" x="${x + padX}" y="${cy}" dominant-baseline="central">${esc(ln)}</text>`,
+      );
+      cy += 11;
+    });
+    fxRows.forEach((row) => {
+      row.words.forEach((ln, i) => {
+        const attrs = `data-effect-kind="${esc(row.e.kind)}" data-effect-target="${esc(row.e.target)}"`;
+        if (i === 0) {
+          parts.push(`<rect class="fx-pill" x="${x + padX}" y="${cy - 7}" width="${row.kindW}" height="14" rx="7"/>`);
+          parts.push(
+            `<text class="fx-pill-t" x="${x + padX + row.kindW / 2}" y="${cy}" text-anchor="middle" dominant-baseline="central">${esc(row.kind)}</text>`,
+          );
+          parts.push(
+            `<text class="fx" x="${x + padX + row.kindW + 6}" y="${cy}" dominant-baseline="central" ${attrs}>${esc(ln)}</text>`,
+          );
+        } else {
+          parts.push(
+            `<text class="fx" x="${x + padX + row.kindW + 6}" y="${cy}" dominant-baseline="central">${esc(ln)}</text>`,
+          );
+        }
+        cy += 14;
+      });
+    });
+    parts.push('</g>');
+    return parts.join('');
+  }
+
+  function layoutOne(m, yOff) {
+    const ids = Object.keys(m.nodes);
+    const selfLoops = [];
+    const downs = [];
+    const forwards = [];
+    const nonSelf = m.transitions.filter((tr) => tr.from !== tr.to);
+    const byFrom = Object.create(null);
+    for (const tr of nonSelf) {
+      if (!byFrom[tr.from]) byFrom[tr.from] = [];
+      byFrom[tr.from].push(tr);
+    }
+    for (const tr of m.transitions) {
+      if (tr.from === tr.to) {
+        selfLoops.push(tr);
+        continue;
+      }
+      const sibs = byFrom[tr.from] || [];
+      const hasHappy = sibs.some((o) => o !== tr && m.nodes[o.to] && !m.nodes[o.to].terminal);
+      if (m.nodes[tr.to]?.terminal && hasHappy) downs.push(tr);
+      else forwards.push(tr);
+    }
+
+    const rank = Object.create(null);
+    if (m.entry) rank[m.entry] = 0;
+    const q = m.entry ? [m.entry] : [];
+    while (q.length) {
+      const id = q.shift();
+      for (const tr of forwards) {
+        if (tr.from !== id || rank[tr.to] != null) continue;
+        rank[tr.to] = (rank[id] ?? 0) + 1;
+        q.push(tr.to);
+      }
+    }
+    const row = Object.create(null);
+    for (const id of ids) row[id] = 0;
+    for (const tr of downs) {
+      if (rank[tr.to] == null) rank[tr.to] = rank[tr.from] ?? 0;
+      row[tr.to] = (row[tr.from] ?? 0) + 1;
+    }
+    ids.forEach((id, i) => {
+      if (rank[id] == null) rank[id] = i;
+    });
+
+    const pos = {};
+    for (const id of ids) {
+      pos[id] = {
+        x: PAD_X + (rank[id] ?? 0) * (W + GAP_X),
+        y: yOff + PAD_Y + (row[id] ?? 0) * ROW_Y,
+      };
+    }
+
+    const loopsByFrom = Object.create(null);
+    for (const tr of selfLoops) {
+      if (!loopsByFrom[tr.from]) loopsByFrom[tr.from] = [];
+      loopsByFrom[tr.from].push(tr);
+    }
+    const loopSide = new Map();
+    for (const list of Object.values(loopsByFrom)) {
+      const ordered = [...list].sort((a, b) => (b.effects?.length || 0) - (a.effects?.length || 0));
+      if (ordered.length === 1) loopSide.set(ordered[0], 'top');
+      else {
+        ordered.forEach((tr, i) => loopSide.set(tr, i === 0 ? 'top-left' : 'top-right'));
+      }
+    }
+
+    return { m, pos, selfLoops, downs, forwards, loopSide };
+  }
+
+  function selfPath(p, side) {
+    const cy = p.y + H / 2;
+    if (side === 'top-left' || side === 'top-right') {
+      const cx = p.x + (side === 'top-left' ? W * 0.28 : W * 0.72);
+      const lift = 36;
+      const apex = p.y - lift;
+      return {
+        d: `M${cx - 10} ${p.y} C${cx - 20} ${apex}, ${cx + 20} ${apex}, ${cx + 10} ${p.y}`,
+        lx: cx,
+        ly: apex - 6,
+        place: side === 'top-left' ? 'above-left' : 'above-right',
+      };
+    }
+    const cx = p.x + W / 2;
+    const apex = p.y - 40;
+    return {
+      d: `M${cx - 12} ${p.y} C${cx - 28} ${apex}, ${cx + 28} ${apex}, ${cx + 12} ${p.y}`,
+      lx: cx,
+      ly: apex - 6,
+      place: 'above',
+    };
+  }
+
+  let yOff = TITLE;
+  const laid = [];
+  for (const m of machines) {
+    const one = layoutOne(m, yOff);
+    let maxY = yOff + PAD_Y + H;
+    for (const p of Object.values(one.pos)) maxY = Math.max(maxY, p.y + H + 80);
+    laid.push(one);
+    yOff = maxY + STACK;
+  }
+
+  const groups = [];
+  let minX = 0;
+  let minY = 0;
+  let maxX = 40;
+  let maxY = 40;
+
+  function union(x, y, w, h) {
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+  }
+
+  for (const [idx, one] of laid.entries()) {
+    const { m, pos, selfLoops, downs, forwards, loopSide } = one;
+    const edgeParts = [];
+    const headParts = [];
+    const caps = [];
+
+    for (const p of Object.values(pos)) union(p.x, p.y, W, H);
+
+    for (const tr of forwards) {
+      const a = pos[tr.from];
+      const b = pos[tr.to];
+      if (!a || !b) continue;
+      const d = `M${a.x + W} ${a.y + H / 2} L${b.x} ${b.y + H / 2}`;
+      edgeParts.push(`<path class="edge" d="${d}"/>`);
+      headParts.push(arrowPoly(d));
+      const box = captionBox(tr, (a.x + W + b.x) / 2, a.y - 10, 'above');
+      caps.push(box);
+      union(box.x, box.y, box.w, box.h);
+    }
+    for (const tr of downs) {
+      const a = pos[tr.from];
+      const b = pos[tr.to];
+      if (!a || !b) continue;
+      const d = `M${a.x + W / 2} ${a.y + H} L${b.x + W / 2} ${b.y}`;
+      edgeParts.push(`<path class="edge" d="${d}"/>`);
+      headParts.push(arrowPoly(d));
+      const box = captionBox(tr, a.x + W / 2 + 12, (a.y + H + b.y) / 2, 'right');
+      caps.push(box);
+      union(box.x, box.y, box.w, box.h);
+    }
+    for (const tr of selfLoops) {
+      const a = pos[tr.from];
+      if (!a) continue;
+      const routed = selfPath(a, loopSide.get(tr) || 'top');
+      edgeParts.push(`<path class="edge" d="${routed.d}"/>`);
+      headParts.push(arrowPoly(routed.d));
+      const box = captionBox(tr, routed.lx, routed.ly, routed.place);
+      caps.push(box);
+      union(box.x, box.y, box.w, box.h);
+    }
+
+    const stateSvg = Object.keys(m.nodes)
+      .map((id) => {
+        const n = m.nodes[id];
+        const p = pos[id];
+        const entry = m.entry === id;
+        const term = n.terminal === true;
+        const cls = `st${entry ? ' entry' : ''}${term ? ' term' : ''}`;
+        const inner = term
+          ? `<rect class="st term" x="${p.x + 3}" y="${p.y + 3}" width="${W - 6}" height="${H - 6}" rx="13" fill="none"/>`
+          : '';
+        return `<g data-state-id="${esc(id)}">
         <rect class="${cls}" x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="16"/>
         ${inner}
-        <text class="st-t" x="${p.x + W / 2}" y="${p.y + 21}" text-anchor="middle">${esc(n.label)}</text>
+        <text class="st-t" x="${p.x + W / 2}" y="${p.y + H / 2}" text-anchor="middle" dominant-baseline="central">${esc(n.label)}</text>
       </g>`;
-    })
-    .join('\n');
+      })
+      .join('\n');
 
-  const edgeSvg = m.transitions
-    .map((t) => {
-      const a = pos[t.from];
-      const b = pos[t.to];
-      if (!a || !b) return '';
-      const fx = t.effects || [];
-      const fxLine = fx
-        .map((e) => `${e.kind} · ${e.label} → ${e.target}`)
-        .join(' · ');
-      if (t.from === t.to) {
-        const up = t.id === 'T_draft_loop' || t.id === 'T_skip_edit';
-        const side = t.id === 'T_skip_edit' ? 1 : -1;
-        const midY = up ? a.y - 36 : a.y + H + 40;
-        const xL = a.x + (side < 0 ? 16 : W - 16);
-        const d = `M${a.x + W / 2 - 16} ${up ? a.y : a.y + H} C${xL - 40 * side} ${midY}, ${xL + 40 * side} ${midY}, ${a.x + W / 2 + 16} ${up ? a.y : a.y + H}`;
-        return `<g>
-          <path class="edge" d="${d}" fill="none"/>
-          <text class="edge-t" x="${a.x + W / 2}" y="${midY - 4}" text-anchor="middle">${esc(t.label)}</text>
-          ${fxLine ? `<text class="fx" x="${a.x + W / 2}" y="${midY + 10}" text-anchor="middle">${esc(fxLine)}</text>` : ''}
-        </g>`;
-      }
-      const selfDown = b.y > a.y;
-      if (selfDown) {
-        const x = a.x - 8;
-        return `<g>
-          <path class="edge" d="M${a.x} ${a.y + H / 2} C${x - 36} ${a.y + H / 2}, ${x - 36} ${b.y + H / 2}, ${b.x} ${b.y + H / 2}" fill="none"/>
-          <text class="edge-t" x="${x - 40}" y="${(a.y + b.y) / 2 + 10}" text-anchor="end">${esc(t.label)}</text>
-          ${fxLine ? `<text class="fx" x="${x - 40}" y="${(a.y + b.y) / 2 + 22}" text-anchor="end">${esc(fxLine)}</text>` : ''}
-        </g>`;
-      }
-      const x1 = a.x + W;
-      const y1 = a.y + H / 2;
-      const x2 = b.x;
-      const y2 = b.y + H / 2;
-      const midX = (x1 + x2) / 2;
-      return `<g>
-        <path class="edge" d="M${x1} ${y1} L${x2} ${y2}" fill="none"/>
-        <text class="edge-t" x="${midX}" y="${y1 - 14}" text-anchor="middle">${esc(t.label)}</text>
-        ${fxLine ? `<text class="fx" x="${midX}" y="${y1 - 2}" text-anchor="middle">${esc(fxLine)}</text>` : ''}
-      </g>`;
-    })
-    .join('\n');
+    const titleY = idx === 0 ? 16 : Math.min(...Object.values(pos).map((p) => p.y)) - 88;
+    union(16, titleY - 12, 360, 36);
+    groups.push(`<g data-machine-id="${esc(m.id)}">
+      <text class="mach-title" x="16" y="${titleY}">${esc(m.label)}</text>
+      <text class="mach-legend" x="16" y="${titleY + 14}">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      ${edgeParts.join('\n')}
+      ${stateSvg}
+      ${headParts.join('\n')}
+      ${caps.map(paintCaption).join('\n')}
+    </g>`);
+  }
 
-  return `<svg class="diagram" id="mach-svg" data-surface="machines" width="780" height="280" viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg" role="img">
-    <title>Máquina de estados — ${esc(m.label)}</title>
-    <text class="mach-title" x="16" y="22">${esc(m.label)}</text>
-    <g data-machine-id="${esc(m.id)}">
-      ${edgeSvg}
-      ${states}
+  const dx = 16 - minX;
+  const dy = 16 - minY;
+  const width = Math.ceil(maxX + dx + 16);
+  const height = Math.ceil(maxY + dy + 16);
+  const shift = dx || dy ? ` transform="translate(${dx} ${dy})"` : '';
+  const first = machines[0];
+  const heading = first ? first.label : 'Estados';
+  return `<svg class="diagram" id="mach-svg" data-surface="machines" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — ${esc(heading)}</title>
+    <g${shift}>
+    ${groups.join('\n')}
     </g>
   </svg>`;
 }
@@ -635,6 +1283,19 @@ html, body {
   color: var(--fg-muted); font: 500 12px var(--font-sans); cursor: pointer;
 }
 .fl-toc button[aria-selected="true"] { color: var(--bg-canvas); background: var(--fg-default); border-color: var(--fg-default); }
+.fl-toc button kbd {
+  font: 600 10px var(--font-mono);
+  line-height: 16px; min-width: 16px; height: 16px;
+  margin-left: 6px; padding: 0 4px;
+  border-radius: 4px; border: 1px solid var(--border-default);
+  background: var(--bg-sunken); color: var(--fg-subtle);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.fl-toc button[aria-selected="true"] kbd {
+  border-color: color-mix(in srgb, var(--bg-canvas) 35%, transparent);
+  background: color-mix(in srgb, var(--bg-canvas) 14%, transparent);
+  color: inherit; opacity: 0.7;
+}
 .fl-toc button:focus-visible, .toolbar button:focus-visible, .theme-switch button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .toolbar button {
@@ -730,8 +1391,22 @@ svg.diagram text { fill: var(--fg-default); }
 .who { fill: var(--fg-subtle); font-size: 10px; font-family: var(--font-mono); }
 .diamond { fill: var(--xor-fill); stroke: var(--xor-edge); stroke-width: var(--node-sw); }
 .xor-t { fill: var(--fg-default); font-size: 12px; font-weight: 600; }
+.bar { fill: var(--fg-muted); }
+.evt { fill: var(--bg-canvas); stroke: var(--status-error-line); stroke-width: 1.5; }
+.sub-mark { fill: none; stroke: var(--act-stroke); stroke-width: 1; }
 .edge { stroke: var(--edge); stroke-width: 1.15; fill: none; }
-.edge-t { fill: var(--fg-subtle); font-size: 11px; }
+.edge.back { stroke: var(--status-warning); stroke-dasharray: 4 3; }
+.edge-head { fill: var(--fg-muted); }
+.edge-head.back { fill: var(--status-warning); }
+.edge-t, .fx {
+  fill: var(--fg-subtle);
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--bg-surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.fx { font-size: 10px; font-family: var(--font-sans); stroke: none; }
 .end-ok { fill: var(--end-fill); stroke: var(--end-stroke); stroke-width: 1.5; }
 .end-bad { fill: var(--end-bad-fill); stroke: var(--status-error); stroke-width: 1.5; }
 .end-t { fill: var(--fg-muted); font-size: 11px; }
@@ -740,8 +1415,13 @@ svg.diagram text { fill: var(--fg-default); }
 .st.entry { stroke: var(--st-entry-stroke); stroke-width: 1.75; }
 .st.term { stroke: var(--st-term-stroke); stroke-width: 1.75; }
 .st-t { fill: var(--fg-default); font-size: 12px; font-weight: 500; }
-.fx { fill: var(--fg-subtle); font-size: 10px; font-family: var(--font-mono); }
 .mach-title { fill: var(--fg-muted); font-size: 12px; font-weight: 600; }
+.mach-legend { fill: var(--fg-subtle); font-size: 10px; }
+.edge-cap { fill: var(--bg-surface); stroke: var(--border-default); stroke-width: 1; }
+.edge-title { fill: var(--fg-default); font-size: 11px; font-weight: 600; }
+.edge-note { fill: var(--fg-subtle); font-size: 10px; }
+.fx-pill { fill: var(--bg-sunken); stroke: var(--border-default); stroke-width: 1; }
+.fx-pill-t { fill: var(--fg-muted); font-size: 9px; font-weight: 600; }
 </style>
 </head>
 <body data-look="line">
@@ -753,9 +1433,9 @@ svg.diagram text { fill: var(--fg-default); }
           <p class="fl-scenario">${esc(scenario)}</p>
         </div>
         <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
-          <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
-          <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
-          <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
+          <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence" title="Sequência (1)">Sequência <kbd>1</kbd></button>
+          <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm" title="Fluxo (2)">Fluxo <kbd>2</kbd></button>
+          <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines" title="Estados (3)">Estados <kbd>3</kbd></button>
         </nav>
         <div class="toolbar" aria-label="Zoom">
           <button type="button" id="z-out" title="Afastar">−</button>
@@ -778,7 +1458,7 @@ svg.diagram text { fill: var(--fg-default); }
           <span><strong>Plano:</strong> ${esc(planSlug)}</span>
         </span>
         <span id="tab-hint">Tronco + trilho XOR</span>
-        <span>Arrastar = pan · <kbd>Ctrl</kbd>+scroll = zoom</span>
+        <span>Arrastar = pan · <kbd>Ctrl</kbd>+scroll = zoom · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> mapas</span>
       </div>
     </header>
 
@@ -813,7 +1493,7 @@ __PDF_LIB__
   const HINTS = {
     sequence: 'Tronco + trilho XOR',
     bpm: 'Caixa / losango / fim · sem id técnico',
-    machines: 'Estados + efeitos nas arestas',
+    machines: 'Laço = permanece · pastilha = efeito',
   };
   const MIN = ${FLOW_ZOOM_MIN}, MAX = ${FLOW_ZOOM_MAX}, STEP = 0.1, PAD = 40;
   const zoomKey = ${JSON.stringify(FLOW_ZOOM_KEY_PREFIX)} + (document.documentElement.getAttribute('data-fl-slug') || 'default');
@@ -984,8 +1664,15 @@ __PDF_LIB__
     '.who{fill:#6b7585;font-size:10px;font-family:ui-monospace,monospace}',
     '.diamond{fill:#fff8eb;stroke:#c9a36a;stroke-width:1.25}',
     '.xor-t{fill:#12161d;font-size:12px;font-weight:600}',
+    '.bar{fill:#4a5565}',
+    '.evt{fill:#ffffff;stroke:#e08a8a;stroke-width:1.5}',
+    '.sub-mark{fill:none;stroke:#d5dce6;stroke-width:1}',
     '.edge{stroke:#98a1ad;stroke-width:1.15;fill:none}',
-    '.edge-t{fill:#6b7585;font-size:11px}',
+    '.edge.back{stroke:#b8860b;stroke-dasharray:4 3}',
+    '.edge-head{fill:#4a5565}',
+    '.edge-head.back{fill:#b8860b}',
+    '.edge-t,.fx{fill:#6b7585;font-size:11px;paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round}',
+    '.fx{font-size:10px;font-family:ui-monospace,monospace}',
     '.end-ok{fill:#4cc28e;stroke:#4cc28e;stroke-width:1.5}',
     '.end-bad{fill:#ff5c5c;stroke:#ff5c5c;stroke-width:1.5}',
     '.end-t{fill:#4a5565;font-size:11px}',
@@ -996,6 +1683,12 @@ __PDF_LIB__
     '.st-t{fill:#12161d;font-size:12px;font-weight:500}',
     '.fx{fill:#6b7585;font-size:10px;font-family:ui-monospace,monospace}',
     '.mach-title{fill:#4a5565;font-size:12px;font-weight:600}',
+    '.mach-legend{fill:#6b7585;font-size:10px}',
+    '.edge-cap{fill:#ffffff;stroke:#d5dce6;stroke-width:1}',
+    '.edge-title{fill:#12161d;font-size:11px;font-weight:600}',
+    '.edge-note{fill:#6b7585;font-size:10px}',
+    '.fx-pill{fill:#e8edf4;stroke:#d5dce6;stroke-width:1}',
+    '.fx-pill-t{fill:#4a5565;font-size:9px;font-weight:600}',
   ].join('');
 
   function nativeBox(svg) {
@@ -1074,7 +1767,7 @@ __PDF_LIB__
       const specs = [
         ['seq-svg', 'Sequência'],
         ['bpm-svg', 'Fluxo'],
-        ['mach-svg', 'Máquinas'],
+        ['mach-svg', 'Estados'],
       ];
       const pages = [];
       for (const [id, label] of specs) {
@@ -1139,10 +1832,20 @@ __PDF_LIB__
   viewport.addEventListener('pointerup', endPan);
   viewport.addEventListener('pointercancel', endPan);
   window.addEventListener('keydown', (e) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
-    if (e.key === '=' || e.key === '+') { e.preventDefault(); setScale(scale + STEP); }
-    if (e.key === '-') { e.preventDefault(); setScale(scale - STEP); }
-    if (e.key === '0') { e.preventDefault(); scale = 1; centerHorizontally(0); saveZoom(); }
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); setScale(scale + STEP); }
+      if (e.key === '-') { e.preventDefault(); setScale(scale - STEP); }
+      if (e.key === '0') { e.preventDefault(); scale = 1; centerHorizontally(0); saveZoom(); }
+      return;
+    }
+    if (e.altKey || e.repeat) return;
+    const typing = e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]');
+    if (typing) return;
+    const name = { 1: 'sequence', 2: 'bpm', 3: 'machines' }[e.key];
+    if (!name) return;
+    if (!document.querySelector('.fl-toc [data-tab="' + name + '"]')) return;
+    e.preventDefault();
+    showTab(name);
   });
   window.addEventListener('resize', () => applyStageGeometry());
   requestAnimationFrame(function () { centerHorizontally(0); });

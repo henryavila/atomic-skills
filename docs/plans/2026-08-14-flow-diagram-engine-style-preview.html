@@ -144,6 +144,19 @@ html, body {
   color: var(--fg-muted); font: 500 12px var(--font-sans); cursor: pointer;
 }
 .fl-toc button[aria-selected="true"] { color: var(--bg-canvas); background: var(--fg-default); border-color: var(--fg-default); }
+.fl-toc button kbd {
+  font: 600 10px var(--font-mono);
+  line-height: 16px; min-width: 16px; height: 16px;
+  margin-left: 6px; padding: 0 4px;
+  border-radius: 4px; border: 1px solid var(--border-default);
+  background: var(--bg-sunken); color: var(--fg-subtle);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.fl-toc button[aria-selected="true"] kbd {
+  border-color: color-mix(in srgb, var(--bg-canvas) 35%, transparent);
+  background: color-mix(in srgb, var(--bg-canvas) 14%, transparent);
+  color: inherit; opacity: 0.7;
+}
 .fl-toc button:focus-visible, .toolbar button:focus-visible, .theme-switch button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .toolbar button {
@@ -239,8 +252,22 @@ svg.diagram text { fill: var(--fg-default); }
 .who { fill: var(--fg-subtle); font-size: 10px; font-family: var(--font-mono); }
 .diamond { fill: var(--xor-fill); stroke: var(--xor-edge); stroke-width: var(--node-sw); }
 .xor-t { fill: var(--fg-default); font-size: 12px; font-weight: 600; }
+.bar { fill: var(--fg-muted); }
+.evt { fill: var(--bg-canvas); stroke: var(--status-error-line); stroke-width: 1.5; }
+.sub-mark { fill: none; stroke: var(--act-stroke); stroke-width: 1; }
 .edge { stroke: var(--edge); stroke-width: 1.15; fill: none; }
-.edge-t { fill: var(--fg-subtle); font-size: 11px; }
+.edge.back { stroke: var(--status-warning); stroke-dasharray: 4 3; }
+.edge-head { fill: var(--fg-muted); }
+.edge-head.back { fill: var(--status-warning); }
+.edge-t, .fx {
+  fill: var(--fg-subtle);
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--bg-surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.fx { font-size: 10px; font-family: var(--font-sans); stroke: none; }
 .end-ok { fill: var(--end-fill); stroke: var(--end-stroke); stroke-width: 1.5; }
 .end-bad { fill: var(--end-bad-fill); stroke: var(--status-error); stroke-width: 1.5; }
 .end-t { fill: var(--fg-muted); font-size: 11px; }
@@ -249,8 +276,13 @@ svg.diagram text { fill: var(--fg-default); }
 .st.entry { stroke: var(--st-entry-stroke); stroke-width: 1.75; }
 .st.term { stroke: var(--st-term-stroke); stroke-width: 1.75; }
 .st-t { fill: var(--fg-default); font-size: 12px; font-weight: 500; }
-.fx { fill: var(--fg-subtle); font-size: 10px; font-family: var(--font-mono); }
 .mach-title { fill: var(--fg-muted); font-size: 12px; font-weight: 600; }
+.mach-legend { fill: var(--fg-subtle); font-size: 10px; }
+.edge-cap { fill: var(--bg-surface); stroke: var(--border-default); stroke-width: 1; }
+.edge-title { fill: var(--fg-default); font-size: 11px; font-weight: 600; }
+.edge-note { fill: var(--fg-subtle); font-size: 10px; }
+.fx-pill { fill: var(--bg-sunken); stroke: var(--border-default); stroke-width: 1; }
+.fx-pill-t { fill: var(--fg-muted); font-size: 9px; font-weight: 600; }
 </style>
 </head>
 <body data-look="line">
@@ -262,9 +294,9 @@ svg.diagram text { fill: var(--fg-default); }
           <p class="fl-scenario">GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.</p>
         </div>
         <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
-          <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
-          <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
-          <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
+          <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence" title="Sequência (1)">Sequência <kbd>1</kbd></button>
+          <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm" title="Fluxo (2)">Fluxo <kbd>2</kbd></button>
+          <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines" title="Estados (3)">Estados <kbd>3</kbd></button>
         </nav>
         <div class="toolbar" aria-label="Zoom">
           <button type="button" id="z-out" title="Afastar">−</button>
@@ -287,7 +319,7 @@ svg.diagram text { fill: var(--fg-default); }
           <span><strong>Plano:</strong> sugestao-necessidade-pdti</span>
         </span>
         <span id="tab-hint">Tronco + trilho XOR</span>
-        <span>Arrastar = pan · <kbd>Ctrl</kbd>+scroll = zoom</span>
+        <span>Arrastar = pan · <kbd>Ctrl</kbd>+scroll = zoom · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> mapas</span>
       </div>
     </header>
 
@@ -531,178 +563,160 @@ svg.diagram text { fill: var(--fg-default); }
   </svg></div>
           </section>
           <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
-            <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="840" height="910" viewBox="0 0 840 910" xmlns="http://www.w3.org/2000/svg" role="img">
+            <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="728" height="1238" viewBox="0 0 728 1238" xmlns="http://www.w3.org/2000/svg" role="img">
     <title>Diagrama de processo — PDTI</title>
-    <g>
-          <path class="edge" d="M342 260 C272 260, 272 154, 352 154"/>
-          <text class="loop" x="280" y="207">↺</text>
-        </g>
-<g>
-        <path class="edge" d="M460 190 L342 212"/>
-        <text class="edge-t" x="407" y="197">Envio inválido</text>
-      </g>
-<g>
-        <path class="edge" d="M342 760 L342 790"/>
-        
-      </g>
-<g>
-        <path class="edge" d="M460 690 L342 712"/>
-        <text class="edge-t" x="407" y="697">Aceita</text>
-      </g>
-<g>
-        <path class="edge" d="M578 760 L578 790"/>
-        
-      </g>
-<g>
-        <path class="edge" d="M460 690 L578 712"/>
-        <text class="edge-t" x="525" y="697">Recusa</text>
-      </g>
-<g>
-        <path class="edge" d="M460 588 L460 654"/>
-        
-      </g>
-<g>
-        <path class="edge" d="M578 518 L460 540"/>
-        <text class="edge-t" x="525" y="525">Edita</text>
-      </g>
-<g>
-        <path class="edge" d="M578 518 L460 654"/>
-        <text class="edge-t" x="525" y="582">Não edita</text>
-      </g>
-<g>
-        <path class="edge" d="M578 416 L578 482"/>
-        
-      </g>
-<g>
-        <path class="edge" d="M578 338 L578 368"/>
-        
-      </g>
-<g>
-        <path class="edge" d="M578 260 L578 290"/>
-        
-      </g>
-<g>
-        <path class="edge" d="M460 190 L578 212"/>
-        <text class="edge-t" x="525" y="197">Envio válido</text>
-      </g>
-<g>
-        <path class="edge" d="M460 88 L460 154"/>
-        
-      </g>
+    <path class="edge" d="M444 96 L444 152"/>
+<path class="edge back" d="M96 320 L44 320 L44 220 L344 220 L344 194"/>
+<path class="edge" d="M394 215 L196 215 L196 292"/>
+<path class="edge" d="M444 348 L444 404"/>
+<path class="edge" d="M444 460 L444 516"/>
+<path class="edge" d="M444 572 L444 628"/>
+<path class="edge" d="M394 691 L320 691 L320 768"/>
+<path class="edge" d="M444 712 L444 880"/>
+<path class="edge" d="M320 1090 L320 1148"/>
+<path class="edge" d="M394 943 L320 943 L320 1020"/>
+<path class="edge" d="M568 1090 L568 1148"/>
+<path class="edge" d="M494 943 L568 943 L568 1020"/>
+<path class="edge" d="M320 824 L320 922 L344 922"/>
+<path class="edge" d="M444 236 L444 292"/>
     <g data-node-id="S1" data-shape="rect" data-next="D1">
-        <rect class="act" x="360" y="40" width="200" height="48" rx="8"/>
-        <text class="act-t" x="460" y="60" text-anchor="middle">Criar sugestão</text>
+        <rect class="act" x="344" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="444" y="62" text-anchor="middle" dominant-baseline="central">Criar sugestão</text><text class="who" x="444" y="75" text-anchor="middle" dominant-baseline="central">GETIN</text>
       </g>
 <g data-node-id="D1" data-shape="diamond">
-          <polygon class="diamond" points="460,118 568,154 460,190 352,154"/>
-          <text class="xor-t" x="460" y="150" text-anchor="middle">Envio válido?</text>
-          <text class="who" x="460" y="112" text-anchor="middle">Sistema</text>
+          <polygon class="diamond" points="444,152 544,194 444,236 344,194"/>
+          <text class="xor-t" x="444" y="188" text-anchor="middle" dominant-baseline="central">Envio válido?</text><text class="who" x="444" y="201" text-anchor="middle" dominant-baseline="central">Sistema</text>
         </g>
 <g data-node-id="S1e" data-shape="rect" data-next="D1">
-        <rect class="act" x="242" y="212" width="200" height="48" rx="8"/>
-        <text class="act-t" x="342" y="232" text-anchor="middle">Corrigir e reenviar</text>
+        <rect class="act" x="96" y="292" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="196" y="314" text-anchor="middle" dominant-baseline="central">Corrigir e reenviar</text><text class="who" x="196" y="327" text-anchor="middle" dominant-baseline="central">GETIN</text>
       </g>
 <g data-node-id="S1ok" data-shape="rect" data-next="S2">
-        <rect class="act" x="478" y="212" width="200" height="48" rx="8"/>
-        <text class="act-t" x="578" y="232" text-anchor="middle">Gravar como pendente</text>
+        <rect class="act" x="344" y="292" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="444" y="314" text-anchor="middle" dominant-baseline="central">Gravar como pendente</text><text class="who" x="444" y="327" text-anchor="middle" dominant-baseline="central">Sistema</text>
       </g>
 <g data-node-id="S2" data-shape="rect" data-next="S3">
-        <rect class="act" x="478" y="290" width="200" height="48" rx="8"/>
-        <text class="act-t" x="578" y="310" text-anchor="middle">Avisar o líder</text>
+        <rect class="act" x="344" y="404" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="444" y="426" text-anchor="middle" dominant-baseline="central">Avisar o líder</text><text class="who" x="444" y="439" text-anchor="middle" dominant-baseline="central">Sistema</text>
       </g>
 <g data-node-id="S3" data-shape="rect" data-next="D_edit">
-        <rect class="act" x="478" y="368" width="200" height="48" rx="8"/>
-        <text class="act-t" x="578" y="388" text-anchor="middle">Validar a sugestão</text>
+        <rect class="act" x="344" y="516" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="444" y="538" text-anchor="middle" dominant-baseline="central">Validar a sugestão</text><text class="who" x="444" y="551" text-anchor="middle" dominant-baseline="central">Líder</text>
       </g>
 <g data-node-id="D_edit" data-shape="diamond">
-          <polygon class="diamond" points="578,446 686,482 578,518 470,482"/>
-          <text class="xor-t" x="578" y="478" text-anchor="middle">Editar o conteúdo?</text>
-          <text class="who" x="578" y="440" text-anchor="middle">Líder</text>
+          <polygon class="diamond" points="444,628 544,670 444,712 344,670"/>
+          <text class="xor-t" x="444" y="657" text-anchor="middle" dominant-baseline="central">Editar o</text><text class="xor-t" x="444" y="671" text-anchor="middle" dominant-baseline="central">conteúdo?</text><text class="who" x="444" y="684" text-anchor="middle" dominant-baseline="central">Líder</text>
         </g>
 <g data-node-id="S3edit" data-shape="rect" data-next="D2">
-        <rect class="act" x="360" y="540" width="200" height="48" rx="8"/>
-        <text class="act-t" x="460" y="560" text-anchor="middle">Atualizar o conteúdo</text>
+        <rect class="act" x="220" y="768" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="320" y="790" text-anchor="middle" dominant-baseline="central">Atualizar o conteúdo</text><text class="who" x="320" y="803" text-anchor="middle" dominant-baseline="central">Líder</text>
       </g>
 <g data-node-id="D2" data-shape="diamond">
-          <polygon class="diamond" points="460,618 568,654 460,690 352,654"/>
-          <text class="xor-t" x="460" y="643" text-anchor="middle">Aceitar ou</text><text class="xor-t" x="460" y="657" text-anchor="middle">recusar?</text>
-          <text class="who" x="460" y="612" text-anchor="middle">Líder</text>
+          <polygon class="diamond" points="444,880 544,922 444,964 344,922"/>
+          <text class="xor-t" x="444" y="909" text-anchor="middle" dominant-baseline="central">Aceitar ou</text><text class="xor-t" x="444" y="923" text-anchor="middle" dominant-baseline="central">recusar?</text><text class="who" x="444" y="936" text-anchor="middle" dominant-baseline="central">Líder</text>
         </g>
 <g data-node-id="S4a" data-shape="rect" data-next="end_accept">
-        <rect class="act" x="242" y="712" width="200" height="48" rx="8"/>
-        <text class="act-t" x="342" y="732" text-anchor="middle">Aceitar e entrar no funil</text>
+        <rect class="act" x="220" y="1020" width="200" height="70" rx="8"/>
+        
+        <text class="act-t" x="320" y="1042" text-anchor="middle" dominant-baseline="central">Aceitar e entrar no</text><text class="act-t" x="320" y="1056" text-anchor="middle" dominant-baseline="central">funil</text><text class="who" x="320" y="1069" text-anchor="middle" dominant-baseline="central">Líder + Sistema + GETIN</text>
       </g>
 <g data-node-id="end_accept" data-shape="circle">
-          <circle class="end-ok" cx="342" cy="802" r="10"/>
+          <circle class="end-ok" cx="320" cy="1158" r="10"/>
           
-          <text class="end-t" x="342" y="826" text-anchor="middle">Fim · no funil</text>
+          <text class="end-t" x="320" y="1182" text-anchor="middle">Fim · no funil</text>
         </g>
 <g data-node-id="S4b" data-shape="rect" data-next="end_refuse">
-        <rect class="act" x="478" y="712" width="200" height="48" rx="8"/>
-        <text class="act-t" x="578" y="732" text-anchor="middle">Recusar e avisar a GETIN</text>
+        <rect class="act" x="468" y="1020" width="200" height="70" rx="8"/>
+        
+        <text class="act-t" x="568" y="1042" text-anchor="middle" dominant-baseline="central">Recusar e avisar a</text><text class="act-t" x="568" y="1056" text-anchor="middle" dominant-baseline="central">GETIN</text><text class="who" x="568" y="1069" text-anchor="middle" dominant-baseline="central">Líder + Sistema</text>
       </g>
 <g data-node-id="end_refuse" data-shape="circle">
-          <circle class="end-bad" cx="578" cy="802" r="10"/>
-          <circle class="end-hole" cx="578" cy="802" r="5"/>
-          <text class="end-t" x="578" y="826" text-anchor="middle">Fim · sem funil</text>
+          <circle class="end-bad" cx="568" cy="1158" r="10"/>
+          <circle class="end-hole" cx="568" cy="1158" r="5"/>
+          <text class="end-t" x="568" y="1182" text-anchor="middle">Fim · sem funil</text>
         </g>
+    <polygon class="edge-head" points="444,152 447.6,144 440.4,144"/>
+<polygon class="edge-head back" points="344,194 340.4,202 347.6,202"/>
+<polygon class="edge-head" points="196,292 199.6,284 192.4,284"/>
+<polygon class="edge-head" points="444,404 447.6,396 440.4,396"/>
+<polygon class="edge-head" points="444,516 447.6,508 440.4,508"/>
+<polygon class="edge-head" points="444,628 447.6,620 440.4,620"/>
+<polygon class="edge-head" points="320,768 323.6,760 316.4,760"/>
+<polygon class="edge-head" points="444,880 447.6,872 440.4,872"/>
+<polygon class="edge-head" points="320,1148 323.6,1140 316.4,1140"/>
+<polygon class="edge-head" points="320,1020 323.6,1012 316.4,1012"/>
+<polygon class="edge-head" points="568,1148 571.6,1140 564.4,1140"/>
+<polygon class="edge-head" points="568,1020 571.6,1012 564.4,1012"/>
+<polygon class="edge-head" points="344,922 336,918.4 336,925.6"/>
+<polygon class="edge-head" points="444,292 447.6,284 440.4,284"/>
+    
+
+<text class="edge-t" x="295" y="207" text-anchor="middle">Envio inválido</text>
+
+
+
+<text class="edge-t" x="328" y="729.5" text-anchor="start">Edita</text>
+<text class="edge-t" x="452" y="796" text-anchor="start">Não edita</text>
+
+<text class="edge-t" x="328" y="981.5" text-anchor="start">Aceita</text>
+
+<text class="edge-t" x="576" y="981.5" text-anchor="start">Recusa</text>
+
+<text class="edge-t" x="452" y="264" text-anchor="start">Envio válido</text>
   </svg></div>
           </section>
           <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
-            <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="780" height="280" viewBox="0 0 780 280" xmlns="http://www.w3.org/2000/svg" role="img">
-    <title>Máquina de estados — Sugestão PDTI</title>
-    <text class="mach-title" x="16" y="22">Sugestão PDTI</text>
+            <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="1192" height="464" viewBox="0 0 1192 464" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Sugestão PDTI</title>
+    <g transform="translate(16 16)">
     <g data-machine-id="sugestao">
-      <g>
-          <path class="edge" d="M98 88 C96 52, 16 52, 130 88" fill="none"/>
-          <text class="edge-t" x="114" y="48" text-anchor="middle">Envio inválido · corrige e reenvia</text>
-          <text class="fx" x="114" y="62" text-anchor="middle">notify · Mostra erro de envio → GETIN</text>
-        </g>
-<g>
-        <path class="edge" d="M188 104 L276 104" fill="none"/>
-        <text class="edge-t" x="232" y="90" text-anchor="middle">Envio válido · grava pendente</text>
-        <text class="fx" x="232" y="102" text-anchor="middle">write · Grava como pendente da área → sugestao</text>
-      </g>
-<g>
-          <path class="edge" d="M334 120 C332 160, 252 160, 366 120" fill="none"/>
-          <text class="edge-t" x="350" y="156" text-anchor="middle">Líder atualiza o conteúdo · ainda pendente</text>
-          <text class="fx" x="350" y="170" text-anchor="middle">write · Atualiza o conteúdo → sugestao</text>
-        </g>
-<g>
-          <path class="edge" d="M334 88 C368 52, 448 52, 366 88" fill="none"/>
-          <text class="edge-t" x="350" y="48" text-anchor="middle">Líder segue sem editar</text>
-          
-        </g>
-<g>
-        <path class="edge" d="M424 104 L512 104" fill="none"/>
-        <text class="edge-t" x="468" y="90" text-anchor="middle">Líder aceita</text>
-        <text class="fx" x="468" y="102" text-anchor="middle">write · Adota e entra no funil → solicitacao · email · Avisa a GETIN → GETIN</text>
-      </g>
-<g>
-          <path class="edge" d="M276 104 C232 104, 232 234, 276 234" fill="none"/>
-          <text class="edge-t" x="228" y="163" text-anchor="end">Líder recusa</text>
-          <text class="fx" x="228" y="175" text-anchor="end">email · Avisa a GETIN da recusa → GETIN</text>
-        </g>
+      <text class="mach-title" x="16" y="16">Sugestão PDTI</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M700 228 L992 228"/>
+<path class="edge" d="M616 244 L616 400"/>
+<path class="edge" d="M144 212 C128 172, 184 172, 168 212"/>
+<path class="edge" d="M569.04 212 C559.04 176, 599.04 176, 589.04 212"/>
+<path class="edge" d="M642.96 212 C632.96 176, 672.96 176, 662.96 212"/>
       <g data-state-id="rascunho">
-        <rect class="st entry" x="40" y="88" width="148" height="32" rx="16"/>
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
         
-        <text class="st-t" x="114" y="109" text-anchor="middle">Rascunho</text>
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Rascunho</text>
       </g>
 <g data-state-id="pendente">
-        <rect class="st" x="276" y="88" width="148" height="32" rx="16"/>
+        <rect class="st" x="532" y="212" width="168" height="32" rx="16"/>
         
-        <text class="st-t" x="350" y="109" text-anchor="middle">Pendente da área</text>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Pendente da área</text>
       </g>
 <g data-state-id="ativo">
-        <rect class="st" x="512" y="88" width="148" height="32" rx="16"/>
+        <rect class="st" x="992" y="212" width="168" height="32" rx="16"/>
         
-        <text class="st-t" x="586" y="109" text-anchor="middle">Ativa</text>
+        <text class="st-t" x="1076" y="228" text-anchor="middle" dominant-baseline="central">Ativa</text>
       </g>
 <g data-state-id="recusada">
-        <rect class="st term" x="276" y="218" width="148" height="32" rx="16"/>
-        <rect class="st term" x="279" y="221" width="142" height="26" rx="13" fill="none"/>
-        <text class="st-t" x="350" y="239" text-anchor="middle">Recusada</text>
+        <rect class="st term" x="532" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="416" text-anchor="middle" dominant-baseline="central">Recusada</text>
       </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="992,228 984,224.4 984,231.6"/>
+<polygon class="edge-head" points="616,400 619.6,392 612.4,392"/>
+<polygon class="edge-head" points="168,212 174.31364149801976,205.90919290779271 167.6286093236459,203.23518003804315"/>
+<polygon class="edge-head" points="589.04,212 594.6498153849565,205.2553746325904 587.7124864356209,203.32833881333053"/>
+<polygon class="edge-head" points="662.96,212 668.5698153849565,205.2553746325904 661.632486435621,203.32833881333053"/>
+      <g data-transition-id="T_to_pending" data-from="rascunho" data-to="pendente"><rect class="edge-cap" x="308.5" y="138" width="155" height="64" rx="6"/><text class="edge-title" x="316.5" y="153" dominant-baseline="central">Envio válido</text><text class="edge-note" x="316.5" y="166" dominant-baseline="central">grava pendente</text><rect class="fx-pill" x="316.5" y="170" width="40" height="14" rx="7"/><text class="fx-pill-t" x="336.5" y="177" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="362.5" y="177" dominant-baseline="central" data-effect-kind="write" data-effect-target="sugestao">Grava como</text><text class="fx" x="362.5" y="191" dominant-baseline="central">pendente da área</text></g>
+<g data-transition-id="T_aceita" data-from="pendente" data-to="ativo"><rect class="edge-cap" x="768.5" y="135" width="155" height="67" rx="6"/><text class="edge-title" x="776.5" y="150" dominant-baseline="central">Aceita</text><rect class="fx-pill" x="776.5" y="156" width="40" height="14" rx="7"/><text class="fx-pill-t" x="796.5" y="163" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="822.5" y="163" dominant-baseline="central" data-effect-kind="write" data-effect-target="solicitacao">Adota e entra no</text><text class="fx" x="822.5" y="177" dominant-baseline="central">funil</text><rect class="fx-pill" x="776.5" y="184" width="44" height="14" rx="7"/><text class="fx-pill-t" x="798.5" y="191" text-anchor="middle" dominant-baseline="central">E-mail</text><text class="fx" x="826.5" y="191" dominant-baseline="central" data-effect-kind="email" data-effect-target="GETIN">Avisa a GETIN</text></g>
+<g data-transition-id="T_refuse" data-from="pendente" data-to="recusada"><rect class="edge-cap" x="628" y="295.5" width="159" height="53" rx="6"/><text class="edge-title" x="636" y="310.5" dominant-baseline="central">Recusa</text><rect class="fx-pill" x="636" y="316.5" width="44" height="14" rx="7"/><text class="fx-pill-t" x="658" y="323.5" text-anchor="middle" dominant-baseline="central">E-mail</text><text class="fx" x="686" y="323.5" dominant-baseline="central" data-effect-kind="email" data-effect-target="GETIN">Avisa a GETIN da</text><text class="fx" x="686" y="337.5" dominant-baseline="central">recusa</text></g>
+<g data-transition-id="T_draft_loop" data-from="rascunho" data-to="rascunho"><rect class="edge-cap" x="84" y="102" width="144" height="64" rx="6"/><text class="edge-title" x="92" y="117" dominant-baseline="central">Envio inválido</text><text class="edge-note" x="92" y="130" dominant-baseline="central">corrige e reenvia</text><rect class="fx-pill" x="92" y="134" width="40" height="14" rx="7"/><text class="fx-pill-t" x="112" y="141" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="138" y="141" dominant-baseline="central" data-effect-kind="notify" data-effect-target="GETIN">Mostra erro de</text><text class="fx" x="138" y="155" dominant-baseline="central">envio</text></g>
+<g data-transition-id="T_edit_pending" data-from="pendente" data-to="pendente"><rect class="edge-cap" x="477.03999999999996" y="93" width="120" height="77" rx="6"/><text class="edge-title" x="485.03999999999996" y="108" dominant-baseline="central">Atualiza o</text><text class="edge-title" x="485.03999999999996" y="121" dominant-baseline="central">conteúdo</text><text class="edge-note" x="485.03999999999996" y="134" dominant-baseline="central">ainda pendente</text><rect class="fx-pill" x="485.03999999999996" y="138" width="40" height="14" rx="7"/><text class="fx-pill-t" x="505.03999999999996" y="145" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="531.04" y="145" dominant-baseline="central" data-effect-kind="write" data-effect-target="sugestao">Atualiza o</text><text class="fx" x="531.04" y="159" dominant-baseline="central">conteúdo</text></g>
+<g data-transition-id="T_skip_edit" data-from="pendente" data-to="pendente"><rect class="edge-cap" x="634.96" y="145" width="119" height="25" rx="6"/><text class="edge-title" x="642.96" y="160" dominant-baseline="central">Segue sem editar</text></g>
+    </g>
     </g>
   </svg></div>
           </section>
@@ -836,7 +850,7 @@ function buildFlowPdf(input) {
   const HINTS = {
     sequence: 'Tronco + trilho XOR',
     bpm: 'Caixa / losango / fim · sem id técnico',
-    machines: 'Estados + efeitos nas arestas',
+    machines: 'Laço = permanece · pastilha = efeito',
   };
   const MIN = 0.3, MAX = 2.8, STEP = 0.1, PAD = 40;
   const zoomKey = "as-flow-zoom:" + (document.documentElement.getAttribute('data-fl-slug') || 'default');
@@ -1007,8 +1021,15 @@ function buildFlowPdf(input) {
     '.who{fill:#6b7585;font-size:10px;font-family:ui-monospace,monospace}',
     '.diamond{fill:#fff8eb;stroke:#c9a36a;stroke-width:1.25}',
     '.xor-t{fill:#12161d;font-size:12px;font-weight:600}',
+    '.bar{fill:#4a5565}',
+    '.evt{fill:#ffffff;stroke:#e08a8a;stroke-width:1.5}',
+    '.sub-mark{fill:none;stroke:#d5dce6;stroke-width:1}',
     '.edge{stroke:#98a1ad;stroke-width:1.15;fill:none}',
-    '.edge-t{fill:#6b7585;font-size:11px}',
+    '.edge.back{stroke:#b8860b;stroke-dasharray:4 3}',
+    '.edge-head{fill:#4a5565}',
+    '.edge-head.back{fill:#b8860b}',
+    '.edge-t,.fx{fill:#6b7585;font-size:11px;paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round}',
+    '.fx{font-size:10px;font-family:ui-monospace,monospace}',
     '.end-ok{fill:#4cc28e;stroke:#4cc28e;stroke-width:1.5}',
     '.end-bad{fill:#ff5c5c;stroke:#ff5c5c;stroke-width:1.5}',
     '.end-t{fill:#4a5565;font-size:11px}',
@@ -1019,6 +1040,12 @@ function buildFlowPdf(input) {
     '.st-t{fill:#12161d;font-size:12px;font-weight:500}',
     '.fx{fill:#6b7585;font-size:10px;font-family:ui-monospace,monospace}',
     '.mach-title{fill:#4a5565;font-size:12px;font-weight:600}',
+    '.mach-legend{fill:#6b7585;font-size:10px}',
+    '.edge-cap{fill:#ffffff;stroke:#d5dce6;stroke-width:1}',
+    '.edge-title{fill:#12161d;font-size:11px;font-weight:600}',
+    '.edge-note{fill:#6b7585;font-size:10px}',
+    '.fx-pill{fill:#e8edf4;stroke:#d5dce6;stroke-width:1}',
+    '.fx-pill-t{fill:#4a5565;font-size:9px;font-weight:600}',
   ].join('');
 
   function nativeBox(svg) {
@@ -1097,7 +1124,7 @@ function buildFlowPdf(input) {
       const specs = [
         ['seq-svg', 'Sequência'],
         ['bpm-svg', 'Fluxo'],
-        ['mach-svg', 'Máquinas'],
+        ['mach-svg', 'Estados'],
       ];
       const pages = [];
       for (const [id, label] of specs) {
@@ -1162,10 +1189,20 @@ function buildFlowPdf(input) {
   viewport.addEventListener('pointerup', endPan);
   viewport.addEventListener('pointercancel', endPan);
   window.addEventListener('keydown', (e) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
-    if (e.key === '=' || e.key === '+') { e.preventDefault(); setScale(scale + STEP); }
-    if (e.key === '-') { e.preventDefault(); setScale(scale - STEP); }
-    if (e.key === '0') { e.preventDefault(); scale = 1; centerHorizontally(0); saveZoom(); }
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); setScale(scale + STEP); }
+      if (e.key === '-') { e.preventDefault(); setScale(scale - STEP); }
+      if (e.key === '0') { e.preventDefault(); scale = 1; centerHorizontally(0); saveZoom(); }
+      return;
+    }
+    if (e.altKey || e.repeat) return;
+    const typing = e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]');
+    if (typing) return;
+    const name = { 1: 'sequence', 2: 'bpm', 3: 'machines' }[e.key];
+    if (!name) return;
+    if (!document.querySelector('.fl-toc [data-tab="' + name + '"]')) return;
+    e.preventDefault();
+    showTab(name);
   });
   window.addEventListener('resize', () => applyStageGeometry());
   requestAnimationFrame(function () { centerHorizontally(0); });
