@@ -13,7 +13,6 @@ import { buildFlowRatification } from '../scripts/lib/flow-ratification.js';
 import { flowDocumentSha } from '../scripts/find-missing-flow.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DETECTOR = join(ROOT, 'scripts', 'find-weak-flow-draft.js');
 const STRICT = join(ROOT, 'scripts', 'find-missing-flow.js');
 
 const goodBrief = {
@@ -207,6 +206,26 @@ describe('checkFlowDraft rules 2-7', () => {
       const r = checkFlowDraft(planMd);
       assert.equal(r.ok, false);
       assert.ok(r.issues.some((i) => /messages/i.test(i)), r.issues.join('; '));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('--strict passes without brief.json', () => {
+    const stamped = buildFlowRatification(structuredClone(goodFlow), {
+      ratifiedAt: '2026-08-13T12:00:00.000Z',
+    });
+    const { dir, planMd } = writePair('# p\n', null, stamped);
+    try {
+      writeFileSync(
+        join(dir, 'flow', 'flow.html'),
+        `<html data-fl-content-sha="${flowDocumentSha(stamped)}"></html>\n`,
+      );
+      const run = spawnSync(process.execPath, [STRICT, '--strict', planMd], {
+        encoding: 'utf8',
+        timeout: 60_000,
+      });
+      assert.equal(run.status, 0, run.stderr || run.stdout);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
