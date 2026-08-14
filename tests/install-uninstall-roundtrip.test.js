@@ -9,17 +9,19 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { install } from '../src/install.js';
 import { uninstall } from '../src/uninstall.js';
+import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir.js';
 
 function withHome(fakeHome, fn) {
-  const original = process.env.HOME;
+  const restoreHome = isolateHomedir(fakeHome);
   const originalSkip = process.env.ATOMIC_SKILLS_SKIP_GROK_HOST;
-  process.env.HOME = fakeHome;
   // Hermetic: real `grok` under a fake HOME seeds host docs/registry residue
   // that breaks content-aware roundtrip snapshots.
   process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = '1';
-  return Promise.resolve(fn()).finally(() => {
-    if (original === undefined) delete process.env.HOME;
-    else process.env.HOME = original;
+  return Promise.resolve().then(() => {
+    assertIsolatedHomedir(fakeHome);
+    return fn();
+  }).finally(() => {
+    restoreHome();
     if (originalSkip === undefined) delete process.env.ATOMIC_SKILLS_SKIP_GROK_HOST;
     else process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = originalSkip;
   });
@@ -557,7 +559,7 @@ describe('install→uninstall round-trip', () => {
     };
     try {
       await withHome(fakeHome, async () => {
-        const hookRel = join('.atomic-skills', 'hooks', 'version-check.sh');
+        const hookRel = '.atomic-skills/hooks/version-check.sh';
         const hookContent = readFileSync(join(process.cwd(), 'skills', 'shared', 'auto-update-hook', 'version-check.sh'));
         writeAbs(hookRel, hookContent);
         writeAbs(join('.atomic-skills', 'manifest.json'), JSON.stringify({

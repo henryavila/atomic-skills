@@ -19,7 +19,7 @@ jobs:
       - run: npm test
       - run: npm run validate-catalog
 
-  # F5/T-004: portable path contracts must pass on Windows (path.win32).
+  # Windows must execute the installer contract, not only path.win32 helpers.
   windows-path-contracts:
     runs-on: windows-latest
     steps:
@@ -30,7 +30,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: node -p "process.version"
-      - run: node --test tests/windows-path-contract.test.js tests/validate-state.test.js tests/normalize.test.js
+      - run: node --test tests/windows-installer-platform.test.js tests/windows-path-contract.test.js tests/multiplatform-contract.test.js tests/install-uninstall-roundtrip.test.js tests/validate-state.test.js tests/normalize.test.js
 
   # Multi-platform install contract: force path-nofollow backend on Linux so
   # /proc/self/fd regressions fail here instead of only on macOS hosts.
@@ -54,11 +54,8 @@ jobs:
   # F6/T-003 — release-blocking Cartesian matrix:
   #   OS ∈ {ubuntu-latest, macos-latest}
   #   Node ∈ {22.18.x, 24.11.x}
-  # Windows is intentionally out of this matrix: GitHub-hosted Node builds do not
-  # expose fs.constants.O_NOFOLLOW, so @henryavila/minimalist-installer path-safety
-  # refuses installs (PathSafetyError / UNSUPPORTED_PLATFORM). Path portability is
-  # still covered by windows-path-contracts. Re-add windows-latest when the engine
-  # pin supports win32 no-follow (or Node exports O_NOFOLLOW on the runner).
+  # Windows has a focused native installer + junction job in windows-path-contracts.
+  # This broader host-probe matrix stays Unix because several probes require sh.
   # Critical steps never use continue-on-error.
   release-matrix:
     name: release ${{ matrix.os }} node-${{ matrix.node }}
