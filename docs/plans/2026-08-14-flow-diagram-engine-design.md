@@ -78,7 +78,7 @@ Acessibilidade: `<title>` / `<desc>` no SVG. Testes: `data-*` no SVG. Sem segund
 
 Tudo no render. Sem layout no cliente.
 
-**Sequência (TB).** Colunas = `actors[]` na ordem do JSON. Cabeçalho no topo e na base. Lifeline pontilhada `--fg-faint` atrás. Cada mensagem na ordem do walk = fileira; seta sólida ou tracejada (`async`); número à esquerda. XOR = ramos **em sequência vertical** (exclusivos), não lado a lado. Loop (`next` ancestral) = um arco tracejado `--status-warning` da última mensagem **em direção ao ◇ da decisão**, ponta com vão curto (~5px, não encostar no ◇). Sem pastilha «volta», sem nota solta.
+**Sequência (TB).** Colunas = `actors[]` na ordem do JSON. Cabeçalho no topo e na base. Lifeline pontilhada `--fg-faint` atrás. Cada mensagem na ordem do walk = fileira; seta sólida ou tracejada (`async`); **sem** número de fileira. XOR = ramos **em sequência vertical** (exclusivos), não lado a lado. Loop (`next` ancestral) = um arco tracejado `--status-warning` da última mensagem **em direção ao ◇ da decisão**, ponta com vão curto (~5px, não encostar no ◇). Sem pastilha «volta», sem nota solta.
 
 **Fluxo (TB, não LR).** Tronco numa coluna. `activity` retângulo arredondado; `xor` losango; `and`/`join` barra; `event` círculo fino; `end` círculo cheio; `subprocess` retângulo com marca. Ramos XOR/AND = colunas irmãs abaixo do portão. Rótulo de negócio. Sem id técnico (`S1`, `D2`) no desenho.
 
@@ -125,7 +125,7 @@ Não inventar paleta, sombra de nó, fill semântico azul/amber, nem “quadro s
 |------|------|--------|------|
 | Ator (topo + base) | `--bg-elevated` | `--border-default` 1px, rx 8 | 12px semibold `--fg-default` |
 | Lifeline | — | `--fg-faint` 1px dash 3 5 | — |
-| Seta sync | — | `--fg-muted` 1.25, cabeça cheia | mensagem 12 `--fg-default`; nº mono 10 `--fg-subtle` |
+| Seta sync | — | `--fg-muted` 1.25, cabeça cheia | mensagem 12 `--fg-default`; sem número de fileira |
 | Seta async | — | idem + dash 5 4 | — |
 | Faixa XOR | wash `color-mix(in srgb, var(--bg-elevated) 55%, transparent)`, **sem** stroke | trilho esquerdo `--status-warning-line` 2px | `◇ {pergunta}` 12 semibold `--status-warning` |
 | Pastilha de ramo | `--bg-sunken` | `--status-warning-line` 1px, rx pill | 11 semibold `--status-warning` |

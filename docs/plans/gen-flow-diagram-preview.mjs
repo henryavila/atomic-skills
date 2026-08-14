@@ -178,8 +178,7 @@ function drawSequence(normalized, steps) {
         const self = r.from === r.to;
         if (self) {
           const lines = wrap(r.text, 28);
-          return `<g data-from="${esc(r.from)}" data-to="${esc(r.to)}" data-n="${r.n}">
-          <text class="num" x="16" y="${r.y + 4}">${r.n}</text>
+          return `<g data-from="${esc(r.from)}" data-to="${esc(r.to)}">
           <circle cx="${x1}" cy="${r.y}" r="3" class="arrow-head"/>
           ${lines.map((ln, i) => `<text class="msg" x="${x1 + 10}" y="${r.y + 4 + i * 12}">${esc(ln)}</text>`).join('')}
         </g>`;
@@ -195,8 +194,7 @@ function drawSequence(normalized, steps) {
               `<text class="msg" x="${(xStart + xEnd) / 2}" y="${labelY + i * 12}" text-anchor="middle">${esc(ln)}</text>`,
           )
           .join('');
-        return `<g data-from="${esc(r.from)}" data-to="${esc(r.to)}" data-n="${r.n}">
-          <text class="num" x="16" y="${r.y + 4}">${r.n}</text>
+        return `<g data-from="${esc(r.from)}" data-to="${esc(r.to)}">
           <line class="arrow${r.async ? ' async' : ''}" x1="${xStart}" y1="${r.y}" x2="${xEnd - 8 * dir}" y2="${r.y}"/>
           <polygon class="arrow-head" points="${xEnd},${r.y} ${xEnd - 8 * dir},${r.y - 4} ${xEnd - 8 * dir},${r.y + 4}"/>
           ${labels}
@@ -490,6 +488,6 @@ html = html
   );
 
 writeFileSync(OUT, html);
-const msgCount = (seq.match(/data-n="/g) || []).length;
+const msgCount = (seq.match(/data-from="/g) || []).length;
 const xorCount = (seq.match(/data-xor-rail="/g) || []).length;
 console.log(`wrote ${OUT}\nsequence messages=${msgCount} xor-rails=${xorCount} bpm-nodes=${(bpm.match(/data-node-id=/g) || []).length}`);

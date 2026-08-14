@@ -298,7 +298,7 @@ node --test tests/flow-draw.test.js
 - `<title>` / `<desc>`
 - Actor headers (top + bottom) as `<g data-actor-id>`
 - Lifelines: dashed `<line data-lifeline>` using `var(--fg-faint)` / `#424a5a`
-- Messages: `<g data-from data-to data-n>` line + text; async = dasharray
+- Messages: `<g data-from data-to>` line + text; async = dasharray. **No visible row numbers** (no `<text class="num">`, no 1/2/3 in the gutter). `data-n` is optional and must not be painted.
 - XOR: `<g data-xor-rail="{xorId}">` — left rail only (`var(--status-warning-line)`), no enclosing stroked rect; `◇ {question}` note; per branch a hairline + pill + `<text data-branch-label>`; wash `color-mix(in srgb, var(--bg-elevated) 55%, transparent)` *without* stroke. Paint tokens = design §4 Look A (actor `--bg-elevated`, arrow `--fg-muted`, async dash 5 4).
 - Escape all text (`escapeHtml` from `scripts/lib/render-site.js:80`)
 - Double-render of the same layout must be byte-identical (no random ids)
@@ -761,4 +761,4 @@ Applied after adversarial local review. Not a ground-truth receipt.
 
 ## Reviews
 
-- ground-truth: complete-with-findings | mode=ground-truth | fp=3d9ab050208a | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=83407f6ca2ba | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
