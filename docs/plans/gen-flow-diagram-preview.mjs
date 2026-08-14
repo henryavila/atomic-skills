@@ -4,7 +4,7 @@
  * Full-page chrome (grid auto/1fr + sizer/stage). Zoom resizes SVG
  * width/height (vectors stay sharp). No CSS transform scale.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalizeFlow } from '../../scripts/lib/render-flow.js';
@@ -15,8 +15,11 @@ import {
 } from '../../scripts/lib/flow-zoom.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
-const SRC = join(ROOT, 'docs/design/project-flow/dogfood/fluxo-sugestao.json');
+const DOGFOOD = join(ROOT, 'docs/design/project-flow/dogfood');
+const EXTRA_DIR = join(ROOT, 'docs/plans/preview-processes');
 const OUT = join(ROOT, 'docs/plans/2026-08-14-flow-diagram-engine-style-preview.html');
+const PLAN_ID = 'project-flow-preview';
+const PLAN_TITLE = 'Project Flow';
 const PDF_LIB_SRC = readFileSync(join(ROOT, 'scripts/lib/flow-pdf.js'), 'utf8').replaceAll(
   'export ',
   '',
@@ -823,6 +826,28 @@ function drawMachines(normalized) {
     return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
   }
 
+  function fold(s) {
+    return String(s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  function covers(hay, needle) {
+    const h = fold(hay);
+    const n = fold(needle);
+    if (!n) return true;
+    if (!h) return false;
+    if (h.includes(n)) return true;
+    const skip = new Set(['como', 'para', 'uma', 'com', 'por']);
+    const needles = n.split(' ').filter((w) => w.length > 2 && !skip.has(w));
+    if (!needles.length) return false;
+    const hayWords = new Set(h.split(' ').filter(Boolean));
+    return needles.every((w) => hayWords.has(w));
+  }
+
   function splitTitle(label) {
     let s = String(label || '').replace(/^Líder\s+/i, '');
     const i = s.indexOf(' · ');
@@ -833,38 +858,36 @@ function drawMachines(normalized) {
   function captionSize(t) {
     const { title, note } = splitTitle(t.label);
     const fx = t.effects || [];
-    const titleLines = wrap(title, 18, 2);
-    const noteLines = note ? wrap(note, 20, 1) : [];
+    const noteUseful =
+      Boolean(note) && !fx.some((e) => covers(e.label, note) || covers(KIND_PT[e.kind] || e.kind, note));
+    const heading = noteUseful ? `${title} · ${note}` : title;
+    const titleLines = wrap(heading, 36, 2);
     const fxRows = fx.map((e) => {
       const kind = KIND_PT[e.kind] || e.kind;
-      const words = wrap(e.label, 18, 2);
-      return { e, kind, kindW: Math.max(40, estW(kind, 9) + 12), words };
+      const dup = covers(heading, e.label);
+      return {
+        e,
+        kind,
+        kindW: Math.max(40, estW(kind, 9) + 12),
+        text: dup ? '' : String(e.label || ''),
+      };
     });
     let inner = Math.max(80, ...titleLines.map((ln) => estW(ln, 11)));
-    noteLines.forEach((ln) => {
-      inner = Math.max(inner, estW(ln, 10));
-    });
     fxRows.forEach((row) => {
-      row.words.forEach((ln) => {
-        inner = Math.max(inner, row.kindW + 6 + estW(ln, 10));
-      });
+      inner = Math.max(inner, row.kindW + (row.text ? 6 + estW(row.text, 10) : 0));
     });
     const padX = 8;
     const padY = 6;
-    const h =
-      padY +
-      titleLines.length * 13 +
-      noteLines.length * 11 +
-      fxRows.reduce((s, row) => s + row.words.length * 14, 0) +
-      padY;
+    const fxGap = fxRows.length && titleLines.length ? 4 : 0;
+    const h = padY + titleLines.length * 14 + fxGap + fxRows.length * 16 + padY;
     return {
       titleLines,
-      noteLines,
       fxRows,
       w: inner + padX * 2,
       h,
       padX,
       padY,
+      fxGap,
     };
   }
 
@@ -895,8 +918,8 @@ function drawMachines(normalized) {
   }
 
   function paintCaption(box) {
-    const { t, x, y, w, h, padX, padY, titleLines, noteLines, fxRows } = box;
-    let cy = y + padY + 9;
+    const { t, x, y, w, h, padX, padY, titleLines, fxRows, fxGap } = box;
+    let cy = y + padY + 7;
     const parts = [
       `<g data-transition-id="${esc(t.id || '')}" data-from="${esc(t.from)}" data-to="${esc(t.to)}">`,
       `<rect class="edge-cap" x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/>`,
@@ -905,32 +928,21 @@ function drawMachines(normalized) {
       parts.push(
         `<text class="edge-title" x="${x + padX}" y="${cy}" dominant-baseline="central">${esc(ln)}</text>`,
       );
-      cy += 13;
+      cy += 14;
     });
-    noteLines.forEach((ln) => {
-      parts.push(
-        `<text class="edge-note" x="${x + padX}" y="${cy}" dominant-baseline="central">${esc(ln)}</text>`,
-      );
-      cy += 11;
-    });
+    cy += fxGap || 0;
     fxRows.forEach((row) => {
-      row.words.forEach((ln, i) => {
-        const attrs = `data-effect-kind="${esc(row.e.kind)}" data-effect-target="${esc(row.e.target)}"`;
-        if (i === 0) {
-          parts.push(`<rect class="fx-pill" x="${x + padX}" y="${cy - 7}" width="${row.kindW}" height="14" rx="7"/>`);
-          parts.push(
-            `<text class="fx-pill-t" x="${x + padX + row.kindW / 2}" y="${cy}" text-anchor="middle" dominant-baseline="central">${esc(row.kind)}</text>`,
-          );
-          parts.push(
-            `<text class="fx" x="${x + padX + row.kindW + 6}" y="${cy}" dominant-baseline="central" ${attrs}>${esc(ln)}</text>`,
-          );
-        } else {
-          parts.push(
-            `<text class="fx" x="${x + padX + row.kindW + 6}" y="${cy}" dominant-baseline="central">${esc(ln)}</text>`,
-          );
-        }
-        cy += 14;
-      });
+      const attrs = `data-effect-kind="${esc(row.e.kind)}" data-effect-target="${esc(row.e.target)}"`;
+      parts.push(`<rect class="fx-pill" x="${x + padX}" y="${cy - 7}" width="${row.kindW}" height="14" rx="7"/>`);
+      parts.push(
+        `<text class="fx-pill-t" x="${x + padX + row.kindW / 2}" y="${cy}" text-anchor="middle" dominant-baseline="central">${esc(row.kind)}</text>`,
+      );
+      if (row.text) {
+        parts.push(
+          `<text class="fx" x="${x + padX + row.kindW + 6}" y="${cy}" dominant-baseline="central" ${attrs}>${esc(row.text)}</text>`,
+        );
+      }
+      cy += 16;
     });
     parts.push('</g>');
     return parts.join('');
@@ -1136,9 +1148,27 @@ function drawMachines(normalized) {
   </svg>`;
 }
 
-function pageHtml({ title, scenario, actor, planSlug, seq, bpm, mach }) {
+function packTemplate(id, seq, bpm, mach) {
+  return `<template id="pack-${esc(id)}">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet">${seq}</div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet">${bpm}</div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet">${mach}</div>
+    </section>
+  </template>`;
+}
+
+function pageHtml({ planId, planTitle, catalog, packs, initial }) {
+  const catalogJson = JSON.stringify(catalog).replace(/</g, '\\u003c');
+  const packHtml = Object.entries(packs)
+    .map(([id, p]) => packTemplate(id, p.seq, p.bpm, p.mach))
+    .join('\n');
   return `<!DOCTYPE html>
-<html lang="pt-BR" data-fl-slug="${esc(planSlug)}">
+<html lang="pt-BR" data-fl-plan="${esc(planId)}" data-fl-slug="${esc(initial.slug)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
@@ -1148,7 +1178,7 @@ function pageHtml({ title, scenario, actor, planSlug, seq, bpm, mach }) {
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="format-detection" content="telephone=no">
-<title>${esc(title)}</title>
+<title>${esc(initial.title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -1301,8 +1331,6 @@ html, body {
   align-items: center; justify-content: space-between;
 }
 .brand { min-width: 0; flex: 1 1 220px; }
-.brand-line { display: flex; align-items: flex-start; gap: 8px; }
-.brand-line .fl-title { flex: 1; min-width: 0; }
 .brand .fl-title {
   margin: 0; font-size: 15px; font-weight: 600;
   letter-spacing: var(--tracking-tight); line-height: 1.25;
@@ -1342,14 +1370,14 @@ html, body {
 .toolbar .zoom { font: 700 12px var(--font-mono); color: var(--fg-subtle); padding: 0 6px; min-width: 3.2rem; text-align: center; }
 .theme-cycle {
   appearance: none; flex: 0 0 auto;
-  width: 32px; height: 32px; padding: 0;
+  width: 28px; height: 28px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-default);
   background: var(--bg-elevated); color: var(--fg-muted);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.theme-cycle svg { display: none; width: 18px; height: 18px; }
+.theme-cycle svg { display: none; width: 16px; height: 16px; }
 .theme-cycle:not([data-mode]) .i-system,
 .theme-cycle[data-mode="system"] .i-system,
 .theme-cycle[data-mode="light"] .i-light,
@@ -1369,6 +1397,77 @@ html, body {
 .hint-bar .fl-meta { display: inline-flex; flex-wrap: wrap; gap: 10px; }
 .hint-bar .fl-meta span { font-size: 12px; color: var(--fg-subtle); }
 .hint-bar .fl-meta strong { color: var(--fg-muted); font-weight: 500; }
+
+.proc-open {
+  appearance: none; display: flex; align-items: center; gap: 8px;
+  width: 100%; height: 30px; padding: 0 10px;
+  border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+  background: var(--bg-elevated); color: var(--fg-default);
+  font: 500 12px var(--font-sans); cursor: pointer; text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.proc-open-kicker { flex: 0 0 auto; color: var(--fg-subtle); font-size: 11px; }
+.proc-open-label {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600;
+}
+.proc-open-meta {
+  flex: 0 0 auto; color: var(--fg-subtle);
+  font-size: 11px; font-variant-numeric: tabular-nums;
+}
+.proc-open[aria-expanded="true"] { border-color: var(--border-strong); }
+.proc-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg-canvas) 52%, transparent);
+}
+.proc-overlay[hidden] { display: none !important; }
+.proc-sheet {
+  position: absolute; left: 50%; top: 10%;
+  transform: translateX(-50%);
+  width: min(460px, calc(100% - 24px));
+  max-height: min(72vh, 640px);
+  display: flex; flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.proc-sheet-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-default);
+}
+#proc-q {
+  flex: 1; min-width: 0; height: 34px; padding: 0 10px;
+  border: 1px solid var(--border-default); border-radius: 8px;
+  background: var(--bg-elevated); color: var(--fg-default);
+  font: 400 14px var(--font-sans);
+}
+#proc-q:focus { outline: none; box-shadow: var(--shadow-focus); }
+#proc-count { font-size: 11px; color: var(--fg-subtle); white-space: nowrap; }
+#proc-close {
+  appearance: none; flex: 0 0 auto; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--border-default); border-radius: 8px;
+  background: var(--bg-elevated); color: var(--fg-muted);
+  font: 600 16px var(--font-sans); cursor: pointer;
+}
+#proc-list { overflow: auto; flex: 1; -webkit-overflow-scrolling: touch; padding: 6px; }
+.proc-item {
+  appearance: none; display: flex; flex-direction: column; gap: 2px;
+  width: 100%; padding: 8px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; font: inherit;
+  text-align: left; cursor: pointer;
+}
+.proc-item[aria-selected="true"] { background: var(--bg-elevated); }
+.proc-item:hover, .proc-item:focus-visible { background: var(--bg-elevated); outline: none; }
+.proc-item-title { font: 600 13px var(--font-sans); color: var(--fg-default); }
+.proc-item-sub {
+  font-size: 11px; color: var(--fg-subtle);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.proc-empty { padding: 24px 12px; text-align: center; color: var(--fg-subtle); font-size: 13px; }
 
 #fl-viewport {
   position: relative; overflow: auto; overscroll-behavior: contain;
@@ -1489,10 +1588,10 @@ svg.diagram text { fill: var(--fg-default); }
       "dock";
   }
   .top {
-    padding: 8px 12px 8px;
-    gap: 8px;
+    padding: 6px 12px 6px;
+    gap: 6px;
   }
-  .top-row { gap: 8px; width: 100%; min-width: 0; }
+  .top-row { gap: 6px; width: 100%; min-width: 0; }
   .brand { flex: 1 1 100%; min-width: 0; width: 100%; }
   .brand .fl-title {
     font-size: 14px;
@@ -1505,33 +1604,40 @@ svg.diagram text { fill: var(--fg-default); }
   }
   .fl-toc {
     flex: 1 1 100%;
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;
     width: 100%; min-width: 0;
   }
   .fl-toc button {
-    height: 44px; padding: 0 6px; justify-content: center;
-    font-size: 13px; min-width: 0; width: 100%;
+    height: 34px; padding: 0 6px; justify-content: center;
+    font-size: 12px; min-width: 0; width: 100%;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .fl-toc button kbd { display: none; }
   .dock {
     border-bottom: 0;
     border-top: 1px solid var(--border-default);
-    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
     min-width: 0;
   }
   .toolbar {
     width: 100%; min-width: 0;
     justify-content: flex-start;
-    gap: 6px;
+    gap: 5px;
   }
   .toolbar button {
-    height: 44px; min-width: 44px; padding: 0 10px;
-    font-size: 13px; -webkit-tap-highlight-color: transparent;
+    height: 32px; min-width: 32px; padding: 0 8px;
+    font-size: 12px; -webkit-tap-highlight-color: transparent;
   }
-  .toolbar .zoom { min-width: 3.4rem; font-size: 13px; }
-  .theme-cycle { width: 44px; height: 44px; }
-  .theme-cycle svg { width: 20px; height: 20px; }
+  .toolbar .zoom { min-width: 3rem; font-size: 12px; }
+  .theme-cycle { width: 32px; height: 32px; margin-left: auto; }
+  .theme-cycle svg { width: 16px; height: 16px; }
+  .proc-open { height: 34px; }
+  .proc-sheet {
+    top: auto; bottom: 0; left: 0; right: 0; transform: none;
+    width: 100%; max-height: min(82dvh, 720px);
+    border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
   .hint-bar { display: none; }
   .gesture-hint { display: block; }
   #fl-viewport {
@@ -1545,10 +1651,10 @@ svg.diagram text { fill: var(--fg-default); }
 
 @media (max-width: 860px) and (max-height: 500px) {
   .brand .fl-scenario { display: none; }
-  .fl-toc button { height: 36px; }
-  .toolbar button { height: 36px; }
-  .theme-cycle { width: 36px; height: 36px; }
-  .top { padding: 6px 10px; gap: 6px; }
+  .fl-toc button { height: 30px; }
+  .toolbar button { height: 28px; }
+  .theme-cycle { width: 28px; height: 28px; }
+  .top { padding: 4px 10px; gap: 4px; }
   .gesture-hint { display: none; }
 }
 
@@ -1567,15 +1673,8 @@ svg.diagram text { fill: var(--fg-default); }
     <header class="top">
       <div class="top-row">
         <div class="brand">
-          <div class="brand-line">
-            <h1 class="fl-title">${esc(title)}</h1>
-            <button type="button" class="theme-cycle" id="theme-cycle" data-theme-cycle data-mode="system" aria-label="Aparência: automático. Toque para claro" title="Aparência: automático. Toque para claro">
-              <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3a9 9 0 0 0 0 18V3z" fill="currentColor"/></svg>
-              <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
-              <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.2 3.2a8.5 8.5 0 1 0 5.6 14.3A8.5 8.5 0 0 1 15.2 3.2z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
-            </button>
-          </div>
-          <p class="fl-scenario">${esc(scenario)}</p>
+          <h1 class="fl-title">${esc(initial.title)}</h1>
+          <p class="fl-scenario">${esc(initial.scenario)}</p>
         </div>
         <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
           <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence" title="Sequência (1)">Sequência <kbd>1</kbd></button>
@@ -1586,27 +1685,37 @@ svg.diagram text { fill: var(--fg-default); }
       <div class="hint-bar">
         <span class="val">Look A · Linha</span>
         <span class="fl-meta">
-          <span><strong>Ator:</strong> ${esc(actor)}</span>
-          <span><strong>Plano:</strong> ${esc(planSlug)}</span>
+          <span><strong>Ator:</strong> <span id="fl-actor">${esc(initial.actor)}</span></span>
+          <span><strong>Plano:</strong> ${esc(planTitle)}</span>
+          <span><strong>Processos:</strong> ${catalog.length}</span>
         </span>
         <span id="tab-hint">Tronco + trilho XOR</span>
         <span>Arrastar = pan · <kbd>Ctrl</kbd>+scroll = zoom · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> mapas</span>
       </div>
+      ${
+        catalog.length > 1
+          ? `<button type="button" class="proc-open" id="proc-open" aria-haspopup="listbox" aria-expanded="false" aria-controls="proc-overlay">
+        <span class="proc-open-kicker">Processo</span>
+        <span class="proc-open-label" id="proc-current">${esc(initial.title)}</span>
+        <span class="proc-open-meta"><span id="proc-n">${catalog.length}</span> ▾</span>
+      </button>`
+          : ''
+      }
     </header>
+    <div class="proc-overlay" id="proc-overlay" hidden>
+      <div class="proc-sheet" role="dialog" aria-label="Processos do plano">
+        <div class="proc-sheet-head">
+          <input id="proc-q" type="search" placeholder="Buscar processo" autocomplete="off" enterkeyhint="search">
+          <span id="proc-count">${catalog.length} processos</span>
+          <button type="button" id="proc-close" aria-label="Fechar lista">×</button>
+        </div>
+        <div id="proc-list" role="listbox" aria-label="Lista de processos"></div>
+      </div>
+    </div>
 
     <div id="fl-viewport" title="Arraste para navegar · pinça ou Ctrl+scroll para zoom">
       <div id="fl-sizer">
-        <div id="fl-stage">
-          <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
-            <div class="sheet">${seq}</div>
-          </section>
-          <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
-            <div class="sheet">${bpm}</div>
-          </section>
-          <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
-            <div class="sheet">${mach}</div>
-          </section>
-        </div>
+        <div id="fl-stage"></div>
       </div>
       <div class="gesture-hint" id="gesture-hint">Arraste · pinça = zoom</div>
     </div>
@@ -1618,15 +1727,23 @@ svg.diagram text { fill: var(--fg-default); }
         <button type="button" id="z-100">100%</button>
         <button type="button" id="z-fit" class="primary" data-fit="height" title="Ajustar à altura">À altura</button>
         <button type="button" id="btn-pdf" title="Baixar PDF do fluxo (anexo)">PDF</button>
+        <button type="button" class="theme-cycle" id="theme-cycle" data-theme-cycle data-mode="system" aria-label="Aparência: automático. Toque para claro" title="Aparência: automático. Toque para claro">
+          <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3a9 9 0 0 0 0 18V3z" fill="currentColor"/></svg>
+          <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.2 3.2a8.5 8.5 0 1 0 5.6 14.3A8.5 8.5 0 0 1 15.2 3.2z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+        </button>
       </div>
     </footer>
   </div>
   <div id="actor-tip" hidden></div>
+  ${packHtml}
+<script type="application/json" id="fl-catalog">${catalogJson}</script>
 <script>
 __PDF_LIB__
 (function () {
+  const catalog = JSON.parse(document.getElementById('fl-catalog').textContent);
   const tabs = [...document.querySelectorAll('.fl-toc [data-tab]')];
-  const panels = [...document.querySelectorAll('.fl-surface[data-surface]')];
+  let panels = [];
   const stage = document.getElementById('fl-stage');
   const viewport = document.getElementById('fl-viewport');
   const sizer = document.getElementById('fl-sizer');
@@ -1641,7 +1758,12 @@ __PDF_LIB__
   const MIN = ${FLOW_ZOOM_MIN}, MAX = ${FLOW_ZOOM_MAX}, STEP = 0.1;
   const phoneUi = window.matchMedia('(max-width: 860px), (pointer: coarse) and (hover: none)').matches;
   const PAD = phoneUi ? 16 : 40;
-  const zoomKey = ${JSON.stringify(FLOW_ZOOM_KEY_PREFIX)} + (document.documentElement.getAttribute('data-fl-slug') || 'default') + (phoneUi ? ':m' : '');
+  const planId = document.documentElement.getAttribute('data-fl-plan') || 'preview';
+  const PROC_KEY = 'as-flow-process:' + planId;
+  function zoomKeyFor(slug) {
+    return ${JSON.stringify(FLOW_ZOOM_KEY_PREFIX)} + (slug || 'default') + (phoneUi ? ':m' : '');
+  }
+  let zoomKey = zoomKeyFor(document.documentElement.getAttribute('data-fl-slug') || 'default');
   function readZoom() {
     try {
       const n = parseFloat(localStorage.getItem(zoomKey));
@@ -1652,8 +1774,7 @@ __PDF_LIB__
   function saveZoom() {
     try { localStorage.setItem(zoomKey, String(scale)); } catch (e) {}
   }
-  const savedZoom = readZoom();
-  let scale = savedZoom == null ? 1 : savedZoom;
+  let scale = 1;
 
   function visibleSvg() {
     return document.querySelector('.diagram-panel:not([hidden]) svg');
@@ -1758,7 +1879,7 @@ __PDF_LIB__
     }
     saveZoom();
   }
-  function showTab(name) {
+  function showTab(name, opts) {
     tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
     panels.forEach((p) => {
       const on = p.dataset.surface === name;
@@ -1768,11 +1889,132 @@ __PDF_LIB__
     if (hint) hint.textContent = HINTS[name] || '';
     if (tip) tip.hidden = true;
     requestAnimationFrame(function () {
-      if (phoneUi) scale = fitScale('width');
+      if (phoneUi && !(opts && opts.keepZoom)) scale = fitScale('width');
       centerHorizontally(0);
     });
   }
   tabs.forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+  function itemBySlug(slug) {
+    return catalog.find((c) => c.slug === slug) || catalog[0];
+  }
+  function currentSlug() {
+    return document.documentElement.getAttribute('data-fl-slug') || (catalog[0] && catalog[0].slug) || '';
+  }
+  function foldTxt(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  const overlay = document.getElementById('proc-overlay');
+  const procOpen = document.getElementById('proc-open');
+  const procQ = document.getElementById('proc-q');
+  const procList = document.getElementById('proc-list');
+  const procCount = document.getElementById('proc-count');
+  function closeProc() {
+    if (!overlay) return;
+    overlay.hidden = true;
+    if (procOpen) procOpen.setAttribute('aria-expanded', 'false');
+  }
+  function renderProcList(q) {
+    if (!procList) return;
+    const needle = foldTxt(q);
+    const slug = currentSlug();
+    const hits = catalog.filter((c) => {
+      if (!needle) return true;
+      return foldTxt([c.title, c.scenario, c.actor, c.slug].join(' ')).includes(needle);
+    });
+    if (procCount) {
+      procCount.textContent = hits.length === catalog.length
+        ? catalog.length + ' processos'
+        : hits.length + ' de ' + catalog.length;
+    }
+    procList.replaceChildren();
+    if (!hits.length) {
+      const empty = document.createElement('div');
+      empty.className = 'proc-empty';
+      empty.textContent = 'Nenhum processo com esse nome';
+      procList.appendChild(empty);
+      return;
+    }
+    hits.forEach((c) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'proc-item';
+      b.setAttribute('role', 'option');
+      b.dataset.slug = c.slug;
+      b.setAttribute('aria-selected', String(c.slug === slug));
+      const t = document.createElement('span');
+      t.className = 'proc-item-title';
+      t.textContent = c.title;
+      const s = document.createElement('span');
+      s.className = 'proc-item-sub';
+      s.textContent = (c.actor || '') + (c.scenario ? ' · ' + c.scenario : '');
+      b.append(t, s);
+      b.addEventListener('click', () => mountProcess(c.slug));
+      procList.appendChild(b);
+    });
+  }
+  function openProc() {
+    if (!overlay) return;
+    overlay.hidden = false;
+    if (procOpen) procOpen.setAttribute('aria-expanded', 'true');
+    renderProcList(procQ ? procQ.value : '');
+    if (procQ) {
+      procQ.value = procQ.value;
+      setTimeout(() => procQ.focus(), 20);
+    }
+    const sel = procList && procList.querySelector('[aria-selected="true"]');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+  function mountProcess(slug) {
+    const item = itemBySlug(slug);
+    if (!item) return;
+    const tpl = document.getElementById('pack-' + item.pack);
+    if (!tpl) return;
+    const keepTab = (document.querySelector('.fl-toc [aria-selected="true"]') || {}).dataset
+      ? document.querySelector('.fl-toc [aria-selected="true"]').dataset.tab
+      : 'sequence';
+    stage.innerHTML = '';
+    stage.appendChild(tpl.content.cloneNode(true));
+    panels = [...stage.querySelectorAll('.fl-surface[data-surface]')];
+    document.documentElement.setAttribute('data-fl-slug', item.slug);
+    zoomKey = zoomKeyFor(item.slug);
+    const saved = readZoom();
+    scale = saved == null ? 1 : saved;
+    const titleEl = document.querySelector('.fl-title');
+    const scEl = document.querySelector('.fl-scenario');
+    const cur = document.getElementById('proc-current');
+    const actorEl = document.getElementById('fl-actor');
+    if (titleEl) titleEl.textContent = item.title;
+    if (scEl) scEl.textContent = item.scenario || '';
+    if (cur) cur.textContent = item.title;
+    if (actorEl) actorEl.textContent = item.actor || '';
+    document.title = item.title;
+    try { localStorage.setItem(PROC_KEY, item.slug); } catch (e) {}
+    const nextHash = '#p=' + encodeURIComponent(item.slug);
+    if (location.hash !== nextHash) history.replaceState(null, '', nextHash);
+    closeProc();
+    showTab(keepTab || 'sequence', { keepZoom: true });
+    if (saved == null && phoneUi) {
+      requestAnimationFrame(function () {
+        scale = fitScale('width');
+        centerHorizontally(0);
+      });
+    }
+  }
+  if (procOpen) procOpen.addEventListener('click', () => {
+    if (overlay && !overlay.hidden) closeProc();
+    else openProc();
+  });
+  const procClose = document.getElementById('proc-close');
+  if (procClose) procClose.addEventListener('click', closeProc);
+  if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeProc(); });
+  if (procQ) procQ.addEventListener('input', () => renderProcList(procQ.value));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay && !overlay.hidden) {
+      e.preventDefault();
+      closeProc();
+    }
+  });
 
   document.getElementById('z-in').onclick = () => setScale(scale + STEP);
   document.getElementById('z-out').onclick = () => setScale(scale - STEP);
@@ -2077,10 +2319,17 @@ __PDF_LIB__
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => applyStageGeometry());
   }
-  requestAnimationFrame(function () {
-    if (savedZoom == null && phoneUi) scale = fitScale('width');
-    centerHorizontally(0);
-  });
+  function bootSlug() {
+    let hash = '';
+    try {
+      hash = decodeURIComponent((location.hash.match(/^#p=(.+)$/) || [])[1] || '');
+    } catch (e) {}
+    let saved = '';
+    try { saved = localStorage.getItem(PROC_KEY) || ''; } catch (e) {}
+    const want = hash || saved || (catalog[0] && catalog[0].slug) || '';
+    return catalog.some((c) => c.slug === want) ? want : (catalog[0] && catalog[0].slug) || '';
+  }
+  if (catalog.length) mountProcess(bootSlug());
 })();
 </script>
 </body>
@@ -2088,24 +2337,171 @@ __PDF_LIB__
 `;
 }
 
-const raw = JSON.parse(readFileSync(SRC, 'utf8'));
-const normalized = normalizeFlow(raw);
-const steps = walkSteps(normalized);
-const seq = drawSequence(normalized, steps);
-const bpm = drawBpm(normalized);
-const mach = drawMachines(normalized);
+function packFromRaw(raw) {
+  const normalized = normalizeFlow(raw);
+  return {
+    slug: normalized.planSlug,
+    title: normalized.title,
+    scenario: normalized.scenario,
+    actor: normalized.actor,
+    pack: normalized.planSlug,
+    seq: drawSequence(normalized, walkSteps(normalized)),
+    bpm: drawBpm(normalized),
+    mach: drawMachines(normalized),
+  };
+}
 
+function loadJsonFlows(dir) {
+  let names = [];
+  try {
+    names = readdirSync(dir).filter((n) => n.endsWith('.json'));
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const name of names) {
+    try {
+      const raw = JSON.parse(readFileSync(join(dir, name), 'utf8'));
+      if (!raw || raw.schemaVersion !== '1.0' || !raw.graph || !raw.planSlug) continue;
+      out.push(packFromRaw(raw));
+    } catch (err) {
+      console.warn(`skip ${join(dir, name)}: ${err.message}`);
+    }
+  }
+  return out;
+}
+
+function makeXorRaw({ slug, title, scenario, actor }) {
+  return {
+    schemaVersion: '1.0',
+    planSlug: slug,
+    title,
+    scenario,
+    actor,
+    audience: 'both',
+    actors: [
+      { id: 'A', label: actor, kind: 'actor' },
+      { id: 'S', label: 'Sistema', kind: 'participant' },
+    ],
+    graph: {
+      entry: 'S1',
+      nodes: {
+        S1: {
+          type: 'activity',
+          label: title,
+          who: actor,
+          messages: [{ from: 'A', to: 'S', text: `Inicia ${title.toLowerCase()}`, async: false }],
+          next: 'D1',
+        },
+        D1: {
+          type: 'xor',
+          label: 'Conclui?',
+          who: actor,
+          question: 'Conclui este processo?',
+          branches: [
+            { id: 'D1.yes', when: 'sim', label: 'Sim', next: 'end_ok' },
+            { id: 'D1.no', when: 'nao', label: 'Não', next: 'end_no' },
+          ],
+        },
+        end_ok: { type: 'end', label: 'Concluído' },
+        end_no: { type: 'end', label: 'Interrompido' },
+      },
+    },
+    machines: [
+      {
+        id: 'm',
+        label: title,
+        entry: 'aberto',
+        nodes: {
+          aberto: { label: 'Aberto' },
+          ok: { label: 'Concluído', terminal: true },
+          no: { label: 'Interrompido', terminal: true },
+        },
+        transitions: [
+          {
+            id: 'T_ok',
+            from: 'aberto',
+            to: 'ok',
+            when: 'sim',
+            label: 'Conclui',
+            via: 'D1.yes',
+            effects: [],
+          },
+          {
+            id: 'T_no',
+            from: 'aberto',
+            to: 'no',
+            when: 'nao',
+            label: 'Interrompe',
+            via: 'D1.no',
+            effects: [],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+const EXTRA_SPECS = [
+  ['cadastro-solicitante', 'Cadastro do solicitante', 'A pessoa se cadastra para abrir pedidos.', 'Solicitante'],
+  ['validacao-email', 'Validação de e-mail', 'Confirma o endereço de e-mail do cadastro.', 'Solicitante'],
+  ['encaminhar-area', 'Encaminhar à área', 'O pedido segue para a área responsável.', 'GETIN'],
+  ['reuniao-comissao', 'Pauta da comissão', 'Inclui o item na pauta da reunião.', 'Secretaria'],
+  ['publicar-ata', 'Publicar ata', 'A ata da reunião é publicada para os interessados.', 'Secretaria'],
+  ['exportar-relatorio', 'Exportar relatório', 'Gera o relatório consolidado do período.', 'GETIN'],
+  ['anexar-evidencia', 'Anexar evidência', 'O responsável anexa prova ao processo.', 'Líder'],
+  ['deferir-recurso', 'Deferir recurso', 'O recurso apresentado é aceito.', 'Comissão'],
+  ['indeferir-recurso', 'Indeferir recurso', 'O recurso apresentado é recusado.', 'Comissão'],
+  ['solicitar-esclarecimento', 'Solicitar esclarecimento', 'Pede informação extra ao solicitante.', 'GETIN'],
+  ['arquivar-processo', 'Arquivar processo', 'Encerra e arquiva o processo sem trâmite.', 'GETIN'],
+  ['reabrir-processo', 'Reabrir processo', 'Tira o processo do arquivo e retoma o trâmite.', 'GETIN'],
+  ['assinar-documento', 'Assinar documento', 'O responsável assina o documento gerado.', 'Líder'],
+  ['notificar-interessados', 'Notificar interessados', 'Avisa quem acompanha o andamento.', 'Sistema'],
+  ['atualizar-status', 'Atualizar status', 'Registra a mudança de situação do pedido.', 'Sistema'],
+  ['homologar-resultado', 'Homologar resultado', 'A comissão homologa o resultado final.', 'Comissão'],
+  ['devolver-exigencia', 'Devolver por exigência', 'Devolve o pedido para correção.', 'GETIN'],
+  ['redistribuir-responsavel', 'Redistribuir responsável', 'Passa o pedido para outro responsável.', 'GETIN'],
+  ['cancelar-tramite', 'Cancelar trâmite', 'Cancela o andamento a pedido do interessado.', 'Solicitante'],
+  ['consultar-historico', 'Consultar histórico', 'Lê o histórico completo do processo.', 'Líder'],
+];
+
+const fromDogfood = loadJsonFlows(DOGFOOD);
+const fromExtraDir = loadJsonFlows(EXTRA_DIR);
+const fromSpecs = EXTRA_SPECS.map(([slug, title, scenario, actor]) => packFromRaw(makeXorRaw({ slug, title, scenario, actor })));
+
+const bySlug = new Map();
+for (const p of [...fromDogfood, ...fromExtraDir, ...fromSpecs]) {
+  if (!bySlug.has(p.slug)) bySlug.set(p.slug, p);
+}
+const preferred = ['sugestao-necessidade-pdti', 'minimal-xor'];
+const rest = [...bySlug.keys()].filter((s) => !preferred.includes(s)).sort();
+const ordered = [...preferred.filter((s) => bySlug.has(s)), ...rest].map((s) => bySlug.get(s));
+
+const catalog = ordered.map((p) => ({
+  slug: p.slug,
+  title: p.title,
+  scenario: p.scenario,
+  actor: p.actor,
+  pack: p.pack,
+}));
+const packs = {};
+for (const p of ordered) {
+  packs[p.pack] = { seq: p.seq, bpm: p.bpm, mach: p.mach };
+}
+
+const initial = catalog[0] || { slug: 'vazio', title: 'Sem processo', scenario: '', actor: '' };
 const html = pageHtml({
-  title: normalized.title,
-  scenario: normalized.scenario,
-  actor: normalized.actor,
-  planSlug: normalized.planSlug,
-  seq,
-  bpm,
-  mach,
+  planId: PLAN_ID,
+  planTitle: PLAN_TITLE,
+  catalog,
+  packs,
+  initial,
 }).replace('__PDF_LIB__', PDF_LIB_SRC);
 
 writeFileSync(OUT, html);
-const msgCount = (seq.match(/data-from="/g) || []).length;
-const xorCount = (seq.match(/data-xor-rail="/g) || []).length;
-console.log(`wrote ${OUT}\nsequence messages=${msgCount} xor-rails=${xorCount} bpm-nodes=${(bpm.match(/data-node-id=/g) || []).length}`);
+const first = packs[initial.pack] || { seq: '', bpm: '' };
+const msgCount = (first.seq.match(/data-from="/g) || []).length;
+const xorCount = (first.seq.match(/data-xor-rail="/g) || []).length;
+console.log(
+  `wrote ${OUT}\nprocesses=${catalog.length} packs=${Object.keys(packs).length} sequence messages=${msgCount} xor-rails=${xorCount} first=${initial.slug}`,
+);

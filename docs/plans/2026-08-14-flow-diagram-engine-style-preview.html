@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-fl-slug="sugestao-necessidade-pdti">
+<html lang="pt-BR" data-fl-plan="project-flow-preview" data-fl-slug="sugestao-necessidade-pdti">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
@@ -162,8 +162,6 @@ html, body {
   align-items: center; justify-content: space-between;
 }
 .brand { min-width: 0; flex: 1 1 220px; }
-.brand-line { display: flex; align-items: flex-start; gap: 8px; }
-.brand-line .fl-title { flex: 1; min-width: 0; }
 .brand .fl-title {
   margin: 0; font-size: 15px; font-weight: 600;
   letter-spacing: var(--tracking-tight); line-height: 1.25;
@@ -203,14 +201,14 @@ html, body {
 .toolbar .zoom { font: 700 12px var(--font-mono); color: var(--fg-subtle); padding: 0 6px; min-width: 3.2rem; text-align: center; }
 .theme-cycle {
   appearance: none; flex: 0 0 auto;
-  width: 32px; height: 32px; padding: 0;
+  width: 28px; height: 28px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-default);
   background: var(--bg-elevated); color: var(--fg-muted);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.theme-cycle svg { display: none; width: 18px; height: 18px; }
+.theme-cycle svg { display: none; width: 16px; height: 16px; }
 .theme-cycle:not([data-mode]) .i-system,
 .theme-cycle[data-mode="system"] .i-system,
 .theme-cycle[data-mode="light"] .i-light,
@@ -230,6 +228,77 @@ html, body {
 .hint-bar .fl-meta { display: inline-flex; flex-wrap: wrap; gap: 10px; }
 .hint-bar .fl-meta span { font-size: 12px; color: var(--fg-subtle); }
 .hint-bar .fl-meta strong { color: var(--fg-muted); font-weight: 500; }
+
+.proc-open {
+  appearance: none; display: flex; align-items: center; gap: 8px;
+  width: 100%; height: 30px; padding: 0 10px;
+  border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+  background: var(--bg-elevated); color: var(--fg-default);
+  font: 500 12px var(--font-sans); cursor: pointer; text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.proc-open-kicker { flex: 0 0 auto; color: var(--fg-subtle); font-size: 11px; }
+.proc-open-label {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600;
+}
+.proc-open-meta {
+  flex: 0 0 auto; color: var(--fg-subtle);
+  font-size: 11px; font-variant-numeric: tabular-nums;
+}
+.proc-open[aria-expanded="true"] { border-color: var(--border-strong); }
+.proc-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg-canvas) 52%, transparent);
+}
+.proc-overlay[hidden] { display: none !important; }
+.proc-sheet {
+  position: absolute; left: 50%; top: 10%;
+  transform: translateX(-50%);
+  width: min(460px, calc(100% - 24px));
+  max-height: min(72vh, 640px);
+  display: flex; flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.proc-sheet-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-default);
+}
+#proc-q {
+  flex: 1; min-width: 0; height: 34px; padding: 0 10px;
+  border: 1px solid var(--border-default); border-radius: 8px;
+  background: var(--bg-elevated); color: var(--fg-default);
+  font: 400 14px var(--font-sans);
+}
+#proc-q:focus { outline: none; box-shadow: var(--shadow-focus); }
+#proc-count { font-size: 11px; color: var(--fg-subtle); white-space: nowrap; }
+#proc-close {
+  appearance: none; flex: 0 0 auto; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--border-default); border-radius: 8px;
+  background: var(--bg-elevated); color: var(--fg-muted);
+  font: 600 16px var(--font-sans); cursor: pointer;
+}
+#proc-list { overflow: auto; flex: 1; -webkit-overflow-scrolling: touch; padding: 6px; }
+.proc-item {
+  appearance: none; display: flex; flex-direction: column; gap: 2px;
+  width: 100%; padding: 8px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; font: inherit;
+  text-align: left; cursor: pointer;
+}
+.proc-item[aria-selected="true"] { background: var(--bg-elevated); }
+.proc-item:hover, .proc-item:focus-visible { background: var(--bg-elevated); outline: none; }
+.proc-item-title { font: 600 13px var(--font-sans); color: var(--fg-default); }
+.proc-item-sub {
+  font-size: 11px; color: var(--fg-subtle);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.proc-empty { padding: 24px 12px; text-align: center; color: var(--fg-subtle); font-size: 13px; }
 
 #fl-viewport {
   position: relative; overflow: auto; overscroll-behavior: contain;
@@ -350,10 +419,10 @@ svg.diagram text { fill: var(--fg-default); }
       "dock";
   }
   .top {
-    padding: 8px 12px 8px;
-    gap: 8px;
+    padding: 6px 12px 6px;
+    gap: 6px;
   }
-  .top-row { gap: 8px; width: 100%; min-width: 0; }
+  .top-row { gap: 6px; width: 100%; min-width: 0; }
   .brand { flex: 1 1 100%; min-width: 0; width: 100%; }
   .brand .fl-title {
     font-size: 14px;
@@ -366,33 +435,40 @@ svg.diagram text { fill: var(--fg-default); }
   }
   .fl-toc {
     flex: 1 1 100%;
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;
     width: 100%; min-width: 0;
   }
   .fl-toc button {
-    height: 44px; padding: 0 6px; justify-content: center;
-    font-size: 13px; min-width: 0; width: 100%;
+    height: 34px; padding: 0 6px; justify-content: center;
+    font-size: 12px; min-width: 0; width: 100%;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .fl-toc button kbd { display: none; }
   .dock {
     border-bottom: 0;
     border-top: 1px solid var(--border-default);
-    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
     min-width: 0;
   }
   .toolbar {
     width: 100%; min-width: 0;
     justify-content: flex-start;
-    gap: 6px;
+    gap: 5px;
   }
   .toolbar button {
-    height: 44px; min-width: 44px; padding: 0 10px;
-    font-size: 13px; -webkit-tap-highlight-color: transparent;
+    height: 32px; min-width: 32px; padding: 0 8px;
+    font-size: 12px; -webkit-tap-highlight-color: transparent;
   }
-  .toolbar .zoom { min-width: 3.4rem; font-size: 13px; }
-  .theme-cycle { width: 44px; height: 44px; }
-  .theme-cycle svg { width: 20px; height: 20px; }
+  .toolbar .zoom { min-width: 3rem; font-size: 12px; }
+  .theme-cycle { width: 32px; height: 32px; margin-left: auto; }
+  .theme-cycle svg { width: 16px; height: 16px; }
+  .proc-open { height: 34px; }
+  .proc-sheet {
+    top: auto; bottom: 0; left: 0; right: 0; transform: none;
+    width: 100%; max-height: min(82dvh, 720px);
+    border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
   .hint-bar { display: none; }
   .gesture-hint { display: block; }
   #fl-viewport {
@@ -406,10 +482,10 @@ svg.diagram text { fill: var(--fg-default); }
 
 @media (max-width: 860px) and (max-height: 500px) {
   .brand .fl-scenario { display: none; }
-  .fl-toc button { height: 36px; }
-  .toolbar button { height: 36px; }
-  .theme-cycle { width: 36px; height: 36px; }
-  .top { padding: 6px 10px; gap: 6px; }
+  .fl-toc button { height: 30px; }
+  .toolbar button { height: 28px; }
+  .theme-cycle { width: 28px; height: 28px; }
+  .top { padding: 4px 10px; gap: 4px; }
   .gesture-hint { display: none; }
 }
 
@@ -428,14 +504,7 @@ svg.diagram text { fill: var(--fg-default); }
     <header class="top">
       <div class="top-row">
         <div class="brand">
-          <div class="brand-line">
-            <h1 class="fl-title">Sugestão de necessidade PDTI · interface</h1>
-            <button type="button" class="theme-cycle" id="theme-cycle" data-theme-cycle data-mode="system" aria-label="Aparência: automático. Toque para claro" title="Aparência: automático. Toque para claro">
-              <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3a9 9 0 0 0 0 18V3z" fill="currentColor"/></svg>
-              <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
-              <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.2 3.2a8.5 8.5 0 1 0 5.6 14.3A8.5 8.5 0 0 1 15.2 3.2z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
-            </button>
-          </div>
+          <h1 class="fl-title">Sugestão de necessidade PDTI · interface</h1>
           <p class="fl-scenario">GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.</p>
         </div>
         <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
@@ -447,19 +516,56 @@ svg.diagram text { fill: var(--fg-default); }
       <div class="hint-bar">
         <span class="val">Look A · Linha</span>
         <span class="fl-meta">
-          <span><strong>Ator:</strong> GETIN</span>
-          <span><strong>Plano:</strong> sugestao-necessidade-pdti</span>
+          <span><strong>Ator:</strong> <span id="fl-actor">GETIN</span></span>
+          <span><strong>Plano:</strong> Project Flow</span>
+          <span><strong>Processos:</strong> 22</span>
         </span>
         <span id="tab-hint">Tronco + trilho XOR</span>
         <span>Arrastar = pan · <kbd>Ctrl</kbd>+scroll = zoom · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> mapas</span>
       </div>
+      <button type="button" class="proc-open" id="proc-open" aria-haspopup="listbox" aria-expanded="false" aria-controls="proc-overlay">
+        <span class="proc-open-kicker">Processo</span>
+        <span class="proc-open-label" id="proc-current">Sugestão de necessidade PDTI · interface</span>
+        <span class="proc-open-meta"><span id="proc-n">22</span> ▾</span>
+      </button>
     </header>
+    <div class="proc-overlay" id="proc-overlay" hidden>
+      <div class="proc-sheet" role="dialog" aria-label="Processos do plano">
+        <div class="proc-sheet-head">
+          <input id="proc-q" type="search" placeholder="Buscar processo" autocomplete="off" enterkeyhint="search">
+          <span id="proc-count">22 processos</span>
+          <button type="button" id="proc-close" aria-label="Fechar lista">×</button>
+        </div>
+        <div id="proc-list" role="listbox" aria-label="Lista de processos"></div>
+      </div>
+    </div>
 
     <div id="fl-viewport" title="Arraste para navegar · pinça ou Ctrl+scroll para zoom">
       <div id="fl-sizer">
-        <div id="fl-stage">
-          <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
-            <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="668" height="1626" viewBox="0 0 668 1626" xmlns="http://www.w3.org/2000/svg" role="img">
+        <div id="fl-stage"></div>
+      </div>
+      <div class="gesture-hint" id="gesture-hint">Arraste · pinça = zoom</div>
+    </div>
+    <footer class="dock">
+      <div class="toolbar" aria-label="Zoom">
+        <button type="button" id="z-out" title="Afastar">−</button>
+        <span class="zoom" id="z-lab">100%</span>
+        <button type="button" id="z-in" title="Aproximar">+</button>
+        <button type="button" id="z-100">100%</button>
+        <button type="button" id="z-fit" class="primary" data-fit="height" title="Ajustar à altura">À altura</button>
+        <button type="button" id="btn-pdf" title="Baixar PDF do fluxo (anexo)">PDF</button>
+        <button type="button" class="theme-cycle" id="theme-cycle" data-theme-cycle data-mode="system" aria-label="Aparência: automático. Toque para claro" title="Aparência: automático. Toque para claro">
+          <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3a9 9 0 0 0 0 18V3z" fill="currentColor"/></svg>
+          <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.2 3.2a8.5 8.5 0 1 0 5.6 14.3A8.5 8.5 0 0 1 15.2 3.2z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </footer>
+  </div>
+  <div id="actor-tip" hidden></div>
+  <template id="pack-sugestao-necessidade-pdti">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="668" height="1626" viewBox="0 0 668 1626" xmlns="http://www.w3.org/2000/svg" role="img">
     <title>Diagrama de sequência — PDTI</title>
     <desc>GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.</desc>
     <rect class="xor-wash" x="8" y="294" width="652" height="1260" rx="10"/>
@@ -693,9 +799,9 @@ svg.diagram text { fill: var(--fg-default); }
       </g>
   </g>
   </svg></div>
-          </section>
-          <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
-            <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="728" height="1238" viewBox="0 0 728 1238" xmlns="http://www.w3.org/2000/svg" role="img">
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="728" height="1238" viewBox="0 0 728 1238" xmlns="http://www.w3.org/2000/svg" role="img">
     <title>Diagrama de processo — PDTI</title>
     <path class="edge" d="M444 96 L444 152"/>
 <path class="edge back" d="M96 320 L44 320 L44 220 L344 220 L344 194"/>
@@ -802,9 +908,9 @@ svg.diagram text { fill: var(--fg-default); }
 
 <text class="edge-t" x="452" y="264" text-anchor="start">Envio válido</text>
   </svg></div>
-          </section>
-          <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
-            <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="1192" height="464" viewBox="0 0 1192 464" xmlns="http://www.w3.org/2000/svg" role="img">
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="1192" height="464" viewBox="0 0 1192 464" xmlns="http://www.w3.org/2000/svg" role="img">
     <title>Diagrama de estados — Sugestão PDTI</title>
     <g transform="translate(16 16)">
     <g data-machine-id="sugestao">
@@ -842,32 +948,2580 @@ svg.diagram text { fill: var(--fg-default); }
 <polygon class="edge-head" points="168,212 174.31364149801976,205.90919290779271 167.6286093236459,203.23518003804315"/>
 <polygon class="edge-head" points="589.04,212 594.6498153849565,205.2553746325904 587.7124864356209,203.32833881333053"/>
 <polygon class="edge-head" points="662.96,212 668.5698153849565,205.2553746325904 661.632486435621,203.32833881333053"/>
-      <g data-transition-id="T_to_pending" data-from="rascunho" data-to="pendente"><rect class="edge-cap" x="308.5" y="138" width="155" height="64" rx="6"/><text class="edge-title" x="316.5" y="153" dominant-baseline="central">Envio válido</text><text class="edge-note" x="316.5" y="166" dominant-baseline="central">grava pendente</text><rect class="fx-pill" x="316.5" y="170" width="40" height="14" rx="7"/><text class="fx-pill-t" x="336.5" y="177" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="362.5" y="177" dominant-baseline="central" data-effect-kind="write" data-effect-target="sugestao">Grava como</text><text class="fx" x="362.5" y="191" dominant-baseline="central">pendente da área</text></g>
-<g data-transition-id="T_aceita" data-from="pendente" data-to="ativo"><rect class="edge-cap" x="768.5" y="135" width="155" height="67" rx="6"/><text class="edge-title" x="776.5" y="150" dominant-baseline="central">Aceita</text><rect class="fx-pill" x="776.5" y="156" width="40" height="14" rx="7"/><text class="fx-pill-t" x="796.5" y="163" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="822.5" y="163" dominant-baseline="central" data-effect-kind="write" data-effect-target="solicitacao">Adota e entra no</text><text class="fx" x="822.5" y="177" dominant-baseline="central">funil</text><rect class="fx-pill" x="776.5" y="184" width="44" height="14" rx="7"/><text class="fx-pill-t" x="798.5" y="191" text-anchor="middle" dominant-baseline="central">E-mail</text><text class="fx" x="826.5" y="191" dominant-baseline="central" data-effect-kind="email" data-effect-target="GETIN">Avisa a GETIN</text></g>
-<g data-transition-id="T_refuse" data-from="pendente" data-to="recusada"><rect class="edge-cap" x="628" y="295.5" width="159" height="53" rx="6"/><text class="edge-title" x="636" y="310.5" dominant-baseline="central">Recusa</text><rect class="fx-pill" x="636" y="316.5" width="44" height="14" rx="7"/><text class="fx-pill-t" x="658" y="323.5" text-anchor="middle" dominant-baseline="central">E-mail</text><text class="fx" x="686" y="323.5" dominant-baseline="central" data-effect-kind="email" data-effect-target="GETIN">Avisa a GETIN da</text><text class="fx" x="686" y="337.5" dominant-baseline="central">recusa</text></g>
-<g data-transition-id="T_draft_loop" data-from="rascunho" data-to="rascunho"><rect class="edge-cap" x="84" y="102" width="144" height="64" rx="6"/><text class="edge-title" x="92" y="117" dominant-baseline="central">Envio inválido</text><text class="edge-note" x="92" y="130" dominant-baseline="central">corrige e reenvia</text><rect class="fx-pill" x="92" y="134" width="40" height="14" rx="7"/><text class="fx-pill-t" x="112" y="141" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="138" y="141" dominant-baseline="central" data-effect-kind="notify" data-effect-target="GETIN">Mostra erro de</text><text class="fx" x="138" y="155" dominant-baseline="central">envio</text></g>
-<g data-transition-id="T_edit_pending" data-from="pendente" data-to="pendente"><rect class="edge-cap" x="477.03999999999996" y="93" width="120" height="77" rx="6"/><text class="edge-title" x="485.03999999999996" y="108" dominant-baseline="central">Atualiza o</text><text class="edge-title" x="485.03999999999996" y="121" dominant-baseline="central">conteúdo</text><text class="edge-note" x="485.03999999999996" y="134" dominant-baseline="central">ainda pendente</text><rect class="fx-pill" x="485.03999999999996" y="138" width="40" height="14" rx="7"/><text class="fx-pill-t" x="505.03999999999996" y="145" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="531.04" y="145" dominant-baseline="central" data-effect-kind="write" data-effect-target="sugestao">Atualiza o</text><text class="fx" x="531.04" y="159" dominant-baseline="central">conteúdo</text></g>
-<g data-transition-id="T_skip_edit" data-from="pendente" data-to="pendente"><rect class="edge-cap" x="634.96" y="145" width="119" height="25" rx="6"/><text class="edge-title" x="642.96" y="160" dominant-baseline="central">Segue sem editar</text></g>
+      <g data-transition-id="T_to_pending" data-from="rascunho" data-to="pendente"><rect class="edge-cap" x="276.5" y="156" width="219" height="46" rx="6"/><text class="edge-title" x="284.5" y="169" dominant-baseline="central">Envio válido</text><rect class="fx-pill" x="284.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="304.5" y="187" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="330.5" y="187" dominant-baseline="central" data-effect-kind="write" data-effect-target="sugestao">Grava como pendente da área</text></g>
+<g data-transition-id="T_aceita" data-from="pendente" data-to="ativo"><rect class="edge-cap" x="751" y="140" width="190" height="62" rx="6"/><text class="edge-title" x="759" y="153" dominant-baseline="central">Aceita</text><rect class="fx-pill" x="759" y="164" width="40" height="14" rx="7"/><text class="fx-pill-t" x="779" y="171" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="805" y="171" dominant-baseline="central" data-effect-kind="write" data-effect-target="solicitacao">Adota e entra no funil</text><rect class="fx-pill" x="759" y="180" width="44" height="14" rx="7"/><text class="fx-pill-t" x="781" y="187" text-anchor="middle" dominant-baseline="central">E-mail</text><text class="fx" x="809" y="187" dominant-baseline="central" data-effect-kind="email" data-effect-target="GETIN">Avisa a GETIN</text></g>
+<g data-transition-id="T_refuse" data-from="pendente" data-to="recusada"><rect class="edge-cap" x="628" y="299" width="200" height="46" rx="6"/><text class="edge-title" x="636" y="312" dominant-baseline="central">Recusa</text><rect class="fx-pill" x="636" y="323" width="44" height="14" rx="7"/><text class="fx-pill-t" x="658" y="330" text-anchor="middle" dominant-baseline="central">E-mail</text><text class="fx" x="686" y="330" dominant-baseline="central" data-effect-kind="email" data-effect-target="GETIN">Avisa a GETIN da recusa</text></g>
+<g data-transition-id="T_draft_loop" data-from="rascunho" data-to="rascunho"><rect class="edge-cap" x="39.5" y="120" width="233" height="46" rx="6"/><text class="edge-title" x="47.5" y="133" dominant-baseline="central">Envio inválido · corrige e reenvia</text><rect class="fx-pill" x="47.5" y="144" width="40" height="14" rx="7"/><text class="fx-pill-t" x="67.5" y="151" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="93.5" y="151" dominant-baseline="central" data-effect-kind="notify" data-effect-target="GETIN">Mostra erro de envio</text></g>
+<g data-transition-id="T_edit_pending" data-from="pendente" data-to="pendente"><rect class="edge-cap" x="351.03999999999996" y="124" width="246" height="46" rx="6"/><text class="edge-title" x="359.03999999999996" y="137" dominant-baseline="central">Atualiza o conteúdo · ainda pendente</text><rect class="fx-pill" x="359.03999999999996" y="148" width="40" height="14" rx="7"/><text class="fx-pill-t" x="379.03999999999996" y="155" text-anchor="middle" dominant-baseline="central">Grava</text></g>
+<g data-transition-id="T_skip_edit" data-from="pendente" data-to="pendente"><rect class="edge-cap" x="634.96" y="144" width="119" height="26" rx="6"/><text class="edge-title" x="642.96" y="157" dominant-baseline="central">Segue sem editar</text></g>
     </g>
     </g>
   </svg></div>
-          </section>
-        </div>
-      </div>
-      <div class="gesture-hint" id="gesture-hint">Arraste · pinça = zoom</div>
-    </div>
-    <footer class="dock">
-      <div class="toolbar" aria-label="Zoom">
-        <button type="button" id="z-out" title="Afastar">−</button>
-        <span class="zoom" id="z-lab">100%</span>
-        <button type="button" id="z-in" title="Aproximar">+</button>
-        <button type="button" id="z-100">100%</button>
-        <button type="button" id="z-fit" class="primary" data-fit="height" title="Ajustar à altura">À altura</button>
-        <button type="button" id="btn-pdf" title="Baixar PDF do fluxo (anexo)">PDF</button>
-      </div>
-    </footer>
-  </div>
-  <div id="actor-tip" hidden></div>
+    </section>
+  </template>
+<template id="pack-minimal-xor">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>A requester submits a request and a reviewer accepts or rejects it.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="U">
+        <line class="lifeline" data-lifeline="U" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Requester" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="R">
+        <line class="lifeline" data-lifeline="R" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Reviewer" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Accept the request?</text>
+      </g>
+    <g data-from="U" data-to="R">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Sends the request</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Accepts" x="76" y="184" text-anchor="middle">Accepts</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Rejects" x="76" y="232" text-anchor="middle">Rejects</text>
+        </g>
+    <g data-actor-id="U">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Requester</text>
+      </g>
+<g data-actor-id="R">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Reviewer</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="U">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Requester</text>
+      </g>
+<g data-actor-id="R">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Reviewer</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Submit request</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Requester</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Accept?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Reviewer</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Accepted</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-bad" cx="356" cy="304" r="10"/>
+          <circle class="end-hole" cx="356" cy="304" r="5"/>
+          <text class="end-t" x="356" y="328" text-anchor="middle">Rejected</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Accepts</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Rejects</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Request</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="request">
+      <text class="mach-title" x="16" y="16">Request</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="accepted">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Accepted</text>
+      </g>
+<g data-state-id="rejected">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Rejected</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_yes" data-from="open" data-to="accepted"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Accepts</text></g>
+<g data-transition-id="T_no" data-from="open" data-to="rejected"><rect class="edge-cap" x="314" y="156" width="144" height="46" rx="6"/><text class="edge-title" x="322" y="169" dominant-baseline="central">Rejects</text><rect class="fx-pill" x="322" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="342" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="368" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="U">Tell requester</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-anexar-evidencia">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>O responsável anexa prova ao processo.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Líder" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia anexar evidência</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Líder</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Líder</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Anexar evidência</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Líder</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Líder</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Anexar evidência</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Anexar evidência</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-arquivar-processo">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Encerra e arquiva o processo sem trâmite.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="GETIN" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia arquivar processo</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Arquivar processo</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">GETIN</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">GETIN</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Arquivar processo</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Arquivar processo</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-assinar-documento">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>O responsável assina o documento gerado.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Líder" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia assinar documento</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Líder</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Líder</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Assinar documento</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Líder</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Líder</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Assinar documento</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Assinar documento</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-atualizar-status">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Registra a mudança de situação do pedido.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia atualizar status</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Sistema</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Sistema</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Atualizar status</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Sistema</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Sistema</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Atualizar status</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Atualizar status</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-cadastro-solicitante">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>A pessoa se cadastra para abrir pedidos.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Solicitante" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia cadastro do solicitante</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Solicitante</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Solicitante</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="398" viewBox="0 0 428 398" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 110 L232 166"/>
+<path class="edge" d="M182 229 L108 229 L108 308"/>
+<path class="edge" d="M282 229 L356 229 L356 308"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="70" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Cadastro do</text><text class="act-t" x="232" y="76" text-anchor="middle" dominant-baseline="central">solicitante</text><text class="who" x="232" y="89" text-anchor="middle" dominant-baseline="central">Solicitante</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,166 332,208 232,250 132,208"/>
+          <text class="xor-t" x="232" y="202" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="215" text-anchor="middle" dominant-baseline="central">Solicitante</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="318" r="10"/>
+          
+          <text class="end-t" x="108" y="342" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="318" r="10"/>
+          
+          <text class="end-t" x="356" y="342" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,166 235.6,158 228.4,158"/>
+<polygon class="edge-head" points="108,308 111.6,300 104.4,300"/>
+<polygon class="edge-head" points="356,308 359.6,300 352.4,300"/>
+    
+<text class="edge-t" x="116" y="268.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="268.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Cadastro do solicitante</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Cadastro do solicitante</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-cancelar-tramite">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Cancela o andamento a pedido do interessado.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Solicitante" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia cancelar trâmite</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Solicitante</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Solicitante</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Cancelar trâmite</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Solicitante</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Solicitante</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Cancelar trâmite</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Cancelar trâmite</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-consultar-historico">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Lê o histórico completo do processo.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Líder" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia consultar histórico</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Líder</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Líder</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Consultar histórico</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Líder</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Líder</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Consultar histórico</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Consultar histórico</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-deferir-recurso">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>O recurso apresentado é aceito.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Comissão" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia deferir recurso</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Comissão</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Comissão</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Deferir recurso</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Comissão</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Comissão</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Deferir recurso</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Deferir recurso</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-devolver-exigencia">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Devolve o pedido para correção.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="GETIN" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia devolver por exigência</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Devolver por exigência</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">GETIN</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">GETIN</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Devolver por exigência</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Devolver por exigência</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-encaminhar-area">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>O pedido segue para a área responsável.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="GETIN" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia encaminhar à área</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Encaminhar à área</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">GETIN</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">GETIN</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Encaminhar à área</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Encaminhar à área</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-exportar-relatorio">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Gera o relatório consolidado do período.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="GETIN" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia exportar relatório</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Exportar relatório</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">GETIN</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">GETIN</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Exportar relatório</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Exportar relatório</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-homologar-resultado">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>A comissão homologa o resultado final.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Comissão" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia homologar resultado</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Comissão</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Comissão</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Homologar resultado</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Comissão</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Comissão</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Homologar resultado</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Homologar resultado</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-indeferir-recurso">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>O recurso apresentado é recusado.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Comissão" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia indeferir recurso</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Comissão</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Comissão</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Indeferir recurso</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Comissão</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Comissão</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Indeferir recurso</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Indeferir recurso</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-notificar-interessados">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Avisa quem acompanha o andamento.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia notificar interessados</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Sistema</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Sistema</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Notificar interessados</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Sistema</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Sistema</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Notificar interessados</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Notificar interessados</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-publicar-ata">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>A ata da reunião é publicada para os interessados.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Secretaria" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia publicar ata</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Secretaria</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Secretaria</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Publicar ata</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Secretaria</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Secretaria</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Publicar ata</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Publicar ata</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-reabrir-processo">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Tira o processo do arquivo e retoma o trâmite.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="GETIN" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia reabrir processo</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Reabrir processo</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">GETIN</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">GETIN</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Reabrir processo</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Reabrir processo</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-redistribuir-responsavel">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Passa o pedido para outro responsável.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="GETIN" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia redistribuir responsável</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="398" viewBox="0 0 428 398" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 110 L232 166"/>
+<path class="edge" d="M182 229 L108 229 L108 308"/>
+<path class="edge" d="M282 229 L356 229 L356 308"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="70" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Redistribuir</text><text class="act-t" x="232" y="76" text-anchor="middle" dominant-baseline="central">responsável</text><text class="who" x="232" y="89" text-anchor="middle" dominant-baseline="central">GETIN</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,166 332,208 232,250 132,208"/>
+          <text class="xor-t" x="232" y="202" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="215" text-anchor="middle" dominant-baseline="central">GETIN</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="318" r="10"/>
+          
+          <text class="end-t" x="108" y="342" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="318" r="10"/>
+          
+          <text class="end-t" x="356" y="342" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,166 235.6,158 228.4,158"/>
+<polygon class="edge-head" points="108,308 111.6,300 104.4,300"/>
+<polygon class="edge-head" points="356,308 359.6,300 352.4,300"/>
+    
+<text class="edge-t" x="116" y="268.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="268.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Redistribuir responsável</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Redistribuir responsável</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-reuniao-comissao">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Inclui o item na pauta da reunião.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Secretaria" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia pauta da comissão</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Secretaria</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Secretaria</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Pauta da comissão</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Secretaria</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Secretaria</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Pauta da comissão</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Pauta da comissão</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-solicitar-esclarecimento">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Pede informação extra ao solicitante.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="GETIN" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia solicitar esclarecimento</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="398" viewBox="0 0 428 398" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 110 L232 166"/>
+<path class="edge" d="M182 229 L108 229 L108 308"/>
+<path class="edge" d="M282 229 L356 229 L356 308"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="70" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Solicitar</text><text class="act-t" x="232" y="76" text-anchor="middle" dominant-baseline="central">esclarecimento</text><text class="who" x="232" y="89" text-anchor="middle" dominant-baseline="central">GETIN</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,166 332,208 232,250 132,208"/>
+          <text class="xor-t" x="232" y="202" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="215" text-anchor="middle" dominant-baseline="central">GETIN</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="318" r="10"/>
+          
+          <text class="end-t" x="108" y="342" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="318" r="10"/>
+          
+          <text class="end-t" x="356" y="342" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,166 235.6,158 228.4,158"/>
+<polygon class="edge-head" points="108,308 111.6,300 104.4,300"/>
+<polygon class="edge-head" points="356,308 359.6,300 352.4,300"/>
+    
+<text class="edge-t" x="116" y="268.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="268.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Solicitar esclarecimento</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Solicitar esclarecimento</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-validacao-email">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — PDTI</title>
+    <desc>Confirma o endereço de e-mail do cadastro.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Solicitante" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Conclui este processo?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Inicia validação de e-mail</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sim" x="76" y="184" text-anchor="middle">Sim</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não" x="76" y="232" text-anchor="middle">Não</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Solicitante</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Sistema</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Solicitante</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="428" height="384" viewBox="0 0 428 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — PDTI</title>
+    <path class="edge" d="M232 96 L232 152"/>
+<path class="edge" d="M182 215 L108 215 L108 294"/>
+<path class="edge" d="M282 215 L356 215 L356 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="132" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="232" y="62" text-anchor="middle" dominant-baseline="central">Validação de e-mail</text><text class="who" x="232" y="75" text-anchor="middle" dominant-baseline="central">Solicitante</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="232,152 332,194 232,236 132,194"/>
+          <text class="xor-t" x="232" y="188" text-anchor="middle" dominant-baseline="central">Conclui?</text><text class="who" x="232" y="201" text-anchor="middle" dominant-baseline="central">Solicitante</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Concluído</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="356" cy="304" r="10"/>
+          
+          <text class="end-t" x="356" y="328" text-anchor="middle">Interrompido</text>
+        </g>
+    <polygon class="edge-head" points="232,152 235.6,144 228.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="356,294 359.6,286 352.4,286"/>
+    
+<text class="edge-t" x="116" y="254.5" text-anchor="start">Sim</text>
+<text class="edge-t" x="364" y="254.5" text-anchor="start">Não</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Validação de e-mail</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="m">
+      <text class="mach-title" x="16" y="16">Validação de e-mail</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="aberto">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Aberto</text>
+      </g>
+<g data-state-id="ok">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Concluído</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Interrompido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_ok" data-from="aberto" data-to="ok"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Conclui</text></g>
+<g data-transition-id="T_no" data-from="aberto" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Interrompe</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<script type="application/json" id="fl-catalog">[{"slug":"sugestao-necessidade-pdti","title":"Sugestão de necessidade PDTI · interface","scenario":"GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.","actor":"GETIN","pack":"sugestao-necessidade-pdti"},{"slug":"minimal-xor","title":"Minimal accept-or-reject","scenario":"A requester submits a request and a reviewer accepts or rejects it.","actor":"Requester","pack":"minimal-xor"},{"slug":"anexar-evidencia","title":"Anexar evidência","scenario":"O responsável anexa prova ao processo.","actor":"Líder","pack":"anexar-evidencia"},{"slug":"arquivar-processo","title":"Arquivar processo","scenario":"Encerra e arquiva o processo sem trâmite.","actor":"GETIN","pack":"arquivar-processo"},{"slug":"assinar-documento","title":"Assinar documento","scenario":"O responsável assina o documento gerado.","actor":"Líder","pack":"assinar-documento"},{"slug":"atualizar-status","title":"Atualizar status","scenario":"Registra a mudança de situação do pedido.","actor":"Sistema","pack":"atualizar-status"},{"slug":"cadastro-solicitante","title":"Cadastro do solicitante","scenario":"A pessoa se cadastra para abrir pedidos.","actor":"Solicitante","pack":"cadastro-solicitante"},{"slug":"cancelar-tramite","title":"Cancelar trâmite","scenario":"Cancela o andamento a pedido do interessado.","actor":"Solicitante","pack":"cancelar-tramite"},{"slug":"consultar-historico","title":"Consultar histórico","scenario":"Lê o histórico completo do processo.","actor":"Líder","pack":"consultar-historico"},{"slug":"deferir-recurso","title":"Deferir recurso","scenario":"O recurso apresentado é aceito.","actor":"Comissão","pack":"deferir-recurso"},{"slug":"devolver-exigencia","title":"Devolver por exigência","scenario":"Devolve o pedido para correção.","actor":"GETIN","pack":"devolver-exigencia"},{"slug":"encaminhar-area","title":"Encaminhar à área","scenario":"O pedido segue para a área responsável.","actor":"GETIN","pack":"encaminhar-area"},{"slug":"exportar-relatorio","title":"Exportar relatório","scenario":"Gera o relatório consolidado do período.","actor":"GETIN","pack":"exportar-relatorio"},{"slug":"homologar-resultado","title":"Homologar resultado","scenario":"A comissão homologa o resultado final.","actor":"Comissão","pack":"homologar-resultado"},{"slug":"indeferir-recurso","title":"Indeferir recurso","scenario":"O recurso apresentado é recusado.","actor":"Comissão","pack":"indeferir-recurso"},{"slug":"notificar-interessados","title":"Notificar interessados","scenario":"Avisa quem acompanha o andamento.","actor":"Sistema","pack":"notificar-interessados"},{"slug":"publicar-ata","title":"Publicar ata","scenario":"A ata da reunião é publicada para os interessados.","actor":"Secretaria","pack":"publicar-ata"},{"slug":"reabrir-processo","title":"Reabrir processo","scenario":"Tira o processo do arquivo e retoma o trâmite.","actor":"GETIN","pack":"reabrir-processo"},{"slug":"redistribuir-responsavel","title":"Redistribuir responsável","scenario":"Passa o pedido para outro responsável.","actor":"GETIN","pack":"redistribuir-responsavel"},{"slug":"reuniao-comissao","title":"Pauta da comissão","scenario":"Inclui o item na pauta da reunião.","actor":"Secretaria","pack":"reuniao-comissao"},{"slug":"solicitar-esclarecimento","title":"Solicitar esclarecimento","scenario":"Pede informação extra ao solicitante.","actor":"GETIN","pack":"solicitar-esclarecimento"},{"slug":"validacao-email","title":"Validação de e-mail","scenario":"Confirma o endereço de e-mail do cadastro.","actor":"Solicitante","pack":"validacao-email"}]</script>
 <script>
 /**
  * Build a multi-page PDF (one JPEG per flow surface) for attachment.
@@ -982,8 +3636,9 @@ function buildFlowPdf(input) {
 }
 
 (function () {
+  const catalog = JSON.parse(document.getElementById('fl-catalog').textContent);
   const tabs = [...document.querySelectorAll('.fl-toc [data-tab]')];
-  const panels = [...document.querySelectorAll('.fl-surface[data-surface]')];
+  let panels = [];
   const stage = document.getElementById('fl-stage');
   const viewport = document.getElementById('fl-viewport');
   const sizer = document.getElementById('fl-sizer');
@@ -998,7 +3653,12 @@ function buildFlowPdf(input) {
   const MIN = 0.3, MAX = 2.8, STEP = 0.1;
   const phoneUi = window.matchMedia('(max-width: 860px), (pointer: coarse) and (hover: none)').matches;
   const PAD = phoneUi ? 16 : 40;
-  const zoomKey = "as-flow-zoom:" + (document.documentElement.getAttribute('data-fl-slug') || 'default') + (phoneUi ? ':m' : '');
+  const planId = document.documentElement.getAttribute('data-fl-plan') || 'preview';
+  const PROC_KEY = 'as-flow-process:' + planId;
+  function zoomKeyFor(slug) {
+    return "as-flow-zoom:" + (slug || 'default') + (phoneUi ? ':m' : '');
+  }
+  let zoomKey = zoomKeyFor(document.documentElement.getAttribute('data-fl-slug') || 'default');
   function readZoom() {
     try {
       const n = parseFloat(localStorage.getItem(zoomKey));
@@ -1009,8 +3669,7 @@ function buildFlowPdf(input) {
   function saveZoom() {
     try { localStorage.setItem(zoomKey, String(scale)); } catch (e) {}
   }
-  const savedZoom = readZoom();
-  let scale = savedZoom == null ? 1 : savedZoom;
+  let scale = 1;
 
   function visibleSvg() {
     return document.querySelector('.diagram-panel:not([hidden]) svg');
@@ -1115,7 +3774,7 @@ function buildFlowPdf(input) {
     }
     saveZoom();
   }
-  function showTab(name) {
+  function showTab(name, opts) {
     tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
     panels.forEach((p) => {
       const on = p.dataset.surface === name;
@@ -1125,11 +3784,132 @@ function buildFlowPdf(input) {
     if (hint) hint.textContent = HINTS[name] || '';
     if (tip) tip.hidden = true;
     requestAnimationFrame(function () {
-      if (phoneUi) scale = fitScale('width');
+      if (phoneUi && !(opts && opts.keepZoom)) scale = fitScale('width');
       centerHorizontally(0);
     });
   }
   tabs.forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+  function itemBySlug(slug) {
+    return catalog.find((c) => c.slug === slug) || catalog[0];
+  }
+  function currentSlug() {
+    return document.documentElement.getAttribute('data-fl-slug') || (catalog[0] && catalog[0].slug) || '';
+  }
+  function foldTxt(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+  const overlay = document.getElementById('proc-overlay');
+  const procOpen = document.getElementById('proc-open');
+  const procQ = document.getElementById('proc-q');
+  const procList = document.getElementById('proc-list');
+  const procCount = document.getElementById('proc-count');
+  function closeProc() {
+    if (!overlay) return;
+    overlay.hidden = true;
+    if (procOpen) procOpen.setAttribute('aria-expanded', 'false');
+  }
+  function renderProcList(q) {
+    if (!procList) return;
+    const needle = foldTxt(q);
+    const slug = currentSlug();
+    const hits = catalog.filter((c) => {
+      if (!needle) return true;
+      return foldTxt([c.title, c.scenario, c.actor, c.slug].join(' ')).includes(needle);
+    });
+    if (procCount) {
+      procCount.textContent = hits.length === catalog.length
+        ? catalog.length + ' processos'
+        : hits.length + ' de ' + catalog.length;
+    }
+    procList.replaceChildren();
+    if (!hits.length) {
+      const empty = document.createElement('div');
+      empty.className = 'proc-empty';
+      empty.textContent = 'Nenhum processo com esse nome';
+      procList.appendChild(empty);
+      return;
+    }
+    hits.forEach((c) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'proc-item';
+      b.setAttribute('role', 'option');
+      b.dataset.slug = c.slug;
+      b.setAttribute('aria-selected', String(c.slug === slug));
+      const t = document.createElement('span');
+      t.className = 'proc-item-title';
+      t.textContent = c.title;
+      const s = document.createElement('span');
+      s.className = 'proc-item-sub';
+      s.textContent = (c.actor || '') + (c.scenario ? ' · ' + c.scenario : '');
+      b.append(t, s);
+      b.addEventListener('click', () => mountProcess(c.slug));
+      procList.appendChild(b);
+    });
+  }
+  function openProc() {
+    if (!overlay) return;
+    overlay.hidden = false;
+    if (procOpen) procOpen.setAttribute('aria-expanded', 'true');
+    renderProcList(procQ ? procQ.value : '');
+    if (procQ) {
+      procQ.value = procQ.value;
+      setTimeout(() => procQ.focus(), 20);
+    }
+    const sel = procList && procList.querySelector('[aria-selected="true"]');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+  function mountProcess(slug) {
+    const item = itemBySlug(slug);
+    if (!item) return;
+    const tpl = document.getElementById('pack-' + item.pack);
+    if (!tpl) return;
+    const keepTab = (document.querySelector('.fl-toc [aria-selected="true"]') || {}).dataset
+      ? document.querySelector('.fl-toc [aria-selected="true"]').dataset.tab
+      : 'sequence';
+    stage.innerHTML = '';
+    stage.appendChild(tpl.content.cloneNode(true));
+    panels = [...stage.querySelectorAll('.fl-surface[data-surface]')];
+    document.documentElement.setAttribute('data-fl-slug', item.slug);
+    zoomKey = zoomKeyFor(item.slug);
+    const saved = readZoom();
+    scale = saved == null ? 1 : saved;
+    const titleEl = document.querySelector('.fl-title');
+    const scEl = document.querySelector('.fl-scenario');
+    const cur = document.getElementById('proc-current');
+    const actorEl = document.getElementById('fl-actor');
+    if (titleEl) titleEl.textContent = item.title;
+    if (scEl) scEl.textContent = item.scenario || '';
+    if (cur) cur.textContent = item.title;
+    if (actorEl) actorEl.textContent = item.actor || '';
+    document.title = item.title;
+    try { localStorage.setItem(PROC_KEY, item.slug); } catch (e) {}
+    const nextHash = '#p=' + encodeURIComponent(item.slug);
+    if (location.hash !== nextHash) history.replaceState(null, '', nextHash);
+    closeProc();
+    showTab(keepTab || 'sequence', { keepZoom: true });
+    if (saved == null && phoneUi) {
+      requestAnimationFrame(function () {
+        scale = fitScale('width');
+        centerHorizontally(0);
+      });
+    }
+  }
+  if (procOpen) procOpen.addEventListener('click', () => {
+    if (overlay && !overlay.hidden) closeProc();
+    else openProc();
+  });
+  const procClose = document.getElementById('proc-close');
+  if (procClose) procClose.addEventListener('click', closeProc);
+  if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeProc(); });
+  if (procQ) procQ.addEventListener('input', () => renderProcList(procQ.value));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay && !overlay.hidden) {
+      e.preventDefault();
+      closeProc();
+    }
+  });
 
   document.getElementById('z-in').onclick = () => setScale(scale + STEP);
   document.getElementById('z-out').onclick = () => setScale(scale - STEP);
@@ -1434,10 +4214,17 @@ function buildFlowPdf(input) {
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => applyStageGeometry());
   }
-  requestAnimationFrame(function () {
-    if (savedZoom == null && phoneUi) scale = fitScale('width');
-    centerHorizontally(0);
-  });
+  function bootSlug() {
+    let hash = '';
+    try {
+      hash = decodeURIComponent((location.hash.match(/^#p=(.+)$/) || [])[1] || '');
+    } catch (e) {}
+    let saved = '';
+    try { saved = localStorage.getItem(PROC_KEY) || ''; } catch (e) {}
+    const want = hash || saved || (catalog[0] && catalog[0].slug) || '';
+    return catalog.some((c) => c.slug === want) ? want : (catalog[0] && catalog[0].slug) || '';
+  }
+  if (catalog.length) mountProcess(bootSlug());
 })();
 </script>
 </body>
