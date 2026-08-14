@@ -61,7 +61,7 @@ node "$PKG_ROOT/scripts/find-missing-flow.js" <plan.md> --strict
 /atomic-skills:project process   # alias — só chama flow
 ```
 
-Generate / update / show / ratify / `--check`. HTML nunca é SoT.
+Generate / update / show. Pergunta de carimbo **só** se houver desenho novo ou mudado para o humano julgar (“é assim que o trabalho acontece?”). Já carimbado e o grafo não mudou → mostra e para. HTML nunca é SoT.
 Não existe stage de criação `flow` ou `process-map`. Draft no `new plan` é opcional.
 
 ---

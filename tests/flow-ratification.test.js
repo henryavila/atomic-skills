@@ -85,6 +85,8 @@ describe('buildFlowRatification', () => {
     assert.match(skill, /generate|draft/);
     assert.match(skill, /update/);
     assert.match(skill, /show/i);
+    assert.match(skill, /must not exist|Do \*\*not\*\* ask/);
+    assert.match(skill, /how the work actually happens/);
   });
 });
 

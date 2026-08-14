@@ -30,7 +30,7 @@ Parse {{ARG_VAR}} first.
 | `<path-to-source.md>` or `--plan <path>` | bind this file (AS `plan.md` or foreign `docs/cutover.md`); paths via `flowPathsForPlan` |
 | `--check` or `--strict` | run the detector only (step `--check`) |
 | `--open` | generate/update if needed, then show |
-| no flag | generate / update / show / ratify loop |
+| no flag | generate / update if needed, then show; ask only if there is something to validate |
 
 ## 1. Resolve plan
 
@@ -70,19 +70,31 @@ Show `$L2` (browser and/or TUI) **before** any ratify question.
 
 **TUI:** print a complete structured summary from `$L1` (not a one-liner): `actor` · `scenario` · graph `entry` · each node id/type/`label` · messages · machines. Path to `$L2`.
 
-If `--open` only: show and stop (do not ratify unless the user asked to ratify).
+If `--open` only: show and stop.
 
-## 4. Ratify — {{ASK_USER_QUESTION_TOOL}} only (required after show)
+If `$L1` already has a stamp and `ratifiedGraphSha` equals the current document sha **and** this run did not rewrite the graph: **show and stop.** Do **not** ask. The operator already validated this drawing. Opening the command is not a new decision.
+
+## 4. Ratify — only when there is something to validate
+
+The question means: **is this drawing how the work actually happens?** That is the only thing the operator can judge. Do **not** mention stamps, hashes, detectors, `--strict`, or function names in the question or the option labels.
+
+**Ask** via {{ASK_USER_QUESTION_TOOL}} only when one of these is true:
+
+- `$L1` has no stamp (new draft)
+- the stamp is stale (`ratifiedGraphSha` ≠ current document sha)
+- this run just rewrote the graph (step 8)
+
+Otherwise the question **must not exist**.
 
 Chat "ok" / "yes" / "lgtm" is **not** ratify. Re-invoke {{ASK_USER_QUESTION_TOOL}}.
 
-**Show first.** Do **not** stamp without completing step 3, then this question.
+**Show first** (step 3). Do **not** stamp without this question when a question is required.
 
-**Question:** Approve this flow?
+**Question:** Is this how the work actually happens?
 
-- **Aprovar**
-- **Ajustar** (edit path)
-- **Cancelar** (leave unstamped; ready still legal)
+- **Yes, that's it** (lock this drawing)
+- **No, change it** (edit path)
+- **Not now** (leave unstamped; ready still legal)
 
 Host cannot run the tool → **STOP**. Do not invent a stamp. Do not hand-write `ratifiedAt` from free-text chat.
 
@@ -109,7 +121,7 @@ node "$PKG_ROOT/scripts/find-missing-flow.js" "$PLAN_MD" --strict
 
 ## 7. Re-ratify when the graph changed
 
-If `$L1` has a stamp and the current document sha diverges: show again, then step 4–5. Do not keep a stale stamp.
+If `$L1` has a stamp and the current document sha diverges: the previous approval no longer applies. Show again, then step 4–5. Do not keep a stale stamp. Do not ask when the sha still matches.
 
 ## 8. Edit path (Ajustar)
 
@@ -121,6 +133,8 @@ Agent rewrites `$L1` (labels, xor branches, nodes, messages, machines) + re-rend
 - Writing `map.html` or treating `process.yaml` as the flow
 - Hand-writing `ratifiedAt` / `ratifiedGraphSha`
 - Treating chat "ok" as ratify
-- Stamping before show + {{ASK_USER_QUESTION_TOOL}}
+- Stamping before show + {{ASK_USER_QUESTION_TOOL}} when a question is required
+- Asking when the drawing is already approved and unchanged
+- Putting detector / hash / `--strict` / function names in the question
 - Blocking `ready` because flow is missing
 - Adding a creation stage `flow`
