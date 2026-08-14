@@ -16,6 +16,12 @@ Produto: `/atomic-skills:project flow` substitui o process-map. Pacote: `docs/de
 
 **Plano AS (2026-08-13):** `plan/project-flow` em `.worktrees/project-flow`. F0–F2 implementadas em automate (review local). HEAD `025269ca`. Plano **active**, `proposeAdvance` = `plan-done`. **Não finalizar** até o operador gravar `userValidatedAt` + plan-end `external-both` / `intentVsDelivered`. `decisionReview` das três fases ficou `pending` (operador avalia no final).
 
+**Day-2 ≠ incompleto.** “Day-2” no produto = o comando `project flow` roda a qualquer momento depois que o plano existe (não é stage de `new plan`). F0–F2 já entregaram schema, painel e dentes. O que faltava neste plano era a *instância* `flow/flow.json` (ready sem flow é legal). Dogfood 2026-08-13: grafo do objetivo (carimbar antes de executar), sem nós F0/F1/F2; operador Aprovar → `buildFlowRatification` `ratifiedAt=2026-08-13T23:05:08.452Z` sha `4d7f75f0…`; `--strict` exit 0.
+
+**Dogfood pergunta vazia (2026-08-13):** segundo `/project flow` perguntou de novo com jargão (`--strict`, recarimbar). Operador: se não há o que validar, a pergunta não existe. A pergunta só vale quando há desenho novo/mudado: “é assim que o trabalho acontece?”. Já carimbado + grafo igual → mostra e para. Cerimônia corrigida em `project-flow.md`.
+
+**Plano→grafo (2026-08-13):** operador escolheu A (ficha + lints + painel). Design `docs/plans/2026-08-13-plan-to-graph-brief-design.md`. Implementação `docs/plans/2026-08-13-plan-to-graph-brief.md`. Ficha `flow/brief.json` fora do MODEL; detector `find-weak-flow-draft`; `--strict` não exige ficha. Rejeitados: ficha no schema (B), gerador 1:1 (C).
+
 **Ground-truth Flow E (2026-08-13):** `complete-with-findings` `fp=62300106c524` premises=18 (false=1: `ds-`) impacts=6. G-F1-2 corrigido para `--bg-canvas|--fg-default`. Materialize: T-006 `ds-`; T-010 write-path extra; `IMPLEMENTATION_TOKEN_RE` em validate-flow.
 
 **Nome do HTML:** `flow/flow.html`. **Abolido** o nome `map` (`map.html` do process-map não migra).
