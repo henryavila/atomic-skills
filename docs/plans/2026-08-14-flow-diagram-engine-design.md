@@ -141,6 +141,8 @@ Não inventar paleta, sombra de nó, fill semântico azul/amber, nem “quadro s
 
 Chrome: header atual (eyebrow / título / cenário / ator) + tabs pílula Sequência / Fluxo / Máquinas + viewport `--bg-surface` card + `+` `−` `100%` `Ajustar`. Zoom default 100%. Sem segundo painel de lista.
 
+**Fixture visual:** a prévia usa o grafo PDTI `docs/design/project-flow/dogfood/fluxo-sugestao.json` (já schema 1.0 / MODEL — sem reescrever tipos). Não o recorte curto de `project-flow/flow.json`.
+
 **Tema (2026-08-14):** Sistema / Claro / Escuro. Default = `prefers-color-scheme` (`data-theme` ausente). Override = `html[data-theme=light|dark]` + `localStorage.as-color-scheme`. Switch no header (`scripts/lib/color-scheme.js`). Look A usa **nomes** de token, não hex — a paleta light em `site/assets/ds.css` (`--bg-canvas: #f4f6fa`, `--fg-default: #12161d`) re-pinta o mesmo SVG. HTML gerado permanece determinístico (o tema é runtime).
 
 ---

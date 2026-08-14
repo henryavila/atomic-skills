@@ -10,7 +10,7 @@
 
 **Design:** `docs/plans/2026-08-14-flow-diagram-engine-design.md`
 
-**Look (ratified 2026-08-14):** **A · Linha**. Visual SoT: design §4 + `docs/plans/2026-08-14-flow-diagram-engine-style-preview.html` (A selected). Do not draw B · Bloco or C · Quadro. Tokens only from `ds.css`.
+**Look (ratified 2026-08-14):** **A · Linha**. Visual SoT: design §4 + `docs/plans/2026-08-14-flow-diagram-engine-style-preview.html` (A selected; content = PDTI `fluxo-sugestao.json`, already MODEL 1.0). Do not draw B · Bloco or C · Quadro. Tokens only from `ds.css`. Regenerate preview with `node docs/plans/gen-flow-diagram-preview.mjs`.
 
 **Do not:** change schema, brief, ratification, `serve-flow`, `--strict`, or finalize F0–F2. Do not commit automate `prepare.json` / `sealed-brief.md`.
 
@@ -761,4 +761,4 @@ Applied after adversarial local review. Not a ground-truth receipt.
 
 ## Reviews
 
-- ground-truth: complete-with-findings | mode=ground-truth | fp=02a0bae4b6fc | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=52ed787186b9 | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
