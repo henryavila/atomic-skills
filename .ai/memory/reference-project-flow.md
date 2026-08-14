@@ -24,7 +24,7 @@ Produto: `/atomic-skills:project flow` substitui o process-map. Pacote: `docs/de
 
 **Ground-truth Flow E (2026-08-13):** `complete-with-findings` `fp=62300106c524` premises=18 (false=1: `ds-`) impacts=6. G-F1-2 corrigido para `--bg-canvas|--fg-default`. Materialize: T-006 `ds-`; T-010 write-path extra; `IMPLEMENTATION_TOKEN_RE` em validate-flow.
 
-**Show = HTTP (2026-08-14):** `project flow` sempre sobe `scripts/serve-flow.js --up` e abre `http://127.0.0.1:<port>/flow.html`. Never `file://`. `--check` não sobe servidor.
+**Show = HTTP (2026-08-14):** `project flow` sempre sobe `scripts/serve-flow.js --up` e abre `http://127.0.0.1:<port>/flow.html`. Never `file://`. `--check` não sobe servidor. `--up` tem de dar `process.exit(0)` depois do handshake — stdout piped do `--fg` segura o event loop do pai. Não commitar `.atomic-skills/status/automate/*-{prepare.json,sealed-brief.md}` (lease).
 
 **Nome do HTML:** `flow/flow.html`. **Abolido** o nome `map` (`map.html` do process-map não migra).
 
