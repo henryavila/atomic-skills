@@ -28,7 +28,7 @@ Produto: `/atomic-skills:project flow` substitui o process-map. Pacote: `docs/de
 
 **Nome do HTML:** `flow/flow.html`. **Abolido** o nome `map` (`map.html` do process-map não migra).
 
-**Engine de diagrama (plano 2026-08-14):** `docs/plans/2026-08-14-flow-diagram-engine.md` (review local + ground-truth `fp=ff7b161eaf28`). L2 vira SVG (sequência / BPM / máquinas), sem mermaid. Ao implementar: schema `machines.minItems: 1` (não existe L1 válido sem máquina); live `graph.entry` é xor `TemArquivo`; `S1e.next=D1` no dogfood é loop-ref; manter header/footer do `renderFlowHtml`; não rodar `/\belse\b/` no HTML inteiro (JS); `--strict` compara sha do atributo, CLI `--check` compara bytes.
+**Engine de diagrama (plano 2026-08-14):** `docs/plans/2026-08-14-flow-diagram-engine.md` (review local + ground-truth). L2 vira SVG (sequência / BPM / máquinas), sem mermaid. **Look A · Linha ratificado** (2026-08-14): design §4 + prévia `docs/plans/2026-08-14-flow-diagram-engine-style-preview.html`. B/C rejeitados. Ao implementar: schema `machines.minItems: 1`; live `graph.entry` é xor `TemArquivo`; `S1e.next=D1` no dogfood é loop-ref; manter header/footer; não rodar `/\belse\b/` no HTML inteiro; `--strict` compara sha do atributo, CLI `--check` compara bytes.
 
 **Não copiar:** `validateProcessMap` (não usa AJV). Copiar: `src/app-map/validate.js`.  
 **Não usar:** prompt de 17 arquivos / glossário “FATIA”. Recortes = PR1–PR5.  

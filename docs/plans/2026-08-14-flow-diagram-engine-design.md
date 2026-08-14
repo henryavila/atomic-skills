@@ -1,6 +1,6 @@
 # Design — engine de diagrama do flow (SVG)
 
-**Status:** ratificado pelo operador (2026-08-14), seções 1–3 + recorte das faixas XOR.  
+**Status:** ratificado pelo operador (2026-08-14), seções 1–3 + recorte das faixas XOR + **§4 Look A · Linha**.  
 **Abordagem:** B (engine própria, sem mermaid).  
 **Não muda:** schema 1.0, `validate-flow`, brief, carimbo, `serve-flow` HTTP, gate do `implement`.  
 **Substitui:** a projeção L2 em lista/card (`<ol class="fl-messages">`, cards de nó, pills de estado).
@@ -36,6 +36,7 @@ Pipeline lockado: `flow.json` → validate → normalize → HTML self-contained
 4. **Chrome do PDTI, desenho novo.** Abas + uma viewport + pan/zoom. Zoom default 100%.
 5. **Determinismo.** Mesmo JSON + mesmo `ds.css` = mesmo HTML/SVG. `data-fl-content-sha` continua hash do L1, não do SVG.
 6. **SoT e dentes intactos.** Schema, brief, `buildFlowRatification`, `find-missing-flow --strict`, `serve-flow --up` não mudam.
+7. **Look A · Linha.** Operador (2026-08-14). B e C rejeitados. Tabela na §4.
 
 ### Rejected
 
@@ -111,6 +112,34 @@ Tudo no render. Sem layout no cliente.
 - Tokens `--bg-canvas` / `--fg-default`
 
 **Erros.** JSON inválido = throw (não desenha). Loop = nota `↺`, não overflow.
+
+---
+
+## Seção 4 — Look A · Linha (ratificado 2026-08-14)
+
+Operador escolheu **A · Linha** na prévia `docs/plans/2026-08-14-flow-diagram-engine-style-preview.html`. B · Bloco e C · Quadro ficam rejeitados.
+
+Não inventar paleta, sombra de nó, fill semântico azul/amber, nem “quadro só-linha”. Cor e tipo só de `ds.css`.
+
+| Peça | Fill | Stroke | Tipo |
+|------|------|--------|------|
+| Ator (topo + base) | `--bg-elevated` | `--border-default` 1px, rx 8 | 12px semibold `--fg-default` |
+| Lifeline | — | `--fg-faint` 1px dash 3 5 | — |
+| Seta sync | — | `--fg-muted` 1.25, cabeça cheia | mensagem 12 `--fg-default`; nº mono 10 `--fg-subtle` |
+| Seta async | — | idem + dash 5 4 | — |
+| Faixa XOR | wash `color-mix(in srgb, var(--bg-elevated) 55%, transparent)`, **sem** stroke | trilho esquerdo `--status-warning-line` 2px | `◇ {pergunta}` 12 semibold `--status-warning` |
+| Pastilha de ramo | `--bg-sunken` | `--status-warning-line` 1px, rx pill | 11 semibold `--status-warning` |
+| Loop | — | — | `↺ volta a {label}` 11 `--fg-muted` |
+| Activity / subprocess | `--bg-elevated` | `--border-default` `--node-sw` 1.25, rx 8; subprocess + marca interna 5px | 12 medium `--fg-default`; `who` mono 10 `--fg-subtle` |
+| XOR losango | warning 10% sobre `--bg-surface` | `--status-warning-line` 1.25 | 12 semibold; sem id técnico |
+| AND / join | `--fg-muted` | — | barra 36×8 |
+| Event | `--bg-canvas` | `--status-error-line` 1.5 | círculo oco |
+| End ok (sucesso) | `--status-success` | `--status-success` | disco cheio r=10 |
+| End outro | `--status-error` + furo `--bg-canvas` | `--status-error` | anel |
+| Estado | `--bg-sunken` | `--border-default`; entry `--status-info` 1.75; terminal anel duplo `--status-success` | pílula 12 medium |
+| Aresta BPM / máquina | — | `--fg-faint` 1.15 | rótulo 11 `--fg-subtle`; efeito mono 10 |
+
+Chrome: header atual (eyebrow / título / cenário / ator) + tabs pílula Sequência / Fluxo / Máquinas + viewport `--bg-surface` card + `+` `−` `100%` `Ajustar`. Zoom default 100%. Sem segundo painel de lista.
 
 ---
 

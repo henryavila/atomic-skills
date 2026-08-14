@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prévia de estilo — engine de diagrama</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-sunken: #07090d;
+  --bg-canvas: #0a0d12;
+  --bg-surface: #12161d;
+  --bg-elevated: #1a1f28;
+  --bg-overlay: #232936;
+  --border-subtle: #1a2029;
+  --border-default: #262d38;
+  --border-strong: #3d4656;
+  --fg-default: #e9eef5;
+  --fg-muted: #98a1ad;
+  --fg-subtle: #6b7585;
+  --fg-faint: #424a5a;
+  --status-success: #4cc28e;
+  --status-warning: #e0a44a;
+  --status-error: #ff5c5c;
+  --status-info: #5fb1ff;
+  --status-success-bg: color-mix(in srgb, var(--status-success) 14%, var(--bg-surface));
+  --status-warning-bg: color-mix(in srgb, var(--status-warning) 14%, var(--bg-surface));
+  --status-error-bg: color-mix(in srgb, var(--status-error) 16%, var(--bg-surface));
+  --status-info-bg: color-mix(in srgb, var(--status-info) 14%, var(--bg-surface));
+  --status-success-line: color-mix(in srgb, var(--status-success) 42%, var(--border-default));
+  --status-warning-line: color-mix(in srgb, var(--status-warning) 42%, var(--border-default));
+  --status-error-line: color-mix(in srgb, var(--status-error) 48%, var(--border-default));
+  --status-info-line: color-mix(in srgb, var(--status-info) 42%, var(--border-default));
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --fs-2xs: 10px; --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-xl: 20px; --fs-3xl: 32px;
+  --fw-medium: 500; --fw-semibold: 600;
+  --space-3: 6px; --space-4: 8px; --space-6: 12px; --space-8: 16px; --space-10: 20px;
+  --space-12: 24px; --space-16: 32px; --space-24: 48px;
+  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px; --radius-pill: 999px;
+  --tracking-tight: -0.015em; --tracking-wide: 0.04em;
+  --lh-tight: 1.15; --lh-relaxed: 1.65;
+  --shadow-sm: 0 2px 4px -2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.045);
+  --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px #88c4ff;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg-canvas); color: var(--fg-default); font-family: var(--font-sans); }
+body { min-height: 100vh; }
+
+/* ── picker ── */
+.picker {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--bg-canvas) 88%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-default);
+  padding: 16px 24px 14px;
+}
+.picker-inner { max-width: 1120px; margin: 0 auto; }
+.picker h1 { margin: 0 0 4px; font-size: 16px; font-weight: 600; letter-spacing: var(--tracking-tight); }
+.picker p { margin: 0 0 12px; color: var(--fg-muted); font-size: 13px; max-width: 78ch; }
+.looks { display: flex; flex-wrap: wrap; gap: 8px; }
+.looks button {
+  appearance: none; border: 1px solid var(--border-default); background: var(--bg-elevated);
+  color: var(--fg-muted); font: 500 12px var(--font-sans); height: 30px; padding: 0 12px;
+  border-radius: var(--radius-pill); cursor: pointer;
+}
+.looks button[aria-pressed="true"] {
+  background: var(--fg-default); color: var(--bg-canvas); border-color: var(--fg-default);
+}
+.looks button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.badge {
+  display: inline-block; margin-left: 6px; font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: .06em; text-transform: uppercase; opacity: .7;
+}
+
+/* ── shell ── */
+.fl-shell { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+.fl-header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-default); }
+.fl-eyebrow { font-family: var(--font-mono); font-size: 11px; color: var(--fg-subtle); letter-spacing: var(--tracking-wide); text-transform: uppercase; margin: 0; }
+.fl-title { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: var(--tracking-tight); line-height: 1.15; }
+.fl-scenario { margin: 0; color: var(--fg-muted); font-size: 14px; line-height: 1.65; max-width: 68ch; }
+.fl-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fl-meta span { font-size: 12px; color: var(--fg-subtle); }
+.fl-meta strong { color: var(--fg-muted); font-weight: 500; }
+
+.chrome-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 0; }
+.fl-toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
+.fl-toc button {
+  appearance: none; display: inline-flex; align-items: center; height: 30px; padding: 0 12px;
+  border-radius: var(--radius-pill); border: 1px solid var(--border-default); background: var(--bg-elevated);
+  color: var(--fg-muted); font: 500 12px var(--font-sans); cursor: pointer;
+}
+.fl-toc button[aria-selected="true"] { color: var(--status-info); border-color: var(--status-info-line); }
+.toolbar { display: flex; align-items: center; gap: 6px; }
+.toolbar button {
+  appearance: none; height: 28px; min-width: 28px; padding: 0 8px; border-radius: 6px;
+  border: 1px solid var(--border-default); background: var(--bg-surface); color: var(--fg-muted);
+  font: 600 12px var(--font-sans); cursor: pointer;
+}
+.toolbar .zoom { font: 700 12px var(--font-mono); color: var(--fg-subtle); padding: 0 6px; }
+.hint { margin: 10px 0 0; font-size: 12px; color: var(--fg-subtle); }
+.hint kbd { font: 600 11px var(--font-mono); background: var(--bg-sunken); border: 1px solid var(--border-default); border-radius: 4px; padding: 0 5px; }
+
+.fl-viewport {
+  margin-top: 16px; background: var(--bg-surface); border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); overflow: auto; min-height: 420px;
+  cursor: grab;
+}
+.fl-viewport.is-panning { cursor: grabbing; }
+.fl-stage { transform-origin: 0 0; padding: 16px; }
+.fl-surface[hidden] { display: none; }
+.fl-footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-default); font: 11px var(--font-mono); color: var(--fg-faint); }
+
+/* ── look tokens (the thing being validated) ── */
+[data-look="line"] {
+  --actor-fill: var(--bg-elevated);
+  --actor-stroke: var(--border-default);
+  --actor-fg: var(--fg-default);
+  --life: var(--fg-faint);
+  --arrow: var(--fg-muted);
+  --msg: var(--fg-default);
+  --num: var(--fg-subtle);
+  --xor-wash: color-mix(in srgb, var(--bg-elevated) 55%, transparent);
+  --xor-rail: var(--status-warning-line);
+  --pill-fill: var(--bg-sunken);
+  --pill-stroke: var(--status-warning-line);
+  --pill-fg: var(--status-warning);
+  --act-fill: var(--bg-elevated);
+  --act-stroke: var(--border-default);
+  --act-fg: var(--fg-default);
+  --xor-fill: color-mix(in srgb, var(--status-warning) 10%, var(--bg-surface));
+  --xor-edge: var(--status-warning-line);
+  --end-fill: var(--status-success);
+  --end-stroke: var(--status-success);
+  --end-bad-fill: var(--status-error);
+  --bar-fill: var(--fg-muted);
+  --evt-fill: var(--bg-canvas);
+  --evt-stroke: var(--status-error-line);
+  --st-fill: var(--bg-sunken);
+  --st-stroke: var(--border-default);
+  --st-entry-stroke: var(--status-info);
+  --st-term-stroke: var(--status-success);
+  --edge: var(--fg-faint);
+  --node-sw: 1.25;
+  --actor-rx: 8;
+  --act-rx: 8;
+}
+[data-look="block"] {
+  --actor-fill: var(--status-info-bg);
+  --actor-stroke: var(--status-info-line);
+  --actor-fg: var(--fg-default);
+  --life: color-mix(in srgb, var(--status-info) 35%, var(--fg-faint));
+  --arrow: var(--status-info);
+  --msg: var(--fg-default);
+  --num: var(--status-info);
+  --xor-wash: color-mix(in srgb, var(--status-warning) 12%, transparent);
+  --xor-rail: var(--status-warning);
+  --pill-fill: var(--status-warning-bg);
+  --pill-stroke: var(--status-warning);
+  --pill-fg: var(--status-warning);
+  --act-fill: var(--status-info-bg);
+  --act-stroke: var(--status-info-line);
+  --act-fg: var(--fg-default);
+  --xor-fill: var(--status-warning-bg);
+  --xor-edge: var(--status-warning);
+  --end-fill: var(--status-success);
+  --end-stroke: #047857;
+  --end-bad-fill: var(--status-error);
+  --bar-fill: var(--fg-default);
+  --evt-fill: var(--status-error-bg);
+  --evt-stroke: var(--status-error);
+  --st-fill: var(--bg-elevated);
+  --st-stroke: var(--border-strong);
+  --st-entry-stroke: var(--status-info);
+  --st-term-stroke: var(--status-success);
+  --edge: var(--fg-subtle);
+  --node-sw: 1.5;
+  --actor-rx: 8;
+  --act-rx: 8;
+}
+[data-look="frame"] {
+  --actor-fill: none;
+  --actor-stroke: var(--border-strong);
+  --actor-fg: var(--fg-muted);
+  --life: var(--fg-faint);
+  --arrow: var(--fg-subtle);
+  --msg: var(--fg-muted);
+  --num: var(--fg-faint);
+  --xor-wash: none;
+  --xor-rail: var(--status-warning);
+  --pill-fill: none;
+  --pill-stroke: var(--status-warning-line);
+  --pill-fg: var(--status-warning);
+  --act-fill: none;
+  --act-stroke: var(--border-strong);
+  --act-fg: var(--fg-default);
+  --xor-fill: none;
+  --xor-edge: var(--status-warning);
+  --end-fill: none;
+  --end-stroke: var(--status-success);
+  --end-bad-fill: none;
+  --bar-fill: var(--fg-muted);
+  --evt-fill: none;
+  --evt-stroke: var(--status-error);
+  --st-fill: none;
+  --st-stroke: var(--border-strong);
+  --st-entry-stroke: var(--status-info);
+  --st-term-stroke: var(--status-success);
+  --edge: var(--fg-faint);
+  --node-sw: 1;
+  --actor-rx: 4;
+  --act-rx: 4;
+}
+
+svg.diagram { display: block; max-width: 100%; height: auto; font-family: var(--font-sans); }
+svg.diagram text { fill: var(--fg-default); }
+.actor-box { fill: var(--actor-fill); stroke: var(--actor-stroke); stroke-width: 1; }
+.actor-label { fill: var(--actor-fg); font-size: 12px; font-weight: 600; }
+.lifeline { stroke: var(--life); stroke-width: 1; stroke-dasharray: 3 5; }
+.arrow { stroke: var(--arrow); stroke-width: 1.25; fill: none; }
+.arrow.async { stroke-dasharray: 5 4; }
+.arrow-head { fill: var(--arrow); }
+.msg { fill: var(--msg); font-size: 12px; }
+.num { fill: var(--num); font-family: var(--font-mono); font-size: 10px; }
+.xor-wash { fill: var(--xor-wash); stroke: none; }
+.xor-rail { stroke: var(--xor-rail); stroke-width: 2; fill: none; }
+.xor-q { fill: var(--status-warning); font-size: 12px; font-weight: 600; }
+.hair { stroke: var(--border-subtle); stroke-width: 1; }
+.pill { fill: var(--pill-fill); stroke: var(--pill-stroke); stroke-width: 1; }
+.pill-t { fill: var(--pill-fg); font-size: 11px; font-weight: 600; }
+.loop { fill: var(--fg-muted); font-size: 11px; }
+.act { fill: var(--act-fill); stroke: var(--act-stroke); stroke-width: var(--node-sw); }
+.act-t { fill: var(--act-fg); font-size: 12px; font-weight: 500; }
+.who { fill: var(--fg-subtle); font-size: 10px; font-family: var(--font-mono); }
+.diamond { fill: var(--xor-fill); stroke: var(--xor-edge); stroke-width: var(--node-sw); }
+.xor-t { fill: var(--fg-default); font-size: 12px; font-weight: 600; }
+.edge { stroke: var(--edge); stroke-width: 1.15; fill: none; }
+.edge-t { fill: var(--fg-subtle); font-size: 11px; }
+.end-ok { fill: var(--end-fill); stroke: var(--end-stroke); stroke-width: 1.5; }
+.end-bad { fill: var(--end-bad-fill); stroke: var(--status-error); stroke-width: 1.5; }
+.end-t { fill: var(--fg-muted); font-size: 11px; }
+.bar { fill: var(--bar-fill); }
+.evt { fill: var(--evt-fill); stroke: var(--evt-stroke); stroke-width: 1.5; }
+.sub-mark { fill: none; stroke: var(--act-stroke); stroke-width: 1; }
+.st { fill: var(--st-fill); stroke: var(--st-stroke); stroke-width: 1.15; }
+.st.entry { stroke: var(--st-entry-stroke); stroke-width: 1.75; }
+.st.term { stroke: var(--st-term-stroke); stroke-width: 1.75; }
+.st-t { fill: var(--fg-default); font-size: 12px; font-weight: 500; }
+.fx { fill: var(--fg-subtle); font-size: 10px; font-family: var(--font-mono); }
+.mach-title { fill: var(--fg-muted); font-size: 12px; font-weight: 600; }
+
+/* ── compare ── */
+.compare { display: none; max-width: 1280px; margin: 0 auto; padding: 20px 16px 64px; }
+body.is-compare .fl-shell, body.is-compare .notes { display: none; }
+body.is-compare .compare { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.col { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 12px; overflow: hidden; }
+.col h2 { margin: 0; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border-subtle); }
+.col .mini { padding: 8px; overflow: hidden; }
+.col svg { width: 100%; height: auto; }
+
+/* ── notes ── */
+.notes { max-width: 1080px; margin: 0 auto 80px; padding: 0 24px; display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+.card { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 12px; padding: 16px 18px; }
+.card h2 { margin: 0 0 8px; font-size: 14px; }
+.card ul { margin: 0; padding-left: 18px; color: var(--fg-muted); font-size: 13px; line-height: 1.55; }
+.card.span { grid-column: 1 / -1; }
+@media (max-width: 860px) {
+  .notes, body.is-compare .compare { grid-template-columns: 1fr; }
+  .fl-title { font-size: 24px; }
+}
+</style>
+</head>
+<body data-look="line">
+
+<header class="picker">
+  <div class="picker-inner">
+    <h1>Estilo do diagrama — A · Linha ratificado</h1>
+    <p>
+      Operador travou <strong>A · Linha</strong> (2026-08-14). B e C ficam só como contraste.
+      Prévia estática (não é o engine). Recorte do fluxo vivo <em>Carimbar o fluxo antes de executar o plano</em>.
+    </p>
+    <div class="looks" role="tablist" aria-label="Looks">
+      <button type="button" data-look="line" aria-pressed="true">A · Linha <span class="badge">recomendado</span></button>
+      <button type="button" data-look="block">B · Bloco</button>
+      <button type="button" data-look="frame">C · Quadro</button>
+      <button type="button" data-look="compare">Os 3 juntos</button>
+    </div>
+  </div>
+</header>
+
+<div class="fl-shell" id="shell">
+  <header class="fl-header">
+    <p class="fl-eyebrow">Fluxo operacional · 3 camadas</p>
+    <h1 class="fl-title">Carimbar o fluxo antes de executar o plano</h1>
+    <p class="fl-scenario">O operador carimba o fluxo operacional de um plano; sem o carimbo, a execução recusa.</p>
+    <div class="fl-meta">
+      <span><strong>Ator:</strong> Operador</span>
+      <span><strong>Plano:</strong> project-flow</span>
+    </div>
+    <div class="chrome-row">
+      <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
+        <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
+        <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
+        <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
+      </nav>
+      <div class="toolbar" aria-label="Zoom">
+        <button type="button" id="z-out" title="Afastar">−</button>
+        <span class="zoom" id="z-lab">100%</span>
+        <button type="button" id="z-in" title="Aproximar">+</button>
+        <button type="button" id="z-100">100%</button>
+        <button type="button" id="z-fit">Ajustar</button>
+      </div>
+    </div>
+    <p class="hint">Arraste para pan · <kbd>Ctrl</kbd>+roda para zoom. Default 100%.</p>
+  </header>
+
+  <div class="fl-viewport" id="fl-viewport">
+    <div class="fl-stage" id="fl-stage">
+
+      <section id="fl-sequence" class="fl-surface" role="tabpanel" data-surface="sequence">
+        <svg class="diagram" id="seq-svg" data-surface="sequence" viewBox="0 0 680 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="seq-title seq-desc">
+          <title id="seq-title">Diagrama de sequência</title>
+          <desc id="seq-desc">Operador, Agente e Atomic Skills. Três mensagens e uma faixa XOR Aprovar este fluxo.</desc>
+
+          <g data-actor-id="Op">
+            <rect class="actor-box" x="62" y="16" width="168" height="34" rx="8"/>
+            <text class="actor-label" x="146" y="38" text-anchor="middle">Operador</text>
+            <line class="lifeline" data-lifeline="Op" x1="146" y1="50" x2="146" y2="500"/>
+            <rect class="actor-box" x="62" y="504" width="168" height="26" rx="8"/>
+            <text class="actor-label" x="146" y="522" text-anchor="middle" style="font-size:11px">Operador</text>
+          </g>
+          <g data-actor-id="Ag">
+            <rect class="actor-box" x="258" y="16" width="168" height="34" rx="8"/>
+            <text class="actor-label" x="342" y="38" text-anchor="middle">Agente</text>
+            <line class="lifeline" data-lifeline="Ag" x1="342" y1="50" x2="342" y2="500"/>
+            <rect class="actor-box" x="258" y="504" width="168" height="26" rx="8"/>
+            <text class="actor-label" x="342" y="522" text-anchor="middle" style="font-size:11px">Agente</text>
+          </g>
+          <g data-actor-id="Sys">
+            <rect class="actor-box" x="454" y="16" width="168" height="34" rx="8"/>
+            <text class="actor-label" x="538" y="38" text-anchor="middle">Atomic Skills</text>
+            <line class="lifeline" data-lifeline="Sys" x1="538" y1="50" x2="538" y2="500"/>
+            <rect class="actor-box" x="454" y="504" width="168" height="26" rx="8"/>
+            <text class="actor-label" x="538" y="522" text-anchor="middle" style="font-size:11px">Atomic Skills</text>
+          </g>
+
+          <g data-from="Op" data-to="Ag" data-n="1">
+            <text class="num" x="18" y="84">1</text>
+            <line class="arrow" x1="154" y1="80" x2="330" y2="80"/>
+            <polygon class="arrow-head" points="330,80 322,76 322,84"/>
+            <text class="msg" x="242" y="70" text-anchor="middle">Pede project flow no plano</text>
+          </g>
+          <g data-from="Ag" data-to="Sys" data-n="2">
+            <text class="num" x="18" y="120">2</text>
+            <line class="arrow" x1="350" y1="116" x2="526" y2="116"/>
+            <polygon class="arrow-head" points="526,116 518,112 518,120"/>
+            <text class="msg" x="438" y="106" text-anchor="middle">Grava flow.json sem carimbo</text>
+          </g>
+          <g data-from="Ag" data-to="Op" data-n="3">
+            <text class="num" x="18" y="156">3</text>
+            <line class="arrow async" x1="334" y1="152" x2="158" y2="152"/>
+            <polygon class="arrow-head" points="158,152 166,148 166,156"/>
+            <text class="msg" x="246" y="142" text-anchor="middle">Abre o painel HTML</text>
+          </g>
+
+          <g data-xor-rail="Decidir">
+            <rect class="xor-wash" x="8" y="176" width="664" height="316" rx="10"/>
+            <line class="xor-rail" x1="28" y1="190" x2="28" y2="478"/>
+            <text class="xor-q" x="44" y="204">◇ O operador aprova o fluxo que viu?</text>
+
+            <line class="hair" x1="28" y1="248" x2="52" y2="248"/>
+            <rect class="pill" x="52" y="236" width="72" height="24" rx="12"/>
+            <text class="pill-t" data-branch-label="Aprova" x="88" y="252" text-anchor="middle">Aprova</text>
+
+            <line class="hair" x1="28" y1="318" x2="52" y2="318"/>
+            <rect class="pill" x="52" y="306" width="72" height="24" rx="12"/>
+            <text class="pill-t" data-branch-label="Ajusta" x="88" y="322" text-anchor="middle">Ajusta</text>
+            <text class="loop" x="136" y="322">↺ volta a Mostrar</text>
+            <g data-from="Op" data-to="Ag" data-n="4">
+              <text class="num" x="18" y="360">4</text>
+              <line class="arrow" x1="154" y1="356" x2="330" y2="356"/>
+              <polygon class="arrow-head" points="330,356 322,352 322,360"/>
+              <text class="msg" x="242" y="346" text-anchor="middle">Diz o que está errado no grafo</text>
+            </g>
+
+            <line class="hair" x1="28" y1="416" x2="52" y2="416"/>
+            <rect class="pill" x="52" y="404" width="80" height="24" rx="12"/>
+            <text class="pill-t" data-branch-label="Cancela" x="92" y="420" text-anchor="middle">Cancela</text>
+          </g>
+        </svg>
+      </section>
+
+      <section id="fl-bpm" class="fl-surface" role="tabpanel" data-surface="bpm" hidden>
+        <svg class="diagram" id="bpm-svg" data-surface="bpm" viewBox="0 0 800 780" xmlns="http://www.w3.org/2000/svg" role="img">
+          <title>Diagrama de processo</title>
+          <desc>XOR de entrada, atividade, XOR de aprovação, fins. Sem id técnico.</desc>
+
+          <polygon class="diamond" data-node-id="TemArquivo" data-shape="diamond" points="380,16 488,64 380,112 272,64"/>
+          <text class="xor-t" x="380" y="60" text-anchor="middle">O pedido tem</text>
+          <text class="xor-t" x="380" y="76" text-anchor="middle">arquivo de plano?</text>
+          <text class="who" x="380" y="128" text-anchor="middle">Atomic Skills</text>
+
+          <path class="edge" d="M320,100 L180,150"/>
+          <text class="edge-t" x="220" y="122">Sem arquivo</text>
+          <circle class="end-bad" data-node-id="FimNaoSeAplica" data-shape="circle" cx="180" cy="178" r="10"/>
+          <circle cx="180" cy="178" r="5" fill="var(--bg-canvas)"/>
+          <text class="end-t" x="180" y="204" text-anchor="middle">Fim · não se aplica</text>
+
+          <path class="edge" d="M440,100 L560,150"/>
+          <text class="edge-t" x="530" y="122">Com arquivo</text>
+          <rect class="act" data-node-id="Draftar" data-shape="rect" x="460" y="154" width="200" height="48" rx="8"/>
+          <text class="act-t" x="560" y="174" text-anchor="middle">Draftar o grafo</text>
+          <text class="act-t" x="560" y="190" text-anchor="middle">a partir do desenho</text>
+
+          <path class="edge" d="M560,202 L560,230"/>
+          <rect class="act" data-node-id="Mostrar" data-shape="rect" x="460" y="230" width="200" height="48" rx="8"/>
+          <text class="act-t" x="560" y="250" text-anchor="middle">Mostrar conversa,</text>
+          <text class="act-t" x="560" y="266" text-anchor="middle">processo e estados</text>
+
+          <path class="edge" d="M560,278 L560,308"/>
+          <polygon class="diamond" data-node-id="Decidir" data-shape="diamond" points="560,308 668,360 560,412 452,360"/>
+          <text class="xor-t" x="560" y="356" text-anchor="middle">Aprovar este</text>
+          <text class="xor-t" x="560" y="372" text-anchor="middle">fluxo?</text>
+          <text class="who" x="560" y="428" text-anchor="middle">Operador</text>
+
+          <path class="edge" d="M500,396 L360,460"/>
+          <text class="edge-t" x="400" y="430">Aprova</text>
+          <rect class="act" data-node-id="Carimbar" data-shape="rect" x="260" y="460" width="200" height="48" rx="8"/>
+          <text class="act-t" x="360" y="488" text-anchor="middle">Carimbar o documento</text>
+          <path class="edge" d="M360,508 L360,548"/>
+          <circle class="end-ok" data-node-id="FimCarimbado" data-shape="circle" cx="360" cy="560" r="10"/>
+          <text class="end-t" x="360" y="586" text-anchor="middle">Fim · carimbado</text>
+
+          <path class="edge" d="M560,412 L560,460"/>
+          <text class="edge-t" x="576" y="444">Ajusta</text>
+          <text class="loop" x="560" y="478" text-anchor="middle">↺ volta a Mostrar</text>
+
+          <path class="edge" d="M620,396 L720,460"/>
+          <text class="edge-t" x="700" y="430">Cancela</text>
+          <circle class="end-bad" cx="720" cy="478" r="10"/>
+          <circle cx="720" cy="478" r="5" fill="var(--bg-canvas)"/>
+          <text class="end-t" x="720" y="504" text-anchor="middle">Fim · sem carimbo</text>
+
+          <!-- shape catalog, bottom -->
+          <text class="who" x="24" y="640">Catálogo de formas (não é o fluxo vivo)</text>
+          <circle class="evt" data-shape="circle" cx="40" cy="678" r="14"/>
+          <text class="end-t" x="40" y="708" text-anchor="middle">event</text>
+          <rect class="bar" data-shape="bar" x="86" y="670" width="36" height="8" rx="1"/>
+          <text class="end-t" x="104" y="708" text-anchor="middle">and/join</text>
+          <rect class="act" x="160" y="658" width="120" height="40" rx="8"/>
+          <rect class="sub-mark" x="166" y="664" width="5" height="28"/>
+          <text class="act-t" x="224" y="682" text-anchor="middle" style="font-size:11px">subprocess</text>
+          <polygon class="diamond" points="360,656 416,678 360,700 304,678"/>
+          <text class="end-t" x="360" y="720" text-anchor="middle">xor</text>
+          <circle class="end-ok" cx="470" cy="678" r="12"/>
+          <text class="end-t" x="470" y="708" text-anchor="middle">end</text>
+        </svg>
+      </section>
+
+      <section id="fl-machines" class="fl-surface" role="tabpanel" data-surface="machines" hidden>
+        <svg class="diagram" id="mach-svg" data-surface="machines" viewBox="0 0 920 260" xmlns="http://www.w3.org/2000/svg" role="img">
+          <title>Máquina de estados</title>
+          <text class="mach-title" x="16" y="22">Artefato de flow</text>
+
+          <g data-machine-id="artefato">
+            <rect class="st entry" data-state-id="ausente" x="16" y="56" width="100" height="32" rx="16"/>
+            <text class="st-t" x="66" y="76" text-anchor="middle">Ausente</text>
+
+            <path class="edge" d="M116,72 L150,72"/>
+            <polygon class="arrow-head" points="150,72 142,68 142,76"/>
+            <text class="edge-t" x="133" y="62" text-anchor="middle">Drafta</text>
+            <text class="fx" x="133" y="96" text-anchor="middle">write · Grava rascunho → Sys</text>
+
+            <rect class="st" data-state-id="rascunho" x="154" y="56" width="108" height="32" rx="16"/>
+            <text class="st-t" x="208" y="76" text-anchor="middle">Rascunho</text>
+
+            <path class="edge" d="M262,72 L298,72"/>
+            <polygon class="arrow-head" points="298,72 290,68 290,76"/>
+            <text class="edge-t" x="280" y="62" text-anchor="middle">Mostra</text>
+
+            <rect class="st" data-state-id="mostrado" x="302" y="56" width="108" height="32" rx="16"/>
+            <text class="st-t" x="356" y="76" text-anchor="middle">Mostrado</text>
+
+            <path class="edge" d="M410,72 L448,72"/>
+            <polygon class="arrow-head" points="448,72 440,68 440,76"/>
+            <text class="edge-t" x="429" y="62" text-anchor="middle">Aprova</text>
+            <text class="fx" x="429" y="96" text-anchor="middle">write · Data+hash → Sys</text>
+
+            <rect class="st" data-state-id="carimbado" x="452" y="56" width="112" height="32" rx="16"/>
+            <text class="st-t" x="508" y="76" text-anchor="middle">Carimbado</text>
+
+            <path class="edge" d="M564,72 L604,72"/>
+            <polygon class="arrow-head" points="604,72 596,68 596,76"/>
+            <text class="edge-t" x="584" y="62" text-anchor="middle">Libera</text>
+
+            <rect class="st term" data-state-id="em_execucao" x="608" y="56" width="124" height="32" rx="16"/>
+            <rect class="st term" x="611" y="59" width="118" height="26" rx="13" fill="none"/>
+            <text class="st-t" x="670" y="76" text-anchor="middle">Em execução</text>
+
+            <path class="edge" d="M356,88 L356,150"/>
+            <polygon class="arrow-head" points="356,150 352,142 360,142"/>
+            <text class="edge-t" x="400" y="124">Cancela</text>
+            <text class="fx" x="400" y="138">notify · Ready continua legal → Op</text>
+            <rect class="st term" data-state-id="cancelado" x="302" y="154" width="108" height="32" rx="16"/>
+            <rect class="st term" x="305" y="157" width="102" height="26" rx="13" fill="none"/>
+            <text class="st-t" x="356" y="174" text-anchor="middle">Cancelado</text>
+
+            <path class="edge" d="M508,88 L508,150"/>
+            <polygon class="arrow-head" points="508,150 504,142 512,142"/>
+            <text class="edge-t" x="560" y="124">Grafo mudou</text>
+            <rect class="st" data-state-id="obsoleto" x="452" y="154" width="112" height="32" rx="16"/>
+            <text class="st-t" x="508" y="174" text-anchor="middle">Obsoleto</text>
+          </g>
+        </svg>
+      </section>
+
+    </div>
+  </div>
+
+  <footer class="fl-footer">prévia de estilo · não é L2 · tokens de site/assets/ds.css · medidas do design (ator 196 / fileira 36 / nó 200×48)</footer>
+</div>
+
+<section class="compare" id="compare" aria-label="Três looks lado a lado"></section>
+
+<section class="notes">
+  <article class="card">
+    <h2>A · Linha <span class="badge">recomendado</span></h2>
+    <ul>
+      <li>O que o design já descreve: stroke + wash 8%, trilho amber, sem caixa <code>alt</code>/<code>else</code>.</li>
+      <li>Atividade = placa elevada. XOR = losango oco com wash. Fim = ponto cheio.</li>
+      <li>Cabe no produto escuro. Pouca tinta, lê como documento.</li>
+    </ul>
+  </article>
+  <article class="card">
+    <h2>B · Bloco</h2>
+    <ul>
+      <li>Preenchimento semântico (info / warning / success). Mais PDTI, menos “folha”.</li>
+      <li>Tipo do nó é óbvio à distância. Mais barulho, mais cor.</li>
+      <li>Setas e lifelines azuis. Pastilhas XOR cheias.</li>
+    </ul>
+  </article>
+  <article class="card">
+    <h2>C · Quadro</h2>
+    <ul>
+      <li>Só linha. Sem fill, sem wash. Quadro-branco no escuro.</li>
+      <li>Máxima calma; risco de sumir no canvas <code>#0a0d12</code>.</li>
+      <li>Fim = anel, não disco.</li>
+    </ul>
+  </article>
+  <article class="card span">
+    <h2>Já travado (não está em votação)</h2>
+    <ul>
+      <li>3 superfícies, engine SVG própria, tokens só de <code>ds.css</code>, dark-first.</li>
+      <li>XOR = trilho + pastilha. Sem retângulo <code>alt</code>/<code>else</code>.</li>
+      <li>BPM sem id técnico. Chrome: Sequência / Fluxo / Máquinas + pan/zoom 100%.</li>
+      <li>Mesmas medidas do design. Schema / brief / <code>--strict</code> / finalize F0–F2 intocados.</li>
+    </ul>
+  </article>
+</section>
+
+<script>
+(function () {
+  const body = document.body;
+  const lookBtns = [...document.querySelectorAll('.looks [data-look]')];
+  const tabs = [...document.querySelectorAll('.fl-toc [data-tab]')];
+  const panels = [...document.querySelectorAll('.fl-surface[data-surface]')];
+  const stage = document.getElementById('fl-stage');
+  const viewport = document.getElementById('fl-viewport');
+  const lab = document.getElementById('z-lab');
+  const compare = document.getElementById('compare');
+  let scale = 1;
+
+  function setLook(look) {
+    const compareMode = look === 'compare';
+    body.classList.toggle('is-compare', compareMode);
+    if (!compareMode) body.setAttribute('data-look', look);
+    lookBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.look === look)));
+    if (compareMode) mountCompare();
+  }
+
+  function mountCompare() {
+    if (compare.dataset.ready) return;
+    const seq = document.getElementById('seq-svg').outerHTML;
+    const bpm = document.getElementById('bpm-svg').outerHTML;
+    const labels = [
+      ['line', 'A · Linha'],
+      ['block', 'B · Bloco'],
+      ['frame', 'C · Quadro'],
+    ];
+    compare.innerHTML = labels.map(([look, title]) => `
+      <article class="col" data-look="${look}">
+        <h2>${title}</h2>
+        <div class="mini">${seq}${bpm}</div>
+      </article>`).join('');
+    compare.dataset.ready = '1';
+  }
+
+  lookBtns.forEach((b) => b.addEventListener('click', () => setLook(b.dataset.look)));
+
+  function showTab(name) {
+    tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+    panels.forEach((p) => { p.hidden = p.dataset.surface !== name; });
+  }
+  tabs.forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+  function applyZoom() {
+    stage.style.transform = `scale(${scale})`;
+    lab.textContent = `${Math.round(scale * 100)}%`;
+  }
+  document.getElementById('z-in').onclick = () => { scale = Math.min(2, scale + 0.1); applyZoom(); };
+  document.getElementById('z-out').onclick = () => { scale = Math.max(0.4, scale - 0.1); applyZoom(); };
+  document.getElementById('z-100').onclick = () => { scale = 1; applyZoom(); };
+  document.getElementById('z-fit').onclick = () => {
+    const svg = panels.find((p) => !p.hidden)?.querySelector('svg');
+    if (!svg) return;
+    const vb = svg.viewBox.baseVal;
+    scale = Math.min(viewport.clientWidth / (vb.width + 32), viewport.clientHeight / (vb.height + 32), 1);
+    applyZoom();
+  };
+  viewport.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    scale = Math.min(2, Math.max(0.4, scale + (e.deltaY < 0 ? 0.08 : -0.08)));
+    applyZoom();
+  }, { passive: false });
+
+  let pan = false, sx = 0, sy = 0, sl = 0, st = 0;
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    pan = true;
+    viewport.classList.add('is-panning');
+    sx = e.clientX; sy = e.clientY; sl = viewport.scrollLeft; st = viewport.scrollTop;
+    viewport.setPointerCapture(e.pointerId);
+  });
+  viewport.addEventListener('pointermove', (e) => {
+    if (!pan) return;
+    viewport.scrollLeft = sl - (e.clientX - sx);
+    viewport.scrollTop = st - (e.clientY - sy);
+  });
+  viewport.addEventListener('pointerup', () => { pan = false; viewport.classList.remove('is-panning'); });
+})();
+</script>
+</body>
+</html>

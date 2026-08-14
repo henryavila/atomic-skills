@@ -10,6 +10,8 @@
 
 **Design:** `docs/plans/2026-08-14-flow-diagram-engine-design.md`
 
+**Look (ratified 2026-08-14):** **A · Linha**. Visual SoT: design §4 + `docs/plans/2026-08-14-flow-diagram-engine-style-preview.html` (A selected). Do not draw B · Bloco or C · Quadro. Tokens only from `ds.css`.
+
 **Do not:** change schema, brief, ratification, `serve-flow`, `--strict`, or finalize F0–F2. Do not commit automate `prepare.json` / `sealed-brief.md`.
 
 ---
@@ -297,7 +299,7 @@ node --test tests/flow-draw.test.js
 - Actor headers (top + bottom) as `<g data-actor-id>`
 - Lifelines: dashed `<line data-lifeline>` using `var(--fg-faint)` / `#424a5a`
 - Messages: `<g data-from data-to data-n>` line + text; async = dasharray
-- XOR: `<g data-xor-rail="{xorId}">` — left rail only (`var(--status-warning-line)` / `#e0a44a`), no enclosing rect; `◇ {question}` note; per branch a hairline + `<text data-branch-label>`; no fill box (optional 8% wash rect *without* stroke)
+- XOR: `<g data-xor-rail="{xorId}">` — left rail only (`var(--status-warning-line)`), no enclosing stroked rect; `◇ {question}` note; per branch a hairline + pill + `<text data-branch-label>`; wash `color-mix(in srgb, var(--bg-elevated) 55%, transparent)` *without* stroke. Paint tokens = design §4 Look A (actor `--bg-elevated`, arrow `--fg-muted`, async dash 5 4).
 - Escape all text (`escapeHtml` from `scripts/lib/render-site.js:80`)
 - Double-render of the same layout must be byte-identical (no random ids)
 
@@ -470,7 +472,7 @@ Attribute order on the node element (required by `tests/render-flow.test.js:107-
 
 `data-node-id="…" data-node-type="…" data-shape="…" data-next="…"` when `next` is known.
 
-Colors from DS (`--bg-elevated`, `--status-warning` for xor, `--status-success` / `--status-error` for end if you can tell from label — do **not** invent PDTI status 10).
+Paint = design §4 Look A. Activity `--bg-elevated` + `--border-default` (not info-bg). XOR diamond = warning 10% fill + `--status-warning-line`. End ok = filled `--status-success` disc. Other ends = `--status-error` ring with canvas hole. Do **not** invent PDTI status 10.
 
 Visible `<text>` is `node.label` only. Technical ids stay in `data-node-id`, never as the label text.
 
@@ -521,7 +523,7 @@ it('draws effect kind label target on the edge', () => {
 **Step 3: Implement**
 
 - `layoutMachines`: each machine `states` in insertion order along x; `entry` / `terminal` flags; transitions as edges with `effects[]`
-- `drawMachinesSvg`: one `<svg data-surface="machines">` containing one `<g data-machine-id>` per machine, stacked on y; state pills; edges; effect as second line `kind · label → target`
+- `drawMachinesSvg`: one `<svg data-surface="machines">` containing one `<g data-machine-id>` per machine, stacked on y; state pills Look A (`--bg-sunken`, entry `--status-info` stroke, terminal double `--status-success` ring); edges `--fg-faint`; effect as second line `kind · label → target`
 
 **Step 4: Re-run both test files — expect PASS**
 
@@ -678,6 +680,7 @@ Expected: PASS.
 - `escapeHtml` already lives in `scripts/lib/render-site.js:80`.
 - Worktree is already `.worktrees/project-flow` (`plan/project-flow`). Do not create another worktree unless asked.
 - Operator evaluates F0–F2 at the end; this plan is **not** finalize.
+- Look A is locked. `flow-draw.js` maps shapes to the §4 token table. Do not introduce semantic fills (info-bg on activities), actor column tints, or stroke-only frames. Preview HTML is a fixture, not a runtime import.
 - `youAreHere` is normalized (verified_by: `scripts/lib/render-flow.js:220`) and does not appear in `renderFlowHtml` (verified_by: only hit in that file is the normalize field). This plan does **not** draw a you-are-here pin (out of scope; schema unchanged).
 
 ## Review corrections (local 2026-08-14)
@@ -694,6 +697,7 @@ Applied after adversarial local review. Not a ground-truth receipt.
 8. Tab labels locked; G1/G6 premises table added; G2 soft-language tokens removed.
 9. Dogfood `S1e→D1` is loop-ref; AND/join is one box; empty sequence selects Fluxo.
 10. Ground-truth: keep header/footer; xor-first entry (live L1) has a walk test.
+11. Look A · Linha ratified (2026-08-14). Draw tokens = design §4. Preview HTML is fixture only.
 
 ## Ground-truth review
 
@@ -755,4 +759,4 @@ Applied after adversarial local review. Not a ground-truth receipt.
 
 ## Reviews
 
-- ground-truth: complete-with-findings | mode=ground-truth | fp=ff7b161eaf28 | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=56d8cbe63534 | premises=24 | impacts=14 @ 864f39dd (2026-08-14T15:20:00Z)
