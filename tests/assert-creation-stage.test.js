@@ -3,7 +3,7 @@
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -72,6 +72,30 @@ describe('assertAtStage / assertAdvance / assertReady', () => {
       true,
     );
   });
+
+  it('assertAtStage treats leftover process-map as reviews (behind ready)', () => {
+    const r = assertAtStage(
+      { schemaVersion: '0.1', stage: 'process-map' },
+      'ready',
+    );
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /stage-behind/);
+    assert.match(r.reason, /reviews<ready/);
+  });
+
+  it('assertAtStage treats leftover process-map as at/past reviews', () => {
+    assert.equal(
+      assertAtStage({ schemaVersion: '0.1', stage: 'process-map' }, 'reviews')
+        .ok,
+      true,
+    );
+  });
+
+  it('assertReady without advancing treats leftover process-map as not ready', () => {
+    const r = assertReady({ schemaVersion: '0.1', stage: 'process-map' });
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /declare-ready-early/);
+  });
 });
 
 describe('CLI assert-creation-stage', () => {
@@ -122,5 +146,41 @@ describe('CLI assert-creation-stage', () => {
   it('exits 1 when file missing', () => {
     const res = runCli([join(root, 'nope.json'), '--at', 'slug'], root);
     assert.equal(res.status, 1);
+  });
+
+  it('CLI --at ready fails when on-disk stage is leftover process-map', () => {
+    const path = join(root, 'gate.json');
+    writeFileSync(
+      path,
+      `${JSON.stringify({ schemaVersion: '0.1', stage: 'process-map' }, null, 2)}\n`,
+    );
+    const res = runCli([path, '--at', 'ready'], root);
+    assert.notEqual(res.status, 0);
+    assert.match(res.stderr, /stage-behind/);
+  });
+
+  it('CLI --ready (no --write) fails when on-disk stage is leftover process-map', () => {
+    const path = join(root, 'gate.json');
+    writeFileSync(
+      path,
+      `${JSON.stringify({ schemaVersion: '0.1', stage: 'process-map' }, null, 2)}\n`,
+    );
+    const res = runCli([path, '--ready'], root);
+    assert.notEqual(res.status, 0);
+    assert.match(res.stderr, /declare-ready-early|HARD-BLOCK/);
+  });
+
+  it('CLI --ready --write advances leftover process-map to ready and persists', () => {
+    const path = join(root, 'gate.json');
+    writeFileSync(
+      path,
+      `${JSON.stringify({ schemaVersion: '0.1', stage: 'process-map' }, null, 2)}\n`,
+    );
+    const res = runCli([path, '--ready', '--write'], root);
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /advanced to ready/);
+    assert.equal(/assert-creation-stage: ready ✓/.test(res.stdout), false);
+    const onDisk = JSON.parse(readFileSync(path, 'utf8'));
+    assert.equal(onDisk.stage, 'ready');
   });
 });

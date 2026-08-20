@@ -17,7 +17,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project                              → compact summary (no-args, cheap; no browser)
 /atomic-skills:project status [--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]
 /atomic-skills:project help [--html]         → GPS de terminal: onde estou + próximo passo (alias: `next`; `--html` abre o guia visual)
-/atomic-skills:project process [--check] [--audience=…]  → process map L2 (HTML) from L1 YAML — mandatory artefact of every plan
+/atomic-skills:project flow|process [--check] [--open] [--strict] → day-2 project flow (`process` alias)
 /atomic-skills:project verify [--fix]        → state ⇄ code check (READ-ONLY unless `--fix`; normalization gate only)
 /atomic-skills:project reconcile             → dispose detection-drift candidates (signal→ask→verifier/ack; done stays closure authority)
 /atomic-skills:project review [<slug>] [--with-code] [--mode=local|both]  → mutation-gated audit (delegated reviews; never closes/advances)
@@ -50,7 +50,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 |---|---|
 | `status`, `status --browser`, `--terminal`, `--list`, `--plan`, `--phase`, `--stack`, `--archived`, `--report`, disambiguation | `{{READ_TOOL}} {{ASSETS_PATH}}/project-view.md` |
 | `help`, `help --html`, `next` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-help.md` |
-| `process`, `process --check`, `process --audience=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-process-map.md` |
+| `flow`, `process`, `flow --check`, `process --check`, `--open`, `--strict` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-flow.md` |
 | `verify`, `verify --fix` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-verify.md` |
 | `review`, `review <slug>`, `review --with-code`, `review --mode=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-review.md` |
 | first-time setup (project setup sentinel absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
@@ -125,9 +125,9 @@ NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.
 
 Every code-modifying session must be anchored to an active initiative — a phase at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, or a standalone unit (its own degenerate 1-phase plan); legacy flat fallback `.atomic-skills/initiatives/<slug>.md` — or the user must explicitly declare "ad-hoc".
 
-**Also (P1 — `docs/kb/process-map.md`):** NO PLAN WITHOUT PROCESS MAP.
+**Also:** NO IMPLEMENT WITHOUT VALIDATED FLOW (`docs/kb/flow.md`).
 
-Every multi-phase plan MUST carry a ratified L1 `process/process.yaml` (macro vision of the **objective**, not the phase tree) and a generated L2 `process/map.html`. Created in `new plan` / `adopt` at creation-gate stage `process-map` (**inescapable** before `reviews`/`ready`). HTML only renders L1; never invent stages from `phases[]`. Detector: `scripts/find-missing-process-map.js`. Day-2 open: `project process`.
+Ready without flow is legal. `process.yaml` never satisfies. `implement` HARD-GATES at entry with `scripts/find-missing-flow.js --strict` (exit 0 continue; non-zero REFUSE — instruct `project flow`). Day-2: `project flow` (`process` alias). No `process-map` or `flow` creation stage. Never invent nodes from `phases[]`.
 
 ## Pre-mutation gates (apply before ANY mutating subcommand)
 
@@ -223,7 +223,7 @@ If any of these thoughts appeared: STOP and validate.
 - "The initiative is legacy snake_case but the change is small — I'll edit without migrating"
 - "Phase has 3 tasks left but the exit gate is met, I'll just mark phase done"
 - "I'll mark a gate `done`" (gates are `pending`/`met`/`deferred` only)
-- "I'll skip the process map / generate it later / use phases as the map"
+- "I'll invent flow nodes from phases[]"
 
 ## Rationalization
 

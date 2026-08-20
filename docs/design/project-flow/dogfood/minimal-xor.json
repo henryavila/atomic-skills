@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "1.0",
+  "planSlug": "minimal-xor",
+  "title": "Minimal accept-or-reject",
+  "scenario": "A requester submits a request and a reviewer accepts or rejects it.",
+  "actor": "Requester",
+  "audience": "layperson",
+  "actors": [
+    { "id": "U", "label": "Requester", "kind": "actor" },
+    { "id": "R", "label": "Reviewer", "kind": "actor" }
+  ],
+  "graph": {
+    "entry": "S1",
+    "nodes": {
+      "S1": {
+        "type": "activity",
+        "label": "Submit request",
+        "who": "Requester",
+        "messages": [
+          { "from": "U", "to": "R", "text": "Sends the request", "async": false }
+        ],
+        "next": "D1"
+      },
+      "D1": {
+        "type": "xor",
+        "label": "Accept?",
+        "who": "Reviewer",
+        "question": "Accept the request?",
+        "branches": [
+          {
+            "id": "D1.yes",
+            "when": "accepts",
+            "label": "Accepts",
+            "next": "end_ok"
+          },
+          {
+            "id": "D1.no",
+            "when": "rejects",
+            "label": "Rejects",
+            "next": "end_no"
+          }
+        ]
+      },
+      "end_ok": {
+        "type": "end",
+        "label": "Accepted"
+      },
+      "end_no": {
+        "type": "end",
+        "label": "Rejected"
+      }
+    }
+  },
+  "machines": [
+    {
+      "id": "request",
+      "label": "Request",
+      "entry": "open",
+      "nodes": {
+        "open": { "label": "Open" },
+        "accepted": { "label": "Accepted", "terminal": true },
+        "rejected": { "label": "Rejected", "terminal": true }
+      },
+      "transitions": [
+        {
+          "id": "T_yes",
+          "from": "open",
+          "to": "accepted",
+          "when": "accepts",
+          "label": "Accepts",
+          "via": "D1.yes",
+          "effects": []
+        },
+        {
+          "id": "T_no",
+          "from": "open",
+          "to": "rejected",
+          "when": "rejects",
+          "label": "Rejects",
+          "via": "D1.no",
+          "effects": [
+            { "kind": "notify", "label": "Tell requester", "target": "U" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "planSlug": "project-flow",
+  "phaseId": "F2",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/project-flow-F2-writer",
+  "writerBranch": "impl/project-flow-F2-writer",
+  "finishedAt": "2026-08-13T22:16:56Z",
+  "tasks": [
+    {
+      "taskId": "T-007",
+      "status": "claimed-pass",
+      "commitShas": ["e681fbd616d6d21dd4f060641a47f3a404664fe8"],
+      "base": null,
+      "head": null,
+      "paths": [
+        "scripts/find-missing-flow.js",
+        "tests/find-missing-flow.test.js"
+      ],
+      "verifierCommand": "node --test tests/find-missing-flow.test.js",
+      "exitCode": 0,
+      "transcript": "ℹ tests 20\nℹ suites 4\nℹ pass 20\nℹ fail 0\n--strict / --check exit 0 only with valid flow.json + ≥1 messages + ≥1 machine/state + ratifiedAt + matching ratifiedGraphSha + matching flow.html content-sha; process.yaml alone fails"
+    },
+    {
+      "taskId": "T-008",
+      "status": "claimed-pass",
+      "commitShas": ["cbb2a9147edc204d76e946a8e0c029adf5ae62fb"],
+      "base": null,
+      "head": null,
+      "paths": [
+        "skills/core/project.md",
+        "skills/shared/project-assets/project-flow.md",
+        "scripts/lib/flow-ratification.js",
+        "tests/flow-ratification.test.js"
+      ],
+      "verifierCommand": "test -f skills/shared/project-assets/project-flow.md && rg -q 'project flow|buildFlowRatification' skills/core/project.md skills/shared/project-assets/project-flow.md && rg -q 'buildFlowRatification' scripts/lib/flow-ratification.js && node --test tests/flow-ratification.test.js",
+      "exitCode": 0,
+      "transcript": "project-flow.md present; grammar+dispatch alias process→project-flow.md; buildFlowRatification is the only stamp writer; --check on migrated dogfood fixture exit 0; process.yaml alone fails --check\nℹ tests 6\nℹ suites 3\nℹ pass 6\nℹ fail 0"
+    },
+    {
+      "taskId": "T-009",
+      "status": "claimed-pass",
+      "commitShas": ["adeccc3c30a4a94a224fff022e49a823a875f012"],
+      "base": null,
+      "head": null,
+      "paths": [
+        "skills/core/implement.md",
+        "scripts/assert-automate-gate.js",
+        "tests/assert-automate-gate.test.js",
+        "docs/kb/flow.md"
+      ],
+      "verifierCommand": "rg -q 'find-missing-flow' skills/core/implement.md && rg -q 'find-missing-flow' scripts/assert-automate-gate.js && rg -q 'NO IMPLEMENT WITHOUT VALIDATED FLOW|validated flow' docs/kb/flow.md && node --test tests/assert-automate-gate.test.js",
+      "exitCode": 0,
+      "transcript": "implement Step 1 + HARD-GATE run find-missing-flow --strict; spawn fails closed without artifact / with only process.yaml; docs/kb/flow.md states Iron Law + command; no operatorSkip\nℹ tests 35\nℹ suites 6\nℹ pass 35\nℹ fail 0"
+    },
+    {
+      "taskId": "T-010",
+      "status": "claimed-pass",
+      "commitShas": ["af59723da5fc60fd2647cdf462d343e921a2d31f"],
+      "base": null,
+      "head": null,
+      "paths": [
+        "scripts/creation-gates.js",
+        "tests/creation-gates.test.js",
+        "skills/core/project.md",
+        "skills/shared/project-assets/project-create-plan.md",
+        "skills/shared/project-assets/new-plan/stage-8.md",
+        "skills/shared/project-assets/new-plan/stage-9.md",
+        "CLAUDE.md",
+        "docs/kb/process-map.md",
+        "skills/shared/project-assets/new-plan/stage-process-map.md",
+        "skills/shared/project-assets/new-plan/stage-7.md",
+        "skills/shared/project-assets/project-process-map.md",
+        "tests/find-missing-process-map.test.js"
+      ],
+      "verifierCommand": "node -e \"import { CREATION_STAGES } from './scripts/creation-gates.js'; if(CREATION_STAGES.includes('process-map')) process.exit(1); const i=CREATION_STAGES.indexOf('summaries'); const j=CREATION_STAGES.indexOf('reviews'); if(!(i>=0 && j===i+1)) process.exit(1);\" && rg -q 'NO IMPLEMENT WITHOUT VALIDATED FLOW' skills/core/project.md CLAUDE.md && node --test tests/creation-gates.test.js",
+      "exitCode": 0,
+      "transcript": "CREATION_STAGES summaries→reviews (no process-map); leftover process-map remaps to reviews; Iron Law NO IMPLEMENT WITHOUT VALIDATED FLOW in project.md + CLAUDE.md; process aliases to flow; ready without flow legal; find-missing-process-map.js retained as legacy reader\nℹ tests 11\nℹ suites 1\nℹ pass 11\nℹ fail 0"
+    }
+  ]
+}

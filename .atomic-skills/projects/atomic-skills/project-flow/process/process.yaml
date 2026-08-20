@@ -1,0 +1,93 @@
+schemaVersion: "0.1"
+planSlug: project-flow
+actor: Operador do Atomic Skills (valida o fluxo) e o agente (drafta o grafo)
+scenario: Um plano vira um fluxo operacional que o humano navega e carimba; sem esse carimbo o plano não entra em execução.
+audience: developer
+ratifiedAt: "2026-08-13T17:09:21Z"
+ratifiedBy: operator
+youAreHere: linguagem-comum
+stages:
+  - id: modelo-ja-fechado
+    kind: done
+    mapsToPhases: []
+    sourcedFrom: LEDGER.md + MODEL.md ratificados (design Interview e Decisions D1)
+    copy:
+      layperson:
+        name: O modelo já está decidido
+        youGain: Já sabemos o que um fluxo precisa ter — conversa, processo de negócio e estados com efeitos.
+        unlocks: Não reabrir se o fluxo é um grafo ou uma lista de cards.
+      developer:
+        name: Contrato do grafo fechado
+        youGain: Um grafo de negócio, mensagens no nó e N máquinas com efeito na transição.
+        unlocks: Qualquer entrega seguinte fala essa língua, não a de cards.
+  - id: linguagem-comum
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: design.md D3 — shape 1.0 substitui sequence/states sem mudar o número
+    copy:
+      layperson:
+        name: Todo mundo usa as mesmas palavras
+        youGain: Dá para dizer “atividade”, “decisão”, “máquina” e ser entendido do mesmo jeito.
+        unlocks: Parar de misturar clique de tela com passo de negócio.
+      developer:
+        name: Vocabulário único no artefato
+        youGain: Tipos de nó e máquinas no mesmo documento, sem um objeto states solto e sem dual-read de cards.
+        unlocks: Fixture e validador apontam para o mesmo shape.
+  - id: validacao-visual
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: design.md D4 — três superfícies distintas; F1 termina impecável
+    copy:
+      layperson:
+        name: Dá para apontar para a tela
+        youGain: Ver a conversa, o processo de negócio e o que dispara em cada mudança de estado, sem misturar as três coisas.
+        unlocks: Dizer sim ou não olhando o fluxo, não um JSON.
+      developer:
+        name: Três projeções do mesmo SoT
+        youGain: Sequência lê messages, BPM lê o grafo, estados lêem machines e efeitos. Sem motor de diagrama de terceiros.
+        unlocks: O rito de carimbo mostra um painel já polido, não um protótipo.
+  - id: recusa-honesta
+    kind: main
+    mapsToPhases: []
+    sourcedFrom: design.md D5/D6 — obrigação no implement, não no fim do new plan
+    copy:
+      layperson:
+        name: Sem fluxo carimbado, o plano não começa a ser feito
+        youGain: Ninguém escreve o produto de um plano sem o humano ter visto e aceito o fluxo.
+        unlocks: Chat “ok” não conta como aceite.
+      developer:
+        name: Recusa no começo da execução
+        youGain: O comando de fluxo é o único que carimba; a execução só checa o artefato e para se faltar.
+        unlocks: Ready sem fluxo continua legal; executar sem fluxo não.
+  - id: day-2
+    kind: always
+    mapsToPhases: []
+    sourcedFrom: design.md D5 — generate/update/show/ratify a qualquer momento
+    copy:
+      layperson:
+        name: Dá para atualizar o fluxo depois
+        youGain: Se o negócio mudar no meio do plano, o fluxo se redesenha e se carimba de novo.
+        unlocks: Não ficar preso ao desenho do primeiro dia.
+      developer:
+        name: Day-2 no mesmo comando
+        youGain: Gerar, atualizar, exibir e recarimbar enquanto o grafo mudar.
+        unlocks: Stamp velho não sobrevive a grafo novo.
+  - id: planos-ja-prontos
+    kind: optional
+    mapsToPhases: []
+    sourcedFrom: design.md D5 — planos velhos com só cards; ready permanece
+    copy:
+      layperson:
+        name: Planos antigos entram quando forem feitos
+        youGain: Quem já fechou o planejamento não é obrigado a desenhar fluxo agora.
+        unlocks: O pedido aparece na primeira vez que alguém for executar aquele plano.
+      developer:
+        name: Cards antigos não cumprem o gate
+        youGain: process.yaml sozinho não libera execução; o primeiro run do plano pede o fluxo novo.
+        unlocks: Sem migração em massa no ready.
+edges:
+  - { from: modelo-ja-fechado, to: linguagem-comum, style: solid }
+  - { from: linguagem-comum, to: validacao-visual, style: solid }
+  - { from: validacao-visual, to: recusa-honesta, style: solid }
+  - { from: recusa-honesta, to: day-2, style: solid }
+  - { from: recusa-honesta, to: planos-ja-prontos, style: dashed }

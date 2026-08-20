@@ -1,0 +1,34 @@
+bb69ea9b docs(memory): generic engine landed; next session wire render-flow
+8276a494 feat(flow): extract a generic diagram engine from the preview
+cdfaabe7 docs(memory): process switcher approved; next session stay on Estados
+ef77bfe3 feat(flow): switch processes and tighten state captions
+81dc8db8 docs(memory): mobile chrome and theme icon; next session continue Estados
+f1f27af5 feat(flow): make the diagram preview usable on phones
+36a3a6c5 docs(memory): BPM and states refine; next session continue Estados
+fadad0b2 feat(flow): refine BPM and states diagrams in the preview
+951fa475 docs(memory): sequence diagram locked; next session BPM and machines
+b80999de feat(flow): sequence app chrome, per-process zoom, PDF export
+96133252 docs(memory): lock diagram refinements and no-popover decision
+c6d04cd8 docs: drop sequence row numbers from the diagram preview
+ec61af85 docs: tighten loop-ref gap to about 5px
+cc8e9775 docs: leave a gap before the XOR on loop-ref arrows
+5678dacd docs: sequence loop-ref arcs back to the XOR decision
+1bfbd8fc docs: attach sequence loop-ref to the XOR rail
+d870846c docs: PDTI dogfood graph as diagram style preview
+81754332 feat(ui): system/light/dark color scheme with switch
+4526b820 docs: lock Look A (Linha) for flow diagram engine
+07e8176f docs(memory): implement notes for flow diagram engine
+463f3629 docs: review-plan local + ground-truth for diagram engine
+864f39dd docs: flow diagram engine design and TDD plan
+d1128729 docs(memory): serve-flow HTTP show and automate residue
+999905cf feat: always show flow HTML over a local web server
+41e7b31d docs(memory): plan-to-graph brief shipped
+858a9193 chore: dogfood flow brief for project-flow
+caa11a48 docs: project flow drafts from brief then lints
+681b00d3 test: --strict still passes without brief
+879b17f1 feat: trace flow draft to brief (rules 2-7)
+57137439 feat: reject flow draft with missing brief
+5cd69db3 fix: expose flowBrief next to flow.json
+05ec5865 docs: design plan-to-graph brief plus implementation plan
+407c254f fix(flow): skip ratify when the drawing is already approved
+ac3626d1 docs(memory): project-flow F0-F2 implemented, await operator plan-end

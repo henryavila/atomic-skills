@@ -1,0 +1,2981 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index b6b9e45d..60656615 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -24,7 +24,7 @@ Este repo tem a skill `atomic-skills:project` (router fino + detalhe lazy em `sk
+ 
+ Planos multi-fase usam materialização lazy: `new plan` cria o `plan.md`, materializa só a F0 e mantém F1..N como descritores até `atomic-skills:project materialize <phase>`. O contrato operacional, incluindo `descriptor-only` vs `materializada`, gate `businessIntent`, D9 como hipótese e D10 como non-goal, está em `docs/kb/project-lazy-materialization.md`.
+ 
+-**Process map (Iron Law P1):** todo plano multi-phase **obrigatoriamente** cria L1 `process/process.yaml` (visão macro do **objetivo**, não a árvore de fases) + L2 `process/map.html` (HTML determinístico a partir do YAML) no stage `process-map` antes de `reviews`/`ready`. Ver `docs/kb/process-map.md`. Comando dia-a-dia: `atomic-skills:project process`.
++**Validated flow (Iron Law):** **NO IMPLEMENT WITHOUT VALIDATED FLOW**. Ready sem flow é legal. `process.yaml` nunca satisfaz. `implement` HARD-GATE no entry: `node "$PKG_ROOT/scripts/find-missing-flow.js" <plan.md> --strict` — exit 0 continua; non-zero REFUSE (instrua `atomic-skills:project flow`). Sem `operatorSkip`, sem chat waiver. Ad-hoc sem arquivo de plano = N/A. Ver `docs/kb/flow.md`.
+ 
+ ## Install / Uninstall parity (HARD RULE)
+ 
+diff --git a/meta/schemas/flow.schema.json b/meta/schemas/flow.schema.json
+index 110c7884..fa3eb886 100644
+--- a/meta/schemas/flow.schema.json
++++ b/meta/schemas/flow.schema.json
+@@ -2,7 +2,7 @@
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "$id": "https://atomic-skills.henryavila.com/schemas/flow.schema.json",
+   "title": "atomic-skills Plan Flow (L1)",
+-  "description": "Canonical flow SoT at projects/<id>/<slug>/flow/flow.json. Graph (sequence / xor / end) is the product layer. states is optional. journey is residual and unused by the viewer. See docs/design/project-flow/design.md.",
++  "description": "Canonical flow SoT at <planDir>/flow/flow.json. actors[] + graph (activity / xor / and / join / subprocess / event / end) + machines[]. See docs/design/project-flow/MODEL.md.",
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+@@ -12,7 +12,8 @@
+     "scenario",
+     "audience",
+     "actors",
+-    "graph"
++    "graph",
++    "machines"
+   ],
+   "properties": {
+     "schemaVersion": {
+@@ -46,7 +47,7 @@
+     },
+     "youAreHere": {
+       "type": ["string", "null"],
+-      "description": "Optional pin. When journey.stages exist, must be a stage id."
++      "description": "Optional pin on a graph or machine node id."
+     },
+     "ratifiedAt": {
+       "type": "string",
+@@ -59,7 +60,7 @@
+     "ratifiedGraphSha": {
+       "type": "string",
+       "pattern": "^[a-f0-9]{64}$",
+-      "description": "sha256 hex of graph at the moment of ratification. Optional until stamped."
++      "description": "sha256 hex of the stamped document. Optional until stamped."
+     },
+     "actors": {
+       "type": "array",
+@@ -67,11 +68,11 @@
+       "items": { "$ref": "#/$defs/actor" }
+     },
+     "graph": { "$ref": "#/$defs/graph" },
+-    "states": { "$ref": "#/$defs/states" },
+-    "journey": { "$ref": "#/$defs/journey" },
+-    "invariants": {
++    "machines": {
+       "type": "array",
+-      "items": { "type": "string" }
++      "minItems": 1,
++      "description": "All FSMs for the plan. At least one machine with at least one node.",
++      "items": { "$ref": "#/$defs/machine" }
+     }
+   },
+   "$defs": {
+@@ -94,6 +95,16 @@
+         }
+       }
+     },
++    "id": {
++      "type": "string",
++      "minLength": 1,
++      "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
++    },
++    "branchId": {
++      "type": "string",
++      "minLength": 1,
++      "pattern": "^[A-Za-z][A-Za-z0-9_.]*$"
++    },
+     "graph": {
+       "type": "object",
+       "additionalProperties": false,
+@@ -103,104 +114,206 @@
+           "type": "string",
+           "minLength": 1
+         },
+-        "nodes": {
++        "nodes": { "$ref": "#/$defs/nodeMap" },
++        "subgraphs": {
+           "type": "object",
+-          "minProperties": 1,
+-          "propertyNames": {
+-            "type": "string",
+-            "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+-          },
+-          "additionalProperties": {
+-            "type": "object",
+-            "required": ["type"],
+-            "properties": {
+-              "type": {
+-                "type": "string",
+-                "enum": ["sequence", "decision", "end"]
+-              }
+-            },
+-            "allOf": [
+-              {
+-                "if": {
+-                  "properties": { "type": { "const": "sequence" } },
+-                  "required": ["type"]
+-                },
+-                "then": { "$ref": "#/$defs/sequenceNode" }
+-              },
+-              {
+-                "if": {
+-                  "properties": { "type": { "const": "decision" } },
+-                  "required": ["type"]
+-                },
+-                "then": { "$ref": "#/$defs/decisionNode" }
+-              },
+-              {
+-                "if": {
+-                  "properties": { "type": { "const": "end" } },
+-                  "required": ["type"]
+-                },
+-                "then": { "$ref": "#/$defs/endNode" }
+-              }
+-            ]
+-          }
++          "propertyNames": { "$ref": "#/$defs/id" },
++          "additionalProperties": { "$ref": "#/$defs/subgraph" }
+         }
+       }
+     },
+-    "sequenceNode": {
++    "subgraph": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["entry", "nodes"],
++      "properties": {
++        "entry": {
++          "type": "string",
++          "minLength": 1
++        },
++        "nodes": { "$ref": "#/$defs/nodeMap" }
++      }
++    },
++    "nodeMap": {
++      "type": "object",
++      "minProperties": 1,
++      "propertyNames": { "$ref": "#/$defs/id" },
++      "additionalProperties": { "$ref": "#/$defs/graphNode" }
++    },
++    "graphNode": {
++      "type": "object",
++      "required": ["type"],
++      "properties": {
++        "type": {
++          "type": "string",
++          "enum": ["activity", "xor", "and", "join", "subprocess", "event", "end"]
++        }
++      },
++      "allOf": [
++        {
++          "if": {
++            "properties": { "type": { "const": "activity" } },
++            "required": ["type"]
++          },
++          "then": { "$ref": "#/$defs/activityNode" }
++        },
++        {
++          "if": {
++            "properties": { "type": { "const": "xor" } },
++            "required": ["type"]
++          },
++          "then": { "$ref": "#/$defs/xorNode" }
++        },
++        {
++          "if": {
++            "properties": { "type": { "const": "and" } },
++            "required": ["type"]
++          },
++          "then": { "$ref": "#/$defs/andNode" }
++        },
++        {
++          "if": {
++            "properties": { "type": { "const": "join" } },
++            "required": ["type"]
++          },
++          "then": { "$ref": "#/$defs/joinNode" }
++        },
++        {
++          "if": {
++            "properties": { "type": { "const": "subprocess" } },
++            "required": ["type"]
++          },
++          "then": { "$ref": "#/$defs/subprocessNode" }
++        },
++        {
++          "if": {
++            "properties": { "type": { "const": "event" } },
++            "required": ["type"]
++          },
++          "then": { "$ref": "#/$defs/eventNode" }
++        },
++        {
++          "if": {
++            "properties": { "type": { "const": "end" } },
++            "required": ["type"]
++          },
++          "then": { "$ref": "#/$defs/endNode" }
++        }
++      ]
++    },
++    "activityNode": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["type", "processLabel", "messages", "next"],
++      "required": ["type", "label", "next"],
+       "properties": {
+-        "type": { "const": "sequence" },
+-        "processLabel": { "type": "string", "minLength": 1 },
+-        "processWho": { "type": "string" },
++        "type": { "const": "activity" },
++        "label": { "type": "string", "minLength": 1 },
++        "who": { "type": "string" },
+         "title": { "type": "string" },
+-        "tone": { "type": "string" },
+         "messages": {
+           "type": "array",
+           "items": { "$ref": "#/$defs/message" }
+         },
+-        "effects": {
++        "next": { "type": "string", "minLength": 1 }
++      }
++    },
++    "xorNode": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["type", "branches"],
++      "properties": {
++        "type": { "const": "xor" },
++        "label": { "type": "string", "minLength": 1 },
++        "who": { "type": "string" },
++        "title": { "type": "string" },
++        "question": { "type": "string" },
++        "messages": {
+           "type": "array",
+-          "items": { "$ref": "#/$defs/effect" }
++          "items": { "$ref": "#/$defs/message" }
+         },
+-        "next": { "type": "string", "minLength": 1 },
+-        "loop": { "type": "boolean" },
+-        "stage": { "type": "string" }
++        "branches": {
++          "type": "array",
++          "minItems": 2,
++          "items": { "$ref": "#/$defs/xorBranch" }
++        }
+       }
+     },
+-    "decisionNode": {
++    "andNode": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["type", "kind", "processLabel", "actor", "branches"],
++      "required": ["type", "branches"],
+       "properties": {
+-        "type": { "const": "decision" },
+-        "kind": { "const": "xor" },
+-        "processLabel": { "type": "string", "minLength": 1 },
+-        "processWho": { "type": "string" },
++        "type": { "const": "and" },
++        "label": { "type": "string", "minLength": 1 },
++        "who": { "type": "string" },
+         "title": { "type": "string" },
+-        "tone": { "type": "string" },
+-        "actor": {
+-          "type": "string",
+-          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
++        "messages": {
++          "type": "array",
++          "items": { "$ref": "#/$defs/message" }
+         },
+-        "question": { "type": "string" },
+         "branches": {
+           "type": "array",
+           "minItems": 2,
+-          "items": { "$ref": "#/$defs/branch" }
++          "items": { "$ref": "#/$defs/andBranch" }
++        }
++      }
++    },
++    "joinNode": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["type", "of", "next"],
++      "properties": {
++        "type": { "const": "join" },
++        "label": { "type": "string", "minLength": 1 },
++        "of": { "type": "string", "minLength": 1 },
++        "next": { "type": "string", "minLength": 1 },
++        "messages": {
++          "type": "array",
++          "items": { "$ref": "#/$defs/message" }
++        }
++      }
++    },
++    "subprocessNode": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["type", "ref", "next"],
++      "properties": {
++        "type": { "const": "subprocess" },
++        "label": { "type": "string", "minLength": 1 },
++        "ref": { "type": "string", "minLength": 1 },
++        "next": { "type": "string", "minLength": 1 },
++        "messages": {
++          "type": "array",
++          "items": { "$ref": "#/$defs/message" }
++        }
++      }
++    },
++    "eventNode": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["type", "kind", "next"],
++      "properties": {
++        "type": { "const": "event" },
++        "label": { "type": "string", "minLength": 1 },
++        "kind": {
++          "type": "string",
++          "enum": ["timer", "error"]
++        },
++        "next": { "type": "string", "minLength": 1 },
++        "messages": {
++          "type": "array",
++          "items": { "$ref": "#/$defs/message" }
+         }
+       }
+     },
+     "endNode": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["type", "processLabel"],
++      "required": ["type"],
+       "properties": {
+         "type": { "const": "end" },
+-        "processLabel": { "type": "string", "minLength": 1 },
+-        "title": { "type": "string" },
+-        "tone": { "type": "string" }
++        "label": { "type": "string", "minLength": 1 },
++        "title": { "type": "string" }
+       }
+     },
+     "message": {
+@@ -214,37 +327,34 @@
+         "async": { "type": "boolean" }
+       }
+     },
+-    "effect": {
++    "xorBranch": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["label"],
++      "required": ["id", "when", "label", "next"],
+       "properties": {
+-        "statusTo": { "type": "number" },
+-        "label": { "type": "string", "minLength": 1 }
++        "id": { "$ref": "#/$defs/branchId" },
++        "when": { "type": "string", "minLength": 1 },
++        "label": { "type": "string", "minLength": 1 },
++        "next": { "type": "string", "minLength": 1 }
+       }
+     },
+-    "branch": {
++    "andBranch": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["id", "when", "label", "next"],
++      "required": ["next"],
+       "properties": {
+-        "id": {
+-          "type": "string",
+-          "pattern": "^[A-Za-z][A-Za-z0-9_.]*$"
+-        },
+-        "when": { "type": "string", "minLength": 1 },
++        "id": { "$ref": "#/$defs/branchId" },
+         "label": { "type": "string", "minLength": 1 },
+-        "next": { "type": "string", "minLength": 1 },
+-        "tone": { "type": "string" },
+-        "hint": { "type": "string" },
+-        "statusTo": { "type": "number" }
++        "next": { "type": "string", "minLength": 1 }
+       }
+     },
+-    "states": {
++    "machine": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["entry", "nodes", "transitions"],
++      "required": ["id", "label", "entry", "nodes", "transitions"],
+       "properties": {
++        "id": { "$ref": "#/$defs/id" },
++        "label": { "type": "string", "minLength": 1 },
+         "entry": { "type": "string", "minLength": 1 },
+         "nodes": {
+           "type": "object",
+@@ -253,29 +363,28 @@
+             "type": "string",
+             "minLength": 1
+           },
+-          "additionalProperties": { "$ref": "#/$defs/stateNode" }
++          "additionalProperties": { "$ref": "#/$defs/machineNode" }
+         },
+         "transitions": {
+           "type": "array",
+-          "items": { "$ref": "#/$defs/stateTransition" }
++          "items": { "$ref": "#/$defs/machineTransition" }
+         }
+       }
+     },
+-    "stateNode": {
++    "machineNode": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": ["label"],
+       "properties": {
+         "label": { "type": "string", "minLength": 1 },
+-        "status": { "type": "number" },
+         "description": { "type": "string" },
+         "terminal": { "type": "boolean" }
+       }
+     },
+-    "stateTransition": {
++    "machineTransition": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["id", "from", "to", "when", "label"],
++      "required": ["id", "from", "to", "when", "label", "effects"],
+       "properties": {
+         "id": { "type": "string", "minLength": 1 },
+         "from": { "type": "string", "minLength": 1 },
+@@ -283,76 +392,23 @@
+         "when": { "type": "string", "minLength": 1 },
+         "label": { "type": "string", "minLength": 1 },
+         "via": { "type": "string", "minLength": 1 },
+-        "statusTo": { "type": "number" }
+-      }
+-    },
+-    "journey": {
+-      "type": "object",
+-      "additionalProperties": false,
+-      "required": ["stages"],
+-      "description": "Residual optional layer. Not a product surface. Viewer never renders cards.",
+-      "properties": {
+-        "stages": {
+-          "type": "array",
+-          "minItems": 1,
+-          "items": { "$ref": "#/$defs/journeyStage" }
+-        },
+-        "edges": {
++        "effects": {
+           "type": "array",
+-          "items": { "$ref": "#/$defs/journeyEdge" }
++          "items": { "$ref": "#/$defs/effect" }
+         }
+       }
+     },
+-    "journeyStage": {
++    "effect": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["id", "kind", "copy"],
++      "required": ["kind", "label", "target"],
+       "properties": {
+-        "id": {
+-          "type": "string",
+-          "pattern": "^[a-z][a-z0-9-]*$"
+-        },
+         "kind": {
+           "type": "string",
+-          "enum": ["done", "main", "optional", "always"]
+-        },
+-        "mapsToPhases": {
+-          "type": "array",
+-          "items": { "type": "string" }
++          "enum": ["email", "notify", "write", "other"]
+         },
+-        "sourcedFrom": { "type": "string" },
+-        "copy": {
+-          "type": "object",
+-          "additionalProperties": false,
+-          "required": ["layperson", "developer"],
+-          "properties": {
+-            "layperson": { "$ref": "#/$defs/copyBlock" },
+-            "developer": { "$ref": "#/$defs/copyBlock" }
+-          }
+-        }
+-      }
+-    },
+-    "copyBlock": {
+-      "type": "object",
+-      "additionalProperties": false,
+-      "required": ["name", "youGain", "unlocks"],
+-      "properties": {
+-        "name": { "type": "string", "minLength": 1 },
+-        "youGain": { "type": "string", "minLength": 1 },
+-        "unlocks": { "type": "string", "minLength": 1 }
+-      }
+-    },
+-    "journeyEdge": {
+-      "type": "object",
+-      "additionalProperties": false,
+-      "required": ["from", "to", "style"],
+-      "properties": {
+-        "from": { "type": "string" },
+-        "to": { "type": "string" },
+-        "style": {
+-          "type": "string",
+-          "enum": ["solid", "dashed"]
+-        }
++        "label": { "type": "string", "minLength": 1 },
++        "target": { "type": "string", "minLength": 1 }
+       }
+     }
+   }
+diff --git a/scripts/assert-automate-gate.js b/scripts/assert-automate-gate.js
+index 95b43eb0..8e346ffb 100644
+--- a/scripts/assert-automate-gate.js
++++ b/scripts/assert-automate-gate.js
+@@ -74,6 +74,7 @@ import {
+   findPlansMissingGroundTruth,
+   groundTruthGapMessage,
+ } from './find-plans-missing-ground-truth.js';
++import { checkPlanFlow } from './find-missing-flow.js';
+ 
+ 
+ const BI_SPINE = ['value', 'workflow', 'rules', 'outOfScope', 'doneWhen'];
+@@ -820,6 +821,17 @@ export function runAssert(args, env = {}) {
+         exitCode: 1,
+       };
+     }
++    // Validated flow (Iron Law) — same detector implement Step 1 uses.
++    // process.yaml / map.html never satisfy. No operatorSkip / chat waiver.
++    const flow = checkPlanFlow(resolved.planFile, { strict: true });
++    if (!flow.ok) {
++      return {
++        ok: false,
++        message:
++          'blocked: missing/invalid validated flow; run `atomic-skills:project flow`',
++        exitCode: 1,
++      };
++    }
+     return { ok: true, message: 'ok', exitCode: 0 };
+   }
+ 
+diff --git a/scripts/creation-gates.js b/scripts/creation-gates.js
+index f48d3547..cde11e61 100644
+--- a/scripts/creation-gates.js
++++ b/scripts/creation-gates.js
+@@ -3,12 +3,13 @@
+  * creation-gates.js — helpers for monotonic `stage` on the new-plan creation
+  * run record at `.atomic-skills/status/creation-gates/<projectId>-<slug>.json`.
+  *
+- * Ordered stages (Decision 11 / assert-creation-stage + process-map Iron Law):
++ * Ordered stages (Decision 11 / assert-creation-stage):
+  *   slug → design → source → decompose-confirm → bi-ratified →
+- *   materialized → summaries → process-map → reviews → ready
++ *   materialized → summaries → reviews → ready
+  *
+- * `process-map` is mandatory (docs/kb/process-map.md): L1 process.yaml + L2 map.html
+- * before reviews/ready. Skipping it is illegal.
++ * `process-map` is not a creation stage. Readers remap leftover `process-map`
++ * receipts to `reviews` (normalizeCreationStage). Direct skip of other
++ * stages is still illegal. Ready without flow is legal.
+  *
+  * Advance is monotonic only: you may stay or move forward one-or-more steps
+  * only via `assertAdvance` / `advanceCreationStage` after the current stage
+@@ -43,7 +44,6 @@ export const CREATION_STAGES = Object.freeze([
+   'bi-ratified',
+   'materialized',
+   'summaries',
+-  'process-map',
+   'reviews',
+   'ready',
+ ]);
+@@ -52,6 +52,18 @@ export const STAGE_INDEX = Object.freeze(
+   Object.fromEntries(CREATION_STAGES.map((s, i) => [s, i])),
+ );
+ 
++/**
++ * One-shot remap: leftover creation-gate stage `process-map` reads as `reviews`.
++ * Mid-creation plans stuck on the removed cards stage advance to reviews.
++ * @param {unknown} stage
++ * @returns {string}
++ */
++export function normalizeCreationStage(stage) {
++  const s = stage == null ? '' : String(stage);
++  if (s === 'process-map') return 'reviews';
++  return s;
++}
++
+ /**
+  * Absolute path of the creation-gates receipt.
+  * @param {string} stateRoot - repo root or `.atomic-skills` root
+@@ -77,7 +89,11 @@ export function readCreationGate(pathOrRoot, projectId, slug) {
+       : resolve(pathOrRoot);
+   if (!existsSync(path)) return null;
+   try {
+-    return JSON.parse(readFileSync(path, 'utf8'));
++    const gate = JSON.parse(readFileSync(path, 'utf8'));
++    if (gate && typeof gate === 'object' && gate.stage != null) {
++      gate.stage = normalizeCreationStage(gate.stage);
++    }
++    return gate;
+   } catch (err) {
+     throw new Error(`creation-gates: corrupt receipt at ${path}: ${err.message}`);
+   }
+@@ -88,7 +104,10 @@ export function readCreationGate(pathOrRoot, projectId, slug) {
+  * @param {object} partial
+  */
+ export function buildCreationGate(partial = {}) {
+-  const stage = partial.stage != null ? String(partial.stage) : CREATION_STAGES[0];
++  const stage =
++    partial.stage != null
++      ? normalizeCreationStage(partial.stage)
++      : CREATION_STAGES[0];
+   if (!CREATION_STAGES.includes(stage)) {
+     throw new Error(
+       `creation-gates: unknown stage '${stage}' (allowed: ${CREATION_STAGES.join(', ')})`,
+@@ -145,16 +164,18 @@ export function createCreationGate(stateRoot, projectId, slug, partial = {}, opt
+  */
+ export function assertCanAdvance(fromStage, toStage, opts = {}) {
+   const allowSkip = opts.allowSkip === true;
+-  if (!CREATION_STAGES.includes(fromStage)) {
++  const from = normalizeCreationStage(fromStage);
++  const to = String(toStage);
++  if (!CREATION_STAGES.includes(from)) {
+     return { ok: false, reason: `unknown-from-stage:${fromStage}` };
+   }
+-  if (!CREATION_STAGES.includes(toStage)) {
++  if (!CREATION_STAGES.includes(to)) {
+     return { ok: false, reason: `unknown-to-stage:${toStage}` };
+   }
+-  const fromIdx = STAGE_INDEX[fromStage];
+-  const toIdx = STAGE_INDEX[toStage];
++  const fromIdx = STAGE_INDEX[from];
++  const toIdx = STAGE_INDEX[to];
+   if (toIdx < fromIdx) {
+-    return { ok: false, reason: `reverse-stage:${fromStage}->${toStage}` };
++    return { ok: false, reason: `reverse-stage:${from}->${to}` };
+   }
+   if (toIdx === fromIdx) {
+     return { ok: true };
+@@ -162,7 +183,7 @@ export function assertCanAdvance(fromStage, toStage, opts = {}) {
+   if (!allowSkip && toIdx > fromIdx + 1) {
+     return {
+       ok: false,
+-      reason: `illegal-stage-skip:${fromStage}->${toStage} (next is ${CREATION_STAGES[fromIdx + 1]})`,
++      reason: `illegal-stage-skip:${from}->${to} (next is ${CREATION_STAGES[fromIdx + 1]})`,
+     };
+   }
+   return { ok: true };
+@@ -186,7 +207,8 @@ export function advanceCreationStage(path, toStage, opts = {}) {
+   } catch (err) {
+     throw new Error(`creation-gates: corrupt ${abs}: ${err.message}`);
+   }
+-  const fromStage = gate.stage != null ? String(gate.stage) : CREATION_STAGES[0];
++  const fromStage =
++    gate.stage != null ? normalizeCreationStage(gate.stage) : CREATION_STAGES[0];
+   const check = assertCanAdvance(fromStage, toStage, opts);
+   if (!check.ok) {
+     const err = new Error(`creation-gates: ${check.reason}`);
+@@ -217,7 +239,8 @@ export function validateCreationGateStage(gate) {
+   if (gate.schemaVersion !== SCHEMA_VERSION) {
+     issues.push(`bad-schemaVersion:${gate.schemaVersion}`);
+   }
+-  if (gate.stage == null || !CREATION_STAGES.includes(String(gate.stage))) {
++  const stage = gate.stage == null ? '' : normalizeCreationStage(gate.stage);
++  if (!CREATION_STAGES.includes(stage)) {
+     issues.push(`invalid-stage:${gate.stage}`);
+   }
+   return issues;
+@@ -309,6 +332,6 @@ function main(argv) {
+   }
+ }
+ 
+-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
++if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+   main(process.argv.slice(2));
+ }
+diff --git a/scripts/find-missing-flow.js b/scripts/find-missing-flow.js
+new file mode 100644
+index 00000000..e9304722
+--- /dev/null
++++ b/scripts/find-missing-flow.js
+@@ -0,0 +1,314 @@
++#!/usr/bin/env node
++/**
++ * find-missing-flow.js — detector for plan flow artefacts.
++ *
++ * Checks plans for:
++ *   flow/flow.json   (L1, valid MODEL graph)
++ *   flow/flow.html   (L2; --strict / --check require matching content-sha)
++ *
++ * --strict (M4) also requires:
++ *   ≥1 messages, ≥1 machine with ≥1 state,
++ *   ratifiedAt set, ratifiedGraphSha == current document sha,
++ *   flow.html exists with matching content-sha.
++ *
++ * process.yaml / map.html NEVER count as success. This detector is
++ * read-only (no --ratify). Stamp writes belong to buildFlowRatification.
++ *
++ * Usage:
++ *   node scripts/find-missing-flow.js [path-to-any.md | .atomic-skills | repo]
++ *   node scripts/find-missing-flow.js --strict …
++ *   node scripts/find-missing-flow.js --check …   (alias of --strict)
++ *   node scripts/find-missing-flow.js --json …
++ *
++ * An existing *.md file (AS plan.md or foreign cutover.md) is the plan.
++ * `note: no-plans` is only for directory scans, never for a passed file.
++ *
++ * Exit 0 = all ok; exit 1 = missing/invalid; exit 2 = usage/IO.
++ */
++
++import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
++import { dirname, join, resolve } from 'node:path';
++import { pathToFileURL } from 'node:url';
++import { validateFlow } from './lib/validate-flow.js';
++import { contentFingerprint, normalizeFlow } from './lib/render-flow.js';
++
++/**
++ * @param {string} planMdPath
++ * @returns {{ planPath: string, planDir: string, flowJson: string, flowHtml: string }}
++ */
++export function flowPathsForPlan(planMdPath) {
++  const planDir = dirname(resolve(planMdPath));
++  return {
++    planPath: resolve(planMdPath),
++    planDir,
++    flowJson: join(planDir, 'flow', 'flow.json'),
++    flowHtml: join(planDir, 'flow', 'flow.html'),
++  };
++}
++
++function isNodeMap(value) {
++  return value && typeof value === 'object' && !Array.isArray(value);
++}
++
++function countMessagesInNodes(nodes) {
++  if (!isNodeMap(nodes)) return 0;
++  let n = 0;
++  for (const node of Object.values(nodes)) {
++    if (!Array.isArray(node?.messages)) continue;
++    for (const message of node.messages) {
++      if (message && typeof message === 'object') n += 1;
++    }
++  }
++  return n;
++}
++
++/**
++ * Count messages in the required document (graph + subgraphs).
++ * @param {object} doc
++ */
++export function countFlowMessages(doc) {
++  let n = countMessagesInNodes(doc?.graph?.nodes);
++  const subgraphs = doc?.graph?.subgraphs;
++  if (isNodeMap(subgraphs)) {
++    for (const subgraph of Object.values(subgraphs)) {
++      n += countMessagesInNodes(subgraph?.nodes);
++    }
++  }
++  return n;
++}
++
++/**
++ * True when machines[] has ≥1 machine with ≥1 state node.
++ * @param {object} doc
++ */
++export function hasMachineWithState(doc) {
++  if (!Array.isArray(doc?.machines)) return false;
++  return doc.machines.some(
++    (machine) =>
++      machine &&
++      typeof machine === 'object' &&
++      isNodeMap(machine.nodes) &&
++      Object.keys(machine.nodes).length >= 1,
++  );
++}
++
++/**
++ * Sha of the required document (graph + messages + machines).
++ * Matches HTML content-sha: normalizeFlow drops ratification fields.
++ * @param {object} doc
++ * @returns {string}
++ */
++export function flowDocumentSha(doc) {
++  return contentFingerprint(normalizeFlow(doc));
++}
++
++/**
++ * Read data-fl-content-sha (F1 render) or data-flow-content-sha (alias).
++ * @param {string} html
++ * @returns {string}
++ */
++export function extractHtmlContentSha(html) {
++  if (typeof html !== 'string') return '';
++  const match = html.match(/data-(?:fl|flow)-content-sha="([a-f0-9]{64})"/i);
++  return match ? match[1] : '';
++}
++
++function formatFlowError(error) {
++  if (!error) return 'invalid';
++  if (typeof error === 'string') return error;
++  return error.message ?? String(error);
++}
++
++/**
++ * @param {string} planMdPath
++ * @param {{ strict?: boolean }} [opts]
++ * @returns {{ ok: boolean, issues: string[], planPath: string }}
++ */
++export function checkPlanFlow(planMdPath, opts = {}) {
++  const strict = opts.strict === true;
++  const paths = flowPathsForPlan(planMdPath);
++  /** @type {string[]} */
++  const issues = [];
++
++  const processYaml = join(paths.planDir, 'process', 'process.yaml');
++  const mapHtml = join(paths.planDir, 'process', 'map.html');
++  const processMapPresent = existsSync(processYaml) || existsSync(mapHtml);
++
++  if (!existsSync(paths.flowJson)) {
++    issues.push(`missing L1: ${paths.flowJson}`);
++    if (processMapPresent) {
++      issues.push('process.yaml / map.html do not satisfy flow');
++    }
++    if (!existsSync(paths.flowHtml)) {
++      issues.push(`missing L2: ${paths.flowHtml}`);
++    }
++    return { ok: false, issues, planPath: paths.planPath };
++  }
++
++  let raw;
++  try {
++    raw = JSON.parse(readFileSync(paths.flowJson, 'utf8'));
++  } catch (err) {
++    issues.push(`L1 parse error: ${err instanceof Error ? err.message : String(err)}`);
++    return { ok: false, issues, planPath: paths.planPath };
++  }
++
++  const v = validateFlow(raw);
++  if (!v.valid) {
++    for (const e of v.errors) issues.push(`L1 invalid: ${formatFlowError(e)}`);
++    return { ok: false, issues, planPath: paths.planPath };
++  }
++
++  if (!raw.graph || typeof raw.graph !== 'object' || Array.isArray(raw.graph)) {
++    issues.push('L1 missing/invalid graph');
++    return { ok: false, issues, planPath: paths.planPath };
++  }
++
++  if (strict) {
++    if (countFlowMessages(raw) < 1) {
++      issues.push('L1 missing messages (need ≥1 message)');
++    }
++    if (!hasMachineWithState(raw)) {
++      issues.push('L1 missing machine with ≥1 state');
++    }
++    const ratified =
++      raw && typeof raw === 'object' && typeof raw.ratifiedAt === 'string'
++        ? raw.ratifiedAt.trim()
++        : '';
++    if (!ratified) {
++      issues.push('L1 missing ratifiedAt (flow not ratified)');
++    }
++    let expectedSha = '';
++    try {
++      expectedSha = flowDocumentSha(raw);
++    } catch (err) {
++      issues.push(
++        `L1 document sha failed: ${err instanceof Error ? err.message : String(err)}`,
++      );
++    }
++    if (expectedSha) {
++      if (typeof raw.ratifiedGraphSha !== 'string' || raw.ratifiedGraphSha !== expectedSha) {
++        issues.push('L1 ratifiedGraphSha missing or does not match current graph/doc');
++      }
++    }
++  }
++
++  if (!existsSync(paths.flowHtml)) {
++    issues.push(`missing L2: ${paths.flowHtml}`);
++  } else if (strict) {
++    try {
++      const onDisk = readFileSync(paths.flowHtml, 'utf8');
++      const htmlSha = extractHtmlContentSha(onDisk);
++      const currentSha = flowDocumentSha(raw);
++      if (!htmlSha) {
++        issues.push('L2 missing data-fl-content-sha / data-flow-content-sha');
++      } else if (htmlSha !== currentSha) {
++        issues.push(
++          `L2 content-sha drift: html ${htmlSha.slice(0, 12)}… ≠ L1 ${currentSha.slice(0, 12)}…`,
++        );
++      }
++    } catch (err) {
++      issues.push(`L2 check failed: ${err instanceof Error ? err.message : String(err)}`);
++    }
++  }
++
++  return { ok: issues.length === 0, issues, planPath: paths.planPath };
++}
++
++/**
++ * Discover plan markdown files under a root.
++ * An existing *.md file (any name — AS plan.md or foreign source.md) is the plan.
++ * Directory roots still walk nested projects/<id>/<slug>/plan.md.
++ * @param {string} root
++ * @returns {string[]}
++ */
++export function findPlanMarkdownFiles(root) {
++  const abs = resolve(root);
++  /** @type {string[]} */
++  const out = [];
++
++  if (existsSync(abs) && statSync(abs).isFile()) {
++    return /\.md$/i.test(abs) ? [abs] : [];
++  }
++
++  const projects = join(abs, 'projects');
++  const stateRoot = existsSync(projects)
++    ? abs
++    : existsSync(join(abs, '.atomic-skills', 'projects'))
++      ? join(abs, '.atomic-skills')
++      : abs;
++
++  const projectsDir = join(stateRoot, 'projects');
++  if (!existsSync(projectsDir)) return out;
++
++  for (const projectId of readdirSync(projectsDir).sort()) {
++    const pdir = join(projectsDir, projectId);
++    if (!statSync(pdir).isDirectory()) continue;
++    for (const slug of readdirSync(pdir).sort()) {
++      const planMd = join(pdir, slug, 'plan.md');
++      if (existsSync(planMd)) out.push(planMd);
++    }
++  }
++  return out;
++}
++
++/**
++ * @param {string[]} planPaths
++ * @param {{ strict?: boolean }} [opts]
++ */
++export function checkAll(planPaths, opts = {}) {
++  const results = planPaths.map((p) => checkPlanFlow(p, opts));
++  return {
++    ok: results.every((r) => r.ok),
++    results,
++  };
++}
++
++function main() {
++  const args = process.argv.slice(2);
++  const json = args.includes('--json');
++  const strict = args.includes('--strict') || args.includes('--check');
++  const positional = args.filter((a) => !a.startsWith('--'));
++  const target = positional[0] || join(process.cwd(), '.atomic-skills');
++  const resolved = existsSync(resolve(target)) ? resolve(target) : resolve(process.cwd(), target);
++
++  if (!existsSync(resolved)) {
++    console.error(`find-missing-flow: not found: ${target}`);
++    process.exit(2);
++  }
++
++  const passedFile = statSync(resolved).isFile();
++  const plans = findPlanMarkdownFiles(resolved);
++
++  if (plans.length === 0) {
++    if (passedFile) {
++      console.error(`find-missing-flow: not a plan markdown file: ${target}`);
++      process.exit(2);
++    }
++    if (json) {
++      console.log(JSON.stringify({ ok: true, results: [], note: 'no-plans' }));
++    } else {
++      console.log('find-missing-flow: no nested plan.md found (ok)');
++    }
++    process.exit(0);
++  }
++
++  const report = checkAll(plans, { strict });
++  if (json) {
++    console.log(JSON.stringify(report, null, 2));
++  } else if (report.ok) {
++    console.log(`find-missing-flow: ${plans.length} plan(s) OK`);
++  } else {
++    console.error('find-missing-flow: FAIL');
++    for (const r of report.results) {
++      if (r.ok) continue;
++      console.error(`  ${r.planPath}`);
++      for (const i of r.issues) console.error(`    - ${i}`);
++    }
++  }
++  process.exit(report.ok ? 0 : 1);
++}
++
++if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
++  main();
++}
+diff --git a/scripts/lib/flow-ratification.js b/scripts/lib/flow-ratification.js
+new file mode 100644
+index 00000000..63047c76
+--- /dev/null
++++ b/scripts/lib/flow-ratification.js
+@@ -0,0 +1,117 @@
++#!/usr/bin/env node
++/**
++ * buildFlowRatification — the only writer of ratifiedAt + ratifiedGraphSha.
++ *
++ * Pure: returns a new document. Does not mutate `doc`. The CLI (--ratify)
++ * is the disk write path used by `project flow` after show + AskUserQuestion.
++ */
++
++import { existsSync, readFileSync, writeFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { pathToFileURL } from 'node:url';
++import { validateFlow } from './validate-flow.js';
++import { flowDocumentSha } from '../find-missing-flow.js';
++
++/**
++ * Only function that writes ratifiedAt + ratifiedGraphSha on a document.
++ * Does not mutate `doc` and does not write disk.
++ *
++ * @param {object} doc
++ * @param {{ ratifiedAt?: string, ratifiedBy?: string }} [opts]
++ */
++export function buildFlowRatification(doc, opts = {}) {
++  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
++    throw new Error('buildFlowRatification: doc must be a flow object');
++  }
++  if (!doc.graph || typeof doc.graph !== 'object' || Array.isArray(doc.graph)) {
++    throw new Error('buildFlowRatification: doc.graph required');
++  }
++  const ratifiedAt =
++    opts.ratifiedAt != null && String(opts.ratifiedAt).trim()
++      ? String(opts.ratifiedAt).trim()
++      : new Date().toISOString();
++  const next = {
++    ...doc,
++    ratifiedAt,
++    ratifiedGraphSha: flowDocumentSha(doc),
++  };
++  if (opts.ratifiedBy != null) next.ratifiedBy = String(opts.ratifiedBy);
++  return next;
++}
++
++function formatFlowError(error) {
++  if (!error) return 'invalid';
++  if (typeof error === 'string') return error;
++  return error.message ?? String(error);
++}
++
++function flagValue(args, flag) {
++  const i = args.indexOf(flag);
++  if (i === -1) return undefined;
++  const v = args[i + 1];
++  if (!v || v.startsWith('--')) return undefined;
++  return v;
++}
++
++/**
++ * Read flow.json, stamp via buildFlowRatification, write back.
++ * @param {string} flowJsonPath
++ * @param {{ ratifiedBy?: string, ratifiedAt?: string }} [opts]
++ */
++export function ratifyFlowFile(flowJsonPath, opts = {}) {
++  const abs = resolve(flowJsonPath);
++  if (!existsSync(abs)) {
++    const err = new Error(`flow-ratification: not found: ${flowJsonPath}`);
++    err.exitCode = 2;
++    throw err;
++  }
++  let raw;
++  try {
++    raw = JSON.parse(readFileSync(abs, 'utf8'));
++  } catch (err) {
++    const wrapped = new Error(
++      `flow-ratification: L1 parse error: ${err instanceof Error ? err.message : String(err)}`,
++    );
++    wrapped.exitCode = 1;
++    throw wrapped;
++  }
++  const v = validateFlow(raw);
++  if (!v.valid) {
++    const wrapped = new Error(
++      `flow-ratification: L1 invalid:\n${v.errors.map((e) => `  - ${formatFlowError(e)}`).join('\n')}`,
++    );
++    wrapped.exitCode = 1;
++    throw wrapped;
++  }
++  const next = buildFlowRatification(raw, {
++    ratifiedBy: opts.ratifiedBy,
++    ratifiedAt: opts.ratifiedAt,
++  });
++  writeFileSync(abs, `${JSON.stringify(next, null, 2)}\n`);
++  return next;
++}
++
++function main(argv) {
++  if (argv.includes('--ratify')) {
++    const flowJson = flagValue(argv, '--ratify');
++    if (!flowJson) {
++      console.error('usage: flow-ratification.js --ratify <flow.json> [--ratified-by <who>]');
++      process.exit(2);
++    }
++    try {
++      const next = ratifyFlowFile(flowJson, { ratifiedBy: flagValue(argv, '--ratified-by') });
++      console.log(`flow-ratification: ratified ${resolve(flowJson)}`);
++      console.log(`ratifiedGraphSha ${next.ratifiedGraphSha}`);
++      process.exit(0);
++    } catch (err) {
++      console.error(err instanceof Error ? err.message : String(err));
++      process.exit(err && typeof err === 'object' && 'exitCode' in err ? err.exitCode : 1);
++    }
++  }
++  console.error('usage: flow-ratification.js --ratify <flow.json> [--ratified-by <who>]');
++  process.exit(2);
++}
++
++if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
++  main(process.argv.slice(2));
++}
+diff --git a/scripts/lib/render-flow.js b/scripts/lib/render-flow.js
+new file mode 100644
+index 00000000..41ca1804
+--- /dev/null
++++ b/scripts/lib/render-flow.js
+@@ -0,0 +1,534 @@
++/**
++ * Pure renderer: flow MODEL object → self-contained HTML.
++ *
++ * Three surfaces: sequence (messages[]), BPM (graph nodes), machines (FSMs).
++ * Determinism: same normalized input + same dsCss → byte-identical HTML.
++ * No timestamps, random IDs, or absolute paths in the output.
++ */
++
++import { createHash } from 'node:crypto';
++import { assertValidFlow, SCHEMA_VERSION } from './validate-flow.js';
++import { escapeHtml } from './render-site.js';
++
++const NEXT_TYPES = new Set(['activity', 'join', 'subprocess', 'event']);
++const BRANCH_TYPES = new Set(['xor', 'and']);
++
++/**
++ * @param {string} text
++ */
++export function sha256(text) {
++  return createHash('sha256').update(text, 'utf8').digest('hex');
++}
++
++/**
++ * Canonical JSON stringify: sorted object keys, arrays as given.
++ * @param {unknown} value
++ */
++export function stableStringify(value) {
++  return JSON.stringify(value, (_, v) => {
++    if (v && typeof v === 'object' && !Array.isArray(v)) {
++      const sorted = {};
++      for (const k of Object.keys(v).sort()) sorted[k] = v[k];
++      return sorted;
++    }
++    return v;
++  });
++}
++
++/**
++ * @param {object} normalized
++ */
++export function contentFingerprint(normalized) {
++  return sha256(stableStringify(normalized));
++}
++
++function isNodeMap(value) {
++  return value && typeof value === 'object' && !Array.isArray(value);
++}
++
++function neighborIds(node) {
++  if (!node || typeof node !== 'object') return [];
++  if (NEXT_TYPES.has(node.type) && typeof node.next === 'string') return [node.next];
++  if (BRANCH_TYPES.has(node.type) && Array.isArray(node.branches)) {
++    return node.branches
++      .map((branch) => branch?.next)
++      .filter((next) => typeof next === 'string');
++  }
++  return [];
++}
++
++/**
++ * Visit order: BFS from entry, then leftover ids sorted.
++ * @param {string} entry
++ * @param {Record<string, object>} nodes
++ * @returns {string[]}
++ */
++export function walkNodeIds(entry, nodes) {
++  if (!isNodeMap(nodes)) return [];
++  const order = [];
++  const seen = new Set();
++  const queue = typeof entry === 'string' ? [entry] : [];
++  while (queue.length) {
++    const id = queue.shift();
++    if (!id || seen.has(id) || !nodes[id]) continue;
++    seen.add(id);
++    order.push(id);
++    queue.push(...neighborIds(nodes[id]));
++  }
++  for (const id of Object.keys(nodes).sort()) {
++    if (!seen.has(id)) order.push(id);
++  }
++  return order;
++}
++
++function trimString(value) {
++  return typeof value === 'string' ? value.trim() : '';
++}
++
++function normalizeMessages(messages) {
++  if (!Array.isArray(messages)) return [];
++  return messages
++    .filter((m) => m && typeof m === 'object')
++    .map((m) => ({
++      from: trimString(m.from),
++      to: trimString(m.to),
++      text: trimString(m.text),
++      async: m.async === true,
++    }));
++}
++
++function normalizeBranches(branches) {
++  if (!Array.isArray(branches)) return [];
++  return branches
++    .filter((b) => b && typeof b === 'object')
++    .map((b) => ({
++      id: trimString(b.id),
++      when: trimString(b.when),
++      label: trimString(b.label),
++      next: trimString(b.next),
++    }));
++}
++
++function normalizeGraphNode(node) {
++  const type = trimString(node.type);
++  const out = {
++    type,
++    label: trimString(node.label),
++    who: trimString(node.who),
++    title: trimString(node.title),
++    messages: normalizeMessages(node.messages),
++  };
++  if (NEXT_TYPES.has(type)) out.next = trimString(node.next);
++  if (BRANCH_TYPES.has(type)) out.branches = normalizeBranches(node.branches);
++  if (type === 'xor') out.question = trimString(node.question);
++  if (type === 'join') out.of = trimString(node.of);
++  if (type === 'subprocess') out.ref = trimString(node.ref);
++  if (type === 'event') out.kind = trimString(node.kind);
++  return out;
++}
++
++function normalizeNodeMap(nodes) {
++  if (!isNodeMap(nodes)) return {};
++  const out = {};
++  for (const [id, node] of Object.entries(nodes)) {
++    if (!node || typeof node !== 'object') continue;
++    out[id] = normalizeGraphNode(node);
++  }
++  return out;
++}
++
++function normalizeActors(actors) {
++  if (!Array.isArray(actors)) return [];
++  return actors
++    .filter((a) => a && typeof a === 'object')
++    .map((a) => ({
++      id: trimString(a.id),
++      label: trimString(a.label),
++      kind: trimString(a.kind),
++    }));
++}
++
++function normalizeMachines(machines) {
++  if (!Array.isArray(machines)) return [];
++  return machines
++    .filter((m) => m && typeof m === 'object')
++    .map((m) => {
++      const nodes = {};
++      if (isNodeMap(m.nodes)) {
++        for (const [id, node] of Object.entries(m.nodes)) {
++          if (!node || typeof node !== 'object') continue;
++          nodes[id] = {
++            label: trimString(node.label),
++            terminal: node.terminal === true,
++          };
++        }
++      }
++      const transitions = Array.isArray(m.transitions)
++        ? m.transitions
++            .filter((t) => t && typeof t === 'object')
++            .map((t) => ({
++              id: trimString(t.id),
++              from: trimString(t.from),
++              to: trimString(t.to),
++              when: trimString(t.when),
++              label: trimString(t.label),
++              via: trimString(t.via),
++              effects: Array.isArray(t.effects)
++                ? t.effects
++                    .filter((e) => e && typeof e === 'object')
++                    .map((e) => ({
++                      kind: trimString(e.kind),
++                      label: trimString(e.label),
++                      target: trimString(e.target),
++                    }))
++                : [],
++            }))
++        : [];
++      return {
++        id: trimString(m.id),
++        label: trimString(m.label),
++        entry: trimString(m.entry),
++        nodes,
++        transitions,
++      };
++    });
++}
++
++/**
++ * Normalize a validated flow document for rendering + fingerprint.
++ * @param {object} raw
++ */
++export function normalizeFlow(raw) {
++  const doc = assertValidFlow(raw);
++  const subgraphs = {};
++  if (isNodeMap(doc.graph?.subgraphs)) {
++    for (const [id, sub] of Object.entries(doc.graph.subgraphs)) {
++      if (!sub || typeof sub !== 'object') continue;
++      subgraphs[id] = {
++        entry: trimString(sub.entry),
++        nodes: normalizeNodeMap(sub.nodes),
++      };
++    }
++  }
++  return {
++    schemaVersion: SCHEMA_VERSION,
++    planSlug: trimString(doc.planSlug),
++    title: trimString(doc.title) || trimString(doc.planSlug),
++    scenario: trimString(doc.scenario),
++    actor: trimString(doc.actor),
++    audience: trimString(doc.audience) || 'developer',
++    youAreHere: trimString(doc.youAreHere) || null,
++    actors: normalizeActors(doc.actors),
++    graph: {
++      entry: trimString(doc.graph.entry),
++      nodes: normalizeNodeMap(doc.graph.nodes),
++      subgraphs,
++    },
++    machines: normalizeMachines(doc.machines),
++  };
++}
++
++function actorLabel(actors, id) {
++  const found = actors.find((a) => a.id === id);
++  return found?.label || id;
++}
++
++function collectSequence(normalized) {
++  const items = [];
++  const { nodes, entry, subgraphs } = normalized.graph;
++  const walk = (nodeMap, start, scope) => {
++    for (const nodeId of walkNodeIds(start, nodeMap)) {
++      const node = nodeMap[nodeId];
++      if (!node) continue;
++      for (const message of node.messages) {
++        items.push({
++          ...message,
++          nodeId,
++          scope,
++        });
++      }
++    }
++  };
++  walk(nodes, entry, 'graph');
++  for (const [subId, sub] of Object.entries(subgraphs)) {
++    walk(sub.nodes, sub.entry, subId);
++  }
++  return items;
++}
++
++/** Layout CSS — tokens from inlined ds.css only. Classes are fl-* (not a ds- prefix). */
++export const FLOW_CSS = `/* flow layout — tokens from inlined ds.css only */
++.fl-shell{max-width:1080px;margin:0 auto;padding:var(--space-12) var(--space-10) var(--space-24);font-family:var(--font-sans);color:var(--fg-default)}
++.fl-header{display:flex;flex-direction:column;gap:var(--space-6);margin-bottom:var(--space-12);padding-bottom:var(--space-10);border-bottom:1px solid var(--border-default)}
++.fl-eyebrow{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-subtle);letter-spacing:var(--tracking-wide);text-transform:uppercase}
++.fl-title{margin:0;font-size:var(--fs-3xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight);line-height:var(--lh-tight)}
++.fl-scenario{margin:0;color:var(--fg-muted);font-size:var(--fs-md);line-height:var(--lh-relaxed);max-width:68ch}
++.fl-meta{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center}
++.fl-meta span{font-size:var(--fs-sm);color:var(--fg-subtle)}
++.fl-meta strong{color:var(--fg-muted);font-weight:var(--fw-medium)}
++.fl-toc{display:flex;flex-wrap:wrap;gap:var(--space-4);margin:var(--space-4) 0 0;padding:0;list-style:none}
++.fl-toc a{display:inline-flex;align-items:center;height:30px;padding:0 var(--space-6);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font-size:var(--fs-sm);font-weight:var(--fw-medium);text-decoration:none}
++.fl-toc a:hover,.fl-toc a:focus-visible{color:var(--status-info);border-color:var(--status-info-line);text-decoration:none}
++.fl-toc a:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
++.fl-surface{margin:var(--space-12) 0;padding:var(--space-10);background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);border-left-width:4px}
++.fl-surface h2{margin:0 0 var(--space-8);font-size:var(--fs-xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight)}
++.fl-lede{margin:0 0 var(--space-8);color:var(--fg-muted);font-size:var(--fs-sm);line-height:var(--lh-relaxed)}
++.fl-sequence{border-left-color:var(--status-info)}
++.fl-bpm{border-left-color:var(--status-warning)}
++.fl-machines{border-left-color:var(--status-success)}
++.fl-messages,.fl-nodes,.fl-states,.fl-transitions,.fl-effects,.fl-branches{margin:0;padding:0;list-style:none}
++.fl-msg{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:var(--space-3) var(--space-4);align-items:start;padding:var(--space-6) 0;border-top:1px solid var(--border-subtle)}
++.fl-msg:first-child{border-top:0;padding-top:0}
++.fl-msg-from,.fl-msg-to{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--status-info)}
++.fl-msg-to{text-align:right}
++.fl-msg-arrow{color:var(--fg-faint);font-size:var(--fs-sm)}
++.fl-msg-text{grid-column:1/-1;margin:0;color:var(--fg-default);font-size:var(--fs-sm);line-height:var(--lh-snug)}
++.fl-msg[data-async="true"] .fl-msg-text{color:var(--fg-muted)}
++.fl-nodes{display:flex;flex-direction:column;gap:var(--space-6)}
++.fl-node{position:relative;padding:var(--space-8);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-lg)}
++.fl-node[data-node-type="xor"]{border-color:var(--status-warning-line)}
++.fl-node[data-node-type="and"]{border-color:var(--status-info-line)}
++.fl-node[data-node-type="end"]{border-color:var(--status-success-line)}
++.fl-node[data-node-type="event"]{border-color:var(--status-error-line)}
++.fl-node-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4);margin-bottom:var(--space-3)}
++.fl-node-type{display:inline-flex;align-items:center;height:22px;padding:0 var(--space-5);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-sunken);color:var(--fg-muted);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:var(--fw-medium);letter-spacing:var(--tracking-wide);text-transform:uppercase}
++.fl-node-label{margin:0;font-size:var(--fs-md);font-weight:var(--fw-semibold)}
++.fl-node-who,.fl-node-next,.fl-node-meta{margin:var(--space-2) 0 0;font-size:var(--fs-xs);color:var(--fg-subtle);font-family:var(--font-mono)}
++.fl-branches{display:flex;flex-direction:column;gap:var(--space-3);margin-top:var(--space-4)}
++.fl-branch{padding:var(--space-4) var(--space-5);border-radius:var(--radius-md);background:var(--bg-sunken);border:1px solid var(--border-subtle);font-size:var(--fs-sm)}
++.fl-machine{margin:0 0 var(--space-10);padding:var(--space-8);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-lg)}
++.fl-machine:last-child{margin-bottom:0}
++.fl-machine h3{margin:0 0 var(--space-6);font-size:var(--fs-lg)}
++.fl-states{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-bottom:var(--space-6)}
++.fl-state{display:inline-flex;align-items:center;height:26px;padding:0 var(--space-5);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-sunken);font-size:var(--fs-xs)}
++.fl-state[data-terminal="true"]{border-color:var(--status-success-line);color:var(--status-success)}
++.fl-tr{padding:var(--space-6) 0;border-top:1px solid var(--border-subtle)}
++.fl-tr-edge{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-subtle)}
++.fl-tr-label{display:block;margin:var(--space-2) 0;font-size:var(--fs-sm);font-weight:var(--fw-medium)}
++.fl-effect{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:baseline;margin-top:var(--space-3);font-size:var(--fs-sm)}
++.fl-kind{font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--status-info)}
++.fl-target{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-muted)}
++.fl-empty{margin:0;color:var(--fg-subtle);font-size:var(--fs-sm)}
++.fl-footer{margin-top:var(--space-16);padding-top:var(--space-10);border-top:1px solid var(--border-default);font-size:var(--fs-xs);color:var(--fg-faint);font-family:var(--font-mono)}
++@media (max-width:560px){.fl-shell{padding:var(--space-8) var(--space-6) var(--space-16)}.fl-title{font-size:var(--fs-2xl)}.fl-msg{grid-template-columns:1fr}}
++`;
++
++function finalizeHtml(html) {
++  return html
++    .replace(/\r\n/g, '\n')
++    .split('\n')
++    .map((line) => line.replace(/[ \t]+$/g, ''))
++    .join('\n')
++    .replace(/\n+$/g, '\n');
++}
++
++function renderSequence(normalized) {
++  const items = collectSequence(normalized);
++  if (!items.length) {
++    return `<p class="fl-empty">Nenhuma mensagem neste fluxo.</p>`;
++  }
++  return `<ol class="fl-messages">
++${items
++  .map((msg) => {
++    const fromLabel = actorLabel(normalized.actors, msg.from);
++    const toLabel = actorLabel(normalized.actors, msg.to);
++    return `<li class="fl-msg" data-from="${escapeHtml(msg.from)}" data-to="${escapeHtml(msg.to)}" data-async="${msg.async ? 'true' : 'false'}" data-node="${escapeHtml(msg.nodeId)}">
++  <span class="fl-msg-from">${escapeHtml(fromLabel)}</span>
++  <span class="fl-msg-arrow" aria-hidden="true">→</span>
++  <span class="fl-msg-to">${escapeHtml(toLabel)}</span>
++  <p class="fl-msg-text">${escapeHtml(msg.text)}</p>
++</li>`;
++  })
++  .join('\n')}
++</ol>`;
++}
++
++function renderBpmNode(id, node) {
++  const type = node.type;
++  const label = node.label || node.question || id;
++  const who = node.who
++    ? `<p class="fl-node-who">${escapeHtml(node.who)}</p>`
++    : '';
++  let extra = '';
++  if (NEXT_TYPES.has(type) && node.next) {
++    extra += `<p class="fl-node-next" data-next="${escapeHtml(node.next)}">→ ${escapeHtml(node.next)}</p>`;
++  }
++  if (type === 'join' && node.of) {
++    extra += `<p class="fl-node-meta">join of ${escapeHtml(node.of)}</p>`;
++  }
++  if (type === 'subprocess' && node.ref) {
++    extra += `<p class="fl-node-meta">subprocess ${escapeHtml(node.ref)}</p>`;
++  }
++  if (type === 'event' && node.kind) {
++    extra += `<p class="fl-node-meta">${escapeHtml(node.kind)}</p>`;
++  }
++  if (BRANCH_TYPES.has(type) && node.branches.length) {
++    extra += `<ul class="fl-branches">
++${node.branches
++  .map(
++    (branch) =>
++      `<li class="fl-branch" data-branch-id="${escapeHtml(branch.id)}" data-next="${escapeHtml(branch.next)}"><strong>${escapeHtml(branch.label || branch.when || branch.id)}</strong> → ${escapeHtml(branch.next)}</li>`
++  )
++  .join('\n')}
++</ul>`;
++  }
++  const nextAttr = node.next ? ` data-next="${escapeHtml(node.next)}"` : '';
++  return `<li class="fl-node" data-node-id="${escapeHtml(id)}" data-node-type="${escapeHtml(type)}"${nextAttr}>
++  <div class="fl-node-head">
++    <span class="fl-node-type">${escapeHtml(type)}</span>
++    <h3 class="fl-node-label">${escapeHtml(label)}</h3>
++  </div>
++  ${who}
++  ${extra}
++</li>`;
++}
++
++function renderBpm(normalized) {
++  const { nodes, entry, subgraphs } = normalized.graph;
++  const ids = walkNodeIds(entry, nodes);
++  const main = ids
++    .map((id) => renderBpmNode(id, nodes[id]))
++    .join('\n');
++  let subs = '';
++  for (const [subId, sub] of Object.entries(subgraphs)) {
++    const subIds = walkNodeIds(sub.entry, sub.nodes);
++    subs += `<li class="fl-node" data-node-type="subprocess" data-subgraph="${escapeHtml(subId)}">
++  <div class="fl-node-head"><span class="fl-node-type">subprocess</span><h3 class="fl-node-label">${escapeHtml(subId)}</h3></div>
++  <ol class="fl-nodes">
++${subIds.map((id) => renderBpmNode(id, sub.nodes[id])).join('\n')}
++  </ol>
++</li>`;
++  }
++  return `<ol class="fl-nodes">
++${main}
++${subs}
++</ol>`;
++}
++
++function renderMachines(normalized) {
++  if (!normalized.machines.length) {
++    return `<p class="fl-empty">Nenhuma machine neste fluxo.</p>`;
++  }
++  return normalized.machines
++    .map((machine) => {
++      const stateIds = Object.keys(machine.nodes);
++      const states = stateIds
++        .map((id) => {
++          const st = machine.nodes[id];
++          return `<li class="fl-state" data-state-id="${escapeHtml(id)}" data-terminal="${st.terminal ? 'true' : 'false'}">${escapeHtml(st.label || id)}</li>`;
++        })
++        .join('');
++      const transitions = machine.transitions
++        .map((tr) => {
++          const effects = tr.effects.length
++            ? `<ul class="fl-effects">
++${tr.effects
++  .map(
++    (ef) =>
++      `<li class="fl-effect" data-effect-kind="${escapeHtml(ef.kind)}" data-effect-target="${escapeHtml(ef.target)}"><span class="fl-kind">${escapeHtml(ef.kind)}</span> <span class="fl-effect-label">${escapeHtml(ef.label)}</span> <span class="fl-target">${escapeHtml(ef.target)}</span></li>`
++  )
++  .join('\n')}
++</ul>`
++            : '';
++          return `<li class="fl-tr" data-transition-id="${escapeHtml(tr.id)}" data-from="${escapeHtml(tr.from)}" data-to="${escapeHtml(tr.to)}">
++  <span class="fl-tr-edge">${escapeHtml(tr.from)} → ${escapeHtml(tr.to)}</span>
++  <span class="fl-tr-label">${escapeHtml(tr.label)}</span>
++  ${effects}
++</li>`;
++        })
++        .join('\n');
++      return `<article class="fl-machine" data-machine-id="${escapeHtml(machine.id)}">
++  <h3>${escapeHtml(machine.label || machine.id)}</h3>
++  <ol class="fl-states">${states}</ol>
++  <ol class="fl-transitions">
++${transitions}
++  </ol>
++</article>`;
++    })
++    .join('\n');
++}
++
++/**
++ * @param {object} normalized
++ * @param {string} dsCss
++ * @returns {string}
++ */
++export function renderFlowHtml(normalized, dsCss) {
++  if (
++    typeof dsCss !== 'string' ||
++    !dsCss.includes('--bg-canvas') ||
++    !dsCss.includes('--fg-default')
++  ) {
++    throw new Error('dsCss must include --bg-canvas and --fg-default from site/assets/ds.css');
++  }
++  const fp = contentFingerprint(normalized);
++  const styleBlock = `${dsCss.trim()}\n\n${FLOW_CSS.trim()}`;
++  const title = `Fluxo — ${normalized.title}`;
++
++  const html = `<!DOCTYPE html>
++<html lang="pt-BR" data-fl-slug="${escapeHtml(normalized.planSlug)}" data-fl-content-sha="${escapeHtml(fp)}">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>${escapeHtml(title)}</title>
++<style>
++${styleBlock}
++</style>
++</head>
++<body>
++<div class="fl-shell">
++  <header class="fl-header">
++    <p class="fl-eyebrow">Fluxo operacional · 3 camadas</p>
++    <h1 class="fl-title">${escapeHtml(normalized.title)}</h1>
++    <p class="fl-scenario">${escapeHtml(normalized.scenario)}</p>
++    <div class="fl-meta">
++      <span><strong>Ator:</strong> ${escapeHtml(normalized.actor)}</span>
++      <span><strong>Plano:</strong> ${escapeHtml(normalized.planSlug)}</span>
++    </div>
++    <nav class="fl-toc" role="navigation" aria-label="Camadas do fluxo">
++      <a href="#fl-sequence">Sequência</a>
++      <a href="#fl-bpm">Fluxo BPM</a>
++      <a href="#fl-machines">Máquinas</a>
++    </nav>
++  </header>
++  <section id="fl-sequence" class="fl-surface fl-sequence" role="region" data-surface="sequence" aria-labelledby="fl-sequence-title">
++    <h2 id="fl-sequence-title">Sequência</h2>
++    <p class="fl-lede">Conversa (messages) entre atores. Pode narrar interface.</p>
++    ${renderSequence(normalized)}
++  </section>
++  <section id="fl-bpm" class="fl-surface fl-bpm" role="region" data-surface="bpm" aria-labelledby="fl-bpm-title">
++    <h2 id="fl-bpm-title">Fluxo BPM</h2>
++    <p class="fl-lede">Atividades de negócio: activity, xor, and, join, subprocess, event, end.</p>
++    ${renderBpm(normalized)}
++  </section>
++  <section id="fl-machines" class="fl-surface fl-machines" role="region" data-surface="machines" aria-labelledby="fl-machines-title">
++    <h2 id="fl-machines-title">Máquinas</h2>
++    <p class="fl-lede">Estados e transições. Cada efeito mostra kind, label e target.</p>
++    ${renderMachines(normalized)}
++  </section>
++  <footer class="fl-footer">
++    content-sha ${escapeHtml(fp.slice(0, 16))} · schema ${escapeHtml(SCHEMA_VERSION)}
++  </footer>
++</div>
++</body>
++</html>
++`;
++
++  return finalizeHtml(html);
++}
++
++/**
++ * Validate → normalize → render. Throws on invalid data.
++ * @param {unknown} raw
++ * @param {string} dsCss
++ */
++export function buildFlowHtml(raw, dsCss) {
++  const normalized = normalizeFlow(raw);
++  return {
++    html: renderFlowHtml(normalized, dsCss),
++    normalized,
++    contentSha: contentFingerprint(normalized),
++  };
++}
++
++export { SCHEMA_VERSION };
+diff --git a/scripts/lib/validate-flow.js b/scripts/lib/validate-flow.js
+index 46a9cddc..ec489f42 100644
+--- a/scripts/lib/validate-flow.js
++++ b/scripts/lib/validate-flow.js
+@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
+ import { dirname, join } from 'node:path';
+ import { fileURLToPath } from 'node:url';
+ import Ajv from 'ajv/dist/2020.js';
+-import { IMPLEMENTATION_TOKEN_RE } from './render-process-map.js';
+ 
+ const __dirname = dirname(fileURLToPath(import.meta.url));
+ const schemaPath = join(__dirname, '..', '..', 'meta', 'schemas', 'flow.schema.json');
+@@ -12,6 +11,10 @@ const ajv = new Ajv({ allErrors: true, strict: false });
+ const validate = ajv.compile(schema);
+ 
+ export const SCHEMA_VERSION = '1.0';
++export const SUBGRAPH_MAX_DEPTH = 8;
++
++const NEXT_TYPES = new Set(['activity', 'join', 'subprocess', 'event']);
++const BRANCH_TYPES = new Set(['xor', 'and']);
+ 
+ function formatValidationError(error) {
+   const location = error.instancePath || '/';
+@@ -42,21 +45,14 @@ function actorIds(doc) {
+   return ids;
+ }
+ 
+-function collectBranchIds(nodes) {
+-  const ids = new Set();
+-  for (const node of Object.values(nodes)) {
+-    if (node?.type !== 'decision' || !Array.isArray(node.branches)) continue;
+-    for (const branch of node.branches) {
+-      if (typeof branch?.id === 'string') ids.add(branch.id);
+-    }
+-  }
+-  return ids;
++function isNodeMap(value) {
++  return value && typeof value === 'object' && !Array.isArray(value);
+ }
+ 
+ function neighbors(node) {
+   if (!node || typeof node !== 'object') return [];
+-  if (node.type === 'sequence' && typeof node.next === 'string') return [node.next];
+-  if (node.type === 'decision' && Array.isArray(node.branches)) {
++  if (NEXT_TYPES.has(node.type) && typeof node.next === 'string') return [node.next];
++  if (BRANCH_TYPES.has(node.type) && Array.isArray(node.branches)) {
+     return node.branches
+       .map((branch) => branch?.next)
+       .filter((next) => typeof next === 'string');
+@@ -76,81 +72,114 @@ function reachableFrom(entry, nodes) {
+   return seen;
+ }
+ 
+-function graphErrors(doc) {
+-  const errors = [];
+-  const actors = actorIds(doc);
+-  const seenActorIds = new Set();
+-  if (Array.isArray(doc.actors)) {
+-    doc.actors.forEach((actor, i) => {
+-      const id = actor?.id;
+-      if (typeof id !== 'string') return;
+-      if (seenActorIds.has(id)) {
+-        errors.push(err(`/actors/${i}/id`, 'uniqueActorId', `duplicate actor id '${id}'`, { id }));
+-      } else {
+-        seenActorIds.add(id);
+-      }
+-    });
++function collectXorBranchIds(nodes, into) {
++  if (!isNodeMap(nodes)) return;
++  for (const node of Object.values(nodes)) {
++    if (node?.type !== 'xor' || !Array.isArray(node.branches)) continue;
++    for (const branch of node.branches) {
++      if (typeof branch?.id === 'string') into.add(branch.id);
++    }
++  }
++}
++
++function documentXorBranchIds(doc) {
++  const ids = new Set();
++  collectXorBranchIds(doc?.graph?.nodes, ids);
++  const subgraphs = doc?.graph?.subgraphs;
++  if (isNodeMap(subgraphs)) {
++    for (const subgraph of Object.values(subgraphs)) {
++      collectXorBranchIds(subgraph?.nodes, ids);
++    }
+   }
++  return ids;
++}
+ 
+-  const graph = doc.graph;
+-  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return errors;
+-  const nodes = graph.nodes && typeof graph.nodes === 'object' && !Array.isArray(graph.nodes)
+-    ? graph.nodes
+-    : null;
+-  if (!nodes) return errors;
++function subgraphIds(doc) {
++  const ids = new Set();
++  const subgraphs = doc?.graph?.subgraphs;
++  if (!isNodeMap(subgraphs)) return ids;
++  for (const id of Object.keys(subgraphs)) ids.add(id);
++  return ids;
++}
++
++function validateMessages(basePath, node, actors, errors) {
++  if (!Array.isArray(node?.messages)) return;
++  node.messages.forEach((message, i) => {
++    for (const field of ['from', 'to']) {
++      const ref = message?.[field];
++      if (typeof ref === 'string' && !actors.has(ref)) {
++        errors.push(err(
++          `${basePath}/messages/${i}/${field}`,
++          'actorRef',
++          `actor '${ref}' is not declared in actors[]`,
++          { actor: ref },
++        ));
++      }
++    }
++  });
++}
++
++function validateNodeMap(basePath, nodes, entry, ctx) {
++  const { actors, subgraphs, errors } = ctx;
+   const nodeIds = new Set(Object.keys(nodes));
+ 
+-  if (typeof graph.entry === 'string' && !nodeIds.has(graph.entry)) {
+-    errors.push(err('/graph/entry', 'entryExists', `entry '${graph.entry}' is not a graph node`, {
+-      entry: graph.entry,
+-    }));
++  if (typeof entry === 'string' && !nodeIds.has(entry)) {
++    errors.push(err(
++      `${basePath}/entry`,
++      'entryExists',
++      `entry '${entry}' is not a graph node`,
++      { entry },
++    ));
+   }
+ 
+-  const seenBranchIds = new Set();
++  const seenBranchIds = ctx.seenBranchIds;
++
+   for (const [id, node] of Object.entries(nodes)) {
+     if (!node || typeof node !== 'object') continue;
++    const nodePath = `${basePath}/nodes/${id}`;
++
++    validateMessages(nodePath, node, actors, errors);
++
++    if (NEXT_TYPES.has(node.type) && typeof node.next === 'string' && !nodeIds.has(node.next)) {
++      errors.push(err(
++        `${nodePath}/next`,
++        'nextExists',
++        `next '${node.next}' is not a graph node`,
++        { next: node.next },
++      ));
++    }
+ 
+-    if (node.type === 'sequence') {
+-      if (typeof node.next === 'string' && !nodeIds.has(node.next)) {
++    if (node.type === 'join') {
++      const of = node.of;
++      if (typeof of === 'string' && nodes[of]?.type !== 'and') {
+         errors.push(err(
+-          `/graph/nodes/${id}/next`,
+-          'nextExists',
+-          `next '${node.next}' is not a graph node`,
+-          { next: node.next },
++          `${nodePath}/of`,
++          'joinOfAnd',
++          `join '${id}' of '${of}' must name an and node`,
++          { of },
+         ));
+       }
+-      if (Array.isArray(node.messages)) {
+-        node.messages.forEach((message, i) => {
+-          for (const field of ['from', 'to']) {
+-            const ref = message?.[field];
+-            if (typeof ref === 'string' && !actors.has(ref)) {
+-              errors.push(err(
+-                `/graph/nodes/${id}/messages/${i}/${field}`,
+-                'actorRef',
+-                `actor '${ref}' is not declared in actors[]`,
+-                { actor: ref },
+-              ));
+-            }
+-          }
+-        });
+-      }
+     }
+ 
+-    if (node.type === 'decision') {
+-      if (typeof node.actor === 'string' && !actors.has(node.actor)) {
++    if (node.type === 'subprocess') {
++      const ref = node.ref;
++      if (typeof ref === 'string' && !subgraphs.has(ref)) {
+         errors.push(err(
+-          `/graph/nodes/${id}/actor`,
+-          'actorRef',
+-          `actor '${node.actor}' is not declared in actors[]`,
+-          { actor: node.actor },
++          `${nodePath}/ref`,
++          'subgraphRef',
++          `subprocess.ref '${ref}' is not in subgraphs`,
++          { ref },
+         ));
+       }
++    }
++
++    if (BRANCH_TYPES.has(node.type)) {
+       const branches = Array.isArray(node.branches) ? node.branches : [];
+       if (branches.length < 2) {
+         errors.push(err(
+-          `/graph/nodes/${id}/branches`,
+-          'xorMinBranches',
+-          `xor decision '${id}' must have at least 2 branches`,
++          `${nodePath}/branches`,
++          node.type === 'xor' ? 'xorMinBranches' : 'andMinBranches',
++          `${node.type} '${id}' must have at least 2 branches`,
+           { count: branches.length },
+         ));
+       }
+@@ -158,18 +187,18 @@ function graphErrors(doc) {
+       branches.forEach((branch, i) => {
+         if (typeof branch?.next === 'string' && !nodeIds.has(branch.next)) {
+           errors.push(err(
+-            `/graph/nodes/${id}/branches/${i}/next`,
++            `${nodePath}/branches/${i}/next`,
+             'nextExists',
+             `next '${branch.next}' is not a graph node`,
+             { next: branch.next },
+           ));
+         }
+-        if (typeof branch?.when === 'string') {
++        if (node.type === 'xor' && typeof branch?.when === 'string') {
+           if (whens.has(branch.when)) {
+             errors.push(err(
+-              `/graph/nodes/${id}/branches/${i}/when`,
++              `${nodePath}/branches/${i}/when`,
+               'uniqueWhen',
+-              `duplicate when '${branch.when}' on decision '${id}'`,
++              `duplicate when '${branch.when}' on xor '${id}'`,
+               { when: branch.when },
+             ));
+           } else {
+@@ -179,7 +208,7 @@ function graphErrors(doc) {
+         if (typeof branch?.id === 'string') {
+           if (seenBranchIds.has(branch.id)) {
+             errors.push(err(
+-              `/graph/nodes/${id}/branches/${i}/id`,
++              `${nodePath}/branches/${i}/id`,
+               'uniqueBranchId',
+               `duplicate branch id '${branch.id}'`,
+               { id: branch.id },
+@@ -192,12 +221,12 @@ function graphErrors(doc) {
+     }
+   }
+ 
+-  if (typeof graph.entry === 'string' && nodeIds.has(graph.entry)) {
+-    const reached = reachableFrom(graph.entry, nodes);
++  if (typeof entry === 'string' && nodeIds.has(entry)) {
++    const reached = reachableFrom(entry, nodes);
+     for (const id of nodeIds) {
+       if (!reached.has(id)) {
+         errors.push(err(
+-          `/graph/nodes/${id}`,
++          `${basePath}/nodes/${id}`,
+           'reachable',
+           `node '${id}' is not reachable from entry`,
+           { id },
+@@ -205,122 +234,169 @@ function graphErrors(doc) {
+       }
+     }
+   }
++}
+ 
+-  const branchIds = collectBranchIds(nodes);
+-  const states = doc.states;
+-  if (states && typeof states === 'object' && !Array.isArray(states)) {
+-    const stateIds = new Set(Object.keys(states.nodes && typeof states.nodes === 'object' ? states.nodes : {}));
+-    if (typeof states.entry === 'string' && !stateIds.has(states.entry)) {
+-      errors.push(err(
+-        '/states/entry',
+-        'stateEntryExists',
+-        `states.entry '${states.entry}' is not a state node`,
+-        { entry: states.entry },
+-      ));
++function walkSubgraphDepth(ref, subgraphs, stack, errors, path) {
++  if (!isNodeMap(subgraphs) || !subgraphs[ref]) return;
++  if (stack.includes(ref)) {
++    errors.push(err(
++      path,
++      'subgraphCycle',
++      `subgraph '${ref}' cycles through ${stack.join(' -> ')}`,
++      { ref, stack: [...stack] },
++    ));
++    return;
++  }
++  const depth = stack.length + 1;
++  if (depth > SUBGRAPH_MAX_DEPTH) {
++    errors.push(err(
++      path,
++      'subgraphDepth',
++      `subgraph nest exceeds max depth ${SUBGRAPH_MAX_DEPTH}`,
++      { ref, depth, max: SUBGRAPH_MAX_DEPTH },
++    ));
++    return;
++  }
++  const nodes = subgraphs[ref]?.nodes;
++  if (!isNodeMap(nodes)) return;
++  const nextStack = [...stack, ref];
++  for (const [id, node] of Object.entries(nodes)) {
++    if (node?.type === 'subprocess' && typeof node.ref === 'string') {
++      walkSubgraphDepth(
++        node.ref,
++        subgraphs,
++        nextStack,
++        errors,
++        `/graph/subgraphs/${ref}/nodes/${id}/ref`,
++      );
+     }
+-    if (Array.isArray(states.transitions)) {
+-      states.transitions.forEach((transition, i) => {
+-        if (typeof transition?.from === 'string' && !stateIds.has(transition.from)) {
+-          errors.push(err(
+-            `/states/transitions/${i}/from`,
+-            'stateRef',
+-            `from '${transition.from}' is not a state node`,
+-            { from: transition.from },
+-          ));
+-        }
+-        if (typeof transition?.to === 'string' && !stateIds.has(transition.to)) {
+-          errors.push(err(
+-            `/states/transitions/${i}/to`,
+-            'stateRef',
+-            `to '${transition.to}' is not a state node`,
+-            { to: transition.to },
+-          ));
+-        }
+-        if (typeof transition?.via === 'string' && !branchIds.has(transition.via)) {
+-          errors.push(err(
+-            `/states/transitions/${i}/via`,
+-            'viaBranch',
+-            `via '${transition.via}' is not a decision branch id`,
+-            { via: transition.via },
+-          ));
+-        }
+-      });
++  }
++}
++
++function validateSubgraphDepth(doc, errors) {
++  const nodes = doc?.graph?.nodes;
++  const subgraphs = doc?.graph?.subgraphs;
++  if (!isNodeMap(nodes) || !isNodeMap(subgraphs)) return;
++  for (const [id, node] of Object.entries(nodes)) {
++    if (node?.type === 'subprocess' && typeof node.ref === 'string') {
++      walkSubgraphDepth(node.ref, subgraphs, [], errors, `/graph/nodes/${id}/ref`);
+     }
+   }
++}
+ 
+-  const journey = doc.journey;
+-  if (journey && typeof journey === 'object' && !Array.isArray(journey)) {
+-    const stageIds = new Set();
+-    if (Array.isArray(journey.stages)) {
+-      journey.stages.forEach((stage, i) => {
+-        if (typeof stage?.id === 'string') stageIds.add(stage.id);
+-        const copy = stage?.copy;
+-        if (!copy || typeof copy !== 'object') {
+-          errors.push(err(
+-            `/journey/stages/${i}/copy`,
+-            'dualCopy',
+-            `journey stages[${i}].copy required`,
+-          ));
+-          return;
+-        }
+-        for (const lens of ['layperson', 'developer']) {
+-          const block = copy[lens];
+-          if (!block || typeof block !== 'object') {
+-            errors.push(err(
+-              `/journey/stages/${i}/copy/${lens}`,
+-              'dualCopy',
+-              `journey stages[${i}].copy.${lens} required`,
+-            ));
+-            continue;
+-          }
+-          for (const field of ['name', 'youGain', 'unlocks']) {
+-            if (typeof block[field] !== 'string' || !block[field].trim()) {
+-              errors.push(err(
+-                `/journey/stages/${i}/copy/${lens}/${field}`,
+-                'dualCopy',
+-                `journey stages[${i}].copy.${lens}.${field} required`,
+-              ));
+-            } else if (IMPLEMENTATION_TOKEN_RE.test(block[field])) {
+-              errors.push(err(
+-                `/journey/stages/${i}/copy/${lens}/${field}`,
+-                'implementationToken',
+-                `journey stages[${i}].copy.${lens}.${field} contains implementation token (LP lint)`,
+-              ));
+-            }
+-          }
+-        }
+-      });
++function validateMachines(doc, branchIds, errors) {
++  if (!Array.isArray(doc.machines)) return;
++  const seenMachineIds = new Set();
++  doc.machines.forEach((machine, mi) => {
++    if (!machine || typeof machine !== 'object') return;
++    const base = `/machines/${mi}`;
++    if (typeof machine.id === 'string') {
++      if (seenMachineIds.has(machine.id)) {
++        errors.push(err(`${base}/id`, 'uniqueMachineId', `duplicate machine id '${machine.id}'`, {
++          id: machine.id,
++        }));
++      } else {
++        seenMachineIds.add(machine.id);
++      }
++    }
++    const nodes = isNodeMap(machine.nodes) ? machine.nodes : null;
++    if (!nodes) return;
++    const stateIds = new Set(Object.keys(nodes));
++    if (stateIds.size < 1) {
++      errors.push(err(`${base}/nodes`, 'machineMinNodes', `machine '${machine.id ?? mi}' must have at least 1 node`));
+     }
+-    if (typeof doc.youAreHere === 'string' && doc.youAreHere && !stageIds.has(doc.youAreHere)) {
++    if (typeof machine.entry === 'string' && !stateIds.has(machine.entry)) {
+       errors.push(err(
+-        '/youAreHere',
+-        'youAreHere',
+-        `youAreHere '${doc.youAreHere}' is not a journey stage id`,
+-        { youAreHere: doc.youAreHere },
++        `${base}/entry`,
++        'machineEntryExists',
++        `machines[${mi}].entry '${machine.entry}' is not a machine node`,
++        { entry: machine.entry },
+       ));
+     }
+-    if (Array.isArray(journey.edges)) {
+-      journey.edges.forEach((edge, i) => {
+-        if (typeof edge?.from === 'string' && !stageIds.has(edge.from)) {
+-          errors.push(err(
+-            `/journey/edges/${i}/from`,
+-            'journeyEdge',
+-            `edges[${i}].from invalid`,
+-            { from: edge.from },
+-          ));
+-        }
+-        if (typeof edge?.to === 'string' && !stageIds.has(edge.to)) {
+-          errors.push(err(
+-            `/journey/edges/${i}/to`,
+-            'journeyEdge',
+-            `edges[${i}].to invalid`,
+-            { to: edge.to },
+-          ));
+-        }
+-      });
++    if (!Array.isArray(machine.transitions)) return;
++    machine.transitions.forEach((transition, ti) => {
++      if (!transition || typeof transition !== 'object') return;
++      const tPath = `${base}/transitions/${ti}`;
++      if (!Object.hasOwn(transition, 'effects')) {
++        errors.push(err(
++          tPath,
++          'effectsRequired',
++          `machines[${mi}].transitions[${ti}] must have an effects array`,
++        ));
++      }
++      if (typeof transition.from === 'string' && !stateIds.has(transition.from)) {
++        errors.push(err(
++          `${tPath}/from`,
++          'machineStateRef',
++          `from '${transition.from}' is not a machine node`,
++          { from: transition.from },
++        ));
++      }
++      if (typeof transition.to === 'string' && !stateIds.has(transition.to)) {
++        errors.push(err(
++          `${tPath}/to`,
++          'machineStateRef',
++          `to '${transition.to}' is not a machine node`,
++          { to: transition.to },
++        ));
++      }
++      if (typeof transition.via === 'string' && !branchIds.has(transition.via)) {
++        errors.push(err(
++          `${tPath}/via`,
++          'viaBranch',
++          `via '${transition.via}' is not an xor branch id`,
++          { via: transition.via },
++        ));
++      }
++    });
++  });
++}
++
++function graphErrors(doc) {
++  const errors = [];
++  const actors = actorIds(doc);
++  const seenActorIds = new Set();
++  if (Array.isArray(doc.actors)) {
++    doc.actors.forEach((actor, i) => {
++      const id = actor?.id;
++      if (typeof id !== 'string') return;
++      if (seenActorIds.has(id)) {
++        errors.push(err(`/actors/${i}/id`, 'uniqueActorId', `duplicate actor id '${id}'`, { id }));
++      } else {
++        seenActorIds.add(id);
++      }
++    });
++  }
++
++  const graph = doc.graph;
++  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) {
++    validateMachines(doc, new Set(), errors);
++    return errors;
++  }
++  const nodes = isNodeMap(graph.nodes) ? graph.nodes : null;
++  const subgraphs = subgraphIds(doc);
++  const ctx = {
++    actors,
++    subgraphs,
++    errors,
++    seenBranchIds: new Set(),
++  };
++
++  if (nodes) {
++    validateNodeMap('/graph', nodes, graph.entry, ctx);
++  }
++
++  if (isNodeMap(graph.subgraphs)) {
++    for (const [id, subgraph] of Object.entries(graph.subgraphs)) {
++      if (!subgraph || typeof subgraph !== 'object') continue;
++      const subNodes = isNodeMap(subgraph.nodes) ? subgraph.nodes : null;
++      if (!subNodes) continue;
++      validateNodeMap(`/graph/subgraphs/${id}`, subNodes, subgraph.entry, ctx);
+     }
+   }
+ 
++  validateSubgraphDepth(doc, errors);
++  validateMachines(doc, documentXorBranchIds(doc), errors);
+   return errors;
+ }
+ 
+diff --git a/scripts/render-flow.js b/scripts/render-flow.js
+new file mode 100644
+index 00000000..711e8d40
+--- /dev/null
++++ b/scripts/render-flow.js
+@@ -0,0 +1,150 @@
++#!/usr/bin/env node
++/**
++ * Render a flow JSON document to deterministic self-contained HTML
++ * (Atomic Skills DS from site/assets/ds.css inlined).
++ *
++ * Usage:
++ *   node scripts/render-flow.js <flow.json> [-o flow.html]
++ *   node scripts/render-flow.js --check <flow.json> <out.html>
++ *   node scripts/render-flow.js --stdout <flow.json>
++ *
++ * Exit:
++ *   0 — ok / in sync
++ *   1 — validation error, drift (--check), or render error
++ *   2 — usage / IO
++ */
++
++import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
++import { dirname, join, resolve } from 'node:path';
++import { fileURLToPath } from 'node:url';
++import { buildFlowHtml, sha256 } from './lib/render-flow.js';
++
++const __dirname = dirname(fileURLToPath(import.meta.url));
++const PROJECT_ROOT = join(__dirname, '..');
++const DS_CSS_PATH = join(PROJECT_ROOT, 'site', 'assets', 'ds.css');
++const DEFAULT_BASENAME = 'flow.html';
++
++function usage(code = 2) {
++  console.error(`Usage:
++  node scripts/render-flow.js <flow.json> [-o ${DEFAULT_BASENAME}]
++  node scripts/render-flow.js --check <flow.json> <out.html>
++  node scripts/render-flow.js --stdout <flow.json>`);
++  process.exit(code);
++}
++
++function loadDsCss() {
++  if (!existsSync(DS_CSS_PATH)) {
++    console.error(`Missing design system CSS: ${DS_CSS_PATH}`);
++    process.exit(2);
++  }
++  return readFileSync(DS_CSS_PATH, 'utf8');
++}
++
++function loadFlow(path) {
++  const abs = resolve(path);
++  if (!existsSync(abs)) {
++    console.error(`File not found: ${abs}`);
++    process.exit(2);
++  }
++  try {
++    return JSON.parse(readFileSync(abs, 'utf8'));
++  } catch (err) {
++    console.error(`Invalid JSON: ${abs}`);
++    console.error(err instanceof Error ? err.message : String(err));
++    process.exit(1);
++  }
++}
++
++function parseArgs(argv) {
++  const args = argv.slice(2);
++  /** @type {{ mode: 'write'|'check'|'stdout', input?: string, output?: string, expected?: string }} */
++  const out = { mode: 'write' };
++  for (let i = 0; i < args.length; i++) {
++    const a = args[i];
++    if (a === '--help' || a === '-h') usage(0);
++    if (a === '--check') {
++      out.mode = 'check';
++      out.input = args[++i];
++      out.expected = args[++i];
++      continue;
++    }
++    if (a === '--stdout') {
++      out.mode = 'stdout';
++      out.input = args[++i];
++      continue;
++    }
++    if (a === '-o' || a === '--output') {
++      out.output = args[++i];
++      continue;
++    }
++    if (a.startsWith('-')) {
++      console.error(`Unknown flag: ${a}`);
++      usage(2);
++    }
++    if (!out.input) out.input = a;
++    else if (!out.output) out.output = a;
++  }
++  return out;
++}
++
++function extractContentSha(html) {
++  const match = typeof html === 'string' ? html.match(/data-fl-content-sha="([a-f0-9]{64})"/) : null;
++  return match ? match[1] : null;
++}
++
++function main() {
++  const opts = parseArgs(process.argv);
++  if (!opts.input) usage(2);
++
++  const dsCss = loadDsCss();
++  const raw = loadFlow(opts.input);
++
++  let built;
++  try {
++    built = buildFlowHtml(raw, dsCss);
++  } catch (err) {
++    console.error(err instanceof Error ? err.message : String(err));
++    process.exit(1);
++  }
++
++  if (opts.mode === 'stdout') {
++    process.stdout.write(built.html);
++    return;
++  }
++
++  if (opts.mode === 'check') {
++    if (!opts.expected) usage(2);
++    const expectedPath = resolve(opts.expected);
++    if (!existsSync(expectedPath)) {
++      console.error(`Expected HTML missing: ${expectedPath}`);
++      process.exit(1);
++    }
++    const onDisk = readFileSync(expectedPath, 'utf8');
++    const diskSha = extractContentSha(onDisk);
++    const htmlMatch = onDisk === built.html;
++    const shaMatch = diskSha != null && diskSha === built.contentSha;
++    if (htmlMatch && shaMatch) {
++      console.log(`OK in sync · content-sha ${built.contentSha.slice(0, 16)} · ${expectedPath}`);
++      process.exit(0);
++    }
++    console.error(`DRIFT: ${expectedPath}`);
++    console.error(`  expected sha256 ${sha256(onDisk).slice(0, 16)}…`);
++    console.error(`  rendered sha256 ${sha256(built.html).slice(0, 16)}…`);
++    console.error(`  content-sha     ${built.contentSha.slice(0, 16)}…`);
++    if (diskSha && diskSha !== built.contentSha) {
++      console.error(`  disk content-sha ${diskSha.slice(0, 16)}…`);
++    }
++    console.error('Re-run without --check to regenerate.');
++    process.exit(1);
++  }
++
++  const outPath = opts.output
++    ? resolve(opts.output)
++    : resolve(dirname(resolve(opts.input)), DEFAULT_BASENAME);
++  mkdirSync(dirname(outPath), { recursive: true });
++  writeFileSync(outPath, built.html, 'utf8');
++  console.log(`Wrote ${outPath}`);
++  console.log(`content-sha ${built.contentSha}`);
++}
++
++main();
+diff --git a/skills/core/implement.md b/skills/core/implement.md
+index 69e7ecb8..ba806321 100644
+--- a/skills/core/implement.md
++++ b/skills/core/implement.md
+@@ -42,6 +42,7 @@ If `isAutomateActive` and you are about to spawn a phase writer, run orchestrato
+ If `isAutomateActive` and you are about to advance a pure-maestro step **without** updating the maestro cursor on that A–I boundary (or you are tempted to `rm` the cursor/lease file to force progress): STOP. Advance via `src/maestro-cursor.js`; never delete status files to skip gates.
+ If `isAutomateActive` and the maestro cursor is **`awaiting-operator-advance`**, and you are about to run pure-maestro **Step A**, spawn, materialize-as-auto-chain, or multi-phase auto-run **without** `clearContinue` (`continueToken: 'operator-continue'` / `operatorContinue: true`): STOP. Pause is intentional; generic ok is not a continue token.
+ If you are about to code or spawn a phase writer and `find-plans-missing-ground-truth.js` on the plan path is non-zero (or you skipped running it): STOP. Ground-truth review receipt is mandatory; empty-repo still requires a persisted complete-empty-repo result — no chat waiver.
++If you are about to code or spawn a phase writer and `find-missing-flow.js --strict` on the plan path is non-zero (or you skipped running it): STOP. Validated flow is mandatory. `process.yaml` never satisfies. Instruct `atomic-skills:project flow`. No operatorSkip, no chat waiver. Ad-hoc without a plan file is N/A; a plan file always gates.
+ </HARD-GATE>
+ 
+ ## Mindset
+@@ -147,6 +148,26 @@ After that hard pre-check passes, confirm each pending task carries the SPEC int
+      with A/B "none" + scan evidence). There is **no** operator skip flag and
+      **no** chat waiver that unlocks implement without the receipt.
+ 
++7. **Validated flow HARD-GATE (mandatory; cannot be skipped).** Before any
++   product coding, Mode 1 task loop, or automate phase-writer spawn, prove the
++   plan carries a ratified flow artefact. Ready without flow is legal;
++   `process.yaml` NEVER satisfies; implement does **not** run show+ratify.
++   Run via {{BASH_TOOL}} against the resolved plan file:
++
++   ```bash
++   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
++   node "$PKG_ROOT/scripts/find-missing-flow.js" \
++     .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --strict
++   ```
++
++   - **Exit 0** → continue.
++   - **Non-zero** → **REFUSE** (HARD-GATE). Do not code, do not spawn. Surface
++     the detector and instruct `atomic-skills:project flow`. Re-run until exit
++     0. Automate: `assert-automate-gate --gate spawn` also fences this in JS.
++   - **No** `operatorSkip`, **no** chat waiver. Foreign: same detector on the
++     source `plan.md` (`dirname(plan.md)/flow/` via `flowPathsForPlan`, never
++     the sidecar). Ad-hoc without a plan file is N/A; a plan file always gates.
++
+ ### Automate mode — pure maestro loop (when `isAutomateActive`)
+ 
+ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). After Step 1 hard gates pass, run the pure-maestro spine.
+@@ -327,6 +348,11 @@ Resident **triggers** only — if a thought matches one, STOP and read its full
+ - "No product code yet / greenfield — skip ground-truth and start coding."
+ - "Internal review receipt exists — ground-truth is optional for implement."
+ - "User said go ahead without the ground-truth section — waive the detector."
++- "process.yaml exists — skip flow."
++- "User said waive flow."
++- "I'll run project flow ceremony inside implement."
++- "Ad-hoc with a plan file — skip flow (only no plan file is N/A)."
++- "Foreign sidecar is the flow path."
+ - "This is path/to/plan.md — I'll just code the checklist (skip entry AskUserQuestion)."
+ - "Foreign lane finished — promote/adopt into .atomic-skills at FINALIZE."
+ - "Foreign plan — skip worktree / skip ground-truth / mark done without verifier on the sidecar."
+diff --git a/skills/core/project.md b/skills/core/project.md
+index e0e226ae..9ecae0dc 100644
+--- a/skills/core/project.md
++++ b/skills/core/project.md
+@@ -17,7 +17,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
+ /atomic-skills:project                              → compact summary (no-args, cheap; no browser)
+ /atomic-skills:project status [--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]
+ /atomic-skills:project help [--html]         → GPS de terminal: onde estou + próximo passo (alias: `next`; `--html` abre o guia visual)
+-/atomic-skills:project process [--check] [--audience=…]  → process map L2 (HTML) from L1 YAML — mandatory artefact of every plan
++/atomic-skills:project flow|process [--check] [--open] [--strict] → day-2 project flow (`process` alias)
+ /atomic-skills:project verify [--fix]        → state ⇄ code check (READ-ONLY unless `--fix`; normalization gate only)
+ /atomic-skills:project reconcile             → dispose detection-drift candidates (signal→ask→verifier/ack; done stays closure authority)
+ /atomic-skills:project review [<slug>] [--with-code] [--mode=local|both]  → mutation-gated audit (delegated reviews; never closes/advances)
+@@ -50,7 +50,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
+ |---|---|
+ | `status`, `status --browser`, `--terminal`, `--list`, `--plan`, `--phase`, `--stack`, `--archived`, `--report`, disambiguation | `{{READ_TOOL}} {{ASSETS_PATH}}/project-view.md` |
+ | `help`, `help --html`, `next` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-help.md` |
+-| `process`, `process --check`, `process --audience=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-process-map.md` |
++| `flow`, `process`, `flow --check`, `process --check`, `--open`, `--strict` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-flow.md` |
+ | `verify`, `verify --fix` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-verify.md` |
+ | `review`, `review <slug>`, `review --with-code`, `review --mode=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-review.md` |
+ | first-time setup (project setup sentinel absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
+@@ -125,9 +125,9 @@ NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.
+ 
+ Every code-modifying session must be anchored to an active initiative — a phase at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, or a standalone unit (its own degenerate 1-phase plan); legacy flat fallback `.atomic-skills/initiatives/<slug>.md` — or the user must explicitly declare "ad-hoc".
+ 
+-**Also (P1 — `docs/kb/process-map.md`):** NO PLAN WITHOUT PROCESS MAP.
++**Also:** NO IMPLEMENT WITHOUT VALIDATED FLOW (`docs/kb/flow.md`).
+ 
+-Every multi-phase plan MUST carry a ratified L1 `process/process.yaml` (macro vision of the **objective**, not the phase tree) and a generated L2 `process/map.html`. Created in `new plan` / `adopt` at creation-gate stage `process-map` (**inescapable** before `reviews`/`ready`). HTML only renders L1; never invent stages from `phases[]`. Detector: `scripts/find-missing-process-map.js`. Day-2 open: `project process`.
++Ready without flow is legal. `process.yaml` never satisfies. `implement` HARD-GATES at entry with `scripts/find-missing-flow.js --strict` (exit 0 continue; non-zero REFUSE — instruct `project flow`). Day-2: `project flow` (`process` alias). No `process-map` or `flow` creation stage. Never invent nodes from `phases[]`.
+ 
+ ## Pre-mutation gates (apply before ANY mutating subcommand)
+ 
+@@ -223,7 +223,7 @@ If any of these thoughts appeared: STOP and validate.
+ - "The initiative is legacy snake_case but the change is small — I'll edit without migrating"
+ - "Phase has 3 tasks left but the exit gate is met, I'll just mark phase done"
+ - "I'll mark a gate `done`" (gates are `pending`/`met`/`deferred` only)
+-- "I'll skip the process map / generate it later / use phases as the map"
++- "I'll invent flow nodes from phases[]"
+ 
+ ## Rationalization
+ 
+diff --git a/skills/shared/project-assets/new-plan/stage-7.md b/skills/shared/project-assets/new-plan/stage-7.md
+index 723901f2..deee0a4b 100644
+--- a/skills/shared/project-assets/new-plan/stage-7.md
++++ b/skills/shared/project-assets/new-plan/stage-7.md
+@@ -5,7 +5,7 @@
+ Activate first phase (currentPhase = F0). Advance toward `summaries` as needed.
+ 
+ **creation-gates stage target:** `summaries`  
+-**Next (mandatory):** `new-plan/stage-process-map.md` — process map L1+L2 before reviews (Iron Law P1).
++**Next:** `new-plan/stage-8.md` (reviews). Do **not** load `stage-process-map.md`.
+ 
+ After this stage closes, advance with:
+ 
+@@ -15,7 +15,7 @@ GATE=".atomic-skills/status/creation-gates/<project-id>-<slug>.json"
+ node "$PKG_ROOT/scripts/assert-creation-stage.js" "$GATE" --advance summaries --write
+ ```
+ 
+-Do **not** load other `new-plan/stage-*.md` files while executing this stage. After summaries, **immediately** load `stage-process-map.md` — never skip to Stage 8 reviews.
++Do **not** load other `new-plan/stage-*.md` files while executing this stage. After summaries, load Stage 8 reviews. Do **not** stop for a process-map / flow creation stage.
+ 
+ ---
+ 
+diff --git a/skills/shared/project-assets/new-plan/stage-8.md b/skills/shared/project-assets/new-plan/stage-8.md
+index dc6887da..9805abda 100644
+--- a/skills/shared/project-assets/new-plan/stage-8.md
++++ b/skills/shared/project-assets/new-plan/stage-8.md
+@@ -5,7 +5,7 @@
+ Internal + ground-truth + cross-model review + receipt gates. Advance to `reviews`. Do not rewrite review-plan skill.
+ 
+ **creation-gates stage target:** `reviews`  
+-**Precondition:** creation-gate already at `process-map` (L1+L2 done). If still on `summaries`, **STOP** and run `new-plan/stage-process-map.md` first — Iron Law P1.
++**Precondition:** creation-gate at `summaries` (or remapped `process-map` → `reviews`). Do **not** STOP to run `stage-process-map`. Ready without flow is legal.
+ 
+ After this stage closes, advance with:
+ 
+diff --git a/skills/shared/project-assets/new-plan/stage-9.md b/skills/shared/project-assets/new-plan/stage-9.md
+index 183b3029..481bc6a0 100644
+--- a/skills/shared/project-assets/new-plan/stage-9.md
++++ b/skills/shared/project-assets/new-plan/stage-9.md
+@@ -21,7 +21,5 @@ Do **not** load other `new-plan/stage-*.md` files while executing this stage.
+ - Plan path
+ - N initiatives created
+ - Active phase: `<F0> — <title>`
+-- **Process map (mandatory):** `process/process.yaml` + `process/map.html` — was shown (browser and/or TUI per non-skippable display question) before ratify; content-sha from L1
++- Flow is **not** required for ready. Suggested next: `atomic-skills:project flow` (optional day-2) or `status`
+ - Reviews: internal (zero findings) + codex (verdict, counts, link to `.atomic-skills/reviews/<…>.md`) OR (skipped per user)
+-- HARD confirm: `node scripts/find-missing-process-map.js <plan.md> --strict-html` exits 0
+-- Suggested next: `atomic-skills:project process` (reopen map) or `status`
+diff --git a/skills/shared/project-assets/new-plan/stage-process-map.md b/skills/shared/project-assets/new-plan/stage-process-map.md
+index ecb5e28d..e516f82a 100644
+--- a/skills/shared/project-assets/new-plan/stage-process-map.md
++++ b/skills/shared/project-assets/new-plan/stage-process-map.md
+@@ -1,216 +1,9 @@
+-# Stage — Process map (L1 estrutura + L2 HTML) — INESCAPÁVEL
++# Stage — Process map — SUPERSEDED (redirect stub)
+ 
+-## Contract
++This file is **not** a creation stage. Do **not** draft `process.yaml`. Do **not** advance a `process-map` gate.
+ 
+-**Iron Law P1:** NO PLAN WITHOUT PROCESS MAP (`docs/kb/process-map.md`).
++**Superseded by** `{{ASSETS_PATH}}/project-flow.md` (day-2 command).
+ 
+-Draft + **show** + ratify `process/process.yaml` (L1), render `process/map.html` (L2), advance creation-gate to `process-map`. **Never skip.** Deriving the graph by renaming `phases[]` is **forbidden** (Iron Law P2).
++Canon: `docs/kb/flow.md`. Iron Law: **NO IMPLEMENT WITHOUT VALIDATED FLOW**. Ready without flow is legal. `process.yaml` never satisfies.
+ 
+-**creation-gates stage target:** `process-map`  
+-**Runs after:** `summaries` (Stage 7)  
+-**Runs before:** `reviews` (Stage 8)
+-
+-After this stage closes:
+-
+-```bash
+-PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+-GATE=".atomic-skills/status/creation-gates/<project-id>-<slug>.json"
+-node "$PKG_ROOT/scripts/assert-creation-stage.js" "$GATE" --advance process-map --write
+-```
+-
+-Do **not** load other `new-plan/stage-*.md` files while executing this stage.
+-
+----
+-
+-## Non-skippable questions (HARD)
+-
+-Every interactive step in this stage uses **{{ASK_USER_QUESTION_TOOL}}** and is **not skippable**.
+-
+-| Rule | Enforcement |
+-|------|-------------|
+-| Tool required | Free-text chat (“ok”, “sim”, “pode”, “depois”, “skip”, “lgtm”) is **not** a valid answer — re-invoke {{ASK_USER_QUESTION_TOOL}} |
+-| One of the listed options | “Other” with skip/defer/later intent → re-ask with the same options |
+-| No silent default | Do **not** pick Browser, TUI, audience, or Aprovar for the user |
+-| No advance without answers | Do **not** write final `ratifiedAt`, do **not** advance `process-map` / `ready` until **audience**, **display surface**, and **ratify** each returned an explicit option |
+-| Cancel is a real choice | Only the labeled **Cancelar** option on ratify may stop the stage (gate stays at `summaries`) |
+-
+-If the host declines / cannot run {{ASK_USER_QUESTION_TOOL}}: **STOP**. Do not invent answers. Tell the operator the stage is blocked until the tool works.
+-
+-There are **three** non-skippable questions in order: **(1) audience → (2) display surface → (3) ratify**.
+-
+----
+-
+-## Paths
+-
+-```
+-PLAN_DIR=.atomic-skills/projects/<project-id>/<slug>
+-L1=$PLAN_DIR/process/process.yaml
+-L2=$PLAN_DIR/process/map.html
+-```
+-
+-## Steps (mandatory order)
+-
+-### 1. Audience — {{ASK_USER_QUESTION_TOOL}} (not skippable)
+-
+-**Question:** Este mapa do processo é para quem?
+-
+-| Option | Meaning |
+-|--------|---------|
+-| Quem não é de tech | Lente leigo only |
+-| Dev, em alto nível (Recommended for tooling plans) | Lente dev abstraído (domínio, não código) |
+-| Ambos | Toggle no HTML |
+-
+-Persist choice as `audience`. Generic “ok” is **not** a choice — re-ask.
+-
+-### 2. Draft L1 (process of the **objective**)
+-
+-Agent drafts `process.yaml` from **design.md + source narrative + ratified businessIntent**, in the install-configured language:
+-
+-- `actor`, `scenario` (one sentence)
+-- `stages[]` with `kind`: done | main | optional | always
+-- **both** `copy.layperson` and `copy.developer` always filled (even if audience is single-lens — the other lens is ready if they switch later)
+-- `edges[]` solid vs dashed
+-- `youAreHere` = first main stage the operator should start (or current pin)
+-- `sourcedFrom` per stage (design section / principle — **not** “F0 title”)
+-- `mapsToPhases` **optional** and weak; leave `[]` if unsure
+-- **Do not set `ratifiedAt` yet** — draft only until step 6 approves
+-
+-**HARD anti-collapse:** if `main` stages biject 1:1 to `plan.phases[]` titles with only cosmetic renames, **rewrite** until the graph is a confidence/value journey. Warn the user explicitly if you almost collapsed.
+-
+-**Lint:** no `T-00x`, paths, `implementar`, `verifier` in copy (enforced by `validateProcessMap`).
+-
+-### 3. Write draft L1 + render L2 (before any confirm)
+-
+-```bash
+-mkdir -p "$PLAN_DIR/process"
+-# write process.yaml WITHOUT ratifiedAt (draft)
+-PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+-node "$PKG_ROOT/scripts/render-process-map.js" "$L1" -o "$L2" --audience <audience>
+-```
+-
+-L2 must exist on disk **before** asking how/where to view it. Do **not** run `find-missing-process-map --strict-html` yet (it requires `ratifiedAt`).
+-
+-Optional draft frontmatter on the plan (no `ratifiedAt` until step 6):
+-
+-```yaml
+-processMap:
+-  path: process/process.yaml
+-  htmlPath: process/map.html
+-  audience: <chosen>
+-```
+-
+-### 4. Display surface — {{ASK_USER_QUESTION_TOOL}} (not skippable)
+-
+-**Question:** Onde você quer ver o mapa do processo **antes** de aprovar?
+-
+-| Option | Meaning |
+-|--------|---------|
+-| No browser (Recommended) | Open `map.html` via `open_url` / host open (same contract as `help --html`) |
+-| No TUI (esta conversa) | Full map rendered as structured markdown in the agent/TUI transcript |
+-| Nos dois | Browser **and** TUI — both required before ratify |
+-
+-**HARD:**
+-
+-- This question is **not optional** and **not skippable**.
+-- Do **not** default to browser or TUI without the tool answer.
+-- Do **not** jump to ratify (step 6) without completing the chosen surface(s) in step 5.
+-- Free-text “abre aí” / “tanto faz” → re-ask this question.
+-
+-Persist the choice in the session as `displaySurface`: `browser` | `tui` | `both`.
+-
+-### 5. Show the map (inescapable — matches step 4)
+-
+-Execute **exactly** what the operator picked:
+-
+-**Browser** (`browser` or `both`):
+-
+-```bash
+-# WSL-aware open_url from project-view / help --html — never bare xdg-open hang
+-open_url "$L2"   # or host equivalent: open / start
+-```
+-
+-Announce absolute path + content-sha from the HTML `data-pm-content-sha`.
+-
+-**TUI** (`tui` or `both`):
+-
+-Print a **complete** map in the transcript (install language), not a one-line summary:
+-
+-1. Header: `actor` · `scenario` · `audience` · `youAreHere`
+-2. Table: `id` · `kind` · layperson name · developer name · youGain (short)
+-3. Edges: `from → to (solid|dashed)` for every edge
+-4. Path to L2 for later reopen: `process/map.html`
+-
+-**Empty show is a violation.** If browser open fails, surface the error + path and still require TUI full map before ratify (or re-ask display surface). If TUI was chosen, do not open the browser unless the user re-answers step 4 as **Nos dois** / **No browser**.
+-
+-### 6. Ratify L1 — {{ASK_USER_QUESTION_TOOL}} (not skippable)
+-
+-**Only after** step 5 completed for the chosen surface(s).
+-
+-**Question:** Aprovar este mapa do processo?
+-
+-Present (or re-present) the same table as TUI so the options sit under a visible draft. Options:
+-
+-- **Aprovar mapa**
+-- **Ajustar** (user edits → rewrite draft L1 → re-render L2 → re-run steps 4–5 if they want a different surface, else re-show previous surface → re-ask this question)
+-- **Cancelar** (stop; do **not** set `ratifiedAt`; do **not** advance gate; plan stays not ready)
+-
+-On **Aprovar mapa**, set:
+-
+-```yaml
+-ratifiedAt: "<ISO now UTC>"
+-ratifiedBy: "operator"
+-audience: <chosen>
+-```
+-
+-Rewrite L1 with those fields, re-render L2, stamp plan frontmatter if used:
+-
+-```yaml
+-processMap:
+-  path: process/process.yaml
+-  htmlPath: process/map.html
+-  ratifiedAt: <same>
+-  audience: <same>
+-  displaySurface: <browser|tui|both>
+-```
+-
+-Generic “yes/ok/do it” **without** this tool question = re-prompt. Approving **without** having shown the map (step 5) = **violation** — go back to steps 4–5.
+-
+-### 7. HARD gate
+-
+-```bash
+-node "$PKG_ROOT/scripts/find-missing-process-map.js" "$PLAN_DIR/plan.md" --strict-html
+-```
+-
+-Exit ≠ 0 → fix; do **not** advance `process-map`.
+-
+-### 8. Advance gate
+-
+-```bash
+-node "$PKG_ROOT/scripts/assert-creation-stage.js" "$GATE" --advance process-map --write
+-```
+-
+-Then continue to Stage 8 (reviews).
+-
+----
+-
+-## Failure modes
+-
+-| Failure | Action |
+-|---------|--------|
+-| User cancels ratify | Leave gate at `summaries`; no ready |
+-| Display/audience/ratify skipped or free-text only | Re-ask with {{ASK_USER_QUESTION_TOOL}}; no advance |
+-| Map not shown before ratify | Block ratify; run steps 4–5 |
+-| Collapse to phases | Rewrite draft; do not stamp `ratifiedAt` |
+-| find-missing fails | Fix YAML/HTML; re-run render |
+-| adopt path | **Same stage required** — no exemption |
+-
+-## Red flags
+-
+-- "Skip process map for a small plan"  
+-- "phases[] is enough"  
+-- "HTML only, no YAML"  
+-- "YAML only, no HTML"  
+-- "I'll invent stages after implement"  
+-- "Confirm in TUI without opening/showing the map"  
+-- "Default to browser so we don't ask"  
+-- "User said ok in chat — that counts as Aprovar"  
++Load **only** `project-flow.md` if the operator asked for a flow. After summaries, continue to `new-plan/stage-8.md` (reviews). Leftover creation-gate stage `process-map` reads as `reviews`.
+diff --git a/skills/shared/project-assets/project-create-plan.md b/skills/shared/project-assets/project-create-plan.md
+index c4e21655..ae987375 100644
+--- a/skills/shared/project-assets/project-create-plan.md
++++ b/skills/shared/project-assets/project-create-plan.md
+@@ -32,9 +32,9 @@ Run with {{BASH_TOOL}}:
+ 
+ Stages run in order. Each stage gates the next. After a stage closes, advance with `scripts/assert-creation-stage.js` (illegal skips / early `ready` **HARD-BLOCK**).
+ 
+-Monotonic `stage` enum: `slug → design → source → decompose-confirm → bi-ratified → materialized → summaries → process-map → reviews → ready`.
++Monotonic `stage` enum: `slug → design → source → decompose-confirm → bi-ratified → materialized → summaries → reviews → ready`.
+ 
+-**Iron Law P1 (process map):** no multi-phase plan reaches `ready` without L1 `process/process.yaml` (ratified) + L2 `process/map.html`. Detail: `docs/kb/process-map.md` + `new-plan/stage-process-map.md`.
++There is **no** `process-map` or `flow` creation stage. Drafting `flow/flow.json` is optional. Ready without flow is legal. Day-2: `project flow`. Leftover gate stage `process-map` reads as `reviews`.
+ 
+ ```bash
+ PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+@@ -54,7 +54,6 @@ node "$PKG_ROOT/scripts/assert-creation-stage.js" "$GATE" --ready --write
+ | 5 | Stage 5 — Decompose | `{{ASSETS_PATH}}/new-plan/stage-5.md` |
+ | 6 | Stage 6 — Create Plan + Initiatives | `{{ASSETS_PATH}}/new-plan/stage-6.md` |
+ | 7 | Stage 7 — Activate first phase | `{{ASSETS_PATH}}/new-plan/stage-7.md` |
+-| 7b | Stage process-map — L1 YAML + L2 HTML (**inescapable**) | `{{ASSETS_PATH}}/new-plan/stage-process-map.md` |
+ | 8 | Stage 8 — Adversarial review (always runs) | `{{ASSETS_PATH}}/new-plan/stage-8.md` |
+ | 9 | Stage 9 — Announce | `{{ASSETS_PATH}}/new-plan/stage-9.md` |
+ 
+@@ -184,9 +183,9 @@ Always run `previewDecomposition(result)` and display it before any file write.
+ 
+ 10. **Activate first phase.** Same as Stage 7 (`new-plan/stage-7.md`).
+ 
+-11. **Process map (inescapable — Iron Law P1).** Same as `new-plan/stage-process-map.md`: AskUserQuestion audience (**not skippable**) → draft L1 objective journey (not phase rename) → write draft L1 + render L2 → AskUserQuestion display surface browser|TUI|both (**not skippable**) → **show** map on chosen surface(s) → AskUserQuestion ratify (**not skippable**) → stamp `ratifiedAt` + re-render → `find-missing-process-map.js --strict-html` HARD-BLOCK → advance creation-gate `process-map`. Free-text “ok” never counts. **adopt is not exempt.**
++11. **Flow draft (optional, not a gate).** Agent MAY write `flow/flow.json` from design/source/`businessIntent` (never from `phases[]`) and render `flow/flow.html`. Do **not** stop creation for it. Ready without flow is legal. Day-2: `project flow`.
+ 
+-12. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c (`new-plan/stage-8.md`) — internal always, ground-truth specialized, CROSS-MODEL via host default, then `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist. Precondition: gate already at `process-map`.
++12. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c (`new-plan/stage-8.md`) — internal always, ground-truth specialized, CROSS-MODEL via host default, then `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist. Precondition: gate at `summaries` (or remapped `process-map` → `reviews`). Do **not** stop to run `stage-process-map`.
+ 
+ 13. **Announce.** Same as Stage 9 (`new-plan/stage-9.md`):
+     - Plan path
+diff --git a/skills/shared/project-assets/project-flow.md b/skills/shared/project-assets/project-flow.md
+new file mode 100644
+index 00000000..3b84a3eb
+--- /dev/null
++++ b/skills/shared/project-assets/project-flow.md
+@@ -0,0 +1,126 @@
++# project — `flow` (day-2 L1/L2)
++
++Loaded for `/atomic-skills:project flow` and the alias `process`.
++
++> Communicate with the user in the install-configured language.
++
++This is a **day-2** command. It is **not** a creation stage. Ready without flow is legal. Do **not** invent nodes from `phases[]`. Do **not** write `map.html`. Do **not** put flow in `.implement.yaml`. `process.yaml` never satisfies.
++
++## Paths
++
++```
++.atomic-skills/projects/<project-id>/<plan-slug>/flow/flow.json   # L1 SoT
++.atomic-skills/projects/<project-id>/<plan-slug>/flow/flow.html   # generated, NEVER map.html
++```
++
++Foreign / any source markdown: `dirname(<source.md>)/flow/` — same `flowPathsForPlan(<source.md>)`. Filename need not be `plan.md`.
++
++## Grammar
++
++```
++/atomic-skills:project flow [<path-to-source.md>] [--check] [--open] [--strict]
++/atomic-skills:project flow --plan <path-to-source.md> [--check] [--open] [--strict]
++/atomic-skills:project process   → same as flow (alias)
++```
++
++Parse {{ARG_VAR}} first.
++
++| Flag / arg | Action |
++|------|--------|
++| `<path-to-source.md>` or `--plan <path>` | bind this file (AS `plan.md` or foreign `docs/cutover.md`); paths via `flowPathsForPlan` |
++| `--check` or `--strict` | run the detector only (step `--check`) |
++| `--open` | generate/update if needed, then show |
++| no flag | generate / update / show / ratify loop |
++
++## 1. Resolve plan
++
++1. If {{ARG_VAR}} has an existing `*.md` path (positional or `--plan`), that file **is** the plan. `PLAN_MD` = that path (any filename). Resolve L1/L2 with `flowPathsForPlan(PLAN_MD)` — **never** the sidecar.
++2. Else same nested-first resolution as `status` / no-args (`{{ASSETS_PATH}}/project-view.md`). Ambiguous → disambiguation there.
++
++No plan and no source file → tell the user this is **day-2**. They can run `new plan` (flow draft is optional, not a gate) or `project flow path/to/source.md`. Stop.
++
++```
++PLAN_MD=<resolved plan.md or source.md>
++PLAN_DIR=<dirname of PLAN_MD>
++L1=$PLAN_DIR/flow/flow.json
++L2=$PLAN_DIR/flow/flow.html
++PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
++```
++
++## 2. Generate / update (`flow.json` missing or stale)
++
++If `$L1` is missing: agent **MAY** draft a graph from `design.md` / source / ratified `businessIntent`. **Forbidden** to invent nodes from `phases[]`.
++
++Write draft `$L1` **without** `ratifiedAt` / `ratifiedGraphSha` (only `buildFlowRatification` may stamp). Then render via {{BASH_TOOL}}:
++
++```bash
++mkdir -p "$PLAN_DIR/flow"
++node "$PKG_ROOT/scripts/render-flow.js" "$L1" -o "$L2"
++```
++
++If the graph changed after a previous stamp (`ratifiedGraphSha` ≠ current document sha), treat the stamp as stale — require re-ratify (step 5). Re-render HTML after every L1 rewrite.
++
++`process.yaml` / `map.html` are **not** a flow. Ignore them as success.
++
++## 3. Show (`--open` or default)
++
++Show `$L2` (browser and/or TUI) **before** any ratify question.
++
++**Browser:** open `$L2` with the WSL-aware `open_url` contract in `{{ASSETS_PATH}}/project-view.md` / `help --html`. Never bare `xdg-open`.
++
++**TUI:** print a complete structured summary from `$L1` (not a one-liner): `actor` · `scenario` · graph `entry` · each node id/type/`label` · messages · machines. Path to `$L2`.
++
++If `--open` only: show and stop (do not ratify unless the user asked to ratify).
++
++## 4. Ratify — {{ASK_USER_QUESTION_TOOL}} only (required after show)
++
++Chat "ok" / "yes" / "lgtm" is **not** ratify. Re-invoke {{ASK_USER_QUESTION_TOOL}}.
++
++**Show first.** Do **not** stamp without completing step 3, then this question.
++
++**Question:** Approve this flow?
++
++- **Aprovar**
++- **Ajustar** (edit path)
++- **Cancelar** (leave unstamped; ready still legal)
++
++Host cannot run the tool → **STOP**. Do not invent a stamp. Do not hand-write `ratifiedAt` from free-text chat.
++
++## 5. On Aprovar — stamp only via `buildFlowRatification`
++
++Never hand-write `ratifiedAt` or `ratifiedGraphSha`. Run via {{BASH_TOOL}}:
++
++```bash
++node "$PKG_ROOT/scripts/lib/flow-ratification.js" --ratify "$L1" --ratified-by operator
++node "$PKG_ROOT/scripts/render-flow.js" "$L1" -o "$L2"
++```
++
++`buildFlowRatification` is the **only** writer of those two fields.
++
++## 6. `--check`
++
++Run via {{BASH_TOOL}}:
++
++```bash
++node "$PKG_ROOT/scripts/find-missing-flow.js" "$PLAN_MD" --strict
++```
++
++`--check` on the command is this detector `--strict` path. Exit ≠ 0 → surface issues; do not claim green.
++
++## 7. Re-ratify when the graph changed
++
++If `$L1` has a stamp and the current document sha diverges: show again, then step 4–5. Do not keep a stale stamp.
++
++## 8. Edit path (Ajustar)
++
++Agent rewrites `$L1` (labels, xor branches, nodes, messages, machines) + re-render `$L2`. **No visual editor.** Then show (step 3) and re-ask ratify.
++
++## Red flags
++
++- Inventing nodes from `phases[]`
++- Writing `map.html` or treating `process.yaml` as the flow
++- Hand-writing `ratifiedAt` / `ratifiedGraphSha`
++- Treating chat "ok" as ratify
++- Stamping before show + {{ASK_USER_QUESTION_TOOL}}
++- Blocking `ready` because flow is missing
++- Adding a creation stage `flow`
+diff --git a/skills/shared/project-assets/project-process-map.md b/skills/shared/project-assets/project-process-map.md
+index 1c1f3364..f35f686c 100644
+--- a/skills/shared/project-assets/project-process-map.md
++++ b/skills/shared/project-assets/project-process-map.md
+@@ -1,59 +1,9 @@
+-# project — `process` (L1/L2 process map)
++# project — `process` (superseded)
+ 
+-Loaded for `/atomic-skills:project process` and aliases.
++This file is a **redirect stub**. The cards / process-map procedure is no longer live.
+ 
+-> Communicate with the user in the install-configured language.
++**Superseded by** `{{ASSETS_PATH}}/project-flow.md`.
+ 
+-**Canon:** `docs/kb/process-map.md`  
+-**Iron Law P1:** NO PLAN WITHOUT PROCESS MAP — structure (YAML) + HTML are integral to every multi-phase plan.
++`process` is an alias of `flow`. Load **only** `project-flow.md` and follow that day-2 procedure.
+ 
+-## Paths
+-
+-```
+-.atomic-skills/projects/<project-id>/<plan-slug>/process/process.yaml   # L1 SoT
+-.atomic-skills/projects/<project-id>/<plan-slug>/process/map.html       # L2 generated
+-```
+-
+-## Grammar
+-
+-```
+-/atomic-skills:project process [--check] [--audience=layperson|developer|both] [--strict-html]
+-/atomic-skills:project process --open     # default: regenerate if needed + open HTML
+-```
+-
+-## Resolution
+-
+-Same active plan resolution as `status` / no-args (nested-first). Ambiguous → disambiguation in `project-view.md`. No plan → tell user to run `new plan` (process map is created **with** the plan, not alone).
+-
+-## Default (`process` / `process --open`)
+-
+-1. Resolve plan dir + paths via `processMapPathsForPlan` logic (`scripts/find-missing-process-map.js`).  
+-2. If L1 missing → **STOP**. Message: process map is mandatory at plan creation; run incomplete creation resume or re-bootstrap. Do **not** invent a map from `phases[]` silently.  
+-3. If L1 present but L2 missing/stale:
+-   ```bash
+-   node "$PKG_ROOT/scripts/render-process-map.js" "$L1" -o "$L2" --audience <from yaml or flag>
+-   ```
+-4. Open `map.html` (WSL-aware `open_url` same as `help --html`).  
+-5. Print content-sha + audience + pin (`youAreHere`).
+-
+-## `--check`
+-
+-```bash
+-node "$PKG_ROOT/scripts/find-missing-process-map.js" "$PLAN_MD" --strict-html
+-```
+-
+-Exit ≠ 0 → surface issues; do not claim green.
+-
+-## `--audience=`
+-
+-Override render lens; rewrite `audience` in YAML only if user ratifies a permanent change (AskUserQuestion). Ephemeral override: pass flag to render only.
+-
+-## Creation (not this command)
+-
+-L1+L2 are authored in `new-plan/stage-process-map.md` during `new plan` / `adopt`. That stage **must** AskUserQuestion (not skippable) for **display surface** (browser | TUI | both), **show** the map there, then ratify — free-text chat does not count. This command is the **day-2 viewer / re-render**, not a substitute for creation.
+-
+-## Red flags
+-
+-- Generating YAML from phase titles alone  
+-- Editing HTML by hand  
+-- Skipping map because “plan is technical”  
++Do not run the old cards path. Do not write `map.html`. Do not treat `process.yaml` as success.

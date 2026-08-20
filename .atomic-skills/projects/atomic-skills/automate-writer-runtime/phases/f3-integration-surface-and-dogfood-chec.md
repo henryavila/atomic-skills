@@ -25,6 +25,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 1
 gatesTotal: 1
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: G-F3-1
     description: Full npm test green and dogfood checklist published.
@@ -40,6 +42,8 @@ exitGates:
       passed: true
       exitCode: 0
       verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
+    verifierLabel: "shell: npm test && test -f docs/kb/automate-writer-runtime-dogfood…"
+    evidenceSummary: passed · 2026-07-29
 stack: []
 tasks:
   - id: T-009
@@ -107,6 +111,7 @@ tasks:
       verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
 parked: []
 emerged: []
+planTitle: Automate writer runtime (1 + A + B)
 ---
 
 # Narrative / notes

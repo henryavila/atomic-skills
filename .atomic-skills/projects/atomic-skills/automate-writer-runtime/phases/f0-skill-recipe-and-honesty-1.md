@@ -30,6 +30,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 1
 gatesTotal: 1
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: G-F0-1
     description: Skill and docs name the Grok portable writer spawn path and honesty limits.
@@ -48,6 +50,8 @@ exitGates:
       passed: true
       exitCode: 0
       verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
+    verifierLabel: "shell: node -e \"const fs=require('fs'); const p=['skills/core/impl…"
+    evidenceSummary: passed · 2026-07-29
 stack: []
 tasks:
   - id: T-001
@@ -134,6 +138,7 @@ tasks:
 parked: []
 emerged: []
 summary: Receita de spawn Grok/portátil e honestidade Layer 3 (sem runtime ainda).
+planTitle: Automate writer runtime (1 + A + B)
 ---
 
 # Narrative / notes

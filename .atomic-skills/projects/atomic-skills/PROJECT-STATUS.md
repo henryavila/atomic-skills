@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-30T13:43:48.000Z
+lastUpdated: 2026-08-13T16:54:17Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 1
@@ -20,7 +20,13 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| brainstorm-hardening | active | F0 | plan/brainstorm-hardening | 2026-07-30 | 1/4 |
+| project-flow | active | F0 | plan/project-flow | 2026-08-13 | 0/3 |
+
+### project-flow — Initiatives
+
+| Slug | Status | Phase | nextAction |
+|------|--------|-------|-----------|
+| project-flow-f0-modelo-no-disco | active | F0 | Start T-001: Substituir flow.schema.json pelo MODEL |
 
 ### brainstorm-hardening — Initiatives
 

@@ -30,6 +30,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 1
 gatesTotal: 1
+weightDone: 7
+weightTotal: 7
 exitGates:
   - id: G-F1-1
     description: Runner prepare validate covered by unit tests and skill wiring.
@@ -46,6 +48,8 @@ exitGates:
       passed: true
       exitCode: 0
       verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
+    verifierLabel: "shell: node --test tests/automate-work-order.test.js tests/automat…"
+    evidenceSummary: passed · 2026-07-29
 stack: []
 tasks:
   - id: T-003
@@ -154,6 +158,7 @@ tasks:
       verifiedCommit: 06d0918db4c118155e3a2fe7c7e49a69d35f9ac7
 parked: []
 emerged: []
+planTitle: Automate writer runtime (1 + A + B)
 ---
 
 # Narrative / notes

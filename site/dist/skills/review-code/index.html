@@ -6,6 +6,7 @@
 <title>🔬 Review Code — Adversarial (Local + Codex) · Atomic Skills</title>
 <meta name="description" content="Adversarial code review with local/codex/both mode picker">
 <link rel="stylesheet" href="../../assets/ds.css">
+<script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return'system'}}function apply(mode){var r=document.documentElement;if(mode==='light'||mode==='dark')r.setAttribute('data-theme',mode);else r.removeAttribute('data-theme');document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-checked',String(b.getAttribute('data-theme-set')===mode))})}apply(read());document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;var mode=b.getAttribute('data-theme-set');try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener('DOMContentLoaded',function(){apply(read())})})();</script>
 </head>
 <body>
 <div class="site-shell">
@@ -14,13 +15,16 @@
       <span class="site-brand-title">Atomic Skills</span>
       <span class="site-brand-sub">product docs</span>
     </a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="../../index.html">Home</a>
+    <div class="site-header-tools">
+      <nav class="site-nav" aria-label="Primary">
+        <a href="../../index.html">Home</a>
       <a href="../../skills/index.html" class="active">Skills</a>
       <a href="../../project/index.html">Project</a>
       <a href="../../modules/index.html">Modules</a>
       <a href="../../hosts/index.html">Hosts</a>
-    </nav>
+      </nav>
+      <div class="theme-switch" role="radiogroup" aria-label="Appearance"><button type="button" role="radio" data-theme-set="system" aria-checked="true">System</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+    </div>
   </header>
   <main class="site-main">
     <section class="section">

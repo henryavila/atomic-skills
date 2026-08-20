@@ -91,6 +91,11 @@ describe('render helpers', () => {
     assert.ok(html.includes('href="skills/index.html"'));
     assert.ok(html.includes('href="assets/ds.css"'));
     assert.ok(html.includes('v2.0.0'));
+    assert.match(html, /data-theme-set="system"/);
+    assert.match(html, /data-theme-set="light"/);
+    assert.match(html, /data-theme-set="dark"/);
+    assert.match(html, /as-color-scheme/);
+    assert.match(html, />System</);
   });
 
   it('renderSkillDetail escapes untrusted catalog text and uses depth-2 CSS', () => {

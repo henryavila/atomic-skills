@@ -1,0 +1,42 @@
+{
+  "actor": "Operador",
+  "scenario": "O operador carimba o fluxo operacional de um plano; sem o carimbo, a execução recusa.",
+  "decisions": [
+    {
+      "id": "TemArquivo",
+      "question": "O pedido tem arquivo de plano?",
+      "outcomes": ["sem_arquivo", "com_arquivo"]
+    },
+    {
+      "id": "QualPedido",
+      "question": "Validar o fluxo ou executar o plano?",
+      "outcomes": ["validar_fluxo", "executar_plano"]
+    },
+    {
+      "id": "ChecarParaExecutar",
+      "question": "O fluxo está carimbado e atual?",
+      "outcomes": ["carimbo_valido", "falta_ou_mudou"]
+    },
+    {
+      "id": "Decidir",
+      "question": "O operador aprova o fluxo que viu?",
+      "outcomes": ["aprova", "ajusta", "cancela"]
+    }
+  ],
+  "stateChanges": [
+    {
+      "id": "artefato",
+      "states": [
+        "ausente",
+        "rascunho",
+        "mostrado",
+        "carimbado",
+        "obsoleto",
+        "cancelado",
+        "recusado",
+        "em_execucao",
+        "nao_aplica"
+      ]
+    }
+  ]
+}

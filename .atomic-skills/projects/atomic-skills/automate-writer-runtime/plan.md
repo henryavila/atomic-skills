@@ -211,6 +211,7 @@ phases:
       outOfScope: New features beyond 1+A+B. Installer rewrite.
       doneWhen: npm test exits 0 and docs/kb/automate-writer-runtime-dogfood.md exists.
 references: []
+planTitle: Automate writer runtime (1 + A + B)
 ---
 
 # Automate writer runtime (1 + A + B)
