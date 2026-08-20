@@ -160,6 +160,7 @@ function normalizeMachines(machines) {
           if (!node || typeof node !== 'object') continue;
           nodes[id] = {
             label: trimString(node.label),
+            description: trimString(node.description),
             terminal: node.terminal === true,
           };
         }
@@ -215,6 +216,7 @@ export function normalizeFlow(raw) {
     schemaVersion: SCHEMA_VERSION,
     planSlug: trimString(doc.planSlug),
     title: trimString(doc.title) || trimString(doc.planSlug),
+    description: trimString(doc.description),
     scenario: trimString(doc.scenario),
     actor: trimString(doc.actor),
     audience: trimString(doc.audience) || 'developer',

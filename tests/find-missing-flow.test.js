@@ -86,6 +86,19 @@ describe('flowDocumentSha', () => {
     const stamped = stampForTest(doc);
     assert.equal(flowDocumentSha(stamped), expected);
   });
+
+  it('changes when only root or machine-node description changes', () => {
+    const doc = cloneMinimal();
+    const original = flowDocumentSha(doc);
+
+    const withRoot = structuredClone(doc);
+    withRoot.description = 'Requester submits; reviewer accepts or rejects.';
+    assert.notEqual(flowDocumentSha(withRoot), original);
+
+    const withNode = structuredClone(doc);
+    withNode.machines[0].nodes.open.description = 'Waiting for a reviewer decision.';
+    assert.notEqual(flowDocumentSha(withNode), original);
+  });
 });
 
 describe('checkPlanFlow', () => {
