@@ -25,13 +25,13 @@ Finalize/archive: **blocked**.
 
 | # | Finding | Severity | Provider | File:line | Action |
 |---|---------|----------|----------|-----------|--------|
-| 1 | Leftover `process-map` CLI can print ready without reviews close | major | local | scripts/creation-gates.js:63; scripts/assert-creation-stage.js:48,199-225 | recorded — no product fix (host-thin) |
-| 2 | Stamp/HTML sha omits optional description fields | minor | local | scripts/lib/render-flow.js:214; scripts/find-missing-flow.js:102-104 | recorded — fingerprint matches HTML by design |
-| 3 | Subgraph depth/cycle only from root subprocess nodes | minor | local | scripts/lib/validate-flow.js:276-284 | recorded |
+| 1 | Leftover `process-map` CLI can print ready without reviews close | major | local | scripts/creation-gates.js:63; scripts/assert-creation-stage.js:48,199-225 | **fixed** `40d3e3b6` — loadGate/assert* normalize; tests on merged tree 28/28 |
+| 2 | Stamp/HTML sha omits optional description fields | minor | local | scripts/lib/render-flow.js:214; scripts/find-missing-flow.js:102-104 | **fixed** `6db07815` — root + machine-node description in normalizeFlow; 48/48 |
+| 3 | Subgraph depth/cycle only from root subprocess nodes | minor | local | scripts/lib/validate-flow.js:276-284 | **fixed** `d666b495` — walk every subgraph key; 32/32 |
 
 **Reviews saved at:** `.atomic-skills/reviews/2026-08-17-plan-end-local-project-flow.md`
-**Final status:** Code approved with caveats (1 major leftover-stage CLI hole; 2 minor fingerprint/depth gaps)
-**Suggestion:** do not finalize on this receipt. External-both still required for `planEndReviewOk`.
+**Final status:** Findings 1–3 landed on `plan/project-flow` (merges `b701d4c1`, `c8f86555`). Local receipt still does not satisfy `planEndReviewOk`.
+**Suggestion:** do not finalize on this receipt. External-both still required.
 
 ## Triage (host G1)
 
