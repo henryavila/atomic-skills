@@ -5,7 +5,7 @@ title: Project Flow — schema, painel e dentes no implement
 version: "1.0"
 status: active
 started: 2026-08-13T16:51:58.727Z
-lastUpdated: 2026-08-20T13:20:38.054Z
+lastUpdated: 2026-08-20T13:21:34.679Z
 branch: plan/project-flow
 currentPhase: F2
 parallelismAllowed: false
@@ -363,6 +363,9 @@ references:
     path: docs/design/project-flow/LEDGER.md
   - kind: file
     path: docs/design/project-flow/MODEL.md
+  - kind: url
+    path: https://github.com/henryavila/atomic-skills/pull/45
+    label: "PR #45"
 planActive: true
 planTitle: Project Flow — schema, painel e dentes no implement
 userValidatedAt: 2026-08-20T13:20:38.054Z
