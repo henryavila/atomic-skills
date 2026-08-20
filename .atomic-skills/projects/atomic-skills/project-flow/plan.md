@@ -351,6 +351,7 @@ Descriptor `phases/f2-comando-e-dentes.source.json` é a fonte até o materializ
 - internal: 11 finding(s) applied/recorded @ uncommitted (2026-08-13T18:09:11Z)
 - ground-truth: complete-with-findings | mode=ground-truth | fp=628d08df5a72 | premises=18 | impacts=6 @ 23d9a55d (2026-08-13T21:50:00Z)
 - plan-end external-both: invoked 2026-08-17; legs failed (codex usage-limit, claude OAuth expired); grok skipped same-family; planEndReviewOk false — `.atomic-skills/reviews/2026-08-17-plan-end-external-both-project-flow.md`
+- plan-end local: 2026-08-17; 0B/0C/1M/2m; mode=local does not satisfy planEndReviewOk — `.atomic-skills/reviews/2026-08-17-plan-end-local-project-flow.md`
 
 ## Ground-truth review
 
