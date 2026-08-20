@@ -453,6 +453,75 @@ describe('validateFlow — subgraph depth', () => {
     assert.equal(result.valid, false);
     assert.match(messages(result), /depth/i);
   });
+
+  it('rejects an unreferenced subgraph chain deeper than SUBGRAPH_MAX_DEPTH', () => {
+    const doc = cloneValid();
+    const subgraphs = {};
+    for (let i = 1; i <= SUBGRAPH_MAX_DEPTH + 1; i += 1) {
+      const id = `sub${i}`;
+      const nextId = i < SUBGRAPH_MAX_DEPTH + 1 ? `sub${i + 1}` : null;
+      subgraphs[id] = {
+        entry: 'n',
+        nodes: {
+          n: nextId
+            ? { type: 'subprocess', ref: nextId, next: 'done' }
+            : { type: 'activity', label: 'Leaf', next: 'done' },
+          done: { type: 'end', label: 'Done' },
+        },
+      };
+    }
+    doc.graph = {
+      entry: 'S1',
+      nodes: {
+        S1: { type: 'activity', label: 'Start', next: 'end' },
+        end: { type: 'end', label: 'Done' },
+      },
+      subgraphs,
+    };
+    doc.machines[0].transitions = doc.machines[0].transitions.map((t) => {
+      const next = { ...t };
+      delete next.via;
+      return next;
+    });
+    const result = validateFlow(doc);
+    assert.equal(result.valid, false);
+    assert.match(messages(result), /depth|unreferenced/i);
+  });
+
+  it('rejects an unreferenced subgraph cycle', () => {
+    const doc = cloneValid();
+    doc.graph = {
+      entry: 'S1',
+      nodes: {
+        S1: { type: 'activity', label: 'Start', next: 'end' },
+        end: { type: 'end', label: 'Done' },
+      },
+      subgraphs: {
+        loopA: {
+          entry: 'n',
+          nodes: {
+            n: { type: 'subprocess', ref: 'loopB', next: 'done' },
+            done: { type: 'end', label: 'Done' },
+          },
+        },
+        loopB: {
+          entry: 'n',
+          nodes: {
+            n: { type: 'subprocess', ref: 'loopA', next: 'done' },
+            done: { type: 'end', label: 'Done' },
+          },
+        },
+      },
+    };
+    doc.machines[0].transitions = doc.machines[0].transitions.map((t) => {
+      const next = { ...t };
+      delete next.via;
+      return next;
+    });
+    const result = validateFlow(doc);
+    assert.equal(result.valid, false);
+    assert.match(messages(result), /cycle/i);
+  });
 });
 
 describe('validateFlow — domain isolation', () => {

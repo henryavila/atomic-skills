@@ -276,11 +276,16 @@ function walkSubgraphDepth(ref, subgraphs, stack, errors, path) {
 function validateSubgraphDepth(doc, errors) {
   const nodes = doc?.graph?.nodes;
   const subgraphs = doc?.graph?.subgraphs;
-  if (!isNodeMap(nodes) || !isNodeMap(subgraphs)) return;
-  for (const [id, node] of Object.entries(nodes)) {
-    if (node?.type === 'subprocess' && typeof node.ref === 'string') {
-      walkSubgraphDepth(node.ref, subgraphs, [], errors, `/graph/nodes/${id}/ref`);
+  if (!isNodeMap(subgraphs)) return;
+  if (isNodeMap(nodes)) {
+    for (const [id, node] of Object.entries(nodes)) {
+      if (node?.type === 'subprocess' && typeof node.ref === 'string') {
+        walkSubgraphDepth(node.ref, subgraphs, [], errors, `/graph/nodes/${id}/ref`);
+      }
     }
+  }
+  for (const id of Object.keys(subgraphs)) {
+    walkSubgraphDepth(id, subgraphs, [], errors, `/graph/subgraphs/${id}`);
   }
 }
 
