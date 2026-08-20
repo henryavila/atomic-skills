@@ -27,6 +27,7 @@ import {
   assertCanAdvance,
   advanceCreationStage,
   validateCreationGateStage,
+  normalizeCreationStage,
 } from './creation-gates.js';
 
 /**
@@ -45,7 +46,7 @@ export function assertAtStage(gate, expectedStage) {
   if (!CREATION_STAGES.includes(expectedStage)) {
     return { ok: false, reason: `unknown-expected-stage:${expectedStage}` };
   }
-  const cur = String(gate.stage);
+  const cur = normalizeCreationStage(gate.stage);
   const curIdx = STAGE_INDEX[cur];
   const expIdx = STAGE_INDEX[expectedStage];
   if (curIdx < expIdx) {
@@ -68,7 +69,7 @@ export function assertAdvance(gate, toStage, opts = {}) {
   if (issues.length) {
     return { ok: false, reason: issues.join(',') };
   }
-  return assertCanAdvance(String(gate.stage), toStage, opts);
+  return assertCanAdvance(normalizeCreationStage(gate.stage), toStage, opts);
 }
 
 /**
@@ -82,7 +83,7 @@ export function assertReady(gate, opts = {}) {
   if (issues.length) {
     return { ok: false, reason: issues.join(',') };
   }
-  const cur = String(gate.stage);
+  const cur = normalizeCreationStage(gate.stage);
   if (cur === 'ready') return { ok: true };
   if (opts.advancing) {
     return assertCanAdvance(cur, 'ready', { allowSkip: false });
@@ -102,7 +103,11 @@ function loadGate(path) {
     });
   }
   try {
-    return { gate: JSON.parse(readFileSync(abs, 'utf8')), path: abs };
+    const gate = JSON.parse(readFileSync(abs, 'utf8'));
+    if (gate && typeof gate === 'object' && gate.stage != null) {
+      gate.stage = normalizeCreationStage(gate.stage);
+    }
+    return { gate, path: abs };
   } catch (err) {
     throw Object.assign(
       new Error(`assert-creation-stage: corrupt ${abs}: ${err.message}`),
