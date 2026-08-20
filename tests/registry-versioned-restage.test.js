@@ -21,14 +21,17 @@ import { selectRuntimeOwner, parseInstallsRegistry } from '../src/runtime-observ
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
+import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir.js';
+
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function withHome(fakeHome, fn) {
-  const original = process.env.HOME;
-  process.env.HOME = fakeHome;
-  try { return fn(); } finally {
-    if (original === undefined) delete process.env.HOME;
-    else process.env.HOME = original;
+  const restoreHome = isolateHomedir(fakeHome);
+  try {
+    assertIsolatedHomedir(fakeHome);
+    return fn();
+  } finally {
+    restoreHome();
   }
 }
 

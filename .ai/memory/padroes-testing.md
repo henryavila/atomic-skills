@@ -78,7 +78,9 @@ falso-verde antes do fechamento da fase.
 
 O engine (`@henryavila/minimalist-installer`) e o produto reclamam Linux + macOS +
 Windows. Regressões `/proc/self/fd`-only só aparecem no macOS se a suíte Linux
-nunca forçar o backend portátil.
+nunca forçar o backend portátil. No Windows, `os.homedir()` lê `USERPROFILE`,
+não `HOME` — testes de user-scope devem usar `tests/helpers/isolate-homedir.js`.
+Não polyfillar `O_NOFOLLOW=0` (isso segue junction).
 
 **Enforcers:**
 - `tests/multiplatform-contract.test.js` — static ban de `/proc/self/fd` fora de

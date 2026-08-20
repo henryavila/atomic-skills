@@ -229,3 +229,16 @@
 {"ts":"2026-08-04T15:32:55.383Z","event":"task-done","projectId":"atomic-skills","planSlug":"audit-delivery-hardening","phaseId":"F4","taskId":"T-026","weight":1,"weightBasis":"count"}
 {"ts":"2026-08-04T15:32:55.411Z","event":"task-done","projectId":"atomic-skills","planSlug":"audit-delivery-hardening","phaseId":"F4","taskId":"T-027","weight":1,"weightBasis":"count"}
 {"ts":"2026-08-04T15:32:56.752Z","event":"phase-done","projectId":"atomic-skills","planSlug":"audit-delivery-hardening","phaseId":"F4","taskId":null,"weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T21:36:42.099Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F0","taskId":"T-001","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T21:36:42.125Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F0","taskId":"T-002","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T21:36:42.152Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F0","taskId":"T-003","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T21:45:25.227Z","event":"phase-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F0","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":30,"locAdded":3632,"locRemoved":581,"commits":10}}
+{"ts":"2026-08-13T22:00:05.191Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F1","taskId":"T-004","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T22:00:05.216Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F1","taskId":"T-005","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T22:00:05.240Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F1","taskId":"T-006","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T22:01:48.169Z","event":"phase-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F1","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":8,"locAdded":1116,"locRemoved":19,"commits":6}}
+{"ts":"2026-08-13T22:18:30.507Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F2","taskId":"T-007","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T22:18:30.533Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F2","taskId":"T-008","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T22:18:30.560Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F2","taskId":"T-009","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T22:18:30.585Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F2","taskId":"T-010","weight":1,"weightBasis":"count"}
+{"ts":"2026-08-13T22:20:17.102Z","event":"phase-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F2","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":25,"locAdded":1685,"locRemoved":502,"commits":7}}

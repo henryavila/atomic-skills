@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-pm-slug="project-flow" data-pm-lens="developer" data-pm-content-sha="334b9b393da1f1549db65c36c8f91c5a758f678bcd5b94526c2a4ce85beb16f6">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="atomic-skills render-process-map">
+<meta name="process-map-schema" content="0.1">
+<title>Mapa do processo — project-flow</title>
+<style>
+/*
+ * Atomic Skills product docs — shared design-system tokens.
+ * Extracted from docs/design/project-onboarding/index.html (aiDeck foundations).
+ * Dark-first only. Site pages link this file; onboarding may keep its inline copy.
+ */
+
+/* ─────────────────────────────────────────────────────────────────────
+   aiDeck Design System — Foundations (v2)
+   Dark-first only. Light theme is explicitly out of scope.
+
+   Tokens are intentionally domain-agnostic — `status-success` not
+   `phase-done`, `chart-1..8` not `verifier-shell`.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Fonts — Inter (sans) + JetBrains Mono (identifiers). System stacks fall
+   back when webfonts are unavailable (offline-friendly). */
+
+:root {
+  /* ── Surfaces ───────────────────────────────────────────────── */
+  --bg-sunken:      #07090d;   /* inputs, code blocks, deepest wells */
+  --bg-canvas:      #0a0d12;   /* page background */
+  --bg-surface:     #12161d;   /* widget cards, section panels */
+  --bg-elevated:    #1a1f28;   /* hover, popovers, dropdowns */
+  --bg-overlay:     #232936;   /* selected rows, focus halos */
+  --bg-highlight:   #2d3340;   /* highest — used sparingly */
+
+  /* ── Glass ──────────────────────────────────────────────────── */
+  --glass-thin:     rgba(18, 22, 29, 0.55);
+  --glass-medium:   rgba(18, 22, 29, 0.72);
+  --glass-thick:    rgba(10, 13, 18, 0.85);
+  --glass-border:   rgba(255, 255, 255, 0.06);
+  --glass-blur:     saturate(180%) blur(20px);
+  --glass-blur-sm:  saturate(160%) blur(10px);
+
+  /* ── Borders ────────────────────────────────────────────────── */
+  --border-subtle:  #1a2029;
+  --border-default: #262d38;
+  --border-strong:  #3d4656;
+  --border-bright:  #555f72;
+
+  /* ── Foreground ─────────────────────────────────────────────── */
+  --fg-default:     #e9eef5;   /* primary text — body, headings */
+  --fg-muted:       #98a1ad;   /* secondary — captions, labels */
+  --fg-subtle:      #6b7585;   /* tertiary — metadata */
+  --fg-faint:       #424a5a;   /* lowest — disabled */
+  --fg-on-accent:   #08090d;   /* text on saturated chip fill */
+
+  /* ── Semantic status ────────────────────────────────────────── */
+  --status-success: #4cc28e;   /* emerald   — passed, done, healthy */
+  --status-warning: #e0a44a;   /* amber     — needs attention, blocked */
+  --status-error:   #ff5c5c;   /* coral red — failed, critical, broken */
+  --status-info:    #5fb1ff;   /* azure     — active, running, current */
+  --status-neutral: #8b95a3;   /* slate     — idle, pending, unknown */
+
+  --status-success-bg: color-mix(in srgb, var(--status-success) 14%, var(--bg-surface));
+  --status-warning-bg: color-mix(in srgb, var(--status-warning) 14%, var(--bg-surface));
+  --status-error-bg:   color-mix(in srgb, var(--status-error)   16%, var(--bg-surface));
+  --status-info-bg:    color-mix(in srgb, var(--status-info)    14%, var(--bg-surface));
+  --status-neutral-bg: var(--bg-elevated);
+
+  --status-success-line: color-mix(in srgb, var(--status-success) 42%, var(--border-default));
+  --status-warning-line: color-mix(in srgb, var(--status-warning) 42%, var(--border-default));
+  --status-error-line:   color-mix(in srgb, var(--status-error)   48%, var(--border-default));
+  --status-info-line:    color-mix(in srgb, var(--status-info)    42%, var(--border-default));
+  --status-neutral-line: var(--border-default);
+
+  /* ── Accents ────────────────────────────────────────────────── */
+  --accent-primary: var(--status-info);
+  --accent-focus:   #88c4ff;
+  --accent-link:    #88c4ff;
+
+  /* ── Typography stacks ──────────────────────────────────────── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+               "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono",
+               "Menlo", "Consolas", monospace;
+  --font-display: var(--font-sans);
+
+  /* ── Type scale ─────────────────────────────────────────────── */
+  --fs-2xs: 10px;
+  --fs-xs:  11px;
+  --fs-sm:  12px;
+  --fs-base:13px;
+  --fs-md:  14px;
+  --fs-lg:  16px;
+  --fs-xl:  20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  --fs-4xl: 40px;
+  --fs-5xl: 56px;
+
+  --lh-tight:  1.15;
+  --lh-snug:   1.35;
+  --lh-normal: 1.5;
+  --lh-relaxed:1.65;
+
+  --tracking-tight:  -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-wider:  0.08em;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* ── Spacing (4px base) ─────────────────────────────────────── */
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  10px;
+  --space-6:  12px;
+  --space-7:  14px;
+  --space-8:  16px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --space-14: 28px;
+  --space-16: 32px;
+  --space-20: 40px;
+  --space-24: 48px;
+  --space-32: 64px;
+
+  /* ── Radii ──────────────────────────────────────────────────── */
+  --radius-none: 0;
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-pill: 999px;
+
+  --border-width: 1px;
+
+  /* ── Elevation ──────────────────────────────────────────────── */
+  --highlight-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --highlight-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.075);
+  --shadow-sm:      0 2px 4px -2px rgba(0, 0, 0, 0.5),
+                    var(--highlight-inset);
+  --shadow-md:      0 8px 24px -8px rgba(0, 0, 0, 0.6),
+                    0 2px 6px -2px rgba(0, 0, 0, 0.4),
+                    var(--highlight-inset);
+  --shadow-focus:   0 0 0 2px var(--bg-canvas),
+                    0 0 0 4px var(--accent-focus);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-canvas);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "calt" 0;
+}
+
+code {
+  font-size: 0.92em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.35em;
+}
+
+pre {
+  margin: 0;
+  padding: var(--space-8);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+}
+
+pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ── Layout chrome for product docs ───────────────────────────────── */
+
+.site-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-10) var(--space-24);
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
+  padding-bottom: var(--space-10);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.site-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--fg-default);
+  text-decoration: none;
+}
+
+.site-brand:hover {
+  text-decoration: none;
+}
+
+.site-brand-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.site-brand-sub {
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: var(--fg-default);
+  background: var(--bg-elevated);
+  text-decoration: none;
+}
+
+.site-nav a.active {
+  color: var(--status-info);
+  background: var(--status-info-bg);
+  border-color: var(--status-info-line);
+}
+
+.site-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.site-footer {
+  margin-top: var(--space-24);
+  padding-top: var(--space-10);
+  border-top: 1px solid var(--border-default);
+  color: var(--fg-subtle);
+  font-size: var(--fs-sm);
+}
+
+h1, h2, h3 {
+  margin: 0;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--fw-semibold);
+}
+
+h1 {
+  font-size: var(--fs-3xl);
+}
+
+h2 {
+  font-size: var(--fs-xl);
+  margin-top: var(--space-4);
+}
+
+h3 {
+  font-size: var(--fs-lg);
+}
+
+.lede {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-md);
+  line-height: var(--lh-relaxed);
+  max-width: 68ch;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10) var(--space-12);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-8);
+}
+
+.card a.card-title {
+  color: var(--fg-default);
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+}
+
+.card a.card-title:hover {
+  color: var(--accent-link);
+  text-decoration: underline;
+}
+
+.card .one-liner {
+  margin: var(--space-4) 0 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+}
+
+.iron-law {
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  background: color-mix(in srgb, var(--status-warning) 10%, var(--bg-surface));
+  border: 1px solid var(--status-warning-line);
+  border-radius: var(--radius-md);
+  color: var(--status-warning);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.badge-tested {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-line);
+  color: var(--status-success);
+}
+
+.badge-theoretical {
+  background: var(--status-neutral-bg);
+  border-color: var(--status-neutral-line);
+  color: var(--fg-muted);
+}
+
+.badge-module {
+  background: var(--status-info-bg);
+  border-color: var(--status-info-line);
+  color: var(--status-info);
+}
+
+ul.plain {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--fg-muted);
+}
+
+ul.plain li + li {
+  margin-top: var(--space-3);
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+}
+
+table.docs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+table.docs th,
+table.docs td {
+  padding: var(--space-6) var(--space-8);
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+table.docs th {
+  color: var(--fg-subtle);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  background: var(--bg-elevated);
+}
+
+table.docs tr:last-child td {
+  border-bottom: 0;
+}
+
+table.docs td {
+  color: var(--fg-default);
+}
+
+.eyebrow {
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.install-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.back-link {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+.prose p {
+  margin: 0;
+  color: var(--fg-muted);
+  max-width: 70ch;
+  line-height: var(--lh-relaxed);
+}
+
+.prose p + p {
+  margin-top: var(--space-6);
+}
+
+.list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list-stack li {
+  padding: var(--space-6) var(--space-8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.list-stack .cmd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--status-info);
+}
+
+.list-stack .desc {
+  margin-top: var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+}
+
+.footnote {
+  color: var(--fg-subtle);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+  max-width: 70ch;
+}
+
+/* ── Project guide spine ────────────────────────────────────────────── */
+
+ol.spine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spine-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 7.5rem;
+  max-width: 11rem;
+  flex: 1 1 7.5rem;
+  padding: var(--space-6) var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+.spine-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--status-info);
+}
+
+.spine-note {
+  font-size: var(--fs-2xs);
+  color: var(--fg-muted);
+  line-height: var(--lh-snug);
+}
+
+.spine-arrow {
+  display: none;
+}
+
+.list-stack .cmd-args {
+  margin-left: var(--space-2);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+/* process-map layout — tokens from inlined ds.css only */
+.pm-shell{max-width:960px;margin:0 auto;padding:var(--space-12) var(--space-10) var(--space-24)}
+.pm-header{display:flex;flex-direction:column;gap:var(--space-6);margin-bottom:var(--space-12);padding-bottom:var(--space-10);border-bottom:1px solid var(--border-default)}
+.pm-eyebrow{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-subtle);letter-spacing:var(--tracking-wide);text-transform:uppercase}
+.pm-title{margin:0;font-size:var(--fs-3xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight);line-height:var(--lh-tight)}
+.pm-scenario{margin:0;color:var(--fg-muted);font-size:var(--fs-md);line-height:var(--lh-relaxed);max-width:68ch}
+.pm-meta{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center}
+.pm-meta span{font-size:var(--fs-sm);color:var(--fg-subtle)}
+.pm-meta strong{color:var(--fg-muted);font-weight:var(--fw-medium)}
+.pm-toolbar{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center;margin:var(--space-6) 0 var(--space-4)}
+.pm-toolbar[hidden]{display:none!important}
+.pm-lens-btn{appearance:none;cursor:pointer;height:30px;padding:0 var(--space-6);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font-family:var(--font-sans);font-size:var(--fs-sm);font-weight:var(--fw-medium)}
+.pm-lens-btn[aria-pressed="true"]{color:var(--status-info);background:var(--status-info-bg);border-color:var(--status-info-line)}
+.pm-lens-btn:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+.pm-legend{display:flex;flex-wrap:wrap;gap:var(--space-6);margin:0 0 var(--space-10);padding:0;list-style:none;font-size:var(--fs-xs);color:var(--fg-subtle)}
+.pm-legend li{display:inline-flex;align-items:center;gap:var(--space-3)}
+.pm-swatch{width:18px;height:3px;border-radius:var(--radius-pill);background:var(--border-strong)}
+.pm-swatch.dashed{background:repeating-linear-gradient(90deg,var(--border-strong) 0 4px,transparent 4px 8px)}
+.pm-flow{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none}
+.pm-step{position:relative;display:grid;grid-template-columns:28px 1fr;gap:var(--space-6);padding:0 0 var(--space-10)}
+.pm-step:last-child{padding-bottom:0}
+.pm-rail{display:flex;flex-direction:column;align-items:center}
+.pm-dot{width:14px;height:14px;border-radius:var(--radius-pill);border:2px solid var(--border-strong);background:var(--bg-canvas);flex-shrink:0;z-index:1}
+.pm-step[data-kind="done"] .pm-dot{border-color:var(--status-success);background:var(--status-success)}
+.pm-step[data-kind="main"] .pm-dot{border-color:var(--status-info)}
+.pm-step[data-kind="optional"] .pm-dot{border-color:var(--status-neutral);border-style:dashed}
+.pm-step[data-kind="always"] .pm-dot{border-color:var(--status-warning)}
+.pm-step.is-here .pm-dot{border-color:var(--status-info);background:var(--status-info);box-shadow:0 0 0 4px var(--status-info-bg)}
+.pm-connector{flex:1;width:2px;min-height:12px;background:var(--border-default);margin:4px 0}
+.pm-step:last-child .pm-connector{display:none}
+.pm-card{background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);padding:var(--space-8) var(--space-10);box-shadow:var(--shadow-sm)}
+.pm-step.is-here .pm-card{border-color:var(--status-info-line);box-shadow:var(--shadow-md)}
+.pm-step[data-kind="optional"] .pm-card{opacity:0.95;border-style:dashed}
+.pm-card-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4)}
+.pm-card-title{margin:0;font-size:var(--fs-lg);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight)}
+.pm-here-pill{display:inline-flex;align-items:center;height:22px;padding:0 var(--space-5);border-radius:var(--radius-pill);background:var(--status-info-bg);border:1px solid var(--status-info-line);color:var(--status-info);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:var(--fw-medium);letter-spacing:var(--tracking-wide);text-transform:uppercase}
+.pm-badge{display:inline-flex;align-items:center;height:22px;padding:0 var(--space-5);border-radius:var(--radius-pill);border:1px solid transparent;font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:var(--fw-medium);letter-spacing:var(--tracking-wide);text-transform:uppercase}
+.pm-badge-done{background:var(--status-success-bg);border-color:var(--status-success-line);color:var(--status-success)}
+.pm-badge-main{background:var(--status-info-bg);border-color:var(--status-info-line);color:var(--status-info)}
+.pm-badge-optional{background:var(--status-neutral-bg);border-color:var(--status-neutral-line);color:var(--fg-muted)}
+.pm-badge-always{background:var(--status-warning-bg);border-color:var(--status-warning-line);color:var(--status-warning)}
+.pm-fields{display:grid;gap:var(--space-4);margin:0}
+.pm-field{margin:0}
+.pm-field dt{font-size:var(--fs-xs);color:var(--fg-subtle);text-transform:uppercase;letter-spacing:var(--tracking-wide);margin-bottom:var(--space-1)}
+.pm-field dd{margin:0;color:var(--fg-default);font-size:var(--fs-sm);line-height:var(--lh-snug)}
+.pm-copy[hidden]{display:none!important}
+.pm-footer{margin-top:var(--space-16);padding-top:var(--space-10);border-top:1px solid var(--border-default);font-size:var(--fs-xs);color:var(--fg-faint);font-family:var(--font-mono)}
+.pm-next{margin-top:var(--space-10);padding:var(--space-8) var(--space-10);background:color-mix(in srgb,var(--status-info) 10%,var(--bg-surface));border:1px solid var(--status-info-line);border-radius:var(--radius-lg)}
+.pm-next h2{margin:0 0 var(--space-3);font-size:var(--fs-md);color:var(--status-info)}
+.pm-next p{margin:0;color:var(--fg-muted);font-size:var(--fs-sm);line-height:var(--lh-relaxed)}
+@media (max-width:560px){.pm-shell{padding:var(--space-8) var(--space-6) var(--space-16)}.pm-title{font-size:var(--fs-2xl)}}
+
+html[data-pm-lens="layperson"] .pm-copy[data-lens="developer"]{display:none!important}
+html[data-pm-lens="developer"] .pm-copy[data-lens="layperson"]{display:none!important}
+html:not([data-pm-lens]) .pm-copy[data-lens="developer"]{display:none!important}
+</style>
+</head>
+<body>
+<div class="pm-shell">
+  <header class="pm-header">
+    <p class="pm-eyebrow">Process map · Linguagem de Produto</p>
+    <h1 class="pm-title">project-flow</h1>
+    <p class="pm-scenario">Um plano vira um fluxo operacional que o humano navega e carimba; sem esse carimbo o plano não entra em execução.</p>
+    <div class="pm-meta">
+      <span><strong>Ator:</strong> Operador do Atomic Skills (valida o fluxo) e o agente (drafta o grafo)</span>
+      <span><strong>Lente:</strong> Dev (alto nível)</span>
+      <span><strong>Pin:</strong> linguagem-comum</span>
+    </div>
+    <div class="pm-toolbar" hidden></div>
+    <ul class="pm-legend">
+      <li><span class="pm-swatch"></span> Caminho principal</li>
+      <li><span class="pm-swatch dashed"></span> Opcional</li>
+      <li><span class="pm-badge pm-badge-done">Feito</span></li>
+      <li><span class="pm-badge pm-badge-main">Principal</span></li>
+      <li><span class="pm-badge pm-badge-optional">Opcional</span></li>
+      <li><span class="pm-badge pm-badge-always">Sempre</span></li>
+    </ul>
+  </header>
+  <aside class="pm-next" aria-label="Próximo passo">
+  <h2>Próximo foco</h2>
+  <p><strong data-pm-next-name>Vocabulário único no artefato</strong> — <span data-pm-next-gain>Tipos de nó e máquinas no mesmo documento, sem um objeto states solto e sem dual-read de cards.</span></p>
+</aside>
+  <ol class="pm-flow">
+<li class="pm-step" data-kind="done" data-stage-id="modelo-ja-fechado" id="stage-modelo-ja-fechado">
+  <div class="pm-rail" aria-hidden="true"><span class="pm-dot"></span><span class="pm-connector"></span></div>
+  <article class="pm-card">
+    <div class="pm-card-head">
+      <span class="pm-badge pm-badge-done">Feito</span>
+
+    </div>
+    <div class="pm-copy" data-lens="layperson">
+      <h3 class="pm-card-title">O modelo já está decidido</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Já sabemos o que um fluxo precisa ter — conversa, processo de negócio e estados com efeitos.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Não reabrir se o fluxo é um grafo ou uma lista de cards.</dd></div>
+      </dl>
+    </div>
+    <div class="pm-copy" data-lens="developer">
+      <h3 class="pm-card-title">Contrato do grafo fechado</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Um grafo de negócio, mensagens no nó e N máquinas com efeito na transição.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Qualquer entrega seguinte fala essa língua, não a de cards.</dd></div>
+      </dl>
+    </div>
+  </article>
+</li>
+<li class="pm-step is-here" data-kind="main" data-stage-id="linguagem-comum" id="stage-linguagem-comum">
+  <div class="pm-rail" aria-hidden="true"><span class="pm-dot"></span><span class="pm-connector"></span></div>
+  <article class="pm-card">
+    <div class="pm-card-head">
+      <span class="pm-badge pm-badge-main">Principal</span>
+      <span class="pm-here-pill">Você está aqui</span>
+    </div>
+    <div class="pm-copy" data-lens="layperson">
+      <h3 class="pm-card-title">Todo mundo usa as mesmas palavras</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Dá para dizer “atividade”, “decisão”, “máquina” e ser entendido do mesmo jeito.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Parar de misturar clique de tela com passo de negócio.</dd></div>
+      </dl>
+    </div>
+    <div class="pm-copy" data-lens="developer">
+      <h3 class="pm-card-title">Vocabulário único no artefato</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Tipos de nó e máquinas no mesmo documento, sem um objeto states solto e sem dual-read de cards.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Fixture e validador apontam para o mesmo shape.</dd></div>
+      </dl>
+    </div>
+  </article>
+</li>
+<li class="pm-step" data-kind="main" data-stage-id="validacao-visual" id="stage-validacao-visual">
+  <div class="pm-rail" aria-hidden="true"><span class="pm-dot"></span><span class="pm-connector"></span></div>
+  <article class="pm-card">
+    <div class="pm-card-head">
+      <span class="pm-badge pm-badge-main">Principal</span>
+
+    </div>
+    <div class="pm-copy" data-lens="layperson">
+      <h3 class="pm-card-title">Dá para apontar para a tela</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Ver a conversa, o processo de negócio e o que dispara em cada mudança de estado, sem misturar as três coisas.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Dizer sim ou não olhando o fluxo, não um JSON.</dd></div>
+      </dl>
+    </div>
+    <div class="pm-copy" data-lens="developer">
+      <h3 class="pm-card-title">Três projeções do mesmo SoT</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Sequência lê messages, BPM lê o grafo, estados lêem machines e efeitos. Sem motor de diagrama de terceiros.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>O rito de carimbo mostra um painel já polido, não um protótipo.</dd></div>
+      </dl>
+    </div>
+  </article>
+</li>
+<li class="pm-step" data-kind="main" data-stage-id="recusa-honesta" id="stage-recusa-honesta">
+  <div class="pm-rail" aria-hidden="true"><span class="pm-dot"></span><span class="pm-connector"></span></div>
+  <article class="pm-card">
+    <div class="pm-card-head">
+      <span class="pm-badge pm-badge-main">Principal</span>
+
+    </div>
+    <div class="pm-copy" data-lens="layperson">
+      <h3 class="pm-card-title">Sem fluxo carimbado, o plano não começa a ser feito</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Ninguém escreve o produto de um plano sem o humano ter visto e aceito o fluxo.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Chat “ok” não conta como aceite.</dd></div>
+      </dl>
+    </div>
+    <div class="pm-copy" data-lens="developer">
+      <h3 class="pm-card-title">Recusa no começo da execução</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>O comando de fluxo é o único que carimba; a execução só checa o artefato e para se faltar.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Ready sem fluxo continua legal; executar sem fluxo não.</dd></div>
+      </dl>
+    </div>
+  </article>
+</li>
+<li class="pm-step" data-kind="always" data-stage-id="day-2" id="stage-day-2">
+  <div class="pm-rail" aria-hidden="true"><span class="pm-dot"></span><span class="pm-connector"></span></div>
+  <article class="pm-card">
+    <div class="pm-card-head">
+      <span class="pm-badge pm-badge-always">Sempre</span>
+
+    </div>
+    <div class="pm-copy" data-lens="layperson">
+      <h3 class="pm-card-title">Dá para atualizar o fluxo depois</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Se o negócio mudar no meio do plano, o fluxo se redesenha e se carimba de novo.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Não ficar preso ao desenho do primeiro dia.</dd></div>
+      </dl>
+    </div>
+    <div class="pm-copy" data-lens="developer">
+      <h3 class="pm-card-title">Day-2 no mesmo comando</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Gerar, atualizar, exibir e recarimbar enquanto o grafo mudar.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Stamp velho não sobrevive a grafo novo.</dd></div>
+      </dl>
+    </div>
+  </article>
+</li>
+<li class="pm-step" data-kind="optional" data-stage-id="planos-ja-prontos" id="stage-planos-ja-prontos">
+  <div class="pm-rail" aria-hidden="true"><span class="pm-dot"></span><span class="pm-connector"></span></div>
+  <article class="pm-card">
+    <div class="pm-card-head">
+      <span class="pm-badge pm-badge-optional">Opcional</span>
+
+    </div>
+    <div class="pm-copy" data-lens="layperson">
+      <h3 class="pm-card-title">Planos antigos entram quando forem feitos</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>Quem já fechou o planejamento não é obrigado a desenhar fluxo agora.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>O pedido aparece na primeira vez que alguém for executar aquele plano.</dd></div>
+      </dl>
+    </div>
+    <div class="pm-copy" data-lens="developer">
+      <h3 class="pm-card-title">Cards antigos não cumprem o gate</h3>
+      <dl class="pm-fields">
+        <div class="pm-field"><dt>O que você ganha</dt><dd>process.yaml sozinho não libera execução; o primeiro run do plano pede o fluxo novo.</dd></div>
+        <div class="pm-field"><dt>O que destrava</dt><dd>Sem migração em massa no ready.</dd></div>
+      </dl>
+    </div>
+  </article>
+</li>
+  </ol>
+  <footer class="pm-footer">
+    content-sha 334b9b393da1f154 · schema 0.1 · DS inlined from site/assets/ds.css · generated by render-process-map (deterministic)
+  </footer>
+</div>
+
+</body>
+</html>

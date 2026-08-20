@@ -11,6 +11,7 @@ import {
   writeFileSync,
   rmSync,
   readFileSync,
+  existsSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -28,6 +29,42 @@ import {
   assessGroundTruthPlanFile,
   planSubstanceText,
 } from '../src/ground-truth-review.js';
+import { buildFlowRatification } from '../scripts/lib/flow-ratification.js';
+import { flowDocumentSha, flowPathsForPlan } from '../scripts/find-missing-flow.js';
+
+const MINIMAL_FLOW = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'design', 'project-flow', 'dogfood', 'minimal-xor.json'), 'utf8'),
+);
+
+function writeDeliveryAuditReport(root, rel = '.atomic-skills/reviews/audit-delivery-demo.md') {
+  const abs = join(root, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(
+    abs,
+    [
+      '# Delivery audit',
+      '',
+      'verdict: CLOSED',
+      'intent: demo phase delivered the agreed value.',
+      'residual: none in fixture',
+      'findings: none',
+      '',
+    ].join('\n'),
+  );
+}
+
+/** Write ratified flow/flow.json + matching flow.html next to plan.md (spawn fence). */
+function stampValidFlowOnPlan(planPath, planSlug = 'demo-plan') {
+  const paths = flowPathsForPlan(planPath);
+  mkdirSync(join(paths.planDir, 'flow'), { recursive: true });
+  let doc = structuredClone(MINIMAL_FLOW);
+  doc.planSlug = planSlug;
+  doc = buildFlowRatification(doc, { ratifiedAt: '2026-08-13T12:00:00.000Z' });
+  writeFileSync(paths.flowJson, `${JSON.stringify(doc, null, 2)}\n`);
+  const sha = flowDocumentSha(doc);
+  writeFileSync(paths.flowHtml, `<html data-fl-content-sha="${sha}"></html>\n`);
+  return paths;
+}
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(ROOT, 'scripts', 'assert-automate-gate.js');
@@ -137,6 +174,9 @@ function writePlan(root, opts = {}) {
       ...(opts.decisionReview !== undefined
         ? { decisionReview: opts.decisionReview }
         : {}),
+      ...(opts.deliveryAuditGate !== undefined
+        ? { deliveryAuditGate: opts.deliveryAuditGate }
+        : {}),
     },
   ];
 
@@ -227,6 +267,14 @@ function writePlan(root, opts = {}) {
       }
       if (rg.operatorSkip === true) lines.push('      operatorSkip: true');
     }
+    if (p.deliveryAuditGate != null) {
+      const dag = p.deliveryAuditGate;
+      lines.push('    deliveryAuditGate:');
+      if (dag.status != null) lines.push(`      status: ${dag.status}`);
+      if (dag.verdict != null) lines.push(`      verdict: ${dag.verdict}`);
+      if (dag.reportPath != null) lines.push(`      reportPath: "${dag.reportPath}"`);
+      if (dag.verifiedAt != null) lines.push(`      verifiedAt: "${dag.verifiedAt}"`);
+    }
     if (p.decisionReview != null) {
       const dr = p.decisionReview;
       lines.push('    decisionReview:');
@@ -283,7 +331,9 @@ function writePlan(root, opts = {}) {
   );
   // Spawn gate requires a valid/fresh ground-truth receipt (plan + initiatives fingerprint).
   const initiativePath = join(phasesDir, `${phaseId}-demo.md`);
-  stampGroundTruthOnPlan(join(planDir, 'plan.md'), [initiativePath]);
+  const planPath = join(planDir, 'plan.md');
+  stampGroundTruthOnPlan(planPath, [initiativePath]);
+  stampValidFlowOnPlan(planPath, slug);
   return { projectId, slug, planDir, stateRoot: join(root, '.atomic-skills') };
 }
 
@@ -473,6 +523,68 @@ describe('assert-automate-gate CLI', () => {
         );
         assert.equal(r.status, 1, combined(r));
         assert.match(combined(r), /ground-truth/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('exit 1 when validated flow is missing (machine fence)', () => {
+      const root = tmpRoot();
+      try {
+        const { planDir, stateRoot } = writePlan(root, { executionMode: 'automate' });
+        rmSync(join(planDir, 'flow'), { recursive: true, force: true });
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'C');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /validated flow|missing\/invalid validated flow/i);
+        assert.match(combined(r), /atomic-skills:project flow/);
+        assert.equal(existsSync(join(planDir, 'flow', 'flow.json')), false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('exit 1 when only process.yaml exists (process-map never satisfies spawn)', () => {
+      const root = tmpRoot();
+      try {
+        const { planDir, stateRoot } = writePlan(root, { executionMode: 'automate' });
+        rmSync(join(planDir, 'flow'), { recursive: true, force: true });
+        mkdirSync(join(planDir, 'process'), { recursive: true });
+        writeFileSync(
+          join(planDir, 'process', 'process.yaml'),
+          'planSlug: demo-plan\nactor: x\nscenario: y\nstages: []\n',
+        );
+        const statusRoot = join(stateRoot, 'status');
+        writeCursor(statusRoot, 'demo-plan', 'C');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'spawn',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            statusRoot,
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /validated flow|missing\/invalid validated flow/i);
+        assert.match(combined(r), /atomic-skills:project flow/);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
@@ -941,8 +1053,15 @@ describe('assert-automate-gate CLI', () => {
             packagePresentedAt: '2026-07-21T00:00:00.000Z',
             packagePath: 'decisions/F0.jsonl',
           },
+          deliveryAuditGate: {
+            status: 'passed',
+            verdict: 'CLOSED',
+            reportPath: '.atomic-skills/reviews/audit-delivery-demo.md',
+            verifiedAt: '2026-08-04T15:00:00.000Z',
+          },
         });
         const stateRoot = join(root, '.atomic-skills');
+        writeDeliveryAuditReport(root);
         writeCursor(join(stateRoot, 'status'), 'demo-plan', 'G');
         const r = run(
           [
@@ -1133,7 +1252,14 @@ describe('assert-automate-gate CLI', () => {
           packagePresentedAt: '2026-07-21T00:00:00.000Z',
           packagePath: 'decisions/F0.jsonl',
         },
+        deliveryAuditGate: {
+          status: 'passed',
+          verdict: 'CLOSED',
+          reportPath: '.atomic-skills/reviews/audit-delivery-demo.md',
+          verifiedAt: '2026-08-04T15:00:00.000Z',
+        },
       });
+      writeDeliveryAuditReport(root);
       writePlan(root, {
         projectId: 'other',
         slug: 'demo-plan',

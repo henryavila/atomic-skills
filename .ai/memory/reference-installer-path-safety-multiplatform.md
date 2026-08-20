@@ -17,21 +17,28 @@ Checkout macOS costuma aparecer como `/Volumes/External/...` no stack.
 ## Root cause
 
 O engine `@henryavila/minimalist-installer` (integrity remediation) passou a
-exigir mutações no-follow via `/proc/self/fd` (só Linux). Sem fallback, macOS
-e Windows falhavam closed na primeira escrita de manifest.
+exigir mutações no-follow via `/proc/self/fd` (só Linux). O fallback
+`path-nofollow` resolveu macOS, mas ainda exigia `fs.constants.O_NOFOLLOW`.
+Node não exporta `O_NOFOLLOW` nem `O_DIRECTORY` no Windows. Polyfill dessas
+flags com valor `0` faz todo `open` seguir junction — não é path-nofollow.
 
 ## Fix (upstream + pin consumer)
 
 - **path-nofollow**: walk com `O_NOFOLLOW` em cada componente quando não há
   mount fd-relative (`/proc/self/fd` ou `/dev/fd` com probe OK).
-- Effects usam `entryPath()` — nunca hardcodar `/proc/self/fd` fora de
-  `path-safety.js`.
+- **windows-noreparse**: no win32 sem flag de kernel, `lstat` recusa
+  `isSymbolicLink()` em cada open (dentro do lock), depois abre com flags
+  que existem. Nunca `O_NOFOLLOW=0`.
+- Effects usam `entryPath()` / `openDirNoFollow` — nunca hardcodar
+  `/proc/self/fd` fora de `path-safety.js`.
 - Consumer pin (git SHA, sem npm publish do engine nesta trilha): ver
   `package.json` → `@henryavila/minimalist-installer` e
   `docs/audits/minimalist-installer-upstream-receipt.json`.
+- Testes de user-scope isolam `USERPROFILE` + `HOME` (`tests/helpers/isolate-homedir.js`).
+- CI `windows-path-contracts` roda junction real + install/uninstall round-trip.
 
 Env de teste/CI: `MINIMALIST_INSTALLER_PATH_BACKEND=path` força o backend
-portátil mesmo em Linux (simula macOS no CI Ubuntu).
+portátil (path-nofollow no Unix, windows-noreparse no win32).
 
 ## Enforcers
 

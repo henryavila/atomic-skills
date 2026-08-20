@@ -1,0 +1,1397 @@
+{
+  "intent": {
+    "items": [
+      {
+        "id": "F0:goal",
+        "kind": "phase-goal",
+        "phaseId": "F0",
+        "text": "Schema `\"1.0\"` expressa o MODEL (activity/xor/and/join/subprocess/event/end, messages, machines[], effects kind+label+target). event.kind é timer|error. xor.when é único por xor. join.of nomeia um and. subprocess.ref ∈ subgraphs. via, se presente, aponta branch existente. ciclo = next a ancestral. subgraphs: profundidade máxima 8. Lifecycle (planSlug, actor, scenario, audience, ratifiedAt, ratifiedGraphSha) permanece. validate-flow (AJV 2020 + regras de grafo) aceita o dogfood reescrito e rejeita o shape velho (`type: sequence`, `states` único, `effect.statusTo`). Sem regras PDTI no core.",
+        "source": "phase.goal"
+      },
+      {
+        "id": "F0:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "O PO navega e valida um fluxo operacional (negócio + conversa + estados). O shape 1.0 no disco passa a ser o MODEL. Implement recusa plano sem flow ratificado.",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "Schema \"1.0\" novo → validate-flow + dogfood reescrito → (F1/F2 depois). Draft do grafo a partir de design/source/BI, nunca de phases[].",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Sem dual-read process.yaml. Sem regras PDTI no core. Sem bump \"2.0\". Sem mergear 86c1c2d4. effects[] vazio é válido; key ausente não.",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Renderer, comando project flow, detector, implement HARD, copiar Arch, editor visual, pacote npm, feature PDTI.",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "G-F0-1 verde: dogfood MODEL valida com machines[]; probe type sequence é inválido; suite validate-flow no modelo novo. schemaVersion continua \"1.0\".",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:exit:0",
+        "kind": "exit-criteria",
+        "phaseId": "F0",
+        "text": "FAILS when old shape still validates — type sequence or single states object must be invalid; MODEL dogfood must pass with machines[]",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F0:exit:1",
+        "kind": "exit-criteria",
+        "phaseId": "F0",
+        "text": "FAILS when schemaVersion is not 1.0 or when PDTI status rules live in validate-flow.js",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F1:goal",
+        "kind": "phase-goal",
+        "phaseId": "F1",
+        "text": "Render próprio (HTML/CSS/SVG no repo, sem Mermaid/Graphviz/D2) projeta sequência + fluxo BPM + máquinas a partir de flow.json. Primeiro incremento pode ser tosco. Exit = UI impecável no DS do repo (`site/assets/ds.css`). Artefato canônico `flow/flow.html`. Sem editor.",
+        "source": "phase.goal"
+      },
+      {
+        "id": "F1:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "O PO navega e valida o fluxo nas três camadas (conversa/messages, BPM, machines) num painel HTML próprio, no design system do repo. F1 fecha impecável; o primeiro incremento pode ser tosco.",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "render-flow (lib) → CLI grava flow.html (nunca map.html) → polish com tokens --bg-canvas/--fg-default de site/assets/ds.css (só consume).",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Sem Mermaid, Graphviz ou D2. Sem editor visual. Sem mergear 86c1c2d4. Superfície sequência = messages, não sequenceDiagram. Labels BPM sem clique/modal/tela. ds.css não é output.",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Comando project flow, detector, implement HARD, remover process-map, pacote npm, editor no browser, mudar validate-flow.",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "G-F1-1: HTML próprio com as três superfícies, sem mermaid/map.html. G-F1-2: HTML usa --bg-canvas|--fg-default e não tem mermaid.",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:exit:0",
+        "kind": "exit-criteria",
+        "phaseId": "F1",
+        "text": "FAILS when render-flow uses Mermaid/Graphviz/D2 (import or sequenceDiagram/flowchart/stateDiagram in HTML), emits map.html, or omits one of the three native surfaces",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F1:exit:1",
+        "kind": "exit-criteria",
+        "phaseId": "F1",
+        "text": "FAILS when the generated dogfood HTML still looks like a prototype (no DS custom properties from site/assets/ds.css, surfaces collapsed, mermaid present). Do not look for a `ds-` class prefix — ds.css has none.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F2:goal",
+        "kind": "phase-goal",
+        "phaseId": "F2",
+        "text": "`project flow` gera/atualiza/exibe/ratifica; generate lê design/source/businessIntent e não phases[]; ratify = show + AskUserQuestion + só buildFlowRatification; detector `--strict` exige M4 + stamp do documento (grafo+messages+machines) + flow.html sha; `implement` recusa sem flow em todo plano que implement aceita (AS multi/1-phase, foreign); ad-hoc sem plan file = N/A; process-map sai do write path; Iron Law vira NO IMPLEMENT WITHOUT VALIDATED FLOW. Reusar do worktree só `flowPathsForPlan` e `buildFlowRatification`.",
+        "source": "phase.goal"
+      },
+      {
+        "id": "F2:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Todo plano que implement aceita tem flow ratificado. O PO gera, vê e carimba o fluxo no comando project flow. Sem process-map no write path.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "detector --strict (M4 + stamp + flow.html sha) → comando project flow (generate/update/show/ratify/--check/--open) → implement Step 1 + spawn recusam sem flow → CREATION_STAGES sem process-map.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Só buildFlowRatification escreve ratifiedAt/ratifiedGraphSha. Sem operatorSkip. Sem stage flow inescapável. Ready sem flow é legal. Reusar do worktree 86c1c2d4 só flowPathsForPlan e buildFlowRatification. Sem mergear HTML Mermaid.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Pacote npm, editor visual, copiar Arch, feature PDTI, reabrir Mermaid como produto.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "G-F2-1: `node --test tests/find-missing-flow.test.js tests/flow-ratification.test.js` exit 0 e `--check` no dogfood; process.yaml sozinho não passa `--strict`. G-F2-2: `rg find-missing-flow skills/core/implement.md` e CREATION_STAGES sem process-map.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:exit:0",
+        "kind": "exit-criteria",
+        "phaseId": "F2",
+        "text": "FAILS when find-missing-flow --strict or project flow --check accepts a document missing any M4 piece, when process.yaml alone satisfies the detector, or when those tests omit a --check path on the migrated dogfood fixture",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F2:exit:1",
+        "kind": "exit-criteria",
+        "phaseId": "F2",
+        "text": "FAILS when implement can spawn without flow or when CREATION_STAGES still lists process-map",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F0:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "O PO navega e valida um fluxo operacional (negócio + conversa + estados). O shape 1.0 no disco passa a ser o MODEL. Implement recusa plano sem flow ratificado.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "Schema \"1.0\" novo → validate-flow + dogfood reescrito → (F1/F2 depois). Draft do grafo a partir de design/source/BI, nunca de phases[].",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Sem dual-read process.yaml. Sem regras PDTI no core. Sem bump \"2.0\". Sem mergear 86c1c2d4. effects[] vazio é válido; key ausente não.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Renderer, comando project flow, detector, implement HARD, copiar Arch, editor visual, pacote npm, feature PDTI.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "node --test tests/validate-flow.test.js verde no MODEL. Dogfood valida. type: sequence e states único falham. schemaVersion continua \"1.0\".",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:goal",
+        "kind": "phase-goal",
+        "text": "Schema `\"1.0\"` expressa o MODEL (activity/xor/and/join/subprocess/event/end, messages, machines[], effects kind+label+target). validate-flow (AJV 2020 + regras de grafo) aceita o dogfood reescrito e rejeita o shape velho (`type: sequence`, `states` único, `effect.statusTo`). Sem regras PDTI no core.",
+        "source": "initiative.goal",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:T-001:acc:0",
+        "kind": "task-acceptance",
+        "text": "schemaVersion const remains 1.0; node type enum is activity xor and join subprocess event end; machines array exists; transition effect requires kind (email notify write other) plus label plus target; sequence decision and single states object are not valid node/root shapes",
+        "source": "task.acceptance",
+        "phaseId": "F0",
+        "taskId": "T-001"
+      },
+      {
+        "id": "F0:T-002:acc:0",
+        "kind": "task-acceptance",
+        "text": "neighbors walk activity xor and join subprocess event end; actorRef on messages; xor and and require >=2 branches; join.of must name an and; machines require >=1 node; effects key required (empty array valid); schemaVersion 1.0 with type sequence fails; tests cover broken next, one-branch xor, ghost actor, missing effects key, empty machine nodes; xor.when is unique per xor; invalid via fails; event.kind is timer|error; subprocess.ref is in subgraphs; cycle is next to an ancestor",
+        "source": "task.acceptance",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "F0:T-003:acc:0",
+        "kind": "task-acceptance",
+        "text": "fluxo-sugestao.json validates; processLabels have no click/modal/screen words; clicks live only in messages; at least one machine with >=1 state and transitions with effects arrays; minimal-xor.json is 2 actors + 1 xor + 1 machine; type sequence and root states object fail validateFlow",
+        "source": "task.acceptance",
+        "phaseId": "F0",
+        "taskId": "T-003"
+      },
+      {
+        "id": "F1:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "O PO navega e valida o fluxo nas três camadas (conversa/messages, BPM, machines) num painel HTML próprio, no design system do repo. F1 fecha impecável; o primeiro incremento pode ser tosco.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "render-flow (lib) → CLI grava flow.html (nunca map.html) → polish com tokens --bg-canvas/--fg-default de site/assets/ds.css (só consume).",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Sem Mermaid, Graphviz ou D2. Sem editor visual. Sem mergear 86c1c2d4. Superfície sequência = messages, não sequenceDiagram. Labels BPM sem clique/modal/tela. ds.css não é output.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Comando project flow, detector, implement HARD, remover process-map, pacote npm, editor no browser, mudar validate-flow.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "G-F1-1: HTML próprio com as três superfícies, sem mermaid/map.html. G-F1-2: HTML usa --bg-canvas|--fg-default e não tem mermaid.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:T-004:acc:0",
+        "kind": "task-acceptance",
+        "text": "given MODEL dogfood, render returns HTML containing three distinct surfaces (sequence, bpm, machines); labels on bpm omit click words; messages appear on sequence; transitions show kind label target; mutating a next id changes the output; no mermaid script tag or mermaid.initialize",
+        "source": "task.acceptance",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "F1:T-005:acc:0",
+        "kind": "task-acceptance",
+        "text": "`node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/flow.html` writes HTML; --check exits 0 on matching content-sha; --stdout prints HTML; output filename is flow.html not map.html",
+        "source": "task.acceptance",
+        "phaseId": "F1",
+        "taskId": "T-005"
+      },
+      {
+        "id": "F1:T-006:acc:0",
+        "kind": "task-acceptance",
+        "text": "generated HTML uses DS tokens from site/assets/ds.css (inline or linked); three surfaces remain visually distinct (separate landmarks or tabs); typography and spacing match DS scale; no tool watermark; golden HTML snapshot updates only when visual contract changes",
+        "source": "task.acceptance",
+        "phaseId": "F1",
+        "taskId": "T-006"
+      },
+      {
+        "id": "F2:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Todo plano que implement aceita tem flow ratificado. O PO gera, vê e carimba o fluxo no comando project flow. Sem process-map no write path.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "detector --strict (M4 + stamp + flow.html sha) → comando project flow (generate/update/show/ratify/--check/--open) → implement Step 1 + spawn recusam sem flow → CREATION_STAGES sem process-map.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Só buildFlowRatification escreve ratifiedAt/ratifiedGraphSha. Sem operatorSkip. Sem stage flow inescapável. Ready sem flow é legal. Reusar do worktree 86c1c2d4 só flowPathsForPlan e buildFlowRatification. Sem mergear HTML Mermaid.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Pacote npm, editor visual, copiar Arch, feature PDTI, reabrir Mermaid como produto.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "G-F2-1: `node --test tests/find-missing-flow.test.js tests/flow-ratification.test.js` exit 0 e `--check` no dogfood; process.yaml sozinho não passa `--strict`. G-F2-2: `rg find-missing-flow skills/core/implement.md` e CREATION_STAGES sem process-map.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:goal",
+        "kind": "phase-goal",
+        "text": "`project flow` gera/atualiza/exibe/ratifica; detector `--strict` exige M4 + stamp + flow.html sha; `implement` recusa sem artefato; process-map sai do write path; Iron Law vira NO IMPLEMENT WITHOUT VALIDATED FLOW. Reusar do worktree só `flowPathsForPlan` e `buildFlowRatification`.",
+        "source": "initiative.goal",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:T-007:acc:0",
+        "kind": "task-acceptance",
+        "text": "--strict exit 0 only when flow.json validates, >=1 messages, >=1 machine with >=1 state, ratifiedAt set, ratifiedGraphSha matches, flow.html exists with matching content-sha; missing any piece exits non-zero; process.yaml alone does not satisfy",
+        "source": "task.acceptance",
+        "phaseId": "F2",
+        "taskId": "T-007"
+      },
+      {
+        "id": "F2:T-008:acc:0",
+        "kind": "task-acceptance",
+        "text": "grammar lists flow; alias process loads project-flow.md only; buildFlowRatification is the only writer of ratifiedAt and ratifiedGraphSha; generate/update/show/--check/--open are documented; AskUserQuestion after show is required before stamp",
+        "source": "task.acceptance",
+        "phaseId": "F2",
+        "taskId": "T-008"
+      },
+      {
+        "id": "F2:T-009:acc:0",
+        "kind": "task-acceptance",
+        "text": "implement Step 1 runs find-missing-flow --strict on the plan path; non-zero refuses code and spawn; assert-automate-gate --gate spawn fails closed without the artifact; docs/kb/flow.md states the Iron Law and the command; no chat waiver",
+        "source": "task.acceptance",
+        "phaseId": "F2",
+        "taskId": "T-009"
+      },
+      {
+        "id": "F2:T-010:acc:0",
+        "kind": "task-acceptance",
+        "text": "CREATION_STAGES goes summaries then reviews with no process-map entry; mid-creation process-map remaps to reviews; Iron Law text is NO IMPLEMENT WITHOUT VALIDATED FLOW; project process aliases to flow; ready without flow remains legal",
+        "source": "task.acceptance",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      }
+    ]
+  },
+  "delivered": {
+    "items": [
+      {
+        "id": "task:F0:T-001",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]"
+        ],
+        "phaseId": "F0",
+        "taskId": "T-001",
+        "text": "task T-001 status=done paths=1"
+      },
+      {
+        "id": "output:F0:T-001:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F0",
+        "taskId": "T-001"
+      },
+      {
+        "id": "task:F0:T-002",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]",
+          "[object Object]"
+        ],
+        "phaseId": "F0",
+        "taskId": "T-002",
+        "text": "task T-002 status=done paths=2"
+      },
+      {
+        "id": "output:F0:T-002:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F0:T-002:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "task:F0:T-003",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]",
+          "[object Object]",
+          "[object Object]"
+        ],
+        "phaseId": "F0",
+        "taskId": "T-003",
+        "text": "task T-003 status=done paths=3"
+      },
+      {
+        "id": "output:F0:T-003:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F0",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F0:T-003:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F0",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F0:T-003:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F0",
+        "taskId": "T-003"
+      },
+      {
+        "id": "task:F1:T-004",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]",
+          "[object Object]"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-004",
+        "text": "task T-004 status=done paths=2"
+      },
+      {
+        "id": "output:F1:T-004:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F1:T-004:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "task:F1:T-005",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]",
+          "[object Object]"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-005",
+        "text": "task T-005 status=done paths=2"
+      },
+      {
+        "id": "output:F1:T-005:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F1",
+        "taskId": "T-005"
+      },
+      {
+        "id": "output:F1:T-005:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F1",
+        "taskId": "T-005"
+      },
+      {
+        "id": "task:F1:T-006",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]",
+          "[object Object]"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-006",
+        "text": "task T-006 status=done paths=2"
+      },
+      {
+        "id": "output:F1:T-006:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F1",
+        "taskId": "T-006"
+      },
+      {
+        "id": "output:F1:T-006:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F1",
+        "taskId": "T-006"
+      },
+      {
+        "id": "task:F2:T-007",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]",
+          "[object Object]"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-007",
+        "text": "task T-007 status=done paths=2"
+      },
+      {
+        "id": "output:F2:T-007:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-007"
+      },
+      {
+        "id": "output:F2:T-007:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-007"
+      },
+      {
+        "id": "task:F2:T-008",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-008",
+        "text": "task T-008 status=done paths=4"
+      },
+      {
+        "id": "output:F2:T-008:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-008"
+      },
+      {
+        "id": "output:F2:T-008:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-008"
+      },
+      {
+        "id": "output:F2:T-008:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-008"
+      },
+      {
+        "id": "output:F2:T-008:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-008"
+      },
+      {
+        "id": "task:F2:T-009",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-009",
+        "text": "task T-009 status=done paths=4"
+      },
+      {
+        "id": "output:F2:T-009:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-009"
+      },
+      {
+        "id": "output:F2:T-009:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-009"
+      },
+      {
+        "id": "output:F2:T-009:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-009"
+      },
+      {
+        "id": "output:F2:T-009:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-009"
+      },
+      {
+        "id": "task:F2:T-010",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [],
+        "paths": [
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]",
+          "[object Object]"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-010",
+        "text": "task T-010 status=done paths=12"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "output:F2:T-010:[object Object]",
+        "kind": "output-path",
+        "path": "[object Object]",
+        "text": "[object Object]",
+        "phaseId": "F2",
+        "taskId": "T-010"
+      },
+      {
+        "id": "claim:F2:T-007",
+        "kind": "claim",
+        "status": "claimed-pass",
+        "done": true,
+        "commitShas": [
+          "e681fbd616d6d21dd4f060641a47f3a404664fe8"
+        ],
+        "paths": [
+          "scripts/find-missing-flow.js",
+          "tests/find-missing-flow.test.js"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-007",
+        "text": "task T-007 status=claimed-pass shas=1 paths=2"
+      },
+      {
+        "id": "claim:F2:T-008",
+        "kind": "claim",
+        "status": "claimed-pass",
+        "done": true,
+        "commitShas": [
+          "cbb2a9147edc204d76e946a8e0c029adf5ae62fb"
+        ],
+        "paths": [
+          "skills/core/project.md",
+          "skills/shared/project-assets/project-flow.md",
+          "scripts/lib/flow-ratification.js",
+          "tests/flow-ratification.test.js"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-008",
+        "text": "task T-008 status=claimed-pass shas=1 paths=4"
+      },
+      {
+        "id": "claim:F2:T-009",
+        "kind": "claim",
+        "status": "claimed-pass",
+        "done": true,
+        "commitShas": [
+          "adeccc3c30a4a94a224fff022e49a823a875f012"
+        ],
+        "paths": [
+          "skills/core/implement.md",
+          "scripts/assert-automate-gate.js",
+          "tests/assert-automate-gate.test.js",
+          "docs/kb/flow.md"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-009",
+        "text": "task T-009 status=claimed-pass shas=1 paths=4"
+      },
+      {
+        "id": "claim:F2:T-010",
+        "kind": "claim",
+        "status": "claimed-pass",
+        "done": true,
+        "commitShas": [
+          "af59723da5fc60fd2647cdf462d343e921a2d31f"
+        ],
+        "paths": [
+          "scripts/creation-gates.js",
+          "tests/creation-gates.test.js",
+          "skills/core/project.md",
+          "skills/shared/project-assets/project-create-plan.md",
+          "skills/shared/project-assets/new-plan/stage-8.md",
+          "skills/shared/project-assets/new-plan/stage-9.md",
+          "CLAUDE.md",
+          "docs/kb/process-map.md",
+          "skills/shared/project-assets/new-plan/stage-process-map.md",
+          "skills/shared/project-assets/new-plan/stage-7.md",
+          "skills/shared/project-assets/project-process-map.md",
+          "tests/find-missing-process-map.test.js"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-010",
+        "text": "task T-010 status=claimed-pass shas=1 paths=12"
+      },
+      {
+        "id": "extra:diagram-engine",
+        "kind": "extra",
+        "text": "Generic flow diagram engine + preview (layout/draw/zoom/pdf) after F2 close",
+        "paths": [
+          "scripts/lib/flow-layout.js",
+          "scripts/lib/flow-draw.js",
+          "docs/plans/2026-08-14-flow-diagram-engine.md"
+        ]
+      },
+      {
+        "id": "extra:serve-flow-http",
+        "kind": "extra",
+        "text": "serve-flow HTTP show; flow instance + brief on this plan",
+        "paths": [
+          "scripts/serve-flow.js",
+          ".atomic-skills/projects/atomic-skills/project-flow/flow/flow.json"
+        ]
+      }
+    ],
+    "commitShas": [
+      "e681fbd616d6d21dd4f060641a47f3a404664fe8",
+      "cbb2a9147edc204d76e946a8e0c029adf5ae62fb",
+      "adeccc3c30a4a94a224fff022e49a823a875f012",
+      "af59723da5fc60fd2647cdf462d343e921a2d31f"
+    ],
+    "paths": [
+      "[object Object]",
+      "scripts/find-missing-flow.js",
+      "tests/find-missing-flow.test.js",
+      "skills/core/project.md",
+      "skills/shared/project-assets/project-flow.md",
+      "scripts/lib/flow-ratification.js",
+      "tests/flow-ratification.test.js",
+      "skills/core/implement.md",
+      "scripts/assert-automate-gate.js",
+      "tests/assert-automate-gate.test.js",
+      "docs/kb/flow.md",
+      "scripts/creation-gates.js",
+      "tests/creation-gates.test.js",
+      "skills/shared/project-assets/project-create-plan.md",
+      "skills/shared/project-assets/new-plan/stage-8.md",
+      "skills/shared/project-assets/new-plan/stage-9.md",
+      "CLAUDE.md",
+      "docs/kb/process-map.md",
+      "skills/shared/project-assets/new-plan/stage-process-map.md",
+      "skills/shared/project-assets/new-plan/stage-7.md",
+      "skills/shared/project-assets/project-process-map.md",
+      "tests/find-missing-process-map.test.js"
+    ]
+  },
+  "rows": [
+    {
+      "id": "ivd:F0:goal",
+      "label": "Schema `\"1.0\"` expressa o MODEL (activity/xor/and/join/subprocess/event/end, messages, machines[], effects kind+label+target). event.kind é timer|error. xor.when é único por xor. join.of nomeia um and. subprocess.ref ∈ subgraphs. via, se presente, aponta branch existente. ciclo = next a ancestral. subgraphs: profundidade máxima 8. Lifecycle (planSlug, actor, scenario, audience, ratifiedAt, ratifiedGraphSha) permanece. validate-flow (AJV 2020 + regras de grafo) aceita o dogfood reescrito e rejeita o shape velho (`type: sequence`, `states` único, `effect.statusTo`). Sem regras PDTI no core.",
+      "status": "partial",
+      "intentId": "F0:goal",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:value",
+      "label": "O PO navega e valida um fluxo operacional (negócio + conversa + estados). O shape 1.0 no disco passa a ser o MODEL. Implement recusa plano sem flow ratificado.",
+      "status": "partial",
+      "intentId": "F0:bi:value",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:workflow",
+      "label": "Schema \"1.0\" novo → validate-flow + dogfood reescrito → (F1/F2 depois). Draft do grafo a partir de design/source/BI, nunca de phases[].",
+      "status": "partial",
+      "intentId": "F0:bi:workflow",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:rules",
+      "label": "Sem dual-read process.yaml. Sem regras PDTI no core. Sem bump \"2.0\". Sem mergear 86c1c2d4. effects[] vazio é válido; key ausente não.",
+      "status": "partial",
+      "intentId": "F0:bi:rules",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:outOfScope",
+      "label": "Renderer, comando project flow, detector, implement HARD, copiar Arch, editor visual, pacote npm, feature PDTI.",
+      "status": "partial",
+      "intentId": "F0:bi:outOfScope",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:doneWhen",
+      "label": "G-F0-1 verde: dogfood MODEL valida com machines[]; probe type sequence é inválido; suite validate-flow no modelo novo. schemaVersion continua \"1.0\".",
+      "status": "partial",
+      "intentId": "F0:bi:doneWhen",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:exit:0",
+      "label": "FAILS when old shape still validates — type sequence or single states object must be invalid; MODEL dogfood must pass with machines[]",
+      "status": "partial",
+      "intentId": "F0:exit:0",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:exit:1",
+      "label": "FAILS when schemaVersion is not 1.0 or when PDTI status rules live in validate-flow.js",
+      "status": "partial",
+      "intentId": "F0:exit:1",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:goal",
+      "label": "Render próprio (HTML/CSS/SVG no repo, sem Mermaid/Graphviz/D2) projeta sequência + fluxo BPM + máquinas a partir de flow.json. Primeiro incremento pode ser tosco. Exit = UI impecável no DS do repo (`site/assets/ds.css`). Artefato canônico `flow/flow.html`. Sem editor.",
+      "status": "partial",
+      "intentId": "F1:goal",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:value",
+      "label": "O PO navega e valida o fluxo nas três camadas (conversa/messages, BPM, machines) num painel HTML próprio, no design system do repo. F1 fecha impecável; o primeiro incremento pode ser tosco.",
+      "status": "partial",
+      "intentId": "F1:bi:value",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:workflow",
+      "label": "render-flow (lib) → CLI grava flow.html (nunca map.html) → polish com tokens --bg-canvas/--fg-default de site/assets/ds.css (só consume).",
+      "status": "partial",
+      "intentId": "F1:bi:workflow",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:rules",
+      "label": "Sem Mermaid, Graphviz ou D2. Sem editor visual. Sem mergear 86c1c2d4. Superfície sequência = messages, não sequenceDiagram. Labels BPM sem clique/modal/tela. ds.css não é output.",
+      "status": "partial",
+      "intentId": "F1:bi:rules",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:outOfScope",
+      "label": "Comando project flow, detector, implement HARD, remover process-map, pacote npm, editor no browser, mudar validate-flow.",
+      "status": "partial",
+      "intentId": "F1:bi:outOfScope",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:doneWhen",
+      "label": "G-F1-1: HTML próprio com as três superfícies, sem mermaid/map.html. G-F1-2: HTML usa --bg-canvas|--fg-default e não tem mermaid.",
+      "status": "partial",
+      "intentId": "F1:bi:doneWhen",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:exit:0",
+      "label": "FAILS when render-flow uses Mermaid/Graphviz/D2 (import or sequenceDiagram/flowchart/stateDiagram in HTML), emits map.html, or omits one of the three native surfaces",
+      "status": "partial",
+      "intentId": "F1:exit:0",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:exit:1",
+      "label": "FAILS when the generated dogfood HTML still looks like a prototype (no DS custom properties from site/assets/ds.css, surfaces collapsed, mermaid present). Do not look for a `ds-` class prefix — ds.css has none.",
+      "status": "partial",
+      "intentId": "F1:exit:1",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:goal",
+      "label": "`project flow` gera/atualiza/exibe/ratifica; generate lê design/source/businessIntent e não phases[]; ratify = show + AskUserQuestion + só buildFlowRatification; detector `--strict` exige M4 + stamp do documento (grafo+messages+machines) + flow.html sha; `implement` recusa sem flow em todo plano que implement aceita (AS multi/1-phase, foreign); ad-hoc sem plan file = N/A; process-map sai do write path; Iron Law vira NO IMPLEMENT WITHOUT VALIDATED FLOW. Reusar do worktree só `flowPathsForPlan` e `buildFlowRatification`.",
+      "status": "partial",
+      "intentId": "F2:goal",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:value",
+      "label": "Todo plano que implement aceita tem flow ratificado. O PO gera, vê e carimba o fluxo no comando project flow. Sem process-map no write path.",
+      "status": "partial",
+      "intentId": "F2:bi:value",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:workflow",
+      "label": "detector --strict (M4 + stamp + flow.html sha) → comando project flow (generate/update/show/ratify/--check/--open) → implement Step 1 + spawn recusam sem flow → CREATION_STAGES sem process-map.",
+      "status": "partial",
+      "intentId": "F2:bi:workflow",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:rules",
+      "label": "Só buildFlowRatification escreve ratifiedAt/ratifiedGraphSha. Sem operatorSkip. Sem stage flow inescapável. Ready sem flow é legal. Reusar do worktree 86c1c2d4 só flowPathsForPlan e buildFlowRatification. Sem mergear HTML Mermaid.",
+      "status": "partial",
+      "intentId": "F2:bi:rules",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:outOfScope",
+      "label": "Pacote npm, editor visual, copiar Arch, feature PDTI, reabrir Mermaid como produto.",
+      "status": "partial",
+      "intentId": "F2:bi:outOfScope",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:doneWhen",
+      "label": "G-F2-1: `node --test tests/find-missing-flow.test.js tests/flow-ratification.test.js` exit 0 e `--check` no dogfood; process.yaml sozinho não passa `--strict`. G-F2-2: `rg find-missing-flow skills/core/implement.md` e CREATION_STAGES sem process-map.",
+      "status": "partial",
+      "intentId": "F2:bi:doneWhen",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:exit:0",
+      "label": "FAILS when find-missing-flow --strict or project flow --check accepts a document missing any M4 piece, when process.yaml alone satisfies the detector, or when those tests omit a --check path on the migrated dogfood fixture",
+      "status": "partial",
+      "intentId": "F2:exit:0",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:exit:1",
+      "label": "FAILS when implement can spawn without flow or when CREATION_STAGES still lists process-map",
+      "status": "partial",
+      "intentId": "F2:exit:1",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:value",
+      "label": "O PO navega e valida um fluxo operacional (negócio + conversa + estados). O shape 1.0 no disco passa a ser o MODEL. Implement recusa plano sem flow ratificado.",
+      "status": "partial",
+      "intentId": "F0:bi:value",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:workflow",
+      "label": "Schema \"1.0\" novo → validate-flow + dogfood reescrito → (F1/F2 depois). Draft do grafo a partir de design/source/BI, nunca de phases[].",
+      "status": "partial",
+      "intentId": "F0:bi:workflow",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:rules",
+      "label": "Sem dual-read process.yaml. Sem regras PDTI no core. Sem bump \"2.0\". Sem mergear 86c1c2d4. effects[] vazio é válido; key ausente não.",
+      "status": "partial",
+      "intentId": "F0:bi:rules",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:outOfScope",
+      "label": "Renderer, comando project flow, detector, implement HARD, copiar Arch, editor visual, pacote npm, feature PDTI.",
+      "status": "partial",
+      "intentId": "F0:bi:outOfScope",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:doneWhen",
+      "label": "node --test tests/validate-flow.test.js verde no MODEL. Dogfood valida. type: sequence e states único falham. schemaVersion continua \"1.0\".",
+      "status": "partial",
+      "intentId": "F0:bi:doneWhen",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:goal",
+      "label": "Schema `\"1.0\"` expressa o MODEL (activity/xor/and/join/subprocess/event/end, messages, machines[], effects kind+label+target). validate-flow (AJV 2020 + regras de grafo) aceita o dogfood reescrito e rejeita o shape velho (`type: sequence`, `states` único, `effect.statusTo`). Sem regras PDTI no core.",
+      "status": "partial",
+      "intentId": "F0:goal",
+      "phaseId": "F0",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F0:T-001:acc:0",
+      "label": "schemaVersion const remains 1.0; node type enum is activity xor and join subprocess event end; machines array exists; transition effect requires kind (email notify write other) plus label plus target; sequence decision and single states object are not valid node/root shapes",
+      "status": "partial",
+      "intentId": "F0:T-001:acc:0",
+      "deliveredId": "task:F0:T-001",
+      "phaseId": "F0",
+      "taskId": "T-001",
+      "note": "task evidence incomplete (done xor SHAs)"
+    },
+    {
+      "id": "ivd:F0:T-002:acc:0",
+      "label": "neighbors walk activity xor and join subprocess event end; actorRef on messages; xor and and require >=2 branches; join.of must name an and; machines require >=1 node; effects key required (empty array valid); schemaVersion 1.0 with type sequence fails; tests cover broken next, one-branch xor, ghost actor, missing effects key, empty machine nodes; xor.when is unique per xor; invalid via fails; event.kind is timer|error; subprocess.ref is in subgraphs; cycle is next to an ancestor",
+      "status": "partial",
+      "intentId": "F0:T-002:acc:0",
+      "deliveredId": "task:F0:T-002",
+      "phaseId": "F0",
+      "taskId": "T-002",
+      "note": "task evidence incomplete (done xor SHAs)"
+    },
+    {
+      "id": "ivd:F0:T-003:acc:0",
+      "label": "fluxo-sugestao.json validates; processLabels have no click/modal/screen words; clicks live only in messages; at least one machine with >=1 state and transitions with effects arrays; minimal-xor.json is 2 actors + 1 xor + 1 machine; type sequence and root states object fail validateFlow",
+      "status": "partial",
+      "intentId": "F0:T-003:acc:0",
+      "deliveredId": "task:F0:T-003",
+      "phaseId": "F0",
+      "taskId": "T-003",
+      "note": "task evidence incomplete (done xor SHAs)"
+    },
+    {
+      "id": "ivd:F1:bi:value",
+      "label": "O PO navega e valida o fluxo nas três camadas (conversa/messages, BPM, machines) num painel HTML próprio, no design system do repo. F1 fecha impecável; o primeiro incremento pode ser tosco.",
+      "status": "partial",
+      "intentId": "F1:bi:value",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:workflow",
+      "label": "render-flow (lib) → CLI grava flow.html (nunca map.html) → polish com tokens --bg-canvas/--fg-default de site/assets/ds.css (só consume).",
+      "status": "partial",
+      "intentId": "F1:bi:workflow",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:rules",
+      "label": "Sem Mermaid, Graphviz ou D2. Sem editor visual. Sem mergear 86c1c2d4. Superfície sequência = messages, não sequenceDiagram. Labels BPM sem clique/modal/tela. ds.css não é output.",
+      "status": "partial",
+      "intentId": "F1:bi:rules",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:outOfScope",
+      "label": "Comando project flow, detector, implement HARD, remover process-map, pacote npm, editor no browser, mudar validate-flow.",
+      "status": "partial",
+      "intentId": "F1:bi:outOfScope",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:doneWhen",
+      "label": "G-F1-1: HTML próprio com as três superfícies, sem mermaid/map.html. G-F1-2: HTML usa --bg-canvas|--fg-default e não tem mermaid.",
+      "status": "partial",
+      "intentId": "F1:bi:doneWhen",
+      "phaseId": "F1",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F1:T-004:acc:0",
+      "label": "given MODEL dogfood, render returns HTML containing three distinct surfaces (sequence, bpm, machines); labels on bpm omit click words; messages appear on sequence; transitions show kind label target; mutating a next id changes the output; no mermaid script tag or mermaid.initialize",
+      "status": "partial",
+      "intentId": "F1:T-004:acc:0",
+      "deliveredId": "task:F1:T-004",
+      "phaseId": "F1",
+      "taskId": "T-004",
+      "note": "task evidence incomplete (done xor SHAs)"
+    },
+    {
+      "id": "ivd:F1:T-005:acc:0",
+      "label": "`node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/flow.html` writes HTML; --check exits 0 on matching content-sha; --stdout prints HTML; output filename is flow.html not map.html",
+      "status": "partial",
+      "intentId": "F1:T-005:acc:0",
+      "deliveredId": "task:F1:T-005",
+      "phaseId": "F1",
+      "taskId": "T-005",
+      "note": "task evidence incomplete (done xor SHAs)"
+    },
+    {
+      "id": "ivd:F1:T-006:acc:0",
+      "label": "generated HTML uses DS tokens from site/assets/ds.css (inline or linked); three surfaces remain visually distinct (separate landmarks or tabs); typography and spacing match DS scale; no tool watermark; golden HTML snapshot updates only when visual contract changes",
+      "status": "partial",
+      "intentId": "F1:T-006:acc:0",
+      "deliveredId": "task:F1:T-006",
+      "phaseId": "F1",
+      "taskId": "T-006",
+      "note": "task evidence incomplete (done xor SHAs)"
+    },
+    {
+      "id": "ivd:F2:bi:value",
+      "label": "Todo plano que implement aceita tem flow ratificado. O PO gera, vê e carimba o fluxo no comando project flow. Sem process-map no write path.",
+      "status": "partial",
+      "intentId": "F2:bi:value",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:workflow",
+      "label": "detector --strict (M4 + stamp + flow.html sha) → comando project flow (generate/update/show/ratify/--check/--open) → implement Step 1 + spawn recusam sem flow → CREATION_STAGES sem process-map.",
+      "status": "partial",
+      "intentId": "F2:bi:workflow",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:rules",
+      "label": "Só buildFlowRatification escreve ratifiedAt/ratifiedGraphSha. Sem operatorSkip. Sem stage flow inescapável. Ready sem flow é legal. Reusar do worktree 86c1c2d4 só flowPathsForPlan e buildFlowRatification. Sem mergear HTML Mermaid.",
+      "status": "partial",
+      "intentId": "F2:bi:rules",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:outOfScope",
+      "label": "Pacote npm, editor visual, copiar Arch, feature PDTI, reabrir Mermaid como produto.",
+      "status": "partial",
+      "intentId": "F2:bi:outOfScope",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:doneWhen",
+      "label": "G-F2-1: `node --test tests/find-missing-flow.test.js tests/flow-ratification.test.js` exit 0 e `--check` no dogfood; process.yaml sozinho não passa `--strict`. G-F2-2: `rg find-missing-flow skills/core/implement.md` e CREATION_STAGES sem process-map.",
+      "status": "partial",
+      "intentId": "F2:bi:doneWhen",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:goal",
+      "label": "`project flow` gera/atualiza/exibe/ratifica; detector `--strict` exige M4 + stamp + flow.html sha; `implement` recusa sem artefato; process-map sai do write path; Iron Law vira NO IMPLEMENT WITHOUT VALIDATED FLOW. Reusar do worktree só `flowPathsForPlan` e `buildFlowRatification`.",
+      "status": "partial",
+      "intentId": "F2:goal",
+      "phaseId": "F2",
+      "note": "phase partially evidenced"
+    },
+    {
+      "id": "ivd:F2:T-007:acc:0",
+      "label": "--strict exit 0 only when flow.json validates, >=1 messages, >=1 machine with >=1 state, ratifiedAt set, ratifiedGraphSha matches, flow.html exists with matching content-sha; missing any piece exits non-zero; process.yaml alone does not satisfy",
+      "status": "matched",
+      "intentId": "F2:T-007:acc:0",
+      "deliveredId": "task:F2:T-007",
+      "phaseId": "F2",
+      "taskId": "T-007",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F2:T-008:acc:0",
+      "label": "grammar lists flow; alias process loads project-flow.md only; buildFlowRatification is the only writer of ratifiedAt and ratifiedGraphSha; generate/update/show/--check/--open are documented; AskUserQuestion after show is required before stamp",
+      "status": "matched",
+      "intentId": "F2:T-008:acc:0",
+      "deliveredId": "task:F2:T-008",
+      "phaseId": "F2",
+      "taskId": "T-008",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F2:T-009:acc:0",
+      "label": "implement Step 1 runs find-missing-flow --strict on the plan path; non-zero refuses code and spawn; assert-automate-gate --gate spawn fails closed without the artifact; docs/kb/flow.md states the Iron Law and the command; no chat waiver",
+      "status": "matched",
+      "intentId": "F2:T-009:acc:0",
+      "deliveredId": "task:F2:T-009",
+      "phaseId": "F2",
+      "taskId": "T-009",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F2:T-010:acc:0",
+      "label": "CREATION_STAGES goes summaries then reviews with no process-map entry; mid-creation process-map remaps to reviews; Iron Law text is NO IMPLEMENT WITHOUT VALIDATED FLOW; project process aliases to flow; ready without flow remains legal",
+      "status": "matched",
+      "intentId": "F2:T-010:acc:0",
+      "deliveredId": "task:F2:T-010",
+      "phaseId": "F2",
+      "taskId": "T-010",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "extra:post-f2-engine",
+      "label": "Post-F2 diagram engine / HTTP show / flow instance (not in F0-F2 SPEC)",
+      "status": "extra",
+      "note": "34 commits after 025269ca; render-flow still list-based (memory next session)"
+    }
+  ],
+  "generatedAt": "2026-08-17T12:57:16.542Z"
+}

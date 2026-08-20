@@ -1,0 +1,190 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F2",
+  "slug": "project-flow-f2-comando-e-dentes",
+  "title": "Comando e dentes",
+  "goal": "`project flow` gera/atualiza/exibe/ratifica; detector `--strict` exige M4 + stamp + flow.html sha; `implement` recusa sem artefato; process-map sai do write path; Iron Law vira NO IMPLEMENT WITHOUT VALIDATED FLOW. Reusar do worktree só `flowPathsForPlan` e `buildFlowRatification`.",
+  "tasks": [
+    {
+      "id": "T-007",
+      "title": "Detector find-missing-flow --strict",
+      "scopeBoundary": [
+        "do not implement the project flow skill UX here; do not remove CREATION_STAGES process-map in this task; do not write ratifiedAt except via a test helper that is not the product command"
+      ],
+      "acceptance": [
+        "--strict exit 0 only when flow.json validates, >=1 messages, >=1 machine with >=1 state, ratifiedAt set, ratifiedGraphSha matches, flow.html exists with matching content-sha; missing any piece exits non-zero; process.yaml alone does not satisfy"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/find-missing-flow.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/find-missing-flow.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/find-missing-flow.test.js"
+        }
+      ],
+      "summary": "Detector --strict exige M4 + stamp + HTML casado.",
+      "weight": 3
+    },
+    {
+      "id": "T-008",
+      "title": "Comando project flow + buildFlowRatification",
+      "scopeBoundary": [
+        "do not add a creation stage named flow; do not keep process-map as a product fallback; do not stamp ratifiedAt from free-text chat"
+      ],
+      "acceptance": [
+        "grammar lists flow; alias process loads project-flow.md only; buildFlowRatification is the only writer of ratifiedAt and ratifiedGraphSha; generate/update/show/--check/--open are documented; AskUserQuestion after show is required before stamp"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "test -f skills/shared/project-assets/project-flow.md && rg -q 'project flow|buildFlowRatification' skills/core/project.md skills/shared/project-assets/project-flow.md && rg -q 'buildFlowRatification' scripts/lib/flow-ratification.js && node --test tests/flow-ratification.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/project.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-flow.md"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/lib/flow-ratification.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/flow-ratification.test.js"
+        }
+      ],
+      "summary": "Comando project flow; só buildFlowRatification carimba.",
+      "weight": 3
+    },
+    {
+      "id": "T-009",
+      "title": "implement HARD + assert-automate-gate spawn",
+      "scopeBoundary": [
+        "do not run show+ratify inside implement; do not add operatorSkip for missing flow; do not rewrite automate maestro A-I beyond the spawn fence"
+      ],
+      "acceptance": [
+        "implement Step 1 runs find-missing-flow --strict on the plan path; non-zero refuses code and spawn; assert-automate-gate --gate spawn fails closed without the artifact; docs/kb/flow.md states the Iron Law and the command; no chat waiver"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -q 'find-missing-flow' skills/core/implement.md && rg -q 'find-missing-flow' scripts/assert-automate-gate.js && rg -q 'NO IMPLEMENT WITHOUT VALIDATED FLOW|validated flow' docs/kb/flow.md && node --test tests/assert-automate-gate.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/assert-automate-gate.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/assert-automate-gate.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/flow.md"
+        }
+      ],
+      "summary": "implement Step 1 e spawn recusam sem flow.",
+      "weight": 3
+    },
+    {
+      "id": "T-010",
+      "title": "Remover process-map do write path e da Iron Law",
+      "scopeBoundary": [
+        "do not delete find-missing-process-map.js in this task (legacy reader only); do not merge 86c1c2d4; do not extract an npm package"
+      ],
+      "acceptance": [
+        "CREATION_STAGES goes summaries then reviews with no process-map entry; mid-creation process-map remaps to reviews; Iron Law text is NO IMPLEMENT WITHOUT VALIDATED FLOW; project process aliases to flow; ready without flow remains legal"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node -e \\\"import { CREATION_STAGES } from './scripts/creation-gates.js'; if(CREATION_STAGES.includes('process-map')) process.exit(1); const i=CREATION_STAGES.indexOf('summaries'); const j=CREATION_STAGES.indexOf('reviews'); if(!(i>=0 && j===i+1)) process.exit(1);\\\" && rg -q 'NO IMPLEMENT WITHOUT VALIDATED FLOW' skills/core/project.md CLAUDE.md && node --test tests/creation-gates.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/creation-gates.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/creation-gates.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/project.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-create-plan.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/new-plan/stage-8.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/new-plan/stage-9.md"
+        },
+        {
+          "kind": "file",
+          "path": "CLAUDE.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/process-map.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/new-plan/stage-process-map.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/new-plan/stage-7.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-process-map.md"
+        },
+        {
+          "kind": "file",
+          "path": "tests/find-missing-process-map.test.js"
+        }
+      ],
+      "summary": "CREATION_STAGES e Iron Law trocam process-map por flow.",
+      "weight": 4
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-F2-1",
+      "description": "FAILS when project flow --check on migrated dogfood is non-zero or when process.yaml alone satisfies the detector",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/find-missing-flow.test.js tests/flow-ratification.test.js"
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-F2-2",
+      "description": "FAILS when implement can spawn without flow or when CREATION_STAGES still lists process-map",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -q 'find-missing-flow' skills/core/implement.md && node -e \"import { CREATION_STAGES } from './scripts/creation-gates.js'; if(CREATION_STAGES.includes('process-map')) process.exit(1);\""
+      },
+      "status": "pending"
+    }
+  ],
+  "summary": "Comando project flow + implement recusa sem flow; process-map sai do write path."
+}

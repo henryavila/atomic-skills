@@ -4,7 +4,7 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 
 ## Arquivos de memória
 
-- [reference-project-flow.md](reference-project-flow.md) — Project Flow. **SSOT de decisões:** `docs/design/project-flow/LEDGER.md`. Fase = modelo do grafo. Mermaid-PR2 morta. Não mergear `86c1c2d4`.
+- [reference-project-flow.md](reference-project-flow.md) — Project Flow substitui process-map (descarte completo, 2026-08-12). Dentes = implement entry HARD em **qualquer plano** + comando `project flow`. HTML gerado = `flow/flow.html` (nunca `map.html`); show sempre via `serve-flow.js --up` (HTTP, nunca `file://`). Q8-A: `ratifiedGraphSha`. Entrada `docs/design/project-flow/HANDOFF.md`.
 
 - [reference-cross-model-review-host-picker.md](reference-cross-model-review-host-picker.md) — Picker host-aware (Grok→codex+claude, não Grok+Codex fixo); Claude session limit exit 0 + `classify-provider-limit` (sem retry).
 
@@ -17,7 +17,7 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 - [feedback-prompts.md](feedback-prompts.md) — Lições sobre comportamento do agente: checklists > prosa, loops explícitos, ferramentas nomeadas
 - [feedback-skill-args-ux.md](feedback-skill-args-ux.md) — Arg obrigatório é atrito: zero-arg + detecção de escopo (wip|branch|all), hard abort só sem TTY, gates condicionais ao sujeito (dirty-tree ≠ perigo quando o worktree é o assunto)
 - [padroes-testing.md](padroes-testing.md) — Static guards para rename/delete; isolar TODAS as fontes externas (incluindo HOME/env); novo lazy asset exige atualizar contratos de instalação e byte budget; lifecycle E2E deve afirmar estado pós-transição; runtime artifacts precisam testar recuperação de journals antigos; run records de rollback precisam registrar o alvo antes da escrita canônica; installer exige fault injection por effect + retry/uninstall byte-a-byte; referências renderizadas exigem closure test com oracle independente; pacote publicado precisa de E2E sobre o `.tgz` extraído; transação plan+initiative usa marker antes dos renames e publica initiative antes do plan; **multiplataforma: install não pode ser Linux-only** (`multiplatform-contract` + CI `path-nofollow`)
-- [reference-installer-path-safety-multiplatform.md](reference-installer-path-safety-multiplatform.md) — PathSafetyError UNSUPPORTED_PLATFORM no macOS = fail-closed `/proc/self/fd`; fix path-nofollow + pin do engine; forçar backend com `MINIMALIST_INSTALLER_PATH_BACKEND=path`
+- [reference-installer-path-safety-multiplatform.md](reference-installer-path-safety-multiplatform.md) — PathSafetyError UNSUPPORTED_PLATFORM: macOS usa path-nofollow; Windows usa backend `windows-noreparse` (lstat em cada open, sem O_NOFOLLOW=0); CI Windows roda install real + junction; `withHome` isola USERPROFILE
 - [feedback-formato-retorno.md](feedback-formato-retorno.md) — Skills interativas: markdown + frontmatter YAML > JSON Schema puro. JSON é só para pipeline CI.
 - [feedback-framing-llm-judge.md](feedback-framing-llm-judge.md) — LLM-as-judge: cortar intent narrativo e memória curada do briefing (envenena em -93pp). Só fatos verificáveis.
 - [kb-skills-reference.md](kb-skills-reference.md) — Ponteiro para Knowledge Base de técnicas em `docs/kb/`

@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv from 'ajv/dist/2020.js';
-import { IMPLEMENTATION_TOKEN_RE } from './render-process-map.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const schemaPath = join(__dirname, '..', '..', 'meta', 'schemas', 'flow.schema.json');
@@ -12,6 +11,10 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 const validate = ajv.compile(schema);
 
 export const SCHEMA_VERSION = '1.0';
+export const SUBGRAPH_MAX_DEPTH = 8;
+
+const NEXT_TYPES = new Set(['activity', 'join', 'subprocess', 'event']);
+const BRANCH_TYPES = new Set(['xor', 'and']);
 
 function formatValidationError(error) {
   const location = error.instancePath || '/';
@@ -42,21 +45,14 @@ function actorIds(doc) {
   return ids;
 }
 
-function collectBranchIds(nodes) {
-  const ids = new Set();
-  for (const node of Object.values(nodes)) {
-    if (node?.type !== 'decision' || !Array.isArray(node.branches)) continue;
-    for (const branch of node.branches) {
-      if (typeof branch?.id === 'string') ids.add(branch.id);
-    }
-  }
-  return ids;
+function isNodeMap(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
 }
 
 function neighbors(node) {
   if (!node || typeof node !== 'object') return [];
-  if (node.type === 'sequence' && typeof node.next === 'string') return [node.next];
-  if (node.type === 'decision' && Array.isArray(node.branches)) {
+  if (NEXT_TYPES.has(node.type) && typeof node.next === 'string') return [node.next];
+  if (BRANCH_TYPES.has(node.type) && Array.isArray(node.branches)) {
     return node.branches
       .map((branch) => branch?.next)
       .filter((next) => typeof next === 'string');
@@ -76,6 +72,291 @@ function reachableFrom(entry, nodes) {
   return seen;
 }
 
+function collectXorBranchIds(nodes, into) {
+  if (!isNodeMap(nodes)) return;
+  for (const node of Object.values(nodes)) {
+    if (node?.type !== 'xor' || !Array.isArray(node.branches)) continue;
+    for (const branch of node.branches) {
+      if (typeof branch?.id === 'string') into.add(branch.id);
+    }
+  }
+}
+
+function documentXorBranchIds(doc) {
+  const ids = new Set();
+  collectXorBranchIds(doc?.graph?.nodes, ids);
+  const subgraphs = doc?.graph?.subgraphs;
+  if (isNodeMap(subgraphs)) {
+    for (const subgraph of Object.values(subgraphs)) {
+      collectXorBranchIds(subgraph?.nodes, ids);
+    }
+  }
+  return ids;
+}
+
+function subgraphIds(doc) {
+  const ids = new Set();
+  const subgraphs = doc?.graph?.subgraphs;
+  if (!isNodeMap(subgraphs)) return ids;
+  for (const id of Object.keys(subgraphs)) ids.add(id);
+  return ids;
+}
+
+function validateMessages(basePath, node, actors, errors) {
+  if (!Array.isArray(node?.messages)) return;
+  node.messages.forEach((message, i) => {
+    for (const field of ['from', 'to']) {
+      const ref = message?.[field];
+      if (typeof ref === 'string' && !actors.has(ref)) {
+        errors.push(err(
+          `${basePath}/messages/${i}/${field}`,
+          'actorRef',
+          `actor '${ref}' is not declared in actors[]`,
+          { actor: ref },
+        ));
+      }
+    }
+  });
+}
+
+function validateNodeMap(basePath, nodes, entry, ctx) {
+  const { actors, subgraphs, errors } = ctx;
+  const nodeIds = new Set(Object.keys(nodes));
+
+  if (typeof entry === 'string' && !nodeIds.has(entry)) {
+    errors.push(err(
+      `${basePath}/entry`,
+      'entryExists',
+      `entry '${entry}' is not a graph node`,
+      { entry },
+    ));
+  }
+
+  const seenBranchIds = ctx.seenBranchIds;
+
+  for (const [id, node] of Object.entries(nodes)) {
+    if (!node || typeof node !== 'object') continue;
+    const nodePath = `${basePath}/nodes/${id}`;
+
+    validateMessages(nodePath, node, actors, errors);
+
+    if (NEXT_TYPES.has(node.type) && typeof node.next === 'string' && !nodeIds.has(node.next)) {
+      errors.push(err(
+        `${nodePath}/next`,
+        'nextExists',
+        `next '${node.next}' is not a graph node`,
+        { next: node.next },
+      ));
+    }
+
+    if (node.type === 'join') {
+      const of = node.of;
+      if (typeof of === 'string' && nodes[of]?.type !== 'and') {
+        errors.push(err(
+          `${nodePath}/of`,
+          'joinOfAnd',
+          `join '${id}' of '${of}' must name an and node`,
+          { of },
+        ));
+      }
+    }
+
+    if (node.type === 'subprocess') {
+      const ref = node.ref;
+      if (typeof ref === 'string' && !subgraphs.has(ref)) {
+        errors.push(err(
+          `${nodePath}/ref`,
+          'subgraphRef',
+          `subprocess.ref '${ref}' is not in subgraphs`,
+          { ref },
+        ));
+      }
+    }
+
+    if (BRANCH_TYPES.has(node.type)) {
+      const branches = Array.isArray(node.branches) ? node.branches : [];
+      if (branches.length < 2) {
+        errors.push(err(
+          `${nodePath}/branches`,
+          node.type === 'xor' ? 'xorMinBranches' : 'andMinBranches',
+          `${node.type} '${id}' must have at least 2 branches`,
+          { count: branches.length },
+        ));
+      }
+      const whens = new Set();
+      branches.forEach((branch, i) => {
+        if (typeof branch?.next === 'string' && !nodeIds.has(branch.next)) {
+          errors.push(err(
+            `${nodePath}/branches/${i}/next`,
+            'nextExists',
+            `next '${branch.next}' is not a graph node`,
+            { next: branch.next },
+          ));
+        }
+        if (node.type === 'xor' && typeof branch?.when === 'string') {
+          if (whens.has(branch.when)) {
+            errors.push(err(
+              `${nodePath}/branches/${i}/when`,
+              'uniqueWhen',
+              `duplicate when '${branch.when}' on xor '${id}'`,
+              { when: branch.when },
+            ));
+          } else {
+            whens.add(branch.when);
+          }
+        }
+        if (typeof branch?.id === 'string') {
+          if (seenBranchIds.has(branch.id)) {
+            errors.push(err(
+              `${nodePath}/branches/${i}/id`,
+              'uniqueBranchId',
+              `duplicate branch id '${branch.id}'`,
+              { id: branch.id },
+            ));
+          } else {
+            seenBranchIds.add(branch.id);
+          }
+        }
+      });
+    }
+  }
+
+  if (typeof entry === 'string' && nodeIds.has(entry)) {
+    const reached = reachableFrom(entry, nodes);
+    for (const id of nodeIds) {
+      if (!reached.has(id)) {
+        errors.push(err(
+          `${basePath}/nodes/${id}`,
+          'reachable',
+          `node '${id}' is not reachable from entry`,
+          { id },
+        ));
+      }
+    }
+  }
+}
+
+function walkSubgraphDepth(ref, subgraphs, stack, errors, path) {
+  if (!isNodeMap(subgraphs) || !subgraphs[ref]) return;
+  if (stack.includes(ref)) {
+    errors.push(err(
+      path,
+      'subgraphCycle',
+      `subgraph '${ref}' cycles through ${stack.join(' -> ')}`,
+      { ref, stack: [...stack] },
+    ));
+    return;
+  }
+  const depth = stack.length + 1;
+  if (depth > SUBGRAPH_MAX_DEPTH) {
+    errors.push(err(
+      path,
+      'subgraphDepth',
+      `subgraph nest exceeds max depth ${SUBGRAPH_MAX_DEPTH}`,
+      { ref, depth, max: SUBGRAPH_MAX_DEPTH },
+    ));
+    return;
+  }
+  const nodes = subgraphs[ref]?.nodes;
+  if (!isNodeMap(nodes)) return;
+  const nextStack = [...stack, ref];
+  for (const [id, node] of Object.entries(nodes)) {
+    if (node?.type === 'subprocess' && typeof node.ref === 'string') {
+      walkSubgraphDepth(
+        node.ref,
+        subgraphs,
+        nextStack,
+        errors,
+        `/graph/subgraphs/${ref}/nodes/${id}/ref`,
+      );
+    }
+  }
+}
+
+function validateSubgraphDepth(doc, errors) {
+  const nodes = doc?.graph?.nodes;
+  const subgraphs = doc?.graph?.subgraphs;
+  if (!isNodeMap(subgraphs)) return;
+  if (isNodeMap(nodes)) {
+    for (const [id, node] of Object.entries(nodes)) {
+      if (node?.type === 'subprocess' && typeof node.ref === 'string') {
+        walkSubgraphDepth(node.ref, subgraphs, [], errors, `/graph/nodes/${id}/ref`);
+      }
+    }
+  }
+  for (const id of Object.keys(subgraphs)) {
+    walkSubgraphDepth(id, subgraphs, [], errors, `/graph/subgraphs/${id}`);
+  }
+}
+
+function validateMachines(doc, branchIds, errors) {
+  if (!Array.isArray(doc.machines)) return;
+  const seenMachineIds = new Set();
+  doc.machines.forEach((machine, mi) => {
+    if (!machine || typeof machine !== 'object') return;
+    const base = `/machines/${mi}`;
+    if (typeof machine.id === 'string') {
+      if (seenMachineIds.has(machine.id)) {
+        errors.push(err(`${base}/id`, 'uniqueMachineId', `duplicate machine id '${machine.id}'`, {
+          id: machine.id,
+        }));
+      } else {
+        seenMachineIds.add(machine.id);
+      }
+    }
+    const nodes = isNodeMap(machine.nodes) ? machine.nodes : null;
+    if (!nodes) return;
+    const stateIds = new Set(Object.keys(nodes));
+    if (stateIds.size < 1) {
+      errors.push(err(`${base}/nodes`, 'machineMinNodes', `machine '${machine.id ?? mi}' must have at least 1 node`));
+    }
+    if (typeof machine.entry === 'string' && !stateIds.has(machine.entry)) {
+      errors.push(err(
+        `${base}/entry`,
+        'machineEntryExists',
+        `machines[${mi}].entry '${machine.entry}' is not a machine node`,
+        { entry: machine.entry },
+      ));
+    }
+    if (!Array.isArray(machine.transitions)) return;
+    machine.transitions.forEach((transition, ti) => {
+      if (!transition || typeof transition !== 'object') return;
+      const tPath = `${base}/transitions/${ti}`;
+      if (!Object.hasOwn(transition, 'effects')) {
+        errors.push(err(
+          tPath,
+          'effectsRequired',
+          `machines[${mi}].transitions[${ti}] must have an effects array`,
+        ));
+      }
+      if (typeof transition.from === 'string' && !stateIds.has(transition.from)) {
+        errors.push(err(
+          `${tPath}/from`,
+          'machineStateRef',
+          `from '${transition.from}' is not a machine node`,
+          { from: transition.from },
+        ));
+      }
+      if (typeof transition.to === 'string' && !stateIds.has(transition.to)) {
+        errors.push(err(
+          `${tPath}/to`,
+          'machineStateRef',
+          `to '${transition.to}' is not a machine node`,
+          { to: transition.to },
+        ));
+      }
+      if (typeof transition.via === 'string' && !branchIds.has(transition.via)) {
+        errors.push(err(
+          `${tPath}/via`,
+          'viaBranch',
+          `via '${transition.via}' is not an xor branch id`,
+          { via: transition.via },
+        ));
+      }
+    });
+  });
+}
+
 function graphErrors(doc) {
   const errors = [];
   const actors = actorIds(doc);
@@ -93,234 +374,34 @@ function graphErrors(doc) {
   }
 
   const graph = doc.graph;
-  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return errors;
-  const nodes = graph.nodes && typeof graph.nodes === 'object' && !Array.isArray(graph.nodes)
-    ? graph.nodes
-    : null;
-  if (!nodes) return errors;
-  const nodeIds = new Set(Object.keys(nodes));
+  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) {
+    validateMachines(doc, new Set(), errors);
+    return errors;
+  }
+  const nodes = isNodeMap(graph.nodes) ? graph.nodes : null;
+  const subgraphs = subgraphIds(doc);
+  const ctx = {
+    actors,
+    subgraphs,
+    errors,
+    seenBranchIds: new Set(),
+  };
 
-  if (typeof graph.entry === 'string' && !nodeIds.has(graph.entry)) {
-    errors.push(err('/graph/entry', 'entryExists', `entry '${graph.entry}' is not a graph node`, {
-      entry: graph.entry,
-    }));
+  if (nodes) {
+    validateNodeMap('/graph', nodes, graph.entry, ctx);
   }
 
-  const seenBranchIds = new Set();
-  for (const [id, node] of Object.entries(nodes)) {
-    if (!node || typeof node !== 'object') continue;
-
-    if (node.type === 'sequence') {
-      if (typeof node.next === 'string' && !nodeIds.has(node.next)) {
-        errors.push(err(
-          `/graph/nodes/${id}/next`,
-          'nextExists',
-          `next '${node.next}' is not a graph node`,
-          { next: node.next },
-        ));
-      }
-      if (Array.isArray(node.messages)) {
-        node.messages.forEach((message, i) => {
-          for (const field of ['from', 'to']) {
-            const ref = message?.[field];
-            if (typeof ref === 'string' && !actors.has(ref)) {
-              errors.push(err(
-                `/graph/nodes/${id}/messages/${i}/${field}`,
-                'actorRef',
-                `actor '${ref}' is not declared in actors[]`,
-                { actor: ref },
-              ));
-            }
-          }
-        });
-      }
-    }
-
-    if (node.type === 'decision') {
-      if (typeof node.actor === 'string' && !actors.has(node.actor)) {
-        errors.push(err(
-          `/graph/nodes/${id}/actor`,
-          'actorRef',
-          `actor '${node.actor}' is not declared in actors[]`,
-          { actor: node.actor },
-        ));
-      }
-      const branches = Array.isArray(node.branches) ? node.branches : [];
-      if (branches.length < 2) {
-        errors.push(err(
-          `/graph/nodes/${id}/branches`,
-          'xorMinBranches',
-          `xor decision '${id}' must have at least 2 branches`,
-          { count: branches.length },
-        ));
-      }
-      const whens = new Set();
-      branches.forEach((branch, i) => {
-        if (typeof branch?.next === 'string' && !nodeIds.has(branch.next)) {
-          errors.push(err(
-            `/graph/nodes/${id}/branches/${i}/next`,
-            'nextExists',
-            `next '${branch.next}' is not a graph node`,
-            { next: branch.next },
-          ));
-        }
-        if (typeof branch?.when === 'string') {
-          if (whens.has(branch.when)) {
-            errors.push(err(
-              `/graph/nodes/${id}/branches/${i}/when`,
-              'uniqueWhen',
-              `duplicate when '${branch.when}' on decision '${id}'`,
-              { when: branch.when },
-            ));
-          } else {
-            whens.add(branch.when);
-          }
-        }
-        if (typeof branch?.id === 'string') {
-          if (seenBranchIds.has(branch.id)) {
-            errors.push(err(
-              `/graph/nodes/${id}/branches/${i}/id`,
-              'uniqueBranchId',
-              `duplicate branch id '${branch.id}'`,
-              { id: branch.id },
-            ));
-          } else {
-            seenBranchIds.add(branch.id);
-          }
-        }
-      });
+  if (isNodeMap(graph.subgraphs)) {
+    for (const [id, subgraph] of Object.entries(graph.subgraphs)) {
+      if (!subgraph || typeof subgraph !== 'object') continue;
+      const subNodes = isNodeMap(subgraph.nodes) ? subgraph.nodes : null;
+      if (!subNodes) continue;
+      validateNodeMap(`/graph/subgraphs/${id}`, subNodes, subgraph.entry, ctx);
     }
   }
 
-  if (typeof graph.entry === 'string' && nodeIds.has(graph.entry)) {
-    const reached = reachableFrom(graph.entry, nodes);
-    for (const id of nodeIds) {
-      if (!reached.has(id)) {
-        errors.push(err(
-          `/graph/nodes/${id}`,
-          'reachable',
-          `node '${id}' is not reachable from entry`,
-          { id },
-        ));
-      }
-    }
-  }
-
-  const branchIds = collectBranchIds(nodes);
-  const states = doc.states;
-  if (states && typeof states === 'object' && !Array.isArray(states)) {
-    const stateIds = new Set(Object.keys(states.nodes && typeof states.nodes === 'object' ? states.nodes : {}));
-    if (typeof states.entry === 'string' && !stateIds.has(states.entry)) {
-      errors.push(err(
-        '/states/entry',
-        'stateEntryExists',
-        `states.entry '${states.entry}' is not a state node`,
-        { entry: states.entry },
-      ));
-    }
-    if (Array.isArray(states.transitions)) {
-      states.transitions.forEach((transition, i) => {
-        if (typeof transition?.from === 'string' && !stateIds.has(transition.from)) {
-          errors.push(err(
-            `/states/transitions/${i}/from`,
-            'stateRef',
-            `from '${transition.from}' is not a state node`,
-            { from: transition.from },
-          ));
-        }
-        if (typeof transition?.to === 'string' && !stateIds.has(transition.to)) {
-          errors.push(err(
-            `/states/transitions/${i}/to`,
-            'stateRef',
-            `to '${transition.to}' is not a state node`,
-            { to: transition.to },
-          ));
-        }
-        if (typeof transition?.via === 'string' && !branchIds.has(transition.via)) {
-          errors.push(err(
-            `/states/transitions/${i}/via`,
-            'viaBranch',
-            `via '${transition.via}' is not a decision branch id`,
-            { via: transition.via },
-          ));
-        }
-      });
-    }
-  }
-
-  const journey = doc.journey;
-  if (journey && typeof journey === 'object' && !Array.isArray(journey)) {
-    const stageIds = new Set();
-    if (Array.isArray(journey.stages)) {
-      journey.stages.forEach((stage, i) => {
-        if (typeof stage?.id === 'string') stageIds.add(stage.id);
-        const copy = stage?.copy;
-        if (!copy || typeof copy !== 'object') {
-          errors.push(err(
-            `/journey/stages/${i}/copy`,
-            'dualCopy',
-            `journey stages[${i}].copy required`,
-          ));
-          return;
-        }
-        for (const lens of ['layperson', 'developer']) {
-          const block = copy[lens];
-          if (!block || typeof block !== 'object') {
-            errors.push(err(
-              `/journey/stages/${i}/copy/${lens}`,
-              'dualCopy',
-              `journey stages[${i}].copy.${lens} required`,
-            ));
-            continue;
-          }
-          for (const field of ['name', 'youGain', 'unlocks']) {
-            if (typeof block[field] !== 'string' || !block[field].trim()) {
-              errors.push(err(
-                `/journey/stages/${i}/copy/${lens}/${field}`,
-                'dualCopy',
-                `journey stages[${i}].copy.${lens}.${field} required`,
-              ));
-            } else if (IMPLEMENTATION_TOKEN_RE.test(block[field])) {
-              errors.push(err(
-                `/journey/stages/${i}/copy/${lens}/${field}`,
-                'implementationToken',
-                `journey stages[${i}].copy.${lens}.${field} contains implementation token (LP lint)`,
-              ));
-            }
-          }
-        }
-      });
-    }
-    if (typeof doc.youAreHere === 'string' && doc.youAreHere && !stageIds.has(doc.youAreHere)) {
-      errors.push(err(
-        '/youAreHere',
-        'youAreHere',
-        `youAreHere '${doc.youAreHere}' is not a journey stage id`,
-        { youAreHere: doc.youAreHere },
-      ));
-    }
-    if (Array.isArray(journey.edges)) {
-      journey.edges.forEach((edge, i) => {
-        if (typeof edge?.from === 'string' && !stageIds.has(edge.from)) {
-          errors.push(err(
-            `/journey/edges/${i}/from`,
-            'journeyEdge',
-            `edges[${i}].from invalid`,
-            { from: edge.from },
-          ));
-        }
-        if (typeof edge?.to === 'string' && !stageIds.has(edge.to)) {
-          errors.push(err(
-            `/journey/edges/${i}/to`,
-            'journeyEdge',
-            `edges[${i}].to invalid`,
-            { to: edge.to },
-          ));
-        }
-      });
-    }
-  }
-
+  validateSubgraphDepth(doc, errors);
+  validateMachines(doc, documentXorBranchIds(doc), errors);
   return errors;
 }
 
