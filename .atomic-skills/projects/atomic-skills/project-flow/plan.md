@@ -5,7 +5,7 @@ title: Project Flow — schema, painel e dentes no implement
 version: "1.0"
 status: active
 started: 2026-08-13T16:51:58.727Z
-lastUpdated: 2026-08-13T22:02:11.796Z
+lastUpdated: 2026-08-20T13:20:38.054Z
 branch: plan/project-flow
 currentPhase: F2
 parallelismAllowed: false
@@ -15,22 +15,27 @@ principles:
     body: "`process.yaml` / `map.html` nunca cumprem flow. Sem dual-read de produto."
   - id: P2
     title: Obrigação no implement
-    body: "`ready` sem flow é legal. Sem stage `flow` inescapável. Sem `operatorSkip`."
+    body: "`ready` sem flow é legal. Sem stage `flow` inescapável. Sem
+      `operatorSkip`."
   - id: P3
     title: Humano valida no comando
-    body: só `buildFlowRatification` escreve `ratifiedAt` + `ratifiedGraphSha` depois de show + AskUserQuestion. Chat ok não carimba.
+    body: só `buildFlowRatification` escreve `ratifiedAt` + `ratifiedGraphSha`
+      depois de show + AskUserQuestion. Chat ok não carimba.
   - id: P4
     title: Render próprio
     body: sem Mermaid, Graphviz ou D2 como motor. Sem editor visual no browser.
   - id: P5
     title: Grafo não vem de phases
-    body: draft de design/source/`businessIntent`. Proibido colapsar `phases[]` em nós.
+    body: draft de design/source/`businessIntent`. Proibido colapsar `phases[]` em
+      nós.
   - id: P6
     title: Um schema vivo
-    body: string `"1.0"`; shape MODEL. Sem dual-validator. Sem bump `"2.0"`. Sem mergear `86c1c2d4`.
+    body: string `"1.0"`; shape MODEL. Sem dual-validator. Sem bump `"2.0"`. Sem
+      mergear `86c1c2d4`.
   - id: P7
     title: F1 termina impecável
-    body: primeiro incremento pode ser tosco; exit gate de F1 é UI no DS do repo. F2 mostra o painel já polido.
+    body: primeiro incremento pode ser tosco; exit gate de F1 é UI no DS do repo. F2
+      mostra o painel já polido.
 glossary:
   - term: flow.json
     definition: L1 SoT em `<planDir>/flow/flow.json` (actors + graph + machines)
@@ -52,19 +57,38 @@ phases:
   - id: F0
     slug: project-flow-f0-modelo-no-disco
     title: Modelo no disco
-    summary: Schema 1.0 no disco passa a ser o MODEL; o shape sequence/states deixa de validar.
-    goal: 'Schema `"1.0"` expressa o MODEL (activity/xor/and/join/subprocess/event/end, messages, machines[], effects kind+label+target). event.kind é timer|error. xor.when é único por xor. join.of nomeia um and. subprocess.ref ∈ subgraphs. via, se presente, aponta branch existente. ciclo = next a ancestral. subgraphs: profundidade máxima 8. Lifecycle (planSlug, actor, scenario, audience, ratifiedAt, ratifiedGraphSha) permanece. validate-flow (AJV 2020 + regras de grafo) aceita o dogfood reescrito e rejeita o shape velho (`type: sequence`, `states` único, `effect.statusTo`). Sem regras PDTI no core.'
+    summary: Schema 1.0 no disco passa a ser o MODEL; o shape sequence/states deixa
+      de validar.
+    goal: 'Schema `"1.0"` expressa o MODEL
+      (activity/xor/and/join/subprocess/event/end, messages, machines[], effects
+      kind+label+target). event.kind é timer|error. xor.when é único por xor.
+      join.of nomeia um and. subprocess.ref ∈ subgraphs. via, se presente,
+      aponta branch existente. ciclo = next a ancestral. subgraphs: profundidade
+      máxima 8. Lifecycle (planSlug, actor, scenario, audience, ratifiedAt,
+      ratifiedGraphSha) permanece. validate-flow (AJV 2020 + regras de grafo)
+      aceita o dogfood reescrito e rejeita o shape velho (`type: sequence`,
+      `states` único, `effect.statusTo`). Sem regras PDTI no core.'
     dependsOn: []
     subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: G-F0-1
-          description: FAILS when old shape still validates — type sequence or single states object must be invalid; MODEL dogfood must pass with machines[]
+          description: FAILS when old shape still validates — type sequence or single
+            states object must be invalid; MODEL dogfood must pass with
+            machines[]
           status: met
           verifier:
             kind: shell
-            command: node --test tests/validate-flow.test.js && node -e "import { validateFlow } from './scripts/lib/validate-flow.js'; import { readFileSync } from 'node:fs'; const dog=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8')); if(!validateFlow(dog).valid) process.exit(1); if(!Array.isArray(dog.machines)||dog.machines.length<1) process.exit(1); const old={schemaVersion:'1.0',planSlug:'probe',title:'p',scenario:'x',actor:'Requester',audience:'layperson',actors:[{id:'U',label:'Requester',kind:'actor'}],graph:{entry:'S1',nodes:{S1:{type:'sequence',processLabel:'x',messages:[{from:'U',to:'U',text:'t',async:false}],next:'E'},E:{type:'end',processLabel:'done'}}}}; if(validateFlow(old).valid) process.exit(1);"
+            command: node --test tests/validate-flow.test.js && node -e "import {
+              validateFlow } from './scripts/lib/validate-flow.js'; import {
+              readFileSync } from 'node:fs'; const
+              dog=JSON.parse(readFileSync('docs/design/project-flow/dogfood/fluxo-sugestao.json','utf8'));
+              if(!validateFlow(dog).valid) process.exit(1);
+              if(!Array.isArray(dog.machines)||dog.machines.length<1)
+              process.exit(1); const
+              old={schemaVersion:'1.0',planSlug:'probe',title:'p',scenario:'x',actor:'Requester',audience:'layperson',actors:[{id:'U',label:'Requester',kind:'actor'}],graph:{entry:'S1',nodes:{S1:{type:'sequence',processLabel:'x',messages:[{from:'U',to:'U',text:'t',async:false}],next:'E'},E:{type:'end',processLabel:'done'}}}};
+              if(validateFlow(old).valid) process.exit(1);"
           metAt: 2026-08-13T21:42:42.676Z
           evidence:
             verifierKind: shell
@@ -74,11 +98,15 @@ phases:
             exitCode: 0
             outputSummary: 30/30 tests; dogfood+machines; sequence probe invalid; exit 0
         - id: G-F0-2
-          description: FAILS when schemaVersion is not 1.0 or when PDTI status rules live in validate-flow.js
+          description: FAILS when schemaVersion is not 1.0 or when PDTI status rules live
+            in validate-flow.js
           status: met
           verifier:
             kind: shell
-            command: node -e "const s=require('./meta/schemas/flow.schema.json'); if(s.properties.schemaVersion.const!=='1.0') process.exit(1);" && ! rg -q 'statusTo === 10|status 10|three decisions' scripts/lib/validate-flow.js
+            command: node -e "const s=require('./meta/schemas/flow.schema.json');
+              if(s.properties.schemaVersion.const!=='1.0') process.exit(1);" &&
+              ! rg -q 'statusTo === 10|status 10|three decisions'
+              scripts/lib/validate-flow.js
           metAt: 2026-08-13T21:42:42.676Z
           evidence:
             verifierKind: shell
@@ -86,14 +114,22 @@ phases:
             verifiedCommit: c7f4c29d8cd24fc2314c7cc930260f1fcf7ea067
             passed: true
             exitCode: 0
-            outputSummary: schemaVersion const 1.0; no PDTI strings in validate-flow.js; exit 0
+            outputSummary: schemaVersion const 1.0; no PDTI strings in validate-flow.js;
+              exit 0
     status: done
     businessIntent:
-      value: O PO navega e valida um fluxo operacional (negócio + conversa + estados). O shape 1.0 no disco passa a ser o MODEL. Implement recusa plano sem flow ratificado.
-      workflow: Schema "1.0" novo → validate-flow + dogfood reescrito → (F1/F2 depois). Draft do grafo a partir de design/source/BI, nunca de phases[].
-      rules: Sem dual-read process.yaml. Sem regras PDTI no core. Sem bump "2.0". Sem mergear 86c1c2d4. effects[] vazio é válido; key ausente não.
-      outOfScope: Renderer, comando project flow, detector, implement HARD, copiar Arch, editor visual, pacote npm, feature PDTI.
-      doneWhen: 'G-F0-1 verde: dogfood MODEL valida com machines[]; probe type sequence é inválido; suite validate-flow no modelo novo. schemaVersion continua "1.0".'
+      value: O PO navega e valida um fluxo operacional (negócio + conversa + estados).
+        O shape 1.0 no disco passa a ser o MODEL. Implement recusa plano sem
+        flow ratificado.
+      workflow: Schema "1.0" novo → validate-flow + dogfood reescrito → (F1/F2
+        depois). Draft do grafo a partir de design/source/BI, nunca de phases[].
+      rules: Sem dual-read process.yaml. Sem regras PDTI no core. Sem bump "2.0". Sem
+        mergear 86c1c2d4. effects[] vazio é válido; key ausente não.
+      outOfScope: Renderer, comando project flow, detector, implement HARD, copiar
+        Arch, editor visual, pacote npm, feature PDTI.
+      doneWhen: 'G-F0-1 verde: dogfood MODEL valida com machines[]; probe type
+        sequence é inválido; suite validate-flow no modelo novo. schemaVersion
+        continua "1.0".'
     evaluationGate:
       status: passed
       verdict: pass
@@ -124,7 +160,10 @@ phases:
     slug: project-flow-f1-painel-de-3-camadas
     title: Painel de 3 camadas
     summary: Painel próprio das três camadas; nasce tosco e só fecha impecável no DS.
-    goal: Render próprio (HTML/CSS/SVG no repo, sem Mermaid/Graphviz/D2) projeta sequência + fluxo BPM + máquinas a partir de flow.json. Primeiro incremento pode ser tosco. Exit = UI impecável no DS do repo (`site/assets/ds.css`). Artefato canônico `flow/flow.html`. Sem editor.
+    goal: Render próprio (HTML/CSS/SVG no repo, sem Mermaid/Graphviz/D2) projeta
+      sequência + fluxo BPM + máquinas a partir de flow.json. Primeiro
+      incremento pode ser tosco. Exit = UI impecável no DS do repo
+      (`site/assets/ds.css`). Artefato canônico `flow/flow.html`. Sem editor.
     dependsOn:
       - F0
     subPhaseCount: 3
@@ -132,7 +171,9 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: G-F1-1
-          description: FAILS when render-flow uses Mermaid/Graphviz/D2 (import or sequenceDiagram/flowchart/stateDiagram in HTML), emits map.html, or omits one of the three native surfaces
+          description: FAILS when render-flow uses Mermaid/Graphviz/D2 (import or
+            sequenceDiagram/flowchart/stateDiagram in HTML), emits map.html, or
+            omits one of the three native surfaces
           status: met
           metAt: 2026-08-13T22:00:22.000Z
           evidence:
@@ -144,9 +185,22 @@ phases:
             outputSummary: G-F1-1 exit 0
           verifier:
             kind: shell
-            command: node --test tests/render-flow.test.js && ! rg -qi 'mermaid|graphviz|d2' scripts/lib/render-flow.js scripts/render-flow.js && node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-f1-g1.html && ! rg -qi 'mermaid|sequencediagram|statediagram|graphviz' /tmp/project-flow-f1-g1.html && rg -qi 'sequência|messages' /tmp/project-flow-f1-g1.html && rg -qi 'machine' /tmp/project-flow-f1-g1.html && rg -qi 'bpm|fluxo|activity' /tmp/project-flow-f1-g1.html && ! rg -q 'map\.html' scripts/render-flow.js
+            command: node --test tests/render-flow.test.js && ! rg -qi 'mermaid|graphviz|d2'
+              scripts/lib/render-flow.js scripts/render-flow.js && node
+              scripts/render-flow.js
+              docs/design/project-flow/dogfood/fluxo-sugestao.json -o
+              /tmp/project-flow-f1-g1.html && ! rg -qi
+              'mermaid|sequencediagram|statediagram|graphviz'
+              /tmp/project-flow-f1-g1.html && rg -qi 'sequência|messages'
+              /tmp/project-flow-f1-g1.html && rg -qi 'machine'
+              /tmp/project-flow-f1-g1.html && rg -qi 'bpm|fluxo|activity'
+              /tmp/project-flow-f1-g1.html && ! rg -q 'map\.html'
+              scripts/render-flow.js
         - id: G-F1-2
-          description: FAILS when the generated dogfood HTML still looks like a prototype (no DS custom properties from site/assets/ds.css, surfaces collapsed, mermaid present). Do not look for a `ds-` class prefix — ds.css has none.
+          description: FAILS when the generated dogfood HTML still looks like a prototype
+            (no DS custom properties from site/assets/ds.css, surfaces
+            collapsed, mermaid present). Do not look for a `ds-` class prefix —
+            ds.css has none.
           status: met
           metAt: 2026-08-13T22:00:22.000Z
           evidence:
@@ -158,7 +212,11 @@ phases:
             outputSummary: G-F1-2 exit 0
           verifier:
             kind: shell
-            command: node scripts/render-flow.js docs/design/project-flow/dogfood/fluxo-sugestao.json -o /tmp/project-flow-f1-gate.html && rg -q -- '--bg-canvas|--fg-default' /tmp/project-flow-f1-gate.html && ! rg -qi 'mermaid' /tmp/project-flow-f1-gate.html
+            command: node scripts/render-flow.js
+              docs/design/project-flow/dogfood/fluxo-sugestao.json -o
+              /tmp/project-flow-f1-gate.html && rg -q --
+              '--bg-canvas|--fg-default' /tmp/project-flow-f1-gate.html && ! rg
+              -qi 'mermaid' /tmp/project-flow-f1-gate.html
     status: done
     evaluationGate:
       status: passed
@@ -187,16 +245,31 @@ phases:
       packagePresentedAt: 2026-08-13T22:02:00Z
       evidencePath: .atomic-skills/projects/atomic-skills/project-flow/decisions/F1.jsonl
     businessIntent:
-      value: O PO navega e valida o fluxo nas três camadas (conversa/messages, BPM, machines) num painel HTML próprio, no design system do repo. F1 fecha impecável; o primeiro incremento pode ser tosco.
-      workflow: render-flow (lib) → CLI grava flow.html (nunca map.html) → polish com tokens --bg-canvas/--fg-default de site/assets/ds.css (só consume).
-      rules: Sem Mermaid, Graphviz ou D2. Sem editor visual. Sem mergear 86c1c2d4. Superfície sequência = messages, não sequenceDiagram. Labels BPM sem clique/modal/tela. ds.css não é output.
-      outOfScope: Comando project flow, detector, implement HARD, remover process-map, pacote npm, editor no browser, mudar validate-flow.
-      doneWhen: "G-F1-1: HTML próprio com as três superfícies, sem mermaid/map.html. G-F1-2: HTML usa --bg-canvas|--fg-default e não tem mermaid."
+      value: O PO navega e valida o fluxo nas três camadas (conversa/messages, BPM,
+        machines) num painel HTML próprio, no design system do repo. F1 fecha
+        impecável; o primeiro incremento pode ser tosco.
+      workflow: render-flow (lib) → CLI grava flow.html (nunca map.html) → polish com
+        tokens --bg-canvas/--fg-default de site/assets/ds.css (só consume).
+      rules: Sem Mermaid, Graphviz ou D2. Sem editor visual. Sem mergear 86c1c2d4.
+        Superfície sequência = messages, não sequenceDiagram. Labels BPM sem
+        clique/modal/tela. ds.css não é output.
+      outOfScope: Comando project flow, detector, implement HARD, remover process-map,
+        pacote npm, editor no browser, mudar validate-flow.
+      doneWhen: "G-F1-1: HTML próprio com as três superfícies, sem mermaid/map.html.
+        G-F1-2: HTML usa --bg-canvas|--fg-default e não tem mermaid."
   - id: F2
     slug: project-flow-f2-comando-e-dentes
     title: Comando e dentes
-    summary: Comando project flow + implement recusa sem flow; process-map sai do write path.
-    goal: "`project flow` gera/atualiza/exibe/ratifica; generate lê design/source/businessIntent e não phases[]; ratify = show + AskUserQuestion + só buildFlowRatification; detector `--strict` exige M4 + stamp do documento (grafo+messages+machines) + flow.html sha; `implement` recusa sem flow em todo plano que implement aceita (AS multi/1-phase, foreign); ad-hoc sem plan file = N/A; process-map sai do write path; Iron Law vira NO IMPLEMENT WITHOUT VALIDATED FLOW. Reusar do worktree só `flowPathsForPlan` e `buildFlowRatification`."
+    summary: Comando project flow + implement recusa sem flow; process-map sai do
+      write path.
+    goal: "`project flow` gera/atualiza/exibe/ratifica; generate lê
+      design/source/businessIntent e não phases[]; ratify = show +
+      AskUserQuestion + só buildFlowRatification; detector `--strict` exige M4 +
+      stamp do documento (grafo+messages+machines) + flow.html sha; `implement`
+      recusa sem flow em todo plano que implement aceita (AS multi/1-phase,
+      foreign); ad-hoc sem plan file = N/A; process-map sai do write path; Iron
+      Law vira NO IMPLEMENT WITHOUT VALIDATED FLOW. Reusar do worktree só
+      `flowPathsForPlan` e `buildFlowRatification`."
     dependsOn:
       - F1
     subPhaseCount: 4
@@ -204,7 +277,10 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: G-F2-1
-          description: FAILS when find-missing-flow --strict or project flow --check accepts a document missing any M4 piece, when process.yaml alone satisfies the detector, or when those tests omit a --check path on the migrated dogfood fixture
+          description: FAILS when find-missing-flow --strict or project flow --check
+            accepts a document missing any M4 piece, when process.yaml alone
+            satisfies the detector, or when those tests omit a --check path on
+            the migrated dogfood fixture
           status: met
           metAt: 2026-08-13T22:20:00.000Z
           evidence:
@@ -216,9 +292,13 @@ phases:
             outputSummary: G-F2-1 26 tests exit 0
           verifier:
             kind: shell
-            command: node --test tests/find-missing-flow.test.js tests/flow-ratification.test.js && rg -q -- '--check' tests/flow-ratification.test.js && rg -q 'process.yaml' tests/find-missing-flow.test.js
+            command: node --test tests/find-missing-flow.test.js
+              tests/flow-ratification.test.js && rg -q -- '--check'
+              tests/flow-ratification.test.js && rg -q 'process.yaml'
+              tests/find-missing-flow.test.js
         - id: G-F2-2
-          description: FAILS when implement can spawn without flow or when CREATION_STAGES still lists process-map
+          description: FAILS when implement can spawn without flow or when CREATION_STAGES
+            still lists process-map
           status: met
           metAt: 2026-08-13T22:20:00.000Z
           evidence:
@@ -230,7 +310,9 @@ phases:
             outputSummary: G-F2-2 exit 0
           verifier:
             kind: shell
-            command: rg -q 'find-missing-flow' skills/core/implement.md && node -e "import { CREATION_STAGES } from './scripts/creation-gates.js'; if(CREATION_STAGES.includes('process-map')) process.exit(1);"
+            command: rg -q 'find-missing-flow' skills/core/implement.md && node -e "import {
+              CREATION_STAGES } from './scripts/creation-gates.js';
+              if(CREATION_STAGES.includes('process-map')) process.exit(1);"
     status: done
     evaluationGate:
       status: passed
@@ -259,11 +341,21 @@ phases:
       packagePresentedAt: 2026-08-13T22:20:00Z
       evidencePath: .atomic-skills/projects/atomic-skills/project-flow/decisions/F2.jsonl
     businessIntent:
-      value: Todo plano que implement aceita tem flow ratificado. O PO gera, vê e carimba o fluxo no comando project flow. Sem process-map no write path.
-      workflow: detector --strict (M4 + stamp + flow.html sha) → comando project flow (generate/update/show/ratify/--check/--open) → implement Step 1 + spawn recusam sem flow → CREATION_STAGES sem process-map.
-      rules: Só buildFlowRatification escreve ratifiedAt/ratifiedGraphSha. Sem operatorSkip. Sem stage flow inescapável. Ready sem flow é legal. Reusar do worktree 86c1c2d4 só flowPathsForPlan e buildFlowRatification. Sem mergear HTML Mermaid.
-      outOfScope: Pacote npm, editor visual, copiar Arch, feature PDTI, reabrir Mermaid como produto.
-      doneWhen: "G-F2-1: `node --test tests/find-missing-flow.test.js tests/flow-ratification.test.js` exit 0 e `--check` no dogfood; process.yaml sozinho não passa `--strict`. G-F2-2: `rg find-missing-flow skills/core/implement.md` e CREATION_STAGES sem process-map."
+      value: Todo plano que implement aceita tem flow ratificado. O PO gera, vê e
+        carimba o fluxo no comando project flow. Sem process-map no write path.
+      workflow: detector --strict (M4 + stamp + flow.html sha) → comando project flow
+        (generate/update/show/ratify/--check/--open) → implement Step 1 + spawn
+        recusam sem flow → CREATION_STAGES sem process-map.
+      rules: Só buildFlowRatification escreve ratifiedAt/ratifiedGraphSha. Sem
+        operatorSkip. Sem stage flow inescapável. Ready sem flow é legal. Reusar
+        do worktree 86c1c2d4 só flowPathsForPlan e buildFlowRatification. Sem
+        mergear HTML Mermaid.
+      outOfScope: Pacote npm, editor visual, copiar Arch, feature PDTI, reabrir
+        Mermaid como produto.
+      doneWhen: "G-F2-1: `node --test tests/find-missing-flow.test.js
+        tests/flow-ratification.test.js` exit 0 e `--check` no dogfood;
+        process.yaml sozinho não passa `--strict`. G-F2-2: `rg find-missing-flow
+        skills/core/implement.md` e CREATION_STAGES sem process-map."
 references:
   - kind: file
     path: projects/atomic-skills/project-flow/design.md
@@ -273,6 +365,12 @@ references:
     path: docs/design/project-flow/MODEL.md
 planActive: true
 planTitle: Project Flow — schema, painel e dentes no implement
+userValidatedAt: 2026-08-20T13:20:38.054Z
+planEndReview:
+  skipPlanEndReview: true
+  skipReason: operator-accepted-residual-risk
+  reviewFile: .atomic-skills/reviews/2026-08-17-plan-end-local-project-flow.md
+  verifiedAt: 2026-08-20T13:20:38.054Z
 ---
 
 # Project Flow — schema, painel e dentes no implement
@@ -351,6 +449,7 @@ Descriptor `phases/f2-comando-e-dentes.source.json` é a fonte até o materializ
 - internal: 11 finding(s) applied/recorded @ uncommitted (2026-08-13T18:09:11Z)
 - ground-truth: complete-with-findings | mode=ground-truth | fp=628d08df5a72 | premises=18 | impacts=6 @ 23d9a55d (2026-08-13T21:50:00Z)
 - plan-end external-both: invoked 2026-08-17; legs failed (codex usage-limit, claude OAuth expired); grok skipped same-family; planEndReviewOk false — `.atomic-skills/reviews/2026-08-17-plan-end-external-both-project-flow.md`
+- plan-end: SKIPPED — operator-accepted-residual-risk (local review only; Codex usage-limit + Claude OAuth expired) — `.atomic-skills/reviews/2026-08-17-plan-end-local-project-flow.md`
 - plan-end local: 2026-08-17; 0B/0C/1M/2m; mode=local does not satisfy planEndReviewOk — `.atomic-skills/reviews/2026-08-17-plan-end-local-project-flow.md`
 
 ## Ground-truth review
