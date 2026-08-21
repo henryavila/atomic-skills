@@ -8,13 +8,15 @@ import { tmpdir } from 'node:os';
 import {
   registerInstall, unregisterInstall, installRuntimeArtifacts, removeRuntimeArtifacts,
 } from '../src/install.js';
+import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir.js';
 
 function withHome(fakeHome, fn) {
-  const original = process.env.HOME;
-  process.env.HOME = fakeHome;
-  try { return fn(); } finally {
-    if (original === undefined) delete process.env.HOME;
-    else process.env.HOME = original;
+  const restoreHome = isolateHomedir(fakeHome);
+  try {
+    assertIsolatedHomedir(fakeHome);
+    return fn();
+  } finally {
+    restoreHome();
   }
 }
 
