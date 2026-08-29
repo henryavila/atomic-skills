@@ -1,7 +1,7 @@
 # Project Flow — validated graph (Atomic Skills)
 
 **Status:** canônico · 2026-08-13
-**Substitui:** process map (`docs/kb/process-map.md` — superseded).
+**Substitui:** process map (apagado como produto; `docs/kb/process-map.md` é só redirect).
 **Escopo:** qualquer plano que `implement` aceite (AS multi-phase, AS 1-phase, foreign). Ad-hoc sem arquivo de plano = N/A.
 
 ---
@@ -61,7 +61,7 @@ node "$PKG_ROOT/scripts/find-missing-flow.js" <plan.md> --strict
 /atomic-skills:project process   # alias — só chama flow
 ```
 
-Generate / update / show. Autoria: ficha `flow/brief.json` (quem vive, o que quer, decisões, o que muda de estado) → grafo só da ficha → `find-weak-flow-draft` antes do show. Ficha é disciplina de rascunho, **não** cadeado do `implement` / `--strict`. Pergunta de carimbo **só** se houver desenho novo ou mudado (“é assim que o trabalho acontece?”). Já carimbado e o grafo não mudou → mostra e para. Show **sempre** via `scripts/serve-flow.js --up` (`http://127.0.0.1:<port>/flow.html`); Never `file://`. HTML nunca é SoT. `--check` não sobe o servidor.
+Generate / update / show. Autoria: ficha `flow/brief.json` (quem vive, o que quer, decisões, o que muda de estado) → grafo só da ficha → `find-weak-flow-draft` antes do show. Ficha é disciplina de rascunho, **não** cadeado do `implement` / `--strict`. Pergunta de carimbo **só** se houver desenho novo ou mudado (“é assim que o trabalho acontece?”). Já carimbado e o grafo não mudou → mostra e para. Show **sempre** via `scripts/serve-flow.js --up` (`http://127.0.0.1:<port>/flow.html`); Never `file://`. HTML nunca é SoT; L2 é diagrama SVG, não lista/card. `--check` não sobe o servidor. `map.html` é recusado pelo preview e pelo renderer.
 Não existe stage de criação `flow` ou `process-map`. Draft no `new plan` é opcional.
 
 ---
@@ -72,7 +72,7 @@ Não existe stage de criação `flow` ou `process-map`. Draft no `new plan` é o
 |---|--------|
 | Grafo operacional (activity / xor / and / join / subprocess / event / end) | Árvore F0 / T-00x |
 | SoT em `flow.json` | Cards `process.yaml` |
-| HTML `flow.html` gerado | `map.html` / journey-as-cards |
+| HTML `flow.html` gerado (3 diagramas SVG: sequência, fluxo, máquinas) | `map.html` / journey-as-cards / lista de nós |
 | Gate de **implement** | Gate de `reviews` / `ready` |
 
 **Proibido** inventar nós a partir de `phases[]`.

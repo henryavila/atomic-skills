@@ -16,10 +16,14 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertHtmlExists, serveFlowHtml } from './lib/serve-flow.js';
 
+function stateHome() {
+  return process.env.HOME || process.env.USERPROFILE || homedir();
+}
+
 const SELF = fileURLToPath(import.meta.url);
 
 function lockPath() {
-  return join(homedir(), '.atomic-skills', 'flow-serve.json');
+  return join(stateHome(), '.atomic-skills', 'flow-serve.json');
 }
 
 function readLock() {
@@ -127,27 +131,28 @@ function parseArgs(argv) {
   return out;
 }
 
-async function waitForUrl(child) {
-  return new Promise((resolveWait, reject) => {
-    let buf = '';
-    const timer = setTimeout(() => reject(new Error('timeout starting preview')), 8000);
-    const done = (err, url) => {
-      clearTimeout(timer);
-      if (err) reject(err);
-      else resolveWait(url);
-    };
-    child.stdout.on('data', (chunk) => {
-      buf += chunk;
-      const line = buf.trim().split('\n').find((l) => /^http:\/\//.test(l));
-      if (line) done(null, line);
+async function waitForLock(abs, child) {
+  let childExit = null;
+  if (child && typeof child.once === 'function') {
+    child.once('exit', (code) => {
+      childExit = code;
     });
-    child.on('error', (err) => done(err));
-    child.on('exit', (code) => {
-      if (!buf.trim().split('\n').some((l) => /^http:\/\//.test(l))) {
-        done(new Error(`preview exited ${code}`));
-      }
+    child.once('error', () => {
+      childExit = 1;
     });
-  });
+  }
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    if (childExit !== null && childExit !== 0) {
+      throw new Error(`preview exited ${childExit}`);
+    }
+    const hit = listServers().find((s) => s.htmlPath === abs);
+    if (hit && isAlive(hit.pid) && typeof hit.url === 'string' && await probe(hit.url)) {
+      return hit.url;
+    }
+    await sleep(50);
+  }
+  throw new Error('timeout starting preview');
 }
 
 async function main() {
@@ -175,19 +180,13 @@ async function main() {
     }
     const child = spawn(process.execPath, [SELF, '--fg', abs], {
       detached: true,
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: 'ignore',
+      windowsHide: true,
       env: process.env,
     });
-    const url = await waitForUrl(child);
-    upsertServer({
-      htmlPath: abs,
-      url,
-      pid: child.pid,
-      port: Number(new URL(url).port),
-    });
-    process.stdout.write(`${url}\n`);
-    if (child.stdout) child.stdout.destroy();
     child.unref();
+    const url = await waitForLock(abs, child);
+    process.stdout.write(`${url}\n`);
     process.exit(0);
   }
 

@@ -227,6 +227,9 @@ export function layoutSequence(normalized) {
     for (const s of list) {
       if (SEQ_MSG_KINDS.has(s.kind)) {
         for (const m of s.node?.messages || []) {
+          const self = m.from === m.to;
+          const wrapCols = self ? 28 : 32;
+          const lineCount = wrap(m.text, wrapCols, 20).length;
           rows.push({
             type: 'msg',
             n: ++n,
@@ -236,6 +239,8 @@ export function layoutSequence(normalized) {
             async: m.async,
             depth,
             nodeId: s.nodeId,
+            wrapCols,
+            lineCount,
           });
         }
       }
@@ -284,7 +289,11 @@ export function layoutSequence(normalized) {
       y += GEOM.blockLead;
     }
     r.y = y;
-    y += r.type === 'msg' ? GEOM.messageRow : 30;
+    if (r.type === 'msg') {
+      y += Math.max(GEOM.messageRow, 10 + (r.lineCount || 1) * 14);
+    } else {
+      y += 30;
+    }
   }
   const bodyBottom = y + 16;
   const height = bodyBottom + 44;

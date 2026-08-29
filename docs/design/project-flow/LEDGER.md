@@ -76,7 +76,8 @@ Arch = **evidência abstrata** do job. PoC **não se copia**.
 
 ## 6. Superado (não reabrir como produto)
 
-- Mermaid / Graphviz / PlantUML / D2 **como o produto**.
+- Mermaid / Graphviz / PlantUML / D2 **como o produto**. Painel nativo SVG (sequência / fluxo / máquinas) é a vista; lista/card não é.
+- `map.html` / process-map como L2 de produto.
 - Premissa “requisito = `sequence \| xor \| end`” e “layout é árvore, render é aritmética”.
 - D3/D5 de `design.md` (HTML Mermaid, tabs `sequenceDiagram` / `flowchart` / `stateDiagram`).
 - Um único objeto `states` sem efeitos de transição e sem N máquinas — como destino.

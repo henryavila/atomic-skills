@@ -222,7 +222,7 @@ export function drawSequenceSvg(layout) {
         const x2 = cx(r.to);
         const self = r.from === r.to;
         if (self) {
-          const lines = wrap(r.text, 28);
+          const lines = wrap(r.text, r.wrapCols || 28, 20);
           return `<g data-from="${esc(r.from)}" data-to="${esc(r.to)}">
           <circle cx="${x1}" cy="${r.y}" r="3" class="arrow-head"/>
           ${lines.map((ln, i) => `<text class="msg" x="${x1 + 10}" y="${r.y + 4 + i * 12}">${esc(ln)}</text>`).join('')}
@@ -231,7 +231,7 @@ export function drawSequenceSvg(layout) {
         const dir = x2 >= x1 ? 1 : -1;
         const xStart = x1 + 8 * dir;
         const xEnd = x2 - 8 * dir;
-        const lines = wrap(r.text, 32);
+        const lines = wrap(r.text, r.wrapCols || 32, 20);
         const labelY = r.y - 8 - (lines.length - 1) * 12;
         const labels = lines
           .map(
@@ -310,18 +310,18 @@ export function drawBpmSvg(layout) {
           ...lines.map((ln) => ({ text: ln, cls: 'xor-t', h: 14 })),
           ...(b.who ? [{ text: b.who, cls: 'who', h: 12 }] : []),
         ];
-        return `<g data-node-id="${esc(b.id)}" data-shape="diamond">
+        return `<g data-node-id="${esc(b.id)}" data-node-type="${esc(b.type)}" data-shape="diamond">
           <polygon class="diamond" points="${pts}"/>
           ${stackInBox(x, y, m.h, items)}
         </g>`;
       }
       if (b.type === 'and' || b.type === 'join') {
-        return `<g data-node-id="${esc(b.id)}" data-shape="bar">
+        return `<g data-node-id="${esc(b.id)}" data-node-type="${esc(b.type)}" data-shape="bar">
           <rect class="bar" x="${x - 18}" y="${y}" width="36" height="8" rx="2"/>
         </g>`;
       }
       if (b.type === 'event') {
-        return `<g data-node-id="${esc(b.id)}" data-shape="circle">
+        return `<g data-node-id="${esc(b.id)}" data-node-type="${esc(b.type)}" data-shape="circle">
           <circle class="evt" cx="${x}" cy="${y + 14}" r="12"/>
           <text class="end-t" x="${x}" y="${y + 40}" text-anchor="middle">${esc(b.label)}</text>
         </g>`;
@@ -329,7 +329,7 @@ export function drawBpmSvg(layout) {
       if (b.type === 'end') {
         const ok = b.outcome !== 'other';
         const cls = ok ? 'end-ok' : 'end-bad';
-        return `<g data-node-id="${esc(b.id)}" data-shape="circle">
+        return `<g data-node-id="${esc(b.id)}" data-node-type="${esc(b.type)}" data-shape="circle">
           <circle class="${cls}" cx="${x}" cy="${y + 12}" r="10"/>
           ${ok ? '' : `<circle class="end-hole" cx="${x}" cy="${y + 12}" r="5"/>`}
           <text class="end-t" x="${x}" y="${y + 36}" text-anchor="middle">${esc(b.label)}</text>
@@ -346,7 +346,7 @@ export function drawBpmSvg(layout) {
         ...lines.map((ln) => ({ text: ln, cls: 'act-t', h: 14 })),
         ...(b.who ? [{ text: b.who, cls: 'who', h: 12 }] : []),
       ];
-      return `<g data-node-id="${esc(b.id)}" data-shape="rect"${nextAttr}>
+      return `<g data-node-id="${esc(b.id)}" data-node-type="${esc(b.type)}" data-shape="rect"${nextAttr}>
         <rect class="act" x="${x - 100}" y="${y}" width="200" height="${h}" rx="8"/>
         ${mark}
         ${stackInBox(x, y, h, items)}

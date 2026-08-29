@@ -50,6 +50,15 @@ describe('drawSequenceSvg', () => {
     const svg = drawSequenceSvg(layoutSequence(n(linearChain())));
     assert.match(svg, /Diagrama de sequência — Linear four-step chain/);
   });
+
+  it('keeps a sequence message that wraps past two lines', () => {
+    const doc = structuredClone(MINIMAL);
+    doc.graph.nodes.S1.messages[0].text =
+      'Reads the drawing, the source and the business intent — not the phase list UNIQUE_TAIL';
+    const svg = drawSequenceSvg(layoutSequence(n(doc)));
+    assert.match(svg, /UNIQUE_TAIL/);
+    assert.doesNotMatch(svg, /UNIQUE_TAIL.{1,80}UNIQUE_TAIL/);
+  });
 });
 
 describe('drawBpmSvg', () => {

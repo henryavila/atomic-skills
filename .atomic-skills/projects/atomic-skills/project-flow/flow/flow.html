@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-fl-slug="project-flow" data-fl-content-sha="4d7f75f0f83ad5a8fabbc450653debba14aab822936920b8f36769da42944aff">
+<html lang="pt-BR" data-fl-slug="project-flow" data-fl-content-sha="17266fa434f9ad098a81d399c2ee80c1d8e9d414b3223c5a4a676ab03fd57eee">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -711,395 +711,632 @@ ol.spine {
 }
 
 /* flow layout — tokens from inlined ds.css only */
-.fl-shell{max-width:1080px;margin:0 auto;padding:var(--space-12) var(--space-10) var(--space-24);font-family:var(--font-sans);color:var(--fg-default)}
-.fl-header{display:flex;flex-direction:column;gap:var(--space-6);margin-bottom:var(--space-12);padding-bottom:var(--space-10);border-bottom:1px solid var(--border-default)}
-.fl-eyebrow{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-subtle);letter-spacing:var(--tracking-wide);text-transform:uppercase}
+html,body{height:100%;overflow:hidden;margin:0;background:var(--bg-canvas);color:var(--fg-default);font-family:var(--font-sans)}
+.app{display:grid;grid-template-rows:auto 1fr;height:100%;min-height:0}
+.fl-header.top{z-index:20;background:color-mix(in srgb,var(--bg-canvas) 92%,transparent);border-bottom:1px solid var(--border-default);padding:var(--space-6) var(--space-8);display:flex;flex-direction:column;gap:var(--space-4)}
+.top-row{display:flex;flex-wrap:wrap;gap:var(--space-6) var(--space-8);align-items:center;justify-content:space-between}
+.brand{min-width:0;flex:1 1 220px}
 .fl-title{margin:0;font-size:var(--fs-3xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight);line-height:var(--lh-tight)}
-.fl-scenario{margin:0;color:var(--fg-muted);font-size:var(--fs-md);line-height:var(--lh-relaxed);max-width:68ch}
-.fl-meta{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center;justify-content:space-between}
+.fl-scenario{margin:2px 0 0;font-size:var(--fs-sm);color:var(--fg-muted);max-width:72ch}
+.fl-toc{display:flex;flex-wrap:wrap;gap:var(--space-3);margin:0;padding:0}
+.fl-toc button{appearance:none;display:inline-flex;align-items:center;height:30px;padding:0 var(--space-6);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font:500 12px var(--font-sans);cursor:pointer}
+.fl-toc button[aria-selected="true"]{color:var(--bg-canvas);background:var(--fg-default);border-color:var(--fg-default)}
+.fl-toc button:focus-visible,.fl-toolbar button:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+.fl-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3)}
+.fl-toolbar button{appearance:none;height:28px;min-width:28px;padding:0 var(--space-4);border-radius:var(--radius-md);border:1px solid var(--border-default);background:var(--bg-surface);color:var(--fg-muted);font:600 12px var(--font-sans);cursor:pointer}
+.fl-toolbar .zoom{font:700 12px var(--font-mono);color:var(--fg-subtle);padding:0 var(--space-3);min-width:3.2rem;text-align:center}
+.theme-switch{display:inline-flex;gap:var(--space-2)}
+.theme-switch button{appearance:none;height:28px;padding:0 var(--space-4);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font:500 12px var(--font-sans);cursor:pointer}
+.theme-switch button[aria-checked="true"]{background:var(--bg-surface);color:var(--fg-default)}
+.fl-hint{margin:0;font-size:var(--fs-sm);color:var(--fg-subtle);display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center}
+.fl-meta{display:inline-flex;flex-wrap:wrap;gap:var(--space-6)}
 .fl-meta span{font-size:var(--fs-sm);color:var(--fg-subtle)}
 .fl-meta strong{color:var(--fg-muted);font-weight:var(--fw-medium)}
-.fl-toc{display:flex;flex-wrap:wrap;gap:var(--space-4);margin:var(--space-4) 0 0;padding:0;list-style:none}
-.fl-toc a{display:inline-flex;align-items:center;height:30px;padding:0 var(--space-6);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font-size:var(--fs-sm);font-weight:var(--fw-medium);text-decoration:none}
-.fl-toc a:hover,.fl-toc a:focus-visible{color:var(--status-info);border-color:var(--status-info-line);text-decoration:none}
-.fl-toc a:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
-.fl-surface{margin:var(--space-12) 0;padding:var(--space-10);background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);border-left-width:4px}
-.fl-surface h2{margin:0 0 var(--space-8);font-size:var(--fs-xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight)}
-.fl-lede{margin:0 0 var(--space-8);color:var(--fg-muted);font-size:var(--fs-sm);line-height:var(--lh-relaxed)}
-.fl-sequence{border-left-color:var(--status-info)}
-.fl-bpm{border-left-color:var(--status-warning)}
-.fl-machines{border-left-color:var(--status-success)}
-.fl-messages,.fl-nodes,.fl-states,.fl-transitions,.fl-effects,.fl-branches{margin:0;padding:0;list-style:none}
-.fl-msg{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:var(--space-3) var(--space-4);align-items:start;padding:var(--space-6) 0;border-top:1px solid var(--border-subtle)}
-.fl-msg:first-child{border-top:0;padding-top:0}
-.fl-msg-from,.fl-msg-to{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--status-info)}
-.fl-msg-to{text-align:right}
-.fl-msg-arrow{color:var(--fg-faint);font-size:var(--fs-sm)}
-.fl-msg-text{grid-column:1/-1;margin:0;color:var(--fg-default);font-size:var(--fs-sm);line-height:var(--lh-snug)}
-.fl-msg[data-async="true"] .fl-msg-text{color:var(--fg-muted)}
-.fl-nodes{display:flex;flex-direction:column;gap:var(--space-6)}
-.fl-node{position:relative;padding:var(--space-8);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-lg)}
-.fl-node[data-node-type="xor"]{border-color:var(--status-warning-line)}
-.fl-node[data-node-type="and"]{border-color:var(--status-info-line)}
-.fl-node[data-node-type="end"]{border-color:var(--status-success-line)}
-.fl-node[data-node-type="event"]{border-color:var(--status-error-line)}
-.fl-node-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4);margin-bottom:var(--space-3)}
-.fl-node-type{display:inline-flex;align-items:center;height:22px;padding:0 var(--space-5);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-sunken);color:var(--fg-muted);font-family:var(--font-mono);font-size:var(--fs-2xs);font-weight:var(--fw-medium);letter-spacing:var(--tracking-wide);text-transform:uppercase}
-.fl-node-label{margin:0;font-size:var(--fs-md);font-weight:var(--fw-semibold)}
-.fl-node-who,.fl-node-next,.fl-node-meta{margin:var(--space-2) 0 0;font-size:var(--fs-xs);color:var(--fg-subtle);font-family:var(--font-mono)}
-.fl-branches{display:flex;flex-direction:column;gap:var(--space-3);margin-top:var(--space-4)}
-.fl-branch{padding:var(--space-4) var(--space-5);border-radius:var(--radius-md);background:var(--bg-sunken);border:1px solid var(--border-subtle);font-size:var(--fs-sm)}
-.fl-machine{margin:0 0 var(--space-10);padding:var(--space-8);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-lg)}
-.fl-machine:last-child{margin-bottom:0}
-.fl-machine h3{margin:0 0 var(--space-6);font-size:var(--fs-lg)}
-.fl-states{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-bottom:var(--space-6)}
-.fl-state{display:inline-flex;align-items:center;height:26px;padding:0 var(--space-5);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-sunken);font-size:var(--fs-xs)}
-.fl-state[data-terminal="true"]{border-color:var(--status-success-line);color:var(--status-success)}
-.fl-tr{padding:var(--space-6) 0;border-top:1px solid var(--border-subtle)}
-.fl-tr-edge{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-subtle)}
-.fl-tr-label{display:block;margin:var(--space-2) 0;font-size:var(--fs-sm);font-weight:var(--fw-medium)}
-.fl-effect{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:baseline;margin-top:var(--space-3);font-size:var(--fs-sm)}
-.fl-kind{font-family:var(--font-mono);font-size:var(--fs-2xs);letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--status-info)}
-.fl-target{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-muted)}
-.fl-empty{margin:0;color:var(--fg-subtle);font-size:var(--fs-sm)}
-.fl-footer{margin-top:var(--space-16);padding-top:var(--space-10);border-top:1px solid var(--border-default);font-size:var(--fs-xs);color:var(--fg-faint);font-family:var(--font-mono)}
-@media (max-width:560px){.fl-shell{padding:var(--space-8) var(--space-6) var(--space-16)}.fl-title{font-size:var(--fs-2xl)}.fl-msg{grid-template-columns:1fr}}
+.fl-footer{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-faint)}
+.fl-viewport{position:relative;overflow:auto;min-width:0;min-height:0;cursor:grab;background:radial-gradient(circle at 1px 1px,var(--border-default) 1px,transparent 0) 0 0/22px 22px,var(--bg-sunken)}
+.fl-viewport.is-panning{cursor:grabbing;user-select:none}
+#fl-sizer{position:relative;min-width:100%;min-height:100%}
+#fl-stage{position:absolute;top:0;left:0;padding:var(--space-12)}
+.fl-surface{display:inline-block}
+.fl-surface[hidden]{display:none !important}
+.fl-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.sheet{display:inline-block;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);padding:18px 20px}
+svg.diagram{display:block;max-width:none;font-family:var(--font-sans);shape-rendering:geometricPrecision;text-rendering:geometricPrecision}
+svg.diagram text{fill:var(--fg-default)}
+.actor-box{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1}
+.actor-label{fill:var(--fg-default);font-size:11px;font-weight:600}
+.actor-stick-bg{fill:var(--bg-surface)}
+.actor-stick-rule{stroke:var(--border-default);stroke-width:1}
+.lifeline{stroke:var(--fg-faint);stroke-width:1;stroke-dasharray:3 5;pointer-events:none}
+.life-hit{stroke:transparent;stroke-width:20;fill:none}
+.arrow{stroke:var(--fg-muted);stroke-width:1.25;fill:none}
+.arrow.async{stroke-dasharray:5 4}
+.arrow-head{fill:var(--fg-muted)}
+.msg{fill:var(--fg-default);font-size:12px}
+.xor-wash{fill:color-mix(in srgb,var(--bg-elevated) 18%,transparent);stroke:none}
+.xor-rail{stroke:var(--status-warning-line);stroke-width:2;fill:none}
+.xor-q{fill:var(--status-warning);font-size:12px;font-weight:600}
+.hair{stroke:var(--border-subtle);stroke-width:1}
+.pill{fill:var(--bg-sunken);stroke:var(--status-warning-line);stroke-width:1}
+.pill-t{fill:var(--status-warning);font-size:11px;font-weight:600}
+.loop-arc{fill:none;stroke:var(--status-warning);stroke-width:1.25;stroke-dasharray:4 3}
+.loop-head{fill:var(--status-warning)}
+.act{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1.25}
+.act-t{fill:var(--fg-default);font-size:12px;font-weight:500}
+.who{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-mono)}
+.diamond{fill:color-mix(in srgb,var(--status-warning) 10%,var(--bg-surface));stroke:var(--status-warning-line);stroke-width:1.25}
+.xor-t{fill:var(--fg-default);font-size:12px;font-weight:600}
+.bar{fill:var(--fg-muted)}
+.evt{fill:var(--bg-canvas);stroke:var(--status-error-line);stroke-width:1.5}
+.sub-mark{fill:none;stroke:var(--border-default);stroke-width:1}
+.edge{stroke:var(--fg-faint);stroke-width:1.15;fill:none}
+.edge.back{stroke:var(--status-warning);stroke-dasharray:4 3}
+.edge-head{fill:var(--fg-muted)}
+.edge-head.back{fill:var(--status-warning)}
+.end-ok{fill:var(--status-success);stroke:var(--status-success);stroke-width:1.5}
+.end-bad{fill:var(--status-error);stroke:var(--status-error);stroke-width:1.5}
+.end-t{fill:var(--fg-muted);font-size:11px}
+.end-hole{fill:var(--bg-canvas)}
+.st{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1.15}
+.st.entry{stroke:var(--status-info);stroke-width:1.75}
+.st.term{stroke:var(--status-success);stroke-width:1.75}
+.st-t{fill:var(--fg-default);font-size:12px;font-weight:500}
+.mach-title{fill:var(--fg-muted);font-size:12px;font-weight:600}
+.mach-legend{fill:var(--fg-subtle);font-size:10px}
+.edge-cap{fill:var(--bg-surface);stroke:var(--border-default);stroke-width:1}
+.edge-title{fill:var(--fg-default);font-size:11px;font-weight:600}
+.fx{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-sans)}
+.fx-pill{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1}
+.fx-pill-t{fill:var(--fg-muted);font-size:9px;font-weight:600}
 </style>
 </head>
 <body>
-<div class="fl-shell">
-  <header class="fl-header">
-    <p class="fl-eyebrow">Fluxo operacional · 3 camadas</p>
-    <h1 class="fl-title">Carimbar o fluxo antes de executar o plano</h1>
-    <p class="fl-scenario">O operador carimba o fluxo operacional de um plano; sem o carimbo, a execução recusa.</p>
-    <div class="fl-meta">
-      <span><strong>Ator:</strong> Operador</span>
-      <span><strong>Plano:</strong> project-flow</span>
-      <div class="theme-switch" role="radiogroup" aria-label="Aparência"><button type="button" role="radio" data-theme-set="system" aria-checked="true">Sistema</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Claro</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Escuro</button></div>
+<div class="app">
+  <header class="fl-header top">
+    <div class="top-row">
+      <div class="brand">
+        <h1 class="fl-title">Carimbar o fluxo antes de executar o plano</h1>
+        <p class="fl-scenario">O operador carimba o fluxo operacional de um plano; sem o carimbo, a execução recusa.</p>
+      </div>
+      <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
+        <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
+        <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
+        <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
+      </nav>
+      <div class="fl-toolbar">
+        <button type="button" data-zoom="out" aria-label="Diminuir">−</button>
+        <span class="zoom" id="z-lab">100%</span>
+        <button type="button" data-zoom="in" aria-label="Aumentar">+</button>
+        <button type="button" data-zoom="height">À altura</button>
+        <button type="button" data-zoom="width">À largura</button>
+        <button type="button" data-action="pdf" data-pdf-name="project-flow-fluxo.pdf">PDF</button>
+        <div class="theme-switch" role="radiogroup" aria-label="Aparência"><button type="button" role="radio" data-theme-set="system" aria-checked="true">Sistema</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Claro</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Escuro</button></div>
+      </div>
     </div>
-    <nav class="fl-toc" role="navigation" aria-label="Camadas do fluxo">
-      <a href="#fl-sequence">Sequência</a>
-      <a href="#fl-bpm">Fluxo BPM</a>
-      <a href="#fl-machines">Máquinas</a>
-    </nav>
+    <p class="fl-hint" id="fl-hint">
+      <span class="fl-meta"><span><strong>Ator:</strong> Operador</span><span><strong>Plano:</strong> project-flow</span></span>
+      <span class="fl-footer">content-sha 17266fa434f9ad09 · schema 1.0</span>
+    </p>
   </header>
-  <section id="fl-sequence" class="fl-surface fl-sequence" role="region" data-surface="sequence" aria-labelledby="fl-sequence-title">
-    <h2 id="fl-sequence-title">Sequência</h2>
-    <p class="fl-lede">Conversa (messages) entre atores. Pode narrar interface.</p>
-    <ol class="fl-messages">
-<li class="fl-msg" data-from="Op" data-to="Ag" data-async="false" data-node="Draftar">
-  <span class="fl-msg-from">Operador</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Agente</span>
-  <p class="fl-msg-text">Pede project flow no plano</p>
-</li>
-<li class="fl-msg" data-from="Ag" data-to="Ag" data-async="false" data-node="Draftar">
-  <span class="fl-msg-from">Agente</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Agente</span>
-  <p class="fl-msg-text">Lê o desenho, a fonte e o intent de negócio — não a lista de fases</p>
-</li>
-<li class="fl-msg" data-from="Ag" data-to="Sys" data-async="false" data-node="Draftar">
-  <span class="fl-msg-from">Agente</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Atomic Skills</span>
-  <p class="fl-msg-text">Grava flow.json sem carimbo</p>
-</li>
-<li class="fl-msg" data-from="Sys" data-to="Sys" data-async="false" data-node="Draftar">
-  <span class="fl-msg-from">Atomic Skills</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Atomic Skills</span>
-  <p class="fl-msg-text">Gera flow.html com conversa, processo e estados</p>
-</li>
-<li class="fl-msg" data-from="Sys" data-to="Sys" data-async="false" data-node="ChecarParaExecutar">
-  <span class="fl-msg-from">Atomic Skills</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Atomic Skills</span>
-  <p class="fl-msg-text">Roda o detector em modo estrito no arquivo do plano</p>
-</li>
-<li class="fl-msg" data-from="Ag" data-to="Op" data-async="true" data-node="Mostrar">
-  <span class="fl-msg-from">Agente</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Operador</span>
-  <p class="fl-msg-text">Abre o painel HTML e resume o grafo no terminal</p>
-</li>
-<li class="fl-msg" data-from="Ag" data-to="Op" data-async="false" data-node="Mostrar">
-  <span class="fl-msg-from">Agente</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Operador</span>
-  <p class="fl-msg-text">Pergunta se aprova, ajusta ou cancela — chat ok não conta</p>
-</li>
-<li class="fl-msg" data-from="Op" data-to="Sys" data-async="false" data-node="Executar">
-  <span class="fl-msg-from">Operador</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Atomic Skills</span>
-  <p class="fl-msg-text">Pede implement no plano</p>
-</li>
-<li class="fl-msg" data-from="Sys" data-to="Sys" data-async="false" data-node="Executar">
-  <span class="fl-msg-from">Atomic Skills</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Atomic Skills</span>
-  <p class="fl-msg-text">O detector em modo estrito passa; a execução começa</p>
-</li>
-<li class="fl-msg" data-from="Sys" data-to="Op" data-async="true" data-node="Recusar">
-  <span class="fl-msg-from">Atomic Skills</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Operador</span>
-  <p class="fl-msg-text">Recusa. process.yaml não vale. Rode project flow e carimbe.</p>
-</li>
-<li class="fl-msg" data-from="Sys" data-to="Sys" data-async="false" data-node="Carimbar">
-  <span class="fl-msg-from">Atomic Skills</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Atomic Skills</span>
-  <p class="fl-msg-text">Só o carimbo oficial grava a data e o hash do documento</p>
-</li>
-<li class="fl-msg" data-from="Sys" data-to="Op" data-async="true" data-node="Carimbar">
-  <span class="fl-msg-from">Atomic Skills</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Operador</span>
-  <p class="fl-msg-text">Confirma o fluxo carimbado</p>
-</li>
-<li class="fl-msg" data-from="Op" data-to="Ag" data-async="false" data-node="Ajustar">
-  <span class="fl-msg-from">Operador</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Agente</span>
-  <p class="fl-msg-text">Diz o que está errado no grafo, nas mensagens ou nas máquinas</p>
-</li>
-<li class="fl-msg" data-from="Ag" data-to="Sys" data-async="false" data-node="Ajustar">
-  <span class="fl-msg-from">Agente</span>
-  <span class="fl-msg-arrow" aria-hidden="true">→</span>
-  <span class="fl-msg-to">Atomic Skills</span>
-  <p class="fl-msg-text">Reescreve flow.json e regenera o painel — sem editor visual</p>
-</li>
-</ol>
-  </section>
-  <section id="fl-bpm" class="fl-surface fl-bpm" role="region" data-surface="bpm" aria-labelledby="fl-bpm-title">
-    <h2 id="fl-bpm-title">Fluxo BPM</h2>
-    <p class="fl-lede">Atividades de negócio: activity, xor, and, join, subprocess, event, end.</p>
-    <ol class="fl-nodes">
-<li class="fl-node" data-node-id="TemArquivo" data-node-type="xor">
-  <div class="fl-node-head">
-    <span class="fl-node-type">xor</span>
-    <h3 class="fl-node-label">O pedido tem arquivo de plano?</h3>
-  </div>
-  <p class="fl-node-who">Atomic Skills</p>
-  <ul class="fl-branches">
-<li class="fl-branch" data-branch-id="TemArquivo.nao" data-next="FimNaoSeAplica"><strong>Sem arquivo</strong> → FimNaoSeAplica</li>
-<li class="fl-branch" data-branch-id="TemArquivo.sim" data-next="QualPedido"><strong>Com arquivo</strong> → QualPedido</li>
-</ul>
-</li>
-<li class="fl-node" data-node-id="FimNaoSeAplica" data-node-type="end">
-  <div class="fl-node-head">
-    <span class="fl-node-type">end</span>
-    <h3 class="fl-node-label">Fim · não se aplica</h3>
-  </div>
+  <div class="fl-viewport" id="fl-viewport">
+    <div id="fl-sizer">
+      <div id="fl-stage">
+        <section id="fl-sequence" class="fl-surface" role="tabpanel" data-surface="sequence" aria-labelledby="fl-sequence-title">
+      <h2 id="fl-sequence-title" class="fl-sr-only">Sequência</h2>
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="668" height="1266" viewBox="0 0 668 1266" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Carimbar o fluxo antes de executar o plano</title>
+    <desc>O operador carimba o fluxo operacional de um plano; sem o carimbo, a execução recusa.</desc>
+    <rect class="xor-wash" x="8" y="78" width="652" height="1110" rx="10"/>
+    <g data-actor-id="Op">
+        <line class="lifeline" data-lifeline="Op" x1="150" y1="50" x2="150" y2="1222"/>
+        <line class="life-hit" data-actor-label="Operador" x1="150" y1="50" x2="150" y2="1222"/>
+      </g>
+<g data-actor-id="Ag">
+        <line class="lifeline" data-lifeline="Ag" x1="346" y1="50" x2="346" y2="1222"/>
+        <line class="life-hit" data-actor-label="Agente" x1="346" y1="50" x2="346" y2="1222"/>
+      </g>
+<g data-actor-id="Sys">
+        <line class="lifeline" data-lifeline="Sys" x1="542" y1="50" x2="542" y2="1222"/>
+        <line class="life-hit" data-actor-label="Atomic Skills" x1="542" y1="50" x2="542" y2="1222"/>
+      </g>
+    <g data-xor-rail="TemArquivo">
+        <line class="xor-rail" x1="22" y1="88" x2="22" y2="1180"/>
+        <text class="xor-q" x="38" y="100">◇ Existe um arquivo de plano neste pedido?</text>
+      </g>
+<g data-xor-rail="QualPedido">
+        <line class="xor-rail" x1="36" y1="232" x2="36" y2="1180"/>
+        <text class="xor-q" x="52" y="244">◇ O operador pediu para carimbar o fluxo ou para executar o plano?</text>
+      </g>
+<g data-xor-rail="Decidir">
+        <line class="xor-rail" x1="50" y1="544" x2="50" y2="850"/>
+        <text class="xor-q" x="66" y="556">◇ O operador aprova o fluxo que viu?</text>
+      </g>
+<g data-xor-rail="ChecarParaExecutar">
+        <line class="xor-rail" x1="50" y1="964" x2="50" y2="1180"/>
+        <text class="xor-q" x="66" y="976">◇ O documento tem carimbo e o grafo não mudou depois?</text>
+      </g>
+
+<g>
+          <line class="hair" x1="22" y1="144" x2="40" y2="144"/>
+          <rect class="pill" x="40" y="132" width="97" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sem arquivo" x="88.5" y="148" text-anchor="middle">Sem arquivo</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="192" x2="40" y2="192"/>
+          <rect class="pill" x="40" y="180" width="97" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Com arquivo" x="88.5" y="196" text-anchor="middle">Com arquivo</text>
+        </g>
+
+<g>
+          <line class="hair" x1="36" y1="288" x2="54" y2="288"/>
+          <rect class="pill" x="54" y="276" width="125" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Validar o fluxo" x="116.5" y="292" text-anchor="middle">Validar o fluxo</text>
+        </g>
+<g data-from="Op" data-to="Ag">
+          <line class="arrow" x1="158" y1="318" x2="330" y2="318"/>
+          <polygon class="arrow-head" points="338,318 330,314 330,322"/>
+          <text class="msg" x="248" y="310" text-anchor="middle">Pede project flow no plano</text>
+        </g>
+<g data-from="Ag" data-to="Ag">
+          <circle cx="346" cy="354" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="358">Lê o desenho, a fonte e o</text><text class="msg" x="356" y="370">intent de negócio — não a</text>
+        </g>
+<g data-from="Ag" data-to="Sys">
+          <line class="arrow" x1="354" y1="390" x2="526" y2="390"/>
+          <polygon class="arrow-head" points="534,390 526,386 526,394"/>
+          <text class="msg" x="444" y="382" text-anchor="middle">Grava flow.json sem carimbo</text>
+        </g>
+<g data-from="Sys" data-to="Sys">
+          <circle cx="542" cy="426" r="3" class="arrow-head"/>
+          <text class="msg" x="552" y="430">Gera flow.html com conversa,</text><text class="msg" x="552" y="442">processo e estados</text>
+        </g>
+<g data-from="Ag" data-to="Op">
+          <line class="arrow async" x1="338" y1="462" x2="166" y2="462"/>
+          <polygon class="arrow-head" points="158,462 166,458 166,466"/>
+          <text class="msg" x="248" y="442" text-anchor="middle">Abre o painel HTML e resume o</text><text class="msg" x="248" y="454" text-anchor="middle">grafo no terminal</text>
+        </g>
+<g data-from="Ag" data-to="Op">
+          <line class="arrow" x1="338" y1="498" x2="166" y2="498"/>
+          <polygon class="arrow-head" points="158,498 166,494 166,502"/>
+          <text class="msg" x="248" y="478" text-anchor="middle">Pergunta se aprova, ajusta ou</text><text class="msg" x="248" y="490" text-anchor="middle">cancela — chat ok não conta</text>
+        </g>
+
+<g>
+          <line class="hair" x1="50" y1="600" x2="68" y2="600"/>
+          <rect class="pill" x="68" y="588" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Aprova" x="104" y="604" text-anchor="middle">Aprova</text>
+        </g>
+<g data-from="Sys" data-to="Sys">
+          <circle cx="542" cy="630" r="3" class="arrow-head"/>
+          <text class="msg" x="552" y="634">Só o carimbo oficial grava a</text><text class="msg" x="552" y="646">data e o hash do documento</text>
+        </g>
+<g data-from="Sys" data-to="Op">
+          <line class="arrow async" x1="534" y1="666" x2="166" y2="666"/>
+          <polygon class="arrow-head" points="158,666 166,662 166,670"/>
+          <text class="msg" x="346" y="658" text-anchor="middle">Confirma o fluxo carimbado</text>
+        </g>
+<g>
+          <line class="hair" x1="50" y1="720" x2="68" y2="720"/>
+          <rect class="pill" x="68" y="708" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Ajusta" x="104" y="724" text-anchor="middle">Ajusta</text>
+        </g>
+<g data-from="Op" data-to="Ag">
+          <line class="arrow" x1="158" y1="750" x2="330" y2="750"/>
+          <polygon class="arrow-head" points="338,750 330,746 330,754"/>
+          <text class="msg" x="248" y="730" text-anchor="middle">Diz o que está errado no grafo,</text><text class="msg" x="248" y="742" text-anchor="middle">nas mensagens ou nas máquinas</text>
+        </g>
+<g data-from="Ag" data-to="Sys">
+          <line class="arrow" x1="354" y1="786" x2="526" y2="786"/>
+          <polygon class="arrow-head" points="534,786 526,782 526,790"/>
+          <text class="msg" x="444" y="766" text-anchor="middle">Reescreve flow.json e regenera o</text><text class="msg" x="444" y="778" text-anchor="middle">painel — sem editor visual</text>
+        </g>
+<g data-loop-ref="Mostrar">
+          <path class="loop-arc" d="M542 786 C152 822, 78 834, 68 788"/>
+          <polygon class="loop-head" points="68,778 63,788 74,786"/>
+        </g>
+<g>
+          <line class="hair" x1="50" y1="840" x2="68" y2="840"/>
+          <rect class="pill" x="68" y="828" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Cancela" x="104" y="844" text-anchor="middle">Cancela</text>
+        </g>
+<g>
+          <line class="hair" x1="36" y1="888" x2="54" y2="888"/>
+          <rect class="pill" x="54" y="876" width="132" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Executar o plano" x="120" y="892" text-anchor="middle">Executar o plano</text>
+        </g>
+<g data-from="Sys" data-to="Sys">
+          <circle cx="542" cy="918" r="3" class="arrow-head"/>
+          <text class="msg" x="552" y="922">Roda o detector em modo</text><text class="msg" x="552" y="934">estrito no arquivo do plano</text>
+        </g>
+
+<g>
+          <line class="hair" x1="50" y1="1020" x2="68" y2="1020"/>
+          <rect class="pill" x="68" y="1008" width="118" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Carimbo válido" x="127" y="1024" text-anchor="middle">Carimbo válido</text>
+        </g>
+<g data-from="Op" data-to="Sys">
+          <line class="arrow" x1="158" y1="1050" x2="526" y2="1050"/>
+          <polygon class="arrow-head" points="534,1050 526,1046 526,1054"/>
+          <text class="msg" x="346" y="1042" text-anchor="middle">Pede implement no plano</text>
+        </g>
+<g data-from="Sys" data-to="Sys">
+          <circle cx="542" cy="1086" r="3" class="arrow-head"/>
+          <text class="msg" x="552" y="1090">O detector em modo estrito</text><text class="msg" x="552" y="1102">passa; a execução começa</text>
+        </g>
+<g>
+          <line class="hair" x1="50" y1="1140" x2="68" y2="1140"/>
+          <rect class="pill" x="68" y="1128" width="174" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Falta ou o grafo mudou" x="155" y="1144" text-anchor="middle">Falta ou o grafo mudou</text>
+        </g>
+<g data-from="Sys" data-to="Op">
+          <line class="arrow async" x1="534" y1="1170" x2="166" y2="1170"/>
+          <polygon class="arrow-head" points="158,1170 166,1166 166,1174"/>
+          <text class="msg" x="346" y="1150" text-anchor="middle">Recusa. process.yaml não vale.</text><text class="msg" x="346" y="1162" text-anchor="middle">Rode project flow e carimbe.</text>
+        </g>
+    <g data-actor-id="Op">
+        <rect class="actor-box" x="66" y="1230" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="1248" text-anchor="middle">Operador</text>
+      </g>
+<g data-actor-id="Ag">
+        <rect class="actor-box" x="262" y="1230" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="1248" text-anchor="middle">Agente</text>
+      </g>
+<g data-actor-id="Sys">
+        <rect class="actor-box" x="458" y="1230" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="1248" text-anchor="middle">Atomic Skills</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="668" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="668" y2="41.5"/>
+    <g data-actor-id="Op">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Operador</text>
+      </g>
+<g data-actor-id="Ag">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Agente</text>
+      </g>
+<g data-actor-id="Sys">
+        <rect class="actor-box" x="458" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="26" text-anchor="middle">Atomic Skills</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+        <section id="fl-bpm" class="fl-surface" role="tabpanel" data-surface="bpm" aria-labelledby="fl-bpm-title" hidden>
+      <h2 id="fl-bpm-title" class="fl-sr-only">Fluxo BPM</h2>
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="1628" height="932" viewBox="0 0 1628 932" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Carimbar o fluxo antes de executar o plano</title>
+    <path class="edge" d="M738 109 L108 109 L108 190"/>
+<path class="edge" d="M652 406 L652 462"/>
+<path class="edge" d="M652 532 L652 588"/>
+<path class="edge" d="M380 784 L380 842"/>
+<path class="edge" d="M602 651 L380 651 L380 728"/>
+<path class="edge" d="M652 672 L652 728"/>
+<path class="edge" d="M702 651 L924 651 L924 730"/>
+<path class="edge" d="M874 257 L652 257 L652 336"/>
+<path class="edge" d="M1196 540 L1196 598"/>
+<path class="edge" d="M1282 405 L1196 405 L1196 484"/>
+<path class="edge" d="M1468 540 L1468 598"/>
+<path class="edge" d="M1382 405 L1468 405 L1468 484"/>
+<path class="edge" d="M974 257 L1332 257 L1332 336"/>
+<path class="edge" d="M838 109 L924 109 L924 188"/>
+    <g data-node-id="TemArquivo" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="788,40 888,86 788,132 688,86"/>
+          <text class="xor-t" x="788" y="66" text-anchor="middle" dominant-baseline="central">O pedido tem</text><text class="xor-t" x="788" y="80" text-anchor="middle" dominant-baseline="central">arquivo de</text><text class="xor-t" x="788" y="94" text-anchor="middle" dominant-baseline="central">plano?</text><text class="who" x="788" y="107" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+        </g>
+<g data-node-id="FimNaoSeAplica" data-node-type="end" data-shape="circle">
+          <circle class="end-bad" cx="108" cy="200" r="10"/>
+          <circle class="end-hole" cx="108" cy="200" r="5"/>
+          <text class="end-t" x="108" y="224" text-anchor="middle">Fim · não se aplica</text>
+        </g>
+<g data-node-id="QualPedido" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="924,188 1024,234 924,280 824,234"/>
+          <text class="xor-t" x="924" y="214" text-anchor="middle" dominant-baseline="central">Validar o fluxo</text><text class="xor-t" x="924" y="228" text-anchor="middle" dominant-baseline="central">ou executar o</text><text class="xor-t" x="924" y="242" text-anchor="middle" dominant-baseline="central">plano?</text><text class="who" x="924" y="255" text-anchor="middle" dominant-baseline="central">Operador</text>
+        </g>
+<g data-node-id="Draftar" data-node-type="activity" data-shape="rect" data-next="Mostrar">
+        <rect class="act" x="552" y="336" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="652" y="358" text-anchor="middle" dominant-baseline="central">Draftar o grafo a</text><text class="act-t" x="652" y="372" text-anchor="middle" dominant-baseline="central">partir do desenho</text><text class="who" x="652" y="385" text-anchor="middle" dominant-baseline="central">Agente</text>
+      </g>
+<g data-node-id="Mostrar" data-node-type="activity" data-shape="rect" data-next="Decidir">
+        <rect class="act" x="552" y="462" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="652" y="484" text-anchor="middle" dominant-baseline="central">Mostrar conversa,</text><text class="act-t" x="652" y="498" text-anchor="middle" dominant-baseline="central">processo e estados</text><text class="who" x="652" y="511" text-anchor="middle" dominant-baseline="central">Agente</text>
+      </g>
+<g data-node-id="Decidir" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="652,588 752,630 652,672 552,630"/>
+          <text class="xor-t" x="652" y="617" text-anchor="middle" dominant-baseline="central">Aprovar este</text><text class="xor-t" x="652" y="631" text-anchor="middle" dominant-baseline="central">fluxo?</text><text class="who" x="652" y="644" text-anchor="middle" dominant-baseline="central">Operador</text>
+        </g>
+<g data-node-id="Carimbar" data-node-type="activity" data-shape="rect" data-next="FimCarimbado">
+        <rect class="act" x="280" y="728" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="380" y="750" text-anchor="middle" dominant-baseline="central">Carimbar o documento</text><text class="who" x="380" y="763" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="FimCarimbado" data-node-type="end" data-shape="circle">
+          <circle class="end-ok" cx="380" cy="852" r="10"/>
+
+          <text class="end-t" x="380" y="876" text-anchor="middle">Fim · carimbado</text>
+        </g>
+<g data-node-id="Ajustar" data-node-type="activity" data-shape="rect" data-next="Mostrar">
+        <rect class="act" x="552" y="728" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="652" y="750" text-anchor="middle" dominant-baseline="central">Ajustar o grafo</text><text class="who" x="652" y="763" text-anchor="middle" dominant-baseline="central">Operador + Agente</text>
+      </g>
+<g data-node-id="FimSemCarimbo" data-node-type="end" data-shape="circle">
+          <circle class="end-bad" cx="924" cy="740" r="10"/>
+          <circle class="end-hole" cx="924" cy="740" r="5"/>
+          <text class="end-t" x="924" y="764" text-anchor="middle">Fim · sem carimbo</text>
+        </g>
+<g data-node-id="ChecarParaExecutar" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="1332,336 1432,382 1332,428 1232,382"/>
+          <text class="xor-t" x="1332" y="362" text-anchor="middle" dominant-baseline="central">O fluxo está</text><text class="xor-t" x="1332" y="376" text-anchor="middle" dominant-baseline="central">carimbado e</text><text class="xor-t" x="1332" y="390" text-anchor="middle" dominant-baseline="central">atual?</text><text class="who" x="1332" y="403" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+        </g>
+<g data-node-id="Executar" data-node-type="activity" data-shape="rect" data-next="FimEmExecucao">
+        <rect class="act" x="1096" y="484" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1196" y="506" text-anchor="middle" dominant-baseline="central">Entrar na execução</text><text class="who" x="1196" y="519" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="FimEmExecucao" data-node-type="end" data-shape="circle">
+          <circle class="end-bad" cx="1196" cy="608" r="10"/>
+          <circle class="end-hole" cx="1196" cy="608" r="5"/>
+          <text class="end-t" x="1196" y="632" text-anchor="middle">Fim · em execução</text>
+        </g>
+<g data-node-id="Recusar" data-node-type="activity" data-shape="rect" data-next="FimRecusado">
+        <rect class="act" x="1368" y="484" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1468" y="506" text-anchor="middle" dominant-baseline="central">Recusar a execução</text><text class="who" x="1468" y="519" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="FimRecusado" data-node-type="end" data-shape="circle">
+          <circle class="end-bad" cx="1468" cy="608" r="10"/>
+          <circle class="end-hole" cx="1468" cy="608" r="5"/>
+          <text class="end-t" x="1468" y="632" text-anchor="middle">Fim · recusado</text>
+        </g>
+    <polygon class="edge-head" points="108,190 111.6,182 104.4,182"/>
+<polygon class="edge-head" points="652,462 655.6,454 648.4,454"/>
+<polygon class="edge-head" points="652,588 655.6,580 648.4,580"/>
+<polygon class="edge-head" points="380,842 383.6,834 376.4,834"/>
+<polygon class="edge-head" points="380,728 383.6,720 376.4,720"/>
+<polygon class="edge-head" points="652,728 655.6,720 648.4,720"/>
+<polygon class="edge-head" points="924,730 927.6,722 920.4,722"/>
+<polygon class="edge-head" points="652,336 655.6,328 648.4,328"/>
+<polygon class="edge-head" points="1196,598 1199.6,590 1192.4,590"/>
+<polygon class="edge-head" points="1196,484 1199.6,476 1192.4,476"/>
+<polygon class="edge-head" points="1468,598 1471.6,590 1464.4,590"/>
+<polygon class="edge-head" points="1468,484 1471.6,476 1464.4,476"/>
+<polygon class="edge-head" points="1332,336 1335.6,328 1328.4,328"/>
+<polygon class="edge-head" points="924,188 927.6,180 920.4,180"/>
+    <text class="edge-t" x="423" y="101" text-anchor="middle">Sem arquivo</text>
 
 
-</li>
-<li class="fl-node" data-node-id="QualPedido" data-node-type="xor">
-  <div class="fl-node-head">
-    <span class="fl-node-type">xor</span>
-    <h3 class="fl-node-label">Validar o fluxo ou executar o plano?</h3>
-  </div>
-  <p class="fl-node-who">Operador</p>
-  <ul class="fl-branches">
-<li class="fl-branch" data-branch-id="QualPedido.flow" data-next="Draftar"><strong>Validar o fluxo</strong> → Draftar</li>
-<li class="fl-branch" data-branch-id="QualPedido.implement" data-next="ChecarParaExecutar"><strong>Executar o plano</strong> → ChecarParaExecutar</li>
-</ul>
-</li>
-<li class="fl-node" data-node-id="Draftar" data-node-type="activity" data-next="Mostrar">
-  <div class="fl-node-head">
-    <span class="fl-node-type">activity</span>
-    <h3 class="fl-node-label">Draftar o grafo a partir do desenho</h3>
-  </div>
-  <p class="fl-node-who">Agente</p>
-  <p class="fl-node-next" data-next="Mostrar">→ Mostrar</p>
-</li>
-<li class="fl-node" data-node-id="ChecarParaExecutar" data-node-type="xor">
-  <div class="fl-node-head">
-    <span class="fl-node-type">xor</span>
-    <h3 class="fl-node-label">O fluxo está carimbado e atual?</h3>
-  </div>
-  <p class="fl-node-who">Atomic Skills</p>
-  <ul class="fl-branches">
-<li class="fl-branch" data-branch-id="ChecarParaExecutar.ok" data-next="Executar"><strong>Carimbo válido</strong> → Executar</li>
-<li class="fl-branch" data-branch-id="ChecarParaExecutar.falta" data-next="Recusar"><strong>Falta ou o grafo mudou</strong> → Recusar</li>
-</ul>
-</li>
-<li class="fl-node" data-node-id="Mostrar" data-node-type="activity" data-next="Decidir">
-  <div class="fl-node-head">
-    <span class="fl-node-type">activity</span>
-    <h3 class="fl-node-label">Mostrar conversa, processo e estados</h3>
-  </div>
-  <p class="fl-node-who">Agente</p>
-  <p class="fl-node-next" data-next="Decidir">→ Decidir</p>
-</li>
-<li class="fl-node" data-node-id="Executar" data-node-type="activity" data-next="FimEmExecucao">
-  <div class="fl-node-head">
-    <span class="fl-node-type">activity</span>
-    <h3 class="fl-node-label">Entrar na execução</h3>
-  </div>
-  <p class="fl-node-who">Atomic Skills</p>
-  <p class="fl-node-next" data-next="FimEmExecucao">→ FimEmExecucao</p>
-</li>
-<li class="fl-node" data-node-id="Recusar" data-node-type="activity" data-next="FimRecusado">
-  <div class="fl-node-head">
-    <span class="fl-node-type">activity</span>
-    <h3 class="fl-node-label">Recusar a execução</h3>
-  </div>
-  <p class="fl-node-who">Atomic Skills</p>
-  <p class="fl-node-next" data-next="FimRecusado">→ FimRecusado</p>
-</li>
-<li class="fl-node" data-node-id="Decidir" data-node-type="xor">
-  <div class="fl-node-head">
-    <span class="fl-node-type">xor</span>
-    <h3 class="fl-node-label">Aprovar este fluxo?</h3>
-  </div>
-  <p class="fl-node-who">Operador</p>
-  <ul class="fl-branches">
-<li class="fl-branch" data-branch-id="Decidir.aprova" data-next="Carimbar"><strong>Aprova</strong> → Carimbar</li>
-<li class="fl-branch" data-branch-id="Decidir.ajusta" data-next="Ajustar"><strong>Ajusta</strong> → Ajustar</li>
-<li class="fl-branch" data-branch-id="Decidir.cancela" data-next="FimSemCarimbo"><strong>Cancela</strong> → FimSemCarimbo</li>
-</ul>
-</li>
-<li class="fl-node" data-node-id="FimEmExecucao" data-node-type="end">
-  <div class="fl-node-head">
-    <span class="fl-node-type">end</span>
-    <h3 class="fl-node-label">Fim · em execução</h3>
-  </div>
 
+<text class="edge-t" x="491" y="643" text-anchor="middle">Aprova</text>
+<text class="edge-t" x="660" y="700" text-anchor="start">Ajusta</text>
+<text class="edge-t" x="813" y="643" text-anchor="middle">Cancela</text>
+<text class="edge-t" x="763" y="249" text-anchor="middle">Validar o fluxo</text>
 
-</li>
-<li class="fl-node" data-node-id="FimRecusado" data-node-type="end">
-  <div class="fl-node-head">
-    <span class="fl-node-type">end</span>
-    <h3 class="fl-node-label">Fim · recusado</h3>
+<text class="edge-t" x="1239" y="397" text-anchor="middle">Carimbo válido</text>
+
+<text class="edge-t" x="1425" y="385" text-anchor="middle">Falta ou o grafo</text><text class="edge-t" x="1425" y="397" text-anchor="middle">mudou</text>
+<text class="edge-t" x="1153" y="249" text-anchor="middle">Executar o plano</text>
+<text class="edge-t" x="881" y="101" text-anchor="middle">Com arquivo</text>
+  </svg></div>
+    </section>
+        <section id="fl-machines" class="fl-surface" role="tabpanel" data-surface="machines" aria-labelledby="fl-machines-title" hidden>
+      <h2 id="fl-machines-title" class="fl-sr-only">Máquinas</h2>
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="2224" height="464" viewBox="0 0 2224 464" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Artefato de flow</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="artefato">
+      <text class="mach-title" x="16" y="16">Artefato de flow</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M700 228 L992 228"/>
+<path class="edge" d="M1160 228 L1452 228"/>
+<path class="edge" d="M1620 228 L1912 228"/>
+<path class="edge" d="M156 244 L156 400"/>
+<path class="edge" d="M1076 244 L1076 400"/>
+<path class="edge" d="M1536 244 L1536 400"/>
+<path class="edge" d="M156 244 L1996 400"/>
+<path class="edge" d="M1996 244 L1996 400"/>
+<path class="edge back" d="M1912 228 L496 228 L496 228 L532 228"/>
+<path class="edge back" d="M992 228 L496 228 L496 228 L532 228"/>
+      <g data-state-id="ausente">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Ausente</text>
+      </g>
+<g data-state-id="rascunho">
+        <rect class="st" x="532" y="212" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Rascunho</text>
+      </g>
+<g data-state-id="mostrado">
+        <rect class="st" x="992" y="212" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="1076" y="228" text-anchor="middle" dominant-baseline="central">Mostrado</text>
+      </g>
+<g data-state-id="carimbado">
+        <rect class="st" x="1452" y="212" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="1536" y="228" text-anchor="middle" dominant-baseline="central">Carimbado</text>
+      </g>
+<g data-state-id="obsoleto">
+        <rect class="st" x="1912" y="212" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="1996" y="228" text-anchor="middle" dominant-baseline="central">Obsoleto</text>
+      </g>
+<g data-state-id="cancelado">
+        <rect class="st term" x="992" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="995" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1076" y="416" text-anchor="middle" dominant-baseline="central">Cancelado</text>
+      </g>
+<g data-state-id="recusado">
+        <rect class="st term" x="1912" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="1915" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1996" y="416" text-anchor="middle" dominant-baseline="central">Recusado na execução</text>
+      </g>
+<g data-state-id="em_execucao">
+        <rect class="st term" x="1452" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="1455" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1536" y="416" text-anchor="middle" dominant-baseline="central">Em execução</text>
+      </g>
+<g data-state-id="nao_aplica">
+        <rect class="st term" x="72" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="75" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="156" y="416" text-anchor="middle" dominant-baseline="central">Não se aplica</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="992,228 984,224.4 984,231.6"/>
+<polygon class="edge-head" points="1452,228 1444,224.4 1444,231.6"/>
+<polygon class="edge-head" points="1912,228 1904,224.4 1904,231.6"/>
+<polygon class="edge-head" points="156,400 159.6,392 152.4,392"/>
+<polygon class="edge-head" points="1076,400 1079.6,392 1072.4,392"/>
+<polygon class="edge-head" points="1536,400 1539.6,392 1532.4,392"/>
+<polygon class="edge-head" points="1996,400 1988.3327245844623,395.73703299305623 1987.7244719749349,402.9112945413275"/>
+<polygon class="edge-head" points="1996,400 1999.6,392 1992.4,392"/>
+<polygon class="edge-head back" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head back" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_draft" data-from="ausente" data-to="rascunho"><rect class="edge-cap" x="282.5" y="140" width="207" height="62" rx="6"/><text class="edge-title" x="290.5" y="153" dominant-baseline="central">Drafta o grafo</text><rect class="fx-pill" x="290.5" y="164" width="40" height="14" rx="7"/><text class="fx-pill-t" x="310.5" y="171" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="336.5" y="171" dominant-baseline="central" data-effect-kind="write" data-effect-target="flow.json">Grava o rascunho do grafo</text><rect class="fx-pill" x="290.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="310.5" y="187" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="336.5" y="187" dominant-baseline="central" data-effect-kind="write" data-effect-target="flow.html">Gera o painel</text></g>
+<g data-transition-id="T_show" data-from="rascunho" data-to="mostrado"><rect class="edge-cap" x="736.5" y="156" width="219" height="46" rx="6"/><text class="edge-title" x="744.5" y="169" dominant-baseline="central">Mostra as três camadas</text><rect class="fx-pill" x="744.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="764.5" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="790.5" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Op">Mostra o painel ao operador</text></g>
+<g data-transition-id="T_aprova" data-from="mostrado" data-to="carimbado"><rect class="edge-cap" x="1188" y="156" width="236" height="46" rx="6"/><text class="edge-title" x="1196" y="169" dominant-baseline="central">Operador aprova</text><rect class="fx-pill" x="1196" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="1216" y="187" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="1242" y="187" dominant-baseline="central" data-effect-kind="write" data-effect-target="flow.json">Grava data e hash do documento</text></g>
+<g data-transition-id="T_obsoleto" data-from="carimbado" data-to="obsoleto"><rect class="edge-cap" x="1648" y="156" width="236" height="46" rx="6"/><text class="edge-title" x="1656" y="169" dominant-baseline="central">Grafo mudou depois do carimbo</text><rect class="fx-pill" x="1656" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="1676" y="187" text-anchor="middle" dominant-baseline="central">other</text><text class="fx" x="1702" y="187" dominant-baseline="central" data-effect-kind="other" data-effect-target="ratifiedGraphSha">Hash do carimbo deixa de bater</text></g>
+<g data-transition-id="T_nao_aplica" data-from="ausente" data-to="nao_aplica"><rect class="edge-cap" x="168" y="309" width="189" height="26" rx="6"/><text class="edge-title" x="176" y="322" dominant-baseline="central">Pedido sem arquivo de plano</text></g>
+<g data-transition-id="T_cancela" data-from="mostrado" data-to="cancelado"><rect class="edge-cap" x="1088" y="299" width="260" height="46" rx="6"/><text class="edge-title" x="1096" y="312" dominant-baseline="central">Operador cancela</text><rect class="fx-pill" x="1096" y="323" width="40" height="14" rx="7"/><text class="fx-pill-t" x="1116" y="330" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="1142" y="330" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Op">Ready continua legal; execução não</text></g>
+<g data-transition-id="T_executa" data-from="carimbado" data-to="em_execucao"><rect class="edge-cap" x="1548" y="309" width="182" height="26" rx="6"/><text class="edge-title" x="1556" y="322" dominant-baseline="central">Detector libera a execução</text></g>
+<g data-transition-id="T_recusa_ausente" data-from="ausente" data-to="recusado"><rect class="edge-cap" x="168" y="299" width="260" height="46" rx="6"/><text class="edge-title" x="176" y="312" dominant-baseline="central">Execução sem artefato</text><rect class="fx-pill" x="176" y="323" width="40" height="14" rx="7"/><text class="fx-pill-t" x="196" y="330" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="222" y="330" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Op">Recusa e manda carimbar no comando</text></g>
+<g data-transition-id="T_recusa_obsoleto" data-from="obsoleto" data-to="recusado"><rect class="edge-cap" x="2008" y="299" width="184" height="46" rx="6"/><text class="edge-title" x="2016" y="312" dominant-baseline="central">Execução com grafo mudado</text><rect class="fx-pill" x="2016" y="323" width="40" height="14" rx="7"/><text class="fx-pill-t" x="2036" y="330" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="2062" y="330" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Op">Recusa até recarimbar</text></g>
+<g data-transition-id="T_redraft" data-from="obsoleto" data-to="rascunho"><rect class="edge-cap" x="255" y="189" width="233" height="46" rx="6"/><text class="edge-title" x="263" y="202" dominant-baseline="central">Redesenha depois que o grafo mudou</text><rect class="fx-pill" x="263" y="213" width="40" height="14" rx="7"/><text class="fx-pill-t" x="283" y="220" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="309" y="220" dominant-baseline="central" data-effect-kind="write" data-effect-target="flow.json">Atualiza o rascunho</text></g>
+<g data-transition-id="T_ajusta" data-from="mostrado" data-to="rascunho"><rect class="edge-cap" x="327" y="189" width="161" height="46" rx="6"/><text class="edge-title" x="335" y="202" dominant-baseline="central">Operador pede ajuste</text><rect class="fx-pill" x="335" y="213" width="40" height="14" rx="7"/><text class="fx-pill-t" x="355" y="220" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="381" y="220" dominant-baseline="central" data-effect-kind="write" data-effect-target="flow.json">Reescreve o grafo</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+      </div>
+    </div>
   </div>
-
-
-</li>
-<li class="fl-node" data-node-id="Carimbar" data-node-type="activity" data-next="FimCarimbado">
-  <div class="fl-node-head">
-    <span class="fl-node-type">activity</span>
-    <h3 class="fl-node-label">Carimbar o documento</h3>
-  </div>
-  <p class="fl-node-who">Atomic Skills</p>
-  <p class="fl-node-next" data-next="FimCarimbado">→ FimCarimbado</p>
-</li>
-<li class="fl-node" data-node-id="Ajustar" data-node-type="activity" data-next="Mostrar">
-  <div class="fl-node-head">
-    <span class="fl-node-type">activity</span>
-    <h3 class="fl-node-label">Ajustar o grafo</h3>
-  </div>
-  <p class="fl-node-who">Operador + Agente</p>
-  <p class="fl-node-next" data-next="Mostrar">→ Mostrar</p>
-</li>
-<li class="fl-node" data-node-id="FimSemCarimbo" data-node-type="end">
-  <div class="fl-node-head">
-    <span class="fl-node-type">end</span>
-    <h3 class="fl-node-label">Fim · sem carimbo</h3>
-  </div>
-
-
-</li>
-<li class="fl-node" data-node-id="FimCarimbado" data-node-type="end">
-  <div class="fl-node-head">
-    <span class="fl-node-type">end</span>
-    <h3 class="fl-node-label">Fim · carimbado</h3>
-  </div>
-
-
-</li>
-
-</ol>
-  </section>
-  <section id="fl-machines" class="fl-surface fl-machines" role="region" data-surface="machines" aria-labelledby="fl-machines-title">
-    <h2 id="fl-machines-title">Máquinas</h2>
-    <p class="fl-lede">Estados e transições. Cada efeito mostra kind, label e target.</p>
-    <article class="fl-machine" data-machine-id="artefato">
-  <h3>Artefato de flow</h3>
-  <ol class="fl-states"><li class="fl-state" data-state-id="ausente" data-terminal="false">Ausente</li><li class="fl-state" data-state-id="rascunho" data-terminal="false">Rascunho</li><li class="fl-state" data-state-id="mostrado" data-terminal="false">Mostrado</li><li class="fl-state" data-state-id="carimbado" data-terminal="false">Carimbado</li><li class="fl-state" data-state-id="obsoleto" data-terminal="false">Obsoleto</li><li class="fl-state" data-state-id="cancelado" data-terminal="true">Cancelado</li><li class="fl-state" data-state-id="recusado" data-terminal="true">Recusado na execução</li><li class="fl-state" data-state-id="em_execucao" data-terminal="true">Em execução</li><li class="fl-state" data-state-id="nao_aplica" data-terminal="true">Não se aplica</li></ol>
-  <ol class="fl-transitions">
-<li class="fl-tr" data-transition-id="T_nao_aplica" data-from="ausente" data-to="nao_aplica">
-  <span class="fl-tr-edge">ausente → nao_aplica</span>
-  <span class="fl-tr-label">Pedido sem arquivo de plano</span>
-
-</li>
-<li class="fl-tr" data-transition-id="T_draft" data-from="ausente" data-to="rascunho">
-  <span class="fl-tr-edge">ausente → rascunho</span>
-  <span class="fl-tr-label">Drafta o grafo</span>
-  <ul class="fl-effects">
-<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.json"><span class="fl-kind">write</span> <span class="fl-effect-label">Grava o rascunho do grafo</span> <span class="fl-target">flow.json</span></li>
-<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.html"><span class="fl-kind">write</span> <span class="fl-effect-label">Gera o painel</span> <span class="fl-target">flow.html</span></li>
-</ul>
-</li>
-<li class="fl-tr" data-transition-id="T_redraft" data-from="obsoleto" data-to="rascunho">
-  <span class="fl-tr-edge">obsoleto → rascunho</span>
-  <span class="fl-tr-label">Redesenha depois que o grafo mudou</span>
-  <ul class="fl-effects">
-<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.json"><span class="fl-kind">write</span> <span class="fl-effect-label">Atualiza o rascunho</span> <span class="fl-target">flow.json</span></li>
-</ul>
-</li>
-<li class="fl-tr" data-transition-id="T_show" data-from="rascunho" data-to="mostrado">
-  <span class="fl-tr-edge">rascunho → mostrado</span>
-  <span class="fl-tr-label">Mostra as três camadas</span>
-  <ul class="fl-effects">
-<li class="fl-effect" data-effect-kind="notify" data-effect-target="Op"><span class="fl-kind">notify</span> <span class="fl-effect-label">Mostra o painel ao operador</span> <span class="fl-target">Op</span></li>
-</ul>
-</li>
-<li class="fl-tr" data-transition-id="T_aprova" data-from="mostrado" data-to="carimbado">
-  <span class="fl-tr-edge">mostrado → carimbado</span>
-  <span class="fl-tr-label">Operador aprova</span>
-  <ul class="fl-effects">
-<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.json"><span class="fl-kind">write</span> <span class="fl-effect-label">Grava data e hash do documento</span> <span class="fl-target">flow.json</span></li>
-</ul>
-</li>
-<li class="fl-tr" data-transition-id="T_ajusta" data-from="mostrado" data-to="rascunho">
-  <span class="fl-tr-edge">mostrado → rascunho</span>
-  <span class="fl-tr-label">Operador pede ajuste</span>
-  <ul class="fl-effects">
-<li class="fl-effect" data-effect-kind="write" data-effect-target="flow.json"><span class="fl-kind">write</span> <span class="fl-effect-label">Reescreve o grafo</span> <span class="fl-target">flow.json</span></li>
-</ul>
-</li>
-<li class="fl-tr" data-transition-id="T_cancela" data-from="mostrado" data-to="cancelado">
-  <span class="fl-tr-edge">mostrado → cancelado</span>
-  <span class="fl-tr-label">Operador cancela</span>
-  <ul class="fl-effects">
-<li class="fl-effect" data-effect-kind="notify" data-effect-target="Op"><span class="fl-kind">notify</span> <span class="fl-effect-label">Ready continua legal; execução não</span> <span class="fl-target">Op</span></li>
-</ul>
-</li>
-<li class="fl-tr" data-transition-id="T_executa" data-from="carimbado" data-to="em_execucao">
-  <span class="fl-tr-edge">carimbado → em_execucao</span>
-  <span class="fl-tr-label">Detector libera a execução</span>
-
-</li>
-<li class="fl-tr" data-transition-id="T_recusa_ausente" data-from="ausente" data-to="recusado">
-  <span class="fl-tr-edge">ausente → recusado</span>
-  <span class="fl-tr-label">Execução sem artefato</span>
-  <ul class="fl-effects">
-<li class="fl-effect" data-effect-kind="notify" data-effect-target="Op"><span class="fl-kind">notify</span> <span class="fl-effect-label">Recusa e manda carimbar no comando</span> <span class="fl-target">Op</span></li>
-</ul>
-</li>
-<li class="fl-tr" data-transition-id="T_recusa_obsoleto" data-from="obsoleto" data-to="recusado">
-  <span class="fl-tr-edge">obsoleto → recusado</span>
-  <span class="fl-tr-label">Execução com grafo mudado</span>
-  <ul class="fl-effects">
-<li class="fl-effect" data-effect-kind="notify" data-effect-target="Op"><span class="fl-kind">notify</span> <span class="fl-effect-label">Recusa até recarimbar</span> <span class="fl-target">Op</span></li>
-</ul>
-</li>
-<li class="fl-tr" data-transition-id="T_obsoleto" data-from="carimbado" data-to="obsoleto">
-  <span class="fl-tr-edge">carimbado → obsoleto</span>
-  <span class="fl-tr-label">Grafo mudou depois do carimbo</span>
-  <ul class="fl-effects">
-<li class="fl-effect" data-effect-kind="other" data-effect-target="ratifiedGraphSha"><span class="fl-kind">other</span> <span class="fl-effect-label">Hash do carimbo deixa de bater</span> <span class="fl-target">ratifiedGraphSha</span></li>
-</ul>
-</li>
-  </ol>
-</article>
-  </section>
-  <footer class="fl-footer">
-    content-sha 4d7f75f0f83ad5a8 · schema 1.0
-  </footer>
 </div>
+<script>
+(function(){
+var MIN=0.3,MAX=2.8,PREFIX="as-flow-zoom:";
+var slug=document.documentElement.getAttribute("data-fl-slug")||"default";
+var key=PREFIX+slug;
+var viewport=document.getElementById("fl-viewport");
+var sizer=document.getElementById("fl-sizer");
+var stage=document.getElementById("fl-stage");
+var lab=document.getElementById("z-lab");
+var scale=1;
+function readZoom(){
+  try{
+    var n=parseFloat(localStorage.getItem(key));
+    if(Number.isFinite(n)) return Math.min(MAX,Math.max(MIN,n));
+  }catch(e){}
+  return 1;
+}
+function saveZoom(){try{localStorage.setItem(key,String(scale))}catch(e){}}
+function visiblePanel(){return document.querySelector(".fl-surface:not([hidden])")}
+function visibleSvg(){
+  var p=visiblePanel();
+  return p?p.querySelector("svg"):null;
+}
+function svgNative(svg){
+  if(!svg) return {w:0,h:0};
+  if(!svg.dataset.nw){
+    var vb=svg.viewBox&&svg.viewBox.baseVal;
+    svg.dataset.nw=String((vb&&vb.width)||0);
+    svg.dataset.nh=String((vb&&vb.height)||0);
+  }
+  return {w:+svg.dataset.nw,h:+svg.dataset.nh};
+}
+function applySvgScale(){
+  var svg=visibleSvg();
+  if(!svg) return;
+  var n=svgNative(svg);
+  svg.setAttribute("width",String(n.w*scale));
+  svg.setAttribute("height",String(n.h*scale));
+}
+function applyStageGeometry(){
+  applySvgScale();
+  var sheet=document.querySelector(".fl-surface:not([hidden]) .sheet");
+  if(!sheet||!viewport||!sizer||!stage) return null;
+  var w=sheet.offsetWidth,h=sheet.offsetHeight,pad=40;
+  var contentW=w+pad*2,contentH=h+pad*2;
+  sizer.style.width=Math.max(viewport.clientWidth,Math.ceil(contentW))+"px";
+  sizer.style.height=Math.max(viewport.clientHeight,Math.ceil(contentH))+"px";
+  var sizerW=Math.max(viewport.clientWidth,Math.ceil(contentW));
+  stage.style.left=Math.max(0,(sizerW-contentW)/2)+"px";
+  stage.style.top="0px";
+  if(lab) lab.textContent=Math.round(scale*100)+"%";
+  return {contentW:contentW};
+}
+function setScale(next){
+  scale=Math.min(MAX,Math.max(MIN,next));
+  applyStageGeometry();
+  saveZoom();
+}
+function selectTab(name){
+  var tabs=document.querySelectorAll('[role="tab"][data-tab]');
+  var i=0;
+  for(;i<tabs.length;i++){
+    var t=tabs[i];
+    var on=t.getAttribute("data-tab")===name;
+    t.setAttribute("aria-selected",on?"true":"false");
+    var panel=document.getElementById(t.getAttribute("aria-controls"));
+    if(!panel) continue;
+    if(on) panel.removeAttribute("hidden");
+    else panel.setAttribute("hidden","");
+  }
+  applyStageGeometry();
+}
+var toc=document.querySelector(".fl-toc");
+if(toc) toc.addEventListener("click",function(e){
+  var t=e.target.closest("[data-tab]");
+  if(!t||t.hidden) return;
+  selectTab(t.getAttribute("data-tab"));
+});
+var bar=document.querySelector(".fl-toolbar");
+if(bar) bar.addEventListener("click",function(e){
+  var b=e.target.closest("[data-zoom]");
+  if(!b) return;
+  var a=b.getAttribute("data-zoom");
+  if(a==="in") setScale(scale+0.1);
+  else if(a==="out") setScale(scale-0.1);
+  else if(a==="height"||a==="width"){
+    var n=svgNative(visibleSvg());
+    if(!n.w||!n.h||!viewport) return;
+    var fitX=(viewport.clientWidth-24)/(n.w+80);
+    var fitY=(viewport.clientHeight-24)/(n.h+80);
+    setScale(a==="height"?fitY:fitX);
+  } else {
+    setScale(1);
+  }
+});
+if(viewport){
+  var panning=false,px=0,py=0,sx=0,sy=0;
+  viewport.addEventListener("pointerdown",function(e){
+    if(e.button!==0) return;
+    panning=true;px=e.clientX;py=e.clientY;sx=viewport.scrollLeft;sy=viewport.scrollTop;
+    viewport.classList.add("is-panning");
+    viewport.setPointerCapture(e.pointerId);
+  });
+  viewport.addEventListener("pointermove",function(e){
+    if(!panning) return;
+    viewport.scrollLeft=sx-(e.clientX-px);
+    viewport.scrollTop=sy-(e.clientY-py);
+  });
+  function endPan(){panning=false;viewport.classList.remove("is-panning")}
+  viewport.addEventListener("pointerup",endPan);
+  viewport.addEventListener("pointercancel",endPan);
+  viewport.addEventListener("wheel",function(e){
+    if(!e.ctrlKey) return;
+    e.preventDefault();
+    setScale(scale+(e.deltaY<0?0.1:-0.1));
+  },{passive:false});
+}
+scale=readZoom();
+applyStageGeometry();
+window.addEventListener("resize",applyStageGeometry);
+})();
+</script>
 </body>
 </html>
