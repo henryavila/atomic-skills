@@ -4,7 +4,7 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 
 ## Arquivos de memória
 
-- [reference-project-flow.md](reference-project-flow.md) — Project Flow substitui process-map (descarte completo, 2026-08-12). Dentes = implement entry HARD em **qualquer plano** + comando `project flow`. HTML gerado = `flow/flow.html` (nunca `map.html`); show sempre via `serve-flow.js --up` (HTTP, nunca `file://`). Q8-A: `ratifiedGraphSha`. Entrada `docs/design/project-flow/HANDOFF.md`.
+- [reference-project-flow.md](reference-project-flow.md) — Project Flow substitui process-map (descarte completo, 2026-08-12). Dentes = implement entry HARD em **qualquer plano** + comando `project flow`. HTML gerado = `flow/flow.html` (nunca `map.html`); L2 = 3 diagramas SVG (não lista/card); show sempre via `serve-flow.js --up` (HTTP, nunca `file://`; recusa `map.html`). Q8-A: `ratifiedGraphSha`. Entrada `docs/design/project-flow/HANDOFF.md`. Incidente 2026-08-28: vista lista ainda era o mapa — engine SVG ligada + serve durável no Windows.
 
 - [reference-cross-model-review-host-picker.md](reference-cross-model-review-host-picker.md) — Picker host-aware (Grok→codex+claude, não Grok+Codex fixo); Claude session limit exit 0 + `classify-provider-limit` (sem retry).
 

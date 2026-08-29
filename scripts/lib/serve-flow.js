@@ -11,6 +11,18 @@ import { basename, dirname, join, normalize, resolve, sep } from 'node:path';
  * @param {string} htmlPath
  * @returns {string} absolute path
  */
+export function assertPreviewBasename(htmlPath) {
+  const abs = resolve(htmlPath);
+  if (basename(abs).toLowerCase() !== 'flow.html') {
+    const err = new Error(
+      `Preview refuses ${basename(abs)}; L2 must be flow.html (map.html is abolished)`,
+    );
+    err.code = 'EINVAL';
+    throw err;
+  }
+  return abs;
+}
+
 export function assertHtmlExists(htmlPath) {
   const abs = resolve(htmlPath);
   if (!existsSync(abs) || !statSync(abs).isFile()) {
@@ -18,6 +30,7 @@ export function assertHtmlExists(htmlPath) {
     err.code = 'ENOENT';
     throw err;
   }
+  assertPreviewBasename(abs);
   return abs;
 }
 

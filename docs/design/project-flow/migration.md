@@ -10,12 +10,12 @@ Operador 2026-08-12: process-map **descartado por completo**. Não há dual-read
 
 - [x] `docs/design/project-flow/**` com design, análise, dogfood, referências PDTI
 - [x] Design ratificado pelo operador (descarte process-map, obrigação = implement HARD + comando, cascata PR1→PR5)
-- [ ] Código PR1…PR5
+- [x] Código PR1…PR4 (renderer/detector/schema/sketches/`map.html` apagados)
 
 ### Fase 1 — PR1+PR2 (sem tocar Iron Law)
 
 - Schema + validate + render existem.
-- Process-map **continua** no repo (ainda é a obrigação viva até PR3). Não apagar nesta fase.
+- Process-map **continuava** no repo até PR3. Apagado depois da PR4.
 
 ### Fase 2 — PR3 (comando + process-map sai da criação)
 
@@ -30,8 +30,7 @@ Operador 2026-08-12: process-map **descartado por completo**. Não há dual-read
 
 - Iron Law = **NO IMPLEMENT WITHOUT VALIDATED FLOW** (texto em `CLAUDE.md`, `project.md`, implement.md Step 1, KB).
 - `docs/kb/flow.md` canônico; `docs/kb/process-map.md` superseded + redirect.
-- Fora do write path: stage-process-map, `project-process-map.md`, `find-missing-process-map`, `render-process-map`.
-- Lib antiga pode ficar um release se testes/sketches ainda apontam; não é obrigação de plano.
+- Apagados: `render-process-map.js`, `find-missing-process-map.js`, `process-map.schema.json`, `process-map-sketches/`, `stage-process-map.md`, dogfood `process.yaml`/`process-map.html`.
 - `process.yaml` existente: **não** migrar para journey/cards. Ready pode ficar. Primeiro `implement` recusa até `project flow` draftar + ratificar o graph. Copiar só `actor` / `scenario` / `audience` se úteis.
 
 ### Não fazer

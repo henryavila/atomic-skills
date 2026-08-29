@@ -5,7 +5,7 @@
 Internal + ground-truth + cross-model review + receipt gates. Advance to `reviews`. Do not rewrite review-plan skill.
 
 **creation-gates stage target:** `reviews`  
-**Precondition:** creation-gate at `summaries` (or remapped `process-map` → `reviews`). Do **not** STOP to run `stage-process-map`. Ready without flow is legal.
+**Precondition:** creation-gate at `summaries` (leftover `process-map` receipts remap to `reviews`). Ready without flow is legal.
 
 After this stage closes, advance with:
 

@@ -197,10 +197,11 @@ describe('render-flow CLI', () => {
     assert.equal(existsSync(join(dir, 'map.html')), false);
   });
 
-  it('CLI source never mentions the abolished map filename', () => {
+  it('CLI refuses the abolished map filename and defaults to flow.html', () => {
     const src = readFileSync(CLI, 'utf8');
-    assert.equal(src.includes('map.html'), false);
     assert.ok(src.includes('flow.html'));
+    assert.match(src, /map\.html/);
+    assert.match(src, /abolished|refus/i);
   });
 });
 
@@ -212,20 +213,29 @@ describe('T-006 DS polish', () => {
     const { html } = buildFlowHtml(loadDogfood(), DS);
     assert.ok(html.includes('--bg-canvas'));
     assert.ok(html.includes('--fg-default'));
-    assert.ok(html.includes(DS.trim().slice(0, 40)));
+    const dsHead = DS.trim().slice(0, 40).replace(/\r\n/g, '\n').replace(/\r/g, '');
+    assert.ok(html.includes(dsHead));
   });
 
   it('keeps three surfaces as distinct landmarks', () => {
     const { html } = buildFlowHtml(loadDogfood(), DS);
     for (const id of ['fl-sequence', 'fl-bpm', 'fl-machines']) {
       const block = section(html, id);
-      assert.match(block, /role="region"/);
+      assert.match(block, /role="tabpanel"/);
       assert.match(block, /data-surface="/);
+      assert.match(block, /<svg[^>]*data-surface="/);
     }
     assert.match(html, /data-surface="sequence"/);
     assert.match(html, /data-surface="bpm"/);
     assert.match(html, /data-surface="machines"/);
-    assert.ok(html.includes('role="navigation"') || html.includes('role="tablist"'));
+    assert.match(html, /role="tablist"/);
+    assert.match(html, /role="tab"/);
+    assert.match(html, /data-tab="/);
+    assert.match(html, /class="[^"]*fl-viewport/);
+    assert.doesNotMatch(html, /<ol class="fl-messages">/);
+    assert.doesNotMatch(html, /<ol class="fl-nodes">/);
+    assert.doesNotMatch(html, /name="generator"/);
+    assert.doesNotMatch(html, /class="[^"]*\bpm-/);
   });
 
   it('includes system/light/dark switch and boot script', () => {
@@ -254,5 +264,32 @@ describe('T-006 DS polish', () => {
     assert.doesNotMatch(html, /watermark/i);
     assert.doesNotMatch(html, /mermaid/i);
     assert.doesNotMatch(html, /name="generator"/i);
+  });
+
+  it('hides Sequência when every messages array is empty; Fluxo is the selected tab', () => {
+    const empty = structuredClone(loadDogfood());
+    const wipe = (nodes) => {
+      for (const node of Object.values(nodes || {})) {
+        if (node && Array.isArray(node.messages)) node.messages = [];
+      }
+    };
+    wipe(empty.graph.nodes);
+    if (empty.graph.subgraphs) {
+      for (const sub of Object.values(empty.graph.subgraphs)) wipe(sub.nodes);
+    }
+    const { html } = buildFlowHtml(empty, DS);
+    const seq = section(html, 'fl-sequence');
+    assert.match(seq, /hidden|aria-hidden="true"/);
+    assert.match(html, /data-tab="bpm"[^>]*aria-selected="true"|aria-selected="true"[^>]*data-tab="bpm"/);
+    const bpm = section(html, 'fl-bpm');
+    assert.doesNotMatch(bpm, /\bhidden\b/);
+    assert.match(bpm, /<svg[^>]*data-surface="bpm"/);
+  });
+
+  it('hides Máquinas when renderFlowHtml is given zero machines (bypass validate)', () => {
+    const normalized = { ...normalizeFlow(loadDogfood()), machines: [] };
+    const html = renderFlowHtml(normalized, DS);
+    const machines = section(html, 'fl-machines');
+    assert.match(machines, /hidden|aria-hidden="true"/);
   });
 });

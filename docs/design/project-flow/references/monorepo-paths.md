@@ -1,24 +1,12 @@
 # Referências monorepo — atomic-skills
 
-Package root: `/home/henry/atomic-skills`  
-(`cat ~/.atomic-skills/package-root`)
+Package root: `cat ~/.atomic-skills/package-root`
 
-## Process map (legado a **apagar** na PR4 — não evoluir)
+## Process map — deleted
 
-Obrigação viva no código até a PR3. Depois some do write path. Não é o modelo do produto.
-
-| Artefato | Path |
-|----------|------|
-| KB canônico | `docs/kb/process-map.md` |
-| Schema | `meta/schemas/process-map.schema.json` |
-| Render CLI | `scripts/render-process-map.js` |
-| Render lib | `scripts/lib/render-process-map.js` |
-| Detector | `scripts/find-missing-process-map.js` |
-| Tests | `tests/render-process-map.test.js`, `tests/find-missing-process-map.test.js` |
-| Stage | `skills/shared/project-assets/new-plan/stage-process-map.md` |
-| Day-2 | `skills/shared/project-assets/project-process-map.md` |
-| Sketches | `docs/design/process-map-sketches/` |
-| DS CSS | `site/assets/ds.css` |
+Renderer, detector, schema, sketches, and `process/map.html` are gone.
+Canon: `docs/kb/flow.md`. L2: `flow/flow.html` via `scripts/render-flow.js`.
+Leftover creation-gate stage `process-map` remaps to `reviews`.
 
 ## Project skill
 
@@ -26,42 +14,26 @@ Obrigação viva no código até a PR3. Depois some do write path. Não é o mod
 |----------|------|
 | Router monorepo | `skills/core/project.md` |
 | Plugin mirror | `~/.grok/plugins/atomic-skills/skills/project/SKILL.md` |
-| Plugin assets | `~/.grok/plugins/atomic-skills/_assets/project-process-map.md` |
+| Day-2 flow | `skills/shared/project-assets/project-flow.md` |
 
 ## Creation / gates
 
 | Artefato | Path |
 |----------|------|
-| Creation stages | `scripts` + status `creation-gates` |
+| Creation stages | `scripts/creation-gates.js` |
 | assert stage | `scripts/assert-creation-stage.js` |
 | Verify procedure | `skills/shared/project-assets/project-verify.md` |
 | Implement | `skills/core/implement.md` |
 
-## Comandos atuais
+## Comandos
 
 ```bash
 PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root")"
-node "$PKG_ROOT/scripts/render-process-map.js" path/to/process.yaml -o path/to/map.html
-node "$PKG_ROOT/scripts/find-missing-process-map.js" path/to/plan.md --strict-html
+node "$PKG_ROOT/scripts/render-flow.js" path/to/flow.json -o path/to/flow.html
+node "$PKG_ROOT/scripts/find-missing-flow.js" path/to/plan.md --strict
+node "$PKG_ROOT/scripts/serve-flow.js" --up path/to/flow.html
 ```
 
 ## Padrão AJV a copiar (PR1)
 
-`src/app-map/validate.js` + `meta/schemas/app-map.schema.json`  
-**Não** copiar `validateProcessMap` (hand-roll, schema morto).
-
-## Alvo (a criar)
-
-```bash
-node "$PKG_ROOT/scripts/render-flow.js" path/to/flow.json -o path/to/flow.html
-node "$PKG_ROOT/scripts/find-missing-flow.js" path/to/plan.md --strict-html
-```
-
-## Dogfood neste design pack
-
-`docs/design/project-flow/dogfood/`
-
-## Feature de domínio (referência apenas)
-
-Cópias em `docs/design/project-flow/references/pdti-feature-*.md`  
-Plano real da feature continua no arch-legacy até limpeza (`migration.md`).
+`src/app-map/validate.js` + `meta/schemas/app-map.schema.json`

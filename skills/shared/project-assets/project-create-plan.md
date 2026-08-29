@@ -185,7 +185,7 @@ Always run `previewDecomposition(result)` and display it before any file write. 
 
 11. **Flow draft (optional, not a gate).** Agent MAY write `flow/flow.json` from design/source/`businessIntent` (never from `phases[]`) and render `flow/flow.html`. Do **not** stop creation for it. Ready without flow is legal. Day-2: `project flow`.
 
-12. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c (`new-plan/stage-8.md`) — internal always, ground-truth specialized, CROSS-MODEL via host default, then `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist. Precondition: gate at `summaries` (or remapped `process-map` → `reviews`). Do **not** stop to run `stage-process-map`.
+12. **Adversarial review.** Same as Stages 8a + **8a2** + 8b + 8c (`new-plan/stage-8.md`) — internal always, ground-truth specialized, CROSS-MODEL via host default, then `find-unreviewed-plans.js` **and** `find-plans-missing-ground-truth.js` HARD-BLOCK until both receipts exist. Precondition: gate at `summaries` (leftover `process-map` receipts remap to `reviews`).
 
 13. **Announce.** Same as Stage 9 (`new-plan/stage-9.md`):
     - Plan path

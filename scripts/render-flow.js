@@ -15,7 +15,7 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildFlowHtml, sha256 } from './lib/render-flow.js';
 
@@ -141,6 +141,10 @@ function main() {
   const outPath = opts.output
     ? resolve(opts.output)
     : resolve(dirname(resolve(opts.input)), DEFAULT_BASENAME);
+  if (basename(outPath).toLowerCase() === 'map.html') {
+    console.error('Refusing map.html — L2 is flow.html (process-map is abolished)');
+    process.exit(2);
+  }
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, built.html, 'utf8');
   console.log(`Wrote ${outPath}`);

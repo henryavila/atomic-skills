@@ -4,7 +4,7 @@
 import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -101,7 +101,7 @@ describe('serve-flow CLI --up', () => {
     try {
       const up = spawnSync(process.execPath, [CLI, '--up', htmlPath], {
         ...SPAWN_OPTS,
-        env: { ...process.env, HOME: home },
+        env: { ...process.env, HOME: home, USERPROFILE: home },
       });
       assert.equal(up.status, 0, up.stderr || up.stdout);
       const url = up.stdout.trim();
@@ -112,21 +112,21 @@ describe('serve-flow CLI --up', () => {
 
       const again = spawnSync(process.execPath, [CLI, '--up', htmlPath], {
         ...SPAWN_OPTS,
-        env: { ...process.env, HOME: home },
+        env: { ...process.env, HOME: home, USERPROFILE: home },
       });
       assert.equal(again.status, 0, again.stderr);
       assert.equal(again.stdout.trim(), url);
 
       const down = spawnSync(process.execPath, [CLI, '--down', htmlPath], {
         ...SPAWN_OPTS,
-        env: { ...process.env, HOME: home },
+        env: { ...process.env, HOME: home, USERPROFILE: home },
       });
       assert.equal(down.status, 0, down.stderr);
       await assert.rejects(() => fetchText(url));
     } finally {
       spawnSync(process.execPath, [CLI, '--down', htmlPath], {
         ...SPAWN_OPTS,
-        env: { ...process.env, HOME: home },
+        env: { ...process.env, HOME: home, USERPROFILE: home },
       });
       rmSync(home, { recursive: true, force: true });
       rmSync(dirname(dirname(htmlPath)), { recursive: true, force: true });
@@ -139,11 +139,60 @@ describe('serve-flow CLI --up', () => {
       const r = spawnSync(
         process.execPath,
         [CLI, '--up', join(home, 'missing.html')],
-        { ...SPAWN_OPTS, env: { ...process.env, HOME: home } },
+        { ...SPAWN_OPTS, env: { ...process.env, HOME: home, USERPROFILE: home } },
       );
       assert.equal(r.status, 2);
     } finally {
       rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('exits 2 when asked to preview map.html (abolished L2 name)', () => {
+    const home = mkdtempSync(join(tmpdir(), 'serve-flow-home-map-'));
+    const dir = mkdtempSync(join(tmpdir(), 'serve-flow-map-'));
+    const mapPath = join(dir, 'process', 'map.html');
+    mkdirSync(dirname(mapPath), { recursive: true });
+    writeFileSync(mapPath, '<html><body>old-map</body></html>');
+    try {
+      const r = spawnSync(process.execPath, [CLI, '--up', mapPath], {
+        ...SPAWN_OPTS,
+        env: { ...process.env, HOME: home, USERPROFILE: home },
+      });
+      assert.equal(r.status, 2, r.stderr || r.stdout);
+      assert.match(r.stderr || '', /flow\.html|abolished|map\.html/i);
+    } finally {
+      spawnSync(process.execPath, [CLI, '--down', mapPath], {
+        ...SPAWN_OPTS,
+        env: { ...process.env, HOME: home, USERPROFILE: home },
+      });
+      rmSync(home, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('writes the lock under HOME/USERPROFILE, not os.homedir() when they differ', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'serve-flow-home-lock-'));
+    const { htmlPath, body } = writeHtml('<html><body>lock-home</body></html>');
+    try {
+      const up = spawnSync(process.execPath, [CLI, '--up', htmlPath], {
+        ...SPAWN_OPTS,
+        env: { ...process.env, HOME: home, USERPROFILE: home },
+      });
+      assert.equal(up.status, 0, up.stderr || up.stdout);
+      const lockFile = join(home, '.atomic-skills', 'flow-serve.json');
+      assert.equal(existsSync(lockFile), true, `expected lock at ${lockFile}`);
+      const lock = JSON.parse(readFileSync(lockFile, 'utf8'));
+      assert.ok(Array.isArray(lock.servers) && lock.servers.length >= 1);
+      const got = await fetchText(up.stdout.trim());
+      assert.equal(got.status, 200);
+      assert.equal(got.text, body);
+    } finally {
+      spawnSync(process.execPath, [CLI, '--down', htmlPath], {
+        ...SPAWN_OPTS,
+        env: { ...process.env, HOME: home, USERPROFILE: home },
+      });
+      rmSync(home, { recursive: true, force: true });
+      rmSync(dirname(dirname(htmlPath)), { recursive: true, force: true });
     }
   });
 });
