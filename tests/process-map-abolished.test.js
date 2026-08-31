@@ -74,6 +74,8 @@ describe('process-map abolished from the product path', () => {
     const js = flowChromeScript();
     assert.match(js, /data-action=pdf/);
     assert.match(js, /buildFlowPdf/);
+    assert.match(js, /PDF_DIAGRAM_STYLE/);
+    assert.match(js, /svgForPdf/);
     assert.match(FLOW_CSS, /\.edge-t\{/);
   });
 

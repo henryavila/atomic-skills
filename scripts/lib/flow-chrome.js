@@ -3,8 +3,10 @@
  * Tokens from inlined ds.css. No process catalog. No list/card view.
  */
 import { FLOW_ZOOM_KEY_PREFIX, FLOW_ZOOM_MIN, FLOW_ZOOM_MAX } from './flow-zoom.js';
+import { FLOW_DIAGRAM_CSS } from './flow-diagram-css.js';
+import { flowPdfEmbeddedStyle } from './flow-pdf.js';
 
-export const FLOW_CSS = `/* flow layout — tokens from inlined ds.css only */
+const FLOW_CHROME_CSS = `/* flow layout — tokens from inlined ds.css only */
 html,body{height:100%;overflow:hidden;margin:0;background:var(--bg-canvas);color:var(--fg-default);font-family:var(--font-sans)}
 .app{display:grid;grid-template-rows:auto 1fr;height:100%;min-height:0}
 .fl-header.top{z-index:20;background:color-mix(in srgb,var(--bg-canvas) 92%,transparent);border-bottom:1px solid var(--border-default);padding:var(--space-6) var(--space-8);display:flex;flex-direction:column;gap:var(--space-4)}
@@ -35,59 +37,15 @@ html,body{height:100%;overflow:hidden;margin:0;background:var(--bg-canvas);color
 .fl-surface[hidden]{display:none !important}
 .fl-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .sheet{display:inline-block;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);padding:18px 20px}
-svg.diagram{display:block;max-width:none;font-family:var(--font-sans);shape-rendering:geometricPrecision;text-rendering:geometricPrecision}
-svg.diagram text{fill:var(--fg-default)}
-.actor-box{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1}
-.actor-label{fill:var(--fg-default);font-size:11px;font-weight:600}
-.actor-stick-bg{fill:var(--bg-surface)}
-.actor-stick-rule{stroke:var(--border-default);stroke-width:1}
-.lifeline{stroke:var(--fg-faint);stroke-width:1;stroke-dasharray:3 5;pointer-events:none}
-.life-hit{stroke:transparent;stroke-width:20;fill:none}
-.arrow{stroke:var(--fg-muted);stroke-width:1.25;fill:none}
-.arrow.async{stroke-dasharray:5 4}
-.arrow-head{fill:var(--fg-muted)}
-.msg{fill:var(--fg-default);font-size:12px}
-.xor-wash{fill:color-mix(in srgb,var(--bg-elevated) 18%,transparent);stroke:none}
-.xor-rail{stroke:var(--status-warning-line);stroke-width:2;fill:none}
-.xor-q{fill:var(--status-warning);font-size:12px;font-weight:600}
-.hair{stroke:var(--border-subtle);stroke-width:1}
-.pill{fill:var(--bg-sunken);stroke:var(--status-warning-line);stroke-width:1}
-.pill-t{fill:var(--status-warning);font-size:11px;font-weight:600}
-.loop-arc{fill:none;stroke:var(--status-warning);stroke-width:1.25;stroke-dasharray:4 3}
-.loop-head{fill:var(--status-warning)}
-.act{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1.25}
-.act-t{fill:var(--fg-default);font-size:12px;font-weight:500}
-.who{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-mono)}
-.diamond{fill:color-mix(in srgb,var(--status-warning) 10%,var(--bg-surface));stroke:var(--status-warning-line);stroke-width:1.25}
-.xor-t{fill:var(--fg-default);font-size:12px;font-weight:600}
-.bar{fill:var(--fg-muted)}
-.evt{fill:var(--bg-canvas);stroke:var(--status-error-line);stroke-width:1.5}
-.sub-mark{fill:none;stroke:var(--border-default);stroke-width:1}
-.edge{stroke:var(--fg-faint);stroke-width:1.15;fill:none}
-.edge.back{stroke:var(--status-warning);stroke-dasharray:4 3}
-.edge-head{fill:var(--fg-muted)}
-.edge-head.back{fill:var(--status-warning)}
-.edge-t{fill:var(--fg-muted);font-size:11px}
-.end-ok{fill:var(--status-success);stroke:var(--status-success);stroke-width:1.5}
-.end-bad{fill:var(--status-error);stroke:var(--status-error);stroke-width:1.5}
-.end-t{fill:var(--fg-muted);font-size:11px}
-.end-hole{fill:var(--bg-canvas)}
-.st{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1.15}
-.st.entry{stroke:var(--status-info);stroke-width:1.75}
-.st.term{stroke:var(--status-success);stroke-width:1.75}
-.st-t{fill:var(--fg-default);font-size:12px;font-weight:500}
-.mach-title{fill:var(--fg-muted);font-size:12px;font-weight:600}
-.mach-legend{fill:var(--fg-subtle);font-size:10px}
-.edge-cap{fill:var(--bg-surface);stroke:var(--border-default);stroke-width:1}
-.edge-title{fill:var(--fg-default);font-size:11px;font-weight:600}
-.fx{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-sans)}
-.fx-pill{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1}
-.fx-pill-t{fill:var(--fg-muted);font-size:9px;font-weight:600}
 `;
 
+export const FLOW_CSS = `${FLOW_CHROME_CSS}${FLOW_DIAGRAM_CSS}`;
+
 export function flowChromeScript() {
+  const pdfStyleJson = JSON.stringify(flowPdfEmbeddedStyle());
   return `(function(){
 var MIN=${FLOW_ZOOM_MIN},MAX=${FLOW_ZOOM_MAX},PREFIX=${JSON.stringify(FLOW_ZOOM_KEY_PREFIX)};
+var PDF_DIAGRAM_STYLE=${pdfStyleJson};
 var slug=document.documentElement.getAttribute("data-fl-slug")||"default";
 var key=PREFIX+slug;
 var viewport=document.getElementById("fl-viewport");
@@ -206,12 +164,24 @@ function buildFlowPdf(input){
   for(i=1;i<=maxObj;i++) xref+=String(offsets[i]).padStart(10,"0")+" 00000 n \\n";
   return concat([header].concat(bodyParts).concat([enc(xref),enc("trailer\\n<< /Size "+(maxObj+1)+" /Root 1 0 R >>\\nstartxref\\n"+xrefStart+"\\n%%EOF\\n")]));
 }
+function svgForPdf(svg){
+  var clone=svg.cloneNode(true);
+  clone.removeAttribute("id");
+  var style=document.createElementNS("http://www.w3.org/2000/svg","style");
+  style.setAttribute("data-fl-pdf","1");
+  style.textContent=PDF_DIAGRAM_STYLE;
+  clone.insertBefore(style,clone.firstChild);
+  return clone;
+}
 function svgToJpeg(svg){
   return new Promise(function(resolve,reject){
     var vb=svg.viewBox&&svg.viewBox.baseVal;
     var w=(vb&&vb.width)||svg.width.baseVal.value||1;
     var h=(vb&&vb.height)||svg.height.baseVal.value||1;
-    var xml=new XMLSerializer().serializeToString(svg);
+    var xml=new XMLSerializer().serializeToString(svgForPdf(svg));
+    if(xml.indexOf('xmlns="http://www.w3.org/2000/svg"')<0){
+      xml=xml.replace(/^<svg/,'<svg xmlns="http://www.w3.org/2000/svg"');
+    }
     var blob=new Blob([xml],{type:"image/svg+xml;charset=utf-8"});
     var url=URL.createObjectURL(blob);
     var img=new Image();

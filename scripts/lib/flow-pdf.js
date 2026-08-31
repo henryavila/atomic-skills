@@ -1,7 +1,63 @@
 /**
  * Build a multi-page PDF (one JPEG per flow surface) for attachment.
  * Runtime download only — not part of HTML bytes / content-sha.
+ *
+ * Raster path: clone SVG → inject flowPdfEmbeddedStyle() → JPEG.
+ * Standalone SVG-as-image has no access to the page stylesheet, so the
+ * clone must carry light-paper tokens + diagram rules (and color-mix
+ * overrides that some SVG image engines skip).
  */
+
+import { FLOW_DIAGRAM_CSS } from './flow-diagram-css.js';
+
+/**
+ * Light-paper token map for PDF (ds.css html[data-theme=light] surfaces +
+ * status hues; *-line values pre-resolved from color-mix against light border).
+ * Independent of the on-screen dark/light toggle.
+ */
+export const FLOW_PDF_LIGHT_TOKENS = Object.freeze({
+  '--bg-sunken': '#e8edf4',
+  '--bg-canvas': '#f4f6fa',
+  '--bg-surface': '#ffffff',
+  '--bg-elevated': '#eef2f7',
+  '--border-subtle': '#e8edf3',
+  '--border-default': '#d5dce6',
+  '--fg-default': '#12161d',
+  '--fg-muted': '#4a5565',
+  '--fg-subtle': '#6b7585',
+  '--fg-faint': '#98a1ad',
+  '--status-success': '#4cc28e',
+  '--status-warning': '#e0a44a',
+  '--status-error': '#ff5c5c',
+  '--status-info': '#5fb1ff',
+  '--status-success-line': '#9bd1c1',
+  '--status-warning-line': '#dac4a4',
+  '--status-error-line': '#e99fa4',
+  '--status-info-line': '#a3caf0',
+  '--font-sans':
+    '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+  '--font-mono':
+    '"JetBrains Mono", ui-monospace, "SF Mono", "Menlo", "Consolas", monospace',
+});
+
+/**
+ * SVG-as-image engines are uneven on color-mix(); pin the two diagram rules
+ * that use it to light-paper literals (same math as ds light tokens).
+ */
+export const FLOW_PDF_COLOR_MIX_OVERRIDES = `.xor-wash{fill:rgba(238,242,247,0.18);stroke:none}
+.diamond{fill:#fcf6ed;stroke:var(--status-warning-line);stroke-width:1.25}
+`;
+
+/**
+ * Self-contained stylesheet for a cloned diagram SVG (papel claro).
+ * @returns {string}
+ */
+export function flowPdfEmbeddedStyle() {
+  const tokenBlock = Object.entries(FLOW_PDF_LIGHT_TOKENS)
+    .map(([k, v]) => `${k}:${v}`)
+    .join(';');
+  return `svg{${tokenBlock}}${FLOW_DIAGRAM_CSS}${FLOW_PDF_COLOR_MIX_OVERRIDES}`;
+}
 
 /**
  * @param {unknown} slug
