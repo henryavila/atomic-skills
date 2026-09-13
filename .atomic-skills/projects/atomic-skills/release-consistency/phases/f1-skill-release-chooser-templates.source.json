@@ -1,0 +1,129 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "release-consistency-f1-skill-release-chooser-templates",
+  "title": "Skill release + chooser + templates",
+  "goal": "Skill core `release` orquestra plan/apply/ship; scripts determinísticos no pacote; templates stage e GH-only versionados sob release-assets; adopt/init com MUST check+diff+consent; dual-mode D4 enforced. Sem migrar publish.yml do AS ainda.",
+  "tasks": [
+    {
+      "id": "T-003",
+      "title": "Chooser scripts plan/apply/ship",
+      "scopeBoundary": [
+        "do not edit skills/core/save-and-push.md; do not migrate .github/workflows/publish.yml; do not write into consumer repos from installer; do not auto bump to 1.0.0 on 0.x breaking"
+      ],
+      "acceptance": [
+        "classifyBump maps feat/Added/Changed to minor, fix/Fixed-only to patch, 0.x breaking to minor; plan prints next version; apply rewrites package.json version and CHANGELOG Unreleased when present; ship refuses when kind is none or when npm version already published; tests cover feature-forbids-patch gate"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/semver-bump.test.js tests/release-cli.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/release/semver-bump.js"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/release/release.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/semver-bump.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/release-cli.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-004",
+      "title": "Release skill body + catalog entry",
+      "scopeBoundary": [
+        "do not migrate AS publish.yml; do not weaken save-and-push PR-only; do not add installer scaffolding of consumer .github"
+      ],
+      "acceptance": [
+        "release.md Iron Law forbids inventing bump; documents plan/apply/ship via scripts/release; documents dual-mode npm scope and stage-only Action; catalog lists release under core with iron_law; validate-skills exits 0; docs/skills/release.md generated or authored in sync"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -q 'NO.*BUMP|não invent|never invent|chooser|semver-bump' skills/core/release.md && rg -q '^  release:' meta/catalog.yaml && npm run validate-skills"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/release.md"
+        },
+        {
+          "kind": "file",
+          "path": "meta/catalog.yaml"
+        },
+        {
+          "kind": "file",
+          "path": "docs/skills/release.md"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/validate-skills.js"
+        }
+      ]
+    },
+    {
+      "id": "T-005",
+      "title": "Templates stage + GH-only and adopt/init flow",
+      "scopeBoundary": [
+        "do not have installer reconcileFileSet write consumer workflows; do not remove uninstall parity tests; do not migrate live AS publish.yml in this task"
+      ],
+      "acceptance": [
+        "publish-stage.yml uses release published trigger, id-token write, and npm stage publish (not bare npm publish); adopt.md requires dry-run/--check with template pin, show diff, write only after consent; release.md points at adopt; test asserts stage template has stage publish and lacks unprotected npm publish as happy path"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/release-adopt.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/release-assets/templates/publish-stage.yml"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/release-assets/templates/publish-gh-only.yml"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/release-assets/adopt.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/release.md"
+        },
+        {
+          "kind": "file",
+          "path": "tests/release-adopt.test.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-F1-1",
+      "description": "FAILS when chooser allows inventing patch for feat or when release skill is missing from catalog",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/semver-bump.test.js tests/release-cli.test.js && rg -q '^  release:' meta/catalog.yaml && npm run validate-skills"
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-F1-2",
+      "description": "FAILS when stage template still uses direct npm publish as happy path or adopt skips check/diff/consent",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/release-adopt.test.js"
+      },
+      "status": "pending"
+    }
+  ]
+}
