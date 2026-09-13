@@ -1,0 +1,54 @@
+{
+  "actor": "Agente de coding",
+  "scenario": "O agente persiste trabalho e/ou publica versão sem push na default, sem inventar bump e sem npm publish direto.",
+  "decisions": [
+    {
+      "id": "QualPedido",
+      "question": "Persistir trabalho ou publicar release?",
+      "outcomes": ["persistir", "publicar"]
+    },
+    {
+      "id": "NaDefault",
+      "question": "A branch atual é a default (origin/HEAD)?",
+      "outcomes": ["na_default", "fora_da_default"]
+    },
+    {
+      "id": "GhAuth",
+      "question": "O gh está autenticado para abrir a PR?",
+      "outcomes": ["gh_ok", "gh_ausente"]
+    },
+    {
+      "id": "BumpOk",
+      "question": "O chooser encontrou bump com evidência?",
+      "outcomes": ["com_bump", "sem_bump"]
+    },
+    {
+      "id": "NpmEscopo",
+      "question": "Há pacote npm no escopo deste ship?",
+      "outcomes": ["sem_npm", "com_npm"]
+    },
+    {
+      "id": "StageOk",
+      "question": "A Action stage está adotada e válida?",
+      "outcomes": ["stage_ok", "stage_ausente"]
+    }
+  ],
+  "stateChanges": [
+    {
+      "id": "entrega",
+      "states": [
+        "iniciado",
+        "recusado_push",
+        "pr_aberta",
+        "pr_instruida",
+        "branch_enviada",
+        "bump_recusado",
+        "gh_release",
+        "npm_stage_pendente",
+        "npm_aprovado",
+        "ship_recusado",
+        "adopt_oferecido"
+      ]
+    }
+  ]
+}

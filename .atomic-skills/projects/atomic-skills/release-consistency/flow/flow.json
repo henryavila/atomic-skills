@@ -1,0 +1,624 @@
+{
+  "schemaVersion": "1.0",
+  "planSlug": "release-consistency",
+  "title": "Persistir e publicar sem atalho na default",
+  "description": "Fluxo operacional: save-and-push recusa push na default e abre ou instrui PR; release só corta versão com chooser determinístico; npm só via stage+2FA ou GH-only quando npm fora do escopo.",
+  "scenario": "O agente persiste trabalho e/ou publica versão sem push na default, sem inventar bump e sem npm publish direto.",
+  "actor": "Agente de coding",
+  "audience": "both",
+  "youAreHere": "QualPedido",
+  "actors": [
+    {
+      "id": "Ag",
+      "label": "Agente",
+      "kind": "actor"
+    },
+    {
+      "id": "Op",
+      "label": "Operador",
+      "kind": "participant"
+    },
+    {
+      "id": "Sys",
+      "label": "Atomic Skills",
+      "kind": "participant"
+    },
+    {
+      "id": "Gh",
+      "label": "GitHub",
+      "kind": "participant"
+    },
+    {
+      "id": "Npm",
+      "label": "npm registry",
+      "kind": "participant"
+    }
+  ],
+  "graph": {
+    "entry": "QualPedido",
+    "nodes": {
+      "QualPedido": {
+        "type": "xor",
+        "label": "Persistir trabalho ou publicar release?",
+        "who": "Agente",
+        "question": "O pedido é persistir trabalho (save-and-push) ou publicar release?",
+        "branches": [
+          {
+            "id": "QualPedido.persistir",
+            "when": "persistir",
+            "label": "Persistir",
+            "next": "DetectarDefault"
+          },
+          {
+            "id": "QualPedido.publicar",
+            "when": "publicar",
+            "label": "Publicar",
+            "next": "RodarChooser"
+          }
+        ]
+      },
+      "DetectarDefault": {
+        "type": "activity",
+        "title": "Detectar a default branch",
+        "label": "Detectar a default branch",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Ag",
+            "to": "Sys",
+            "text": "Pede save-and-push com commits prontos",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Sys",
+            "text": "Resolve default via origin/HEAD com fallback main|master",
+            "async": false
+          }
+        ],
+        "next": "NaDefault"
+      },
+      "NaDefault": {
+        "type": "xor",
+        "label": "A branch atual é a default?",
+        "who": "Atomic Skills",
+        "question": "A branch atual é a default (origin/HEAD)?",
+        "branches": [
+          {
+            "id": "NaDefault.sim",
+            "when": "na_default",
+            "label": "Na default",
+            "next": "RecusarPush"
+          },
+          {
+            "id": "NaDefault.nao",
+            "when": "fora_da_default",
+            "label": "Fora da default",
+            "next": "PushBranch"
+          }
+        ]
+      },
+      "RecusarPush": {
+        "type": "activity",
+        "title": "Recusar push direto",
+        "label": "Recusar push direto na default",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Ag",
+            "text": "Recusa push na default — sem perguntar push direto",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Ag",
+            "text": "Cria ou reusa branch de trabalho, commit e push da branch",
+            "async": false
+          }
+        ],
+        "next": "GhAuth"
+      },
+      "GhAuth": {
+        "type": "xor",
+        "label": "O gh está autenticado?",
+        "who": "Atomic Skills",
+        "question": "O gh está autenticado para abrir a PR?",
+        "branches": [
+          {
+            "id": "GhAuth.ok",
+            "when": "gh_ok",
+            "label": "gh autenticado",
+            "next": "AbrirPr"
+          },
+          {
+            "id": "GhAuth.ausente",
+            "when": "gh_ausente",
+            "label": "gh ausente",
+            "next": "InstruirPr"
+          }
+        ]
+      },
+      "AbrirPr": {
+        "type": "activity",
+        "title": "Abrir a PR",
+        "label": "Abrir a PR",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Gh",
+            "text": "gh pr create da branch de trabalho contra a default",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Op",
+            "text": "Informa URL da PR — sem auto-merge",
+            "async": true
+          }
+        ],
+        "next": "FimPrAberta"
+      },
+      "InstruirPr": {
+        "type": "activity",
+        "title": "Instruir abertura da PR",
+        "label": "Instruir abertura da PR",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Op",
+            "text": "Para com branch já pushed e comando/URL explícitos para abrir a PR",
+            "async": true
+          }
+        ],
+        "next": "FimPrInstruida"
+      },
+      "PushBranch": {
+        "type": "activity",
+        "title": "Enviar a branch de trabalho",
+        "label": "Enviar a branch de trabalho",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Gh",
+            "text": "Push da branch atual — fora da default, permitido",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Op",
+            "text": "Confirma branch enviada",
+            "async": true
+          }
+        ],
+        "next": "FimBranchEnviada"
+      },
+      "RodarChooser": {
+        "type": "activity",
+        "title": "Rodar o chooser determinístico",
+        "label": "Rodar o chooser determinístico",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Ag",
+            "to": "Sys",
+            "text": "Pede release plan/apply/ship",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Sys",
+            "text": "Classifica bump por commits conventional + CHANGELOG Unreleased — sem inventar",
+            "async": false
+          }
+        ],
+        "next": "BumpOk"
+      },
+      "BumpOk": {
+        "type": "xor",
+        "label": "Há bump com evidência?",
+        "who": "Atomic Skills",
+        "question": "O chooser encontrou bump com evidência?",
+        "branches": [
+          {
+            "id": "BumpOk.sim",
+            "when": "com_bump",
+            "label": "Com bump",
+            "next": "AplicarVersao"
+          },
+          {
+            "id": "BumpOk.nao",
+            "when": "sem_bump",
+            "label": "Sem bump",
+            "next": "RecusarBump"
+          }
+        ]
+      },
+      "RecusarBump": {
+        "type": "activity",
+        "title": "Recusar inventar bump",
+        "label": "Recusar inventar bump",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Ag",
+            "text": "Recusa apply/ship quando kind é none ou override sem evidência",
+            "async": false
+          }
+        ],
+        "next": "FimBumpRecusado"
+      },
+      "AplicarVersao": {
+        "type": "activity",
+        "title": "Aplicar versão e notes",
+        "label": "Aplicar versão e notes",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Sys",
+            "text": "Aplica bump, notes do CHANGELOG e prepara tag/Release",
+            "async": false
+          }
+        ],
+        "next": "NpmEscopo"
+      },
+      "NpmEscopo": {
+        "type": "xor",
+        "label": "Há npm no escopo?",
+        "who": "Atomic Skills",
+        "question": "Há pacote npm no escopo deste ship?",
+        "branches": [
+          {
+            "id": "NpmEscopo.sem",
+            "when": "sem_npm",
+            "label": "Sem npm",
+            "next": "GhReleaseOnly"
+          },
+          {
+            "id": "NpmEscopo.com",
+            "when": "com_npm",
+            "label": "Com npm",
+            "next": "StageOk"
+          }
+        ]
+      },
+      "GhReleaseOnly": {
+        "type": "activity",
+        "title": "Publicar só GitHub Release",
+        "label": "Publicar só GitHub Release",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Gh",
+            "text": "Cria tag + GitHub Release com notes do CHANGELOG",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Op",
+            "text": "Confirma Release publicado — sem canal npm",
+            "async": true
+          }
+        ],
+        "next": "FimGhRelease"
+      },
+      "StageOk": {
+        "type": "xor",
+        "label": "Action stage adotada?",
+        "who": "Atomic Skills",
+        "question": "A Action stage está adotada e válida?",
+        "branches": [
+          {
+            "id": "StageOk.ok",
+            "when": "stage_ok",
+            "label": "Stage OK",
+            "next": "ShipComStage"
+          },
+          {
+            "id": "StageOk.ausente",
+            "when": "stage_ausente",
+            "label": "Stage ausente",
+            "next": "RecusarShipNpm"
+          }
+        ]
+      },
+      "ShipComStage": {
+        "type": "activity",
+        "title": "Ship com stage + 2FA",
+        "label": "Ship com stage + 2FA",
+        "who": "Operador + Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Gh",
+            "text": "GitHub Release dispara Action npm stage publish",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Npm",
+            "text": "Upload em stage — ainda não instalável",
+            "async": true
+          },
+          {
+            "from": "Op",
+            "to": "Npm",
+            "text": "npm stage approve com 2FA humano",
+            "async": false
+          },
+          {
+            "from": "Npm",
+            "to": "Op",
+            "text": "Pacote fica instalável após approve",
+            "async": true
+          }
+        ],
+        "next": "FimNpmAprovado"
+      },
+      "RecusarShipNpm": {
+        "type": "activity",
+        "title": "Recusar ship npm e oferecer adopt",
+        "label": "Recusar ship npm e oferecer adopt",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Ag",
+            "text": "Recusa ship que implicaria publish npm — publish direto é proibido",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Op",
+            "text": "Oferece adopt/init do template stage com check+diff+consentimento",
+            "async": true
+          }
+        ],
+        "next": "FimAdoptOferecido"
+      },
+      "FimPrAberta": {
+        "type": "end",
+        "title": "Fim · PR aberta",
+        "label": "Fim · PR aberta"
+      },
+      "FimPrInstruida": {
+        "type": "end",
+        "title": "Fim · PR instruída",
+        "label": "Fim · PR instruída"
+      },
+      "FimBranchEnviada": {
+        "type": "end",
+        "title": "Fim · branch enviada",
+        "label": "Fim · branch enviada"
+      },
+      "FimBumpRecusado": {
+        "type": "end",
+        "title": "Fim · bump recusado",
+        "label": "Fim · bump recusado"
+      },
+      "FimGhRelease": {
+        "type": "end",
+        "title": "Fim · GitHub Release",
+        "label": "Fim · GitHub Release"
+      },
+      "FimNpmAprovado": {
+        "type": "end",
+        "title": "Fim · npm aprovado",
+        "label": "Fim · npm aprovado"
+      },
+      "FimAdoptOferecido": {
+        "type": "end",
+        "title": "Fim · adopt oferecido",
+        "label": "Fim · adopt oferecido"
+      }
+    }
+  },
+  "machines": [
+    {
+      "id": "entrega",
+      "label": "Estado da entrega",
+      "entry": "iniciado",
+      "nodes": {
+        "iniciado": {
+          "label": "Iniciado"
+        },
+        "recusado_push": {
+          "label": "Push na default recusado"
+        },
+        "pr_aberta": {
+          "label": "PR aberta",
+          "terminal": true
+        },
+        "pr_instruida": {
+          "label": "PR instruída",
+          "terminal": true
+        },
+        "branch_enviada": {
+          "label": "Branch enviada",
+          "terminal": true
+        },
+        "bump_recusado": {
+          "label": "Bump inventado recusado",
+          "terminal": true
+        },
+        "gh_release": {
+          "label": "GitHub Release",
+          "terminal": true
+        },
+        "npm_stage_pendente": {
+          "label": "npm em stage"
+        },
+        "npm_aprovado": {
+          "label": "npm aprovado (2FA)",
+          "terminal": true
+        },
+        "ship_recusado": {
+          "label": "Ship npm recusado"
+        },
+        "adopt_oferecido": {
+          "label": "Adopt stage oferecido",
+          "terminal": true
+        }
+      },
+      "transitions": [
+        {
+          "id": "T_recusa_push",
+          "from": "iniciado",
+          "to": "recusado_push",
+          "when": "na_default",
+          "label": "Está na default — recusa push direto",
+          "via": "NaDefault.sim",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Informa recusa sem ask de push direto",
+              "target": "Ag"
+            }
+          ]
+        },
+        {
+          "id": "T_push_branch",
+          "from": "iniciado",
+          "to": "branch_enviada",
+          "when": "fora_da_default",
+          "label": "Fora da default — envia a branch",
+          "via": "NaDefault.nao",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "Push da branch de trabalho",
+              "target": "remote"
+            }
+          ]
+        },
+        {
+          "id": "T_pr_aberta",
+          "from": "recusado_push",
+          "to": "pr_aberta",
+          "when": "gh_ok",
+          "label": "Abre a PR com gh",
+          "via": "GhAuth.ok",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "Cria PR no GitHub",
+              "target": "pull_request"
+            }
+          ]
+        },
+        {
+          "id": "T_pr_instruida",
+          "from": "recusado_push",
+          "to": "pr_instruida",
+          "when": "gh_ausente",
+          "label": "Instrui abrir a PR manualmente",
+          "via": "GhAuth.ausente",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Entrega comando/URL da PR",
+              "target": "Op"
+            }
+          ]
+        },
+        {
+          "id": "T_bump_recusado",
+          "from": "iniciado",
+          "to": "bump_recusado",
+          "when": "sem_bump",
+          "label": "Chooser sem evidência — recusa inventar",
+          "via": "BumpOk.nao",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Bloqueia apply/ship",
+              "target": "Ag"
+            }
+          ]
+        },
+        {
+          "id": "T_gh_only",
+          "from": "iniciado",
+          "to": "gh_release",
+          "when": "sem_npm",
+          "label": "Sem npm — só GitHub Release",
+          "via": "NpmEscopo.sem",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "Cria tag e Release",
+              "target": "github_release"
+            }
+          ]
+        },
+        {
+          "id": "T_stage",
+          "from": "iniciado",
+          "to": "npm_stage_pendente",
+          "when": "stage_ok",
+          "label": "npm no escopo com stage — sobe stage",
+          "via": "StageOk.ok",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "npm stage publish via Action",
+              "target": "npm_stage"
+            }
+          ]
+        },
+        {
+          "id": "T_approve",
+          "from": "npm_stage_pendente",
+          "to": "npm_aprovado",
+          "when": "approve_2fa",
+          "label": "Humano aprova stage com 2FA",
+          "effects": [
+            {
+              "kind": "other",
+              "label": "Pacote fica instalável",
+              "target": "npm_registry"
+            }
+          ]
+        },
+        {
+          "id": "T_ship_recusado",
+          "from": "iniciado",
+          "to": "ship_recusado",
+          "when": "stage_ausente",
+          "label": "npm sem stage — recusa ship npm",
+          "via": "StageOk.ausente",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Bloqueia publish direto",
+              "target": "Ag"
+            }
+          ]
+        },
+        {
+          "id": "T_adopt",
+          "from": "ship_recusado",
+          "to": "adopt_oferecido",
+          "when": "oferece_adopt",
+          "label": "Oferece materializar template stage",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Adopt/init com check+diff+consentimento",
+              "target": "Op"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ratifiedAt": "2026-09-13T21:38:20.874Z",
+  "ratifiedGraphSha": "ed2015e795431f000e19b6054a1ab1fed30655b008d8ae7e64d412fd5983362a",
+  "ratifiedBy": "operator"
+}
