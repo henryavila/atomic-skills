@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **npm publish process → Trusted Publisher stage-only.**
+  `.github/workflows/publish.yml` now runs `npm stage publish` under OIDC
+  (`id-token: write`) after a GitHub Release. A maintainer must **stage
+  approve** with 2FA on the npm UI before the version is installable. There is
+  no `NODE_AUTH_TOKEN` / bare `npm publish` happy path. Runbook:
+  `docs/kb/release-npm-stage.md`.
+
 ### Fixed
 
 - **Install GREENFIELD_CONFLICT when expanding IDEs / partial journal.** Pre-existing skill files on disk that were missing from the journal `reconcileFileSet` beforeState (e.g. Claude leftovers while the journal only tracked Grok) no longer abort install. Desired paths already on disk are adopted into the journal before the Driver runs so the 3-hash update can rewrite them. Regression: `tests/install.test.js` + `tests/adopt-preexisting-desired.test.js`.
