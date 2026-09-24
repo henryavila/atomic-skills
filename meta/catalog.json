@@ -73,6 +73,52 @@
     ]
   },
   {
+    "id": "/atomic-skills:release",
+    "icon": "🚀",
+    "oneLiner": "Chooser plans bump; ship GH Release; npm stage+2FA only",
+    "facets": [
+      "workflow",
+      "git",
+      "release",
+      "npm",
+      "core"
+    ],
+    "summary": "Plan the next semver with a deterministic chooser, apply version + CHANGELOG, ship a GitHub Release, and — when npm is in scope with a stage Action — leave staging + 2FA approve to CI and the human.",
+    "pros": [
+      "Ready to cut a version / GitHub Release",
+      "Need the next semver without inventing patch/minor/major",
+      "Public npm package should stage via Trusted Publisher after Release"
+    ],
+    "cons": [
+      "Still implementing; no release candidate yet",
+      "Only need to commit/push a work branch (use save-and-push)",
+      "Want to publish npm directly from the agent laptop"
+    ],
+    "examples": [
+      "/atomic-skills:release",
+      "/atomic-skills:release apply",
+      "/atomic-skills:release ship",
+      "/atomic-skills:release adopt"
+    ],
+    "fields": [
+      {
+        "name": "mode",
+        "kind": "positional",
+        "required": false,
+        "description": "Optional subcommand hint: plan (default), apply, ship, or adopt."
+      }
+    ],
+    "deps": [
+      "git",
+      "node",
+      "gh"
+    ],
+    "refs": [
+      "/atomic-skills:save-and-push",
+      "/atomic-skills:project"
+    ]
+  },
+  {
     "id": "/atomic-skills:review-plan",
     "icon": "🔍",
     "oneLiner": "Adversarial plan review with local/ground-truth/codex/both modes",
