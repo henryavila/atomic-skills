@@ -8,7 +8,7 @@ Agents invent semver (feature as patch) and run `npm publish` from the laptop. `
 
 ## Purpose
 
-Plan the next semver with a deterministic chooser, apply version + CHANGELOG, ship a GitHub Release, and — when npm is in scope with a stage Action — leave staging + 2FA approve to CI and the human.
+Plan the next semver with a deterministic chooser, apply version + CHANGELOG, ship a GitHub Release, and — when npm is in scope with a stage Action — leave staging + 2FA approve to CI and the human. Shares the release contract with `save-and-push` via `skills/shared/release-assets/` (conventional commits, default-branch / PR-only rules on the bump commit); chooser + stage+2FA are the release half of that contract.
 
 ## Usage
 
