@@ -4,11 +4,11 @@
 
 **Scan for secrets, group commits, save learnings, push safely**
 
-Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit, and learnings lost to context death. `save-and-push` scans the diff for secrets and sensitive files before staging, groups changes into logical commits (never `git add .`), persists durable learnings to memory, and refuses to push to main/master without confirmation. The next session resumes with clean history and context intact.
+Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit, and learnings lost to context death. `save-and-push` scans the diff for secrets and sensitive files before staging, groups changes into logical commits (never `git add .`), persists durable learnings to memory, and on the default branch (via `origin/HEAD`, else main|master) refuses a direct push — requiring a work branch plus PR (`gh pr create` when authenticated) instead of asking to push directly. The next session resumes with clean history and context intact.
 
 ## Purpose
 
-Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push — refusing to touch main/master without explicit confirmation.
+Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push a non-default branch — refusing push on the default branch and opening or instructing a PR instead.
 
 ## Usage
 

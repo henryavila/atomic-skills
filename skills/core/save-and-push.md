@@ -6,9 +6,25 @@ NO PUSH WITHOUT FRESH VERIFICATION.
 If you did not run `git status` and `git diff` IN THIS execution of the command, you cannot push.
 
 <HARD-GATE>
-If the current branch is main or master:
-STOP. Ask the user: push directly to main or create branch + PR?
-DO NOT push to main/master without explicit confirmation.
+Resolve the **default branch** via `skills/shared/release-assets/default-branch.md`
+(`git symbolic-ref refs/remotes/origin/HEAD`, else fallback `main`|`master`).
+
+If the current branch **is** that default branch:
+STOP. **Refuse** to push. Do **NOT** ask to push directly to main/master (or any
+other default). There is no confirmation path for a direct push on the default.
+
+Required path instead:
+1. Create (or switch to) a work branch off the default.
+2. Commit on that work branch (conventional prefixes per
+   `skills/shared/release-assets/conventional-commits.md`).
+3. Push the **work branch** only (`git push -u origin HEAD`).
+4. Open a PR:
+   - If `gh` is installed and authenticated (`gh auth status` exits 0): run
+     `gh pr create` (base = resolved default branch).
+   - Else: STOP with explicit PR instructions — include the pushed branch name,
+     the default base, and either the `gh pr create` command to run after auth
+     or the GitHub compare/PR URL. Do **not** merge locally into the default.
+Auto-merge / merging the PR is out of scope for this skill.
 </HARD-GATE>
 
 ## Process
@@ -84,15 +100,20 @@ Present the commit plan for review:
 
 **3d. Execute commits:**
 For each group, run `git add <group files>` followed by `git commit`.
-Descriptive messages with conventional prefixes (feat, fix, docs, refactor).
+Descriptive messages with conventional prefixes per
+`skills/shared/release-assets/conventional-commits.md` (feat, fix, perf, docs,
+refactor, …).
 NEVER use `git add .` or `git add -A` — always name files explicitly.
 
 ### 4. Push
 
 Run `git status` — confirm it's clean after commits.
 Check the current branch with `git branch --show-current`.
-Apply the HARD-GATE above if it's main/master.
-Run `git push` for the current branch.
+Resolve the default branch per
+`skills/shared/release-assets/default-branch.md` (`origin/HEAD`, else
+`main`|`master`) and apply the HARD-GATE above when on that default — refuse
+push; branch + `gh pr create` (or stop with explicit PR instructions).
+Only when **not** on the default: run `git push` for the current branch.
 Run `git status` again — confirm the push was accepted.
 
 ## Closing
@@ -109,6 +130,7 @@ Report:
 - "It's just a small file, no need for git status"
 - "I'll include the .env because the user didn't mention secrets"
 - "I'll push to main, it's just a quick fix"
+- "Ask if they want to push directly to main"
 - "I don't need to separate commits, it's all related"
 - "I've already seen the diff mentally, no need to run git diff"
 - "I'll use git add . to be faster"

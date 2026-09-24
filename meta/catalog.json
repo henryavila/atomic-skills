@@ -50,7 +50,7 @@
       "memory",
       "core"
     ],
-    "summary": "Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push — refusing to touch main/master without explicit confirmation.",
+    "summary": "Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push a non-default branch — refusing push on the default branch and opening or instructing a PR instead.",
     "pros": [
       "You finished a coherent piece of work",
       "About to switch context or end the session",
