@@ -86,8 +86,9 @@ tasks:
       - HARD-GATE refuses push on default branch (no ask to push directly to
         main/master); documents branch + gh pr create when gh authenticated,
         else stop with explicit PR instructions; references shared
-        default-branch asset; docs/skills/save-and-push.md matches; test asserts
-        refuse language and absence of push-directly ask
+        default-branch asset; meta/catalog.yaml save-and-push value_pitch/purpose
+        updated then docs/skills regenerated via generate-skill-docs (no hand-edit
+        SoT); test asserts refuse language and absence of push-directly ask
     verifier:
       kind: shell
       command: node --test tests/save-and-push-pr-only.test.js
@@ -95,10 +96,12 @@ tasks:
       - kind: file
         path: skills/core/save-and-push.md
       - kind: file
+        path: meta/catalog.yaml
+      - kind: file
         path: docs/skills/save-and-push.md
       - kind: file
         path: tests/save-and-push-pr-only.test.js
-    summary: HARD-GATE PR-only no save-and-push + docs + teste.
+    summary: HARD-GATE PR-only no save-and-push + catalog pitches + docs regen + teste.
     weight: 3
 parked: []
 emerged: []

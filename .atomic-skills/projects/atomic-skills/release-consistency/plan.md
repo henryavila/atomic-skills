@@ -186,6 +186,9 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 ## Alignment notes (ground-truth)
 
+0. **SPEC fold-in (pre-spawn):** T-002 outputs now include `meta/catalog.yaml`; acceptance requires catalog pitch update + `generate-skill-docs` regen (Alignment note 1 folded into admitted SPEC before F0 writer spawn). verified_by: initiative F0 T-002; fp refresh `87ab87546531`.
+
+
 1. **F0 T-002 docs SoT** — `docs/skills/save-and-push.md` is **generated** from `meta/catalog.yaml` via `scripts/generate-skill-docs.js` (CI: `npm run check-docs`). Do **not** hand-edit `docs/skills/*` as source. Hardening PR-only requires updating `core.save-and-push` `value_pitch`/`purpose` (allowed: F0 scopeBoundary only forbids `product.what_is_not`) and regenerating docs so `check-docs` stays green. verified_by: `scripts/generate-skill-docs.js` L1–8; `meta/catalog.yaml` L72–88; `.github/workflows/test.yml` validate-catalog/check-docs.
 2. **F2 T-006 fixture path** — `tests/fixtures/release-consumer/` **already exists** (minimal `package.json` for `tests/release-blackbox.test.js` pack/install). On F2 materialize, either (a) use a **distinct** path (e.g. `tests/fixtures/release-hygiene-consumer/`) or (b) **extend** the existing fixture without breaking blackbox’s private minimal package contract, and keep `tests/release-blackbox.test.js` green in the same gate. Do not treat the path as greenfield create. verified_by: fixture on disk; `tests/release-blackbox.test.js` L30/`cpSync`.
 
@@ -195,7 +198,7 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 **Codebase class:** populated
 **Scanned:** skills/core/; skills/shared/local-review-assets/diff-capture.md; skills/shared/project-assets/project-drift.md; skills/shared/project-assets/project-finalize.md; .github/workflows/; meta/catalog.yaml; scripts/plan-branch-policy.js; scripts/generate-skill-docs.js; scripts/ (no scripts/release/); tests/release-blackbox.test.js; tests/fixtures/release-consumer/; docs/skills/save-and-push.md; package.json; CHANGELOG.md; projects/atomic-skills/release-consistency/design.md → ~252 files in blast-radius globs
 **Commit:** 11220a83
-**At:** 2026-09-13T21:42:39Z
+**At:** 2026-09-24T22:47:21Z
 
 ### A — Plan premises vs code
 
@@ -231,5 +234,5 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 ## Reviews
 
 - internal: clean | mode=local | 0 major+ | @ uncommitted (2026-09-13T16:43:19.882Z)
-- ground-truth: complete-with-findings | mode=ground-truth | fp=eb80a759e77f | premises=11 | impacts=8 @ 11220a83 (2026-09-13T21:42:39Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=608b36de6f79 | premises=11 | impacts=8 @ uncommitted (2026-09-24T22:47:30Z)
 - cross-model: SKIPPED — operator: sem token do revisor externo; nao tem como fazer agora; prosseguir com receipts local + ground-truth
