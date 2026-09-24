@@ -1,7 +1,7 @@
 {
-  "step": "awaiting-operator-advance",
-  "phaseId": "F0",
+  "step": "C",
+  "phaseId": "F1",
   "redispatchCount": 0,
-  "updatedAt": "2026-09-24T23:05:56.966Z",
+  "updatedAt": "2026-09-24T23:16:02.698Z",
   "claimReportPath": ".atomic-skills/status/automate/release-consistency-claims.json"
 }

@@ -5,7 +5,7 @@ title: Release consistency — PR-only default branch + GH Release + npm stage
 version: "1.0"
 status: active
 started: 2026-09-13T16:27:44.146Z
-lastUpdated: 2026-09-24T23:05:56Z
+lastUpdated: 2026-09-24T23:15:00.315Z
 branch: plan/release-consistency
 currentPhase: F1
 executionMode: automate
@@ -77,7 +77,8 @@ phases:
             passed: true
             verifiedAt: 2026-09-24T23:06:10Z
             verifiedCommit: e51992971ee935a1db83c7050954c34a08a84621
-            outputSummary: "node --test save-and-push-pr-only + release-assets-contract exit 0 (5 pass)"
+            outputSummary: node --test save-and-push-pr-only + release-assets-contract exit
+              0 (5 pass)
           verifier:
             kind: shell
             command: node --test tests/save-and-push-pr-only.test.js
@@ -105,11 +106,12 @@ phases:
       at: e51992971ee935a1db83c7050954c34a08a84621
       verifiedAt: 2026-09-24T22:58:02.409Z
     lessonsState: none
-    noneReason: "clean F0 — evaluation notes only; operator ratified lessons none"
+    noneReason: clean F0 — evaluation notes only; operator ratified lessons none
     reviewGate:
       status: passed
       mode: both
-      overrideReason: "no external cross-model token on Grok host; dual-leg records local + external-unavailable"
+      overrideReason: no external cross-model token on Grok host; dual-leg records
+        local + external-unavailable
       reviewFile: .atomic-skills/reviews/release-consistency-F0-phase-review-local.md
       localReceiptPath: .atomic-skills/reviews/release-consistency-F0-phase-review-local.md
       codexReceiptPath: .atomic-skills/reviews/release-consistency-F0-phase-review-external-unavailable.md
@@ -135,7 +137,7 @@ phases:
       publish.yml do AS ainda.
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -154,8 +156,26 @@ phases:
           verifier:
             kind: shell
             command: node --test tests/release-adopt.test.js
-    status: pending
+    status: active
     summary: Skill release, chooser determinístico e templates stage/GH-only.
+    businessIntent:
+      value: Agentes/operadores cortam release com bump determinístico (chooser) e
+        templates stage/GH-only — sem inventar semver nem npm publish direto.
+      workflow: 1) Scripts chooser plan/apply/ship + testes. 2) Skill release +
+        entrada no catalog + docs. 3) Templates stage e GH-only + adopt/init com
+        check+diff+consent; dual-mode D4 enforced.
+      rules: "Chooser nao inventa bump (feat/Added/Changed→minor, fix→patch, 0.x
+        breaking→minor). Dual-mode: sem npm→GH-only; npm sem Action
+        stage→recusar ship npm e oferecer adopt. Adopt MUST
+        --check+diff+consent. Installer nao escreve .github no consumer. Sem
+        migrar publish.yml do AS nesta fase."
+      outOfScope: Migrar .github/workflows/publish.yml do Atomic Skills; fixture
+        dogfood F2; reframe product.what_is_not; auto-merge; Bypass 2FA tokens;
+        enfraquecer PR-only do save-and-push.
+      doneWhen: tests/semver-bump.test.js e tests/release-cli.test.js verdes; catalog
+        lista release; validate-skills 0; tests/release-adopt.test.js verde;
+        stage template usa npm stage publish (nao bare npm publish); adopt exige
+        check/diff/consent.
   - id: F2
     slug: release-consistency-f2-fixture-dogfood-as-stage-migration-catal
     title: Fixture dogfood + AS stage migration + catalog reframe
@@ -269,5 +289,5 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 ## Reviews
 
 - internal: clean | mode=local | 0 major+ | @ uncommitted (2026-09-13T16:43:19.882Z)
-- ground-truth: complete-with-findings | mode=ground-truth | fp=608b36de6f79 | premises=11 | impacts=8 @ uncommitted (2026-09-24T22:47:30Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=d9a5f2a4659a | premises=11 | impacts=8 @ uncommitted (2026-09-24T23:15:53Z)
 - cross-model: SKIPPED — operator: sem token do revisor externo; nao tem como fazer agora; prosseguir com receipts local + ground-truth
