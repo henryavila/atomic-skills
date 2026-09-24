@@ -122,3 +122,10 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** Automate stamped; F0 phase-start ratified; Layer-3 prepare OK; code-only phase writer spawned on `impl/release-consistency-F0-writer` (sibling WT). Host awaits claim report then merge/validate/done.
+- **Decision log:** executionMode=automate stamped; F0 package ratified; T-002 SPEC folded catalog SoT (Alignment note 1); GT fp refreshed to 608b36de6f79.
+- **Single nextAction:** Sync-wait F0 writer; then `automate-phase-run validate` on claim report path.
+- **Verbatim state:** sealedBrief=`/Volumes/External/code/atomic-skills/.worktrees/release-consistency/.atomic-skills/status/automate/release-consistency-F0-sealed-brief.md`; claimReport=`.../release-consistency-claims.json`; writerWT=`/Volumes/External/code/atomic-skills/.worktrees/release-consistency-F0-writer`; baseRef=`d949be73ea1a47a6592071fd1e59b859d78a9d5b`; leasePath=`.atomic-skills/status/writer-leases/release-consistency.json`.
+- **Uncommitted changes:** expect clean plan tree except claim report / cursor updates after writer exits.
