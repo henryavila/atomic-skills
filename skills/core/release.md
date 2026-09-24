@@ -37,6 +37,12 @@ release/tag. Do not backfill a GitHub Release for a version already on npm.
 
 Shared commit prefixes: `skills/shared/release-assets/conventional-commits.md`.
 
+Template adopt/init (stage or GH-only workflows): follow
+`skills/shared/release-assets/adopt.md` — MUST dry-run/`--check` with template
+pin, show diff, write only after consent. See also
+`skills/shared/release-assets/templates/publish-stage.yml` and
+`publish-gh-only.yml`.
+
 ## Dual-mode distribution (D4)
 
 **npm in scope** when: root `package.json` exists, `private` is not `true`, and
