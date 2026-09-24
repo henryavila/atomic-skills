@@ -1,12 +1,14 @@
+# Atomic Skills release-assets template — npm stage (Trusted Publisher)
+# pin: atomic-skills/release-assets/publish-stage@v1
+# Adopt via skills/shared/release-assets/adopt.md (check → diff → consent).
 name: Publish to npm (stage)
 
 on:
   release:
     types: [published]
 
-# OIDC Trusted Publishing — no long-lived npm token / NODE_AUTH_TOKEN.
+# OIDC Trusted Publishing — no long-lived npm token.
 # Preferred model: stage from CI, maintainer approves with 2FA on npm UI.
-# See docs/kb/release-npm-stage.md.
 permissions:
   contents: read
   id-token: write
@@ -42,6 +44,4 @@ jobs:
             echo "This Release uploaded a **staged** version. It is **not** installable until a maintainer approves with 2FA on the **npm UI**:"
             echo ""
             echo "https://www.npmjs.com/package/${NAME}?activeTab=versions"
-            echo ""
-            echo "Runbook: docs/kb/release-npm-stage.md"
           } >> "$GITHUB_STEP_SUMMARY"

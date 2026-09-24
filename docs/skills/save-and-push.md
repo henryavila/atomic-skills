@@ -8,7 +8,7 @@ Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit
 
 ## Purpose
 
-Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push a non-default branch — refusing push on the default branch and opening or instructing a PR instead.
+Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push a non-default branch — refusing push on the default branch and opening or instructing a PR instead. Shares the release contract with `release` via `skills/shared/release-assets/` (default-branch detection + conventional commits); PR-only on the default is the persistence half of that contract.
 
 ## Usage
 
@@ -31,7 +31,7 @@ Close out a work session safely: extract durable learnings to memory, scan the d
 
 **Dependencies:** `git`
 
-**Related:** `project`, `init-memory`
+**Related:** `project`, `init-memory`, `release`
 
 **Tags:** `workflow`, `git`, `memory`, `core`
 

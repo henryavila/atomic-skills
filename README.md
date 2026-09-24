@@ -17,6 +17,7 @@ Battle-tested skill prompts that make AI coding agents follow through — each s
 
 - A copy-paste prompt pack or chat snippet library
 - A replacement for your IDE, model, or git workflow
+- Ownership of your team's branching or release platform — persistence and release skills impose agent gates (PR-only on the default branch, npm stage+2FA, deterministic chooser) when those skills are invoked; they do not replace the repo's git workflow
 - An engineering archive of plans, audits, or design notes
 - A claim that every host adapter is day-to-day tested (only Claude Code, Cursor, Codex, and Grok Build are)
 
