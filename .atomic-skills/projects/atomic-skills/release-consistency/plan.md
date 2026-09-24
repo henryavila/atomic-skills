@@ -5,9 +5,9 @@ title: Release consistency — PR-only default branch + GH Release + npm stage
 version: "1.0"
 status: active
 started: 2026-09-13T16:27:44.146Z
-lastUpdated: 2026-09-24T23:15:00.315Z
+lastUpdated: 2026-09-24T23:29:21.015Z
 branch: plan/release-consistency
-currentPhase: F1
+currentPhase: F2
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -144,19 +144,35 @@ phases:
         - id: G-F1-1
           description: FAILS when chooser allows inventing patch for feat or when release
             skill is missing from catalog
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/semver-bump.test.js tests/release-cli.test.js && rg
               -q '^  release:' meta/catalog.yaml && npm run validate-skills
+          metAt: 2026-09-24T23:28:45.024Z
+          evidence:
+            verifierKind: shell
+            exitCode: 0
+            passed: true
+            verifiedAt: 2026-09-24T23:28:45.024Z
+            verifiedCommit: b3d3cb5ec24fee4fa715bef9a6a567cfc2574ec3
+            outputSummary: exit gate verifier exit 0 on merged tree
         - id: G-F1-2
           description: FAILS when stage template still uses direct npm publish as happy
             path or adopt skips check/diff/consent
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/release-adopt.test.js
-    status: active
+          metAt: 2026-09-24T23:28:45.024Z
+          evidence:
+            verifierKind: shell
+            exitCode: 0
+            passed: true
+            verifiedAt: 2026-09-24T23:28:45.024Z
+            verifiedCommit: b3d3cb5ec24fee4fa715bef9a6a567cfc2574ec3
+            outputSummary: exit gate verifier exit 0 on merged tree
+    status: done
     summary: Skill release, chooser determinístico e templates stage/GH-only.
     businessIntent:
       value: Agentes/operadores cortam release com bump determinístico (chooser) e
@@ -176,6 +192,33 @@ phases:
         lista release; validate-skills 0; tests/release-adopt.test.js verde;
         stage template usa npm stage publish (nao bare npm publish); adopt exige
         check/diff/consent.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-release-consistency-F1.md
+      verifiedAt: 2026-09-24T23:28:45.024Z
+      at: b3d3cb5ec24fee4fa715bef9a6a567cfc2574ec3
+    lessonsState: none
+    noneReason: clean F1 — evaluation notes only; operator ratified lessons none
+    reviewGate:
+      status: passed
+      mode: both
+      overrideReason: no external token; dual-leg local + external-unavailable
+      reviewFile: .atomic-skills/reviews/release-consistency-F1-phase-review-local.md
+      localReceiptPath: .atomic-skills/reviews/release-consistency-F1-phase-review-local.md
+      codexReceiptPath: .atomic-skills/reviews/release-consistency-F1-phase-review-external-unavailable.md
+      at: b3d3cb5ec24fee4fa715bef9a6a567cfc2574ec3
+      verifiedAt: 2026-09-24T23:28:45.024Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-09-24T23:28:45.024Z
+      packagePresentedAt: 2026-09-24T23:28:45.024Z
+      packagePath: .atomic-skills/reviews/release-consistency-F1-decision-package.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-release-consistency-F1.md
+      verdict: CLOSED
+      verifiedAt: 2026-09-24T23:28:45.024Z
   - id: F2
     slug: release-consistency-f2-fixture-dogfood-as-stage-migration-catal
     title: Fixture dogfood + AS stage migration + catalog reframe
@@ -289,5 +332,5 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 ## Reviews
 
 - internal: clean | mode=local | 0 major+ | @ uncommitted (2026-09-13T16:43:19.882Z)
-- ground-truth: complete-with-findings | mode=ground-truth | fp=d9a5f2a4659a | premises=11 | impacts=8 @ uncommitted (2026-09-24T23:15:53Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=30ee995cf92b | premises=11 | impacts=8 @ uncommitted (2026-09-24T23:15:53Z)
 - cross-model: SKIPPED — operator: sem token do revisor externo; nao tem como fazer agora; prosseguir com receipts local + ground-truth

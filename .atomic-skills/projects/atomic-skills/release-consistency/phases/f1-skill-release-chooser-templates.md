@@ -6,16 +6,16 @@ goal: Skill core `release` orquestra plan/apply/ship; scripts determinísticos n
   pacote; templates stage e GH-only versionados sob release-assets; adopt/init
   com MUST check+diff+consent; dual-mode D4 enforced. Sem migrar publish.yml do
   AS ainda.
-status: active
+status: done
 branch: plan/release-consistency
 started: 2026-09-24T23:15:00.315Z
-lastUpdated: 2026-09-24T23:25:59.930Z
-nextAction: Run phase-done gates for F1 (evaluation → lessons → review → audit)
+lastUpdated: 2026-09-24T23:28:45.024Z
+nextAction: null
 parentPlan: release-consistency
 phaseId: F1
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 3
 weightTotal: 3
@@ -23,20 +23,38 @@ exitGates:
   - id: G-F1-1
     description: FAILS when chooser allows inventing patch for feat or when release
       skill is missing from catalog
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/semver-bump.test.js tests/release-cli.test.js && rg
         -q '^  release:' meta/catalog.yaml && npm run validate-skills
+    metAt: 2026-09-24T23:28:45.024Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T23:28:45.024Z
+      verifiedCommit: b3d3cb5ec24fee4fa715bef9a6a567cfc2574ec3
+      outputSummary: exit gate verifier exit 0 on merged tree
     verifierLabel: "shell: node --test tests/semver-bump.test.js tests/release-cli.tes…"
+    evidenceSummary: passed · 2026-09-24
   - id: G-F1-2
     description: FAILS when stage template still uses direct npm publish as happy
       path or adopt skips check/diff/consent
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/release-adopt.test.js
+    metAt: 2026-09-24T23:28:45.024Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T23:28:45.024Z
+      verifiedCommit: b3d3cb5ec24fee4fa715bef9a6a567cfc2574ec3
+      outputSummary: exit gate verifier exit 0 on merged tree
     verifierLabel: "shell: node --test tests/release-adopt.test.js"
+    evidenceSummary: passed · 2026-09-24
 stack:
   - id: 1
     title: Skill release + chooser + templates
@@ -170,7 +188,7 @@ businessIntent:
     check/diff/consent.
 planTitle: Release consistency — PR-only default branch + GH Release + npm stage
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -186,8 +204,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F1 materialized and ratified; Layer-3 prepare OK; code-only phase writer spawned on impl/release-consistency-F1-writer for T-003/T-004/T-005.
-- **Decision log:** operator-continue after F0; F1 package ratified; BI spine on plan+initiative.
-- **Single nextAction:** Sync-wait F1 writer; then validate claim report and merge.
-- **Verbatim state:** sealedBrief=.atomic-skills/status/automate/release-consistency-F1-sealed-brief.md; writerWT=/Volumes/External/code/atomic-skills/.worktrees/release-consistency-F1-writer; baseRef=a065041e5914290f9e81019a3509cd292ef1af33.
-- **Uncommitted changes:** prepare/lease/handoff checkpoint pending.
+- **Narrative:** F1 phase-done under automate (eval/lessons none/review both dual-leg/decision PASS/audit CLOSED). Cursor will pause awaiting-operator-advance before F2.
+- **Decision log:** F1 package ratified; complex T-005 accept; cross-model unavailable dual-leg.
+- **Single nextAction:** present phase-start package for F2 validate-only (after operator-continue). Note Alignment note 2: fixture path collision with release-blackbox.
+- **Verbatim state:** HEAD=b3d3cb5ec24fee4fa715bef9a6a567cfc2574ec3; currentPhase=F2 descriptor-only.
+- **Uncommitted changes:** phase-done checkpoint pending.
