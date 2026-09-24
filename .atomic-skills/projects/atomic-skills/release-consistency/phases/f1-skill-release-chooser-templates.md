@@ -153,3 +153,10 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** F1 materialized and ratified; Layer-3 prepare OK; code-only phase writer spawned on impl/release-consistency-F1-writer for T-003/T-004/T-005.
+- **Decision log:** operator-continue after F0; F1 package ratified; BI spine on plan+initiative.
+- **Single nextAction:** Sync-wait F1 writer; then validate claim report and merge.
+- **Verbatim state:** sealedBrief=.atomic-skills/status/automate/release-consistency-F1-sealed-brief.md; writerWT=/Volumes/External/code/atomic-skills/.worktrees/release-consistency-F1-writer; baseRef=a065041e5914290f9e81019a3509cd292ef1af33.
+- **Uncommitted changes:** prepare/lease/handoff checkpoint pending.

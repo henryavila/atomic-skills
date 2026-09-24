@@ -1,0 +1,10 @@
+{
+  "planSlug": "release-consistency",
+  "phaseId": "F1",
+  "startedAt": "2026-09-24T23:16:09.821Z",
+  "hostId": "host-local",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/release-consistency-F1-writer",
+  "status": "active",
+  "writerBranch": "impl/release-consistency-F1-writer",
+  "tokenHash": "13cbebced02ec6b1a2b844718b8cb477d02bb686f75cbd89e872d3d063384779"
+}
