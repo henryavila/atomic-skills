@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>💾 Save &amp; Push — Commit + Memory + Push · Atomic Skills</title>
-<meta name="description" content="Scan for secrets, group commits, save learnings, push safely">
+<title>🚀 Release — Chooser + GH Release + npm stage · Atomic Skills</title>
+<meta name="description" content="Chooser plans bump; ship GH Release; npm stage+2FA only">
 <link rel="stylesheet" href="../../assets/ds.css">
 <script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return'system'}}function apply(mode){var r=document.documentElement;if(mode==='light'||mode==='dark')r.setAttribute('data-theme',mode);else r.removeAttribute('data-theme');document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-checked',String(b.getAttribute('data-theme-set')===mode))})}apply(read());document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;var mode=b.getAttribute('data-theme-set');try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener('DOMContentLoaded',function(){apply(read())})})();</script>
 </head>
@@ -30,41 +30,44 @@
     <section class="section">
       <p class="back-link"><a href="../index.html">← All skills</a></p>
       <div class="meta-row">
-        <span class="eyebrow">save-and-push</span>
+        <span class="eyebrow">release</span>
         <span class="badge badge-module">core</span>
       </div>
-      <h1>💾 Save &amp; Push — Commit + Memory + Push</h1>
-      <p class="lede">Scan for secrets, group commits, save learnings, push safely</p>
-      <div class="iron-law">NO PUSH WITHOUT FRESH VERIFICATION.</div>
+      <h1>🚀 Release — Chooser + GH Release + npm stage</h1>
+      <p class="lede">Chooser plans bump; ship GH Release; npm stage+2FA only</p>
+      <div class="iron-law">NO BUMP WITHOUT THE CHOOSER.</div>
     </section>
 
     <section class="section card prose">
       <h2>Why it exists</h2>
-      <p>Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit, and learnings lost to context death. `save-and-push` scans the diff for secrets and sensitive files before staging, groups changes into logical commits (never `git add .`), persists durable learnings to memory, and on the default branch (via `origin/HEAD`, else main|master) refuses a direct push — requiring a work branch plus PR (`gh pr create` when authenticated) instead of asking to push directly. The next session resumes with clean history and context intact.</p>
+      <p>Agents invent semver (feature as patch) and run `npm publish` from the laptop. `release` refuses to guess: `scripts/release` classifies the bump from conventional commits + Keep a Changelog Unreleased, applies package.json/CHANGELOG, tags, and opens the GitHub Release. When npm is in scope, the adopted Action stages via OIDC; a human approves with 2FA on the npm UI. No chooser output, no bump.</p>
     </section>
 
     <section class="section">
       <h2>When to use</h2>
       <ul class="plain">
-<li>You finished a coherent piece of work</li>
-<li>About to switch context or end the session</li>
-<li>You want learnings persisted before forgetting</li>
+<li>Ready to cut a version / GitHub Release</li>
+<li>Need the next semver without inventing patch/minor/major</li>
+<li>Public npm package should stage via Trusted Publisher after Release</li>
 </ul>
     </section>
 
     <section class="section">
       <h2>When not to use</h2>
       <ul class="plain">
-<li>Work in progress, not yet a coherent commit</li>
-<li>Tests still failing</li>
-<li>You only want to commit (use git directly)</li>
+<li>Still implementing; no release candidate yet</li>
+<li>Only need to commit/push a work branch (use save-and-push)</li>
+<li>Want to publish npm directly from the agent laptop</li>
 </ul>
     </section>
 
     <section class="section">
       <h2>Examples</h2>
       <ul class="list-stack">
-<li><div class="cmd">/atomic-skills:save-and-push</div><div class="desc">Full flow: memory + commits + push</div></li>
+<li><div class="cmd">/atomic-skills:release</div><div class="desc">Plan next version via scripts/release chooser</div></li>
+<li><div class="cmd">/atomic-skills:release apply</div><div class="desc">Apply package.json + CHANGELOG from chooser plan</div></li>
+<li><div class="cmd">/atomic-skills:release ship</div><div class="desc">Tag + GitHub Release (stage Action handles npm)</div></li>
+<li><div class="cmd">/atomic-skills:release adopt</div><div class="desc">Check/diff/consent adopt of stage or GH-only workflow</div></li>
 </ul>
     </section>
   </main>
