@@ -177,39 +177,58 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 ## Self-review against code-quality gates
 
-- **G1 read-before-claim**: claims about existing code cite `skills/core/save-and-push.md` L8–12 (ask-before-push), `.github/workflows/publish.yml` L28 (`npm publish` direto), `skills/shared/local-review-assets/diff-capture.md` (`origin/HEAD`), `meta/catalog.yaml` `what_is_not` git workflow. verified_by: Stage 8 ground-truth scan.
+- **G1 read-before-claim**: claims about existing code cite `skills/core/save-and-push.md` L8–12 (ask-before-push), `.github/workflows/publish.yml` L28 (`npm publish` direto), `skills/shared/local-review-assets/diff-capture.md` L72–74 (`origin/HEAD`), `meta/catalog.yaml` L18 `what_is_not` git workflow, `tests/fixtures/release-consumer/` + `tests/release-blackbox.test.js` L30, `scripts/generate-skill-docs.js` (docs/skills SoT = catalog). verified_by: Flow E 2026-09-13 re-scan.
 - **G2 soft-language**: ban-list grep on plan + F0 initiative — 0 occurrences.
 - **G6 reference-or-strike**: phase goals and principles map to design.md Decisions D1–D9; new work paths are creates (unverified until implemented). Unverified assertions: none that claim current code falsely.
 - **G10 gate-must-be-able-to-fail**: each exit criterion states FAILS when … — none without a failure mode.
+- **Ground-truth:** Status=complete-with-findings; mode=ground-truth in Reviews; detector exit 0 after fp stamp.
+
+## Alignment notes (ground-truth)
+
+1. **F0 T-002 docs SoT** — `docs/skills/save-and-push.md` is **generated** from `meta/catalog.yaml` via `scripts/generate-skill-docs.js` (CI: `npm run check-docs`). Do **not** hand-edit `docs/skills/*` as source. Hardening PR-only requires updating `core.save-and-push` `value_pitch`/`purpose` (allowed: F0 scopeBoundary only forbids `product.what_is_not`) and regenerating docs so `check-docs` stays green. verified_by: `scripts/generate-skill-docs.js` L1–8; `meta/catalog.yaml` L72–88; `.github/workflows/test.yml` validate-catalog/check-docs.
+2. **F2 T-006 fixture path** — `tests/fixtures/release-consumer/` **already exists** (minimal `package.json` for `tests/release-blackbox.test.js` pack/install). On F2 materialize, either (a) use a **distinct** path (e.g. `tests/fixtures/release-hygiene-consumer/`) or (b) **extend** the existing fixture without breaking blackbox’s private minimal package contract, and keep `tests/release-blackbox.test.js` green in the same gate. Do not treat the path as greenfield create. verified_by: fixture on disk; `tests/release-blackbox.test.js` L30/`cpSync`.
 
 ## Ground-truth review
 
-**Status:** complete
-**Scanned:** skills/core/save-and-push.md; .github/workflows/publish.yml; skills/shared/local-review-assets/diff-capture.md; meta/catalog.yaml; skills/core/ (no release.md); scripts/ (no scripts/release/)
+**Status:** complete-with-findings
+**Codebase class:** populated
+**Scanned:** skills/core/; skills/shared/local-review-assets/diff-capture.md; skills/shared/project-assets/project-drift.md; skills/shared/project-assets/project-finalize.md; .github/workflows/; meta/catalog.yaml; scripts/plan-branch-policy.js; scripts/generate-skill-docs.js; scripts/ (no scripts/release/); tests/release-blackbox.test.js; tests/fixtures/release-consumer/; docs/skills/save-and-push.md; package.json; CHANGELOG.md; projects/atomic-skills/release-consistency/design.md → ~252 files in blast-radius globs
+**Commit:** 11220a83
+**At:** 2026-09-13T21:42:39Z
 
 ### A — Plan premises vs code
 
-| Premise | Result | Evidence |
-|---------|--------|----------|
-| save-and-push asks before push on main/master (to be hardened) | confirmed | skills/core/save-and-push.md:8-12 |
-| AS publish.yml uses direct npm publish | confirmed | .github/workflows/publish.yml:28 |
-| Default-branch pattern via origin/HEAD exists in review assets | confirmed | skills/shared/local-review-assets/diff-capture.md:72 |
-| product.what_is_not includes not a git workflow replacement | confirmed | meta/catalog.yaml:18 |
-| skills/core/release.md does not exist yet (create in F1) | confirmed absent | skills/core/ listing |
-| scripts/release/* does not exist yet (create in F1) | confirmed absent | scripts/ listing |
+| # | Premise | Result | Evidence |
+|---|---------|--------|----------|
+| 1 | `save-and-push` asks before push on main/master (to harden → refuse) | ok | skills/core/save-and-push.md:8-12 |
+| 2 | AS `publish.yml` happy path is direct `npm publish` | ok | .github/workflows/publish.yml:28 |
+| 3 | Default-branch via `origin/HEAD` (+ main\|master fallback) already exists in review assets | ok | skills/shared/local-review-assets/diff-capture.md:72-74 |
+| 4 | `product.what_is_not` includes not a git-workflow replacement | ok | meta/catalog.yaml:18 |
+| 5 | `skills/core/release.md` absent (F1 create) | ok | skills/core/ listing — no release.md |
+| 6 | `scripts/release/*` absent (F1 create) | ok | no scripts/release/ dir |
+| 7 | Design SoT at `projects/atomic-skills/release-consistency/design.md` | ok | file present (design.md) |
+| 8 | `docs/skills/save-and-push.md` and `CHANGELOG.md` Unreleased exist as inputs | ok | docs/skills/save-and-push.md:1-11; CHANGELOG.md:8 |
+| 9 | `package.json` public npm package (npm in scope for dogfood) | ok | package.json name `@henryavila/atomic-skills`, `private` unset |
+| 10 | F2 creates `tests/fixtures/release-consumer/` as greenfield | false | path exists — tests/fixtures/release-consumer/package.json; owned by release-blackbox (see Alignment note 2) |
+| 11 | F0/F1 create paths still absent (`skills/shared/release-assets/*`, new tests) | ok | MISSING listing for default-branch.md, conventional-commits.md, release-assets-contract / save-and-push-pr-only / semver-bump tests |
 
-### B — Code present, plan silent
+### B — Code present, plan silent (impact candidates)
 
-| Area | Impact | Disposition |
-|------|--------|-------------|
-| plan-branch-policy.js (plan/<slug> bookkeeping) | indirect — not product default-branch policy | oos — design Non-goals / research-digest already separates |
-| tests/release-blackbox.test.js (AS tarball qualification) | indirect — different meaning of "release" | oos — not consumer release hygiene |
-| Installer reconcileFileSet host-only | direct constraint on template delivery | accepted — D5 / T-005 scopeBoundary |
+| # | Finding | Location | Impact | Disposition |
+|---|---------|----------|--------|-------------|
+| 1 | `scripts/plan-branch-policy.js` — `plan/<slug>` bookkeeping, not product default-branch gate | scripts/plan-branch-policy.js:1-17 | indirect | oos — research-digest / design Non-goals separate focus branches from protected default |
+| 2 | `tests/release-blackbox.test.js` packs tarball using `tests/fixtures/release-consumer/` | tests/release-blackbox.test.js:30,102 | direct | task — Alignment note 2: distinct path or extend-without-break; blackbox stays green |
+| 3 | Installer `reconcileFileSet` is host skill-tree only — must not scaffold consumer `.github` | src/providers/skills-provider.js; src/installer.js | direct | accepted — D5 / T-005 scopeBoundary |
+| 4 | `docs/skills/*` generated from catalog (`generate-skill-docs` + CI `check-docs`) | scripts/generate-skill-docs.js:1-8; meta/catalog.yaml:72-88; .github/workflows/test.yml | direct | task — Alignment note 1: F0 updates catalog save-and-push pitches + regenerate; no hand-edit SoT |
+| 5 | Second `origin/HEAD` consumer in drift (not only diff-capture) | skills/shared/project-assets/project-drift.md:199 | indirect | accepted — F0 extracts shared asset from diff-capture pattern; drift may keep inline until optional follow-up |
+| 6 | `project-finalize` already runs `gh pr create --base <integrationRef>` | skills/shared/project-assets/project-finalize.md:436 | indirect | oos — plan-end lifecycle ≠ session `save-and-push`; no merge of skills |
+| 7 | Catalog key `release_highlight` (README blurb, not skill `release`) | meta/catalog.yaml:6-9 | none | accepted — name collision cosmetic; F1 adds `core.release` skill entry separately |
+| 8 | CI already runs `release-blackbox` + `validate-catalog`/`check-docs` | .github/workflows/test.yml:20,80-82 | direct | accepted — new unit tests under `tests/*.test.js` enter via `npm test`; docs/catalog gates already enforce Alignment note 1 |
 
-**Counts:** premises=6 impacts=3 (0 undisposed direct)
+**Counts:** premises=11 (missing=0, false=1); impacts=8 (direct=4, indirect=3, none=1)
 
 ## Reviews
 
 - internal: clean | mode=local | 0 major+ | @ uncommitted (2026-09-13T16:43:19.882Z)
-- ground-truth: complete | mode=ground-truth | fp=e33b0ac42ffa | premises=6 | impacts=3 @ uncommitted (2026-09-13T16:43:19.882Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=eb80a759e77f | premises=11 | impacts=8 @ 11220a83 (2026-09-13T21:42:39Z)
 - cross-model: SKIPPED — operator: sem token do revisor externo; nao tem como fazer agora; prosseguir com receipts local + ground-truth
