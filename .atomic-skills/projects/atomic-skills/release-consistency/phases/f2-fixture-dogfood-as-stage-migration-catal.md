@@ -8,14 +8,16 @@ goal: Fixture de consumer prova PR-only, chooser, dual-mode e template stage;
 status: active
 branch: plan/release-consistency
 started: 2026-09-24T23:43:05.426Z
-lastUpdated: 2026-09-24T23:43:05.426Z
-nextAction: "Start T-006: Consumer fixture proves release contract"
+lastUpdated: 2026-09-24T23:49:09.509Z
+nextAction: Run phase-done gates for F2
 parentPlan: release-consistency
 phaseId: F2
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: G-F2-1
     description: FAILS when fixture tests are red or when AS publish.yml still uses
@@ -26,6 +28,7 @@ exitGates:
       command: "node --test tests/release-fixture.test.js && rg -q 'stage publish'
         .github/workflows/publish.yml && ! rg -q '^\\s+- run: npm publish'
         .github/workflows/publish.yml"
+    verifierLabel: "shell: node --test tests/release-fixture.test.js && rg -q 'stage p…"
   - id: G-F2-2
     description: FAILS when catalog reframe drops the not-a-git-workflow boundary or
       omits agent-gate clarification
@@ -33,6 +36,7 @@ exitGates:
     verifier:
       kind: shell
       command: node --test tests/catalog-product-boundary.test.js
+    verifierLabel: "shell: node --test tests/catalog-product-boundary.test.js"
 stack:
   - id: 1
     title: Fixture dogfood + AS stage migration + catalog reframe
@@ -41,8 +45,8 @@ stack:
 tasks:
   - id: T-006
     title: Consumer fixture proves release contract
-    status: pending
-    lastUpdated: 2026-09-24T23:43:05.426Z
+    status: done
+    lastUpdated: 2026-09-24T23:49:09.509Z
     scopeBoundary:
       - do not migrate .github/workflows/publish.yml yet; do not publish real
         packages to npm registry; do not weaken PR-only gate
@@ -60,10 +64,18 @@ tasks:
         path: tests/fixtures/release-hygiene-consumer/
       - kind: file
         path: tests/release-fixture.test.js
+    closedAt: 2026-09-24T23:49:09.509Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T23:49:09.509Z
+      verifiedCommit: f58f49c29700b16962d1f45a205842521af33b12
+      outputSummary: node --test tests/release-fixture.test.js exit 0
   - id: T-007
     title: Migrate Atomic Skills publish.yml to npm stage
-    status: pending
-    lastUpdated: 2026-09-24T23:43:05.426Z
+    status: done
+    lastUpdated: 2026-09-24T23:49:09.509Z
     scopeBoundary:
       - do not reintroduce Bypass 2FA tokens; do not change installer journal
         effects; do not skip fixture gate — this task assumes T-006 green
@@ -85,10 +97,18 @@ tasks:
         path: docs/kb/release-npm-stage.md
       - kind: file
         path: CHANGELOG.md
+    closedAt: 2026-09-24T23:49:09.509Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T23:49:09.509Z
+      verifiedCommit: f58f49c29700b16962d1f45a205842521af33b12
+      outputSummary: rg stage publish + docs/kb/release-npm-stage.md exit 0
   - id: T-008
     title: Catalog what_is_not reframe + skill docs sync
-    status: pending
-    lastUpdated: 2026-09-24T23:43:05.426Z
+    status: done
+    lastUpdated: 2026-09-24T23:49:09.509Z
     scopeBoundary:
       - do not claim AS replaces git workflow; do not remove host-tier honesty
         lines; do not change install primary command
@@ -113,6 +133,15 @@ tasks:
         path: docs/skills/release.md
       - kind: file
         path: tests/catalog-product-boundary.test.js
+    closedAt: 2026-09-24T23:49:09.509Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T23:49:09.509Z
+      verifiedCommit: f58f49c29700b16962d1f45a205842521af33b12
+      outputSummary: node --test tests/catalog-product-boundary.test.js && npm run
+        validate-skills exit 0
 parked: []
 emerged: []
 businessIntent:
@@ -131,6 +160,7 @@ businessIntent:
   doneWhen: tests/release-fixture.test.js verde; publish.yml tem stage publish e
     nao bare npm publish feliz; docs/kb/release-npm-stage.md;
     catalog-product-boundary verde; validate-skills 0.
+planTitle: Release consistency — PR-only default branch + GH Release + npm stage
 planActive: true
 current: true
 ---
