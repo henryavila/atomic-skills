@@ -8,6 +8,7 @@ started: 2026-09-13T16:27:44.146Z
 lastUpdated: 2026-09-13T16:28:04.776Z
 branch: plan/release-consistency
 currentPhase: F0
+executionMode: automate
 parallelismAllowed: false
 principles:
   - id: P1

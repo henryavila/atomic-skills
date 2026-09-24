@@ -1,0 +1,1 @@
+{"id":"7e12da8e-62ec-4f69-b5e4-a13a39153e46","category":"routing","decision":"stamp executionMode=automate on release-consistency","why":"operator confirmed Commitar GT + stamp automate on implement entry","evidencePath":"none","impact":"pure-maestro path; plan-end finalize requires automate stamp gates","at":"2026-09-24T22:45:46.045Z"}
