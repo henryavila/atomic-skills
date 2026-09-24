@@ -1,0 +1,43 @@
+▶ release CLI — plan
+  ✔ plan prints next version for feat → minor (1.639042ms)
+  ✔ plan JSON via run --json includes next (0.743875ms)
+✔ release CLI — plan (2.769458ms)
+▶ release CLI — apply
+  ✔ rewrites package.json version and CHANGELOG Unreleased when present (1.927083ms)
+  ✔ rewrites package.json even when CHANGELOG is absent (1.164542ms)
+  ✔ refuses apply when kind is none (0.68125ms)
+✔ release CLI — apply (3.939833ms)
+▶ release CLI — ship
+  ✔ refuses when kind is none (0.7ms)
+  ✔ refuses when npm version already published (0.669709ms)
+  ✔ dry-run ship succeeds when version is new and kind is not none (0.537333ms)
+✔ release CLI — ship (1.998125ms)
+▶ release CLI — feature-forbids-patch gate (integration)
+  ✔ plan never proposes patch when feat is present (0.466166ms)
+✔ release CLI — feature-forbids-patch gate (integration) (0.496167ms)
+▶ parseUnreleased
+  ✔ collects keep-a-changelog items and ignores empty headings (1.225916ms)
+✔ parseUnreleased (1.593375ms)
+▶ bumpVersion
+  ✔ bumps patch / minor / major (0.151708ms)
+  ✔ never auto-jumps 0.x to 1.0.0 — breaking stays minor via major kind (0.131958ms)
+✔ bumpVersion (0.360167ms)
+▶ classifyBump — feature forbids patch
+  ✔ maps feat / Added / Changed to minor (0.346375ms)
+  ✔ maps fix / Fixed-only to patch (0.150833ms)
+  ✔ maps 0.x breaking to minor, 1.x breaking to major (0.137292ms)
+  ✔ gate: feat commit forbids patch even if changelog only lists Fixed (0.072417ms)
+  ✔ gate: changelog Added forbids patch even if commits are only fix: (0.055583ms)
+  ✔ returns none when there is nothing to ship (0.182292ms)
+✔ classifyBump — feature forbids patch (1.140541ms)
+▶ rewriteChangelog
+  ✔ moves Unreleased into the new version and retargets compare links (0.450583ms)
+✔ rewriteChangelog (0.538584ms)
+ℹ tests 19
+ℹ suites 8
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.832667

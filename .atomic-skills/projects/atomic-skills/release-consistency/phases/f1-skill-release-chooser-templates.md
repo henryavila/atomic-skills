@@ -9,14 +9,16 @@ goal: Skill core `release` orquestra plan/apply/ship; scripts determinísticos n
 status: active
 branch: plan/release-consistency
 started: 2026-09-24T23:15:00.315Z
-lastUpdated: 2026-09-24T23:15:00.315Z
-nextAction: "Start T-003: Chooser scripts plan/apply/ship"
+lastUpdated: 2026-09-24T23:25:59.930Z
+nextAction: Run phase-done gates for F1 (evaluation → lessons → review → audit)
 parentPlan: release-consistency
 phaseId: F1
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: G-F1-1
     description: FAILS when chooser allows inventing patch for feat or when release
@@ -26,6 +28,7 @@ exitGates:
       kind: shell
       command: node --test tests/semver-bump.test.js tests/release-cli.test.js && rg
         -q '^  release:' meta/catalog.yaml && npm run validate-skills
+    verifierLabel: "shell: node --test tests/semver-bump.test.js tests/release-cli.tes…"
   - id: G-F1-2
     description: FAILS when stage template still uses direct npm publish as happy
       path or adopt skips check/diff/consent
@@ -33,6 +36,7 @@ exitGates:
     verifier:
       kind: shell
       command: node --test tests/release-adopt.test.js
+    verifierLabel: "shell: node --test tests/release-adopt.test.js"
 stack:
   - id: 1
     title: Skill release + chooser + templates
@@ -41,8 +45,8 @@ stack:
 tasks:
   - id: T-003
     title: Chooser scripts plan/apply/ship
-    status: pending
-    lastUpdated: 2026-09-24T23:15:00.315Z
+    status: done
+    lastUpdated: 2026-09-24T23:25:59.930Z
     scopeBoundary:
       - do not edit skills/core/save-and-push.md; do not migrate
         .github/workflows/publish.yml; do not write into consumer repos from
@@ -65,10 +69,19 @@ tasks:
         path: tests/semver-bump.test.js
       - kind: file
         path: tests/release-cli.test.js
+    closedAt: 2026-09-24T23:25:59.930Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T23:25:59.930Z
+      verifiedCommit: 2e6d7afc7fb5355c4faf27235161219d0681e845
+      outputSummary: node --test tests/semver-bump.test.js tests/release-cli.test.js
+        exit 0 on merged plan tree
   - id: T-004
     title: Release skill body + catalog entry
-    status: pending
-    lastUpdated: 2026-09-24T23:15:00.315Z
+    status: done
+    lastUpdated: 2026-09-24T23:25:59.930Z
     scopeBoundary:
       - do not migrate AS publish.yml; do not weaken save-and-push PR-only; do
         not add installer scaffolding of consumer .github
@@ -91,10 +104,19 @@ tasks:
         path: docs/skills/release.md
       - kind: file
         path: scripts/validate-skills.js
+    closedAt: 2026-09-24T23:25:59.930Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T23:25:59.930Z
+      verifiedCommit: 2e6d7afc7fb5355c4faf27235161219d0681e845
+      outputSummary: rg release.md + catalog + npm run validate-skills exit 0 on
+        merged plan tree
   - id: T-005
     title: Templates stage + GH-only and adopt/init flow
-    status: pending
-    lastUpdated: 2026-09-24T23:15:00.315Z
+    status: done
+    lastUpdated: 2026-09-24T23:25:59.930Z
     scopeBoundary:
       - do not have installer reconcileFileSet write consumer workflows; do not
         remove uninstall parity tests; do not migrate live AS publish.yml in
@@ -119,6 +141,14 @@ tasks:
         path: skills/core/release.md
       - kind: file
         path: tests/release-adopt.test.js
+    closedAt: 2026-09-24T23:25:59.930Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T23:25:59.930Z
+      verifiedCommit: 2e6d7afc7fb5355c4faf27235161219d0681e845
+      outputSummary: node --test tests/release-adopt.test.js exit 0 on merged plan tree
 parked: []
 emerged: []
 businessIntent:
@@ -138,6 +168,7 @@ businessIntent:
     lista release; validate-skills 0; tests/release-adopt.test.js verde; stage
     template usa npm stage publish (nao bare npm publish); adopt exige
     check/diff/consent.
+planTitle: Release consistency — PR-only default branch + GH Release + npm stage
 planActive: true
 current: true
 ---

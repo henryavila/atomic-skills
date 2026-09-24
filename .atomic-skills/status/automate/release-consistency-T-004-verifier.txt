@@ -1,0 +1,5 @@
+
+> @henryavila/atomic-skills@2.0.0 validate-skills
+> node scripts/validate-skills.js
+
+✓ All 17 skills valid (schema_version 0.2)
