@@ -8,8 +8,8 @@ goal: Extrair detecção de default branch e helpers de conventional commit para
 status: active
 branch: plan/release-consistency
 started: 2026-09-13T16:27:44.146Z
-lastUpdated: 2026-09-24T22:55:00Z
-nextAction: Run  (after evaluation/lessons/review/audit under automate)
+lastUpdated: 2026-09-24T22:55:37Z
+nextAction: "Run automate Step F evaluation then phase-done gates for F0"
 parentPlan: release-consistency
 phaseId: F0
 businessIntent:
@@ -27,11 +27,11 @@ businessIntent:
   doneWhen: tests/release-assets-contract.test.js e
     tests/save-and-push-pr-only.test.js verdes; G-F0-1 passa; save-and-push nao
     oferece a opcao push directly to main.
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
-weightDone: 0
+weightDone: 5
 weightTotal: 5
 exitGates:
   - id: G-F0-1
@@ -51,7 +51,15 @@ stack:
 tasks:
   - id: T-001
     title: Shared default-branch + conventional-commit helpers
-    status: donepending
+    status: done
+    closedAt: 2026-09-24T22:55:37Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T22:55:37Z
+      verifiedCommit: 73ac0e101121c70ade4276e1c94e4e58fddeb49d
+      outputSummary: "node --test exit 0 on merged plan tree"
     lastUpdated: 2026-09-13T16:27:44.146Z
     scopeBoundary:
       - do not edit skills/core/save-and-push.md in this task; do not add
@@ -76,7 +84,15 @@ tasks:
     weight: 2
   - id: T-002
     title: Harden save-and-push to PR-only on default branch
-    status: donepending
+    status: done
+    closedAt: 2026-09-24T22:55:37Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T22:55:37Z
+      verifiedCommit: 73ac0e101121c70ade4276e1c94e4e58fddeb49d
+      outputSummary: "node --test exit 0 on merged plan tree"
     lastUpdated: 2026-09-13T16:27:44.146Z
     scopeBoundary:
       - do not implement release skill; do not add auto-merge; do not mutate
