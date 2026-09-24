@@ -5,7 +5,7 @@ title: Release consistency — PR-only default branch + GH Release + npm stage
 version: "1.0"
 status: active
 started: 2026-09-13T16:27:44.146Z
-lastUpdated: 2026-09-24T23:29:21.015Z
+lastUpdated: 2026-09-24T23:43:05.426Z
 branch: plan/release-consistency
 currentPhase: F2
 executionMode: automate
@@ -227,7 +227,7 @@ phases:
       reframe `product.what_is_not`; documentar runbook de approve.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -247,8 +247,24 @@ phases:
           verifier:
             kind: shell
             command: node --test tests/catalog-product-boundary.test.js
-    status: pending
+    status: active
     summary: Fixture prova o contrato; AS migra para stage; catalog reframe.
+    businessIntent:
+      value: Fixture prova o contrato de release no consumer; AS dogfood migra
+        publish.yml para stage; catalog what_is_not esclarece gates de agente
+        sem reivindicar git workflow.
+      workflow: 1) Fixture hygiene-consumer + release-fixture tests. 2) Migrar
+        publish.yml AS para npm stage publish + docs/kb runbook. 3) Reframe
+        what_is_not + sync docs; catalog-product-boundary test.
+      rules: Fixture em tests/fixtures/release-hygiene-consumer/ (nao
+        release-consumer/blackbox). Nao publicar pacotes reais. PR-only
+        permanece. Stage+2FA; sem Bypass 2FA. what_is_not mantem
+        nao-e-git-workflow E acrescenta agent gates.
+      outOfScope: Enfraquecer PR-only; reinstalar NODE_AUTH_TOKEN publish feliz; mudar
+        install primary; claim AS substitui git workflow.
+      doneWhen: tests/release-fixture.test.js verde; publish.yml tem stage publish e
+        nao bare npm publish feliz; docs/kb/release-npm-stage.md;
+        catalog-product-boundary verde; validate-skills 0.
 references: []
 planActive: true
 planTitle: Release consistency — PR-only default branch + GH Release + npm stage
@@ -332,5 +348,5 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 ## Reviews
 
 - internal: clean | mode=local | 0 major+ | @ uncommitted (2026-09-13T16:43:19.882Z)
-- ground-truth: complete-with-findings | mode=ground-truth | fp=30ee995cf92b | premises=11 | impacts=8 @ uncommitted (2026-09-24T23:15:53Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=0bccc4f02c12 | premises=11 | impacts=8 @ uncommitted (2026-09-24T23:15:53Z)
 - cross-model: SKIPPED — operator: sem token do revisor externo; nao tem como fazer agora; prosseguir com receipts local + ground-truth

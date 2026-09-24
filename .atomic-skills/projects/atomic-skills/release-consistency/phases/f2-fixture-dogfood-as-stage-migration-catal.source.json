@@ -12,7 +12,7 @@
         "do not migrate .github/workflows/publish.yml yet; do not publish real packages to npm registry; do not weaken PR-only gate"
       ],
       "acceptance": [
-        "fixture repo includes sample package.json changelog and adopted stage workflow; tests assert chooser plan on fixture, refuse ship when Action missing without explicit GH-only opt-out, and save-and-push contract still refuses default push language; no network publish required"
+        "fixture at tests/fixtures/release-hygiene-consumer/ includes sample package.json changelog and adopted stage workflow; tests assert chooser plan on fixture, refuse ship when Action missing without explicit GH-only opt-out, and save-and-push contract still refuses default push language; no network publish required"
       ],
       "verifier": {
         "kind": "shell",
@@ -21,7 +21,7 @@
       "outputs": [
         {
           "kind": "file",
-          "path": "tests/fixtures/release-consumer/"
+          "path": "tests/fixtures/release-hygiene-consumer/"
         },
         {
           "kind": "file",
@@ -33,7 +33,7 @@
       "id": "T-007",
       "title": "Migrate Atomic Skills publish.yml to npm stage",
       "scopeBoundary": [
-        "do not reintroduce Bypass 2FA tokens; do not change installer journal effects; do not skip fixture gate — this task assumes T-006 green"
+        "do not reintroduce Bypass 2FA tokens; do not change installer journal effects; do not skip fixture gate \u2014 this task assumes T-006 green"
       ],
       "acceptance": [
         "publish.yml stages with npm stage publish under OIDC (no NODE_AUTH_TOKEN publish happy path); docs/kb/release-npm-stage.md documents Trusted Publisher stage-only and human stage approve; CHANGELOG notes the process change under Unreleased or the release section being cut"
