@@ -1,0 +1,45 @@
+{
+  "planSlug": "release-consistency",
+  "phaseId": "F0",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/release-consistency-F0-writer",
+  "writerBranch": "impl/release-consistency-F0-writer",
+  "finishedAt": "2026-09-24T22:50:53Z",
+  "tasks": [
+    {
+      "taskId": "T-001",
+      "status": "claimed-pass",
+      "commitShas": [
+        "0354b96a0c08d062a1d779afb3d9180aefe1d7d8"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "skills/shared/release-assets/default-branch.md",
+        "skills/shared/release-assets/conventional-commits.md",
+        "tests/release-assets-contract.test.js"
+      ],
+      "verifierCommand": "node --test tests/release-assets-contract.test.js",
+      "exitCode": 0,
+      "transcript": "\u25b6 release-assets contract (F0/T-001)\n  \u2714 ships default-branch.md with origin/HEAD resolution (0.376291ms)\n  \u2714 ships conventional-commits.md with feat: mapping (0.10225ms)\n\u2714 release-assets contract (F0/T-001) (1.127167ms)\n\u2139 tests 2\n\u2139 suites 1\n\u2139 pass 2\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 34.87425"
+    },
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": [
+        "ed846d87216a1c7ec253e815ad93e62f78c3fc8b"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "skills/core/save-and-push.md",
+        "meta/catalog.yaml",
+        "docs/skills/save-and-push.md",
+        "tests/save-and-push-pr-only.test.js",
+        "meta/catalog.json"
+      ],
+      "verifierCommand": "node --test tests/save-and-push-pr-only.test.js",
+      "exitCode": 0,
+      "transcript": "\u25b6 save-and-push PR-only (F0/T-002)\n  \u2714 skill HARD-GATE refuses push on default and references origin/HEAD asset (0.470792ms)\n  \u2714 catalog pitches describe PR-only default-branch policy (0.591917ms)\n  \u2714 generated docs/skills/save-and-push.md matches PR-only catalog pitch (0.14675ms)\n\u2714 save-and-push PR-only (F0/T-002) (1.685083ms)\n\u2139 tests 3\n\u2139 suites 1\n\u2139 pass 3\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 38.03675"
+    }
+  ]
+}

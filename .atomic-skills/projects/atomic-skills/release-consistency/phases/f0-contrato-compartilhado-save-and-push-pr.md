@@ -8,8 +8,8 @@ goal: Extrair detecção de default branch e helpers de conventional commit para
 status: active
 branch: plan/release-consistency
 started: 2026-09-13T16:27:44.146Z
-lastUpdated: 2026-09-13T16:28:04.776Z
-nextAction: "Start T-001: Shared default-branch + conventional-commit helpers"
+lastUpdated: 2026-09-24T22:55:00Z
+nextAction: Run  (after evaluation/lessons/review/audit under automate)
 parentPlan: release-consistency
 phaseId: F0
 businessIntent:
@@ -51,7 +51,7 @@ stack:
 tasks:
   - id: T-001
     title: Shared default-branch + conventional-commit helpers
-    status: pending
+    status: donepending
     lastUpdated: 2026-09-13T16:27:44.146Z
     scopeBoundary:
       - do not edit skills/core/save-and-push.md in this task; do not add
@@ -76,7 +76,7 @@ tasks:
     weight: 2
   - id: T-002
     title: Harden save-and-push to PR-only on default branch
-    status: pending
+    status: donepending
     lastUpdated: 2026-09-13T16:27:44.146Z
     scopeBoundary:
       - do not implement release skill; do not add auto-merge; do not mutate
@@ -86,9 +86,10 @@ tasks:
       - HARD-GATE refuses push on default branch (no ask to push directly to
         main/master); documents branch + gh pr create when gh authenticated,
         else stop with explicit PR instructions; references shared
-        default-branch asset; meta/catalog.yaml save-and-push value_pitch/purpose
-        updated then docs/skills regenerated via generate-skill-docs (no hand-edit
-        SoT); test asserts refuse language and absence of push-directly ask
+        default-branch asset; meta/catalog.yaml save-and-push
+        value_pitch/purpose updated then docs/skills regenerated via
+        generate-skill-docs (no hand-edit SoT); test asserts refuse language and
+        absence of push-directly ask
     verifier:
       kind: shell
       command: node --test tests/save-and-push-pr-only.test.js
@@ -124,8 +125,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** Automate stamped; F0 phase-start ratified; Layer-3 prepare OK; code-only phase writer spawned on `impl/release-consistency-F0-writer` (sibling WT). Host awaits claim report then merge/validate/done.
-- **Decision log:** executionMode=automate stamped; F0 package ratified; T-002 SPEC folded catalog SoT (Alignment note 1); GT fp refreshed to 608b36de6f79.
-- **Single nextAction:** Sync-wait F0 writer; then `automate-phase-run validate` on claim report path.
-- **Verbatim state:** sealedBrief=`/Volumes/External/code/atomic-skills/.worktrees/release-consistency/.atomic-skills/status/automate/release-consistency-F0-sealed-brief.md`; claimReport=`.../release-consistency-claims.json`; writerWT=`/Volumes/External/code/atomic-skills/.worktrees/release-consistency-F0-writer`; baseRef=`d949be73ea1a47a6592071fd1e59b859d78a9d5b`; leasePath=`.atomic-skills/status/writer-leases/release-consistency.json`.
-- **Uncommitted changes:** expect clean plan tree except claim report / cursor updates after writer exits.
+- **Narrative:** F0 writer merged; T-001 and T-002 closed via orchestrator done after claim-bound assert + complex disposition accept on T-002. Exit gate G-F0-1 and automate Step F–G remain.
+- **Decision log:** automate stamp; F0 ratify; T-002 complex disposition accept; claim paths include meta/catalog.json for product fence.
+- **Single nextAction:** Run automate Step F evaluation agent, then lessons/review/audit/phase-done for F0.
+- **Verbatim state:** HEAD=73ac0e101121c70ade4276e1c94e4e58fddeb49d; claimReport=.atomic-skills/status/automate/release-consistency-claims.json; complexReceipt=.atomic-skills/reviews/release-consistency-F0-T-002-complex-local.md; assert done ok at cursor E.
+- **Uncommitted changes:** initiative close + claim/receipt paths pending checkpoint commit.

@@ -1,0 +1,13 @@
+▶ save-and-push PR-only (F0/T-002)
+  ✔ skill HARD-GATE refuses push on default and references origin/HEAD asset (0.425625ms)
+  ✔ catalog pitches describe PR-only default-branch policy (0.580917ms)
+  ✔ generated docs/skills/save-and-push.md matches PR-only catalog pitch (0.135666ms)
+✔ save-and-push PR-only (F0/T-002) (1.539167ms)
+ℹ tests 3
+ℹ suites 1
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35.795833
