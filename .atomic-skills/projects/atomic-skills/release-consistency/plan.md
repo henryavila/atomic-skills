@@ -5,9 +5,9 @@ title: Release consistency — PR-only default branch + GH Release + npm stage
 version: "1.0"
 status: active
 started: 2026-09-13T16:27:44.146Z
-lastUpdated: 2026-09-13T16:28:04.776Z
+lastUpdated: 2026-09-24T23:05:56Z
 branch: plan/release-consistency
-currentPhase: F0
+currentPhase: F1
 executionMode: automate
 parallelismAllowed: false
 principles:
@@ -69,12 +69,20 @@ phases:
         - id: G-F0-1
           description: FAILS when save-and-push still offers push directly to main/master
             or lacks default-branch detection via origin/HEAD
-          status: pending
+          status: met
+          metAt: 2026-09-24T23:06:10Z
+          evidence:
+            verifierKind: shell
+            exitCode: 0
+            passed: true
+            verifiedAt: 2026-09-24T23:06:10Z
+            verifiedCommit: e51992971ee935a1db83c7050954c34a08a84621
+            outputSummary: "node --test save-and-push-pr-only + release-assets-contract exit 0 (5 pass)"
           verifier:
             kind: shell
             command: node --test tests/save-and-push-pr-only.test.js
               tests/release-assets-contract.test.js
-    status: active
+    status: done
     businessIntent:
       value: Agentes param de fazer push na default branch sem PR; a base
         compartilhada (default branch + conventional commits) e o save-and-push
@@ -90,6 +98,33 @@ phases:
       doneWhen: tests/release-assets-contract.test.js e
         tests/save-and-push-pr-only.test.js verdes; G-F0-1 passa; save-and-push
         nao oferece a opcao push directly to main.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-release-consistency-F0.md
+      at: e51992971ee935a1db83c7050954c34a08a84621
+      verifiedAt: 2026-09-24T22:58:02.409Z
+    lessonsState: none
+    noneReason: "clean F0 — evaluation notes only; operator ratified lessons none"
+    reviewGate:
+      status: passed
+      mode: both
+      overrideReason: "no external cross-model token on Grok host; dual-leg records local + external-unavailable"
+      reviewFile: .atomic-skills/reviews/release-consistency-F0-phase-review-local.md
+      localReceiptPath: .atomic-skills/reviews/release-consistency-F0-phase-review-local.md
+      codexReceiptPath: .atomic-skills/reviews/release-consistency-F0-phase-review-external-unavailable.md
+      at: e51992971ee935a1db83c7050954c34a08a84621
+      verifiedAt: 2026-09-24T23:06:51Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-09-24T23:05:32Z
+      packagePresentedAt: 2026-09-24T23:05:32Z
+      packagePath: .atomic-skills/reviews/release-consistency-F0-decision-package.md
+    deliveryAuditGate:
+      status: passed
+      verdict: CLOSED
+      reportPath: .atomic-skills/reviews/audit-delivery-release-consistency-F0.md
+      verifiedAt: 2026-09-24T23:05:32Z
     summary: Base compartilhada e save-and-push recusando push na default.
   - id: F1
     slug: release-consistency-f1-skill-release-chooser-templates

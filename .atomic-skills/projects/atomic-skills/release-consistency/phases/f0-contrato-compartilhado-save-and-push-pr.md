@@ -5,11 +5,11 @@ title: Contrato compartilhado + save-and-push PR-only
 goal: Extrair detecção de default branch e helpers de conventional commit para
   assets compartilhados; endurecer `save-and-push` para recusar push na default
   e abrir/instruir PR. Sem skill `release` ainda.
-status: active
+status: done
 branch: plan/release-consistency
 started: 2026-09-13T16:27:44.146Z
-lastUpdated: 2026-09-24T22:55:37Z
-nextAction: "Run automate Step F evaluation then phase-done gates for F0"
+lastUpdated: 2026-09-24T23:05:56Z
+nextAction: null
 parentPlan: release-consistency
 phaseId: F0
 businessIntent:
@@ -29,7 +29,7 @@ businessIntent:
     oferece a opcao push directly to main.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 5
 weightTotal: 5
@@ -37,12 +37,27 @@ exitGates:
   - id: G-F0-1
     description: FAILS when save-and-push still offers push directly to main/master
       or lacks default-branch detection via origin/HEAD
-    status: pending
+    status: met
+    metAt: 2026-09-24T23:00:52Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-24T23:00:52Z
+      verifiedCommit: e51992971ee935a1db83c7050954c34a08a84621
+      outputSummary: "/T-002)   ✔ skill HARD-GATE refuses push on default and
+        references origin/HEAD asset (0.5585ms)   ✔ catalog pitches describe
+        PR-only default-branch policy (0.863833ms)   ✔ generated
+        docs/skills/save-and-push.md matches PR-only catalog pitch (0.205792ms)
+        ✔ save-and-push PR-only (F0/T-002) (2.019292ms) ℹ tests 5 ℹ suites 2 ℹ
+        pass 5 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 ℹ todo 0 ℹ duration_ms
+        34.652166 "
     verifier:
       kind: shell
       command: node --test tests/save-and-push-pr-only.test.js
         tests/release-assets-contract.test.js
     verifierLabel: "shell: node --test tests/save-and-push-pr-only.test.js tests/relea…"
+    evidenceSummary: passed · 2026-09-24
 stack:
   - id: 1
     title: Contrato compartilhado + save-and-push PR-only
@@ -59,7 +74,7 @@ tasks:
       passed: true
       verifiedAt: 2026-09-24T22:55:37Z
       verifiedCommit: 73ac0e101121c70ade4276e1c94e4e58fddeb49d
-      outputSummary: "node --test exit 0 on merged plan tree"
+      outputSummary: node --test exit 0 on merged plan tree
     lastUpdated: 2026-09-13T16:27:44.146Z
     scopeBoundary:
       - do not edit skills/core/save-and-push.md in this task; do not add
@@ -92,7 +107,7 @@ tasks:
       passed: true
       verifiedAt: 2026-09-24T22:55:37Z
       verifiedCommit: 73ac0e101121c70ade4276e1c94e4e58fddeb49d
-      outputSummary: "node --test exit 0 on merged plan tree"
+      outputSummary: node --test exit 0 on merged plan tree
     lastUpdated: 2026-09-13T16:27:44.146Z
     scopeBoundary:
       - do not implement release skill; do not add auto-merge; do not mutate
@@ -125,7 +140,7 @@ emerged: []
 summary: Base compartilhada e save-and-push recusando push na default.
 planTitle: Release consistency — PR-only default branch + GH Release + npm stage
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -141,8 +156,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F0 writer merged; T-001 and T-002 closed via orchestrator done after claim-bound assert + complex disposition accept on T-002. Exit gate G-F0-1 and automate Step F–G remain.
-- **Decision log:** automate stamp; F0 ratify; T-002 complex disposition accept; claim paths include meta/catalog.json for product fence.
-- **Single nextAction:** Run automate Step F evaluation agent, then lessons/review/audit/phase-done for F0.
-- **Verbatim state:** HEAD=73ac0e101121c70ade4276e1c94e4e58fddeb49d; claimReport=.atomic-skills/status/automate/release-consistency-claims.json; complexReceipt=.atomic-skills/reviews/release-consistency-F0-T-002-complex-local.md; assert done ok at cursor E.
-- **Uncommitted changes:** initiative close + claim/receipt paths pending checkpoint commit.
+- **Narrative:** F0 phase-done complete under automate (evaluation/lessons none/review local+override/decision-review PASS/delivery audit CLOSED). Cursor will pause at awaiting-operator-advance before F1.
+- **Decision log:** See decisions/F0.jsonl; complex T-002 accept; cross-model skipped via override.
+- **Single nextAction:** present phase-start package for F1 validate-only (after operator-continue).
+- **Verbatim state:** HEAD=e51992971ee935a1db83c7050954c34a08a84621; evaluationGate+deliveryAuditGate stamped; G-F0-1 met.
+- **Uncommitted changes:** phase-done state checkpoint pending.
