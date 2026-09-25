@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync, readFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,7 @@ import {
   pathInsideWorktree,
   penMatcher,
   resolveAutomateHost,
+  resolvePenHookScript,
 } from '../src/automate-host-pen.js';
 import { runHostWriteProbe, runSyntheticProbe } from '../scripts/automate-run.js';
 
@@ -178,6 +179,75 @@ describe('automate host pen', () => {
     );
   });
 
+  it('expands nested Grok ${VAR:-default} from the inside out', () => {
+    const cmd =
+      'bash "${GROK_PLUGIN_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}/.grok/plugins/atomic-skills}/_assets/hooks/automate-pen.sh"';
+    const root = '/repo/root';
+    assert.equal(
+      resolvePenHookScript(cmd, root, { CLAUDE_PROJECT_DIR: root }),
+      join(root, '.grok/plugins/atomic-skills/_assets/hooks/automate-pen.sh'),
+    );
+    assert.equal(
+      resolvePenHookScript(cmd, root, {}),
+      join(root, '.grok/plugins/atomic-skills/_assets/hooks/automate-pen.sh'),
+    );
+    assert.equal(
+      resolvePenHookScript(cmd, root, { GROK_PLUGIN_ROOT: '/opt/as', CLAUDE_PROJECT_DIR: root }),
+      join('/opt/as', '_assets/hooks/automate-pen.sh'),
+    );
+  });
+
+  it('rejects same-basename spoof paths and syntax-only bash flags', () => {
+    const trusted = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
+    assert.equal(extractPenHookScriptToken('bash /tmp/evil/automate-pen.sh'), null);
+    assert.equal(resolvePenHookScript('bash /tmp/evil/automate-pen.sh', ROOT, {}), null);
+    assert.equal(
+      extractPenHookScriptToken('bash /tmp/evil/.atomic-skills/status/hooks/automate-pen.sh'),
+      '/tmp/evil/.atomic-skills/status/hooks/automate-pen.sh',
+    );
+    assert.equal(
+      resolvePenHookScript(
+        'bash /tmp/evil/.atomic-skills/status/hooks/automate-pen.sh',
+        ROOT,
+        {},
+      ),
+      null,
+    );
+    assert.equal(extractPenHookScriptToken(`bash -n "${trusted}"`), null);
+    assert.equal(resolvePenHookScript(`bash -n "${trusted}"`, ROOT, {}), null);
+    assert.equal(extractPenHookScriptToken(`bash "${trusted}"`), trusted);
+    assert.equal(resolvePenHookScript(`bash "${trusted}"`, ROOT, {}), trusted);
+    const spoof = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: penMatcher(),
+            hooks: [{ command: 'bash /tmp/evil/automate-pen.sh' }],
+          },
+        ],
+      },
+    };
+    const result = assessPenRegistration('codex', spoof, ROOT, {});
+    assert.equal(result.ok, false);
+    assert.match(result.reason, /automate-pen\.sh/);
+  });
+
+  it('lists a blocker when PreToolUse contains a null entry instead of throwing', () => {
+    const hooks = registered();
+    hooks.hooks.PreToolUse.unshift(null);
+    hooks.hooks.PreToolUse[1].hooks.unshift(null);
+    const mixed = assessPenRegistration('codex', hooks);
+    assert.equal(mixed.ok, true);
+    const onlyNull = {
+      hooks: {
+        PreToolUse: [null, { matcher: penMatcher(), hooks: [null] }],
+      },
+    };
+    const blocked = assessPenRegistration('codex', onlyNull);
+    assert.equal(blocked.ok, false);
+    assert.match(blocked.reason, /automate-pen\.sh/);
+  });
+
   it('parses apply_patch paths and only allows in-tree hunks', () => {
     const inTree = '*** Begin Patch\n*** Update File: src/a.js\n@@\n+x\n*** End Patch\n';
     const outOfTree = '*** Begin Patch\n*** Update File: /etc/passwd\n@@\n+x\n*** End Patch\n';
@@ -191,6 +261,7 @@ describe('automate host pen', () => {
         toolName: 'apply_patch',
         patch: inTree,
         writerWorktree: '/work',
+        hostCwd: '/work',
       }).deny,
       false,
     );
@@ -200,6 +271,7 @@ describe('automate host pen', () => {
         toolName: 'apply_patch',
         patch: outOfTree,
         writerWorktree: '/work',
+        hostCwd: '/work',
       }).deny,
       true,
     );
@@ -209,9 +281,93 @@ describe('automate host pen', () => {
         toolName: 'apply_patch',
         patch: mixed,
         writerWorktree: '/work',
+        hostCwd: '/work',
       }).deny,
       true,
     );
+  });
+
+  it('ignores dummy apply_patch filePath and denies opaque or unknown hunk headers', () => {
+    const dummy = '/work/innocent.js';
+    const opaque = 'this is not a patch\nbut it is non-empty\n';
+    assert.deepEqual(parseApplyPatchPaths(opaque), []);
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'apply_patch',
+        filePath: dummy,
+        patch: opaque,
+        writerWorktree: '/work',
+        hostCwd: '/work',
+      }).deny,
+      true,
+    );
+    const unknown = '*** Begin Patch\n*** Frobnicate: /work/a.js\n*** End Patch\n';
+    assert.deepEqual(parseApplyPatchPaths(unknown), []);
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'apply_patch',
+        filePath: dummy,
+        patch: unknown,
+        writerWorktree: '/work',
+        hostCwd: '/work',
+      }).deny,
+      true,
+    );
+    const updateShort = '*** Begin Patch\n*** Update: src/a.js\n@@\n+x\n*** End Patch\n';
+    assert.deepEqual(parseApplyPatchPaths(updateShort), ['src/a.js']);
+    const rename = '*** Begin Patch\n*** Rename File: src/old.js -> src/a.js\n*** End Patch\n';
+    assert.deepEqual(parseApplyPatchPaths(rename), ['src/old.js', 'src/a.js']);
+  });
+
+  it('resolves relative write paths against host cwd, not the writer worktree', () => {
+    const writer = '/tmp/writer-wt';
+    const planRepo = '/tmp/plan-repo';
+    assert.equal(pathInsideWorktree('src/a.js', writer, planRepo), false);
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'Write',
+        filePath: 'src/a.js',
+        writerWorktree: writer,
+        hostCwd: planRepo,
+      }).deny,
+      true,
+    );
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'Write',
+        filePath: 'src/a.js',
+        writerWorktree: writer,
+        hostCwd: writer,
+      }).deny,
+      false,
+    );
+  });
+
+  it('denies a write that walks a symlink out of the worktree', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pen-sym-'));
+    const outside = mkdtempSync(join(tmpdir(), 'pen-out-'));
+    writeFileSync(join(outside, 'secret.js'), 'nope\n');
+    symlinkSync(outside, join(dir, 'escape'));
+    symlinkSync('/etc', join(dir, 'etc'));
+    assert.equal(pathInsideWorktree(join(dir, 'a.js'), dir, dir), true);
+    assert.equal(pathInsideWorktree(join(dir, 'escape', 'secret.js'), dir, dir), false);
+    assert.equal(pathInsideWorktree(join(dir, 'etc', 'passwd'), dir, dir), false);
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'Write',
+        filePath: join(dir, 'escape', 'secret.js'),
+        writerWorktree: dir,
+        hostCwd: dir,
+      }).deny,
+      true,
+    );
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
   });
 
   it('hook exits 2 for a Codex patch while the lock is held, and 0 without it', () => {
@@ -544,6 +700,49 @@ ${line}
     assert.equal(result.ok, false);
     assert.match(result.reason, /did not prove/);
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('host-shaped probe rejects same-basename spoof and bash -n', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'host-basename-'));
+    mkdirSync(join(dir, '.codex'), { recursive: true });
+    const evilDir = mkdtempSync(join(tmpdir(), 'evil-pen-'));
+    const evil = join(evilDir, 'automate-pen.sh');
+    writeFileSync(evil, '#!/bin/bash\nexit 2\n');
+    writeFileSync(
+      join(dir, '.codex/hooks.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: penMatcher(),
+              hooks: [{ command: `bash "${evil}"` }],
+            },
+          ],
+        },
+      }),
+    );
+    const spoof = runHostWriteProbe('codex', dir);
+    assert.equal(spoof.ok, false);
+    assert.match(spoof.reason, /did not prove/);
+    const script = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
+    writeFileSync(
+      join(dir, '.codex/hooks.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: penMatcher(),
+              hooks: [{ command: `bash -n "${script}"` }],
+            },
+          ],
+        },
+      }),
+    );
+    const flagged = runHostWriteProbe('codex', dir);
+    assert.equal(flagged.ok, false);
+    assert.match(flagged.reason, /did not prove/);
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(evilDir, { recursive: true, force: true });
   });
 
   it('startup probes use a unique lock and do not delete leftover probe.lock or sentinel', () => {
