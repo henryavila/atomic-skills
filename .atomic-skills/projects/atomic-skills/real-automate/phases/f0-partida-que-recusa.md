@@ -14,9 +14,8 @@ goal: "`--automate` deixa de ser a sessão que escreve. O programa recusa sem
 status: active
 branch: plan/real-automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-09-25T22:13:15.130Z
-nextAction: Run evaluation agent, review-code --mode=both, audit-delivery, then
-  phase-done for F0.
+lastUpdated: 2026-09-25T22:29:38.032Z
+nextAction: Run done T-002 (Registro no plugin Grok e no setup) after claim-bound assert.
 parentPlan: real-automate
 phaseId: F0
 businessIntent:
@@ -47,11 +46,11 @@ businessIntent:
     recusada e não cria arquivo, e node scripts/automate-run.js --host codex
     --plan num fixture plan.md sem flow sai com exit 1 citando automate-pen.sh e
     find-missing-architecture.js.
-tasksDone: 3
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 3
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -80,7 +79,7 @@ tasks:
       Sem lock, exit 0. O lock de prova é `probe.lock`, não `pen.lock`.
       Verifier: `node --test tests/automate-host-pen.test.js`."
     status: done
-    lastUpdated: 2026-09-25T22:13:13.113Z
+    lastUpdated: 2026-09-25T22:29:38.032Z
     outputs:
       - kind: file
         path: src/automate-host-pen.js
@@ -111,11 +110,11 @@ tasks:
       kind: shell
       command: node --test tests/automate-host-pen.test.js
       expectExitCode: 0
-    closedAt: 2026-09-25T22:13:13.113Z
+    closedAt: 2026-09-25T22:29:38.032Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-09-25T22:13:13.113Z
-      verifiedCommit: ed6902184329b694da4354bb625dfda4198c642c
+      verifiedAt: 2026-09-25T22:29:38.032Z
+      verifiedCommit: e829cf055b0d6285fe3f43580cbdc084993cfadc
       passed: true
       exitCode: 0
       outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
@@ -130,8 +129,8 @@ tasks:
       trocar o matcher dele. O matcher da caneta inclui `apply_patch`, `Bash`,
       `shell` e `run_terminal_command`, além das ferramentas de arquivo.
       Verifier: `node --test tests/automate-host-pen.test.js`."
-    status: done
-    lastUpdated: 2026-09-25T22:13:14.130Z
+    status: active
+    lastUpdated: 2026-09-25T22:19:08.619Z
     outputs:
       - kind: file
         path: src/providers/skills-file-set.js
@@ -159,17 +158,6 @@ tasks:
       kind: shell
       command: node --test tests/automate-host-pen.test.js
       expectExitCode: 0
-    closedAt: 2026-09-25T22:13:14.130Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-09-25T22:13:14.130Z
-      verifiedCommit: 4fd01612fff6d8eafe2b7aeb2cd41e3224b89ede
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
-        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
-        probe.lock, --require-external, host-shaped write probe, fixture
-        refusal."
   - id: T-003
     title: Partida que lista o que falta
     description: "`scripts/automate-run.js --host <claude-code|codex|grok> --plan
@@ -180,8 +168,8 @@ tasks:
       bloqueios e não cria `pen.lock`. Verifier: `node scripts/automate-run.js
       --host codex --plan <fixture plan.md sem flow>` sai 1 citando
       `automate-pen.sh` e `find-missing-architecture.js`."
-    status: done
-    lastUpdated: 2026-09-25T22:13:15.130Z
+    status: active
+    lastUpdated: 2026-09-25T22:19:08.619Z
     outputs:
       - kind: file
         path: scripts/automate-run.js
@@ -218,17 +206,6 @@ tasks:
       kind: shell
       command: node --test tests/automate-host-pen.test.js
       expectExitCode: 0
-    closedAt: 2026-09-25T22:13:15.130Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-09-25T22:13:15.130Z
-      verifiedCommit: 3f0c46a19845d9d4a0fa8a2954d09805d644a6cd
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
-        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
-        probe.lock, --require-external, host-shaped write probe, fixture
-        refusal."
 parked: []
 emerged: []
 planTitle: real-automate
@@ -254,5 +231,6 @@ _(plan doc, external refs)_
 - **Single nextAction:** Run `assert-automate-gate --gate spawn` then `automate-phase-run.js prepare` for F0 and spawn one code-only phase writer.
 - **Verbatim state:** plan `.atomic-skills/projects/atomic-skills/real-automate/plan.md`; initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/f0-partida-que-recusa.md`; branch `plan/real-automate`; worktree `/Volumes/External/code/atomic-skills/.worktrees/real-automate`; flow `find-missing-flow.js --strict` exit 0.
 - **Uncommitted changes:** clean tree after this checkpoint (SPEC fill, executionMode stamp, maestro cursor, decision log, GT fp restamp).
+
 
 
