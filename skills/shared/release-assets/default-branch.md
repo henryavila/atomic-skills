@@ -2,8 +2,8 @@
 
 Canonical procedure for resolving the repository **default branch** (the
 integration / protected branch). Consumed by `save-and-push` (PR-only HARD-GATE)
-and by the future `release` skill. Prefer this asset over hardcoding `main` or
-`master`.
+and by the `release` skill / `scripts/release/release.js` ship gate. Prefer this
+asset over hardcoding `main` or `master`.
 
 ## Resolution order
 
@@ -13,8 +13,10 @@ Resolve once per invocation; reuse the same name for every gate in that run.
    ```bash
    git symbolic-ref refs/remotes/origin/HEAD
    ```
-   Typical output: `refs/remotes/origin/main`. Take the basename after the last
-   `/` → e.g. `main`. That name is the default branch even when it is neither
+   Typical output: `refs/remotes/origin/main`. Strip the prefix
+   `refs/remotes/origin/` and keep the remainder, including further slashes.
+   `refs/remotes/origin/main` → `main`. `refs/remotes/origin/release/stable` →
+   `release/stable`. That name is the default branch even when it is neither
    `main` nor `master` (e.g. `develop`).
 
 2. **Fallback when `origin/HEAD` is missing or unresolvable.** Try, in order,
@@ -26,7 +28,7 @@ Resolve once per invocation; reuse the same name for every gate in that run.
    `refs/remotes/origin/<name>`.
 
 3. **If nothing resolves:** surface the failure. Do **not** invent a branch
-   name and do **not** treat the current branch as “safe to push” by default.
+   name and do **not** treat the current branch as safe to push or ship.
 
 ## Policy note
 

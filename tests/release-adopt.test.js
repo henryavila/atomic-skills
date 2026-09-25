@@ -1,10 +1,19 @@
 /**
  * T-005 — stage/GH-only templates + adopt contract.
  */
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync, existsSync } from 'node:fs';
+import {
+  readFileSync,
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { createAdopt } from '../scripts/release/adopt.js';
 
 const ROOT = process.cwd();
 const STAGE = join(ROOT, 'skills/shared/release-assets/templates/publish-stage.yml');
@@ -107,10 +116,97 @@ describe('adopt.md + release skill pointer', () => {
     assert.match(md, /diff/i);
     assert.match(md, /consent/i);
     assert.match(md, /MUST/);
+    assert.match(md, /scripts\/release\/adopt\.js/);
   });
 
   it('release.md points at adopt', () => {
     const md = readFileSync(RELEASE_SKILL, 'utf8');
     assert.match(md, /release-assets\/adopt\.md/);
+  });
+});
+
+describe('adopt.js CLI — check / write', () => {
+  let root;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'as-adopt-'));
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('check exits 1 when target is missing', () => {
+    const cli = createAdopt({ root, templateName: 'stage' });
+    let out = '';
+    const code = cli.run(['--check'], {
+      stdout: { write: (s) => { out += s; } },
+      stderr: { write: () => {} },
+    });
+    assert.equal(code, 1);
+    assert.match(out, /status:\s+missing/);
+    assert.match(out, /publish-stage@v1/);
+  });
+
+  it('check exits 0 when target matches pinned template', () => {
+    mkdirSync(join(root, '.github/workflows'), { recursive: true });
+    writeFileSync(join(root, '.github/workflows/publish.yml'), readFileSync(STAGE, 'utf8'));
+    const cli = createAdopt({ root, templateName: 'stage' });
+    let out = '';
+    const code = cli.run(['--check'], {
+      stdout: { write: (s) => { out += s; } },
+      stderr: { write: () => {} },
+    });
+    assert.equal(code, 0);
+    assert.match(out, /status:\s+match/);
+  });
+
+  it('check exits 1 on drift', () => {
+    mkdirSync(join(root, '.github/workflows'), { recursive: true });
+    writeFileSync(
+      join(root, '.github/workflows/publish.yml'),
+      'name: drifted\non:\n  release:\n    types: [published]\n',
+    );
+    const cli = createAdopt({ root, templateName: 'stage' });
+    const code = cli.run(['--check'], {
+      stdout: { write: () => {} },
+      stderr: { write: () => {} },
+    });
+    assert.equal(code, 1);
+    assert.equal(cli.inspect().status, 'drift');
+  });
+
+  it('refuses --write without --check when missing', () => {
+    const cli = createAdopt({ root, templateName: 'stage' });
+    let err = '';
+    const code = cli.run(['--write'], {
+      stdout: { write: () => {} },
+      stderr: { write: (s) => { err += s; } },
+    });
+    assert.equal(code, 1);
+    assert.match(err, /refuse write without --check/i);
+    assert.equal(existsSync(join(root, '.github/workflows/publish.yml')), false);
+  });
+
+  it('refuses --check --write without --diff when missing', () => {
+    const cli = createAdopt({ root, templateName: 'stage' });
+    let err = '';
+    const code = cli.run(['--check', '--write'], {
+      stdout: { write: () => {} },
+      stderr: { write: (s) => { err += s; } },
+    });
+    assert.equal(code, 1);
+    assert.match(err, /refuse write without --diff/i);
+    assert.equal(existsSync(join(root, '.github/workflows/publish.yml')), false);
+  });
+
+  it('writes template bytes with --check --diff --write', () => {
+    const cli = createAdopt({ root, templateName: 'stage' });
+    const code = cli.run(['--check', '--diff', '--write'], {
+      stdout: { write: () => {} },
+      stderr: { write: () => {} },
+    });
+    assert.equal(code, 0);
+    const target = join(root, '.github/workflows/publish.yml');
+    assert.equal(existsSync(target), true);
+    assert.equal(readFileSync(target, 'utf8'), readFileSync(STAGE, 'utf8'));
   });
 });

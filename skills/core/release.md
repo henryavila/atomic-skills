@@ -9,12 +9,12 @@ If {{ARG_VAR}} was provided, treat it as a subcommand hint (`plan` | `apply` |
 
 NO BUMP WITHOUT THE CHOOSER.
 Never invent patch/minor/major by hand. The next version comes only from
-`scripts/release/semver-bump.js` via `scripts/release/release.js` (plan → apply →
-ship). Feature / Added / Changed is **minor**, not patch.
+`scripts/release/semver-bump.js` via the package-root `release.js` command below
+(plan → apply → ship). Feature / Added / Changed is **minor**, not patch.
 
 <HARD-GATE>
 Before `--apply` or `--ship`:
-1. Run `node scripts/release/release.js` (or `--json`) and read `kind` / `next`.
+1. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/release.js" --root "$PWD"` (or add `--json`) and read `kind` / `next`.
 2. If `kind` is `none`: STOP. There is nothing to release — do not invent a bump.
 3. Do **not** edit `package.json` version or invent a tag without `--apply`.
 4. Do **not** run `npm publish` / `pnpm publish` / bare registry publish as the
@@ -51,7 +51,7 @@ the operator did not pass an explicit npm opt-out (e.g. `--no-npm`).
 | Situation | Path |
 |-----------|------|
 | No npm in scope | GitHub Release (+ tag + CHANGELOG notes) **only** |
-| npm in scope **and** stage Action adopted (template pin-check OK) | GH Release → Action **`npm stage publish`** → human `stage approve` (2FA on npm UI) |
+| npm in scope **and** stage Action adopted (workflow body runs `stage publish`, no bare `npm publish`) | GH Release → Action **`npm stage publish`** → human `stage approve` (2FA on npm UI) |
 | npm in scope **and** Action missing or not stage-only | **Refuse** ship that would imply npm publish; offer **adopt** of the stage template. Do not invent local `npm publish`. GH-only despite a public package requires explicit operator opt-out for that ship |
 
 ## Process
@@ -59,8 +59,8 @@ the operator did not pass an explicit npm opt-out (e.g. `--no-npm`).
 ### 1. Plan
 
 ```sh
-node scripts/release/release.js
-node scripts/release/release.js --json
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/release.js" --root "$PWD"
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/release.js" --root "$PWD" --json
 ```
 
 Report `bump`, `next`, and `reasons`. If `kind` is `none`, stop.
@@ -72,7 +72,7 @@ Run the repo's test/typecheck suite. Fix failures before apply.
 ### 3. Apply
 
 ```sh
-node scripts/release/release.js --apply
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/release.js" --root "$PWD" --apply
 ```
 
 Rewrites `package.json` version and, when `CHANGELOG.md` with `## [Unreleased]`
@@ -83,12 +83,14 @@ is present, moves Unreleased into `## [next] - date`. Commit the bump
 ### 4. Ship
 
 ```sh
-node scripts/release/release.js --ship
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/release.js" --root "$PWD" --ship
 ```
 
 Requires a clean tree and notes under `## [X.Y.Z]` (when CHANGELOG exists).
 Creates the annotated tag, pushes, and `gh release create`. It does **not**
-`npm publish`. Refuses when `kind` is `none` or the version is already on npm.
+`npm publish`. Refuses when `kind` is `none`, the version is already on npm,
+HEAD is the default branch, or npm is in scope without a stage Action (unless
+`--no-npm`).
 
 ### 5. After GitHub Release (npm in scope)
 

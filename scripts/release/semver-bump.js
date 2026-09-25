@@ -77,7 +77,15 @@ export function cmpVersion(a, b) {
 }
 
 export function maxVersion(versions) {
-  const parsed = [...versions].filter(Boolean).map((v) => parseVersion(v).raw);
+  const parsed = [];
+  for (const version of versions) {
+    if (!version) continue;
+    try {
+      parsed.push(parseVersion(version).raw);
+    } catch {
+      // Prerelease and non-semver names are not a stable baseline.
+    }
+  }
   if (parsed.length === 0) return null;
   parsed.sort(cmpVersion);
   return parsed[parsed.length - 1] ?? null;

@@ -19,6 +19,9 @@ describe('release-assets contract (F0/T-001)', () => {
     const text = readFileSync(DEFAULT_BRANCH, 'utf8');
     assert.match(text, /origin\/HEAD/);
     assert.match(text, /symbolic-ref\s+refs\/remotes\/origin\/HEAD/);
+    assert.match(text, /refs\/remotes\/origin\//);
+    assert.match(text, /release\/stable/);
+    assert.doesNotMatch(text, /basename after the last/);
     assert.match(text, /main/);
     assert.match(text, /master/);
   });

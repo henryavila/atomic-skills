@@ -1,8 +1,8 @@
 # Conventional commits — shared release asset
 
 Commit-message contract shared by `save-and-push` (session close / push) and
-the future `release` skill (semver chooser / CHANGELOG). Agents MUST use these
-prefixes so release classification stays deterministic.
+the `release` skill / `scripts/release` chooser (semver / CHANGELOG). Agents
+MUST use these prefixes so release classification stays deterministic.
 
 ## Prefixes (type)
 
@@ -31,7 +31,8 @@ as breaking evidence (see mapping below).
 
 ## Semver / release mapping (chooser input)
 
-When a future `release` chooser classifies commits since the last release:
+When the `release` chooser (`scripts/release/semver-bump.js`) classifies
+commits since the last release:
 
 | Evidence | Bump kind |
 |----------|-----------|

@@ -7,6 +7,7 @@ import {
   bumpVersion,
   classifyBump,
   extractReleaseNotes,
+  maxVersion,
   parseUnreleased,
   rewriteChangelog,
 } from '../scripts/release/semver-bump.js';
@@ -39,6 +40,13 @@ describe('parseUnreleased', () => {
       fixed: ['Pulso do metrônomo'],
       security: [],
     });
+  });
+});
+
+describe('maxVersion', () => {
+  it('keeps the highest x.y.z and ignores prerelease and non-semver tags', () => {
+    assert.equal(maxVersion(['1.0.0-beta.1', '1.0.0', 'nightly']), '1.0.0');
+    assert.equal(maxVersion(['1.0.0-beta.1', 'nightly']), null);
   });
 });
 

@@ -108,7 +108,7 @@ describe('refuse ship when Action missing without GH-only opt-out', () => {
     assert.match(text, /npm publish[\s\S]{0,80}happy path|happy path[\s\S]{0,80}npm publish/i);
   });
 
-  it('fixture without stage Action is detectable as adopt/refuse case', () => {
+  it('ship() refuses when npm in scope and stage Action is missing', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'as-hygiene-no-action-'));
     try {
       // Public package + CHANGELOG, but no adopted publish.yml → Action missing.
@@ -117,7 +117,7 @@ describe('refuse ship when Action missing without GH-only opt-out', () => {
         JSON.stringify(
           {
             name: '@example/missing-stage-action',
-            version: '0.1.0',
+            version: '0.2.0',
             private: false,
             repository: {
               type: 'git',
@@ -130,35 +130,29 @@ describe('refuse ship when Action missing without GH-only opt-out', () => {
       );
       writeFileSync(
         join(tmp, 'CHANGELOG.md'),
-        `# Changelog\n\n## [Unreleased]\n\n### Added\n- Thing\n\n## [0.1.0] - 2026-01-01\n\n### Added\n- Initial\n`,
+        `# Changelog\n\n## [Unreleased]\n\n## [0.2.0] - 2026-09-24\n\n### Added\n- Thing\n\n## [0.1.0] - 2026-01-01\n\n### Added\n- Initial\n`,
       );
 
       const workflow = join(tmp, '.github/workflows/publish.yml');
       assert.equal(existsSync(workflow), false, 'Action must be missing in this probe');
 
-      const pkg = JSON.parse(readFileSync(join(tmp, 'package.json'), 'utf8'));
-      const npmInScope = Boolean(pkg) && pkg.private !== true;
-      assert.equal(npmInScope, true);
-
-      const stageAdopted =
-        existsSync(workflow) &&
-        /stage\s+publish/.test(readFileSync(workflow, 'utf8'));
-      assert.equal(stageAdopted, false);
-
-      // Contract probe: without explicit GH-only / --no-npm opt-out, ship that
-      // would imply npm must be refused and adopt offered (skill dual-mode D4).
-      const skill = readFileSync(RELEASE_SKILL, 'utf8');
-      assert.match(
-        skill,
-        /npm in scope \*\*and\*\* Action missing[\s\S]*?\*\*Refuse\*\*\s+ship/i,
-      );
-      assert.match(skill, /explicit operator opt-out|GH-only despite|--no-npm/i);
-
-      // Chooser still plans — refusal is the ship/distribution gate, not plan.
-      const cli = makeCli(tmp);
+      const cli = makeCli(tmp, {
+        commits: ['feat: add thing'],
+        npmLatest: '0.1.0',
+        npmVersions: ['0.1.0'],
+        gitTags: ['0.1.0'],
+        githubReleases: ['0.1.0'],
+        currentBranch: 'release/0.2.0',
+        defaultBranch: 'main',
+      });
       const facts = cli.collect();
       assert.equal(facts.plan.kind, 'minor');
-      assert.equal(facts.plan.next, '0.2.0');
+      assert.throws(
+        () => cli.ship(facts, { dryRun: true }),
+        /stage Action is missing|Refuse ship|adopt/i,
+      );
+      const allowed = cli.ship(facts, { dryRun: true, noNpm: true });
+      assert.equal(allowed.tag, 'v0.2.0');
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

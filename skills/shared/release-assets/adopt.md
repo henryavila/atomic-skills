@@ -21,7 +21,16 @@ Target path default: `.github/workflows/publish.yml` (ask if another name is req
 ## MUST — check → diff → consent → write
 
 Every adopt/init apply **MUST** follow this order. Skipping any step is a
-protocol violation.
+protocol violation. Prefer the executable CLI (exit non-zero on missing/drift):
+
+```sh
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/adopt.js" --root "$PWD" --check [--template stage|gh-only] [--target path]
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/adopt.js" --root "$PWD" --diff  [...]
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/adopt.js" --root "$PWD" --check --diff --write [...]   # --write = explicit consent
+```
+
+When status is `missing` or `drift`, `--write` **refuses** unless both `--check` and
+`--diff` are passed in the same invocation (CLI stand-in for the triad).
 
 ### 1. Dry-run / `--check` with template pin
 
@@ -40,7 +49,7 @@ adopt --check
   status:   missing | match | drift
 ```
 
-Exit the check without writing.
+Exit the check without writing. CLI exit **0** on match, **1** on missing/drift.
 
 ### 2. Show diff
 
