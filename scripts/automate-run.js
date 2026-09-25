@@ -197,7 +197,7 @@ function hostShapedWrite(args) {
     parsed = null;
   }
   const command = penHookCommand(parsed);
-  if (!command || !assessPenRegistration(host, parsed).ok) {
+  if (!command || !assessPenRegistration(host, parsed, root).ok) {
     emit();
     return;
   }
@@ -332,7 +332,7 @@ function main() {
       } catch {
         parsed = null;
       }
-      const pen = assessPenRegistration(host, parsed);
+      const pen = assessPenRegistration(host, parsed, root);
       if (!pen.ok) blockers.push(pen.reason);
     }
   }

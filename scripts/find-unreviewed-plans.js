@@ -27,11 +27,14 @@
  * CLI:  node scripts/find-unreviewed-plans.js [<repo|.atomic-skills|plan.md|plan-dir>]
  *       (defaults to cwd)
  *       --require-external  also require a real external review CLI receipt
- *                           (command=, exit=0, verdict=CLEAN|PASS|PASSED|ok).
+ *                           (command=/cli=, exit=0, verdict=CLEAN|PASS|PASSED).
  *                           `- internal:`, `- cross-model:`, and
  *                           `- ground-truth:` do not count. A line with the
  *                           tokens is not enough if exit≠0 or the verdict is
- *                           not a pass token.
+ *                           not a pass token. Field names must be assignments
+ *                           (`(?:^|[|,]\\s*)key\\s*=`); embedded `--exit=0` or
+ *                           `note=exit=0` do not count. Exactly one exit and
+ *                           one verdict.
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
@@ -39,11 +42,34 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { parseFrontmatter } from './validate-state.js';
 
 /**
+ * Parse `key=value` assignments separated by start / `|` / `,`.
+ * Does not treat `note=exit=0` or `--exit=0` as an `exit` field.
+ * @param {string} rest
+ * @returns {Record<string, string[]>}
+ */
+function parseReceiptFields(rest) {
+  const re = /(?:^|[|,])\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/g;
+  const matches = [...String(rest).matchAll(re)];
+  /** @type {Record<string, string[]>} */
+  const fields = {};
+  for (let i = 0; i < matches.length; i++) {
+    const key = matches[i][1].toLowerCase();
+    const valueStart = matches[i].index + matches[i][0].length;
+    const valueEnd = i + 1 < matches.length ? matches[i + 1].index : rest.length;
+    const value = String(rest).slice(valueStart, valueEnd).trim();
+    if (!fields[key]) fields[key] = [];
+    fields[key].push(value);
+  }
+  return fields;
+}
+
+/**
  * A session-written `- internal:`, `- cross-model:`, or `- ground-truth:` line
  * is not an external review CLI receipt. The CLI receipt must name a process
- * (`command=` / `cli=`), `exit=0`, and a pass `verdict=` (CLEAN/PASS/PASSED/ok).
- * Token presence is not enough: `exit=127 verdict=CLEAN` and
- * `verdict=needs_changes` fail.
+ * (`command=` / `cli=`), exactly one `exit=0`, and exactly one pass `verdict=`
+ * (CLEAN/PASS/PASSED). Token presence is not enough: `exit=127 verdict=CLEAN`
+ * and `verdict=needs_changes` fail. `note=exit=0` and `--exit=0` inside the
+ * command string do not count as field assignments.
  * @param {string} line
  * @returns {boolean}
  */
@@ -56,13 +82,17 @@ export function isExternalCliReceiptLine(line) {
   if (/^ground-truth$/i.test(label)) return false;
   if (/^cross-model(\s|$|\()/i.test(label)) return false;
   const rest = line.slice(match[0].length);
-  const hasCommand = /\b(command|cli)\s*=\s*\S/i.test(rest);
-  const exitMatch = rest.match(/\bexit\s*=\s*(-?\d+)/i);
-  const verdictMatch = rest.match(/\bverdict\s*=\s*([^\s|,]+)/i);
-  if (!hasCommand || !exitMatch || !verdictMatch) return false;
-  if (Number(exitMatch[1]) !== 0) return false;
-  const verdict = verdictMatch[1].replace(/[.,;]+$/, '');
-  return /^(CLEAN|PASS|PASSED|ok)$/i.test(verdict);
+  const fields = parseReceiptFields(rest);
+  const commands = [...(fields.command || []), ...(fields.cli || [])].filter(
+    (value) => value !== '',
+  );
+  const exits = fields.exit || [];
+  const verdicts = fields.verdict || [];
+  if (commands.length < 1) return false;
+  if (exits.length !== 1 || verdicts.length !== 1) return false;
+  if (!/^-?\d+$/.test(exits[0]) || Number(exits[0]) !== 0) return false;
+  const verdict = verdicts[0].replace(/[.,;]+$/, '');
+  return /^(CLEAN|PASS|PASSED)$/i.test(verdict);
 }
 
 /**
@@ -210,7 +240,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const why = r.reason === 'no-reviews-section'
       ? 'no `## Reviews` section'
       : r.reason === 'no-external-cli-receipt'
-        ? '`## Reviews` has no external CLI receipt (command=, exit=0, verdict=CLEAN|PASS|PASSED|ok); `- internal:`, `- cross-model:`, and `- ground-truth:` do not count'
+        ? '`## Reviews` has no external CLI receipt (command=, exit=0, verdict=CLEAN|PASS|PASSED); `- internal:`, `- cross-model:`, and `- ground-truth:` do not count'
         : '`## Reviews` present but no `- internal:` line';
     console.log(`  ${r.projectId}/${r.planSlug}/${r.planFile}: ${why}`);
   }

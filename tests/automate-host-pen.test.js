@@ -641,7 +641,53 @@ ${line}
       ['--require-external'],
       receipt('- grok: command=grok review --plan plan.md | exit=0 | verdict=ok | stderr='),
     );
-    assert.equal(okVerdict.status, 0, okVerdict.stdout + okVerdict.stderr);
+    assert.equal(okVerdict.status, 1);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('find-unreviewed-plans --require-external rejects spoofed field assignments', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'unrev-spoof-'));
+    const plan = join(dir, 'plan.md');
+    const script = join(ROOT, 'scripts/find-unreviewed-plans.js');
+    const run = (args, body) => {
+      writeFileSync(plan, body);
+      return spawnSync(process.execPath, [script, ...args, plan], { encoding: 'utf8' });
+    };
+    const receipt = (line) => `---
+slug: fixture
+status: active
+---
+
+# fixture
+
+## Reviews
+
+- internal: session-written
+${line}
+`;
+    const noFlag = run([], receipt('- internal: still counts without the flag'));
+    assert.equal(noFlag.status, 0, noFlag.stdout + noFlag.stderr);
+    const noteSpoof = run(
+      ['--require-external'],
+      receipt('- grok: note=exit=0 verdict=PASS | command=missing | exit=127 verdict=FAIL'),
+    );
+    assert.equal(noteSpoof.status, 1);
+    assert.match(`${noteSpoof.stdout}${noteSpoof.stderr}`, /external CLI review receipt/);
+    const flagInCommand = run(
+      ['--require-external'],
+      receipt('- grok: command=tool --exit=0 --verdict=PASS | verdict=CLEAN'),
+    );
+    assert.equal(flagInCommand.status, 1);
+    const twoExits = run(
+      ['--require-external'],
+      receipt('- grok: command=grok review --plan plan.md | exit=0 | exit=1 | verdict=CLEAN'),
+    );
+    assert.equal(twoExits.status, 1);
+    const clean = run(
+      ['--require-external'],
+      receipt('- grok: command=grok review --plan plan.md | exit=0 | verdict=CLEAN | stderr='),
+    );
+    assert.equal(clean.status, 0, clean.stdout + clean.stderr);
     rmSync(dir, { recursive: true, force: true });
   });
 
