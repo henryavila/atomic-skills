@@ -16,6 +16,7 @@ product:
   what_is_not:
     - A copy-paste prompt pack or chat snippet library
     - A replacement for your IDE, model, or git workflow
+    - Ownership of your team's branching or release platform — persistence and release skills impose agent gates (PR-only on the default branch, npm stage+2FA, deterministic chooser) when those skills are invoked; they do not replace the repo's git workflow
     - An engineering archive of plans, audits, or design notes
     - A claim that every host adapter is day-to-day tested (only Claude Code, Cursor, Codex, and Grok Build are)
   docs_url: 'https://atomic-skills.henryavila.com'
@@ -78,14 +79,19 @@ core:
       blob commit, and learnings lost to context death. `save-and-push`
       scans the diff for secrets and sensitive files before staging, groups
       changes into logical commits (never `git add .`), persists durable
-      learnings to memory, and refuses to push to main/master without
-      confirmation. The next session resumes with clean history and context
-      intact.
+      learnings to memory, and on the default branch (via `origin/HEAD`,
+      else main|master) refuses a direct push — requiring a work branch
+      plus PR (`gh pr create` when authenticated) instead of asking to
+      push directly. The next session resumes with clean history and
+      context intact.
     purpose: >
       Close out a work session safely: extract durable learnings to memory,
       scan the diff for secrets, group changes into logical commits with
-      conventional messages, and push — refusing to touch main/master
-      without explicit confirmation.
+      conventional messages, and push a non-default branch — refusing push
+      on the default branch and opening or instructing a PR instead. Shares
+      the release contract with `release` via
+      `skills/shared/release-assets/` (default-branch detection + conventional
+      commits); PR-only on the default is the persistence half of that contract.
     when_to_use:
       - 'You finished a coherent piece of work'
       - 'About to switch context or end the session'
@@ -97,7 +103,7 @@ core:
     examples:
       - command: '/atomic-skills:save-and-push'
         description: 'Full flow: memory + commits + push'
-    related: [project, init-memory]
+    related: [project, init-memory, release]
     tags: [workflow, git, memory, core]
     ide_compatibility: [claude-code, gemini, cursor, codex]
     requires_args: false
@@ -108,6 +114,62 @@ core:
     version_added: '1.0.0'
     dependencies: [git]
     iron_law: 'NO PUSH WITHOUT FRESH VERIFICATION.'
+    schema_version: '0.2'
+
+  release:
+    name: release
+    title: 'Release — Chooser + GH Release + npm stage'
+    description: 'Cut a GitHub Release with a deterministic semver chooser (plan/apply/ship). Optional npm uses stage-only Trusted Publisher Action + human 2FA — never invent the bump or npm publish directly.'
+    value_pitch: >
+      Agents invent semver (feature as patch) and run `npm publish` from the
+      laptop. `release` refuses to guess: `scripts/release` classifies the
+      bump from conventional commits (subject and `BREAKING CHANGE` body) and
+      Keep a Changelog (Unreleased, or the applied version section), applies
+      package.json/CHANGELOG, tags, and opens the GitHub Release. When npm is
+      in scope, the adopted Action stages via OIDC; a human approves with 2FA
+      on the npm UI. No chooser output, no bump.
+    purpose: >
+      Plan the next semver with a deterministic chooser, apply version +
+      CHANGELOG, ship a GitHub Release, and — when npm is in scope with a
+      stage Action — leave staging + 2FA approve to CI and the human. Shares
+      the release contract with `save-and-push` via
+      `skills/shared/release-assets/` (conventional commits, default-branch /
+      PR-only rules on the bump commit); chooser + stage+2FA are the release
+      half of that contract.
+    when_to_use:
+      - 'Ready to cut a version / GitHub Release'
+      - 'Need the next semver without inventing patch/minor/major'
+      - 'Public npm package should stage via Trusted Publisher after Release'
+    when_not_to_use:
+      - 'Still implementing; no release candidate yet'
+      - 'Only need to commit/push a work branch (use save-and-push)'
+      - 'Want to publish npm directly from the agent laptop'
+    examples:
+      - command: '/atomic-skills:release'
+        description: 'Plan next version via scripts/release chooser'
+      - command: '/atomic-skills:release apply'
+        description: 'Apply package.json + CHANGELOG from chooser plan'
+      - command: '/atomic-skills:release ship'
+        description: 'Tag + GitHub Release (stage Action handles npm)'
+      - command: '/atomic-skills:release adopt'
+        description: 'Check/diff/consent adopt of stage or GH-only workflow'
+    related: [save-and-push, project]
+    tags: [workflow, git, release, npm, core]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
+    requires_args: false
+    mutates_repo: true
+    network_required: true
+    one_liner: 'Chooser plans bump; ship GH Release; npm stage+2FA only'
+    emoji: '🚀'
+    version_added: '2.5.0'
+    argument_hint: '[plan|apply|ship|adopt]'
+    args:
+      - name: mode
+        kind: positional
+        required: false
+        description: 'Optional subcommand hint: plan (default), apply, ship, or adopt.'
+    dependencies: [git, node, gh]
+    iron_law: 'NO BUMP WITHOUT THE CHOOSER.'
     schema_version: '0.2'
 
   review-plan:

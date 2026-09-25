@@ -18,6 +18,9 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
+- **release-consistency** — Release consistency — PR-only default branch + GH Release + npm stage (F0 active)
+  - `release-consistency-f0-contrato-compartilhado-save-and-push-pr` — Contrato compartilhado + save-and-push PR-only
+
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
 | project-flow | active | F0 | plan/project-flow | 2026-08-13 | 0/3 |

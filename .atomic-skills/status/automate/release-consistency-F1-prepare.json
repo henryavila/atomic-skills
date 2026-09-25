@@ -1,0 +1,12 @@
+{
+  "planSlug": "release-consistency",
+  "phaseId": "F1",
+  "baseRef": "a065041e5914290f9e81019a3509cd292ef1af33",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/release-consistency-F1-writer",
+  "writerBranch": "impl/release-consistency-F1-writer",
+  "sealedBriefPath": "/Volumes/External/code/atomic-skills/.worktrees/release-consistency/.atomic-skills/status/automate/release-consistency-F1-sealed-brief.md",
+  "claimReportPath": "/Volumes/External/code/atomic-skills/.worktrees/release-consistency/.atomic-skills/status/automate/release-consistency-claims.json",
+  "claimReportPathForBrief": ".atomic-skills/status/automate/release-consistency-claims.json",
+  "leasePath": "/Volumes/External/code/atomic-skills/.worktrees/release-consistency/.atomic-skills/status/writer-leases/release-consistency.json",
+  "preparedAt": "2026-09-24T23:16:10.783Z"
+}

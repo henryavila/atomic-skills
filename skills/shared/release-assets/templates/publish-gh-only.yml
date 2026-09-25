@@ -1,0 +1,31 @@
+# Atomic Skills release-assets template — GitHub Release only (no npm)
+# pin: atomic-skills/release-assets/publish-gh-only@v1
+# Adopt via skills/shared/release-assets/adopt.md (check → diff → consent).
+#
+# Use when the repo has no public npm package in scope (no package.json,
+# private: true, or explicit --no-npm). The release skill still creates the
+# GitHub Release via scripts/release; this workflow only records that npm
+# publish is out of scope so agents do not invent a registry publish step.
+name: Release notes (GitHub only)
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  acknowledge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm GitHub-only release
+        run: |
+          {
+            echo "## GitHub Release only"
+            echo ""
+            echo "This repository is configured for **GitHub Release** distribution."
+            echo "No registry publish job runs in this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -17,6 +17,7 @@ Battle-tested skill prompts that make AI coding agents follow through — each s
 
 - A copy-paste prompt pack or chat snippet library
 - A replacement for your IDE, model, or git workflow
+- Ownership of your team's branching or release platform — persistence and release skills impose agent gates (PR-only on the default branch, npm stage+2FA, deterministic chooser) when those skills are invoked; they do not replace the repo's git workflow
 - An engineering archive of plans, audits, or design notes
 - A claim that every host adapter is day-to-day tested (only Claude Code, Cursor, Codex, and Grok Build are)
 
@@ -78,6 +79,7 @@ Compact index (name · one-liner · Iron Law).
 |-|-------|-----------|----------|
 | 🔧 | [`fix`](docs/skills/fix.md) | Diagnose root cause → write test → fix → verify | `NO FIX WITHOUT ROOT CAUSE.` |
 | 💾 | [`save-and-push`](docs/skills/save-and-push.md) | Scan for secrets, group commits, save learnings, push safely | `NO PUSH WITHOUT FRESH VERIFICATION.` |
+| 🚀 | [`release`](docs/skills/release.md) | Chooser plans bump; ship GH Release; npm stage+2FA only | `NO BUMP WITHOUT THE CHOOSER.` |
 | 🔍 | [`review-plan`](docs/skills/review-plan.md) | Adversarial plan review with local/ground-truth/codex/both modes | `NO APPROVAL WITHOUT EVIDENCE.` |
 | 🔬 | [`review-code`](docs/skills/review-code.md) | Adversarial code review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
 | 📊 | [`project`](docs/skills/project.md) | Plan / Initiative / Task state your agent reloads every session | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |

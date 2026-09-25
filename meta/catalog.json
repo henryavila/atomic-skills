@@ -50,7 +50,7 @@
       "memory",
       "core"
     ],
-    "summary": "Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push — refusing to touch main/master without explicit confirmation.",
+    "summary": "Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push a non-default branch — refusing push on the default branch and opening or instructing a PR instead. Shares the release contract with `release` via `skills/shared/release-assets/` (default-branch detection + conventional commits); PR-only on the default is the persistence half of that contract.",
     "pros": [
       "You finished a coherent piece of work",
       "About to switch context or end the session",
@@ -69,7 +69,54 @@
     ],
     "refs": [
       "/atomic-skills:project",
-      "/atomic-skills:init-memory"
+      "/atomic-skills:init-memory",
+      "/atomic-skills:release"
+    ]
+  },
+  {
+    "id": "/atomic-skills:release",
+    "icon": "🚀",
+    "oneLiner": "Chooser plans bump; ship GH Release; npm stage+2FA only",
+    "facets": [
+      "workflow",
+      "git",
+      "release",
+      "npm",
+      "core"
+    ],
+    "summary": "Plan the next semver with a deterministic chooser, apply version + CHANGELOG, ship a GitHub Release, and — when npm is in scope with a stage Action — leave staging + 2FA approve to CI and the human. Shares the release contract with `save-and-push` via `skills/shared/release-assets/` (conventional commits, default-branch / PR-only rules on the bump commit); chooser + stage+2FA are the release half of that contract.",
+    "pros": [
+      "Ready to cut a version / GitHub Release",
+      "Need the next semver without inventing patch/minor/major",
+      "Public npm package should stage via Trusted Publisher after Release"
+    ],
+    "cons": [
+      "Still implementing; no release candidate yet",
+      "Only need to commit/push a work branch (use save-and-push)",
+      "Want to publish npm directly from the agent laptop"
+    ],
+    "examples": [
+      "/atomic-skills:release",
+      "/atomic-skills:release apply",
+      "/atomic-skills:release ship",
+      "/atomic-skills:release adopt"
+    ],
+    "fields": [
+      {
+        "name": "mode",
+        "kind": "positional",
+        "required": false,
+        "description": "Optional subcommand hint: plan (default), apply, ship, or adopt."
+      }
+    ],
+    "deps": [
+      "git",
+      "node",
+      "gh"
+    ],
+    "refs": [
+      "/atomic-skills:save-and-push",
+      "/atomic-skills:project"
     ]
   },
   {
