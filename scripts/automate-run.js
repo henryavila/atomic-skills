@@ -36,18 +36,41 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
  * @param {string[]} argv
  */
 function parseArgs(argv) {
-  /** @type {{ host?: string, plan?: string, root?: string }} */
+  /** @type {{ host?: string, plan?: string, root?: string, sentinel?: string, hostWriteProbe?: boolean }} */
   const out = {};
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i];
     if (token === '--host') out.host = argv[++i];
     else if (token === '--plan') out.plan = argv[++i];
     else if (token === '--root') out.root = argv[++i];
+    else if (token === '--sentinel') out.sentinel = argv[++i];
+    else if (token === '--host-write-probe') out.hostWriteProbe = true;
     else if (token.startsWith('--host=')) out.host = token.slice('--host='.length);
     else if (token.startsWith('--plan=')) out.plan = token.slice('--plan='.length);
     else if (token.startsWith('--root=')) out.root = token.slice('--root='.length);
+    else if (token.startsWith('--sentinel=')) out.sentinel = token.slice('--sentinel='.length);
   }
   return out;
+}
+
+/**
+ * @param {unknown} hooksConfig
+ * @returns {string | null}
+ */
+function penHookCommand(hooksConfig) {
+  if (hooksConfig == null || typeof hooksConfig !== 'object') return null;
+  const hooks = /** @type {{ hooks?: { PreToolUse?: unknown } }} */ (hooksConfig).hooks;
+  const entries = hooks && hooks.PreToolUse;
+  if (!Array.isArray(entries)) return null;
+  for (const entry of entries) {
+    if (entry == null || typeof entry !== 'object') continue;
+    const list = Array.isArray(entry.hooks) ? entry.hooks : [];
+    for (const hook of list) {
+      const command = hook && typeof hook.command === 'string' ? hook.command : '';
+      if (command.includes(PEN_HOOK_SCRIPT)) return command;
+    }
+  }
+  return null;
 }
 
 /**
@@ -126,6 +149,145 @@ export function runSyntheticProbe(root) {
   return blockers;
 }
 
+const HOST_WRITE_PROBE_PREFIX = 'HOST_WRITE_PROBE=';
+
+/**
+ * Host-shaped subprocess body: read the host hook config, invoke the
+ * registered pen command (not a parent-side `bash automate-pen.sh`), and
+ * only write the sentinel if the hook allows. Running this in-process from
+ * the parent does not count — spawn this file with --host-write-probe.
+ * @param {{ host?: string, root?: string, sentinel?: string }} args
+ */
+function hostShapedWrite(args) {
+  const host = resolveAutomateHost(args.host);
+  const root = resolve(args.root || process.cwd());
+  const sentinel = resolve(
+    args.sentinel || join(root, '.atomic-skills/status/automate/host-write-sentinel'),
+  );
+  /** @type {{ invokedHook: boolean, refused: boolean, sentinelCreated: boolean }} */
+  const result = { invokedHook: false, refused: false, sentinelCreated: false };
+
+  const emit = () => {
+    result.sentinelCreated = existsSync(sentinel);
+    process.stdout.write(`${HOST_WRITE_PROBE_PREFIX}${JSON.stringify(result)}\n`);
+  };
+
+  if (!host) {
+    emit();
+    return;
+  }
+
+  const hookFile = join(root, AUTOMATE_HOSTS[host].hookFile);
+  if (!existsSync(hookFile)) {
+    emit();
+    return;
+  }
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(readFileSync(hookFile, 'utf8'));
+  } catch {
+    parsed = null;
+  }
+  const command = penHookCommand(parsed);
+  if (!command || !assessPenRegistration(host, parsed).ok) {
+    emit();
+    return;
+  }
+
+  const probe = join(root, '.atomic-skills/status/automate/probe.lock');
+  const home = mkdtempSync(join(tmpdir(), 'host-write-home-'));
+  const payload = JSON.stringify({
+    tool_name: AUTOMATE_HOSTS[host].writeTools[0],
+    tool_input: { file_path: sentinel },
+  });
+  mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+  writeFileSync(join(home, '.atomic-skills/package-root'), `${ROOT}\n`);
+  mkdirSync(dirname(probe), { recursive: true });
+  mkdirSync(dirname(sentinel), { recursive: true });
+
+  try {
+    writeFileSync(probe, '{"kind":"probe"}\n');
+    const denied = spawnSync('bash', ['-c', command], {
+      input: payload,
+      encoding: 'utf8',
+      cwd: root,
+      env: {
+        ...process.env,
+        HOME: home,
+        CLAUDE_PROJECT_DIR: root,
+        GROK_WORKSPACE_ROOT: root,
+      },
+    });
+    if (!denied.error) result.invokedHook = true;
+    result.refused = denied.status === 2;
+    if (denied.status === 0) {
+      writeFileSync(sentinel, 'host-write\n');
+    }
+  } finally {
+    rmSync(probe, { force: true });
+    rmSync(home, { recursive: true, force: true });
+  }
+  emit();
+}
+
+/**
+ * Spawn a host-shaped subprocess that must invoke the registered pen.
+ * A parent-side `bash automate-pen.sh` does not set invokedHook.
+ * Missing host hook config fails honestly (does not count as a disabled proof).
+ * @param {string | null} host
+ * @param {string} root
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+export function runHostWriteProbe(host, root) {
+  if (!host || !AUTOMATE_HOSTS[host]) {
+    return assessHostWrite({ invokedHook: false, refused: false, sentinelCreated: false });
+  }
+  const sentinel = join(root, '.atomic-skills/status/automate/host-write-sentinel');
+  const probe = join(root, '.atomic-skills/status/automate/probe.lock');
+  mkdirSync(dirname(sentinel), { recursive: true });
+  const res = spawnSync(
+    process.execPath,
+    [
+      fileURLToPath(import.meta.url),
+      '--host-write-probe',
+      '--host',
+      host,
+      '--root',
+      root,
+      '--sentinel',
+      sentinel,
+    ],
+    { encoding: 'utf8', timeout: 15000 },
+  );
+  let parsed = null;
+  const combined = `${res.stdout || ''}\n${res.stderr || ''}`;
+  for (const line of combined.split(/\r?\n/)) {
+    const idx = line.indexOf(HOST_WRITE_PROBE_PREFIX);
+    if (idx === -1) continue;
+    try {
+      parsed = JSON.parse(line.slice(idx + HOST_WRITE_PROBE_PREFIX.length));
+    } catch {
+      parsed = null;
+    }
+  }
+  const leftoverSentinel = existsSync(sentinel);
+  rmSync(sentinel, { force: true });
+  rmSync(probe, { force: true });
+  if (!parsed || typeof parsed !== 'object') {
+    return assessHostWrite({
+      invokedHook: false,
+      refused: false,
+      sentinelCreated: leftoverSentinel,
+    });
+  }
+  return assessHostWrite({
+    invokedHook: parsed.invokedHook === true,
+    refused: parsed.refused === true,
+    sentinelCreated: parsed.sentinelCreated === true || leftoverSentinel,
+  });
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const host = resolveAutomateHost(args.host);
@@ -164,18 +326,14 @@ function main() {
     blockers.push(`probe lock failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  const hostWrite = assessHostWrite({
-    invokedHook: false,
-    refused: false,
-    sentinelCreated: false,
-  });
+  const hostWrite = runHostWriteProbe(host, root);
   if (!hostWrite.ok) blockers.push(hostWrite.reason);
 
   if (args.plan) {
     const plan = resolve(args.plan);
     for (const script of [
       ['find-missing-flow.js', '--strict', plan],
-      ['find-unreviewed-plans.js', plan],
+      ['find-unreviewed-plans.js', '--require-external', plan],
       ['find-plans-missing-ground-truth.js', plan],
     ]) {
       const [name, ...rest] = script;
@@ -203,5 +361,10 @@ function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.hostWriteProbe) {
+    hostShapedWrite(args);
+    process.exit(0);
+  }
   main();
 }

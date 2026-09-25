@@ -12,7 +12,7 @@ import {
   penMatcher,
   resolveAutomateHost,
 } from '../src/automate-host-pen.js';
-import { runSyntheticProbe } from '../scripts/automate-run.js';
+import { runHostWriteProbe, runSyntheticProbe } from '../scripts/automate-run.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -204,6 +204,98 @@ describe('automate host pen', () => {
     assert.match(skipped.reason, /did not prove/);
   });
 
+  it('find-unreviewed-plans --require-external rejects internal-only and non-CLI receipts', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'unrev-ext-'));
+    const plan = join(dir, 'plan.md');
+    const script = join(ROOT, 'scripts/find-unreviewed-plans.js');
+    const run = (args, body) => {
+      writeFileSync(plan, body);
+      return spawnSync(process.execPath, [script, ...args, plan], { encoding: 'utf8' });
+    };
+    const internalOnly = `---
+slug: fixture
+status: active
+---
+
+# fixture
+
+## Reviews
+
+- internal: session-written
+`;
+    const labelsOnly = `---
+slug: fixture
+status: active
+---
+
+# fixture
+
+## Reviews
+
+- internal: session-written
+- cross-model (codex): needs_changes
+- ground-truth: complete | mode=ground-truth | fp=abc123abc123
+`;
+    const withCli = `---
+slug: fixture
+status: active
+---
+
+# fixture
+
+## Reviews
+
+- internal: session-written
+- grok: command=grok review --plan plan.md | exit=0 | verdict=CLEAN | stderr=
+`;
+    const noFlag = run([], internalOnly);
+    assert.equal(noFlag.status, 0, noFlag.stdout + noFlag.stderr);
+    const onlyInternal = run(['--require-external'], internalOnly);
+    assert.equal(onlyInternal.status, 1);
+    assert.match(`${onlyInternal.stdout}${onlyInternal.stderr}`, /external CLI review receipt/);
+    const labels = run(['--require-external'], labelsOnly);
+    assert.equal(labels.status, 1);
+    assert.match(`${labels.stdout}${labels.stderr}`, /external CLI review receipt/);
+    const ok = run(['--require-external'], withCli);
+    assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('startup calls find-unreviewed-plans --require-external', () => {
+    const src = readFileSync(join(ROOT, 'scripts/automate-run.js'), 'utf8');
+    assert.match(src, /find-unreviewed-plans\.js',\s*'--require-external'/);
+    assert.match(src, /runHostWriteProbe\(/);
+    assert.match(src, /--host-write-probe/);
+  });
+
+  it('host-shaped probe invokes the registered pen and refuses a write without a sentinel', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'host-write-'));
+    mkdirSync(join(dir, '.codex'), { recursive: true });
+    const script = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
+    writeFileSync(
+      join(dir, '.codex/hooks.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: penMatcher(),
+              hooks: [{ command: `bash "${script}"` }],
+            },
+          ],
+        },
+      }),
+    );
+    const result = runHostWriteProbe('codex', dir);
+    assert.equal(result.ok, true, result.ok ? '' : result.reason);
+    assert.equal(existsSync(join(dir, '.atomic-skills/status/automate/pen.lock')), false);
+    assert.equal(existsSync(join(dir, '.atomic-skills/status/automate/probe.lock')), false);
+    assert.equal(
+      existsSync(join(dir, '.atomic-skills/status/automate/host-write-sentinel')),
+      false,
+    );
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('refuses a fixture plan without flow and does not leave a lock', () => {
     const dir = mkdtempSync(join(tmpdir(), 'automate-run-'));
     const plan = join(dir, 'plan.md');
@@ -220,6 +312,7 @@ describe('automate host pen', () => {
     assert.match(res.stderr, /automate-pen\.sh/);
     assert.match(res.stderr, /find-missing-architecture\.js/);
     assert.match(res.stderr, /did not prove the host refused the write/);
+    assert.match(res.stderr, /external CLI review receipt/);
     assert.equal(
       existsSync(join(dir, '.atomic-skills/status/automate/pen.lock')),
       false,

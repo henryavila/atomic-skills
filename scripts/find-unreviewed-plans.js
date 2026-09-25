@@ -26,6 +26,9 @@
  *
  * CLI:  node scripts/find-unreviewed-plans.js [<repo|.atomic-skills|plan.md|plan-dir>]
  *       (defaults to cwd)
+ *       --require-external  also require a real external review CLI receipt
+ *                           (command=, exit=, verdict=). `- internal:`,
+ *                           `- cross-model:`, and `- ground-truth:` do not count.
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
@@ -33,22 +36,51 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { parseFrontmatter } from './validate-state.js';
 
 /**
- * Classify a plan body's review receipt.
- * @returns {null | 'no-reviews-section' | 'no-internal-line'}
- *   null = a `## Reviews` section with ≥1 `- internal:` line exists (receipt OK).
+ * A session-written `- internal:`, `- cross-model:`, or `- ground-truth:` line
+ * is not an external review CLI receipt. The CLI receipt must name a process
+ * (`command=` / `cli=`), an `exit=` code, and a `verdict=`.
+ * @param {string} line
+ * @returns {boolean}
  */
-export function reviewReceiptGap(body) {
+export function isExternalCliReceiptLine(line) {
+  if (typeof line !== 'string') return false;
+  const match = line.match(/^\s*-\s*([^:]+)\s*:/);
+  if (!match) return false;
+  const label = match[1].trim();
+  if (/^internal$/i.test(label)) return false;
+  if (/^ground-truth$/i.test(label)) return false;
+  if (/^cross-model(\s|$|\()/i.test(label)) return false;
+  const rest = line.slice(match[0].length);
+  const hasCommand = /\b(command|cli)\s*=\s*\S/i.test(rest);
+  const hasExit = /\bexit\s*=\s*\d+/i.test(rest);
+  const hasVerdict = /\bverdict\s*=\s*\S/i.test(rest);
+  return hasCommand && hasExit && hasVerdict;
+}
+
+/**
+ * Classify a plan body's review receipt.
+ * @param {string} body
+ * @param {{ requireExternal?: boolean }} [options]
+ * @returns {null | 'no-reviews-section' | 'no-internal-line' | 'no-external-cli-receipt'}
+ *   null = receipt OK. Default: `## Reviews` with ≥1 `- internal:` line.
+ *   `--require-external`: also requires a real external CLI receipt.
+ */
+export function reviewReceiptGap(body, options = {}) {
   if (typeof body !== 'string') return 'no-reviews-section';
   const lines = body.split(/\r?\n/);
   const headingIdx = lines.findIndex((l) => /^##\s+Reviews\s*$/i.test(l.trim()));
   if (headingIdx === -1) return 'no-reviews-section';
   // Section spans from the heading to the next H2 (`## …`) or EOF.
   let hasInternal = false;
+  let hasExternalCli = false;
   for (let i = headingIdx + 1; i < lines.length; i += 1) {
     if (/^##\s+\S/.test(lines[i])) break; // next H2 ends the section
-    if (/^\s*-\s*internal\s*:/i.test(lines[i])) { hasInternal = true; break; }
+    if (/^\s*-\s*internal\s*:/i.test(lines[i])) hasInternal = true;
+    if (isExternalCliReceiptLine(lines[i])) hasExternalCli = true;
   }
-  return hasInternal ? null : 'no-internal-line';
+  if (!hasInternal) return 'no-internal-line';
+  if (options.requireExternal && !hasExternalCli) return 'no-external-cli-receipt';
+  return null;
 }
 
 function inferPlanMeta(filePath) {
@@ -71,7 +103,7 @@ function inferPlanMeta(filePath) {
 }
 
 /** Read a plan file; push a report entry if it lacks a review receipt. Archived plans skipped. */
-function collectPlanFile(filePath, meta, report) {
+function collectPlanFile(filePath, meta, report, options = {}) {
   let raw;
   try {
     raw = readFileSync(filePath, 'utf8');
@@ -82,7 +114,7 @@ function collectPlanFile(filePath, meta, report) {
   const status = parsed.error ? undefined : parsed.frontmatter?.status;
   if (status === 'archived') return; // terminal — no fresh receipt required
   const body = parsed.error ? raw : parsed.body;
-  const reason = reviewReceiptGap(body);
+  const reason = reviewReceiptGap(body, options);
   if (reason) report.push({ ...meta, reason });
 }
 
@@ -97,20 +129,20 @@ function collectPlanFile(filePath, meta, report) {
  * flat legacy `plans/*.md`. Scanning nested-only would silently false-green an
  * un-migrated/coexistence tree. `archive/` subdirs + dotfiles skipped.
  */
-export function findUnreviewedPlans(target = process.cwd()) {
+export function findUnreviewedPlans(target = process.cwd(), options = {}) {
   const targetPath = resolve(target);
   const report = [];
 
   if (existsSync(targetPath)) {
     const targetStat = statSync(targetPath);
     if (targetStat.isFile()) {
-      collectPlanFile(targetPath, inferPlanMeta(targetPath), report);
+      collectPlanFile(targetPath, inferPlanMeta(targetPath), report, options);
       return report;
     }
     if (targetStat.isDirectory()) {
       const scopedPlanFile = join(targetPath, 'plan.md');
       if (existsSync(scopedPlanFile) && statSync(scopedPlanFile).isFile()) {
-        collectPlanFile(scopedPlanFile, inferPlanMeta(scopedPlanFile), report);
+        collectPlanFile(scopedPlanFile, inferPlanMeta(scopedPlanFile), report, options);
         return report;
       }
     }
@@ -129,7 +161,7 @@ export function findUnreviewedPlans(target = process.cwd()) {
         if (!statSync(planDir).isDirectory()) continue;
         const planFile = join(planDir, 'plan.md');
         if (!existsSync(planFile) || !statSync(planFile).isFile()) continue;
-        collectPlanFile(planFile, { projectId: projId, planSlug, planFile: 'plan.md' }, report);
+        collectPlanFile(planFile, { projectId: projId, planSlug, planFile: 'plan.md' }, report, options);
       }
     }
   }
@@ -139,7 +171,7 @@ export function findUnreviewedPlans(target = process.cwd()) {
   if (existsSync(flatDir) && statSync(flatDir).isDirectory()) {
     for (const entry of readdirSync(flatDir)) {
       if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-      collectPlanFile(join(flatDir, entry), { projectId: '(flat)', planSlug: 'plans', planFile: entry }, report);
+      collectPlanFile(join(flatDir, entry), { projectId: '(flat)', planSlug: 'plans', planFile: entry }, report, options);
     }
   }
 
@@ -148,17 +180,30 @@ export function findUnreviewedPlans(target = process.cwd()) {
 
 // CLI
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const target = resolve(process.argv[2] || process.cwd());
-  const report = findUnreviewedPlans(target);
+  const args = process.argv.slice(2);
+  const requireExternal = args.includes('--require-external');
+  const positional = args.filter((a) => a !== '--require-external' && !a.startsWith('--'));
+  const target = resolve(positional[0] || process.cwd());
+  const report = findUnreviewedPlans(target, { requireExternal });
   if (!report.length) {
-    console.log('find-unreviewed-plans: every plan carries an adversarial-review receipt ✓');
+    console.log(
+      requireExternal
+        ? 'find-unreviewed-plans: every plan carries an external CLI review receipt ✓'
+        : 'find-unreviewed-plans: every plan carries an adversarial-review receipt ✓',
+    );
     process.exit(0);
   }
-  console.log(`find-unreviewed-plans: ${report.length} plan(s) lack an adversarial-review receipt:`);
+  console.log(
+    requireExternal
+      ? `find-unreviewed-plans: ${report.length} plan(s) lack an external CLI review receipt:`
+      : `find-unreviewed-plans: ${report.length} plan(s) lack an adversarial-review receipt:`,
+  );
   for (const r of report) {
     const why = r.reason === 'no-reviews-section'
       ? 'no `## Reviews` section'
-      : '`## Reviews` present but no `- internal:` line';
+      : r.reason === 'no-external-cli-receipt'
+        ? '`## Reviews` has no external CLI receipt (command=, exit=, verdict=); `- internal:`, `- cross-model:`, and `- ground-truth:` do not count'
+        : '`## Reviews` present but no `- internal:` line';
     console.log(`  ${r.projectId}/${r.planSlug}/${r.planFile}: ${why}`);
   }
   console.log('\nRun `atomic-skills:review-plan --mode=internal <plan>` (always) and, optionally, `--mode=codex`.');
