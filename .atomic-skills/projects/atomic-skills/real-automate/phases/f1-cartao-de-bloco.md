@@ -11,8 +11,8 @@ goal: o detector de arquitetura existe e recusa um plano sem os dois esboços e
 status: active
 branch: plan/real-automate
 started: 2026-09-25T22:32:55.799Z
-lastUpdated: 2026-09-25T22:32:55.799Z
-nextAction: Spawn F1 phase writer after assert spawn (T-001 T-002 T-003).
+lastUpdated: 2026-09-25T22:43:43.874Z
+nextAction: Run done T-002 (Detector) after claim-bound assert.
 parentPlan: real-automate
 phaseId: F1
 businessIntent:
@@ -35,11 +35,11 @@ businessIntent:
     sem carimbo sai 1 em find-missing-architecture.js --strict, e
     automate-run.js --host grok --plan num fixture sem cartão sai 1 com o motivo
     do detector.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 0
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -49,6 +49,7 @@ exitGates:
       kind: shell
       command: node --test tests/find-missing-architecture.test.js
       expectExitCode: 0
+    verifierLabel: "shell: node --test tests/find-missing-architecture.test.js"
 tasks:
   - id: T-001
     title: Formato do cartão
@@ -57,8 +58,8 @@ tasks:
       esboço, e qual esboço foi escolhido. Chat “ok” não carimba. Verifier:
       `node scripts/find-missing-architecture.js --strict` num fixture sem
       carimbo sai 1."
-    status: pending
-    lastUpdated: 2026-09-25T22:32:55.799Z
+    status: done
+    lastUpdated: 2026-09-25T22:43:43.874Z
     outputs:
       - kind: file
         path: scripts/find-missing-architecture.js
@@ -78,6 +79,17 @@ tasks:
       kind: shell
       command: node --test tests/find-missing-architecture.test.js
       expectExitCode: 0
+    closedAt: 2026-09-25T22:43:43.874Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-09-25T22:43:43.874Z
+      verifiedCommit: f55844d23f7ac04ca811770ade4cd3f821593773
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
+        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
+        probe.lock, --require-external, host-shaped write probe, fixture
+        refusal."
   - id: T-002
     title: Detector
     description: "`scripts/find-missing-architecture.js` sai 0 só com sha e
@@ -134,6 +146,9 @@ stack:
     openedAt: 2026-09-25T22:32:55.799Z
 parked: []
 emerged: []
+planTitle: real-automate
+planActive: true
+current: true
 ---
 
 # Narrative / notes
