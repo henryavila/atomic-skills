@@ -18,7 +18,8 @@ principles:
       sessão do chat não é esse programa."
   - id: P2
     title: A skill não é o enforce
-    body: Mais parágrafos na skill não substituem o processo. O PreToolUse antigo é
+    body: |
+      Mais parágrafos na skill não substituem o processo. O PreToolUse antigo é
       `skills/shared/project-assets/hooks/pre-write.sh`. O default é dry-run
       (`emergent_strict_mode: false` em `hooks/config.json`); exit 2 só com esse
       knob, não porque Soft virou Strict. No Grok sem hooks-trust o hook não
@@ -31,13 +32,15 @@ principles:
       fora: neles o hook de projeto é no-op."
   - id: P4
     title: Caneta ou não parte
-    body: Se o PreToolUse não der exit 2 de verdade no host atual, o programa recusa
+    body: |
+      Se o PreToolUse não der exit 2 de verdade no host atual, o programa recusa
       a partida. Sem o lock `.atomic-skills/status/automate/pen.lock` a caneta
       não bloqueia o uso normal. Com o lock, escrita fora do worktree do writer
       e qualquer shell saem exit 2. `SKIP` não desliga a caneta.
   - id: P5
     title: Fechado até cartão e protótipo
-    body: Flow (`find-missing-flow.js --strict`), o arquivo de status da review
+    body: |
+      Flow (`find-missing-flow.js --strict`), o arquivo de status da review
       e ground truth são necessários e não bastam. Esse arquivo só vale se o
       programa disparou o CLI que não é o harness aberto, esperou o processo e
       gravou comando, exit, stderr e veredito. A linha `- internal:` escrita
@@ -49,7 +52,8 @@ principles:
       está no `design.md`.
   - id: P6
     title: A sessão só orquestra
-    body: A sessão que inicia o programa não escreve produto, não revisa e não
+    body: |
+      A sessão que inicia o programa não escreve produto, não revisa e não
       fecha fase. Ela despacha um agente isolado por passo. A unidade é a fase
       corrente, com todas as tasks `pending` na ordem do frontmatter. O marco
       da F3 prova um writer e um merge e o teste desse marco para aí. O
@@ -63,12 +67,14 @@ principles:
       áudio para caber é a mistura proibida."
   - id: P8
     title: O flow audita o comportamento depois
-    body: O grafo ratificado passa a ser a fonte de verdade do audit, por fase e na
+    body: |
+      O grafo ratificado passa a ser a fonte de verdade do audit, por fase e na
       página final. Onde `businessIntent` e o grafo discordam, vale o grafo. O
       flow não substitui o cartão nem a review de bug.
   - id: P9
     title: Sem daemon
-    body: Fila, vários hosts e spawn adapter multi-máquina ficam de fora.
+    body: |
+      Fila, vários hosts e spawn adapter multi-máquina ficam de fora.
       `userValidatedAt` só nasce do botão da página final. Archive continua
       depois desse botão.
 glossary:
@@ -83,10 +89,12 @@ glossary:
   - term: writer
     definition: subprocesso `claude`, `codex` ou `grok` no worktree, com lease
   - term: mistura
-    definition: passo que junta o que está fora do bloco com o que está dentro, no
+    definition: |
+      passo que junta o que está fora do bloco com o que está dentro, no
       objeto editado
   - term: recibo
-    definition: arquivo de status que o programa grava depois que o CLI externo
+    definition: |
+      arquivo de status que o programa grava depois que o CLI externo
       termina. A sessão não o escreve.
 phases:
   - id: F0
@@ -119,11 +127,13 @@ phases:
             description: Verify exit-gate prose with the user during phase-done.
     status: active
     businessIntent:
-      value: O comando automate deixa de ser a mesma sessão que escreve. Quem corre
+      value: |
+        O comando automate deixa de ser a mesma sessão que escreve. Quem corre
         node scripts/automate-run.js vê a partida recusada até a caneta do host,
         o flow, a revisão do plano e o ground truth existirem, e também enquanto
         os detectores de cartão e protótipo não existem.
-      workflow: O operador passa --host claude-code, codex ou grok e --plan. O
+      workflow: |
+        O operador passa --host claude-code, codex ou grok e --plan. O
         programa lê o hook daquele host, cria um lock de prova isolado (não o
         pen.lock), exige status 2 no script e status 0 sem lock, dispara uma
         escrita real pela ferramenta do host e só segue se ela for recusada e
@@ -134,15 +144,18 @@ phases:
         find-missing-architecture.js e find-missing-ui.js existem. `--require-external`
         sai 1 quando a única linha de review é `- internal:`. Qualquer falha
         imprime a lista e sai 1. Não grava pen.lock e não dispara writer.
-      rules: Só Claude Code, Codex e Grok. Sem lock a caneta sai 0. Com lock, escrita
+      rules: |
+        Só Claude Code, Codex e Grok. Sem lock a caneta sai 0. Com lock, escrita
         fora do worktree e shell saem 2. SKIP e SKIP-EMERGENT não desligam a
         caneta. `pre-write.sh` permanece ao lado dela, com o matcher atual.
         `stop.sh` fica fora. A skill de implement não ganha parágrafos novos no
         lugar do programa.
-      outOfScope: Cartão de bloco, protótipo, spawn do writer, merge, review both,
+      outOfScope: |
+        Cartão de bloco, protótipo, spawn do writer, merge, review both,
         audit do flow, página e a fase seguinte. Também substituir ou apagar
         `pre-write.sh`, e alterar o `stop.sh`.
-      doneWhen: node --test tests/automate-host-pen.test.js passa, o hook sai 0
+      doneWhen: |
+        node --test tests/automate-host-pen.test.js passa, o hook sai 0
         sem lock e sai 2 com lock de prova isolado, uma escrita real do host
         ativo é recusada e não cria arquivo, e node scripts/automate-run.js
         --host codex --plan num fixture plan.md sem flow sai com exit 1 citando
@@ -150,7 +163,8 @@ phases:
   - id: F1
     slug: real-automate-f1-cartao-de-bloco
     title: Cartão de bloco
-    goal: o detector de arquitetura existe e recusa um plano sem os dois esboços
+    goal: |
+      o detector de arquitetura existe e recusa um plano sem os dois esboços
       e sem a escolha carimbada de qual esboço vale. “Nada fora” é uma opção do
       cartão, não a resposta automática. O protótipo cita essa escolha.
       `scripts/find-missing-design-process.js` e o `userApproved` do recibo
@@ -172,7 +186,8 @@ phases:
   - id: F2
     slug: real-automate-f2-prototipo
     title: Protótipo
-    goal: o detector de tela existe. Plano sem superfície visível carimba “sem
+    goal: |
+      o detector de tela existe. Plano sem superfície visível carimba “sem
       tela”. “Sem tela” com task que toca Vue, sheet, viewer ou editor é
       recusado. O carimbo da tela cita o sha do cartão. `exitGateType: ui-gate`
       não é o carimbo. O carimbo é `ui/ui.json`, lido por
@@ -193,7 +208,8 @@ phases:
   - id: F3
     slug: real-automate-f3-um-writer-merge-e-para
     title: Um writer, merge, e para
-    goal: com caneta, flow, revisão, ground truth, cartão e protótipo válidos, o
+    goal: |
+      com caneta, flow, revisão, ground truth, cartão e protótipo válidos, o
       programa cria o worktree, grava o pen.lock com dono e pid, dispara um
       writer do CLI do host, integra no branch do plano, mata o writer se ainda
       viver e solta o lock. O teste deste marco para depois do merge. Não roda
@@ -212,7 +228,8 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: um teste de integração com host falso sai 0, o arquivo do writer
+          description: |
+            um teste de integração com host falso sai 0, o arquivo do writer
             está no branch do plano, e uma segunda fase não foi materializada.
           status: pending
           verifier:
@@ -222,7 +239,8 @@ phases:
   - id: F4
     slug: real-automate-f4-review-e-o-flow-no-audit
     title: Review e o flow no audit
-    goal: o programa conduz cada fase até a seguinte. Antes da primeira fase
+    goal: |
+      o programa conduz cada fase até a seguinte. Antes da primeira fase
       pergunta uma vez o CLI externo e grava `reviewExternalCli` no plano.
       Both é a review local mais esse CLI. No meio da corrida ninguém pergunta
       de novo. A unidade é a fase corrente. Um agente isolado implementa todas
@@ -265,7 +283,8 @@ phases:
   - id: F5
     slug: real-automate-f5-pagina-final
     title: Página final
-    goal: um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado,
+    goal: |
+      um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado,
       as frases `said` e `saw`, a tela ao lado do que foi construído, e o que
       ficou de fora. O botão grava `userValidatedAt` só com todo
       `deliveryAuditGate` em passed. Chat “ok” não grava. O programa entrega o
@@ -283,7 +302,8 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: o teste HTTP do botão verde, o PR existe sem merge, e
+          description: |
+            o teste HTTP do botão verde, o PR existe sem merge, e
             archive não roda nesse comando.
           status: pending
           verifier:
@@ -444,4 +464,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=8508a1a9f2df | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=4ab0bd57ad66 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
