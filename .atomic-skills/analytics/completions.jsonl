@@ -242,3 +242,4 @@
 {"ts":"2026-08-13T22:18:30.560Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F2","taskId":"T-009","weight":1,"weightBasis":"count"}
 {"ts":"2026-08-13T22:18:30.585Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F2","taskId":"T-010","weight":1,"weightBasis":"count"}
 {"ts":"2026-08-13T22:20:17.102Z","event":"phase-done","projectId":"atomic-skills","planSlug":"project-flow","phaseId":"F2","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":25,"locAdded":1685,"locRemoved":502,"commits":7}}
+{"ts":"2026-09-25T21:16:41.604Z","event":"task-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F0","taskId":"T-001","weight":1,"weightBasis":"count"}

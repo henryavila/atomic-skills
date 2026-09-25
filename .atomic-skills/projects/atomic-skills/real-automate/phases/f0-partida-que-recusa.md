@@ -14,9 +14,8 @@ goal: "`--automate` deixa de ser a sessão que escreve. O programa recusa sem
 status: active
 branch: plan/real-automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-09-25T21:00:42.067Z
-nextAction: Spawn F0 phase writer after assert-automate-gate --gate spawn (T-001
-  T-002 T-003).
+lastUpdated: 2026-09-25T21:16:41.568Z
+nextAction: Run done T-002 (Registro no plugin Grok e no setup) after claim-bound assert.
 parentPlan: real-automate
 phaseId: F0
 businessIntent:
@@ -47,11 +46,11 @@ businessIntent:
     recusada e não cria arquivo, e node scripts/automate-run.js --host codex
     --plan num fixture plan.md sem flow sai com exit 1 citando automate-pen.sh e
     find-missing-architecture.js.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 0
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -79,8 +78,8 @@ tasks:
       `write`/`search_replace`/`run_terminal_command` enquanto o lock existe.
       Sem lock, exit 0. O lock de prova é `probe.lock`, não `pen.lock`.
       Verifier: `node --test tests/automate-host-pen.test.js`."
-    status: pending
-    lastUpdated: 2026-09-25T21:00:42.067Z
+    status: done
+    lastUpdated: 2026-09-25T21:16:41.568Z
     outputs:
       - kind: file
         path: src/automate-host-pen.js
@@ -111,6 +110,17 @@ tasks:
       kind: shell
       command: node --test tests/automate-host-pen.test.js
       expectExitCode: 0
+    closedAt: 2026-09-25T21:16:41.568Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-09-25T21:16:41.568Z
+      verifiedCommit: 1435d1c3b2068285f68f8e2167583db4c3b782f1
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
+        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
+        probe.lock, --require-external, host-shaped write probe, fixture
+        refusal."
   - id: T-002
     title: Registro no plugin Grok e no setup
     description: "`src/providers/skills-file-set.js` e
@@ -198,6 +208,9 @@ tasks:
       expectExitCode: 0
 parked: []
 emerged: []
+planTitle: real-automate
+planActive: true
+current: true
 ---
 
 # Narrative / notes
