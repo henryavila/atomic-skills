@@ -200,7 +200,11 @@ function drawingStrings(card) {
  */
 function forbiddenPhraseHits(card) {
   const haystack = drawingStrings(card).join('\n').toLowerCase();
-  return FORBIDDEN_PHRASES.filter((phrase) => haystack.includes(phrase.toLowerCase()));
+  return FORBIDDEN_PHRASES.filter((phrase) => {
+    const escaped = phrase.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(^|[^a-z0-9_])${escaped}([^a-z0-9_]|$)`);
+    return re.test(haystack);
+  });
 }
 
 /**
@@ -292,8 +296,6 @@ export function checkPlanArchitecture(planMdPath, opts = {}) {
     issues.push(
       `forbidden phrase without the drawing: ${hits.join(', ')}`,
     );
-  } else if (hits.length > 0 && drawingComplete) {
-    issues.push(`forbidden vague phrase: ${hits.join(', ')}`);
   }
 
   const sha = typeof card.sha === 'string' ? card.sha.trim() : '';

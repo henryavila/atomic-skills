@@ -217,21 +217,88 @@ describe('find-missing-architecture detector', () => {
   it('forbidden phrases without the drawing fail', () => {
     const paths = architecturePathsForPlan(planMd);
     mkdirSync(dirname(paths.card), { recursive: true });
+    const incomplete = {
+      block: { name: 'se eu mexer nisto', start: 'a outra', end: 'consistente' },
+      sketches: [
+        { id: 'isolado', mix: 'se eu mexer nisto fica consistente' },
+      ],
+      chosen: 'a outra',
+      ratifiedAt: '2026-09-25T12:00:00.000Z',
+    };
     writeFileSync(
       paths.card,
-      `${JSON.stringify({
-        block: { name: 'se eu mexer nisto', start: 'a outra', end: 'consistente' },
-        sketches: [
-          { id: 'isolado', mix: 'se eu mexer nisto fica consistente' },
-        ],
-        chosen: 'a outra',
-        sha: 'deadbeef',
-        ratifiedAt: '2026-09-25T12:00:00.000Z',
-      })}\n`,
+      `${JSON.stringify({ ...incomplete, sha: architectureCardSha(incomplete) }, null, 2)}\n`,
     );
     const res = runCli(['--strict', planMd]);
     assert.equal(res.status, 1);
-    assert.match(`${res.stdout}${res.stderr}`, /forbidden phrase|vague phrase|drawing/);
+    const out = `${res.stdout}${res.stderr}`;
+    assert.match(out, /forbidden phrase without the drawing/);
+    assert.doesNotMatch(out, /sha does not match/);
+  });
+
+  it('na outra is not the forbidden phrase a outra', () => {
+    const paths = architecturePathsForPlan(planMd);
+    mkdirSync(dirname(paths.card), { recursive: true });
+    const incomplete = {
+      block: { name: 'x_chord', start: '{start_of_x_chord}', end: '{end_of_x_chord}' },
+      sketches: [
+        { id: 'header-out', mix: 'parse concatenates the header na outra passagem' },
+      ],
+      chosen: 'header-out',
+      ratifiedAt: '2026-09-25T12:00:00.000Z',
+    };
+    writeFileSync(
+      paths.card,
+      `${JSON.stringify({ ...incomplete, sha: architectureCardSha(incomplete) }, null, 2)}\n`,
+    );
+    const r = checkPlanArchitecture(planMd, { strict: true });
+    assert.equal(r.ok, false);
+    assert.ok(
+      !r.issues.some((issue) => /forbidden phrase/.test(issue) && /a outra/.test(issue)),
+      r.issues.join('; '),
+    );
+  });
+
+  it('complete drawing does not fail on na outra or isolado inside a mix line', () => {
+    const paths = architecturePathsForPlan(planMd);
+    mkdirSync(dirname(paths.card), { recursive: true });
+    const card = stamp(
+      drawing({
+        sketches: [
+          {
+            id: 'header-out',
+            outside: ['title', 'artist', 'youtube', 'audio'],
+            mix: 'parse concatenates the header na outra passagem isolado do corte',
+          },
+          {
+            id: 'nada-fora',
+            outside: [],
+            mix: 'não mistura',
+          },
+        ],
+        chosen: 'nada-fora',
+      }),
+    );
+    writeFileSync(paths.card, `${JSON.stringify(card, null, 2)}\n`);
+    const r = checkPlanArchitecture(planMd, { strict: true });
+    assert.equal(r.ok, true, r.issues.join('; '));
+    const res = runCli(['--strict', planMd]);
+    assert.equal(res.status, 0, `${res.stdout}${res.stderr}`);
+  });
+
+  it('sha mismatch vs drawing exits 1', () => {
+    const paths = architecturePathsForPlan(planMd);
+    mkdirSync(dirname(paths.card), { recursive: true });
+    const card = {
+      ...stamp(drawing()),
+      sha: 'ffffffffffffffffffffffffffffffff',
+    };
+    writeFileSync(paths.card, `${JSON.stringify(card, null, 2)}\n`);
+    const res = runCli(['--strict', planMd]);
+    assert.equal(res.status, 1);
+    const out = `${res.stdout}${res.stderr}`;
+    assert.match(out, /sha does not match drawing/);
+    assert.doesNotMatch(out, /unrelated text/);
   });
 
   it('valid card with sha and ratifiedAt exits 0', () => {
