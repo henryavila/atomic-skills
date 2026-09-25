@@ -4,6 +4,7 @@ slug: real-automate
 title: real-automate
 version: "1.0"
 status: active
+executionMode: automate
 started: 2026-09-25T03:17:12.483Z
 lastUpdated: 2026-09-25T03:17:12.483Z
 branch: plan/real-automate
@@ -443,4 +444,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=2cbd5158100b | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=8508a1a9f2df | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)

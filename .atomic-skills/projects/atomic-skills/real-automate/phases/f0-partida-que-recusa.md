@@ -14,8 +14,9 @@ goal: "`--automate` deixa de ser a sessão que escreve. O programa recusa sem
 status: active
 branch: plan/real-automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-09-25T10:50:00.000Z
-nextAction: "Start T-001: Caneta dos três hosts"
+lastUpdated: 2026-09-25T21:00:42.067Z
+nextAction: Spawn F0 phase writer after assert-automate-gate --gate spawn (T-001
+  T-002 T-003).
 parentPlan: real-automate
 phaseId: F0
 businessIntent:
@@ -79,7 +80,37 @@ tasks:
       Sem lock, exit 0. O lock de prova é `probe.lock`, não `pen.lock`.
       Verifier: `node --test tests/automate-host-pen.test.js`."
     status: pending
-    lastUpdated: 2026-09-25T03:17:12.483Z
+    lastUpdated: 2026-09-25T21:00:42.067Z
+    outputs:
+      - kind: file
+        path: src/automate-host-pen.js
+      - kind: file
+        path: scripts/automate-pen-hook.js
+      - kind: file
+        path: skills/shared/project-assets/hooks/automate-pen.sh
+      - kind: file
+        path: tests/automate-host-pen.test.js
+    scopeBoundary:
+      - Do not delete or replace skills/shared/project-assets/hooks/pre-write.sh.
+      - Do not change the pre-write.sh matcher.
+      - Do not change stop.sh.
+      - Do not spawn a writer, merge, run review both, audit flow, or open the
+        next phase.
+      - Do not implement F1–F5 product (architecture card, UI stamp, writer
+        spawn, page).
+      - Do not treat the operational pen.lock as the startup probe.lock.
+    acceptance:
+      - it - without a lock, automate-pen.sh exits 0 on a write payload.
+      - it - an isolated probe.lock (not pen.lock) makes a write payload exit 2.
+      - it - the pen matcher covers Write/Edit/MultiEdit/Bash,
+        apply_patch/shell, and write/search_replace/run_terminal_command.
+      - it - assessHostWrite is ok only when invokedHook and refused are true
+        and no sentinel file was created.
+      - it - node --test tests/automate-host-pen.test.js exits 0.
+    verifier:
+      kind: shell
+      command: node --test tests/automate-host-pen.test.js
+      expectExitCode: 0
   - id: T-002
     title: Registro no plugin Grok e no setup
     description: "`src/providers/skills-file-set.js` e
@@ -89,7 +120,34 @@ tasks:
       `shell` e `run_terminal_command`, além das ferramentas de arquivo.
       Verifier: `node --test tests/automate-host-pen.test.js`."
     status: pending
-    lastUpdated: 2026-09-25T10:50:00.000Z
+    lastUpdated: 2026-09-25T21:00:42.067Z
+    outputs:
+      - kind: file
+        path: src/providers/skills-file-set.js
+      - kind: file
+        path: skills/shared/project-assets/project-setup.md
+    scopeBoundary:
+      - Do not delete or replace skills/shared/project-assets/hooks/pre-write.sh.
+      - Do not change the pre-write.sh matcher.
+      - Do not change stop.sh.
+      - Do not spawn a writer, merge, run review both, audit flow, or open the
+        next phase.
+      - Do not implement F1–F5 product (architecture card, UI stamp, writer
+        spawn, page).
+      - Do not unregister or delete the existing pre-write.sh PreToolUse entry.
+    acceptance:
+      - it - src/providers/skills-file-set.js registers automate-pen.sh beside
+        pre-write.sh.
+      - it - the pen matcher includes apply_patch, Bash, shell, and
+        run_terminal_command plus file tools.
+      - it - skills/shared/project-assets/project-setup.md documents the same
+        registration.
+      - it - the pre-write.sh matcher is unchanged.
+      - it - node --test tests/automate-host-pen.test.js exits 0.
+    verifier:
+      kind: shell
+      command: node --test tests/automate-host-pen.test.js
+      expectExitCode: 0
   - id: T-003
     title: Partida que lista o que falta
     description: "`scripts/automate-run.js --host <claude-code|codex|grok> --plan
@@ -101,7 +159,43 @@ tasks:
       --host codex --plan <fixture plan.md sem flow>` sai 1 citando
       `automate-pen.sh` e `find-missing-architecture.js`."
     status: pending
-    lastUpdated: 2026-09-25T10:50:00.000Z
+    lastUpdated: 2026-09-25T21:00:42.067Z
+    outputs:
+      - kind: file
+        path: scripts/automate-run.js
+      - kind: file
+        path: scripts/find-unreviewed-plans.js
+      - kind: file
+        path: tests/automate-host-pen.test.js
+    scopeBoundary:
+      - Do not delete or replace skills/shared/project-assets/hooks/pre-write.sh.
+      - Do not change the pre-write.sh matcher.
+      - Do not change stop.sh.
+      - Do not spawn a writer, merge, run review both, audit flow, or open the
+        next phase.
+      - Do not implement F1–F5 product (architecture card, UI stamp, writer
+        spawn, page).
+      - Do not create pen.lock at startup.
+      - Do not call scripts/automate-phase-run.js.
+      - Do not count assessHostWrite with the host-write proof disabled.
+      - "Do not treat a session-written - internal: review line as an external
+        receipt."
+    acceptance:
+      - "it - find-unreviewed-plans.js --require-external exits 1 when the only
+        review line is - internal: or there is no external CLI receipt."
+      - it - automate-run.js startup calls find-unreviewed-plans.js
+        --require-external.
+      - it - startup creates and deletes an isolated probe.lock, requires hook
+        exit 2 then 0, and never leaves pen.lock.
+      - it - a real host write must be refused with no sentinel; assessHostWrite
+        with the proof disabled does not count.
+      - it - node scripts/automate-run.js --host codex --plan <fixture plan.md
+        without flow> exits 1 citing automate-pen.sh and
+        find-missing-architecture.js.
+    verifier:
+      kind: shell
+      command: node --test tests/automate-host-pen.test.js
+      expectExitCode: 0
 parked: []
 emerged: []
 ---
@@ -117,3 +211,10 @@ Initiative for phase **F0 — Partida que recusa**.
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** F0 Partida que recusa is the active materialized phase. Pen files already exist on plan/real-automate; T-001–T-003 stay pending until SPEC-admitted close through verify-on-done. Remaining product gap is T-003: --require-external plus a real host-write proof (disabled assessHostWrite does not count).
+- **Decision log:** Operator authorized unattended orchestrator for this session (2026-09-25): take every mid-run decision, spawn isolated agents, run local+external (codex) review, resolve findings, user validates once at the end on the F5 page. Durable stamp executionMode=automate. External review CLI for this host (grok) is codex. F0 BI spine already complete; phase-start package ratified from that authorization.
+- **Single nextAction:** Run `assert-automate-gate --gate spawn` then `automate-phase-run.js prepare` for F0 and spawn one code-only phase writer.
+- **Verbatim state:** plan `.atomic-skills/projects/atomic-skills/real-automate/plan.md`; initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/f0-partida-que-recusa.md`; branch `plan/real-automate`; worktree `/Volumes/External/code/atomic-skills/.worktrees/real-automate`; flow `find-missing-flow.js --strict` exit 0.
+- **Uncommitted changes:** clean tree after this checkpoint (SPEC fill, executionMode stamp, maestro cursor, decision log, GT fp restamp).
