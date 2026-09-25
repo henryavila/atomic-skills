@@ -215,6 +215,10 @@ function generatePluginHooksSoft() {
           matcher: 'Edit|Write|MultiEdit|NotebookEdit|search_replace|write|apply_patch|Bash|shell|run_terminal_command',
           hooks: [{ type: 'command', command: cmd('automate-pen.sh') }],
         },
+        {
+          matcher: '.*',
+          hooks: [{ type: 'command', command: cmd('automate-pen.sh') }],
+        },
       ],
     },
   };

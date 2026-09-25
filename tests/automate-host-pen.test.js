@@ -649,9 +649,11 @@ describe('automate host pen', () => {
     assert.match(generator, /automate-pen\.sh/);
     assert.match(generator, /apply_patch\|Bash\|shell\|run_terminal_command/);
     assert.match(generator, /NotebookEdit/);
+    assert.match(generator, /matcher:\s*['"]\.\*['"]/);
     assert.match(setup, /automate-pen\.sh/);
     assert.match(setup, /apply_patch/);
     assert.match(setup, /NotebookEdit/);
+    assert.match(setup, /"matcher": "\.\*"/);
   });
 
   it('treats probe.lock as a deny and leaves pen.lock untouched', () => {
