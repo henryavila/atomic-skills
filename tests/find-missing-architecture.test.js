@@ -357,4 +357,38 @@ describe('automate-run architecture gate', () => {
     assert.match(res.stderr, /architecture\/decisions\.json/);
     rmSync(dir, { recursive: true, force: true });
   });
+
+  it('fixture with a third unvalidated chosen sketch exits 1 citing the detector', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'automate-arch-chosen-'));
+    const plan = writePlan(dir);
+    const paths = architecturePathsForPlan(plan);
+    mkdirSync(dirname(paths.card), { recursive: true });
+    const base = drawing();
+    const card = stamp({
+      ...base,
+      sketches: [
+        ...base.sketches,
+        { id: 'garbage', outside: ['noise'], mix: 'parse concatenates garbage' },
+      ],
+      chosen: 'garbage',
+    });
+    writeFileSync(paths.card, `${JSON.stringify(card, null, 2)}\n`);
+    const res = spawnSync(
+      process.execPath,
+      [
+        join(ROOT, 'scripts/automate-run.js'),
+        '--host',
+        'grok',
+        '--plan',
+        plan,
+        '--root',
+        dir,
+      ],
+      { encoding: 'utf8', timeout: 20_000 },
+    );
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /find-missing-architecture\.js/);
+    assert.match(res.stderr, /chosen|two sketches/);
+    rmSync(dir, { recursive: true, force: true });
+  });
 });
