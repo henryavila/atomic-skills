@@ -14,8 +14,9 @@ goal: "`--automate` deixa de ser a sessão que escreve. O programa recusa sem
 status: active
 branch: plan/real-automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-09-25T21:50:06.194Z
-nextAction: Run done T-003 (Partida que lista o que falta) after claim-bound assert.
+lastUpdated: 2026-09-25T21:50:08.314Z
+nextAction: Run evaluation agent, review-code --mode=both, audit-delivery, then
+  phase-done for F0.
 parentPlan: real-automate
 phaseId: F0
 businessIntent:
@@ -46,11 +47,11 @@ businessIntent:
     recusada e não cria arquivo, e node scripts/automate-run.js --host codex
     --plan num fixture plan.md sem flow sai com exit 1 citando automate-pen.sh e
     find-missing-architecture.js.
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 2
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -179,8 +180,8 @@ tasks:
       bloqueios e não cria `pen.lock`. Verifier: `node scripts/automate-run.js
       --host codex --plan <fixture plan.md sem flow>` sai 1 citando
       `automate-pen.sh` e `find-missing-architecture.js`."
-    status: active
-    lastUpdated: 2026-09-25T21:34:46.290Z
+    status: done
+    lastUpdated: 2026-09-25T21:50:08.314Z
     outputs:
       - kind: file
         path: scripts/automate-run.js
@@ -217,6 +218,17 @@ tasks:
       kind: shell
       command: node --test tests/automate-host-pen.test.js
       expectExitCode: 0
+    closedAt: 2026-09-25T21:50:08.314Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-09-25T21:50:08.314Z
+      verifiedCommit: 6b5176c2f07df2be17d9383c98478455eb8413c9
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
+        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
+        probe.lock, --require-external, host-shaped write probe, fixture
+        refusal."
 parked: []
 emerged: []
 planTitle: real-automate
