@@ -18,13 +18,20 @@ principles:
       sessão do chat não é esse programa."
   - id: P2
     title: A skill não é o enforce
-    body: |
+    body: >
       Mais parágrafos na skill não substituem o processo. O PreToolUse antigo é
+
       `skills/shared/project-assets/hooks/pre-write.sh`. O default é dry-run
+
       (`emergent_strict_mode: false` em `hooks/config.json`); exit 2 só com esse
+
       knob, não porque Soft virou Strict. No Grok sem hooks-trust o hook não
+
       corre (fail-open). Ele só olha acréscimo de task ou fase sem `provenance`
-      em `plan.md`, `phases/*.md` e iniciativas. Não bloqueia escrita de produto.
+
+      em `plan.md`, `phases/*.md` e iniciativas. Não bloqueia escrita de
+      produto.
+
       A caneta não o substitui.
   - id: P3
     title: Três hosts
@@ -105,8 +112,8 @@ phases:
       também recusa enquanto os detectores de cartão e protótipo não existem.
       Caneta real significa duas provas. Um lock de prova isolado, que não é o
       pen.lock, faz o script do hook sair 2 num payload de escrita e sair 0 sem
-      lock. Além disso, uma chamada de escrita do próprio host (Claude, Codex
-      ou Grok) tem de ser recusada e não pode deixar arquivo no disco. Sem essa
+      lock. Além disso, uma chamada de escrita do próprio host (Claude, Codex ou
+      Grok) tem de ser recusada e não pode deixar arquivo no disco. Sem essa
       segunda prova o programa não parte. O teste de recusa aponta um plan.md
       fixture sem flow, não o source.md. Não dispara writer."
     dependsOn: []
@@ -132,17 +139,28 @@ phases:
         node scripts/automate-run.js vê a partida recusada até a caneta do host,
         o flow, a revisão do plano e o ground truth existirem, e também enquanto
         os detectores de cartão e protótipo não existem.
-      workflow: |
+      workflow: >
         O operador passa --host claude-code, codex ou grok e --plan. O
+
         programa lê o hook daquele host, cria um lock de prova isolado (não o
+
         pen.lock), exige status 2 no script e status 0 sem lock, dispara uma
+
         escrita real pela ferramenta do host e só segue se ela for recusada e
+
         não gravar arquivo, apaga o lock de prova, roda find-missing-flow.js
+
         --strict,
+
         find-unreviewed-plans.js --require-external e
+
         find-plans-missing-ground-truth.js, e confere se
-        find-missing-architecture.js e find-missing-ui.js existem. `--require-external`
+
+        find-missing-architecture.js e find-missing-ui.js existem.
+        `--require-external`
+
         sai 1 quando a única linha de review é `- internal:`. Qualquer falha
+
         imprime a lista e sai 1. Não grava pen.lock e não dispara writer.
       rules: |
         Só Claude Code, Codex e Grok. Sem lock a caneta sai 0. Com lock, escrita
@@ -174,12 +192,18 @@ phases:
   - id: F1
     slug: real-automate-f1-cartao-de-bloco
     title: Cartão de bloco
-    goal: |
+    goal: >
       o detector de arquitetura existe e recusa um plano sem os dois esboços
+
       e sem a escolha carimbada de qual esboço vale. “Nada fora” é uma opção do
+
       cartão, não a resposta automática. O protótipo cita essa escolha.
+
       `scripts/find-missing-design-process.js` e o `userApproved` do recibo
-      design-gates não são este cartão. O cartão é `architecture/decisions.json`,
+
+      design-gates não são este cartão. O cartão é
+      `architecture/decisions.json`,
+
       lido por `scripts/find-missing-architecture.js`, que esta fase cria.
     dependsOn:
       - F0
@@ -322,6 +346,8 @@ phases:
             description: Verify exit-gate prose with the user during phase-done.
     status: pending
 references: []
+planActive: true
+planTitle: real-automate
 ---
 
 # real-automate
@@ -475,4 +501,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=c4e4e43ca052 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=0754abad9f51 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
