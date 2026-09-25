@@ -134,3 +134,97 @@ describe('find-missing-architecture card format', () => {
     assert.equal(onDisk.sha, undefined);
   });
 });
+
+describe('find-missing-architecture detector', () => {
+  let dir;
+  let planMd;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'arch-detect-'));
+    planMd = writePlan(dir);
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('userApproved / find-missing-design-process.js do not satisfy', () => {
+    mkdirSync(join(dir, '.atomic-skills/status/design-gates'), { recursive: true });
+    writeFileSync(
+      join(dir, '.atomic-skills/status/design-gates/demo-fixture.json'),
+      `${JSON.stringify({
+        schemaVersion: '0.1',
+        userApproved: true,
+        status: 'ready',
+      })}\n`,
+    );
+    writeFileSync(
+      join(dir, 'find-missing-design-process.js'),
+      'throw new Error("not the architecture card");\n',
+    );
+    const res = runCli(['--strict', planMd]);
+    assert.equal(res.status, 1);
+    const out = `${res.stdout}${res.stderr}`;
+    assert.match(out, /architecture\/decisions\.json/);
+    assert.doesNotMatch(out, /plan\(s\) OK/);
+    const r = checkPlanArchitecture(planMd, { strict: true });
+    assert.equal(r.ok, false);
+    assert.ok(
+      r.issues.some((issue) => /userApproved|find-missing-design-process/.test(issue)),
+      r.issues.join('; '),
+    );
+  });
+
+  it('forbidden phrases without the drawing fail', () => {
+    const paths = architecturePathsForPlan(planMd);
+    mkdirSync(dirname(paths.card), { recursive: true });
+    writeFileSync(
+      paths.card,
+      `${JSON.stringify({
+        block: { name: 'se eu mexer nisto', start: 'a outra', end: 'consistente' },
+        sketches: [
+          { id: 'isolado', mix: 'se eu mexer nisto fica consistente' },
+        ],
+        chosen: 'a outra',
+        sha: 'deadbeef',
+        ratifiedAt: '2026-09-25T12:00:00.000Z',
+      })}\n`,
+    );
+    const res = runCli(['--strict', planMd]);
+    assert.equal(res.status, 1);
+    assert.match(`${res.stdout}${res.stderr}`, /forbidden phrase|vague phrase|drawing/);
+  });
+
+  it('valid card with sha and ratifiedAt exits 0', () => {
+    const paths = architecturePathsForPlan(planMd);
+    mkdirSync(dirname(paths.card), { recursive: true });
+    const card = stamp(drawing());
+    writeFileSync(paths.card, `${JSON.stringify(card, null, 2)}\n`);
+    const r = checkPlanArchitecture(planMd, { strict: true });
+    assert.equal(r.ok, true, r.issues.join('; '));
+    const res = runCli(['--strict', planMd]);
+    assert.equal(res.status, 0, `${res.stdout}${res.stderr}`);
+    assert.match(`${res.stdout}${res.stderr}`, /OK/);
+  });
+
+  it('exit 0 only with sha and ratifiedAt', () => {
+    const paths = architecturePathsForPlan(planMd);
+    mkdirSync(dirname(paths.card), { recursive: true });
+    writeFileSync(paths.card, `${JSON.stringify(drawing(), null, 2)}\n`);
+    assert.equal(runCli(['--strict', planMd]).status, 1);
+    const withSha = { ...drawing(), sha: architectureCardSha(drawing()) };
+    writeFileSync(paths.card, `${JSON.stringify(withSha, null, 2)}\n`);
+    assert.equal(runCli(['--strict', planMd]).status, 1);
+    const withStamp = stamp(drawing());
+    writeFileSync(paths.card, `${JSON.stringify(withStamp, null, 2)}\n`);
+    assert.equal(runCli(['--strict', planMd]).status, 0);
+    const chatStamp = stamp({ ...drawing(), ratifiedAt: 'ok' });
+    writeFileSync(
+      paths.card,
+      `${JSON.stringify({ ...chatStamp, ratifiedAt: 'ok' }, null, 2)}\n`,
+    );
+    const chat = runCli(['--strict', planMd]);
+    assert.equal(chat.status, 1);
+    assert.match(`${chat.stdout}${chat.stderr}`, /ratifiedAt/);
+  });
+});
