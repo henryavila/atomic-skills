@@ -77,13 +77,14 @@ Option (b), Soft:
     "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
     "PreToolUse": [
       { "matcher": "Edit|Write|MultiEdit|search_replace|write", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] },
-      { "matcher": "Edit|Write|MultiEdit|NotebookEdit|search_replace|write|apply_patch|Bash|shell|run_terminal_command", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/automate-pen.sh\"" }] }
+      { "matcher": "Edit|Write|MultiEdit|NotebookEdit|search_replace|write|apply_patch|Bash|shell|run_terminal_command", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/automate-pen.sh\"" }] },
+      { "matcher": ".*", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/automate-pen.sh\"" }] }
     ]
   }
 }
 ```
 
-Dual-vocab PreToolUse matcher: Claude tools (`Edit|Write|MultiEdit`) and Grok write tools (`search_replace|write`). Hosts that only emit one vocabulary still match.
+Dual-vocab PreToolUse matcher: Claude tools (`Edit|Write|MultiEdit`) and Grok write tools (`search_replace|write`). Hosts that only emit one vocabulary still match. The named pen matcher lists write and shell tools; hosts that accept a catch-all PreToolUse matcher (`.*`) also register `automate-pen.sh` so unknown tools still hit the pen.
 
 Option (c), Strict: add `Stop` under the same `hooks` object:
 

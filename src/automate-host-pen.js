@@ -235,7 +235,8 @@ function isTrustedPenHookScript(resolved, root, env = process.env) {
 
 /**
  * Return the script token if `command` is `bash <path-to-automate-pen.sh>`.
- * Rejects flags (`bash -c`, `bash -n`), substring spoofs, and compound commands.
+ * Rejects flags (`bash -c`, `bash -n`), env-assignment prefixes (`NAME=value`,
+ * `BASH_ENV=…`, `AUTOMATE_PEN_LOCK=…`), substring spoofs, and compound commands.
  * @param {string | null | undefined} command
  * @returns {string | null}
  */
@@ -245,13 +246,11 @@ export function extractPenHookScriptToken(command) {
   if (!trimmed) return null;
   if (commandHasShellMetacharacters(trimmed)) return null;
   const tokens = tokenizeCommand(trimmed);
-  let i = 0;
-  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i += 1;
-  const exe = tokens[i];
+  if (tokens.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0])) return null;
+  const exe = tokens[0];
   if (exe !== 'bash' && exe !== '/bin/bash' && exe !== '/usr/bin/bash') return null;
-  i += 1;
-  if (i !== tokens.length - 1) return null;
-  const script = tokens[i];
+  if (tokens.length !== 2) return null;
+  const script = tokens[1];
   if (!script) return null;
   if (basename(script.replace(/\\/g, '/')) !== PEN_HOOK_SCRIPT) return null;
   if (!hasTrustedPenHookSuffix(script)) return null;
@@ -261,6 +260,8 @@ export function extractPenHookScriptToken(command) {
 /**
  * Expand a hook-script token against `root` / env and return an absolute path.
  * Innermost `${VAR:-default}` is expanded first so nested Grok defaults resolve.
+ * `$PWD` / `${PWD}` use GROK_WORKSPACE_ROOT / CLAUDE_PROJECT_DIR / `root`,
+ * never a disagreeing inherited `env.PWD`.
  * @param {string | null | undefined} command
  * @param {string} root
  * @param {NodeJS.Dict<string>} [env]
@@ -269,12 +270,15 @@ export function extractPenHookScriptToken(command) {
 export function resolvePenHookScript(command, root, env = process.env) {
   const token = extractPenHookScriptToken(command);
   if (!token || !root) return null;
+  const executionCwd = (() => {
+    const grok = env && env.GROK_WORKSPACE_ROOT;
+    const claude = env && env.CLAUDE_PROJECT_DIR;
+    if (grok && String(grok).trim()) return String(grok).trim();
+    if (claude && String(claude).trim()) return String(claude).trim();
+    return root;
+  })();
   const lookup = (name) => {
-    if (name === 'PWD') {
-      const envPwd = env && env.PWD;
-      if (envPwd != null && String(envPwd) !== '') return String(envPwd);
-      return root;
-    }
+    if (name === 'PWD') return executionCwd;
     const value = env ? env[name] : undefined;
     return value != null && String(value) !== '' ? String(value) : '';
   };
@@ -317,34 +321,36 @@ export function assessPenRegistration(
     };
   }
   const entries = preToolUseEntries(hooksConfig);
-  const pen = entries.find((entry) => {
-    if (entry == null || typeof entry !== 'object') return false;
+  /** @type {Array<{ matcher: string, command: string }>} */
+  const penEntries = [];
+  for (const entry of entries) {
+    if (entry == null || typeof entry !== 'object') continue;
     const hooks = Array.isArray(entry.hooks) ? entry.hooks : [];
-    return hooks.some(
-      (hook) => hook != null && extractPenHookScriptToken(hook.command) != null,
-    );
+    const command = hooks
+      .map((hook) => (hook && typeof hook.command === 'string' ? hook.command : ''))
+      .find((cmd) => extractPenHookScriptToken(cmd) != null);
+    if (!command || !resolvePenHookScript(command, root, env)) continue;
+    penEntries.push({ matcher: String(entry.matcher || ''), command });
+  }
+  if (penEntries.length === 0) {
+    return {
+      ok: false,
+      reason: `${host} PreToolUse does not call ${PEN_HOOK_SCRIPT}`,
+    };
+  }
+  const required = requiredPenTools(host);
+  const matcherParts = (matcher) =>
+    String(matcher || '')
+      .split('|')
+      .map((part) => part.trim())
+      .filter(Boolean);
+  const named = penEntries.find((entry) => {
+    const parts = matcherParts(entry.matcher);
+    return required.every((tool) => parts.includes(tool));
   });
-  if (!pen) {
-    return {
-      ok: false,
-      reason: `${host} PreToolUse does not call ${PEN_HOOK_SCRIPT}`,
-    };
-  }
-  const command = (Array.isArray(pen.hooks) ? pen.hooks : [])
-    .map((hook) => (hook && typeof hook.command === 'string' ? hook.command : ''))
-    .find((cmd) => extractPenHookScriptToken(cmd) != null);
-  if (!command || !resolvePenHookScript(command, root, env)) {
-    return {
-      ok: false,
-      reason: `${host} PreToolUse does not call ${PEN_HOOK_SCRIPT}`,
-    };
-  }
-  const parts = String(pen.matcher || '')
-    .split('|')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  const missing = requiredPenTools(host).filter((tool) => !parts.includes(tool));
-  if (missing.length > 0) {
+  if (!named) {
+    const parts = matcherParts(penEntries[0].matcher);
+    const missing = required.filter((tool) => !parts.includes(tool));
     return {
       ok: false,
       reason: `${host} pen matcher missing: ${missing.join(', ')}`,
@@ -473,7 +479,7 @@ export function assessHostWrite(input) {
 function collectWritePaths(input) {
   const tool = input.toolName != null ? String(input.toolName).trim().toLowerCase() : '';
   const patch = typeof input.patch === 'string' ? input.patch : '';
-  if (tool === 'apply_patch' && patch.trim() !== '') {
+  if (tool === 'apply_patch') {
     return parseApplyPatchPaths(patch);
   }
   /** @type {string[]} */
