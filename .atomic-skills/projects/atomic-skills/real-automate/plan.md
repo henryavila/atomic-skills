@@ -8,7 +8,7 @@ executionMode: automate
 started: 2026-09-25T03:17:12.483Z
 lastUpdated: 2026-09-25T03:17:12.483Z
 branch: plan/real-automate
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -238,11 +238,19 @@ phases:
       criteria:
         - id: G-1
           description: "`node --test tests/find-missing-architecture.test.js` verde."
-          status: pending
+          status: met
+          metAt: 2026-09-25T23:10:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-09-25T23:10:00.000Z
+            verifiedCommit: 12be5098877a1a22ac9f0307d40fcf246d5cc64e
+            passed: true
+            exitCode: 0
+            outputSummary: "node --test tests/find-missing-architecture.test.js 15 pass / 0 fail"
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: active
+    status: done
     businessIntent:
       value: |
         O detector de arquitetura existe e recusa um plano sem os dois esboços
@@ -266,6 +274,35 @@ phases:
         sem carimbo sai 1 em find-missing-architecture.js --strict, e
         automate-run.js --host grok --plan num fixture sem cartão sai 1 com o
         motivo do detector.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-real-automate-F1.md
+      verifiedAt: 2026-09-25T23:10:00.000Z
+      at: 12be5098877a1a22ac9f0307d40fcf246d5cc64e
+    lessonsState: none
+    noneReason: >
+      F1 chosen-sketch and phrase-matching findings were fixed. Residual notes only.
+    reviewGate:
+      status: passed
+      mode: both
+      at: 12be5098877a1a22ac9f0307d40fcf246d5cc64e
+      reviewFile: .atomic-skills/reviews/2026-09-25-real-automate-F1-local.md
+      localReceiptPath: .atomic-skills/reviews/2026-09-25-real-automate-F1-local.md
+      codexReceiptPath: .atomic-skills/reviews/2026-09-25-real-automate-F1-codex-stderr.md
+      overrideReason: >
+        Codex exec HTTP 401 Unauthorized; stderr stored as the external receipt.
+      verifiedAt: 2026-09-25T23:10:00.000Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-09-25T23:10:00.000Z
+      packagePresentedAt: 2026-09-25T23:10:00.000Z
+      packagePath: .atomic-skills/reviews/2026-09-25-real-automate-F1-decision-package.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-real-automate-F1.md
+      verdict: CLOSED
+      verifiedAt: 2026-09-25T23:10:00.000Z
   - id: F2
     slug: real-automate-f2-prototipo
     title: Protótipo
@@ -549,4 +586,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=13c011214b03 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=f1ed5608e242 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)

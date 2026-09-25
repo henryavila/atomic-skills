@@ -8,12 +8,11 @@ goal: o detector de arquitetura existe e recusa um plano sem os dois esboços e
   scripts/find-missing-design-process.js e o userApproved do recibo design-gates
   não são este cartão. O cartão é architecture/decisions.json, lido por
   scripts/find-missing-architecture.js, que esta fase cria.
-status: active
+status: done
 branch: plan/real-automate
 started: 2026-09-25T22:32:55.799Z
-lastUpdated: 2026-09-25T23:02:32.215Z
-nextAction: Run evaluation agent, review-code --mode=both, audit-delivery, then
-  phase-done for F0.
+lastUpdated: 2026-09-25T23:04:28.980Z
+nextAction: present phase-start package for F2 validate-only
 parentPlan: real-automate
 phaseId: F1
 businessIntent:
@@ -38,19 +37,28 @@ businessIntent:
     do detector.
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
     description: "`node --test tests/find-missing-architecture.test.js` verde."
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/find-missing-architecture.test.js
       expectExitCode: 0
+    metAt: 2026-09-25T23:03:17.255Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-09-25T23:03:17.255Z
+      verifiedCommit: 12be5098877a1a22ac9f0307d40fcf246d5cc64e
+      passed: true
+      exitCode: 0
+      outputSummary: find-missing-architecture.test.js 15 pass; automate-host-pen 33 pass
     verifierLabel: "shell: node --test tests/find-missing-architecture.test.js"
+    evidenceSummary: passed · 2026-09-25
 tasks:
   - id: T-001
     title: Formato do cartão
@@ -184,6 +192,8 @@ Initiative for phase **F1 — Cartão de bloco**.
 - **Single nextAction:** Run assert-automate-gate --gate spawn then automate-phase-run prepare for F1.
 - **Verbatim state:** plan `.atomic-skills/projects/atomic-skills/real-automate/plan.md`; initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/f1-cartao-de-bloco.md`; branch `plan/real-automate`.
 - **Uncommitted changes:** F1 materialize in progress.
+
+
 
 
 

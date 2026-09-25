@@ -1,13 +1,19 @@
 {
-  "step": "C",
+  "step": "awaiting-operator-advance",
   "phaseId": "F1",
-  "redispatchCount": 3,
-  "updatedAt": "2026-09-25T22:34:16.147Z",
+  "redispatchCount": 4,
+  "updatedAt": "2026-09-25T23:04:29.038Z",
   "operatorOverrides": [
     {
       "at": "2026-09-25T22:19:08.523Z",
       "reason": "Codex residual still critical after two redispatches; operator session authorized continue-until-findings-cleared",
       "priorCount": 2,
+      "gate": "phase-review"
+    },
+    {
+      "at": "2026-09-25T22:52:47.911Z",
+      "reason": "F1 local review critical/major on chosen-sketch validation",
+      "priorCount": 3,
       "gate": "phase-review"
     }
   ],
