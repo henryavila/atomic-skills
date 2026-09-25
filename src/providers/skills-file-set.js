@@ -212,7 +212,7 @@ function generatePluginHooksSoft() {
           hooks: [{ type: 'command', command: cmd('pre-write.sh') }],
         },
         {
-          matcher: 'Edit|Write|MultiEdit|search_replace|write|apply_patch|Bash|shell|run_terminal_command',
+          matcher: 'Edit|Write|MultiEdit|NotebookEdit|search_replace|write|apply_patch|Bash|shell|run_terminal_command',
           hooks: [{ type: 'command', command: cmd('automate-pen.sh') }],
         },
       ],
