@@ -242,7 +242,30 @@ phases:
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: pending
+    status: active
+    businessIntent:
+      value: |
+        O detector de arquitetura existe e recusa um plano sem os dois esboços
+        do bloco e sem a escolha carimbada de qual esboço vale. Nada fora é
+        opção do cartão, não default.
+      workflow: |
+        O plano guarda architecture/decisions.json com delimitador, lista do
+        que ficou fora, linha da mistura ou não mistura, segundo esboço com
+        fora vazio, e o esboço escolhido. find-missing-architecture.js lê esse
+        arquivo e sai 0 só com sha e ratifiedAt. automate-run.js chama o
+        detector em vez de só checar se o arquivo existe.
+      rules: |
+        Proíbe as frases se eu mexer nisto, a outra, consistente e isolado sem
+        o desenho. find-missing-design-process.js e userApproved do recibo
+        design-gates não satisfazem. Chat ok não carimba.
+      outOfScope: |
+        Protótipo de tela (F2), spawn do writer, merge, review both, audit do
+        flow, página final.
+      doneWhen: |
+        node --test tests/find-missing-architecture.test.js passa, um fixture
+        sem carimbo sai 1 em find-missing-architecture.js --strict, e
+        automate-run.js --host grok --plan num fixture sem cartão sai 1 com o
+        motivo do detector.
   - id: F2
     slug: real-automate-f2-prototipo
     title: Protótipo
@@ -526,4 +549,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=eed6b19322dc | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=13c011214b03 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
