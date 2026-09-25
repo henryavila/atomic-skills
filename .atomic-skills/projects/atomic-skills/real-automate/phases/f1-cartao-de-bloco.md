@@ -11,9 +11,8 @@ goal: o detector de arquitetura existe e recusa um plano sem os dois esboços e
 status: active
 branch: plan/real-automate
 started: 2026-09-25T22:32:55.799Z
-lastUpdated: 2026-09-25T22:43:45.705Z
-nextAction: Run evaluation agent, review-code --mode=both, audit-delivery, then
-  phase-done for F0.
+lastUpdated: 2026-09-25T23:02:27.231Z
+nextAction: Run done T-002 (Detector) after claim-bound assert.
 parentPlan: real-automate
 phaseId: F1
 businessIntent:
@@ -36,11 +35,11 @@ businessIntent:
     sem carimbo sai 1 em find-missing-architecture.js --strict, e
     automate-run.js --host grok --plan num fixture sem cartão sai 1 com o motivo
     do detector.
-tasksDone: 3
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 3
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -60,7 +59,7 @@ tasks:
       `node scripts/find-missing-architecture.js --strict` num fixture sem
       carimbo sai 1."
     status: done
-    lastUpdated: 2026-09-25T22:43:43.874Z
+    lastUpdated: 2026-09-25T23:02:27.231Z
     outputs:
       - kind: file
         path: scripts/find-missing-architecture.js
@@ -80,11 +79,11 @@ tasks:
       kind: shell
       command: node --test tests/find-missing-architecture.test.js
       expectExitCode: 0
-    closedAt: 2026-09-25T22:43:43.874Z
+    closedAt: 2026-09-25T23:02:27.231Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-09-25T22:43:43.874Z
-      verifiedCommit: f55844d23f7ac04ca811770ade4cd3f821593773
+      verifiedAt: 2026-09-25T23:02:27.231Z
+      verifiedCommit: 74ac3da0fedadc7ae937e427ac5e30bfc9d86484
       passed: true
       exitCode: 0
       outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
@@ -99,8 +98,8 @@ tasks:
       `scripts/find-missing-design-process.js` e o `userApproved` do recibo
       design-gates não satisfazem este detector. Verifier: `node --test
       tests/find-missing-architecture.test.js`."
-    status: done
-    lastUpdated: 2026-09-25T22:43:44.799Z
+    status: active
+    lastUpdated: 2026-09-25T22:52:47.976Z
     outputs:
       - kind: file
         path: scripts/find-missing-architecture.js
@@ -118,24 +117,13 @@ tasks:
       kind: shell
       command: node --test tests/find-missing-architecture.test.js
       expectExitCode: 0
-    closedAt: 2026-09-25T22:43:44.799Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-09-25T22:43:44.799Z
-      verifiedCommit: 6b152b5a909fe62bc5f49e450292953f7c6c2d4d
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
-        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
-        probe.lock, --require-external, host-shaped write probe, fixture
-        refusal."
   - id: T-003
     title: A partida passa a exigir o detector
     description: "`automate-run.js` chama o script em vez de só checar se o arquivo
       existe. Verifier: `node scripts/automate-run.js --host grok --plan
       <fixture sem cartão>` sai 1 com o motivo do detector."
-    status: done
-    lastUpdated: 2026-09-25T22:43:45.705Z
+    status: active
+    lastUpdated: 2026-09-25T22:52:47.976Z
     outputs:
       - kind: file
         path: scripts/automate-run.js
@@ -151,17 +139,6 @@ tasks:
       kind: shell
       command: node --test tests/find-missing-architecture.test.js
       expectExitCode: 0
-    closedAt: 2026-09-25T22:43:45.705Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-09-25T22:43:45.705Z
-      verifiedCommit: be129953690a144e2817f17279e5a94b0ae78d3f
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
-        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
-        probe.lock, --require-external, host-shaped write probe, fixture
-        refusal."
 stack:
   - id: 1
     title: Cartão de bloco
@@ -184,6 +161,7 @@ Initiative for phase **F1 — Cartão de bloco**.
 - **Single nextAction:** Run assert-automate-gate --gate spawn then automate-phase-run prepare for F1.
 - **Verbatim state:** plan `.atomic-skills/projects/atomic-skills/real-automate/plan.md`; initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/f1-cartao-de-bloco.md`; branch `plan/real-automate`.
 - **Uncommitted changes:** F1 materialize in progress.
+
 
 
 
