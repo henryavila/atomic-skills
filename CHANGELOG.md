@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`release` skill.** Deterministic semver chooser (`plan` / `apply` / `ship`)
+  and opt-in adopt of a stage or GitHub-only workflow. Ship uses the chooser
+  version, ignores prerelease tags as a baseline, and refuses a default-branch
+  push. Runbook: `docs/kb/release-npm-stage.md`. Skill: `skills/core/release.md`.
+
 ### Changed
 
 - **npm publish process → Trusted Publisher stage-only.**

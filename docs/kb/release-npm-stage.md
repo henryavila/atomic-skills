@@ -31,9 +31,22 @@ File: `.github/workflows/publish.yml`
 
 ## Maintainer runbook (after GitHub Release)
 
-1. Cut the release with the chooser (`scripts/release/release.js` plan → apply →
-   ship) — or the equivalent documented release process. That creates the
-   GitHub Release that triggers the Action.
+1. Cut the release with the chooser, from the repository being released:
+
+   ```sh
+   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+   node "$PKG_ROOT/scripts/release/release.js" --root "$PWD"
+   node "$PKG_ROOT/scripts/release/release.js" --root "$PWD" --apply
+   # commit the bump on a non-default branch, then
+   node "$PKG_ROOT/scripts/release/release.js" --root "$PWD" --ship
+   ```
+
+   `--ship` refuses when the recorded version is not the chooser `next`, when
+   `HEAD` is the default branch (or the default branch cannot be resolved), or
+   when npm is in scope without a stage-only Action. `--no-npm` does not stop
+   a workflow that already runs `stage publish` or `npm publish`; adopt
+   `publish-gh-only.yml` or remove that workflow first. The GitHub Release
+   triggers the Action.
 2. Wait for the **Publish to npm (stage)** workflow to succeed. The job
    summary links the package Versions tab.
 3. Open the npm package Versions / Staged packages UI, for example:

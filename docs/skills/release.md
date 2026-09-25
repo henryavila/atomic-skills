@@ -4,7 +4,7 @@
 
 **Chooser plans bump; ship GH Release; npm stage+2FA only**
 
-Agents invent semver (feature as patch) and run `npm publish` from the laptop. `release` refuses to guess: `scripts/release` classifies the bump from conventional commits + Keep a Changelog Unreleased, applies package.json/CHANGELOG, tags, and opens the GitHub Release. When npm is in scope, the adopted Action stages via OIDC; a human approves with 2FA on the npm UI. No chooser output, no bump.
+Agents invent semver (feature as patch) and run `npm publish` from the laptop. `release` refuses to guess: `scripts/release` classifies the bump from conventional commits (subject and `BREAKING CHANGE` body) and Keep a Changelog (Unreleased, or the applied version section), applies package.json/CHANGELOG, tags, and opens the GitHub Release. When npm is in scope, the adopted Action stages via OIDC; a human approves with 2FA on the npm UI. No chooser output, no bump.
 
 ## Purpose
 

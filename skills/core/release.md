@@ -28,12 +28,16 @@ Before `--apply` or `--ship`:
 |----------|------|
 | `feat:` · changelog **Added** / **Changed** / **Deprecated** | **MINOR** |
 | `fix:` / `perf:` · **Fixed** / **Security** only | **PATCH** |
-| `!:` / `BREAKING CHANGE` / **Removed** on **0.x** | **MINOR** (never auto `1.0.0`) |
+| `!:` / `BREAKING CHANGE` (subject or commit body) / **Removed** on **0.x** | **MINOR** (never auto `1.0.0`) |
 | Breaking on **≥1.0.0** | **MAJOR** |
-| No classifiable commits / empty Unreleased | **none** — refuse |
+| No classifiable commits and no changelog signal | **none** — refuse |
 
-Baseline prefers **npm latest** when the package is public; otherwise last GH
-release/tag. Do not backfill a GitHub Release for a version already on npm.
+Baseline is the latest **stable** npm version (`x.y.z` only; prerelease and
+non-semver tags are ignored) when the package is public. Otherwise it is the
+last stable GitHub release or tag. After `--apply`, an empty `## [Unreleased]`
+still counts when `## [package version]` holds the moved notes and that
+version is ahead of the baseline. Do not backfill a GitHub Release for a
+version already on npm.
 
 Shared commit prefixes: `skills/shared/release-assets/conventional-commits.md`.
 
@@ -51,8 +55,15 @@ the operator did not pass an explicit npm opt-out (e.g. `--no-npm`).
 | Situation | Path |
 |-----------|------|
 | No npm in scope | GitHub Release (+ tag + CHANGELOG notes) **only** |
-| npm in scope **and** stage Action adopted (workflow body runs `stage publish`, no bare `npm publish`) | GH Release → Action **`npm stage publish`** → human `stage approve` (2FA on npm UI) |
+| npm in scope **and** stage Action adopted (an executable `run` step starts with `npm` / `npx … npm` and runs `stage publish`; no direct `npm publish`, including `npm --access public publish`) | GH Release → Action **`npm stage publish`** → human `stage approve` (2FA on npm UI) |
 | npm in scope **and** Action missing or not stage-only | **Refuse** ship that would imply npm publish; offer **adopt** of the stage template. Do not invent local `npm publish`. GH-only despite a public package requires explicit operator opt-out for that ship |
+
+A workflow title, a YAML comment, or `echo npm stage publish` is not adoption.
+Without `package.json`, `--apply` rewrites `CHANGELOG.md` only and does not
+create a `package.json`. `--no-npm` (or no package) still **refuses** when
+`.github/workflows/publish.yml` runs `stage publish` or `npm publish` — adopt
+the gh-only template or remove that workflow first. No publish workflow, or
+the gh-only template, ships a GitHub Release only.
 
 ## Process
 
@@ -86,11 +97,18 @@ is present, moves Unreleased into `## [next] - date`. Commit the bump
 node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/release.js" --root "$PWD" --ship
 ```
 
-Requires a clean tree and notes under `## [X.Y.Z]` (when CHANGELOG exists).
-Creates the annotated tag, pushes, and `gh release create`. It does **not**
-`npm publish`. Refuses when `kind` is `none`, the version is already on npm,
-HEAD is the default branch, or npm is in scope without a stage Action (unless
-`--no-npm`).
+Requires a clean tree. The recorded version (`package.json`, or the newest
+changelog version when there is no `package.json`) must equal `plan.next` —
+run `--apply` first. When `CHANGELOG.md` exists, notes come from `## [X.Y.Z]`.
+Creates the annotated tag only when it is absent or already points at `HEAD`;
+a tag on another commit aborts before any push. Then pushes the work branch
+and `gh release create`. It does **not** `npm publish`.
+
+Refuses when `kind` is `none`, the recorded version is not `plan.next`, the
+version is already on npm (npm in scope), `HEAD` is the default branch or the
+default branch cannot be resolved (`default-branch.md`; the name may contain
+`/`), npm is in scope without a stage-only Action, or `--no-npm` / no package
+still has a workflow that runs `stage publish` or `npm publish`.
 
 ### 5. After GitHub Release (npm in scope)
 
@@ -117,8 +135,11 @@ Installer / `reconcileFileSet` must **not** write consumer `.github` workflows.
 
 - Inventing a bump (patch for a feature, hand-picked `1.0.0` on 0.x breaking)
 - `--apply` / `--ship` when `kind` is `none`
+- `--ship` when the recorded version is not the chooser `next`
 - GitHub Release whose version is already on npm
+- Reusing a version tag that points at a different commit
 - Direct `npm publish` as the happy path
+- `--no-npm` while `publish.yml` still stages or publishes
 - Weakening `save-and-push` PR-only on the default branch
 
 ## Red Flags
