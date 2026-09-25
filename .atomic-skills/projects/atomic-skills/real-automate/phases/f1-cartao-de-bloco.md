@@ -11,8 +11,8 @@ goal: o detector de arquitetura existe e recusa um plano sem os dois esboços e
 status: active
 branch: plan/real-automate
 started: 2026-09-25T22:32:55.799Z
-lastUpdated: 2026-09-25T22:43:43.874Z
-nextAction: Run done T-002 (Detector) after claim-bound assert.
+lastUpdated: 2026-09-25T22:43:44.799Z
+nextAction: Run done T-003 (A partida passa a exigir o detector) after claim-bound assert.
 parentPlan: real-automate
 phaseId: F1
 businessIntent:
@@ -35,11 +35,11 @@ businessIntent:
     sem carimbo sai 1 em find-missing-architecture.js --strict, e
     automate-run.js --host grok --plan num fixture sem cartão sai 1 com o motivo
     do detector.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 1
+weightDone: 2
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -98,8 +98,8 @@ tasks:
       `scripts/find-missing-design-process.js` e o `userApproved` do recibo
       design-gates não satisfazem este detector. Verifier: `node --test
       tests/find-missing-architecture.test.js`."
-    status: pending
-    lastUpdated: 2026-09-25T22:32:55.799Z
+    status: done
+    lastUpdated: 2026-09-25T22:43:44.799Z
     outputs:
       - kind: file
         path: scripts/find-missing-architecture.js
@@ -117,6 +117,17 @@ tasks:
       kind: shell
       command: node --test tests/find-missing-architecture.test.js
       expectExitCode: 0
+    closedAt: 2026-09-25T22:43:44.799Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-09-25T22:43:44.799Z
+      verifiedCommit: 6b152b5a909fe62bc5f49e450292953f7c6c2d4d
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
+        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
+        probe.lock, --require-external, host-shaped write probe, fixture
+        refusal."
   - id: T-003
     title: A partida passa a exigir o detector
     description: "`automate-run.js` chama o script em vez de só checar se o arquivo
