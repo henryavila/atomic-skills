@@ -160,6 +160,17 @@ phases:
         ativo é recusada e não cria arquivo, e node scripts/automate-run.js
         --host codex --plan num fixture plan.md sem flow sai com exit 1 citando
         automate-pen.sh e find-missing-architecture.js.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-real-automate-F0.md
+      verifiedAt: 2026-09-25T21:22:17.320Z
+      at: 1474ad94c023f1acbc887a99f5dccbc6b116a17e
+    lessonsState: none
+    noneReason: >
+      F0 evaluation returned notes only (no blocker/critical/major). Clean
+      phase: no reopened tasks, no failed verifiers, no product defects
+      requiring a reusable lesson.
   - id: F1
     slug: real-automate-f1-cartao-de-bloco
     title: Cartão de bloco
@@ -464,4 +475,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=4ab0bd57ad66 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=7d8eeb75d345 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
