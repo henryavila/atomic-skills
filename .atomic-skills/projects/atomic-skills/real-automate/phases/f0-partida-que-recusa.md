@@ -14,9 +14,8 @@ goal: "`--automate` deixa de ser a sessão que escreve. O programa recusa sem
 status: active
 branch: plan/real-automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-09-25T21:17:02.286Z
-nextAction: Run evaluation agent, review-code --mode=both, audit-delivery, then
-  phase-done for F0.
+lastUpdated: 2026-09-25T21:34:46.290Z
+nextAction: Fix-agent redispatch for F0 review critical/major; then re-verify and done.
 parentPlan: real-automate
 phaseId: F0
 businessIntent:
@@ -47,7 +46,7 @@ businessIntent:
     recusada e não cria arquivo, e node scripts/automate-run.js --host codex
     --plan num fixture plan.md sem flow sai com exit 1 citando automate-pen.sh e
     find-missing-architecture.js.
-tasksDone: 3
+tasksDone: 0
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -79,8 +78,8 @@ tasks:
       `write`/`search_replace`/`run_terminal_command` enquanto o lock existe.
       Sem lock, exit 0. O lock de prova é `probe.lock`, não `pen.lock`.
       Verifier: `node --test tests/automate-host-pen.test.js`."
-    status: done
-    lastUpdated: 2026-09-25T21:16:41.568Z
+    status: active
+    lastUpdated: 2026-09-25T21:34:46.290Z
     outputs:
       - kind: file
         path: src/automate-host-pen.js
@@ -111,17 +110,6 @@ tasks:
       kind: shell
       command: node --test tests/automate-host-pen.test.js
       expectExitCode: 0
-    closedAt: 2026-09-25T21:16:41.568Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-09-25T21:16:41.568Z
-      verifiedCommit: 1435d1c3b2068285f68f8e2167583db4c3b782f1
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
-        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
-        probe.lock, --require-external, host-shaped write probe, fixture
-        refusal."
   - id: T-002
     title: Registro no plugin Grok e no setup
     description: "`src/providers/skills-file-set.js` e
@@ -130,8 +118,8 @@ tasks:
       trocar o matcher dele. O matcher da caneta inclui `apply_patch`, `Bash`,
       `shell` e `run_terminal_command`, além das ferramentas de arquivo.
       Verifier: `node --test tests/automate-host-pen.test.js`."
-    status: done
-    lastUpdated: 2026-09-25T21:16:53.328Z
+    status: active
+    lastUpdated: 2026-09-25T21:34:46.290Z
     outputs:
       - kind: file
         path: src/providers/skills-file-set.js
@@ -159,17 +147,6 @@ tasks:
       kind: shell
       command: node --test tests/automate-host-pen.test.js
       expectExitCode: 0
-    closedAt: 2026-09-25T21:16:53.328Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-09-25T21:16:53.328Z
-      verifiedCommit: 4b43c7c2424a1eb4651f2b4c7f2d4b526ab60507
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
-        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
-        probe.lock, --require-external, host-shaped write probe, fixture
-        refusal."
   - id: T-003
     title: Partida que lista o que falta
     description: "`scripts/automate-run.js --host <claude-code|codex|grok> --plan
@@ -180,8 +157,8 @@ tasks:
       bloqueios e não cria `pen.lock`. Verifier: `node scripts/automate-run.js
       --host codex --plan <fixture plan.md sem flow>` sai 1 citando
       `automate-pen.sh` e `find-missing-architecture.js`."
-    status: done
-    lastUpdated: 2026-09-25T21:17:02.286Z
+    status: active
+    lastUpdated: 2026-09-25T21:34:46.290Z
     outputs:
       - kind: file
         path: scripts/automate-run.js
@@ -218,17 +195,6 @@ tasks:
       kind: shell
       command: node --test tests/automate-host-pen.test.js
       expectExitCode: 0
-    closedAt: 2026-09-25T21:17:02.286Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-09-25T21:17:02.286Z
-      verifiedCommit: 49abf7b66f0b473776d3ab393205f7cde8b060e9
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test tests/automate-host-pen.test.js on merged HEAD
-        1435d1c3: ℹ tests 12 ℹ pass 12 ℹ fail 0 exit=0. Includes pen matcher,
-        probe.lock, --require-external, host-shaped write probe, fixture
-        refusal."
 parked: []
 emerged: []
 planTitle: real-automate
@@ -254,3 +220,4 @@ _(plan doc, external refs)_
 - **Single nextAction:** Run `assert-automate-gate --gate spawn` then `automate-phase-run.js prepare` for F0 and spawn one code-only phase writer.
 - **Verbatim state:** plan `.atomic-skills/projects/atomic-skills/real-automate/plan.md`; initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/f0-partida-que-recusa.md`; branch `plan/real-automate`; worktree `/Volumes/External/code/atomic-skills/.worktrees/real-automate`; flow `find-missing-flow.js --strict` exit 0.
 - **Uncommitted changes:** clean tree after this checkpoint (SPEC fill, executionMode stamp, maestro cursor, decision log, GT fp restamp).
+
