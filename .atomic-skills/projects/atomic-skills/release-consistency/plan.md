@@ -234,20 +234,36 @@ phases:
         - id: G-F2-1
           description: FAILS when fixture tests are red or when AS publish.yml still uses
             direct npm publish as happy path
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: "node --test tests/release-fixture.test.js && rg -q 'stage publish'
               .github/workflows/publish.yml && ! rg -q '^\\s+- run: npm publish'
               .github/workflows/publish.yml"
+          metAt: 2026-09-25T00:09:00.917Z
+          evidence:
+            verifierKind: shell
+            exitCode: 0
+            passed: true
+            verifiedAt: 2026-09-25T00:09:00.917Z
+            verifiedCommit: 71e46ace84bbfb19b3b6d5f803719cbdeee66cd1
+            outputSummary: exit gate verifier exit 0
         - id: G-F2-2
           description: FAILS when catalog reframe drops the not-a-git-workflow boundary or
             omits agent-gate clarification
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/catalog-product-boundary.test.js
-    status: active
+          metAt: 2026-09-25T00:09:00.917Z
+          evidence:
+            verifierKind: shell
+            exitCode: 0
+            passed: true
+            verifiedAt: 2026-09-25T00:09:00.917Z
+            verifiedCommit: 71e46ace84bbfb19b3b6d5f803719cbdeee66cd1
+            outputSummary: exit gate verifier exit 0
+    status: done
     summary: Fixture prova o contrato; AS migra para stage; catalog reframe.
     businessIntent:
       value: Fixture prova o contrato de release no consumer; AS dogfood migra
@@ -265,6 +281,33 @@ phases:
       doneWhen: tests/release-fixture.test.js verde; publish.yml tem stage publish e
         nao bare npm publish feliz; docs/kb/release-npm-stage.md;
         catalog-product-boundary verde; validate-skills 0.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-release-consistency-F2.md
+      verifiedAt: 2026-09-25T00:09:00.917Z
+      at: 71e46ace84bbfb19b3b6d5f803719cbdeee66cd1
+    lessonsState: none
+    noneReason: clean F2; operator ratified lessons none
+    reviewGate:
+      status: passed
+      mode: both
+      overrideReason: no external token; dual-leg local + external-unavailable
+      reviewFile: .atomic-skills/reviews/release-consistency-F2-phase-review-local.md
+      localReceiptPath: .atomic-skills/reviews/release-consistency-F2-phase-review-local.md
+      codexReceiptPath: .atomic-skills/reviews/release-consistency-F2-phase-review-external-unavailable.md
+      at: 71e46ace84bbfb19b3b6d5f803719cbdeee66cd1
+      verifiedAt: 2026-09-25T00:09:00.917Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-09-25T00:09:00.917Z
+      packagePresentedAt: 2026-09-25T00:09:00.917Z
+      packagePath: .atomic-skills/reviews/release-consistency-F2-decision-package.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-release-consistency-F2.md
+      verdict: CLOSED
+      verifiedAt: 2026-09-25T00:09:00.917Z
 references: []
 planActive: true
 planTitle: Release consistency — PR-only default branch + GH Release + npm stage
@@ -348,5 +391,5 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 ## Reviews
 
 - internal: clean | mode=local | 0 major+ | @ uncommitted (2026-09-13T16:43:19.882Z)
-- ground-truth: complete-with-findings | mode=ground-truth | fp=0bccc4f02c12 | premises=11 | impacts=8 @ uncommitted (2026-09-24T23:15:53Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=cafe60b83fa2 | premises=11 | impacts=8 @ uncommitted (2026-09-24T23:15:53Z)
 - cross-model: SKIPPED — operator: sem token do revisor externo; nao tem como fazer agora; prosseguir com receipts local + ground-truth

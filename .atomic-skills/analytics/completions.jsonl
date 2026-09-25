@@ -252,3 +252,4 @@
 {"ts":"2026-09-24T23:49:09.548Z","event":"task-done","projectId":"atomic-skills","planSlug":"release-consistency","phaseId":"F2","taskId":"T-006","weight":1,"weightBasis":"count"}
 {"ts":"2026-09-24T23:49:09.578Z","event":"task-done","projectId":"atomic-skills","planSlug":"release-consistency","phaseId":"F2","taskId":"T-007","weight":1,"weightBasis":"count"}
 {"ts":"2026-09-24T23:49:09.605Z","event":"task-done","projectId":"atomic-skills","planSlug":"release-consistency","phaseId":"F2","taskId":"T-008","weight":1,"weightBasis":"count"}
+{"ts":"2026-09-25T00:09:01.220Z","event":"phase-done","projectId":"atomic-skills","planSlug":"release-consistency","phaseId":"F2","taskId":null,"weight":1,"weightBasis":"count"}

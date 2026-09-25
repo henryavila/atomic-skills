@@ -5,16 +5,16 @@ title: Fixture dogfood + AS stage migration + catalog reframe
 goal: Fixture de consumer prova PR-only, chooser, dual-mode e template stage;
   depois migrar `.github/workflows/publish.yml` do Atomic Skills para stage;
   reframe `product.what_is_not`; documentar runbook de approve.
-status: active
+status: done
 branch: plan/release-consistency
 started: 2026-09-24T23:43:05.426Z
-lastUpdated: 2026-09-24T23:49:09.509Z
-nextAction: Run phase-done gates for F2
+lastUpdated: 2026-09-25T00:09:00.917Z
+nextAction: null
 parentPlan: release-consistency
 phaseId: F2
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 3
 weightTotal: 3
@@ -22,21 +22,39 @@ exitGates:
   - id: G-F2-1
     description: FAILS when fixture tests are red or when AS publish.yml still uses
       direct npm publish as happy path
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: "node --test tests/release-fixture.test.js && rg -q 'stage publish'
         .github/workflows/publish.yml && ! rg -q '^\\s+- run: npm publish'
         .github/workflows/publish.yml"
+    metAt: 2026-09-25T00:09:00.917Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-25T00:09:00.917Z
+      verifiedCommit: 71e46ace84bbfb19b3b6d5f803719cbdeee66cd1
+      outputSummary: exit gate verifier exit 0
     verifierLabel: "shell: node --test tests/release-fixture.test.js && rg -q 'stage p…"
+    evidenceSummary: passed · 2026-09-25
   - id: G-F2-2
     description: FAILS when catalog reframe drops the not-a-git-workflow boundary or
       omits agent-gate clarification
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/catalog-product-boundary.test.js
+    metAt: 2026-09-25T00:09:00.917Z
+    evidence:
+      verifierKind: shell
+      exitCode: 0
+      passed: true
+      verifiedAt: 2026-09-25T00:09:00.917Z
+      verifiedCommit: 71e46ace84bbfb19b3b6d5f803719cbdeee66cd1
+      outputSummary: exit gate verifier exit 0
     verifierLabel: "shell: node --test tests/catalog-product-boundary.test.js"
+    evidenceSummary: passed · 2026-09-25
 stack:
   - id: 1
     title: Fixture dogfood + AS stage migration + catalog reframe
@@ -176,3 +194,10 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** F2 phase-done under automate. All plan phases F0–F2 done. Awaiting plan-end intent-vs-delivered / user validation.
+- **Decision log:** F2 package same pattern as F0/F1; hygiene fixture path avoided blackbox collision.
+- **Single nextAction:** Run plan-end review-code --mode=external-both (intent vs delivered) then operator userValidatedAt.
+- **Verbatim state:** HEAD=71e46ace84bbfb19b3b6d5f803719cbdeee66cd1; all phases status done.
+- **Uncommitted changes:** phase-done checkpoint pending.
