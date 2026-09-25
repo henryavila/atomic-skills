@@ -7,11 +7,30 @@
  * and unknown tools are denied (fail-closed). There is no read allowlist.
  */
 
-import { basename, parse as parsePath, relative, resolve, sep } from 'node:path';
+import { existsSync, lstatSync, realpathSync } from 'node:fs';
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  parse as parsePath,
+  relative,
+  resolve,
+  sep,
+} from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** @typedef {'claude-code' | 'codex' | 'grok'} AutomateHostId */
 
 export const PEN_HOOK_SCRIPT = 'automate-pen.sh';
+
+const TRUSTED_PEN_HOOK_SUFFIXES = [
+  `/.atomic-skills/status/hooks/${PEN_HOOK_SCRIPT}`,
+  `/_assets/hooks/${PEN_HOOK_SCRIPT}`,
+  `/skills/shared/project-assets/hooks/${PEN_HOOK_SCRIPT}`,
+];
 
 /**
  * @type {Record<AutomateHostId, { hookFile: string, writeTools: string[], shellTools: string[] }>}
@@ -137,8 +156,86 @@ function commandHasShellMetacharacters(command) {
 }
 
 /**
+ * @param {string} token
+ * @returns {boolean}
+ */
+function hasTrustedPenHookSuffix(token) {
+  const norm = String(token).replace(/\\/g, '/');
+  return TRUSTED_PEN_HOOK_SUFFIXES.some((suffix) => norm.endsWith(suffix));
+}
+
+/**
+ * Realpath each existing prefix so a symlink out of the tree is visible.
+ * @param {string} absPath
+ * @returns {string}
+ */
+function realpathExistingPrefix(absPath) {
+  const parsed = parsePath(absPath);
+  const parts = absPath.slice(parsed.root.length).split(/[\\/]+/).filter(Boolean);
+  let current = parsed.root;
+  let missing = false;
+  for (const part of parts) {
+    const next = join(current, part);
+    if (!missing) {
+      try {
+        const st = lstatSync(next);
+        if (st.isSymbolicLink()) {
+          try {
+            current = realpathSync(next);
+            continue;
+          } catch {
+            current = next;
+            missing = true;
+            continue;
+          }
+        }
+        current = next;
+        continue;
+      } catch {
+        missing = true;
+      }
+    }
+    current = join(current, part);
+  }
+  try {
+    return existsSync(current) ? realpathSync(current) : current;
+  } catch {
+    return current;
+  }
+}
+
+/**
+ * @param {string} resolved
+ * @param {string} root
+ * @param {NodeJS.Dict<string>} [env]
+ * @returns {boolean}
+ */
+function isTrustedPenHookScript(resolved, root, env = process.env) {
+  if (basename(resolved) !== PEN_HOOK_SCRIPT) return false;
+  const target = realpathExistingPrefix(resolve(resolved));
+  /** @type {string[]} */
+  const dirs = [
+    join(PACKAGE_ROOT, '_assets/hooks'),
+    join(PACKAGE_ROOT, 'skills/shared/project-assets/hooks'),
+  ];
+  if (root) {
+    dirs.push(join(root, '.atomic-skills/status/hooks'));
+    dirs.push(join(root, '.grok/plugins/atomic-skills/_assets/hooks'));
+  }
+  const grok = env && env.GROK_PLUGIN_ROOT;
+  if (grok && String(grok).trim()) {
+    dirs.push(join(String(grok).trim(), '_assets/hooks'));
+  }
+  for (const dir of dirs) {
+    const allowed = realpathExistingPrefix(resolve(dir, PEN_HOOK_SCRIPT));
+    if (target === allowed) return true;
+  }
+  return false;
+}
+
+/**
  * Return the script token if `command` is `bash <path-to-automate-pen.sh>`.
- * Rejects `bash -c`, substring spoofs, and compound commands.
+ * Rejects flags (`bash -c`, `bash -n`), substring spoofs, and compound commands.
  * @param {string | null | undefined} command
  * @returns {string | null}
  */
@@ -153,20 +250,17 @@ export function extractPenHookScriptToken(command) {
   const exe = tokens[i];
   if (exe !== 'bash' && exe !== '/bin/bash' && exe !== '/usr/bin/bash') return null;
   i += 1;
-  while (i < tokens.length && tokens[i].startsWith('-') && tokens[i] !== '-') {
-    const flags = tokens[i].replace(/^-+/, '');
-    if (flags.includes('c')) return null;
-    i += 1;
-  }
   if (i !== tokens.length - 1) return null;
   const script = tokens[i];
   if (!script) return null;
   if (basename(script.replace(/\\/g, '/')) !== PEN_HOOK_SCRIPT) return null;
+  if (!hasTrustedPenHookSuffix(script)) return null;
   return script;
 }
 
 /**
  * Expand a hook-script token against `root` / env and return an absolute path.
+ * Innermost `${VAR:-default}` is expanded first so nested Grok defaults resolve.
  * @param {string | null | undefined} command
  * @param {string} root
  * @param {NodeJS.Dict<string>} [env]
@@ -176,14 +270,18 @@ export function resolvePenHookScript(command, root, env = process.env) {
   const token = extractPenHookScriptToken(command);
   if (!token || !root) return null;
   const lookup = (name) => {
-    if (name === 'PWD') return root;
-    const value = env[name];
+    if (name === 'PWD') {
+      const envPwd = env && env.PWD;
+      if (envPwd != null && String(envPwd) !== '') return String(envPwd);
+      return root;
+    }
+    const value = env ? env[name] : undefined;
     return value != null && String(value) !== '' ? String(value) : '';
   };
   let expanded = token;
   for (let n = 0; n < 8; n++) {
     const next = expanded
-      .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g, (_, name, def) => {
+      .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^{}]*))?\}/g, (_, name, def) => {
         const value = lookup(name);
         return value !== '' ? value : (def || '');
       })
@@ -191,17 +289,26 @@ export function resolvePenHookScript(command, root, env = process.env) {
     if (next === expanded) break;
     expanded = next;
   }
+  if (/\$\{/.test(expanded)) return null;
   const resolved = resolve(root, expanded);
   if (basename(resolved) !== PEN_HOOK_SCRIPT) return null;
+  if (!isTrustedPenHookScript(resolved, root, env)) return null;
   return resolved;
 }
 
 /**
  * @param {string | null | undefined} hostRaw
  * @param {unknown} hooksConfig
+ * @param {string} [root]
+ * @param {NodeJS.Dict<string>} [env]
  * @returns {{ ok: true } | { ok: false, reason: string }}
  */
-export function assessPenRegistration(hostRaw, hooksConfig) {
+export function assessPenRegistration(
+  hostRaw,
+  hooksConfig,
+  root = process.cwd(),
+  env = process.env,
+) {
   const host = resolveAutomateHost(hostRaw);
   if (!host) {
     return {
@@ -210,10 +317,23 @@ export function assessPenRegistration(hostRaw, hooksConfig) {
     };
   }
   const entries = preToolUseEntries(hooksConfig);
-  const pen = entries.find((entry) =>
-    (entry.hooks || []).some((hook) => extractPenHookScriptToken(hook.command) != null),
-  );
+  const pen = entries.find((entry) => {
+    if (entry == null || typeof entry !== 'object') return false;
+    const hooks = Array.isArray(entry.hooks) ? entry.hooks : [];
+    return hooks.some(
+      (hook) => hook != null && extractPenHookScriptToken(hook.command) != null,
+    );
+  });
   if (!pen) {
+    return {
+      ok: false,
+      reason: `${host} PreToolUse does not call ${PEN_HOOK_SCRIPT}`,
+    };
+  }
+  const command = (Array.isArray(pen.hooks) ? pen.hooks : [])
+    .map((hook) => (hook && typeof hook.command === 'string' ? hook.command : ''))
+    .find((cmd) => extractPenHookScriptToken(cmd) != null);
+  if (!command || !resolvePenHookScript(command, root, env)) {
     return {
       ok: false,
       reason: `${host} PreToolUse does not call ${PEN_HOOK_SCRIPT}`,
@@ -234,32 +354,89 @@ export function assessPenRegistration(hostRaw, hooksConfig) {
 }
 
 /**
+ * @returns {string}
+ */
+function defaultHostCwd() {
+  const grok = process.env.GROK_WORKSPACE_ROOT;
+  const claude = process.env.CLAUDE_PROJECT_DIR;
+  if (grok && String(grok).trim()) return String(grok).trim();
+  if (claude && String(claude).trim()) return String(claude).trim();
+  return process.cwd();
+}
+
+/**
+ * Relative tool paths resolve against host cwd (process.cwd / CLAUDE_PROJECT_DIR /
+ * GROK_WORKSPACE_ROOT), never against writerWorktree. Existing prefixes are
+ * realpath'd so a symlink out of the worktree is denied.
  * @param {string | null | undefined} filePath
  * @param {string | null | undefined} writerWorktree
+ * @param {string | null | undefined} [hostCwd]
  * @returns {boolean}
  */
-export function pathInsideWorktree(filePath, writerWorktree) {
+export function pathInsideWorktree(filePath, writerWorktree, hostCwd = defaultHostCwd()) {
   if (!filePath || !writerWorktree) return false;
   const root = resolve(String(writerWorktree));
   const fsRoot = parsePath(root).root;
   if (!root || root === fsRoot) return false;
-  const target = resolve(root, String(filePath));
-  const rel = relative(root, target);
+  const raw = String(filePath);
+  const abs = isAbsolute(raw)
+    ? resolve(raw)
+    : resolve(String(hostCwd || defaultHostCwd()), raw);
+  const realRoot = realpathExistingPrefix(root);
+  if (!realRoot || realRoot === parsePath(realRoot).root) return false;
+  const realTarget = realpathExistingPrefix(abs);
+  const rel = relative(realRoot, realTarget);
   if (rel === '') return true;
   if (rel === '..' || rel.startsWith(`..${sep}`)) return false;
   if (parsePath(rel).root) return false;
   return true;
 }
 
+const APPLY_PATCH_PATH_KINDS = new Set([
+  'add file',
+  'delete file',
+  'update file',
+  'move to',
+  'update',
+  'rename file',
+]);
+const APPLY_PATCH_BARE_KINDS = new Set([
+  'begin patch',
+  'end patch',
+  'end of file',
+]);
+
 /**
  * File paths named by a Codex apply_patch payload (hunk headers / Update File).
+ * Unknown `***` headers fail closed (return []).
  * @param {string | null | undefined} patch
  * @returns {string[]}
  */
 export function parseApplyPatchPaths(patch) {
   if (typeof patch !== 'string' || patch.trim() === '') return [];
-  const re = /^\*\*\* (?:Add File|Delete File|Update File|Move to):\s*(.+?)\s*$/gm;
-  return [...patch.matchAll(re)].map((match) => match[1].trim()).filter(Boolean);
+  /** @type {string[]} */
+  const paths = [];
+  for (const line of patch.split(/\r?\n/)) {
+    if (!line.startsWith('***')) continue;
+    const match = line.match(/^\*\*\*\s+(.+?)(?:\s*:\s*(.*?))?\s*$/);
+    if (!match) return [];
+    const kind = match[1].trim().toLowerCase();
+    const rest = (match[2] || '').trim();
+    if (APPLY_PATCH_BARE_KINDS.has(kind) && rest === '') continue;
+    if (!APPLY_PATCH_PATH_KINDS.has(kind)) return [];
+    if (!rest) return [];
+    if (kind === 'rename file') {
+      const parts = rest
+        .split(/\s*(?:->|→| to )\s*/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+      if (parts.length === 0) return [];
+      paths.push(...parts);
+      continue;
+    }
+    paths.push(rest);
+  }
+  return paths;
 }
 
 /**
@@ -289,10 +466,16 @@ export function assessHostWrite(input) {
  *   filePaths?: string[] | null,
  *   patch?: string | null,
  *   writerWorktree?: string | null,
+ *   hostCwd?: string | null,
  * }} input
  * @returns {string[]}
  */
 function collectWritePaths(input) {
+  const tool = input.toolName != null ? String(input.toolName).trim().toLowerCase() : '';
+  const patch = typeof input.patch === 'string' ? input.patch : '';
+  if (tool === 'apply_patch' && patch.trim() !== '') {
+    return parseApplyPatchPaths(patch);
+  }
   /** @type {string[]} */
   const paths = [];
   if (input.filePath) paths.push(String(input.filePath));
@@ -301,7 +484,7 @@ function collectWritePaths(input) {
       if (item) paths.push(String(item));
     }
   }
-  if (input.patch) paths.push(...parseApplyPatchPaths(input.patch));
+  if (patch) paths.push(...parseApplyPatchPaths(patch));
   return paths.filter((item) => String(item).trim() !== '');
 }
 
@@ -313,6 +496,7 @@ function collectWritePaths(input) {
  *   filePaths?: string[] | null,
  *   patch?: string | null,
  *   writerWorktree?: string | null,
+ *   hostCwd?: string | null,
  * }} input
  * @returns {{ deny: boolean, reason?: string }}
  */
@@ -331,7 +515,9 @@ export function decidePen(input) {
     if (paths.length === 0) {
       return { deny: true, reason: `automate pen: blocked ${tool}` };
     }
-    const allInside = paths.every((item) => pathInsideWorktree(item, input.writerWorktree));
+    const allInside = paths.every((item) =>
+      pathInsideWorktree(item, input.writerWorktree, input.hostCwd),
+    );
     if (allInside) return { deny: false };
     return { deny: true, reason: `automate pen: blocked ${tool}` };
   }

@@ -32,6 +32,10 @@ function firstExisting(candidates) {
 }
 
 const cwd = process.cwd();
+const hostCwd =
+  (process.env.GROK_WORKSPACE_ROOT && process.env.GROK_WORKSPACE_ROOT.trim())
+  || (process.env.CLAUDE_PROJECT_DIR && process.env.CLAUDE_PROJECT_DIR.trim())
+  || cwd;
 const override = process.env.AUTOMATE_PEN_LOCK
   ? resolve(process.env.AUTOMATE_PEN_LOCK)
   : null;
@@ -86,6 +90,7 @@ const decision = decidePen({
   filePath,
   patch,
   writerWorktree,
+  hostCwd,
 });
 
 if (decision.deny) {
