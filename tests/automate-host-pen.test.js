@@ -197,6 +197,37 @@ describe('automate host pen', () => {
     );
   });
 
+  it('expands $PWD from the execution cwd, not a disagreeing env.PWD', () => {
+    const cmd = 'bash "$PWD/skills/shared/project-assets/hooks/automate-pen.sh"';
+    const trusted = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
+    assert.equal(
+      resolvePenHookScript(cmd, ROOT, { PWD: '/tmp/evil-pwd' }),
+      trusted,
+    );
+    assert.equal(
+      resolvePenHookScript(cmd, ROOT, {
+        PWD: '/tmp/evil-pwd',
+        CLAUDE_PROJECT_DIR: ROOT,
+      }),
+      trusted,
+    );
+    assert.equal(
+      resolvePenHookScript(cmd, ROOT, {
+        PWD: '/tmp/evil-pwd',
+        GROK_WORKSPACE_ROOT: ROOT,
+      }),
+      trusted,
+    );
+    assert.equal(
+      resolvePenHookScript(
+        'bash "${PWD}/skills/shared/project-assets/hooks/automate-pen.sh"',
+        ROOT,
+        { PWD: '/tmp/evil-pwd' },
+      ),
+      trusted,
+    );
+  });
+
   it('rejects same-basename spoof paths and syntax-only bash flags', () => {
     const trusted = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
     assert.equal(extractPenHookScriptToken('bash /tmp/evil/automate-pen.sh'), null);
@@ -217,6 +248,28 @@ describe('automate host pen', () => {
     assert.equal(resolvePenHookScript(`bash -n "${trusted}"`, ROOT, {}), null);
     assert.equal(extractPenHookScriptToken(`bash "${trusted}"`), trusted);
     assert.equal(resolvePenHookScript(`bash "${trusted}"`, ROOT, {}), trusted);
+    const envPrefixed = [
+      `AUTOMATE_PEN_LOCK=/tmp/evil.lock bash "${trusted}"`,
+      `BASH_ENV=/tmp/evil.env bash "${trusted}"`,
+      `NAME=value bash "${trusted}"`,
+    ];
+    for (const command of envPrefixed) {
+      assert.equal(extractPenHookScriptToken(command), null, command);
+      assert.equal(resolvePenHookScript(command, ROOT, {}), null, command);
+      const spoofEnv = {
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: penMatcher(),
+              hooks: [{ command }],
+            },
+          ],
+        },
+      };
+      const blockedEnv = assessPenRegistration('codex', spoofEnv, ROOT, {});
+      assert.equal(blockedEnv.ok, false, command);
+      assert.match(blockedEnv.reason, /automate-pen\.sh/);
+    }
     const spoof = {
       hooks: {
         PreToolUse: [
@@ -246,6 +299,43 @@ describe('automate host pen', () => {
     const blocked = assessPenRegistration('codex', onlyNull);
     assert.equal(blocked.ok, false);
     assert.match(blocked.reason, /automate-pen\.sh/);
+  });
+
+  it('still requires named pen tools when a catch-all matcher is also registered', () => {
+    const command = 'bash "$PWD/.atomic-skills/status/hooks/automate-pen.sh"';
+    const withCatchAll = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: '.*',
+            hooks: [{ command }],
+          },
+          {
+            matcher: penMatcher(),
+            hooks: [{ command }],
+          },
+        ],
+      },
+    };
+    assert.equal(assessPenRegistration('codex', withCatchAll).ok, true);
+    assert.equal(assessPenRegistration('claude-code', withCatchAll).ok, true);
+    assert.equal(assessPenRegistration('grok', withCatchAll).ok, true);
+    const emptyFirst = structuredClone(withCatchAll);
+    emptyFirst.hooks.PreToolUse[0].matcher = '';
+    assert.equal(assessPenRegistration('codex', emptyFirst).ok, true);
+    const onlyCatchAll = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: '.*',
+            hooks: [{ command }],
+          },
+        ],
+      },
+    };
+    const missing = assessPenRegistration('codex', onlyCatchAll);
+    assert.equal(missing.ok, false);
+    assert.match(missing.reason, /apply_patch/);
   });
 
   it('parses apply_patch paths and only allows in-tree hunks', () => {
@@ -319,6 +409,27 @@ describe('automate host pen', () => {
     assert.deepEqual(parseApplyPatchPaths(updateShort), ['src/a.js']);
     const rename = '*** Begin Patch\n*** Rename File: src/old.js -> src/a.js\n*** End Patch\n';
     assert.deepEqual(parseApplyPatchPaths(rename), ['src/old.js', 'src/a.js']);
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'apply_patch',
+        filePath: '/work/innocent.js',
+        patch: '',
+        writerWorktree: '/work',
+        hostCwd: '/work',
+      }).deny,
+      true,
+    );
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'apply_patch',
+        filePath: '/work/innocent.js',
+        writerWorktree: '/work',
+        hostCwd: '/work',
+      }).deny,
+      true,
+    );
   });
 
   it('resolves relative write paths against host cwd, not the writer worktree', () => {
@@ -425,6 +536,69 @@ describe('automate host pen', () => {
     assert.match(missingOverride.stderr, /blocked apply_patch/);
     rmSync(isolated, { recursive: true, force: true });
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('prefers on-disk operational pen.lock over a conflicting AUTOMATE_PEN_LOCK', () => {
+    const operational = mkdtempSync(join(tmpdir(), 'pen-op-'));
+    const overrideTree = mkdtempSync(join(tmpdir(), 'pen-ov-'));
+    const home = mkdtempSync(join(tmpdir(), 'pen-op-home-'));
+    mkdirSync(join(operational, '.atomic-skills/status/automate'), { recursive: true });
+    mkdirSync(join(operational, 'src'), { recursive: true });
+    mkdirSync(join(overrideTree, 'src'), { recursive: true });
+    mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+    writeFileSync(join(home, '.atomic-skills/package-root'), `${ROOT}\n`);
+    writeFileSync(
+      join(operational, '.atomic-skills/status/automate/pen.lock'),
+      `${JSON.stringify({ writerWorktree: operational })}\n`,
+    );
+    const overrideLock = join(overrideTree, 'override.lock');
+    writeFileSync(overrideLock, `${JSON.stringify({ writerWorktree: overrideTree })}\n`);
+    const script = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
+    const jsHook = join(ROOT, 'scripts/automate-pen-hook.js');
+    const env = {
+      ...process.env,
+      HOME: home,
+      CLAUDE_PROJECT_DIR: operational,
+      GROK_WORKSPACE_ROOT: operational,
+      AUTOMATE_PEN_LOCK: overrideLock,
+    };
+    const outsidePayload = JSON.stringify({
+      tool_name: 'Write',
+      tool_input: { file_path: join(overrideTree, 'src/a.js') },
+    });
+    const insidePayload = JSON.stringify({
+      tool_name: 'Write',
+      tool_input: { file_path: join(operational, 'src/a.js') },
+    });
+    const outside = spawnSync('bash', [script], {
+      input: outsidePayload,
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(outside.status, 2);
+    assert.match(outside.stderr, /blocked Write/);
+    const inside = spawnSync('bash', [script], {
+      input: insidePayload,
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(inside.status, 0, inside.stderr);
+    const jsOutside = spawnSync(process.execPath, [jsHook], {
+      input: outsidePayload,
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(jsOutside.status, 2);
+    assert.match(jsOutside.stderr, /blocked Write/);
+    const jsInside = spawnSync(process.execPath, [jsHook], {
+      input: insidePayload,
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(jsInside.status, 0, jsInside.stderr);
+    rmSync(operational, { recursive: true, force: true });
+    rmSync(overrideTree, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
   });
 
   it('hook allows an in-tree apply_patch and denies /etc/passwd while the lock is held', () => {

@@ -4,9 +4,9 @@
  * Exit 0 allows. Exit 2 denies. Fail-closed while the pen lock is held.
  *
  * Stdin: host hook payload (tool_name / tool_input).
- * Lock: AUTOMATE_PEN_LOCK if that file exists, else on-disk pen.lock /
- * AUTOMATE_PROBE_LOCK / probe.lock. A missing AUTOMATE_PEN_LOCK override
- * does not allow writes while a real pen.lock exists.
+ * Lock: on-disk pen.lock wins over AUTOMATE_PEN_LOCK. Else AUTOMATE_PEN_LOCK
+ * if that file exists, else AUTOMATE_PROBE_LOCK / probe.lock. A missing
+ * AUTOMATE_PEN_LOCK override does not allow writes while a real pen.lock exists.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -42,10 +42,14 @@ const override = process.env.AUTOMATE_PEN_LOCK
 const probeOverride = process.env.AUTOMATE_PROBE_LOCK
   ? resolve(process.env.AUTOMATE_PROBE_LOCK)
   : null;
-const lockPath = firstExisting([
-  override,
+const operational = firstExisting([
+  resolve(hostCwd, '.atomic-skills/status/automate/pen.lock'),
   resolve(cwd, '.atomic-skills/status/automate/pen.lock'),
+]);
+const lockPath = operational || firstExisting([
+  override,
   probeOverride,
+  resolve(hostCwd, '.atomic-skills/status/automate/probe.lock'),
   resolve(cwd, '.atomic-skills/status/automate/probe.lock'),
 ]);
 
