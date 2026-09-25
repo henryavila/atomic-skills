@@ -133,6 +133,45 @@ describe('find-missing-architecture card format', () => {
     assert.equal(onDisk.ratifiedAt, undefined);
     assert.equal(onDisk.sha, undefined);
   });
+
+  it('third unvalidated chosen sketch exits 1', () => {
+    const paths = architecturePathsForPlan(planMd);
+    mkdirSync(dirname(paths.card), { recursive: true });
+    const base = drawing();
+    const card = stamp({
+      ...base,
+      sketches: [
+        ...base.sketches,
+        { id: 'garbage', outside: ['noise'], mix: 'parse concatenates garbage' },
+      ],
+      chosen: 'garbage',
+    });
+    writeFileSync(paths.card, `${JSON.stringify(card, null, 2)}\n`);
+    const r = checkPlanArchitecture(planMd, { strict: true });
+    assert.equal(r.ok, false, r.issues.join('; '));
+    assert.ok(
+      r.chosenIndex == null || r.chosenIndex > 1,
+      `chosenIndex=${r.chosenIndex} must not resolve to an unvalidated third sketch`,
+    );
+    const res = runCli(['--strict', planMd]);
+    assert.equal(res.status, 1, `${res.stdout}${res.stderr}`);
+    assert.match(`${res.stdout}${res.stderr}`, /chosen|two sketches/);
+  });
+
+  it('1-based chosen 1 and 2 select distinct sketches', () => {
+    const paths = architecturePathsForPlan(planMd);
+    mkdirSync(dirname(paths.card), { recursive: true });
+    writeFileSync(paths.card, `${JSON.stringify(stamp(drawing({ chosen: 1 })), null, 2)}\n`);
+    const first = checkPlanArchitecture(planMd, { strict: true });
+    assert.equal(first.ok, true, first.issues.join('; '));
+    assert.equal(first.chosenIndex, 0, 'numeric 1 is the first sketch');
+
+    writeFileSync(paths.card, `${JSON.stringify(stamp(drawing({ chosen: 2 })), null, 2)}\n`);
+    const second = checkPlanArchitecture(planMd, { strict: true });
+    assert.equal(second.ok, true, second.issues.join('; '));
+    assert.equal(second.chosenIndex, 1, 'numeric 2 is the second sketch');
+    assert.notEqual(first.chosenIndex, second.chosenIndex);
+  });
 });
 
 describe('find-missing-architecture detector', () => {

@@ -128,12 +128,14 @@ function resolveChosenIndex(chosen, sketches) {
   if (chosen == null || chosen === '') return null;
   const token = String(chosen).trim();
   if (token === '') return null;
-  const byId = sketches.findIndex((sketch) => sketch.id === token);
+  const validated = sketches.slice(0, 2);
+  if (validated.length !== 2) return null;
+  const byId = validated.findIndex((sketch) => sketch.id === token);
   if (byId !== -1) return byId;
   if (/^\d+$/.test(token)) {
     const n = Number(token);
-    if (sketches.some((sketch) => sketch.index === n)) return n;
-    if (n >= 1 && n <= sketches.length) return n - 1;
+    if (n === 1) return 0;
+    if (n === 2) return 1;
   }
   return null;
 }
@@ -204,7 +206,7 @@ function forbiddenPhraseHits(card) {
 /**
  * @param {string} planMdPath
  * @param {{ strict?: boolean }} [opts]
- * @returns {{ ok: boolean, issues: string[], planPath: string }}
+ * @returns {{ ok: boolean, issues: string[], planPath: string, chosenIndex: number | null }}
  */
 export function checkPlanArchitecture(planMdPath, opts = {}) {
   const strict = opts.strict === true;
@@ -243,7 +245,7 @@ export function checkPlanArchitecture(planMdPath, opts = {}) {
   }
 
   const sketches = normalizeSketches(card.sketches);
-  if (sketches.length < 2) {
+  if (sketches.length !== 2) {
     issues.push('missing two sketches');
   } else {
     const first = sketches[0];
@@ -278,7 +280,7 @@ export function checkPlanArchitecture(planMdPath, opts = {}) {
   const hits = forbiddenPhraseHits(card);
   const drawingComplete =
     Boolean(block.name && block.start && block.end) &&
-    sketches.length >= 2 &&
+    sketches.length === 2 &&
     Array.isArray(sketches[0]?.outside) &&
     sketches[0].outside.length > 0 &&
     Boolean(sketches[0].mix) &&
@@ -309,7 +311,7 @@ export function checkPlanArchitecture(planMdPath, opts = {}) {
   }
 
   void strict;
-  return { ok: issues.length === 0, issues, planPath: paths.planPath };
+  return { ok: issues.length === 0, issues, planPath: paths.planPath, chosenIndex };
 }
 
 /**
