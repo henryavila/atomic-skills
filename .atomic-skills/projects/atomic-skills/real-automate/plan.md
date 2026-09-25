@@ -334,7 +334,7 @@ A sessão que inicia só orquestra. Cada passo abaixo corre num agente isolado. 
 
 Uma porta é um script que o programa roda. Exit diferente de 0 impede o passo seguinte. O passo seguinte lê o status que só essa porta grava. Texto na skill não é porta. A sessão não chama a porta. Quem encadeia é `scripts/automate-run.js`.
 
-`scripts/find-unreviewed-plans.js` hoje aceita a linha `- internal:` como recibo. A partida deste programa chama `find-unreviewed-plans.js --require-external`. Sem o recibo do CLI externo, sai 1.
+`scripts/find-unreviewed-plans.js` hoje aceita a linha `- internal:` como recibo (`reviewReceiptGap`). A CLI não tem `--require-external`: o argv[2] é o alvo. A T-003 da F0 cria essa flag (exit 1 quando a única linha é `- internal:` ou não há recibo de CLI externo) e a partida passa a chamá-la. Sem o recibo do CLI externo, sai 1.
 
 Portas de todo plano que o programa executa, inclusive este:
 
@@ -363,9 +363,13 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 ## Código que as fases têm de respeitar
 
 - F0 registra `automate-pen.sh` ao lado de `skills/shared/project-assets/hooks/pre-write.sh`. Não apaga o `pre-write.sh` e não troca o matcher dele. `SKIP` e `SKIP-EMERGENT` desligam o `pre-write.sh` por 24h e não desligam a caneta. `stop.sh` (drift de escopo no Stop) fica fora desta caneta. A mesma regra está nas rules, no outOfScope e na T-002 da initiative F0. A T-003 recusa um `assessHostWrite` com a prova desligada.
+- `find-unreviewed-plans.js` não parseia flags. `reviewReceiptGap` zera com `- internal:`. `automate-run.js` hoje chama o detector sem `--require-external`. A T-003 cria a flag e a partida a usa. Sem isso, a linha `- internal:` deste plano passa na porta de review.
+- `reviewExternalCli` não está em `meta/schemas/plan.schema.json`. F4 T-001 grava o campo no plano e no schema.
+- `src/decision-log.js` exige `id/category/decision/why/evidencePath/impact/at`. Não tem `said` nem `saw`. F5 T-001 acrescenta as duas frases.
+- A entrada do programa é `node scripts/automate-run.js --host … --plan …`. `parseImplementMode` só lê `--mode=automate`. A skill `implement.md` continua o maestro (`assert-automate-gate`, `automate-phase-run.js`); P2: isso não é o enforce da flag.
 - F1 T-002 não usa `scripts/find-missing-design-process.js` nem o `userApproved` do recibo design-gates. F2 T-002 não trata `exitGateType: ui-gate` como carimbo. F3 T-002 e T-003, F4 T-002 e F5 T-002 carregam o mesmo limite que o goal. Os sidecars `.source.json` têm esse texto.
 - Cursor, Gemini, OpenCode, GitHub Copilot e IDE genérico já são no-op de hook. P3 continua só com Claude Code, Codex e Grok.
-- O rascunho uncommitted de `src/automate-host-pen.js`, `scripts/automate-pen-hook.js`, `scripts/automate-run.js` e `skills/shared/project-assets/hooks/automate-pen.sh` é a F0 em andamento. `assessHostWrite` ainda recusa com a prova de escrita do host desligada. As tasks da F0 continuam pending até essa prova.
+- A caneta em `src/automate-host-pen.js`, `scripts/automate-pen-hook.js`, `scripts/automate-run.js` e `skills/shared/project-assets/hooks/automate-pen.sh` está no branch (`d62083df`) e é a F0 em andamento. `assessHostWrite` ainda recusa com a prova de escrita do host desligada. As tasks da F0 continuam pending até essa prova.
 - `src/maestro-cursor.js` (`lastAssert`) continua o cursor da sessão. A sessão orquestradora não grava esse cursor. O agente que fecha a fase pode, porque o fechamento passa pelo gate.
 
 ## Self-review against code-quality gates
@@ -374,35 +378,38 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 - G2 soft-language: ban-list grep on this file found 0.
 - G6 reference-or-strike: the narrative and phase goals do not carry `verified_by:` or `unverified:` on each sentence. Bare assertions remain in the body and in `phases[]`.
 - Initiative-depth: 1/6 initiatives materialized (F0). F1–F5 stay descriptor-only. Their `.source.json` tasks now carry the same limits as the phase goals. `projects/atomic-skills/real-automate/source.md` matches those goals and P2/P5.
-- Ground-truth: Status=complete-with-findings; mode=ground-truth; premises=14 (missing=0, false=0); impacts=12 (direct=9, indirect=3); detector exit checked in this pass.
+- Ground-truth: Status=complete-with-findings; mode=ground-truth; premises=17 (missing=0, false=0); impacts=21 (direct=17, indirect=4); detector exit checked in this pass.
 - Operator ratification 2026-09-25: P5 and F4. The program runs the slice flow. It spawns the CLI that is not the open harness, waits, and writes the review status file with command, exit, stderr, and verdict. A session-written `- internal:` line does not open the flag. Output without a verdict does not count. A non-zero exit stores the real stderr and does not count as a passed external review.
 
 ## Ground-truth review
 
 **Status:** complete-with-findings
 **Codebase class:** populated
-**Scanned:** `src/**/*.js` (86), `scripts/**/*.js` (99), `skills/shared/project-assets/hooks/` (6), `tests/phase-review-gate.test.js`, `tests/automate-host-pen.test.js`, `tests/design-gates.test.js`
+**Scanned:** `src/**/*.js` (86), `scripts/**/*.js` (99), `skills/shared/project-assets/hooks/` (6), `skills/core/implement.md`, `skills/core/audit-delivery.md`, `tests/phase-review-gate.test.js`, `tests/automate-host-pen.test.js`, `tests/design-gates.test.js`, `meta/schemas/plan.schema.json`
 **Commit:** uncommitted
-**At:** 2026-09-25T12:43:56Z
+**At:** 2026-09-25T18:19:06Z
 
 ### A — Plan premises vs code
 
 | # | Premise | Result | Evidence |
 |---|---------|--------|----------|
-| 1 | `isAutomateActive` nasce ligado quando não há opt-out | ok | `src/implement-mode.js:187-188`, `:241-242` |
-| 2 | O gate `assert-automate-gate` existe e a sessão só avança se o modelo chamar o CLI | ok | `scripts/assert-automate-gate.js`; skill implement, passo 7 |
-| 3 | Não existe flag `--unattended` no código de produto | ok | busca em `*.js` sem ocorrência |
+| 1 | `isAutomateActive` nasce ligado quando não há opt-out | ok | `src/implement-mode.js:9`, `:241-242` |
+| 2 | O gate `assert-automate-gate` existe e a sessão só avança se o modelo chamar o CLI | ok | `scripts/assert-automate-gate.js`; `skills/core/implement.md:32` |
+| 3 | Não existe flag `--unattended` no código de produto | ok | busca em `*.js`: só comentário em `src/uninstall.js:222` |
 | 4 | `find-missing-flow.js`, `find-unreviewed-plans.js` e `find-plans-missing-ground-truth.js` existem | ok | os três estão em `scripts/` |
 | 5 | `find-missing-architecture.js` e `find-missing-ui.js` ainda não existem; F1 e F2 os criam | ok | ausência em `scripts/`; não são premissa de existência |
 | 6 | `serve-flow.js --up` existe | ok | `scripts/serve-flow.js:5` |
 | 7 | `tests/phase-review-gate.test.js` existe | ok | arquivo presente |
 | 8 | `src/providers/skills-file-set.js` e `skills/shared/project-assets/project-setup.md` existem | ok | os dois estão no worktree |
 | 9 | Hook de projeto em Cursor e Gemini é no-op | ok | `skills/shared/project-assets/project-setup.md:29`, `:55` |
-| 10 | O PreToolUse antigo é `pre-write.sh`: dry-run por default, fail-open no Grok sem hooks-trust, e só olha acréscimo sem `provenance` em plano, fases e iniciativas | ok | `pre-write.sh:4-9`, `:24-25`, `:92-117`, `:454-468`; `hooks/config.json:3`; `hooks/README.md:32` |
+| 10 | O PreToolUse antigo é `pre-write.sh`: dry-run por default, fail-open no Grok sem hooks-trust, e só olha acréscimo sem `provenance` em plano, fases e iniciativas | ok | `pre-write.sh:4-9`, `:24-25`, `:92-117`, `:329-339`, `:454-468`; `hooks/config.json:3`; `hooks/README.md:32` |
 | 11 | `userApproved` está no recibo `.atomic-skills/status/design-gates/<projectId>-<slug>.json`, não no `design.md` | ok | `scripts/design-gates.js:6`, `:91`, `:133` |
-| 12 | Os três hosts da caneta são Claude Code (`Write`/`Edit`/`MultiEdit`/`Bash`), Codex (`apply_patch`/`shell`) e Grok (`write`/`search_replace`/`run_terminal_command`) | ok | `src/automate-host-pen.js:16-31`; `src/config.js:51-54`, `:87-91` |
+| 12 | Os três hosts da caneta são Claude Code (`Write`/`Edit`/`MultiEdit`/`Bash`), Codex (`apply_patch`/`shell`) e Grok (`write`/`search_replace`/`run_terminal_command`) | ok | `src/automate-host-pen.js:16-31` |
 | 13 | A decisão de origem está em `.ai/memory/decisao-unattended-bloco.md` | ok | arquivo presente no worktree |
 | 14 | `deliveryAuditGate` existe e o módulo não lê `flow.json` | ok | `src/phase-delivery-audit-gate.js:5`; busca `flow.json` em `src/**/*.js` sem ocorrência |
+| 15 | `find-unreviewed-plans.js` não tem `--require-external`; `reviewReceiptGap` aceita `- internal:`; a T-003 cria a flag e a partida passa a chamá-la | ok | `scripts/find-unreviewed-plans.js:40-51`, `:150-166`; `scripts/automate-run.js:176-178` chama sem a flag |
+| 16 | `reviewExternalCli` não existe no schema do plano; F4 T-001 cria o campo | ok | `meta/schemas/plan.schema.json` sem o campo |
+| 17 | `parseImplementMode` não reconhece `--automate` (só `--mode=automate`); a entrada do programa é `node scripts/automate-run.js` | ok | `src/implement-mode.js:79-83`; `scripts/automate-run.js:10` |
 
 ### B — Code present, plan silent (impact candidates)
 
@@ -415,16 +422,25 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 | 5 | `phase-delivery-audit-gate.js` fecha a fase sem ler o grafo | `src/phase-delivery-audit-gate.js:5` | direct | F4 T-002: estender esse gate |
 | 6 | `userValidationOk` aceita qualquer ISO em `userValidatedAt` | `src/plan-end-review.js:325-333`; `scripts/assert-automate-gate.js:1128-1136` | direct | F5 T-002: só o botão escreve, e a sessão não passa |
 | 7 | OpenCode, GitHub Copilot e IDE genérico também são no-op de hook | `skills/shared/project-assets/hooks/README.md:21` | indirect | accepted: mesma classe de Cursor e Gemini; P3 não os inclui |
-| 8 | Rascunho da caneta já está no disco e `assessHostWrite` recusa com a prova desligada | `scripts/automate-run.js:167-172`; `src/automate-host-pen.js:152-160` | direct | T-003 da initiative F0: prova desligada não conta |
+| 8 | A caneta já está no branch e `assessHostWrite` recusa com a prova desligada | `scripts/automate-run.js:167-172`; `src/automate-host-pen.js:152-160` | direct | T-003 da initiative F0: prova desligada não conta |
 | 9 | `lastAssert` em `src/maestro-cursor.js` é o cursor da sessão | `src/maestro-cursor.js:18` | indirect | a sessão orquestradora não grava. O agente que fecha a fase pode, porque o fechamento passa pelo gate |
 | 10 | `find-missing-design-process.js` e o `userApproved` do recibo design-gates já existem e não são o cartão | `scripts/find-missing-design-process.js`; `scripts/design-gates.js:6`, `:91` | direct | F1 T-002: o cartão é `architecture/decisions.json` |
 | 11 | `exitGateType: ui-gate` existe no schema e nenhum detector em `src/` lê esse campo | `meta/schemas/plan.schema.json:655-659` | direct | F2 T-002: o carimbo é `ui/ui.json` |
 | 12 | `serve-flow.js` só serve o preview de `flow.html` | `scripts/serve-flow.js:5`; `scripts/lib/serve-flow.js:63` | direct | F5 T-002: o preview do flow continua; a página é outra vista |
+| 13 | `reviewReceiptGap` aceita `- internal:`; `automate-run.js` chama o detector sem `--require-external` | `scripts/find-unreviewed-plans.js:40-51`; `scripts/automate-run.js:176-178` | direct | F0 T-003 cria a flag e a partida a usa |
+| 14 | `reviewExternalCli` não está no schema do plano | `meta/schemas/plan.schema.json` | direct | F4 T-001 grava o campo no plano e no schema |
+| 15 | `decision-log.js` não tem `said` nem `saw` | `src/decision-log.js:34-42` | direct | F5 T-001 acrescenta as duas frases |
+| 16 | `implement.md` ainda encadeia maestro via `assert-automate-gate` e `automate-phase-run.js` | `skills/core/implement.md:32`, `:181` | direct | P2 / F3 T-002: a skill não é o enforce; worktree nasce em `automate-run.js` |
+| 17 | O phase-done atual exige evaluation, lessons e decision-review | `src/automate-orchestrator-gates.js:15-17` | indirect | accepted: o `implement` sem flag continua esse encadeamento; F4 é o close do programa |
+| 18 | Este worktree não tem `.claude/settings.local.json`, `.codex/hooks.json` nem o `hooks.json` do Grok | scan → 0 arquivos | direct | F0 T-002 registra a caneta |
+| 19 | `phase-review-gate.js` aceita `mode=local` com `overrideReason` e sem stderr de processo | `src/phase-review-gate.js:361-377` | direct | F4 T-001: `overrideReason` sem stderr do CLI externo não passa |
+| 20 | `writer-lease.js`, `automate-work-order.js`, `automate-sealed-brief.js` e `automate-phase-run-lib.js` já montam lease, work-order e brief | `src/writer-lease.js:1-13`; `scripts/automate-phase-run.js:3-10` | direct | F3 T-002: o programa não chama `automate-phase-run.js`; o lease fica no spawn |
+| 21 | `complex-task.js` e `automate-complex-from-initiative.js` já classificam task complexa (`weight >= 3`) | `src/complex-task.js:3-6`, `:16-17` | direct | F4 T-001: task complexa entra na mesma review |
 
-**Counts:** premises=14 (missing=0, false=0); impacts=12 (direct=9, indirect=3)
+**Counts:** premises=17 (missing=0, false=0); impacts=21 (direct=17, indirect=4)
 
 ## Reviews
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=22c5c9490bae | premises=14 | impacts=12 @ uncommitted (2026-09-25T12:43:56Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=2cbd5158100b | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
