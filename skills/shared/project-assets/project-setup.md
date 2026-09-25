@@ -77,7 +77,7 @@ Option (b), Soft:
     "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
     "PreToolUse": [
       { "matcher": "Edit|Write|MultiEdit|search_replace|write", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] },
-      { "matcher": "Edit|Write|MultiEdit|search_replace|write|apply_patch|Bash|shell|run_terminal_command", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/automate-pen.sh\"" }] }
+      { "matcher": "Edit|Write|MultiEdit|NotebookEdit|search_replace|write|apply_patch|Bash|shell|run_terminal_command", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/automate-pen.sh\"" }] }
     ]
   }
 }

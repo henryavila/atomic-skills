@@ -4,7 +4,9 @@
  * Exit 0 allows. Exit 2 denies. Fail-closed while the pen lock is held.
  *
  * Stdin: host hook payload (tool_name / tool_input).
- * Lock: AUTOMATE_PEN_LOCK or <cwd>/.atomic-skills/status/automate/pen.lock
+ * Lock: AUTOMATE_PEN_LOCK if that file exists, else on-disk pen.lock /
+ * AUTOMATE_PROBE_LOCK / probe.lock. A missing AUTOMATE_PEN_LOCK override
+ * does not allow writes while a real pen.lock exists.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -18,11 +20,32 @@ const raw = await new Promise((resolvePromise) => {
   process.stdin.on('error', () => resolvePromise(''));
 });
 
-const lockPath =
-  process.env.AUTOMATE_PEN_LOCK
-  || resolve(process.cwd(), '.atomic-skills/status/automate/pen.lock');
+/**
+ * @param {Array<string | null>} candidates
+ * @returns {string | null}
+ */
+function firstExisting(candidates) {
+  for (const candidate of candidates) {
+    if (candidate && existsSync(candidate)) return candidate;
+  }
+  return null;
+}
 
-if (!existsSync(lockPath)) process.exit(0);
+const cwd = process.cwd();
+const override = process.env.AUTOMATE_PEN_LOCK
+  ? resolve(process.env.AUTOMATE_PEN_LOCK)
+  : null;
+const probeOverride = process.env.AUTOMATE_PROBE_LOCK
+  ? resolve(process.env.AUTOMATE_PROBE_LOCK)
+  : null;
+const lockPath = firstExisting([
+  override,
+  resolve(cwd, '.atomic-skills/status/automate/pen.lock'),
+  probeOverride,
+  resolve(cwd, '.atomic-skills/status/automate/probe.lock'),
+]);
+
+if (!lockPath) process.exit(0);
 
 let writerWorktree = null;
 try {
@@ -44,16 +67,24 @@ try {
 const toolName = payload.tool_name || payload.toolName || '';
 const toolInput = payload.tool_input || payload.toolInput || {};
 const filePath =
-  toolInput.file_path
-  || toolInput.path
-  || toolInput.target_file
-  || toolInput.notebook_path
+  (toolInput && typeof toolInput === 'object'
+    ? toolInput.file_path || toolInput.path || toolInput.target_file || toolInput.notebook_path
+    : '')
   || '';
+const patch =
+  typeof toolInput === 'string'
+    ? toolInput
+    : (toolInput && typeof toolInput === 'object'
+      ? toolInput.patch || toolInput.input || toolInput.diff
+      : '')
+      || payload.patch
+      || '';
 
 const decision = decidePen({
   lockHeld: true,
   toolName,
   filePath,
+  patch,
   writerWorktree,
 });
 
