@@ -9,6 +9,9 @@ import {
   assessHostWrite,
   assessPenRegistration,
   decidePen,
+  extractPenHookScriptToken,
+  parseApplyPatchPaths,
+  pathInsideWorktree,
   penMatcher,
   resolveAutomateHost,
 } from '../src/automate-host-pen.js';
@@ -91,11 +94,130 @@ describe('automate host pen', () => {
     assert.equal(decidePen({ lockHeld: true, toolName: 'shell' }).deny, true);
     assert.equal(decidePen({ lockHeld: true, toolName: 'run_terminal_command' }).deny, true);
     assert.equal(decidePen({ lockHeld: true, toolName: '' }).deny, true);
-    assert.equal(decidePen({ lockHeld: true, toolName: 'read_file' }).deny, false);
+  });
+
+  it('resolves paths and rejects worktree traversal and filesystem-root worktrees', () => {
+    assert.equal(pathInsideWorktree('/tmp/wt/src/a.js', '/tmp/wt'), true);
+    assert.equal(pathInsideWorktree('/tmp/wt/../secret.js', '/tmp/wt'), false);
+    assert.equal(pathInsideWorktree('../secret.js', '/tmp/wt'), false);
+    assert.equal(pathInsideWorktree('/etc/passwd', '/'), false);
+    assert.equal(pathInsideWorktree('/etc/passwd', '/tmp/wt'), false);
+    assert.equal(pathInsideWorktree('/tmp/wt-evil/a.js', '/tmp/wt'), false);
+    assert.equal(pathInsideWorktree('/tmp/wt', '/tmp/wt'), true);
+  });
+
+  it('is fail-closed while locked: unknown tools and reads are denied; listed writes may pass the worktree check', () => {
+    // No read allowlist: read_file, Read, and grep are denied while the lock is held.
+    assert.equal(decidePen({ lockHeld: true, toolName: 'read_file' }).deny, true);
+    assert.equal(decidePen({ lockHeld: true, toolName: 'Read' }).deny, true);
+    assert.equal(decidePen({ lockHeld: true, toolName: 'grep' }).deny, true);
+    assert.equal(decidePen({ lockHeld: true, toolName: 'FooWrite' }).deny, true);
+    assert.equal(decidePen({ lockHeld: true, toolName: 'NotebookEdit' }).deny, true);
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'NotebookEdit',
+        filePath: '/work/n.ipynb',
+        writerWorktree: '/work',
+      }).deny,
+      false,
+    );
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'notebookedit',
+        filePath: '/etc/passwd',
+        writerWorktree: '/work',
+      }).deny,
+      true,
+    );
+    assert.equal(decidePen({ lockHeld: true, toolName: 'WRITE', filePath: '/x' }).deny, true);
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'WRITE',
+        filePath: '/work/a.js',
+        writerWorktree: '/work',
+      }).deny,
+      false,
+    );
+    assert.equal(decidePen({ lockHeld: true, toolName: 'BASH' }).deny, true);
+  });
+
+  it('requires NotebookEdit on the Claude Code pen matcher', () => {
+    const hooks = registered();
+    assert.equal(assessPenRegistration('claude-code', hooks).ok, true);
+    const noNotebook = structuredClone(hooks);
+    noNotebook.hooks.PreToolUse[1].matcher = penMatcher().replace('NotebookEdit|', '');
+    const claude = assessPenRegistration('claude-code', noNotebook);
+    assert.equal(claude.ok, false);
+    assert.match(claude.reason, /NotebookEdit/);
+  });
+
+  it('rejects a substring spoof as the pen command', () => {
+    const spoof = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: penMatcher(),
+            hooks: [{ command: 'echo automate-pen.sh; exit 2' }],
+          },
+        ],
+      },
+    };
+    for (const host of ['claude-code', 'codex', 'grok']) {
+      const result = assessPenRegistration(host, spoof);
+      assert.equal(result.ok, false);
+      assert.match(result.reason, /automate-pen\.sh/);
+    }
+    assert.equal(extractPenHookScriptToken('echo automate-pen.sh; exit 2'), null);
+    assert.equal(extractPenHookScriptToken('bash -c "echo automate-pen.sh; exit 2"'), null);
+    assert.equal(
+      extractPenHookScriptToken('bash "$PWD/.atomic-skills/status/hooks/automate-pen.sh"'),
+      '$PWD/.atomic-skills/status/hooks/automate-pen.sh',
+    );
+  });
+
+  it('parses apply_patch paths and only allows in-tree hunks', () => {
+    const inTree = '*** Begin Patch\n*** Update File: src/a.js\n@@\n+x\n*** End Patch\n';
+    const outOfTree = '*** Begin Patch\n*** Update File: /etc/passwd\n@@\n+x\n*** End Patch\n';
+    const mixed =
+      '*** Begin Patch\n*** Update File: src/a.js\n*** Add File: /etc/passwd\n*** End Patch\n';
+    assert.deepEqual(parseApplyPatchPaths(inTree), ['src/a.js']);
+    assert.deepEqual(parseApplyPatchPaths(outOfTree), ['/etc/passwd']);
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'apply_patch',
+        patch: inTree,
+        writerWorktree: '/work',
+      }).deny,
+      false,
+    );
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'apply_patch',
+        patch: outOfTree,
+        writerWorktree: '/work',
+      }).deny,
+      true,
+    );
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'apply_patch',
+        patch: mixed,
+        writerWorktree: '/work',
+      }).deny,
+      true,
+    );
   });
 
   it('hook exits 2 for a Codex patch while the lock is held, and 0 without it', () => {
     const dir = mkdtempSync(join(tmpdir(), 'pen-'));
+    mkdirSync(join(dir, '.atomic-skills'), { recursive: true });
+    writeFileSync(join(dir, '.atomic-skills/package-root'), `${ROOT}\n`);
     const lock = join(dir, 'pen.lock');
     writeFileSync(lock, '{}\n');
     const script = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
@@ -127,6 +249,64 @@ describe('automate host pen', () => {
       },
     });
     assert.equal(allowed.status, 0);
+
+    const isolated = mkdtempSync(join(tmpdir(), 'pen-override-'));
+    mkdirSync(join(isolated, '.atomic-skills/status/automate'), { recursive: true });
+    const realPen = join(isolated, '.atomic-skills/status/automate/pen.lock');
+    writeFileSync(realPen, '{}\n');
+    const missingOverride = spawnSync('bash', [script], {
+      input: payload,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: dir,
+        CLAUDE_PROJECT_DIR: isolated,
+        GROK_WORKSPACE_ROOT: isolated,
+        AUTOMATE_PEN_LOCK: '/no/such/file',
+      },
+    });
+    assert.equal(missingOverride.status, 2);
+    assert.match(missingOverride.stderr, /blocked apply_patch/);
+    rmSync(isolated, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('hook allows an in-tree apply_patch and denies /etc/passwd while the lock is held', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pen-patch-'));
+    mkdirSync(join(dir, '.atomic-skills'), { recursive: true });
+    writeFileSync(join(dir, '.atomic-skills/package-root'), `${ROOT}\n`);
+    const lock = join(dir, 'pen.lock');
+    writeFileSync(lock, JSON.stringify({ writerWorktree: dir }) + '\n');
+    const script = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
+    const env = {
+      ...process.env,
+      HOME: dir,
+      CLAUDE_PROJECT_DIR: dir,
+      AUTOMATE_PEN_LOCK: lock,
+    };
+    const inTree = spawnSync('bash', [script], {
+      input: JSON.stringify({
+        tool_name: 'apply_patch',
+        tool_input: {
+          patch: `*** Begin Patch\n*** Update File: ${join(dir, 'src/a.js')}\n@@\n+x\n*** End Patch\n`,
+        },
+      }),
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(inTree.status, 0, inTree.stderr);
+    const outside = spawnSync('bash', [script], {
+      input: JSON.stringify({
+        tool_name: 'apply_patch',
+        tool_input: {
+          patch: '*** Begin Patch\n*** Update File: /etc/passwd\n@@\n+x\n*** End Patch\n',
+        },
+      }),
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(outside.status, 2);
+    assert.match(outside.stderr, /blocked apply_patch/);
     rmSync(dir, { recursive: true, force: true });
   });
 
