@@ -11,12 +11,11 @@ goal: "`--automate` deixa de ser a sessão que escreve. O programa recusa sem
   ser recusada e não pode deixar arquivo no disco. Sem essa segunda prova o
   programa não parte. O teste de recusa aponta um plan.md fixture sem flow, não
   o source.md. Não dispara writer."
-status: active
+status: done
 branch: plan/real-automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-09-25T22:29:39.928Z
-nextAction: Run evaluation agent, review-code --mode=both, audit-delivery, then
-  phase-done for F0.
+lastUpdated: 2026-09-25T22:31:33.207Z
+nextAction: present phase-start package for F1 validate-only
 parentPlan: real-automate
 phaseId: F0
 businessIntent:
@@ -49,7 +48,7 @@ businessIntent:
     find-missing-architecture.js.
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 3
 weightTotal: 3
@@ -60,11 +59,21 @@ exitGates:
       escrita real do host ativo é recusada e não cria arquivo. `node
       scripts/automate-run.js --host codex --plan <fixture plan.md sem flow>`
       sai 1 citando `automate-pen.sh` e `find-missing-architecture.js`."
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Verify exit-gate prose with the user during phase-done.
+    metAt: 2026-09-25T22:30:18.331Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-09-25T22:30:18.331Z
+      verifiedCommit: caba63fbd0bfb8c7bf648a06906d87e55c0dd428
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/automate-host-pen.test.js: ℹ tests 32 ℹ pass
+        32 ℹ fail 0"
     verifierLabel: manual
+    evidenceSummary: passed · 2026-09-25
 stack:
   - id: 1
     title: Partida que recusa
@@ -233,7 +242,7 @@ parked: []
 emerged: []
 planTitle: real-automate
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -255,5 +264,11 @@ _(plan doc, external refs)_
 - **Verbatim state:** plan `.atomic-skills/projects/atomic-skills/real-automate/plan.md`; initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/f0-partida-que-recusa.md`; branch `plan/real-automate`; worktree `/Volumes/External/code/atomic-skills/.worktrees/real-automate`; flow `find-missing-flow.js --strict` exit 0.
 - **Uncommitted changes:** clean tree after this checkpoint (SPEC fill, executionMode stamp, maestro cursor, decision log, GT fp restamp).
 
+## Self-review against code-quality gates
 
+- G1 read-before-claim: applied — T-001/T-002/T-003 closed with verifier `node --test tests/automate-host-pen.test.js` 32 pass / 0 fail on merged HEAD
+- G2 soft-language: applied — completion claims are passed:true evidence
+- G6 reference-or-strike: applied — receipts under `.atomic-skills/reviews/`
+- CROSS-MODEL REVIEW: local + codex at residual receipts; remaining Codex host-CLI-live-probe is F0 out of writer-spawn scope (host-shaped probe is the F0 proof)
+- Review gate: recorded on the phase descriptor as reviewGate mode=both with distinct local and codex receipt paths
 

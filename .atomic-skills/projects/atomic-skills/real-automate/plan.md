@@ -8,7 +8,7 @@ executionMode: automate
 started: 2026-09-25T03:17:12.483Z
 lastUpdated: 2026-09-25T03:17:12.483Z
 branch: plan/real-automate
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -128,11 +128,19 @@ phases:
             scripts/automate-run.js --host codex --plan <fixture plan.md sem
             flow>` sai 1 citando `automate-pen.sh` e
             `find-missing-architecture.js`."
-          status: pending
+          status: met
+          metAt: 2026-09-25T22:30:18.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-09-25T22:30:18.000Z
+            verifiedCommit: caba63fbd0bfb8c7bf648a06906d87e55c0dd428
+            passed: true
+            exitCode: 0
+            outputSummary: "node --test tests/automate-host-pen.test.js: 32 pass / 0 fail"
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: active
+    status: done
     businessIntent:
       value: |
         O comando automate deixa de ser a mesma sessão que escreve. Quem corre
@@ -182,13 +190,30 @@ phases:
       status: passed
       verdict: pass
       reportPath: .atomic-skills/reviews/eval-real-automate-F0.md
-      verifiedAt: 2026-09-25T21:22:17.320Z
-      at: 1474ad94c023f1acbc887a99f5dccbc6b116a17e
+      verifiedAt: 2026-09-25T22:30:18.000Z
+      at: caba63fbd0bfb8c7bf648a06906d87e55c0dd428
     lessonsState: none
     noneReason: >
-      F0 evaluation returned notes only (no blocker/critical/major). Clean
-      phase: no reopened tasks, no failed verifiers, no product defects
-      requiring a reusable lesson.
+      F0 evaluation returned notes only after review fixes. Clean phase:
+      no remaining blocker/critical/major on residual check.
+    reviewGate:
+      status: passed
+      mode: both
+      at: caba63fbd0bfb8c7bf648a06906d87e55c0dd428
+      reviewFile: .atomic-skills/reviews/2026-09-25-real-automate-F0-residual-local.md
+      localReceiptPath: .atomic-skills/reviews/2026-09-25-real-automate-F0-residual-local.md
+      codexReceiptPath: .atomic-skills/reviews/2026-09-25-real-automate-F0-residual-codex.md
+      verifiedAt: 2026-09-25T22:30:18.000Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-09-25T22:30:18.000Z
+      packagePresentedAt: 2026-09-25T22:30:18.000Z
+      packagePath: .atomic-skills/reviews/2026-09-25-real-automate-F0-decision-package.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-real-automate-F0.md
+      verdict: CLOSED
+      verifiedAt: 2026-09-25T22:30:18.000Z
   - id: F1
     slug: real-automate-f1-cartao-de-bloco
     title: Cartão de bloco
@@ -501,4 +526,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=0754abad9f51 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=eed6b19322dc | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)

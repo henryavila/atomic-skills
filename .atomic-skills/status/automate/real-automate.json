@@ -1,6 +1,15 @@
 {
-  "step": "B",
+  "step": "awaiting-operator-advance",
   "phaseId": "F0",
-  "redispatchCount": 0,
-  "updatedAt": "2026-09-25T21:00:42.076Z"
+  "redispatchCount": 3,
+  "updatedAt": "2026-09-25T22:31:33.220Z",
+  "operatorOverrides": [
+    {
+      "at": "2026-09-25T22:19:08.523Z",
+      "reason": "Codex residual still critical after two redispatches; operator session authorized continue-until-findings-cleared",
+      "priorCount": 2,
+      "gate": "phase-review"
+    }
+  ],
+  "claimReportPath": ".atomic-skills/status/automate/real-automate-claims.json"
 }
