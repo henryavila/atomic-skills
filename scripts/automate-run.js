@@ -3,9 +3,9 @@
  * implement --automate start gate.
  *
  * Refuses unless the current host is Claude Code, Codex, or Grok and that
- * host's PreToolUse pen is registered. Architecture and UI detectors are
- * required and are not in this tree yet, so a normal run still refuses.
- * Does not spawn a writer.
+ * host's PreToolUse pen is registered. Architecture detector must pass
+ * (sha + ratifiedAt). UI detector is still required and is not in this
+ * tree yet, so a normal run still refuses. Does not spawn a writer.
  *
  *   node scripts/automate-run.js --host <claude-code|codex|grok> --plan <plan.md> [--root <dir>]
  */
@@ -356,6 +356,7 @@ function main() {
       ['find-missing-flow.js', '--strict', plan],
       ['find-unreviewed-plans.js', '--require-external', plan],
       ['find-plans-missing-ground-truth.js', plan],
+      ['find-missing-architecture.js', '--strict', plan],
     ]) {
       const [name, ...rest] = script;
       const result = runDetector(name, rest);
@@ -363,7 +364,7 @@ function main() {
     }
   }
 
-  for (const missing of ['find-missing-architecture.js', 'find-missing-ui.js']) {
+  for (const missing of ['find-missing-ui.js']) {
     if (!existsSync(join(ROOT, 'scripts', missing))) {
       blockers.push(`missing detector scripts/${missing}`);
     }

@@ -895,6 +895,15 @@ ${line}
     assert.match(src, /--host-write-probe/);
   });
 
+  it('startup runs find-missing-architecture.js instead of existsSync', () => {
+    const src = readFileSync(join(ROOT, 'scripts/automate-run.js'), 'utf8');
+    assert.match(src, /find-missing-architecture\.js',\s*'--strict'/);
+    assert.doesNotMatch(
+      src,
+      /for \(const missing of \['find-missing-architecture\.js'/,
+    );
+  });
+
   it('host-shaped probe invokes the registered pen and refuses a write without a sentinel', () => {
     const dir = mkdtempSync(join(tmpdir(), 'host-write-'));
     mkdirSync(join(dir, '.codex'), { recursive: true });
