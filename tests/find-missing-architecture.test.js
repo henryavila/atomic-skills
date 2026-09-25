@@ -228,3 +228,27 @@ describe('find-missing-architecture detector', () => {
     assert.match(`${chat.stdout}${chat.stderr}`, /ratifiedAt/);
   });
 });
+
+describe('automate-run architecture gate', () => {
+  it('fixture without a card exits 1 citing the detector reason', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'automate-arch-'));
+    const plan = writePlan(dir);
+    const res = spawnSync(
+      process.execPath,
+      [
+        join(ROOT, 'scripts/automate-run.js'),
+        '--host',
+        'grok',
+        '--plan',
+        plan,
+        '--root',
+        dir,
+      ],
+      { encoding: 'utf8', timeout: 20_000 },
+    );
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /find-missing-architecture\.js/);
+    assert.match(res.stderr, /architecture\/decisions\.json/);
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
