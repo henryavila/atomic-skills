@@ -864,6 +864,27 @@ ${line}
       receipt('- grok: command=grok review --plan plan.md | exit=0 | verdict=CLEAN | stderr='),
     );
     assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+    const inventedEcho = run(
+      ['--require-external'],
+      receipt('- invented: command=echo | exit=0 | verdict=PASS'),
+    );
+    assert.equal(inventedEcho.status, 1);
+    assert.match(`${inventedEcho.stdout}${inventedEcho.stderr}`, /external CLI review receipt/);
+    const echoCli = run(
+      ['--require-external'],
+      receipt('- grok: command=echo | exit=0 | verdict=PASS'),
+    );
+    assert.equal(echoCli.status, 1);
+    const trueCli = run(
+      ['--require-external'],
+      receipt('- grok: command=true | exit=0 | verdict=PASS'),
+    );
+    assert.equal(trueCli.status, 1);
+    const pathCli = run(
+      ['--require-external'],
+      receipt('- grok: command=/usr/bin/grok review --plan plan.md | exit=0 | verdict=PASS'),
+    );
+    assert.equal(pathCli.status, 0, pathCli.stdout + pathCli.stderr);
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -963,6 +984,22 @@ ${line}
     const flagged = runHostWriteProbe('codex', dir);
     assert.equal(flagged.ok, false);
     assert.match(flagged.reason, /did not prove/);
+    writeFileSync(
+      join(dir, '.codex/hooks.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: penMatcher(),
+              hooks: [{ command: `AUTOMATE_PEN_LOCK=/tmp/evil.lock bash "${script}"` }],
+            },
+          ],
+        },
+      }),
+    );
+    const envPrefixed = runHostWriteProbe('codex', dir);
+    assert.equal(envPrefixed.ok, false);
+    assert.match(envPrefixed.reason, /did not prove/);
     rmSync(dir, { recursive: true, force: true });
     rmSync(evilDir, { recursive: true, force: true });
   });

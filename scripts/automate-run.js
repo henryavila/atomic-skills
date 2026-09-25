@@ -201,6 +201,10 @@ function hostShapedWrite(args) {
     emit();
     return;
   }
+  if (/^\s*[A-Za-z_][A-Za-z0-9_]*=/.test(command)) {
+    emit();
+    return;
+  }
 
   const probeDir = mkdtempSync(join(tmpdir(), 'host-write-probe-'));
   const probe = join(probeDir, 'probe.lock');

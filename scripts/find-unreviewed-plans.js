@@ -28,6 +28,8 @@
  *       (defaults to cwd)
  *       --require-external  also require a real external review CLI receipt
  *                           (command=/cli=, exit=0, verdict=CLEAN|PASS|PASSED).
+ *                           command/cli must name claude|codex|grok as a path
+ *                           or token (`echo`, `true`, `invented` do not count).
  *                           `- internal:`, `- cross-model:`, and
  *                           `- ground-truth:` do not count. A line with the
  *                           tokens is not enough if exit≠0 or the verdict is
@@ -66,13 +68,30 @@ function parseReceiptFields(rest) {
 /**
  * A session-written `- internal:`, `- cross-model:`, or `- ground-truth:` line
  * is not an external review CLI receipt. The CLI receipt must name a process
- * (`command=` / `cli=`), exactly one `exit=0`, and exactly one pass `verdict=`
- * (CLEAN/PASS/PASSED). Token presence is not enough: `exit=127 verdict=CLEAN`
- * and `verdict=needs_changes` fail. `note=exit=0` and `--exit=0` inside the
- * command string do not count as field assignments.
+ * (`command=` / `cli=`) whose first path/token is `claude`, `codex`, or `grok`
+ * (not `echo`/`true`/`invented`), exactly one `exit=0`, and exactly one pass
+ * `verdict=` (CLEAN/PASS/PASSED). Token presence is not enough: `exit=127
+ * verdict=CLEAN` and `verdict=needs_changes` fail. `note=exit=0` and `--exit=0`
+ * inside the command string do not count as field assignments.
  * @param {string} line
  * @returns {boolean}
  */
+const REVIEW_CLIS = new Set(['claude', 'codex', 'grok']);
+
+/**
+ * @param {string} command
+ * @returns {boolean}
+ */
+function commandNamesReviewCli(command) {
+  const trimmed = String(command).trim();
+  if (!trimmed) return false;
+  const first = trimmed.split(/\s+/)[0];
+  if (!first) return false;
+  const base = first.replace(/\\/g, '/').split('/').pop() || '';
+  const name = base.replace(/\.exe$/i, '');
+  return REVIEW_CLIS.has(name.toLowerCase());
+}
+
 export function isExternalCliReceiptLine(line) {
   if (typeof line !== 'string') return false;
   const match = line.match(/^\s*-\s*([^:]+)\s*:/);
@@ -89,6 +108,7 @@ export function isExternalCliReceiptLine(line) {
   const exits = fields.exit || [];
   const verdicts = fields.verdict || [];
   if (commands.length < 1) return false;
+  if (!commands.every(commandNamesReviewCli)) return false;
   if (exits.length !== 1 || verdicts.length !== 1) return false;
   if (!/^-?\d+$/.test(exits[0]) || Number(exits[0]) !== 0) return false;
   const verdict = verdicts[0].replace(/[.,;]+$/, '');
