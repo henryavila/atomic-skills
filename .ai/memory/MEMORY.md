@@ -4,6 +4,8 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 
 ## Arquivos de memória
 
+- [decisao-unattended-bloco.md](decisao-unattended-bloco.md) — **Consolidado 2026-09-24.** Visão de `implement --automate` (programa, não skill; flow é SoT do audit; cartão de bloco; página). **Primeiro corte, entrevista:** não parte se a caneta não bloquear de verdade no host atual; hosts nativos são Claude Code, Codex e Grok (Codex escreve por `apply_patch`, fora do matcher de hoje); não abre até existirem detectores do cartão e do protótipo; o processo dispara um writer, faz merge e para. Review, audit do grafo, página e fase seguinte ficam fora desse corte. Não construir antes de o contexto fechar.
+
 - [reference-project-flow.md](reference-project-flow.md) — Project Flow substitui process-map (descarte completo, 2026-08-12). Dentes = implement entry HARD em **qualquer plano** + comando `project flow`. HTML gerado = `flow/flow.html` (nunca `map.html`); L2 = 3 diagramas SVG (não lista/card); show sempre via `serve-flow.js --up` (HTTP, nunca `file://`; recusa `map.html`). Q8-A: `ratifiedGraphSha`. Entrada `docs/design/project-flow/HANDOFF.md`. Incidente 2026-08-28: vista lista ainda era o mapa — engine SVG ligada + serve durável no Windows.
 
 - [reference-cross-model-review-host-picker.md](reference-cross-model-review-host-picker.md) — Picker host-aware (Grok→codex+claude, não Grok+Codex fixo); Claude session limit exit 0 + `classify-provider-limit` (sem retry).

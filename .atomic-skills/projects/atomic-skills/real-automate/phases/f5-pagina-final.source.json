@@ -1,0 +1,35 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F5",
+  "slug": "real-automate-f5-pagina-final",
+  "title": "Página final",
+  "goal": "um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado, as frases `said` e `saw`, a tela ao lado do que foi construído, e o que ficou de fora. O botão grava `userValidatedAt` só com todo `deliveryAuditGate` em passed. Chat “ok” não grava. O programa entrega o branch, abre o PR e não faz merge. Archive fica depois do botão. No fim do plano o mesmo loop de 3 reviews roda sobre o plano inteiro e depois sobre o `audit-delivery`. Os findings guardados por fase entram nesse relatório. `userValidationOk` em `src/plan-end-review.js` hoje aceita qualquer timestamp ISO em `userValidatedAt`. O botão passa a ser o único escritor, e um timestamp escrito na sessão não passa em `assert-automate-gate --gate finalize`.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Frases",
+      "description": "Cada decisão do JSONL ganha `said` e `saw`. Entrada sem as duas não conta como apresentada. Verifier: teste do leitor da página."
+    },
+    {
+      "id": "T-002",
+      "title": "Servidor",
+      "description": "A vista final não abre em `file://`. O botão fica apagado enquanto algum audit da fase não está passed. `scripts/serve-flow.js` continua servindo o preview de `flow.html`. O botão é o único escritor de `userValidatedAt`. `userValidationOk` em `src/plan-end-review.js` deixa de aceitar um timestamp escrito na sessão, e `assert-automate-gate --gate finalize` recusa esse timestamp. Verifier: teste HTTP do botão desligado e ligado."
+    },
+    {
+      "id": "T-003",
+      "title": "Paradas",
+      "description": "Travei, não avanço e mudança grande abrem a mesma origem. A confirmação entra no log e o programa retoma sem reinstalar parada por fase. Verifier: teste das três paradas."
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "o teste HTTP do botão verde, e archive não roda nesse comando.",
+      "status": "pending",
+      "verifier": {
+        "kind": "manual",
+        "description": "Verify exit-gate prose with the user during phase-done."
+      }
+    }
+  ]
+}

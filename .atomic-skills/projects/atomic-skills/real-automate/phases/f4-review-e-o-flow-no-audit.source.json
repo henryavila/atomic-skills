@@ -1,0 +1,35 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F4",
+  "slug": "real-automate-f4-review-e-o-flow-no-audit",
+  "title": "Review e o flow no audit",
+  "goal": "o programa conduz cada fase até a seguinte. Antes da primeira fase pergunta uma vez o CLI externo e grava `reviewExternalCli` no plano. Both é a review local mais esse CLI. No meio da corrida ninguém pergunta de novo. A unidade é a fase corrente. Um agente isolado implementa todas as tasks `pending`, na ordem do frontmatter. Outro agente isolado roda a review both. Critical ou major manda um agente isolado corrigir e a review volta. São 3 reviews. Sem critical e sem major, os findings restantes ficam em `.atomic-skills/status/automate/<slug>.json` para o relatório final, a fase fecha e a seguinte abre, sempre em agente isolado. Na terceira review, critical ou major abre travei e não avança. A linha `- internal:` não substitui o recibo. Saída sem veredito não conta. Exit diferente de 0 guarda o stderr real. O brief leva o grafo e o esboço escolhido. Task complexa entra nessa mesma review, antes de fechar a fase. O audit lê `flow/flow.json` no `ratifiedGraphSha` e cobra cada máquina e cada xor, com linha faz, pela metade ou não faz. A página final não substitui esse gate. Achado de mistura do bloco não entra no loop. O gate que hoje fecha a fase é `src/phase-delivery-audit-gate.js` e não lê `flow.json`. F4 estende esse gate. A skill `audit-delivery` também não lê o grafo hoje. Fechar a fase valida o claim e passa em `src/automate-product-fence.js`.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Both com falha real",
+      "description": "Antes da primeira fase o programa grava `reviewExternalCli` e não pergunta de novo. Both é a review local mais esse CLI. Dispara o CLI, espera e grava o recibo com comando, exit, stderr e veredito. `overrideReason` sem stderr desse processo não passa. Recibo escrito pela sessão não passa. O brief leva o grafo e o esboço escolhido. Task complexa entra nesta review, antes de fechar a fase. Verifier: `node --test tests/phase-review-gate.test.js` cobrindo esses casos."
+    },
+    {
+      "id": "T-002",
+      "title": "Audit lê o grafo",
+      "description": "`audit-delivery` recusa sha divergente e emite uma linha por máquina e por xor. Onde o `businessIntent` discorda, vale o grafo. Esta task estende `src/phase-delivery-audit-gate.js`, que hoje não lê `flow.json`. A skill também não lê o grafo hoje. Verifier: fixture de flow com um xor e relatório sem a linha sai falho."
+    },
+    {
+      "id": "T-003",
+      "title": "Loop com teto",
+      "description": "Critical ou major corrige num agente isolado e a review volta. O teto é 3 reviews. Sem critical e sem major, os findings restantes vão para `.atomic-skills/status/automate/<slug>.json`, a fase fecha e a seguinte abre. Na terceira, critical ou major abre travei. Mistura do bloco carimbado para na hora e não entra no loop. Verifier: teste do contador no programa."
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "`node --test tests/phase-review-gate.test.js` recusa overrideReason sem stderr do comando externo e recusa um recibo escrito pela sessão. Um fixture de flow.json com um xor sem linha no relatório de audit falha. Um achado de mistura do bloco não entra no loop e para na hora.",
+      "status": "pending",
+      "verifier": {
+        "kind": "manual",
+        "description": "Verify exit-gate prose with the user during phase-done."
+      }
+    }
+  ]
+}

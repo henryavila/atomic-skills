@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "0.1",
+  "projectId": "atomic-skills",
+  "slug": "real-automate",
+  "kind": "adopt",
+  "sourcePath": "projects/atomic-skills/real-automate/source.md",
+  "stage": "summaries",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/real-automate/plan.md",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f0-partida-que-recusa.md",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f1-cartao-de-bloco.source.json",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f2-prototipo.source.json",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f3-um-writer-merge-e-para.source.json",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f4-review-e-o-flow-no-audit.source.json",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f5-pagina-final.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/real-automate/plan.md",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f0-partida-que-recusa.md",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f1-cartao-de-bloco.source.json",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f2-prototipo.source.json",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f3-um-writer-merge-e-para.source.json",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f4-review-e-o-flow-no-audit.source.json",
+    ".atomic-skills/projects/atomic-skills/real-automate/phases/f5-pagina-final.source.json"
+  ],
+  "status": "pending",
+  "updatedAt": "2026-09-25T03:18:29.519Z"
+}

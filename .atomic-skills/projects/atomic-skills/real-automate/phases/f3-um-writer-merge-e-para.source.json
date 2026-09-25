@@ -1,0 +1,35 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "real-automate-f3-um-writer-merge-e-para",
+  "title": "Um writer, merge, e para",
+  "goal": "com caneta, flow, revisão, ground truth, cartão e protótipo válidos, o programa cria o worktree, grava o pen.lock com dono e pid, dispara um writer do CLI do host, integra no branch do plano, mata o writer se ainda viver e solta o lock. O teste deste marco para depois do merge. Não roda review nem audit e não abre a fase seguinte, porque isso é a F4. O programa terminado não fica nesse pare. Lock de pid morto não bloqueia a sessão. O shell da sessão do chat fica negado. Quem roda verifier é o programa, não o shell do writer. O worktree e o merge nascem em `scripts/automate-run.js`. Esta fase não chama `scripts/automate-phase-run.js`. O fechamento da fase, o claim e `src/automate-product-fence.js` ficam na F4, num agente isolado, não na sessão.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Lock na partida real",
+      "description": "Quando os seis gates passam, o programa escreve `pen.lock` com dono, pid e `writerWorktree`. Mata o writer se ainda viver antes de soltar o lock. Pid morto não bloqueia a sessão. Quem roda verifier é o programa. Apaga o lock ao sair, inclusive em falha. Verifier: teste que o lock existe durante o spawn e some no exit."
+    },
+    {
+      "id": "T-002",
+      "title": "Spawn do host",
+      "description": "Um subprocesso `claude`, `codex` ou `grok` no worktree, com lease. A sessão do chat não é o writer. O worktree nasce em `scripts/automate-run.js`, não em `scripts/automate-phase-run.js`. Verifier: teste com CLI falso que grava um arquivo dentro do worktree."
+    },
+    {
+      "id": "T-003",
+      "title": "Merge e pare",
+      "description": "O teste deste marco integra no branch do plano e sai sem `phase-done`. O fechamento real, o claim e `src/automate-product-fence.js` são a F4, num agente isolado. A sessão não grava `lastAssert`. Verifier: o branch do plano contém o commit do writer e o processo sai 0 uma vez."
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "um teste de integração com host falso sai 0, o arquivo do writer está no branch do plano, e uma segunda fase não foi materializada.",
+      "status": "pending",
+      "verifier": {
+        "kind": "manual",
+        "description": "Verify exit-gate prose with the user during phase-done."
+      }
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-08-13T16:54:17Z
+lastUpdated: 2026-09-25T03:20:00Z
 schemaVersion: "0.1"
-activePlans: 1
-activeInitiatives: 1
+activePlans: 2
+activeInitiatives: 2
 archivedCount: 26
 ---
 
@@ -21,6 +21,13 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
 | project-flow | active | F0 | plan/project-flow | 2026-08-13 | 0/3 |
+| real-automate | active | F0 | plan/real-automate | 2026-09-25 | 0/6 |
+
+### real-automate — Initiatives
+
+| Slug | Status | Phase | nextAction |
+|------|--------|-------|-----------|
+| real-automate-f0-partida-que-recusa | active | F0 | Start T-001: Caneta dos três hosts |
 
 ### project-flow — Initiatives
 

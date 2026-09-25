@@ -1,0 +1,50 @@
+{
+  "actor": "Quem pede o --automate",
+  "scenario": "Um plano fechado corre sozinho até o relatório. A pessoa só entra se os gates recusarem a partida, se a corrida travar, se o bloco misturar, ou para validar no fim.",
+  "decisions": [
+    {
+      "id": "gates",
+      "question": "Os gates da partida passam?",
+      "outcomes": ["parte", "recusa"]
+    },
+    {
+      "id": "review_fase",
+      "question": "O que a review both da fase encontrou?",
+      "outcomes": ["segue", "corrige", "trava", "muda"]
+    },
+    {
+      "id": "mais_fases",
+      "question": "Ainda há fase pending?",
+      "outcomes": ["sim", "nao"]
+    },
+    {
+      "id": "review_plano",
+      "question": "O que a review both do plano encontrou?",
+      "outcomes": ["segue", "corrige", "trava", "muda"]
+    },
+    {
+      "id": "review_audit",
+      "question": "O que o audit encontrou?",
+      "outcomes": ["segue", "corrige", "trava", "muda"]
+    },
+    {
+      "id": "validacao",
+      "question": "A pessoa confirma o relatório?",
+      "outcomes": ["valida", "deixa"]
+    }
+  ],
+  "stateChanges": [
+    {
+      "id": "corrida",
+      "states": [
+        "ociosa",
+        "recusada",
+        "rodando",
+        "travada",
+        "mudanca_grande",
+        "aguardando",
+        "validada"
+      ]
+    }
+  ]
+}

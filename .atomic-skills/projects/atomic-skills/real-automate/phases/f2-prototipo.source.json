@@ -1,0 +1,35 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F2",
+  "slug": "real-automate-f2-prototipo",
+  "title": "Protótipo",
+  "goal": "o detector de tela existe. Plano sem superfície visível carimba “sem tela”. “Sem tela” com task que toca Vue, sheet, viewer ou editor é recusado. O carimbo da tela cita o sha do cartão. `exitGateType: ui-gate` não é o carimbo. O carimbo é `ui/ui.json`, lido por `scripts/find-missing-ui.js`, que esta fase cria.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Formato",
+      "description": "`ui/ui.json` lista telas com path do protótipo e sha, ou `{ \"none\": true }` com motivo. Verifier: `node scripts/find-missing-ui.js --strict` num fixture vazio sai 1."
+    },
+    {
+      "id": "T-002",
+      "title": "Detector",
+      "description": "`scripts/find-missing-ui.js` recusa `none: true` quando o plano toca superfície de UI, e recusa sha de arquitetura divergente. `exitGateType: ui-gate` não é o carimbo. Verifier: `node --test tests/find-missing-ui.test.js`."
+    },
+    {
+      "id": "T-003",
+      "title": "A partida exige o detector",
+      "description": "`automate-run.js` chama `find-missing-ui.js`. Verifier: o mesmo comando de T-003 da F1, agora também citando o detector de UI quando o carimbo falta."
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "`node --test tests/find-missing-ui.test.js` verde.",
+      "status": "pending",
+      "verifier": {
+        "kind": "manual",
+        "description": "Verify exit-gate prose with the user during phase-done."
+      }
+    }
+  ]
+}
