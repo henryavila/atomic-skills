@@ -1,0 +1,233 @@
+import { describe, it } from 'node:test';
+import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  assessHostWrite,
+  assessPenRegistration,
+  decidePen,
+  penMatcher,
+  resolveAutomateHost,
+} from '../src/automate-host-pen.js';
+import { runSyntheticProbe } from '../scripts/automate-run.js';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+function registered() {
+  return {
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: 'Edit|Write|search_replace|write',
+          hooks: [{ command: 'bash pre-write.sh' }],
+        },
+        {
+          matcher: penMatcher(),
+          hooks: [{ command: 'bash "$PWD/.atomic-skills/status/hooks/automate-pen.sh"' }],
+        },
+      ],
+    },
+  };
+}
+
+describe('automate host pen', () => {
+  it('accepts only claude-code, codex, and grok', () => {
+    assert.equal(resolveAutomateHost('claude'), 'claude-code');
+    assert.equal(resolveAutomateHost('Codex'), 'codex');
+    assert.equal(resolveAutomateHost('grok'), 'grok');
+    assert.equal(resolveAutomateHost('cursor'), null);
+  });
+
+  it('rejects a provenance-only matcher for every host', () => {
+    const legacy = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: 'Edit|Write|MultiEdit|search_replace|write',
+            hooks: [{ command: 'bash pre-write.sh' }],
+          },
+        ],
+      },
+    };
+    for (const host of ['claude-code', 'codex', 'grok']) {
+      const result = assessPenRegistration(host, legacy);
+      assert.equal(result.ok, false);
+      assert.match(result.reason, /automate-pen\.sh/);
+    }
+  });
+
+  it('requires Codex apply_patch and each host shell on the pen entry', () => {
+    const hooks = registered();
+    assert.equal(assessPenRegistration('codex', hooks).ok, true);
+    assert.equal(assessPenRegistration('claude-code', hooks).ok, true);
+    assert.equal(assessPenRegistration('grok', hooks).ok, true);
+
+    const noPatch = structuredClone(hooks);
+    noPatch.hooks.PreToolUse[1].matcher = penMatcher().replace('apply_patch|', '');
+    const codex = assessPenRegistration('codex', noPatch);
+    assert.equal(codex.ok, false);
+    assert.match(codex.reason, /apply_patch/);
+  });
+
+  it('denies product writes and shells while the lock is held', () => {
+    assert.equal(decidePen({ lockHeld: false, toolName: 'Write', filePath: '/src/a.js' }).deny, false);
+    assert.equal(
+      decidePen({ lockHeld: true, toolName: 'apply_patch', filePath: '/repo/src/a.js' }).deny,
+      true,
+    );
+    assert.equal(
+      decidePen({
+        lockHeld: true,
+        toolName: 'write',
+        filePath: '/work/src/a.js',
+        writerWorktree: '/work',
+      }).deny,
+      false,
+    );
+    assert.equal(decidePen({ lockHeld: true, toolName: 'Bash' }).deny, true);
+    assert.equal(decidePen({ lockHeld: true, toolName: 'shell' }).deny, true);
+    assert.equal(decidePen({ lockHeld: true, toolName: 'run_terminal_command' }).deny, true);
+    assert.equal(decidePen({ lockHeld: true, toolName: '' }).deny, true);
+    assert.equal(decidePen({ lockHeld: true, toolName: 'read_file' }).deny, false);
+  });
+
+  it('hook exits 2 for a Codex patch while the lock is held, and 0 without it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pen-'));
+    const lock = join(dir, 'pen.lock');
+    writeFileSync(lock, '{}\n');
+    const script = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
+    const payload = JSON.stringify({
+      tool_name: 'apply_patch',
+      tool_input: { file_path: '/repo/src/a.js' },
+    });
+    const denied = spawnSync('bash', [script], {
+      input: payload,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: dir,
+        CLAUDE_PROJECT_DIR: ROOT,
+        AUTOMATE_PEN_LOCK: lock,
+      },
+    });
+    assert.equal(denied.status, 2);
+    assert.match(denied.stderr, /blocked apply_patch/);
+
+    const allowed = spawnSync('bash', [script], {
+      input: payload,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: dir,
+        CLAUDE_PROJECT_DIR: ROOT,
+        AUTOMATE_PEN_LOCK: join(dir, 'missing.lock'),
+      },
+    });
+    assert.equal(allowed.status, 0);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('ships the pen hook on the Grok plugin and in project setup', () => {
+    const generator = readFileSync(join(ROOT, 'src/providers/skills-file-set.js'), 'utf8');
+    const setup = readFileSync(
+      join(ROOT, 'skills/shared/project-assets/project-setup.md'),
+      'utf8',
+    );
+    assert.match(generator, /automate-pen\.sh/);
+    assert.match(generator, /apply_patch\|Bash\|shell\|run_terminal_command/);
+    assert.match(setup, /automate-pen\.sh/);
+    assert.match(setup, /apply_patch/);
+  });
+
+  it('treats probe.lock as a deny and leaves pen.lock untouched', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'probe-'));
+    const home = mkdtempSync(join(tmpdir(), 'probe-home-'));
+    const probe = join(dir, '.atomic-skills/status/automate/probe.lock');
+    const pen = join(dir, '.atomic-skills/status/automate/pen.lock');
+    mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+    mkdirSync(join(dir, '.atomic-skills/status/automate'), { recursive: true });
+    writeFileSync(join(home, '.atomic-skills/package-root'), `${ROOT}\n`);
+    writeFileSync(probe, '{"kind":"probe"}\n');
+    const script = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
+    const payload = JSON.stringify({
+      tool_name: 'apply_patch',
+      tool_input: { file_path: join(dir, 'sentinel.js') },
+    });
+    const env = {
+      ...process.env,
+      HOME: home,
+      CLAUDE_PROJECT_DIR: dir,
+      GROK_WORKSPACE_ROOT: dir,
+    };
+    delete env.AUTOMATE_PEN_LOCK;
+    delete env.AUTOMATE_PROBE_LOCK;
+    const denied = spawnSync('bash', [script], {
+      input: payload,
+      encoding: 'utf8',
+      env: { ...env, AUTOMATE_PROBE_LOCK: probe },
+    });
+    assert.equal(denied.status, 2);
+    assert.equal(existsSync(pen), false);
+    rmSync(probe, { force: true });
+    const allowed = spawnSync('bash', [script], {
+      input: payload,
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(allowed.status, 0);
+    assert.equal(existsSync(join(dir, 'sentinel.js')), false);
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it('accepts a refused host write only when the hook ran and no file appeared', () => {
+    assert.equal(
+      assessHostWrite({ invokedHook: true, refused: true, sentinelCreated: false }).ok,
+      true,
+    );
+    const created = assessHostWrite({
+      invokedHook: true,
+      refused: true,
+      sentinelCreated: true,
+    });
+    assert.equal(created.ok, false);
+    assert.match(created.reason, /created a file/);
+    const skipped = assessHostWrite({
+      invokedHook: false,
+      refused: false,
+      sentinelCreated: false,
+    });
+    assert.equal(skipped.ok, false);
+    assert.match(skipped.reason, /did not prove/);
+  });
+
+  it('refuses a fixture plan without flow and does not leave a lock', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'automate-run-'));
+    const plan = join(dir, 'plan.md');
+    writeFileSync(plan, '---\nslug: fixture\nstatus: active\n---\n\n# fixture\n');
+    const probe = runSyntheticProbe(dir);
+    assert.deepEqual(probe, []);
+    const res = spawnSync(process.execPath, [
+      join(ROOT, 'scripts/automate-run.js'),
+      '--host', 'codex',
+      '--plan', plan,
+      '--root', dir,
+    ], { encoding: 'utf8' });
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /automate-pen\.sh/);
+    assert.match(res.stderr, /find-missing-architecture\.js/);
+    assert.match(res.stderr, /did not prove the host refused the write/);
+    assert.equal(
+      existsSync(join(dir, '.atomic-skills/status/automate/pen.lock')),
+      false,
+    );
+    assert.equal(
+      existsSync(join(dir, '.atomic-skills/status/automate/probe.lock')),
+      false,
+    );
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
