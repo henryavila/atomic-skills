@@ -27,8 +27,11 @@
  * CLI:  node scripts/find-unreviewed-plans.js [<repo|.atomic-skills|plan.md|plan-dir>]
  *       (defaults to cwd)
  *       --require-external  also require a real external review CLI receipt
- *                           (command=, exit=, verdict=). `- internal:`,
- *                           `- cross-model:`, and `- ground-truth:` do not count.
+ *                           (command=, exit=0, verdict=CLEAN|PASS|PASSED|ok).
+ *                           `- internal:`, `- cross-model:`, and
+ *                           `- ground-truth:` do not count. A line with the
+ *                           tokens is not enough if exit≠0 or the verdict is
+ *                           not a pass token.
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
@@ -38,7 +41,9 @@ import { parseFrontmatter } from './validate-state.js';
 /**
  * A session-written `- internal:`, `- cross-model:`, or `- ground-truth:` line
  * is not an external review CLI receipt. The CLI receipt must name a process
- * (`command=` / `cli=`), an `exit=` code, and a `verdict=`.
+ * (`command=` / `cli=`), `exit=0`, and a pass `verdict=` (CLEAN/PASS/PASSED/ok).
+ * Token presence is not enough: `exit=127 verdict=CLEAN` and
+ * `verdict=needs_changes` fail.
  * @param {string} line
  * @returns {boolean}
  */
@@ -52,9 +57,12 @@ export function isExternalCliReceiptLine(line) {
   if (/^cross-model(\s|$|\()/i.test(label)) return false;
   const rest = line.slice(match[0].length);
   const hasCommand = /\b(command|cli)\s*=\s*\S/i.test(rest);
-  const hasExit = /\bexit\s*=\s*\d+/i.test(rest);
-  const hasVerdict = /\bverdict\s*=\s*\S/i.test(rest);
-  return hasCommand && hasExit && hasVerdict;
+  const exitMatch = rest.match(/\bexit\s*=\s*(-?\d+)/i);
+  const verdictMatch = rest.match(/\bverdict\s*=\s*([^\s|,]+)/i);
+  if (!hasCommand || !exitMatch || !verdictMatch) return false;
+  if (Number(exitMatch[1]) !== 0) return false;
+  const verdict = verdictMatch[1].replace(/[.,;]+$/, '');
+  return /^(CLEAN|PASS|PASSED|ok)$/i.test(verdict);
 }
 
 /**
@@ -202,7 +210,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const why = r.reason === 'no-reviews-section'
       ? 'no `## Reviews` section'
       : r.reason === 'no-external-cli-receipt'
-        ? '`## Reviews` has no external CLI receipt (command=, exit=, verdict=); `- internal:`, `- cross-model:`, and `- ground-truth:` do not count'
+        ? '`## Reviews` has no external CLI receipt (command=, exit=0, verdict=CLEAN|PASS|PASSED|ok); `- internal:`, `- cross-model:`, and `- ground-truth:` do not count'
         : '`## Reviews` present but no `- internal:` line';
     console.log(`  ${r.projectId}/${r.planSlug}/${r.planFile}: ${why}`);
   }

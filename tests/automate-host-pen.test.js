@@ -318,8 +318,10 @@ describe('automate host pen', () => {
     );
     assert.match(generator, /automate-pen\.sh/);
     assert.match(generator, /apply_patch\|Bash\|shell\|run_terminal_command/);
+    assert.match(generator, /NotebookEdit/);
     assert.match(setup, /automate-pen\.sh/);
     assert.match(setup, /apply_patch/);
+    assert.match(setup, /NotebookEdit/);
   });
 
   it('treats probe.lock as a deny and leaves pen.lock untouched', () => {
@@ -441,6 +443,52 @@ status: active
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it('find-unreviewed-plans --require-external rejects failed exit and non-pass verdicts', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'unrev-quality-'));
+    const plan = join(dir, 'plan.md');
+    const script = join(ROOT, 'scripts/find-unreviewed-plans.js');
+    const run = (args, body) => {
+      writeFileSync(plan, body);
+      return spawnSync(process.execPath, [script, ...args, plan], { encoding: 'utf8' });
+    };
+    const receipt = (line) => `---
+slug: fixture
+status: active
+---
+
+# fixture
+
+## Reviews
+
+- internal: session-written
+${line}
+`;
+    const noFlag = run([], receipt('- internal: still counts without the flag'));
+    assert.equal(noFlag.status, 0, noFlag.stdout + noFlag.stderr);
+    const failedExit = run(
+      ['--require-external'],
+      receipt('- grok: command=grok review --plan plan.md | exit=127 | verdict=CLEAN | stderr='),
+    );
+    assert.equal(failedExit.status, 1);
+    assert.match(`${failedExit.stdout}${failedExit.stderr}`, /external CLI review receipt/);
+    const needsChanges = run(
+      ['--require-external'],
+      receipt('- grok: command=grok review --plan plan.md | exit=0 | verdict=needs_changes | stderr='),
+    );
+    assert.equal(needsChanges.status, 1);
+    const passed = run(
+      ['--require-external'],
+      receipt('- grok: command=grok review --plan plan.md | exit=0 | verdict=PASSED | stderr='),
+    );
+    assert.equal(passed.status, 0, passed.stdout + passed.stderr);
+    const okVerdict = run(
+      ['--require-external'],
+      receipt('- grok: command=grok review --plan plan.md | exit=0 | verdict=ok | stderr='),
+    );
+    assert.equal(okVerdict.status, 0, okVerdict.stdout + okVerdict.stderr);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('startup calls find-unreviewed-plans --require-external', () => {
     const src = readFileSync(join(ROOT, 'scripts/automate-run.js'), 'utf8');
     assert.match(src, /find-unreviewed-plans\.js',\s*'--require-external'/);
@@ -473,6 +521,58 @@ status: active
       existsSync(join(dir, '.atomic-skills/status/automate/host-write-sentinel')),
       false,
     );
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('host-shaped probe rejects a command substring spoof', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'host-spoof-'));
+    mkdirSync(join(dir, '.codex'), { recursive: true });
+    writeFileSync(
+      join(dir, '.codex/hooks.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: penMatcher(),
+              hooks: [{ command: 'echo automate-pen.sh; exit 2' }],
+            },
+          ],
+        },
+      }),
+    );
+    const result = runHostWriteProbe('codex', dir);
+    assert.equal(result.ok, false);
+    assert.match(result.reason, /did not prove/);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('startup probes use a unique lock and do not delete leftover probe.lock or sentinel', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'probe-leftover-'));
+    mkdirSync(join(dir, '.atomic-skills/status/automate'), { recursive: true });
+    mkdirSync(join(dir, '.codex'), { recursive: true });
+    const leftover = join(dir, '.atomic-skills/status/automate/probe.lock');
+    const leftoverSentinel = join(dir, '.atomic-skills/status/automate/host-write-sentinel');
+    writeFileSync(leftover, '{"kind":"leftover"}\n');
+    writeFileSync(leftoverSentinel, 'keep\n');
+    runSyntheticProbe(dir);
+    assert.equal(readFileSync(leftover, 'utf8'), '{"kind":"leftover"}\n');
+    const script = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
+    writeFileSync(
+      join(dir, '.codex/hooks.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: penMatcher(),
+              hooks: [{ command: `bash "${script}"` }],
+            },
+          ],
+        },
+      }),
+    );
+    runHostWriteProbe('codex', dir);
+    assert.equal(readFileSync(leftover, 'utf8'), '{"kind":"leftover"}\n');
+    assert.equal(readFileSync(leftoverSentinel, 'utf8'), 'keep\n');
     rmSync(dir, { recursive: true, force: true });
   });
 

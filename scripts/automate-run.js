@@ -27,7 +27,9 @@ import {
   PEN_HOOK_SCRIPT,
   assessHostWrite,
   assessPenRegistration,
+  extractPenHookScriptToken,
   resolveAutomateHost,
+  resolvePenHookScript,
 } from '../src/automate-host-pen.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -67,7 +69,7 @@ function penHookCommand(hooksConfig) {
     const list = Array.isArray(entry.hooks) ? entry.hooks : [];
     for (const hook of list) {
       const command = hook && typeof hook.command === 'string' ? hook.command : '';
-      if (command.includes(PEN_HOOK_SCRIPT)) return command;
+      if (extractPenHookScriptToken(command)) return command;
     }
   }
   return null;
@@ -87,14 +89,18 @@ function runDetector(script, args) {
 }
 
 /**
- * Create an isolated probe lock, require exit 2, remove it, require exit 0.
- * Does not create pen.lock. Always removes the probe lock before returning.
+ * Create an isolated probe lock in a tmpdir (AUTOMATE_PROBE_LOCK), require
+ * exit 2, remove it, require exit 0. Does not create or delete repo pen.lock
+ * or leftover probe.lock.
  * @param {string} root
  * @returns {string[]}
  */
 export function runSyntheticProbe(root) {
-  const probe = join(root, '.atomic-skills/status/automate/probe.lock');
+  const probeDir = mkdtempSync(join(tmpdir(), 'automate-probe-'));
+  const probe = join(probeDir, 'probe.lock');
   const pen = join(root, '.atomic-skills/status/automate/pen.lock');
+  const repoProbe = join(root, '.atomic-skills/status/automate/probe.lock');
+  const hadRepoProbe = existsSync(repoProbe);
   const home = mkdtempSync(join(tmpdir(), 'pen-home-'));
   const script = join(ROOT, 'skills/shared/project-assets/hooks/automate-pen.sh');
   const payload = JSON.stringify({
@@ -105,7 +111,6 @@ export function runSyntheticProbe(root) {
   const blockers = [];
   mkdirSync(join(home, '.atomic-skills'), { recursive: true });
   writeFileSync(join(home, '.atomic-skills/package-root'), `${ROOT}\n`);
-  mkdirSync(dirname(probe), { recursive: true });
   const baseEnv = {
     ...process.env,
     HOME: home,
@@ -141,11 +146,13 @@ export function runSyntheticProbe(root) {
       blockers.push('probe lock left a sentinel file');
     }
   } finally {
-    rmSync(probe, { force: true });
+    rmSync(probeDir, { recursive: true, force: true });
     rmSync(home, { recursive: true, force: true });
   }
   if (existsSync(pen)) blockers.push('startup probe created pen.lock');
-  if (existsSync(probe)) blockers.push('startup probe left probe.lock');
+  if (!hadRepoProbe && existsSync(repoProbe)) {
+    blockers.push('startup probe left probe.lock');
+  }
   return blockers;
 }
 
@@ -195,7 +202,8 @@ function hostShapedWrite(args) {
     return;
   }
 
-  const probe = join(root, '.atomic-skills/status/automate/probe.lock');
+  const probeDir = mkdtempSync(join(tmpdir(), 'host-write-probe-'));
+  const probe = join(probeDir, 'probe.lock');
   const home = mkdtempSync(join(tmpdir(), 'host-write-home-'));
   const payload = JSON.stringify({
     tool_name: AUTOMATE_HOSTS[host].writeTools[0],
@@ -203,29 +211,40 @@ function hostShapedWrite(args) {
   });
   mkdirSync(join(home, '.atomic-skills'), { recursive: true });
   writeFileSync(join(home, '.atomic-skills/package-root'), `${ROOT}\n`);
-  mkdirSync(dirname(probe), { recursive: true });
   mkdirSync(dirname(sentinel), { recursive: true });
+
+  const env = {
+    ...process.env,
+    HOME: home,
+    CLAUDE_PROJECT_DIR: root,
+    GROK_WORKSPACE_ROOT: root,
+    AUTOMATE_PROBE_LOCK: probe,
+  };
+  delete env.AUTOMATE_PEN_LOCK;
+
+  const scriptPath = resolvePenHookScript(command, root, env);
+  if (!scriptPath || !existsSync(scriptPath)) {
+    rmSync(probeDir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+    emit();
+    return;
+  }
 
   try {
     writeFileSync(probe, '{"kind":"probe"}\n');
-    const denied = spawnSync('bash', ['-c', command], {
+    const denied = spawnSync('bash', [scriptPath], {
       input: payload,
       encoding: 'utf8',
       cwd: root,
-      env: {
-        ...process.env,
-        HOME: home,
-        CLAUDE_PROJECT_DIR: root,
-        GROK_WORKSPACE_ROOT: root,
-      },
+      env,
     });
-    if (!denied.error) result.invokedHook = true;
+    result.invokedHook = !denied.error;
     result.refused = denied.status === 2;
     if (denied.status === 0) {
       writeFileSync(sentinel, 'host-write\n');
     }
   } finally {
-    rmSync(probe, { force: true });
+    rmSync(probeDir, { recursive: true, force: true });
     rmSync(home, { recursive: true, force: true });
   }
   emit();
@@ -243,9 +262,8 @@ export function runHostWriteProbe(host, root) {
   if (!host || !AUTOMATE_HOSTS[host]) {
     return assessHostWrite({ invokedHook: false, refused: false, sentinelCreated: false });
   }
-  const sentinel = join(root, '.atomic-skills/status/automate/host-write-sentinel');
-  const probe = join(root, '.atomic-skills/status/automate/probe.lock');
-  mkdirSync(dirname(sentinel), { recursive: true });
+  const work = mkdtempSync(join(tmpdir(), 'host-write-sentinel-'));
+  const sentinel = join(work, 'host-write-sentinel');
   const res = spawnSync(
     process.execPath,
     [
@@ -272,8 +290,7 @@ export function runHostWriteProbe(host, root) {
     }
   }
   const leftoverSentinel = existsSync(sentinel);
-  rmSync(sentinel, { force: true });
-  rmSync(probe, { force: true });
+  rmSync(work, { recursive: true, force: true });
   if (!parsed || typeof parsed !== 'object') {
     return assessHostWrite({
       invokedHook: false,
