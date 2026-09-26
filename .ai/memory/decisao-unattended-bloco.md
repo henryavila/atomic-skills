@@ -1,6 +1,6 @@
 # Decisão consolidada — `implement --automate`
 
-**Status:** consolidado em 2026-09-24, a partir da conversa com o Henry. Direção aprovada. Ainda não é skill, nem programa, nem hook. O próximo passo é refinar este texto. Não construir em cima dele antes disso.
+**Status:** consolidado em 2026-09-24. Direção aprovada. Em 2026-09-25 o plano `real-automate` implementou F0 (caneta + partida que recusa) e F1 (detector de arquitetura) no branch `plan/real-automate`. Pause de máquina: ver `.ai/memory/handoff-real-automate-2026-09-25.md`. O `plan.md` manda se discordar deste texto.
 
 O nome do arquivo é histórico (`unattended`). A flag chama-se `--automate`. Não existe `--unattended`.
 
@@ -144,4 +144,10 @@ Entrada do programa: `node scripts/automate-run.js --host <claude-code|codex|gro
 
 ## Ainda aberto, de propósito
 
-A visão acima deste corte segue refinável. O spawn do writer, o cartão e o protótipo ainda não existem.
+A visão acima do primeiro corte segue refinável. Pause 2026-09-25:
+
+- **Já no branch `plan/real-automate`:** F0 (caneta, `automate-run.js` recusa partida, `--require-external`) e F1 (`scripts/find-missing-architecture.js`, 15 testes). Flow ratificado. F0 e F1 arquivadas.
+- **Próximo:** F2 — `scripts/find-missing-ui.js` ainda não existe. Materializar a fase, restampar ground-truth (o corpo em `plan.md` ficou velho), implementar o detector, ligar na partida.
+- **Depois:** F3 spawn/merge do writer; F4 review both + flow no audit; F5 página e `userValidatedAt`.
+
+Detalhe de retomada: `.ai/memory/handoff-real-automate-2026-09-25.md`.
