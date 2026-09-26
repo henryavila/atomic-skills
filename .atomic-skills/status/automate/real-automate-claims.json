@@ -1,0 +1,50 @@
+{
+  "planSlug": "real-automate",
+  "phaseId": "F1",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/real-automate-F1-fix1",
+  "writerBranch": "impl/real-automate-F1-fix1",
+  "finishedAt": "2026-09-25T23:00:11Z",
+  "tasks": [
+    {
+      "taskId": "T-001",
+      "status": "claimed-pass",
+      "commitShas": ["bd261d6609386b80808998cb3d1514ce4f167850"],
+      "base": "bd261d6609386b80808998cb3d1514ce4f167850",
+      "head": "bd261d6609386b80808998cb3d1514ce4f167850",
+      "paths": [
+        "scripts/find-missing-architecture.js",
+        "tests/find-missing-architecture.test.js"
+      ],
+      "verifierCommand": "node --test tests/find-missing-architecture.test.js",
+      "exitCode": 0,
+      "transcript": "ℹ tests 15 ℹ suites 4 ℹ pass 15 ℹ fail 0 EXIT:0 — third unvalidated chosen sketch exits 1; 1-based chosen 1 and 2 select distinct sketches (chosenIndex 0 vs 1); exactly two sketches required"
+    },
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": ["09ac041df570ea55b0e2da8d59ffb9405616e4df"],
+      "base": "09ac041df570ea55b0e2da8d59ffb9405616e4df",
+      "head": "09ac041df570ea55b0e2da8d59ffb9405616e4df",
+      "paths": [
+        "scripts/find-missing-architecture.js",
+        "tests/find-missing-architecture.test.js"
+      ],
+      "verifierCommand": "node --test tests/find-missing-architecture.test.js",
+      "exitCode": 0,
+      "transcript": "ℹ tests 15 ℹ suites 4 ℹ pass 15 ℹ fail 0 EXIT:0 — forbidden phrase without the drawing (sha-matched fixture, not /drawing/ on sha mismatch); na outra is not a outra; complete mix line with na outra/isolado exits 0; sha does not match drawing exits 1"
+    },
+    {
+      "taskId": "T-003",
+      "status": "claimed-pass",
+      "commitShas": ["212f4ea4ae3bb523abf76598263f5f4760d10ebb"],
+      "base": "212f4ea4ae3bb523abf76598263f5f4760d10ebb",
+      "head": "212f4ea4ae3bb523abf76598263f5f4760d10ebb",
+      "paths": [
+        "tests/find-missing-architecture.test.js"
+      ],
+      "verifierCommand": "node --test tests/find-missing-architecture.test.js",
+      "exitCode": 0,
+      "transcript": "ℹ tests 15 ℹ suites 4 ℹ pass 15 ℹ fail 0 EXIT:0 — automate-run.js --host grok on a fixture whose card exists but chooses a third unvalidated sketch exits 1 citing find-missing-architecture.js (chosen|two sketches). Keep-green: node --test tests/automate-host-pen.test.js → ℹ tests 33 ℹ pass 33 ℹ fail 0. Combined 48/48."
+    }
+  ]
+}

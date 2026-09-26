@@ -1,0 +1,12 @@
+{
+  "planSlug": "real-automate",
+  "phaseId": "F0",
+  "baseRef": "f94cea27471fb3450cc10c99d7156b7011a7e9e6",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/real-automate-F0-fix3",
+  "writerBranch": "impl/real-automate-F0-fix3",
+  "sealedBriefPath": "/Volumes/External/code/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F0-sealed-brief.md",
+  "claimReportPath": "/Volumes/External/code/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-claims.json",
+  "claimReportPathForBrief": ".atomic-skills/status/automate/real-automate-claims.json",
+  "leasePath": "/Volumes/External/code/atomic-skills/.worktrees/real-automate/.atomic-skills/status/writer-leases/real-automate.json",
+  "preparedAt": "2026-09-25T22:19:09.186Z"
+}
