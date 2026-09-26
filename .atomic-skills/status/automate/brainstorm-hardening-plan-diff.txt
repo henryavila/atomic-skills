@@ -1,0 +1,3 @@
+docs/design/project-onboarding/html-design-brief.md
+projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md
+projects/atomic-skills/brainstorm-hardening/pressure-tests.md

@@ -1,0 +1,30 @@
+{
+  "planSlug": "brainstorm-hardening",
+  "phaseId": "F0",
+  "fixLabel": "docs-catalog-sync",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/brainstorm-hardening",
+  "writerBranch": "plan/brainstorm-hardening",
+  "finishedAt": "2026-07-30T16:15:00Z",
+  "tasks": [
+    {
+      "taskId": "F0-fix1-docs-catalog-sync",
+      "status": "claimed-pass",
+      "commitShas": [
+        "ab41c2ec6e39bdc429572670a4a4e132590311cd"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "meta/catalog.yaml",
+        "meta/catalog.json",
+        "docs/skills/brainstorm.md",
+        "README.md",
+        "site/dist/skills/brainstorm/index.html",
+        "site/dist/skills/index.html"
+      ],
+      "verifierCommand": "npm run check-docs",
+      "exitCode": 0,
+      "transcript": "Updated catalog brainstorm entry (always Interview → research-digest → debate --gate → ratify → write + lint-design → critic; brainstorm-assets). Regenerated docs. npm run check-docs exit 0. T-002 rg verifier still PASS. validate-skills OK (one_liner shortened to ≤80 chars)."
+    }
+  ]
+}

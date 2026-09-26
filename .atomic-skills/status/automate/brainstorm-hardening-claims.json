@@ -1,0 +1,40 @@
+{
+  "planSlug": "brainstorm-hardening",
+  "phaseId": "F3",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/brainstorm-hardening-F3-writer",
+  "writerBranch": "impl/brainstorm-hardening-F3-writer",
+  "finishedAt": "2026-07-30T17:35:20Z",
+  "tasks": [
+    {
+      "taskId": "T-010",
+      "status": "claimed-pass",
+      "commitShas": [
+        "15c9a9b82a9f2550952a5bf37730d24d1abf7e6b"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "projects/atomic-skills/brainstorm-hardening/pressure-tests.md"
+      ],
+      "verifierCommand": "test -f projects/atomic-skills/brainstorm-hardening/pressure-tests.md && rg -q 'skip interview|skip debate|empty digest|assert-creation-stage|monolito|ignore' projects/atomic-skills/brainstorm-hardening/pressure-tests.md",
+      "exitCode": 0,
+      "transcript": "t010_exit=0; pressure-tests.md PT-1..PT-6: skip interview, skip debate, empty digest theater, assert-creation-stage skip, monolito more-text→ignore, Stage 4 detector skip; each maps Red-Flag/detector/assert-creation-stage; additive only (no Inc3 re-run)"
+    },
+    {
+      "taskId": "T-011",
+      "status": "claimed-pass",
+      "commitShas": [
+        "5ec837a269736c83295f4b5cbdafccdeb15b1f3c"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md",
+        "docs/design/project-onboarding/html-design-brief.md"
+      ],
+      "verifierCommand": "test -f projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md && rg -q 'assert-creation-stage|draft-and-ratify|stage-' projects/atomic-skills/brainstorm-hardening/dogfood-checklist.md && rg -q 'entrevista|debate|Interview|always|estágio|stage' docs/design/project-onboarding/html-design-brief.md",
+      "exitCode": 0,
+      "transcript": "t011_exit=0; dogfood-checklist lists interview research-digest debate critic lint design-gates stage-N router Stage 4 assert-creation-stage draft-and-ratify; html-design-brief Stage 2 + Seção F: entrevista always debate thin stage-N assert-creation-stage draft-and-ratify; no Stage 8 behavior change"
+    }
+  ]
+}

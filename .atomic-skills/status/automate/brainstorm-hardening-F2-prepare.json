@@ -1,0 +1,12 @@
+{
+  "planSlug": "brainstorm-hardening",
+  "phaseId": "F2",
+  "baseRef": "7111c157294ed1191f1000f3b486b6a5ee3e3b08",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/brainstorm-hardening-F2-writer",
+  "writerBranch": "impl/brainstorm-hardening-F2-writer",
+  "sealedBriefPath": "/Volumes/External/code/atomic-skills/.worktrees/brainstorm-hardening/.atomic-skills/status/automate/brainstorm-hardening-F2-sealed-brief.md",
+  "claimReportPath": "/Volumes/External/code/atomic-skills/.worktrees/brainstorm-hardening/.atomic-skills/status/automate/brainstorm-hardening-claims.json",
+  "claimReportPathForBrief": ".atomic-skills/status/automate/brainstorm-hardening-claims.json",
+  "leasePath": "/Volumes/External/code/atomic-skills/.worktrees/brainstorm-hardening/.atomic-skills/status/writer-leases/brainstorm-hardening.json",
+  "preparedAt": "2026-07-30T17:08:32.883Z"
+}
