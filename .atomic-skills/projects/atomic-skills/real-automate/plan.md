@@ -320,7 +320,15 @@ phases:
       criteria:
         - id: G-1
           description: "`node --test tests/find-missing-ui.test.js` verde."
-          status: pending
+          status: met
+          metAt: 2026-09-28T18:22:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-09-28T18:22:00.000Z
+            verifiedCommit: d52f496373a2f1e292c914a8a8437e9314e652eb
+            passed: true
+            exitCode: 0
+            outputSummary: "node --test tests/find-missing-ui.test.js: ℹ tests 17 ℹ pass 17 ℹ fail 0"
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
