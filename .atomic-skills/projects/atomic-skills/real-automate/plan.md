@@ -314,7 +314,7 @@ phases:
       `scripts/find-missing-ui.js`, que esta fase cria.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -324,7 +324,30 @@ phases:
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: pending
+    status: active
+    businessIntent:
+      value: |
+        O detector de tela existe e recusa planos sem carimbo de protótipo de UI.
+        Planos sem superfície visível registram explicitamente "sem tela" com justificativa,
+        e tasks que tocam UI (Vue, sheet, viewer, editor) são impedidas de usar "sem tela".
+        O carimbo da tela vincula o sha do cartão de arquitetura.
+      workflow: |
+        O plano guarda ui/ui.json listando telas com path do protótipo e sha,
+        ou { "none": true, "reason": "..." }. scripts/find-missing-ui.js lê esse arquivo,
+        valida a ausência de toque em UI quando none: true, confere consistência com o
+        sha do cartão (architecture/decisions.json) e sai 0 apenas com carimbo íntegro.
+        automate-run.js passa a executar esse detector em vez de apenas verificar existsSync.
+      rules: |
+        exitGateType: ui-gate no plano não substitui o carimbo ui/ui.json.
+        "Sem tela" (none: true) é proibido se qualquer task do plano tocar Vue, sheet,
+        viewer ou editor. Sha divergente do cartão de arquitetura é recusado. Chat ok não carimba.
+      outOfScope: |
+        Spawn de writer, criação de worktree de writer, merge (F3), review-both e
+        fechamento de fase no loop automate (F4), página final (F5). Não altera o detector de arquitetura.
+      doneWhen: |
+        node --test tests/find-missing-ui.test.js passa (verde), node scripts/find-missing-ui.js
+        --strict em fixture vazio ou inconsistente sai 1, e automate-run.js invoca find-missing-ui.js
+        reportando o motivo do detector quando o carimbo falta.
   - id: F3
     slug: real-automate-f3-um-writer-merge-e-para
     title: Um writer, merge, e para
@@ -586,4 +609,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=f1ed5608e242 | premises=17 | impacts=21 @ uncommitted (2026-09-25T18:19:06Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=fed611bfd9c5 | premises=17 | impacts=21 @ uncommitted (2026-09-28T14:10:00Z)

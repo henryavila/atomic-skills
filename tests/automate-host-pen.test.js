@@ -904,6 +904,15 @@ ${line}
     );
   });
 
+  it('startup runs find-missing-ui.js instead of existsSync', () => {
+    const src = readFileSync(join(ROOT, 'scripts/automate-run.js'), 'utf8');
+    assert.match(src, /find-missing-ui\.js',\s*'--strict'/);
+    assert.doesNotMatch(
+      src,
+      /for \(const missing of \['find-missing-ui\.js'/,
+    );
+  });
+
   it('host-shaped probe invokes the registered pen and refuses a write without a sentinel', () => {
     const dir = mkdtempSync(join(tmpdir(), 'host-write-'));
     mkdirSync(join(dir, '.codex'), { recursive: true });

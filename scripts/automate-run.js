@@ -357,16 +357,11 @@ function main() {
       ['find-unreviewed-plans.js', '--require-external', plan],
       ['find-plans-missing-ground-truth.js', plan],
       ['find-missing-architecture.js', '--strict', plan],
+      ['find-missing-ui.js', '--strict', plan],
     ]) {
       const [name, ...rest] = script;
       const result = runDetector(name, rest);
       if (!result.ok) blockers.push(result.detail || `${name} failed`);
-    }
-  }
-
-  for (const missing of ['find-missing-ui.js']) {
-    if (!existsSync(join(ROOT, 'scripts', missing))) {
-      blockers.push(`missing detector scripts/${missing}`);
     }
   }
 
