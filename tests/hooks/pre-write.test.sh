@@ -15,7 +15,7 @@ feed() { printf '%s' "$1" | bash "$HOOK"; }
 
 assert_no_host_hook_config_files() {
   local files
-  files=$(find .claude .codex .cursor .gemini .opencode .github -type f 2>/dev/null | sort || true)
+  files=$(find .claude .codex .cursor .agent .opencode .github -type f 2>/dev/null | sort || true)
   [[ -z "$files" ]] && ok || no "expected no host hook config files, found: $files"
 }
 
@@ -801,7 +801,7 @@ cd - >/dev/null; rm -rf "$TMP"
 # --- T28: no host hook config + no CLAUDE_PROJECT_DIR → PWD fallback for relative path ---
 TMP=$(mktemp -d); cd "$TMP"
 mkdir -p .atomic-skills/initiatives .atomic-skills/status
-mkdir -p .claude .codex .cursor .gemini .opencode .github
+mkdir -p .claude .codex .cursor .agent .opencode .github
 printf '{"emergent_strict_mode":false}' > .atomic-skills/status/config.json
 write_initiative_one_task .atomic-skills/initiatives/i.md
 NEW=$(render_initiative_full 2)

@@ -42,9 +42,9 @@ Then open `site/dist/index.html` in a browser. Details: [`site/DEPLOY.md`](site/
 
 ## Hosts
 
-**Tested** (real sessions): Claude Code, Cursor, Codex, Grok Build.
+**Tested** (real sessions): Claude Code, Cursor, Antigravity, Codex, Grok Build.
 
-**Theoretical** (install + adapters ship; not day-to-day QA): Gemini CLI, OpenCode, GitHub Copilot, and other profiles.
+**Theoretical** (install + adapters ship; not day-to-day QA): OpenCode, GitHub Copilot, and other profiles.
 
 Support column in the table:
 

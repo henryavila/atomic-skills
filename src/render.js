@@ -15,7 +15,12 @@ export function renderTemplate(content, vars = {}, ideId = '', scope = '') {
   // Process conditional blocks (single-level, no nesting)
   // Support {{#if ide.name}} only (installer modules concept removed).
   const normalizedIdeId = ideId === 'agy' ? 'antigravity' : ideId;
-  const ideContext = normalizedIdeId ? { [normalizedIdeId]: true } : {};
+  const ideContext = normalizedIdeId
+    ? {
+        [normalizedIdeId]: true,
+        ...(normalizedIdeId === 'antigravity' ? { agy: true } : {}),
+      }
+    : {};
   let result = content.replace(
     /{{#if ide\.([\w-]+)}}\n([\s\S]*?){{\/if}}\n?/g,
     (_, name, block) => (ideContext[name] ? block : '')
@@ -90,7 +95,7 @@ export function renderForIDE(format, name, description, body, opts = {}) {
   if (format === 'toml') {
     // Real TOML serializer (not raw string interpolation) so descriptions with
     // quotes/backslashes and prompt bodies with triple-quotes round-trip.
-    // TOML skill format has no argument-hint surface (Gemini / OpenCode).
+    // TOML skill format has no argument-hint surface (OpenCode).
     const prompt = body.endsWith('\n') ? body : `${body}\n`;
     return TOML.stringify({ description, prompt });
   }

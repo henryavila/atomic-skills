@@ -14,7 +14,7 @@ no()  { FAIL=$((FAIL+1)); echo "  FAIL: $1"; }
 
 assert_no_host_hook_config_files() {
   local files
-  files=$(find .claude .codex .cursor .gemini .opencode .github -type f 2>/dev/null | sort || true)
+  files=$(find .claude .codex .cursor .agent .opencode .github -type f 2>/dev/null | sort || true)
   [[ -z "$files" ]] && ok || no "expected no host hook config files, found: $files"
 }
 
@@ -364,7 +364,7 @@ cd - >/dev/null; rm -rf "$TMP"
 TMP=$(mktemp -d); cd "$TMP"
 init_git_branch feature/x
 mkdir -p .atomic-skills/projects/acme/migration/phases
-mkdir -p .claude .codex .cursor .gemini .opencode .github
+mkdir -p .claude .codex .cursor .agent .opencode .github
 write_plan .atomic-skills/projects/acme/migration/plan.md migration active F0
 write_initiative .atomic-skills/projects/acme/migration/phases/f0-work.md f0-work active feature/x migration F0 "pending"
 run "no host hook config + no CLAUDE_PROJECT_DIR → PWD fallback, no host config created"

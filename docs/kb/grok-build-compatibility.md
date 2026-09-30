@@ -96,16 +96,16 @@ Layout:
 **Never** hardcode Claude tool names (`Bash`, `Read tool`) in skill bodies. Use
 template variables; the renderer substitutes per IDE.
 
-| Variable | Claude Code | Gemini CLI | Grok Build (provisional) | Codex CLI |
-|----------|-------------|------------|--------------------------|-----------|
-| `{{BASH_TOOL}}` | `Bash` | `run_shell_command` | `run_terminal_command` | `shell` |
-| `{{READ_TOOL}}` | `Read tool` | `read_file` | `read_file` | `read_file` |
-| `{{WRITE_TOOL}}` | `Write tool` | `write_file` | `write` | `apply_patch` |
-| `{{REPLACE_TOOL}}` | `Edit tool` | `replace` | `search_replace` | `apply_patch` |
+| Variable | Claude Code | Antigravity | Grok Build (provisional) | Codex CLI |
+|----------|-------------|-------------|--------------------------|-----------|
+| `{{BASH_TOOL}}` | `Bash` | `run_command` | `run_terminal_command` | `shell` |
+| `{{READ_TOOL}}` | `Read tool` | `view_file` | `read_file` | `read_file` |
+| `{{WRITE_TOOL}}` | `Write tool` | `write_to_file` | `write` | `apply_patch` |
+| `{{REPLACE_TOOL}}` | `Edit tool` | `replace_file_content` | `search_replace` | `apply_patch` |
 | `{{GREP_TOOL}}` | `Grep` | `grep_search` | `grep` | `grep_files` |
 | `{{GLOB_TOOL}}` | `Glob` | `glob` | `list_dir` | `list_dir` |
-| `{{INVESTIGATOR_TOOL}}` | `Agent` | `codebase_investigator` | `spawn_subagent` | `spawn_agent` |
-| `{{ASK_USER_QUESTION_TOOL}}` | `AskUserQuestion tool` | plain-text multi-choice prompt | `ask_user_question` | plain-text multi-choice prompt |
+| `{{INVESTIGATOR_TOOL}}` | `Agent` | `invoke_subagent` | `spawn_subagent` | `spawn_agent` |
+| `{{ASK_USER_QUESTION_TOOL}}` | `AskUserQuestion tool` | `ask_question` | `ask_user_question` | plain-text multi-choice prompt |
 | `{{ARG_VAR}}` | `$ARGUMENTS` | `$ARGUMENTS` | `$ARGUMENTS` | `$ARGUMENTS` |
 
 Notes:
@@ -154,7 +154,7 @@ ellipsis). The installer emits it for:
 |-------------|------|------------------------|
 | `command` (Claude Code) | `.claude/commands/…` | yes |
 | `markdown` (Grok Build, Cursor, Codex, …) | `SKILL.md` | **yes** (required for Grok) |
-| `toml` (Gemini) | `.toml` | no surface |
+| `toml` (OpenCode) | `.toml` | no surface |
 
 Without the markdown emit, Grok lists `/project` but not its subcommand options.
 

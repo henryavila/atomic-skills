@@ -305,7 +305,7 @@ export async function promptAction(lang, { isUpdate = false, hasConflicts = fals
 }
 
 /**
- * Multiselect of 6 primary IDEs (not gemini-commands, which is internal).
+ * Multiselect of primary IDEs.
  * @param {string} lang
  * @param {string[]} currentIDEs  - already selected IDE IDs (used as initial values)
  * @returns {Promise<string[]>}

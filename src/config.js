@@ -6,7 +6,7 @@ export const SKILL_NAMESPACE = 'atomic-skills';
 
 /**
  * Explicit tool-name adapters per PUBLIC_IDE_ID (F2/T-001).
- * No host free-rides Claude names. gemini-commands reuses the gemini profile.
+ * No host free-rides Claude names. agy aliases to the antigravity profile.
  * Unknown hosts fall back to HOST_TOOL_PROFILE_UNKNOWN (non-Claude).
  */
 export const HOST_TOOL_PROFILES = {
@@ -108,7 +108,7 @@ export const HOST_TOOL_PROFILE_UNKNOWN = {
 };
 
 /**
- * Resolve the tool-name map for an IDE id (including gemini-commands → gemini).
+ * Resolve the tool-name map for an IDE id (e.g. agy → antigravity).
  * @param {string} ideId
  * @returns {Record<string, string>}
  */

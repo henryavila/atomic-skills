@@ -111,6 +111,10 @@ describe('Antigravity tool profile and rendering', () => {
 
     const renderedAlias = renderTemplate(template, {}, 'agy');
     assert.equal(renderedAlias.trim(), 'before\nAntigravity only\nafter');
+
+    const agyBlockTemplate = 'before\n{{#if ide.agy}}\nAgy alias block\n{{/if}}\nafter';
+    assert.equal(renderTemplate(agyBlockTemplate, {}, 'antigravity').trim(), 'before\nAgy alias block\nafter');
+    assert.equal(renderTemplate(agyBlockTemplate, {}, 'agy').trim(), 'before\nAgy alias block\nafter');
   });
 });
 
