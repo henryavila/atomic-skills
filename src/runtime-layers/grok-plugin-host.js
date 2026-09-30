@@ -64,14 +64,25 @@ export function resolveGrokBinary(opts = {}) {
 
   const bundled = join(home, '.grok', 'bin', 'grok');
   if (existsSync(bundled)) return bundled;
+  if (process.platform === 'win32') {
+    if (existsSync(`${bundled}.cmd`)) return `${bundled}.cmd`;
+    if (existsSync(`${bundled}.exe`)) return `${bundled}.exe`;
+  }
 
-  // PATH lookup — spawn will resolve; we only probe via `which`-like spawn.
-  const which = spawnSync('sh', ['-c', 'command -v grok'], {
-    encoding: 'utf8',
-    env,
-  });
-  if (which.status === 0 && which.stdout?.trim()) {
-    return which.stdout.trim();
+  // PATH lookup — spawn will resolve; probe via platform command lookup.
+  const probe = process.platform === 'win32'
+    ? { bin: 'where.exe', args: ['grok'] }
+    : { bin: 'sh', args: ['-c', 'command -v grok'] };
+  try {
+    const which = spawnSync(probe.bin, probe.args, {
+      encoding: 'utf8',
+      env,
+    });
+    if (which.status === 0 && which.stdout?.trim()) {
+      return which.stdout.trim().split(/\r?\n/)[0].trim();
+    }
+  } catch {
+    /* ignore lookup probe failure */
   }
   return null;
 }
