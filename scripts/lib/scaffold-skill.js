@@ -106,7 +106,7 @@ export function buildSkillEntry(name, fields) {
     ]),
     `    related: []`,
     `    tags: [core]`,
-    `    ide_compatibility: [claude-code, gemini, cursor]`,
+    `    ide_compatibility: [claude-code, antigravity, cursor]`,
     `    requires_args: false`,
     `    mutates_repo: false`,
     `    network_required: false`,

@@ -90,7 +90,7 @@ Optional fields (allowed, never required for append): `phaseId`, `taskId`,
 |----------|----------|
 | `routing` | Re-dispatch, stop, leave-automate, Mode-1 re-entry, spawn/skip phase agent. |
 | `tradeoff` | Product/eng tradeoff that changes behavior beyond pure task text. |
-| `review-disposition` | Review severity disposition: `accept` \| `defer` \| `fix` (or equivalent). **Open major findings block phase-done** without one of these operator tokens (`majorDispositionAllowsClose`). **Decline ≠ accept:** AskUserQuestion decline/cancel is not a disposition — re-Ask or STOP; host judgment accept after decline fails the gate. |
+| `review-disposition` | Review severity disposition: `accept` \| `defer` \| `fix` (or equivalent). **Open major findings block phase-done** without one of these operator tokens (`majorDispositionAllowsClose`). **Decline ≠ accept:** {{ASK_USER_QUESTION_TOOL}} decline/cancel is not a disposition — re-Ask or STOP; host judgment accept after decline fails the gate. |
 | `scope-exit` | Required violation of `scopeBoundary` / runtime scope exit. |
 | `manual-gate-delegation` | Manual gate parked, delegated, or operator-owned step deferred with reason. |
 | `env` | Verifier environment / tool / runtime choice that affects reproducibility. |
@@ -156,7 +156,7 @@ evaluation and **before / as part of** phase-done preflight. Fixed order:
 ```text
 tasks done → evaluation agent → evaluationGate stamp
   → buildDecisionPackage + host present decision package (read-before-PASS)
-  → AskUserQuestion PASS|FAIL (same hardgate turn as package body)
+  → {{ASK_USER_QUESTION_TOOL}} PASS|FAIL (same hardgate turn as package body)
   → stamp phases[].decisionReview (status=passed + verifiedAt + package present evidence)
   → canRunPhaseDone / assert-automate-gate --gate phase-done
   → phase-done with review-code --mode=both
@@ -187,8 +187,8 @@ tasks done → evaluation agent → evaluationGate stamp
 1. Operator reads the **decision package** presented in this turn (not a prior
    turn, not "path only").
 2. Operator issues an **explicit token in the same turn** that authorizes PASS
-   via **AskUserQuestion** options (PASS | FAIL) — not free-text chat recovery
-   (e.g. never "type `decision-review PASS`"). See AskUserQuestion-only section.
+   via {{ASK_USER_QUESTION_TOOL}} options (PASS | FAIL) — not free-text chat recovery
+   (e.g. never "type `decision-review PASS`"). See operator prompt section.
 3. **Only then** may the host stamp `phases[].decisionReview` via
    `buildDecisionReview({ status: 'passed', verifiedAt: <ISO>, packagePresentedAt: <ISO>, packagePath?, evidencePath? })`.
 4. Host/agent **never** writes `decisionReview status=passed` without that
@@ -215,15 +215,15 @@ tasks done → evaluation agent → evaluationGate stamp
   evaluationGate and decisionReview passed (with present evidence).
 - Non-automate plans: decisionReview field optional; gate inactive.
 
-### AskUserQuestion-only + free-text ban (HARD)
+### Interactive prompt-only + free-text ban (HARD)
 
-- Decision-review PASS|FAIL is **AskUserQuestion-only** under automate (options
+- Decision-review PASS|FAIL is **{{ASK_USER_QUESTION_TOOL}}-only** under automate (options
   map to durable tokens). Host **must not** ask the operator to type
   `decision-review PASS` / free-text recovery in chat after decline.
-- **Decline / cancel** of AskUserQuestion → **re-Ask** the same question
-  (bounded) **or STOP** with nextAction to re-open AskUserQuestion — never
+- **Decline / cancel** of {{ASK_USER_QUESTION_TOOL}} → **re-Ask** the same question
+  (bounded) **or STOP** with nextAction to re-open {{ASK_USER_QUESTION_TOOL}} — never
   free-text "type PASS".
-- Package body **must appear in the same AskUserQuestion turn** as PASS|FAIL
+- Package body **must appear in the same turn** as PASS|FAIL
   options (present-before-PASS).
 
 ---

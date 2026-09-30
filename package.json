@@ -69,7 +69,7 @@
   "dependencies": {
     "@clack/prompts": "^1.2.0",
     "@henryavila/aideck": "^0.2.0",
-    "@henryavila/minimalist-installer": "github:henryavila/minimalist-installer#12c7884dfa8ea94776deb12efbe2a2e90f3c372a",
+    "@henryavila/minimalist-installer": "github:henryavila/minimalist-installer#1565a58fb5e9b1e51da7aa75c9624dd170da8740",
     "@iarna/toml": "^2.2.5",
     "ajv": "^8.20.0",
     "picocolors": "^1.1.1",

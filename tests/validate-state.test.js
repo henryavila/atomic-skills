@@ -1513,7 +1513,7 @@ test('routing: a fully-specified enabled config validates', () => {
       tierMap: { cheap: 'claude-haiku-4-5', standard: 'claude-sonnet-4-6' },
       codexLane: { enabled: true, model: 'gpt-5-codex', timeoutSeconds: 600, sandbox: 'workspace-write' },
       thresholds: { minBatchTasks: 3, requireDeterministicVerifier: true },
-      ideOverrides: { gemini: { subagentExecutor: false } },
+      ideOverrides: { antigravity: { subagentExecutor: true }, gemini: { subagentExecutor: false } },
     });
     const result = validateRouting(p, validators);
     assert.equal(result.ok, true, result.errors.join('\n'));

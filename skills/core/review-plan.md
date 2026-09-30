@@ -1,8 +1,8 @@
 Perform an adversarial analysis of the plan {{ARG_VAR}} looking for
 internal errors, gaps, and inconsistencies. Step 0 picks a mode: `local`,
 `ground-truth` (plan↔code premises + silent-code impacts — **required before
-implement**), `codex`, `grok`, `claude`, `both` (local→**host external default**),
-`both-codex`, `both-grok`, `both-claude`, or `external-both`. Full mode table,
+implement**), `codex`, `grok`, `claude`, `agy`, `both` (local→**host external default**),
+`both-codex`, `both-grok`, `both-claude`, `both-agy`, or `external-both`. Full mode table,
 host-aware picker, and same-family rules: {{READ_TOOL}}
 `skills/shared/codex-bridge-assets/review-mode-ux.md` (routing:
 `src/cross-model-host-default.js`). All modes may cross-reference source
@@ -13,7 +13,7 @@ scoped (cross-ref N/A).
 
 NO APPROVAL WITHOUT EVIDENCE.
 - Local mode: every checklist item marked "ok" MUST cite plan line numbers. When cross-ref is active: line numbers from BOTH plan AND artifact. When initiative-depth is active: line numbers from BOTH plan AND initiative file(s).
-- External mode (`codex`/`grok`/`claude`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
+- External mode (`codex`/`grok`/`claude`/`agy`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
 
 NO INTENT IN THE BRIEFING (external sub-flow).
 The briefing sent to the external provider contains ONLY externally
@@ -47,17 +47,17 @@ plan — facilitate the critique.
 
 Parse {{ARG_VAR}} BEFORE any prompt or file read. First
 `parseModelArgs({{ARG_VAR}})` so model flags **and values** are consumed
-(`--model=<id>`, `--model <id>`, `model:<id>`, `--model-codex`/`--model-grok`
+(`--model=<id>`, `--model <id>`, `model:<id>`, `--model-codex`/`--model-grok`/`--model-claude`/`--model-agy`
 eq or space, `--ask-model`). Then split `remainingTokens` into `plan_path` +
 flags. Tokens starting with `--` are flags:
 
 | Flag | Effect |
 |---|---|
-| `--mode=local\|ground-truth\|codex\|grok\|claude\|both\|both-codex\|both-grok\|both-claude\|external-both` | Skip Step 0a; force mode (`both` = local→host external default). |
+| `--mode=local\|ground-truth\|codex\|grok\|claude\|agy\|both\|both-codex\|both-grok\|both-claude\|both-agy\|external-both` | Skip Step 0a; force mode (`both` = local→host external default). |
 | `--mode=internal` | Alias for `--mode=local` (compat with v2.x). |
 | `--mode=gt` | Alias for `--mode=ground-truth` (plan↔code ground-truth only). |
 | `--accept-same-family-as-local` | Non-interactive same-family → sealed local (`provider:local`); see review-mode-ux.md. |
-| `--model=<id>` / `--model <id>` / `model:<id>` / `--model-codex=` / `--model-grok=` / `--model-claude=` / `--ask-model` | External model (review-mode-ux.md Step 0.model). Values are **not** part of `plan_path`. |
+| `--model=<id>` / `--model <id>` / `model:<id>` / `--model-codex=` / `--model-grok=` / `--model-claude=` / `--model-agy=` / `--ask-model` | External model (review-mode-ux.md Step 0.model). Values are **not** part of `plan_path`. |
 | `--no-cross-ref` | Skip Step 0b; force internal-only. Valid when mode has a local leg or is local-only. Implied for `ground-truth`. |
 | `--cross-ref=path1,path2,...` | Skip Step 0b; use listed artifacts. Same validity as `--no-cross-ref`. |
 | `--artifacts=path1,path2,...` | Alias for `--cross-ref=` (compat with v2.x). |

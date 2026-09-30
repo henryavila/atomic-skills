@@ -45,7 +45,7 @@ const META_DIR = join(ROOT, 'meta');
 const HOST_CLI = {
   'claude-code': { bin: 'claude', versionArgs: ['--version'] },
   cursor: { bin: 'cursor', versionArgs: ['--version'] },
-  gemini: { bin: 'gemini', versionArgs: ['--version'] },
+  antigravity: { bin: 'agy', versionArgs: ['--version'] },
   codex: { bin: 'codex', versionArgs: ['--version'] },
   opencode: { bin: 'opencode', versionArgs: ['--version'] },
   'github-copilot': null, // no standalone skills CLI

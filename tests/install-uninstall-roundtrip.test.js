@@ -100,10 +100,10 @@ describe('install→uninstall round-trip', () => {
   });
 
   it('user scope reverts EVERY item across ALL public IDEs (no residue)', async () => {
-    // Each IDE writes to a different path tree (.claude, .cursor, .gemini,
-    // .codex/.agents, .opencode, .github). Installing all of them at once is
+    // Each IDE writes to a different path tree (.claude, .cursor, .agent,
+    // .codex/.agents, .opencode, .github, .grok). Installing all of them at once is
     // the strongest parity proof: ~300+ files, and every one must be reverted.
-    const ALL_IDES = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot', 'grok'];
+    const ALL_IDES = ['claude-code', 'cursor', 'antigravity', 'codex', 'opencode', 'github-copilot', 'grok'];
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
     const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
     try {

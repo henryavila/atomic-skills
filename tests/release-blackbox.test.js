@@ -53,7 +53,7 @@ describe('F6 release black-box (packed tarball)', { concurrency: false }, () => 
   let cli;
   const transcript = [];
 
-  function run(command, args, { cwd = consumer, env = {} } = {}) {
+  function run(command, args, { cwd = consumer, env = {}, timeout = 300_000 } = {}) {
     const result = spawnSync(command, args, {
       cwd,
       env: {
@@ -64,11 +64,11 @@ describe('F6 release black-box (packed tarball)', { concurrency: false }, () => 
         npm_config_audit: 'false',
         npm_config_fund: 'false',
         npm_config_update_notifier: 'false',
-        npm_config_cache: process.env.npm_config_cache || join(homedir(), '.npm'),
+        npm_config_cache: process.env.npm_config_cache || join(home, '.npm-cache'),
         ...env,
       },
       encoding: 'utf8',
-      timeout: 120_000,
+      timeout,
     });
     transcript.push(`${command} ${args.join(' ')}\n${result.stdout ?? ''}\n${result.stderr ?? ''}`);
     return result;

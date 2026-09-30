@@ -113,10 +113,10 @@ describe('mergeExternalBothFindings', () => {
     assert.equal(result.findings.length, 2);
     assert.equal(result.partial, false);
     assert.deepEqual(result.errors, {});
-    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'succeeded', claude: 'skipped' });
+    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'succeeded', claude: 'skipped', agy: 'skipped' });
     assert.deepEqual(result.providersSucceeded, ['codex', 'grok']);
     assert.deepEqual(result.providersFailed, []);
-    assert.deepEqual(result.providersSkipped, ['claude']);
+    assert.deepEqual(result.providersSkipped, ['claude', 'agy']);
     const byClaim = Object.fromEntries(result.findings.map((f) => [f.claim, f]));
     assert.deepEqual(byClaim['Codex only'].providers, ['codex']);
     assert.deepEqual(byClaim['Grok only'].providers, ['grok']);
@@ -237,10 +237,10 @@ describe('mergeExternalBothFindings', () => {
     assert.equal(result.partial, true);
     assert.equal(result.errors.codex, 'preflight: codex binary missing');
     assert.equal(result.errors.grok, undefined);
-    assert.deepEqual(result.providerStatus, { codex: 'failed', grok: 'succeeded', claude: 'skipped' });
+    assert.deepEqual(result.providerStatus, { codex: 'failed', grok: 'succeeded', claude: 'skipped', agy: 'skipped' });
     assert.deepEqual(result.providersFailed, ['codex']);
     assert.deepEqual(result.providersSucceeded, ['grok']);
-    assert.deepEqual(result.providersSkipped, ['claude']);
+    assert.deepEqual(result.providersSkipped, ['claude', 'agy']);
     assert.equal(result.findings.length, 1);
     assert.equal(result.findings[0].claim, 'Grok saw this');
   });
@@ -261,7 +261,7 @@ describe('mergeExternalBothFindings', () => {
     assert.equal(result.errors.grok, 'timeout after 600s');
     assert.equal(result.findings.length, 1);
     assert.equal(result.findings[0].primaryProvider, 'codex');
-    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'failed', claude: 'skipped' });
+    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'failed', claude: 'skipped', agy: 'skipped' });
   });
 
   it('both providers failing yields empty findings and both errors', () => {
@@ -273,10 +273,10 @@ describe('mergeExternalBothFindings', () => {
     assert.equal(result.partial, false); // no successful half
     assert.deepEqual(result.providersFailed, ['codex', 'grok']);
     assert.deepEqual(result.providersSucceeded, []);
-    assert.deepEqual(result.providersSkipped, ['claude']);
+    assert.deepEqual(result.providersSkipped, ['claude', 'agy']);
     assert.equal(result.errors.codex, 'codex down');
     assert.equal(result.errors.grok, 'grok down');
-    assert.deepEqual(result.providerStatus, { codex: 'failed', grok: 'failed', claude: 'skipped' });
+    assert.deepEqual(result.providerStatus, { codex: 'failed', grok: 'failed', claude: 'skipped', agy: 'skipped' });
   });
 
   it('only codex run (grok skipped) keeps codex findings and does not mark partial', () => {
@@ -290,10 +290,10 @@ describe('mergeExternalBothFindings', () => {
       grok: { status: 'skipped', reason: 'same-family filtered on grok host' },
     });
     assert.equal(result.partial, false);
-    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'skipped', claude: 'skipped' });
+    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'skipped', claude: 'skipped', agy: 'skipped' });
     assert.deepEqual(result.providersSucceeded, ['codex']);
     assert.deepEqual(result.providersFailed, []);
-    assert.deepEqual(result.providersSkipped, ['grok', 'claude']);
+    assert.deepEqual(result.providersSkipped, ['grok', 'claude', 'agy']);
     assert.equal(result.findings.length, 1);
     assert.equal(result.findings[0].claim, 'Codex only leg');
     assert.deepEqual(result.errors, {});
@@ -309,9 +309,9 @@ describe('mergeExternalBothFindings', () => {
       },
       // grok intentionally omitted
     });
-    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'skipped', claude: 'skipped' });
+    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'skipped', claude: 'skipped', agy: 'skipped' });
     assert.deepEqual(result.providersSucceeded, ['codex']);
-    assert.deepEqual(result.providersSkipped, ['grok', 'claude']);
+    assert.deepEqual(result.providersSkipped, ['grok', 'claude', 'agy']);
     assert.deepEqual(result.providersFailed, []);
     assert.equal(result.partial, false);
     assert.equal(result.findings.length, 1);
@@ -326,15 +326,15 @@ describe('mergeExternalBothFindings', () => {
     assert.equal(result.partial, false);
     assert.deepEqual(result.providersSucceeded, []);
     assert.deepEqual(result.providersFailed, []);
-    assert.deepEqual(result.providersSkipped, ['codex', 'grok', 'claude']);
-    assert.deepEqual(result.providerStatus, { codex: 'skipped', grok: 'skipped', claude: 'skipped' });
+    assert.deepEqual(result.providersSkipped, ['codex', 'grok', 'claude', 'agy']);
+    assert.deepEqual(result.providerStatus, { codex: 'skipped', grok: 'skipped', claude: 'skipped', agy: 'skipped' });
   });
 
   it('empty input (both absent) is both skipped, not both succeeded', () => {
     const result = mergeExternalBothFindings({});
-    assert.deepEqual(result.providerStatus, { codex: 'skipped', grok: 'skipped', claude: 'skipped' });
+    assert.deepEqual(result.providerStatus, { codex: 'skipped', grok: 'skipped', claude: 'skipped', agy: 'skipped' });
     assert.deepEqual(result.providersSucceeded, []);
-    assert.deepEqual(result.providersSkipped, ['codex', 'grok', 'claude']);
+    assert.deepEqual(result.providersSkipped, ['codex', 'grok', 'claude', 'agy']);
     assert.equal(result.partial, false);
     assert.equal(result.findings.length, 0);
   });
@@ -356,7 +356,7 @@ describe('mergeExternalBothFindings', () => {
     });
     assert.equal(result.findings.length, 1);
     assert.equal(result.findings[0].claim, 'grok only');
-    assert.deepEqual(result.providersSkipped, ['codex', 'claude']);
+    assert.deepEqual(result.providersSkipped, ['codex', 'claude', 'agy']);
   });
 
 
@@ -375,8 +375,9 @@ describe('mergeExternalBothFindings', () => {
       codex: 'succeeded',
       grok: 'succeeded',
       claude: 'succeeded',
+      agy: 'skipped',
     });
-    assert.deepEqual(result.providersSkipped, []);
+    assert.deepEqual(result.providersSkipped, ['agy']);
   });
 
   it('sorts merged findings by severity then mergeKey', () => {
@@ -454,7 +455,7 @@ describe('merge-external-both CLI helpers', () => {
         }),
       );
       const result = mergeFromArgs([codexPath, 'skip']);
-      assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'skipped', claude: 'skipped' });
+      assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'skipped', claude: 'skipped', agy: 'skipped' });
       assert.equal(result.findings.length, 1);
       assert.equal(result.partial, false);
     } finally {

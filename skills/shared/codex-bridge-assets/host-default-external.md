@@ -8,8 +8,9 @@ Pure routing helper (unit-tested): `src/cross-model-host-default.js`.
 
 ## Host detection order
 
-1. Explicit `ATOMIC_SKILLS_HOST` (`claude` | `codex` | `grok` | `cursor` | `unknown`)
+1. Explicit `ATOMIC_SKILLS_HOST` (`claude` | `codex` | `grok` | `agy` | `cursor` | `unknown`)
 2. Session/env signals:
+   - Antigravity: `ANTIGRAVITY_AGENT` / `ANTIGRAVITY_CONVERSATION_ID` set
    - Grok: `GROK_SESSION_ID` or `GROK_WORKSPACE_ROOT` set
    - Codex: `CODEX_THREAD_ID` / `CODEX_CI` / obvious Codex host markers
    - Claude Code: `CLAUDECODE` / `CLAUDE_CODE_ENTRYPOINT` / `.claude` session norms
@@ -19,11 +20,12 @@ Pure routing helper (unit-tested): `src/cross-model-host-default.js`.
 
 | Host session (`hostFamily`) | External default | Family-different externals (`externalBothLegs`) |
 |-----------------------------|------------------|--------------------------------------------------|
-| `grok` | `codex` | **codex**, **claude** (not grok — same-family) |
-| `codex` | `grok` | **grok**, **claude** (not codex — same-family) |
-| `claude` | `codex` (legacy `both` = local→codex) | **codex**, **grok** (not claude — same-family) |
-| `cursor` | `codex` | **codex**, **grok**, **claude** (cursor ≠ any external family) |
-| `unknown` | `codex` | **codex**, **grok**, **claude** |
+| `agy` | `codex` | **codex**, **grok**, **claude** (not agy — same-family) |
+| `grok` | `codex` | **codex**, **claude**, **agy** (not grok — same-family) |
+| `codex` | `grok` | **grok**, **claude**, **agy** (not codex — same-family) |
+| `claude` | `codex` (legacy `both` = local→codex) | **codex**, **grok**, **agy** (not claude — same-family) |
+| `cursor` | `codex` | **codex**, **grok**, **claude**, **agy** (cursor ≠ any external family) |
+| `unknown` | `codex` | **codex**, **grok**, **claude**, **agy** |
 
 Interactive picker primary options = family-different legs only (see
 `review-mode-ux.md` Step 0). Same-family external is never a default suggestion.
@@ -36,9 +38,10 @@ Modes consumed by review-code / review-plan (F3 fills UX; F2 locks routing):
 | `codex` | external sealed via Codex only |
 | `grok` | external sealed via Grok only |
 | `claude` | external sealed via Claude Code only |
+| `agy` | external sealed via Antigravity only |
 | `both` | local → **host external default** |
-| `both-codex` / `both-grok` / `both-claude` | local → forced provider |
-| `external-both` | family-filtered legs in order **codex → grok → claude** (merge after all) |
+| `both-codex` / `both-grok` / `both-claude` / `both-agy` | local → forced provider |
+| `external-both` | family-filtered legs in order **codex → grok → claude → agy** (merge after all) |
 
 ## Same-family is not external
 

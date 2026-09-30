@@ -14,14 +14,11 @@ import { IDE_CONFIG, getAssetsDir, getHostToolProfile } from './config.js';
 export function renderTemplate(content, vars = {}, ideId = '', scope = '') {
   // Process conditional blocks (single-level, no nesting)
   // Support {{#if ide.name}} only (installer modules concept removed).
-  const ideContext = ideId ? { [ideId]: true } : {};
+  const normalizedIdeId = ideId === 'agy' ? 'antigravity' : ideId;
+  const ideContext = normalizedIdeId ? { [normalizedIdeId]: true } : {};
   let result = content.replace(
     /{{#if ide\.([\w-]+)}}\n([\s\S]*?){{\/if}}\n?/g,
-    (_, name, block) => {
-      // Normalize ideId for conditional checks (e.g. gemini-commands -> gemini)
-      const normalizedName = name === 'gemini' && ideId === 'gemini-commands' ? 'gemini' : name;
-      return ideContext[normalizedName] ? block : '';
-    }
+    (_, name, block) => (ideContext[name] ? block : '')
   );
 
   // Source-tree references are authoring conveniences only. Shared asset-group

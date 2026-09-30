@@ -13,11 +13,13 @@ Host matrix + same-family policy: `{{ASSETS_PATH}}/host-default-external.md`.
 | `codex` | external sealed envelope via Codex only |
 | `grok` | external sealed envelope via Grok only |
 | `claude` | external sealed envelope via Claude only |
-| `both` | local → **host external default** (Claude/Cursor/unknown→codex; Grok host→codex; Codex host→grok) |
+| `agy` | external sealed envelope via Antigravity only |
+| `both` | local → **host external default** (Claude/Cursor/unknown/Antigravity→codex; Grok host→codex; Codex host→grok) |
 | `both-codex` | local → forced Codex |
 | `both-grok` | local → forced Grok |
 | `both-claude` | local → forced Claude |
-| `external-both` | family-filtered external legs in fixed order **codex → grok → claude** on the same cleaned artifact; merge via `src/external-both-merge.js` (key `file:line`+claim; higher severity wins; partial failure keeps good half) for human triage |
+| `both-agy` | local → forced Antigravity |
+| `external-both` | family-filtered external legs in fixed order **codex → grok → claude → agy** on the same cleaned artifact; merge via `src/external-both-merge.js` (key `file:line`+claim; higher severity wins; partial failure keeps good half) for human triage |
 
 Aliases: `--mode=internal` → `local` (review-plan compat).
 `review-plan` also accepts `--mode=ground-truth` / `--mode=gt` (specialized
@@ -34,16 +36,17 @@ explicitly; not a same-family external route).
 | `--model-codex=<id>` | Per-provider override when the external leg is Codex (or for the Codex leg of `external-both`). Wins over generic `--model` for that leg. |
 | `--model-grok=<id>` | Per-provider override when the external leg is Grok (or for the Grok leg of `external-both`). Wins over generic `--model` for that leg. |
 | `--model-claude=<id>` | Per-provider override when the external leg is Claude (or for the Claude leg of `external-both`). Wins over generic `--model` for that leg. Claude uses stable aliases (`opus`/`sonnet`/`haiku`/`fable`) or `cli-default` — no live catalog. |
+| `--model-agy=<id>` | Per-provider override when the external leg is Antigravity (or for the Antigravity leg of `external-both`). Accepts `hybrid`, `flash`, `pro` or full model slugs. |
 | `--ask-model` | Prefer the **recommended** model from the live provider catalog. Interactive: still show the picker with recommended first. Non-interactive: bind recommended automatically (writes `--model <recommended>`). |
 
 Pure helper (unit-tested): `src/resolve-review-model.js`
 (`parseModelArgs`, `resolveReviewModel`, `rankModelsForReview`).
-CLI: `scripts/list-review-models.js --provider=codex|grok|claude [--resolve …]`.
+CLI: `scripts/list-review-models.js --provider=codex|grok|claude|agy [--resolve …]`.
 
 ## Host detection (before picker / routing)
 
 1. Explicit `ATOMIC_SKILLS_HOST` if set
-2. Session signals: `GROK_SESSION_ID` / `GROK_WORKSPACE_ROOT` → grok; Codex markers → codex; Claude markers → claude; Cursor markers → cursor
+2. Session signals: `ANTIGRAVITY_AGENT` → agy; `GROK_SESSION_ID` / `GROK_WORKSPACE_ROOT` → grok; Codex markers → codex; Claude markers → claude; Cursor markers → cursor
 3. Else `unknown` → external default **codex**
 
 Call `detectHostFamily` / `defaultExternalProvider` / `externalBothLegs` (or mirror
@@ -57,10 +60,9 @@ Skip when `--mode=` was supplied. Otherwise:
 1. Detect `hostFamily` (above).
 2. Resolve `defaultExt = defaultExternalProvider(hostFamily)`.
 3. Resolve `crossFamilyLegs = externalBothLegs(hostFamily)` — the **family-different**
-   external providers only, fixed order codex → grok → claude with same-family
+   external providers only, fixed order codex → grok → claude → agy with same-family
    host filtered out.
-4. Use {{ASK_USER_QUESTION_TOOL}} with options built from those values (do **not**
-   hardcode Grok+Codex for every host).
+4. Use {{ASK_USER_QUESTION_TOOL}} with options built from those values.
 
 **Question (code):** "How should this code change be reviewed?"  
 (When `DESTRUCTIVE` is true for review-code, prepend the destructive-diff caution from the skill body — cross-model strongly advised.)
@@ -79,10 +81,11 @@ Skip when `--mode=` was supplied. Otherwise:
 
 | Host | defaultExt | Primary external options (crossFamilyLegs) | external-both label |
 |------|------------|--------------------------------------------|---------------------|
-| `grok` | `codex` | **codex**, **claude** | Codex then Claude |
-| `codex` | `grok` | **grok**, **claude** | Grok then Claude |
-| `claude` | `codex` | **codex**, **grok** | Codex then Grok |
-| `cursor` / `unknown` | `codex` | **codex**, **grok**, **claude** | Codex then Grok then Claude |
+| `agy` | `codex` | **codex**, **grok**, **claude** | Codex then Grok then Claude |
+| `grok` | `codex` | **codex**, **claude**, **agy** | Codex then Claude then Antigravity |
+| `codex` | `grok` | **grok**, **claude**, **agy** | Grok then Claude then Antigravity |
+| `claude` | `codex` | **codex**, **grok**, **agy** | Codex then Grok then Antigravity |
+| `cursor` / `unknown` | `codex` | **codex**, **grok**, **claude**, **agy** | Codex then Grok then Claude then Antigravity |
 
 **Do not** list the same-family external as a primary picker option (e.g. Grok host
 does **not** offer "Grok only" / "Both then Grok"; Claude host does **not** offer

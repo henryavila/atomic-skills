@@ -112,8 +112,8 @@ test('phase transitions delegate descriptor-only activation to materialize, not 
   );
   assert.match(transitions, /atomic-skills:project materialize <phase-id>/);
   assert.match(transitions, /do not propose `new initiative` for descriptor-only\s+phases/);
-  assert.match(transitions, /If the matching initiative\s+file exists, set that initiative to `status: active`/);
-  assert.match(transitions, /full selected active phase id set so parallel-choice phases beyond the\s+first pass pre-flight/);
+  assert.match(transitions, /If the matching initiative\s+file exists(?:, reuse it)?:?\s+set that initiative to `status: active`/);
+  assert.match(transitions, /full selected\s+active phase id set so parallel-choice phases beyond the\s*first pass\s+pre-flight/);
 });
 
 test('new-phase cannot create a materialized initiative without businessIntent', () => {

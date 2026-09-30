@@ -25,7 +25,7 @@ Fragile — new memory files become invisible if the redirect is not updated.
 
 ## Step 5 — Connect to Claude Code
 
-Detect the IDE in use by checking for `.claude/`, `.cursor/`, `.gemini/`, etc.
+Detect the IDE in use by checking for `.claude/`, `.cursor/`, `.agent/`, etc.
 
 **If Claude Code (`.claude/` exists):**
 

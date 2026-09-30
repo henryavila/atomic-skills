@@ -4,7 +4,7 @@ This repository is optimized for multiple AI agents. Each agent should prioritiz
 
 ## Instruction Hierarchy
 
-1.  **`GEMINI.md`**: Primary instructions for Gemini CLI.
+1.  **`ANTIGRAVITY.md`**: Primary instructions for Antigravity (agy).
 2.  **`CLAUDE.md`**: Primary instructions for Claude Code.
 3.  **`AGENTS.md`**: Shared cross-agent coordination and standards.
 
@@ -21,12 +21,12 @@ Use `{{ARG_VAR}}` to reference command-line arguments.
 
 ### 3. Conditional Rendering
 Use Handlebars-style blocks for agent-specific logic:
-- `{{#if ide.gemini}} ... {{/if}}`
+- `{{#if ide.antigravity}} ... {{/if}}`
 - `{{#if ide.claude-code}} ... {{/if}}`
 
 ### 4. Documentation
 - General Knowledge: `docs/kb/`
-- Gemini Compatibility: `docs/kb/gemini-cli-compatibility.md`
+- Antigravity Compatibility: `docs/kb/antigravity-compatibility.md`
 
 ### 5. Install/Uninstall Parity
 Every persistent install mutation MUST have a matching uninstall reversal or sit
@@ -37,4 +37,4 @@ in the documented allowlist. Enforced by
 ## Agent-Specific Roles
 
 - **Claude Code**: Focus on high-fidelity TDD and complex refactoring using its internal toolset.
-- **Gemini CLI**: Focus on broad codebase investigation and multi-agent orchestration via `codebase_investigator`.
+- **Antigravity**: Primary support for full lifecycle orchestration, subagent dispatch (`invoke_subagent`), interactive modal prompts (`ask_question`), and fast tool execution.

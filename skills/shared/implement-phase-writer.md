@@ -83,6 +83,14 @@ Portable spawn uses host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn
 - Pass the **constructed/sealed brief** (this file's HARD fence + full work-order + claim-report shape). **No host chat history.**
 - Host **sync-waits** until the subagent exits, then validates the claim report. Host product coding under `isAutomateActive` is **forbidden** — the writer alone edits product source in the sibling tree.
 {{/if}}
+{{#if ide.antigravity}}
+**Antigravity phase-writer spawn (pure-maestro Step C):**
+
+- Tool: `invoke_subagent` with `Subagents: [{ TypeName: "self", Role: "Phase Writer", Prompt: "<constructed sealed brief>", Workspace: "inherit" }]`.
+- Workspace: Run commands with cwd targeting the **sibling** phase worktree absolute path (never nest under the plan worktree).
+- Pass the **constructed/sealed brief** (this file's HARD fence + full work-order + claim-report shape). **No host chat history.**
+- Subagent executes independently; wait for completion notification (or track via `manage_subagents`). Host product coding under `isAutomateActive` is **forbidden** — the writer alone edits product source in the sibling tree.
+{{/if}}
 
 ---
 

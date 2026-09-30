@@ -2,7 +2,7 @@
 
 The two-pass sealed-envelope sub-flow is **byte-identical** between
 `review-code` and `review-plan` except for a handful of artifact-specific slots
-and the external **provider** (`codex` | `grok` | `claude`). This file is the single source
+and the external **provider** (`codex` | `grok` | `claude` | `agy`). This file is the single source
 for the orchestration skeleton; each caller references it and binds only the
 `«SLOTS»` listed under **Artifact bindings**.
 
@@ -26,7 +26,7 @@ two callers.
 ### external-both (multi-provider callers)
 
 When the caller mode is `external-both`, invoke this skeleton **once per
-remaining provider** in order (**codex → grok → claude**, family-filtered) on the **same** cleaned
+remaining provider** in order (**codex → grok → claude → agy**, family-filtered) on the **same** cleaned
 artifact. Family-filtered legs are recorded as `status: skipped` and are not
 invoked.
 

@@ -121,6 +121,7 @@ describe('parseModelArgs', () => {
       modelCodex: null,
       modelGrok: null,
       modelClaude: null,
+      modelAgy: null,
       askModel: false,
       remainingTokens: ['--mode=codex'],
     });
@@ -129,6 +130,7 @@ describe('parseModelArgs', () => {
       modelCodex: null,
       modelGrok: null,
       modelClaude: null,
+      modelAgy: null,
       askModel: false,
       remainingTokens: ['wip', '--allow-dirty'],
     });
@@ -137,16 +139,18 @@ describe('parseModelArgs', () => {
       modelCodex: null,
       modelGrok: null,
       modelClaude: null,
+      modelAgy: null,
       askModel: false,
       remainingTokens: ['plan.md'],
     });
   });
 
   it('parses --ask-model and per-provider model flags', () => {
-    const r = parseModelArgs('--ask-model --model-codex=gpt-5.6-sol --model-grok=grok-4.5');
+    const r = parseModelArgs('--ask-model --model-codex=gpt-5.6-sol --model-grok=grok-4.5 --model-agy=pro');
     assert.equal(r.askModel, true);
     assert.equal(r.modelCodex, 'gpt-5.6-sol');
     assert.equal(r.modelGrok, 'grok-4.5');
+    assert.equal(r.modelAgy, 'pro');
     assert.equal(r.model, null);
     assert.deepEqual(r.remainingTokens, []);
   });

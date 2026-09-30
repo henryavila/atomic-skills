@@ -1,6 +1,6 @@
 # implement — Foreign plan lane
 
-Loaded by `skills/core/implement.md` when Step 0 classifies the arg as a **foreign-plan** (existing markdown path outside `.atomic-skills/projects/**/plan.md`) and the operator chooses **Implement as Foreign** at the entry AskUserQuestion.
+Loaded by `skills/core/implement.md` when Step 0 classifies the arg as a **foreign-plan** (existing markdown path outside `.atomic-skills/projects/**/plan.md`) and the operator chooses **Implement as Foreign** at the entry {{ASK_USER_QUESTION_TOOL}} prompt.
 
 **Promote is entry-time only.** There is no promote/adopt at FINALIZE or ARCHIVE. If the operator wanted Atomic Skills inventory lifecycle, they chose **Promote** at entry and left this asset.
 
@@ -64,7 +64,7 @@ Before any product coding or phase-writer spawn:
 3. `admitReadiness(workOrder)`:
    - Every **non-terminal** pending task needs `outputs[]`, `acceptance[]`, and deterministic `verifier` (R-ORCH-23 spirit).
    - `scopeBoundary[]` may be empty (explicit no exclusions) but prefer DO-NOT lines from the doc.
-4. On gaps: **stop and fill with the operator** (AskUserQuestion / structured prompts). Do not invent paths or always-green verifiers (`true`, `echo ok`).
+4. On gaps: **stop and fill with the operator** ({{ASK_USER_QUESTION_TOOL}} / structured prompts). Do not invent paths or always-green verifiers (`true`, `echo ok`).
 5. S3 narrative with zero tasks: decompose with the operator into tasks before coding — do not free-code the essay.
 6. Write sidecar YAML (`serializeWorkOrder`); microcommit explicit sidecar path when state changes.
 

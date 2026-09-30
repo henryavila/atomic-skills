@@ -80,12 +80,12 @@ describe('detectIDEs', () => {
   it('detects multiple IDEs', () => {
     mkdirSync(join(tempDir, '.claude'));
     mkdirSync(join(tempDir, '.cursor'));
-    mkdirSync(join(tempDir, '.gemini'));
+    mkdirSync(join(tempDir, '.agent'));
     const result = detectIDEs(tempDir);
     assert.strictEqual(result.length, 3);
     assert.ok(result.includes('claude-code'));
     assert.ok(result.includes('cursor'));
-    assert.ok(result.includes('gemini'));
+    assert.ok(result.includes('antigravity'));
   });
 
   it('returns empty array when no IDEs detected', () => {
@@ -112,13 +112,13 @@ describe('detectIDEs', () => {
   });
 
   it('returns supported, detected, and effective IDE state', () => {
-    mkdirSync(join(tempDir, '.gemini'));
+    mkdirSync(join(tempDir, '.agent'));
     mkdirSync(join(tempDir, '.agents'));
     const result = detectIDEState(tempDir);
-    assert.ok(result.supported.includes('gemini'));
+    assert.ok(result.supported.includes('antigravity'));
     assert.ok(result.supported.includes('codex'));
-    assert.deepStrictEqual(result.detected, ['gemini', 'codex']);
-    assert.deepStrictEqual(result.effective, ['gemini', 'codex']);
+    assert.deepStrictEqual(result.detected, ['antigravity', 'codex']);
+    assert.deepStrictEqual(result.effective, ['antigravity', 'codex']);
   });
 });
 
@@ -127,6 +127,6 @@ describe('countSkills', () => {
 
   it('counts core skills only', () => {
     const result = countSkills(metaDir);
-    assert.strictEqual(result, '15 core');
+    assert.strictEqual(result, '17 core');
   });
 });

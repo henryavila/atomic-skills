@@ -2,7 +2,7 @@
 
 Loaded by the router for `/atomic-skills:project new plan <slug>` (and the bootstrap path of the `new` menu).
 
-**Fidelity rule (HARD):** this file is a **thin router**. For the current creation stage **N**, {{READ_TOOL}} **only** `{{ASSETS_PATH}}/new-plan/stage-N.md` (e.g. `stage-6.md`). Do **not** preload stage-1..9 at once — more monólito text increases ignore rate.
+**Fidelity rule (HARD):** this file is a **thin router**. For the current creation stage **N**, {{READ_TOOL}} **only** `{{ASSETS_PATH}}/new-plan/stage-*.md` (e.g. `stage-6.md`, where `new-plan/stage-N.md` corresponds to stage N). Do **not** preload stage-1..9 at once — more monólito text increases ignore rate.
 
 ## Iron Law (plan creation)
 
@@ -172,6 +172,8 @@ Always run `previewDecomposition(result)` and display it before any file write. 
    The CLI option preserves the transform contract
    `businessIntent: <businessIntent>`; serialize the same ratified object as
    JSON rather than rebuilding it in the consumer.
+
+   **HALT/re-enter:** Materialization writes **only** inside the worktree declared by frontmatter `branch:` (`cd` into the worktree before any plan-state write).
 
    Then update the creation gate's `filesPlanned` from the returned `{relativePath, content}[]`. For each returned path (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`), append the path to `filesWritten` and persist the gate, then write the canonical file before proceeding to the next path. Recording the path before the write makes rollback/resume safe if the session is interrupted between write attempts; deleting a recorded-but-never-created path is a no-op, while an unrecorded created file is forbidden. The output is the plan, the materialized F0 `.md`, and F1+ `.source.json` sidecars. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
 
