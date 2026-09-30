@@ -6,7 +6,7 @@ import { PUBLIC_IDE_IDS, normalizeIDESelection } from './config.js';
 export const IDE_DETECT_DIRS = {
   'claude-code': '.claude',
   'cursor': '.cursor',
-  'gemini': '.gemini',
+  'antigravity': '.agent',
   'codex': '.agents',
   'opencode': '.opencode',
   'github-copilot': '.github',

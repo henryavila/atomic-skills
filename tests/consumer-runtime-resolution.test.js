@@ -196,6 +196,10 @@ describe('consumer resolves package entrypoints from the installed runtime root'
   })
 
   it('documents only the installed normalizer path in create-plan and verify flows', () => {
+    const stage6 = readFileSync(
+      join(PACKAGE_ROOT, 'skills', 'shared', 'project-assets', 'new-plan', 'stage-6.md'),
+      'utf8'
+    )
     const createPlan = readFileSync(
       join(PACKAGE_ROOT, 'skills', 'shared', 'project-assets', 'project-create-plan.md'),
       'utf8'
@@ -206,7 +210,7 @@ describe('consumer resolves package entrypoints from the installed runtime root'
     )
 
     assert.doesNotMatch(createPlan, /\$PWD\/src\/normalize\.js/)
-    assert.match(createPlan, /\$PKG_ROOT\/src\/normalize\.js/)
+    assert.match(stage6, /\$PKG_ROOT\/src\/normalize\.js/)
     assert.doesNotMatch(verify, /same 3-path way/)
     assert.match(verify, /\$ROOT\/src\/normalize\.js/)
   })

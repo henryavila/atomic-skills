@@ -10,8 +10,8 @@ The critic MUST be a fresh reviewer with **constructed, not inherited** context:
 
 ## Provider — tiered (pick the first that the host can guarantee)
 
-1. **Same-provider fresh subagent** via {{INVESTIGATOR_TOOL}}, where the host guarantees an isolated, no-actor-context spawn (Claude Code today). This meets the freshness contract and is the cheapest tier.
-2. **Codex critic** via the read-only codex bridge, where same-provider isolation cannot be guaranteed (Gemini, until a write/isolation probe proves otherwise — the investigator tool there is read-only), OR when a high-stakes one-way-door decision warrants cross-model adjudication on its merits. The codex bridge is portable by construction.
+1. **Same-provider fresh subagent** via {{INVESTIGATOR_TOOL}}, where the host guarantees an isolated, no-actor-context spawn (Claude Code, Antigravity). This meets the freshness contract and is the cheapest tier.
+2. **Cross-model critic** via the cross-model bridge (Codex, Grok, Claude, Antigravity), where same-provider isolation cannot be guaranteed, OR when a high-stakes one-way-door decision warrants cross-model adjudication on its merits. The bridge is portable by construction.
 3. **`--solo` honest degradation** — when neither tier is available, role-play the critic in-context and **mark the verdict advisory, NOT a gate-pass**. An advisory verdict cannot satisfy the brainstorm Iron Law; surface that the gate ran degraded and require explicit user judgment to proceed.
 
 Announce which tier ran. Because all three tiers emit the **same verdict block** (below), a same-provider critic and a codex critic produce byte-identical output, so the gate wiring is provider-agnostic.

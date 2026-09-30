@@ -6,7 +6,7 @@ export const SKILL_NAMESPACE = 'atomic-skills';
 
 /**
  * Explicit tool-name adapters per PUBLIC_IDE_ID (F2/T-001).
- * No host free-rides Claude names. gemini-commands reuses the gemini profile.
+ * No host free-rides Claude names. agy aliases to the antigravity profile.
  * Unknown hosts fall back to HOST_TOOL_PROFILE_UNKNOWN (non-Claude).
  */
 export const HOST_TOOL_PROFILES = {
@@ -33,20 +33,16 @@ export const HOST_TOOL_PROFILES = {
     ASK_USER_QUESTION_TOOL:
       'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)',
   },
-  gemini: {
-    BASH_TOOL: 'run_shell_command',
-    READ_TOOL: 'read_file',
-    WRITE_TOOL: 'write_file',
-    REPLACE_TOOL: 'replace',
+  antigravity: {
+    BASH_TOOL: 'run_command',
+    READ_TOOL: 'view_file',
+    WRITE_TOOL: 'write_to_file',
+    REPLACE_TOOL: 'replace_file_content',
     GREP_TOOL: 'grep_search',
     GLOB_TOOL: 'glob',
-    INVESTIGATOR_TOOL: 'codebase_investigator',
-    // Gemini commands substitute {{args}}; $ARGUMENTS is Claude-only.
-    // Keeping the placeholder in the body also prevents Gemini's implicit
-    // append-args processor from duplicating user input.
-    ARG_VAR: '{{args}}',
-    ASK_USER_QUESTION_TOOL:
-      'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)',
+    INVESTIGATOR_TOOL: 'invoke_subagent',
+    ARG_VAR: '$ARGUMENTS',
+    ASK_USER_QUESTION_TOOL: 'ask_question',
   },
   codex: {
     BASH_TOOL: 'shell',
@@ -112,12 +108,12 @@ export const HOST_TOOL_PROFILE_UNKNOWN = {
 };
 
 /**
- * Resolve the tool-name map for an IDE id (including gemini-commands → gemini).
+ * Resolve the tool-name map for an IDE id (e.g. agy → antigravity).
  * @param {string} ideId
  * @returns {Record<string, string>}
  */
 export function getHostToolProfile(ideId) {
-  if (ideId === 'gemini-commands') return { ...HOST_TOOL_PROFILES.gemini };
+  if (ideId === 'agy' || ideId === 'antigravity') return { ...HOST_TOOL_PROFILES.antigravity };
   if (HOST_TOOL_PROFILES[ideId]) return { ...HOST_TOOL_PROFILES[ideId] };
   return { ...HOST_TOOL_PROFILE_UNKNOWN };
 }
@@ -178,23 +174,11 @@ export const IDE_CONFIG = {
     filePattern: (skillName) => posix.join(SKILL_NAMESPACE, skillName, 'SKILL.md'),
     supportsUserScope: true,
   },
-  'gemini': {
-    name: 'Gemini CLI (Skills)',
-    dir: '.gemini/skills',
+  'antigravity': {
+    name: 'Antigravity',
+    dir: '.agent/skills',
     format: 'markdown',
-    // Gemini discovers only `SKILL.md` and `*/SKILL.md` under ~/.gemini/skills
-    // (one-level depth). Nested `atomic-skills/<skill>/SKILL.md` is invisible
-    // to the scanner — install each skill as `atomic-skills-<skill>/SKILL.md`.
-    filePattern: (skillName) => posix.join(`${SKILL_NAMESPACE}-${skillName}`, 'SKILL.md'),
-    supportsUserScope: true,
-    // Flat first-level dirs — no shared namespace root SKILL.md.
-    namespaceRoot: false,
-  },
-  'gemini-commands': {
-    name: 'Gemini CLI (Commands)',
-    dir: '.gemini/commands',
-    format: 'toml',
-    filePattern: (skillName) => `${SKILL_NAMESPACE}-${skillName}.toml`,
+    filePattern: (skillName) => posix.join(SKILL_NAMESPACE, skillName, 'SKILL.md'),
     supportsUserScope: true,
   },
   'codex': {
@@ -229,7 +213,7 @@ export const IDE_CONFIG = {
   },
 };
 
-export const PUBLIC_IDE_IDS = Object.keys(IDE_CONFIG).filter((id) => id !== 'gemini-commands');
+export const PUBLIC_IDE_IDS = Object.keys(IDE_CONFIG);
 
 /**
  * Hosts that have been exercised end-to-end in real agent sessions
@@ -239,14 +223,13 @@ export const PUBLIC_IDE_IDS = Object.keys(IDE_CONFIG).filter((id) => id !== 'gem
  *
  * Distinct from host-qualification `operational` vs `layout-only` (CLI probe
  * receipts). This list is the product-facing “we actually use these” set.
- *
- * Keep gemini-commands out — it aliases gemini’s profile and is theoretical.
  */
 export const TESTED_IDE_IDS = Object.freeze([
   'claude-code',
   'cursor',
   'codex',
   'grok',
+  'antigravity',
 ]);
 
 /**
@@ -281,27 +264,37 @@ export const LEGACY_NAMESPACE_PATHS = [
   {
     dir: '.gemini/skills',
     reason:
-      'pre-F5 Gemini nested layout `.gemini/skills/atomic-skills/<skill>/SKILL.md` (migrated to first-level `.gemini/skills/atomic-skills-<skill>/SKILL.md`)',
+      'legacy Gemini CLI skills directory (migrated to Antigravity .agent/skills/)',
+    prefixed: true,
+  },
+  {
+    dir: '.gemini/commands',
+    reason:
+      'legacy Gemini CLI commands directory (migrated to Antigravity .agent/skills/)',
+    prefixed: true,
   },
 ];
 
 /**
  * Deduplicate IDE ids while preserving order.
- * Native Gemini skills are the canonical Gemini contract (F5); selecting
- * gemini+codex keeps both — it no longer rewrites gemini → gemini-commands.
- * Users can still install `gemini-commands` explicitly for the optional
- * TOML command adapters.
+ * Normalizes aliases ('agy' -> 'antigravity').
  */
 export function normalizeIDESelection(ides) {
   const unique = [];
-  for (const id of ides) {
+  for (const rawId of ides) {
+    const id = rawId === 'agy' ? 'antigravity' : rawId;
     if (!unique.includes(id)) unique.push(id);
   }
   return unique;
 }
 
+export function normalizeIdeId(ideId) {
+  if (ideId === 'agy') return 'antigravity';
+  return ideId;
+}
+
 export function getSkillPath(ideId, skillName) {
-  const ide = IDE_CONFIG[ideId];
+  const ide = IDE_CONFIG[normalizeIdeId(ideId)];
   return posix.join(ide.dir, ide.filePattern(skillName));
 }
 
@@ -321,7 +314,7 @@ export function getSkillPath(ideId, skillName) {
  * prefixes `~/` for user scope so it resolves cross-repo.
  */
 export function getAssetsDir(ideId) {
-  const ide = IDE_CONFIG[ideId];
+  const ide = IDE_CONFIG[normalizeIdeId(ideId)];
   // Plugin delivery: assets are a sibling of skills/ inside the plugin package
   // (e.g. .grok/plugins/atomic-skills/_assets). Do not apply the generic
   // "parent of ide.dir + atomic-skills/_assets" formula — that would nest
@@ -336,15 +329,14 @@ export function getAssetsDir(ideId) {
 }
 
 export function getSkillFormat(ideId) {
-  return IDE_CONFIG[ideId].format;
+  return IDE_CONFIG[normalizeIdeId(ideId)].format;
 }
 
 export function getNamespaceRootPath(ideId) {
-  const ide = IDE_CONFIG[ideId];
-  if (ide.format !== 'markdown') return null;
+  const ide = IDE_CONFIG[normalizeIdeId(ideId)];
+  if (!ide || ide.format !== 'markdown') return null;
   // Plugin package IS the namespace (plugin.json); no nested atomic-skills/SKILL.md.
   if (ide.delivery === 'plugin') return null;
-  // Flat first-level skill dirs (Gemini discovery depth) have no shared root.
   if (ide.namespaceRoot === false) return null;
   return posix.join(ide.dir, SKILL_NAMESPACE, 'SKILL.md');
 }

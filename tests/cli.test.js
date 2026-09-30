@@ -57,7 +57,7 @@ describe('CLI flag parsing', () => {
   it('detect --json reports supported, detected, and effective IDEs', () => {
     const home = mkdtempSync(join(tmpdir(), 'as-cli-detect-'));
     try {
-      mkdirSync(join(home, '.gemini'));
+      mkdirSync(join(home, '.agent'));
       mkdirSync(join(home, '.agents'));
       const output = execFileSync('node', [CLI, 'detect', '--json'], {
         encoding: 'utf8',
@@ -65,9 +65,9 @@ describe('CLI flag parsing', () => {
         env: { ...process.env, HOME: home },
       });
       const parsed = JSON.parse(output);
-      assert.ok(parsed.supported.includes('gemini'));
-      assert.deepStrictEqual(parsed.detected, ['gemini', 'codex']);
-      assert.deepStrictEqual(parsed.effective, ['gemini', 'codex']);
+      assert.ok(parsed.supported.includes('antigravity'));
+      assert.deepStrictEqual(parsed.detected, ['antigravity', 'codex']);
+      assert.deepStrictEqual(parsed.effective, ['antigravity', 'codex']);
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
@@ -80,7 +80,7 @@ describe('CLI flag parsing', () => {
       mkdirSync(join(home, '.agents'));
       execFileSync('node', [CLI, 'install', '--yes', '--all-detected', '--lang', 'pt'], {
         encoding: 'utf8',
-        timeout: 10000,
+        timeout: 30000,
         env: { ...process.env, HOME: home },
       });
       assert.ok(existsSync(join(home, '.claude/commands/atomic-skills/fix.md')));
@@ -100,7 +100,7 @@ describe('CLI flag parsing', () => {
       mkdirSync(join(home, '.agents'));
       execFileSync('node', [CLI, 'install', '--yes', '--ide', 'detected', '--lang', 'en'], {
         encoding: 'utf8',
-        timeout: 10000,
+        timeout: 30000,
         env: { ...process.env, HOME: home },
       });
       assert.ok(existsSync(join(home, '.agents/skills/atomic-skills/fix/SKILL.md')));

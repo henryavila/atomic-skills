@@ -40,10 +40,10 @@ describe('renderTemplate', () => {
     assert.strictEqual(result, 'Use Bash and Read tool\n');
   });
 
-  it('substitutes gemini-specific tool names', () => {
+  it('substitutes antigravity-specific tool names', () => {
     const input = 'Use {{BASH_TOOL}} and {{READ_TOOL}}';
-    const result = renderTemplate(input, {}, 'gemini');
-    assert.strictEqual(result, 'Use run_shell_command and read_file\n');
+    const result = renderTemplate(input, {}, 'antigravity');
+    assert.strictEqual(result, 'Use run_command and view_file\n');
   });
 
   it('substitutes grok tool profile (provisional D2 map)', () => {
@@ -83,10 +83,10 @@ describe('renderTemplate', () => {
   });
 
   it('handles conditional IDE blocks', () => {
-    const input = 'Common\n{{#if ide.gemini}}\nGemini only\n{{/if}}\n{{#if ide.claude-code}}\nClaude only\n{{/if}}\n{{#if ide.grok}}\nGrok only\n{{/if}}';
+    const input = 'Common\n{{#if ide.antigravity}}\nAntigravity only\n{{/if}}\n{{#if ide.claude-code}}\nClaude only\n{{/if}}\n{{#if ide.grok}}\nGrok only\n{{/if}}';
 
-    const resultGemini = renderTemplate(input, {}, 'gemini');
-    assert.strictEqual(resultGemini, 'Common\nGemini only\n');
+    const resultAgy = renderTemplate(input, {}, 'antigravity');
+    assert.strictEqual(resultAgy, 'Common\nAntigravity only\n');
 
     const resultClaude = renderTemplate(input, {}, 'claude-code');
     assert.strictEqual(resultClaude, 'Common\nClaude only\n');
@@ -136,10 +136,10 @@ describe('renderTemplate', () => {
     assert.ok(result.includes('asset at .agents/atomic-skills/_assets/foo.md'));
   });
 
-  it('substitutes ASSETS_PATH for gemini-commands IDE (TOML flat pattern)', () => {
-    const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, 'gemini-commands');
-    assert.ok(result.includes('asset at .gemini/atomic-skills-_assets/foo.md'),
-      `expected TOML flat pattern, got: ${result}`);
+  it('substitutes ASSETS_PATH for antigravity IDE', () => {
+    const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, 'antigravity');
+    assert.ok(result.includes('asset at .agent/atomic-skills/_assets/foo.md'),
+      `expected antigravity assets path, got: ${result}`);
   });
 
   it('prefixes ASSETS_PATH with ~/ for user-scope installs (cross-repo resolution)', () => {
@@ -165,13 +165,12 @@ describe('renderTemplate', () => {
       assert.strictEqual(out, 'Use AskUserQuestion tool to ask the user.\n');
     });
 
-    it('gemini → multiple-choice prompt string (no native tool)', () => {
-      const out = renderTemplate(sample, {}, 'gemini');
-      assert.ok(out.includes('ask the user via a multiple-choice prompt'));
-      assert.ok(!out.includes('{{ASK_USER_QUESTION_TOOL}}'));
+    it('antigravity → ask_question (native)', () => {
+      const out = renderTemplate(sample, {}, 'antigravity');
+      assert.strictEqual(out, 'Use ask_question to ask the user.\n');
     });
 
-    it('cursor → same descriptive string as Gemini (no native tool)', () => {
+    it('cursor → multiple-choice prompt string (no native tool)', () => {
       const out = renderTemplate(sample, {}, 'cursor');
       assert.ok(out.includes('ask the user via a multiple-choice prompt'));
       assert.ok(!out.includes('{{ASK_USER_QUESTION_TOOL}}'));

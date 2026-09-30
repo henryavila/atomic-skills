@@ -839,20 +839,53 @@ export function isAtomicSkillsNamespaceLeftover(filePath, relPath, knownCurrentN
  */
 export function findLegacyOrphans(basePath, knownCurrentNames = new Set()) {
   const found = [];
-  for (const { dir, reason } of LEGACY_NAMESPACE_PATHS) {
-    const nsRoot = join(basePath, dir, SKILL_NAMESPACE);
-    if (!existsSync(nsRoot)) continue;
-    const walk = (cur) => {
-      for (const entry of readdirSync(cur, { withFileTypes: true })) {
-        const full = join(cur, entry.name);
-        if (entry.isDirectory()) walk(full);
-        else if (entry.isFile()) {
-          const safe = isAtomicSkillsArtifact(full, knownCurrentNames);
-          found.push({ path: full, legacyRoot: nsRoot, reason, safe });
+  for (const { dir, reason, prefixed } of LEGACY_NAMESPACE_PATHS) {
+    const parentDir = join(basePath, dir);
+    if (!existsSync(parentDir)) continue;
+
+    // 1. Nested namespace root: <dir>/atomic-skills/...
+    const nsRoot = join(parentDir, SKILL_NAMESPACE);
+    if (existsSync(nsRoot)) {
+      const walk = (cur) => {
+        for (const entry of readdirSync(cur, { withFileTypes: true })) {
+          const full = join(cur, entry.name);
+          if (entry.isDirectory()) walk(full);
+          else if (entry.isFile()) {
+            const safe = isAtomicSkillsArtifact(full, knownCurrentNames);
+            found.push({ path: full, legacyRoot: nsRoot, reason, safe });
+          }
         }
-      }
-    };
-    walk(nsRoot);
+      };
+      walk(nsRoot);
+    }
+
+    // 2. Prefixed sibling entries: <dir>/atomic-skills-* (e.g. legacy Gemini CLI skills/commands)
+    if (prefixed) {
+      try {
+        for (const entry of readdirSync(parentDir, { withFileTypes: true })) {
+          if (entry.name === SKILL_NAMESPACE) continue;
+          if (entry.name.startsWith(`${SKILL_NAMESPACE}-`)) {
+            const full = join(parentDir, entry.name);
+            if (entry.isDirectory()) {
+              const walk = (cur) => {
+                for (const sub of readdirSync(cur, { withFileTypes: true })) {
+                  const subFull = join(cur, sub.name);
+                  if (sub.isDirectory()) walk(subFull);
+                  else if (sub.isFile()) {
+                    const safe = isAtomicSkillsArtifact(subFull, knownCurrentNames);
+                    found.push({ path: subFull, legacyRoot: full, reason, safe });
+                  }
+                }
+              };
+              walk(full);
+            } else if (entry.isFile()) {
+              const safe = isAtomicSkillsArtifact(full, knownCurrentNames);
+              found.push({ path: full, legacyRoot: full, reason, safe });
+            }
+          }
+        }
+      } catch {}
+    }
   }
   return found;
 }

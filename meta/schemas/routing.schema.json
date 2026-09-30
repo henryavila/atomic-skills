@@ -35,7 +35,7 @@
     "codexLane": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The cross-provider OpenAI/Codex workspace-write lane (R-EXEC-35) — the only lane that takes work entirely off the Claude account (lever 2) and the sole Mode-2 lane on Gemini.",
+      "description": "The cross-provider OpenAI/Codex workspace-write lane (R-EXEC-35) — the only lane that takes work entirely off the host account (lever 2).",
       "properties": {
         "enabled": { "type": "boolean", "default": false },
         "model": { "type": "string", "minLength": 1 },
@@ -71,8 +71,19 @@
     "ideOverrides": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Host-specific lane availability (R-EXEC-36). On Gemini the investigator tool is likely read-only ⇒ the subagent executor lane collapses ⇒ Mode 2 = Codex-only.",
+      "description": "Host-specific lane availability (R-EXEC-36). When a host's investigator tool is read-only, the subagent executor lane collapses ⇒ Mode 2 = Codex-only.",
       "properties": {
+        "antigravity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "subagentExecutor": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether an in-tree subagent executor lane is dispatchable on Antigravity. Supported natively via invoke_subagent."
+            }
+          }
+        },
         "gemini": {
           "type": "object",
           "additionalProperties": false,
@@ -80,7 +91,7 @@
             "subagentExecutor": {
               "type": "boolean",
               "default": false,
-              "description": "Whether an in-tree subagent executor lane is dispatchable on Gemini. Default false (Codex-only on Gemini)."
+              "description": "Legacy Gemini subagent executor flag."
             }
           }
         }

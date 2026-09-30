@@ -7,22 +7,22 @@ import {
 } from '../src/config.js';
 
 describe('IDE config', () => {
-  it('defines all 8 IDEs', () => {
+  it('defines all 7 IDEs', () => {
     const ids = Object.keys(IDE_CONFIG);
     assert.deepStrictEqual(ids.sort(), [
-      'claude-code', 'codex', 'cursor', 'gemini', 'gemini-commands', 'github-copilot', 'grok', 'opencode'
+      'antigravity', 'claude-code', 'codex', 'cursor', 'github-copilot', 'grok', 'opencode'
     ]);
   });
 
   it('exports only public IDE ids', () => {
     assert.deepStrictEqual(PUBLIC_IDE_IDS, [
-      'claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot', 'grok',
+      'claude-code', 'cursor', 'antigravity', 'codex', 'opencode', 'github-copilot', 'grok',
     ]);
   });
 
-  it('marks only Claude/Cursor/Codex/Grok as product-tested hosts', () => {
+  it('marks Claude/Cursor/Codex/Grok/Antigravity as product-tested hosts', () => {
     assert.deepStrictEqual([...TESTED_IDE_IDS].sort(), [
-      'claude-code', 'codex', 'cursor', 'grok',
+      'antigravity', 'claude-code', 'codex', 'cursor', 'grok',
     ]);
     for (const id of TESTED_IDE_IDS) {
       assert.equal(getIdeSupportLabel(id), 'Tested', id);
@@ -34,10 +34,10 @@ describe('IDE config', () => {
     }
   });
 
-  it('keeps native gemini when codex is also selected (F5 — no rewrite)', () => {
+  it('keeps antigravity when codex is also selected', () => {
     assert.deepStrictEqual(
-      normalizeIDESelection(['claude-code', 'gemini', 'codex']),
-      ['claude-code', 'gemini', 'codex']
+      normalizeIDESelection(['claude-code', 'antigravity', 'codex']),
+      ['claude-code', 'antigravity', 'codex']
     );
   });
 
@@ -53,14 +53,9 @@ describe('IDE config', () => {
     assert.strictEqual(path, '.claude/commands/atomic-skills/fix.md');
   });
 
-  it('returns correct skill path for gemini skills IDE (discovery depth)', () => {
-    const path = getSkillPath('gemini', 'fix');
-    assert.strictEqual(path, '.gemini/skills/atomic-skills-fix/SKILL.md');
-  });
-
-  it('returns correct skill path for gemini toml commands', () => {
-    const path = getSkillPath('gemini-commands', 'fix');
-    assert.strictEqual(path, '.gemini/commands/atomic-skills-fix.toml');
+  it('returns correct skill path for antigravity skills IDE', () => {
+    const path = getSkillPath('antigravity', 'fix');
+    assert.strictEqual(path, '.agent/skills/atomic-skills/fix/SKILL.md');
   });
 
   it('exports SKILL_NAMESPACE constant', () => {
@@ -71,12 +66,8 @@ describe('IDE config', () => {
     assert.strictEqual(getSkillFormat('claude-code'), 'command');
   });
 
-  it('returns markdown format for gemini skills', () => {
-    assert.strictEqual(getSkillFormat('gemini'), 'markdown');
-  });
-
-  it('returns toml format for gemini commands', () => {
-    assert.strictEqual(getSkillFormat('gemini-commands'), 'toml');
+  it('returns markdown format for antigravity skills', () => {
+    assert.strictEqual(getSkillFormat('antigravity'), 'markdown');
   });
 
   it('all IDEs declare supportsUserScope as boolean', () => {
@@ -95,15 +86,11 @@ describe('IDE config', () => {
 
   it('returns namespace root path for nested-namespace markdown IDEs', () => {
     assert.strictEqual(getNamespaceRootPath('cursor'), '.cursor/skills/atomic-skills/SKILL.md');
-  });
-
-  it('returns null namespace root for gemini (flat discovery-depth layout)', () => {
-    assert.strictEqual(getNamespaceRootPath('gemini'), null);
+    assert.strictEqual(getNamespaceRootPath('antigravity'), '.agent/skills/atomic-skills/SKILL.md');
   });
 
   it('returns null for non-markdown IDEs', () => {
     assert.strictEqual(getNamespaceRootPath('claude-code'), null);
-    assert.strictEqual(getNamespaceRootPath('gemini-commands'), null);
   });
 
   it('exposes grok as plugin delivery without .grok/skills path', () => {

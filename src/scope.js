@@ -53,7 +53,8 @@ export function resolveProjectScopeTarget(projectDir) {
     return { ok: false, reason: 'Could not resolve the Git repository root.' };
   }
 
-  if (root === parse(root).root) {
+  const parsedRoot = parse(root).root;
+  if (root === parsedRoot || (process.platform === 'win32' && root.toLowerCase() === parsedRoot.toLowerCase())) {
     return { ok: false, reason: 'Refusing to install project scope at the filesystem root.' };
   }
 
@@ -62,7 +63,7 @@ export function resolveProjectScopeTarget(projectDir) {
     homeRoot = realpathSync(homedir());
   } catch {}
 
-  if (homeRoot && root === homeRoot) {
+  if (homeRoot && (root === homeRoot || (process.platform === 'win32' && root.toLowerCase() === homeRoot.toLowerCase()))) {
     return { ok: false, reason: 'Refusing to install project scope at your home directory.' };
   }
 

@@ -84,16 +84,16 @@ The command's load-bearing order is fixed:
 
 1. Load retained source sidecar.
 2. Run the phase-start lessons gate.
-3. Collect the `businessIntent` spine — **Mode A** (user-written blank form) or
+3. Collect the user-written `businessIntent` spine. **Mode A** (user-written blank form) or
    **Mode B** (automate pre-ratified complete spine from the phase-start package
    ritual). Under Mode B, collection is **after** package ratify only; do not
    invent or durable-write spine before that ratify.
 4. Reuse `decomposeOnePhase(phaseSource, ctx)` when raw phase body is present;
    otherwise reuse the parsed F2 sidecar capture.
 5. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
-6. Write the initiative with the **ratified** `businessIntent` and update the
-   parent plan descriptor atomically via `scripts/materialize-state.js`.
-7. Run `scripts/find-missing-business-intent.js` (presence).
+6. Write the initiative with `businessIntent` and update the parent plan
+   descriptor atomically via `scripts/materialize-state.js`.
+7. Run `scripts/find-missing-business-intent.js`. (presence).
 7b. Run `scripts/find-weak-business-intent.js` (quality HARD — rewrite fields on fail; no approve-anyway).
 8. Run `scripts/validate-state.js`.
 9. Run `scripts/refresh-state.js`.

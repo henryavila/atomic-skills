@@ -95,7 +95,7 @@ core:
     # OPTIONAL — compatibility
     ide_compatibility:
       - claude-code
-      - gemini
+      - antigravity
       - cursor
 
     # OPTIONAL — behavioral hints
@@ -198,7 +198,7 @@ core:
 |-------|------|-------------|-------|
 | `related` | string[] | Names of related skills. Rendered as cross-links. | v0.1 |
 | `tags` | string[] | Free-form categorization. `pre-implementation`, `testing`, `review`, etc. | v0.1 |
-| `ide_compatibility` | string[] | Subset of `[claude-code, gemini, cursor, codex, opencode, github-copilot, generic]`. Default: all. | v0.1 |
+| `ide_compatibility` | string[] | Subset of `[claude-code, antigravity, cursor, codex, opencode, github-copilot, generic]`. Default: all. | v0.1 |
 | `requires_args` | boolean | If true, help page indicates arg is required. | v0.1 |
 | `mutates_repo` | boolean | If true, help page shows warning icon (skill may write files). | v0.1 |
 | `network_required` | boolean | If true, indicates external API/service dependency. | v0.1 |
@@ -398,7 +398,7 @@ core:
         description: 'Close a task (triggers phase-completion check if last)'
     related: [project-plan, fix, save-and-push]
     tags: [tracking, anchoring, planning, core]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, antigravity, cursor]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -429,7 +429,7 @@ core:
         description: 'Triage mode for directory (max 30 files)'
     related: [fix, review-code]
     tags: [testing, quality, pre-implementation]
-    ide_compatibility: [claude-code, gemini, cursor]
+    ide_compatibility: [claude-code, antigravity, cursor]
     requires_args: true
     mutates_repo: true
     network_required: false

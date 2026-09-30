@@ -4,7 +4,7 @@
  * R-ORCH-19/23 = the per-task SPEC admission gate).
  *
  * Mirrors `scripts/lint-design.js`: pure, zero-token, no network, no tool calls
- * — a string scan callable from any agent (including Gemini's read-only
+ * — a string scan callable from any agent (including a read-only
  * investigator). It is the deterministic backstop the thin task bodies depend
  * on, and it never touches `src/decompose.js` (R-ORCH-10: decompose heuristics
  * + the `## F0/F1` + `### Tn` + `exit_gate` YAML grammar stay UNCHANGED).

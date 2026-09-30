@@ -3,7 +3,7 @@
  * Deterministic `design.md` section lint (R-XAGENT-06).
  *
  * Mirrors the No-Placeholders lint shape: pure, zero-token, no network, no tool
- * calls — a string scan callable from any agent (including Gemini's read-only
+ * calls — a string scan callable from any agent (including a read-only
  * investigator). It gives the "PLAN refuses without a design.md" gate
  * (R-ORCH-09) something testable: a design missing a required section, or with
  * a required section that is empty/placeholder-only, fails.

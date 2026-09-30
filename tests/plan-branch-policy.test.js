@@ -28,12 +28,8 @@ test('planBranchName prefixes the slug with plan/', () => {
 });
 
 test('Stage 6 documents unconditional plan branch creation', () => {
-  const doc = readFileSync(join(import.meta.dirname, '..', 'skills', 'shared', 'project-assets', 'project-create-plan.md'), 'utf8');
-  const stage6Start = doc.indexOf('### Stage 6 — Create Plan + Initiatives');
-  const stage7Start = doc.indexOf('### Stage 7', stage6Start);
-  const stage6 = doc.slice(stage6Start, stage7Start === -1 ? undefined : stage7Start);
+  const stage6 = readFileSync(join(import.meta.dirname, '..', 'skills', 'shared', 'project-assets', 'new-plan', 'stage-6.md'), 'utf8');
 
-  assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
   // discriminating: the unconditional-fork declaration absent from the old lazy doc
   // (the old Stage 6 said "só cria plan/<slug> sob concorrência" — no "forka incondicional").
   assert.match(stage6.toLowerCase(), /todo plano[^\n]*forka incondicional/,
@@ -58,12 +54,8 @@ test('retroactiveWorktreeAdd throws for an empty captured baseRef', () => {
 });
 
 test('Stage 6 documents capture-before-write for retroactive worktrees', () => {
-  const doc = readFileSync(join(import.meta.dirname, '..', 'skills', 'shared', 'project-assets', 'project-create-plan.md'), 'utf8');
-  const stage6Start = doc.indexOf('### Stage 6 — Create Plan + Initiatives');
-  const stage7Start = doc.indexOf('### Stage 7', stage6Start);
-  const stage6 = doc.slice(stage6Start, stage7Start === -1 ? undefined : stage7Start);
+  const stage6 = readFileSync(join(import.meta.dirname, '..', 'skills', 'shared', 'project-assets', 'new-plan', 'stage-6.md'), 'utf8');
 
-  assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
   assert.match(stage6, /retroactiveWorktreeAdd/);
   assert.match(stage6.toLowerCase(), /(antes de escrever|capturad)/);
 });

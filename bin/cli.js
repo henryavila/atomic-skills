@@ -45,7 +45,7 @@ if (values.help || !command) {
     --yes, -y         Non-interactive: (install) accept auto-detected defaults;
                       (uninstall) skip the confirmation prompt
     --project         Skip scope picker and install to the current repo's Git root
-    --ide <ids>       Comma-separated: claude-code,cursor,gemini,codex,opencode,github-copilot,grok
+    --ide <ids>       Comma-separated: claude-code,cursor,antigravity,codex,opencode,github-copilot,grok
                       Use --ide detected or --all-detected to refresh from installed IDEs
     --lang <code>     Communication language for all skills (e.g. en, pt, es, fr, ja)
     --repair          (install) Recover from an incomplete installer transaction:

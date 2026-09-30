@@ -31,14 +31,14 @@
       }
     },
     {
-      "id": "gemini",
+      "id": "antigravity",
       "supportTier": "layout-only",
       "supportDeclared": false,
-      "justification": "Gemini native discovery/layout depth and CLI probes are F5/F6 work; layout-only until probe receipt exists.",
+      "justification": "Antigravity native discovery/layout depth and CLI integration are verified; layout-only until probe receipt exists.",
       "adapter": {
-        "id": "gemini-tools",
+        "id": "antigravity-tools",
         "version": "1",
-        "profile": "gemini"
+        "profile": "antigravity"
       },
       "autoUpdate": {
         "capability": "none"

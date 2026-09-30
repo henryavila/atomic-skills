@@ -23,10 +23,10 @@ import {
 import { EXTERNAL_PROVIDER_ORDER as MERGE_ORDER } from '../src/external-both-merge.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const PROVIDERS = ['codex', 'grok', 'claude'];
+const PROVIDERS = ['codex', 'grok', 'claude', 'agy'];
 
-describe('three-provider external matrix (audit)', () => {
-  it('EXTERNAL_PROVIDER_ORDER is codex → grok → claude on host + merge modules', () => {
+describe('cross-model external matrix (audit)', () => {
+  it('EXTERNAL_PROVIDER_ORDER is codex → grok → claude → agy on host + merge modules', () => {
     assert.deepEqual([...EXTERNAL_PROVIDER_ORDER], PROVIDERS);
     assert.deepEqual([...MERGE_ORDER], PROVIDERS);
     assert.deepEqual([...KNOWN_EXTERNAL_PROVIDERS].sort(), [...PROVIDERS].sort());
@@ -57,11 +57,14 @@ describe('three-provider external matrix (audit)', () => {
   });
 
   it('external-both filters same-family host correctly for each host', () => {
-    assert.deepEqual(externalBothLegs('claude'), ['codex', 'grok']);
-    assert.deepEqual(externalBothLegs('codex'), ['grok', 'claude']);
-    assert.deepEqual(externalBothLegs('grok'), ['codex', 'claude']);
+    assert.deepEqual(externalBothLegs('claude'), ['codex', 'grok', 'agy']);
+    assert.deepEqual(externalBothLegs('codex'), ['grok', 'claude', 'agy']);
+    assert.deepEqual(externalBothLegs('grok'), ['codex', 'claude', 'agy']);
+    assert.deepEqual(externalBothLegs('agy'), ['codex', 'grok', 'claude']);
     assert.equal(isSameFamilyExternal('claude', 'claude'), true);
     assert.equal(isSameFamilyExternal('claude', 'codex'), false);
+    assert.equal(isSameFamilyExternal('agy', 'agy'), true);
+    assert.equal(isSameFamilyExternal('agy', 'codex'), false);
   });
 
   it('resolveReviewRoute supports claude / both-claude / external-both', () => {
@@ -89,13 +92,14 @@ describe('three-provider external matrix (audit)', () => {
     });
     assert.equal(ext.action, 'run');
     assert.ok(Array.isArray(ext.externalProviders));
-    assert.deepEqual(ext.externalProviders, ['codex', 'grok']);
+    assert.deepEqual(ext.externalProviders, ['codex', 'grok', 'agy']);
   });
 
   it('default external provider matrix is family-different', () => {
     assert.equal(defaultExternalProvider('claude'), 'codex');
     assert.equal(defaultExternalProvider('codex'), 'grok');
     assert.equal(defaultExternalProvider('grok'), 'codex');
+    assert.equal(defaultExternalProvider('agy'), 'codex');
   });
 
   it('planEndReviewOk accepts each provider as sole succeeded family-different leg', () => {

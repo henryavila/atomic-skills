@@ -11,7 +11,7 @@ no()  { FAIL=$((FAIL+1)); echo "  FAIL: $1"; }
 
 assert_no_host_hook_config_files() {
   local files
-  files=$(find .claude .codex .cursor .gemini .opencode .github -type f 2>/dev/null | sort || true)
+  files=$(find .claude .codex .cursor .agent .opencode .github -type f 2>/dev/null | sort || true)
   [[ -z "$files" ]] && ok || no "expected no host hook config files, found: $files"
 }
 
@@ -356,7 +356,7 @@ cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
 TMP=$(mktemp -d); cd "$TMP"
 init_git_branch feat
 mkdir -p .atomic-skills/initiatives .atomic-skills/status
-mkdir -p .claude .codex .cursor .gemini .opencode .github
+mkdir -p .claude .codex .cursor .agent .opencode .github
 echo '{"strict_mode":false}' > .atomic-skills/status/config.json
 write_initiative .atomic-skills/initiatives/i.md i active feat "" "" "src/"
 TRANSCRIPT="$TMP/t.jsonl"

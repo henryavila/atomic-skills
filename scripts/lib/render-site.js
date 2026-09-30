@@ -479,7 +479,7 @@ export function renderModulesPage({ moduleMeta, includeProject = false }) {
 export function renderHostsPage(opts = {}) {
   const ideConfig = opts.ideConfig ?? IDE_CONFIG;
   const supportLabel = opts.supportLabel ?? getIdeSupportLabel;
-  // Public product surface only — exclude internal aliases (e.g. gemini-commands).
+  // Public product surface only — exclude internal aliases.
   const publicIds = opts.publicIdeIds ?? PUBLIC_IDE_IDS;
   const includeProject = opts.includeProject === true;
 

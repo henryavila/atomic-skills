@@ -26,7 +26,7 @@ const META_DIR = join(__dirname, '..', 'meta');
 const PUBLIC_HOST_SKILL_MATRIX = [
   { ideId: 'claude-code', skillPath: '.claude/commands/atomic-skills/fix.md' },
   { ideId: 'cursor', skillPath: '.cursor/skills/atomic-skills/fix/SKILL.md' },
-  { ideId: 'gemini', skillPath: '.gemini/skills/atomic-skills-fix/SKILL.md' },
+  { ideId: 'antigravity', skillPath: '.agent/skills/atomic-skills/fix/SKILL.md' },
   { ideId: 'codex', skillPath: '.agents/skills/atomic-skills/fix/SKILL.md' },
   { ideId: 'opencode', skillPath: '.opencode/skills/atomic-skills/fix/SKILL.md' },
   { ideId: 'github-copilot', skillPath: '.github/skills/atomic-skills/fix/SKILL.md' },
@@ -101,40 +101,22 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 94); // single IDE: core + shared assets (implement-phase-* + maestro/decision-log + foreign-plan + providers/claude) + auto-update
+    assert.strictEqual(result.files.length, 133); // single IDE: core + shared assets (implement-phase-* + maestro/decision-log + foreign-plan + providers/claude) + auto-update
   });
 
-  it('creates TOML files for gemini-commands', () => {
+  it('creates markdown files for antigravity skills under .agent/skills', () => {
     const result = installSkills(tempDir, {
       language: 'en',
-      ides: ['gemini-commands'],
+      ides: ['antigravity'],
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
 
-    const geminiFile = join(tempDir, '.gemini/commands/atomic-skills-fix.toml');
-    assert.ok(existsSync(geminiFile));
-    const content = readFileSync(geminiFile, 'utf8');
-    // Real TOML serializer may use single or double quotes — parse, don't string-match.
-    assert.ok(/description\s*=/.test(content));
-    assert.ok(/prompt\s*=/.test(content));
-    assert.ok(!content.includes('$ARGUMENTS'));
-  });
-
-  it('creates markdown files for gemini skills at discovery depth', () => {
-    const result = installSkills(tempDir, {
-      language: 'en',
-      ides: ['gemini'],
-      skillsDir: SKILLS_DIR,
-      metaDir: META_DIR,
-    });
-
-    const geminiFile = join(tempDir, '.gemini/skills/atomic-skills-fix/SKILL.md');
-    assert.ok(existsSync(geminiFile));
-    const content = readFileSync(geminiFile, 'utf8');
+    const agyFile = join(tempDir, '.agent/skills/atomic-skills/fix/SKILL.md');
+    assert.ok(existsSync(agyFile));
+    const content = readFileSync(agyFile, 'utf8');
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes('name: fix'));
-    assert.ok(!existsSync(join(tempDir, '.gemini/skills/atomic-skills/fix/SKILL.md')));
   });
 
   it('materializes Grok plugin package under .grok/plugins/atomic-skills only', () => {
@@ -229,8 +211,12 @@ describe('installSkills', () => {
     }
 
     assert.ok(
-      !PUBLIC_IDE_IDS.includes('gemini-commands'),
-      'gemini-commands remains an effective selection, not a public host',
+      PUBLIC_IDE_IDS.includes('antigravity'),
+      'antigravity is a public host',
+    );
+    assert.ok(
+      !PUBLIC_IDE_IDS.includes('gemini'),
+      'gemini is removed from public hosts',
     );
   });
 
@@ -244,7 +230,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
     assert.ok(existsSync(join(tempDir, '.claude/atomic-skills/_assets/connect.md')));
-    assert.strictEqual(result.files.length, 94); // core + shared assets (implement-phase-* + maestro/decision-log + foreign-plan + providers/claude) + auto-update hook
+    assert.strictEqual(result.files.length, 133); // core + shared assets (implement-phase-* + maestro/decision-log + foreign-plan + providers/claude) + auto-update hook
     assert.ok(result.files.some((f) => f.source === 'core/init-memory'));
     assert.ok(result.files.some((f) => f.source === '_assets/memory-assets/connect.md'));
   });
@@ -304,14 +290,14 @@ describe('installSkills', () => {
   it('creates files for multiple IDEs', () => {
     const result = installSkills(tempDir, {
       language: 'en',
-      ides: ['claude-code', 'gemini-commands'],
+      ides: ['claude-code', 'antigravity'],
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
-    assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 187); // 2 IDEs + shared assets (implement-phase-* + maestro/decision-log + foreign-plan + providers/claude ×2) + one auto-update hook
+    assert.ok(existsSync(join(tempDir, '.agent/skills/atomic-skills/fix/SKILL.md')));
+    assert.strictEqual(result.files.length, 266); // 2 IDEs + shared assets (implement-phase-* + maestro/decision-log + foreign-plan + providers/claude ×2) + one auto-update hook
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -387,7 +373,7 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    assert.strictEqual(result.files.length, 94);
+    assert.strictEqual(result.files.length, 133);
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -496,8 +482,8 @@ describe('installSkills', () => {
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
     // namespace assets: previous set + memory-assets/connect.md + implement-phase-* + maestro + decision-log + foreign-plan
-    assert.strictEqual(files.length, 69,
-      `expected 69 namespace asset entries (shared assets incl. connect.md + implement-phase-* + maestro/decision-log + foreign-plan), got ${files.length}: ${files.join(', ')}`);
+    assert.strictEqual(files.length, 93,
+      `expected 93 namespace asset entries (shared assets incl. connect.md + implement-phase-* + maestro/decision-log + foreign-plan), got ${files.length}: ${files.join(', ')}`);
     assert.ok(files.includes('connect.md'), '_assets/connect.md (from memory-assets) must be installed');
     assert.ok(files.includes('implement-phase-writer.md'), '_assets/implement-phase-writer.md must be installed');
     assert.ok(files.includes('implement-phase-evaluator.md'), '_assets/implement-phase-evaluator.md must be installed');

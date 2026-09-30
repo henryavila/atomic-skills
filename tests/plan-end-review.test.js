@@ -815,7 +815,7 @@ describe('isDurableAutomateActive (H1)', () => {
       true,
     );
   });
-  it('KNOWN_EXTERNAL_PROVIDERS is codex|grok|claude', () => {
-    assert.deepEqual([...KNOWN_EXTERNAL_PROVIDERS].sort(), ['claude', 'codex', 'grok'].sort());
+  it('KNOWN_EXTERNAL_PROVIDERS is codex|grok|claude|agy', () => {
+    assert.deepEqual([...KNOWN_EXTERNAL_PROVIDERS].sort(), ['agy', 'claude', 'codex', 'grok'].sort());
   });
 });

@@ -106,10 +106,10 @@ export function ideDisplayName(ideId) {
   return name.replace(/ \(Skills\)$/, '').replace(/ \(Commands\)$/, '');
 }
 
-// Primary IDE IDs exposed to users (gemini-commands is internal).
+// Primary IDE IDs exposed to users.
 // Keep in sync with PUBLIC_IDE_IDS order in config.js (minus non-interactive hosts).
 const PRIMARY_IDE_IDS = [
-  'claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot', 'grok',
+  'claude-code', 'cursor', 'antigravity', 'codex', 'opencode', 'github-copilot', 'grok',
 ];
 
 // ---------------------------------------------------------------------------
@@ -146,7 +146,6 @@ export function printConfig(config, conflictCount = 0) {
     : `project (${pc.dim(scopePath || './')})`;
 
   const ideLabels = ides
-    .filter((id) => id !== 'gemini-commands')
     .map((id) => pc.cyan(ideDisplayName(id)))
     .join('  ');
 
@@ -189,7 +188,6 @@ export function showPostInstall(result, ides, lang, isFirstInstall) {
   }
 
   for (const id of ides) {
-    if (id === 'gemini-commands') continue;
     const cfg = IDE_CONFIG[id];
     if (!cfg) continue;
     const { skills, assets } = byIDE[id] ?? { skills: 0, assets: 0 };
@@ -242,7 +240,6 @@ export function showNonInteractiveResult(result, ides, lang) {
   }
 
   for (const id of ides) {
-    if (id === 'gemini-commands') continue;
     const cfg = IDE_CONFIG[id];
     if (!cfg) continue;
     const { skills } = byIDE[id] ?? { skills: 0 };
@@ -308,7 +305,7 @@ export async function promptAction(lang, { isUpdate = false, hasConflicts = fals
 }
 
 /**
- * Multiselect of 6 primary IDEs (not gemini-commands, which is internal).
+ * Multiselect of primary IDEs.
  * @param {string} lang
  * @param {string[]} currentIDEs  - already selected IDE IDs (used as initial values)
  * @returns {Promise<string[]>}

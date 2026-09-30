@@ -124,28 +124,28 @@ describe('render helpers', () => {
         dir: '.claude/commands',
         format: 'command',
       },
-      gemini: {
-        name: 'Gemini CLI',
-        dir: '.gemini/skills',
+      antigravity: {
+        name: 'Antigravity',
+        dir: '.agent/skills',
         format: 'markdown',
       },
-      'gemini-commands': {
-        name: 'Gemini Commands (internal)',
-        dir: '.gemini/commands',
-        format: 'command',
+      opencode: {
+        name: 'OpenCode',
+        dir: '.opencode/skills',
+        format: 'markdown',
       },
     };
     const supportLabel = (id) => (id === 'claude-code' ? 'Tested' : 'Theoretical');
     const html = renderHostsPage({
       ideConfig,
       supportLabel,
-      publicIdeIds: ['claude-code', 'gemini'],
+      publicIdeIds: ['claude-code', 'antigravity'],
     });
     assert.ok(html.includes('badge-tested'));
     assert.ok(html.includes('badge-theoretical'));
     assert.ok(html.includes('Claude Code'));
-    assert.ok(html.includes('Gemini CLI'));
-    assert.ok(!html.includes('Gemini Commands (internal)'));
+    assert.ok(html.includes('Antigravity'));
+    assert.ok(!html.includes('OpenCode'));
     assert.ok(html.includes('TESTED_IDE_IDS'));
   });
 

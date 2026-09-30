@@ -116,8 +116,8 @@ describe('renderReadme', () => {
     assert.ok(idesSection.includes('| Support |'), 'support column header');
     assert.ok(idesSection.includes('| Tested |') || idesSection.includes('Tested |'), 'tested rows');
     assert.ok(idesSection.includes('Theoretical'), 'theoretical rows');
-    // Battle-tested set (Claude / Cursor / Codex / Grok)
-    for (const id of ['claude-code', 'cursor', 'codex', 'grok']) {
+    // Battle-tested set (Claude / Cursor / Codex / Grok / Antigravity)
+    for (const id of ['claude-code', 'cursor', 'codex', 'grok', 'antigravity']) {
       assert.match(
         idesSection,
         new RegExp(`\\| \`${id}\` \\|[^|]+\\|[^|]+\\| Tested \\|`),
@@ -125,7 +125,7 @@ describe('renderReadme', () => {
       );
     }
     // Theoretical set
-    for (const id of ['gemini', 'gemini-commands', 'opencode', 'github-copilot']) {
+    for (const id of ['opencode', 'github-copilot']) {
       assert.match(
         idesSection,
         new RegExp(`\\| \`${id}\` \\|[^|]+\\|[^|]+\\| Theoretical \\|`),

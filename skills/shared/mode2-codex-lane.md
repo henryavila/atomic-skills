@@ -151,9 +151,7 @@ and any cross-model reviewer remain intent-denied; only the executor gets intent
   *same* shared weekly Claude ceiling, so they do not serve the primary
   Opus-conservation lever; the throughput case is already `parallel-dispatch`'s
   job. Tracked at `.atomic-skills/projects/atomic-skills/mode2-anthropic-subagent-tier/`.
-- **Portability:** on Gemini `{{INVESTIGATOR_TOOL}}` is likely read-only ⇒ the
-  subagent tier collapses ⇒ **Mode 2 on Gemini = Codex-only** (`routing.json`
-  `ideOverrides.gemini.subagentExecutor: false`). Neither lane dispatchable ⇒ Mode 1.
+- **Portability:** On hosts supporting native multi-agent execution with write tools (Claude Code, Antigravity via `invoke_subagent`), subagents can execute tasks in isolated worktrees (`skills/shared/worktree-isolation.md`). When subagent execution is not supported or denied, Mode 2 dispatches via the external bridge (Codex/Agy/etc.). Neither lane dispatchable ⇒ Mode 1.
 
 ## 7. Verification + escalation cascade (R-EXEC-37/38)
 
@@ -232,8 +230,8 @@ erases the conserved budget). No dashboard.
 
 ## 10. Degraded fallback (R-EXEC-30)
 
-No dispatchable lane at gate time, or a lane fails mid-batch (Codex missing,
-subagent spawn denied on Gemini) ⇒ the affected tasks fall back to Mode 1
+No dispatchable lane at gate time, or a lane fails mid-batch (external CLI missing,
+subagent spawn denied) ⇒ the affected tasks fall back to Mode 1
 self-exec, recorded as the gate-decision reason — never a silent collapse.
 
 ## Claude Code accelerator (optional)

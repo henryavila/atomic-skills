@@ -13,20 +13,18 @@ Detect two independent axes: skill installation compatibility and project-hook s
 ### Skill installation host
 - `test -d .claude/` → Claude Code; skills path: `.claude/commands/atomic-skills/<skill>.md`
 - `test -d .cursor/` → Cursor; skills path: `.cursor/skills/atomic-skills/<skill>/SKILL.md`
-- `test -d .gemini/` → Gemini CLI; skills path: `.gemini/skills/atomic-skills-<skill>/SKILL.md` (first-level discovery depth — not nested under `atomic-skills/`)
+- `test -d .agent/` → Antigravity; skills path: `.agent/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .codex/ || test -d .agents/` → Codex; skills path: `.agents/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .opencode/` → OpenCode; skills path: `.opencode/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .github/` → GitHub Copilot; skills path: `.github/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .grok/` → Grok Build; skills path: `.grok/plugins/atomic-skills/skills/<skill>/SKILL.md` (plugin package only)
-- Native Gemini stays at `.gemini/skills/atomic-skills-<skill>/SKILL.md` even when Codex is also selected (no rewrite to commands)
-- Optional Gemini command adapters: `.gemini/commands/atomic-skills-<skill>.toml` (explicit `gemini-commands` profile only)
 - Otherwise → generic IDE; no host-specific skills path and no project-hook setup
 
 ### Project-hook setup eligibility
 - Claude Code has a project-hook contract: merge-only registration in `.claude/settings.local.json`
 - Codex has a project-hook contract: merge-only registration in `.codex/hooks.json`
 - Grok Build has a project-hook contract: merge-only registration in `.grok/plugins/atomic-skills/hooks/hooks.json` (plugin Soft is installed with the package; Strict adds Stop)
-- Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE have no known project-hook contract; hook setup is an explicit no-op for those hosts and must not create or register hook config files
+- Cursor, Antigravity, OpenCode, GitHub Copilot, and generic IDE have no known project-hook contract; hook setup is an explicit no-op for those hosts and must not create or register hook config files
 
 ## 2. Verify/create CLAUDE.md
 - If CLAUDE.md is absent: ask "Create minimal CLAUDE.md with hard-gate? (y/n)" — if yes, create with a title + hard-gate template
@@ -52,7 +50,7 @@ Run this step only when the detected/selected host has a known project-hook cont
 - Codex: `.codex/hooks.json`
 - Grok Build: `.grok/plugins/atomic-skills/hooks/hooks.json`
 
-For Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks. Do not copy project hook scripts for those hosts, do not create hook config files, and do not register hook events.
+For Cursor, Antigravity, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks. Do not copy project hook scripts for those hosts, do not create hook config files, and do not register hook events.
 
 Present Structured Options:
 > What enforcement level?

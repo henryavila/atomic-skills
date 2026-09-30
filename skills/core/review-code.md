@@ -3,8 +3,8 @@ Perform an adversarial analysis of the code changes at {{ARG_VAR}}
 keyword: `wip`, `branch`, `all`; empty → interactive scope picker)
 looking for logic bugs, race conditions, error handling gaps,
 schema/migration inconsistencies, and missing tests. Step 0 picks a mode:
-`local`, `codex`, `grok`, `claude`, `both` (local→**host external default**),
-`both-codex`, `both-grok`, `both-claude`, or `external-both`. Full mode table, host-aware
+`local`, `codex`, `grok`, `claude`, `agy`, `both` (local→**host external default**),
+`both-codex`, `both-grok`, `both-claude`, `both-agy`, or `external-both`. Full mode table, host-aware
 picker, and same-family rules: {{READ_TOOL}}
 `skills/shared/codex-bridge-assets/review-mode-ux.md` (routing helper:
 `src/cross-model-host-default.js`).
@@ -13,7 +13,7 @@ picker, and same-family rules: {{READ_TOOL}}
 
 NO APPROVAL WITHOUT EVIDENCE.
 - Local mode: each finding MUST cite `file:line`. Bug claims without `file:line` are rejected.
-- External mode (`codex`/`grok`/`claude`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
+- External mode (`codex`/`grok`/`claude`/`agy`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
 
 NO INTENT IN THE BRIEFING (local + external).
 Intent narrative poisons reviewers by up to -93pp detection rate
@@ -49,7 +49,7 @@ review phases consume those outputs; never re-run `git diff`.
 
 ## Step 0 — Pick review mode + same-family route
 
-Skip the picker if `--mode=` was supplied (accepted values: `local|codex|grok|claude|both|both-codex|both-grok|both-claude|external-both`). Also accept `--accept-same-family-as-local`, `--model=`, `--model-codex=`, `--model-grok=`, `--model-claude=`, `--ask-model` (see review-mode-ux.md).
+Skip the picker if `--mode=` was supplied (accepted values: `local|codex|grok|claude|agy|both|both-codex|both-grok|both-claude|both-agy|external-both`). Also accept `--accept-same-family-as-local`, `--model=`, `--model-codex=`, `--model-grok=`, `--model-claude=`, `--model-agy=`, `--ask-model` (see review-mode-ux.md).
 
 Otherwise {{READ_TOOL}} `skills/shared/codex-bridge-assets/review-mode-ux.md` and run its **host-aware Step 0 picker** via {{ASK_USER_QUESTION_TOOL}}. When `DESTRUCTIVE` is true, prepend: *"⚠ This diff is predominantly destructive (deletes/drops). A same-model local-only pass frequently misses orphaned-data / dangling-reference regressions — cross-model is strongly advised."* Default remains **Both** (host external default); when `DESTRUCTIVE`, that default is the recommended option, not merely the fallback.
 

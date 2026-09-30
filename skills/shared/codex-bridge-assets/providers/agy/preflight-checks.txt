@@ -1,0 +1,56 @@
+# Pre-flight Checks for Antigravity (agy) Invocation
+# Provider: agy
+# Path: skills/shared/codex-bridge-assets/providers/agy/preflight-checks.txt
+# Logical module: cross-model-bridge (codex-bridge is a compatibility alias)
+#
+
+Run these checks BEFORE any Antigravity invocation. ALL must pass or skill aborts
+with a clear message.
+
+## 1. Antigravity binary present
+
+Run: `which agy`
+
+If exit != 0: ABORT with message:
+> "Antigravity CLI (agy) not found in PATH. Ensure agy is installed and available in PATH (typically ~/.local/bin/agy)."
+
+## 2. Antigravity CLI is callable & authenticated
+
+Run: `agy --version`
+
+If exit != 0: ABORT with message:
+> "`agy --version` failed. Reinstall or check your Antigravity CLI installation."
+
+Record the version string in the briefing metadata (for the audit trail).
+
+Auth probe:
+```bash
+PROBE=$(agy -p "ping" --output-format text --disable-slash-commands 2>&1 || true)
+if echo "$PROBE" | grep -qiE "not signed in|Signing in|sign in"; then
+  echo "ERROR: Antigravity CLI is not authenticated. Please run agy interactively to authenticate." >&2
+  exit 1
+fi
+```
+
+## 3. Working tree clean (or --allow-dirty)
+
+Run: `git status --porcelain`
+
+If output is non-empty AND user did NOT pass `--allow-dirty`: ABORT with message:
+> "Working tree has uncommitted changes. Either commit/stash changes, or re-invoke with `--allow-dirty` to proceed anyway."
+
+Exception — worktree-scoped review: if the invoking skill resolved a
+review scope where the working tree IS the review subject (e.g.
+review-code scopes `wip` / `all`), treat `--allow-dirty` as implicitly
+set: emit the warning, do not abort.
+
+## 4. Inside git repo
+
+Run: `git rev-parse --is-inside-work-tree`
+
+If exit != 0: ABORT with message:
+> "Not inside a git repository."
+
+## All checks passed
+
+Proceed to briefing curation.

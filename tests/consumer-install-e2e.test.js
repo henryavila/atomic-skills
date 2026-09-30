@@ -66,7 +66,7 @@ describe('packed consumer runtime works without the source checkout', { concurre
         npm_config_audit: 'false',
         npm_config_fund: 'false',
         npm_config_update_notifier: 'false',
-        npm_config_cache: process.env.npm_config_cache || join(homedir(), '.npm'),
+        npm_config_cache: process.env.npm_config_cache || join(home, '.npm-cache'),
         ...env,
       },
       encoding: 'utf8',

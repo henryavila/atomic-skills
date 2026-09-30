@@ -42,9 +42,9 @@ Then open `site/dist/index.html` in a browser. Details: [`site/DEPLOY.md`](site/
 
 ## Hosts
 
-**Tested** (real sessions): Claude Code, Cursor, Codex, Grok Build.
+**Tested** (real sessions): Claude Code, Cursor, Antigravity, Codex, Grok Build.
 
-**Theoretical** (install + adapters ship; not day-to-day QA): Gemini CLI, OpenCode, GitHub Copilot, and other profiles.
+**Theoretical** (install + adapters ship; not day-to-day QA): OpenCode, GitHub Copilot, and other profiles.
 
 Support column in the table:
 
@@ -56,8 +56,7 @@ Support column in the table:
 |-----|---------|-----------|--------|---------|
 | Claude Code | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) | Tested |
 | Cursor | `cursor` | `.cursor/skills/atomic-skills/` | Markdown | Tested |
-| Gemini CLI (Skills) | `gemini` | `.gemini/skills/atomic-skills-<skill>/` | Markdown | Theoretical |
-| Gemini CLI (Commands) | `gemini-commands` | `.gemini/commands/` | TOML (Slash commands) | Theoretical |
+| Antigravity | `antigravity` | `.agent/skills/atomic-skills/` | Markdown | Tested |
 | Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown | Tested |
 | OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown | Theoretical |
 | GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown | Theoretical |

@@ -17,7 +17,7 @@ export const ACCEPTED_CATALOG_VERSIONS = new Set(['0.2', '0.3']);
 export const CATALOG_VERSIONS_REQUIRING_PRODUCT = new Set(['0.3']);
 export const KNOWN_IDES = new Set([
   'claude-code',
-  'gemini',
+  'antigravity',
   'cursor',
   'codex',
   'opencode',

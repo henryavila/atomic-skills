@@ -18,28 +18,28 @@ describe('Update and Orphan Removal', () => {
   });
 
   it('removes orphan files and empty directories during update', () => {
-    // 1. Initial install with gemini-commands (TOML)
+    // 1. Initial install with claude-code
     const initialResult = installSkills(tempDir, {
       language: 'en',
-      ides: ['gemini-commands'],
+      ides: ['claude-code'],
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
-      scope: 'project'
+      scope: 'project',
     });
 
-    const tomlPath = '.gemini/commands/atomic-skills-fix.toml';
-    assert.ok(existsSync(join(tempDir, tomlPath)));
+    const claudeCmdPath = '.claude/commands/atomic-skills/fix.md';
+    assert.ok(existsSync(join(tempDir, claudeCmdPath)));
 
-    // 2. Perform second install with gemini (Markdown), removing gemini-commands
+    // 2. Perform second install with antigravity, removing claude-code
     const newResult = installSkills(tempDir, {
       language: 'en',
-      ides: ['gemini'],
+      ides: ['antigravity'],
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
-      scope: 'project'
+      scope: 'project',
     });
 
-    assert.ok(existsSync(join(tempDir, '.gemini/skills/atomic-skills-fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.agent/skills/atomic-skills/fix/SKILL.md')));
 
     // 3. Simulate the interactive orphan removal logic
     const existingManifestFiles = initialResult.files.reduce((acc, f) => {
@@ -71,39 +71,40 @@ describe('Update and Orphan Removal', () => {
       }
     }
 
-    // Verify TOML file is GONE
-    assert.ok(!existsSync(join(tempDir, tomlPath)));
-    // Verify TOML directory is GONE (empty cleanup)
-    assert.ok(!existsSync(join(tempDir, '.gemini/commands')));
+    // Verify old command file is GONE
+    assert.ok(!existsSync(join(tempDir, claudeCmdPath)));
+    // Verify old commands directory is GONE (empty cleanup)
+    assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills')));
   });
 
   it('prevents deletion of modified orphan files', () => {
-    // 1. Initial install
+    // 1. Initial install with claude-code
     const initialResult = installSkills(tempDir, {
       language: 'en',
-      ides: ['gemini-commands'],
+      ides: ['claude-code'],
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
-      scope: 'project'
+      scope: 'project',
     });
 
-    const tomlPath = '.gemini/commands/atomic-skills-fix.toml';
-    const absTomlPath = join(tempDir, tomlPath);
+    const claudeCmdPath = '.claude/commands/atomic-skills/fix.md';
+    const absPath = join(tempDir, claudeCmdPath);
     
     // 2. Modify file locally
-    writeFileSync(absTomlPath, 'user modification');
+    writeFileSync(absPath, 'user modification');
 
-    // 3. Update to new config (gemini skills)
+    // 3. Update to new config (antigravity skills)
     const newResult = installSkills(tempDir, {
       language: 'en',
-      ides: ['gemini'],
+      ides: ['antigravity'],
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
-      scope: 'project'
+      scope: 'project',
     });
 
     // 4. Simulate orphan check with "keep" decision
-    const existingManifestFiles = { [tomlPath]: { installed_hash: initialResult.files[0].hash } };
+    const fixEntry = initialResult.files.find(f => f.path === claudeCmdPath);
+    const existingManifestFiles = { [claudeCmdPath]: { installed_hash: fixEntry.hash } };
     const newPaths = new Set(newResult.files.map(f => f.path));
 
     let orphanDetected = false;
@@ -118,8 +119,8 @@ describe('Update and Orphan Removal', () => {
     }
 
     assert.ok(orphanDetected, 'Orphan modification should have been detected');
-    assert.ok(existsSync(absTomlPath), 'Modified orphan should still exist');
-    assert.strictEqual(readFileSync(absTomlPath, 'utf8'), 'user modification');
+    assert.ok(existsSync(absPath), 'Modified orphan should still exist');
+    assert.strictEqual(readFileSync(absPath, 'utf8'), 'user modification');
   });
 
   it('migrates claude-code from skills/ to commands/ (v1.4→v1.5)', () => {

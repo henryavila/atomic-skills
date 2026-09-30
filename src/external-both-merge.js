@@ -33,11 +33,11 @@ const SEVERITY_RANK = Object.freeze(
   Object.fromEntries(SEVERITY_ORDER.map((s, i) => [s, SEVERITY_ORDER.length - i])),
 );
 
-/** @typedef {'codex' | 'grok' | 'claude'} ExternalProvider */
+/** @typedef {'codex' | 'grok' | 'claude' | 'agy'} ExternalProvider */
 
 /** Fixed merge / invocation order. */
 export const EXTERNAL_PROVIDER_ORDER = Object.freeze(
-  /** @type {const} */ (['codex', 'grok', 'claude']),
+  /** @type {const} */ (['codex', 'grok', 'claude', 'agy']),
 );
 
 /**

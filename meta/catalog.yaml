@@ -53,7 +53,7 @@ core:
         description: 'Skill prompts you for the symptom interactively'
     related: [hunt, review-code]
     tags: [quality, debugging, tdd, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -105,7 +105,7 @@ core:
         description: 'Full flow: memory + commits + push'
     related: [project, init-memory, release]
     tags: [workflow, git, memory, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: true
@@ -155,7 +155,7 @@ core:
         description: 'Check/diff/consent adopt of stage or GH-only workflow'
     related: [save-and-push, project]
     tags: [workflow, git, release, npm, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: true
@@ -212,7 +212,7 @@ core:
         description: 'Local then host external default (sealed envelope)'
     related: [review-code, audit-delivery]
     tags: [review, planning, adversarial, cross-model, ground-truth]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: true
     mutates_repo: true
     network_required: true
@@ -301,7 +301,7 @@ core:
         description: 'Local then codex (sealed envelope)'
     related: [review-plan, fix, hunt, audit-delivery]
     tags: [review, code, adversarial, cross-model]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: true
@@ -381,7 +381,7 @@ core:
         description: 'Reconcile .atomic-skills/ state against the code'
     related: [fix, save-and-push, review-plan]
     tags: [tracking, anchoring, planning, bootstrap, create, migrate, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex, opencode, github-copilot]
+    ide_compatibility: [claude-code, antigravity, cursor, codex, opencode, github-copilot]
     requires_args: false
     mutates_repo: true
     network_required: true
@@ -622,7 +622,7 @@ core:
         description: 'Skill asks for task interactively'
     related: [parallel-dispatch, fix, project]
     tags: [meta, generation, planning]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: false
     network_required: false
@@ -670,7 +670,7 @@ core:
         description: 'Triage mode for directory (max 30 files)'
     related: [fix, review-code]
     tags: [testing, quality, pre-implementation]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: true
     mutates_repo: true
     network_required: false
@@ -829,7 +829,7 @@ core:
         description: 'Skill asks for the problem, goal, project-id, and slug interactively'
     related: [debate, project, review-plan]
     tags: [design, brainstorming, lifecycle, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -882,7 +882,7 @@ core:
         description: 'Skill asks for the app/scope and the product intent interactively'
     related: [brainstorm, project]
     tags: [design, prompts, anti-contamination, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -933,7 +933,7 @@ core:
         description: 'Convene a specific named panel from a roster file'
     related: [parallel-dispatch, review-plan, review-code]
     tags: [brainstorming, multi-agent, roundtable, divergent, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: false
     network_required: false
@@ -1022,7 +1022,7 @@ core:
         description: 'Implement the active plan/initiative; resume from its handoff if present'
     related: [project, verify-claim, fix, audit-delivery]
     tags: [execution, lifecycle, implement, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -1080,7 +1080,7 @@ core:
         description: 'Gate an "it works" claim on a fresh, captured run'
     related: [implement, fix, project, audit-delivery]
     tags: [quality, verification, gate, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -1124,7 +1124,7 @@ core:
         description: 'Bootstrap memory in the current project'
     related: [save-and-push]
     tags: [memory, setup]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false
@@ -1187,7 +1187,7 @@ core:
         description: 'Optional advanced: in-skill fix WPs + reaudit (prefer composition + re-run)'
     related: [review-code, verify-claim, review-plan, parallel-dispatch, parallel-dispatch-audit, fix, implement]
     tags: [review, quality, delivery, adversarial, core]
-    ide_compatibility: [claude-code, gemini, cursor, codex]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
     requires_args: false
     mutates_repo: true
     network_required: false

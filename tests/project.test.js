@@ -25,9 +25,9 @@ const HOST_HOOK_MATRIX = [
     hookConfig: null,
   },
   {
-    host: 'Gemini CLI',
-    ideId: 'gemini',
-    skillPath: '.gemini/skills/atomic-skills-<skill>/SKILL.md',
+    host: 'Antigravity',
+    ideId: 'antigravity',
+    skillPath: '.agent/skills/atomic-skills/<skill>/SKILL.md',
     hookConfig: null,
   },
   {
@@ -281,13 +281,13 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /Iron Law/);
   });
 
-  it('router renders for gemini with proper tool-name substitution', () => {
-    install('en', ['gemini']);
+  it('router renders for antigravity with proper tool-name substitution', () => {
+    install('en', ['antigravity']);
     const content = readFileSync(
-      join(tempDir, '.gemini/skills/atomic-skills-project/SKILL.md'),
+      join(tempDir, '.agent/skills/atomic-skills/project/SKILL.md'),
       'utf8'
     );
-    assert.ok(content.includes('run_shell_command'), 'Gemini should get run_shell_command');
+    assert.ok(content.includes('run_command'), 'Antigravity should get run_command');
     assert.ok(!content.includes('{{BASH_TOOL}}'));
   });
 
@@ -492,10 +492,6 @@ describe('project skill (unified router + lazy assets)', () => {
     for (const { host, skillPath } of HOST_HOOK_MATRIX) {
       assert.ok(setup.includes(skillPath), `${host} setup must list skill install path: ${skillPath}`);
     }
-    assert.ok(
-      setup.includes('.gemini/commands/atomic-skills-<skill>.toml'),
-      'Gemini command shims remain documented only as a Gemini+Codex effective selection',
-    );
   });
 
   it('project-setup detects Codex before the generic no-hook fallback and documents Codex hooks', () => {
@@ -518,7 +514,7 @@ describe('project skill (unified router + lazy assets)', () => {
     install();
     const setup = readAsset('project-setup.md');
     const eligibleStart = setup.indexOf('Run this step only when the detected/selected host has a known project-hook contract:');
-    const noopStart = setup.indexOf('For Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks.');
+    const noopStart = setup.indexOf('For Cursor, Antigravity, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks.');
 
     assert.notEqual(eligibleStart, -1, 'setup must introduce hook eligibility explicitly');
     assert.notEqual(noopStart, -1, 'setup must document no-op hooks for hosts without a contract');
@@ -549,7 +545,7 @@ describe('project skill (unified router + lazy assets)', () => {
     }
     assert.doesNotMatch(
       setup,
-      /(?:Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,
+      /(?:Cursor|Antigravity|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,
       'hosts without a hook contract must not be listed as approved hook config targets',
     );
   });
@@ -576,7 +572,7 @@ describe('project skill (unified router + lazy assets)', () => {
       }
       assert.match(
         readme,
-        /Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks/,
+        /Cursor, Antigravity, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks/,
       );
       assert.match(readme, /"hooks": \{/, 'README hook JSON must include the top-level hooks object');
       assert.match(
@@ -586,7 +582,7 @@ describe('project skill (unified router + lazy assets)', () => {
       );
       assert.doesNotMatch(
         readme,
-        /(?:Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,
+        /(?:Cursor|Antigravity|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,
         'hosts without a hook contract must not be listed as approved hook config targets',
       );
     }

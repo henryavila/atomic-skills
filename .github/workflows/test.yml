@@ -30,7 +30,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: node -p "process.version"
-      - run: node --test tests/windows-installer-platform.test.js tests/windows-path-contract.test.js tests/multiplatform-contract.test.js tests/install-uninstall-roundtrip.test.js tests/validate-state.test.js tests/normalize.test.js
+      - run: node --test tests/windows-installer-platform.test.js tests/windows-path-contract.test.js tests/multiplatform-contract.test.js tests/antigravity-contract.test.js tests/install-uninstall-roundtrip.test.js tests/validate-state.test.js tests/normalize.test.js
 
   # Multi-platform install contract: force path-nofollow backend on Linux so
   # /proc/self/fd regressions fail here instead of only on macOS hosts.
@@ -80,8 +80,8 @@ jobs:
         run: npm run validate-skills && npm run check-docs
       - name: Release blackbox + host probes + fault matrix
         run: node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/release-fault-matrix.test.js
-      - name: Gemini CLI contract
-        run: node --test tests/gemini-cli-contract.test.js
+      - name: Antigravity contract
+        run: node --test tests/antigravity-contract.test.js
       - name: Host probes
         run: node scripts/run-host-probes.js --manifest meta/host-qualification.json --receipt docs/audits/host-contract-receipt.json --write
       - name: Upload failure logs

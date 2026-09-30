@@ -14,7 +14,7 @@
  * - --ask-model non-interactive: auto-bind recommended
  */
 
-/** @typedef {'codex' | 'grok' | 'claude'} ExternalProvider */
+/** @typedef {'codex' | 'grok' | 'claude' | 'agy'} ExternalProvider */
 
 /** Stable Claude Code aliases (no live CLI catalog — design D7). */
 export const CLAUDE_MODEL_ALIASES = Object.freeze([
@@ -22,6 +22,15 @@ export const CLAUDE_MODEL_ALIASES = Object.freeze([
   { slug: 'sonnet', displayName: 'Sonnet', description: 'Balanced default-class', isDefault: true, priority: 2 },
   { slug: 'haiku', displayName: 'Haiku', description: 'Fast / cheap', isDefault: false, priority: 3 },
   { slug: 'fable', displayName: 'Fable', description: 'Alias named in claude --help', isDefault: false, priority: 4 },
+]);
+
+/** Stable Antigravity model aliases and defaults. */
+export const AGY_MODEL_ALIASES = Object.freeze([
+  { slug: 'hybrid', displayName: 'Hybrid (Flash Pass 1 + Pro Pass 2)', description: 'Recommended: fast sweep + deep reasoning verdict', isDefault: true, priority: 1 },
+  { slug: 'gemini-3.8-flash-high', displayName: 'Gemini 3.8 Flash (High)', description: 'Fast scan (~8s) for code review', isDefault: false, priority: 2 },
+  { slug: 'gemini-3.1-pro-high', displayName: 'Gemini 3.1 Pro (High)', description: 'Deep reasoning for architecture and plan review', isDefault: false, priority: 3 },
+  { slug: 'claude-sonnet-4-6', displayName: 'Claude Sonnet 4.6 (Thinking)', description: 'Balanced cross-family option in agy', isDefault: false, priority: 4 },
+  { slug: 'claude-opus-4-6-thinking', displayName: 'Claude Opus 4.6 (Thinking)', description: 'Heavy reasoning option in agy', isDefault: false, priority: 5 },
 ]);
 
 /**
@@ -221,8 +230,70 @@ export function parseClaudeModelsAliases(helpText) {
 }
 
 /**
+ * Parse output of `agy models` (TSV `<slug>\t<displayName>`).
+ * @param {string | null | undefined} raw
+ * @returns {ReviewModel[]}
+ */
+export function parseAgyModelsList(raw) {
+  if (raw == null || String(raw).trim() === '') {
+    return AGY_MODEL_ALIASES.map((a) => ({
+      ...a,
+      visibility: 'list',
+      reasoningLevels: [],
+      provider: 'agy',
+    }));
+  }
+  const lines = String(raw).split(/\r?\n/);
+  /** @type {ReviewModel[]} */
+  const out = [];
+  // Include hybrid alias first as it's the recommended default
+  out.push({
+    slug: 'hybrid',
+    displayName: 'Hybrid (Flash Pass 1 + Pro Pass 2)',
+    description: 'Recommended: fast sweep + deep reasoning verdict',
+    priority: 1,
+    visibility: 'list',
+    reasoningLevels: [],
+    isDefault: true,
+    provider: 'agy',
+  });
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (
+      !trimmed ||
+      trimmed.startsWith('⠋') ||
+      trimmed.startsWith('⠙') ||
+      trimmed.startsWith('⠹') ||
+      trimmed.includes('Fetching available models')
+    ) {
+      continue;
+    }
+    const parts = trimmed.split('\t');
+    const slug = parts[0]?.trim();
+    if (!slug) continue;
+    const displayName = parts[1]?.trim() || slug;
+    const isFlash = slug.includes('flash');
+    const isPro = slug.includes('pro');
+    const priority = isFlash ? 2 : isPro ? 3 : 4;
+    out.push({
+      slug,
+      displayName,
+      description: isFlash ? 'Fast scan (~8s)' : isPro ? 'Deep reasoning' : 'Available in agy',
+      priority,
+      visibility: 'list',
+      reasoningLevels: [],
+      isDefault: false,
+      provider: 'agy',
+    });
+  }
+  return out;
+}
+
+/**
  * Rank models for adversarial external review.
  * Codex: list-visible only, lower priority number first, then deeper reasoning support.
+ * Claude/Agy: priority only (aliases; hybrid/opus first).
  * Grok: CLI default first, then remaining as listed.
  *
  * @param {ReviewModel[]} models
@@ -231,8 +302,8 @@ export function parseClaudeModelsAliases(helpText) {
  */
 export function rankModelsForReview(models, { provider }) {
   const list = Array.isArray(models) ? models.slice() : [];
-  if (provider === 'codex' || provider === 'claude') {
-    // Codex: priority + reasoning. Claude: priority only (aliases; opus first).
+  if (provider === 'codex' || provider === 'claude' || provider === 'agy') {
+    // Codex: priority + reasoning. Claude/Agy: priority only (aliases; hybrid/opus first).
     return list
       .filter((m) => (m.visibility || 'list') !== 'hide')
       .sort((a, b) => {
@@ -348,6 +419,8 @@ export function parseModelArgs(args) {
   let modelGrok = null;
   /** @type {string | null} */
   let modelClaude = null;
+  /** @type {string | null} */
+  let modelAgy = null;
   let askModel = false;
   /** @type {string[]} */
   const remainingTokens = [];
@@ -426,10 +499,24 @@ export function parseModelArgs(args) {
       continue;
     }
 
+    const eqAgy = t.match(/^--model-agy=(.+)$/);
+    if (eqAgy) {
+      modelAgy = eqAgy[1];
+      continue;
+    }
+    if (t === '--model-agy') {
+      const next = tokens[i + 1];
+      if (next && !next.startsWith('-')) {
+        modelAgy = next;
+        i++;
+      }
+      continue;
+    }
+
     remainingTokens.push(t);
   }
 
-  return { model, modelCodex, modelGrok, modelClaude, askModel, remainingTokens };
+  return { model, modelCodex, modelGrok, modelClaude, modelAgy, askModel, remainingTokens };
 }
 
 /**
@@ -510,11 +597,20 @@ export function resolveReviewModel(input) {
         ? input.modelGrok ?? null
         : provider === 'claude'
           ? input.modelClaude ?? null
-          : null;
-  const explicit =
+          : provider === 'agy'
+            ? input.modelAgy ?? null
+            : null;
+  let explicit =
     (perProvider && String(perProvider).trim()) ||
     (input.explicitModel && String(input.explicitModel).trim()) ||
     null;
+
+  if (provider === 'agy' && explicit) {
+    const low = explicit.toLowerCase();
+    if (low === 'flash') explicit = 'gemini-3.8-flash-high';
+    else if (low === 'pro') explicit = 'gemini-3.1-pro-high';
+    else if (low === 'hybrid') explicit = 'hybrid';
+  }
 
   if (explicit) {
     if (explicit === 'cli-default') {
@@ -546,7 +642,13 @@ export function resolveReviewModel(input) {
   }
 
   if (input.userChoice != null && String(input.userChoice).trim() !== '') {
-    const choice = String(input.userChoice).trim();
+    let choice = String(input.userChoice).trim();
+    if (provider === 'agy') {
+      const low = choice.toLowerCase();
+      if (low === 'flash') choice = 'gemini-3.8-flash-high';
+      else if (low === 'pro') choice = 'gemini-3.1-pro-high';
+      else if (low === 'hybrid') choice = 'hybrid';
+    }
     if (choice === 'cli-default') {
       return runResult({
         modelId: null,
