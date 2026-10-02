@@ -35,6 +35,7 @@ import {
   acquireLeaseFile,
   buildActiveLease,
   clearLeaseFile,
+  leasePath,
 } from '../src/writer-lease.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -51,6 +52,7 @@ const ARG_KEYS = {
   'plan-branch': 'planBranch',
   'writer-branch': 'writerBranch',
   phase: 'phase',
+  'host-args': 'hostArgs',
 };
 
 /**
@@ -361,18 +363,28 @@ export function inspectPenLock(lockPath) {
 }
 
 export function writePenLock(lockPath, fields) {
-  const writerWorktree = resolve(String(fields.writerWorktree || ''));
-  if (!writerWorktree || !existsSync(writerWorktree)) {
+  const raw = fields && fields.writerWorktree;
+  if (raw == null || String(raw).trim() === '') {
+    throw new Error('pen.lock writerWorktree must exist (fail closed)');
+  }
+  const writerWorktree = resolve(String(raw));
+  if (!existsSync(writerWorktree)) {
     throw new Error('pen.lock writerWorktree must exist (fail closed)');
   }
   mkdirSync(dirname(lockPath), { recursive: true });
   writeFileSync(
     lockPath,
     `${JSON.stringify({ owner: String(fields.owner), pid: fields.pid, writerWorktree }, null, 2)}\n`,
+    { flag: 'wx' },
   );
 }
 
-export function removePenLock(lockPath) {
+export function removePenLock(lockPath, ownerPid) {
+  if (ownerPid !== undefined) {
+    const info = inspectPenLock(lockPath);
+    if (info.kind === 'absent') return;
+    if (!info.lock || Number(info.lock.pid) !== Number(ownerPid)) return;
+  }
   rmSync(lockPath, { force: true });
 }
 
@@ -424,21 +436,48 @@ function planSlugOf(planPath) {
   return dir && dir !== '.' ? dir : 'plan';
 }
 
+function hostArgv(args, env) {
+  const raw = (args && args.hostArgs) || (env && env.AUTOMATE_HOST_ARGS) || '';
+  const s = String(raw).trim();
+  if (!s) return [];
+  if (s.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) return parsed.map(String);
+    } catch {
+      // fall through
+    }
+  }
+  return s.split(/\s+/).filter(Boolean);
+}
+
 function startHost(opts) {
-  const child = spawn(opts.bin, [], { cwd: opts.cwd, env: opts.env, stdio: 'ignore' });
+  const argv = Array.isArray(opts.argv) ? opts.argv : [];
+  const child = spawn(opts.bin, argv, {
+    cwd: opts.cwd,
+    env: opts.env,
+    stdio: ['pipe', 'ignore', 'ignore'],
+  });
+  if (child.stdin) child.stdin.end();
+  let spawnErr = null;
+  child.on('error', (err) => {
+    spawnErr = err;
+  });
   const wait = (timeoutMs) =>
     new Promise((resolveWait) => {
+      let settled = false;
       const timer = setTimeout(() => {
         try { child.kill('SIGKILL'); } catch { /* ignore */ }
       }, timeoutMs);
-      child.on('error', (err) => {
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
-        resolveWait({ status: 1, stderr: err.message });
-      });
-      child.on('exit', (code) => {
-        clearTimeout(timer);
-        resolveWait({ status: code == null ? 1 : code, stderr: '' });
-      });
+        resolveWait(result);
+      };
+      child.on('error', (err) => finish({ status: 1, stderr: err.message }));
+      child.on('exit', (code) => finish({ status: code == null ? 1 : code, stderr: '' }));
+      if (spawnErr) finish({ status: 1, stderr: spawnErr.message });
     });
   return { pid: child.pid, wait, child };
 }
@@ -478,27 +517,45 @@ export async function runWriterSession(input) {
   if (!hostBin) throw new Error('host CLI path is missing');
 
   mkdirSync(worktreeParent, { recursive: true });
-  gitOrThrow(root, ['worktree', 'add', '-b', writerBranch, worktreePath, 'HEAD'], 'git worktree add');
+  gitExec(root, ['worktree', 'remove', '--force', worktreePath]);
+  rmSync(worktreePath, { recursive: true, force: true });
+  gitOrThrow(root, ['worktree', 'add', '-B', writerBranch, worktreePath, 'HEAD'], 'git worktree add');
 
   const statusRoot = dirname(lockDir);
   let leaseSecret = null;
   let writerPid;
   let started = null;
+  let lockHeld = false;
+  const ownerPid = process.pid;
   try {
-    const lease = acquireLeaseFile(
-      statusRoot,
-      buildActiveLease({ planSlug: slug, phaseId, hostId: host, worktreePath, writerBranch }),
-    );
+    let lease;
+    try {
+      lease = acquireLeaseFile(
+        statusRoot,
+        buildActiveLease({ planSlug: slug, phaseId, hostId: host, worktreePath, writerBranch }),
+      );
+    } catch (err) {
+      if (err && /** @type {any} */ (err).code === 'LEASE_EXISTS') {
+        throw new Error(
+          `${err instanceof Error ? err.message : String(err)} (${leasePath(statusRoot, slug)})`,
+        );
+      }
+      throw err;
+    }
     leaseSecret = lease.secret;
-    writePenLock(lockPath, { owner: host, pid: process.pid, writerWorktree: worktreePath });
+    writePenLock(lockPath, { owner: host, pid: ownerPid, writerWorktree: worktreePath });
+    lockHeld = true;
     started = startHost({
       bin: hostBin,
+      argv: hostArgv(args, env),
       cwd: worktreePath,
       env: { ...env, AUTOMATE_PEN_LOCK: lockPath, AUTOMATE_WRITER_WORKTREE: worktreePath },
     });
     writerPid = started.pid;
-    if (!Number.isInteger(writerPid) || writerPid <= 0) throw new Error('host CLI did not start');
-    writePenLock(lockPath, { owner: host, pid: writerPid, writerWorktree: worktreePath });
+    if (!Number.isInteger(writerPid) || writerPid <= 0) {
+      const failed = await started.wait(Number(env.AUTOMATE_WRITER_TIMEOUT_MS || 5_000));
+      throw new Error(`host CLI did not start${failed.stderr ? `: ${failed.stderr}` : ''}`);
+    }
     const result = await started.wait(Number(env.AUTOMATE_WRITER_TIMEOUT_MS || 60_000));
     if (result.status !== 0) {
       throw new Error(`host CLI exited ${result.status}${result.stderr ? `: ${result.stderr}` : ''}`);
@@ -518,12 +575,17 @@ export async function runWriterSession(input) {
   } finally {
     if (writerPid && isPidAlive(writerPid)) killQuiet(writerPid);
     if (started) killQuiet(started.child);
-    removePenLock(lockPath);
-    if (leaseSecret) {
-      try { clearLeaseFile(statusRoot, slug, leaseSecret); } catch { /* best-effort */ }
-    }
     gitExec(root, ['worktree', 'remove', '--force', worktreePath]);
     rmSync(worktreePath, { recursive: true, force: true });
+    gitExec(root, ['branch', '-D', writerBranch]);
+    if (lockHeld) removePenLock(lockPath, ownerPid);
+    if (leaseSecret) {
+      const leftover = leasePath(statusRoot, slug);
+      const cleared = clearLeaseFile(statusRoot, slug, leaseSecret);
+      if (!cleared && existsSync(leftover)) {
+        throw new Error(`clearLeaseFile left residue (${leftover})`);
+      }
+    }
   }
 }
 

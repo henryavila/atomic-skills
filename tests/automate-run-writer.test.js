@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import {
   inspectPenLock,
   isPidAlive,
+  removePenLock,
   writePenLock,
 } from '../scripts/automate-run.js';
 import { penMatcher } from '../src/automate-host-pen.js';
@@ -182,6 +183,10 @@ function writeFakeCli(dir) {
 set -euo pipefail
 if [[ -n "\${AUTOMATE_LOCK_SNAPSHOT:-}" && -n "\${AUTOMATE_PEN_LOCK:-}" && -f "\${AUTOMATE_PEN_LOCK}" ]]; then
   cp -- "\${AUTOMATE_PEN_LOCK}" "\${AUTOMATE_LOCK_SNAPSHOT}"
+  printf '%s\\n' "$$" > "\${AUTOMATE_LOCK_SNAPSHOT}.pid"
+fi
+if [[ -n "\${AUTOMATE_HOST_ARGV_FILE:-}" ]]; then
+  printf '%s\\n' "\$@" > "\${AUTOMATE_HOST_ARGV_FILE}"
 fi
 if [[ -n "\${AUTOMATE_WRITER_CWD_FILE:-}" ]]; then
   pwd > "\${AUTOMATE_WRITER_CWD_FILE}"
@@ -347,6 +352,75 @@ describe('inspectPenLock (T-001 / L-F2-1)', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('refuses empty writerWorktree without writing a lock (M1 / L-F2-1)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pen-empty-wt-'));
+    try {
+      assert.throws(
+        () =>
+          writePenLock(join(dir, 'pen.lock'), {
+            owner: 'codex',
+            pid: process.pid,
+            writerWorktree: '',
+          }),
+        /writerWorktree/,
+      );
+      assert.throws(
+        () =>
+          writePenLock(join(dir, 'pen.lock'), {
+            owner: 'codex',
+            pid: process.pid,
+          }),
+        /writerWorktree/,
+      );
+      assert.equal(existsSync(join(dir, 'pen.lock')), false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('creates pen.lock exclusively and does not overwrite (C1)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pen-excl-'));
+    const wt = mkdtempSync(join(tmpdir(), 'pen-excl-wt-'));
+    try {
+      const lockPath = join(dir, 'pen.lock');
+      writeFileSync(lockPath, 'foreign\n');
+      assert.throws(
+        () =>
+          writePenLock(lockPath, {
+            owner: 'codex',
+            pid: process.pid,
+            writerWorktree: wt,
+          }),
+        /EEXIST|exist/i,
+      );
+      assert.equal(readFileSync(lockPath, 'utf8'), 'foreign\n');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(wt, { recursive: true, force: true });
+    }
+  });
+
+  it('unlinks pen.lock only when this session owns the pid (C1)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pen-own-'));
+    try {
+      const lockPath = join(dir, 'pen.lock');
+      writeFileSync(
+        lockPath,
+        `${JSON.stringify({
+          owner: 'codex',
+          pid: 2147483646,
+          writerWorktree: dir,
+        })}\n`,
+      );
+      removePenLock(lockPath, process.pid);
+      assert.equal(existsSync(lockPath), true);
+      removePenLock(lockPath, 2147483646);
+      assert.equal(existsSync(lockPath), false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('automate-run writer (T-001 lock)', () => {
@@ -421,6 +495,50 @@ describe('automate-run writer (T-001 lock)', () => {
       cleanupHarness(h);
     }
   });
+
+  it('keeps coordinator pid on pen.lock through spawn (C1)', () => {
+    const h = buildHarness();
+    try {
+      const res = runAutomate(h);
+      assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+      const lock = JSON.parse(readFileSync(h.snapshot, 'utf8'));
+      const childPid = Number(readFileSync(`${h.snapshot}.pid`, 'utf8').trim());
+      assert.ok(Number.isInteger(childPid) && childPid > 0);
+      assert.notEqual(lock.pid, childPid);
+      assert.notEqual(lock.pid, process.pid);
+    } finally {
+      cleanupHarness(h);
+    }
+  });
+
+  it('second run on the same fixture succeeds (B1 leftover writer branch)', () => {
+    const h = buildHarness();
+    try {
+      const first = runAutomate(h);
+      assert.equal(first.status, 0, `${first.stdout}\n${first.stderr}`);
+      const second = runAutomate(h);
+      assert.equal(second.status, 0, `${second.stdout}\n${second.stderr}`);
+    } finally {
+      cleanupHarness(h);
+    }
+  });
+
+  it('LEASE_EXISTS cites the lease path and does not write pen.lock (C2)', () => {
+    const h = buildHarness();
+    try {
+      const leaseFile = join(dirname(h.lockDir), 'writer-leases', 'fixture.json');
+      mkdirSync(dirname(leaseFile), { recursive: true });
+      writeFileSync(leaseFile, '{}\n');
+      const res = runAutomate(h);
+      assert.notEqual(res.status, 0);
+      assert.match(`${res.stdout}\n${res.stderr}`, /lease already exists|LEASE_EXISTS/);
+      assert.match(`${res.stdout}\n${res.stderr}`, /writer-leases/);
+      assert.equal(existsSync(join(h.lockDir, 'pen.lock')), false);
+      assert.equal(existsSync(leaseFile), true);
+    } finally {
+      cleanupHarness(h);
+    }
+  });
 });
 
 describe('automate-run writer (T-002 spawn)', () => {
@@ -453,6 +571,38 @@ describe('automate-run writer (T-002 spawn)', () => {
       );
       assert.equal(shown.status, 0, shown.stderr);
       assert.equal(shown.stdout, 'from-writer\n');
+    } finally {
+      cleanupHarness(h);
+    }
+  });
+
+  it('passes AUTOMATE_HOST_ARGS to the host spawn argv (C3)', () => {
+    const h = buildHarness();
+    try {
+      const argvFile = join(h.side, 'host-argv.txt');
+      const res = runAutomate(h, {
+        AUTOMATE_HOST_ARGS: JSON.stringify(['--prompt', 'writer-task']),
+        AUTOMATE_HOST_ARGV_FILE: argvFile,
+      });
+      assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+      const recorded = readFileSync(argvFile, 'utf8');
+      assert.match(recorded, /--prompt/);
+      assert.match(recorded, /writer-task/);
+    } finally {
+      cleanupHarness(h);
+    }
+  });
+
+  it('missing host bin exits nonzero and leaves no lock (C4)', () => {
+    const h = buildHarness();
+    try {
+      const res = runAutomate(h, {}, ['--host-bin', join(h.side, 'no-such-host-bin')]);
+      assert.notEqual(res.status, 0);
+      assert.equal(existsSync(join(h.lockDir, 'pen.lock')), false);
+      assert.match(
+        `${res.stdout}\n${res.stderr}`,
+        /ENOENT|did not start|no such file|implement --automate failed/i,
+      );
     } finally {
       cleanupHarness(h);
     }
