@@ -1,0 +1,44 @@
+{
+  "planSlug": "real-automate",
+  "phaseId": "F4",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F4-fix3-writer",
+  "writerBranch": "impl/real-automate-F4-fix3-writer",
+  "finishedAt": "2026-10-02T19:27:59.000Z",
+  "tasks": [
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": [
+        "328f0e1da4516ec1f6dd6694b4c301ab233c740a"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "src/phase-delivery-audit-gate.js",
+        "tests/phase-delivery-audit-gate.test.js"
+      ],
+      "verifierCommand": "node --test tests/phase-delivery-audit-gate.test.js",
+      "exitCode": 0,
+      "transcript": "ℹ tests 52\nℹ suites 11\nℹ pass 52\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 180.912073\n",
+      "notes": "Hash throw and injected docs no longer set actual=expected. Empty machine-and-xor subjects fail closed. Existing XOR_FLOW coverage fixtures still inject actualSha (the fixture is schema-invalid) so divergent-sha / missing-xor / missing-path tests stay green."
+    },
+    {
+      "taskId": "T-003",
+      "status": "claimed-pass",
+      "commitShas": [
+        "be12a9e5fb28a7f873d9b389950bcc3fda88f58a"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "src/phase-review-gate.js",
+        "scripts/automate-run.js",
+        "tests/phase-review-gate.test.js"
+      ],
+      "verifierCommand": "node --test tests/phase-review-gate.test.js",
+      "exitCode": 0,
+      "transcript": "ℹ tests 45\nℹ suites 10\nℹ pass 45\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 90.550654\n",
+      "notes": "Tradeoff: park remaining findings to status/automate/<slug>-residuals.json (sidecar) instead of merging under a key on the maestro cursor. writeStatus also redirects a cursor path to the sidecar so step/phaseId cannot be overwritten. Keep-green: tests/automate-product-fence.test.js and tests/automate-run-writer.test.js pass."
+    }
+  ]
+}

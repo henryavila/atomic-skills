@@ -25,7 +25,7 @@ status: active
 branch: plan/real-automate
 started: 2026-10-02T16:41:53.105Z
 lastUpdated: 2026-10-02T17:00:23.068Z
-nextAction: Spawn F4-fix3 writer for local-review criticals (hash throw; cursor park).
+nextAction: Re-run evaluation after F4-fix3, then residual review both.
 parentPlan: real-automate
 phaseId: F4
 businessIntent:
@@ -60,11 +60,11 @@ businessIntent:
     `flow.json` com um xor sem linha no relatório de audit falha. Um achado de
     mistura do bloco não entra no loop e para na hora. Sem critical e sem major
     a fase fecha e a seguinte abre; na terceira, critical ou major para."
-tasksDone: 1
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 1
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -139,8 +139,8 @@ tasks:
       task estende `src/phase-delivery-audit-gate.js`, que hoje não lê
       `flow.json`. A skill também não lê o grafo hoje. Verifier: fixture de flow
       com um xor e relatório sem a linha sai falho."
-    status: active
-    lastUpdated: 2026-10-02T18:50:00.000Z
+    status: done
+    lastUpdated: 2026-10-02T19:30:00.000Z
     scopeBoundary:
       - Do not treat the final page as this audit gate.
       - Do not skip reading flow/flow.json at ratifiedGraphSha.
@@ -184,6 +184,15 @@ tasks:
     summary: Audit lê flow/flow.json no ratifiedGraphSha; xor sem linha no relatório
       falha. Close path carrega o grafo. Hash throw e subjects vazios fail-closed.
     weight: 1
+    closedAt: 2026-10-02T19:30:00.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T19:30:00.000Z
+      verifiedCommit: 1eac7bbf056067e757f86bab58f9fcc8ca221507
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/phase-delivery-audit-gate.test.js: ℹ tests 52
+        ℹ pass 52 ℹ fail 0"
   - id: T-003
     title: Loop com teto
     description: "Critical ou major corrige num agente isolado e a review volta. O
@@ -192,8 +201,8 @@ tasks:
       abre. Na terceira, critical ou major abre travei. Mistura do bloco
       carimbado para na hora e não entra no loop. Verifier: teste do contador no
       programa."
-    status: active
-    lastUpdated: 2026-10-02T18:50:00.000Z
+    status: done
+    lastUpdated: 2026-10-02T19:30:00.000Z
     scopeBoundary:
       - Do not advance after a third review that still has critical or major.
       - Do not put a mix finding of the stamped block into the review loop.
@@ -228,6 +237,16 @@ tasks:
     summary: Loop de 3 reviews com teto; mistura para na hora; claim e product fence
       no close. Park não sobrescreve o cursor.
     weight: 1
+    closedAt: 2026-10-02T19:30:00.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T19:30:00.000Z
+      verifiedCommit: 1eac7bbf056067e757f86bab58f9fcc8ca221507
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/phase-review-gate.test.js: ℹ tests 45 ℹ pass
+        45 ℹ fail 0; tests/automate-product-fence.test.js: ℹ tests 12 ℹ pass 12
+        ℹ fail 0"
 parked: []
 emerged: []
 startedCommit: a011a538572eed002e6c90dba116562f6ee2d392
