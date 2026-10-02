@@ -770,8 +770,43 @@ describe('canRunPhaseDone + canFinalizeOrArchive', () => {
   });
 
   it('automate + eval + lessons + review both + decisionReview + deliveryAudit passed → allow', () => {
-    const r = canRunPhaseDone(fullPhaseDoneOk);
+    const xorFlow = {
+      schemaVersion: '1.0',
+      ratifiedGraphSha: 'a'.repeat(64),
+      graph: {
+        entry: 'S1',
+        nodes: {
+          S1: { type: 'activity', next: 'D1' },
+          D1: { type: 'xor', branches: [] },
+        },
+      },
+      machines: [{ id: 'request' }],
+    };
+    const r = canRunPhaseDone({
+      ...fullPhaseDoneOk,
+      flowDoc: xorFlow,
+      ratifiedGraphSha: xorFlow.ratifiedGraphSha,
+      actualSha: xorFlow.ratifiedGraphSha,
+      reportContent: [
+        '# Audit Delivery — demo',
+        '**Verdict:** CLOSED',
+        '## Intent Package',
+        'D1',
+        '## Residual',
+        'none CRITICAL',
+        '## Findings',
+        'All RESOLVED',
+        'machine request: faz',
+        'xor D1: faz',
+      ].join('\n'),
+    });
     assert.equal(r.ok, true, r.reason);
+  });
+
+  it('honest CLOSED without graph input fails under automate', () => {
+    const r = canRunPhaseDone(fullPhaseDoneOk);
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /flow\/flow\.json|ratifiedGraphSha|graph/i);
   });
 
   it('automate full chain without deliveryAuditGate → block', () => {

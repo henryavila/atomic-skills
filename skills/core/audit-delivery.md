@@ -87,7 +87,7 @@ Prove **what was promised is present in the running system** (code + ops surface
 
 **Phase close is hard:** every `phase-done` (Mode-1 + pure-maestro) **requires** a real `audit-delivery` run and durable `deliveryAuditGate` — never tip-only, never skippable. Plan-end `intentVsDelivered` is **not** a substitute.
 
-**Flow graph (HARD):** read `flow/flow.json` at `ratifiedGraphSha`. Refuse a divergent sha. Emit **one line per machine and per xor** with `faz` | `pela metade` | `não faz`. Where `businessIntent` disagrees with the graph, **the graph wins**. A missing xor/machine line fails. The final page / `userValidatedAt` button does **not** substitute this gate. A cited `flow/flow.json` path that is missing, empty, or escaped is an issue (never treat exists=false as pass).
+**Flow graph (HARD):** read `flow/flow.json` at `ratifiedGraphSha`. Refuse a divergent sha. Emit **one line per machine and per xor** with `faz` | `pela metade` | `não faz`. Where `businessIntent` disagrees with the graph, **the graph wins**. A missing xor/machine line fails. The final page / `userValidatedAt` button does **not** substitute this gate. A cited `flow/flow.json` path that is missing, empty, or escaped is an issue (never treat exists=false as pass). Phase-done (`deliveryAuditAllowsClose` / `canRunPhaseDone` / `assert-automate-gate --gate phase-done`) **loads** `flow/flow.json` at `ratifiedGraphSha` even when the caller did not inject the graph; an honest CLOSED stamp without graph coverage fails under automate.
 
 ```text
 review-code → PATCH correct? (intent FORBIDDEN)
