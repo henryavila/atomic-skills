@@ -211,14 +211,13 @@ tasks:
       - it - critical or major dispatches an isolated fix agent and review
         returns, cap 3.
       - it - without critical or major, remaining findings go to
-        status/automate/<slug>.json, the phase closes, and the next opens.
+        status/automate/<slug>-residuals.json (not the maestro cursor), the
+        phase closes, and the next opens.
       - it - on the third review, critical or major stops.
       - it - a mix finding of the stamped block stops immediately and does not
         enter the loop.
       - it - phase close validates the claim and passes
         src/automate-product-fence.js.
-      - it - parking residual findings does not overwrite the maestro cursor
-        file status/automate/<slug>.json.
     verifier:
       kind: shell
       command: node --test tests/phase-review-gate.test.js
