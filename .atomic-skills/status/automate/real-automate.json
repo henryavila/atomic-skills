@@ -1,8 +1,8 @@
 {
-  "step": "F",
+  "step": "C",
   "phaseId": "F4",
-  "redispatchCount": 8,
-  "updatedAt": "2026-10-02T18:07:57.775Z",
+  "redispatchCount": 9,
+  "updatedAt": "2026-10-02T19:18:41.874Z",
   "operatorOverrides": [
     {
       "at": "2026-09-25T22:19:08.523Z",
@@ -39,6 +39,12 @@
       "reason": "Operator asked F4-fix2 after F4-fix1 merge: green lifecycle-order-guard, decision-review-gate, implement-phase-agents-contract tests that still expect stamp-only CLOSED allow without graph coverage.",
       "priorCount": 7,
       "gate": "evaluation"
+    },
+    {
+      "at": "2026-10-02T19:18:41.874Z",
+      "reason": "Operator asked F4-fix3 after review-code both: two local criticals — invalid flow hash throw vacuous-pass; parkResidualFindings overwrites automate cursor.",
+      "priorCount": 8,
+      "gate": "phase-review"
     }
   ],
   "claimReportPath": ".atomic-skills/status/automate/real-automate-F4-fix2-claims.json"

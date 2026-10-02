@@ -25,7 +25,7 @@ status: active
 branch: plan/real-automate
 started: 2026-10-02T16:41:53.105Z
 lastUpdated: 2026-10-02T17:00:23.068Z
-nextAction: Spawn evaluation agent for F4 after T-002 close-path graph fix.
+nextAction: Spawn F4-fix3 writer for local-review criticals (hash throw; cursor park).
 parentPlan: real-automate
 phaseId: F4
 businessIntent:
@@ -60,11 +60,11 @@ businessIntent:
     `flow.json` com um xor sem linha no relatório de audit falha. Um achado de
     mistura do bloco não entra no loop e para na hora. Sem critical e sem major
     a fase fecha e a seguinte abre; na terceira, critical ou major para."
-tasksDone: 3
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 3
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -139,8 +139,8 @@ tasks:
       task estende `src/phase-delivery-audit-gate.js`, que hoje não lê
       `flow.json`. A skill também não lê o grafo hoje. Verifier: fixture de flow
       com um xor e relatório sem a linha sai falho."
-    status: done
-    lastUpdated: 2026-10-02T18:07:30.000Z
+    status: active
+    lastUpdated: 2026-10-02T18:50:00.000Z
     scopeBoundary:
       - Do not treat the final page as this audit gate.
       - Do not skip reading flow/flow.json at ratifiedGraphSha.
@@ -154,6 +154,8 @@ tasks:
       - it - deliveryAuditAllowsClose / canRunPhaseDone / assert-automate-gate
         --gate phase-done load flow/flow.json at ratifiedGraphSha; an honest
         CLOSED stamp without graph input fails under automate.
+      - it - schema-invalid flow.json / hash throw / empty machine-and-xor
+        subjects fail closed (do not treat as SHA-equal coverage).
     verifier:
       kind: shell
       command: node --test tests/phase-delivery-audit-gate.test.js
@@ -180,18 +182,8 @@ tasks:
       - kind: file
         path: tests/implement-phase-agents-contract.test.js
     summary: Audit lê flow/flow.json no ratifiedGraphSha; xor sem linha no relatório
-      falha. Close path carrega o grafo.
+      falha. Close path carrega o grafo. Hash throw e subjects vazios fail-closed.
     weight: 1
-    closedAt: 2026-10-02T18:07:30.000Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-10-02T18:07:30.000Z
-      verifiedCommit: de5e138964762aec8206ebe4a117d803f6858a33
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test tests/phase-delivery-audit-gate.test.js: ℹ tests 49
-        ℹ pass 49 ℹ fail 0; lifecycle-order-guard 41/41; decision-review-gate 28/28;
-        implement-phase-agents-contract 13/13"
   - id: T-003
     title: Loop com teto
     description: "Critical ou major corrige num agente isolado e a review volta. O
@@ -200,8 +192,8 @@ tasks:
       abre. Na terceira, critical ou major abre travei. Mistura do bloco
       carimbado para na hora e não entra no loop. Verifier: teste do contador no
       programa."
-    status: done
-    lastUpdated: 2026-10-02T17:00:23.068Z
+    status: active
+    lastUpdated: 2026-10-02T18:50:00.000Z
     scopeBoundary:
       - Do not advance after a third review that still has critical or major.
       - Do not put a mix finding of the stamped block into the review loop.
@@ -216,6 +208,8 @@ tasks:
         enter the loop.
       - it - phase close validates the claim and passes
         src/automate-product-fence.js.
+      - it - parking residual findings does not overwrite the maestro cursor
+        file status/automate/<slug>.json.
     verifier:
       kind: shell
       command: node --test tests/phase-review-gate.test.js
@@ -224,24 +218,16 @@ tasks:
       - kind: file
         path: scripts/automate-run.js
       - kind: file
+        path: src/phase-review-gate.js
+      - kind: file
         path: src/automate-product-fence.js
       - kind: file
         path: tests/automate-product-fence.test.js
       - kind: file
         path: tests/phase-review-gate.test.js
     summary: Loop de 3 reviews com teto; mistura para na hora; claim e product fence
-      no close.
+      no close. Park não sobrescreve o cursor.
     weight: 1
-    closedAt: 2026-10-02T17:00:23.068Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-10-02T17:00:23.068Z
-      verifiedCommit: b2b507549365f9295822649a4e1216e506074d40
-      passed: true
-      exitCode: 0
-      outputSummary: "node --test tests/phase-review-gate.test.js: ℹ tests 44 ℹ pass
-        44 ℹ fail 0; tests/automate-product-fence.test.js: ℹ tests 12 ℹ pass 12
-        ℹ fail 0"
 parked: []
 emerged: []
 startedCommit: a011a538572eed002e6c90dba116562f6ee2d392
