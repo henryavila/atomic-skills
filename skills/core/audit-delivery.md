@@ -87,6 +87,8 @@ Prove **what was promised is present in the running system** (code + ops surface
 
 **Phase close is hard:** every `phase-done` (Mode-1 + pure-maestro) **requires** a real `audit-delivery` run and durable `deliveryAuditGate` — never tip-only, never skippable. Plan-end `intentVsDelivered` is **not** a substitute.
 
+**Flow graph (HARD):** read `flow/flow.json` at `ratifiedGraphSha`. Refuse a divergent sha. Emit **one line per machine and per xor** with `faz` | `pela metade` | `não faz`. Where `businessIntent` disagrees with the graph, **the graph wins**. A missing xor/machine line fails. The final page / `userValidatedAt` button does **not** substitute this gate. A cited `flow/flow.json` path that is missing, empty, or escaped is an issue (never treat exists=false as pass).
+
 ```text
 review-code → PATCH correct? (intent FORBIDDEN)
 audit-delivery → INTENT delivered? (intent REQUIRED) — hard on phase-done
