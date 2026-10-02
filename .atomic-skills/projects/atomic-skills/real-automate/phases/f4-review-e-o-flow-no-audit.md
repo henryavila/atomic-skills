@@ -24,8 +24,9 @@ goal: o programa conduz cada fase até a seguinte. Antes da primeira fase
 status: active
 branch: plan/real-automate
 started: 2026-10-02T16:41:53.105Z
-lastUpdated: 2026-10-02T16:41:53.105Z
-nextAction: spawn fresh writer for F4
+lastUpdated: 2026-10-02T17:00:23.068Z
+nextAction: Run `phase-done` after evaluation, lessons, review both,
+  decision-review, and audit-delivery.
 parentPlan: real-automate
 phaseId: F4
 businessIntent:
@@ -60,11 +61,11 @@ businessIntent:
     `flow.json` com um xor sem linha no relatório de audit falha. Um achado de
     mistura do bloco não entra no loop e para na hora. Sem critical e sem major
     a fase fecha e a seguinte abre; na terceira, critical ou major para."
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 0
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -94,8 +95,8 @@ tasks:
       sessão não passa. O brief leva o grafo e o esboço escolhido. Task complexa
       entra nesta review, antes de fechar a fase. Verifier: `node --test
       tests/phase-review-gate.test.js` cobrindo esses casos."
-    status: pending
-    lastUpdated: 2026-10-02T16:41:53.105Z
+    status: done
+    lastUpdated: 2026-10-02T17:00:23.068Z
     scopeBoundary:
       - Do not ask for the external CLI again mid-run.
       - Do not accept a session-written `- internal:` line as the external
@@ -123,6 +124,15 @@ tasks:
     summary: Grava reviewExternalCli, dispara o CLI externo, recusa overrideReason
       sem stderr e recibo de sessão.
     weight: 1
+    closedAt: 2026-10-02T17:00:23.068Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T17:00:23.068Z
+      verifiedCommit: b2b507549365f9295822649a4e1216e506074d40
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/phase-review-gate.test.js: ℹ tests 44 ℹ pass
+        44 ℹ fail 0"
   - id: T-002
     title: Audit lê o grafo
     description: "`audit-delivery` recusa sha divergente e emite uma linha por
@@ -130,8 +140,8 @@ tasks:
       task estende `src/phase-delivery-audit-gate.js`, que hoje não lê
       `flow.json`. A skill também não lê o grafo hoje. Verifier: fixture de flow
       com um xor e relatório sem a linha sai falho."
-    status: pending
-    lastUpdated: 2026-10-02T16:41:53.105Z
+    status: done
+    lastUpdated: 2026-10-02T17:00:23.068Z
     scopeBoundary:
       - Do not treat the final page as this audit gate.
       - Do not skip reading flow/flow.json at ratifiedGraphSha.
@@ -155,6 +165,15 @@ tasks:
     summary: Audit lê flow/flow.json no ratifiedGraphSha; xor sem linha no relatório
       falha.
     weight: 1
+    closedAt: 2026-10-02T17:00:23.068Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T17:00:23.068Z
+      verifiedCommit: b2b507549365f9295822649a4e1216e506074d40
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/phase-delivery-audit-gate.test.js: ℹ tests 44
+        ℹ pass 44 ℹ fail 0"
   - id: T-003
     title: Loop com teto
     description: "Critical ou major corrige num agente isolado e a review volta. O
@@ -163,8 +182,8 @@ tasks:
       abre. Na terceira, critical ou major abre travei. Mistura do bloco
       carimbado para na hora e não entra no loop. Verifier: teste do contador no
       programa."
-    status: pending
-    lastUpdated: 2026-10-02T16:41:53.105Z
+    status: done
+    lastUpdated: 2026-10-02T17:00:23.068Z
     scopeBoundary:
       - Do not advance after a third review that still has critical or major.
       - Do not put a mix finding of the stamped block into the review loop.
@@ -195,6 +214,16 @@ tasks:
     summary: Loop de 3 reviews com teto; mistura para na hora; claim e product fence
       no close.
     weight: 1
+    closedAt: 2026-10-02T17:00:23.068Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T17:00:23.068Z
+      verifiedCommit: b2b507549365f9295822649a4e1216e506074d40
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/phase-review-gate.test.js: ℹ tests 44 ℹ pass
+        44 ℹ fail 0; tests/automate-product-fence.test.js: ℹ tests 12 ℹ pass 12
+        ℹ fail 0"
 parked: []
 emerged: []
 startedCommit: a011a538572eed002e6c90dba116562f6ee2d392
@@ -203,14 +232,16 @@ planActive: true
 current: true
 ---
 
+# Narrative / notes
+
 Initiative for phase **F4 — Review e o flow no audit**.
 
 Lessons applied at start: L-F2-1 (cited path must fail closed), L-F2-2 (size-cap; do not inflate parser).
 
 ## Session handoff
-- **Narrative:** F4 materialized with operator-ratified BI. Descriptor-only is now active. Host-thin maestro will spawn a fresh code-only writer.
-- **Decision log:** operator-continue F3→F4. Ratify F4 + apply L-F2-1 and L-F2-2.
-- **Single nextAction:** spawn fresh writer for F4
-- **Verbatim state:** `.atomic-skills/projects/atomic-skills/real-automate/phases/f4-review-e-o-flow-no-audit.md`
-- **Uncommitted changes:** materialize pair (this initiative + plan descriptor BI).
+- **Narrative:** F4 writer merged on plan/real-automate. T-001–T-003 closed through post-merge verifiers (review 44/44, audit 44/44, fence 12/12). Keep-green writer 22/22 and pen 34/34. Cursor step E.
+- **Decision log:** operator-continue F3→F4. Ratify F4 + apply L-F2-1/L-F2-2. Writer claimed-pass exclusive SHAs 3974ee76, 3df2f38f, 8aa3017a.
+- **Single nextAction:** Spawn evaluation agent for F4 (Step F), then lessons/review/decision-review/audit-delivery before phase-done.
+- **Verbatim state:** HEAD `b2b507549365f9295822649a4e1216e506074d40`; verifiers `node --test tests/phase-review-gate.test.js` 44/44, `node --test tests/phase-delivery-audit-gate.test.js` 44/44, `node --test tests/automate-product-fence.test.js` 12/12.
+- **Uncommitted changes:** this done checkpoint (initiative + completions + cursor).
 

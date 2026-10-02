@@ -1,26 +1,62 @@
 {
   "planSlug": "real-automate",
-  "phaseId": "F3",
-  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F3-fix1",
-  "writerBranch": "impl/real-automate-F3-fix1",
-  "finishedAt": "2026-10-02T15:30:02.000Z",
+  "phaseId": "F4",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F4-writer",
+  "writerBranch": "impl/real-automate-F4-writer",
+  "finishedAt": "2026-10-02T16:57:24.000Z",
   "tasks": [
     {
       "taskId": "T-001",
       "status": "claimed-pass",
-      "base": "4d99c1e98231b8ade24fe59aa454ab30b97d2f75",
-      "head": "6a60f3bac57d87977290ecbfa9f7c504708c3ce3",
       "commitShas": [
-        "6a60f3bac57d87977290ecbfa9f7c504708c3ce3"
+        "3974ee76b6bcd31459564422fe1699af5993139e"
       ],
+      "base": null,
+      "head": null,
       "paths": [
         "scripts/automate-run.js",
-        "tests/automate-run-writer.test.js"
+        "src/phase-review-gate.js",
+        "tests/phase-review-gate.test.js",
+        "meta/schemas/plan.schema.json"
       ],
-      "verifierCommand": "node --test tests/automate-run-writer.test.js",
+      "verifierCommand": "node --test tests/phase-review-gate.test.js",
       "exitCode": 0,
-      "transcript": "tests 22\nsuites 4\npass 22\nfail 0\ncancelled 0\nskipped 0\ntodo 0\nduration_ms 10329.03261\n",
-      "notes": "F3-fix1 closes B1 leftover writer branch, C1 exclusive pen.lock + coordinator pid + owner-only unlink, C2 LEASE_EXISTS cites lease path and does not unlink others, C3 AUTOMATE_HOST_ARGS, C4 startHost error listener, M1 empty writerWorktree fail-closed. Keep-green: tests/automate-host-pen.test.js 34/34, tests/find-missing-ui.test.js 28/28."
+      "transcript": "tests 44\nsuites 10\npass 44\nfail 0\nEXIT_REVIEW:0\n"
+    },
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": [
+        "3df2f38f744cd37db10a6ec510ebabec96306846"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "src/phase-delivery-audit-gate.js",
+        "tests/phase-delivery-audit-gate.test.js",
+        "skills/core/audit-delivery.md"
+      ],
+      "verifierCommand": "node --test tests/phase-delivery-audit-gate.test.js",
+      "exitCode": 0,
+      "transcript": "tests 44\nsuites 10\npass 44\nfail 0\nEXIT_AUDIT:0\n"
+    },
+    {
+      "taskId": "T-003",
+      "status": "claimed-pass",
+      "commitShas": [
+        "8aa3017ae4612453347a56682a5cebb41baa4458"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "scripts/automate-run.js",
+        "src/automate-product-fence.js",
+        "tests/automate-product-fence.test.js",
+        "tests/phase-review-gate.test.js"
+      ],
+      "verifierCommand": "node --test tests/phase-review-gate.test.js",
+      "exitCode": 0,
+      "transcript": "tests 44\nsuites 10\npass 44\nfail 0; also tests/automate-product-fence.test.js 12/12. Keep-green: tests/automate-run-writer.test.js 22/22, tests/automate-host-pen.test.js 34/34.\n"
     }
   ]
 }
