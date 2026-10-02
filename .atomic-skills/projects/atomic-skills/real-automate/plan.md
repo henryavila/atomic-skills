@@ -548,20 +548,20 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 ## Self-review against code-quality gates
 
-- G1 read-before-claim: claims about `isAutomateActive`, `assert-automate-gate`, and the existing detectors name files that exist in this repo (`src/implement-mode.js`, `scripts/find-missing-flow.js`, `scripts/serve-flow.js`, `tests/phase-review-gate.test.js`). The detectors `find-missing-architecture.js` and `find-missing-ui.js` are outputs of F1 and F2, not present yet. P2 names `pre-write.sh`. P5 names `scripts/design-gates.js`.
+- G1 read-before-claim: claims about `isAutomateActive`, `assert-automate-gate`, and the existing detectors name files that exist in this repo (`src/implement-mode.js`, `scripts/find-missing-flow.js`, `scripts/serve-flow.js`, `tests/phase-review-gate.test.js`, `scripts/find-missing-architecture.js`, `scripts/find-missing-ui.js`). P2 names `pre-write.sh`. P5 names `scripts/design-gates.js`.
 - G2 soft-language: ban-list grep on this file found 0.
 - G6 reference-or-strike: the narrative and phase goals do not carry `verified_by:` or `unverified:` on each sentence. Bare assertions remain in the body and in `phases[]`.
 - Initiative-depth: 1/6 initiatives materialized (F0). F1–F5 stay descriptor-only. Their `.source.json` tasks now carry the same limits as the phase goals. `projects/atomic-skills/real-automate/source.md` matches those goals and P2/P5.
-- Ground-truth: Status=complete-with-findings; mode=ground-truth; premises=17 (missing=0, false=0); impacts=21 (direct=17, indirect=4); detector exit checked in this pass.
+- Ground-truth: Status=complete-with-findings; mode=ground-truth; fp=1b2f8ea0b87c; premises=17 (missing=0, false=0); impacts=21 (direct=17, indirect=4); detector exit checked in this pass.
 - Operator ratification 2026-09-25: P5 and F4. The program runs the slice flow. It spawns the CLI that is not the open harness, waits, and writes the review status file with command, exit, stderr, and verdict. A session-written `- internal:` line does not open the flag. Output without a verdict does not count. A non-zero exit stores the real stderr and does not count as a passed external review.
 
 ## Ground-truth review
 
 **Status:** complete-with-findings
 **Codebase class:** populated
-**Scanned:** `src/**/*.js` (86), `scripts/**/*.js` (99), `skills/shared/project-assets/hooks/` (6), `skills/core/implement.md`, `skills/core/audit-delivery.md`, `tests/phase-review-gate.test.js`, `tests/automate-host-pen.test.js`, `tests/design-gates.test.js`, `meta/schemas/plan.schema.json`
-**Commit:** uncommitted
-**At:** 2026-09-25T18:19:06Z
+**Scanned:** `src/**/*.js` (86), `scripts/**/*.js` (101), `skills/shared/project-assets/hooks/` (6), `skills/core/implement.md`, `skills/core/audit-delivery.md`, `tests/phase-review-gate.test.js`, `tests/automate-host-pen.test.js`, `tests/find-missing-ui.test.js`, `tests/design-gates.test.js`, `meta/schemas/plan.schema.json`
+**Commit:** 8e33c818
+**At:** 2026-10-02T10:32:00Z
 
 ### A — Plan premises vs code
 
@@ -571,7 +571,7 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 | 2 | O gate `assert-automate-gate` existe e a sessão só avança se o modelo chamar o CLI | ok | `scripts/assert-automate-gate.js`; `skills/core/implement.md:32` |
 | 3 | Não existe flag `--unattended` no código de produto | ok | busca em `*.js`: só comentário em `src/uninstall.js:222` |
 | 4 | `find-missing-flow.js`, `find-unreviewed-plans.js` e `find-plans-missing-ground-truth.js` existem | ok | os três estão em `scripts/` |
-| 5 | `find-missing-architecture.js` e `find-missing-ui.js` ainda não existem; F1 e F2 os criam | ok | ausência em `scripts/`; não são premissa de existência |
+| 5 | `find-missing-architecture.js` (F1) e `find-missing-ui.js` (F2) existem; o detector de UI ainda recusa protótipo ausente só depois do review-fix | ok | `scripts/find-missing-architecture.js:1`; `scripts/find-missing-ui.js:1`; F2 review F-001: missing screen path is skipped when `existsSync` is false (`scripts/find-missing-ui.js:166`) |
 | 6 | `serve-flow.js --up` existe | ok | `scripts/serve-flow.js:5` |
 | 7 | `tests/phase-review-gate.test.js` existe | ok | arquivo presente |
 | 8 | `src/providers/skills-file-set.js` e `skills/shared/project-assets/project-setup.md` existem | ok | os dois estão no worktree |
@@ -599,7 +599,7 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 | 8 | A caneta já está no branch e `assessHostWrite` recusa com a prova desligada | `scripts/automate-run.js:167-172`; `src/automate-host-pen.js:152-160` | direct | T-003 da initiative F0: prova desligada não conta |
 | 9 | `lastAssert` em `src/maestro-cursor.js` é o cursor da sessão | `src/maestro-cursor.js:18` | indirect | a sessão orquestradora não grava. O agente que fecha a fase pode, porque o fechamento passa pelo gate |
 | 10 | `find-missing-design-process.js` e o `userApproved` do recibo design-gates já existem e não são o cartão | `scripts/find-missing-design-process.js`; `scripts/design-gates.js:6`, `:91` | direct | F1 T-002: o cartão é `architecture/decisions.json` |
-| 11 | `exitGateType: ui-gate` existe no schema e nenhum detector em `src/` lê esse campo | `meta/schemas/plan.schema.json:655-659` | direct | F2 T-002: o carimbo é `ui/ui.json` |
+| 11 | `exitGateType: ui-gate` existe no schema; `find-missing-ui.js` recusa esse campo como carimbo | `meta/schemas/plan.schema.json:655-659`; `scripts/find-missing-ui.js:13`, `:84-89` | direct | F2 T-002: o carimbo é `ui/ui.json` |
 | 12 | `serve-flow.js` só serve o preview de `flow.html` | `scripts/serve-flow.js:5`; `scripts/lib/serve-flow.js:63` | direct | F5 T-002: o preview do flow continua; a página é outra vista |
 | 13 | `reviewReceiptGap` aceita `- internal:`; `automate-run.js` chama o detector sem `--require-external` | `scripts/find-unreviewed-plans.js:40-51`; `scripts/automate-run.js:176-178` | direct | F0 T-003 cria a flag e a partida a usa |
 | 14 | `reviewExternalCli` não está no schema do plano | `meta/schemas/plan.schema.json` | direct | F4 T-001 grava o campo no plano e no schema |
@@ -617,4 +617,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=fed611bfd9c5 | premises=17 | impacts=21 @ uncommitted (2026-09-28T14:10:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=1b2f8ea0b87c | premises=17 | impacts=21 @ 8e33c818 (2026-10-02T10:32:00Z)
