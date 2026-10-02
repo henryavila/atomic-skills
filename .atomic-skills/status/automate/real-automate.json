@@ -1,8 +1,8 @@
 {
-  "step": "F",
+  "step": "C",
   "phaseId": "F3",
-  "redispatchCount": 5,
-  "updatedAt": "2026-10-02T13:45:39.639Z",
+  "redispatchCount": 6,
+  "updatedAt": "2026-10-02T15:18:53.712Z",
   "operatorOverrides": [
     {
       "at": "2026-09-25T22:19:08.523Z",
@@ -20,6 +20,12 @@
       "at": "2026-10-02T10:28:16.492Z",
       "reason": "Operator asked to continue F2 after local+codex needs_changes (critical missing screen file; majors on architecture sha, phase scan, keyword forms). Previous in-tree NLP runaway stashed; targeted code-only fix agent for F-001..F-005.",
       "priorCount": 4,
+      "gate": "phase-review"
+    },
+    {
+      "at": "2026-10-02T15:18:53.711Z",
+      "reason": "Operator asked to dispatch F3 correction writer after residual local+Codex needs_changes (B1 leftover writer branch; C1 non-exclusive pen.lock; C2 lease residue; C3 empty host argv; C4 spawn error unhandled).",
+      "priorCount": 5,
       "gate": "phase-review"
     }
   ],
