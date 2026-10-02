@@ -231,6 +231,27 @@ describe('canRunPhaseDone wires present-before-PASS', () => {
   });
 
   it('allows when present evidence present', () => {
+    const xorFlow = {
+      schemaVersion: '1.0',
+      planSlug: 'minimal-xor',
+      ratifiedGraphSha: 'a'.repeat(64),
+      graph: {
+        entry: 'S1',
+        nodes: {
+          S1: { type: 'activity', next: 'D1' },
+          D1: {
+            type: 'xor',
+            branches: [
+              { id: 'D1.yes', next: 'end_ok' },
+              { id: 'D1.no', next: 'end_no' },
+            ],
+          },
+          end_ok: { type: 'end' },
+          end_no: { type: 'end' },
+        },
+      },
+      machines: [{ id: 'request' }],
+    };
     const r = canRunPhaseDone({
       planExecutionMode: 'automate',
       evaluationGate: evalPassed,
@@ -243,6 +264,24 @@ describe('canRunPhaseDone wires present-before-PASS', () => {
         reportPath: '.atomic-skills/reviews/audit-delivery-demo.md',
         verifiedAt: '2026-08-04T15:00:00.000Z',
       },
+      planPath: '/tmp/demo-plan/plan.md',
+      flowDoc: xorFlow,
+      ratifiedGraphSha: xorFlow.ratifiedGraphSha,
+      actualSha: xorFlow.ratifiedGraphSha,
+      reportContent: [
+        '# Audit Delivery — demo',
+        '**Verdict:** CLOSED',
+        '## Intent Package',
+        'D1',
+        '## Residual',
+        'none CRITICAL',
+        '## Findings',
+        'All RESOLVED',
+        '',
+        '## Flow graph',
+        'machine request: faz',
+        'xor D1: faz',
+      ].join('\n'),
     });
     assert.equal(r.ok, true, r.reason);
   });
