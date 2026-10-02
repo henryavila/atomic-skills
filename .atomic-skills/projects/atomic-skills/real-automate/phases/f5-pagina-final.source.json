@@ -8,27 +8,91 @@
     {
       "id": "T-001",
       "title": "Frases",
-      "description": "Cada decisão do JSONL ganha `said` e `saw`. Entrada sem as duas não conta como apresentada. Verifier: teste do leitor da página."
+      "description": "Cada decisão do JSONL ganha `said` e `saw`. Entrada sem as duas não conta como apresentada. Verifier: teste do leitor da página.",
+      "outputs": [
+        { "kind": "file", "path": "src/decision-log.js" },
+        { "kind": "file", "path": "tests/decision-log.test.js" },
+        { "kind": "file", "path": "tests/final-page-reader.test.js" }
+      ],
+      "scopeBoundary": [
+        "Do not treat chat ok as presented evidence.",
+        "Do not merge the PR.",
+        "Do not archive in this phase's PR command."
+      ],
+      "acceptance": [
+        "it - each JSONL decision carries said and saw.",
+        "it - an entry missing said or saw does not count as presented.",
+        "it - the page reader test covers those cases."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/final-page-reader.test.js",
+        "expectExitCode": 0
+      }
     },
     {
       "id": "T-002",
       "title": "Servidor",
-      "description": "A vista final não abre em `file://`. O botão fica apagado enquanto algum audit da fase não está passed. `scripts/serve-flow.js` continua servindo o preview de `flow.html`. O botão é o único escritor de `userValidatedAt`. `userValidationOk` em `src/plan-end-review.js` deixa de aceitar um timestamp escrito na sessão, e `assert-automate-gate --gate finalize` recusa esse timestamp. Verifier: teste HTTP do botão desligado e ligado."
+      "description": "A vista final não abre em `file://`. O botão fica apagado enquanto algum audit da fase não está passed. `scripts/serve-flow.js` continua servindo o preview de `flow.html`. O botão é o único escritor de `userValidatedAt`. `userValidationOk` em `src/plan-end-review.js` deixa de aceitar um timestamp escrito na sessão, e `assert-automate-gate --gate finalize` recusa esse timestamp. Verifier: teste HTTP do botão desligado e ligado.",
+      "outputs": [
+        { "kind": "file", "path": "scripts/serve-flow.js" },
+        { "kind": "file", "path": "scripts/lib/serve-flow.js" },
+        { "kind": "file", "path": "src/plan-end-review.js" },
+        { "kind": "file", "path": "scripts/assert-automate-gate.js" },
+        { "kind": "file", "path": "tests/final-page-http.test.js" }
+      ],
+      "scopeBoundary": [
+        "Do not serve the final page as file://.",
+        "Do not let a session-written userValidatedAt pass finalize.",
+        "Do not stop serving flow.html preview from serve-flow.js."
+      ],
+      "acceptance": [
+        "it - the final view does not open as file://.",
+        "it - the button stays off while any phase deliveryAuditGate is not passed.",
+        "it - serve-flow.js still serves the flow.html preview.",
+        "it - the button is the only writer of userValidatedAt.",
+        "it - a session-written timestamp fails userValidationOk and assert-automate-gate --gate finalize."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/final-page-http.test.js",
+        "expectExitCode": 0
+      }
     },
     {
       "id": "T-003",
       "title": "Paradas",
-      "description": "Travei, não avanço e mudança grande abrem a mesma origem. A confirmação entra no log e o programa retoma sem reinstalar parada por fase. Verifier: teste das três paradas."
+      "description": "Travei, não avanço e mudança grande abrem a mesma origem. A confirmação entra no log e o programa retoma sem reinstalar parada por fase. Verifier: teste das três paradas.",
+      "outputs": [
+        { "kind": "file", "path": "scripts/automate-run.js" },
+        { "kind": "file", "path": "tests/automate-run-stops.test.js" }
+      ],
+      "scopeBoundary": [
+        "Do not reinstall a stop per phase after resume.",
+        "Do not merge the PR.",
+        "Do not archive in the PR command."
+      ],
+      "acceptance": [
+        "it - travei, não avanço, and mudança grande open the same origin.",
+        "it - confirmation is recorded in the log.",
+        "it - the program resumes without reinstalling a stop per phase."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/automate-run-stops.test.js",
+        "expectExitCode": 0
+      }
     }
   ],
   "exitGates": [
     {
       "id": "G-1",
-      "description": "o teste HTTP do botão verde, e archive não roda nesse comando.",
+      "description": "o teste HTTP do botão verde, o PR existe sem merge, e archive não roda nesse comando.",
       "status": "pending",
       "verifier": {
-        "kind": "manual",
-        "description": "Verify exit-gate prose with the user during phase-done."
+        "kind": "shell",
+        "command": "node --test tests/final-page-http.test.js",
+        "expectExitCode": 0
       }
     }
   ]

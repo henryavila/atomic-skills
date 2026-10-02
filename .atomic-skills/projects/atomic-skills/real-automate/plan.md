@@ -6,7 +6,7 @@ version: "1.0"
 status: active
 executionMode: automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-10-02T16:42:57.020Z
+lastUpdated: 2026-10-02T19:56:45.000Z
 branch: plan/real-automate
 currentPhase: F5
 parallelismAllowed: false
@@ -607,7 +607,7 @@ phases:
       `assert-automate-gate --gate finalize`.
     dependsOn:
       - F4
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -619,7 +619,35 @@ phases:
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: pending
+    status: active
+    businessIntent:
+      value: |
+        Um servidor no hábito de `serve-flow.js --up` mostra o que foi
+        carimbado, as frases `said` e `saw`, a tela ao lado do construído e o que
+        ficou de fora. O botão grava `userValidatedAt` só com todo
+        `deliveryAuditGate` em passed. Chat ok não grava. O programa entrega o
+        branch, abre o PR e não faz merge. Archive fica depois do botão.
+      workflow: |
+        Cada decisão do JSONL ganha `said` e `saw`. A vista final não abre
+        em `file://`. `scripts/serve-flow.js` continua o preview de `flow.html`. O
+        botão é o único escritor de `userValidatedAt`. `userValidationOk` recusa
+        timestamp escrito na sessão. Travei, não avanço e mudança grande abrem a
+        mesma origem. No fim do plano o loop de 3 reviews roda sobre o plano e
+        depois sobre o `audit-delivery`.
+      rules: |
+        Chat ok não grava `userValidatedAt`. Timestamp escrito na sessão não
+        passa em `assert-automate-gate --gate finalize`. O botão só liga com todo
+        `deliveryAuditGate` passed. Archive não roda no comando que abre o PR.
+        Onde `businessIntent` e o grafo discordam, vale o grafo.
+      outOfScope: |
+        Merge do PR. Fila, vários hosts e spawn adapter multi-máquina
+        (P9). Não reabre o marco F3 de um writer/merge nem o close F4 de review
+        e audit da fase. Não chama `scripts/automate-phase-run.js` no lugar de
+        `scripts/automate-run.js`.
+      doneWhen: |
+        `node --test tests/final-page-http.test.js` mostra o botão verde
+        só com todo `deliveryAuditGate` passed, o PR existe sem merge, e archive
+        não roda nesse comando.
 references: []
 planActive: true
 planTitle: real-automate
@@ -776,4 +804,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=b38f766bfdea | premises=17 | impacts=21 @ uncommitted (2026-10-02T19:51:47.563Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=783ff1285a45 | premises=17 | impacts=21 @ uncommitted (2026-10-02T19:59:24.976Z)
