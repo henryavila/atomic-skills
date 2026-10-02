@@ -525,6 +525,24 @@ phases:
       at: 8ff7215676d2913c755c7a240cf0e15fd428f832
     lessonsState: recorded
     lessonsPath: .atomic-skills/projects/atomic-skills/real-automate/lessons/real-automate-f4-review-e-o-flow-no-audit.md
+    reviewGate:
+      status: passed
+      mode: both
+      at: 771849b2229dbf66fc57a4571d89a414fba8c54b
+      reviewFile: .atomic-skills/reviews/2026-10-02-real-automate-F4-local.md
+      localReceiptPath: .atomic-skills/reviews/2026-10-02-real-automate-F4-local.md
+      codexReceiptPath: .atomic-skills/reviews/2026-10-02-real-automate-F4-codex.md
+      verifiedAt: 2026-10-02T19:38:21.061Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-10-02T19:40:00.000Z
+      packagePresentedAt: 2026-10-02T19:39:00.000Z
+      packagePath: .atomic-skills/reviews/2026-10-02-real-automate-F4-decision-package.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-real-automate-F4.md
+      verdict: CLOSED
+      verifiedAt: 2026-10-02T19:45:00.000Z
     businessIntent:
       value: |
         O programa conduz cada fase até a seguinte. Uma pergunta no começo grava
@@ -750,4 +768,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=aa7ffbdeb09d | premises=17 | impacts=21 @ uncommitted (2026-10-02T19:37:08.471Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=0ce0518898e8 | premises=17 | impacts=21 @ uncommitted (2026-10-02T19:50:38.195Z)
