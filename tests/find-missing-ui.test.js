@@ -372,3 +372,194 @@ describe('automate-run integration (T-003)', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 });
+
+describe('review fixes', () => {
+  let dir;
+  let planMd;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'ui-review-'));
+    planMd = writePlan(dir);
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function writeNone(extra = {}) {
+    const paths = uiPathsForPlan(planMd);
+    mkdirSync(dirname(paths.uiJson), { recursive: true });
+    writeFileSync(
+      paths.uiJson,
+      `${JSON.stringify({ none: true, reason: 'pure cli', ...extra }, null, 2)}\n`,
+    );
+    return paths;
+  }
+
+  function writeScreens(screens) {
+    const paths = uiPathsForPlan(planMd);
+    mkdirSync(dirname(paths.uiJson), { recursive: true });
+    writeFileSync(paths.uiJson, `${JSON.stringify({ screens }, null, 2)}\n`);
+    return paths;
+  }
+
+  it('missing screens[].path prototype fails and exits 1', () => {
+    writeScreens([{ path: 'ui/missing.html', sha: 'abc' }]);
+    const r = checkPlanUi(planMd, { strict: true });
+    assert.equal(r.ok, false);
+    assert.ok(
+      r.issues.some((issue) => /missing prototype|not found|does not exist/i.test(issue)),
+      r.issues.join('; '),
+    );
+    const res = runCli(['--strict', planMd]);
+    assert.equal(res.status, 1);
+  });
+
+  it('directory screens[].path fails', () => {
+    writeScreens([{ path: 'ui', sha: 'abc' }]);
+    const r = checkPlanUi(planMd, { strict: true });
+    assert.equal(r.ok, false);
+    assert.ok(
+      r.issues.some((issue) => /not a file|directory/i.test(issue)),
+      r.issues.join('; '),
+    );
+  });
+
+  it('empty screen file fails', () => {
+    const paths = uiPathsForPlan(planMd);
+    mkdirSync(dirname(paths.uiJson), { recursive: true });
+    writeFileSync(join(paths.planDir, 'ui', 'empty.html'), '  \n');
+    writeFileSync(
+      paths.uiJson,
+      `${JSON.stringify({ screens: [{ path: 'ui/empty.html', sha: hashContent('  \n') }] }, null, 2)}\n`,
+    );
+    const r = checkPlanUi(planMd, { strict: true });
+    assert.equal(r.ok, false);
+    assert.ok(r.issues.some((issue) => /empty/i.test(issue)), r.issues.join('; '));
+  });
+
+  it('absolute and parent-traversal screen paths fail', () => {
+    writeScreens([{ path: '/tmp/screen.html', sha: 'abc' }]);
+    const abs = checkPlanUi(planMd, { strict: true });
+    assert.equal(abs.ok, false);
+    assert.ok(
+      abs.issues.some((issue) => /relative|absolute|escape|plan directory/i.test(issue)),
+      abs.issues.join('; '),
+    );
+    writeScreens([{ path: '../outside.html', sha: 'abc' }]);
+    const trav = checkPlanUi(planMd, { strict: true });
+    assert.equal(trav.ok, false);
+    assert.ok(
+      trav.issues.some((issue) => /relative|traversal|\.\.|escape|plan directory/i.test(issue)),
+      trav.issues.join('; '),
+    );
+  });
+
+  it('empty or non-string architectureSha/cardSha fail', () => {
+    writeNone({ architectureSha: '' });
+    const empty = checkPlanUi(planMd, { strict: true });
+    assert.equal(empty.ok, false);
+    assert.ok(empty.issues.some((issue) => /architectureSha/i.test(issue)), empty.issues.join('; '));
+    writeNone({ cardSha: 123 });
+    const bad = checkPlanUi(planMd, { strict: true });
+    assert.equal(bad.ok, false);
+    assert.ok(bad.issues.some((issue) => /cardSha/i.test(issue)), bad.issues.join('; '));
+  });
+
+  it('conflicting architectureSha and cardSha fail', () => {
+    const { sha } = writeCard(planMd);
+    writeNone({ architectureSha: sha, cardSha: '0'.repeat(64) });
+    const r = checkPlanUi(planMd, { strict: true });
+    assert.equal(r.ok, false);
+    assert.ok(r.issues.some((issue) => /conflict/i.test(issue)), r.issues.join('; '));
+  });
+
+  it('cited sha with missing or malformed architecture card fails', () => {
+    writeNone({ architectureSha: 'abc123def' });
+    const missing = checkPlanUi(planMd, { strict: true });
+    assert.equal(missing.ok, false);
+    assert.ok(
+      missing.issues.some((issue) => /missing|not found|card/i.test(issue)),
+      missing.issues.join('; '),
+    );
+    const { paths } = writeCard(planMd);
+    writeFileSync(paths.card, '{not json');
+    writeNone({ architectureSha: 'abc123def' });
+    const malformed = checkPlanUi(planMd, { strict: true });
+    assert.equal(malformed.ok, false);
+    assert.ok(malformed.issues.some((issue) => /malformed/i.test(issue)), malformed.issues.join('; '));
+  });
+
+  it('existing architecture card without cited sha fails; no card and no sha still passes', () => {
+    writeCard(planMd);
+    writeNone();
+    const cited = checkPlanUi(planMd, { strict: true });
+    assert.equal(cited.ok, false);
+    assert.ok(
+      cited.issues.some((issue) => /architectureSha|cardSha|cite/i.test(issue)),
+      cited.issues.join('; '),
+    );
+    rmSync(join(dir, 'architecture'), { recursive: true, force: true });
+    const none = checkPlanUi(planMd, { strict: true });
+    assert.equal(none.ok, true, none.issues.join('; '));
+  });
+
+  it('none: true refuses UI keywords in phases/*.md and skips phases/archive/', () => {
+    writeNone();
+    mkdirSync(join(dir, 'phases', 'archive'), { recursive: true });
+    writeFileSync(join(dir, 'phases', 'archive', 'old.md'), '# old\n\nVue sheet viewer editor\n');
+    const archived = checkPlanUi(planMd, { strict: true });
+    assert.equal(archived.ok, true, archived.issues.join('; '));
+    writeFileSync(join(dir, 'phases', 'f1.md'), '# F1\n\n- implement Vue component\n');
+    const live = checkPlanUi(planMd, { strict: true });
+    assert.equal(live.ok, false);
+    assert.ok(live.issues.some((issue) => /Vue/i.test(issue)), live.issues.join('; '));
+  });
+
+  it('detects plurals, camelCase, and spreadsheet; ignores reviewer/creditor/CodeReviewer', () => {
+    writeNone();
+    writePlan(dir, '# p\n\nUse pdfViewer, sheets, and a RichTextEditor.\n');
+    const hit = checkPlanUi(planMd, { strict: true });
+    assert.equal(hit.ok, false);
+    const blob = hit.issues.join('; ');
+    assert.match(blob, /viewer/i);
+    assert.match(blob, /sheet/i);
+    assert.match(blob, /editor/i);
+    writePlan(dir, '# p\n\nAsk the reviewer and creditor; CodeReviewer bot.\n');
+    const miss = checkPlanUi(planMd, { strict: true });
+    assert.equal(miss.ok, true, miss.issues.join('; '));
+    writePlan(dir, '# p\n\nRender a spreadsheet of results.\n');
+    const sheet = checkPlanUi(planMd, { strict: true });
+    assert.equal(sheet.ok, false);
+    assert.ok(sheet.issues.some((issue) => /sheet/i.test(issue)), sheet.issues.join('; '));
+  });
+
+  it('skips outOfScope frontmatter, Out of scope headings, and fenced code', () => {
+    writeNone();
+    writePlan(
+      dir,
+      `---
+slug: fixture
+outOfScope: Vue viewer editor sheet
+---
+
+# fixture
+
+## Out of scope
+- Vue dashboard
+
+## Fora de escopo
+- pdf viewer
+
+## Tasks
+- backend only
+
+\`\`\`js
+const viewer = new PdfViewer();
+\`\`\`
+`,
+    );
+    const r = checkPlanUi(planMd, { strict: true });
+    assert.equal(r.ok, true, r.issues.join('; '));
+  });
+});

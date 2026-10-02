@@ -22,8 +22,9 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { parse as parseYaml } from 'yaml';
 import { hashContent } from '../src/hash.js';
 import {
   architectureCardSha,
@@ -31,7 +32,18 @@ import {
 } from './find-missing-architecture.js';
 
 export const UI_SURFACE_KEYWORDS = ['vue', 'sheet', 'viewer', 'editor'];
-const UI_SURFACE_RE = /\b(vue|sheet|viewer|editor)\b/i;
+
+const WORD_RES = {
+  vue: /(?:^|[^A-Za-z])vues?\b/i,
+  sheet: /(?:^|[^A-Za-z])(?:spread)?sheets?\b/i,
+  viewer: /(?:^|[^A-Za-z])viewers?\b/i,
+  editor: /(?:^|[^A-Za-z])editors?\b/i,
+};
+const CAMEL_RES = {
+  sheet: /[a-z]Sheet|[A-Z][a-z]+Sheet/,
+  viewer: /[a-z]Viewer|[A-Z][a-z]+Viewer/,
+  editor: /[a-z]Editor|[A-Z][a-z]+Editor/,
+};
 
 /**
  * @param {string} planMdPath
@@ -53,14 +65,188 @@ export function uiPathsForPlan(planMdPath) {
  */
 export function detectUiKeywords(text) {
   if (typeof text !== 'string' || !text) return [];
-  const found = new Set();
+  /** @type {string[]} */
+  const found = [];
   for (const kw of UI_SURFACE_KEYWORDS) {
-    const re = new RegExp(`\\b${kw}\\b`, 'i');
-    if (re.test(text)) {
-      found.add(kw);
+    const word = WORD_RES[kw];
+    const camel = CAMEL_RES[kw];
+    if (word.test(text) || (camel && camel.test(text))) found.push(kw);
+  }
+  return found;
+}
+
+/**
+ * Drop YAML `outOfScope`, fenced code, and Out of scope / Fora de escopo sections.
+ * @param {string} markdown
+ * @returns {string}
+ */
+function scanTextFromMarkdown(markdown) {
+  let body = markdown;
+  let fmScan = '';
+  const fm = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (fm) {
+    body = markdown.slice(fm[0].length);
+    try {
+      const data = parseYaml(fm[1]);
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const rest = { ...data };
+        delete rest.outOfScope;
+        fmScan = JSON.stringify(rest);
+      }
+    } catch {
+      fmScan = fm[1];
     }
   }
-  return [...found];
+  const kept = [];
+  let inFence = false;
+  let skipUntil = 0;
+  for (const line of body.split('\n')) {
+    if (/^(`{3,}|~{3,})/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const heading = line.match(/^(#{1,6})\s+(.+?)\s*$/);
+    if (heading) {
+      const level = heading[1].length;
+      const title = heading[2].trim();
+      if (title === 'Out of scope' || title === 'Fora de escopo') {
+        skipUntil = level;
+        continue;
+      }
+      if (skipUntil && level <= skipUntil) skipUntil = 0;
+    }
+    if (!skipUntil) kept.push(line);
+  }
+  return `${fmScan}\n${kept.join('\n')}`;
+}
+
+/**
+ * @param {string} planDir
+ * @returns {string[]}
+ */
+function phaseMarkdownFiles(planDir) {
+  const phasesDir = join(planDir, 'phases');
+  if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) return [];
+  /** @type {string[]} */
+  const files = [];
+  for (const name of readdirSync(phasesDir)) {
+    if (name === 'archive') continue;
+    const full = join(phasesDir, name);
+    try {
+      if (statSync(full).isFile() && /\.md$/i.test(name)) files.push(full);
+    } catch {
+      // skip unreadable entries
+    }
+  }
+  return files;
+}
+
+/**
+ * @param {string} planDir
+ * @param {string} planContent
+ * @returns {string[]}
+ */
+function collectUiKeywords(planDir, planContent) {
+  const found = new Set(detectUiKeywords(scanTextFromMarkdown(planContent)));
+  for (const file of phaseMarkdownFiles(planDir)) {
+    try {
+      for (const kw of detectUiKeywords(scanTextFromMarkdown(readFileSync(file, 'utf8')))) {
+        found.add(kw);
+      }
+    } catch {
+      // skip unreadable phase files
+    }
+  }
+  return UI_SURFACE_KEYWORDS.filter((kw) => found.has(kw));
+}
+
+/**
+ * @param {Record<string, unknown>} uiData
+ * @param {string[]} issues
+ * @returns {{ cited: string | null, omitted: boolean }}
+ */
+function readCitedSha(uiData, issues) {
+  const hasArch = Object.prototype.hasOwnProperty.call(uiData, 'architectureSha');
+  const hasCard = Object.prototype.hasOwnProperty.call(uiData, 'cardSha');
+  /** @type {string | null} */
+  let cited = null;
+  if (hasArch) {
+    if (typeof uiData.architectureSha !== 'string' || !uiData.architectureSha.trim()) {
+      issues.push('architectureSha must be a non-empty string');
+    } else {
+      cited = uiData.architectureSha.trim();
+    }
+  }
+  if (hasCard) {
+    if (typeof uiData.cardSha !== 'string' || !uiData.cardSha.trim()) {
+      issues.push('cardSha must be a non-empty string');
+    } else {
+      const cardCited = uiData.cardSha.trim();
+      if (cited && cited !== cardCited) {
+        issues.push(`architectureSha and cardSha conflict: ${cited} ≠ ${cardCited}`);
+      } else if (!cited) {
+        cited = cardCited;
+      }
+    }
+  }
+  return { cited, omitted: !hasArch && !hasCard };
+}
+
+/**
+ * @param {Record<string, unknown>} uiData
+ * @param {string} planPath
+ * @param {string[]} issues
+ */
+function checkArchitectureCitation(uiData, planPath, issues) {
+  const { cited, omitted } = readCitedSha(uiData, issues);
+  const archPaths = architecturePathsForPlan(planPath);
+  const cardExists = existsSync(archPaths.card);
+  if (cardExists && omitted) {
+    issues.push('ui/ui.json must cite architectureSha or cardSha when architecture/decisions.json exists');
+    return;
+  }
+  if (!cited) return;
+  if (!cardExists) {
+    issues.push('architecture card missing for cited sha');
+    return;
+  }
+  try {
+    const cardRaw = readFileSync(archPaths.card, 'utf8');
+    const card = JSON.parse(cardRaw);
+    const expectedSha = (typeof card.sha === 'string' && card.sha.trim())
+      ? card.sha.trim()
+      : architectureCardSha(card);
+    if (cited !== expectedSha) {
+      issues.push(`architecture sha mismatch: ${cited} ≠ ${expectedSha}`);
+    }
+  } catch (err) {
+    issues.push(`malformed architecture card: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/**
+ * @param {string} planDir
+ * @param {string} p
+ * @param {number} index
+ * @returns {string | null}
+ */
+function screenPathIssue(planDir, p, index) {
+  if (isAbsolute(p) || p.split(/[\\/]/).includes('..')) {
+    return `screens[${index}] path must be relative to the plan directory`;
+  }
+  const resolvedScreen = resolve(planDir, p);
+  const rel = relative(planDir, resolvedScreen);
+  if (!rel || isAbsolute(rel) || rel.split(/[\\/]/).includes('..')) {
+    return `screens[${index}] path must be relative to the plan directory`;
+  }
+  if (!existsSync(resolvedScreen)) {
+    return `screens[${index}] missing prototype file: ${p}`;
+  }
+  if (!statSync(resolvedScreen).isFile()) {
+    return `screens[${index}] path is not a file: ${p}`;
+  }
+  return null;
 }
 
 /**
@@ -112,30 +298,7 @@ export function checkPlanUi(planMdPath, opts = {}) {
     return { ok: false, issues, planPath: paths.planPath };
   }
 
-  // Check architecture SHA if specified in ui.json
-  const archSha = typeof uiData.architectureSha === 'string'
-    ? uiData.architectureSha.trim()
-    : typeof uiData.cardSha === 'string'
-      ? uiData.cardSha.trim()
-      : null;
-
-  if (archSha) {
-    const archPaths = architecturePathsForPlan(paths.planPath);
-    if (existsSync(archPaths.card)) {
-      try {
-        const cardRaw = readFileSync(archPaths.card, 'utf8');
-        const card = JSON.parse(cardRaw);
-        const expectedSha = (typeof card.sha === 'string' && card.sha.trim())
-          ? card.sha.trim()
-          : architectureCardSha(card);
-        if (archSha !== expectedSha) {
-          issues.push(`architecture sha mismatch: ${archSha} ≠ ${expectedSha}`);
-        }
-      } catch {
-        // card parse error handled by architecture detector
-      }
-    }
-  }
+  checkArchitectureCitation(uiData, paths.planPath, issues);
 
   if (uiData.none === true) {
     const reason = typeof uiData.reason === 'string' ? uiData.reason.trim() : '';
@@ -143,7 +306,7 @@ export function checkPlanUi(planMdPath, opts = {}) {
       issues.push('missing reason for none: true');
     }
 
-    const keywords = detectUiKeywords(planContent);
+    const keywords = collectUiKeywords(paths.planDir, planContent);
     if (keywords.length > 0) {
       issues.push(
         `cannot declare none: true when plan touches UI (${keywords.join(', ')})`,
@@ -162,17 +325,23 @@ export function checkPlanUi(planMdPath, opts = {}) {
       if (!s) issues.push(`screens[${i}] missing sha`);
 
       if (p) {
-        const resolvedScreen = resolve(paths.planDir, p);
-        if (existsSync(resolvedScreen) && statSync(resolvedScreen).isFile()) {
-          try {
-            const content = readFileSync(resolvedScreen, 'utf8');
+        const pathIssue = screenPathIssue(paths.planDir, p, i);
+        if (pathIssue) {
+          issues.push(pathIssue);
+          continue;
+        }
+        try {
+          const content = readFileSync(resolve(paths.planDir, p), 'utf8');
+          if (content.trim() === '') {
+            issues.push(`screens[${i}] empty prototype file: ${p}`);
+          } else if (s) {
             const actualSha = hashContent(content);
-            if (s && s !== actualSha) {
+            if (s !== actualSha) {
               issues.push(`screen sha mismatch for ${p}: ${s} ≠ ${actualSha}`);
             }
-          } catch (err) {
-            issues.push(`cannot read screen file ${p}: ${err instanceof Error ? err.message : String(err)}`);
           }
+        } catch (err) {
+          issues.push(`cannot read screen file ${p}: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
     }
