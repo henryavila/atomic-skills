@@ -8,7 +8,7 @@ executionMode: automate
 started: 2026-09-25T03:17:12.483Z
 lastUpdated: 2026-10-02T16:42:57.020Z
 branch: plan/real-automate
-currentPhase: F4
+currentPhase: F5
 parallelismAllowed: false
 principles:
   - id: P1
@@ -512,11 +512,19 @@ phases:
             fixture de flow.json com um xor sem linha no relatório de audit
             falha. Um achado de mistura do bloco não entra no loop e para na
             hora."
-          status: pending
+          status: met
+          metAt: 2026-10-02T19:50:53.736Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-10-02T19:50:53.736Z
+            verifiedCommit: dba1f00353aa9d9d7fddc2e435bc90382deebfc3
+            passed: true
+            exitCode: 0
+            outputSummary: "node --test tests/phase-review-gate.test.js: ℹ tests 45 ℹ pass 45 ℹ fail 0"
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: active
+    status: done
     evaluationGate:
       status: passed
       verdict: pass
@@ -768,4 +776,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=0ce0518898e8 | premises=17 | impacts=21 @ uncommitted (2026-10-02T19:50:38.195Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=b38f766bfdea | premises=17 | impacts=21 @ uncommitted (2026-10-02T19:51:47.563Z)

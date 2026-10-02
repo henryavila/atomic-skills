@@ -21,11 +21,11 @@ goal: o programa conduz cada fase até a seguinte. Antes da primeira fase
   `src/phase-delivery-audit-gate.js` e não lê `flow.json`. F4 estende esse gate.
   A skill `audit-delivery` também não lê o grafo hoje. Fechar a fase valida o
   claim e passa em `src/automate-product-fence.js`.
-status: active
+status: done
 branch: plan/real-automate
 started: 2026-10-02T16:41:53.105Z
 lastUpdated: 2026-10-02T17:00:23.068Z
-nextAction: Re-run evaluation after F4-fix3, then residual review both.
+nextAction: present phase-start package for F5 validate-only
 parentPlan: real-automate
 phaseId: F4
 businessIntent:
@@ -62,7 +62,7 @@ businessIntent:
     a fase fecha e a seguinte abre; na terceira, critical ou major para."
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 3
 weightTotal: 3
@@ -73,12 +73,22 @@ exitGates:
       pela sessão. Um fixture de flow.json com um xor sem linha no relatório de
       audit falha. Um achado de mistura do bloco não entra no loop e para na
       hora."
-    status: pending
+    status: met
+    metAt: 2026-10-02T19:50:53.736Z
     verifier:
       kind: shell
       command: node --test tests/phase-review-gate.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T19:50:53.736Z
+      verifiedCommit: dba1f00353aa9d9d7fddc2e435bc90382deebfc3
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/phase-review-gate.test.js: ℹ tests 45 ℹ pass
+        45 ℹ fail 0"
     verifierLabel: "shell: node --test tests/phase-review-gate.test.js"
+    evidenceSummary: passed · 2026-10-02
 stack:
   - id: 1
     title: Review e o flow no audit
@@ -182,7 +192,8 @@ tasks:
       - kind: file
         path: tests/implement-phase-agents-contract.test.js
     summary: Audit lê flow/flow.json no ratifiedGraphSha; xor sem linha no relatório
-      falha. Close path carrega o grafo. Hash throw e subjects vazios fail-closed.
+      falha. Close path carrega o grafo. Hash throw e subjects vazios
+      fail-closed.
     weight: 1
     closedAt: 2026-10-02T19:30:00.000Z
     evidence:
@@ -251,7 +262,7 @@ emerged: []
 startedCommit: a011a538572eed002e6c90dba116562f6ee2d392
 planTitle: real-automate
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -261,9 +272,14 @@ Initiative for phase **F4 — Review e o flow no audit**.
 Lessons applied at start: L-F2-1 (cited path must fail closed), L-F2-2 (size-cap; do not inflate parser).
 
 ## Session handoff
-- **Narrative:** T-002 closed after F4-fix1+fix2. Close path loads flow/flow.json at ratifiedGraphSha. Related suites green. T-001 and T-003 remain done. evaluationGate not stamped. Cursor E.
-- **Decision log:** Eval fail 1 major. Operator F4-fix1 then F4-fix2. Scope-exit: scripts/lifecycle-order-guard.js forwards graph fields (not in original T-002 outputs).
-- **Single nextAction:** Spawn evaluation agent for F4 after T-002 close-path graph fix.
-- **Verbatim state:** HEAD `de5e138964762aec8206ebe4a117d803f6858a33`; audit 49/49; lifecycle 41/41; decision-review 28/28; ipa 13/13; review 44/44; fence 12/12.
-- **Uncommitted changes:** T-002 done evidence + fix2 claims/brief + cursor E.
+- **Narrative:** F4 phase-done. Tasks T-001–T-003 done. evaluationGate pass, lessons L-F4-1/L-F4-2, reviewGate both, decision-review PASS, deliveryAudit CLOSED. F5 remains descriptor-only. Cursor awaiting-operator-advance.
+- **Decision log:** operator-continue, ratify F4, F4-fix1/2/3, accept remaining review majors, decision-review PASS.
+- **Single nextAction:** present phase-start package for F5 validate-only
+- **Verbatim state:** G-1 `node --test tests/phase-review-gate.test.js` 45/45; audit 52/52; fence 12/12. HEAD at phase-done assert `dba1f00353aa9d9d7fddc2e435bc90382deebfc3`.
+- **Uncommitted changes:** F4 archive + plan currentPhase F5.
+
+## Self-review against code-quality gates
+- G1 read-before-claim: applied — closed tasks link verifier runs
+- G2 soft-language: applied — completion claims are passed:true evidence
+- G6 reference-or-strike: applied — handoff literals are verbatim paths/commands
 
