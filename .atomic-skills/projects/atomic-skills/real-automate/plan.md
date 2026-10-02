@@ -517,6 +517,12 @@ phases:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
     status: active
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-real-automate-F4.md
+      verifiedAt: 2026-10-02T18:15:09.000Z
+      at: 69572e359a5b7785015fb60349a5a553a95773a1
     businessIntent:
       value: |
         O programa conduz cada fase até a seguinte. Uma pergunta no começo grava
@@ -742,4 +748,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=bc3356c1311a | premises=17 | impacts=21 @ uncommitted (2026-10-02T17:58:39.886Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=642cc443286f | premises=17 | impacts=21 @ uncommitted (2026-10-02T18:17:27.532Z)
