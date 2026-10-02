@@ -8,11 +8,11 @@ goal: |
   recusado. O carimbo da tela cita o sha do cartão. `exitGateType: ui-gate`
   não é o carimbo. O carimbo é `ui/ui.json`, lido por
   `scripts/find-missing-ui.js`, que esta fase cria.
-status: active
+status: done
 branch: plan/real-automate
 started: 2026-09-28T14:10:00.000Z
-lastUpdated: 2026-09-28T18:20:00.000Z
-nextAction: Run `phase-done` to verify exit gates and advance the plan.
+lastUpdated: 2026-10-02T12:25:10.000Z
+nextAction: present phase-start package for F3 validate-only
 parentPlan: real-automate
 phaseId: F2
 businessIntent:
@@ -48,7 +48,7 @@ exitGates:
   - id: G-1
     description: "`node --test tests/find-missing-ui.test.js` verde."
     status: met
-    metAt: 2026-09-28T18:22:00.000Z
+    metAt: 2026-10-02T11:33:00.000Z
     verifier:
       kind: shell
       command: node --test tests/find-missing-ui.test.js
@@ -56,11 +56,12 @@ exitGates:
     verifierLabel: "shell: node --test tests/find-missing-ui.test.js"
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-09-28T18:22:00.000Z
-      verifiedCommit: d52f496373a2f1e292c914a8a8437e9314e652eb
+      verifiedAt: 2026-10-02T11:33:00.000Z
+      verifiedCommit: 48b943e3a6b788f0dfb151067083e0625c27e8ea
       passed: true
       exitCode: 0
-      outputSummary: "node --test tests/find-missing-ui.test.js: ℹ tests 17 ℹ suites 4 ℹ pass 17 ℹ fail 0"
+      outputSummary: "node --test tests/find-missing-ui.test.js: ℹ tests 28 ℹ suites 5 ℹ pass 28 ℹ fail 0"
+    evidenceSummary: passed · 2026-10-02
 tasks:
   - id: T-001
     title: Formato
@@ -142,8 +143,8 @@ emerged: []
 Initiative for phase **F2 — Protótipo**.
 
 ## Session handoff
-- **Narrative:** F2 Protótipo — all 3 tasks implemented and closed. `scripts/find-missing-ui.js` (281 lines) + `tests/find-missing-ui.test.js` (374 lines, 17 tests) created. `automate-run.js` calls the detector via `find-missing-ui.js --strict`. Tests: 17 pass / 0 fail. Keep-green: `automate-host-pen.test.js` 34/34, `find-missing-architecture.test.js` 15/15.
-- **Decision log:** All code in commit `d52f4963`. Implementation matches F2 businessIntent: detector exists, refuses missing stamp, refuses none:true with UI touch, refuses divergent architecture sha, exitGateType ui-gate not accepted.
-- **Single nextAction:** Run `phase-done` to verify exit gate G-1 (`node --test tests/find-missing-ui.test.js`) and advance the plan.
-- **Verbatim state:** plan `.atomic-skills/projects/atomic-skills/real-automate/plan.md`; initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/f2-prototipo.md`; branch `plan/real-automate`.
-- **Uncommitted changes:** task closes with evidence (T-001, T-002, T-003 all done).
+- **Narrative:** F2 Protótipo closed. Detector `scripts/find-missing-ui.js` (450 lines) + 28 tests. Review-fix `1de572c9` merged `48b943e3`. Evaluation pass. Lessons L-F2-1/L-F2-2 recorded. Review both residual (local 1 major + Codex 3 majors) operator-accepted. Audit-delivery CLOSED.
+- **Decision log:** Operator accept local F-001 fence skip (L-F2-2). Operator accept Codex mixed-fence, symlink, phase EACCES. Decision-review PASS. Runaway 2059-line NLP parser stashed, not shipped.
+- **Single nextAction:** present phase-start package for F3 validate-only
+- **Verbatim state:** plan `.atomic-skills/projects/atomic-skills/real-automate/plan.md`; archived initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/archive/2026-10-f2-prototipo.md`; eval `.atomic-skills/reviews/eval-real-automate-F2.md`; G-1 `node --test tests/find-missing-ui.test.js` 28 pass / 0 fail at `48b943e3`.
+- **Uncommitted changes:** phase-done terminal writes (this archive + plan currentPhase F3).

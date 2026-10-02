@@ -6,9 +6,9 @@ version: "1.0"
 status: active
 executionMode: automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-09-25T03:17:12.483Z
+lastUpdated: 2026-10-02T12:25:10.000Z
 branch: plan/real-automate
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -321,18 +321,18 @@ phases:
         - id: G-1
           description: "`node --test tests/find-missing-ui.test.js` verde."
           status: met
-          metAt: 2026-09-28T18:22:00.000Z
+          metAt: 2026-10-02T11:33:00.000Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-09-28T18:22:00.000Z
-            verifiedCommit: d52f496373a2f1e292c914a8a8437e9314e652eb
+            verifiedAt: 2026-10-02T11:33:00.000Z
+            verifiedCommit: 48b943e3a6b788f0dfb151067083e0625c27e8ea
             passed: true
             exitCode: 0
-            outputSummary: "node --test tests/find-missing-ui.test.js: ℹ tests 17 ℹ pass 17 ℹ fail 0"
+            outputSummary: "node --test tests/find-missing-ui.test.js: ℹ tests 28 ℹ pass 28 ℹ fail 0"
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: active
+    status: done
     businessIntent:
       value: |
         O detector de tela existe e recusa planos sem carimbo de protótipo de UI.
@@ -356,6 +356,32 @@ phases:
         node --test tests/find-missing-ui.test.js passa (verde), node scripts/find-missing-ui.js
         --strict em fixture vazio ou inconsistente sai 1, e automate-run.js invoca find-missing-ui.js
         reportando o motivo do detector quando o carimbo falta.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-real-automate-F2.md
+      verifiedAt: 2026-10-02T10:44:05.000Z
+      at: 48b943e3a6b788f0dfb151067083e0625c27e8ea
+    lessonsState: recorded
+    lessonsPath: .atomic-skills/projects/atomic-skills/real-automate/lessons/real-automate-f2-prototipo.md
+    reviewGate:
+      status: passed
+      mode: both
+      at: 48b943e3a6b788f0dfb151067083e0625c27e8ea
+      reviewFile: .atomic-skills/reviews/2026-10-02-real-automate-F2-residual-local.md
+      localReceiptPath: .atomic-skills/reviews/2026-10-02-real-automate-F2-residual-local.md
+      codexReceiptPath: .atomic-skills/reviews/2026-10-02-real-automate-F2-residual-codex.md
+      verifiedAt: 2026-10-02T11:30:27.327Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-10-02T11:32:00.000Z
+      packagePresentedAt: 2026-10-02T11:31:00.000Z
+      packagePath: .atomic-skills/reviews/2026-10-02-real-automate-F2-decision-package.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-real-automate-F2.md
+      verdict: CLOSED
+      verifiedAt: 2026-10-02T11:33:00.000Z
   - id: F3
     slug: real-automate-f3-um-writer-merge-e-para
     title: Um writer, merge, e para
