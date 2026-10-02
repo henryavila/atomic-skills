@@ -513,6 +513,7 @@ export async function runWriterSession(input) {
       gitOrThrow(root, ['checkout', planBranch], `checkout ${planBranch}`);
     }
     gitOrThrow(root, ['merge', '--no-edit', writerBranch], 'merge');
+    process.stderr.write('implement --automate: merged; stopping\n');
     return 0;
   } finally {
     if (writerPid && isPidAlive(writerPid)) killQuiet(writerPid);

@@ -465,6 +465,7 @@ describe('automate-run writer (T-003 merge and stop)', () => {
     try {
       const res = runAutomate(h);
       assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+      assert.match(res.stderr, /merged; stopping/);
       const branch = git(h.repo, ['rev-parse', '--abbrev-ref', 'HEAD']);
       assert.equal(branch, 'plan/fixture');
       assert.equal(readFileSync(join(h.repo, 'writer-output.txt'), 'utf8'), 'from-writer\n');
