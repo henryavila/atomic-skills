@@ -412,7 +412,30 @@ phases:
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: pending
+    status: active
+    businessIntent:
+      value: |
+        Com caneta, flow, revisão, ground truth, cartão e protótipo válidos, o
+        programa cria o worktree, grava pen.lock com dono, pid e writerWorktree,
+        dispara um writer do CLI do host, integra no branch do plano, mata o
+        writer se ainda viver e solta o lock.
+      workflow: |
+        scripts/automate-run.js, depois dos seis gates, cria o worktree do writer,
+        escreve .atomic-skills/status/automate/pen.lock, spawna claude ou codex ou
+        grok nesse worktree com lease, espera, faz merge no branch do plano, mata
+        o writer se o pid ainda viver, apaga o lock inclusive em falha. Não chama
+        scripts/automate-phase-run.js. O teste do marco para depois do merge.
+      rules: |
+        A sessão do chat não é o writer. O shell da sessão fica negado. Quem roda
+        verifier é o programa. Lock de pid morto não bloqueia a sessão. Esta fase
+        não roda phase-done, review both, nem audit. A sessão não grava lastAssert.
+      outOfScope: |
+        Fechamento de fase, claim e src/automate-product-fence.js (F4). Página
+        final (F5). Não materializa a fase seguinte. Não chama
+        scripts/automate-phase-run.js.
+      doneWhen: |
+        Um teste de integração com host falso sai 0, o arquivo que o writer gravou
+        está no branch do plano, e uma segunda fase não foi materializada.
   - id: F4
     slug: real-automate-f4-review-e-o-flow-no-audit
     title: Review e o flow no audit
@@ -643,4 +666,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=1b2f8ea0b87c | premises=17 | impacts=21 @ 8e33c818 (2026-10-02T10:32:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=0a7ae8d7e627 | premises=17 | impacts=21 @ uncommitted (2026-10-02T12:35:00Z)

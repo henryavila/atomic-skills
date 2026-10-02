@@ -8,17 +8,72 @@
     {
       "id": "T-001",
       "title": "Lock na partida real",
-      "description": "Quando os seis gates passam, o programa escreve `pen.lock` com dono, pid e `writerWorktree`. Mata o writer se ainda viver antes de soltar o lock. Pid morto não bloqueia a sessão. Quem roda verifier é o programa. Apaga o lock ao sair, inclusive em falha. Verifier: teste que o lock existe durante o spawn e some no exit."
+      "description": "Quando os seis gates passam, o programa escreve `pen.lock` com dono, pid e `writerWorktree`. Mata o writer se ainda viver antes de soltar o lock. Pid morto não bloqueia a sessão. Quem roda verifier é o programa. Apaga o lock ao sair, inclusive em falha. Verifier: teste que o lock existe durante o spawn e some no exit.",
+      "outputs": [
+        { "kind": "file", "path": "scripts/automate-run.js" },
+        { "kind": "file", "path": "tests/automate-run-writer.test.js" }
+      ],
+      "scopeBoundary": [
+        "Do not call scripts/automate-phase-run.js.",
+        "Do not run phase-done, review both, or audit-delivery (F4).",
+        "Do not materialize the next phase."
+      ],
+      "acceptance": [
+        "it - pen.lock exists during spawn with owner, pid, writerWorktree.",
+        "it - lock is gone after exit, including failure.",
+        "it - dead pid does not block a later session."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/automate-run-writer.test.js",
+        "expectExitCode": 0
+      }
     },
     {
       "id": "T-002",
       "title": "Spawn do host",
-      "description": "Um subprocesso `claude`, `codex` ou `grok` no worktree, com lease. A sessão do chat não é o writer. O worktree nasce em `scripts/automate-run.js`, não em `scripts/automate-phase-run.js`. Verifier: teste com CLI falso que grava um arquivo dentro do worktree."
+      "description": "Um subprocesso `claude`, `codex` ou `grok` no worktree, com lease. A sessão do chat não é o writer. O worktree nasce em `scripts/automate-run.js`, não em `scripts/automate-phase-run.js`. Verifier: teste com CLI falso que grava um arquivo dentro do worktree.",
+      "outputs": [
+        { "kind": "file", "path": "scripts/automate-run.js" },
+        { "kind": "file", "path": "tests/automate-run-writer.test.js" }
+      ],
+      "scopeBoundary": [
+        "Do not use the chat session as the writer.",
+        "Do not create the worktree in scripts/automate-phase-run.js."
+      ],
+      "acceptance": [
+        "it - fake host CLI writes a file inside the writer worktree.",
+        "it - worktree is created from scripts/automate-run.js."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/automate-run-writer.test.js",
+        "expectExitCode": 0
+      }
     },
     {
       "id": "T-003",
       "title": "Merge e pare",
-      "description": "O teste deste marco integra no branch do plano e sai sem `phase-done`. O fechamento real, o claim e `src/automate-product-fence.js` são a F4, num agente isolado. A sessão não grava `lastAssert`. Verifier: o branch do plano contém o commit do writer e o processo sai 0 uma vez."
+      "description": "O teste deste marco integra no branch do plano e sai sem `phase-done`. O fechamento real, o claim e `src/automate-product-fence.js` são a F4, num agente isolado. A sessão não grava `lastAssert`. Verifier: o branch do plano contém o commit do writer e o processo sai 0 uma vez.",
+      "outputs": [
+        { "kind": "file", "path": "scripts/automate-run.js" },
+        { "kind": "file", "path": "tests/automate-run-writer.test.js" }
+      ],
+      "scopeBoundary": [
+        "Do not call phase-done.",
+        "Do not write lastAssert from the chat session.",
+        "Do not materialize a second phase."
+      ],
+      "acceptance": [
+        "it - plan branch contains the writer commit.",
+        "it - process exits 0 once after merge.",
+        "it - a second phase was not materialized."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/automate-run-writer.test.js",
+        "expectExitCode": 0
+      }
     }
   ],
   "exitGates": [
@@ -27,8 +82,9 @@
       "description": "um teste de integração com host falso sai 0, o arquivo do writer está no branch do plano, e uma segunda fase não foi materializada.",
       "status": "pending",
       "verifier": {
-        "kind": "manual",
-        "description": "Verify exit-gate prose with the user during phase-done."
+        "kind": "shell",
+        "command": "node --test tests/automate-run-writer.test.js",
+        "expectExitCode": 0
       }
     }
   ]
