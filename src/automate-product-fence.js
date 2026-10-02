@@ -9,6 +9,8 @@
  * No git inside this module. No chat waiver.
  */
 
+import { validateClaimReport } from './claim-report.js';
+
 /**
  * Normalize a path for set comparison (posix-ish, strip leading ./).
  * @param {string} p
@@ -149,4 +151,33 @@ export function planTreeProductFenceOk(input = {}) {
     };
   }
   return { ok: true, productDiff };
+}
+
+/**
+ * Phase close under automate: valid claim report AND plan-tree product fence.
+ * @param {{
+ *   claimReport?: unknown,
+ *   planBranchDiffPaths?: Iterable<string> | null,
+ *   claimPaths?: Iterable<string> | null,
+ * }} [input]
+ * @returns {{ ok: boolean, reason?: string, claimValidation?: object, productFence?: object }}
+ */
+export function phaseCloseFenceOk(input = {}) {
+  const claim = validateClaimReport(input.claimReport);
+  if (!claim.ok) {
+    return {
+      ok: false,
+      reason: (claim.errors && claim.errors.join('; ')) || 'claim report invalid',
+      claimValidation: claim,
+    };
+  }
+  const fence = planTreeProductFenceOk({
+    planBranchDiffPaths: input.planBranchDiffPaths,
+    claimPaths: input.claimPaths,
+    claimReport: input.claimReport,
+  });
+  if (!fence.ok) {
+    return { ok: false, reason: fence.reason, claimValidation: claim, productFence: fence };
+  }
+  return { ok: true, claimValidation: claim, productFence: fence };
 }

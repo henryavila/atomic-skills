@@ -442,6 +442,195 @@ export function deliveryAuditGateAuthenticity(gate, opts = {}) {
  * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
  */
+/** Status tokens for one graph coverage line. */
+export const GRAPH_COVERAGE_STATUSES = Object.freeze([
+  'faz',
+  'pela metade',
+  'não faz',
+]);
+
+const GRAPH_STATUS_RE = '(faz|pela metade|n[aã]o faz)';
+
+/**
+ * Machines and xor nodes the audit must cover. Graph wins over businessIntent.
+ * @param {unknown} flowDoc
+ * @returns {Array<{ kind: 'machine' | 'xor', id: string }>}
+ */
+export function graphCoverageSubjects(flowDoc) {
+  /** @type {Array<{ kind: 'machine' | 'xor', id: string }>} */
+  const out = [];
+  if (flowDoc == null || typeof flowDoc !== 'object') return out;
+  const doc = /** @type {Record<string, unknown>} */ (flowDoc);
+  const machines = Array.isArray(doc.machines) ? doc.machines : [];
+  for (const machine of machines) {
+    if (machine == null || typeof machine !== 'object') continue;
+    const id = /** @type {{ id?: unknown }} */ (machine).id;
+    if (id != null && String(id).trim() !== '') {
+      out.push({ kind: 'machine', id: String(id).trim() });
+    }
+  }
+  /**
+   * @param {unknown} nodes
+   */
+  function walkNodes(nodes) {
+    if (nodes == null || typeof nodes !== 'object' || Array.isArray(nodes)) return;
+    for (const [id, node] of Object.entries(nodes)) {
+      if (node == null || typeof node !== 'object') continue;
+      const type = /** @type {{ type?: unknown }} */ (node).type;
+      if (String(type).toLowerCase() === 'xor') {
+        out.push({ kind: 'xor', id: String(id).trim() });
+      }
+    }
+  }
+  const graph = doc.graph;
+  if (graph && typeof graph === 'object' && !Array.isArray(graph)) {
+    const g = /** @type {Record<string, unknown>} */ (graph);
+    walkNodes(g.nodes);
+    if (g.subgraphs && typeof g.subgraphs === 'object' && !Array.isArray(g.subgraphs)) {
+      for (const sub of Object.values(g.subgraphs)) {
+        if (sub && typeof sub === 'object' && !Array.isArray(sub)) {
+          walkNodes(/** @type {Record<string, unknown>} */ (sub).nodes);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Size-capped keyword scan of coverage lines. Not a CommonMark parser.
+ * @param {string | null | undefined} reportText
+ * @returns {{ machine: Record<string, string>, xor: Record<string, string> }}
+ */
+export function parseGraphCoverageLines(reportText) {
+  /** @type {Record<string, string>} */
+  const machine = {};
+  /** @type {Record<string, string>} */
+  const xor = {};
+  if (typeof reportText !== 'string' || reportText === '') return { machine, xor };
+  const max = 256_000;
+  const text = reportText.length > max ? reportText.slice(0, max) : reportText;
+  const lineRe = new RegExp(
+    String.raw`(?:^|\n)\s*(?:[-*]\s*)?(machine|xor)\s+([A-Za-z][A-Za-z0-9_.]*)\s*:\s*${GRAPH_STATUS_RE}\b`,
+    'gi',
+  );
+  let m;
+  while ((m = lineRe.exec(text)) !== null) {
+    const kind = m[1].toLowerCase();
+    const id = m[2];
+    const status = m[3].toLowerCase().replace(/^nao faz$/, 'não faz');
+    if (kind === 'machine') machine[id] = status;
+    else xor[id] = status;
+  }
+  return { machine, xor };
+}
+
+/**
+ * Audit-delivery must read flow/flow.json at ratifiedGraphSha.
+ * Missing cited path fails (L-F2-1). Divergent sha fails. Graph wins over BI.
+ * The final page does not substitute this gate.
+ *
+ * @param {{
+ *   flowDoc?: unknown,
+ *   flowPath?: string | null,
+ *   ratifiedGraphSha?: string | null,
+ *   actualSha?: string | null,
+ *   reportText?: string | null,
+ *   businessIntent?: unknown,
+ *   finalPage?: boolean | null,
+ *   userValidatedAt?: string | null,
+ *   exists?: ((path: string) => boolean) | null,
+ *   readFile?: ((path: string) => string) | null,
+ * }} [input]
+ * @returns {{ ok: boolean, reason?: string, lines?: string[] }}
+ */
+export function deliveryAuditGraphCoverage(input = {}) {
+  const flowPath =
+    input.flowPath != null && String(input.flowPath).trim() !== ''
+      ? String(input.flowPath).trim()
+      : '';
+  if (flowPath !== '') {
+    if (typeof input.exists === 'function' && !input.exists(flowPath)) {
+      return {
+        ok: false,
+        reason: `delivery audit cited ${flowPath} does not exist`,
+      };
+    }
+  }
+
+  /** @type {unknown} */
+  let flowDoc = input.flowDoc;
+  if (flowDoc == null && flowPath !== '' && typeof input.readFile === 'function') {
+    try {
+      flowDoc = JSON.parse(input.readFile(flowPath));
+    } catch (err) {
+      return {
+        ok: false,
+        reason: `delivery audit could not read ${flowPath} (${err instanceof Error ? err.message : String(err)})`,
+      };
+    }
+  }
+  if (flowDoc == null || typeof flowDoc !== 'object') {
+    return {
+      ok: false,
+      reason: 'delivery audit must read flow/flow.json at ratifiedGraphSha',
+    };
+  }
+
+  const expected =
+    input.ratifiedGraphSha != null
+      ? String(input.ratifiedGraphSha).trim()
+      : typeof /** @type {{ ratifiedGraphSha?: unknown }} */ (flowDoc).ratifiedGraphSha ===
+          'string'
+        ? String(/** @type {{ ratifiedGraphSha?: unknown }} */ (flowDoc).ratifiedGraphSha).trim()
+        : '';
+  const actual =
+    input.actualSha != null
+      ? String(input.actualSha).trim()
+      : expected;
+  if (!expected || !actual || expected !== actual) {
+    return {
+      ok: false,
+      reason: `delivery audit refuses divergent ratifiedGraphSha (expected ${expected || 'missing'}, got ${actual || 'missing'})`,
+    };
+  }
+
+  const subjects = graphCoverageSubjects(flowDoc);
+  const parsed = parseGraphCoverageLines(input.reportText);
+  /** @type {string[]} */
+  const missing = [];
+  /** @type {string[]} */
+  const lines = [];
+  for (const subject of subjects) {
+    const status =
+      subject.kind === 'machine'
+        ? parsed.machine[subject.id]
+        : parsed.xor[subject.id];
+    if (!status) {
+      missing.push(`${subject.kind} ${subject.id}`);
+      continue;
+    }
+    lines.push(`${subject.kind} ${subject.id}: ${status}`);
+  }
+  if (missing.length > 0) {
+    const pageNote =
+      input.finalPage === true ||
+      (input.userValidatedAt != null && String(input.userValidatedAt).trim() !== '')
+        ? ' — the final page does not substitute this gate'
+        : '';
+    const biNote =
+      input.businessIntent != null
+        ? ' — where businessIntent disagrees with the graph, the graph wins'
+        : '';
+    return {
+      ok: false,
+      reason: `delivery audit missing graph coverage line(s): ${missing.join(', ')}${biNote}${pageNote}`,
+      lines,
+    };
+  }
+  return { ok: true, lines };
+}
+
 export function deliveryAuditAllowsClose(input = {}) {
   if (!isDurableAutomateForDeliveryAudit(input)) {
     return { ok: true };
@@ -459,7 +648,7 @@ export function deliveryAuditAllowsClose(input = {}) {
   const honesty = deliveryAuditGateHonesty(gate);
   if (!honesty.ok) return honesty;
 
-  return deliveryAuditGateAuthenticity(gate, {
+  const authenticity = deliveryAuditGateAuthenticity(gate, {
     reportContent: input.reportContent,
     reportContents: input.reportContents,
     readFile: input.readFile,
@@ -467,6 +656,34 @@ export function deliveryAuditAllowsClose(input = {}) {
     cwd: input.cwd,
     checkAuthenticity: input.checkAuthenticity,
   });
+  if (!authenticity.ok) return authenticity;
+
+  const hasGraphInput =
+    input.flowDoc != null ||
+    (input.flowPath != null && String(input.flowPath).trim() !== '') ||
+    (input.ratifiedGraphSha != null && String(input.ratifiedGraphSha).trim() !== '');
+  if (hasGraphInput) {
+    const reportText =
+      input.reportContent != null
+        ? String(input.reportContent)
+        : input.reportText != null
+          ? String(input.reportText)
+          : '';
+    return deliveryAuditGraphCoverage({
+      flowDoc: input.flowDoc,
+      flowPath: input.flowPath,
+      ratifiedGraphSha: input.ratifiedGraphSha,
+      actualSha: input.actualSha,
+      reportText,
+      businessIntent: input.businessIntent,
+      finalPage: input.finalPage,
+      userValidatedAt: input.userValidatedAt,
+      exists: input.exists,
+      readFile: input.readFile,
+    });
+  }
+
+  return authenticity;
 }
 
 /**

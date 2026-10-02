@@ -11,6 +11,10 @@ import {
   parseDeliveryAuditReportVerdict,
   reportHasOpenCriticalResidual,
   DELIVERY_AUDIT_REPORT_MIN_BYTES,
+  graphCoverageSubjects,
+  parseGraphCoverageLines,
+  deliveryAuditGraphCoverage,
+  GRAPH_COVERAGE_STATUSES,
 } from '../src/phase-delivery-audit-gate.js';
 import { canRunPhaseDone } from '../src/automate-orchestrator-gates.js';
 
@@ -374,5 +378,138 @@ describe('deliveryAuditGateAuthenticity', () => {
       exists: () => true,
     });
     assert.equal(r.ok, true, r.reason);
+  });
+});
+
+const XOR_FLOW = {
+  schemaVersion: '1.0',
+  planSlug: 'minimal-xor',
+  ratifiedGraphSha: 'a'.repeat(64),
+  graph: {
+    entry: 'S1',
+    nodes: {
+      S1: { type: 'activity', next: 'D1' },
+      D1: {
+        type: 'xor',
+        label: 'Accept?',
+        question: 'Accept the request?',
+        branches: [
+          { id: 'D1.yes', next: 'end_ok' },
+          { id: 'D1.no', next: 'end_no' },
+        ],
+      },
+      end_ok: { type: 'end' },
+      end_no: { type: 'end' },
+    },
+  },
+  machines: [{ id: 'request', label: 'Request', nodes: { open: {} } }],
+};
+
+const COVERING_REPORT = [
+  SAMPLE_REPORT,
+  '',
+  '## Flow graph',
+  'machine request: faz',
+  'xor D1: faz',
+].join('\n');
+
+describe('delivery audit reads flow graph (F4 T-002)', () => {
+  it('lists one subject per machine and per xor', () => {
+    const subjects = graphCoverageSubjects(XOR_FLOW);
+    assert.ok(subjects.some((s) => s.kind === 'machine' && s.id === 'request'));
+    assert.ok(subjects.some((s) => s.kind === 'xor' && s.id === 'D1'));
+    assert.deepEqual([...GRAPH_COVERAGE_STATUSES], ['faz', 'pela metade', 'não faz']);
+  });
+
+  it('refuses a divergent ratifiedGraphSha', () => {
+    const r = deliveryAuditGraphCoverage({
+      flowDoc: XOR_FLOW,
+      ratifiedGraphSha: 'b'.repeat(64),
+      actualSha: 'c'.repeat(64),
+      reportText: COVERING_REPORT,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /divergent|ratifiedGraphSha|sha/i);
+  });
+
+  it('refuses a missing cited flow/flow.json path (L-F2-1)', () => {
+    const r = deliveryAuditGraphCoverage({
+      flowPath: 'flow/flow.json',
+      ratifiedGraphSha: XOR_FLOW.ratifiedGraphSha,
+      reportText: COVERING_REPORT,
+      exists: () => false,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /flow\/flow\.json|does not exist|missing/i);
+  });
+
+  it('a flow.json fixture with one xor and a report missing that line fails', () => {
+    const r = deliveryAuditGraphCoverage({
+      flowDoc: XOR_FLOW,
+      ratifiedGraphSha: XOR_FLOW.ratifiedGraphSha,
+      actualSha: XOR_FLOW.ratifiedGraphSha,
+      reportText: `${SAMPLE_REPORT}\nmachine request: faz\n`,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /xor|D1|missing/i);
+  });
+
+  it('accepts one faz|pela metade|não faz line per machine and xor', () => {
+    const parsed = parseGraphCoverageLines(COVERING_REPORT);
+    assert.equal(parsed.machine.request, 'faz');
+    assert.equal(parsed.xor.D1, 'faz');
+    const r = deliveryAuditGraphCoverage({
+      flowDoc: XOR_FLOW,
+      ratifiedGraphSha: XOR_FLOW.ratifiedGraphSha,
+      actualSha: XOR_FLOW.ratifiedGraphSha,
+      reportText: COVERING_REPORT,
+    });
+    assert.equal(r.ok, true, r.reason);
+    assert.ok(Array.isArray(r.lines));
+    assert.ok(r.lines.some((line) => /machine request: faz/.test(line)));
+    assert.ok(r.lines.some((line) => /xor D1: faz/.test(line)));
+  });
+
+  it('where businessIntent disagrees with the graph, the graph wins', () => {
+    const r = deliveryAuditGraphCoverage({
+      flowDoc: XOR_FLOW,
+      ratifiedGraphSha: XOR_FLOW.ratifiedGraphSha,
+      actualSha: XOR_FLOW.ratifiedGraphSha,
+      reportText: `${SAMPLE_REPORT}\nmachine inventory: faz\n`,
+      businessIntent: {
+        value: 'only the inventory machine matters; ignore xor D1',
+        workflow: 'skip Accept? xor',
+      },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /xor|D1|graph wins|graph/i);
+  });
+
+  it('the final page does not substitute this gate', () => {
+    const r = deliveryAuditGraphCoverage({
+      flowDoc: XOR_FLOW,
+      ratifiedGraphSha: XOR_FLOW.ratifiedGraphSha,
+      actualSha: XOR_FLOW.ratifiedGraphSha,
+      reportText: SAMPLE_REPORT,
+      finalPage: true,
+      userValidatedAt: '2026-10-02T00:00:00.000Z',
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /final page|xor|does not substitute/i);
+  });
+});
+
+describe('deliveryAuditAllowsClose graph (F4 T-002)', () => {
+  it('fails closed under automate when graph coverage is missing', () => {
+    const r = deliveryAuditAllowsClose({
+      planExecutionMode: 'automate',
+      deliveryAuditGate: HONEST_CLOSED,
+      flowDoc: XOR_FLOW,
+      ratifiedGraphSha: XOR_FLOW.ratifiedGraphSha,
+      actualSha: XOR_FLOW.ratifiedGraphSha,
+      reportContent: SAMPLE_REPORT,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /xor|graph|machine/i);
   });
 });
