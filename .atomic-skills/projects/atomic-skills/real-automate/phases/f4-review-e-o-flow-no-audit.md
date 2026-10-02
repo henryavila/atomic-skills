@@ -25,8 +25,8 @@ status: active
 branch: plan/real-automate
 started: 2026-10-02T16:41:53.105Z
 lastUpdated: 2026-10-02T17:00:23.068Z
-nextAction: Run `phase-done` after evaluation, lessons, review both,
-  decision-review, and audit-delivery.
+nextAction: Operator disposition of F4 evaluation major — re-dispatch
+  F4-fix writer or stop (evaluation fail; no passed stamp).
 parentPlan: real-automate
 phaseId: F4
 businessIntent:
@@ -239,9 +239,9 @@ Initiative for phase **F4 — Review e o flow no audit**.
 Lessons applied at start: L-F2-1 (cited path must fail closed), L-F2-2 (size-cap; do not inflate parser).
 
 ## Session handoff
-- **Narrative:** F4 writer merged on plan/real-automate. T-001–T-003 closed through post-merge verifiers (review 44/44, audit 44/44, fence 12/12). Keep-green writer 22/22 and pen 34/34. Cursor step E.
-- **Decision log:** operator-continue F3→F4. Ratify F4 + apply L-F2-1/L-F2-2. Writer claimed-pass exclusive SHAs 3974ee76, 3df2f38f, 8aa3017a.
-- **Single nextAction:** Spawn evaluation agent for F4 (Step F), then lessons/review/decision-review/audit-delivery before phase-done.
-- **Verbatim state:** HEAD `b2b507549365f9295822649a4e1216e506074d40`; verifiers `node --test tests/phase-review-gate.test.js` 44/44, `node --test tests/phase-delivery-audit-gate.test.js` 44/44, `node --test tests/automate-product-fence.test.js` 12/12.
-- **Uncommitted changes:** this done checkpoint (initiative + completions + cursor).
+- **Narrative:** F4 tasks done at merge `b2b50754`. Evaluation agent wrote `.atomic-skills/reviews/eval-real-automate-F4.md` at HEAD `17af7584`. Verdict fail: 0 blocker, 0 critical, 1 major. Suites independently green. evaluationGate not stamped passed. Cursor step F.
+- **Decision log:** operator-continue F3→F4. Ratify F4 + L-F2-1/L-F2-2. Evaluation fail: close path skips graph unless caller injects flowDoc. Durable automate forbids failed-dispositioned close.
+- **Single nextAction:** Operator disposition of F4 evaluation major — re-dispatch F4-fix writer or stop.
+- **Verbatim state:** report `.atomic-skills/reviews/eval-real-automate-F4.md`; major `src/phase-delivery-audit-gate.js:661-686` `hasGraphInput`; `assert-automate-gate.js:1096-1111` stamp-only; G-1 `node --test tests/phase-review-gate.test.js` 44/44; audit 44/44; fence 12/12; writer 22/22; pen 34/34.
+- **Uncommitted changes:** eval report + F4.jsonl + this handoff.
 
