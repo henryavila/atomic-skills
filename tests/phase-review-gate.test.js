@@ -15,6 +15,9 @@ import {
   nextPhaseReviewAction,
   isArchitectureMixFinding,
   parkResidualFindings,
+  redirectParkPathOffMaestroCursor,
+  maestroCursorStatusPath,
+  residualFindingsStatusPath,
   runPhaseReviewLoop,
   REVIEW_EXTERNAL_CLIS,
   hostCliName,
@@ -563,7 +566,7 @@ describe('phase review loop cap (F4 T-003)', () => {
     const parked = parkResidualFindings('fixture', [
       { severity: 'minor', title: 'nit' },
     ]);
-    assert.equal(parked.path, '.atomic-skills/status/automate/fixture.json');
+    assert.equal(parked.path, '.atomic-skills/status/automate/fixture-residuals.json');
     assert.ok(Array.isArray(parked.body.remainingFindings));
     const next = nextPhaseReviewAction({
       round: 1,
@@ -572,8 +575,52 @@ describe('phase review loop cap (F4 T-003)', () => {
     });
     assert.equal(next.action, 'close-and-advance');
     assert.equal(next.openNext, true);
-    assert.equal(next.parkPath, '.atomic-skills/status/automate/fixture.json');
+    assert.equal(next.parkPath, '.atomic-skills/status/automate/fixture-residuals.json');
     assert.deepEqual(next.parkFindings, [{ severity: 'minor', title: 'nit' }]);
+  });
+
+  it('parking residual findings does not overwrite the maestro cursor file status/automate/<slug>.json', () => {
+    const parked = parkResidualFindings('fixture', [
+      { severity: 'minor', title: 'nit' },
+    ]);
+    assert.notEqual(parked.path, '.atomic-skills/status/automate/fixture.json');
+    assert.match(parked.path, /fixture-residuals\.json$/);
+    assert.equal(parked.body.step, undefined);
+    assert.equal(parked.body.phaseId, undefined);
+
+    /** @type {Array<{ path: string, body: unknown }>} */
+    const writes = [];
+    const cursor = { step: 'G', phaseId: 'F4', redispatchCount: 1 };
+    const files = { '.atomic-skills/status/automate/fixture.json': { ...cursor } };
+    const loop = runPhaseReviewLoop({
+      slug: 'fixture',
+      round: 1,
+      findings: [{ severity: 'minor', title: 'nit' }],
+      writeStatus: (path, body) => {
+        writes.push({ path, body });
+        files[path] = body;
+      },
+    });
+    assert.equal(loop.action, 'close-and-advance');
+    assert.ok(
+      writes.every((w) => w.path !== '.atomic-skills/status/automate/fixture.json'),
+      'park must not write the maestro cursor path',
+    );
+    assert.ok(writes.some((w) => /fixture-residuals\.json$/.test(w.path)));
+    assert.equal(files['.atomic-skills/status/automate/fixture.json'].step, 'G');
+    assert.equal(files['.atomic-skills/status/automate/fixture.json'].phaseId, 'F4');
+    assert.equal(
+      residualFindingsStatusPath('fixture'),
+      '.atomic-skills/status/automate/fixture-residuals.json',
+    );
+    assert.equal(
+      redirectParkPathOffMaestroCursor(maestroCursorStatusPath('fixture')),
+      residualFindingsStatusPath('fixture'),
+    );
+    assert.equal(
+      redirectParkPathOffMaestroCursor(residualFindingsStatusPath('fixture')),
+      residualFindingsStatusPath('fixture'),
+    );
   });
 
   it('on the third review, critical or major stops', () => {
@@ -633,6 +680,11 @@ describe('phase review loop cap (F4 T-003)', () => {
       findings: [{ severity: 'minor', title: 'nit' }],
     });
     assert.equal(parked.action, 'close-and-advance');
+    assert.equal(
+      parked.parkPath,
+      '.atomic-skills/status/automate/real-automate-residuals.json',
+    );
+    assert.notEqual(parked.parkPath, maestroCursorStatusPath('real-automate'));
   });
 
   it('runPhaseReviewLoop parks minors, dispatches fix, and stops on mix or third critical', () => {
@@ -648,7 +700,8 @@ describe('phase review loop cap (F4 T-003)', () => {
       },
     });
     assert.equal(minors.action, 'close-and-advance');
-    assert.ok(log.some((e) => e.includes('status/automate/demo.json')));
+    assert.ok(log.some((e) => e.includes('status/automate/demo-residuals.json')));
+    assert.ok(!log.some((e) => e.includes('status/automate/demo.json')));
 
     const fix = runPhaseReviewLoop({
       slug: 'demo',

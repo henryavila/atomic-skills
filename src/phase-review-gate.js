@@ -459,15 +459,49 @@ function hasCriticalOrMajor(findings) {
 }
 
 /**
+ * Maestro cursor path — never a residuals park target.
+ * @param {string} slug
+ * @returns {string}
+ */
+export function maestroCursorStatusPath(slug) {
+  const name = String(slug || '').trim() || 'plan';
+  return `.atomic-skills/status/automate/${name}.json`;
+}
+
+/**
+ * Sidecar for parked residual findings. Distinct from the maestro cursor.
+ * @param {string} slug
+ * @returns {string}
+ */
+export function residualFindingsStatusPath(slug) {
+  const name = String(slug || '').trim() || 'plan';
+  return `.atomic-skills/status/automate/${name}-residuals.json`;
+}
+
+/**
+ * If rel is the maestro cursor, rewrite to the residuals sidecar.
+ * @param {string} rel
+ * @returns {string}
+ */
+export function redirectParkPathOffMaestroCursor(rel) {
+  const posix = String(rel || '').replace(/\\/g, '/');
+  const m = posix.match(/^(?:\.\/)?(\.atomic-skills\/status\/automate\/)([^/]+)\.json$/);
+  if (!m) return posix;
+  const file = m[2];
+  if (file.endsWith('-residuals')) return posix;
+  return `${m[1]}${file}-residuals.json`;
+}
+
+/**
  * Park remaining (non-critical/major) findings for the final report.
+ * Writes a sidecar, never the maestro cursor `<slug>.json`.
  * @param {string} slug
  * @param {unknown[]} findings
  * @returns {{ path: string, body: { remainingFindings: unknown[] } }}
  */
 export function parkResidualFindings(slug, findings) {
-  const name = String(slug || '').trim() || 'plan';
   return {
-    path: `.atomic-skills/status/automate/${name}.json`,
+    path: residualFindingsStatusPath(slug),
     body: { remainingFindings: Array.isArray(findings) ? findings : [] },
   };
 }

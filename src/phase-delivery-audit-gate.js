@@ -513,7 +513,9 @@ export function parseGraphCoverageLines(reportText) {
 /**
  * Audit-delivery must read flow/flow.json at ratifiedGraphSha.
  * Missing cited path fails (L-F2-1). Divergent sha fails. Graph wins over BI.
- * The final page does not substitute this gate.
+ * Schema-invalid disk doc, hash throw, and empty machine/xor subjects fail
+ * closed — never treat as SHA-equal / vacuous coverage. The final page does
+ * not substitute this gate.
  *
  * @param {{
  *   flowDoc?: unknown,
@@ -554,7 +556,6 @@ export function deliveryAuditGraphCoverage(input = {}) {
 
   /** @type {unknown} */
   let flowDoc = input.flowDoc;
-  let loadedFromPath = false;
   if (flowDoc == null && flowPath !== '' && typeof input.readFile === 'function') {
     try {
       const raw = input.readFile(flowPath);
@@ -577,7 +578,6 @@ export function deliveryAuditGraphCoverage(input = {}) {
         };
       }
       flowDoc = JSON.parse(text);
-      loadedFromPath = true;
     } catch (err) {
       return {
         ok: false,
@@ -602,14 +602,16 @@ export function deliveryAuditGraphCoverage(input = {}) {
   let actual;
   if (input.actualSha != null) {
     actual = String(input.actualSha).trim();
-  } else if (loadedFromPath) {
+  } else {
     try {
       actual = flowDocumentSha(flowDoc);
-    } catch {
-      actual = expected;
+    } catch (err) {
+      const cited = flowPath !== '' ? flowPath : 'flow/flow.json';
+      return {
+        ok: false,
+        reason: `delivery audit cited ${cited} schema-invalid / hash throw (not SHA-equal coverage): ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
-  } else {
-    actual = expected;
   }
   if (!expected || !actual || expected !== actual) {
     return {
@@ -619,6 +621,13 @@ export function deliveryAuditGraphCoverage(input = {}) {
   }
 
   const subjects = graphCoverageSubjects(flowDoc);
+  if (subjects.length === 0) {
+    return {
+      ok: false,
+      reason:
+        'delivery audit empty machine-and-xor subjects (vacuous coverage is not a pass)',
+    };
+  }
   const parsed = parseGraphCoverageLines(input.reportText);
   /** @type {string[]} */
   const missing = [];

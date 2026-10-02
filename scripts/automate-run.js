@@ -39,6 +39,7 @@ import {
 } from '../src/writer-lease.js';
 import {
   buildPhaseReviewBrief,
+  redirectParkPathOffMaestroCursor,
   resolveReviewExternalCli,
   runExternalReviewCli,
   runPhaseReviewLoop,
@@ -794,7 +795,8 @@ function main() {
           round: Number(process.env.AUTOMATE_REVIEW_ROUND || 1),
           findings: Array.isArray(findings) ? findings : [],
           writeStatus: (rel, body) => {
-            const abs = join(root, rel);
+            const targetRel = redirectParkPathOffMaestroCursor(rel);
+            const abs = join(root, targetRel);
             mkdirSync(dirname(abs), { recursive: true });
             writeFileSync(abs, `${JSON.stringify(body, null, 2)}\n`);
           },
