@@ -1,8 +1,8 @@
 {
   "step": "C",
   "phaseId": "F4",
-  "redispatchCount": 7,
-  "updatedAt": "2026-10-02T17:31:16.540Z",
+  "redispatchCount": 8,
+  "updatedAt": "2026-10-02T17:58:39.889Z",
   "operatorOverrides": [
     {
       "at": "2026-09-25T22:19:08.523Z",
@@ -33,7 +33,13 @@
       "reason": "Operator asked to dispatch F4-fix1 writer after evaluation fail (1 major: deliveryAuditAllowsClose / canRunPhaseDone / assert-automate-gate skip flow/flow.json unless caller injects graph). Close path must load ratifiedGraphSha.",
       "priorCount": 6,
       "gate": "evaluation"
+    },
+    {
+      "at": "2026-10-02T17:58:39.889Z",
+      "reason": "Operator asked F4-fix2 after F4-fix1 merge: green lifecycle-order-guard, decision-review-gate, implement-phase-agents-contract tests that still expect stamp-only CLOSED allow without graph coverage.",
+      "priorCount": 7,
+      "gate": "evaluation"
     }
   ],
-  "claimReportPath": ".atomic-skills/status/automate/real-automate-claims.json"
+  "claimReportPath": ".atomic-skills/status/automate/real-automate-F4-fix1-claims.json"
 }

@@ -1,0 +1,31 @@
+{
+  "planSlug": "real-automate",
+  "phaseId": "F4",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F4-fix1-writer",
+  "writerBranch": "impl/real-automate-F4-fix1-writer",
+  "finishedAt": "2026-10-02T17:45:00.000Z",
+  "tasks": [
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": [
+        "55a04abc7a1cbb85ed4b4a0aad944e521c5e56e1"
+      ],
+      "base": "ff4764ce5c199243adf563edb7d016c9a61761b6",
+      "head": "55a04abc7a1cbb85ed4b4a0aad944e521c5e56e1",
+      "paths": [
+        "src/phase-delivery-audit-gate.js",
+        "tests/phase-delivery-audit-gate.test.js",
+        "skills/core/audit-delivery.md",
+        "src/automate-orchestrator-gates.js",
+        "tests/automate-orchestrator-gates.test.js",
+        "scripts/assert-automate-gate.js",
+        "tests/assert-automate-gate.test.js"
+      ],
+      "verifierCommand": "node --test tests/phase-delivery-audit-gate.test.js",
+      "exitCode": 0,
+      "transcript": "ℹ tests 49\nℹ suites 11\nℹ pass 49\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 158.425001\n",
+      "notes": "Close path always loads flow/flow.json at ratifiedGraphSha (flowPathsForPlan when planPath/cwd is available). Honest CLOSED without graph input fails under automate. Missing/empty/path-escape fail closed (L-F2-1); flow JSON size-capped 256_000 (L-F2-2). Keep-green: phase-review-gate 44/44, automate-product-fence 12/12, automate-run-writer 22/22, automate-host-pen 34/34, assert-automate-gate 36/36. scripts/lifecycle-order-guard.js is not admitted; checkPhaseDoneDeliveryAudit now fail-closes via deliveryAuditAllowsClose without a code change there. Out-of-scope tests that still expect stamp-only allow: tests/lifecycle-order-guard.test.js, tests/decision-review-gate.test.js, tests/implement-phase-agents-contract.test.js. Spawn helpers in tests/automate-orchestrator-gates.test.js that omit stampValidFlowOnPlan were already blocked by the spawn flow fence (not this change)."
+    }
+  ]
+}

@@ -25,7 +25,7 @@ status: active
 branch: plan/real-automate
 started: 2026-10-02T16:41:53.105Z
 lastUpdated: 2026-10-02T17:00:23.068Z
-nextAction: Spawn F4-fix1 writer for T-002 close-path graph load.
+nextAction: Spawn F4-fix2 writer to green related close-path tests.
 parentPlan: real-automate
 phaseId: F4
 businessIntent:
@@ -173,6 +173,12 @@ tasks:
         path: scripts/assert-automate-gate.js
       - kind: file
         path: tests/assert-automate-gate.test.js
+      - kind: file
+        path: tests/lifecycle-order-guard.test.js
+      - kind: file
+        path: tests/decision-review-gate.test.js
+      - kind: file
+        path: tests/implement-phase-agents-contract.test.js
     summary: Audit lê flow/flow.json no ratifiedGraphSha; xor sem linha no relatório
       falha. Close path carrega o grafo.
     weight: 1
@@ -241,9 +247,9 @@ Initiative for phase **F4 — Review e o flow no audit**.
 Lessons applied at start: L-F2-1 (cited path must fail closed), L-F2-2 (size-cap; do not inflate parser).
 
 ## Session handoff
-- **Narrative:** Operator chose F4-fix writer. T-002 reopened (active) so the close path loads `flow/flow.json` at `ratifiedGraphSha`. T-001 and T-003 stay done. evaluationGate not stamped passed.
-- **Decision log:** operator-continue F3→F4. Ratify F4 + L-F2-1/L-F2-2. Eval fail 1 major. Operator: Disparar F4-fix writer (override redispatchCount 6).
-- **Single nextAction:** Spawn F4-fix1 writer for T-002 close-path graph load.
-- **Verbatim state:** report `.atomic-skills/reviews/eval-real-automate-F4.md`; major `src/phase-delivery-audit-gate.js:661-686`; writerBranch `impl/real-automate-F4-fix1-writer`.
-- **Uncommitted changes:** T-002 reopen + GT restamp + cursor C.
+- **Narrative:** F4-fix1 merged at `ae1ec7de`. T-002 verifier 49/49. Keep-green 44/44, 12/12, 22/22, 34/34. Nine related tests red: they still expect stamp-only allow. Operator chose F4-fix2.
+- **Decision log:** Eval fail 1 major. F4-fix1 override. Operator: Disparar F4-fix2 nesses testes.
+- **Single nextAction:** Spawn F4-fix2 writer to green related close-path tests.
+- **Verbatim state:** HEAD `ae1ec7de`; red: `tests/lifecycle-order-guard.test.js` 6, `tests/decision-review-gate.test.js` 1, `tests/implement-phase-agents-contract.test.js` 2.
+- **Uncommitted changes:** T-002 output expansion + cursor C + F4-fix1 claims/brief.
 
