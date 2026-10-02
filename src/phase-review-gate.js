@@ -68,8 +68,395 @@ export function isDurableAutomateForPhaseReview(input = {}) {
  *   operatorSkip?: boolean | null,
  *   overrideReason?: string | null,
  *   verifiedAt?: string | null,
+ *   externalStderr?: string | null,
+ *   stderr?: string | null,
  * }} ReviewGate
  */
+
+/** External review CLIs the program may store on the plan (not the open host). */
+export const REVIEW_EXTERNAL_CLIS = Object.freeze(['claude', 'codex', 'grok']);
+
+const REVIEW_EXTERNAL_CLI_SET = new Set(REVIEW_EXTERNAL_CLIS);
+
+const HOST_TO_CLI = Object.freeze({
+  claude: 'claude',
+  'claude-code': 'claude',
+  codex: 'codex',
+  grok: 'grok',
+});
+
+/**
+ * CLI name for an automate host id (`claude-code` → `claude`).
+ * @param {unknown} host
+ * @returns {string}
+ */
+export function hostCliName(host) {
+  const raw = host != null ? String(host).trim().toLowerCase() : '';
+  if (!raw) return '';
+  if (HOST_TO_CLI[raw]) return HOST_TO_CLI[raw];
+  const base = raw.replace(/\\/g, '/').split('/').pop() || raw;
+  const name = base.replace(/\.exe$/i, '');
+  return HOST_TO_CLI[name] || name;
+}
+
+/**
+ * @param {unknown} cli
+ * @param {unknown} openHost
+ * @returns {{ ok: boolean, reason?: string, cli?: string }}
+ */
+export function isValidReviewExternalCli(cli, openHost) {
+  const name = hostCliName(cli);
+  if (!REVIEW_EXTERNAL_CLI_SET.has(name)) {
+    return {
+      ok: false,
+      reason: `reviewExternalCli must be claude|codex|grok (got ${cli == null ? 'missing' : String(cli)})`,
+    };
+  }
+  const hostCli = hostCliName(openHost);
+  if (hostCli && name === hostCli) {
+    return {
+      ok: false,
+      reason: `reviewExternalCli must not equal the open host (${openHost})`,
+    };
+  }
+  return { ok: true, cli: name };
+}
+
+/**
+ * Read `reviewExternalCli:` from plan frontmatter (size-capped; not a YAML parser).
+ * @param {string | null | undefined} planText
+ * @returns {string}
+ */
+export function readPlanReviewExternalCli(planText) {
+  if (typeof planText !== 'string' || planText === '') return '';
+  const m = planText.match(/^reviewExternalCli:\s*["']?([A-Za-z0-9_-]+)/m);
+  return m ? m[1].trim().toLowerCase() : '';
+}
+
+/**
+ * Insert or keep `reviewExternalCli` on plan frontmatter. Does not re-ask.
+ * @param {string} planText
+ * @param {string} cli
+ * @returns {string}
+ */
+export function upsertPlanReviewExternalCli(planText, cli) {
+  const text = typeof planText === 'string' ? planText : '';
+  const name = hostCliName(cli);
+  if (readPlanReviewExternalCli(text) === name) return text;
+  if (/^reviewExternalCli:\s*/m.test(text)) {
+    return text.replace(/^reviewExternalCli:\s*.*$/m, `reviewExternalCli: ${name}`);
+  }
+  if (text.startsWith('---')) {
+    const nl = text.indexOf('\n');
+    if (nl !== -1) {
+      return `${text.slice(0, nl + 1)}reviewExternalCli: ${name}\n${text.slice(nl + 1)}`;
+    }
+  }
+  return `---\nreviewExternalCli: ${name}\n---\n${text}`;
+}
+
+/**
+ * Ask once for the external review CLI and store it. Never asks again mid-run.
+ * @param {{
+ *   openHost?: string | null,
+ *   planText?: string | null,
+ *   planReviewExternalCli?: string | null,
+ *   ask?: (() => string | Promise<string>) | null,
+ * }} [input]
+ * @returns {{
+ *   ok: boolean,
+ *   reason?: string,
+ *   cli?: string,
+ *   asked: boolean,
+ *   planText?: string,
+ * }}
+ */
+export function resolveReviewExternalCli(input = {}) {
+  const storedRaw =
+    input.planReviewExternalCli != null && String(input.planReviewExternalCli).trim() !== ''
+      ? String(input.planReviewExternalCli).trim()
+      : readPlanReviewExternalCli(input.planText);
+  if (storedRaw) {
+    const valid = isValidReviewExternalCli(storedRaw, input.openHost);
+    if (!valid.ok) return { ok: false, asked: false, reason: valid.reason };
+    return {
+      ok: true,
+      asked: false,
+      cli: valid.cli,
+      planText: input.planText != null ? String(input.planText) : undefined,
+    };
+  }
+  if (typeof input.ask !== 'function') {
+    return {
+      ok: false,
+      asked: false,
+      reason: 'reviewExternalCli missing; ask once before the first phase',
+    };
+  }
+  const answered = input.ask();
+  const finish = (raw) => {
+    const valid = isValidReviewExternalCli(raw, input.openHost);
+    if (!valid.ok) return { ok: false, asked: true, reason: valid.reason };
+    const planText =
+      input.planText != null
+        ? upsertPlanReviewExternalCli(String(input.planText), valid.cli)
+        : upsertPlanReviewExternalCli('---\n---\n', valid.cli);
+    return { ok: true, asked: true, cli: valid.cli, planText };
+  };
+  if (answered && typeof answered.then === 'function') {
+    return answered.then(finish);
+  }
+  return finish(answered);
+}
+
+/**
+ * @param {string} rest
+ * @returns {Record<string, string>}
+ */
+function parseReceiptAssignments(rest) {
+  const re = /(?:^|[|,])\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/g;
+  const matches = [...String(rest).matchAll(re)];
+  /** @type {Record<string, string>} */
+  const fields = {};
+  for (let i = 0; i < matches.length; i++) {
+    const key = matches[i][1].toLowerCase();
+    const valueStart = matches[i].index + matches[i][0].length;
+    const valueEnd = i + 1 < matches.length ? matches[i + 1].index : rest.length;
+    fields[key] = String(rest).slice(valueStart, valueEnd).trim();
+  }
+  return fields;
+}
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function extractVerdictToken(text) {
+  const m = String(text).match(
+    /\bverdict\s*:\s*(CLEAN|PASS|PASSED|FAILED|needs_changes)\b/i,
+  );
+  if (m) {
+    const v = m[1].toUpperCase();
+    return v === 'PASS' ? 'PASSED' : v;
+  }
+  const token = String(text).match(/\b(CLEAN|PASSED|PASS)\b/);
+  if (!token) return '';
+  return token[1].toUpperCase() === 'PASS' ? 'PASSED' : token[1].toUpperCase();
+}
+
+/**
+ * Format a durable external-CLI receipt line (command, exit, stderr, verdict).
+ * @param {{
+ *   cli?: string | null,
+ *   command: string,
+ *   exit: number,
+ *   stderr?: string | null,
+ *   verdict?: string | null,
+ * }} fields
+ * @returns {string}
+ */
+export function formatExternalReviewReceipt(fields) {
+  const cli = hostCliName(fields.cli) || 'external';
+  const command = fields.command != null ? String(fields.command).trim() : '';
+  const exit = Number(fields.exit);
+  const stderr = fields.stderr != null ? String(fields.stderr).replace(/\s+/g, ' ').trim() : '';
+  const verdict = fields.verdict != null ? String(fields.verdict).trim() : '';
+  return `- ${cli}: command=${command} | exit=${Number.isFinite(exit) ? exit : ''} | stderr=${stderr} | verdict=${verdict}`;
+}
+
+/**
+ * Parse an external CLI receipt. Session `- internal:` lines do not count.
+ * Missing verdict does not count. Non-zero exit still exposes real stderr.
+ *
+ * @param {string | null | undefined} content
+ * @returns {{
+ *   ok: boolean,
+ *   reason?: string,
+ *   command?: string,
+ *   exit?: number,
+ *   stderr?: string,
+ *   verdict?: string,
+ *   cli?: string,
+ * }}
+ */
+export function parseExternalReviewReceipt(content) {
+  if (content == null || String(content).trim() === '') {
+    return { ok: false, reason: 'missing external CLI receipt (command, exit, stderr, verdict)' };
+  }
+  const text = String(content);
+  const lines = text.split(/\r?\n/);
+  /** @type {string | null} */
+  let chosen = null;
+  for (const line of lines) {
+    const m = line.match(/^\s*-\s*([^:]+)\s*:/);
+    if (!m) continue;
+    const label = m[1].trim();
+    if (/^internal$/i.test(label) || /^ground-truth$/i.test(label) || /^cross-model(\s|$|\()/i.test(label)) {
+      continue;
+    }
+    chosen = line;
+    break;
+  }
+  if (chosen == null) {
+    if (lines.some((l) => /^\s*-\s*internal\s*:/i.test(l))) {
+      return {
+        ok: false,
+        reason: 'session-written - internal: line is not an external CLI receipt',
+      };
+    }
+    return { ok: false, reason: 'missing external CLI receipt (command, exit, stderr, verdict)' };
+  }
+  const head = chosen.match(/^\s*-\s*([^:]+)\s*:/);
+  const cli = head ? hostCliName(head[1]) : '';
+  const rest = chosen.slice(head ? head[0].length : 0);
+  const fields = parseReceiptAssignments(rest);
+  const command = (fields.command || fields.cli || '').trim();
+  const stderr = fields.stderr != null ? fields.stderr : '';
+  const verdictRaw = fields.verdict != null ? fields.verdict.replace(/[.,;]+$/, '') : '';
+  const exitRaw = fields.exit != null ? fields.exit.trim() : '';
+  const exit = /^-?\d+$/.test(exitRaw) ? Number(exitRaw) : NaN;
+  const out = {
+    command,
+    exit: Number.isFinite(exit) ? exit : undefined,
+    stderr,
+    verdict: verdictRaw,
+    cli,
+  };
+  if (!command) {
+    return { ok: false, reason: 'external CLI receipt missing command', ...out };
+  }
+  if (!Number.isFinite(exit)) {
+    return { ok: false, reason: 'external CLI receipt missing exit', ...out };
+  }
+  if (!verdictRaw) {
+    return { ok: false, reason: 'output without a verdict does not count', ...out };
+  }
+  return { ok: true, ...out };
+}
+
+/**
+ * Honesty for the spawned external CLI process receipt.
+ * `overrideReason` without stderr of that process fails.
+ * A session-written `- internal:` body does not count.
+ *
+ * @param {{
+ *   overrideReason?: string | null,
+ *   externalStderr?: string | null,
+ *   stderr?: string | null,
+ *   command?: string | null,
+ *   exit?: number | null,
+ *   verdict?: string | null,
+ *   body?: string | null,
+ *   reviewFile?: string | null,
+ * }} [input]
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function externalReviewReceiptHonesty(input = {}) {
+  if (input.body != null && String(input.body).trim() !== '') {
+    const parsed = parseExternalReviewReceipt(input.body);
+    if (!parsed.ok) return { ok: false, reason: parsed.reason };
+  }
+  const override =
+    input.overrideReason != null ? String(input.overrideReason).trim() : '';
+  if (override !== '') {
+    const stderr =
+      input.externalStderr != null
+        ? String(input.externalStderr)
+        : input.stderr != null
+          ? String(input.stderr)
+          : '';
+    if (stderr.trim() === '') {
+      return {
+        ok: false,
+        reason:
+          'overrideReason without stderr of that external CLI process fails',
+      };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * Brief for the external review: ratified flow graph + chosen architecture sketch.
+ * Complex tasks enter this same review before phase close.
+ *
+ * @param {{
+ *   flowGraph?: unknown,
+ *   architectureSketch?: unknown,
+ *   complexTasks?: unknown[] | null,
+ * }} [input]
+ * @returns {string}
+ */
+export function buildPhaseReviewBrief(input = {}) {
+  const lines = ['# Phase review brief', ''];
+  lines.push('## Ratified flow graph');
+  lines.push(JSON.stringify(input.flowGraph ?? {}, null, 2));
+  lines.push('');
+  lines.push('## Chosen architecture sketch');
+  lines.push(JSON.stringify(input.architectureSketch ?? {}, null, 2));
+  const complex = Array.isArray(input.complexTasks) ? input.complexTasks : [];
+  if (complex.length > 0) {
+    lines.push('');
+    lines.push('## Complex tasks (same review before phase close)');
+    for (const task of complex) {
+      lines.push(JSON.stringify(task));
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Spawn the external review CLI, wait, and write command/exit/stderr/verdict.
+ * Non-zero exit stores the real stderr. Missing verdict does not count.
+ *
+ * @param {{
+ *   cli: string,
+ *   argv?: string[] | null,
+ *   spawn: (bin: string, argv: string[]) =>
+ *     | { status?: number, exit?: number, stdout?: string, stderr?: string }
+ *     | Promise<{ status?: number, exit?: number, stdout?: string, stderr?: string }>,
+ * }} input
+ * @returns {{
+ *   exit: number,
+ *   stderr: string,
+ *   stdout: string,
+ *   verdict: string,
+ *   command: string,
+ *   receipt: string,
+ * } | Promise<{
+ *   exit: number,
+ *   stderr: string,
+ *   stdout: string,
+ *   verdict: string,
+ *   command: string,
+ *   receipt: string,
+ * }>}
+ */
+export function runExternalReviewCli(input) {
+  const cli = hostCliName(input.cli) || String(input.cli || '').trim();
+  const argv = Array.isArray(input.argv) ? input.argv.map(String) : [];
+  const finish = (res) => {
+    const stdout = res && res.stdout != null ? String(res.stdout) : '';
+    const stderr = res && res.stderr != null ? String(res.stderr) : '';
+    const exitRaw = res && (res.status != null ? res.status : res.exit);
+    const exit = Number.isFinite(Number(exitRaw)) ? Number(exitRaw) : 1;
+    const verdict = extractVerdictToken(stdout) || extractVerdictToken(stderr);
+    const command = [cli, ...argv].join(' ').trim();
+    return {
+      exit,
+      stderr,
+      stdout,
+      verdict,
+      command,
+      receipt: formatExternalReviewReceipt({ cli, command, exit, stderr, verdict }),
+    };
+  };
+  const spawned = input.spawn(cli, argv);
+  if (spawned && typeof spawned.then === 'function') {
+    return spawned.then(finish);
+  }
+  return finish(spawned);
+}
 
 /**
  * Collect dual-leg receipt paths from a reviewGate (mode both authenticity).
@@ -373,6 +760,12 @@ export function phaseReviewHonesty(gate) {
               'automate phase-done default is review mode both; local requires non-empty overrideReason (operator-owned downgrade) — plain reason alone is not enough',
           };
         }
+        const overrideHonesty = externalReviewReceiptHonesty({
+          overrideReason: override,
+          externalStderr: gate.externalStderr,
+          stderr: gate.stderr,
+        });
+        if (!overrideHonesty.ok) return overrideHonesty;
         // Allow explicit local downgrade with reason (operator-owned)
         const at = gate.at != null ? String(gate.at).trim() : '';
         if (!GIT_SHA_RE.test(at)) {

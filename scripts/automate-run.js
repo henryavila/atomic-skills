@@ -37,6 +37,12 @@ import {
   clearLeaseFile,
   leasePath,
 } from '../src/writer-lease.js';
+import {
+  buildPhaseReviewBrief,
+  resolveReviewExternalCli,
+  runExternalReviewCli,
+  upsertPlanReviewExternalCli,
+} from '../src/phase-review-gate.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -491,6 +497,82 @@ function killQuiet(pidOrChild) {
   }
 }
 
+/**
+ * Ask once (or reuse env/plan) for the family-different external review CLI.
+ * Does not ask again when the plan already stores reviewExternalCli.
+ * @param {{
+ *   planPath: string,
+ *   host?: string | null,
+ *   env?: NodeJS.ProcessEnv,
+ *   ask?: (() => string) | null,
+ *   readPlan?: ((path: string) => string) | null,
+ *   writePlan?: ((path: string, text: string) => void) | null,
+ * }} input
+ */
+export function prepareReviewExternalCli(input) {
+  const env = input.env || process.env;
+  const planPath = input.planPath;
+  const readPlan =
+    typeof input.readPlan === 'function'
+      ? input.readPlan
+      : (path) => readFileSync(path, 'utf8');
+  const writePlan =
+    typeof input.writePlan === 'function'
+      ? input.writePlan
+      : (path, text) => writeFileSync(path, text);
+  let planText = '';
+  try {
+    planText = readPlan(planPath);
+  } catch {
+    planText = '';
+  }
+  const fromEnv =
+    env.AUTOMATE_REVIEW_EXTERNAL_CLI != null
+      ? String(env.AUTOMATE_REVIEW_EXTERNAL_CLI).trim()
+      : '';
+  const result = resolveReviewExternalCli({
+    openHost: input.host,
+    planText,
+    planReviewExternalCli: fromEnv || undefined,
+    ask: input.ask,
+  });
+  if (result.ok && result.cli) {
+    const next = result.planText && result.asked
+      ? result.planText
+      : upsertPlanReviewExternalCli(planText, result.cli);
+    if (next !== planText) writePlan(planPath, next);
+    return { ...result, planText: next };
+  }
+  return result;
+}
+
+/**
+ * Spawn the stored external review CLI, wait, and return the receipt.
+ * Brief includes the ratified flow graph and chosen architecture sketch.
+ * @param {{
+ *   cli: string,
+ *   argv?: string[] | null,
+ *   spawn?: ((bin: string, argv: string[]) => { status?: number, stdout?: string, stderr?: string }) | null,
+ *   flowGraph?: unknown,
+ *   architectureSketch?: unknown,
+ *   complexTasks?: unknown[] | null,
+ * }} input
+ */
+export function runPhaseReviewBoth(input) {
+  const brief = buildPhaseReviewBrief({
+    flowGraph: input.flowGraph,
+    architectureSketch: input.architectureSketch,
+    complexTasks: input.complexTasks,
+  });
+  const argv = Array.isArray(input.argv) ? input.argv : ['review'];
+  const spawn =
+    typeof input.spawn === 'function'
+      ? input.spawn
+      : (bin, args) =>
+          spawnSync(bin, args, { encoding: 'utf8', input: brief });
+  return runExternalReviewCli({ cli: input.cli, argv, spawn });
+}
+
 export async function runWriterSession(input) {
   const { host, root, plan, args } = input;
   const env = process.env;
@@ -660,8 +742,28 @@ function main() {
     process.exit(1);
   }
 
-  runWriterSession({ host, root, plan: resolve(args.plan), args }).then(
-    (code) => process.exit(code),
+  const planPath = resolve(args.plan);
+  const prepared = prepareReviewExternalCli({
+    planPath,
+    host,
+    env: process.env,
+  });
+
+  runWriterSession({ host, root, plan: planPath, args }).then(
+    async (code) => {
+      if (code !== 0) process.exit(code);
+      if (prepared.ok && prepared.cli && process.env.AUTOMATE_REVIEW_SPAWN === '1') {
+        const review = runPhaseReviewBoth({
+          cli: prepared.cli,
+          argv: hostArgv({ hostArgs: process.env.AUTOMATE_REVIEW_ARGS }, process.env),
+        });
+        const ran = review && typeof review.then === 'function' ? await review : review;
+        if (ran && ran.receipt) {
+          process.stderr.write(`${ran.receipt}\n`);
+        }
+      }
+      process.exit(code);
+    },
     (err) => {
       process.stderr.write(
         `implement --automate failed: ${err instanceof Error ? err.message : String(err)}\n`,
