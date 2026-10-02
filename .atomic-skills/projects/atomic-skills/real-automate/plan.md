@@ -8,7 +8,7 @@ executionMode: automate
 started: 2026-09-25T03:17:12.483Z
 lastUpdated: 2026-10-02T12:25:10.000Z
 branch: plan/real-automate
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -408,11 +408,19 @@ phases:
           description: |
             um teste de integração com host falso sai 0, o arquivo do writer
             está no branch do plano, e uma segunda fase não foi materializada.
-          status: pending
+          status: met
+          metAt: 2026-10-02T16:12:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-10-02T16:12:00.000Z
+            verifiedCommit: c3fa0dcd5c0c2961b46f84842267de43c6abccc1
+            passed: true
+            exitCode: 0
+            outputSummary: "node --test tests/automate-run-writer.test.js: ℹ tests 22 ℹ pass 22 ℹ fail 0"
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: active
+    status: done
     businessIntent:
       value: |
         Com caneta, flow, revisão, ground truth, cartão e protótipo válidos, o
@@ -440,12 +448,31 @@ phases:
       status: passed
       verdict: pass
       reportPath: .atomic-skills/reviews/eval-real-automate-F3.md
-      verifiedAt: 2026-10-02T13:50:42.000Z
-      at: 466db06999a955000c292d25de296e4b7807cd72
+      verifiedAt: 2026-10-02T16:05:21.000Z
+      at: c3fa0dcd5c0c2961b46f84842267de43c6abccc1
     lessonsState: none
     noneReason: >
-      F3 evaluation returned notes only. Clean phase: no remaining
-      blocker/critical/major on residual check.
+      Post-fix1 evaluation notes only. Operator accepted remaining residual
+      (git-before-lease concurrent, EPERM-as-dead, phaseId path, branch -D
+      on failure, coordinator vs child pid) as outside the one-writer F3 slice.
+    reviewGate:
+      status: passed
+      mode: both
+      at: c3fa0dcd5c0c2961b46f84842267de43c6abccc1
+      reviewFile: .atomic-skills/reviews/2026-10-02-real-automate-F3-fix1-local.md
+      localReceiptPath: .atomic-skills/reviews/2026-10-02-real-automate-F3-fix1-local.md
+      codexReceiptPath: .atomic-skills/reviews/2026-10-02-real-automate-F3-fix1-codex.md
+      verifiedAt: 2026-10-02T16:10:00.000Z
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-10-02T16:12:00.000Z
+      packagePresentedAt: 2026-10-02T16:11:00.000Z
+      packagePath: .atomic-skills/reviews/2026-10-02-real-automate-F3-decision-package.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-real-automate-F3.md
+      verdict: CLOSED
+      verifiedAt: 2026-10-02T16:12:00.000Z
   - id: F4
     slug: real-automate-f4-review-e-o-flow-no-audit
     title: Review e o flow no audit

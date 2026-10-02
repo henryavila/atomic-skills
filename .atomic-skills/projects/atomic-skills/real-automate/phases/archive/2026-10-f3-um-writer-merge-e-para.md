@@ -8,11 +8,11 @@ goal: |
   writer do CLI do host, integra no branch do plano, mata o writer se ainda
   viver e solta o lock. O teste deste marco para depois do merge. Não roda
   review nem audit e não abre a fase seguinte, porque isso é a F4.
-status: active
+status: done
 branch: plan/real-automate
 started: 2026-10-02T12:30:00.000Z
-lastUpdated: 2026-10-02T12:30:00.000Z
-nextAction: Re-open AskUserQuestion for F3 residual blocker/critical (fix writer vs stop).
+lastUpdated: 2026-10-02T16:12:00.000Z
+nextAction: present phase-start package for F4 validate-only
 parentPlan: real-automate
 phaseId: F3
 businessIntent:
@@ -40,7 +40,7 @@ businessIntent:
     está no branch do plano, e uma segunda fase não foi materializada.
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 3
 weightTotal: 3
@@ -48,12 +48,21 @@ exitGates:
   - id: G-1
     description: um teste de integração com host falso sai 0, o arquivo do writer
       está no branch do plano, e uma segunda fase não foi materializada.
-    status: pending
+    status: met
+    metAt: 2026-10-02T16:12:00.000Z
     verifier:
       kind: shell
       command: node --test tests/automate-run-writer.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/automate-run-writer.test.js"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T16:12:00.000Z
+      verifiedCommit: c3fa0dcd5c0c2961b46f84842267de43c6abccc1
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/automate-run-writer.test.js: ℹ tests 22 ℹ pass 22 ℹ fail 0"
+    evidenceSummary: passed · 2026-10-02
 stack:
   - id: 1
     title: Um writer, merge, e para
@@ -169,8 +178,8 @@ Initiative for phase **F3 — Um writer, merge, e para**.
 Lessons applied at start: L-F2-1 (cited path/lock must fail closed), L-F2-2 (do not inflate automate-run.js).
 
 ## Session handoff
-- **Narrative:** F3 tasks T-001/T-002/T-003 implemented and closed on merged HEAD `75f80f07`. `scripts/automate-run.js` writes pen.lock, spawns an injectable host CLI in a writer worktree, merges onto the plan branch, kills a living writer, and deletes the lock. Verifier 14/14. Keep-green: host-pen 34/34, find-missing-ui 28/28.
-- **Decision log:** Worktree and merge live in `automate-run.js`, not `automate-phase-run.js`. Fake host is injected for tests. L-F2-1 fail-closed on missing cited writerWorktree. L-F2-2 size-cap respected (spawn/merge slice, not a 2k-line runtime).
-- **Single nextAction:** Re-open AskUserQuestion: dispatch F3 review-fix writer (B1 leftover branch, exclusive pen.lock, spawn error, empty writerWorktree) vs stop. Do not phase-done while local+Codex residual still has blocker/critical without operator accept|fix.
-- **Verbatim state:** eval `.atomic-skills/reviews/eval-real-automate-F3.md` verdict pass; local `.atomic-skills/reviews/2026-10-02-real-automate-F3-residual-local.md` needs_changes blocker 1 critical 4; Codex `.atomic-skills/reviews/2026-10-02-real-automate-F3-residual-codex.md` needs_changes blocker 1 critical 3; G-1 still pending; HEAD `466db069`.
-- **Uncommitted changes:** evaluationGate + lessonsState none on plan.md; review receipts; F3.jsonl STOP row.
+- **Narrative:** F3 closed. Writer spawn/lock/merge in `scripts/automate-run.js`. Fix1 exclusive pen.lock, retry branch, host argv. Evaluation pass 22/22 at `c3fa0dcd`. Operator accepted remaining residual for the one-writer slice. Audit CLOSED.
+- **Decision log:** Apply L-F2-1/L-F2-2 at start. Fix1 dispatched. Residual F-001/F-002/Codex majors accepted. Decision-review PASS.
+- **Single nextAction:** present phase-start package for F4 validate-only
+- **Verbatim state:** archived `.atomic-skills/projects/atomic-skills/real-automate/phases/archive/2026-10-f3-um-writer-merge-e-para.md`; G-1 `node --test tests/automate-run-writer.test.js` 22 pass / 0 fail at `c3fa0dcd`.
+- **Uncommitted changes:** phase-done terminal writes (this archive + plan currentPhase F4).
