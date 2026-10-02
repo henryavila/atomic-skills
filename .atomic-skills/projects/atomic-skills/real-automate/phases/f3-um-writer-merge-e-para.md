@@ -12,7 +12,7 @@ status: active
 branch: plan/real-automate
 started: 2026-10-02T12:30:00.000Z
 lastUpdated: 2026-10-02T12:30:00.000Z
-nextAction: Start T-001 Lock na partida real
+nextAction: Run `phase-done` to verify exit gates and advance the plan.
 parentPlan: real-automate
 phaseId: F3
 businessIntent:
@@ -38,11 +38,11 @@ businessIntent:
   doneWhen: |
     Um teste de integração com host falso sai 0, o arquivo que o writer gravou
     está no branch do plano, e uma segunda fase não foi materializada.
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 0
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -66,8 +66,9 @@ tasks:
       pid e writerWorktree. Mata o writer se ainda viver antes de soltar o lock.
       Pid morto não bloqueia a sessão. Quem roda verifier é o programa. Apaga o
       lock ao sair, inclusive em falha.
-    status: pending
-    lastUpdated: 2026-10-02T12:30:00.000Z
+    status: done
+    lastUpdated: 2026-10-02T13:20:00.000Z
+    closedAt: 2026-10-02T13:20:00.000Z
     outputs:
       - kind: file
         path: scripts/automate-run.js
@@ -85,13 +86,21 @@ tasks:
       kind: shell
       command: node --test tests/automate-run-writer.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T13:20:00.000Z
+      verifiedCommit: 75f80f07ccd5597ede5cfe5ae2cfbb7942945e2b
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/automate-run-writer.test.js: ℹ tests 14 ℹ pass 14 ℹ fail 0"
   - id: T-002
     title: Spawn do host
     description: Um subprocesso claude, codex ou grok no worktree, com lease. A
       sessão do chat não é o writer. O worktree nasce em
       scripts/automate-run.js, não em scripts/automate-phase-run.js.
-    status: pending
-    lastUpdated: 2026-10-02T12:30:00.000Z
+    status: done
+    lastUpdated: 2026-10-02T13:20:00.000Z
+    closedAt: 2026-10-02T13:20:00.000Z
     outputs:
       - kind: file
         path: scripts/automate-run.js
@@ -107,13 +116,21 @@ tasks:
       kind: shell
       command: node --test tests/automate-run-writer.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T13:20:00.000Z
+      verifiedCommit: 75f80f07ccd5597ede5cfe5ae2cfbb7942945e2b
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/automate-run-writer.test.js: ℹ tests 14 ℹ pass 14 ℹ fail 0"
   - id: T-003
     title: Merge e pare
     description: O teste deste marco integra no branch do plano e sai sem
       phase-done. O fechamento real, o claim e src/automate-product-fence.js são
       a F4.
-    status: pending
-    lastUpdated: 2026-10-02T12:30:00.000Z
+    status: done
+    lastUpdated: 2026-10-02T13:20:00.000Z
+    closedAt: 2026-10-02T13:20:00.000Z
     outputs:
       - kind: file
         path: scripts/automate-run.js
@@ -131,6 +148,13 @@ tasks:
       kind: shell
       command: node --test tests/automate-run-writer.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T13:20:00.000Z
+      verifiedCommit: 75f80f07ccd5597ede5cfe5ae2cfbb7942945e2b
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/automate-run-writer.test.js: ℹ tests 14 ℹ pass 14 ℹ fail 0"
 parked: []
 emerged: []
 planTitle: real-automate
@@ -143,3 +167,10 @@ current: true
 Initiative for phase **F3 — Um writer, merge, e para**.
 
 Lessons applied at start: L-F2-1 (cited path/lock must fail closed), L-F2-2 (do not inflate automate-run.js).
+
+## Session handoff
+- **Narrative:** F3 tasks T-001/T-002/T-003 implemented and closed on merged HEAD `75f80f07`. `scripts/automate-run.js` writes pen.lock, spawns an injectable host CLI in a writer worktree, merges onto the plan branch, kills a living writer, and deletes the lock. Verifier 14/14. Keep-green: host-pen 34/34, find-missing-ui 28/28.
+- **Decision log:** Worktree and merge live in `automate-run.js`, not `automate-phase-run.js`. Fake host is injected for tests. L-F2-1 fail-closed on missing cited writerWorktree. L-F2-2 size-cap respected (spawn/merge slice, not a 2k-line runtime).
+- **Single nextAction:** Run `phase-done` to verify exit gate G-1 (`node --test tests/automate-run-writer.test.js`) and advance the plan.
+- **Verbatim state:** initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/f3-um-writer-merge-e-para.md`; verifier `node --test tests/automate-run-writer.test.js` ℹ tests 14 ℹ pass 14 ℹ fail 0 at `75f80f07`.
+- **Uncommitted changes:** task closes with evidence (T-001, T-002, T-003 all done).

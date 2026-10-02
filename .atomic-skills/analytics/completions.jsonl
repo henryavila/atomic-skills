@@ -254,3 +254,6 @@
 {"ts":"2026-09-28T18:22:13.946Z","event":"task-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F2","taskId":"T-002","weight":1,"weightBasis":"count"}
 {"ts":"2026-09-28T18:22:13.989Z","event":"task-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F2","taskId":"T-003","weight":1,"weightBasis":"count"}
 {"ts":"2026-10-02T12:26:45.542Z","event":"phase-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F2","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":11,"locAdded":1530,"locRemoved":22,"commits":6}}
+{"ts":"2026-10-02T13:25:55.467Z","event":"task-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F3","taskId":"T-001","weight":1,"weightBasis":"count"}
+{"ts":"2026-10-02T13:25:55.494Z","event":"task-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F3","taskId":"T-002","weight":1,"weightBasis":"count"}
+{"ts":"2026-10-02T13:25:55.525Z","event":"task-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F3","taskId":"T-003","weight":1,"weightBasis":"count"}

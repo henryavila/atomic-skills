@@ -1,20 +1,37 @@
 {
+  "base": "2766be68",
   "planSlug": "real-automate",
-  "phaseId": "F2",
-  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F2-fix1",
-  "writerBranch": "impl/real-automate-F2-fix1",
-  "finishedAt": "2026-10-02T10:38:18.000Z",
+  "phaseId": "F3",
+  "writerBranch": "impl/real-automate-F3-writer",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F3-writer",
+  "finishedAt": "2026-10-02T13:15:00.000Z",
   "tasks": [
+    {
+      "taskId": "T-001",
+      "status": "claimed-pass",
+      "commitShas": ["41aa9268c61248a9d1ee396936d3833168d42bf7"],
+      "paths": ["scripts/automate-run.js"],
+      "verifierCommand": "node --test tests/automate-run-writer.test.js",
+      "exitCode": 0,
+      "transcript": "14/14 pass. pen.lock written during spawn with owner/pid/writerWorktree; deleted on success and failure; dead pid does not block; missing cited writerWorktree is fail-closed."
+    },
     {
       "taskId": "T-002",
       "status": "claimed-pass",
-      "commitShas": ["1de572c9b6397d530ce8a1bdbce76707c15de357"],
-      "base": "17ec5a97",
-      "head": "1de572c9b6397d530ce8a1bdbce76707c15de357",
-      "paths": ["scripts/find-missing-ui.js", "tests/find-missing-ui.test.js"],
-      "verifierCommand": "node --test tests/find-missing-ui.test.js",
+      "commitShas": ["2a3277a7ec5bfdb39f79e836f4e11821ff1e44b3"],
+      "paths": ["tests/automate-run-writer.test.js"],
+      "verifierCommand": "node --test tests/automate-run-writer.test.js",
       "exitCode": 0,
-      "transcript": "ℹ tests 28\nℹ suites 5\nℹ pass 28\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 900.000022"
+      "transcript": "14/14 pass. Injected fake host CLI writes writer-output.txt inside a git worktree created by scripts/automate-run.js. automate-phase-run.js is not called."
+    },
+    {
+      "taskId": "T-003",
+      "status": "claimed-pass",
+      "commitShas": ["eaf736cfd72f62d027dcf6349d56deb761051ec2"],
+      "paths": ["scripts/automate-run.js", "tests/automate-run-writer.test.js"],
+      "verifierCommand": "node --test tests/automate-run-writer.test.js",
+      "exitCode": 0,
+      "transcript": "14/14 pass. Plan branch contains writer-output.txt; process exits 0 once after merge; no phase-done; no second phase materialized. Keep-green: automate-host-pen 34/34, find-missing-ui 28/28."
     }
   ]
 }
