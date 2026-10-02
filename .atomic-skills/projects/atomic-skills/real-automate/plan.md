@@ -742,4 +742,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=4470f8a2ef7b | premises=17 | impacts=21 @ uncommitted (2026-10-02T16:42:57.020Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=db641fc0ca56 | premises=17 | impacts=21 @ uncommitted (2026-10-02T17:31:16.380Z)

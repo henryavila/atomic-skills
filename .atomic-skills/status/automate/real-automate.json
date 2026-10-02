@@ -1,8 +1,8 @@
 {
-  "step": "F",
+  "step": "C",
   "phaseId": "F4",
-  "redispatchCount": 6,
-  "updatedAt": "2026-10-02T17:03:13.519Z",
+  "redispatchCount": 7,
+  "updatedAt": "2026-10-02T17:31:16.540Z",
   "operatorOverrides": [
     {
       "at": "2026-09-25T22:19:08.523Z",
@@ -27,6 +27,12 @@
       "reason": "Operator asked to dispatch F3 correction writer after residual local+Codex needs_changes (B1 leftover writer branch; C1 non-exclusive pen.lock; C2 lease residue; C3 empty host argv; C4 spawn error unhandled).",
       "priorCount": 5,
       "gate": "phase-review"
+    },
+    {
+      "at": "2026-10-02T17:31:16.540Z",
+      "reason": "Operator asked to dispatch F4-fix1 writer after evaluation fail (1 major: deliveryAuditAllowsClose / canRunPhaseDone / assert-automate-gate skip flow/flow.json unless caller injects graph). Close path must load ratifiedGraphSha.",
+      "priorCount": 6,
+      "gate": "evaluation"
     }
   ],
   "claimReportPath": ".atomic-skills/status/automate/real-automate-claims.json"
