@@ -6,7 +6,7 @@ version: "1.0"
 status: active
 executionMode: automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-10-02T12:25:10.000Z
+lastUpdated: 2026-10-02T16:42:57.020Z
 branch: plan/real-automate
 currentPhase: F4
 parallelismAllowed: false
@@ -499,7 +499,7 @@ phases:
       `src/automate-product-fence.js`.
     dependsOn:
       - F3
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -516,7 +516,46 @@ phases:
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: pending
+    status: active
+    businessIntent:
+      value: |
+        O programa conduz cada fase até a seguinte. Uma pergunta no começo grava
+        `reviewExternalCli`. Both é a review local mais esse CLI, com recibo
+        real (comando, exit, stderr, veredito). O audit lê `flow/flow.json` no
+        `ratifiedGraphSha` e cobra cada máquina e cada xor. Sem critical/major
+        a fase fecha (claim + `automate-product-fence.js`) e a seguinte abre;
+        na terceira review, critical ou major para.
+      workflow: |
+        Antes da primeira fase `automate-run.js` pergunta o CLI externo uma vez
+        e grava `reviewExternalCli` no plano e no schema. Dispara o CLI, espera
+        o processo, grava o recibo. `src/phase-review-gate.js` recusa
+        `overrideReason` sem stderr desse processo e recusa recibo escrito pela
+        sessão. Um agente isolado implementa as tasks `pending` na ordem do
+        frontmatter; outro roda both. Critical ou major dispara correção isolada
+        e a review volta, teto 3. Sem critical/major os findings restantes vão
+        para `.atomic-skills/status/automate/<slug>.json`.
+        `src/phase-delivery-audit-gate.js` passa a ler o grafo; fechar a fase
+        valida o claim e passa em `src/automate-product-fence.js`.
+      rules: |
+        No meio da corrida ninguém pergunta de novo o CLI. A linha
+        `- internal:` não substitui o recibo. Saída sem veredito não conta.
+        Exit diferente de 0 guarda o stderr real. O brief leva o grafo e o
+        esboço escolhido. Task complexa entra nesta mesma review, antes de
+        fechar. Achado de mistura do bloco não entra no loop e para na hora.
+        Onde `businessIntent` e o grafo discordam, vale o grafo. A página
+        final não substitui este gate.
+      outOfScope: |
+        Página final, botão `userValidatedAt`, PR e archive (F5). Não reabre
+        o marco F3 de um writer/merge. Não chama `scripts/automate-phase-run.js`
+        no lugar de `scripts/automate-run.js`. Fila, vários hosts e spawn
+        adapter multi-máquina (P9).
+      doneWhen: |
+        `node --test tests/phase-review-gate.test.js` recusa `overrideReason`
+        sem stderr do CLI externo e recusa recibo escrito pela sessão. Um
+        fixture de `flow.json` com um xor sem linha no relatório de audit
+        falha. Um achado de mistura do bloco não entra no loop e para na hora.
+        Sem critical e sem major a fase fecha e a seguinte abre; na terceira,
+        critical ou major para.
   - id: F5
     slug: real-automate-f5-pagina-final
     title: Página final
@@ -703,4 +742,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=da4875042f75 | premises=17 | impacts=21 @ 02636dd4 (2026-10-02T14:10:00Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=4470f8a2ef7b | premises=17 | impacts=21 @ uncommitted (2026-10-02T16:42:57.020Z)

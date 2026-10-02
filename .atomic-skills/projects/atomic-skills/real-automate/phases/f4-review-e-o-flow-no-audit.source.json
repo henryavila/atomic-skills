@@ -8,17 +8,82 @@
     {
       "id": "T-001",
       "title": "Both com falha real",
-      "description": "Antes da primeira fase o programa grava `reviewExternalCli` e não pergunta de novo. Both é a review local mais esse CLI. Dispara o CLI, espera e grava o recibo com comando, exit, stderr e veredito. `overrideReason` sem stderr desse processo não passa. Recibo escrito pela sessão não passa. O brief leva o grafo e o esboço escolhido. Task complexa entra nesta review, antes de fechar a fase. Verifier: `node --test tests/phase-review-gate.test.js` cobrindo esses casos."
+      "description": "Antes da primeira fase o programa grava `reviewExternalCli` e não pergunta de novo. Both é a review local mais esse CLI. Dispara o CLI, espera e grava o recibo com comando, exit, stderr e veredito. `overrideReason` sem stderr desse processo não passa. Recibo escrito pela sessão não passa. O brief leva o grafo e o esboço escolhido. Task complexa entra nesta review, antes de fechar a fase. Verifier: `node --test tests/phase-review-gate.test.js` cobrindo esses casos.",
+      "outputs": [
+        { "kind": "file", "path": "scripts/automate-run.js" },
+        { "kind": "file", "path": "src/phase-review-gate.js" },
+        { "kind": "file", "path": "tests/phase-review-gate.test.js" },
+        { "kind": "file", "path": "meta/schemas/plan.schema.json" }
+      ],
+      "scopeBoundary": [
+        "Do not ask for the external CLI again mid-run.",
+        "Do not accept a session-written `- internal:` line as the external receipt.",
+        "Do not implement F5 page, button, PR, or archive."
+      ],
+      "acceptance": [
+        "it - reviewExternalCli is stored on the plan before the first phase and is not asked again.",
+        "it - overrideReason without stderr of that external CLI process fails.",
+        "it - a receipt written by the session fails.",
+        "it - receipt records command, exit, stderr, and verdict."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/phase-review-gate.test.js",
+        "expectExitCode": 0
+      }
     },
     {
       "id": "T-002",
       "title": "Audit lê o grafo",
-      "description": "`audit-delivery` recusa sha divergente e emite uma linha por máquina e por xor. Onde o `businessIntent` discorda, vale o grafo. Esta task estende `src/phase-delivery-audit-gate.js`, que hoje não lê `flow.json`. A skill também não lê o grafo hoje. Verifier: fixture de flow com um xor e relatório sem a linha sai falho."
+      "description": "`audit-delivery` recusa sha divergente e emite uma linha por máquina e por xor. Onde o `businessIntent` discorda, vale o grafo. Esta task estende `src/phase-delivery-audit-gate.js`, que hoje não lê `flow.json`. A skill também não lê o grafo hoje. Verifier: fixture de flow com um xor e relatório sem a linha sai falho.",
+      "outputs": [
+        { "kind": "file", "path": "src/phase-delivery-audit-gate.js" },
+        { "kind": "file", "path": "tests/phase-delivery-audit-gate.test.js" },
+        { "kind": "file", "path": "skills/core/audit-delivery.md" }
+      ],
+      "scopeBoundary": [
+        "Do not treat the final page as this audit gate.",
+        "Do not skip reading flow/flow.json at ratifiedGraphSha.",
+        "Do not implement F5 page, button, PR, or archive."
+      ],
+      "acceptance": [
+        "it - audit-delivery refuses a divergent ratifiedGraphSha.",
+        "it - a flow.json fixture with one xor and a report missing that line fails.",
+        "it - where businessIntent disagrees with the graph, the graph wins."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/phase-delivery-audit-gate.test.js",
+        "expectExitCode": 0
+      }
     },
     {
       "id": "T-003",
       "title": "Loop com teto",
-      "description": "Critical ou major corrige num agente isolado e a review volta. O teto é 3 reviews. Sem critical e sem major, os findings restantes vão para `.atomic-skills/status/automate/<slug>.json`, a fase fecha e a seguinte abre. Na terceira, critical ou major abre travei. Mistura do bloco carimbado para na hora e não entra no loop. Verifier: teste do contador no programa."
+      "description": "Critical ou major corrige num agente isolado e a review volta. O teto é 3 reviews. Sem critical e sem major, os findings restantes vão para `.atomic-skills/status/automate/<slug>.json`, a fase fecha e a seguinte abre. Na terceira, critical ou major abre travei. Mistura do bloco carimbado para na hora e não entra no loop. Verifier: teste do contador no programa.",
+      "outputs": [
+        { "kind": "file", "path": "scripts/automate-run.js" },
+        { "kind": "file", "path": "src/automate-product-fence.js" },
+        { "kind": "file", "path": "tests/automate-product-fence.test.js" },
+        { "kind": "file", "path": "tests/phase-review-gate.test.js" }
+      ],
+      "scopeBoundary": [
+        "Do not advance after a third review that still has critical or major.",
+        "Do not put a mix finding of the stamped block into the review loop.",
+        "Do not implement F5 page, button, PR, or archive."
+      ],
+      "acceptance": [
+        "it - critical or major dispatches an isolated fix agent and review returns, cap 3.",
+        "it - without critical or major, remaining findings go to status/automate/<slug>.json, the phase closes, and the next opens.",
+        "it - on the third review, critical or major stops.",
+        "it - a mix finding of the stamped block stops immediately and does not enter the loop.",
+        "it - phase close validates the claim and passes src/automate-product-fence.js."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/phase-review-gate.test.js",
+        "expectExitCode": 0
+      }
     }
   ],
   "exitGates": [
@@ -27,8 +92,9 @@
       "description": "`node --test tests/phase-review-gate.test.js` recusa overrideReason sem stderr do comando externo e recusa um recibo escrito pela sessão. Um fixture de flow.json com um xor sem linha no relatório de audit falha. Um achado de mistura do bloco não entra no loop e para na hora.",
       "status": "pending",
       "verifier": {
-        "kind": "manual",
-        "description": "Verify exit-gate prose with the user during phase-done."
+        "kind": "shell",
+        "command": "node --test tests/phase-review-gate.test.js",
+        "expectExitCode": 0
       }
     }
   ]
