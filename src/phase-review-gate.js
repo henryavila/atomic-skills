@@ -405,32 +405,163 @@ export function buildPhaseReviewBrief(input = {}) {
   return lines.join('\n');
 }
 
+/** Cap of both-reviews per phase before travei. */
+export const PHASE_REVIEW_CAP = 3;
+
+const CRITICAL_MAJOR = new Set(['critical', 'major', 'blocker', 'high']);
+
+/**
+ * Mix finding of the stamped architecture block — stop, do not enter the loop.
+ * @param {unknown} finding
+ * @param {unknown} [architectureCard]
+ * @returns {boolean}
+ */
+export function isArchitectureMixFinding(finding, architectureCard) {
+  if (finding == null || typeof finding !== 'object') return false;
+  const f = /** @type {Record<string, unknown>} */ (finding);
+  if (f.stampedBlockMix === true) return true;
+  const kind = f.kind != null ? String(f.kind).trim().toLowerCase() : '';
+  const axis = f.axis != null ? String(f.axis).trim().toLowerCase() : '';
+  if (kind === 'mix' || axis === 'mix') return true;
+  const text = `${f.title || ''} ${f.summary || ''} ${f.body || ''} ${f.message || ''}`
+    .toLowerCase();
+  if (/mistura do bloco|mix of the stamped block|stamped block mix/.test(text)) {
+    return true;
+  }
+  if (architectureCard && typeof architectureCard === 'object') {
+    const chosen = /** @type {{ chosen?: unknown }} */ (architectureCard).chosen;
+    if (chosen && new RegExp(`\\bmix\\b.*${String(chosen)}`, 'i').test(text)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * @param {unknown} finding
+ * @returns {string}
+ */
+function findingSeverity(finding) {
+  if (finding == null || typeof finding !== 'object') return '';
+  const raw =
+    /** @type {{ severity?: unknown }} */ (finding).severity ??
+    /** @type {{ level?: unknown }} */ (finding).level;
+  return raw != null ? String(raw).trim().toLowerCase() : '';
+}
+
+/**
+ * @param {unknown[] | null | undefined} findings
+ * @returns {boolean}
+ */
+function hasCriticalOrMajor(findings) {
+  if (!Array.isArray(findings)) return false;
+  return findings.some((f) => CRITICAL_MAJOR.has(findingSeverity(f)));
+}
+
+/**
+ * Park remaining (non-critical/major) findings for the final report.
+ * @param {string} slug
+ * @param {unknown[]} findings
+ * @returns {{ path: string, body: { remainingFindings: unknown[] } }}
+ */
+export function parkResidualFindings(slug, findings) {
+  const name = String(slug || '').trim() || 'plan';
+  return {
+    path: `.atomic-skills/status/automate/${name}.json`,
+    body: { remainingFindings: Array.isArray(findings) ? findings : [] },
+  };
+}
+
+/**
+ * Next action for the 3-review loop. Mix of the stamped block never enters.
+ * @param {{
+ *   round?: number | null,
+ *   findings?: unknown[] | null,
+ *   architectureCard?: unknown,
+ *   slug?: string | null,
+ * }} [input]
+ * @returns {{
+ *   action: 'fix-and-review' | 'close-and-advance' | 'stop',
+ *   reason?: string,
+ *   dispatch?: string,
+ *   enterLoop?: boolean,
+ *   openNext?: boolean,
+ *   parkPath?: string,
+ *   parkFindings?: unknown[],
+ * }}
+ */
+export function nextPhaseReviewAction(input = {}) {
+  const round = Number(input.round) > 0 ? Number(input.round) : 1;
+  const findings = Array.isArray(input.findings) ? input.findings : [];
+  const mix = findings.find((f) => isArchitectureMixFinding(f, input.architectureCard));
+  if (mix) {
+    return {
+      action: 'stop',
+      reason: 'mix',
+      enterLoop: false,
+      openNext: false,
+    };
+  }
+  if (hasCriticalOrMajor(findings)) {
+    if (round >= PHASE_REVIEW_CAP) {
+      return {
+        action: 'stop',
+        reason: 'travei',
+        enterLoop: true,
+        openNext: false,
+      };
+    }
+    return {
+      action: 'fix-and-review',
+      dispatch: 'isolated-fix',
+      enterLoop: true,
+      openNext: false,
+    };
+  }
+  const parked = parkResidualFindings(input.slug || 'plan', findings);
+  return {
+    action: 'close-and-advance',
+    openNext: true,
+    enterLoop: false,
+    parkPath: parked.path,
+    parkFindings: parked.body.remainingFindings,
+  };
+}
+
+/**
+ * Run one step of the review loop (injectable I/O).
+ * @param {{
+ *   slug: string,
+ *   round?: number | null,
+ *   findings?: unknown[] | null,
+ *   architectureCard?: unknown,
+ *   writeStatus?: ((path: string, body: unknown) => unknown) | null,
+ *   spawnFixAgent?: (() => unknown) | null,
+ *   closePhase?: (() => unknown) | null,
+ *   openNext?: (() => unknown) | null,
+ * }} input
+ */
+export function runPhaseReviewLoop(input) {
+  const decision = nextPhaseReviewAction(input);
+  if (decision.action === 'close-and-advance') {
+    if (typeof input.writeStatus === 'function' && decision.parkPath) {
+      input.writeStatus(decision.parkPath, {
+        remainingFindings: decision.parkFindings,
+      });
+    }
+    if (typeof input.closePhase === 'function') input.closePhase();
+    if (typeof input.openNext === 'function') input.openNext();
+    return decision;
+  }
+  if (decision.action === 'fix-and-review' && typeof input.spawnFixAgent === 'function') {
+    input.spawnFixAgent();
+  }
+  return decision;
+}
+
 /**
  * Spawn the external review CLI, wait, and write command/exit/stderr/verdict.
  * Non-zero exit stores the real stderr. Missing verdict does not count.
- *
- * @param {{
- *   cli: string,
- *   argv?: string[] | null,
- *   spawn: (bin: string, argv: string[]) =>
- *     | { status?: number, exit?: number, stdout?: string, stderr?: string }
- *     | Promise<{ status?: number, exit?: number, stdout?: string, stderr?: string }>,
- * }} input
- * @returns {{
- *   exit: number,
- *   stderr: string,
- *   stdout: string,
- *   verdict: string,
- *   command: string,
- *   receipt: string,
- * } | Promise<{
- *   exit: number,
- *   stderr: string,
- *   stdout: string,
- *   verdict: string,
- *   command: string,
- *   receipt: string,
- * }>}
  */
 export function runExternalReviewCli(input) {
   const cli = hostCliName(input.cli) || String(input.cli || '').trim();

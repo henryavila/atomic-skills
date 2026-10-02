@@ -41,8 +41,10 @@ import {
   buildPhaseReviewBrief,
   resolveReviewExternalCli,
   runExternalReviewCli,
+  runPhaseReviewLoop,
   upsertPlanReviewExternalCli,
 } from '../src/phase-review-gate.js';
+import { phaseCloseFenceOk } from '../src/automate-product-fence.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -558,6 +560,22 @@ export function prepareReviewExternalCli(input) {
  *   complexTasks?: unknown[] | null,
  * }} input
  */
+/**
+ * One step of the 3-review loop after both. Mix of the stamped block stops.
+ * @param {Parameters<typeof runPhaseReviewLoop>[0]} input
+ */
+export function continuePhaseAfterReview(input) {
+  return runPhaseReviewLoop(input);
+}
+
+/**
+ * Phase close: claim report + plan-tree product fence.
+ * @param {Parameters<typeof phaseCloseFenceOk>[0]} input
+ */
+export function validatePhaseClose(input) {
+  return phaseCloseFenceOk(input);
+}
+
 export function runPhaseReviewBoth(input) {
   const brief = buildPhaseReviewBrief({
     flowGraph: input.flowGraph,
@@ -760,6 +778,30 @@ function main() {
         const ran = review && typeof review.then === 'function' ? await review : review;
         if (ran && ran.receipt) {
           process.stderr.write(`${ran.receipt}\n`);
+        }
+      }
+      const findingsRaw = process.env.AUTOMATE_REVIEW_FINDINGS;
+      if (findingsRaw) {
+        let findings = [];
+        try {
+          findings = JSON.parse(findingsRaw);
+        } catch {
+          findings = [];
+        }
+        const slug = planSlugOf(planPath);
+        const decision = continuePhaseAfterReview({
+          slug,
+          round: Number(process.env.AUTOMATE_REVIEW_ROUND || 1),
+          findings: Array.isArray(findings) ? findings : [],
+          writeStatus: (rel, body) => {
+            const abs = join(root, rel);
+            mkdirSync(dirname(abs), { recursive: true });
+            writeFileSync(abs, `${JSON.stringify(body, null, 2)}\n`);
+          },
+        });
+        if (decision.action === 'stop') {
+          process.stderr.write(`review loop ${decision.reason || 'stop'}\n`);
+          process.exit(decision.reason === 'travei' || decision.reason === 'mix' ? 2 : code);
         }
       }
       process.exit(code);

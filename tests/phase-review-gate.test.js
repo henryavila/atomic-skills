@@ -11,6 +11,11 @@ import {
   receiptContentAuthenticity,
   phaseReviewAuthenticity,
   PHASE_REVIEW_RECEIPT_MIN_BYTES,
+  PHASE_REVIEW_CAP,
+  nextPhaseReviewAction,
+  isArchitectureMixFinding,
+  parkResidualFindings,
+  runPhaseReviewLoop,
   REVIEW_EXTERNAL_CLIS,
   hostCliName,
   isValidReviewExternalCli,
@@ -526,6 +531,149 @@ describe('automate-run review CLI wiring (F4 T-001)', () => {
     assert.equal(spawned, 1);
     assert.equal(ran.verdict, 'PASSED');
     assert.match(ran.receipt, /command=grok review --print/);
+  });
+});
+
+describe('phase review loop cap (F4 T-003)', () => {
+  const card = {
+    block: { name: 'x_chord', start: '{start}', end: '{end}' },
+    sketches: [{ id: 'nada-fora', mix: 'não mistura', outside: [] }],
+    chosen: 'nada-fora',
+  };
+
+  it('critical or major dispatches an isolated fix agent and review returns, cap 3', () => {
+    assert.equal(PHASE_REVIEW_CAP, 3);
+    const first = nextPhaseReviewAction({
+      round: 1,
+      findings: [{ severity: 'critical', title: 'leak' }],
+      architectureCard: card,
+    });
+    assert.equal(first.action, 'fix-and-review');
+    assert.equal(first.dispatch, 'isolated-fix');
+    assert.equal(first.enterLoop, true);
+    const second = nextPhaseReviewAction({
+      round: 2,
+      findings: [{ severity: 'major', title: 'gap' }],
+    });
+    assert.equal(second.action, 'fix-and-review');
+    assert.equal(second.dispatch, 'isolated-fix');
+  });
+
+  it('without critical or major, remaining findings go to status/automate/<slug>.json, the phase closes, and the next opens', () => {
+    const parked = parkResidualFindings('fixture', [
+      { severity: 'minor', title: 'nit' },
+    ]);
+    assert.equal(parked.path, '.atomic-skills/status/automate/fixture.json');
+    assert.ok(Array.isArray(parked.body.remainingFindings));
+    const next = nextPhaseReviewAction({
+      round: 1,
+      findings: [{ severity: 'minor', title: 'nit' }],
+      slug: 'fixture',
+    });
+    assert.equal(next.action, 'close-and-advance');
+    assert.equal(next.openNext, true);
+    assert.equal(next.parkPath, '.atomic-skills/status/automate/fixture.json');
+    assert.deepEqual(next.parkFindings, [{ severity: 'minor', title: 'nit' }]);
+  });
+
+  it('on the third review, critical or major stops', () => {
+    const third = nextPhaseReviewAction({
+      round: 3,
+      findings: [{ severity: 'critical', title: 'still broken' }],
+    });
+    assert.equal(third.action, 'stop');
+    assert.equal(third.reason, 'travei');
+    assert.equal(third.openNext, false);
+    assert.notEqual(third.action, 'fix-and-review');
+  });
+
+  it('a mix finding of the stamped block stops immediately and does not enter the loop', () => {
+    const finding = {
+      severity: 'major',
+      stampedBlockMix: true,
+      title: 'mistura do bloco carimbado',
+    };
+    assert.equal(isArchitectureMixFinding(finding, card), true);
+    const next = nextPhaseReviewAction({
+      round: 1,
+      findings: [finding],
+      architectureCard: card,
+    });
+    assert.equal(next.action, 'stop');
+    assert.equal(next.enterLoop, false);
+    assert.match(next.reason || '', /mix/i);
+    assert.notEqual(next.dispatch, 'isolated-fix');
+  });
+
+  it('phase close validates the claim through automate-run wiring', async () => {
+    const { validatePhaseClose, continuePhaseAfterReview } = await import(
+      '../scripts/automate-run.js'
+    );
+    const claim = {
+      tasks: [
+        {
+          taskId: 'T-001',
+          status: 'claimed-pass',
+          base: 'a'.repeat(40),
+          head: 'b'.repeat(40),
+          paths: ['src/phase-review-gate.js'],
+          verifierCommand: 'node --test tests/phase-review-gate.test.js',
+          exitCode: 0,
+          transcript: 'ok',
+        },
+      ],
+    };
+    const close = validatePhaseClose({
+      claimReport: claim,
+      planBranchDiffPaths: ['src/phase-review-gate.js'],
+    });
+    assert.equal(close.ok, true, close.reason);
+    const parked = continuePhaseAfterReview({
+      slug: 'real-automate',
+      findings: [{ severity: 'minor', title: 'nit' }],
+    });
+    assert.equal(parked.action, 'close-and-advance');
+  });
+
+  it('runPhaseReviewLoop parks minors, dispatches fix, and stops on mix or third critical', () => {
+    /** @type {string[]} */
+    const log = [];
+    const minors = runPhaseReviewLoop({
+      slug: 'demo',
+      round: 1,
+      findings: [{ severity: 'note', title: 'style' }],
+      writeStatus: (path, body) => {
+        log.push(`write:${path}`);
+        return body;
+      },
+    });
+    assert.equal(minors.action, 'close-and-advance');
+    assert.ok(log.some((e) => e.includes('status/automate/demo.json')));
+
+    const fix = runPhaseReviewLoop({
+      slug: 'demo',
+      round: 1,
+      findings: [{ severity: 'major', title: 'gap' }],
+      spawnFixAgent: () => {
+        log.push('fix');
+        return { status: 0 };
+      },
+    });
+    assert.equal(fix.action, 'fix-and-review');
+    assert.ok(log.includes('fix'));
+
+    const mixed = runPhaseReviewLoop({
+      slug: 'demo',
+      round: 1,
+      findings: [{ severity: 'critical', kind: 'mix', title: 'mix of the stamped block' }],
+      spawnFixAgent: () => {
+        log.push('should-not-fix');
+        return { status: 0 };
+      },
+    });
+    assert.equal(mixed.action, 'stop');
+    assert.equal(mixed.enterLoop, false);
+    assert.ok(!log.includes('should-not-fix'));
   });
 });
 

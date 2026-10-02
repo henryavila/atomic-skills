@@ -7,6 +7,7 @@ import {
   claimPathsFromReport,
   planTreeProductFenceOk,
   normalizeFencePath,
+  phaseCloseFenceOk,
 } from '../src/automate-product-fence.js';
 
 describe('path classification', () => {
@@ -101,5 +102,44 @@ describe('planTreeProductFenceOk', () => {
       claimPaths: [],
     });
     assert.equal(r.ok, true, r.reason);
+  });
+});
+
+describe('phaseCloseFenceOk (F4 T-003)', () => {
+  const claimReport = {
+    tasks: [
+      {
+        taskId: 'T-001',
+        status: 'claimed-pass',
+        base: 'a'.repeat(40),
+        head: 'b'.repeat(40),
+        paths: ['src/phase-review-gate.js'],
+        verifierCommand: 'node --test tests/phase-review-gate.test.js',
+        exitCode: 0,
+        transcript: 'ok',
+      },
+    ],
+  };
+
+  it('phase close validates the claim and passes the product fence', () => {
+    const r = phaseCloseFenceOk({
+      claimReport,
+      planBranchDiffPaths: ['src/phase-review-gate.js'],
+    });
+    assert.equal(r.ok, true, r.reason);
+  });
+
+  it('phase close fails when the claim is invalid or product paths are uncovered', () => {
+    const badClaim = phaseCloseFenceOk({
+      claimReport: { tasks: [] },
+      planBranchDiffPaths: [],
+    });
+    assert.equal(badClaim.ok, false);
+    const uncovered = phaseCloseFenceOk({
+      claimReport,
+      planBranchDiffPaths: ['src/host-coded.js'],
+    });
+    assert.equal(uncovered.ok, false);
+    assert.match(uncovered.reason || '', /product fence|not covered/i);
   });
 });
