@@ -1,8 +1,8 @@
 {
-  "step": "E",
+  "step": "F",
   "phaseId": "F3",
   "redispatchCount": 5,
-  "updatedAt": "2026-10-02T13:24:46.533Z",
+  "updatedAt": "2026-10-02T13:45:39.639Z",
   "operatorOverrides": [
     {
       "at": "2026-09-25T22:19:08.523Z",
@@ -23,11 +23,5 @@
       "gate": "phase-review"
     }
   ],
-  "claimReportPath": ".atomic-skills/status/automate/real-automate-claims.json",
-  "leasePath": null,
-  "lastAssert": {
-    "gate": "done",
-    "ok": true,
-    "at": "2026-10-02T13:24:46.533Z"
-  }
+  "claimReportPath": ".atomic-skills/status/automate/real-automate-claims.json"
 }

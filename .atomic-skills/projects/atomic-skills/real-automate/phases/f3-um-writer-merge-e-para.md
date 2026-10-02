@@ -12,7 +12,7 @@ status: active
 branch: plan/real-automate
 started: 2026-10-02T12:30:00.000Z
 lastUpdated: 2026-10-02T12:30:00.000Z
-nextAction: Run `phase-done` to verify exit gates and advance the plan.
+nextAction: Re-open AskUserQuestion for F3 residual blocker/critical (fix writer vs stop).
 parentPlan: real-automate
 phaseId: F3
 businessIntent:
@@ -171,6 +171,6 @@ Lessons applied at start: L-F2-1 (cited path/lock must fail closed), L-F2-2 (do 
 ## Session handoff
 - **Narrative:** F3 tasks T-001/T-002/T-003 implemented and closed on merged HEAD `75f80f07`. `scripts/automate-run.js` writes pen.lock, spawns an injectable host CLI in a writer worktree, merges onto the plan branch, kills a living writer, and deletes the lock. Verifier 14/14. Keep-green: host-pen 34/34, find-missing-ui 28/28.
 - **Decision log:** Worktree and merge live in `automate-run.js`, not `automate-phase-run.js`. Fake host is injected for tests. L-F2-1 fail-closed on missing cited writerWorktree. L-F2-2 size-cap respected (spawn/merge slice, not a 2k-line runtime).
-- **Single nextAction:** Run `phase-done` to verify exit gate G-1 (`node --test tests/automate-run-writer.test.js`) and advance the plan.
-- **Verbatim state:** initiative `.atomic-skills/projects/atomic-skills/real-automate/phases/f3-um-writer-merge-e-para.md`; verifier `node --test tests/automate-run-writer.test.js` ℹ tests 14 ℹ pass 14 ℹ fail 0 at `75f80f07`.
-- **Uncommitted changes:** task closes with evidence (T-001, T-002, T-003 all done).
+- **Single nextAction:** Re-open AskUserQuestion: dispatch F3 review-fix writer (B1 leftover branch, exclusive pen.lock, spawn error, empty writerWorktree) vs stop. Do not phase-done while local+Codex residual still has blocker/critical without operator accept|fix.
+- **Verbatim state:** eval `.atomic-skills/reviews/eval-real-automate-F3.md` verdict pass; local `.atomic-skills/reviews/2026-10-02-real-automate-F3-residual-local.md` needs_changes blocker 1 critical 4; Codex `.atomic-skills/reviews/2026-10-02-real-automate-F3-residual-codex.md` needs_changes blocker 1 critical 3; G-1 still pending; HEAD `466db069`.
+- **Uncommitted changes:** evaluationGate + lessonsState none on plan.md; review receipts; F3.jsonl STOP row.

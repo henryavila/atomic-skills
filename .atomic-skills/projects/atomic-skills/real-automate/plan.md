@@ -436,6 +436,16 @@ phases:
       doneWhen: |
         Um teste de integração com host falso sai 0, o arquivo que o writer gravou
         está no branch do plano, e uma segunda fase não foi materializada.
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-real-automate-F3.md
+      verifiedAt: 2026-10-02T13:50:42.000Z
+      at: 466db06999a955000c292d25de296e4b7807cd72
+    lessonsState: none
+    noneReason: >
+      F3 evaluation returned notes only. Clean phase: no remaining
+      blocker/critical/major on residual check.
   - id: F4
     slug: real-automate-f4-review-e-o-flow-no-audit
     title: Review e o flow no audit
