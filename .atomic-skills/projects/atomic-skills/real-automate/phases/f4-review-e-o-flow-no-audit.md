@@ -25,7 +25,7 @@ status: active
 branch: plan/real-automate
 started: 2026-10-02T16:41:53.105Z
 lastUpdated: 2026-10-02T17:00:23.068Z
-nextAction: Spawn F4-fix2 writer to green related close-path tests.
+nextAction: Spawn evaluation agent for F4 after T-002 close-path graph fix.
 parentPlan: real-automate
 phaseId: F4
 businessIntent:
@@ -60,11 +60,11 @@ businessIntent:
     `flow.json` com um xor sem linha no relatório de audit falha. Um achado de
     mistura do bloco não entra no loop e para na hora. Sem critical e sem major
     a fase fecha e a seguinte abre; na terceira, critical ou major para."
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 2
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -139,8 +139,8 @@ tasks:
       task estende `src/phase-delivery-audit-gate.js`, que hoje não lê
       `flow.json`. A skill também não lê o grafo hoje. Verifier: fixture de flow
       com um xor e relatório sem a linha sai falho."
-    status: active
-    lastUpdated: 2026-10-02T17:12:00.000Z
+    status: done
+    lastUpdated: 2026-10-02T18:07:30.000Z
     scopeBoundary:
       - Do not treat the final page as this audit gate.
       - Do not skip reading flow/flow.json at ratifiedGraphSha.
@@ -182,6 +182,16 @@ tasks:
     summary: Audit lê flow/flow.json no ratifiedGraphSha; xor sem linha no relatório
       falha. Close path carrega o grafo.
     weight: 1
+    closedAt: 2026-10-02T18:07:30.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-02T18:07:30.000Z
+      verifiedCommit: de5e138964762aec8206ebe4a117d803f6858a33
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/phase-delivery-audit-gate.test.js: ℹ tests 49
+        ℹ pass 49 ℹ fail 0; lifecycle-order-guard 41/41; decision-review-gate 28/28;
+        implement-phase-agents-contract 13/13"
   - id: T-003
     title: Loop com teto
     description: "Critical ou major corrige num agente isolado e a review volta. O
@@ -247,9 +257,9 @@ Initiative for phase **F4 — Review e o flow no audit**.
 Lessons applied at start: L-F2-1 (cited path must fail closed), L-F2-2 (size-cap; do not inflate parser).
 
 ## Session handoff
-- **Narrative:** F4-fix1 merged at `ae1ec7de`. T-002 verifier 49/49. Keep-green 44/44, 12/12, 22/22, 34/34. Nine related tests red: they still expect stamp-only allow. Operator chose F4-fix2.
-- **Decision log:** Eval fail 1 major. F4-fix1 override. Operator: Disparar F4-fix2 nesses testes.
-- **Single nextAction:** Spawn F4-fix2 writer to green related close-path tests.
-- **Verbatim state:** HEAD `ae1ec7de`; red: `tests/lifecycle-order-guard.test.js` 6, `tests/decision-review-gate.test.js` 1, `tests/implement-phase-agents-contract.test.js` 2.
-- **Uncommitted changes:** T-002 output expansion + cursor C + F4-fix1 claims/brief.
+- **Narrative:** T-002 closed after F4-fix1+fix2. Close path loads flow/flow.json at ratifiedGraphSha. Related suites green. T-001 and T-003 remain done. evaluationGate not stamped. Cursor E.
+- **Decision log:** Eval fail 1 major. Operator F4-fix1 then F4-fix2. Scope-exit: scripts/lifecycle-order-guard.js forwards graph fields (not in original T-002 outputs).
+- **Single nextAction:** Spawn evaluation agent for F4 after T-002 close-path graph fix.
+- **Verbatim state:** HEAD `de5e138964762aec8206ebe4a117d803f6858a33`; audit 49/49; lifecycle 41/41; decision-review 28/28; ipa 13/13; review 44/44; fence 12/12.
+- **Uncommitted changes:** T-002 done evidence + fix2 claims/brief + cursor E.
 

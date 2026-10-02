@@ -1,12 +1,12 @@
 {
   "planSlug": "real-automate",
   "phaseId": "F4",
-  "baseRef": "ff4764ce5c199243adf563edb7d016c9a61761b6",
-  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F4-fix1-writer",
-  "writerBranch": "impl/real-automate-F4-fix1-writer",
-  "sealedBriefPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F4-fix1-sealed-brief.md",
-  "claimReportPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F4-fix1-claims.json",
+  "baseRef": "b1fb283fad138389da6ec859920b173e198e9954",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F4-fix2-writer",
+  "writerBranch": "impl/real-automate-F4-fix2-writer",
+  "sealedBriefPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F4-fix2-sealed-brief.md",
+  "claimReportPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F4-fix2-claims.json",
   "claimReportPathForBrief": ".atomic-skills/status/automate/real-automate-claims.json",
   "leasePath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/writer-leases/real-automate.json",
-  "preparedAt": "2026-10-02T17:32:40.266Z"
+  "preparedAt": "2026-10-02T17:59:04.917Z"
 }
