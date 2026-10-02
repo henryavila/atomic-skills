@@ -521,8 +521,8 @@ phases:
       status: passed
       verdict: pass
       reportPath: .atomic-skills/reviews/eval-real-automate-F4.md
-      verifiedAt: 2026-10-02T18:15:09.000Z
-      at: 69572e359a5b7785015fb60349a5a553a95773a1
+      verifiedAt: 2026-10-02T19:35:00.000Z
+      at: 8ff7215676d2913c755c7a240cf0e15fd428f832
     lessonsState: recorded
     lessonsPath: .atomic-skills/projects/atomic-skills/real-automate/lessons/real-automate-f4-review-e-o-flow-no-audit.md
     businessIntent:
@@ -750,4 +750,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=8e6f5c07723d | premises=17 | impacts=21 @ uncommitted (2026-10-02T19:31:06.310Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=aa7ffbdeb09d | premises=17 | impacts=21 @ uncommitted (2026-10-02T19:37:08.471Z)
