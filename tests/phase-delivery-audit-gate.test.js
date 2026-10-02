@@ -500,6 +500,63 @@ describe('delivery audit reads flow graph (F4 T-002)', () => {
     assert.equal(r.ok, false);
     assert.match(r.reason || '', /final page|xor|does not substitute/i);
   });
+
+  it('schema-invalid disk flow.json fails closed (not SHA-equal coverage)', () => {
+    const invalid = {
+      schemaVersion: '1.0',
+      planSlug: 'broken',
+      ratifiedGraphSha: 'a'.repeat(64),
+      machines: [{ id: 'request' }],
+      graph: {
+        entry: 'D1',
+        nodes: {
+          D1: {
+            type: 'xor',
+            branches: [
+              { id: 'D1.yes', next: 'end' },
+              { id: 'D1.no', next: 'end' },
+            ],
+          },
+          end: { type: 'end' },
+        },
+      },
+    };
+    const r = deliveryAuditGraphCoverage({
+      flowPath: 'flow/flow.json',
+      ratifiedGraphSha: invalid.ratifiedGraphSha,
+      reportText: COVERING_REPORT,
+      exists: () => true,
+      readFile: () => JSON.stringify(invalid),
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /schema-invalid|hash throw|not SHA-equal|invalid/i);
+  });
+
+  it('hash throw / injected doc is not treated as SHA-equal', () => {
+    const r = deliveryAuditGraphCoverage({
+      flowDoc: XOR_FLOW,
+      ratifiedGraphSha: XOR_FLOW.ratifiedGraphSha,
+      reportText: COVERING_REPORT,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /schema-invalid|hash throw|divergent|not SHA-equal|invalid/i);
+  });
+
+  it('empty machine-and-xor subjects fail closed (not vacuous coverage)', () => {
+    const r = deliveryAuditGraphCoverage({
+      flowDoc: {
+        schemaVersion: '1.0',
+        planSlug: 'empty-subjects',
+        graph: { entry: 'S1', nodes: { S1: { type: 'activity' } } },
+        machines: [],
+      },
+      ratifiedGraphSha: 'a'.repeat(64),
+      actualSha: 'a'.repeat(64),
+      reportText: COVERING_REPORT,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /empty|vacuous|subject/i);
+  });
 });
 
 describe('deliveryAuditAllowsClose graph (F4 T-002)', () => {
