@@ -1079,6 +1079,23 @@ export function runAssert(args, env = {}) {
       decisionReview,
       deliveryAuditGate,
       phase,
+      planPath: resolved.planFile,
+      cwd,
+      businessIntent:
+        phase != null && phase.businessIntent != null
+          ? phase.businessIntent
+          : fm.businessIntent != null
+            ? fm.businessIntent
+            : null,
+      exists: (p) => {
+        try {
+          return existsSync(isAbsolute(p) ? p : resolve(cwd, p));
+        } catch {
+          return false;
+        }
+      },
+      readFile: (p) =>
+        readFileSync(isAbsolute(p) ? p : resolve(cwd, p), 'utf8'),
     });
     if (!r.ok) {
       const out = {
@@ -1099,6 +1116,13 @@ export function runAssert(args, env = {}) {
         phase,
         checkAuthenticity: true,
         cwd: repoRoot,
+        planPath: resolved.planFile,
+        businessIntent:
+          phase != null && phase.businessIntent != null
+            ? phase.businessIntent
+            : fm.businessIntent != null
+              ? fm.businessIntent
+              : null,
         exists: (p) => {
           try {
             return existsSync(isAbsolute(p) ? p : resolve(repoRoot, p));

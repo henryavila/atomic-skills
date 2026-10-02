@@ -20,10 +20,16 @@
  *
  * Non-automate: `deliveryAuditAllowsClose` inactive (ok) — Mode-1 still has
  * implement.md HARD-GATE prose. Under durable automate / session automate,
- * honesty is required before phase-done.
+ * honesty is required before phase-done, and close loads `flow/flow.json` at
+ * `ratifiedGraphSha` (missing cited path fails closed).
  */
 
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { flowDocumentSha, flowPathsForPlan } from '../scripts/find-missing-flow.js';
 import { isDurableAutomateActive } from './plan-end-review.js';
+
+/** Size cap for cited flow/flow.json and coverage scan (L-F2-2). */
+const FLOW_JSON_MAX_BYTES = 256_000;
 
 /** Verdicts that may stamp status=passed (EN skill SSOT). */
 export const DELIVERY_AUDIT_PASS_VERDICTS = Object.freeze(['CLOSED', 'PARTIAL']);
@@ -421,27 +427,6 @@ export function deliveryAuditGateAuthenticity(gate, opts = {}) {
   return { ok: true };
 }
 
-/**
- * Whether phase-done may proceed under the delivery-audit order.
- *
- * When durable automate is off → true (Mode-1 uses implement HARD-GATE prose).
- * When on → deliveryAuditGateHonesty on gate from input or phase.deliveryAuditGate.
- * When authenticity opts supply content/FS hooks, also run content authenticity.
- *
- * @param {{
- *   automateActive?: boolean | null,
- *   planExecutionMode?: string | null,
- *   deliveryAuditGate?: DeliveryAuditGate | null,
- *   phase?: { deliveryAuditGate?: DeliveryAuditGate | null } | null,
- *   reportContent?: string | Buffer | null,
- *   reportContents?: Record<string, string | Buffer> | null,
- *   readFile?: ((path: string) => string | Buffer) | null,
- *   exists?: ((path: string) => boolean) | null,
- *   cwd?: string | null,
- *   checkAuthenticity?: boolean,
- * }} [input]
- * @returns {{ ok: boolean, reason?: string }}
- */
 /** Status tokens for one graph coverage line. */
 export const GRAPH_COVERAGE_STATUSES = Object.freeze([
   'faz',
@@ -533,6 +518,8 @@ export function parseGraphCoverageLines(reportText) {
  * @param {{
  *   flowDoc?: unknown,
  *   flowPath?: string | null,
+ *   planPath?: string | null,
+ *   cwd?: string | null,
  *   ratifiedGraphSha?: string | null,
  *   actualSha?: string | null,
  *   reportText?: string | null,
@@ -549,6 +536,13 @@ export function deliveryAuditGraphCoverage(input = {}) {
     input.flowPath != null && String(input.flowPath).trim() !== ''
       ? String(input.flowPath).trim()
       : '';
+  const planRoot = planRootForCitedFlow(input);
+  if (flowPath !== '' && citedFlowPathEscapes(flowPath, planRoot)) {
+    return {
+      ok: false,
+      reason: `delivery audit cited ${flowPath} path-escape`,
+    };
+  }
   if (flowPath !== '') {
     if (typeof input.exists === 'function' && !input.exists(flowPath)) {
       return {
@@ -560,9 +554,30 @@ export function deliveryAuditGraphCoverage(input = {}) {
 
   /** @type {unknown} */
   let flowDoc = input.flowDoc;
+  let loadedFromPath = false;
   if (flowDoc == null && flowPath !== '' && typeof input.readFile === 'function') {
     try {
-      flowDoc = JSON.parse(input.readFile(flowPath));
+      const raw = input.readFile(flowPath);
+      const text =
+        typeof raw === 'string'
+          ? raw
+          : Buffer.isBuffer(raw)
+            ? raw.toString('utf8')
+            : String(raw);
+      if (text.trim() === '') {
+        return {
+          ok: false,
+          reason: `delivery audit cited ${flowPath} is empty`,
+        };
+      }
+      if (text.length > FLOW_JSON_MAX_BYTES) {
+        return {
+          ok: false,
+          reason: `delivery audit cited ${flowPath} exceeds size cap`,
+        };
+      }
+      flowDoc = JSON.parse(text);
+      loadedFromPath = true;
     } catch (err) {
       return {
         ok: false,
@@ -584,10 +599,18 @@ export function deliveryAuditGraphCoverage(input = {}) {
           'string'
         ? String(/** @type {{ ratifiedGraphSha?: unknown }} */ (flowDoc).ratifiedGraphSha).trim()
         : '';
-  const actual =
-    input.actualSha != null
-      ? String(input.actualSha).trim()
-      : expected;
+  let actual;
+  if (input.actualSha != null) {
+    actual = String(input.actualSha).trim();
+  } else if (loadedFromPath) {
+    try {
+      actual = flowDocumentSha(flowDoc);
+    } catch {
+      actual = expected;
+    }
+  } else {
+    actual = expected;
+  }
   if (!expected || !actual || expected !== actual) {
     return {
       ok: false,
@@ -631,6 +654,144 @@ export function deliveryAuditGraphCoverage(input = {}) {
   return { ok: true, lines };
 }
 
+/**
+ * Resolve cited flow/flow.json: explicit path, then flowPathsForPlan(planPath),
+ * then cwd/flow/flow.json, else the cited default (missing fails closed).
+ *
+ * @param {{
+ *   flowPath?: string | null,
+ *   planPath?: string | null,
+ *   cwd?: string | null,
+ * }} [input]
+ * @returns {string}
+ */
+export function resolveDeliveryAuditFlowPath(input = {}) {
+  if (input.flowPath != null && String(input.flowPath).trim() !== '') {
+    return String(input.flowPath).trim();
+  }
+  const planPath =
+    input.planPath != null && String(input.planPath).trim() !== ''
+      ? String(input.planPath).trim()
+      : '';
+  if (planPath !== '') {
+    return flowPathsForPlan(planPath).flowJson;
+  }
+  const cwd =
+    input.cwd != null && String(input.cwd).trim() !== ''
+      ? String(input.cwd).trim()
+      : '';
+  if (cwd !== '') {
+    return join(cwd, 'flow', 'flow.json');
+  }
+  return 'flow/flow.json';
+}
+
+/**
+ * @param {string} flowPath
+ * @param {string | null} [root]
+ * @returns {boolean}
+ */
+function citedFlowPathEscapes(flowPath, root) {
+  const raw = String(flowPath || '').trim();
+  if (raw.includes('\0')) return true;
+  const posix = raw.replace(/\\/g, '/');
+  const parts = posix.split('/');
+  let depth = 0;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part === '' || part === '.') continue;
+    if (/^[A-Za-z]:$/.test(part)) continue;
+    if (part === '..') {
+      depth -= 1;
+      if (depth < 0) return true;
+      continue;
+    }
+    depth += 1;
+  }
+  if (root != null && String(root).trim() !== '') {
+    const base = resolve(String(root).trim());
+    const target = isAbsolute(raw) ? resolve(raw) : resolve(base, raw);
+    const rel = relative(base, target);
+    if (rel.startsWith('..') || isAbsolute(rel)) return true;
+  }
+  return false;
+}
+
+/**
+ * @param {{ planPath?: string | null, cwd?: string | null }} [input]
+ * @returns {string | null}
+ */
+function planRootForCitedFlow(input = {}) {
+  if (input.planPath != null && String(input.planPath).trim() !== '') {
+    return dirname(resolve(String(input.planPath).trim()));
+  }
+  if (input.cwd != null && String(input.cwd).trim() !== '') {
+    return resolve(String(input.cwd).trim());
+  }
+  return null;
+}
+
+/**
+ * @param {object} input
+ * @param {DeliveryAuditGate | null | undefined} gate
+ * @returns {string}
+ */
+function reportTextForGraphCoverage(input, gate) {
+  if (input.reportContent != null) return String(input.reportContent);
+  if (input.reportText != null) return String(input.reportText);
+  const reportPath =
+    gate != null && gate.reportPath != null ? String(gate.reportPath).trim() : '';
+  if (reportPath === '' || typeof input.readFile !== 'function') return '';
+  const cwd =
+    input.cwd != null && String(input.cwd).trim() !== ''
+      ? String(input.cwd).trim()
+      : '';
+  try {
+    const abs = cwd
+      ? `${cwd.replace(/\/$/, '')}/${reportPath.replace(/^\.\//, '')}`
+      : reportPath;
+    try {
+      return String(input.readFile(abs));
+    } catch {
+      return String(input.readFile(reportPath));
+    }
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Whether phase-done may proceed under the delivery-audit order.
+ *
+ * When durable automate is off → true (Mode-1 uses implement HARD-GATE prose).
+ * When on → honesty + optional authenticity, then always load `flow/flow.json`
+ * at `ratifiedGraphSha` (via `flowPathsForPlan` when planPath/cwd is available).
+ * Missing cited path / empty / path-escape fail closed (L-F2-1). An honest
+ * CLOSED stamp without graph coverage does not allow close.
+ *
+ * @param {{
+ *   automateActive?: boolean | null,
+ *   planExecutionMode?: string | null,
+ *   deliveryAuditGate?: DeliveryAuditGate | null,
+ *   phase?: { deliveryAuditGate?: DeliveryAuditGate | null } | null,
+ *   reportContent?: string | Buffer | null,
+ *   reportContents?: Record<string, string | Buffer> | null,
+ *   readFile?: ((path: string) => string | Buffer) | null,
+ *   exists?: ((path: string) => boolean) | null,
+ *   cwd?: string | null,
+ *   planPath?: string | null,
+ *   flowDoc?: unknown,
+ *   flowPath?: string | null,
+ *   ratifiedGraphSha?: string | null,
+ *   actualSha?: string | null,
+ *   reportText?: string | null,
+ *   businessIntent?: unknown,
+ *   finalPage?: boolean | null,
+ *   userValidatedAt?: string | null,
+ *   checkAuthenticity?: boolean,
+ * }} [input]
+ * @returns {{ ok: boolean, reason?: string }}
+ */
 export function deliveryAuditAllowsClose(input = {}) {
   if (!isDurableAutomateForDeliveryAudit(input)) {
     return { ok: true };
@@ -658,32 +819,27 @@ export function deliveryAuditAllowsClose(input = {}) {
   });
   if (!authenticity.ok) return authenticity;
 
-  const hasGraphInput =
-    input.flowDoc != null ||
-    (input.flowPath != null && String(input.flowPath).trim() !== '') ||
-    (input.ratifiedGraphSha != null && String(input.ratifiedGraphSha).trim() !== '');
-  if (hasGraphInput) {
-    const reportText =
-      input.reportContent != null
-        ? String(input.reportContent)
-        : input.reportText != null
-          ? String(input.reportText)
-          : '';
-    return deliveryAuditGraphCoverage({
-      flowDoc: input.flowDoc,
-      flowPath: input.flowPath,
-      ratifiedGraphSha: input.ratifiedGraphSha,
-      actualSha: input.actualSha,
-      reportText,
-      businessIntent: input.businessIntent,
-      finalPage: input.finalPage,
-      userValidatedAt: input.userValidatedAt,
-      exists: input.exists,
-      readFile: input.readFile,
-    });
-  }
-
-  return authenticity;
+  const flowPath = resolveDeliveryAuditFlowPath(input);
+  const businessIntent =
+    input.businessIntent != null
+      ? input.businessIntent
+      : phase.businessIntent != null
+        ? phase.businessIntent
+        : null;
+  return deliveryAuditGraphCoverage({
+    flowDoc: input.flowDoc,
+    flowPath,
+    planPath: input.planPath,
+    cwd: input.cwd,
+    ratifiedGraphSha: input.ratifiedGraphSha,
+    actualSha: input.actualSha,
+    reportText: reportTextForGraphCoverage(input, gate),
+    businessIntent,
+    finalPage: input.finalPage,
+    userValidatedAt: input.userValidatedAt,
+    exists: input.exists,
+    readFile: input.readFile,
+  });
 }
 
 /**

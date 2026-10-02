@@ -36,21 +36,22 @@ const MINIMAL_FLOW = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'design', 'project-flow', 'dogfood', 'minimal-xor.json'), 'utf8'),
 );
 
-function writeDeliveryAuditReport(root, rel = '.atomic-skills/reviews/audit-delivery-demo.md') {
+function writeDeliveryAuditReport(root, rel = '.atomic-skills/reviews/audit-delivery-demo.md', opts = {}) {
   const abs = join(root, rel);
   mkdirSync(dirname(abs), { recursive: true });
-  writeFileSync(
-    abs,
-    [
-      '# Delivery audit',
-      '',
-      'verdict: CLOSED',
-      'intent: demo phase delivered the agreed value.',
-      'residual: none in fixture',
-      'findings: none',
-      '',
-    ].join('\n'),
-  );
+  const lines = [
+    '# Delivery audit',
+    '',
+    'verdict: CLOSED',
+    'intent: demo phase delivered the agreed value.',
+    'residual: none in fixture',
+    'findings: none',
+    '',
+  ];
+  if (opts.graphCoverage !== false) {
+    lines.push('## Flow graph', 'machine request: faz', 'xor D1: faz', '');
+  }
+  writeFileSync(abs, lines.join('\n'));
 }
 
 /** Write ratified flow/flow.json + matching flow.html next to plan.md (spawn fence). */
@@ -1078,6 +1079,63 @@ describe('assert-automate-gate CLI', () => {
         );
         assert.equal(r.status, 0, combined(r));
         assert.match(r.stdout, /^ok\b/m);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('exit 1 when honest CLOSED report lacks graph coverage at ratifiedGraphSha', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, {
+          executionMode: 'automate',
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
+          lessonsState: 'none',
+          reviewGate: {
+            status: 'passed',
+            mode: 'both',
+            at: 'a'.repeat(40),
+            reviewFile: '.atomic-skills/reviews/f0-both.md',
+            localReceiptPath: '.atomic-skills/reviews/f0-local.md',
+            codexReceiptPath: '.atomic-skills/reviews/f0-codex.md',
+          },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-07-21T00:00:00.000Z',
+            packagePresentedAt: '2026-07-21T00:00:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
+          },
+          deliveryAuditGate: {
+            status: 'passed',
+            verdict: 'CLOSED',
+            reportPath: '.atomic-skills/reviews/audit-delivery-demo.md',
+            verifiedAt: '2026-08-04T15:00:00.000Z',
+          },
+        });
+        writeDeliveryAuditReport(root, '.atomic-skills/reviews/audit-delivery-demo.md', {
+          graphCoverage: false,
+        });
+        const stateRoot = join(root, '.atomic-skills');
+        writeCursor(join(stateRoot, 'status'), 'demo-plan', 'G');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'phase-done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /xor|graph|machine|flow\/flow\.json|ratifiedGraphSha/i);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }

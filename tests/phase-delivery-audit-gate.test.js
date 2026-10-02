@@ -168,20 +168,22 @@ describe('deliveryAuditAllowsClose', () => {
     assert.match(r.reason || '', /deliveryAuditGate/);
   });
 
-  it('allows honest CLOSED under durable automate', () => {
+  it('honest CLOSED stamp alone is not enough under durable automate', () => {
     const r = deliveryAuditAllowsClose({
       planExecutionMode: 'automate',
       deliveryAuditGate: HONEST_CLOSED,
     });
-    assert.equal(r.ok, true);
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /flow\/flow\.json|ratifiedGraphSha|graph/i);
   });
 
-  it('reads gate from phase.deliveryAuditGate', () => {
+  it('reads gate from phase.deliveryAuditGate then requires graph', () => {
     const r = deliveryAuditAllowsClose({
       planExecutionMode: 'automate',
       phase: { deliveryAuditGate: HONEST_CLOSED },
     });
-    assert.equal(r.ok, true);
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /flow\/flow\.json|ratifiedGraphSha|graph/i);
   });
 
   it('blocks skip shapes under automate', () => {
@@ -279,12 +281,13 @@ describe('canRunPhaseDone requires deliveryAuditGate', () => {
     assert.equal(r.ok, false);
   });
 
-  it('allows valid CLOSED deliveryAuditGate', () => {
+  it('honest CLOSED deliveryAuditGate without graph still fails', () => {
     const r = canRunPhaseDone({
       ...baseOk,
       deliveryAuditGate: HONEST_CLOSED,
     });
-    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /flow\/flow\.json|ratifiedGraphSha|graph/i);
   });
 
   it('blocks OPEN verdict on deliveryAuditGate', () => {
@@ -511,5 +514,82 @@ describe('deliveryAuditAllowsClose graph (F4 T-002)', () => {
     });
     assert.equal(r.ok, false);
     assert.match(r.reason || '', /xor|graph|machine/i);
+  });
+
+  it('honest CLOSED without flowDoc/flowPath/ratifiedGraphSha does not allow close when graph coverage is missing', () => {
+    const planPath = '/tmp/demo-plan/plan.md';
+    const flowPath = '/tmp/demo-plan/flow/flow.json';
+    const r = deliveryAuditAllowsClose({
+      planExecutionMode: 'automate',
+      deliveryAuditGate: HONEST_CLOSED,
+      planPath,
+      cwd: '/tmp/demo-plan',
+      reportContent: SAMPLE_REPORT,
+      exists: (p) => String(p).replace(/\\/g, '/').endsWith('flow/flow.json'),
+      readFile: (p) => {
+        if (String(p).replace(/\\/g, '/').endsWith('flow/flow.json') || p === flowPath) {
+          return JSON.stringify(XOR_FLOW);
+        }
+        return SAMPLE_REPORT;
+      },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /xor|graph|machine|flow\/flow\.json|ratifiedGraphSha/i);
+  });
+
+  it('honest CLOSED stamp with no graph input fails under automate', () => {
+    const r = deliveryAuditAllowsClose({
+      planExecutionMode: 'automate',
+      deliveryAuditGate: HONEST_CLOSED,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /flow\/flow\.json|ratifiedGraphSha|graph/i);
+  });
+});
+
+describe('canRunPhaseDone graph (F4 T-002)', () => {
+  const phaseDoneBase = {
+    planExecutionMode: 'automate',
+    evaluationGate: evalPassed,
+    lessonsState: 'none',
+    reviewGate: reviewBoth,
+    decisionReview: decisionPassed,
+    deliveryAuditGate: HONEST_CLOSED,
+  };
+
+  it('honest CLOSED without graph input fails under automate', () => {
+    const r = canRunPhaseDone(phaseDoneBase);
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /flow\/flow\.json|ratifiedGraphSha|graph/i);
+  });
+
+  it('loads flow/flow.json at ratifiedGraphSha when planPath is given', () => {
+    const planPath = '/tmp/demo-plan/plan.md';
+    const r = canRunPhaseDone({
+      ...phaseDoneBase,
+      planPath,
+      cwd: '/tmp/demo-plan',
+      reportContent: SAMPLE_REPORT,
+      exists: (p) => String(p).replace(/\\/g, '/').endsWith('flow/flow.json'),
+      readFile: (p) => {
+        if (String(p).replace(/\\/g, '/').endsWith('flow/flow.json')) {
+          return JSON.stringify(XOR_FLOW);
+        }
+        return SAMPLE_REPORT;
+      },
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason || '', /xor|graph|machine|flow\/flow\.json|ratifiedGraphSha/i);
+  });
+
+  it('allows close when loaded graph coverage is present', () => {
+    const r = canRunPhaseDone({
+      ...phaseDoneBase,
+      flowDoc: XOR_FLOW,
+      ratifiedGraphSha: XOR_FLOW.ratifiedGraphSha,
+      actualSha: XOR_FLOW.ratifiedGraphSha,
+      reportContent: COVERING_REPORT,
+    });
+    assert.equal(r.ok, true, r.reason);
   });
 });
