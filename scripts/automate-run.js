@@ -15,12 +15,14 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   AUTOMATE_HOSTS,
@@ -45,6 +47,7 @@ import {
   runPhaseReviewLoop,
   upsertPlanReviewExternalCli,
 } from '../src/phase-review-gate.js';
+import { readFinalPlan, finalAuditsPassed } from '../src/plan-end-review.js';
 import { phaseCloseFenceOk } from '../src/automate-product-fence.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -62,6 +65,9 @@ const ARG_KEYS = {
   'writer-branch': 'writerBranch',
   phase: 'phase',
   'host-args': 'hostArgs',
+  'review-bin': 'reviewBin',
+  'github-bin': 'githubBin',
+  'pr-base': 'prBase',
 };
 
 /**
@@ -690,6 +696,145 @@ export async function runWriterSession(input) {
   }
 }
 
+
+function saveRunState(path,state) {
+  mkdirSync(dirname(path),{recursive:true});
+  writeFileSync(path+'.tmp',JSON.stringify(state,null,2)+'\n');renameSync(path+'.tmp',path);
+}
+function loadRunState(path) {
+  if (!existsSync(path)) return {schemaVersion:1,stage:'plan',round:1,confirmedStops:[],residualFindings:[]};
+  const state=JSON.parse(readFileSync(path,'utf8'));
+  if(state.schemaVersion!==1 || !['plan','audit','pr','complete'].includes(state.stage) || !Number.isInteger(state.round) || state.round<1 || state.round>3) throw new Error('invalid saved automate state');
+  return state;
+}
+function parseReviewResult(result) {
+  if(!result || result.status!==0) throw new Error(`review process failed: ${result?.stderr||'missing process receipt'}`);
+  let body;try {body=JSON.parse(result.stdout);}catch {throw new Error('review output must be structured JSON');}
+  if(!body || !['PASSED','CLOSED','PARTIAL','OPEN'].includes(body.verdict) || !Array.isArray(body.findings)) throw new Error('review output missing verdict or findings');
+  if(body.findings.some(f=>!f || typeof f!=='object' || Array.isArray(f) || (!f.stampedBlockMix && !['critical','major','blocker','high','medium','minor','low','info'].includes(String(f.severity||f.level||'').toLowerCase())))) throw new Error('invalid review finding');
+  if(body.verdict==='OPEN' && body.findings.length===0) throw new Error('OPEN verdict without actionable findings');
+  return body;
+}
+function collectPhaseResiduals(plan,root) {
+  const {fm}=readFinalPlan(plan);const rows=[];const dir=dirname(plan);
+  for(const phase of fm.phases||[]) {
+    const raw=phase.deliveryAuditGate?.reportPath;
+    if(raw) {
+      const base=String(raw).startsWith('.atomic-skills/')?root:dir;
+      const path=realpathSync(resolve(base,raw));const confined=realpathSync(root);
+      if(path!==confined && !path.startsWith(confined+sep)) throw new Error('phase report escapes root');
+      const body=readFileSync(path,'utf8');if(!body.trim() || Buffer.byteLength(body)>2_000_000) throw new Error('invalid phase report');
+      rows.push({phaseId:phase.id,reportPath:raw,report:body});
+    }
+    if(Array.isArray(phase.remainingFindings)) rows.push({phaseId:phase.id,findings:phase.remainingFindings});
+  }
+  const residualPath=join(root,'.atomic-skills/status/automate',`${fm.slug}-residuals.json`);
+  if(existsSync(residualPath)) rows.push(JSON.parse(readFileSync(residualPath,'utf8')));
+  return rows;
+}
+function previewUrl(plan,root) {
+  const html=join(dirname(plan),'flow/flow.html');
+  const result=spawnSync(process.execPath,[join(ROOT,'scripts/serve-flow.js'),'--up',html,'--plan',plan],{encoding:'utf8',cwd:root,timeout:15000});
+  if(result.status!==0) throw new Error(`preview failed: ${result.stderr}`);
+  const url=result.stdout.trim();if(!/^http:\/\/127\.0\.0\.1:\d+\/flow\.html$/.test(url)) throw new Error('invalid preview origin');
+  return url;
+}
+function openPage(url) {
+  const command=process.platform==='darwin'?'open':process.platform==='win32'?'cmd':'xdg-open';
+  const argv=process.platform==='win32'?['/c','start','',url]:[url];
+  const child=spawn(command,argv,{stdio:'ignore',detached:true});child.on('error',()=>{});child.unref();
+}
+function writePlanEndReceipt(plan,receipt) {
+  const path=join(dirname(plan),'automate-plan-end-review.json');
+  writeFileSync(path+'.tmp',JSON.stringify(receipt,null,2)+'\n');renameSync(path+'.tmp',path);
+}
+
+function defaultPr(input) {
+  const bin=input.args?.githubBin||process.env.AUTOMATE_GITHUB_BIN||'gh';
+  const branch=gitOrThrow(input.root,['rev-parse','--abbrev-ref','HEAD'],'read branch').stdout.trim();
+  if(branch==='HEAD') throw new Error('PR requires a branch');
+  gitOrThrow(input.root,['push','--set-upstream','origin',branch],'deliver branch');
+  const existing=spawnSync(bin,['pr','view','--json','url,state'],{cwd:input.root,encoding:'utf8'});
+  if(existing.status===0) {
+    const pr=JSON.parse(existing.stdout);if(pr.state!=='OPEN') throw new Error('existing PR is not open');return pr;
+  }
+  let base=input.args?.prBase||process.env.AUTOMATE_PR_BASE;
+  if(!base) {const ref=gitExec(input.root,['symbolic-ref','refs/remotes/origin/HEAD']);if(ref.status===0) base=ref.stdout.trim().replace(/^refs\/remotes\/origin\//,'');}
+  if(!base) throw new Error('PR base is required (--pr-base or origin/HEAD)');
+  const bodyPath=join(dirname(input.plan),'automate-pr-body.txt');
+  writeFileSync(bodyPath,`Delivered the ratified plan on the branch.\n\nReviews: whole plan and delivery audit, including phase residual findings.\n\nValidate delivery on the HTTP final page before finalize/archive.\n`);
+  const result=spawnSync(bin,['pr','create','--base',base,'--head',branch,'--title',`Deliver ${planSlugOf(input.plan)}`,'--body-file',bodyPath],{cwd:input.root,encoding:'utf8'});
+  if(result.status!==0) throw new Error(`PR create failed: ${result.stderr}`);
+  const url=result.stdout.trim();if(!/^https?:\/\//.test(url)) throw new Error('PR create returned no URL');
+  return {url,state:'OPEN'};
+}
+/** Production plan-end state machine. No PR merge or archive operation. */
+export async function runPlanEndWorkflow(input) {
+  const plan=resolve(input.plan);const root=resolve(input.root||dirname(plan));const deps=input.deps||{};
+  const statePath=join(dirname(plan),'automate-run-state.json');let state=loadRunState(statePath);
+  const preview=deps.preview||(()=>previewUrl(plan,root));const open=deps.open||openPage;
+  const page=async()=>new URL('/final',await preview()).href;
+  const stop=async(reason,findings)=>{
+    state.pendingStop={id:`${state.stage}-${reason}-${state.round}-${Date.now()}`,reason,stage:state.stage,findings};
+    saveRunState(statePath,state);const url=`${await page()}?stop=${encodeURIComponent(state.pendingStop.id)}`;open(url);
+    return {action:'stop',reason,url};
+  };
+  if(state.pendingStop) {const url=`${await page()}?stop=${encodeURIComponent(state.pendingStop.id)}`;open(url);return {action:'stop',reason:state.pendingStop.reason,url};}
+  if(state.stage==='complete') {const url=await page();return {action:'pr-open',pr:state.pr,url};}
+  if(!finalAuditsPassed(plan)) return stop('não avanço',[{title:'Waiting for every phase delivery audit to pass'}]);
+  let residuals;try{residuals=collectPhaseResiduals(plan,root);}catch(e){return stop('não avanço',[{title:e.message}]);}
+  state.phaseResiduals=residuals;saveRunState(statePath,state);
+  const localBin=resolveHostBin(input.host,input.args||{},process.env);
+  const review=deps.review||((request)=>{
+    const prompt=`Return only the structured JSON specified by outputContract. No Markdown fences.\n${request.brief}`;
+    const invoke=(provider,bin)=>{
+      let argv;
+      if(process.env.AUTOMATE_REVIEW_ARGS) argv=hostArgv({hostArgs:process.env.AUTOMATE_REVIEW_ARGS},process.env);
+      else if(provider==='codex') argv=['exec','--sandbox','read-only','-'];
+      else if(provider==='grok') {const promptPath=join(dirname(plan),`automate-${request.stage}-review-prompt.txt`);writeFileSync(promptPath,prompt);argv=['--prompt-file',promptPath,'--sandbox','read-only','--no-memory','--output-format','plain'];}
+      else argv=['-p','--output-format','text'];
+      return spawnSync(bin,argv,{cwd:root,encoding:'utf8',input:prompt,timeout:120000});
+    };
+    const localProvider=input.host==='claude-code'?'claude':input.host;
+    if(localProvider===input.cli) throw new Error('external review must use a different provider');
+    const local=invoke(localProvider,localBin);
+    const external=invoke(input.cli,input.args?.reviewBin||process.env.AUTOMATE_REVIEW_BIN||input.cli);
+    const a=parseReviewResult(local);const b=parseReviewResult(external);
+    return {status:0,stderr:external.stderr||'',stdout:JSON.stringify({...b,findings:[...a.findings,...b.findings]}),local,external};
+  });
+  const fix=deps.fix||(async request=>{
+    const args={...(input.args||{}),phase:`${request.stage}-fix-${request.round}`,hostArgs:JSON.stringify([...(hostArgv(input.args||{},process.env)),request.brief])};
+    const code=await runWriterSession({host:input.host,root,plan,args});return {ok:code===0};
+  });
+  while(state.stage==='plan'||state.stage==='audit') {
+    const stage=state.stage;let parsed,result;
+    const brief=JSON.stringify({operation:stage==='plan'?'review-whole-plan':'audit-delivery',scope:'whole-plan',plan:readFileSync(plan,'utf8'),flowGraph:JSON.parse(readFileSync(join(dirname(plan),'flow/flow.json'),'utf8')),architectureSketch:JSON.parse(readFileSync(join(dirname(plan),'architecture/decisions.json'),'utf8')),phaseResiduals:residuals,priorReviews:state.reviews||[],outputContract:{verdict:'PASSED|CLOSED|PARTIAL|OPEN',findings:'array with severity and title',intentVsDelivered:'non-empty array for audit with matched|partial|missing|extra'}},null,2);
+    try{result=await review({stage,round:state.round,brief});parsed=parseReviewResult(result);}catch(e){return stop('não avanço',[{title:e.message}]);}
+    const decision=continuePhaseAfterReview({slug:planSlugOf(plan),round:state.round,findings:parsed.findings});
+    const reportPath=join(dirname(plan),`automate-${stage}-review-${state.round}.json`);
+    writeFileSync(reportPath,JSON.stringify({stage,round:state.round,command:input.cli,exit:result.status,stderr:result.stderr||'',local:result.local||null,external:result.external||null,...parsed},null,2)+'\n');
+    state.reviews=[...(state.reviews||[]),{stage,round:state.round,reportPath,verdict:parsed.verdict}];saveRunState(statePath,state);
+    if(decision.action==='stop') return stop(decision.reason==='mix'?'mudança grande':'travei',parsed.findings);
+    if(decision.action==='fix-and-review') {
+      let fixed;try{fixed=await fix({stage,round:state.round,findings:parsed.findings,brief});}catch(e){return stop('não avanço',[{title:e.message}]);}
+      if(!fixed || fixed.ok!==true) return stop('não avanço',parsed.findings);
+      state.round++;saveRunState(statePath,state);continue;
+    }
+    state.residualFindings=[...(state.residualFindings||[]),...parsed.findings.map(f=>({...f,stage}))];
+    if(stage==='plan') {state.stage='audit';state.round=1;saveRunState(statePath,state);continue;}
+    if(!Array.isArray(parsed.intentVsDelivered)||!parsed.intentVsDelivered.length||parsed.intentVsDelivered.some(row=>!['matched','partial','missing','extra'].includes(row.status))) return stop('não avanço',[{title:'Delivery audit lacks intent-vs-delivered rows'}]);
+    const provider=String(input.cli||'').replace('claude-code','claude');
+    if(!['grok','codex','claude'].includes(provider)) return stop('não avanço',[{title:'Unknown external review provider'}]);
+    const receipt={mode:'external-both',reviewFile:reportPath,verifiedAt:new Date().toISOString(),legs:[{provider,status:'succeeded',familyDifferent:true}],intentVsDelivered:parsed.intentVsDelivered};
+    writePlanEndReceipt(plan,receipt);state.stage='pr';state.round=1;saveRunState(statePath,state);
+  }
+  try{
+    state.pr=await (deps.createPr||(()=>defaultPr({...input,plan,root})))();
+    if(!state.pr || state.pr.state!=='OPEN'||!/^https?:\/\//.test(state.pr.url||'')) throw new Error('PR must exist and remain open');
+  }catch(e){return stop('não avanço',[{title:e.message}]);}
+  state.stage='complete';saveRunState(statePath,state);const url=await page();open(url);return {action:'pr-open',pr:state.pr,url};
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const host = resolveAutomateHost(args.host);
@@ -768,53 +913,18 @@ function main() {
     env: process.env,
   });
 
-  runWriterSession({ host, root, plan: planPath, args }).then(
-    async (code) => {
-      if (code !== 0) process.exit(code);
-      if (prepared.ok && prepared.cli && process.env.AUTOMATE_REVIEW_SPAWN === '1') {
-        const review = runPhaseReviewBoth({
-          cli: prepared.cli,
-          argv: hostArgv({ hostArgs: process.env.AUTOMATE_REVIEW_ARGS }, process.env),
-        });
-        const ran = review && typeof review.then === 'function' ? await review : review;
-        if (ran && ran.receipt) {
-          process.stderr.write(`${ran.receipt}\n`);
-        }
-      }
-      const findingsRaw = process.env.AUTOMATE_REVIEW_FINDINGS;
-      if (findingsRaw) {
-        let findings = [];
-        try {
-          findings = JSON.parse(findingsRaw);
-        } catch {
-          findings = [];
-        }
-        const slug = planSlugOf(planPath);
-        const decision = continuePhaseAfterReview({
-          slug,
-          round: Number(process.env.AUTOMATE_REVIEW_ROUND || 1),
-          findings: Array.isArray(findings) ? findings : [],
-          writeStatus: (rel, body) => {
-            const targetRel = redirectParkPathOffMaestroCursor(rel);
-            const abs = join(root, targetRel);
-            mkdirSync(dirname(abs), { recursive: true });
-            writeFileSync(abs, `${JSON.stringify(body, null, 2)}\n`);
-          },
-        });
-        if (decision.action === 'stop') {
-          process.stderr.write(`review loop ${decision.reason || 'stop'}\n`);
-          process.exit(decision.reason === 'travei' || decision.reason === 'mix' ? 2 : code);
-        }
-      }
-      process.exit(code);
-    },
-    (err) => {
-      process.stderr.write(
-        `implement --automate failed: ${err instanceof Error ? err.message : String(err)}\n`,
-      );
-      process.exit(1);
-    },
-  );
+  const milestone=process.env.AUTOMATE_STOP_AFTER_MERGE==='1';
+  if(!prepared.ok && !milestone) {
+    process.stderr.write(`implement --automate refused: ${prepared.reason||'reviewExternalCli is required'}\n`);process.exit(1);
+  }
+  const statePath=join(dirname(planPath),'automate-run-state.json');
+  const run=async()=>{
+    if(!existsSync(statePath)) await runWriterSession({host,root,plan:planPath,args});
+    if(milestone) return 0;
+    const outcome=await runPlanEndWorkflow({host,root,plan:planPath,args,cli:prepared.cli});
+    process.stdout.write(JSON.stringify(outcome)+'\n');return outcome.action==='stop'?2:0;
+  };
+  run().then(code=>process.exit(code),err=>{process.stderr.write(`implement --automate failed: ${err.message}\n`);process.exit(1);});
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
