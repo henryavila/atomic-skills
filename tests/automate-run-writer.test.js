@@ -685,6 +685,9 @@ describe('automate-run production plan-end command', () => {
       html=join(h.repo,'flow/flow.html');
       const resumed=runAutomate(h,{AUTOMATE_STOP_AFTER_MERGE:'0',AUTOMATE_REVIEW_EXTERNAL_CLI:'grok',AUTOMATE_REVIEW_BIN:reviewer,AUTOMATE_GITHUB_BIN:gh,AUTOMATE_PR_BASE:'main',HOME:h.side},['--host-bin',host]);
       assert.equal(resumed.status,0,resumed.stdout+resumed.stderr);assert.equal(JSON.parse(resumed.stdout.trim().split('\n').at(-1)).url,outcome.url);assert.equal(readFileSync(ghLog,'utf8'),commands);
+      writeFileSync(join(h.repo,'writer-output.txt'),'changed after completed reviews\n');
+      const changed=runAutomate(h,{AUTOMATE_STOP_AFTER_MERGE:'0',AUTOMATE_REVIEW_EXTERNAL_CLI:'grok',AUTOMATE_REVIEW_BIN:reviewer,AUTOMATE_GITHUB_BIN:gh,AUTOMATE_PR_BASE:'main',HOME:h.side},['--host-bin',host]);
+      assert.equal(changed.status,2,changed.stdout+changed.stderr);assert.equal(JSON.parse(changed.stdout.trim().split('\n').at(-1)).reason,'não avanço');
     } finally {
       if(html) spawnSync(process.execPath,[join(ROOT,'scripts/serve-flow.js'),'--down',html],{env:{...process.env,HOME:h.side},encoding:'utf8'});
       cleanupHarness(h);

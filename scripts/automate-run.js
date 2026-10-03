@@ -47,7 +47,7 @@ import {
   runPhaseReviewLoop,
   upsertPlanReviewExternalCli,
 } from '../src/phase-review-gate.js';
-import { readFinalPlan, finalAuditsPassed } from '../src/plan-end-review.js';
+import { readFinalPlan, finalAuditsPassed, validationSnapshot, productSnapshot } from '../src/plan-end-review.js';
 import { deliveryAuditGraphCoverage } from '../src/phase-delivery-audit-gate.js';
 import { phaseCloseFenceOk } from '../src/automate-product-fence.js';
 
@@ -781,7 +781,12 @@ export async function runPlanEndWorkflow(input) {
     return {action:'stop',reason,url};
   };
   if(state.pendingStop) {const url=`${await page()}?stop=${encodeURIComponent(state.pendingStop.id)}`;open(url);return {action:'stop',reason:state.pendingStop.reason,url};}
-  if(state.stage==='complete') {const url=await page();return {action:'pr-open',pr:state.pr,url};}
+  const currentInputs=validationSnapshot(plan,{reviewInputs:true});
+  if(state.stage==='complete') {
+    if(state.reviewInputSnapshot!==currentInputs) {state.stage='plan';state.round=1;state.reviews=[];state.residualFindings=[];return stop('não avanço',[{title:'Delivery changed since the completed reviews; confirm to review the current source again'}]);}
+    const url=await page();return {action:'pr-open',pr:state.pr,url};
+  }
+  state.reviewInputSnapshot=currentInputs;
   if(!finalAuditsPassed(plan)) return stop('não avanço',[{title:'Waiting for every phase delivery audit to pass'}]);
   let residuals;try{residuals=collectPhaseResiduals(plan,root);}catch(e){return stop('não avanço',[{title:e.message}]);}
   state.phaseResiduals=residuals;saveRunState(statePath,state);
@@ -809,7 +814,7 @@ export async function runPlanEndWorkflow(input) {
   });
   while(state.stage==='plan'||state.stage==='audit') {
     const stage=state.stage;let parsed,result;
-    const brief=JSON.stringify({operation:stage==='plan'?'review-whole-plan':'audit-delivery',scope:'whole-plan',plan:readFileSync(plan,'utf8'),flowGraph:JSON.parse(readFileSync(join(dirname(plan),'flow/flow.json'),'utf8')),architectureSketch:JSON.parse(readFileSync(join(dirname(plan),'architecture/decisions.json'),'utf8')),phaseResiduals:residuals,priorReviews:state.reviews||[],outputContract:{verdict:'PASSED|CLOSED|PARTIAL|OPEN',findings:'array with severity and title',intentVsDelivered:'non-empty array for audit with matched|partial|missing|extra',graphCoverage:'audit array of {kind:machine|xor,id,status:faz|pela metade|não faz} covering every machine and xor in the supplied ratified graph'}},null,2);
+    const brief=JSON.stringify({operation:stage==='plan'?'review-whole-plan':'audit-delivery',scope:'whole-plan',productIdentity:productSnapshot(plan),plan:readFileSync(plan,'utf8'),flowGraph:JSON.parse(readFileSync(join(dirname(plan),'flow/flow.json'),'utf8')),architectureSketch:JSON.parse(readFileSync(join(dirname(plan),'architecture/decisions.json'),'utf8')),phaseResiduals:residuals,priorReviews:state.reviews||[],outputContract:{verdict:'PASSED|CLOSED|PARTIAL|OPEN',findings:'array with severity and title',intentVsDelivered:'non-empty array for audit with matched|partial|missing|extra',graphCoverage:'audit array of {kind:machine|xor,id,status:faz|pela metade|não faz} covering every machine and xor in the supplied ratified graph'}},null,2);
     try{result=await review({stage,round:state.round,brief});parsed=parseReviewResult(result);}catch(e){return stop('não avanço',[{title:e.message}]);}
     const decision=continuePhaseAfterReview({slug:planSlugOf(plan),round:state.round,findings:parsed.findings});
     const reportPath=join(dirname(plan),`automate-${stage}-review-${state.round}.json`);
@@ -819,7 +824,7 @@ export async function runPlanEndWorkflow(input) {
     if(decision.action==='fix-and-review') {
       let fixed;try{fixed=await fix({stage,round:state.round,findings:parsed.findings,brief});}catch(e){return stop('não avanço',[{title:e.message}]);}
       if(!fixed || fixed.ok!==true) return stop('não avanço',parsed.findings);
-      state.round++;saveRunState(statePath,state);continue;
+      state.reviewInputSnapshot=validationSnapshot(plan,{reviewInputs:true});state.round++;saveRunState(statePath,state);continue;
     }
     state.residualFindings=[...(state.residualFindings||[]),...parsed.findings.map(f=>({...f,stage}))];
     if(stage==='plan') {state.stage='audit';state.round=1;saveRunState(statePath,state);continue;}
@@ -834,6 +839,7 @@ export async function runPlanEndWorkflow(input) {
     const receipt={mode:'external-both',reviewFile:reportPath,verifiedAt:new Date().toISOString(),legs:[{provider,status:'succeeded',familyDifferent:true}],intentVsDelivered:parsed.intentVsDelivered,graphCoverage:coverage.lines};
     writePlanEndReceipt(plan,receipt);state.stage='pr';state.round=1;saveRunState(statePath,state);
   }
+  if(state.reviewInputSnapshot!==validationSnapshot(plan,{reviewInputs:true})) {state.stage='plan';state.round=1;return stop('não avanço',[{title:'Delivery changed while reviews ran; confirm to review the current source again'}]);}
   try{
     state.pr=await (deps.createPr||(()=>defaultPr({...input,plan,root})))();
     if(!state.pr || state.pr.state!=='OPEN'||!/^https?:\/\//.test(state.pr.url||'')) throw new Error('PR must exist and remain open');
