@@ -670,7 +670,7 @@ describe('automate-run production plan-end command', () => {
       const plan=join(h.repo,'plan.md');writeFileSync(plan,readFileSync(plan,'utf8').replace('status: active\n','status: active\nexecutionMode: automate\nreviewExternalCli: grok\nphases:\n  - id: F0\n    status: done\n    deliveryAuditGate:\n      status: passed\n      verdict: CLOSED\n      reportPath: audit.md\n'));
       const gt=assessGroundTruthPlanFile(readFileSync(plan,'utf8'));writeFileSync(plan,readFileSync(plan,'utf8').replace(/fp=[a-f0-9]+/,`fp=${gt.fingerprint}`));
       writeFileSync(join(h.repo,'audit.md'),'Phase audit accepted residual H1\n');git(h.repo,['add','plan.md','audit.md']);git(h.repo,['commit','-m','phase delivered']);
-      const clean=JSON.stringify({verdict:'PASSED',findings:[],intentVsDelivered:[{status:'matched'}]});
+      const clean=JSON.stringify({verdict:'PASSED',findings:[],graphCoverage:[{kind:'machine',id:'request',status:'faz'},{kind:'xor',id:'D1',status:'faz'}],intentVsDelivered:[{status:'matched'}]});
       const reviewer=join(h.side,'reviewer');writeFileSync(reviewer,`#!/usr/bin/env bash\ncat >/dev/null\nprintf '%s\\n' '${clean}'\n`);chmodSync(reviewer,0o755);
       writeFileSync(gh,`#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${ghLog}'\nif [[ "$2" == "view" ]]; then exit 1; fi\nprintf 'https://github.test/pr/42\\n'\n`);chmodSync(gh,0o755);
       const host=join(h.side,'host');writeFileSync(host,`#!/usr/bin/env bash\nif [[ "\${1:-}" == "exec" ]]; then cat >/dev/null; printf '%s\\n' '${clean}'; else printf 'from-writer\\n' > writer-output.txt; fi\n`);chmodSync(host,0o755);

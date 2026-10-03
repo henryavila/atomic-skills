@@ -48,6 +48,7 @@ import {
   upsertPlanReviewExternalCli,
 } from '../src/phase-review-gate.js';
 import { readFinalPlan, finalAuditsPassed } from '../src/plan-end-review.js';
+import { deliveryAuditGraphCoverage } from '../src/phase-delivery-audit-gate.js';
 import { phaseCloseFenceOk } from '../src/automate-product-fence.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -792,7 +793,7 @@ export async function runPlanEndWorkflow(input) {
       if(process.env.AUTOMATE_REVIEW_ARGS) argv=hostArgv({hostArgs:process.env.AUTOMATE_REVIEW_ARGS},process.env);
       else if(provider==='codex') argv=['exec','--sandbox','read-only','-'];
       else if(provider==='grok') {const promptPath=join(dirname(plan),`automate-${request.stage}-review-prompt.txt`);writeFileSync(promptPath,prompt);argv=['--prompt-file',promptPath,'--sandbox','read-only','--no-memory','--output-format','plain'];}
-      else argv=['-p','--output-format','text'];
+      else argv=['-p','--output-format','text','--permission-mode','dontAsk','--tools','Read,Grep,Glob'];
       return spawnSync(bin,argv,{cwd:root,encoding:'utf8',input:prompt,timeout:120000});
     };
     const localProvider=input.host==='claude-code'?'claude':input.host;
@@ -808,7 +809,7 @@ export async function runPlanEndWorkflow(input) {
   });
   while(state.stage==='plan'||state.stage==='audit') {
     const stage=state.stage;let parsed,result;
-    const brief=JSON.stringify({operation:stage==='plan'?'review-whole-plan':'audit-delivery',scope:'whole-plan',plan:readFileSync(plan,'utf8'),flowGraph:JSON.parse(readFileSync(join(dirname(plan),'flow/flow.json'),'utf8')),architectureSketch:JSON.parse(readFileSync(join(dirname(plan),'architecture/decisions.json'),'utf8')),phaseResiduals:residuals,priorReviews:state.reviews||[],outputContract:{verdict:'PASSED|CLOSED|PARTIAL|OPEN',findings:'array with severity and title',intentVsDelivered:'non-empty array for audit with matched|partial|missing|extra'}},null,2);
+    const brief=JSON.stringify({operation:stage==='plan'?'review-whole-plan':'audit-delivery',scope:'whole-plan',plan:readFileSync(plan,'utf8'),flowGraph:JSON.parse(readFileSync(join(dirname(plan),'flow/flow.json'),'utf8')),architectureSketch:JSON.parse(readFileSync(join(dirname(plan),'architecture/decisions.json'),'utf8')),phaseResiduals:residuals,priorReviews:state.reviews||[],outputContract:{verdict:'PASSED|CLOSED|PARTIAL|OPEN',findings:'array with severity and title',intentVsDelivered:'non-empty array for audit with matched|partial|missing|extra',graphCoverage:'audit array of {kind:machine|xor,id,status:faz|pela metade|não faz} covering every machine and xor in the supplied ratified graph'}},null,2);
     try{result=await review({stage,round:state.round,brief});parsed=parseReviewResult(result);}catch(e){return stop('não avanço',[{title:e.message}]);}
     const decision=continuePhaseAfterReview({slug:planSlugOf(plan),round:state.round,findings:parsed.findings});
     const reportPath=join(dirname(plan),`automate-${stage}-review-${state.round}.json`);
@@ -822,10 +823,15 @@ export async function runPlanEndWorkflow(input) {
     }
     state.residualFindings=[...(state.residualFindings||[]),...parsed.findings.map(f=>({...f,stage}))];
     if(stage==='plan') {state.stage='audit';state.round=1;saveRunState(statePath,state);continue;}
+    const coverageRows=parsed.graphCoverage;
+    if(!Array.isArray(coverageRows)||coverageRows.some(row=>!row||!['machine','xor'].includes(row.kind)||!/^[A-Za-z][A-Za-z0-9_.]*$/.test(row.id)||!['faz','pela metade','não faz'].includes(row.status))) return stop('não avanço',[{title:'Delivery audit lacks structured graph coverage'}]);
+    const flowPath=join(dirname(plan),'flow/flow.json');
+    const coverage=deliveryAuditGraphCoverage({planPath:plan,flowPath,exists:existsSync,readFile:path=>readFileSync(path,'utf8'),reportText:coverageRows.map(row=>`${row.kind} ${row.id}: ${row.status}`).join('\n')});
+    if(!coverage.ok) return stop('não avanço',[{title:coverage.reason}]);
     if(!Array.isArray(parsed.intentVsDelivered)||!parsed.intentVsDelivered.length||parsed.intentVsDelivered.some(row=>!['matched','partial','missing','extra'].includes(row.status))) return stop('não avanço',[{title:'Delivery audit lacks intent-vs-delivered rows'}]);
     const provider=String(input.cli||'').replace('claude-code','claude');
     if(!['grok','codex','claude'].includes(provider)) return stop('não avanço',[{title:'Unknown external review provider'}]);
-    const receipt={mode:'external-both',reviewFile:reportPath,verifiedAt:new Date().toISOString(),legs:[{provider,status:'succeeded',familyDifferent:true}],intentVsDelivered:parsed.intentVsDelivered};
+    const receipt={mode:'external-both',reviewFile:reportPath,verifiedAt:new Date().toISOString(),legs:[{provider,status:'succeeded',familyDifferent:true}],intentVsDelivered:parsed.intentVsDelivered,graphCoverage:coverage.lines};
     writePlanEndReceipt(plan,receipt);state.stage='pr';state.round=1;saveRunState(statePath,state);
   }
   try{
