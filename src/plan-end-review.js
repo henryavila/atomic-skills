@@ -440,7 +440,7 @@ export function validationSnapshot(planPath, options = {}) {
   for(const rel of ['architecture/decisions.json','ui/ui.json','flow/flow.json','flow/flow.html',...(options.reviewInputs?[]:['automate-run-state.json','automate-plan-end-review.json'])]) {const file=join(planDir,rel);if(existsSync(file)) addFile(file);}
   const decisions=join(planDir,'decisions');
   if(existsSync(decisions)) for(const name of readdirSync(decisions).filter(n=>n.endsWith('.jsonl')).sort()) addFile(join(decisions,name));
-  if(fm.deliveredSurface?.path) addFile(resolve(planDir,fm.deliveredSurface.path));
+  for(const ref of fm.references||[]) if(ref.kind==='file' && /\.html$/i.test(ref.path) && /delivered|built|entreg|constru/i.test(ref.label||'')) addFile(resolve(planDir,ref.path));
   const uiPath=join(planDir,'ui/ui.json');
   if(existsSync(uiPath)) {const ui=JSON.parse(readFileSync(uiPath,'utf8'));for(const screen of ui.screens||[]) if(screen.path) addFile(resolve(planDir,screen.path));}
   return hash.digest('hex');
