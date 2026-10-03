@@ -15,8 +15,8 @@ goal: um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado,
 status: active
 branch: plan/real-automate
 started: 2026-10-02T19:56:45.000Z
-lastUpdated: 2026-10-03T02:11:45.748Z
-nextAction: Complete F5 isolated writer fixes and verify the merged implementation.
+lastUpdated: 2026-10-03T04:53:50.402Z
+nextAction: Verify and close T-002 from the merged F5 claims.
 parentPlan: real-automate
 phaseId: F5
 businessIntent:
@@ -42,11 +42,11 @@ businessIntent:
   doneWhen: "`node --test tests/final-page-http.test.js` mostra o botão verde só
     com todo `deliveryAuditGate` passed, o PR existe sem merge, e archive não
     roda nesse comando."
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 0
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -68,8 +68,8 @@ tasks:
     title: Frases
     description: "Cada decisão do JSONL ganha `said` e `saw`. Entrada sem as duas
       não conta como apresentada. Verifier: teste do leitor da página."
-    status: pending
-    lastUpdated: 2026-10-02T19:56:45.000Z
+    status: done
+    lastUpdated: 2026-10-03T04:53:50.402Z
     scopeBoundary:
       - Do not treat chat ok as presented evidence.
       - Do not merge the PR.
@@ -91,6 +91,15 @@ tasks:
         path: tests/final-page-reader.test.js
     summary: JSONL said/saw; entrada incompleta não conta como apresentada.
     weight: 1
+    closedAt: 2026-10-03T04:53:50.402Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-03T04:53:50.402Z
+      verifiedCommit: cab7229cdeb78f83d29418308822e8517a108109
+      passed: true
+      exitCode: 0
+      testsCollected: 6
+      outputSummary: "node --test tests/final-page-reader.test.js: 6 tests, 6 pass, 0 fail"
   - id: T-002
     title: Servidor
     description: "A vista final não abre em `file://`. O botão fica apagado enquanto
@@ -129,6 +138,16 @@ tasks:
         path: scripts/assert-automate-gate.js
       - kind: file
         path: tests/final-page-http.test.js
+      - kind: file
+        path: tests/plan-end-review.test.js
+      - kind: file
+        path: tests/assert-automate-gate.test.js
+      - kind: file
+        path: tests/implement-automate-contract.test.js
+      - kind: file
+        path: skills/shared/project-assets/project-finalize.md
+      - kind: file
+        path: skills/shared/project-assets/project-transitions.md
     summary: Vista HTTP, botão só com audit passed, botão único escritor de
       userValidatedAt.
     weight: 1
@@ -175,8 +194,8 @@ Lessons applied at start: L-F4-1 (cited graph path fail-closed on close), L-F4-2
 (writer fence includes related allow-fixtures), L-F2-1, L-F2-2.
 
 ## Session handoff
-- **Narrative:** Resumed automatically at operator request. T-001 and initial T-002 are committed in the sibling writer; T-003 and review corrections are in progress.
-- **Decision log:** Operator explicitly delegated total automatic implementation. Independent review found stale-page validation, preview-server upgrade, and prototype-comparison defects; writer is correcting them.
-- **Single nextAction:** Complete F5 isolated writer fixes and verify the merged implementation.
-- **Verbatim state:** Writer branch `impl/real-automate-F5-writer`; canonical cursor C. No task is closed on writer claims.
-- **Uncommitted changes:** Earlier prepare artifacts, orphaned nested analytics, and plan-quality analytics remain outside the checkpoint.
+- **Narrative:** T-001 closed only after merged-tree verifier passed.
+- **Decision log:** node --test tests/final-page-reader.test.js: 6 tests, 6 pass, 0 fail. Claims, reachability, and product fence passed. No real user validation recorded.
+- **Single nextAction:** Verify and close T-002 from the merged F5 claims.
+- **Verbatim state:** F5 source and review repairs are merged; code entrypoint remains scripts/automate-run.js.
+- **Uncommitted changes:** Operational review/claim metadata and earlier unrelated analytics remain outside this task checkpoint.
