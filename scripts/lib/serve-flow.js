@@ -5,7 +5,7 @@
 
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync, renameSync, readdirSync, realpathSync } from 'node:fs';
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { readFinalPlan, finalAuditsPassed, planEndReviewCurrent, validationKeyPath, validationSnapshot, productSnapshot, withButtonValidationTimestamp } from '../../src/plan-end-review.js';
 import { readPresentedDecisions } from '../../src/decision-log.js';
 import { basename, dirname, join, normalize, resolve, sep } from 'node:path';
@@ -83,23 +83,25 @@ export async function serveFlowHtml(htmlPath, opts = {}) {
       if (!tokens.has(token) || !String(req.headers.cookie || '').split(';').some(c=>c.trim()===`final-page=${token}`)) {res.writeHead(403);res.end('Invalid button token');return;}
       try {
         const path=String(req.url).split('?')[0];
-        if(tokens.get(token)!==validationSnapshot(opts.planPath)) {res.writeHead(409);res.end('Presentation changed; refresh the final page');return;}
+        const authority=tokens.get(token);
         if(path==='/api/validate') {
+          if(!authority.deliverySnapshot || authority.deliverySnapshot!==validationSnapshot(opts.planPath)) {res.writeHead(409);res.end('Presentation unavailable or changed; refresh the final page');return;}
           if(!finalAuditsPassed(opts.planPath)) {res.writeHead(409);res.end('Waiting for phase delivery audits');return;}
           if(!planEndReviewCurrent(opts.planPath)) {res.writeHead(409);res.end('Waiting for reviews of the current delivery');return;}
-          const at=recordButtonValidation(opts.planPath,tokens.get(token));tokens.delete(token);res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(`<main><h1>Delivery validated</h1><p>Recorded ${at}. The pull request remains open. You can now continue to finalize.</p><a href="/final">Return to delivery</a></main>`);return;
+          const at=recordButtonValidation(opts.planPath,authority.deliverySnapshot);tokens.delete(token);res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(`<main><h1>Delivery validated</h1><p>Recorded ${at}. The pull request remains open. You can now continue to finalize.</p><a href="/final">Return to delivery</a></main>`);return;
         }
         if(path==='/api/stop-confirm') {
           const runtimePath=join(dirname(opts.planPath),'automate-run-state.json');
-          const state=JSON.parse(readFileSync(runtimePath,'utf8'));
-          if(!state.pendingStop) {res.writeHead(409);res.end('No pending stop');return;}
+          const pending=pendingStopSnapshot(opts.planPath);
+          if(!pending || !authority.stopSnapshot || pending.snapshot!==authority.stopSnapshot) {res.writeHead(409);res.end('Pending stop changed; refresh the final page');return;}
+          const state=pending.state;
           const stop=state.pendingStop;
           const logPath=join(dirname(opts.planPath),'decisions','operator-stops.jsonl');
           // The durable state and append-only confirmation log share the stop id;
           // resume trusts this server-written record, never a session timestamp.
           const row={id:stop.id,category:'routing',decision:'resume',why:stop.reason,evidencePath:'/final',impact:'resume from saved stage',at:new Date().toISOString(),said:stop.reason,saw:'Operator confirmed on the HTTP page'};
           const previous=existsSync(logPath)?readFileSync(logPath,'utf8'):'';
-          const {mkdirSync}=await import('node:fs');mkdirSync(dirname(logPath),{recursive:true});
+          mkdirSync(dirname(logPath),{recursive:true});
           if(!previous.split('\n').some(line=>{try{return JSON.parse(line).id===stop.id;}catch{return false;}})) writeFileSync(logPath,JSON.stringify(row)+'\n',{flag:'a'});
           state.confirmedStops=[...new Set([...(state.confirmedStops||[]),stop.id])];state.pendingStop=null;
           writeFileSync(runtimePath+'.tmp',JSON.stringify(state,null,2)+'\n');renameSync(runtimePath+'.tmp',runtimePath);
@@ -117,8 +119,11 @@ export async function serveFlowHtml(htmlPath, opts = {}) {
     }
     if(opts.planPath && String(req.url).split('?')[0]==='/final') {
       try {
-        const token=randomBytes(24).toString('hex');tokens.set(token,validationSnapshot(opts.planPath));if(tokens.size>256) tokens.delete(tokens.keys().next().value);
-        const body=renderFinalPage(opts.planPath,token);
+        const token=randomBytes(24).toString('hex');const pending=pendingStopSnapshot(opts.planPath);
+        let deliverySnapshot=null,body;
+        try {deliverySnapshot=validationSnapshot(opts.planPath);body=renderFinalPage(opts.planPath,token);}
+        catch(e) {if(!pending) throw e;deliverySnapshot=null;body=renderStopPage(pending.state.pendingStop,token,e.message);}
+        tokens.set(token,{deliverySnapshot,stopSnapshot:pending?.snapshot});if(tokens.size>256) tokens.delete(tokens.keys().next().value);
         res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','set-cookie':`final-page=${token}; HttpOnly; SameSite=Strict; Path=/`, 'content-security-policy':"default-src 'self'; style-src 'unsafe-inline'; frame-src 'self'; form-action 'self'; base-uri 'none'"});res.end(body);return;
       }catch(e){res.writeHead(409);res.end(e.message);return;}
     }
@@ -162,6 +167,23 @@ export async function serveFlowHtml(htmlPath, opts = {}) {
 
 function escapeHtml(value) {return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function readJson(path) {try{return JSON.parse(readFileSync(path,'utf8'));}catch{return null;}}
+// Stop authority does not depend on delivery evidence. Bind the exact saved
+// runtime, its file identity, and this plan; replacing or editing it expires
+// the presentation token even when delivery hashing remains unavailable.
+function pendingStopSnapshot(planPath) {
+  const path=join(dirname(planPath),'automate-run-state.json');
+  if(!existsSync(path)) return null;
+  const bytes=readFileSync(path);if(bytes.length>2_000_000) throw new Error('runtime exceeds size cap');
+  const state=JSON.parse(bytes);
+  if(!state.pendingStop) return null;
+  if(typeof state.pendingStop.id!=='string' || !state.pendingStop.id) throw new Error('invalid pending stop');
+  const file=statSync(path);
+  const snapshot=createHash('sha256').update(JSON.stringify([realpathSync(planPath),realpathSync(path),file.dev,file.ino])).update(bytes).digest('hex');
+  return {state,snapshot};
+}
+function renderStopPage(stop,token,error) {
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Run paused</title><main><h1>${escapeHtml(stop.reason)}</h1><pre>${escapeHtml(JSON.stringify(stop.findings,null,2))}</pre><p>Delivery evidence is unavailable: ${escapeHtml(error)}</p><form method="post" action="/api/validate"><input type="hidden" name="token" value="${token}"><button disabled>I validated the delivery</button></form><form method="post" action="/api/stop-confirm"><input type="hidden" name="token" value="${token}"><button>Confirm and resume</button></form><a href="/flow.html">Ratified flow preview</a></main></html>`;
+}
 function renderFinalPage(planPath,token) {
   const {fm}=readFinalPlan(planPath);const dir=dirname(planPath);
   const architecture=readJson(join(dir,'architecture/decisions.json'));

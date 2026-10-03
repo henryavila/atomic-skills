@@ -29,6 +29,71 @@ function bindReview(plan) {
 }
 async function page(server) {const origin=new URL(server.url).origin;const res=await fetch(`${origin}/final`);return {origin,text:await res.text(),cookie:res.headers.get('set-cookie')?.split(';')[0]};}
 async function click(p,path='/api/validate',token=p.text.match(/name="token" value="([^"]+)"/)?.[1]) {return fetch(p.origin+path,{method:'POST',headers:{origin:p.origin,cookie:p.cookie||'','content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token:token||''})});}
+for (const failure of ['missing-screen','malformed-ui','missing-passed-audit']) {
+ test(`pending stop remains confirmable with ${failure} evidence`, async () => {
+  const f=fixture();const dir=join(f.root,'projects/test/fixture');
+  const runtimePath=join(dir,'automate-run-state.json');
+  const state={schemaVersion:1,stage:'plan',round:1,pendingStop:{id:'saved-stop',reason:'não avanço',stage:'plan',findings:[{title:'Evidence unavailable'}]}};
+  writeFileSync(runtimePath,JSON.stringify(state));
+  if(failure==='missing-passed-audit') rmSync(join(dir,'audit.md'));
+  else {mkdirSync(join(dir,'ui'));writeFileSync(join(dir,'ui/ui.json'),failure==='malformed-ui'?'{bad':JSON.stringify({screens:[{path:'ui/missing.html'}]}));}
+  const server=await serveFlowHtml(f.html,{planPath:f.plan});
+  try {
+   const response=await fetch(new URL('/final?stop=saved-stop',server.url));
+   const p={origin:new URL(server.url).origin,text:await response.text(),cookie:response.headers.get('set-cookie')?.split(';')[0]};
+   assert.equal(response.status,200,p.text);
+   assert.match(p.text,/Evidence unavailable/);assert.match(p.text,/Confirm and resume/);
+   assert.match(p.text,/<button[^>]*disabled[^>]*>I validated the delivery/);
+   assert.equal((await click(p)).status,409);
+   assert.equal((await click(p,'/api/stop-confirm','forged')).status,403);
+   assert.equal((await click({...p,cookie:''},'/api/stop-confirm')).status,403);
+   assert.equal((await fetch(p.origin+'/api/stop-confirm',{method:'POST',headers:{origin:'https://foreign.test',cookie:p.cookie},body:new URLSearchParams({token:p.text.match(/name="token" value="([^"]+)"/)[1]})})).status,403);
+   assert.equal((await click(p,'/api/stop-confirm')).status,200);
+   const saved=JSON.parse(readFileSync(runtimePath,'utf8'));
+   assert.equal(saved.pendingStop,null);assert.deepEqual(saved.confirmedStops,['saved-stop']);
+   assert.match(readFileSync(join(dir,'decisions/operator-stops.jsonl'),'utf8'),/saved-stop/);
+   assert.doesNotMatch(readFileSync(f.plan,'utf8'),/userValidatedAt/);
+   assert.equal(gate.readUserValidationEvidence(f.plan),null);
+   assert.equal((await click(p,'/api/stop-confirm')).status,403);
+  } finally {await server.close();rmSync(f.root,{recursive:true,force:true});}
+ });
+}
+for (const mutation of ['stop-id','stop-findings','runtime-stage','runtime-replacement']) {
+ test(`stop-only token rejects changed ${mutation}`,async()=>{
+  const f=fixture();const dir=join(f.root,'projects/test/fixture');const path=join(dir,'automate-run-state.json');
+  const state={schemaVersion:1,stage:'plan',round:1,pendingStop:{id:'saved-stop',reason:'não avanço',stage:'plan',findings:[{title:'Original evidence'}]}};
+  writeFileSync(path,JSON.stringify(state));rmSync(join(dir,'audit.md'));
+  const s=await serveFlowHtml(f.html,{planPath:f.plan});
+  try {
+   const p=await page(s);
+   if(mutation==='stop-id') state.pendingStop.id='replacement-stop';
+   if(mutation==='stop-findings') state.pendingStop.findings=[{title:'Changed evidence'}];
+   if(mutation==='runtime-stage') state.stage='audit';
+   if(mutation==='runtime-replacement') {const {renameSync}=await import('node:fs');writeFileSync(path+'.replacement',JSON.stringify(state));renameSync(path+'.replacement',path);}
+   else writeFileSync(path,JSON.stringify(state));
+   assert.equal((await click(p,'/api/stop-confirm')).status,409);
+   assert.deepEqual(JSON.parse(readFileSync(path,'utf8')),state);
+   assert.equal((await click(await page(s),'/api/stop-confirm')).status,200);
+  } finally {await s.close();rmSync(f.root,{recursive:true,force:true});}
+ });
+}
+test('real initialized submodule source edits invalidate HTTP validation and remain controllably stopped',async()=>{
+ const f=fixture();const source=mkdtempSync(join(tmpdir(),'final-http-submodule-'));
+ const git=(cwd,args)=>{const r=spawnSync('git',['-c','user.name=fixture','-c','user.email=fixture@test',...args],{cwd,encoding:'utf8'});assert.equal(r.status,0,r.stderr);};
+ let server;
+ try {
+  git(source,['init']);writeFileSync(join(source,'source.js'),'version 1\n');git(source,['add','source.js']);git(source,['commit','-m','submodule fixture']);
+  git(f.root,['init']);git(f.root,['-c','protocol.file.allow=always','submodule','add',source,'vendor']);git(f.root,['commit','-am','initialized submodule fixture']);
+  bindReview(f.plan);server=await serveFlowHtml(f.html,{planPath:f.plan});
+  const p=await page(server);const validated=await click(p);assert.equal(validated.status,200,await validated.text());
+  assert.ok(gate.readUserValidationEvidence(f.plan));
+  const moduleFile=join(f.root,'vendor/source.js');writeFileSync(moduleFile,'version 2\n');assert.equal(gate.readUserValidationEvidence(f.plan),null);
+  writeFileSync(moduleFile,'version 3\n');assert.equal(gate.readUserValidationEvidence(f.plan),null);
+  const dir=join(f.root,'projects/test/fixture');writeFileSync(join(dir,'automate-run-state.json'),JSON.stringify({stage:'plan',pendingStop:{id:'dirty-module-stop',reason:'não avanço',findings:[{title:'Submodule source requires a commit'}]}}));
+  const stopped=await page(server);assert.match(stopped.text,/Submodule vendor must be clean and initialized/);assert.match(stopped.text,/Confirm and resume/);
+  assert.equal((await click(stopped)).status,409);assert.equal((await click(stopped,'/api/stop-confirm')).status,200);
+ } finally {if(server) await server.close();rmSync(f.root,{recursive:true,force:true});rmSync(source,{recursive:true,force:true});}
+});
 test('operational stop confirmations preserve the reviewed input identity', () => {
  const f = fixture();
  try {

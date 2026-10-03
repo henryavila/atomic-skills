@@ -540,18 +540,38 @@ export function withButtonValidationTimestamp(text, at) {
     + text.slice(prefixLength + match[1].length);
 }
 
-/** Current tracked product bytes, excluding operational plan/runtime files. */
+/**
+ * Current tracked product bytes, excluding operational plan/runtime files.
+ * Gitlinks support clean initialized checkouts only: dirty or untracked nested
+ * source fails closed rather than reducing changed bytes to a dirty flag.
+ */
 export function productSnapshot(planPath) {
   const repo=spawnSync('git',['rev-parse','--show-toplevel'],{cwd:dirname(planPath),encoding:'utf8',timeout:10000});
   if(repo.status!==0) return null;
   const root=realpathSync(repo.stdout.trim());
-  const result=spawnSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8',timeout:10000,maxBuffer:4_000_000});
+  const result=spawnSync('git',['ls-files','--stage','-z'],{cwd:root,encoding:'utf8',timeout:10000,maxBuffer:4_000_000});
   if(result.status!==0) throw new Error('Cannot read tracked product identity');
   const hash=createHash('sha256');
-  for(const relative of result.stdout.split('\0').filter(Boolean).sort()) {
+  for(const entry of result.stdout.split('\0').filter(Boolean).sort()) {
+    const match=/^(\d+) ([a-f0-9]+) (\d)\t([\s\S]+)$/.exec(entry);
+    if(!match || match[3]!=='0') throw new Error('Cannot read unmerged tracked product identity');
+    const [,mode,oid,,relative]=match;
     const file=resolve(root,relative);
     if(isOwnedOperationalPath(planPath, file, root)) continue;
     hash.update(relative).update('\0');
+    if(mode==='160000') {
+      const policy=`Submodule ${relative} must be clean and initialized for delivery review; commit tracked edits and remove or commit untracked source`;
+      if(!existsSync(file)) throw new Error(policy);
+      const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('Tracked product path escapes repository');
+      const git=args=>spawnSync('git',args,{cwd:actual,encoding:'utf8',timeout:10000,maxBuffer:4_000_000});
+      const identity=git(['rev-parse','--show-toplevel','HEAD']);
+      const [moduleRoot,head]=identity.stdout?.trim().split('\n')||[];
+      if(identity.status!==0 || !moduleRoot || realpathSync(moduleRoot)!==actual || !/^[a-f0-9]{40,64}$/.test(head||'')) throw new Error(policy);
+      const dirty=git(['status','--porcelain','--untracked-files=all','--ignore-submodules=none']);
+      if(dirty.status!==0 || dirty.stdout.trim()) throw new Error(policy);
+      hash.update(`gitlink:${oid}:${head}`).update('\0');
+      continue;
+    }
     if(!existsSync(file)) {hash.update('deleted');continue;}
     const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('Tracked product path escapes repository');
     const bytes=readFileSync(file);if(bytes.length>20_000_000) throw new Error('Tracked product exceeds size cap');

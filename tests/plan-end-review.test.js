@@ -1,12 +1,14 @@
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { serveFlowHtml } from '../scripts/lib/serve-flow.js';
 import { after, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   readUserValidationEvidence,
   validationSnapshot,
+  productSnapshot,
   planEndReviewOk,
   userValidationOk,
   automatePlanEndGatesOk,
@@ -16,6 +18,30 @@ import {
   INTENT_VS_DELIVERED_STATUSES,
   isDurableAutomateActive,
 } from '../src/plan-end-review.js';
+
+it('initialized gitlinks bind clean commit identity and fail closed on every dirty submodule edit', () => {
+ const tmp=mkdtempSync(join(tmpdir(),'plan-end-submodule-'));const root=join(tmp,'repo');const source=join(tmp,'module');
+ mkdirSync(root);mkdirSync(source);
+ const git=(cwd,args)=>{const result=spawnSync('git',['-c','user.name=fixture','-c','user.email=fixture@test',...args],{cwd,encoding:'utf8'});assert.equal(result.status,0,result.stderr);return result.stdout.trim();};
+ try {
+  git(source,['init']);writeFileSync(join(source,'source.js'),'version 1\n');git(source,['add','source.js']);git(source,['commit','-m','module fixture']);
+  git(root,['init']);const plan=join(root,'plan.md');writeFileSync(plan,'---\nslug: fixture\n---\n');git(root,['add','plan.md']);git(root,['commit','-m','plan fixture']);
+  git(root,['-c','protocol.file.allow=always','submodule','add',source,'vendor']);git(root,['commit','-am','add actual initialized submodule']);
+  const initial=productSnapshot(plan);assert.equal(productSnapshot(plan).digest,initial.digest);
+  const input=validationSnapshot(plan,{reviewInputs:true});
+  const module=join(root,'vendor');writeFileSync(join(module,'source.js'),'version 2\n');
+  assert.throws(()=>productSnapshot(plan),/Submodule vendor must be clean and initialized/);
+  assert.throws(()=>validationSnapshot(plan,{reviewInputs:true}),/Submodule vendor must be clean and initialized/);
+  writeFileSync(join(module,'source.js'),'version 3\n');
+  assert.throws(()=>productSnapshot(plan),/Submodule vendor must be clean and initialized/);
+  git(module,['add','source.js']);git(module,['commit','-m','changed module commit']);
+  assert.notEqual(productSnapshot(plan).digest,initial.digest);
+  assert.notEqual(validationSnapshot(plan,{reviewInputs:true}),input);
+  const checkout=productSnapshot(plan);git(root,['add','vendor']);assert.notEqual(productSnapshot(plan).digest,checkout.digest);
+  writeFileSync(join(module,'untracked.js'),'unreviewed source\n');
+  assert.throws(()=>productSnapshot(plan),/Submodule vendor must be clean and initialized/);
+ } finally {rmSync(tmp,{recursive:true,force:true});}
+});
 
 const signingHome=mkdtempSync(join(tmpdir(),'final-signing-home-'));
 const previousSigningHome=process.env.HOME, previousSigningProfile=process.env.USERPROFILE;
