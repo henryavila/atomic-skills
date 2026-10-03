@@ -15,8 +15,8 @@ goal: um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado,
 status: active
 branch: plan/real-automate
 started: 2026-10-02T19:56:45.000Z
-lastUpdated: 2026-10-03T05:06:25.099Z
-nextAction: Repair confirmed final HTTP stop and gitlink snapshot defects.
+lastUpdated: 2026-10-03T05:19:04.513Z
+nextAction: Verify and close T-003 from the merged F5 claims.
 parentPlan: real-automate
 phaseId: F5
 businessIntent:
@@ -42,11 +42,11 @@ businessIntent:
   doneWhen: "`node --test tests/final-page-http.test.js` mostra o botão verde só
     com todo `deliveryAuditGate` passed, o PR existe sem merge, e archive não
     roda nesse comando."
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 1
+weightDone: 2
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -109,8 +109,8 @@ tasks:
       aceitar um timestamp escrito na sessão, e `assert-automate-gate --gate
       finalize` recusa esse timestamp. Verifier: teste HTTP do botão desligado e
       ligado."
-    status: pending
-    lastUpdated: 2026-10-03T04:53:53.935Z
+    status: done
+    lastUpdated: 2026-10-03T05:19:04.513Z
     scopeBoundary:
       - Do not serve the final page as file://.
       - Do not let a session-written userValidatedAt pass finalize.
@@ -151,9 +151,15 @@ tasks:
     summary: Vista HTTP, botão só com audit passed, botão único escritor de
       userValidatedAt.
     weight: 1
-    reopenedAt: 2026-10-03T05:06:25.098Z
-    reopenReason: Independent final review reproduced missing-evidence stop page409
-      and tracked gitlink EISDIR
+    closedAt: 2026-10-03T05:19:04.513Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-03T05:19:04.513Z
+      verifiedCommit: 8c3dcb3c499caa055199d3de293a8cb08c1f5739
+      passed: true
+      exitCode: 0
+      testsCollected: 26
+      outputSummary: "node --test tests/final-page-http.test.js: 26 tests, 26 pass, 0 fail"
   - id: T-003
     title: Paradas
     description: "Travei, não avanço e mudança grande abrem a mesma origem. A
@@ -181,9 +187,6 @@ tasks:
     summary: Travei, não avanço e mudança grande na mesma origem; retoma sem
       reinstalar parada.
     weight: 1
-    reopenedAt: 2026-10-03T05:06:25.098Z
-    reopenReason: Independent final review reproduced missing-evidence stop page409
-      and tracked gitlink EISDIR
 parked: []
 emerged: []
 startedCommit: 02e7693d0db704a75522c2df6442000c2ff15b57
@@ -200,8 +203,8 @@ Lessons applied at start: L-F4-1 (cited graph path fail-closed on close), L-F4-2
 (writer fence includes related allow-fixtures), L-F2-1, L-F2-2.
 
 ## Session handoff
-- **Narrative:** T-003 closed only after merged-tree verifier passed.
-- **Decision log:** node --test tests/automate-run-stops.test.js: 46 tests, 46 pass, 0 fail. Claims, reachability, and product fence passed. No real user validation recorded.
-- **Single nextAction:** Evaluate completed F5 and verify its delivery gate.
+- **Narrative:** T-002 closed only after merged-tree verifier passed.
+- **Decision log:** node --test tests/final-page-http.test.js: 26 tests, 26 pass, 0 fail. Claims, reachability, and product fence passed. No real user validation recorded.
+- **Single nextAction:** Verify and close T-003 from the merged F5 claims.
 - **Verbatim state:** F5 source and review repairs are merged; code entrypoint remains scripts/automate-run.js.
 - **Uncommitted changes:** Operational review/claim metadata and earlier unrelated analytics remain outside this task checkpoint.
