@@ -29,6 +29,17 @@ function bindReview(plan) {
 }
 async function page(server) {const origin=new URL(server.url).origin;const res=await fetch(`${origin}/final`);return {origin,text:await res.text(),cookie:res.headers.get('set-cookie')?.split(';')[0]};}
 async function click(p,path='/api/validate',token=p.text.match(/name="token" value="([^"]+)"/)?.[1]) {return fetch(p.origin+path,{method:'POST',headers:{origin:p.origin,cookie:p.cookie||'','content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token:token||''})});}
+test('operational stop confirmations preserve the reviewed input identity', () => {
+ const f = fixture();
+ try {
+  const before = gate.validationSnapshot(f.plan, {reviewInputs:true});
+  const dir = join(f.root, 'projects/test/fixture/decisions');
+  mkdirSync(dir);
+  writeFileSync(join(dir,'operator-stops.jsonl'), JSON.stringify({id:'retry-pr',decision:'resume'})+'\n');
+  assert.equal(gate.validationSnapshot(f.plan, {reviewInputs:true}), before);
+  assert.notEqual(gate.validationSnapshot(f.plan), before);
+ } finally {rmSync(f.root,{recursive:true,force:true});}
+});
 test('real HTTP final button stays off until every audit passed, preserves flow, validates provenance and freshness',async()=>{
  const f=fixture(); const server=await serveFlowHtml(f.html,{planPath:f.plan});
  try {
@@ -39,6 +50,8 @@ test('real HTTP final button stays off until every audit passed, preserves flow,
  assert.equal(gate.userValidationOk({automateActive:true,userValidatedAt:at}),false);
  const evidence=gate.readUserValidationEvidence(f.plan);
  assert.equal(gate.userValidationOk({automateActive:true,userValidatedAt:at,userValidationEvidence:evidence}),true);
+ assert.throws(() => {evidence.at = '2026-10-02T13:00:00Z';}, TypeError);
+ assert.equal(gate.userValidationOk({automateActive:true,userValidatedAt:'2026-10-02T13:00:00Z',userValidationEvidence:evidence}),false);
  const run=()=>spawnSync(process.execPath,['scripts/assert-automate-gate.js','--state-root',f.root,'--plan','fixture','--gate','finalize','--skip-cursor','--skip-last-assert'],{encoding:'utf8'});
  assert.equal(run().status,0,run().stdout+run().stderr);
  f.write(true,'2026-10-02T13:00:00Z');assert.equal(run().status,1);

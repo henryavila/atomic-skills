@@ -448,7 +448,11 @@ export function validationSnapshot(planPath, options = {}) {
   };
   for(const rel of ['architecture/decisions.json','ui/ui.json','flow/flow.json','flow/flow.html',...(options.reviewInputs?[]:['automate-run-state.json','automate-plan-end-review.json'])]) {const file=join(planDir,rel);if(existsSync(file)) addFile(file);}
   const decisions=join(planDir,'decisions');
-  if(existsSync(decisions)) for(const name of readdirSync(decisions).filter(n=>n.endsWith('.jsonl')).sort()) addFile(join(decisions,name));
+  if(existsSync(decisions)) for(const name of readdirSync(decisions).filter(n=>n.endsWith('.jsonl')).sort()) {
+    // Confirming a transport retry is operational state, not new plan intent.
+    if(options.reviewInputs && name==='operator-stops.jsonl') continue;
+    addFile(join(decisions,name));
+  }
   for(const ref of fm.references||[]) if(ref.kind==='file' && /\.html$/i.test(ref.path) && /delivered|built|entreg|constru/i.test(ref.label||'')) addFile(resolve(planDir,ref.path));
   const uiPath=join(planDir,'ui/ui.json');
   if(existsSync(uiPath)) {const ui=JSON.parse(readFileSync(uiPath,'utf8'));for(const screen of ui.screens||[]) if(screen.path) addFile(resolve(planDir,screen.path));}
@@ -463,7 +467,7 @@ export function readUserValidationEvidence(planPath) {
     const expected=createHmac('sha256',readFileSync(validationKeyPath(planPath))).update(JSON.stringify(proof)).digest();
     const actual=Buffer.from(signature,'hex');
     if(actual.length !== expected.length || !timingSafeEqual(actual,expected)) return null;
-    const evidence={at:proof.at}; authenticatedEvidence.add(evidence); return evidence;
+    const evidence=Object.freeze({at:proof.at}); authenticatedEvidence.add(evidence); return evidence;
   } catch {return null;}
 }
 
