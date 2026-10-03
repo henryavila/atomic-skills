@@ -1,0 +1,12 @@
+{
+  "planSlug": "real-automate",
+  "phaseId": "F5",
+  "baseRef": "a12145cc32a06d8b3fcac8f0a4b7ff182123baea",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F5-fix2-writer",
+  "writerBranch": "impl/real-automate-F5-fix2-writer",
+  "sealedBriefPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F5-fix2-sealed-brief.md",
+  "claimReportPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F5-fix2-claims.json",
+  "claimReportPathForBrief": ".atomic-skills/status/automate/real-automate-claims.json",
+  "leasePath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/writer-leases/real-automate.json",
+  "preparedAt": "2026-10-03T04:22:53.820Z"
+}

@@ -746,62 +746,38 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 **Status:** complete-with-findings
 **Codebase class:** populated
-**Scanned:** `src/**/*.js` (86), `scripts/**/*.js` (101), `skills/shared/project-assets/hooks/` (6), `skills/core/implement.md`, `skills/core/audit-delivery.md`, `tests/phase-review-gate.test.js`, `tests/automate-host-pen.test.js`, `tests/find-missing-ui.test.js`, `tests/design-gates.test.js`, `meta/schemas/plan.schema.json`
-**Commit:** 8e33c818
-**At:** 2026-10-02T10:32:00Z
+**Scanned:** src/ and scripts/ → 193 files enumerated; all six phase initiatives and their task targets inspected; focused runtime, validation, review, graph and subprocess APIs read.
+**Commit:** a12145cc32a06d8b3fcac8f0a4b7ff182123baea
+**At:** 2026-10-03T04:19:40.879Z
 
 ### A — Plan premises vs code
 
 | # | Premise | Result | Evidence |
 |---|---------|--------|----------|
-| 1 | `isAutomateActive` nasce ligado quando não há opt-out | ok | `src/implement-mode.js:9`, `:241-242` |
-| 2 | O gate `assert-automate-gate` existe e a sessão só avança se o modelo chamar o CLI | ok | `scripts/assert-automate-gate.js`; `skills/core/implement.md:32` |
-| 3 | Não existe flag `--unattended` no código de produto | ok | busca em `*.js`: só comentário em `src/uninstall.js:222` |
-| 4 | `find-missing-flow.js`, `find-unreviewed-plans.js` e `find-plans-missing-ground-truth.js` existem | ok | os três estão em `scripts/` |
-| 5 | `find-missing-architecture.js` (F1) e `find-missing-ui.js` (F2) existem; o detector de UI ainda recusa protótipo ausente só depois do review-fix | ok | `scripts/find-missing-architecture.js:1`; `scripts/find-missing-ui.js:1`; F2 review F-001: missing screen path is skipped when `existsSync` is false (`scripts/find-missing-ui.js:166`) |
-| 6 | `serve-flow.js --up` existe | ok | `scripts/serve-flow.js:5` |
-| 7 | `tests/phase-review-gate.test.js` existe | ok | arquivo presente |
-| 8 | `src/providers/skills-file-set.js` e `skills/shared/project-assets/project-setup.md` existem | ok | os dois estão no worktree |
-| 9 | Hook de projeto em Cursor e Gemini é no-op | ok | `skills/shared/project-assets/project-setup.md:29`, `:55` |
-| 10 | O PreToolUse antigo é `pre-write.sh`: dry-run por default, fail-open no Grok sem hooks-trust, e só olha acréscimo sem `provenance` em plano, fases e iniciativas | ok | `pre-write.sh:4-9`, `:24-25`, `:92-117`, `:329-339`, `:454-468`; `hooks/config.json:3`; `hooks/README.md:32` |
-| 11 | `userApproved` está no recibo `.atomic-skills/status/design-gates/<projectId>-<slug>.json`, não no `design.md` | ok | `scripts/design-gates.js:6`, `:91`, `:133` |
-| 12 | Os três hosts da caneta são Claude Code (`Write`/`Edit`/`MultiEdit`/`Bash`), Codex (`apply_patch`/`shell`) e Grok (`write`/`search_replace`/`run_terminal_command`) | ok | `src/automate-host-pen.js:16-31` |
-| 13 | A decisão de origem está em `.ai/memory/decisao-unattended-bloco.md` | ok | arquivo presente no worktree |
-| 14 | `deliveryAuditGate` existe e o módulo não lê `flow.json` | ok | `src/phase-delivery-audit-gate.js:5`; busca `flow.json` em `src/**/*.js` sem ocorrência |
-| 15 | `find-unreviewed-plans.js` não tem `--require-external`; `reviewReceiptGap` aceita `- internal:`; a T-003 cria a flag e a partida passa a chamá-la | ok | `scripts/find-unreviewed-plans.js:40-51`, `:150-166`; `scripts/automate-run.js:176-178` chama sem a flag |
-| 16 | `reviewExternalCli` não existe no schema do plano; F4 T-001 cria o campo | ok | `meta/schemas/plan.schema.json` sem o campo |
-| 17 | `parseImplementMode` não reconhece `--automate` (só `--mode=automate`); a entrada do programa é `node scripts/automate-run.js` | ok | `src/implement-mode.js:79-83`; `scripts/automate-run.js:10` |
+| 1 | The three host pen and registration helpers exist. | ok | src/automate-host-pen.js:16; scripts/automate-pen-hook.js; src/providers/skills-file-set.js |
+| 2 | Strict flow, external plan review, architecture and UI detectors are callable at program entry. | ok | scripts/automate-run.js:901; scripts/find-missing-architecture.js:5; scripts/find-missing-ui.js:5 |
+| 3 | A phase writer runs in a sibling worktree with exclusive lease and lock cleanup. | ok | scripts/automate-run.js:602; src/writer-lease.js:302 |
+| 4 | Both-review decisions use a three-review ceiling and a distinct residual sidecar. | ok | src/phase-review-gate.js:409; src/phase-review-gate.js:540 |
+| 5 | Audit graph coverage is read from the ratified flow and fail-closes on absent subjects. | ok | src/phase-delivery-audit-gate.js:536; scripts/automate-run.js final-audit call |
+| 6 | Flow preview remains an HTTP server and supports the final-page routes. | ok | scripts/serve-flow.js; scripts/lib/serve-flow.js:70 |
+| 7 | F5 replaces the historical bare-ISO user-validation predicate with authenticated HTTP evidence. | ok | src/plan-end-review.js:331; scripts/assert-automate-gate.js finalize adapter |
+| 8 | All named implementation and verifier targets exist after F0–F5 source work. | ok | task-target existence inventory over active F5 and five archived initiatives; no missing target |
 
 ### B — Code present, plan silent (impact candidates)
 
 | # | Finding | Location | Impact | Disposition |
 |---|---------|----------|--------|-------------|
-| 1 | `pre-write.sh` continua registrado ao lado da caneta. `SKIP` / `SKIP-EMERGENT` desligam só esse hook | `skills/shared/project-assets/hooks/pre-write.sh:329-339`; `src/providers/skills-file-set.js:209-217` | direct | P2, rules e T-002 da initiative F0 |
-| 2 | `stop.sh` é o gate de drift no Stop, com knob próprio `strict_mode` | `skills/shared/project-assets/hooks/stop.sh`; `hooks/README.md:27-28` | indirect | accepted: fora da caneta, na mesma seção |
-| 3 | `automate-phase-run.js` já prepara worktree e não dispara writer | `scripts/automate-phase-run.js:3-10` | direct | F3 T-002: o worktree nasce em `automate-run.js` |
-| 4 | `assert-automate-gate --gate done` aplica `src/automate-product-fence.js` | `src/automate-orchestrator-gates.js:41`, `:303` | direct | F3 não fecha a fase. F4 fecha, valida o claim e passa no fence, em agente isolado |
-| 5 | `phase-delivery-audit-gate.js` fecha a fase sem ler o grafo | `src/phase-delivery-audit-gate.js:5` | direct | F4 T-002: estender esse gate |
-| 6 | `userValidationOk` aceita qualquer ISO em `userValidatedAt` | `src/plan-end-review.js:325-333`; `scripts/assert-automate-gate.js:1128-1136` | direct | F5 T-002: só o botão escreve, e a sessão não passa |
-| 7 | OpenCode, GitHub Copilot e IDE genérico também são no-op de hook | `skills/shared/project-assets/hooks/README.md:21` | indirect | accepted: mesma classe de Cursor e Gemini; P3 não os inclui |
-| 8 | A caneta já está no branch e `assessHostWrite` recusa com a prova desligada | `scripts/automate-run.js:167-172`; `src/automate-host-pen.js:152-160` | direct | T-003 da initiative F0: prova desligada não conta |
-| 9 | `lastAssert` em `src/maestro-cursor.js` é o cursor da sessão | `src/maestro-cursor.js:18` | indirect | a sessão orquestradora não grava. O agente que fecha a fase pode, porque o fechamento passa pelo gate |
-| 10 | `find-missing-design-process.js` e o `userApproved` do recibo design-gates já existem e não são o cartão | `scripts/find-missing-design-process.js`; `scripts/design-gates.js:6`, `:91` | direct | F1 T-002: o cartão é `architecture/decisions.json` |
-| 11 | `exitGateType: ui-gate` existe no schema; `find-missing-ui.js` recusa esse campo como carimbo | `meta/schemas/plan.schema.json:655-659`; `scripts/find-missing-ui.js:13`, `:84-89` | direct | F2 T-002: o carimbo é `ui/ui.json` |
-| 12 | `serve-flow.js` só serve o preview de `flow.html` | `scripts/serve-flow.js:5`; `scripts/lib/serve-flow.js:63` | direct | F5 T-002: o preview do flow continua; a página é outra vista |
-| 13 | `reviewReceiptGap` aceita `- internal:`; `automate-run.js` chama o detector sem `--require-external` | `scripts/find-unreviewed-plans.js:40-51`; `scripts/automate-run.js:176-178` | direct | F0 T-003 cria a flag e a partida a usa |
-| 14 | `reviewExternalCli` não está no schema do plano | `meta/schemas/plan.schema.json` | direct | F4 T-001 grava o campo no plano e no schema |
-| 15 | `decision-log.js` não tem `said` nem `saw` | `src/decision-log.js:34-42` | direct | F5 T-001 acrescenta as duas frases |
-| 16 | `implement.md` ainda encadeia maestro via `assert-automate-gate` e `automate-phase-run.js` | `skills/core/implement.md:32`, `:181` | direct | P2 / F3 T-002: a skill não é o enforce; worktree nasce em `automate-run.js` |
-| 17 | O phase-done atual exige evaluation, lessons e decision-review | `src/automate-orchestrator-gates.js:15-17` | indirect | accepted: o `implement` sem flag continua esse encadeamento; F4 é o close do programa |
-| 18 | Este worktree não tem `.claude/settings.local.json`, `.codex/hooks.json` nem o `hooks.json` do Grok | scan → 0 arquivos | direct | F0 T-002 registra a caneta |
-| 19 | `phase-review-gate.js` aceita `mode=local` com `overrideReason` e sem stderr de processo | `src/phase-review-gate.js:361-377` | direct | F4 T-001: `overrideReason` sem stderr do CLI externo não passa |
-| 20 | `writer-lease.js`, `automate-work-order.js`, `automate-sealed-brief.js` e `automate-phase-run-lib.js` já montam lease, work-order e brief | `src/writer-lease.js:1-13`; `scripts/automate-phase-run.js:3-10` | direct | F3 T-002: o programa não chama `automate-phase-run.js`; o lease fica no spawn |
-| 21 | `complex-task.js` e `automate-complex-from-initiative.js` já classificam task complexa (`weight >= 3`) | `src/complex-task.js:3-6`, `:16-17` | direct | F4 T-001: task complexa entra na mesma review |
+| 1 | Existing layer-3 prepare/validate infrastructure remains separate from the new product runner. | src/automate-phase-run-lib.js; scripts/automate-phase-run.js | indirect | Existing F3/F5 scope boundary preserves this infrastructure; do not substitute it for the product command. |
+| 2 | Authenticated validation uses a private host-local signing key and filesystem proof reader. | src/plan-end-review.js; scripts/lib/serve-flow.js | direct | F5 T-002; lazy runtime key creation is outside installer mutations. |
+| 3 | Shared tests asserting bare ISO validation need the new authenticated contract. | tests/implement-automate-contract.test.js:263; tests/plan-end-review.test.js | direct | F5 T-002 shared allow fixtures explicitly admitted; correct the remaining obsolete expectation. |
+| 4 | PR-stage retries overwrite reviewed-input identity; repair prompts omit the current findings; OPEN can advance. | scripts/automate-run.js:789; scripts/automate-run.js:812; scripts/automate-run.js:819 | direct | Original defects resolved by fix1. New publishing/transport/input-validation findings are assigned to the same F5 T-003 before closure. |
+| 5 | A fresh page can validate changed source against an old completed review. | scripts/lib/serve-flow.js:88 | direct | Original stale-review bypass resolved by fix1. New owned-file/YAML/lifecycle-reference findings and coupled gate instructions are assigned to F5 T-002 before closure. |
+| 6 | Prior F4 automatic phase-driver and first-time reviewer/ground-truth ordering limitations remain. | .atomic-skills/reviews/audit-delivery-real-automate-F4.md Accept Register | direct | Previously operator-accepted H1–H9; F5 outOfScope preserves F4 close. This is an existing residual, not a new acceptance or a claim of a complete phase driver. |
 
-**Counts:** premises=17 (missing=0, false=0); impacts=21 (direct=17, indirect=4)
+**Counts:** premises=8 (missing=0, false=0); impacts=6 (direct=5, indirect=1)
 
 ## Reviews
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=783ff1285a45 | premises=17 | impacts=21 @ uncommitted (2026-10-02T19:59:24.976Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=5f24caa95e99 | premises=8 | impacts=6 @ a12145cc32a06d8b3fcac8f0a4b7ff182123baea (2026-10-03T04:19:40.879Z)

@@ -10,9 +10,18 @@
       "title": "Frases",
       "description": "Cada decisão do JSONL ganha `said` e `saw`. Entrada sem as duas não conta como apresentada. Verifier: teste do leitor da página.",
       "outputs": [
-        { "kind": "file", "path": "src/decision-log.js" },
-        { "kind": "file", "path": "tests/decision-log.test.js" },
-        { "kind": "file", "path": "tests/final-page-reader.test.js" }
+        {
+          "kind": "file",
+          "path": "src/decision-log.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/decision-log.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/final-page-reader.test.js"
+        }
       ],
       "scopeBoundary": [
         "Do not treat chat ok as presented evidence.",
@@ -35,11 +44,46 @@
       "title": "Servidor",
       "description": "A vista final não abre em `file://`. O botão fica apagado enquanto algum audit da fase não está passed. `scripts/serve-flow.js` continua servindo o preview de `flow.html`. O botão é o único escritor de `userValidatedAt`. `userValidationOk` em `src/plan-end-review.js` deixa de aceitar um timestamp escrito na sessão, e `assert-automate-gate --gate finalize` recusa esse timestamp. Verifier: teste HTTP do botão desligado e ligado.",
       "outputs": [
-        { "kind": "file", "path": "scripts/serve-flow.js" },
-        { "kind": "file", "path": "scripts/lib/serve-flow.js" },
-        { "kind": "file", "path": "src/plan-end-review.js" },
-        { "kind": "file", "path": "scripts/assert-automate-gate.js" },
-        { "kind": "file", "path": "tests/final-page-http.test.js" }
+        {
+          "kind": "file",
+          "path": "scripts/serve-flow.js"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/lib/serve-flow.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/plan-end-review.js"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/assert-automate-gate.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/final-page-http.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/plan-end-review.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/assert-automate-gate.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/implement-automate-contract.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-finalize.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-transitions.md"
+        }
       ],
       "scopeBoundary": [
         "Do not serve the final page as file://.",
@@ -64,8 +108,14 @@
       "title": "Paradas",
       "description": "Travei, não avanço e mudança grande abrem a mesma origem. A confirmação entra no log e o programa retoma sem reinstalar parada por fase. Verifier: teste das três paradas.",
       "outputs": [
-        { "kind": "file", "path": "scripts/automate-run.js" },
-        { "kind": "file", "path": "tests/automate-run-stops.test.js" }
+        {
+          "kind": "file",
+          "path": "scripts/automate-run.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/automate-run-stops.test.js"
+        }
       ],
       "scopeBoundary": [
         "Do not reinstall a stop per phase after resume.",

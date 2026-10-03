@@ -1,0 +1,57 @@
+{
+  "planSlug": "real-automate",
+  "phaseId": "F5",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F5-fix1-writer",
+  "writerBranch": "impl/real-automate-F5-fix1-writer",
+  "finishedAt": "2026-10-03T03:00:59.609502+00:00",
+  "tasks": [
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": [
+        "d02fd3b25e8ab0362edf27981c1000242ba04528",
+        "a4a6a7dc7009199b9acfe18bb3a4607a066e12c5"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "scripts/lib/serve-flow.js",
+        "src/plan-end-review.js",
+        "tests/final-page-http.test.js",
+        "tests/plan-end-review.test.js",
+        "tests/assert-automate-gate.test.js",
+        "tests/implement-automate-contract.test.js"
+      ],
+      "verifierCommand": "node --test tests/final-page-http.test.js",
+      "exitCode": 0,
+      "transcript": "✔ operational stop confirmations preserve the reviewed input identity (22.88538ms)\n✔ real HTTP final button stays off until every audit passed, preserves flow, validates provenance and freshness (821.900105ms)\n✔ button refuses forged token and foreign origin and does not write on GET (22.276651ms)\n✔ missing or empty phases fail closed (19.178929ms)\n✔ button works with real nested state and repo-relative audit reports outside the plan directory (47.939992ms)\n✔ durable CLI upgrades flow-only preview, reuses final origin and removes its server on down (638.282359ms)\n✔ stale page cannot validate changed audit or prototype, and readable page shows actual admitted screen beside delivery (65.438892ms)\n✔ durable sidecar review supports final gate without rewriting ratified plan substance (219.415921ms)\n✔ pending audit with a not-yet-created report still renders a disabled final button (17.583286ms)\n✔ final report includes the findings retained in phase audit reports (14.525834ms)\n✔ refreshing after source mutation cannot validate against stale reviews (511.705892ms)\n✔ missing review input binding fails closed on the authentic HTTP button (18.754739ms)\n✔ schema-valid references show an admitted delivered HTML screen and HTTP application link (110.228668ms)\nℹ tests 13\nℹ suites 0\nℹ pass 13\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 2618.779099\n"
+    },
+    {
+      "taskId": "T-003",
+      "status": "claimed-pass",
+      "commitShas": [
+        "aa49783f16a72d491875378cb68032627db7d5c7"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "scripts/automate-run.js",
+        "tests/automate-run-stops.test.js"
+      ],
+      "verifierCommand": "node --test tests/automate-run-stops.test.js",
+      "exitCode": 0,
+      "transcript": "✔ travei opens the same HTTP origin, confirmation is logged, resumed stages do not reinstall phase stops (109.670005ms)\n✔ não avanço opens the same HTTP origin, confirmation is logged, resumed stages do not reinstall phase stops (52.162411ms)\n✔ mudança grande opens the same HTTP origin, confirmation is logged, resumed stages do not reinstall phase stops (46.387034ms)\n✔ plan reviews run before delivery audit, include phase residuals, and invalid JSON cannot become clean (12.691952ms)\n✔ final audit missing a ratified xor coverage line cannot open the PR (13.187758ms)\n✔ saved audit without reviewed input identity cannot reuse legacy success (4.872087ms)\n✔ saved pr without reviewed input identity cannot reuse legacy success (5.530022ms)\n✔ saved complete without reviewed input identity cannot reuse legacy success (4.826785ms)\n✔ PR failure resume preserves unchanged reviews and idempotent PR (80.567067ms)\n✔ PR failure resume reruns reviews after source changes (115.362652ms)\n✔ audit source repairs rerun the whole plan and retain the three-round cap (57.796666ms)\nimplement --automate: merged; stopping\n✔ default fixer sends bounded current findings over stdin to a noninteractive writer subprocess (108.004066ms)\n✔ local OPEN plan verdict with medium findings cannot mint success (155.636344ms)\n✔ local OPEN audit verdict with medium findings cannot mint success (199.738368ms)\n✔ external OPEN plan verdict with medium findings cannot mint success (155.265435ms)\n✔ external OPEN audit verdict with medium findings cannot mint success (199.935342ms)\nℹ tests 16\nℹ suites 0\nℹ pass 16\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 1502.507025\n"
+    }
+  ],
+  "additionalVerification": {
+    "command": "node --test tests/automate-run-stops.test.js tests/automate-run-writer.test.js tests/final-page-http.test.js tests/plan-end-review.test.js tests/assert-automate-gate.test.js tests/implement-automate-contract.test.js tests/serve-flow.test.js tests/phase-delivery-audit-gate.test.js tests/plan-end-intent-surface.test.js tests/automate-phase-run.test.js tests/automate-host-pen.test.js tests/automate-product-fence.test.js tests/project-transitions-automate.test.js",
+    "exitCode": 0,
+    "tests": 296,
+    "passed": 296,
+    "failed": 0,
+    "transcriptPath": "/tmp/real-automate-F5-fix1-expanded.log"
+  },
+  "limitations": [
+    "The broader 14-file run additionally including automate-orchestrator-gates.test.js passed 355/359; four existing spawn fixtures failed for missing validated flow at lines 308, 960, 1223 and 1295. That suite is outside the admitted repair scope."
+  ]
+}

@@ -21,13 +21,13 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
 | project-flow | active | F0 | plan/project-flow | 2026-08-13 | 0/3 |
-| real-automate | active | F0 | plan/real-automate | 2026-09-25 | 0/6 |
+| real-automate | active | F5 | plan/real-automate | 2026-09-25 | 5/6 |
 
 ### real-automate — Initiatives
 
 | Slug | Status | Phase | nextAction |
 |------|--------|-------|-----------|
-| real-automate-f0-partida-que-recusa | active | F0 | Start T-001: Caneta dos três hosts |
+| real-automate-f5-pagina-final | active | F5 | Evaluate completed F5 and verify its delivery gate. |
 
 ### project-flow — Initiatives
 

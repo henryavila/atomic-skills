@@ -1,0 +1,69 @@
+{
+  "planSlug": "real-automate",
+  "phaseId": "F5",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F5-fix2-writer",
+  "writerBranch": "impl/real-automate-F5-fix2-writer",
+  "finishedAt": "2026-10-03T04:49:09.581502+00:00",
+  "tasks": [
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": [
+        "83b44213c63e2099c43807e822ade1c7beaea70e"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "src/plan-end-review.js",
+        "scripts/lib/serve-flow.js",
+        "tests/final-page-http.test.js",
+        "skills/shared/project-assets/project-finalize.md",
+        "skills/shared/project-assets/project-transitions.md"
+      ],
+      "verifierCommand": "node --test tests/final-page-http.test.js",
+      "exitCode": 0,
+      "transcript": "✔ operational stop confirmations preserve the reviewed input identity (20.576869ms)\n✔ real HTTP final button stays off until every audit passed, preserves flow, validates provenance and freshness (870.768108ms)\n✔ button refuses forged token and foreign origin and does not write on GET (22.775711ms)\n✔ missing or empty phases fail closed (18.136122ms)\n✔ button works with real nested state and repo-relative audit reports outside the plan directory (49.472999ms)\n✔ durable CLI upgrades flow-only preview, reuses final origin and removes its server on down (620.203522ms)\n✔ stale page cannot validate changed audit or prototype, and readable page shows actual admitted screen beside delivery (75.576423ms)\n✔ durable sidecar review supports final gate without rewriting ratified plan substance (240.734721ms)\n✔ pending audit with a not-yet-created report still renders a disabled final button (21.077332ms)\n✔ final report includes the findings retained in phase audit reports (18.190496ms)\n✔ refreshing after source mutation cannot validate against stale reviews (501.508816ms)\n✔ missing review input binding fails closed on the authentic HTTP button (21.137168ms)\n✔ schema-valid references show an admitted delivered HTML screen and HTTP application link (114.252528ms)\n✔ genuine validation survives documented PR tracking and archive metadata but rejects delivered references (226.59298ms)\n✔ button replaces \"userValidatedAt\" structurally and preserves body examples (39.820469ms)\n✔ button replaces userValidatedAt structurally and preserves body examples (45.097004ms)\n✔ nested tracked owned artifacts do not invalidate their own proof and automate-prefixed source is hashed (84.915512ms)\n✔ current program sidecar recovers a legacy stale inline receipt for genuine HTTP validation (44.989305ms)\nℹ tests 18\nℹ suites 0\nℹ pass 18\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 3122.56604\n"
+    },
+    {
+      "taskId": "T-003",
+      "status": "claimed-pass",
+      "commitShas": [
+        "7b7205f4d8cfab6029b28d93b74633878cbd823d"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "scripts/automate-run.js",
+        "tests/automate-run-stops.test.js",
+        "tests/automate-run-writer.test.js"
+      ],
+      "verifierCommand": "node --test tests/automate-run-stops.test.js",
+      "exitCode": 0,
+      "transcript": "✔ travei opens the same HTTP origin, confirmation is logged, resumed stages do not reinstall phase stops (95.631833ms)\n✔ não avanço opens the same HTTP origin, confirmation is logged, resumed stages do not reinstall phase stops (45.345585ms)\n✔ mudança grande opens the same HTTP origin, confirmation is logged, resumed stages do not reinstall phase stops (41.432428ms)\n✔ plan reviews run before delivery audit, include phase residuals, and invalid JSON cannot become clean (14.002047ms)\n✔ final audit missing a ratified xor coverage line cannot open the PR (12.643073ms)\n✔ saved audit without reviewed input identity cannot reuse legacy success (4.997788ms)\n✔ saved pr without reviewed input identity cannot reuse legacy success (4.694434ms)\n✔ saved complete without reviewed input identity cannot reuse legacy success (5.209408ms)\n✔ PR failure resume preserves unchanged reviews and idempotent PR (89.723584ms)\n✔ PR failure resume reruns reviews after source changes (135.167158ms)\n✔ audit source repairs rerun the whole plan and retain the three-round cap (95.771444ms)\nimplement --automate: merged; stopping\n✔ default fixer sends bounded current findings over stdin to a noninteractive writer subprocess (109.786021ms)\n✔ local OPEN plan verdict with medium findings cannot mint success (145.641792ms)\n✔ local OPEN audit verdict with medium findings cannot mint success (201.628248ms)\n✔ external OPEN plan verdict with medium findings cannot mint success (153.4655ms)\n✔ external OPEN audit verdict with medium findings cannot mint success (194.540269ms)\n✔ malformed audit null-row returns controlled stop on the same origin (14.194573ms)\n✔ malformed audit array-row returns controlled stop on the same origin (11.774424ms)\n✔ malformed audit unknown-status returns controlled stop on the same origin (11.825374ms)\n✔ malformed audit null-finding returns controlled stop on the same origin (11.380967ms)\n✔ runtime missing-architecture construction failure uses the controlled stop (10.543667ms)\n✔ runtime malformed-architecture construction failure uses the controlled stop (9.952957ms)\n✔ runtime malformed-flow construction failure uses the controlled stop (10.890176ms)\n✔ runtime missing-ui-screen construction failure uses the controlled stop (7.346719ms)\n✔ third successful plan round then audit source repair stops without a fourth review or report overwrite (112.149467ms)\n✔ PR retry refuses dirty product before review and uploads the reviewed committed bytes after recovery (213.176545ms)\n✔ uncommitted staged product cannot publish (18.576102ms)\n✔ uncommitted untracked product cannot publish (16.06177ms)\n✔ uncommitted renamed product cannot publish (18.198486ms)\n✔ uncommitted during-review product cannot publish (32.990144ms)\n✔ uncommitted during-review-fix product cannot publish (32.060728ms)\n✔ grok native structured subprocess transport supplies the final report and supported argv (94.626684ms)\n✔ claude native structured subprocess transport supplies the final report and supported argv (93.915489ms)\n✔ codex native structured subprocess transport supplies the final report and supported argv (94.884128ms)\n✔ known final grok-text fallback transport is accepted (16.877801ms)\n✔ known final claude-result fallback transport is accepted (15.819099ms)\n✔ rejects progress-text transport through the controlled stop (8.85484ms)\n✔ rejects truncated-grok transport through the controlled stop (8.320614ms)\n✔ rejects claude-error transport through the controlled stop (8.968502ms)\n✔ rejects claude-nonfinal transport through the controlled stop (9.113689ms)\n✔ rejects codex-nonfinal transport through the controlled stop (8.216167ms)\n✔ rejects codex-failed transport through the controlled stop (9.688306ms)\n✔ rejects malformed-report transport through the controlled stop (8.615721ms)\n✔ provider process evidence preserves public final output and omits private reasoning fields (97.640336ms)\n✔ failed native review retains process exit and public stdout in its controlled stop (51.084172ms)\n✔ actual Grok final envelope is decoded before its different report contract is rejected (46.679038ms)\nℹ tests 46\nℹ suites 0\nℹ pass 46\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 2603.315037\n"
+    }
+  ],
+  "verification": {
+    "expandedCommand": "node --test tests/automate-run-writer.test.js tests/automate-run-stops.test.js tests/final-page-http.test.js tests/plan-end-review.test.js tests/assert-automate-gate.test.js tests/implement-automate-contract.test.js",
+    "expandedExitCode": 0,
+    "expandedTests": 191,
+    "expandedTranscriptPath": "/tmp/F5-fix2-expanded-final.log",
+    "catalogCommand": "npm run validate-catalog",
+    "catalogExitCode": 0,
+    "catalogTranscriptPath": "/tmp/F5-fix2-catalog-final.log",
+    "fullSuiteCommand": "npm test",
+    "fullSuiteExitCode": 1,
+    "fullSuiteTests": 3684,
+    "fullSuitePassed": 3646,
+    "fullSuiteFailed": 28,
+    "fullSuiteSkipped": 10,
+    "fullSuiteTranscriptPath": "/tmp/F5-fix2-full-suite.log",
+    "fullSuiteNote": "Known 28 baseline failures preserved; no tests disabled or skipped by this fix."
+  },
+  "reproductionTranscripts": [
+    "/tmp/F5-fix2-T2-red.log",
+    "/tmp/F5-fix2-T3-red.log",
+    "/tmp/F5-fix2-T3-evidence-red.log",
+    "/tmp/F5-fix2-pre-clone-red.log"
+  ],
+  "normalization": "Redundant base/head endpoints removed; exclusive writer-reported commitShas unchanged. Original report retained for audit."
+}
