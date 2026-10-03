@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "reviewType": "independent-whole-plan-and-delivery-audit-grok",
+  "sourceHead": "df15b63560c41d1f0e45e0fdc5a0649ee5040f25",
+  "sourceDigests": {
+    ".atomic-skills/projects/atomic-skills/real-automate/plan.md": "19c57dbed56816d5cf65c819ffb82a28c87b4f2302676d270e2771a81cb73990",
+    ".atomic-skills/projects/atomic-skills/real-automate/flow/flow.json": "50a88e52cbb7c361878b2e73abaee5f6db518e7f5ce0ead01c65e0715afcf72d",
+    ".atomic-skills/reviews/audit-delivery-real-automate-F4.md": "80950f74fc270684eff9cabedaa1a065a82b2e820c8219e7ed6cc1725081dc0a",
+    ".atomic-skills/reviews/eval-real-automate-F5.md": "6dc1724f1a3ba6949f55b0e76f8cc358c0e183a1e31c5d113e9fd6dbad1ce9be",
+    "scripts/automate-run.js": "20bbff93e44b23b1e17e6488eae4b158fa54e2de409a5a222d2cc5d35f89aef8",
+    ".atomic-skills/reviews/2026-10-03-real-automate-F5-pr-evidence.json": "a4862048b9eafb4074423456494c9c093ee7d41924770f838c0cc0de228cc88f"
+  },
+  "at": "2026-10-03T05:31:59.628018+00:00",
+  "provider": "grok",
+  "scope": "bounded actual phase criteria, exact ratified machine/XOR graph, production entrypoint, original retained acceptance register, fresh verifier evidence, recorded PR and self-plan files",
+  "evidenceDirectory": "/tmp/real-automate-plan-audit-grok-5GOT5p",
+  "processEvidence": {
+    "provider": "grok",
+    "scope": "whole-plan-audit",
+    "command": "grok",
+    "argv": [
+      "--sandbox",
+      "read-only",
+      "--disallowed-tools",
+      "search_replace,write,run_terminal_cmd,run_terminal_command,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,spawn_subagent,monitor",
+      "--no-memory",
+      "--no-subagents",
+      "--disable-web-search",
+      "--json-schema",
+      "{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"verdict\",\"findings\",\"intentVsDelivered\",\"graphCoverage\",\"limitations\"],\"properties\":{\"verdict\":{\"type\":\"string\",\"enum\":[\"PASSED\",\"CLOSED\",\"PARTIAL\",\"OPEN\"]},\"findings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"required\":[\"severity\",\"title\",\"evidence\"],\"properties\":{\"severity\":{\"type\":\"string\",\"enum\":[\"blocker\",\"critical\",\"major\",\"minor\"]},\"title\":{\"type\":\"string\"},\"evidence\":{\"type\":\"string\"}}}},\"intentVsDelivered\":{\"type\":\"array\",\"minItems\":1,\"items\":{\"type\":\"object\",\"required\":[\"label\",\"status\",\"note\"],\"properties\":{\"label\":{\"type\":\"string\"},\"status\":{\"type\":\"string\",\"enum\":[\"matched\",\"partial\",\"missing\",\"extra\"]},\"note\":{\"type\":\"string\"}}}},\"graphCoverage\":{\"type\":\"array\",\"minItems\":7,\"maxItems\":7,\"items\":{\"type\":\"object\",\"required\":[\"kind\",\"id\",\"status\",\"note\"],\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"machine\",\"xor\"]},\"id\":{\"type\":\"string\"},\"status\":{\"type\":\"string\",\"enum\":[\"faz\",\"pela metade\",\"não faz\"]},\"note\":{\"type\":\"string\"}}}},\"limitations\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}",
+      "--prompt-file",
+      "/tmp/real-automate-plan-audit-grok-5GOT5p/whole-plan-audit.md"
+    ],
+    "timeoutWrapper": [
+      "timeout",
+      "600"
+    ],
+    "exit": 0,
+    "startedAt": "2026-10-03T05:23:23.142093+00:00",
+    "finishedAt": "2026-10-03T05:31:41.459919+00:00",
+    "promptPath": "/tmp/real-automate-plan-audit-grok-5GOT5p/whole-plan-audit.md",
+    "promptSha256": "ccdc00f6000437a1524feacd35a409e27276f1d50ab60aaf7118810815f93632",
+    "promptBytes": 18190,
+    "rawEnvelopePath": "/tmp/real-automate-plan-audit-grok-5GOT5p/whole-plan-audit.out.json",
+    "rawEnvelopeSha256": "14cd6611186bbe032a7bdba79742290f55952ad516ad2c4c522bd6ab3878a668",
+    "stderrPath": "/tmp/real-automate-plan-audit-grok-5GOT5p/whole-plan-audit.stderr",
+    "stderr": ""
+  },
+  "verdict": "PARTIAL",
+  "findings": [
+    {
+      "severity": "major",
+      "title": "Self-plan has no architecture/decisions.json or ui/ui.json",
+      "evidence": "Filesystem packet at HEAD df15b63560c41d1f0e45e0fdc5a0649ee5040f25: selfArchitectureExists=false, selfUiExists=false. Plan dir lists flow/ and phases/ only. F5 renderFinalPage then shows empty stamps; runPlanEndWorkflow JSON.parse of architecture/decisions.json throws into stop não avanço. F0 main runs find-missing-architecture.js --strict and find-missing-ui.js --strict, so this plan cannot start --automate. F5 has a visible HTTP /final surface, so a none:true UI stamp would also be the wrong card."
+    }
+  ],
+  "intentVsDelivered": [
+    {
+      "label": "F0 Partida que recusa",
+      "status": "matched",
+      "note": "Production main refuses without host, plan, live pen.lock, registered PreToolUse, isolated probe.lock (exit 2 then 0, not repo pen.lock), host-shaped write probe that must refuse and leave no sentinel, and detectors flow/review/ground-truth/architecture/ui. Blockers print and exit 1 before any writer."
+    },
+    {
+      "label": "F1 Cartão de bloco (detector)",
+      "status": "matched",
+      "note": "scripts/find-missing-architecture.js exists and main calls it --strict. That is the F1 product. This plan itself has no architecture/decisions.json (separate missing row)."
+    },
+    {
+      "label": "F1 Self-plan architecture/decisions.json",
+      "status": "missing",
+      "note": "No architecture card on real-automate. Chat ok is not a stamp. Detectors would refuse this plan."
+    },
+    {
+      "label": "F2 Protótipo (detector)",
+      "status": "matched",
+      "note": "scripts/find-missing-ui.js exists and main calls it --strict. exitGateType ui-gate is not the stamp."
+    },
+    {
+      "label": "F2 Self-plan ui/ui.json",
+      "status": "missing",
+      "note": "No ui/ui.json. The F5 /final page is a visible surface, so this plan needs a real screen stamp, not an automatic none."
+    },
+    {
+      "label": "F3 Um writer, merge, e para",
+      "status": "matched",
+      "note": "runWriterSession in scripts/automate-run.js cuts a worktree, writes pen.lock with owner and pid, spawns the host CLI, merges onto the plan branch, kills a live writer, drops the lock, reclaims a dead-pid lock. AUTOMATE_STOP_AFTER_MERGE is the F3 test pare. Finished main continues to plan-end. automate-phase-run.js is not called."
+    },
+    {
+      "label": "F4 Review e o flow no audit",
+      "status": "partial",
+      "note": "Library and tests cover ask-once, both, 3-review, mix stop, park, fence, and phase-delivery-audit-gate reading flow/flow.json at ratifiedGraphSha. audit-delivery skill now requires graph lines. Production main never loops pending phases, never dispatches an isolated implementer for frontmatter pending tasks, and never runs per-phase both/close/open-next. After one writer it jumps to runPlanEndWorkflow. H1–H9 remain accepted residuals, not complete F4 delivery."
+    },
+    {
+      "label": "F5 Página final, botão, PR sem merge, loop plano+audit",
+      "status": "matched",
+      "note": "serve-flow --up serves /final with stamps, said/saw, prototype beside delivered, leftovers, residuals. POST /api/validate is the only userValidatedAt writer (HMAC http-button proof; deliveryAuditGate and current plan-end review required). Chat ok does not write. Session ISO without evidence fails userValidationOk and assert-automate-gate --gate finalize. defaultPr pushes and opens a PR and never merges or archives. Recorded PR #50 is OPEN draft, mergedAt null. Plan-end runs the 3-review loop on whole plan then audit-delivery with phase residuals."
+    },
+    {
+      "label": "F5 Genuine operator validation of this plan",
+      "status": "missing",
+      "note": "operatorValidationClaimed=false. No userValidatedAt on plan.md. Capability exists; this instance has not taken validacao.valida. Archive correctly has not run."
+    },
+    {
+      "label": "P6 Unidade=fase corrente com agente isolado por passo",
+      "status": "partial",
+      "note": "Session main orchestrates gates then one writer then plan-end. Isolated per-phase implement/review/close/advance is library-only, not the production driver."
+    }
+  ],
+  "graphCoverage": [
+    {
+      "kind": "machine",
+      "id": "corrida",
+      "status": "pela metade",
+      "note": "ociosa→recusada and ociosa→rodando live in main. Writer then plan-end can reach aguardando (PR + /final) and validada (HTTP button). Phase cycle inside rodando (implementar_fase → review_fase → mais_fases.sim) is not in production main. Phase-level T_trava/T_muda exist only as library predicates reused at plan-end."
+    },
+    {
+      "kind": "xor",
+      "id": "gates",
+      "status": "faz",
+      "note": "main builds blockers (pen, isolated probe, host write, five detectors) and either prints the missing list and exits 1 (gates.recusa) or proceeds (gates.parte) and calls prepareReviewExternalCli. Interactive ask in main remains the accepted H1 residual; env/frontmatter CLI still writes reviewExternalCli."
+    },
+    {
+      "kind": "xor",
+      "id": "review_fase",
+      "status": "pela metade",
+      "note": "nextPhaseReviewAction implements segue/corrige/trava/muda; tests cover mix, third critical, park. Production main never runs isolated phase both. continuePhaseAfterReview is reused inside runPlanEndWorkflow for whole-plan and audit stages, not for the current phase unit."
+    },
+    {
+      "kind": "xor",
+      "id": "mais_fases",
+      "status": "não faz",
+      "note": "main runs at most one runWriterSession (phase from args/env, default F0) then runPlanEndWorkflow. No branch on remaining pending phases. mais_fases.sim → implementar_fase does not exist in the production driver."
+    },
+    {
+      "kind": "xor",
+      "id": "review_plano",
+      "status": "faz",
+      "note": "runPlanEndWorkflow stage=plan: dual-leg both, 3-round cap, mix→mudança grande, critical/major→fix writer then re-review, else advance to audit. Isolated host CLIs, not the chat session."
+    },
+    {
+      "kind": "xor",
+      "id": "review_audit",
+      "status": "faz",
+      "note": "stage=audit uses the same 3-review loop, requires structured graphCoverage over flow/flow.json at ratifiedGraphSha 8210bfc367f08e285b279b7dc69716d91df665281ffc2af1eebc1be619761285, then opens an unmerged PR (review_audit.segue → abrir_pr)."
+    },
+    {
+      "kind": "xor",
+      "id": "validacao",
+      "status": "faz",
+      "note": "Authenticated /api/validate writes userValidatedAt and final-validation.json (source http-button). Button disabled unless every deliveryAuditGate passed and plan-end review is current. Leaving the page is validacao.deixa (aguardando). This plan has not pressed the button; that is instance state, not missing program branches."
+    }
+  ],
+  "limitations": [
+    "H1–H9 from .atomic-skills/reviews/audit-delivery-real-automate-F4.md remain historical Accept Records only (operator decision 11, 2026-10-02T19:38:21Z, reviewGate both 771849b2). They are not renewed or broadened: ask/refuse not in main; spawn review opt-in; loop/close not in main; close not awaited; both close without receipt parser; schema without stderr; loose PASS; body match CLI; mix RegExp. They do not authorize treating F4 or mais_fases as complete delivery.",
+    "Full suite at F5 eval remains the failing baseline: 3700 tests, 3662 pass, 28 fail, 10 skipped; fail names unchanged vs baseline. Focused F5 batch 126/126 and claimed 364/364 are fixture/verifier evidence, not a green product suite.",
+    "Recorded PR https://github.com/henryavila/atomic-skills/pull/50 is OPEN draft on plan/real-automate → develop, mergedAt null. That satisfies abre o PR e não faz merge; it is not operator validation or archive.",
+    "No memory, web, subagents, or writes in this audit. Tests were not re-executed here; execution counts are taken from the supplied independent verification record eval-real-automate-F5.md at the stated HEAD.",
+    "Chat-session shell denial in the pen hook was not fully re-read beyond automate-run probes and lock reclaim."
+  ],
+  "extraction": "structuredOutput",
+  "transportStopReason": "end_turn",
+  "currentHeadAtExtraction": "df15b63560c41d1f0e45e0fdc5a0649ee5040f25",
+  "reviewedFileDigestsMatchAtExtraction": true,
+  "sourceHeadMatchesAtExtraction": true,
+  "triage": [
+    {
+      "findingIndex": 0,
+      "classification": "instance-readiness",
+      "disposition": "retained-visible-missing-delivery",
+      "evidence": "Strict startup intentionally refuses this self-plan while its architecture and UI cards are absent. No card ratification or complete automatic self-plan run is claimed. The instance remains not ready; the native major finding and missing intent rows are preserved. This is not a new F5 program-source defect, and no new acceptance or invented stamp is recorded."
+    }
+  ]
+}
