@@ -265,7 +265,8 @@ describe('implement automate helper wiring (imports + fail-closed)', () => {
         automateActive: true,
         userValidatedAt: '2026-07-17T12:00:00.000Z',
       }),
-      true,
+      false,
+      'a session timestamp alone cannot authenticate operator validation',
     );
 
     // Stamp alone fail-closes gates without automateActive flag (Fix B).

@@ -6,7 +6,7 @@
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync, renameSync, readdirSync, realpathSync } from 'node:fs';
 import { createHmac, randomBytes } from 'node:crypto';
-import { readFinalPlan, finalAuditsPassed, validationKeyPath, validationSnapshot, productSnapshot } from '../../src/plan-end-review.js';
+import { readFinalPlan, finalAuditsPassed, planEndReviewCurrent, validationKeyPath, validationSnapshot, productSnapshot } from '../../src/plan-end-review.js';
 import { readPresentedDecisions } from '../../src/decision-log.js';
 import { basename, dirname, join, normalize, resolve, sep } from 'node:path';
 
@@ -86,6 +86,7 @@ export async function serveFlowHtml(htmlPath, opts = {}) {
         if(tokens.get(token)!==validationSnapshot(opts.planPath)) {res.writeHead(409);res.end('Presentation changed; refresh the final page');return;}
         if(path==='/api/validate') {
           if(!finalAuditsPassed(opts.planPath)) {res.writeHead(409);res.end('Waiting for phase delivery audits');return;}
+          if(!planEndReviewCurrent(opts.planPath)) {res.writeHead(409);res.end('Waiting for reviews of the current delivery');return;}
           const at=recordButtonValidation(opts.planPath,tokens.get(token));tokens.delete(token);res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(`<main><h1>Delivery validated</h1><p>Recorded ${at}. The pull request remains open. You can now continue to finalize.</p><a href="/final">Return to delivery</a></main>`);return;
         }
         if(path==='/api/stop-confirm') {
@@ -168,7 +169,7 @@ function renderFinalPage(planPath,token) {
   const runtime=readJson(join(dir,'automate-run-state.json'));
   const decisionsDir=join(dir,'decisions');
   const decisions=existsSync(decisionsDir)?readdirSync(decisionsDir).filter(n=>n.endsWith('.jsonl')).flatMap(n=>readPresentedDecisions(readFileSync(join(decisionsDir,n),'utf8'))):[];
-  const passed=finalAuditsPassed(planPath);
+  const passed=finalAuditsPassed(planPath) && planEndReviewCurrent(planPath);
   const form=(action,label,enabled)=>`<form method="post" action="${action}"><input type="hidden" name="token" value="${token}"><button ${enabled?'':'disabled'}>${label}</button></form>`;
   const asset=path=>'/final-assets/'+String(path).split('/').map(encodeURIComponent).join('/');
   const frame=(path,title)=>`<iframe title="${escapeHtml(title)}" src="${escapeHtml(asset(path))}" sandbox="allow-scripts"></iframe>`;
@@ -190,6 +191,7 @@ function renderFinalPage(planPath,token) {
 /** Called exclusively by the authenticated HTTP button route. */
 function recordButtonValidation(planPath, expectedSnapshot) {
   if (!finalAuditsPassed(planPath)) throw new Error('phase delivery audits are not passed');
+  if (!planEndReviewCurrent(planPath)) throw new Error('reviews do not match the current delivery');
   if(expectedSnapshot && expectedSnapshot!==validationSnapshot(planPath)) throw new Error('Presentation changed; refresh the final page');
   validationSnapshot(planPath); // Fail before writing the timestamp if evidence is unavailable.
   const keyPath = validationKeyPath(planPath);
