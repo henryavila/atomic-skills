@@ -3,46 +3,45 @@ schemaVersion: "0.1"
 slug: real-automate-f5-pagina-final
 title: Página final
 goal: um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado,
-  as frases `said` e `saw`, a tela ao lado do que foi construído, e o que
-  ficou de fora. O botão grava `userValidatedAt` só com todo
-  `deliveryAuditGate` em passed. Chat “ok” não grava. O programa entrega o
-  branch, abre o PR e não faz merge. Archive fica depois do botão. No fim
-  do plano o mesmo loop de 3 reviews roda sobre o plano inteiro e depois
-  sobre o `audit-delivery`. Os findings guardados por fase entram nesse
-  relatório. `userValidationOk` em `src/plan-end-review.js` hoje aceita
-  qualquer timestamp ISO em `userValidatedAt`. O botão passa a ser o único
-  escritor, e um timestamp escrito na sessão não passa em
-  `assert-automate-gate --gate finalize`.
+  as frases `said` e `saw`, a tela ao lado do que foi construído, e o que ficou
+  de fora. O botão grava `userValidatedAt` só com todo `deliveryAuditGate` em
+  passed. Chat “ok” não grava. O programa entrega o branch, abre o PR e não faz
+  merge. Archive fica depois do botão. No fim do plano o mesmo loop de 3 reviews
+  roda sobre o plano inteiro e depois sobre o `audit-delivery`. Os findings
+  guardados por fase entram nesse relatório. `userValidationOk` em
+  `src/plan-end-review.js` hoje aceita qualquer timestamp ISO em
+  `userValidatedAt`. O botão passa a ser o único escritor, e um timestamp
+  escrito na sessão não passa em `assert-automate-gate --gate finalize`.
 status: active
 branch: plan/real-automate
 started: 2026-10-02T19:56:45.000Z
-lastUpdated: 2026-10-02T19:56:45.000Z
-nextAction: Spawn F5 writer after materialize (T-001 Frases).
+lastUpdated: 2026-10-03T02:11:45.748Z
+nextAction: Complete F5 isolated writer fixes and verify the merged implementation.
 parentPlan: real-automate
 phaseId: F5
 businessIntent:
-  value: Um servidor no hábito de `serve-flow.js --up` mostra o que foi
-    carimbado, as frases `said` e `saw`, a tela ao lado do construído e o que
-    ficou de fora. O botão grava `userValidatedAt` só com todo
-    `deliveryAuditGate` em passed. Chat ok não grava. O programa entrega o
-    branch, abre o PR e não faz merge. Archive fica depois do botão.
-  workflow: Cada decisão do JSONL ganha `said` e `saw`. A vista final não abre
-    em `file://`. `scripts/serve-flow.js` continua o preview de `flow.html`. O
+  value: Um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado,
+    as frases `said` e `saw`, a tela ao lado do construído e o que ficou de
+    fora. O botão grava `userValidatedAt` só com todo `deliveryAuditGate` em
+    passed. Chat ok não grava. O programa entrega o branch, abre o PR e não faz
+    merge. Archive fica depois do botão.
+  workflow: Cada decisão do JSONL ganha `said` e `saw`. A vista final não abre em
+    `file://`. `scripts/serve-flow.js` continua o preview de `flow.html`. O
     botão é o único escritor de `userValidatedAt`. `userValidationOk` recusa
     timestamp escrito na sessão. Travei, não avanço e mudança grande abrem a
     mesma origem. No fim do plano o loop de 3 reviews roda sobre o plano e
     depois sobre o `audit-delivery`.
   rules: Chat ok não grava `userValidatedAt`. Timestamp escrito na sessão não
     passa em `assert-automate-gate --gate finalize`. O botão só liga com todo
-    `deliveryAuditGate` passed. Archive não roda no comando que abre o PR.
-    Onde `businessIntent` e o grafo discordam, vale o grafo.
-  outOfScope: Merge do PR. Fila, vários hosts e spawn adapter multi-máquina
-    (P9). Não reabre o marco F3 de um writer/merge nem o close F4 de review
-    e audit da fase. Não chama `scripts/automate-phase-run.js` no lugar de
+    `deliveryAuditGate` passed. Archive não roda no comando que abre o PR. Onde
+    `businessIntent` e o grafo discordam, vale o grafo.
+  outOfScope: Merge do PR. Fila, vários hosts e spawn adapter multi-máquina (P9).
+    Não reabre o marco F3 de um writer/merge nem o close F4 de review e audit da
+    fase. Não chama `scripts/automate-phase-run.js` no lugar de
     `scripts/automate-run.js`.
-  doneWhen: "`node --test tests/final-page-http.test.js` mostra o botão verde
-    só com todo `deliveryAuditGate` passed, o PR existe sem merge, e archive
-    não roda nesse comando."
+  doneWhen: "`node --test tests/final-page-http.test.js` mostra o botão verde só
+    com todo `deliveryAuditGate` passed, o PR existe sem merge, e archive não
+    roda nesse comando."
 tasksDone: 0
 tasksTotal: 3
 gatesMet: 0
@@ -51,8 +50,8 @@ weightDone: 0
 weightTotal: 3
 exitGates:
   - id: G-1
-    description: o teste HTTP do botão verde, o PR existe sem merge, e archive
-      não roda nesse comando.
+    description: o teste HTTP do botão verde, o PR existe sem merge, e archive não
+      roda nesse comando.
     status: pending
     verifier:
       kind: shell
@@ -94,13 +93,13 @@ tasks:
     weight: 1
   - id: T-002
     title: Servidor
-    description: "A vista final não abre em `file://`. O botão fica apagado
-      enquanto algum audit da fase não está passed. `scripts/serve-flow.js`
-      continua servindo o preview de `flow.html`. O botão é o único escritor de
+    description: "A vista final não abre em `file://`. O botão fica apagado enquanto
+      algum audit da fase não está passed. `scripts/serve-flow.js` continua
+      servindo o preview de `flow.html`. O botão é o único escritor de
       `userValidatedAt`. `userValidationOk` em `src/plan-end-review.js` deixa de
       aceitar um timestamp escrito na sessão, e `assert-automate-gate --gate
-      finalize` recusa esse timestamp. Verifier: teste HTTP do botão desligado
-      e ligado."
+      finalize` recusa esse timestamp. Verifier: teste HTTP do botão desligado e
+      ligado."
     status: pending
     lastUpdated: 2026-10-02T19:56:45.000Z
     scopeBoundary:
@@ -109,7 +108,8 @@ tasks:
       - Do not stop serving flow.html preview from serve-flow.js.
     acceptance:
       - it - the final view does not open as file://.
-      - it - the button stays off while any phase deliveryAuditGate is not passed.
+      - it - the button stays off while any phase deliveryAuditGate is not
+        passed.
       - it - serve-flow.js still serves the flow.html preview.
       - it - the button is the only writer of userValidatedAt.
       - it - a session-written timestamp fails userValidationOk and
@@ -175,8 +175,8 @@ Lessons applied at start: L-F4-1 (cited graph path fail-closed on close), L-F4-2
 (writer fence includes related allow-fixtures), L-F2-1, L-F2-2.
 
 ## Session handoff
-- **Narrative:** F5 materialized with ratified BI. Descriptor-only lifted. Cursor H. No writer spawned yet.
-- **Decision log:** operator-continue F4→F5. Ratify F5 + apply L-F4-1 and L-F4-2.
-- **Single nextAction:** Spawn F5 writer after materialize (T-001 Frases).
-- **Verbatim state:** sidecar `phases/f5-pagina-final.source.json`; program `scripts/automate-run.js`.
-- **Uncommitted changes:** this materialize pair.
+- **Narrative:** Resumed automatically at operator request. T-001 and initial T-002 are committed in the sibling writer; T-003 and review corrections are in progress.
+- **Decision log:** Operator explicitly delegated total automatic implementation. Independent review found stale-page validation, preview-server upgrade, and prototype-comparison defects; writer is correcting them.
+- **Single nextAction:** Complete F5 isolated writer fixes and verify the merged implementation.
+- **Verbatim state:** Writer branch `impl/real-automate-F5-writer`; canonical cursor C. No task is closed on writer claims.
+- **Uncommitted changes:** Earlier prepare artifacts, orphaned nested analytics, and plan-quality analytics remain outside the checkpoint.
