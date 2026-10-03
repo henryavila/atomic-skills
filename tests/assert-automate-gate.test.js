@@ -3,7 +3,13 @@
  *
  * Covers spawn / claims|done / phase-done / finalize via Layer-1 helpers.
  */
-import { describe, it } from 'node:test';
+import { recordButtonValidation } from '../src/plan-end-review.js';
+
+const signingHome=mkdtempSync(join(tmpdir(),'final-signing-home-'));
+const previousSigningHome=process.env.HOME, previousSigningProfile=process.env.USERPROFILE;
+process.env.HOME=signingHome;process.env.USERPROFILE=signingHome;
+after(()=>{if(previousSigningHome===undefined) delete process.env.HOME;else process.env.HOME=previousSigningHome;if(previousSigningProfile===undefined) delete process.env.USERPROFILE;else process.env.USERPROFILE=previousSigningProfile;rmSync(signingHome,{recursive:true,force:true});});
+import { after, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   mkdtempSync,
@@ -1231,6 +1237,7 @@ describe('assert-automate-gate CLI', () => {
       try {
         writePlan(root, {
           executionMode: 'automate',
+          deliveryAuditGate: {status:'passed'},
           planEndReview: {
             mode: 'external-both',
             reviewFile: '.atomic-skills/reviews/x-plan-end.md',
@@ -1244,6 +1251,8 @@ describe('assert-automate-gate CLI', () => {
           },
           userValidatedAt: '2026-07-21T12:00:00.000Z',
         });
+        const actualPlan=join(root,'.atomic-skills/projects/atomic-skills/demo-plan/plan.md');
+        recordButtonValidation(actualPlan);
         const stateRoot = join(root, '.atomic-skills');
         writeCursor(join(stateRoot, 'status'), 'demo-plan', 'I');
         const r = run(

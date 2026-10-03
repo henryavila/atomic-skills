@@ -132,7 +132,7 @@ function parseArgs(argv) {
   return out;
 }
 
-async function waitForLock(abs, child) {
+async function waitForLock(abs, child, planPath) {
   let childExit = null;
   if (child && typeof child.once === 'function') {
     child.once('exit', (code) => {
@@ -147,7 +147,7 @@ async function waitForLock(abs, child) {
     if (childExit !== null && childExit !== 0) {
       throw new Error(`preview exited ${childExit}`);
     }
-    const hit = listServers().find((s) => s.htmlPath === abs);
+    const hit = listServers().find((s) => s.htmlPath === abs && (s.planPath||null)===(planPath||null));
     if (hit && isAlive(hit.pid) && typeof hit.url === 'string' && await probe(hit.url)) {
       return hit.url;
     }
@@ -179,6 +179,9 @@ async function main() {
       process.stdout.write(`${existing.url}\n`);
       return;
     }
+    // A preview-only server cannot satisfy a final-page request. Replace it
+    // before waiting for the new plan-bound registration.
+    if(listServers().some(s=>s.htmlPath===abs)) await down(abs);
     const child = spawn(process.execPath, [SELF, '--fg', abs,...(opts.planPath?['--plan',opts.planPath]:[])], {
       detached: true,
       stdio: 'ignore',
@@ -186,7 +189,7 @@ async function main() {
       env: process.env,
     });
     child.unref();
-    const url = await waitForLock(abs, child);
+    const url = await waitForLock(abs, child, opts.planPath);
     process.stdout.write(`${url}\n`);
     process.exit(0);
   }

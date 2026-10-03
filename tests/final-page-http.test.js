@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,6 +6,11 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { serveFlowHtml } from '../scripts/lib/serve-flow.js';
 import * as gate from '../src/plan-end-review.js';
+
+const signingHome=mkdtempSync(join(tmpdir(),'final-signing-home-'));
+const previousSigningHome=process.env.HOME, previousSigningProfile=process.env.USERPROFILE;
+process.env.HOME=signingHome;process.env.USERPROFILE=signingHome;
+after(()=>{if(previousSigningHome===undefined) delete process.env.HOME;else process.env.HOME=previousSigningHome;if(previousSigningProfile===undefined) delete process.env.USERPROFILE;else process.env.USERPROFILE=previousSigningProfile;rmSync(signingHome,{recursive:true,force:true});});
 
 function fixture() {
  const root=mkdtempSync(join(tmpdir(),'final-http-')); mkdirSync(join(root,'flow'));
@@ -46,4 +51,22 @@ test('button works with real nested state and repo-relative audit reports outsid
  const plan=join(dir,'plan.md');writeFileSync(join(state,'reviews/audit.md'),'Real audit evidence\n');
  writeFileSync(plan,readFileSync(f.plan,'utf8').replace('reportPath: audit.md','reportPath: .atomic-skills/reviews/audit.md'));
  const server=await serveFlowHtml(f.html,{planPath:plan});try{const p=await page(server);const response=await click(p);assert.equal(response.status,200,await response.text());assert.ok(gate.readUserValidationEvidence(plan));}finally{await server.close();rmSync(f.root,{recursive:true,force:true});}
+});
+test('durable CLI upgrades flow-only preview, reuses final origin and removes its server on down',async()=>{
+ const f=fixture();const home=join(f.root,'home');mkdirSync(home);const env={...process.env,HOME:home};const script='scripts/serve-flow.js';
+ const run=args=>spawnSync(process.execPath,[script,...args],{env,encoding:'utf8',timeout:15000});
+ let url;
+ try {
+  const flow=run(['--up',f.html]);assert.equal(flow.status,0,flow.stderr);
+  const final=run(['--up',f.html,'--plan',f.plan]);assert.equal(final.status,0,final.stderr);url=final.stdout.trim();
+  assert.equal((await fetch(new URL('/final',url))).status,200);
+  const again=run(['--up',f.html,'--plan',f.plan]);assert.equal(again.stdout.trim(),url);
+ }finally{run(['--down',f.html]);if(url) await assert.rejects(fetch(url));rmSync(f.root,{recursive:true,force:true});}
+});
+test('stale page cannot validate changed audit or prototype, and readable page shows actual admitted screen beside delivery',async()=>{
+ const f=fixture();const dir=join(f.root,'projects/test/fixture');mkdirSync(join(dir,'ui'));mkdirSync(join(dir,'architecture'));writeFileSync(join(dir,'ui/screen.html'),'<html>Actual prototype screen</html>');writeFileSync(join(dir,'ui/ui.json'),JSON.stringify({screens:[{path:'ui/screen.html'}]}));writeFileSync(join(dir,'architecture/decisions.json'),JSON.stringify({chosen:'whole',sketches:[{id:'whole',outside:['Deferred export']}]}));
+ const s=await serveFlowHtml(f.html,{planPath:f.plan});try{let p=await page(s);assert.match(p.text,/<main/);assert.match(p.text,/Deferred export/);assert.match(p.text,/\/final-assets\/ui\/screen.html/);assert.match(await(await fetch(p.origin+'/final-assets/ui/screen.html')).text(),/Actual prototype screen/);
+ writeFileSync(join(dir,'audit.md'),'Changed audit\n');assert.equal((await click(p)).status,409);assert.doesNotMatch(readFileSync(f.plan,'utf8'),/userValidatedAt/);
+ p=await page(s);assert.equal((await click(p)).status,200);assert.ok(gate.readUserValidationEvidence(f.plan));writeFileSync(join(dir,'ui/screen.html'),'<html>Changed prototype</html>');assert.equal(gate.readUserValidationEvidence(f.plan),null);
+ }finally{await s.close();rmSync(f.root,{recursive:true,force:true});}
 });

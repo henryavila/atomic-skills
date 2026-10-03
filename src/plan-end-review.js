@@ -28,7 +28,7 @@
  *   - provider is a known external ('codex' | 'grok' | 'claude')
  *
  * userValidationOk: under automateActive === true, require a non-empty
- * ISO-8601-ish timestamp in userValidatedAt. When automate is not active
+ * ISO-8601-ish timestamp plus authenticated HTTP-button evidence. When automate is not active
  * the gate does not apply (returns true). Stamp alone also activates via
  * durable plan-end resolution. Operator-owned — never auto-stamped by review.
  *
@@ -46,11 +46,11 @@
  * `## Reviews` section; frontmatter may carry a machine-readable
  * `planEndReview` object (finalize-shaped receipt) plus `userValidatedAt`.
  *
- * No I/O.
+ * Pure gate predicates; server proof helpers below perform bounded filesystem I/O.
  */
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -315,7 +315,7 @@ function resolveDurableAutomateForGates(input = {}) {
  * When automate is not active, returns true (gate does not apply).
  * Activation: automateActive === true, OR durable stamp planExecutionMode
  * automate (session CLI override does not disable — F4). Under automate,
- * userValidatedAt must be a non-empty ISO-8601-ish timestamp.
+ * userValidatedAt must match authenticated HTTP-button evidence loaded from disk.
  *
  * @param {{
  *   automateActive?: boolean,
@@ -413,7 +413,7 @@ export function finalAuditsPassed(planPath) {
     return Array.isArray(fm.phases) && fm.phases.length > 0 && fm.phases.every(p => p && p.deliveryAuditGate?.status === 'passed');
   } catch { return false; }
 }
-function validationSnapshot(planPath) {
+export function validationSnapshot(planPath) {
   const {text, fm} = readFinalPlan(planPath);
   const hash = createHash('sha256').update(text.replace(/^userValidatedAt:.*\r?\n/gm, ''));
   const planDir = realpathSync(dirname(planPath));
@@ -428,11 +428,22 @@ function validationSnapshot(planPath) {
       hash.update(file).update(bytes);
     }
   }
+  const addFile=(file)=>{
+    const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('presentation path escapes root');
+    const bytes=readFileSync(actual);if(bytes.length>2_000_000) throw new Error('presentation exceeds size cap');hash.update(actual).update(bytes);
+  };
+  for(const rel of ['architecture/decisions.json','ui/ui.json','automate-run-state.json','flow/flow.html']) {const file=join(planDir,rel);if(existsSync(file)) addFile(file);}
+  const decisions=join(planDir,'decisions');
+  if(existsSync(decisions)) for(const name of readdirSync(decisions).filter(n=>n.endsWith('.jsonl')).sort()) addFile(join(decisions,name));
+  if(fm.deliveredSurface?.path) addFile(resolve(planDir,fm.deliveredSurface.path));
+  const uiPath=join(planDir,'ui/ui.json');
+  if(existsSync(uiPath)) {const ui=JSON.parse(readFileSync(uiPath,'utf8'));for(const screen of ui.screens||[]) if(screen.path) addFile(resolve(planDir,screen.path));}
   return hash.digest('hex');
 }
 /** Called exclusively by the authenticated HTTP button route. */
-export function recordButtonValidation(planPath) {
+export function recordButtonValidation(planPath, expectedSnapshot) {
   if (!finalAuditsPassed(planPath)) throw new Error('phase delivery audits are not passed');
+  if(expectedSnapshot && expectedSnapshot!==validationSnapshot(planPath)) throw new Error('Presentation changed; refresh the final page');
   validationSnapshot(planPath); // Fail before writing the timestamp if evidence is unavailable.
   const keyPath = validationKeyPath(planPath);
   mkdirSync(dirname(keyPath), {recursive:true, mode:0o700});
