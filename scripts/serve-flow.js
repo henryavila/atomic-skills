@@ -75,10 +75,10 @@ function removeServer(htmlPath) {
   writeLock({ servers: listServers().filter((s) => s.htmlPath !== abs) });
 }
 
-async function findReusable(htmlPath) {
+async function findReusable(htmlPath, planPath) {
   const abs = resolve(htmlPath);
   for (const s of listServers()) {
-    if (s.htmlPath === abs && isAlive(s.pid) && typeof s.url === 'string' && await probe(s.url)) {
+    if (s.htmlPath === abs && (s.planPath||null)===(planPath||null) && isAlive(s.pid) && typeof s.url === 'string' && await probe(s.url)) {
       return s;
     }
   }
@@ -121,6 +121,7 @@ function parseArgs(argv) {
     if (a === '--up') { out.mode = 'up'; continue; }
     if (a === '--down') { out.mode = 'down'; continue; }
     if (a === '--fg') { out.mode = 'fg'; continue; }
+    if (a === '--plan') {out.planPath=resolve(args[++i]);continue;}
     if (a === '--port') {
       out.port = Number(args[++i]);
       continue;
@@ -173,12 +174,12 @@ async function main() {
   }
 
   if (opts.mode === 'up') {
-    const existing = await findReusable(abs);
+    const existing = await findReusable(abs,opts.planPath);
     if (existing) {
       process.stdout.write(`${existing.url}\n`);
       return;
     }
-    const child = spawn(process.execPath, [SELF, '--fg', abs], {
+    const child = spawn(process.execPath, [SELF, '--fg', abs,...(opts.planPath?['--plan',opts.planPath]:[])], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
@@ -190,9 +191,10 @@ async function main() {
     process.exit(0);
   }
 
-  const preview = await serveFlowHtml(abs, { port: opts.port });
+  const preview = await serveFlowHtml(abs, { port: opts.port, planPath: opts.planPath });
   upsertServer({
     htmlPath: abs,
+    planPath: opts.planPath || null,
     url: preview.url,
     pid: process.pid,
     port: preview.port,

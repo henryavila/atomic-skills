@@ -74,6 +74,7 @@ import {
   findPlansMissingGroundTruth,
   groundTruthGapMessage,
 } from './find-plans-missing-ground-truth.js';
+import { readUserValidationEvidence } from '../src/plan-end-review.js';
 import { checkPlanFlow } from './find-missing-flow.js';
 
 
@@ -1158,6 +1159,7 @@ export function runAssert(args, env = {}) {
     planExecutionMode,
     receipt,
     userValidatedAt,
+    userValidationEvidence: readUserValidationEvidence(resolved.planFile),
   });
   if (!r.ok) {
     return {

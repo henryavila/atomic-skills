@@ -49,6 +49,11 @@
  * No I/O.
  */
 
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve, sep } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import { EXTERNAL_PROVIDER_ORDER } from './cross-model-host-default.js';
 import { INTENT_VS_DELIVERED_STATUSES } from './plan-end-intent-surface.js';
 
@@ -330,7 +335,8 @@ export function userValidationOk(input = {}) {
   const at = input.userValidatedAt;
   if (at == null) return false;
   if (typeof at !== 'string') return false;
-  return isIsoTimestamp(at);
+  return isIsoTimestamp(at) && authenticatedEvidence.has(input.userValidationEvidence)
+    && input.userValidationEvidence.at === at;
 }
 
 /**
@@ -374,6 +380,7 @@ export function automatePlanEndGatesOk(input = {}) {
     automateActive: true,
     userValidatedAt: input.userValidatedAt,
     validatorId: input.validatorId,
+    userValidationEvidence: input.userValidationEvidence,
   });
   return {
     ok: pe && uv,
@@ -381,4 +388,77 @@ export function automatePlanEndGatesOk(input = {}) {
     userValidationOk: uv,
     reviewSkipForbidden: true,
   };
+}
+
+
+// Server authority lives outside the repository; copying a timestamp or a receipt
+// cannot mint evidence. Only disk-authenticated objects enter this WeakSet.
+const authenticatedEvidence = new WeakSet();
+function validationKeyPath(planPath) {
+  const identity = createHash('sha256').update(realpathSync(planPath)).digest('hex');
+  return join(process.env.HOME || process.env.USERPROFILE || homedir(), '.atomic-skills', 'final-page-keys', identity);
+}
+export function readFinalPlan(planPath) {
+  const text = readFileSync(planPath, 'utf8');
+  if (Buffer.byteLength(text) > 2_000_000) throw new Error('plan exceeds size cap');
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) throw new Error('invalid plan frontmatter');
+  const fm = parseYaml(match[1]);
+  if (!fm || typeof fm !== 'object') throw new Error('invalid plan');
+  return { text, fm };
+}
+export function finalAuditsPassed(planPath) {
+  try {
+    const {fm} = readFinalPlan(planPath);
+    return Array.isArray(fm.phases) && fm.phases.length > 0 && fm.phases.every(p => p && p.deliveryAuditGate?.status === 'passed');
+  } catch { return false; }
+}
+function validationSnapshot(planPath) {
+  const {text, fm} = readFinalPlan(planPath);
+  const hash = createHash('sha256').update(text.replace(/^userValidatedAt:.*\r?\n/gm, ''));
+  const planDir = realpathSync(dirname(planPath));
+  const marker = `${sep}.atomic-skills${sep}`;
+  const root = planDir.includes(marker) ? planDir.slice(0, planDir.indexOf(marker)) : planDir;
+  for (const p of fm.phases || []) {
+    for (const rel of [p.initiativePath || p.initiative, p.deliveryAuditGate?.reportPath].filter(Boolean)) {
+      const file = realpathSync(resolve(String(rel).startsWith('.atomic-skills/') ? root : planDir, String(rel)));
+      if (!file.startsWith(root + sep)) throw new Error('delivery path escapes plan');
+      const bytes = readFileSync(file);
+      if (!bytes.length || bytes.length > 2_000_000) throw new Error('empty or oversized delivery evidence');
+      hash.update(file).update(bytes);
+    }
+  }
+  return hash.digest('hex');
+}
+/** Called exclusively by the authenticated HTTP button route. */
+export function recordButtonValidation(planPath) {
+  if (!finalAuditsPassed(planPath)) throw new Error('phase delivery audits are not passed');
+  validationSnapshot(planPath); // Fail before writing the timestamp if evidence is unavailable.
+  const keyPath = validationKeyPath(planPath);
+  mkdirSync(dirname(keyPath), {recursive:true, mode:0o700});
+  if (!existsSync(keyPath)) {try {writeFileSync(keyPath, randomBytes(32), {flag:'wx',mode:0o600});} catch(e) {if(e.code !== 'EEXIST') throw e;}}
+  const {text} = readFinalPlan(planPath);
+  const at = new Date().toISOString();
+  const without = text.replace(/^userValidatedAt:.*\r?\n/gm, '');
+  const updated = without.replace(/^---\r?\n/, `---\nuserValidatedAt: "${at}"\n`);
+  const temp = `${planPath}.button-${process.pid}`;
+  writeFileSync(temp, updated); renameSync(temp, planPath);
+  const proof = {at, planPath: realpathSync(planPath), snapshot: validationSnapshot(planPath), source:'http-button'};
+  const signature = createHmac('sha256',readFileSync(keyPath)).update(JSON.stringify(proof)).digest('hex');
+  const receiptPath = join(dirname(planPath), 'final-validation.json');
+  writeFileSync(`${receiptPath}.tmp`, JSON.stringify({proof, signature})+'\n');
+  renameSync(`${receiptPath}.tmp`, receiptPath);
+  return at;
+}
+export function readUserValidationEvidence(planPath) {
+  try {
+    if (!finalAuditsPassed(planPath)) return null;
+    const {fm} = readFinalPlan(planPath);
+    const {proof,signature} = JSON.parse(readFileSync(join(dirname(planPath),'final-validation.json'),'utf8'));
+    if (proof.source !== 'http-button' || proof.planPath !== realpathSync(planPath) || proof.at !== fm.userValidatedAt || proof.snapshot !== validationSnapshot(planPath)) return null;
+    const expected=createHmac('sha256',readFileSync(validationKeyPath(planPath))).update(JSON.stringify(proof)).digest();
+    const actual=Buffer.from(signature,'hex');
+    if(actual.length !== expected.length || !timingSafeEqual(actual,expected)) return null;
+    const evidence={at:proof.at}; authenticatedEvidence.add(evidence); return evidence;
+  } catch {return null;}
 }
