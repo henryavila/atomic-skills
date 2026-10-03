@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: real-automate
 title: real-automate
 version: "1.0"
-status: active
+status: done
 executionMode: automate
 started: 2026-09-25T03:17:12.483Z
-lastUpdated: 2026-10-02T19:56:45.000Z
+lastUpdated: 2026-10-03T05:42:47.946Z
 branch: plan/real-automate
 currentPhase: F5
 parallelismAllowed: false
@@ -194,8 +194,8 @@ phases:
       at: caba63fbd0bfb8c7bf648a06906d87e55c0dd428
     lessonsState: none
     noneReason: >
-      F0 evaluation returned notes only after review fixes. Clean phase:
-      no remaining blocker/critical/major on residual check.
+      F0 evaluation returned notes only after review fixes. Clean phase: no
+      remaining blocker/critical/major on residual check.
     reviewGate:
       status: passed
       mode: both
@@ -246,7 +246,8 @@ phases:
             verifiedCommit: 12be5098877a1a22ac9f0307d40fcf246d5cc64e
             passed: true
             exitCode: 0
-            outputSummary: "node --test tests/find-missing-architecture.test.js 15 pass / 0 fail"
+            outputSummary: node --test tests/find-missing-architecture.test.js 15 pass / 0
+              fail
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
@@ -282,7 +283,8 @@ phases:
       at: 12be5098877a1a22ac9f0307d40fcf246d5cc64e
     lessonsState: none
     noneReason: >
-      F1 chosen-sketch and phrase-matching findings were fixed. Residual notes only.
+      F1 chosen-sketch and phrase-matching findings were fixed. Residual notes
+      only.
     reviewGate:
       status: passed
       mode: both
@@ -290,7 +292,7 @@ phases:
       reviewFile: .atomic-skills/reviews/2026-09-25-real-automate-F1-local.md
       localReceiptPath: .atomic-skills/reviews/2026-09-25-real-automate-F1-local.md
       codexReceiptPath: .atomic-skills/reviews/2026-09-25-real-automate-F1-codex-stderr.md
-      overrideReason: >
+      overrideReason: |
         Codex exec HTTP 401 Unauthorized; stderr stored as the external receipt.
       verifiedAt: 2026-09-25T23:10:00.000Z
     decisionReview:
@@ -328,33 +330,59 @@ phases:
             verifiedCommit: 48b943e3a6b788f0dfb151067083e0625c27e8ea
             passed: true
             exitCode: 0
-            outputSummary: "node --test tests/find-missing-ui.test.js: ℹ tests 28 ℹ pass 28 ℹ fail 0"
+            outputSummary: "node --test tests/find-missing-ui.test.js: ℹ tests 28 ℹ pass 28
+              ℹ fail 0"
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
     status: done
     businessIntent:
-      value: |
-        O detector de tela existe e recusa planos sem carimbo de protótipo de UI.
-        Planos sem superfície visível registram explicitamente "sem tela" com justificativa,
-        e tasks que tocam UI (Vue, sheet, viewer, editor) são impedidas de usar "sem tela".
+      value: >
+        O detector de tela existe e recusa planos sem carimbo de protótipo de
+        UI.
+
+        Planos sem superfície visível registram explicitamente "sem tela" com
+        justificativa,
+
+        e tasks que tocam UI (Vue, sheet, viewer, editor) são impedidas de usar
+        "sem tela".
+
         O carimbo da tela vincula o sha do cartão de arquitetura.
-      workflow: |
+      workflow: >
         O plano guarda ui/ui.json listando telas com path do protótipo e sha,
-        ou { "none": true, "reason": "..." }. scripts/find-missing-ui.js lê esse arquivo,
-        valida a ausência de toque em UI quando none: true, confere consistência com o
-        sha do cartão (architecture/decisions.json) e sai 0 apenas com carimbo íntegro.
-        automate-run.js passa a executar esse detector em vez de apenas verificar existsSync.
-      rules: |
+
+        ou { "none": true, "reason": "..." }. scripts/find-missing-ui.js lê esse
+        arquivo,
+
+        valida a ausência de toque em UI quando none: true, confere consistência
+        com o
+
+        sha do cartão (architecture/decisions.json) e sai 0 apenas com carimbo
+        íntegro.
+
+        automate-run.js passa a executar esse detector em vez de apenas
+        verificar existsSync.
+      rules: >
         exitGateType: ui-gate no plano não substitui o carimbo ui/ui.json.
-        "Sem tela" (none: true) é proibido se qualquer task do plano tocar Vue, sheet,
-        viewer ou editor. Sha divergente do cartão de arquitetura é recusado. Chat ok não carimba.
-      outOfScope: |
-        Spawn de writer, criação de worktree de writer, merge (F3), review-both e
-        fechamento de fase no loop automate (F4), página final (F5). Não altera o detector de arquitetura.
-      doneWhen: |
-        node --test tests/find-missing-ui.test.js passa (verde), node scripts/find-missing-ui.js
-        --strict em fixture vazio ou inconsistente sai 1, e automate-run.js invoca find-missing-ui.js
+
+        "Sem tela" (none: true) é proibido se qualquer task do plano tocar Vue,
+        sheet,
+
+        viewer ou editor. Sha divergente do cartão de arquitetura é recusado.
+        Chat ok não carimba.
+      outOfScope: >
+        Spawn de writer, criação de worktree de writer, merge (F3), review-both
+        e
+
+        fechamento de fase no loop automate (F4), página final (F5). Não altera
+        o detector de arquitetura.
+      doneWhen: >
+        node --test tests/find-missing-ui.test.js passa (verde), node
+        scripts/find-missing-ui.js
+
+        --strict em fixture vazio ou inconsistente sai 1, e automate-run.js
+        invoca find-missing-ui.js
+
         reportando o motivo do detector quando o carimbo falta.
     evaluationGate:
       status: passed
@@ -416,7 +444,8 @@ phases:
             verifiedCommit: c3fa0dcd5c0c2961b46f84842267de43c6abccc1
             passed: true
             exitCode: 0
-            outputSummary: "node --test tests/automate-run-writer.test.js: ℹ tests 22 ℹ pass 22 ℹ fail 0"
+            outputSummary: "node --test tests/automate-run-writer.test.js: ℹ tests 22 ℹ pass
+              22 ℹ fail 0"
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
@@ -427,22 +456,37 @@ phases:
         programa cria o worktree, grava pen.lock com dono, pid e writerWorktree,
         dispara um writer do CLI do host, integra no branch do plano, mata o
         writer se ainda viver e solta o lock.
-      workflow: |
-        scripts/automate-run.js, depois dos seis gates, cria o worktree do writer,
-        escreve .atomic-skills/status/automate/pen.lock, spawna claude ou codex ou
-        grok nesse worktree com lease, espera, faz merge no branch do plano, mata
-        o writer se o pid ainda viver, apaga o lock inclusive em falha. Não chama
+      workflow: >
+        scripts/automate-run.js, depois dos seis gates, cria o worktree do
+        writer,
+
+        escreve .atomic-skills/status/automate/pen.lock, spawna claude ou codex
+        ou
+
+        grok nesse worktree com lease, espera, faz merge no branch do plano,
+        mata
+
+        o writer se o pid ainda viver, apaga o lock inclusive em falha. Não
+        chama
+
         scripts/automate-phase-run.js. O teste do marco para depois do merge.
-      rules: |
-        A sessão do chat não é o writer. O shell da sessão fica negado. Quem roda
-        verifier é o programa. Lock de pid morto não bloqueia a sessão. Esta fase
-        não roda phase-done, review both, nem audit. A sessão não grava lastAssert.
+      rules: >
+        A sessão do chat não é o writer. O shell da sessão fica negado. Quem
+        roda
+
+        verifier é o programa. Lock de pid morto não bloqueia a sessão. Esta
+        fase
+
+        não roda phase-done, review both, nem audit. A sessão não grava
+        lastAssert.
       outOfScope: |
         Fechamento de fase, claim e src/automate-product-fence.js (F4). Página
         final (F5). Não materializa a fase seguinte. Não chama
         scripts/automate-phase-run.js.
-      doneWhen: |
-        Um teste de integração com host falso sai 0, o arquivo que o writer gravou
+      doneWhen: >
+        Um teste de integração com host falso sai 0, o arquivo que o writer
+        gravou
+
         está no branch do plano, e uma segunda fase não foi materializada.
     evaluationGate:
       status: passed
@@ -453,8 +497,8 @@ phases:
     lessonsState: none
     noneReason: >
       Post-fix1 evaluation notes only. Operator accepted remaining residual
-      (git-before-lease concurrent, EPERM-as-dead, phaseId path, branch -D
-      on failure, coordinator vs child pid) as outside the one-writer F3 slice.
+      (git-before-lease concurrent, EPERM-as-dead, phaseId path, branch -D on
+      failure, coordinator vs child pid) as outside the one-writer F3 slice.
     reviewGate:
       status: passed
       mode: both
@@ -520,7 +564,8 @@ phases:
             verifiedCommit: dba1f00353aa9d9d7fddc2e435bc90382deebfc3
             passed: true
             exitCode: 0
-            outputSummary: "node --test tests/phase-review-gate.test.js: ℹ tests 45 ℹ pass 45 ℹ fail 0"
+            outputSummary: "node --test tests/phase-review-gate.test.js: ℹ tests 45 ℹ pass
+              45 ℹ fail 0"
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
@@ -615,29 +660,53 @@ phases:
           description: |
             o teste HTTP do botão verde, o PR existe sem merge, e
             archive não roda nesse comando.
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: active
+          metAt: 2026-10-03T05:42:47.946Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-10-03T05:42:47.946Z
+            verifiedCommit: 247b580631708d383f8664881f92246165ec8506
+            passed: true
+            exitCode: 0
+            outputSummary: "Final HTTP verifier passed; actual PR #50 OPEN/unmerged, no
+              whole-plan archive."
+    status: done
     businessIntent:
-      value: |
+      value: >
         Um servidor no hábito de `serve-flow.js --up` mostra o que foi
-        carimbado, as frases `said` e `saw`, a tela ao lado do construído e o que
+
+        carimbado, as frases `said` e `saw`, a tela ao lado do construído e o
+        que
+
         ficou de fora. O botão grava `userValidatedAt` só com todo
+
         `deliveryAuditGate` em passed. Chat ok não grava. O programa entrega o
+
         branch, abre o PR e não faz merge. Archive fica depois do botão.
-      workflow: |
+      workflow: >
         Cada decisão do JSONL ganha `said` e `saw`. A vista final não abre
-        em `file://`. `scripts/serve-flow.js` continua o preview de `flow.html`. O
+
+        em `file://`. `scripts/serve-flow.js` continua o preview de `flow.html`.
+        O
+
         botão é o único escritor de `userValidatedAt`. `userValidationOk` recusa
+
         timestamp escrito na sessão. Travei, não avanço e mudança grande abrem a
+
         mesma origem. No fim do plano o loop de 3 reviews roda sobre o plano e
+
         depois sobre o `audit-delivery`.
-      rules: |
+      rules: >
         Chat ok não grava `userValidatedAt`. Timestamp escrito na sessão não
-        passa em `assert-automate-gate --gate finalize`. O botão só liga com todo
+
+        passa em `assert-automate-gate --gate finalize`. O botão só liga com
+        todo
+
         `deliveryAuditGate` passed. Archive não roda no comando que abre o PR.
+
         Onde `businessIntent` e o grafo discordam, vale o grafo.
       outOfScope: |
         Merge do PR. Fila, vários hosts e spawn adapter multi-máquina
@@ -648,8 +717,37 @@ phases:
         `node --test tests/final-page-http.test.js` mostra o botão verde
         só com todo `deliveryAuditGate` passed, o PR existe sem merge, e archive
         não roda nesse comando.
-references: []
-planActive: true
+    evaluationGate:
+      status: passed
+      verdict: pass
+      reportPath: .atomic-skills/reviews/eval-real-automate-F5.md
+      verifiedAt: 2026-10-03T05:42:47.946Z
+      at: 247b580631708d383f8664881f92246165ec8506
+    lessonsState: recorded
+    lessonsPath: .atomic-skills/projects/atomic-skills/real-automate/lessons/real-automate-f5-pagina-final.md
+    reviewGate:
+      status: passed
+      mode: both
+      at: 247b580631708d383f8664881f92246165ec8506
+      verifiedAt: 2026-10-03T05:42:47.946Z
+      reviewFile: .atomic-skills/reviews/2026-10-03-real-automate-F5-completion-review.json
+      localReceiptPath: .atomic-skills/reviews/2026-10-03-real-automate-plan-end-local.json
+      codexReceiptPath: .atomic-skills/reviews/2026-10-03-real-automate-F5-authority-tiny-grok.json
+    decisionReview:
+      status: passed
+      verifiedAt: 2026-10-03T05:42:47.946Z
+      packagePresentedAt: 2026-10-03T05:42:47.946Z
+      packagePath: .atomic-skills/reviews/2026-10-03-real-automate-F5-decision-package.md
+    deliveryAuditGate:
+      status: passed
+      reportPath: .atomic-skills/reviews/audit-delivery-real-automate-F5.md
+      verdict: PARTIAL
+      verifiedAt: 2026-10-03T05:42:47.946Z
+      at: 247b580631708d383f8664881f92246165ec8506
+references:
+  - kind: url
+    label: "PR #50"
+    path: https://github.com/henryavila/atomic-skills/pull/50
 planTitle: real-automate
 ---
 

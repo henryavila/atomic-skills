@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-09-25T03:20:00Z
+lastUpdated: 2026-10-03T05:45:12.743Z
 schemaVersion: "0.1"
-activePlans: 2
-activeInitiatives: 2
+activePlans: 1
+activeInitiatives: 3
 archivedCount: 26
 ---
 
@@ -21,13 +21,12 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
 | project-flow | active | F0 | plan/project-flow | 2026-08-13 | 0/3 |
-| real-automate | active | F5 | plan/real-automate | 2026-09-25 | 5/6 |
 
 ### real-automate — Initiatives
 
 | Slug | Status | Phase | nextAction |
 |------|--------|-------|-----------|
-| real-automate-f5-pagina-final | active | F5 | Evaluate completed F5 and verify its delivery gate. |
+| real-automate-f5-pagina-final | done | F5 | Validate the delivered plan on the final HTTP page. |
 
 ### project-flow — Initiatives
 
@@ -46,6 +45,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| real-automate | done | F5 | plan/real-automate | 2026-09-25 | 6/6 |
 | claude-cross-model-review | done | F5 | plan/claude-cross-model-review | 2026-07-17 | 6/6 |
 | product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
 | integrity-remediation | done | F6 | plan/integrity-remediation | 2026-07-10 | 7/7 |

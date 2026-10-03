@@ -264,3 +264,4 @@
 {"ts":"2026-10-03T04:53:50.416Z","event":"task-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F5","taskId":"T-001","weight":1,"weightBasis":"count"}
 {"ts":"2026-10-03T04:53:53.950Z","event":"task-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F5","taskId":"T-002","weight":1,"weightBasis":"count"}
 {"ts":"2026-10-03T04:53:57.293Z","event":"task-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F5","taskId":"T-003","weight":1,"weightBasis":"count"}
+{"ts":"2026-10-03T05:42:51.665Z","event":"phase-done","projectId":"atomic-skills","planSlug":"real-automate","phaseId":"F5","taskId":null,"weight":3,"weightBasis":"count"}

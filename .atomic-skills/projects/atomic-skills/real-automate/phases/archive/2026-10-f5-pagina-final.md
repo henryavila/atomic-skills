@@ -12,11 +12,11 @@ goal: um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado,
   `src/plan-end-review.js` hoje aceita qualquer timestamp ISO em
   `userValidatedAt`. O botão passa a ser o único escritor, e um timestamp
   escrito na sessão não passa em `assert-automate-gate --gate finalize`.
-status: active
+status: done
 branch: plan/real-automate
 started: 2026-10-02T19:56:45.000Z
-lastUpdated: 2026-10-03T05:19:15.622Z
-nextAction: Evaluate completed F5 and verify its delivery gate.
+lastUpdated: 2026-10-03T05:42:47.946Z
+nextAction: Validate the delivered plan on the final HTTP page.
 parentPlan: real-automate
 phaseId: F5
 businessIntent:
@@ -44,7 +44,7 @@ businessIntent:
     roda nesse comando."
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 3
 weightTotal: 3
@@ -52,12 +52,22 @@ exitGates:
   - id: G-1
     description: o teste HTTP do botão verde, o PR existe sem merge, e archive não
       roda nesse comando.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/final-page-http.test.js
       expectExitCode: 0
+    metAt: 2026-10-03T05:42:47.946Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-03T05:42:47.946Z
+      verifiedCommit: 247b580631708d383f8664881f92246165ec8506
+      passed: true
+      exitCode: 0
+      outputSummary: "Final HTTP verifier passed; actual PR #50 OPEN/unmerged, no
+        whole-plan archive."
     verifierLabel: "shell: node --test tests/final-page-http.test.js"
+    evidenceSummary: passed · 2026-10-03
 stack:
   - id: 1
     title: Página final
@@ -200,8 +210,6 @@ parked: []
 emerged: []
 startedCommit: 02e7693d0db704a75522c2df6442000c2ff15b57
 planTitle: real-automate
-planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -212,8 +220,13 @@ Lessons applied at start: L-F4-1 (cited graph path fail-closed on close), L-F4-2
 (writer fence includes related allow-fixtures), L-F2-1, L-F2-2.
 
 ## Session handoff
-- **Narrative:** T-003 closed only after merged-tree verifier passed.
-- **Decision log:** node --test tests/automate-run-stops.test.js: 49 tests, 49 pass, 0 fail. Claims, reachability, and product fence passed. No real user validation recorded.
-- **Single nextAction:** Evaluate completed F5 and verify its delivery gate.
-- **Verbatim state:** F5 source and review repairs are merged; code entrypoint remains scripts/automate-run.js.
-- **Uncommitted changes:** Operational review/claim metadata and earlier unrelated analytics remain outside this task checkpoint.
+- **Narrative:** F5 closed after actual merged verifiers, independent evaluation, both reviews and graph audit.
+- **Single nextAction:** Validate the delivered plan on the final HTTP page.
+- **Boundary:** PR #50 remains OPEN/draft; userValidatedAt absent; whole-plan archive waits actual HTTP validation and integration. Prior F4 accepted residuals remain explicit.
+
+## Self-review against code-quality gates
+- G1: independent source receipts and exact before/after commit diffs retained; metadata-only HEAD changes have explicit product equivalence.
+- G2: fixes describe observed failures and changed behavior.
+- G3: real HTTP stop GET/POST, initialized gitlink, hash-boundary collision and CRLF regressions were red before fixes and green afterward.
+- G4: fixtures include native provider transport samples, real git submodule add and real HTTP requests; no invented successful provider process.
+- G7: stop authority is a named policy shared by GET presentation and POST confirmation; no generic framework was added.
