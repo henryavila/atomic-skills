@@ -15,8 +15,8 @@ goal: um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado,
 status: active
 branch: plan/real-automate
 started: 2026-10-02T19:56:45.000Z
-lastUpdated: 2026-10-03T04:53:50.402Z
-nextAction: Verify and close T-002 from the merged F5 claims.
+lastUpdated: 2026-10-03T04:53:53.935Z
+nextAction: Verify and close T-003 from the merged F5 claims.
 parentPlan: real-automate
 phaseId: F5
 businessIntent:
@@ -42,11 +42,11 @@ businessIntent:
   doneWhen: "`node --test tests/final-page-http.test.js` mostra o botão verde só
     com todo `deliveryAuditGate` passed, o PR existe sem merge, e archive não
     roda nesse comando."
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 1
+weightDone: 2
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -109,8 +109,8 @@ tasks:
       aceitar um timestamp escrito na sessão, e `assert-automate-gate --gate
       finalize` recusa esse timestamp. Verifier: teste HTTP do botão desligado e
       ligado."
-    status: pending
-    lastUpdated: 2026-10-02T19:56:45.000Z
+    status: done
+    lastUpdated: 2026-10-03T04:53:53.935Z
     scopeBoundary:
       - Do not serve the final page as file://.
       - Do not let a session-written userValidatedAt pass finalize.
@@ -151,6 +151,15 @@ tasks:
     summary: Vista HTTP, botão só com audit passed, botão único escritor de
       userValidatedAt.
     weight: 1
+    closedAt: 2026-10-03T04:53:53.935Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-10-03T04:53:53.935Z
+      verifiedCommit: fe818580189bb5eef9b5f1c03504974b68a0eba8
+      passed: true
+      exitCode: 0
+      testsCollected: 18
+      outputSummary: "node --test tests/final-page-http.test.js: 18 tests, 18 pass, 0 fail"
   - id: T-003
     title: Paradas
     description: "Travei, não avanço e mudança grande abrem a mesma origem. A
@@ -194,8 +203,8 @@ Lessons applied at start: L-F4-1 (cited graph path fail-closed on close), L-F4-2
 (writer fence includes related allow-fixtures), L-F2-1, L-F2-2.
 
 ## Session handoff
-- **Narrative:** T-001 closed only after merged-tree verifier passed.
-- **Decision log:** node --test tests/final-page-reader.test.js: 6 tests, 6 pass, 0 fail. Claims, reachability, and product fence passed. No real user validation recorded.
-- **Single nextAction:** Verify and close T-002 from the merged F5 claims.
+- **Narrative:** T-002 closed only after merged-tree verifier passed.
+- **Decision log:** node --test tests/final-page-http.test.js: 18 tests, 18 pass, 0 fail. Claims, reachability, and product fence passed. No real user validation recorded.
+- **Single nextAction:** Verify and close T-003 from the merged F5 claims.
 - **Verbatim state:** F5 source and review repairs are merged; code entrypoint remains scripts/automate-run.js.
 - **Uncommitted changes:** Operational review/claim metadata and earlier unrelated analytics remain outside this task checkpoint.
