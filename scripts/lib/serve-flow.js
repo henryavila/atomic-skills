@@ -4,9 +4,9 @@
  */
 
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, statSync, writeFileSync, renameSync, readdirSync, realpathSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
-import { readFinalPlan, finalAuditsPassed, recordButtonValidation, validationSnapshot } from '../../src/plan-end-review.js';
+import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync, renameSync, readdirSync, realpathSync } from 'node:fs';
+import { createHmac, randomBytes } from 'node:crypto';
+import { readFinalPlan, finalAuditsPassed, validationKeyPath, validationSnapshot } from '../../src/plan-end-review.js';
 import { readPresentedDecisions } from '../../src/decision-log.js';
 import { basename, dirname, join, normalize, resolve, sep } from 'node:path';
 
@@ -182,4 +182,26 @@ function renderFinalPage(planPath,token) {
   const pr=runtime?.pr;
   const prLink=pr&&/^https?:\/\//.test(pr.url||'')?`<p><a href="${escapeHtml(pr.url)}">Review pull request</a> · ${escapeHtml(pr.state)}</p>`:'';
   return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(fm.title||fm.slug)} — Delivery</title><style>body{font:16px system-ui;max-width:1100px;margin:3rem auto;padding:1rem;color:#18222b}section{margin:2rem 0}pre{white-space:pre-wrap}article{padding:1rem;border-bottom:1px solid #ddd}.views{display:grid;grid-template-columns:1fr 1fr;gap:1rem}iframe{width:100%;height:400px;border:1px solid #ccc}button{padding:1rem;font:inherit}button:not(:disabled){background:#165a38;color:white}td,th{text-align:left;padding:.6rem;border-bottom:1px solid #ddd}@media(max-width:650px){.views{display:block}}</style><main><h1>${escapeHtml(fm.title||fm.slug)} delivery</h1>${prLink}<section><h2>Stamped architecture</h2>${architecture?`<p>Chosen: <strong>${escapeHtml(architecture.chosen)}</strong></p><p>${escapeHtml(chosen?.mix||'')}</p><p>Ratified: ${escapeHtml(architecture.ratifiedAt||'not recorded')}</p>`:'<p>No architecture card recorded here.</p>'}</section><section><h2>Prototype and delivered work</h2><div class="views"><article><h3>Prototype</h3>${screens.length?screens.map(screen=>frame(screen.path,screen.title||screen.path)).join(''):`<p>${escapeHtml(ui?.none?ui.reason||'No screen applies to this plan.':'No prototype screen is recorded.')}</p>`}</article><article><h3>Delivered</h3>${delivered}${urlLink}<table><thead><tr><th>Intent</th><th>Delivery</th><th>Evidence</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${escapeHtml(row.label||row.id||row.intentId)}</td><td>${escapeHtml(row.status)}</td><td>${escapeHtml(row.note||row.deliveredId||'')}</td></tr>`).join('')}</tbody></table></article></div></section><section><h2>Said and saw</h2>${decisions.map(d=>`<article><p><strong>Said:</strong> ${escapeHtml(d.said)}</p><p><strong>Saw:</strong> ${escapeHtml(d.saw)}</p></article>`).join('')||'<p>No presented decisions yet.</p>'}</section><section><h2>Left outside</h2><ul>${outside.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>${(runtime?.residualFindings||[]).map(f=>`<article><strong>${escapeHtml(f.severity||'Residual')}</strong>: ${escapeHtml(f.title||f.summary)}<p>${escapeHtml(f.body||f.note||'')}</p></article>`).join('')}</section><section><h2>Phase delivery audits</h2><ul>${(fm.phases||[]).map(p=>`<li>${escapeHtml(p.id)}: ${escapeHtml(p.deliveryAuditGate?.status||'waiting')}</li>`).join('')}</ul><p>${passed?'Review the prototype, delivery evidence, and remaining findings, then validate below.':'Waiting for every phase delivery audit to pass. Refresh this page after the audits complete.'}</p>${form('/api/validate','I validated the delivery',passed)}</section>${runtime?.pendingStop?`<section><h2>${escapeHtml(runtime.pendingStop.reason)}</h2><pre>${escapeHtml(JSON.stringify(runtime.pendingStop.findings,null,2))}</pre>${form('/api/stop-confirm','Confirm and resume',true)}</section>`:''}<section><h2>Ratified flow</h2><iframe title="Ratified flow preview" src="/flow.html" sandbox="allow-scripts"></iframe></section></main></html>`;
+}
+
+/** Called exclusively by the authenticated HTTP button route. */
+function recordButtonValidation(planPath, expectedSnapshot) {
+  if (!finalAuditsPassed(planPath)) throw new Error('phase delivery audits are not passed');
+  if(expectedSnapshot && expectedSnapshot!==validationSnapshot(planPath)) throw new Error('Presentation changed; refresh the final page');
+  validationSnapshot(planPath); // Fail before writing the timestamp if evidence is unavailable.
+  const keyPath = validationKeyPath(planPath);
+  mkdirSync(dirname(keyPath), {recursive:true, mode:0o700});
+  if (!existsSync(keyPath)) {try {writeFileSync(keyPath, randomBytes(32), {flag:'wx',mode:0o600});} catch(e) {if(e.code !== 'EEXIST') throw e;}}
+  const {text} = readFinalPlan(planPath);
+  const at = new Date().toISOString();
+  const without = text.replace(/^userValidatedAt:.*\r?\n/gm, '');
+  const updated = without.replace(/^---\r?\n/, `---\nuserValidatedAt: "${at}"\n`);
+  const temp = `${planPath}.button-${process.pid}`;
+  writeFileSync(temp, updated); renameSync(temp, planPath);
+  const proof = {at, planPath: realpathSync(planPath), snapshot: validationSnapshot(planPath), source:'http-button'};
+  const signature = createHmac('sha256',readFileSync(keyPath)).update(JSON.stringify(proof)).digest('hex');
+  const receiptPath = join(dirname(planPath), 'final-validation.json');
+  writeFileSync(`${receiptPath}.tmp`, JSON.stringify({proof, signature})+'\n');
+  renameSync(`${receiptPath}.tmp`, receiptPath);
+  return at;
 }

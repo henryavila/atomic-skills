@@ -1,10 +1,10 @@
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { serveFlowHtml } from '../scripts/lib/serve-flow.js';
 import { after, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-  recordButtonValidation,
   readUserValidationEvidence,
   planEndReviewOk,
   userValidationOk,
@@ -24,7 +24,13 @@ after(()=>{if(previousSigningHome===undefined) delete process.env.HOME;else proc
 const buttonDir=mkdtempSync(join(tmpdir(),'plan-end-button-'));
 const buttonPlan=join(buttonDir,'plan.md');
 writeFileSync(buttonPlan,'---\nslug: fixture\nphases:\n - id: F0\n   deliveryAuditGate:\n     status: passed\n---\n');
-const buttonAt=recordButtonValidation(buttonPlan);
+mkdirSync(join(buttonDir,'flow'));writeFileSync(join(buttonDir,'flow/flow.html'),'<html>Preview</html>');
+const buttonServer=await serveFlowHtml(join(buttonDir,'flow/flow.html'),{planPath:buttonPlan});
+const buttonOrigin=new URL(buttonServer.url).origin;
+const buttonPage=await fetch(buttonOrigin+'/final');const buttonToken=(await buttonPage.text()).match(/name="token" value="([^"]+)"/)[1];
+assert.equal((await fetch(buttonOrigin+'/api/validate',{method:'POST',headers:{origin:buttonOrigin,cookie:buttonPage.headers.get('set-cookie').split(';')[0]},body:new URLSearchParams({token:buttonToken})})).status,200);
+await buttonServer.close();
+const buttonAt=JSON.parse(readFileSync(join(buttonDir,'final-validation.json'),'utf8')).proof.at;
 const buttonEvidence=readUserValidationEvidence(buttonPlan);
 after(()=>rmSync(buttonDir,{recursive:true,force:true}));
 

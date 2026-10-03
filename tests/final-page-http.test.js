@@ -70,3 +70,9 @@ test('stale page cannot validate changed audit or prototype, and readable page s
  p=await page(s);assert.equal((await click(p)).status,200);assert.ok(gate.readUserValidationEvidence(f.plan));writeFileSync(join(dir,'ui/screen.html'),'<html>Changed prototype</html>');assert.equal(gate.readUserValidationEvidence(f.plan),null);
  }finally{await s.close();rmSync(f.root,{recursive:true,force:true});}
 });
+test('durable sidecar review supports final gate without rewriting ratified plan substance',async()=>{
+ const f=fixture();const dir=join(f.root,'projects/test/fixture');const receipt=gate.readFinalPlan(f.plan).fm.planEndReview;
+ writeFileSync(f.plan,readFileSync(f.plan,'utf8').replace(/planEndReview:\n[\s\S]*?\n---/,'---'));writeFileSync(join(dir,'automate-plan-end-review.json'),JSON.stringify(receipt));
+ const s=await serveFlowHtml(f.html,{planPath:f.plan});try{const p=await page(s);assert.equal((await click(p)).status,200);const r=spawnSync(process.execPath,['scripts/assert-automate-gate.js','--state-root',f.root,'--plan','fixture','--gate','finalize','--skip-cursor','--skip-last-assert'],{encoding:'utf8'});assert.equal(r.status,0,r.stdout+r.stderr);}finally{await s.close();rmSync(f.root,{recursive:true,force:true});}
+});
+test('pending audit with a not-yet-created report still renders a disabled final button',async()=>{const f=fixture();f.write(false);writeFileSync(f.plan,readFileSync(f.plan,'utf8').replace('reportPath: audit.md','reportPath: not-created.md'));const s=await serveFlowHtml(f.html,{planPath:f.plan});try{const p=await page(s);assert.match(p.text,/<button[^>]*disabled/);assert.equal((await click(p)).status,409);}finally{await s.close();rmSync(f.root,{recursive:true,force:true});}});

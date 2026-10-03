@@ -74,7 +74,7 @@ import {
   findPlansMissingGroundTruth,
   groundTruthGapMessage,
 } from './find-plans-missing-ground-truth.js';
-import { readUserValidationEvidence } from '../src/plan-end-review.js';
+import { readFinalPlan, readUserValidationEvidence } from '../src/plan-end-review.js';
 import { checkPlanFlow } from './find-missing-flow.js';
 
 
@@ -1152,7 +1152,8 @@ export function runAssert(args, env = {}) {
   // finalize — under automate: plan-end external-both + non-empty intentVsDelivered
   // (intent-vs-delivered) + operator userValidatedAt. userValidationOk stays
   // operator-owned (never auto-stamped by review).
-  const receipt = fm.planEndReview != null ? fm.planEndReview : null;
+  let receipt = fm.planEndReview != null ? fm.planEndReview : null;
+  if(receipt==null) {try{receipt=readFinalPlan(resolved.planFile).fm.planEndReview||null;}catch{/* Missing or corrupt sidecar stays blocked. */}}
   const userValidatedAt =
     fm.userValidatedAt != null ? String(fm.userValidatedAt) : null;
   const r = canFinalizeOrArchive({
