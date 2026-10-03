@@ -9,6 +9,7 @@ import {
   readUserValidationEvidence,
   validationSnapshot,
   productSnapshot,
+  withButtonValidationTimestamp,
   planEndReviewOk,
   userValidationOk,
   automatePlanEndGatesOk,
@@ -18,6 +19,24 @@ import {
   INTENT_VS_DELIVERED_STATUSES,
   isDurableAutomateActive,
 } from '../src/plan-end-review.js';
+
+it('snapshot framing distinguishes optional flow and decision evidence boundaries',()=>{
+ const root=mkdtempSync(join(tmpdir(),'plan-end-boundaries-'));const plan=join(root,'plan.md');
+ try {
+  writeFileSync(plan,'---\nslug: fixture\n---\n');mkdirSync(join(root,'flow'));mkdirSync(join(root,'decisions'));
+  const html=join(root,'flow/flow.html');const decision=join(root,'decisions/example.jsonl');
+  const body='<html>Ratified flow</html>';const row=JSON.stringify({said:'Original intent',saw:'Original evidence'})+'\n';
+  writeFileSync(html,body);writeFileSync(decision,row);
+  const before=validationSnapshot(plan,{reviewInputs:true});
+  writeFileSync(html,body+decision+row);rmSync(decision);
+  assert.notEqual(validationSnapshot(plan,{reviewInputs:true}),before);
+ } finally {rmSync(root,{recursive:true,force:true});}
+});
+
+it('last CRLF frontmatter timestamp retains one exact closing newline',()=>{
+ const at='2026-10-03T12:00:00.000Z';
+ assert.equal(withButtonValidationTimestamp('---\r\nuserValidatedAt: old\r\n---\r\nbody',at),`---\r\nuserValidatedAt: "${at}"\r\n---\r\nbody`);
+});
 
 it('initialized gitlinks bind clean commit identity and fail closed on every dirty submodule edit', () => {
  const tmp=mkdtempSync(join(tmpdir(),'plan-end-submodule-'));const root=join(tmp,'repo');const source=join(tmp,'module');

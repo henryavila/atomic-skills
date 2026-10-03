@@ -433,24 +433,27 @@ export function validationSnapshot(planPath, options = {}) {
   }
   const body = text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '');
   const planInput = JSON.stringify(fields) + body;
-  const hash = createHash('sha256').update(JSON.stringify(productSnapshot(planPath))).update(planInput);
+  const hash = createHash('sha256').update(JSON.stringify([productSnapshot(planPath),planInput]));
+  // Frame both identity and byte length: one file cannot absorb a following
+  // optional file's path and bytes while retaining reviewed authority.
+  const addEvidence=(file,bytes,kind='file')=>hash.update(JSON.stringify([kind,file,bytes.length])).update('\0').update(bytes);
   const planDir = realpathSync(dirname(planPath));
   const marker = `${sep}.atomic-skills${sep}`;
   const root = planDir.includes(marker) ? planDir.slice(0, planDir.indexOf(marker)) : planDir;
   for (const p of fm.phases || []) {
     for (const rel of [p.initiativePath || p.initiative, p.deliveryAuditGate?.reportPath].filter(Boolean)) {
       const cited=resolve(String(rel).startsWith('.atomic-skills/') ? root : planDir, String(rel));
-      if(p.deliveryAuditGate?.status!=='passed' && !existsSync(cited)) {hash.update(`pending:${cited}`);continue;}
+      if(p.deliveryAuditGate?.status!=='passed' && !existsSync(cited)) {addEvidence(cited,Buffer.alloc(0),'pending');continue;}
       const file = realpathSync(cited);
       if (!file.startsWith(root + sep)) throw new Error('delivery path escapes plan');
       const bytes = readFileSync(file);
       if (!bytes.length || bytes.length > 2_000_000) throw new Error('empty or oversized delivery evidence');
-      hash.update(file).update(bytes);
+      addEvidence(file,bytes);
     }
   }
   const addFile=(file)=>{
     const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('presentation path escapes root');
-    const bytes=readFileSync(actual);if(bytes.length>2_000_000) throw new Error('presentation exceeds size cap');hash.update(actual).update(bytes);
+    const bytes=readFileSync(actual);if(bytes.length>2_000_000) throw new Error('presentation exceeds size cap');addEvidence(actual,bytes);
   };
   for(const rel of ['architecture/decisions.json','ui/ui.json','flow/flow.json','flow/flow.html',...(options.reviewInputs?[]:['automate-run-state.json','automate-plan-end-review.json'])]) {const file=join(planDir,rel);if(existsSync(file)) addFile(file);}
   const decisions=join(planDir,'decisions');
@@ -524,11 +527,11 @@ export function isOwnedOperationalPath(planPath, filePath, repoRoot) {
 export function withButtonValidationTimestamp(text, at) {
   const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!match) throw new Error('invalid plan frontmatter');
-  const yamlText = match[1] + '\n';
+  const newline = text.startsWith('---\r\n') ? '\r\n' : '\n';
+  const yamlText = match[1] + newline;
   const doc = parseDocument(yamlText);
   if (doc.errors.length || !Array.isArray(doc.contents?.items)) throw new Error('invalid plan frontmatter');
   const pair = doc.contents.items.find(item => item.key?.value === 'userValidatedAt');
-  const newline = text.startsWith('---\r\n') ? '\r\n' : '\n';
   let updatedYaml = yamlText;
   if (pair) {
     const start = pair.key.range[0];
@@ -536,7 +539,7 @@ export function withButtonValidationTimestamp(text, at) {
     updatedYaml = yamlText.slice(0, start) + `userValidatedAt: ${JSON.stringify(at)}${newline}` + yamlText.slice(end);
   } else updatedYaml = `userValidatedAt: ${JSON.stringify(at)}${newline}` + yamlText;
   const prefixLength = text.indexOf('\n') + 1;
-  return text.slice(0, prefixLength) + updatedYaml.slice(0, -1)
+  return text.slice(0, prefixLength) + updatedYaml.slice(0, -newline.length)
     + text.slice(prefixLength + match[1].length);
 }
 
