@@ -288,18 +288,23 @@ phase turns green.
    (optionally pass `automateActive: true` to force). **If not durable → continue to
    Step 2.** Never use session-only `isAutomateActive({ clearExecutionMode: true })` to
    skip this step while the stamp remains.
-2. Load the durable plan-end receipt from plan frontmatter `planEndReview` when
-   present (schema: `meta/schemas/plan.schema.json`). If absent, treat receipt as
-   missing (`planEndReviewOk` → false) unless the operator is about to run the
-   review in this step.
-3. Load `userValidatedAt` from plan frontmatter (ISO-8601). Optional
-   `validatorId` is audit-only and does **not** alone satisfy the gate.
+2. Load the plan with `readFinalPlan(planPath)` from `src/plan-end-review.js`.
+   It loads the program-owned `automate-plan-end-review.json` beside the plan,
+   including when a legacy inline `planEndReview` exists. Require
+   `planEndReviewCurrent(planPath)` so the receipt describes the current delivery.
+3. Load `readUserValidationEvidence(planPath)` with `userValidatedAt`. The loader
+   authenticates the HTTP button proof and its current presentation snapshot.
+   A timestamp written by the session cannot satisfy the gate.
 
 ### 1.7.2 — Run plan-end `external-both` (mandatory under durable automate)
 
 **Before any push or PR create**, ensure a plan-end review exists.
 Under `executionMode: automate`, this path is **mandatory** — skip is HARD-CLOSED
 by `planEndReviewOk(receipt, { forbidSkip: true })` / `automatePlanEndGatesOk`.
+
+Under automate, resume `implement --automate` to run the whole-plan review and
+flow delivery audit and produce the bound sidecar; do not handwrite a receipt.
+The manual receipt procedure below applies outside automate.
 
 1. **Range:** plan integration range — `baseRef...plan/<slug>` (or
    `integrationRef`/`develop`…HEAD as resolved in Step 1). Same range used for the
@@ -360,18 +365,18 @@ both CLIs are unavailable, or the operator accepts residual risk:
 
 ### 1.7.4 — User validation (`userValidationOk`)
 
-After plan-end review (or recorded skip), the operator must validate the
-implementation and the durable decisions log (phase writer / evaluation /
-routing dispositions):
+After the current whole-plan review and delivery audit, open the HTTP final
+page on the `serve-flow.js --up <flow.html> --plan <plan.md>` origin. The operator
+compares the prototype, delivery, decisions log, and remaining findings, then
+clicks **I validated the delivery**. The button stays disabled until every phase
+delivery audit passes and the plan-end receipt matches the current inputs.
 
-1. Present a short audit surface: last-phase decisions log, plan-end receipt
-   summary (per-leg statuses or skip reason), open residual risks.
-2. On explicit operator accept, stamp plan frontmatter
-   `userValidatedAt: <ISO-8601 now>` (schema field). Optional free-form
-   validator id may be noted in handoff / review prose — it is **not** a schema
-   substitute for the timestamp.
-3. `userValidationOk({ automateActive: true, userValidatedAt })` requires a
-   non-empty ISO-8601-ish timestamp. Missing/empty/`ok`/`yes` ⇒ gate false.
+Only this authenticated button writes `userValidatedAt` and `final-validation.json`.
+Never stamp the field after chat acceptance. `userValidationOk` requires the
+object returned by `readUserValidationEvidence(planPath)`; copied timestamps or
+proof files cannot authorize finalize. Changed delivered bytes require renewed
+reviews and validation. The documented PR tracking reference and lifecycle status
+updates preserve this proof.
 
 ### 1.7.5 — Machine HARD-BLOCK (single definition)
 
@@ -379,17 +384,21 @@ Call the pure helpers — do **not** re-derive the predicate in prose:
 
 ```js
 import {
-  planEndReviewOk,
-  userValidationOk,
+  readFinalPlan,
+  readUserValidationEvidence,
+  planEndReviewCurrent,
   automatePlanEndGatesOk,
 } from 'src/plan-end-review.js';
 
+const {fm: plan} = readFinalPlan(planPath);
+const reviewCurrent = planEndReviewCurrent(planPath);
 const gates = automatePlanEndGatesOk({
   planExecutionMode: plan.executionMode, // stamp-first durable (H1)
   receipt: plan.planEndReview,           // or null if missing
   userValidatedAt: plan.userValidatedAt,
+  userValidationEvidence: readUserValidationEvidence(planPath),
 });
-// gates.ok === false ⇒ HARD-BLOCK finalize (and archive — see project-transitions.md)
+// !reviewCurrent || gates.ok === false ⇒ HARD-BLOCK finalize (and archive — see project-transitions.md)
 // Prefer canFinalizeOrArchive from src/automate-orchestrator-gates.js (same predicate).
 ```
 
@@ -405,7 +414,7 @@ Exit **0** / `ok` only when `canFinalizeOrArchive` / `automatePlanEndGatesOk` is
 | Condition | Result |
 |---|---|
 | `planEndReviewOk` false (missing receipt, all legs failed/skipped, skip under automate, or skip without reason outside automate) | **HARD-BLOCK** finalize — under automate only offer re-run `external-both` (never skip); outside automate may offer `--skip-plan-end-review <reason>` |
-| `userValidationOk` false under automate | **HARD-BLOCK** finalize — prompt operator validation; stamp `userValidatedAt` only after explicit accept |
+| `userValidationOk` false under automate | **HARD-BLOCK** finalize — open the HTTP final page for button validation |
 | both true | proceed to Step 2 (diff + proposed PR halt) |
 
 **Invariant:** finalize under automate never creates a PR while `automatePlanEndGatesOk`
@@ -500,5 +509,5 @@ merges and never archives.
   `planEndReviewOk` (`mode: external-both` receipt; legs codex|grok|claude;
   under `.atomic-skills/reviews/` linked from `## Reviews`, or
   `--skip-plan-end-review` with non-empty reason) **and** `userValidationOk`
-  (`userValidatedAt` ISO stamp). Session clear without unstamp does **not**
+  (authenticated HTTP-button evidence bound to the current delivery). Session clear without unstamp does **not**
   skip the gate. Non-automate plans are unchanged. Never auto-merge.
