@@ -6,7 +6,7 @@
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync, renameSync, readdirSync, realpathSync } from 'node:fs';
 import { createHmac, randomBytes } from 'node:crypto';
-import { readFinalPlan, finalAuditsPassed, planEndReviewCurrent, validationKeyPath, validationSnapshot, productSnapshot } from '../../src/plan-end-review.js';
+import { readFinalPlan, finalAuditsPassed, planEndReviewCurrent, validationKeyPath, validationSnapshot, productSnapshot, withButtonValidationTimestamp } from '../../src/plan-end-review.js';
 import { readPresentedDecisions } from '../../src/decision-log.js';
 import { basename, dirname, join, normalize, resolve, sep } from 'node:path';
 
@@ -199,8 +199,7 @@ function recordButtonValidation(planPath, expectedSnapshot) {
   if (!existsSync(keyPath)) {try {writeFileSync(keyPath, randomBytes(32), {flag:'wx',mode:0o600});} catch(e) {if(e.code !== 'EEXIST') throw e;}}
   const {text} = readFinalPlan(planPath);
   const at = new Date().toISOString();
-  const without = text.replace(/^userValidatedAt:.*\r?\n/gm, '');
-  const updated = without.replace(/^---\r?\n/, `---\nuserValidatedAt: "${at}"\n`);
+  const updated = withButtonValidationTimestamp(text, at);
   const temp = `${planPath}.button-${process.pid}`;
   writeFileSync(temp, updated); renameSync(temp, planPath);
   const proof = {at, planPath: realpathSync(planPath), snapshot: validationSnapshot(planPath), source:'http-button'};

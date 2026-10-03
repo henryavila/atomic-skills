@@ -54,7 +54,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
-import { parse as parseYaml } from 'yaml';
+import { parse as parseYaml, parseDocument } from 'yaml';
 import { EXTERNAL_PROVIDER_ORDER } from './cross-model-host-default.js';
 import { INTENT_VS_DELIVERED_STATUSES } from './plan-end-intent-surface.js';
 
@@ -407,7 +407,9 @@ export function readFinalPlan(planPath) {
   const fm = parseYaml(match[1]);
   if (!fm || typeof fm !== 'object') throw new Error('invalid plan');
   const sidecar=join(dirname(planPath),'automate-plan-end-review.json');
-  if(fm.planEndReview==null && existsSync(sidecar)) fm.planEndReview=JSON.parse(readFileSync(sidecar,'utf8'));
+  // The runner owns this sidecar. A stale or malformed sidecar must fail closed,
+  // never fall back to a legacy inline receipt after a new review has run.
+  if (existsSync(sidecar)) fm.planEndReview = JSON.parse(readFileSync(sidecar, 'utf8'));
   return { text, fm };
 }
 export function finalAuditsPassed(planPath) {
@@ -418,15 +420,19 @@ export function finalAuditsPassed(planPath) {
 }
 export function validationSnapshot(planPath, options = {}) {
   const {text, fm} = readFinalPlan(planPath);
-  // Review outputs cannot be part of their own input identity. Normalize just
-  // the frontmatter so inline and sidecar receipts describe the same inputs.
-  let planInput = text.replace(/^userValidatedAt:.*\r?\n/gm, '');
-  if (options.reviewInputs) {
-    const fields = {...fm};
-    delete fields.userValidatedAt;
-    delete fields.planEndReview;
-    planInput = JSON.stringify(fields) + text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '');
+  // Hash parsed metadata so timestamp syntax and YAML formatting do not affect
+  // identity. Lifecycle bookkeeping cannot change the delivered artifact.
+  const fields = {...fm};
+  delete fields.userValidatedAt;
+  delete fields.status;
+  delete fields.lastUpdated;
+  if (options.reviewInputs) delete fields.planEndReview;
+  if (Array.isArray(fields.references)) {
+    fields.references = fields.references.filter(ref => !isLifecyclePrReference(ref));
+    if (!fields.references.length) delete fields.references;
   }
+  const body = text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '');
+  const planInput = JSON.stringify(fields) + body;
   const hash = createHash('sha256').update(JSON.stringify(productSnapshot(planPath))).update(planInput);
   const planDir = realpathSync(dirname(planPath));
   const marker = `${sep}.atomic-skills${sep}`;
@@ -483,6 +489,57 @@ export function planEndReviewCurrent(planPath) {
 }
 
 
+/** The documented PR pointer is lifecycle bookkeeping, not delivered evidence. */
+function isLifecyclePrReference(ref) {
+  if (!ref || ref.kind !== 'url') return false;
+  const number = /^PR #([1-9]\d*)$/.exec(ref.label || '')?.[1];
+  if (!number) return false;
+  try {
+    const url = new URL(ref.path);
+    return url.protocol === 'https:' && url.pathname.endsWith(`/pull/${number}`)
+      && !url.search && !url.hash;
+  } catch {return false;}
+}
+
+/** Exact files owned by this plan's runner, shared with publication dirty checks. */
+export function isOwnedOperationalPath(planPath, filePath, repoRoot) {
+  const file = resolve(filePath);
+  const stateRoot = resolve(repoRoot, '.atomic-skills');
+  if (file === stateRoot || file.startsWith(stateRoot + sep) || file === resolve(planPath)) return true;
+  const names = [
+    'automate-run-state.json', 'automate-plan-end-review.json', 'final-validation.json',
+    'automate-pr-body.txt', 'automate-review-output.schema.json', 'decisions/operator-stops.jsonl',
+  ];
+  for (const stage of ['plan', 'audit']) {
+    names.push(`automate-${stage}-review-prompt.txt`);
+    for (let round = 1; round <= 3; round++) {
+      names.push(`automate-${stage}-review-${round}.json`, `automate-${stage}-fix-${round}-prompt.txt`);
+    }
+  }
+  return names.some(name => file === resolve(dirname(planPath), name)
+    || file === resolve(dirname(planPath), name + '.tmp'));
+}
+
+/** Replace only this YAML field, retaining unrelated metadata and body bytes. */
+export function withButtonValidationTimestamp(text, at) {
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) throw new Error('invalid plan frontmatter');
+  const yamlText = match[1] + '\n';
+  const doc = parseDocument(yamlText);
+  if (doc.errors.length || !Array.isArray(doc.contents?.items)) throw new Error('invalid plan frontmatter');
+  const pair = doc.contents.items.find(item => item.key?.value === 'userValidatedAt');
+  const newline = text.startsWith('---\r\n') ? '\r\n' : '\n';
+  let updatedYaml = yamlText;
+  if (pair) {
+    const start = pair.key.range[0];
+    const end = pair.value?.range?.[2] ?? yamlText.indexOf('\n', start) + 1;
+    updatedYaml = yamlText.slice(0, start) + `userValidatedAt: ${JSON.stringify(at)}${newline}` + yamlText.slice(end);
+  } else updatedYaml = `userValidatedAt: ${JSON.stringify(at)}${newline}` + yamlText;
+  const prefixLength = text.indexOf('\n') + 1;
+  return text.slice(0, prefixLength) + updatedYaml.slice(0, -1)
+    + text.slice(prefixLength + match[1].length);
+}
+
 /** Current tracked product bytes, excluding operational plan/runtime files. */
 export function productSnapshot(planPath) {
   const repo=spawnSync('git',['rev-parse','--show-toplevel'],{cwd:dirname(planPath),encoding:'utf8',timeout:10000});
@@ -493,7 +550,7 @@ export function productSnapshot(planPath) {
   const hash=createHash('sha256');
   for(const relative of result.stdout.split('\0').filter(Boolean).sort()) {
     const file=resolve(root,relative);
-    if(relative.startsWith('.atomic-skills/') || file===resolve(planPath) || /^(?:automate-|final-validation)/.test(relative)) continue;
+    if(isOwnedOperationalPath(planPath, file, root)) continue;
     hash.update(relative).update('\0');
     if(!existsSync(file)) {hash.update('deleted');continue;}
     const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('Tracked product path escapes repository');

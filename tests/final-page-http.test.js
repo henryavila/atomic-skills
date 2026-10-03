@@ -144,3 +144,92 @@ test('schema-valid references show an admitted delivered HTML screen and HTTP ap
  const fm={schemaVersion:'0.1',slug:'fixture',title:'Fixture',version:'1.0',status:'active',started:'2026-10-02T12:00:00Z',lastUpdated:'2026-10-02T12:00:00Z',currentPhase:'F0',parallelismAllowed:false,phases:[{id:'F0',slug:'fixture-f0',title:'Delivery',goal:'Show delivery',dependsOn:[],subPhaseCount:0,exitGate:{summary:'Delivery shown',criteria:[]},status:'pending'}],references:[{kind:'file',path:'built.html',label:'Delivered screen'},{kind:'url',path:'https://app.test/',label:'Delivered application'}]};
  const validate=new Ajv({strict:false}).addSchema(common).compile(schema);assert.equal(validate(fm),true,JSON.stringify(validate.errors));writeFileSync(f.plan,'---\n'+stringify(fm)+'---\n');const s=await serveFlowHtml(f.html,{planPath:f.plan});try{const p=await page(s);assert.match(p.text,/\/final-assets\/built.html/);assert.match(p.text,/href="https:\/\/app.test\/"/);assert.match(await(await fetch(p.origin+'/final-assets/built.html')).text(),/Built application/);}finally{await s.close();rmSync(f.root,{recursive:true,force:true});}
 });
+
+
+test('genuine validation survives documented PR tracking and archive metadata but rejects delivered references', async () => {
+ const f = fixture();
+ const server = await serveFlowHtml(f.html, {planPath:f.plan});
+ try {
+  assert.equal((await click(await page(server))).status, 200);
+  const before = gate.validationSnapshot(f.plan, {reviewInputs:true});
+  const {stringify} = await import('yaml');
+  const update = mutation => {
+   const {text, fm} = gate.readFinalPlan(f.plan);
+   mutation(fm);
+   writeFileSync(f.plan, '---\n' + stringify(fm) + '---\n' + text.replace(/^---\n[\s\S]*?\n---\n/, ''));
+  };
+  update(fm => {
+   fm.references = [{kind:'url',path:'https://github.com/example/repo/pull/42',label:'PR #42'}];
+   fm.status = 'archived';
+   fm.lastUpdated = '2026-10-03T12:00:00Z';
+  });
+  assert.equal(gate.validationSnapshot(f.plan, {reviewInputs:true}), before);
+  assert.equal(gate.planEndReviewCurrent(f.plan), true);
+  assert.ok(gate.readUserValidationEvidence(f.plan));
+  const result = spawnSync(process.execPath, ['scripts/assert-automate-gate.js', '--state-root',f.root,
+   '--plan','fixture','--gate','finalize','--skip-cursor','--skip-last-assert'], {encoding:'utf8'});
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  update(fm => fm.references.push({kind:'url',path:'https://app.test/new',label:'Delivered application'}));
+  assert.equal(gate.planEndReviewCurrent(f.plan), false);
+  assert.equal(gate.readUserValidationEvidence(f.plan), null);
+ } finally {await server.close();rmSync(f.root,{recursive:true,force:true});}
+});
+
+for (const field of ['"userValidatedAt": "2026-10-02T12:00:00Z"', 'userValidatedAt: |-\n  2026-10-02T12:00:00Z']) {
+ test(`button replaces ${field.split(':')[0]} structurally and preserves body examples`, async () => {
+  const f = fixture();
+  const body = '\n```yaml\nuserValidatedAt: body-example\n```\n';
+  writeFileSync(f.plan, readFileSync(f.plan,'utf8').replace('slug: fixture',field + '\nslug: fixture') + body);
+  bindReview(f.plan);
+  const server = await serveFlowHtml(f.html, {planPath:f.plan});
+  try {
+   const response = await click(await page(server));
+   assert.equal(response.status, 200, await response.text());
+   const {fm,text} = gate.readFinalPlan(f.plan);
+   assert.match(fm.userValidatedAt, /^\d{4}-\d{2}-\d{2}T/);
+   assert.ok(text.endsWith(body));
+   assert.equal(gate.planEndReviewCurrent(f.plan), true);
+   assert.ok(gate.readUserValidationEvidence(f.plan));
+  } finally {await server.close();rmSync(f.root,{recursive:true,force:true});}
+ });
+}
+
+test('nested tracked owned artifacts do not invalidate their own proof and automate-prefixed source is hashed', async () => {
+ const f = fixture();
+ const dir = join(f.root,'projects/test/fixture');
+ const receipt = gate.readFinalPlan(f.plan).fm.planEndReview;
+ spawnSync('git',['init'],{cwd:f.root});
+ for (const name of ['automate-plan-end-review.json','automate-run-state.json','final-validation.json']) {
+  writeFileSync(join(dir,name),'{}');
+  spawnSync('git',['add',join('projects/test/fixture',name)],{cwd:f.root});
+ }
+ writeFileSync(join(f.root,'automate-feature.js'),'export const version=1;\n');
+ spawnSync('git',['add','automate-feature.js'],{cwd:f.root});
+ receipt.reviewInputSnapshot = gate.validationSnapshot(f.plan,{reviewInputs:true});
+ writeFileSync(join(dir,'automate-plan-end-review.json'),JSON.stringify(receipt));
+ const server = await serveFlowHtml(f.html,{planPath:f.plan});
+ try {
+  assert.equal((await click(await page(server))).status,200);
+  assert.ok(gate.readUserValidationEvidence(f.plan));
+  writeFileSync(join(f.root,'automate-feature.js'),'export const version=2;\n');
+  assert.equal(gate.planEndReviewCurrent(f.plan),false);
+  assert.equal(gate.readUserValidationEvidence(f.plan),null);
+ } finally {await server.close();rmSync(f.root,{recursive:true,force:true});}
+});
+
+test('current program sidecar recovers a legacy stale inline receipt for genuine HTTP validation', async () => {
+ const f = fixture();
+ const receipt = {...gate.readFinalPlan(f.plan).fm.planEndReview};
+ writeFileSync(f.plan,readFileSync(f.plan,'utf8').replace(/  reviewInputSnapshot:.*\n/,'  reviewInputSnapshot: stale-inline\n'));
+ receipt.reviewInputSnapshot = gate.validationSnapshot(f.plan,{reviewInputs:true});
+ writeFileSync(join(f.root,'projects/test/fixture/automate-plan-end-review.json'),JSON.stringify(receipt));
+ const server = await serveFlowHtml(f.html,{planPath:f.plan});
+ try {
+  assert.equal((await click(await page(server))).status,200);
+  assert.equal(gate.readFinalPlan(f.plan).fm.planEndReview.reviewInputSnapshot,receipt.reviewInputSnapshot);
+  assert.ok(gate.readUserValidationEvidence(f.plan));
+  receipt.reviewInputSnapshot = 'stale-sidecar';
+  writeFileSync(join(f.root,'projects/test/fixture/automate-plan-end-review.json'),JSON.stringify(receipt));
+  assert.equal(gate.planEndReviewCurrent(f.plan),false);
+ } finally {await server.close();rmSync(f.root,{recursive:true,force:true});}
+});

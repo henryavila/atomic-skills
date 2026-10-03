@@ -210,6 +210,9 @@ function initRepo(repo) {
   git(repo, ['config', 'user.name', 'writer-test']);
   git(repo, ['config', 'commit.gpgsign', 'false']);
   git(repo, ['add', '-A']);
+  // The production fixture switches HOME, so global ignores must not decide
+  // whether its required host hook is part of the committed test repository.
+  git(repo, ['add', '--force', '.codex/hooks.json']);
   git(repo, ['commit', '-m', 'fixture']);
 }
 
@@ -664,7 +667,7 @@ describe('automate-run writer (T-003 merge and stop)', () => {
 
 describe('automate-run production plan-end command', () => {
   it('runs real subprocess reviews, pushes the branch, opens an unmerged PR and serves the final view', async () => {
-    const h=buildHarness();const remote=join(h.side,'remote.git');const gh=join(h.side,'gh');const ghLog=join(h.side,'gh-log');let html;
+    const h=buildHarness();const remote=join(h.side,'remote.git');const gh=join(h.side,'gh');const ghLog=join(h.side,'gh-log');let html=join(h.repo,'flow/flow.html');
     try {
       git(h.repo,['init','--bare',remote]);git(h.repo,['remote','add','origin',remote]);
       const plan=join(h.repo,'plan.md');writeFileSync(plan,readFileSync(plan,'utf8').replace('status: active\n','status: active\nexecutionMode: automate\nreviewExternalCli: grok\nphases:\n  - id: F0\n    status: done\n    deliveryAuditGate:\n      status: passed\n      verdict: CLOSED\n      reportPath: audit.md\n'));
@@ -675,7 +678,7 @@ describe('automate-run production plan-end command', () => {
       writeFileSync(gh,`#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${ghLog}'\nif [[ "$2" == "view" ]]; then exit 1; fi\nprintf 'https://github.test/pr/42\\n'\n`);chmodSync(gh,0o755);
       const host=join(h.side,'host');writeFileSync(host,`#!/usr/bin/env bash\nif [[ "\${1:-}" == "exec" ]]; then cat >/dev/null; printf '%s\\n' '${clean}'; else printf 'from-writer\\n' > writer-output.txt; fi\n`);chmodSync(host,0o755);
       const result=runAutomate(h,{AUTOMATE_STOP_AFTER_MERGE:'0',AUTOMATE_REVIEW_EXTERNAL_CLI:'grok',AUTOMATE_REVIEW_BIN:reviewer,AUTOMATE_GITHUB_BIN:gh,AUTOMATE_PR_BASE:'main',HOME:h.side},['--host-bin',host]);
-      assert.equal(result.status,0,result.stdout+result.stderr);
+      assert.equal(result.status,0,result.stdout+result.stderr+'\n'+(existsSync(join(h.repo,'automate-run-state.json'))?readFileSync(join(h.repo,'automate-run-state.json'),'utf8'):''));
       const outcome=JSON.parse(result.stdout.trim().split('\n').at(-1));assert.equal(outcome.action,'pr-open');assert.equal(outcome.pr.state,'OPEN');assert.match(outcome.url,/^http:\/\//);
       const response=await fetch(outcome.url);assert.equal(response.status,200);assert.match(await response.text(),/I validated the delivery/);
       const commands=readFileSync(ghLog,'utf8');assert.match(commands,/pr create --base main --head plan\/fixture/);assert.doesNotMatch(commands,/merge|archive/);

@@ -47,7 +47,7 @@ import {
   runPhaseReviewLoop,
   upsertPlanReviewExternalCli,
 } from '../src/phase-review-gate.js';
-import { readFinalPlan, finalAuditsPassed, validationSnapshot, productSnapshot } from '../src/plan-end-review.js';
+import { readFinalPlan, finalAuditsPassed, validationSnapshot, productSnapshot, isOwnedOperationalPath, intentVsDeliveredOk } from '../src/plan-end-review.js';
 import { deliveryAuditGraphCoverage } from '../src/phase-delivery-audit-gate.js';
 import { phaseCloseFenceOk } from '../src/automate-product-fence.js';
 
@@ -712,13 +712,110 @@ function loadRunState(path) {
   if(state.schemaVersion!==1 || !['plan','audit','pr','complete'].includes(state.stage) || !Number.isInteger(state.round) || state.round<1 || state.round>3) throw new Error('invalid saved automate state');
   return state;
 }
+const REVIEW_OUTPUT_SCHEMA = {
+  type:'object', additionalProperties:false,
+  required:['verdict','findings','intentVsDelivered','graphCoverage'],
+  properties:{
+    verdict:{type:'string',enum:['PASSED','CLOSED','PARTIAL','OPEN']},
+    findings:{type:'array',items:{
+      type:'object',additionalProperties:false,required:['severity','title','stampedBlockMix'],
+      properties:{severity:{type:'string',enum:['critical','major','blocker','high','medium','minor','low','info']},title:{type:'string'},stampedBlockMix:{type:'boolean'}},
+    }},
+    intentVsDelivered:{type:'array',items:{
+      type:'object',additionalProperties:false,required:['status','label','note'],
+      properties:{status:{type:'string',enum:['matched','partial','missing','extra']},label:{type:'string'},note:{type:'string'}},
+    }},
+    graphCoverage:{type:'array',items:{
+      type:'object',additionalProperties:false,required:['kind','id','status'],
+      properties:{kind:{type:'string',enum:['machine','xor']},id:{type:'string'},status:{type:'string',enum:['faz','pela metade','não faz']}},
+    }},
+  },
+};
+
+/** Decode only successful final provider messages, never search arbitrary text. */
+function finalReviewReport(stdout) {
+  let envelope;
+  try {envelope = JSON.parse(stdout);} catch {
+    let events;
+    try {events = stdout.trim().split('\n').map(line => JSON.parse(line));}
+    catch {throw new Error('review output must be structured JSON');}
+    const allowed = new Set(['thread.started','turn.started','item.started','item.updated','item.completed','turn.completed']);
+    if (!events.length || events.at(-1)?.type !== 'turn.completed'
+        || events.some(event => !allowed.has(event?.type))) throw new Error('review transport is not a successful final turn');
+    const messages = events.filter(event => event.type === 'item.completed' && event.item?.type === 'agent_message');
+    if (!messages.length) throw new Error('review transport has no completed agent message');
+    return parseReportText(messages.at(-1).item.text);
+  }
+  if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) throw new Error('review output must be an object');
+  if (envelope.is_error === true || envelope.isError === true || envelope.error) throw new Error('review transport reported an error');
+  if ('stopReason' in envelope) {
+    if (envelope.stopReason !== 'end_turn') throw new Error('review transport is not a successful final turn');
+    return 'structuredOutput' in envelope ? envelope.structuredOutput : parseReportText(envelope.text);
+  }
+  if (envelope.type === 'result') {
+    if (envelope.subtype !== 'success' || envelope.is_error !== false) throw new Error('review transport is not a successful final result');
+    return 'structured_output' in envelope ? envelope.structured_output : parseReportText(envelope.result);
+  }
+  // Injected direct structured reports remain supported. Provider events without
+  // a final result cannot masquerade as a direct report.
+  if (envelope.type) throw new Error('review transport is not a final result');
+  return envelope;
+}
+function parseReportText(text) {
+  if (typeof text !== 'string') throw new Error('review transport lacks structured report text');
+  try {return JSON.parse(text);} catch {throw new Error('review report text must be structured JSON');}
+}
 function parseReviewResult(result) {
-  if(!result || result.status!==0) throw new Error(`review process failed: ${result?.stderr||'missing process receipt'}`);
-  let body;try {body=JSON.parse(result.stdout);}catch {throw new Error('review output must be structured JSON');}
-  if(!body || !['PASSED','CLOSED','PARTIAL','OPEN'].includes(body.verdict) || !Array.isArray(body.findings)) throw new Error('review output missing verdict or findings');
-  if(body.findings.some(f=>!f || typeof f!=='object' || Array.isArray(f) || (!f.stampedBlockMix && !['critical','major','blocker','high','medium','minor','low','info'].includes(String(f.severity||f.level||'').toLowerCase())))) throw new Error('invalid review finding');
-  if(body.verdict==='OPEN' && body.findings.length===0) throw new Error('OPEN verdict without actionable findings');
-  return body;
+  if (!result || result.status !== 0) throw new Error(`review process failed: ${result?.stderr || 'missing process receipt'}`);
+  const body = finalReviewReport(result.stdout);
+  if (!body || typeof body !== 'object' || Array.isArray(body)
+      || !['PASSED','CLOSED','PARTIAL','OPEN'].includes(body.verdict) || !Array.isArray(body.findings)) throw new Error('review output missing verdict or findings');
+  if (body.findings.some(f => !f || typeof f !== 'object' || Array.isArray(f)
+      || (!f.stampedBlockMix && !['critical','major','blocker','high','medium','minor','low','info'].includes(String(f.severity || f.level || '').toLowerCase())))) throw new Error('invalid review finding');
+  if (body.verdict === 'OPEN' && body.findings.length === 0) throw new Error('OPEN verdict without actionable findings');
+  return withoutPrivateFields(body);
+}
+
+/** Retain public process evidence without exporting private reasoning payloads. */
+function withoutPrivateFields(value) {
+  if (Array.isArray(value)) return value.map(withoutPrivateFields);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !['thought','thinking','reasoning'].includes(key))
+    .map(([key,child]) => [key,withoutPrivateFields(child)]));
+}
+function publicProcessEvidence(result) {
+  let stdout = result.stdout || '';
+  try {
+    const parsed = JSON.parse(stdout);
+    const publicFields = withoutPrivateFields(parsed);
+    if (JSON.stringify(publicFields) !== JSON.stringify(parsed)) stdout = JSON.stringify(publicFields);
+  } catch {
+    try {
+      const rows = stdout.trim().split('\n').map(line => JSON.parse(line));
+      const publicRows = rows.filter(row => row.item?.type !== 'reasoning').map(withoutPrivateFields);
+      if (JSON.stringify(publicRows) !== JSON.stringify(rows)) stdout = publicRows.map(row => JSON.stringify(row)).join('\n') + '\n';
+    } catch { /* Non-JSON failure output is still useful process evidence. */ }
+  }
+  return {status:result.status,signal:result.signal || null,pid:result.pid || null,
+    stdout,stderr:result.stderr || '',command:result.command || null,argv:result.argv || null,
+    ...(result.error ? {error:result.error.message} : {})};
+}
+
+/** Include both paths of renames; allow only exact program-owned artifacts. */
+function uncommittedProductPaths(plan, root) {
+  const repo = gitExec(root, ['rev-parse','--show-toplevel']);
+  if (repo.status !== 0) return [];
+  const repoRoot = realpathSync(repo.stdout.trim());
+  const result = gitOrThrow(repoRoot, ['status','--porcelain=v1','-z','--untracked-files=all'], 'read publication status');
+  const entries = result.stdout.split('\0').filter(Boolean);
+  const paths = [];
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    paths.push(entry.slice(3));
+    if (/R|C/.test(entry.slice(0,2))) paths.push(entries[++i]);
+  }
+  return paths.filter(path => path && !isOwnedOperationalPath(plan, resolve(repoRoot,path), repoRoot));
 }
 function reviewVerdictAccepted(stage, verdict) {
   return (stage === 'plan' ? ['PASSED','CLOSED'] : ['PASSED','CLOSED','PARTIAL']).includes(verdict);
@@ -772,6 +869,8 @@ function writePlanEndReceipt(plan,receipt) {
 
 function defaultPr(input) {
   const bin=input.args?.githubBin||process.env.AUTOMATE_GITHUB_BIN||'gh';
+  const dirty = uncommittedProductPaths(input.plan, input.root);
+  if (dirty.length) throw new Error(`Uncommitted product changes must be committed before publication: ${dirty.join(', ')}`);
   const branch=gitOrThrow(input.root,['rev-parse','--abbrev-ref','HEAD'],'read branch').stdout.trim();
   if(branch==='HEAD') throw new Error('PR requires a branch');
   gitOrThrow(input.root,['push','--set-upstream','origin',branch],'deliver branch');
@@ -801,29 +900,43 @@ export async function runPlanEndWorkflow(input) {
     return {action:'stop',reason,url};
   };
   if(state.pendingStop) {const url=`${await page()}?stop=${encodeURIComponent(state.pendingStop.id)}`;open(url);return {action:'stop',reason:state.pendingStop.reason,url};}
-  const currentInputs=validationSnapshot(plan,{reviewInputs:true});
+  if (state.reviewBudgetExhausted) return stop('travei',[{title:'Whole-plan review reached the three-round cap; source changed after the final successful round'}]);
+  let currentInputs;
+  try {
+    const dirty = uncommittedProductPaths(plan,root);
+    if (dirty.length) throw new Error(`Uncommitted product changes must be committed before review: ${dirty.join(', ')}`);
+    currentInputs = validationSnapshot(plan,{reviewInputs:true});
+  } catch (e) {return stop('não avanço',[{title:e.message}]);}
   state.reviewRounds ||= {
     plan:state.stage==='plan' ? state.round : Math.max(1,...(state.reviews||[]).filter(r=>r.stage==='plan').map(r=>r.round)),
     audit:state.stage==='audit' ? state.round : Math.max(1,...(state.reviews||[]).filter(r=>r.stage==='audit').map(r=>r.round)),
   };
   const invalidateReviews = snapshot => {
-    if (state.stage !== 'plan') state.reviewRounds.plan = Math.min(3, state.reviewRounds.plan + 1);
+    if (state.stage !== 'plan') {
+      if (state.reviewRounds.plan >= 3) {
+        state.reviewBudgetExhausted = 'plan';
+        rmSync(join(dirname(plan),'automate-plan-end-review.json'), {force:true});
+        return false;
+      }
+      state.reviewRounds.plan += 1;
+    }
     state.stage = 'plan';
     state.round = state.reviewRounds.plan;
     state.reviews = [];
     state.residualFindings = [];
     state.reviewInputSnapshot = snapshot;
     rmSync(join(dirname(plan),'automate-plan-end-review.json'), {force:true});
+    return true;
   };
   // Compare before adopting current inputs at EVERY saved stage, including PR
   // retries. Invalidation keeps the durable stage budgets rather than resetting
   // the repair cap whenever an audit repair changes source.
   if (state.reviewInputSnapshot !== undefined && state.reviewInputSnapshot !== currentInputs) {
-    invalidateReviews(currentInputs);
+    if (!invalidateReviews(currentInputs)) return stop('travei',[{title:'Whole-plan review reached the three-round cap'}]);
     return stop('não avanço',[{title:'Delivery changed since the saved reviews; confirm to review the current source again'}]);
   }
   if (!state.reviewInputSnapshot && state.stage !== 'plan') {
-    invalidateReviews(currentInputs);
+    if (!invalidateReviews(currentInputs)) return stop('travei',[{title:'Whole-plan review reached the three-round cap'}]);
     return stop('não avanço',[{title:'Saved reviews lack input identity; confirm to review the current source'}]);
   }
   if(state.stage==='complete') {
@@ -839,18 +952,25 @@ export async function runPlanEndWorkflow(input) {
     const invoke=(provider,bin)=>{
       let argv;
       if(process.env.AUTOMATE_REVIEW_ARGS) argv=hostArgv({hostArgs:process.env.AUTOMATE_REVIEW_ARGS},process.env);
-      else if(provider==='codex') argv=['exec','--sandbox','read-only','-'];
-      else if(provider==='grok') {const promptPath=join(dirname(plan),`automate-${request.stage}-review-prompt.txt`);writeFileSync(promptPath,prompt);argv=['--prompt-file',promptPath,'--sandbox','read-only','--no-memory','--output-format','plain'];}
-      else argv=['-p','--output-format','text','--permission-mode','dontAsk','--tools','Read,Grep,Glob'];
-      return spawnSync(bin,argv,{cwd:root,encoding:'utf8',input:prompt,timeout:120000});
+      else if(provider==='codex') {
+        const schemaPath = join(dirname(plan),'automate-review-output.schema.json');
+        writeFileSync(schemaPath,JSON.stringify(REVIEW_OUTPUT_SCHEMA,null,2)+'\n');
+        argv=['exec','--sandbox','read-only','--json','--output-schema',schemaPath,'-'];
+      }
+      else if(provider==='grok') {const promptPath=join(dirname(plan),`automate-${request.stage}-review-prompt.txt`);writeFileSync(promptPath,prompt);argv=['--prompt-file',promptPath,'--sandbox','read-only','--no-memory','--output-format','json','--json-schema',JSON.stringify(REVIEW_OUTPUT_SCHEMA)];}
+      else argv=['-p','--output-format','json','--json-schema',JSON.stringify(REVIEW_OUTPUT_SCHEMA),'--permission-mode','dontAsk','--tools','Read,Grep,Glob'];
+      const execution = spawnSync(bin,argv,{cwd:root,encoding:'utf8',input:prompt,timeout:120000});
+      return {...execution,command:bin,argv};
     };
     const localProvider=input.host==='claude-code'?'claude':input.host;
     if(localProvider===input.cli) throw new Error('external review must use a different provider');
     const local=invoke(localProvider,localBin);
     const external=invoke(input.cli,input.args?.reviewBin||process.env.AUTOMATE_REVIEW_BIN||input.cli);
-    const a=parseReviewResult(local);const b=parseReviewResult(external);
+    let a,b;
+    try {a=parseReviewResult(local);b=parseReviewResult(external);}
+    catch(e) {e.processEvidence={local:publicProcessEvidence(local),external:publicProcessEvidence(external)};throw e;}
     const verdict = reviewVerdictAccepted(request.stage,a.verdict) && reviewVerdictAccepted(request.stage,b.verdict) ? b.verdict : 'OPEN';
-    return {status:0,stderr:external.stderr||'',stdout:JSON.stringify({...b,verdict,legVerdicts:{local:a.verdict,external:b.verdict},findings:[...a.findings,...b.findings]}),local,external};
+    return {status:0,stderr:external.stderr||'',stdout:JSON.stringify({...b,verdict,legVerdicts:{local:a.verdict,external:b.verdict},findings:[...a.findings,...b.findings]}),local:publicProcessEvidence(local),external:publicProcessEvidence(external)};
   });
   const fix=deps.fix||(async request=>{
     const prompt=JSON.stringify({
@@ -868,9 +988,13 @@ export async function runPlanEndWorkflow(input) {
     const code=await runWriterSession({host:input.host,root,plan,args,prompt});return {ok:code===0};
   });
   while(state.stage==='plan'||state.stage==='audit') {
-    const stage=state.stage;let parsed,result;
-    const brief=JSON.stringify({operation:stage==='plan'?'review-whole-plan':'audit-delivery',scope:'whole-plan',productIdentity:productSnapshot(plan),plan:readFileSync(plan,'utf8'),flowGraph:JSON.parse(readFileSync(join(dirname(plan),'flow/flow.json'),'utf8')),architectureSketch:JSON.parse(readFileSync(join(dirname(plan),'architecture/decisions.json'),'utf8')),phaseResiduals:residuals,priorReviews:state.reviews||[],outputContract:{verdict:'PASSED|CLOSED|PARTIAL|OPEN',findings:'array with severity and title',intentVsDelivered:'non-empty array for audit with matched|partial|missing|extra',graphCoverage:'audit array of {kind:machine|xor,id,status:faz|pela metade|não faz} covering every machine and xor in the supplied ratified graph'}},null,2);
-    try{result=await review({stage,round:state.round,brief});parsed=parseReviewResult(result);}catch(e){return stop('não avanço',[{title:e.message}]);}
+    const stage=state.stage;let parsed,result,brief;
+    try {
+      const dirty = uncommittedProductPaths(plan,root);
+      if (dirty.length) throw new Error(`Uncommitted product changes must be committed before review: ${dirty.join(', ')}`);
+      brief=JSON.stringify({operation:stage==='plan'?'review-whole-plan':'audit-delivery',scope:'whole-plan',productIdentity:productSnapshot(plan),plan:readFileSync(plan,'utf8'),flowGraph:JSON.parse(readFileSync(join(dirname(plan),'flow/flow.json'),'utf8')),architectureSketch:JSON.parse(readFileSync(join(dirname(plan),'architecture/decisions.json'),'utf8')),phaseResiduals:residuals,priorReviews:state.reviews||[],outputContract:{verdict:'PASSED|CLOSED|PARTIAL|OPEN',findings:'array with severity and title',intentVsDelivered:'non-empty array for audit with matched|partial|missing|extra',graphCoverage:'audit array of {kind:machine|xor,id,status:faz|pela metade|não faz} covering every machine and xor in the supplied ratified graph'}},null,2);
+      result=await review({stage,round:state.round,brief});parsed=parseReviewResult(result);
+    }catch(e){return stop('não avanço',[{title:e.message,...(e.processEvidence ? {processEvidence:e.processEvidence} : result ? {processEvidence:publicProcessEvidence(result)} : {})}]);}
     let decision=continuePhaseAfterReview({slug:planSlugOf(plan),round:state.round,findings:parsed.findings});
     if(decision.action==='close-and-advance' && !reviewVerdictAccepted(stage,parsed.verdict)) {
       decision = state.round >= 3 ? {action:'stop',reason:'round-cap'} : {action:'fix-and-review'};
@@ -880,11 +1004,20 @@ export async function runPlanEndWorkflow(input) {
     state.reviews=[...(state.reviews||[]),{stage,round:state.round,reportPath,verdict:parsed.verdict}];saveRunState(statePath,state);
     if(decision.action==='stop') return stop(decision.reason==='mix'?'mudança grande':'travei',parsed.findings);
     if(decision.action==='fix-and-review') {
-      let fixed;try{fixed=await fix({stage,round:state.round,findings:parsed.findings,brief});}catch(e){return stop('não avanço',[{title:e.message}]);}
+      let fixed;
+      try {
+        const dirty = uncommittedProductPaths(plan,root);
+        if (dirty.length) throw new Error(`Uncommitted product changes must be committed before repair: ${dirty.join(', ')}`);
+        fixed=await fix({stage,round:state.round,findings:parsed.findings,brief});
+      } catch(e) {return stop('não avanço',[{title:e.message}]);}
       if(!fixed || fixed.ok!==true) return stop('não avanço',parsed.findings);
-      const repairedInputs=validationSnapshot(plan,{reviewInputs:true});
+      let repairedInputs;
+      try {repairedInputs=validationSnapshot(plan,{reviewInputs:true});}
+      catch (e) {return stop('não avanço',[{title:e.message}]);}
       state.reviewRounds[stage]=state.round+1;
-      if(stage==='audit' && repairedInputs!==state.reviewInputSnapshot) invalidateReviews(repairedInputs);
+      if(stage==='audit' && repairedInputs!==state.reviewInputSnapshot) {
+        if (!invalidateReviews(repairedInputs)) return stop('travei',[{title:'Whole-plan review reached the three-round cap after audit source repair'}]);
+      }
       else {state.reviewInputSnapshot=repairedInputs;state.round=state.reviewRounds[stage];}
       saveRunState(statePath,state);continue;
     }
@@ -895,14 +1028,22 @@ export async function runPlanEndWorkflow(input) {
     const flowPath=join(dirname(plan),'flow/flow.json');
     const coverage=deliveryAuditGraphCoverage({planPath:plan,flowPath,exists:existsSync,readFile:path=>readFileSync(path,'utf8'),reportText:coverageRows.map(row=>`${row.kind} ${row.id}: ${row.status}`).join('\n')});
     if(!coverage.ok) return stop('não avanço',[{title:coverage.reason}]);
-    if(!Array.isArray(parsed.intentVsDelivered)||!parsed.intentVsDelivered.length||parsed.intentVsDelivered.some(row=>!['matched','partial','missing','extra'].includes(row.status))) return stop('não avanço',[{title:'Delivery audit lacks intent-vs-delivered rows'}]);
+    if(!intentVsDeliveredOk(parsed.intentVsDelivered)) return stop('não avanço',[{title:'Delivery audit lacks intent-vs-delivered rows'}]);
     const provider=String(input.cli||'').replace('claude-code','claude');
     if(!['grok','codex','claude'].includes(provider)) return stop('não avanço',[{title:'Unknown external review provider'}]);
     const receipt={mode:'external-both',reviewFile:reportPath,verifiedAt:new Date().toISOString(),reviewInputSnapshot:state.reviewInputSnapshot,legs:[{provider,status:'succeeded',familyDifferent:true}],intentVsDelivered:parsed.intentVsDelivered,graphCoverage:coverage.lines};
     writePlanEndReceipt(plan,receipt);state.stage='pr';state.round=1;saveRunState(statePath,state);
   }
-  const reviewedInputs=validationSnapshot(plan,{reviewInputs:true});
-  if(state.reviewInputSnapshot!==reviewedInputs) {invalidateReviews(reviewedInputs);return stop('não avanço',[{title:'Delivery changed while reviews ran; confirm to review the current source again'}]);}
+  let reviewedInputs;
+  try {
+    const dirty = uncommittedProductPaths(plan,root);
+    if (dirty.length) throw new Error(`Uncommitted product changes must be committed before publication: ${dirty.join(', ')}`);
+    reviewedInputs=validationSnapshot(plan,{reviewInputs:true});
+  } catch(e) {return stop('não avanço',[{title:e.message}]);}
+  if(state.reviewInputSnapshot!==reviewedInputs) {
+    if (!invalidateReviews(reviewedInputs)) return stop('travei',[{title:'Whole-plan review reached the three-round cap'}]);
+    return stop('não avanço',[{title:'Delivery changed while reviews ran; confirm to review the current source again'}]);
+  }
   try{
     state.pr=await (deps.createPr||(()=>defaultPr({...input,plan,root})))();
     if(!state.pr || state.pr.state!=='OPEN'||!/^https?:\/\//.test(state.pr.url||'')) throw new Error('PR must exist and remain open');
