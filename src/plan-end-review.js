@@ -28,7 +28,7 @@
  *   - provider is a known external ('codex' | 'grok' | 'claude')
  *
  * userValidationOk: under automateActive === true, require a non-empty
- * ISO-8601-ish timestamp in userValidatedAt. When automate is not active
+ * ISO-8601-ish timestamp plus authenticated HTTP-button evidence. When automate is not active
  * the gate does not apply (returns true). Stamp alone also activates via
  * durable plan-end resolution. Operator-owned — never auto-stamped by review.
  *
@@ -46,9 +46,15 @@
  * `## Reviews` section; frontmatter may carry a machine-readable
  * `planEndReview` object (finalize-shaped receipt) plus `userValidatedAt`.
  *
- * No I/O.
+ * Pure gate predicates; server proof helpers below perform bounded filesystem I/O.
  */
 
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { homedir } from 'node:os';
+import { dirname, join, resolve, sep } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import { EXTERNAL_PROVIDER_ORDER } from './cross-model-host-default.js';
 import { INTENT_VS_DELIVERED_STATUSES } from './plan-end-intent-surface.js';
 
@@ -310,7 +316,7 @@ function resolveDurableAutomateForGates(input = {}) {
  * When automate is not active, returns true (gate does not apply).
  * Activation: automateActive === true, OR durable stamp planExecutionMode
  * automate (session CLI override does not disable — F4). Under automate,
- * userValidatedAt must be a non-empty ISO-8601-ish timestamp.
+ * userValidatedAt must match authenticated HTTP-button evidence loaded from disk.
  *
  * @param {{
  *   automateActive?: boolean,
@@ -330,7 +336,8 @@ export function userValidationOk(input = {}) {
   const at = input.userValidatedAt;
   if (at == null) return false;
   if (typeof at !== 'string') return false;
-  return isIsoTimestamp(at);
+  return isIsoTimestamp(at) && authenticatedEvidence.has(input.userValidationEvidence)
+    && input.userValidationEvidence.at === at;
 }
 
 /**
@@ -374,6 +381,7 @@ export function automatePlanEndGatesOk(input = {}) {
     automateActive: true,
     userValidatedAt: input.userValidatedAt,
     validatorId: input.validatorId,
+    userValidationEvidence: input.userValidationEvidence,
   });
   return {
     ok: pe && uv,
@@ -381,4 +389,92 @@ export function automatePlanEndGatesOk(input = {}) {
     userValidationOk: uv,
     reviewSkipForbidden: true,
   };
+}
+
+
+// Server authority lives outside the repository; copying a timestamp or a receipt
+// cannot mint evidence. Only disk-authenticated objects enter this WeakSet.
+const authenticatedEvidence = new WeakSet();
+export function validationKeyPath(planPath) {
+  const identity = createHash('sha256').update(realpathSync(planPath)).digest('hex');
+  return join(process.env.HOME || process.env.USERPROFILE || homedir(), '.atomic-skills', 'final-page-keys', identity);
+}
+export function readFinalPlan(planPath) {
+  const text = readFileSync(planPath, 'utf8');
+  if (Buffer.byteLength(text) > 2_000_000) throw new Error('plan exceeds size cap');
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) throw new Error('invalid plan frontmatter');
+  const fm = parseYaml(match[1]);
+  if (!fm || typeof fm !== 'object') throw new Error('invalid plan');
+  const sidecar=join(dirname(planPath),'automate-plan-end-review.json');
+  if(fm.planEndReview==null && existsSync(sidecar)) fm.planEndReview=JSON.parse(readFileSync(sidecar,'utf8'));
+  return { text, fm };
+}
+export function finalAuditsPassed(planPath) {
+  try {
+    const {fm} = readFinalPlan(planPath);
+    return Array.isArray(fm.phases) && fm.phases.length > 0 && fm.phases.every(p => p && p.deliveryAuditGate?.status === 'passed');
+  } catch { return false; }
+}
+export function validationSnapshot(planPath, options = {}) {
+  const {text, fm} = readFinalPlan(planPath);
+  const hash = createHash('sha256').update(JSON.stringify(productSnapshot(planPath))).update(text.replace(/^userValidatedAt:.*\r?\n/gm, ''));
+  const planDir = realpathSync(dirname(planPath));
+  const marker = `${sep}.atomic-skills${sep}`;
+  const root = planDir.includes(marker) ? planDir.slice(0, planDir.indexOf(marker)) : planDir;
+  for (const p of fm.phases || []) {
+    for (const rel of [p.initiativePath || p.initiative, p.deliveryAuditGate?.reportPath].filter(Boolean)) {
+      const cited=resolve(String(rel).startsWith('.atomic-skills/') ? root : planDir, String(rel));
+      if(p.deliveryAuditGate?.status!=='passed' && !existsSync(cited)) {hash.update(`pending:${cited}`);continue;}
+      const file = realpathSync(cited);
+      if (!file.startsWith(root + sep)) throw new Error('delivery path escapes plan');
+      const bytes = readFileSync(file);
+      if (!bytes.length || bytes.length > 2_000_000) throw new Error('empty or oversized delivery evidence');
+      hash.update(file).update(bytes);
+    }
+  }
+  const addFile=(file)=>{
+    const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('presentation path escapes root');
+    const bytes=readFileSync(actual);if(bytes.length>2_000_000) throw new Error('presentation exceeds size cap');hash.update(actual).update(bytes);
+  };
+  for(const rel of ['architecture/decisions.json','ui/ui.json','flow/flow.json','flow/flow.html',...(options.reviewInputs?[]:['automate-run-state.json','automate-plan-end-review.json'])]) {const file=join(planDir,rel);if(existsSync(file)) addFile(file);}
+  const decisions=join(planDir,'decisions');
+  if(existsSync(decisions)) for(const name of readdirSync(decisions).filter(n=>n.endsWith('.jsonl')).sort()) addFile(join(decisions,name));
+  for(const ref of fm.references||[]) if(ref.kind==='file' && /\.html$/i.test(ref.path) && /delivered|built|entreg|constru/i.test(ref.label||'')) addFile(resolve(planDir,ref.path));
+  const uiPath=join(planDir,'ui/ui.json');
+  if(existsSync(uiPath)) {const ui=JSON.parse(readFileSync(uiPath,'utf8'));for(const screen of ui.screens||[]) if(screen.path) addFile(resolve(planDir,screen.path));}
+  return hash.digest('hex');
+}
+export function readUserValidationEvidence(planPath) {
+  try {
+    if (!finalAuditsPassed(planPath)) return null;
+    const {fm} = readFinalPlan(planPath);
+    const {proof,signature} = JSON.parse(readFileSync(join(dirname(planPath),'final-validation.json'),'utf8'));
+    if (proof.source !== 'http-button' || proof.planPath !== realpathSync(planPath) || proof.at !== fm.userValidatedAt || proof.snapshot !== validationSnapshot(planPath)) return null;
+    const expected=createHmac('sha256',readFileSync(validationKeyPath(planPath))).update(JSON.stringify(proof)).digest();
+    const actual=Buffer.from(signature,'hex');
+    if(actual.length !== expected.length || !timingSafeEqual(actual,expected)) return null;
+    const evidence={at:proof.at}; authenticatedEvidence.add(evidence); return evidence;
+  } catch {return null;}
+}
+
+
+/** Current tracked product bytes, excluding operational plan/runtime files. */
+export function productSnapshot(planPath) {
+  const repo=spawnSync('git',['rev-parse','--show-toplevel'],{cwd:dirname(planPath),encoding:'utf8',timeout:10000});
+  if(repo.status!==0) return null;
+  const root=realpathSync(repo.stdout.trim());
+  const result=spawnSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8',timeout:10000,maxBuffer:4_000_000});
+  if(result.status!==0) throw new Error('Cannot read tracked product identity');
+  const hash=createHash('sha256');
+  for(const relative of result.stdout.split('\0').filter(Boolean).sort()) {
+    const file=resolve(root,relative);
+    if(relative.startsWith('.atomic-skills/') || file===resolve(planPath) || /^(?:automate-|final-validation)/.test(relative)) continue;
+    hash.update(relative).update('\0');
+    if(!existsSync(file)) {hash.update('deleted');continue;}
+    const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('Tracked product path escapes repository');
+    const bytes=readFileSync(file);if(bytes.length>20_000_000) throw new Error('Tracked product exceeds size cap');
+    hash.update(bytes).update('\0');
+  }
+  return {digest:hash.digest('hex')};
 }

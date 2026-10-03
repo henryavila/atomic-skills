@@ -260,6 +260,7 @@ function runAutomate(h, extraEnv = {}, extraArgs = []) {
       timeout: 60_000,
       env: {
         ...process.env,
+        AUTOMATE_STOP_AFTER_MERGE: '1',
         AIDECK_HOST_BIN: h.fakeCli,
         AUTOMATE_WORKTREE_PARENT: h.wtParent,
         AUTOMATE_LOCK_DIR: h.lockDir,
@@ -657,6 +658,39 @@ describe('automate-run writer (T-003 merge and stop)', () => {
       assert.equal(existsSync(join(dir, '.atomic-skills/status/automate/pen.lock')), false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('automate-run production plan-end command', () => {
+  it('runs real subprocess reviews, pushes the branch, opens an unmerged PR and serves the final view', async () => {
+    const h=buildHarness();const remote=join(h.side,'remote.git');const gh=join(h.side,'gh');const ghLog=join(h.side,'gh-log');let html;
+    try {
+      git(h.repo,['init','--bare',remote]);git(h.repo,['remote','add','origin',remote]);
+      const plan=join(h.repo,'plan.md');writeFileSync(plan,readFileSync(plan,'utf8').replace('status: active\n','status: active\nexecutionMode: automate\nreviewExternalCli: grok\nphases:\n  - id: F0\n    status: done\n    deliveryAuditGate:\n      status: passed\n      verdict: CLOSED\n      reportPath: audit.md\n'));
+      const gt=assessGroundTruthPlanFile(readFileSync(plan,'utf8'));writeFileSync(plan,readFileSync(plan,'utf8').replace(/fp=[a-f0-9]+/,`fp=${gt.fingerprint}`));
+      writeFileSync(join(h.repo,'audit.md'),'Phase audit accepted residual H1\n');git(h.repo,['add','plan.md','audit.md']);git(h.repo,['commit','-m','phase delivered']);
+      const clean=JSON.stringify({verdict:'PASSED',findings:[],graphCoverage:[{kind:'machine',id:'request',status:'faz'},{kind:'xor',id:'D1',status:'faz'}],intentVsDelivered:[{status:'matched'}]});
+      const reviewer=join(h.side,'reviewer');writeFileSync(reviewer,`#!/usr/bin/env bash\ncat >/dev/null\nprintf '%s\\n' '${clean}'\n`);chmodSync(reviewer,0o755);
+      writeFileSync(gh,`#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${ghLog}'\nif [[ "$2" == "view" ]]; then exit 1; fi\nprintf 'https://github.test/pr/42\\n'\n`);chmodSync(gh,0o755);
+      const host=join(h.side,'host');writeFileSync(host,`#!/usr/bin/env bash\nif [[ "\${1:-}" == "exec" ]]; then cat >/dev/null; printf '%s\\n' '${clean}'; else printf 'from-writer\\n' > writer-output.txt; fi\n`);chmodSync(host,0o755);
+      const result=runAutomate(h,{AUTOMATE_STOP_AFTER_MERGE:'0',AUTOMATE_REVIEW_EXTERNAL_CLI:'grok',AUTOMATE_REVIEW_BIN:reviewer,AUTOMATE_GITHUB_BIN:gh,AUTOMATE_PR_BASE:'main',HOME:h.side},['--host-bin',host]);
+      assert.equal(result.status,0,result.stdout+result.stderr);
+      const outcome=JSON.parse(result.stdout.trim().split('\n').at(-1));assert.equal(outcome.action,'pr-open');assert.equal(outcome.pr.state,'OPEN');assert.match(outcome.url,/^http:\/\//);
+      const response=await fetch(outcome.url);assert.equal(response.status,200);assert.match(await response.text(),/I validated the delivery/);
+      const commands=readFileSync(ghLog,'utf8');assert.match(commands,/pr create --base main --head plan\/fixture/);assert.doesNotMatch(commands,/merge|archive/);
+      assert.equal(git(h.repo,['ls-remote','origin','refs/heads/plan/fixture']).split(/\s/)[0],git(h.repo,['rev-parse','HEAD']));
+      const state=JSON.parse(readFileSync(join(h.repo,'automate-run-state.json'),'utf8'));assert.deepEqual(state.reviews.map(r=>r.stage),['plan','audit']);assert.match(JSON.stringify(state.phaseResiduals),/H1/);
+      assert.doesNotMatch(readFileSync(plan,'utf8'),/userValidatedAt/);
+      html=join(h.repo,'flow/flow.html');
+      const resumed=runAutomate(h,{AUTOMATE_STOP_AFTER_MERGE:'0',AUTOMATE_REVIEW_EXTERNAL_CLI:'grok',AUTOMATE_REVIEW_BIN:reviewer,AUTOMATE_GITHUB_BIN:gh,AUTOMATE_PR_BASE:'main',HOME:h.side},['--host-bin',host]);
+      assert.equal(resumed.status,0,resumed.stdout+resumed.stderr);assert.equal(JSON.parse(resumed.stdout.trim().split('\n').at(-1)).url,outcome.url);assert.equal(readFileSync(ghLog,'utf8'),commands);
+      writeFileSync(join(h.repo,'writer-output.txt'),'changed after completed reviews\n');
+      const changed=runAutomate(h,{AUTOMATE_STOP_AFTER_MERGE:'0',AUTOMATE_REVIEW_EXTERNAL_CLI:'grok',AUTOMATE_REVIEW_BIN:reviewer,AUTOMATE_GITHUB_BIN:gh,AUTOMATE_PR_BASE:'main',HOME:h.side},['--host-bin',host]);
+      assert.equal(changed.status,2,changed.stdout+changed.stderr);assert.equal(JSON.parse(changed.stdout.trim().split('\n').at(-1)).reason,'não avanço');
+    } finally {
+      if(html) spawnSync(process.execPath,[join(ROOT,'scripts/serve-flow.js'),'--down',html],{env:{...process.env,HOME:h.side},encoding:'utf8'});
+      cleanupHarness(h);
     }
   });
 });

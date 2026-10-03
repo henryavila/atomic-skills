@@ -3,7 +3,13 @@
  *
  * Covers spawn / claims|done / phase-done / finalize via Layer-1 helpers.
  */
-import { describe, it } from 'node:test';
+import { serveFlowHtml } from '../scripts/lib/serve-flow.js';
+
+const signingHome=mkdtempSync(join(tmpdir(),'final-signing-home-'));
+const previousSigningHome=process.env.HOME, previousSigningProfile=process.env.USERPROFILE;
+process.env.HOME=signingHome;process.env.USERPROFILE=signingHome;
+after(()=>{if(previousSigningHome===undefined) delete process.env.HOME;else process.env.HOME=previousSigningHome;if(previousSigningProfile===undefined) delete process.env.USERPROFILE;else process.env.USERPROFILE=previousSigningProfile;rmSync(signingHome,{recursive:true,force:true});});
+import { after, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   mkdtempSync,
@@ -1226,11 +1232,12 @@ describe('assert-automate-gate CLI', () => {
       }
     });
 
-    it('exit 0 when plan-end receipt + userValidatedAt ok', () => {
+    it('exit 0 when plan-end receipt + userValidatedAt ok', async () => {
       const root = tmpRoot();
       try {
         writePlan(root, {
           executionMode: 'automate',
+          deliveryAuditGate: {status:'passed'},
           planEndReview: {
             mode: 'external-both',
             reviewFile: '.atomic-skills/reviews/x-plan-end.md',
@@ -1244,6 +1251,10 @@ describe('assert-automate-gate CLI', () => {
           },
           userValidatedAt: '2026-07-21T12:00:00.000Z',
         });
+        const actualPlan=join(root,'.atomic-skills/projects/atomic-skills/demo-plan/plan.md');
+        mkdirSync(join(dirname(actualPlan),'flow'),{recursive:true});writeFileSync(join(dirname(actualPlan),'flow/flow.html'),'<html>Preview</html>');
+        const server=await serveFlowHtml(join(dirname(actualPlan),'flow/flow.html'),{planPath:actualPlan});
+        try {const origin=new URL(server.url).origin;const page=await fetch(origin+'/final');const token=(await page.text()).match(/name="token" value="([^"]+)"/)[1];assert.equal((await fetch(origin+'/api/validate',{method:'POST',headers:{origin,cookie:page.headers.get('set-cookie').split(';')[0]},body:new URLSearchParams({token})})).status,200);}finally{await server.close();}
         const stateRoot = join(root, '.atomic-skills');
         writeCursor(join(stateRoot, 'status'), 'demo-plan', 'I');
         const r = run(

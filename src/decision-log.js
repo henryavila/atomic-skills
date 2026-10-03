@@ -71,8 +71,13 @@ const SECRET_SHAPE_RES = Object.freeze([
  *   actor?: string,
  *   relatedCommitShas?: string[],
  *   notes?: string,
+ *   said?: string,
+ *   saw?: string,
  * }} DecisionEntry
  */
+
+/** Chat-only confirmations never count as presented evidence. */
+const CHAT_OK_TOKENS = new Set(['ok', 'okay', 'yes', 'chat ok', 'chat “ok”', 'chat "ok"']);
 
 /**
  * @param {string} name
@@ -327,7 +332,94 @@ export function validateDecisionEntry(raw) {
     entry.notes = notes;
   }
 
+  if (Object.hasOwn(raw, 'said')) {
+    if (raw.said == null || typeof raw.said !== 'string' || !raw.said.trim()) {
+      throw new Error(
+        'decision entry said empty — omit the field or provide the spoken phrase',
+      );
+    }
+    const said = raw.said.trim();
+    assertNoSecretShapes('said', said);
+    entry.said = said;
+  }
+  if (Object.hasOwn(raw, 'saw')) {
+    if (raw.saw == null || typeof raw.saw !== 'string' || !raw.saw.trim()) {
+      throw new Error(
+        'decision entry saw empty — omit the field or provide what was observed',
+      );
+    }
+    const saw = raw.saw.trim();
+    assertNoSecretShapes('saw', saw);
+    entry.saw = saw;
+  }
+
   return entry;
+}
+
+/**
+ * Chat "ok" (and close synonyms) is not presented evidence.
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isChatOkToken(value) {
+  if (typeof value !== 'string') return false;
+  const token = value.trim().toLowerCase().replace(/[“”]/g, '"');
+  return CHAT_OK_TOKENS.has(token);
+}
+
+/**
+ * A JSONL decision is presented on the final page only when both `said` and
+ * `saw` are non-empty and neither is a chat-ok token.
+ * @param {unknown} entry
+ * @returns {boolean}
+ */
+export function isPresentedDecision(entry) {
+  if (entry == null || typeof entry !== 'object' || Array.isArray(entry)) {
+    return false;
+  }
+  const o = /** @type {Record<string, unknown>} */ (entry);
+  const said = o.said != null ? String(o.said).trim() : '';
+  const saw = o.saw != null ? String(o.saw).trim() : '';
+  if (!said || !saw) return false;
+  if (isChatOkToken(said) || isChatOkToken(saw)) return false;
+  return true;
+}
+
+/**
+ * Filter listDecisions-like rows to those the final page may show.
+ * @param {unknown} entries
+ * @returns {DecisionEntry[]}
+ */
+export function presentedDecisions(entries) {
+  if (!Array.isArray(entries)) return [];
+  return entries.filter((row) => isPresentedDecision(row));
+}
+
+/**
+ * Parse JSONL text and return only presented decisions (said+saw).
+ * Corrupt lines and chat-ok tokens are dropped. Size-capped (L-F2-2).
+ * @param {unknown} jsonlText
+ * @returns {DecisionEntry[]}
+ */
+export function readPresentedDecisions(jsonlText) {
+  if (typeof jsonlText !== 'string' || jsonlText === '') return [];
+  const MAX_BYTES = 256_000;
+  const text = jsonlText.length > MAX_BYTES ? jsonlText.slice(0, MAX_BYTES) : jsonlText;
+  /** @type {DecisionEntry[]} */
+  const out = [];
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const obj = JSON.parse(trimmed);
+      if (isPresentedDecision(obj)) {
+        out.push(/** @type {DecisionEntry} */ (obj));
+      }
+    } catch {
+      /* skip corrupt lines */
+    }
+  }
+  return out;
 }
 
 /**
