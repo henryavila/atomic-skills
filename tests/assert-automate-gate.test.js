@@ -4,6 +4,7 @@
  * Covers spawn / claims|done / phase-done / finalize via Layer-1 helpers.
  */
 import { serveFlowHtml } from '../scripts/lib/serve-flow.js';
+import { validationSnapshot } from '../src/plan-end-review.js';
 
 const signingHome=mkdtempSync(join(tmpdir(),'final-signing-home-'));
 const previousSigningHome=process.env.HOME, previousSigningProfile=process.env.USERPROFILE;
@@ -1253,6 +1254,10 @@ describe('assert-automate-gate CLI', () => {
         });
         const actualPlan=join(root,'.atomic-skills/projects/atomic-skills/demo-plan/plan.md');
         mkdirSync(join(dirname(actualPlan),'flow'),{recursive:true});writeFileSync(join(dirname(actualPlan),'flow/flow.html'),'<html>Preview</html>');
+        const snapshot = validationSnapshot(actualPlan, {reviewInputs:true});
+        writeFileSync(actualPlan, readFileSync(actualPlan,'utf8').replace(
+          'planEndReview:\n', `planEndReview:\n  reviewInputSnapshot: ${snapshot}\n`,
+        ));
         const server=await serveFlowHtml(join(dirname(actualPlan),'flow/flow.html'),{planPath:actualPlan});
         try {const origin=new URL(server.url).origin;const page=await fetch(origin+'/final');const token=(await page.text()).match(/name="token" value="([^"]+)"/)[1];assert.equal((await fetch(origin+'/api/validate',{method:'POST',headers:{origin,cookie:page.headers.get('set-cookie').split(';')[0]},body:new URLSearchParams({token})})).status,200);}finally{await server.close();}
         const stateRoot = join(root, '.atomic-skills');

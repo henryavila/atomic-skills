@@ -6,6 +6,7 @@ import { after, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   readUserValidationEvidence,
+  validationSnapshot,
   planEndReviewOk,
   userValidationOk,
   automatePlanEndGatesOk,
@@ -25,6 +26,13 @@ const buttonDir=mkdtempSync(join(tmpdir(),'plan-end-button-'));
 const buttonPlan=join(buttonDir,'plan.md');
 writeFileSync(buttonPlan,'---\nslug: fixture\nphases:\n - id: F0\n   deliveryAuditGate:\n     status: passed\n---\n');
 mkdirSync(join(buttonDir,'flow'));writeFileSync(join(buttonDir,'flow/flow.html'),'<html>Preview</html>');
+writeFileSync(join(buttonDir,'audit.json'), JSON.stringify({verdict:'CLOSED', findings:[]}));
+writeFileSync(join(buttonDir,'automate-plan-end-review.json'), JSON.stringify({
+ mode:'external-both', reviewFile:'audit.json', verifiedAt:'2026-10-02T12:00:00Z',
+ legs:[{provider:'grok',status:'succeeded',familyDifferent:true}],
+ intentVsDelivered:[{status:'matched'}],
+ reviewInputSnapshot:validationSnapshot(buttonPlan,{reviewInputs:true}),
+}));
 const buttonServer=await serveFlowHtml(join(buttonDir,'flow/flow.html'),{planPath:buttonPlan});
 const buttonOrigin=new URL(buttonServer.url).origin;
 const buttonPage=await fetch(buttonOrigin+'/final');const buttonToken=(await buttonPage.text()).match(/name="token" value="([^"]+)"/)[1];

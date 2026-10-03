@@ -18,7 +18,14 @@ function fixture() {
  const planDir=join(root,'projects/test/fixture');mkdirSync(planDir,{recursive:true});const plan=join(planDir,'plan.md');
  const write=(passed=true,at='')=>writeFileSync(plan,`---\nslug: fixture\nexecutionMode: automate\n${at?`userValidatedAt: ${JSON.stringify(at)}\n`:''}phases:\n  - id: F0\n    deliveryAuditGate:\n      status: ${passed?'passed':'pending'}\n      verdict: CLOSED\n      reportPath: audit.md\nplanEndReview:\n  mode: external-both\n  reviewFile: audit.md\n  verifiedAt: '2026-10-02T12:00:00Z'\n  legs:\n    - provider: grok\n      status: succeeded\n      familyDifferent: true\n  intentVsDelivered:\n    - status: matched\n---\n# Delivered application\n`);
  writeFileSync(join(planDir,'audit.md'),'Actual delivered evidence\n'); write();
+ bindReview(plan);
  return {root,plan,write,html:join(root,'flow/flow.html')};
+}
+function bindReview(plan) {
+ const text = readFileSync(plan, 'utf8').replace(/^  reviewInputSnapshot:.*\n/gm, '');
+ writeFileSync(plan, text);
+ const snapshot = gate.validationSnapshot(plan, {reviewInputs:true});
+ writeFileSync(plan, text.replace('planEndReview:\n', `planEndReview:\n  reviewInputSnapshot: ${snapshot}\n`));
 }
 async function page(server) {const origin=new URL(server.url).origin;const res=await fetch(`${origin}/final`);return {origin,text:await res.text(),cookie:res.headers.get('set-cookie')?.split(';')[0]};}
 async function click(p,path='/api/validate',token=p.text.match(/name="token" value="([^"]+)"/)?.[1]) {return fetch(p.origin+path,{method:'POST',headers:{origin:p.origin,cookie:p.cookie||'','content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token:token||''})});}
@@ -27,7 +34,7 @@ test('real HTTP final button stays off until every audit passed, preserves flow,
  try {
  assert.match(server.url,/^http:\/\//);assert.match(await (await fetch(server.url)).text(),/flow preview/);
  f.write(false);let p=await page(server);assert.match(p.text,/<button[^>]*disabled/);assert.equal((await click(p)).status,409);
- f.write();p=await page(server);assert.doesNotMatch(p.text,/<button[^>]*disabled/);assert.equal((await click(p)).status,200);
+ f.write();bindReview(f.plan);p=await page(server);assert.doesNotMatch(p.text,/<button[^>]*disabled/);assert.equal((await click(p)).status,200);
  const at=readFileSync(f.plan,'utf8').match(/userValidatedAt: "([^"]+)"/)[1];
  assert.equal(gate.userValidationOk({automateActive:true,userValidatedAt:at}),false);
  const evidence=gate.readUserValidationEvidence(f.plan);
@@ -50,6 +57,7 @@ test('button works with real nested state and repo-relative audit reports outsid
  const f=fixture();const state=join(f.root,'.atomic-skills');const dir=join(state,'projects/test/fixture');mkdirSync(dir,{recursive:true});mkdirSync(join(state,'reviews'),{recursive:true});
  const plan=join(dir,'plan.md');writeFileSync(join(state,'reviews/audit.md'),'Real audit evidence\n');
  writeFileSync(plan,readFileSync(f.plan,'utf8').replace('reportPath: audit.md','reportPath: .atomic-skills/reviews/audit.md'));
+ bindReview(plan);
  const server=await serveFlowHtml(f.html,{planPath:plan});try{const p=await page(server);const response=await click(p);assert.equal(response.status,200,await response.text());assert.ok(gate.readUserValidationEvidence(plan));}finally{await server.close();rmSync(f.root,{recursive:true,force:true});}
 });
 test('durable CLI upgrades flow-only preview, reuses final origin and removes its server on down',async()=>{
@@ -67,7 +75,7 @@ test('stale page cannot validate changed audit or prototype, and readable page s
  const f=fixture();const dir=join(f.root,'projects/test/fixture');mkdirSync(join(dir,'ui'));mkdirSync(join(dir,'architecture'));writeFileSync(join(dir,'ui/screen.html'),'<html>Actual prototype screen</html>');writeFileSync(join(dir,'ui/ui.json'),JSON.stringify({screens:[{path:'ui/screen.html'}]}));writeFileSync(join(dir,'architecture/decisions.json'),JSON.stringify({chosen:'whole',sketches:[{id:'whole',outside:['Deferred export']}]}));
  const s=await serveFlowHtml(f.html,{planPath:f.plan});try{let p=await page(s);assert.match(p.text,/<main/);assert.match(p.text,/Deferred export/);assert.match(p.text,/\/final-assets\/ui\/screen.html/);assert.match(await(await fetch(p.origin+'/final-assets/ui/screen.html')).text(),/Actual prototype screen/);
  writeFileSync(join(dir,'audit.md'),'Changed audit\n');assert.equal((await click(p)).status,409);assert.doesNotMatch(readFileSync(f.plan,'utf8'),/userValidatedAt/);
- p=await page(s);assert.equal((await click(p)).status,200);assert.ok(gate.readUserValidationEvidence(f.plan));writeFileSync(join(dir,'ui/screen.html'),'<html>Changed prototype</html>');assert.equal(gate.readUserValidationEvidence(f.plan),null);
+ bindReview(f.plan);p=await page(s);assert.equal((await click(p)).status,200);assert.ok(gate.readUserValidationEvidence(f.plan));writeFileSync(join(dir,'ui/screen.html'),'<html>Changed prototype</html>');assert.equal(gate.readUserValidationEvidence(f.plan),null);
  }finally{await s.close();rmSync(f.root,{recursive:true,force:true});}
 });
 test('durable sidecar review supports final gate without rewriting ratified plan substance',async()=>{
@@ -77,7 +85,46 @@ test('durable sidecar review supports final gate without rewriting ratified plan
 });
 test('pending audit with a not-yet-created report still renders a disabled final button',async()=>{const f=fixture();f.write(false);writeFileSync(f.plan,readFileSync(f.plan,'utf8').replace('reportPath: audit.md','reportPath: not-created.md'));const s=await serveFlowHtml(f.html,{planPath:f.plan});try{const p=await page(s);assert.match(p.text,/<button[^>]*disabled/);assert.equal((await click(p)).status,409);}finally{await s.close();rmSync(f.root,{recursive:true,force:true});}});
 test('final report includes the findings retained in phase audit reports',async()=>{const f=fixture();const dir=join(f.root,'projects/test/fixture');writeFileSync(join(dir,'automate-run-state.json'),JSON.stringify({phaseResiduals:[{phaseId:'F0',reportPath:'audit.md',report:'Accepted residual H1'}]}));const s=await serveFlowHtml(f.html,{planPath:f.plan});try{const p=await page(s);assert.match(p.text,/Accepted residual H1/);}finally{await s.close();rmSync(f.root,{recursive:true,force:true});}});
-test('changing tracked delivered source invalidates both an open tab and its button proof',async()=>{const f=fixture();spawnSync('git',['init'],{cwd:f.root,encoding:'utf8'});writeFileSync(join(f.root,'source.js'),'export const version=1;\n');spawnSync('git',['add','source.js'],{cwd:f.root,encoding:'utf8'});const s=await serveFlowHtml(f.html,{planPath:f.plan});try{let p=await page(s);writeFileSync(join(f.root,'source.js'),'export const version=2;\n');assert.equal((await click(p)).status,409);p=await page(s);assert.equal((await click(p)).status,200);assert.ok(gate.readUserValidationEvidence(f.plan));writeFileSync(join(f.root,'source.js'),'export const version=3;\n');assert.equal(gate.readUserValidationEvidence(f.plan),null);}finally{await s.close();rmSync(f.root,{recursive:true,force:true});}});
+test('refreshing after source mutation cannot validate against stale reviews', async () => {
+ const f = fixture();
+ spawnSync('git', ['init'], {cwd:f.root, encoding:'utf8'});
+ writeFileSync(join(f.root, 'source.js'), 'export const version=1;\n');
+ spawnSync('git', ['add', 'source.js'], {cwd:f.root, encoding:'utf8'});
+ bindReview(f.plan);
+ const s = await serveFlowHtml(f.html, {planPath:f.plan});
+ try {
+  const old = await page(s);
+  writeFileSync(join(f.root, 'source.js'), 'export const version=2;\n');
+  assert.equal((await click(old)).status, 409);
+  const refreshed = await page(s);
+  assert.match(refreshed.text, /<button[^>]*disabled/);
+  assert.equal((await click(refreshed)).status, 409);
+  assert.equal(gate.readUserValidationEvidence(f.plan), null);
+  assert.doesNotMatch(readFileSync(f.plan, 'utf8'), /userValidatedAt/);
+  bindReview(f.plan);
+  const current = await page(s);
+  assert.equal((await click(current)).status, 200);
+  assert.ok(gate.readUserValidationEvidence(f.plan));
+  const finalize = () => spawnSync(process.execPath, ['scripts/assert-automate-gate.js',
+   '--state-root',f.root,'--plan','fixture','--gate','finalize','--skip-cursor','--skip-last-assert'], {encoding:'utf8'});
+  assert.equal(finalize().status, 0);
+  writeFileSync(join(f.root, 'source.js'), 'export const version=3;\n');
+  assert.equal(gate.readUserValidationEvidence(f.plan), null);
+  assert.equal(finalize().status, 1);
+ } finally {await s.close(); rmSync(f.root, {recursive:true, force:true});}
+});
+
+test('missing review input binding fails closed on the authentic HTTP button', async () => {
+ const f = fixture();
+ writeFileSync(f.plan, readFileSync(f.plan, 'utf8').replace(/^  reviewInputSnapshot:.*\n/gm, ''));
+ const s = await serveFlowHtml(f.html, {planPath:f.plan});
+ try {
+  const p = await page(s);
+  assert.match(p.text, /<button[^>]*disabled/);
+  assert.equal((await click(p)).status, 409);
+  assert.equal(gate.readUserValidationEvidence(f.plan), null);
+ } finally {await s.close(); rmSync(f.root, {recursive:true, force:true});}
+});
 test('schema-valid references show an admitted delivered HTML screen and HTTP application link',async()=>{
  const f=fixture();const dir=join(f.root,'projects/test/fixture');writeFileSync(join(dir,'built.html'),'<html>Built application</html>');
  const {default:Ajv}=await import('ajv/dist/2020.js');const {stringify}=await import('yaml');const common=JSON.parse(readFileSync(new URL('../meta/schemas/common.schema.json',import.meta.url),'utf8'));const schema=JSON.parse(readFileSync(new URL('../meta/schemas/plan.schema.json',import.meta.url),'utf8'));

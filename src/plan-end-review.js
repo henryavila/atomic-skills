@@ -418,7 +418,16 @@ export function finalAuditsPassed(planPath) {
 }
 export function validationSnapshot(planPath, options = {}) {
   const {text, fm} = readFinalPlan(planPath);
-  const hash = createHash('sha256').update(JSON.stringify(productSnapshot(planPath))).update(text.replace(/^userValidatedAt:.*\r?\n/gm, ''));
+  // Review outputs cannot be part of their own input identity. Normalize just
+  // the frontmatter so inline and sidecar receipts describe the same inputs.
+  let planInput = text.replace(/^userValidatedAt:.*\r?\n/gm, '');
+  if (options.reviewInputs) {
+    const fields = {...fm};
+    delete fields.userValidatedAt;
+    delete fields.planEndReview;
+    planInput = JSON.stringify(fields) + text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '');
+  }
+  const hash = createHash('sha256').update(JSON.stringify(productSnapshot(planPath))).update(planInput);
   const planDir = realpathSync(dirname(planPath));
   const marker = `${sep}.atomic-skills${sep}`;
   const root = planDir.includes(marker) ? planDir.slice(0, planDir.indexOf(marker)) : planDir;
@@ -447,7 +456,7 @@ export function validationSnapshot(planPath, options = {}) {
 }
 export function readUserValidationEvidence(planPath) {
   try {
-    if (!finalAuditsPassed(planPath)) return null;
+    if (!finalAuditsPassed(planPath) || !planEndReviewCurrent(planPath)) return null;
     const {fm} = readFinalPlan(planPath);
     const {proof,signature} = JSON.parse(readFileSync(join(dirname(planPath),'final-validation.json'),'utf8'));
     if (proof.source !== 'http-button' || proof.planPath !== realpathSync(planPath) || proof.at !== fm.userValidatedAt || proof.snapshot !== validationSnapshot(planPath)) return null;
@@ -456,6 +465,17 @@ export function readUserValidationEvidence(planPath) {
     if(actual.length !== expected.length || !timingSafeEqual(actual,expected)) return null;
     const evidence={at:proof.at}; authenticatedEvidence.add(evidence); return evidence;
   } catch {return null;}
+}
+
+/** A completed review authorizes only the exact source and inputs it examined. */
+export function planEndReviewCurrent(planPath) {
+  try {
+    const {fm} = readFinalPlan(planPath);
+    const receipt = fm.planEndReview;
+    return planEndReviewOk(receipt, {forbidSkip:true})
+      && typeof receipt.reviewInputSnapshot === 'string'
+      && receipt.reviewInputSnapshot === validationSnapshot(planPath, {reviewInputs:true});
+  } catch {return false;}
 }
 
 
