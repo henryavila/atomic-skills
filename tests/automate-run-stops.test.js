@@ -49,6 +49,30 @@ function trackedFixture() {
  return f;
 }
 
+test('initialized submodule delivery runs and repeated dirty edits use confirmable returned stop URLs',async()=>{
+ const f=trackedFixture();const source=mkdtempSync(join(tmpdir(),'automate-stop-submodule-'));
+ const git=(cwd,args)=>{const r=spawnSync('git',['-c','user.name=fixture','-c','user.email=fixture@test',...args],{cwd,encoding:'utf8'});assert.equal(r.status,0,r.stderr);};
+ let server,reviews=0,prs=0;
+ try {
+  git(source,['init']);writeFileSync(join(source,'source.js'),'version 1\n');git(source,['add','source.js']);git(source,['commit','-m','submodule fixture']);
+  git(f.root,['-c','protocol.file.allow=always','submodule','add',source,'vendor']);git(f.root,['commit','-am','initialized submodule fixture']);
+  server=await serveFlowHtml(f.html,{planPath:f.plan});
+  const deps={preview:()=>server.url,open:()=>{},review:()=>{reviews++;return clean;},createPr:()=>{prs++;return {url:'https://github.test/pr/1',state:'OPEN'};}};
+  const run=()=>runner.runPlanEndWorkflow({plan:f.plan,root:f.root,cli:'grok',deps});
+  assert.equal((await run()).action,'pr-open');assert.equal(reviews,2);assert.equal(prs,1);
+  for(const version of [2,3]) {
+   writeFileSync(join(f.root,'vendor/source.js'),`version ${version}\n`);
+   const stopped=await run();assert.equal(stopped.reason,'não avanço');
+   const response=await fetch(stopped.url);const html=await response.text();assert.equal(response.status,200,html);
+   assert.match(html,/Submodule vendor must be clean and initialized/);assert.match(html,/Confirm and resume/);
+   const origin=new URL(stopped.url).origin;const token=html.match(/name="token" value="([^"]+)"/)[1];
+   assert.equal((await fetch(origin+'/api/stop-confirm',{method:'POST',headers:{origin,cookie:response.headers.get('set-cookie').split(';')[0]},body:new URLSearchParams({token})})).status,200);
+   assert.equal(reviews,2);assert.equal(prs,1);
+  }
+  assert.equal(readFileSync(join(f.root,'decisions/operator-stops.jsonl'),'utf8').trim().split('\n').length,2);
+ } finally {if(server) await server.close();rmSync(f.root,{recursive:true,force:true});rmSync(source,{recursive:true,force:true});}
+});
+
 for (const stage of ['audit','pr','complete']) {
  test(`saved ${stage} without reviewed input identity cannot reuse legacy success`, async () => {
   const f = fixture();
@@ -209,24 +233,44 @@ for (const kind of ['null-row','array-row','unknown-status','null-finding']) {
  });
 }
 
-for (const input of ['missing-architecture','malformed-architecture','malformed-flow','missing-ui-screen']) {
+for (const input of ['missing-architecture','malformed-architecture','malformed-flow','missing-ui-screen','malformed-ui','missing-passed-audit']) {
  test(`runtime ${input} construction failure uses the controlled stop`, async () => {
   const f = fixture();
   if (input === 'missing-architecture') rmSync(join(f.root,'architecture/decisions.json'));
   if (input === 'malformed-architecture') writeFileSync(join(f.root,'architecture/decisions.json'),'{bad');
   if (input === 'malformed-flow') writeFileSync(join(f.root,'flow/flow.json'),'{bad');
+  if (input === 'malformed-ui') {mkdirSync(join(f.root,'ui'));writeFileSync(join(f.root,'ui/ui.json'),'{bad');}
+  if (input === 'missing-passed-audit') rmSync(join(f.root,'audit.md'));
   if (input === 'missing-ui-screen') {
    mkdirSync(join(f.root,'ui'));writeFileSync(join(f.root,'ui/ui.json'),JSON.stringify({screens:[{path:'ui/not-created.html'}]}));
   }
   const server = await serveFlowHtml(f.html,{planPath:f.plan});
   try {
-   const result = await runner.runPlanEndWorkflow({plan:f.plan,root:f.root,cli:'grok',deps:{
-    preview:()=>server.url,open:()=>{},review:()=>clean,createPr:()=>{throw Error('must not publish');},
-   }});
+   let reviews=0;
+   const deps={preview:()=>server.url,open:()=>{},review:()=>{reviews++;return clean;},createPr:()=>({url:'https://github.test/pr/1',state:'OPEN'})};
+   const result = await runner.runPlanEndWorkflow({plan:f.plan,root:f.root,cli:'grok',deps});
    assert.equal(result.reason,'não avanço');
    assert.equal(new URL(result.url).origin,new URL(server.url).origin);
-   assert.equal((await fetch(server.url)).status,200);
-   assert.equal(JSON.parse(readFileSync(join(f.root,'automate-run-state.json'),'utf8')).pendingStop.reason,'não avanço');
+   const state=JSON.parse(readFileSync(join(f.root,'automate-run-state.json'),'utf8'));
+   assert.equal(state.pendingStop.reason,'não avanço');
+   const response=await fetch(result.url);const html=await response.text();assert.equal(response.status,200,html);
+   assert.match(html,/Confirm and resume/);
+   const origin=new URL(result.url).origin;const token=html.match(/name="token" value="([^"]+)"/)[1];
+   const confirmed=await fetch(origin+'/api/stop-confirm',{method:'POST',headers:{origin,cookie:response.headers.get('set-cookie').split(';')[0]},body:new URLSearchParams({token})});
+   assert.equal(confirmed.status,200,await confirmed.text());
+   const row=JSON.parse(readFileSync(join(f.root,'decisions/operator-stops.jsonl'),'utf8').trim());assert.equal(row.id,state.pendingStop.id);
+   if(input==='missing-architecture'||input==='malformed-architecture') writeFileSync(join(f.root,'architecture/decisions.json'),'{}');
+   if(input==='malformed-flow') {const graph=JSON.parse(readFileSync(new URL('../docs/design/project-flow/dogfood/minimal-xor.json',import.meta.url),'utf8'));graph.ratifiedGraphSha=flowDocumentSha(graph);writeFileSync(join(f.root,'flow/flow.json'),JSON.stringify(graph));}
+   if(input==='missing-ui-screen') writeFileSync(join(f.root,'ui/not-created.html'),'<html>Recovered prototype</html>');
+   if(input==='malformed-ui') writeFileSync(join(f.root,'ui/ui.json'),JSON.stringify({screens:[]}));
+   if(input==='missing-passed-audit') writeFileSync(join(f.root,'audit.md'),'Recovered phase audit\n');
+   let resumed=await runner.runPlanEndWorkflow({plan:f.plan,root:f.root,cli:'grok',deps});
+   if(resumed.action==='stop') {
+    assert.match(JSON.stringify(JSON.parse(readFileSync(join(f.root,'automate-run-state.json'),'utf8')).pendingStop.findings),/Delivery changed since the saved reviews/);
+    assert.equal((await confirm(origin)).status,200);
+    resumed=await runner.runPlanEndWorkflow({plan:f.plan,root:f.root,cli:'grok',deps});
+   }
+   assert.equal(resumed.action,'pr-open');assert.ok(reviews>0);
   } finally {await server.close();rmSync(f.root,{recursive:true,force:true});}
  });
 }
