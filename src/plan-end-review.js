@@ -51,6 +51,7 @@
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -415,9 +416,9 @@ export function finalAuditsPassed(planPath) {
     return Array.isArray(fm.phases) && fm.phases.length > 0 && fm.phases.every(p => p && p.deliveryAuditGate?.status === 'passed');
   } catch { return false; }
 }
-export function validationSnapshot(planPath) {
+export function validationSnapshot(planPath, options = {}) {
   const {text, fm} = readFinalPlan(planPath);
-  const hash = createHash('sha256').update(text.replace(/^userValidatedAt:.*\r?\n/gm, ''));
+  const hash = createHash('sha256').update(JSON.stringify(productSnapshot(planPath))).update(text.replace(/^userValidatedAt:.*\r?\n/gm, ''));
   const planDir = realpathSync(dirname(planPath));
   const marker = `${sep}.atomic-skills${sep}`;
   const root = planDir.includes(marker) ? planDir.slice(0, planDir.indexOf(marker)) : planDir;
@@ -436,7 +437,7 @@ export function validationSnapshot(planPath) {
     const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('presentation path escapes root');
     const bytes=readFileSync(actual);if(bytes.length>2_000_000) throw new Error('presentation exceeds size cap');hash.update(actual).update(bytes);
   };
-  for(const rel of ['architecture/decisions.json','ui/ui.json','automate-run-state.json','automate-plan-end-review.json','flow/flow.html']) {const file=join(planDir,rel);if(existsSync(file)) addFile(file);}
+  for(const rel of ['architecture/decisions.json','ui/ui.json','flow/flow.json','flow/flow.html',...(options.reviewInputs?[]:['automate-run-state.json','automate-plan-end-review.json'])]) {const file=join(planDir,rel);if(existsSync(file)) addFile(file);}
   const decisions=join(planDir,'decisions');
   if(existsSync(decisions)) for(const name of readdirSync(decisions).filter(n=>n.endsWith('.jsonl')).sort()) addFile(join(decisions,name));
   if(fm.deliveredSurface?.path) addFile(resolve(planDir,fm.deliveredSurface.path));
@@ -455,4 +456,25 @@ export function readUserValidationEvidence(planPath) {
     if(actual.length !== expected.length || !timingSafeEqual(actual,expected)) return null;
     const evidence={at:proof.at}; authenticatedEvidence.add(evidence); return evidence;
   } catch {return null;}
+}
+
+
+/** Current tracked product bytes, excluding operational plan/runtime files. */
+export function productSnapshot(planPath) {
+  const repo=spawnSync('git',['rev-parse','--show-toplevel'],{cwd:dirname(planPath),encoding:'utf8',timeout:10000});
+  if(repo.status!==0) return null;
+  const root=realpathSync(repo.stdout.trim());
+  const result=spawnSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8',timeout:10000,maxBuffer:4_000_000});
+  if(result.status!==0) throw new Error('Cannot read tracked product identity');
+  const hash=createHash('sha256');
+  for(const relative of result.stdout.split('\0').filter(Boolean).sort()) {
+    const file=resolve(root,relative);
+    if(relative.startsWith('.atomic-skills/') || file===resolve(planPath) || /^(?:automate-|final-validation)/.test(relative)) continue;
+    hash.update(relative).update('\0');
+    if(!existsSync(file)) {hash.update('deleted');continue;}
+    const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('Tracked product path escapes repository');
+    const bytes=readFileSync(file);if(bytes.length>20_000_000) throw new Error('Tracked product exceeds size cap');
+    hash.update(bytes).update('\0');
+  }
+  return {digest:hash.digest('hex')};
 }
