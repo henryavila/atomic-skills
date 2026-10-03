@@ -772,6 +772,7 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 | 3 | Shared tests asserting bare ISO validation need the new authenticated contract. | tests/implement-automate-contract.test.js:263; tests/plan-end-review.test.js | direct | F5 T-002 shared allow fixtures explicitly admitted; correct the remaining obsolete expectation. |
 | 4 | PR-stage retries overwrite reviewed-input identity; repair prompts omit the current findings; OPEN can advance. | scripts/automate-run.js:789; scripts/automate-run.js:812; scripts/automate-run.js:819 | direct | Original defects resolved by fix1. New publishing/transport/input-validation findings are assigned to the same F5 T-003 before closure. |
 | 5 | A fresh page can validate changed source against an old completed review. | scripts/lib/serve-flow.js:88 | direct | Original stale-review bypass resolved by fix1. New owned-file/YAML/lifecycle-reference findings and coupled gate instructions are assigned to F5 T-002 before closure. |
+| 7 | Final stop rendering reuses a failed delivery snapshot; tracked gitlinks are read as files. | scripts/lib/serve-flow.js:120; src/plan-end-review.js:557 | direct | Assign confirmed final reviewer defects to F5 T-002/T-003; maintain disabled validation for invalid delivery. |
 | 6 | Prior F4 automatic phase-driver and first-time reviewer/ground-truth ordering limitations remain. | .atomic-skills/reviews/audit-delivery-real-automate-F4.md Accept Register | direct | Previously operator-accepted H1–H9; F5 outOfScope preserves F4 close. This is an existing residual, not a new acceptance or a claim of a complete phase driver. |
 
 **Counts:** premises=8 (missing=0, false=0); impacts=6 (direct=5, indirect=1)
@@ -780,4 +781,4 @@ O mesmo `automate-run.js` aplica a tabela de cima a este plano. Flow ratificado,
 
 - internal: 2 finding(s) applied @ uncommitted (2026-09-25T03:40:00Z)
 - cross-model (codex): needs_changes (resolved) — .atomic-skills/reviews/2026-09-25-real-automate-plan.md
-- ground-truth: complete-with-findings | mode=ground-truth | fp=5f24caa95e99 | premises=8 | impacts=6 @ a12145cc32a06d8b3fcac8f0a4b7ff182123baea (2026-10-03T04:19:40.879Z)
+- ground-truth: complete-with-findings | mode=ground-truth | fp=d95f44b5640c | premises=8 | impacts=7 @ 0ca408865b661f4b0a3556688319e70b163dd641 (2026-10-03T05:06:25.126Z)

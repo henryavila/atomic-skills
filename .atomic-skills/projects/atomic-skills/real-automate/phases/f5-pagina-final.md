@@ -15,8 +15,8 @@ goal: um servidor no hábito de `serve-flow.js --up` mostra o que foi carimbado,
 status: active
 branch: plan/real-automate
 started: 2026-10-02T19:56:45.000Z
-lastUpdated: 2026-10-03T04:53:57.279Z
-nextAction: Evaluate completed F5 and verify its delivery gate.
+lastUpdated: 2026-10-03T05:06:25.099Z
+nextAction: Repair confirmed final HTTP stop and gitlink snapshot defects.
 parentPlan: real-automate
 phaseId: F5
 businessIntent:
@@ -42,11 +42,11 @@ businessIntent:
   doneWhen: "`node --test tests/final-page-http.test.js` mostra o botão verde só
     com todo `deliveryAuditGate` passed, o PR existe sem merge, e archive não
     roda nesse comando."
-tasksDone: 3
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 3
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -109,7 +109,7 @@ tasks:
       aceitar um timestamp escrito na sessão, e `assert-automate-gate --gate
       finalize` recusa esse timestamp. Verifier: teste HTTP do botão desligado e
       ligado."
-    status: done
+    status: pending
     lastUpdated: 2026-10-03T04:53:53.935Z
     scopeBoundary:
       - Do not serve the final page as file://.
@@ -151,21 +151,15 @@ tasks:
     summary: Vista HTTP, botão só com audit passed, botão único escritor de
       userValidatedAt.
     weight: 1
-    closedAt: 2026-10-03T04:53:53.935Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-10-03T04:53:53.935Z
-      verifiedCommit: fe818580189bb5eef9b5f1c03504974b68a0eba8
-      passed: true
-      exitCode: 0
-      testsCollected: 18
-      outputSummary: "node --test tests/final-page-http.test.js: 18 tests, 18 pass, 0 fail"
+    reopenedAt: 2026-10-03T05:06:25.098Z
+    reopenReason: Independent final review reproduced missing-evidence stop page409
+      and tracked gitlink EISDIR
   - id: T-003
     title: Paradas
     description: "Travei, não avanço e mudança grande abrem a mesma origem. A
       confirmação entra no log e o programa retoma sem reinstalar parada por
       fase. Verifier: teste das três paradas."
-    status: done
+    status: pending
     lastUpdated: 2026-10-03T04:53:57.279Z
     scopeBoundary:
       - Do not reinstall a stop per phase after resume.
@@ -187,15 +181,9 @@ tasks:
     summary: Travei, não avanço e mudança grande na mesma origem; retoma sem
       reinstalar parada.
     weight: 1
-    closedAt: 2026-10-03T04:53:57.279Z
-    evidence:
-      verifierKind: shell
-      verifiedAt: 2026-10-03T04:53:57.279Z
-      verifiedCommit: 55c0d69880b74be733de077ae69ace24a865f66d
-      passed: true
-      exitCode: 0
-      testsCollected: 46
-      outputSummary: "node --test tests/automate-run-stops.test.js: 46 tests, 46 pass, 0 fail"
+    reopenedAt: 2026-10-03T05:06:25.098Z
+    reopenReason: Independent final review reproduced missing-evidence stop page409
+      and tracked gitlink EISDIR
 parked: []
 emerged: []
 startedCommit: 02e7693d0db704a75522c2df6442000c2ff15b57
