@@ -4,9 +4,11 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 
 ## Arquivos de memória
 
-- [handoff-real-automate-2026-09-25.md](handoff-real-automate-2026-09-25.md) — **Retomar daqui.** Pause/format 2026-09-25. Branch `plan/real-automate` no origin. F0+F1 done. Próximo: materializar F2 (`find-missing-ui.js`). Ground-truth `fp=f1ed5608e242` está stale em relação ao código da F1.
+- [handoff-real-automate-2026-10-05.md](handoff-real-automate-2026-10-05.md) — **Retomar daqui.** Branch `plan/real-automate`, PR #50 rascunho/sem merge. F0–F5 registradas done, mas entrega PARTIAL: cartões próprios de arquitetura/UI ausentes e ciclo automático da F4 incompleto. Próximo: revisar a página final e os cartões; depois delimitar a integração da F4. Validação real pelo botão pendente.
 
-- [decisao-unattended-bloco.md](decisao-unattended-bloco.md) — Contrato de `implement --automate` (programa, não skill; flow é SoT do audit; cartão de bloco; página). Primeiro corte 2026-09-24: caneta real, fechado até cartão+protótipo, um writer/merge/para. **Código 2026-09-25:** F0 caneta+partida e F1 detector de arquitetura já fecharam neste branch. F2 ainda não.
+- [handoff-real-automate-2026-09-25.md](handoff-real-automate-2026-09-25.md) — Histórico do pause/format de setembro; substituído pelo handoff de 2026-10-05.
+
+- [decisao-unattended-bloco.md](decisao-unattended-bloco.md) — Contrato de `implement --automate` (programa, não skill; flow é SoT do audit; cartão de bloco; página). Documento histórico; estado atual e pendências no handoff de 2026-10-05.
 
 - [reference-project-flow.md](reference-project-flow.md) — Project Flow substitui process-map (descarte completo, 2026-08-12). Dentes = implement entry HARD em **qualquer plano** + comando `project flow`. HTML gerado = `flow/flow.html` (nunca `map.html`); L2 = 3 diagramas SVG (não lista/card); show sempre via `serve-flow.js --up` (HTTP, nunca `file://`; recusa `map.html`). Q8-A: `ratifiedGraphSha`. Entrada `docs/design/project-flow/HANDOFF.md`. Incidente 2026-08-28: vista lista ainda era o mapa — engine SVG ligada + serve durável no Windows.
 
@@ -44,4 +46,3 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 - [reference-ground-truth-review-gate.md](reference-ground-truth-review-gate.md) — Plan↔code ground-truth (A phantoms + B silent code) mandatory before implement; receipt `## Ground-truth review` + `- ground-truth:`; detector `find-plans-missing-ground-truth.js`; empty-repo still `complete-empty-repo`.
 - [reference-implement-foreign-plan.md](reference-implement-foreign-plan.md) — `implement path/to/plan.md`: entry AskUserQuestion Promote vs Foreign; sidecar `*.implement.yaml`; FINALIZE/ARCHIVE; no late promote. Helpers `implement-target-kind`, `foreign-work-order`, `foreign-plan-parse`.
 - [reference-audit-delivery-hardening.md](reference-audit-delivery-hardening.md) — Skill `audit-delivery` + hard-gate `deliveryAuditGate` on every phase-done (schema, lifecycle, validate-state GATE-R4, assert authenticity); EN SSOT; plan-end intentVsDelivered ≠ phase gate. Review dogfood: land gate in all five surfaces same PR.
-

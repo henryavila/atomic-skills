@@ -26,7 +26,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Phase | nextAction |
 |------|--------|-------|-----------|
-| real-automate-f5-pagina-final | done | F5 | Validate the delivered plan on the final HTTP page. |
+| real-automate-f5-pagina-final | done | F5 | Review the final-page prototype and missing architecture/UI cards. |
 
 ### project-flow — Initiatives
 

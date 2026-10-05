@@ -7,6 +7,8 @@ metadata:
 
 # Handoff — real-automate (pause 2026-09-25)
 
+Histórico. Para retomar o estado atual, ler [handoff-real-automate-2026-10-05.md](handoff-real-automate-2026-10-05.md).
+
 A máquina local vai ser formatada. O trabalho está no GitHub em
 `origin/plan/real-automate`. A memória local do Grok (`~/.grok/memory-v2`)
 some com o disco. Esta pasta `.ai/memory/` é o que sobrevive.
