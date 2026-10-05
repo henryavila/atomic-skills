@@ -1,0 +1,64 @@
+{
+  "capturedAt": "2026-10-05T10:33:30.701728+00:00",
+  "purpose": "Preserve all preexisting local real-automate diagnostics on operator save-and-push request; originals retained, no canonical completion events emitted.",
+  "sources": [
+    {
+      "path": ".atomic-skills/analytics/plan-quality.jsonl",
+      "sha256": "27efc22e164151a7a51f2372f375fadcca6723734e881101fc34a41b4cd3cde5",
+      "utf8": "{\"kind\":\"fingerprint_refuse\",\"planSlug\":null,\"phaseId\":null,\"ts\":\"2026-10-02T13:04:39.306Z\",\"meta\":{\"message\":\"tasks-fingerprint refuse: initiative tasks core diverges from sidecar /home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/projects/atomic-skills/real-automate/phases/f3-um-writer-merge-e\"}}\n",
+      "records": [
+        {
+          "kind": "fingerprint_refuse",
+          "planSlug": null,
+          "phaseId": null,
+          "ts": "2026-10-02T13:04:39.306Z",
+          "meta": {
+            "message": "tasks-fingerprint refuse: initiative tasks core diverges from sidecar /home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/projects/atomic-skills/real-automate/phases/f3-um-writer-merge-e"
+          }
+        }
+      ]
+    },
+    {
+      "path": ".atomic-skills/.atomic-skills/analytics/completions.jsonl",
+      "sha256": "7d5a85414358401af7b1696171330ebc89d5c7883304c40813d70e4912f1dd8b",
+      "utf8": "{\"ts\":\"2026-10-02T17:00:23.110Z\",\"event\":\"task-done\",\"projectId\":\"atomic-skills\",\"planSlug\":\"real-automate\",\"phaseId\":\"F4\",\"taskId\":\"T-001\",\"weight\":1,\"weightBasis\":\"count\"}\n{\"ts\":\"2026-10-02T17:00:23.134Z\",\"event\":\"task-done\",\"projectId\":\"atomic-skills\",\"planSlug\":\"real-automate\",\"phaseId\":\"F4\",\"taskId\":\"T-002\",\"weight\":1,\"weightBasis\":\"count\"}\n{\"ts\":\"2026-10-02T17:00:23.157Z\",\"event\":\"task-done\",\"projectId\":\"atomic-skills\",\"planSlug\":\"real-automate\",\"phaseId\":\"F4\",\"taskId\":\"T-003\",\"weight\":1,\"weightBasis\":\"count\"}\n",
+      "records": [
+        {
+          "ts": "2026-10-02T17:00:23.110Z",
+          "event": "task-done",
+          "projectId": "atomic-skills",
+          "planSlug": "real-automate",
+          "phaseId": "F4",
+          "taskId": "T-001",
+          "weight": 1,
+          "weightBasis": "count"
+        },
+        {
+          "ts": "2026-10-02T17:00:23.134Z",
+          "event": "task-done",
+          "projectId": "atomic-skills",
+          "planSlug": "real-automate",
+          "phaseId": "F4",
+          "taskId": "T-002",
+          "weight": 1,
+          "weightBasis": "count"
+        },
+        {
+          "ts": "2026-10-02T17:00:23.157Z",
+          "event": "task-done",
+          "projectId": "atomic-skills",
+          "planSlug": "real-automate",
+          "phaseId": "F4",
+          "taskId": "T-003",
+          "weight": 1,
+          "weightBasis": "count"
+        }
+      ]
+    }
+  ],
+  "canonicalLedgerCheck": {
+    "F4/T-001": 0,
+    "F4/T-002": 1,
+    "F4/T-003": 1
+  }
+}
