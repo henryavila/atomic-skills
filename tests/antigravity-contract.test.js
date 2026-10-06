@@ -38,17 +38,16 @@ function agyAvailable() {
 }
 
 describe('Antigravity layout contract', () => {
-  it('installs skills under .agent/skills/atomic-skills/<skill>/SKILL.md', () => {
+  it('installs skills as one-level .agent/skills/atomic-skills-<skill>/SKILL.md', () => {
     assert.equal(
       getSkillPath('antigravity', 'fix'),
-      '.agent/skills/atomic-skills/fix/SKILL.md',
+      '.agent/skills/atomic-skills-fix/SKILL.md',
     );
     assert.equal(
       getSkillPath('agy', 'fix'),
-      '.agent/skills/atomic-skills/fix/SKILL.md',
+      '.agent/skills/atomic-skills-fix/SKILL.md',
     );
-    assert.equal(getNamespaceRootPath('antigravity'), '.agent/skills/atomic-skills/SKILL.md');
-    assert.notEqual(getNamespaceRootPath('antigravity'), null);
+    assert.equal(getNamespaceRootPath('antigravity'), null);
   });
 
   it('materializes every core skill for antigravity', () => {
@@ -82,8 +81,8 @@ describe('Antigravity tool profile and rendering', () => {
     assert.equal(profile.READ_TOOL, 'view_file');
     assert.equal(profile.WRITE_TOOL, 'write_to_file');
     assert.equal(profile.REPLACE_TOOL, 'replace_file_content');
-    assert.equal(profile.GREP_TOOL, 'grep_search');
-    assert.equal(profile.GLOB_TOOL, 'glob');
+    assert.equal(profile.GREP_TOOL, 'grep');
+    assert.equal(profile.GLOB_TOOL, 'find');
     assert.equal(profile.INVESTIGATOR_TOOL, 'invoke_subagent');
     assert.equal(profile.ASK_USER_QUESTION_TOOL, 'ask_question');
     assert.equal(profile.ARG_VAR, '$ARGUMENTS');

@@ -2,11 +2,11 @@
  * merge-external-both.js — CLI wrapper around mergeExternalBothFindings.
  *
  * Usage:
- *   node scripts/merge-external-both.js <codex.json> <grok.json> [claude.json]
+ *   node scripts/merge-external-both.js <codex.json> <grok.json> [claude.json] [agy.json]
  *
  * Each argument is a path to a JSON file, or `-` / `skip` / empty to mark that
- * provider as skipped. Omitting the third arg leaves Claude as skipped
- * (2-arg legacy callers keep working).
+ * provider as skipped. Omitting the third or fourth arg leaves them skipped
+ * (2-arg and 3-arg legacy callers keep working).
  *
  * File contents may be:
  *   - a provider payload: { findings?, error?, status?, reason? }
@@ -17,7 +17,7 @@
  *
  * Package-root invocation (installed):
  *   node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
- *     /tmp/codex-findings.json /tmp/grok-findings.json [/tmp/claude-findings.json]
+ *     /tmp/codex-findings.json /tmp/grok-findings.json [/tmp/claude-findings.json] [/tmp/agy-findings.json]
  */
 import { readFileSync } from 'node:fs';
 import { mergeExternalBothFindings } from '../src/external-both-merge.js';
@@ -34,7 +34,7 @@ function isSkipToken(arg) {
 
 /**
  * @param {string} pathArg
- * @param {'codex'|'grok'|'claude'} provider
+ * @param {'codex'|'grok'|'claude'|'agy'} provider
  * @returns {{ findings?: object[], error?: string, status?: string, reason?: string } | null}
  *   null → provider omitted (skipped)
  */
@@ -69,9 +69,10 @@ export function mergeFromArgs(argv) {
   const codexArg = argv[0];
   const grokArg = argv[1];
   const claudeArg = argv[2]; // optional — omit = skipped
+  const agyArg = argv[3];    // optional — omit = skipped
   if (codexArg === undefined || grokArg === undefined) {
     throw new Error(
-      'usage: node scripts/merge-external-both.js <codex.json|-|skip> <grok.json|-|skip> [claude.json|-|skip]',
+      'usage: node scripts/merge-external-both.js <codex.json|-|skip> <grok.json|-|skip> [claude.json|-|skip] [agy.json|-|skip]',
     );
   }
   /** @type {Record<string, object>} */
@@ -83,6 +84,10 @@ export function mergeFromArgs(argv) {
   if (claudeArg !== undefined) {
     const claude = loadProviderArg(claudeArg, 'claude');
     if (claude != null) input.claude = claude;
+  }
+  if (agyArg !== undefined) {
+    const agy = loadProviderArg(agyArg, 'agy');
+    if (agy != null) input.agy = agy;
   }
   return mergeExternalBothFindings(input);
 }

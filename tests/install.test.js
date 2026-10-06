@@ -26,7 +26,7 @@ const META_DIR = join(__dirname, '..', 'meta');
 const PUBLIC_HOST_SKILL_MATRIX = [
   { ideId: 'claude-code', skillPath: '.claude/commands/atomic-skills/fix.md' },
   { ideId: 'cursor', skillPath: '.cursor/skills/atomic-skills/fix/SKILL.md' },
-  { ideId: 'antigravity', skillPath: '.agent/skills/atomic-skills/fix/SKILL.md' },
+  { ideId: 'antigravity', skillPath: '.agent/skills/atomic-skills-fix/SKILL.md' },
   { ideId: 'codex', skillPath: '.agents/skills/atomic-skills/fix/SKILL.md' },
   { ideId: 'opencode', skillPath: '.opencode/skills/atomic-skills/fix/SKILL.md' },
   { ideId: 'github-copilot', skillPath: '.github/skills/atomic-skills/fix/SKILL.md' },
@@ -112,7 +112,7 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const agyFile = join(tempDir, '.agent/skills/atomic-skills/fix/SKILL.md');
+    const agyFile = join(tempDir, '.agent/skills/atomic-skills-fix/SKILL.md');
     assert.ok(existsSync(agyFile));
     const content = readFileSync(agyFile, 'utf8');
     assert.ok(content.startsWith('---\n'));
@@ -296,8 +296,8 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
-    assert.ok(existsSync(join(tempDir, '.agent/skills/atomic-skills/fix/SKILL.md')));
-    assert.strictEqual(result.files.length, 266); // 2 IDEs + shared assets (implement-phase-* + maestro/decision-log + foreign-plan + providers/claude ×2) + one auto-update hook
+    assert.ok(existsSync(join(tempDir, '.agent/skills/atomic-skills-fix/SKILL.md')));
+    assert.strictEqual(result.files.length, 265); // 2 IDEs + shared assets; antigravity has no namespace-root SKILL.md
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {

@@ -29,8 +29,8 @@ export const AGY_MODEL_ALIASES = Object.freeze([
   { slug: 'hybrid', displayName: 'Hybrid (Flash Pass 1 + Pro Pass 2)', description: 'Recommended: fast sweep + deep reasoning verdict', isDefault: true, priority: 1 },
   { slug: 'gemini-3.8-flash-high', displayName: 'Gemini 3.8 Flash (High)', description: 'Fast scan (~8s) for code review', isDefault: false, priority: 2 },
   { slug: 'gemini-3.1-pro-high', displayName: 'Gemini 3.1 Pro (High)', description: 'Deep reasoning for architecture and plan review', isDefault: false, priority: 3 },
-  { slug: 'claude-sonnet-4-6', displayName: 'Claude Sonnet 4.6 (Thinking)', description: 'Balanced cross-family option in agy', isDefault: false, priority: 4 },
-  { slug: 'claude-opus-4-6-thinking', displayName: 'Claude Opus 4.6 (Thinking)', description: 'Heavy reasoning option in agy', isDefault: false, priority: 5 },
+  { slug: 'claude-sonnet-5-5-high', displayName: 'Claude Sonnet 5.5 (High)', description: 'Balanced cross-family option in agy', isDefault: false, priority: 4 },
+  { slug: 'claude-opus-5-5-high', displayName: 'Claude Opus 5.5 (High)', description: 'Heavy reasoning option in agy', isDefault: false, priority: 5 },
 ]);
 
 /**
@@ -610,6 +610,8 @@ export function resolveReviewModel(input) {
     if (low === 'flash') explicit = 'gemini-3.8-flash-high';
     else if (low === 'pro') explicit = 'gemini-3.1-pro-high';
     else if (low === 'hybrid') explicit = 'hybrid';
+    else if (low === 'sonnet' || low === 'claude-sonnet' || low === 'claude-sonnet-4-6') explicit = 'claude-sonnet-5-5-high';
+    else if (low === 'opus' || low === 'claude-opus' || low === 'claude-opus-4-6-thinking') explicit = 'claude-opus-5-5-high';
   }
 
   if (explicit) {
@@ -648,6 +650,8 @@ export function resolveReviewModel(input) {
       if (low === 'flash') choice = 'gemini-3.8-flash-high';
       else if (low === 'pro') choice = 'gemini-3.1-pro-high';
       else if (low === 'hybrid') choice = 'hybrid';
+      else if (low === 'sonnet' || low === 'claude-sonnet' || low === 'claude-sonnet-4-6') choice = 'claude-sonnet-5-5-high';
+      else if (low === 'opus' || low === 'claude-opus' || low === 'claude-opus-4-6-thinking') choice = 'claude-opus-5-5-high';
     }
     if (choice === 'cli-default') {
       return runResult({

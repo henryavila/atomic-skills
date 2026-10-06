@@ -79,7 +79,7 @@ router's `## Initial detection`. Do NOT re-implement plan discovery here.
 **Non-interactive abort.** If neither a TTY nor an explicit `--mode=` flag
 is available (hook, `parallel-dispatch`, or `project-status`/`project-plan`
 loop), abort with: "review-plan invoked without TTY and without `--mode=`;
-pass `--mode=local|ground-truth|codex|grok|claude|both|both-codex|both-grok|both-claude|external-both`
+pass `--mode=local|ground-truth|codex|grok|claude|agy|both|both-codex|both-grok|both-claude|both-agy|external-both`
 explicitly." Do NOT invoke {{ASK_USER_QUESTION_TOOL}} in background.
 Workflows that loop over plans (e.g. `project-plan` Stage 8) MUST pass an
 explicit mode (`--mode=local` / `--mode=ground-truth` / external) to skip the prompt.
@@ -234,13 +234,13 @@ announce: "Ground-truth receipt missing — run
 `atomic-skills:review-plan --mode=ground-truth <plan>` before implement."
 END.
 
-### Flow B — external only (`mode ∈ {codex, grok, claude}` after route stays external)
+### Flow B — external only (`mode ∈ {codex, grok, claude, agy}` after route stays external)
 
 Run **External sealed-envelope sub-flow** with `«PROVIDER»` =
 `route.externalProvider` (result of `resolveReviewRoute` — never re-derive from
 the forced mode after the same-family decision). END.
 
-### Flow C — local then external (`mode ∈ {both, both-codex, both-grok, both-claude}`)
+### Flow C — local then external (`mode ∈ {both, both-codex, both-grok, both-claude, both-agy}`)
 
 1. **LOCAL PHASE** — Self-loop checklist; apply fixes inline. Audit trail goes
    into the persisted review file, NOT the external briefing.
@@ -260,14 +260,14 @@ details: `docs/kb/cross-model-review-design.md` § external-both +
 `{{ASSETS_PATH}}/envelope-orchestration.md` § external-both):
 
 1. **Collect.** Run External sealed-envelope per remaining provider
-   (**codex → grok → claude**, family-filtered) on the same CLEANED plan. No triage/edit between legs.
+   (**codex → grok → claude → agy**, family-filtered) on the same CLEANED plan. No triage/edit between legs.
    Per-provider failure records `{ status: failed, error }` and **continues**
    the other leg (single-provider modes still abort on failure).
    Family-filtered legs: `status: skipped`.
 2. **Merge.**
    ```bash
    node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
-     <codex-findings.json|-|skip> <grok-findings.json|-|skip> [claude-findings.json|-|skip]
+     <codex-findings.json|-|skip> <grok-findings.json|-|skip> [claude-findings.json|-|skip] [agy-findings.json|-|skip]
    ```
    Or `mergeExternalBothFindings` from
    `"$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/external-both-merge.js"`.
@@ -351,11 +351,11 @@ the divergence is intentional, document it as an "alignment note" in the plan.
 
 ---
 
-## External sealed-envelope sub-flow (modes: codex, grok, claude, both*, external-both)
+## External sealed-envelope sub-flow (modes: codex, grok, claude, agy, both*, external-both)
 
 Run the canonical two-pass sealed envelope per
 `{{ASSETS_PATH}}/envelope-orchestration.md` (byte-identical skeleton shared with
-`review-code`). Bind `«PROVIDER»` ∈ {`codex`,`grok`,`claude`} from the route (never after
+`review-code`). Bind `«PROVIDER»` ∈ {`codex`,`grok`,`claude`,`agy`} from the route (never after
 same-family remap). Leaf assets under
 `skills/shared/codex-bridge-assets/providers/«PROVIDER»/`; do NOT inline-rewrite
 them. Plan-review artifact slots:
@@ -501,6 +501,6 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 The review output uses the `### Analysis Summary` template in
 `skills/shared/project-assets/plan-initiative-depth.md` § *Closing template*.
 {{READ_TOOL}} it and present the summary in that format — include
-**Provider:** `codex|grok|claude|local` from the route (never codex/grok after
+**Provider:** `codex|grok|claude|agy|local` from the route (never codex/grok after
 same-family remap). Sections marked `(local/both*)` / `(external)` apply
 by leg.

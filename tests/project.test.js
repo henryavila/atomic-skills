@@ -27,7 +27,7 @@ const HOST_HOOK_MATRIX = [
   {
     host: 'Antigravity',
     ideId: 'antigravity',
-    skillPath: '.agent/skills/atomic-skills/<skill>/SKILL.md',
+    skillPath: '.agent/skills/atomic-skills-<skill>/SKILL.md',
     hookConfig: null,
   },
   {
@@ -284,7 +284,7 @@ describe('project skill (unified router + lazy assets)', () => {
   it('router renders for antigravity with proper tool-name substitution', () => {
     install('en', ['antigravity']);
     const content = readFileSync(
-      join(tempDir, '.agent/skills/atomic-skills/project/SKILL.md'),
+      join(tempDir, '.agent/skills/atomic-skills-project/SKILL.md'),
       'utf8'
     );
     assert.ok(content.includes('run_command'), 'Antigravity should get run_command');
