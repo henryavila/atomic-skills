@@ -104,7 +104,7 @@ Run `resolveReviewRoute({ hostFamily, mode, interactive, acceptSameFamilyAsLocal
 | `confirm-same-family` | Interactive only: confirm that this is equivalent to a clean **local** agent, not CROSS-MODEL REVIEW. Confirm → re-enter with `sameFamilyDecision: 'confirm'` (runs local). Decline → abort. Offer cross-family → `sameFamilyDecision: 'offer-cross-family'`. |
 | `abort` | STOP. Print `message` (names cross-family alternative + `--accept-same-family-as-local`). **No silent local remap** in non-interactive without the flag. |
 
-**Receipt rule:** same-family remap records `provider: local` + `sameFamilyRemap: true`. Never write `provider: codex|grok|claude` for a remapped same-family run. Such a run does **not** advance CROSS-MODEL REVIEW cadence.
+**Receipt rule:** same-family remap records `provider: local` + `sameFamilyRemap: true`. Never write `provider: codex|grok|claude|agy` for a remapped same-family run. Such a run does **not** advance CROSS-MODEL REVIEW cadence.
 
 ## Step 0.model — external model selection (after route, before envelope)
 
@@ -139,7 +139,7 @@ Parse model flags from `{{ARG_VAR}}` via `parseModelArgs` (or the CLI
 
 | Input | Result |
 |-------|--------|
-| `--model=<id>` / `--model-codex` / `--model-grok` / `--model-claude` | `action: run`, `source: explicit`, `modelFlag: --model <id>` (or empty when `cli-default`) |
+| `--model=<id>` / `--model-codex` / `--model-grok` / `--model-claude` / `--model-agy` | `action: run`, `source: explicit`, `modelFlag: --model <id>` (or empty when `cli-default`) |
 | Interactive, no explicit model | `action: pick` — use {{ASK_USER_QUESTION_TOOL}} with `options` (recommended first, then other catalog models, then **CLI default (no --model flag)**) |
 | `--ask-model` + non-interactive | `action: run`, `source: recommended`, bind recommended when known |
 | Non-interactive, no flags | `action: run`, `source: cli-default`, **empty** `modelFlag` (backward compatible — provider CLI / `config.toml` default) |
@@ -167,17 +167,17 @@ Prefer binding `REVIEW_MODEL_ID` and expanding
 id in the review receipt frontmatter (`reviewer:` / model field) when known.
 
 **external-both:** resolve **per remaining leg** (`externalProviders` from the
-route — order codex → grok → claude after family filter). Use
-`--model-codex` / `--model-grok` / `--model-claude` when legs need different ids;
+route — order codex → grok → claude → agy after family filter). Use
+`--model-codex` / `--model-grok` / `--model-claude` / `--model-agy` when legs need different ids;
 generic `--model` alone applies only as a fallback for a leg without a
 per-provider override.
 
 ## Flow routing after resolve
 
 - `provider == local` (or mode `local`, or same-family remap) → local sealed path only.
-- External single provider (`codex` / `grok` / `claude` modes, or the external leg of `both*`) → bind `«PROVIDER»` and run `envelope-orchestration.md`.
-- `both` / `both-codex` / `both-grok` / `both-claude` with `includesLocal` → local phase first, then external on the **same** cleaned artifact / byte-identical `CAPTURED_DIFF` (no intent leakage into the external briefing).
-- `external-both` with `externalProviders: […]` → **collect** envelope once per remaining provider in family-filtered order (e.g. Grok host: Codex then Claude; Claude host: Codex then Grok; no triage between legs; one leg's failure does not abort the other). **Merge** with `mergeExternalBothFindings` / `scripts/merge-external-both.js`: identity = `file:line` + normalized claim; severity conflict keeps higher severity with dual provenance; per-provider status `succeeded|failed|skipped` (absent = skipped); partial failure keeps the successful half and surfaces the error. **Triage** the merged list only — never auto-apply.
+- External single provider (`codex` / `grok` / `claude` / `agy` modes, or the external leg of `both*`) → bind `«PROVIDER»` and run `envelope-orchestration.md`.
+- `both` / `both-codex` / `both-grok` / `both-claude` / `both-agy` with `includesLocal` → local phase first, then external on the **same** cleaned artifact / byte-identical `CAPTURED_DIFF` (no intent leakage into the external briefing).
+- `external-both` with `externalProviders: […]` → **collect** envelope once per remaining provider in family-filtered order (e.g. Grok host: Codex then Claude then Antigravity; Claude host: Codex then Grok then Antigravity; no triage between legs; one leg's failure does not abort the other). **Merge** with `mergeExternalBothFindings` / `scripts/merge-external-both.js`: identity = `file:line` + normalized claim; severity conflict keeps higher severity with dual provenance; per-provider status `succeeded|failed|skipped` (absent = skipped); partial failure keeps the successful half and surfaces the error. **Triage** the merged list only — never auto-apply.
 
 ## Non-interactive abort (no TTY, no `--mode=`)
 

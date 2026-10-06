@@ -13,7 +13,7 @@ Detect two independent axes: skill installation compatibility and project-hook s
 ### Skill installation host
 - `test -d .claude/` → Claude Code; skills path: `.claude/commands/atomic-skills/<skill>.md`
 - `test -d .cursor/` → Cursor; skills path: `.cursor/skills/atomic-skills/<skill>/SKILL.md`
-- `test -d .agent/` → Antigravity; skills path: `.agent/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .agent/` → Antigravity; skills path: `.agent/skills/atomic-skills-<skill>/SKILL.md`
 - `test -d .codex/ || test -d .agents/` → Codex; skills path: `.agents/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .opencode/` → OpenCode; skills path: `.opencode/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .github/` → GitHub Copilot; skills path: `.github/skills/atomic-skills/<skill>/SKILL.md`

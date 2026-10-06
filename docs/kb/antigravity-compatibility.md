@@ -12,8 +12,8 @@ Antigravity provides a rich set of native agentic tools. To maintain cross-agent
 | `{{READ_TOOL}}` | `Read tool` | `view_file` | Reading files |
 | `{{WRITE_TOOL}}` | `Write tool` | `write_to_file` | Writing new files |
 | `{{REPLACE_TOOL}}` | `Edit tool` | `replace_file_content` | Surgical text replacement |
-| `{{GREP_TOOL}}` | `Grep` | `grep_search` | Searching file contents |
-| `{{GLOB_TOOL}}` | `Glob` | `glob` | Listing files by pattern |
+| `{{GREP_TOOL}}` | `Grep` | `grep` | Searching file contents |
+| `{{GLOB_TOOL}}` | `Glob` | `find` | Listing files by pattern |
 | `{{INVESTIGATOR_TOOL}}` | `Agent` | `invoke_subagent` | Subagent delegation |
 | `{{ASK_USER_QUESTION_TOOL}}` | `AskUserQuestion tool` | `ask_question` | First-party interactive multi-choice user modal prompt |
 | `{{ARG_VAR}}` | `$ARGUMENTS` | `$ARGUMENTS` | Accessing command / invocation arguments |
@@ -36,7 +36,7 @@ The alias `agy` is automatically normalized to `antigravity` by the template ren
 
 ## 3. Customization Directory and Skills Layout
 
-- **Skills Path**: `.agent/skills/atomic-skills/<skill>/SKILL.md`
+- **Skills Path**: `.agent/skills/atomic-skills-<skill>/SKILL.md` (one directory level; Antigravity does not scan nested `atomic-skills/<skill>/SKILL.md`)
 - **Root**: `.agent` is the standard project customization directory for Antigravity (alongside global `~/.gemini/antigravity-cli/`).
 - **Isolation**: Using `.agent/` cleanly avoids collisions with Codex (`.agents/skills/atomic-skills/<skill>/SKILL.md`).
 - **Asset references**: Resolved relative to `SKILL.md` or absolute package path.

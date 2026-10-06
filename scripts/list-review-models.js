@@ -212,7 +212,7 @@ function main() {
     provider: /** @type {'codex'|'grok'|'claude'|'agy'} */ (provider),
   });
   const recommended = recommendedReviewModel(models, {
-    provider: /** @type {'codex'|'grok'|'claude'} */ (provider),
+    provider: /** @type {'codex'|'grok'|'claude'|'agy'} */ (provider),
   });
 
   if (!flags.resolve) {
@@ -253,12 +253,13 @@ function main() {
 
   const explicitFromFlag = flags.model ? String(flags.model) : null;
   const resolved = resolveReviewModel({
-    provider: /** @type {'codex'|'grok'|'claude'} */ (provider),
+    provider: /** @type {'codex'|'grok'|'claude'|'agy'} */ (provider),
     models,
     explicitModel: modelArgs.model || explicitFromFlag,
     modelCodex: modelArgs.modelCodex,
     modelGrok: modelArgs.modelGrok,
     modelClaude: modelArgs.modelClaude,
+    modelAgy: modelArgs.modelAgy,
     askModel: modelArgs.askModel || flags['ask-model'] === true || flags['ask-model'] === '1',
     interactive: Boolean(flags.interactive),
     userChoice: flags['user-choice'] ? String(flags['user-choice']) : null,

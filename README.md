@@ -56,7 +56,7 @@ Support column in the table:
 |-----|---------|-----------|--------|---------|
 | Claude Code | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) | Tested |
 | Cursor | `cursor` | `.cursor/skills/atomic-skills/` | Markdown | Tested |
-| Antigravity | `antigravity` | `.agent/skills/atomic-skills/` | Markdown | Tested |
+| Antigravity | `antigravity` | `.agent/skills/atomic-skills-<skill>/` | Markdown | Tested |
 | Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown | Tested |
 | OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown | Theoretical |
 | GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown | Theoretical |

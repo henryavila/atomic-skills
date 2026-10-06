@@ -75,7 +75,7 @@ pipeline. Same-family headless is **not** labeled CROSS-MODEL REVIEW.
 
 ## Envelope binding
 
-When the route resolves to an external provider `P ∈ {codex, grok, claude}`:
+When the route resolves to an external provider `P ∈ {codex, grok, claude, agy}`:
 
 1. Bind `«PROVIDER»` = `P` in `envelope-orchestration.md`
 2. Preflight: `{{ASSETS_PATH}}/providers/«PROVIDER»/preflight-checks.txt`

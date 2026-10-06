@@ -102,8 +102,8 @@ template variables; the renderer substitutes per IDE.
 | `{{READ_TOOL}}` | `Read tool` | `view_file` | `read_file` | `read_file` |
 | `{{WRITE_TOOL}}` | `Write tool` | `write_to_file` | `write` | `apply_patch` |
 | `{{REPLACE_TOOL}}` | `Edit tool` | `replace_file_content` | `search_replace` | `apply_patch` |
-| `{{GREP_TOOL}}` | `Grep` | `grep_search` | `grep` | `grep_files` |
-| `{{GLOB_TOOL}}` | `Glob` | `glob` | `list_dir` | `list_dir` |
+| `{{GREP_TOOL}}` | `Grep` | `grep` | `grep` | `grep_files` |
+| `{{GLOB_TOOL}}` | `Glob` | `find` | `list_dir` | `list_dir` |
 | `{{INVESTIGATOR_TOOL}}` | `Agent` | `invoke_subagent` | `spawn_subagent` | `spawn_agent` |
 | `{{ASK_USER_QUESTION_TOOL}}` | `AskUserQuestion tool` | `ask_question` | `ask_user_question` | plain-text multi-choice prompt |
 | `{{ARG_VAR}}` | `$ARGUMENTS` | `$ARGUMENTS` | `$ARGUMENTS` | `$ARGUMENTS` |

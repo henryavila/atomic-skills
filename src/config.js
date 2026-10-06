@@ -38,8 +38,8 @@ export const HOST_TOOL_PROFILES = {
     READ_TOOL: 'view_file',
     WRITE_TOOL: 'write_to_file',
     REPLACE_TOOL: 'replace_file_content',
-    GREP_TOOL: 'grep_search',
-    GLOB_TOOL: 'glob',
+    GREP_TOOL: 'grep',
+    GLOB_TOOL: 'find',
     INVESTIGATOR_TOOL: 'invoke_subagent',
     ARG_VAR: '$ARGUMENTS',
     ASK_USER_QUESTION_TOOL: 'ask_question',
@@ -178,8 +178,12 @@ export const IDE_CONFIG = {
     name: 'Antigravity',
     dir: '.agent/skills',
     format: 'markdown',
-    filePattern: (skillName) => posix.join(SKILL_NAMESPACE, skillName, 'SKILL.md'),
+    // Antigravity discovers only `SKILL.md` and `*/SKILL.md` under .agent/skills
+    // (one-level depth). Nested `atomic-skills/<skill>/SKILL.md` is invisible
+    // to the scanner — install each skill as `atomic-skills-<skill>/SKILL.md`.
+    filePattern: (skillName) => posix.join(`${SKILL_NAMESPACE}-${skillName}`, 'SKILL.md'),
     supportsUserScope: true,
+    namespaceRoot: false,
   },
   'codex': {
     name: 'Codex',

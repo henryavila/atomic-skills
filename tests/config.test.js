@@ -55,7 +55,7 @@ describe('IDE config', () => {
 
   it('returns correct skill path for antigravity skills IDE', () => {
     const path = getSkillPath('antigravity', 'fix');
-    assert.strictEqual(path, '.agent/skills/atomic-skills/fix/SKILL.md');
+    assert.strictEqual(path, '.agent/skills/atomic-skills-fix/SKILL.md');
   });
 
   it('exports SKILL_NAMESPACE constant', () => {
@@ -86,7 +86,7 @@ describe('IDE config', () => {
 
   it('returns namespace root path for nested-namespace markdown IDEs', () => {
     assert.strictEqual(getNamespaceRootPath('cursor'), '.cursor/skills/atomic-skills/SKILL.md');
-    assert.strictEqual(getNamespaceRootPath('antigravity'), '.agent/skills/atomic-skills/SKILL.md');
+    assert.strictEqual(getNamespaceRootPath('antigravity'), null);
   });
 
   it('returns null for non-markdown IDEs', () => {

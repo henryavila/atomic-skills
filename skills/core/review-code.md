@@ -117,13 +117,13 @@ Resolve route first (Step 0). Then:
 Argument & diff capture → Step 0 → Prepare briefing → spawn **Local review agent**
 (below) → receive findings → **Triage + fix** (below). END.
 
-### Flow B — external only (`mode ∈ {codex, grok, claude}` after route stays external)
+### Flow B — external only (`mode ∈ {codex, grok, claude, agy}` after route stays external)
 
 Argument & diff capture → Step 0 → Run **External sealed-envelope sub-flow**
 with `«PROVIDER»` = `route.externalProvider` (result of `resolveReviewRoute` —
 never re-derive from the forced mode after the same-family decision). END.
 
-### Flow C — local then external (`mode ∈ {both, both-codex, both-grok, both-claude}`)
+### Flow C — local then external (`mode ∈ {both, both-codex, both-grok, both-claude, both-agy}`)
 
 Argument & diff capture → Step 0.
 
@@ -150,7 +150,7 @@ END.
 Argument & diff capture → Step 0 → route yields `externalProviders` (family-different
 legs only). **Collect both legs → merge → triage** (no triage/edit between legs).
 
-1. **Collect.** For each remaining provider in order (**codex → grok → claude**
+1. **Collect.** For each remaining provider in order (**codex → grok → claude → agy**
    after family filter), run the **External sealed-envelope sub-flow** on the **same**
    `CAPTURED_DIFF` (no re-capture). Persist each leg's findings JSON (or error).
    - Family-filtered providers: record `status: skipped` — do not invoke.
@@ -166,7 +166,7 @@ legs only). **Collect both legs → merge → triage** (no triage/edit between l
    - CLI (preferred at skill runtime):
      ```bash
      node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
-       <codex-findings.json|-|skip> <grok-findings.json|-|skip> [claude-findings.json|-|skip]
+       <codex-findings.json|-|skip> <grok-findings.json|-|skip> [claude-findings.json|-|skip] [agy-findings.json|-|skip]
      ```
    Contract: merge key = `file:line` + normalized claim; higher severity wins
    with dual provenance; status per provider is `succeeded|failed|skipped`
@@ -240,11 +240,11 @@ Parse the agent's output. For each finding:
 
 ---
 
-## External sealed-envelope sub-flow (modes: codex, grok, claude, both*, external-both)
+## External sealed-envelope sub-flow (modes: codex, grok, claude, agy, both*, external-both)
 
 Run the canonical two-pass sealed envelope per
 `{{ASSETS_PATH}}/envelope-orchestration.md` (byte-identical skeleton shared with
-`review-plan`). Bind `«PROVIDER»` ∈ {`codex`,`grok`,`claude`} from the route result (never
+`review-plan`). Bind `«PROVIDER»` ∈ {`codex`,`grok`,`claude`,`agy`} from the route result (never
 from a same-family remap — those stay on the local path). Leaf assets under
 `skills/shared/codex-bridge-assets/providers/«PROVIDER»/`. Code-review slots:
 
@@ -334,8 +334,8 @@ appear when a local leg ran; `(external)` when an external provider ran.
 ### Analysis Summary
 
 **Ref/scope:** {{ARG_VAR}} (or the resolved scope when the picker ran)
-**Mode:** local | codex | grok | claude | both | both-codex | both-grok | both-claude | external-both
-**Provider:** codex | grok | claude | local  (from route; never codex/grok after same-family remap)
+**Mode:** local | codex | grok | claude | agy | both | both-codex | both-grok | both-claude | both-agy | external-both
+**Provider:** codex | grok | claude | agy | local  (from route; never codex/grok after same-family remap)
 **Model:** <id> | cli-default  (external only; source=explicit|user-pick|recommended|cli-default)
 **Files reviewed:** [N]
 **Passes (local):** [N] (local/both* only)
