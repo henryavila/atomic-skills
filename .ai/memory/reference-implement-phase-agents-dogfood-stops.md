@@ -34,6 +34,14 @@ not a chat ceremony of N pickers.
 - Run as a mega-session that makes the human the implementer; phase work stays
   in the phase writer; host is dispatch/merge/verify/state + the two hardgates.
 
+## 2026-10-06 — plan direction once; four harnesses
+
+The two-stop-per-phase list above is the 2026-07-23 dogfood. Current skill:
+
+- **Ask once** for `businessIntent` at plan start (the plan direction). Later phases inherit it when `find-weak-business-intent` exits 0 and `value` / `outOfScope` / `doneWhen` stay the same.
+- **No question** for lessons, `operator-continue`, an empty decision-review, or the automate stamp. Ask decision-review only when the log has a `tradeoff` or `scope-exit`. Ask review disposition only for an open blocker, critical, or major.
+- Phase-writer spawn is one write-capable `{{INVESTIGATOR_TOOL}}` call, with argument shapes for Claude Code, Codex, Antigravity, and Grok Build in `skills/shared/implement-automate-maestro.md` Step C.
+
 ## Host MAY still do without asking
 
 - Spawn writer, merge, re-verify, `done`, evaluation agent, `review-code both`,
