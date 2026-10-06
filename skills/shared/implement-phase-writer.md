@@ -72,8 +72,14 @@ The orchestrator builds a **constructed brief** for the phase writer. It is a se
 
 **MUST NOT include orchestrator chat history.** Do not paste the maestro session transcript, prior operator chit-chat, or unrelated tool dumps. Chat history is lossy, non-portable, and leaks decisions the writer must not reverse. If context is missing, the writer stops and reports a blocked claim for that task — it does not invent scope.
 
-Portable spawn uses host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn_subagent` where available). Host-only Workflow/Task APIs stay behind host-conditional ide blocks (`ide.*`) and are never the only path.
+Portable spawn is one write-capable {{INVESTIGATOR_TOOL}} call (cwd = sibling worktree, prompt = sealed brief, no host chat history). Host argument shapes:
 
+{{#if ide.claude-code}}
+**Claude Code:** {{INVESTIGATOR_TOOL}} is the write-capable phase writer. Do not use a read-only explore subagent for this spawn.
+{{/if}}
+{{#if ide.codex}}
+**Codex:** `spawn_agent` ({{INVESTIGATOR_TOOL}} on this host) is the write-capable phase writer. Sync-wait for the claim report.
+{{/if}}
 {{#if ide.grok}}
 **Grok Build phase-writer spawn (pure-maestro Step C):**
 
@@ -185,7 +191,7 @@ The phase writer stops at the claim report. What follows is **never** the writer
 2. When **all** phase tasks are `done`: spawn the **evaluation agent** (fresh, read-only — `implement-phase-evaluator.md`).
 3. On evaluation blocker/critical: reopen tasks or blocking follow-ups; re-dispatch code-only fix agent (max 2); re-run verifiers/complex reviews; only then continue.
 4. Stamp `phases[].evaluationGate` via `buildEvaluationGate` (**evaluationGate only** — never decision-review PASS).
-5. **decision-review** mandatory **manual hardgate** — **operator PASS only** (agents never write decision-review PASS; silent auto-PASS forbidden). On operator PASS, stamp `phases[].decisionReview` via `buildDecisionReview({ status: 'passed', verifiedAt })`. Aligns with maestro Step G.
+5. **decision-review** — stamp `passed` with `packagePath` when the log has no `tradeoff` or `scope-exit`. Ask PASS|FAIL with {{ASK_USER_QUESTION_TOOL}} only when one of those entries exists. The writer never stamps this.
 6. **deliveryAuditGate (HARD — never skippable):** run `atomic-skills:audit-delivery` for this phase → write report under `.atomic-skills/reviews/` → stamp `phases[].deliveryAuditGate` via `buildDeliveryAuditGate({ status: 'passed', reportPath, verdict: 'CLOSED'|'PARTIAL', verifiedAt })`. **No** `operatorSkip`, **no** `status: skipped`, **no** OPEN as passed. Plan-end `intentVsDelivered` is **not** a substitute.
 7. **Then** preflight `canRunPhaseDone` / `preflightPhaseDone` (HARD under automate: **evaluationGate AND decisionReview AND deliveryAuditGate** all required — fails closed without any; codes include `phase-done-delivery-audit-open`) → `assert-automate-gate --gate phase-done` (also content-authenticates reportPath on disk) → `phase-done` with `review-code --mode=both` (**not** `external-both`).
 8. After last phase: plan-end **`external-both`** (`planEndReviewOk`; legs codex|grok|claude) + **user validates** → `canFinalizeOrArchive` → finalize/archive.

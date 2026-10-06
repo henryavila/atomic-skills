@@ -164,12 +164,11 @@ derived: []
 
 ### Mode B — automate phase-start package exception (pre-ratified complete spine)
 
-When the caller is the **automate pure-maestro** phase-start package ritual
-(`implement --mode=automate` / `isAutomateActive`; see
-`skills/shared/implement-automate-maestro.md` +
-`docs/kb/project-lazy-materialization.md` § Host-thin automate) **and** the
-operator has already **explicitly ratified** a complete five-field spine in that
-package ritual (same turn / continuous package→ratify→materialize sequence):
+When the caller is the **automate pure-maestro** phase-start package
+(`implement` automate-default / `isAutomateActive`; see
+`skills/shared/implement-automate-maestro.md`) **and** the spine is a complete
+five-field plan direction the operator already accepted, or a later phase
+inheriting that same `value` / `outOfScope` / `doneWhen`:
 
 1. **Do not** dump Mode A's blank form for the operator to invent BI again.
 2. **Accept** the **pre-ratified complete spine** into materialize-state /
@@ -177,25 +176,14 @@ package ritual (same turn / continuous package→ratify→materialize sequence):
 3. **Still** refuse missing / blank / `[NEEDS CLARIFICATION]` fields and still
    run presence + quality detectors after write (`find-missing-business-intent`,
    `find-weak-business-intent`). Weak spine → rewrite, not approve-anyway.
-4. **Sequence authority:** package presentation drafts BI **ephemerally** →
-   operator validate-only → explicit ratify → **only then** this materialize
-   path **writes** the ratified spine. Materialize under automate does **not**
-   write BI **before** package ratify. Silent auto-PASS of an unratified draft
-   is forbidden.
+4. **Sequence authority:** the plan-direction question happens **once**, when the plan has no ratified `businessIntent`. Later phases inherit that spine when `value`, `outOfScope`, and `doneWhen` are unchanged and `find-weak-business-intent` exits 0 — materialize writes that inherited spine with no second question. A draft that fails the lint, or that changes those three fields, waits for the same three-option question. Materialize does not write a spine that was never accepted and never inherited.
 5. **Titles:** package task titles are advisory for review; durable title
    renames are **not** a materialize side-effect (R3 fingerprint refuses silent
    title rewrite — re-spec / sidecar re-capture required).
 
 **Fail-closed when Mode B preconditions are not met (HARD):**
 
-- Under **automate** (`executionMode: automate` / package-path caller —
-  `isAutomateActive` or durable plan stamp): if package ratify is **absent**,
-  the spine is incomplete, or this call is bare `materialize` **without** a
-  continuous package→ratify→materialize sequence → **STOP**. Do **not** dump
-  Mode A's blank form. Do **not** invent BI. Set handoff / `nextAction` to
-  present the phase-start package and await explicit ratify (e.g. `present
-  phase-start package for F{N} validate-only` / `await package ratify`). Resume
-  materialize only after ratify with the pre-ratified spine (this Mode B path).
+- Under **automate**: if there is no ratified plan direction to inherit, the spine is incomplete, or this call is bare `materialize` with a blank spine → **STOP**. Do **not** dump Mode A's blank form. Do **not** invent BI. Set `nextAction` to `await plan-direction accept`. Resume after that accept, or after an inherited spine passes `find-weak-business-intent`.
 - **Mode A** is only for **Mode 1 / non-automate / bare `materialize` outside
   the package ritual**. Never use Mode A as a silent fallback under automate.
 

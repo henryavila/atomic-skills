@@ -462,4 +462,24 @@ describe('merge-external-both CLI helpers', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('mergeFromArgs merges four finding JSON files including agy', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ext-both-4-'));
+    try {
+      const codexPath = join(dir, 'codex.json');
+      const grokPath = join(dir, 'grok.json');
+      const claudePath = join(dir, 'claude.json');
+      const agyPath = join(dir, 'agy.json');
+      writeFileSync(codexPath, JSON.stringify([{ file: 'a.js', line: 1, claim: 'from codex', severity: 'minor' }]));
+      writeFileSync(grokPath, JSON.stringify([{ file: 'b.js', line: 2, claim: 'from grok', severity: 'minor' }]));
+      writeFileSync(claudePath, JSON.stringify([{ file: 'c.js', line: 3, claim: 'from claude', severity: 'major' }]));
+      writeFileSync(agyPath, JSON.stringify([{ file: 'd.js', line: 4, claim: 'from agy', severity: 'critical' }]));
+      const result = mergeFromArgs([codexPath, grokPath, claudePath, agyPath]);
+      assert.equal(result.findings.length, 4);
+      assert.deepEqual(result.providersSucceeded, ['codex', 'grok', 'claude', 'agy']);
+      assert.deepEqual(result.providersSkipped, []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

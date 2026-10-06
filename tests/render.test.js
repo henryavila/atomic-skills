@@ -276,6 +276,29 @@ describe('renderForIDE', () => {
     assert.ok(!toml.includes('argument_hint'));
   });
 
+  it('phase-writer spawn renders a write-capable shape on Claude, Codex, Antigravity, and Grok', () => {
+    const maestro = readFileSync(join(process.cwd(), 'skills/shared/implement-automate-maestro.md'), 'utf8');
+    const hosts = [
+      ['claude-code', /\bAgent\b/, [/spawn_subagent/, /invoke_subagent/, /spawn_agent/]],
+      ['codex', /spawn_agent/, [/spawn_subagent/, /invoke_subagent/]],
+      ['antigravity', /invoke_subagent/, [/spawn_subagent/, /spawn_agent/]],
+      ['grok', /spawn_subagent/, [/invoke_subagent/, /spawn_agent/]],
+    ];
+    for (const [ide, required, forbidden] of hosts) {
+      const rendered = renderTemplate(maestro, {}, ide);
+      assert.match(rendered, /write-capable phase writer/, `${ide} missing portable writer contract`);
+      assert.match(rendered, required, `${ide} missing its spawn tool`);
+      assert.match(rendered, /sealed brief/, `${ide} missing sealed brief`);
+      assert.doesNotMatch(rendered, /\{\{#if/);
+      for (const other of forbidden) {
+        assert.doesNotMatch(rendered, other, `${ide} leaked another host's spawn tool`);
+      }
+    }
+    assert.match(maestro, /plan direction/);
+    assert.match(maestro, /find-weak-business-intent/);
+    assert.match(maestro, /Do not re-ask/);
+  });
+
   it('escapes single quotes in argument-hint (command + markdown)', () => {
     const command = renderForIDE('command', 'fix', 'desc', 'body', { argumentHint: "it's a test" });
     const markdown = renderForIDE('markdown', 'fix', 'desc', 'body', { argumentHint: "it's a test" });

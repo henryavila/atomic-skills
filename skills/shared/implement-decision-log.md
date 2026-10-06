@@ -104,18 +104,10 @@ without inventing silent PASS semantics.
 
 | Actor | May | Must not |
 |-------|-----|----------|
-| **Agent** (maestro host, phase writer brief notes via orchestrator, evaluator surfaces) | **Append** decision entries only (`appendDecision`) | Write **decision-review PASS**; invent chat-only as durable; store secrets |
-| **Operator** | Append entries if desired; **write decision-review PASS** (or FAIL) on the manual hardgate | Be replaced by silent auto-PASS |
+| **Agent** (maestro host) | **Append** decision entries. Stamp decision-review `passed` **only** when the log has no `tradeoff` or `scope-exit`, and only together with `packagePath` | Stamp `passed` over a `tradeoff` or `scope-exit` without an operator PASS |
+| **Operator** | Answer plan direction, open review majors, and decision-review PASS\|FAIL when a `tradeoff` or `scope-exit` exists | Be asked to ratify lessons, continue, or an unchanged plan direction |
 
-**Rule.** Only the **operator** writes **decision-review PASS**, and only via an
-**explicit same-turn token** (e.g. `decision-review PASS` / `ratify decision-review`).
-Host/agent **never** stamp `phases[].decisionReview status=passed` without that
-token. Agents **only append decision entries**. Silent auto-PASS of
-decision-review is forbidden. The evaluation agent never auto-PASS
-decision-review; review-code receipts never substitute. Machine stamp uses
-`buildDecisionReview` / schema field `decisionReview` separately from this
-append path — `appendDecision` **never** sets `decisionReview.status` to
-`PASS` / `passed`.
+**Rule.** The host stamps decision-review `passed` with `packagePath` when the log has no `tradeoff` or `scope-exit`. When either category is present, only an operator PASS|FAIL via {{ASK_USER_QUESTION_TOOL}} in the same turn may close it. `appendDecision` never sets `decisionReview.status`.
 
 ### Secrets fence
 
