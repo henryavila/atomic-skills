@@ -279,22 +279,23 @@ export const LEGACY_NAMESPACE_PATHS = [
   },
 ];
 
+export function normalizeIdeId(ideId) {
+  if (ideId === 'agy' || ideId === 'gemini') return 'antigravity';
+  return ideId;
+}
+
 /**
  * Deduplicate IDE ids while preserving order.
- * Normalizes aliases ('agy' -> 'antigravity').
+ * Normalizes aliases ('agy' -> 'antigravity', 'gemini' -> 'antigravity')
+ * and drops unrecognized IDE ids.
  */
 export function normalizeIDESelection(ides) {
   const unique = [];
   for (const rawId of ides) {
-    const id = rawId === 'agy' ? 'antigravity' : rawId;
-    if (!unique.includes(id)) unique.push(id);
+    const id = normalizeIdeId(rawId);
+    if (!unique.includes(id) && IDE_CONFIG[id]) unique.push(id);
   }
   return unique;
-}
-
-export function normalizeIdeId(ideId) {
-  if (ideId === 'agy') return 'antigravity';
-  return ideId;
 }
 
 export function getSkillPath(ideId, skillName) {

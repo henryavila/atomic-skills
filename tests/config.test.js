@@ -48,6 +48,13 @@ describe('IDE config', () => {
     );
   });
 
+  it('normalizes agy and gemini to antigravity and drops unknown IDEs', () => {
+    assert.deepStrictEqual(
+      normalizeIDESelection(['gemini', 'agy', 'unknown-ide', 'claude-code']),
+      ['antigravity', 'claude-code']
+    );
+  });
+
   it('returns correct skill path for claude-code command IDE', () => {
     const path = getSkillPath('claude-code', 'fix');
     assert.strictEqual(path, '.claude/commands/atomic-skills/fix.md');
