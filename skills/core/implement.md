@@ -1,20 +1,61 @@
-**Entry (only path).** This session does not code and does not run Steps A–I. Do Step 0 only far enough to resolve the plan slug and the absolute worktree, then run the launcher there and STOP. If `planApprovedAt` is a valid ISO timestamp, show the `/loop` line and stop. If it is missing, send the user to `project approve` and stop. Do not follow later steps in this session. Later harness text stays in this file for other sessions. It is not an entry.
+**Entry (only path).** This session does not code, does not spawn, does not stamp, and does not run Steps A–I. Do Step 0 only far enough to resolve the plan slug and the absolute worktree, then run the launcher there and STOP. If `planApprovedAt` is a valid ISO timestamp, show the `/loop` line and stop. If it is missing, send the user to `project approve` and stop. Do not follow later steps in this session. Later harness text stays in this file for other sessions. It is not an entry.
 
-Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that sits at the tail of the lifecycle (DESIGN → PLAN → DECOMPOSE+SPEC → **IMPLEMENT** → VERIFY). Materialized Tasks from `project` already carry exact paths + `scopeBoundary[]` + `acceptance[]` + a deterministic `verifier:` the SPEC gate admitted. Closing them is verify-on-done, and it is not this session's job. Microcommits anchor the recovered tree; durable `.atomic-skills/` state plus the `## Session handoff` block is how the next session resumes.
-
-**Two target kinds.** The arg may be (1) an **Atomic Skills plan** (`plan-slug` or `<project-id>/<plan-slug>`, or a path to `.atomic-skills/projects/**/plan.md`) or (2) a **foreign markdown plan** (`path/to/file.md` outside the inventory). Foreign targets require an **entry-time** {{ASK_USER_QUESTION_TOOL}} — **Promote to AS** (then `project adopt` + Flow A) or **Implement as Foreign** (colocated sidecar + worktree + automate; FINALIZE/ARCHIVE cleanup — **no promote at the end**). Full foreign lane: `{{READ_TOOL}} skills/shared/implement-foreign-plan.md`.
+**Two target kinds.** The arg may be (1) an **Atomic Skills plan** (`plan-slug` or `<project-id>/<plan-slug>`, or a path to `.atomic-skills/projects/**/plan.md`) or (2) a **foreign markdown plan** (`path/to/file.md` outside the inventory). Foreign targets require an **entry-time** {{ASK_USER_QUESTION_TOOL}} — **Promote to AS** (then `project adopt` + Flow A) or **Implement as Foreign** (colocated sidecar + worktree + automate; FINALIZE/ARCHIVE cleanup — **no promote at the end**). Do not run that lane in this session. Bind the worktree in Step 0, then the Launcher. Asset: `skills/shared/implement-foreign-plan.md`.
 
 If {{ARG_VAR}} was provided, use it as the plan-slug, `<project-id>/<plan-slug>`, or `path/to/plan.md` after stripping mode flags. If not, ask the user: "Which plan are we implementing? I'll read its active phase's tasks." Default to the active plan/initiative if one is already selected. **The explicit arg selects plan, branch, and worktree before any resume gate or write** — see Step 0.
 
-**Mode detection (pure):** parse CLI tokens with `src/implement-mode.js` (`parseImplementMode`, `isAutomateActive`, `stampExecutionMode`, `clearExecutionModeStamp`). **Automate is the default** implement path (plan `automate-default-and-operator-gates` F0; supersedes archived `implementation-automate-mode` opt-in-only P1). Bare `implement` / absent mode with no clear flag → `isAutomateActive` **true** → pure-maestro. **Mode 1** (session-writer) requires an **explicit** escape: `--mode=1` / `mode:1` / known Mode-1 tokens. Explicit `--mode=automate` / `mode:automate` remains valid. Plan stamp `executionMode: automate` re-enters automate on later runs until `--clear-execution-mode`. When `isAutomateActive` is true, the pure-maestro spine (never product-source edits) is harness for a later session, not this entry. Mode 1 iron law still binds the single **phase writer** (or the session-writer under explicit Mode 1). This session does not run that spine.
+## Process
 
-**`executionMode` stamp (durable automate entry / re-entry):**
+### Step 0 — Resolve target (plan / branch / worktree)
 
-1. Harness, not this entry. On the **first** automate-default session (bare `implement` or `--mode=automate`) when frontmatter has **no** `executionMode: automate`: after Step 0 binds the plan worktree and **before** Steps A–I, stamp `stampExecutionMode(plan, 'automate')`. Do not ask `y/N`. The session is already pure-maestro; the stamp is what plan-end gates read. The invoking session does not stamp. It stops at the launcher.
-2. Persist, project-state microcommit, and log the decision. `--mode=1` does not stamp.
-3. **Stamp alone** makes `isAutomateActive({ planExecutionMode: 'automate' })` true on later `implement <plan>` (no CLI mode required) until clear — review cadence + pure-maestro re-entry. **Unstamp alone** does not mean Mode 1: next bare implement is still automate-default (F0).
-4. **Clear path / Mode 1 escape:** `implement --clear-execution-mode` (parse sets `clearExecutionMode: true` → `isAutomateActive` false for the **session**) and/or remove the stamp with `clearExecutionModeStamp(plan)` (delete `executionMode` from frontmatter), persist, record in the decisions log. **HARD-GATE:** before honoring clear or falling into Mode 1, call `assertLeaseAbsent(statusRoot, planSlug)` / `isLeaseBlocking` — refuse while any lease residue exists (`active`, `cleared`, or `malformed`) or merge mid-flight. Explicit `--mode=1` overrides stamp **and** session default for the **coding** session only; **durable finalize/archive gates still use stamp alone** (`planExecutionMode === 'automate'`) until `clearExecutionModeStamp` removes it. Full leave-automate requires clear/unstamp **after** the lease is clean.
-5. Plans that never stamped **omit** the field; schema treats it as optional — still validates. Omission no longer means Mode 1; it means automate-default for the session (P7: session default must still feed machine gates via stamp and/or `automateActive: true`).
+**Before any resume gate, dirty check, or write**, classify the arg, select the plan the user asked for, and bind its worktree. Helpers: `src/implement-target-kind.js` (`splitImplementPlanArg`, `classifyImplementTarget`, `classifyImplementArgv`, `normalizeForeignEntryChoice`) then `src/project-target-resolver.js` (`parsePlanArg`, `resolveImplementTarget`, `composePlanWorktreeAdd`) for Atomic Skills inventory targets. Skill prose must follow the same order.
+
+0. **Parse mode flags (before plan selection).** From `{{ARG_VAR}}` / argv, call `parseImplementMode` in `src/implement-mode.js`. Tokens: `--mode=automate` / `mode:automate` / `--mode=1` / `--clear-execution-mode`. Absent mode → `mode: undefined` / `modeExplicit: false` (do **not** invent `cliMode: 'default'` — that forces Mode 1 and breaks stamp re-entry **and** automate-default). Unknown mode → refuse with a clear error (do not ignore). Residual plan arg = `splitImplementPlanArg(...).planArg` (or strip mode tokens yourself). Combine with plan / sidecar `executionMode` via `isAutomateActive({ cliMode: parsed.mode, planExecutionMode, clearExecutionMode })` — **no CLI + no clear + no non-automate stamp → true** (F0 default; foreign lane also defaults to automate).
+   - **First durable stamp:** the invoking session does not stamp and does not ask `y`. It stops at the launcher. Durable `executionMode` is not this session's job.
+   - **Clear / Mode 1:** this session does not call `clearExecutionModeStamp`, does not persist a mode change, does not enter Mode 1, and does not run Steps A–I. Resolve the plan and worktree, then run the Launcher and STOP.
+   - When automate is active (default or stamp/CLI), this invocation does **not** enter Steps A–I. After Step 0 binds the worktree, run the **Launcher** below and STOP. The new session that receives the pasted `/loop` line is the orchestrator. A later session runs foreign automate from `implement-foreign-plan.md` (not AS `assert-automate-gate` inventory gates). This session does not.
+0b. **Classify target kind (before inventory select).** Call `classifyImplementTarget({ arg: planArg })` (inject real `exists` / path resolve at runtime). Branch:
+   - **`missing-arg`** — ask which plan (slug or path); do not invent.
+   - **`path-not-found`** — refuse with the missing path; do not invent a slug.
+   - **`atomic-plan` / `atomic-plan-path`** — continue Step 0.1+ (inventory / that plan.md). `atomic-plan-path` is already an AS `plan.md`; do **not** offer foreign entry choice.
+   - **`foreign-plan`** — **entry choice HARD-GATE (start only).** Use {{ASK_USER_QUESTION_TOOL}} with exactly two options (no silent default):
+     1. **Promote to Atomic Skills plan** — run `atomic-skills:project adopt <sourcePath>` (preview + confirmation + materialize per `project-create-plan.md` adopt). Then re-enter implement as Flow A on the new inventory slug. **Promote is entry-time only** — never offer promote at FINALIZE/ARCHIVE.
+     2. **Implement as Foreign** — bind the worktree `plan/<slug>` and the colocated `*.implement.yaml` sidecar. `{{READ_TOOL}} skills/shared/implement-foreign-plan.md` only for those paths. Then run the Launcher and STOP. This session does not spawn, code, stamp, admit SPEC, run work phases, or run **FINALIZE** / **ARCHIVE**. Do **not** continue Steps 0.1–3 / Step 1 AS inventory load for this choice.
+1. **Parse the arg (Atomic Skills path only).** After classification is `atomic-plan` or `atomic-plan-path`, residual arg is a bare slug (`plan-b`) or `<project-id>/<plan-slug>` (`atomic-skills/plan-b`), or resolve slug from the AS plan.md path. If missing, ask which plan; do not silently pick a different active plan when more than one is open.
+2. **Select the plan** from nested inventory (`.atomic-skills/projects/*/*/plan.md`). Prefer exact slug (+ project when given). On ambiguity, disambiguate — never invent.
+3. **Bind branch + worktree.** Read the plan's `branch:` (usually `plan/<slug>`). Compare to `git symbolic-ref --short HEAD` and `git worktree list --porcelain`.
+   - Already on the plan branch → home. Slug and absolute worktree are resolved. Run the launcher below on **this** tree and STOP. Do not continue to Step 0.5 in this session.
+   - Plan worktree exists elsewhere → **HALT**. Tell the user to re-run `implement` inside that worktree. Do **not** run the resume gate or write plan state in the caller tree.
+   - Worktree absent → create inside the repo (`.worktrees/<slug>`). If the branch **already exists**, reuse it **without `-b`** (`git worktree add .worktrees/<slug> <plan-branch>`). Only use `-b <plan-branch>` when the branch does not exist. Then **HALT** and re-enter.
+   - **`caller-governs-other-plan`:** if the caller's branch is already the home of a *different* plan, **FAIL** (HARD-GATE). Do not evaluate dirty state for plan-b while sitting on plan-a's tree; do not write plan-b state into the caller tree.
+4. **Legacy `branch:` null** — no worktree binding; record degraded. When a single plan is clearly intended, run the Launcher and STOP. Do not run Steps A–I.
+
+Reuse `skills/shared/worktree-isolation.md` § *Step 0 — detect existing isolation BEFORE creating one*; never nest. Materialization and implement writes land **only** in the worktree declared by the plan frontmatter `branch:` (AS) or the foreign work-order `branch` (foreign lane).
+
+### Launcher (only path)
+
+This session does not code and does not run Steps A–I. After Step 0 resolves the plan slug and the absolute worktree, stop here. Do not spawn. Do not stamp. Do not run the tick.
+
+If plan frontmatter `planApprovedAt` is a valid ISO timestamp, run this via {{BASH_TOOL}}:
+
+```bash
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/orchestrator-tick.js" --card --plan <slug> --worktree <absolute-worktree>
+```
+
+Show the stdout verbatim in one fenced block. That stdout is a single `/loop` line. Tell the user to paste that command as the first message of a new session, then STOP.
+
+If `planApprovedAt` is missing or not a valid ISO timestamp, do not print the command. Send them to `project approve`. STOP.
+
+This is the only entry path.
+
+## END OF ENTRY
+
+The invoking session stopped at the Launcher. Do not read on in order to act.
+The `/loop` session does not execute Steps 0.5–3, Mode 1, or A–I from this file.
+Its only procedure is `skills/shared/implement-orchestrator-tick.md`.
+Text below is retained harness. It is not a second path.
+
+These laws bind the /loop session only when it performs a printed tick action; the invoking session does not execute them.
 
 ## Iron Law
 
@@ -60,57 +101,25 @@ The value in both modes is not speed; it is that the work is always recoverable 
 
 The snapshot trigger is **event-driven, never a self-measured context gauge.** You cannot read your own remaining context window — the number is fabricated and the loss is silent (the host meter, where one exists, is advisory only). So you snapshot on *events* you can observe: after each task closes, before each subagent dispatch, at every phase boundary, and on request. A snapshot means a microcommit plus a refreshed handoff. A handoff that records dirty files is a crash report, not a successful checkpoint.
 
-## Process
+## Retained mode and stamp (not this entry)
 
-### Step 0 — Resolve target (plan / branch / worktree)
+The invoking session does not execute this block. It does not stamp, code, spawn, or run Steps A–I. The `/loop` session does not execute it unless a printed tick action says to.
 
-**Before any resume gate, dirty check, or write**, classify the arg, select the plan the user asked for, and bind its worktree. Helpers: `src/implement-target-kind.js` (`splitImplementPlanArg`, `classifyImplementTarget`, `classifyImplementArgv`, `normalizeForeignEntryChoice`) then `src/project-target-resolver.js` (`parsePlanArg`, `resolveImplementTarget`, `composePlanWorktreeAdd`) for Atomic Skills inventory targets. Skill prose must follow the same order.
+**Mode detection (pure):** parse CLI tokens with `src/implement-mode.js` (`parseImplementMode`, `isAutomateActive`, `stampExecutionMode`, `clearExecutionModeStamp`). **Automate is the default** implement path (plan `automate-default-and-operator-gates` F0; supersedes archived `implementation-automate-mode` opt-in-only P1). Bare `implement` / absent mode with no clear flag → `isAutomateActive` **true** → pure-maestro. **Mode 1** (session-writer) requires an **explicit** escape: `--mode=1` / `mode:1` / known Mode-1 tokens. Explicit `--mode=automate` / `mode:automate` remains valid. Plan stamp `executionMode: automate` re-enters automate on later runs until `--clear-execution-mode`. When `isAutomateActive` is true, the pure-maestro spine (never product-source edits) is harness for a later session, not this entry. Mode 1 iron law still binds the single **phase writer** (or the session-writer under explicit Mode 1). This session does not run that spine.
 
-0. **Parse mode flags (before plan selection).** From `{{ARG_VAR}}` / argv, call `parseImplementMode` in `src/implement-mode.js`. Tokens: `--mode=automate` / `mode:automate` / `--mode=1` / `--clear-execution-mode`. Absent mode → `mode: undefined` / `modeExplicit: false` (do **not** invent `cliMode: 'default'` — that forces Mode 1 and breaks stamp re-entry **and** automate-default). Unknown mode → refuse with a clear error (do not ignore). Residual plan arg = `splitImplementPlanArg(...).planArg` (or strip mode tokens yourself). Combine with plan / sidecar `executionMode` via `isAutomateActive({ cliMode: parsed.mode, planExecutionMode, clearExecutionMode })` — **no CLI + no clear + no non-automate stamp → true** (F0 default; foreign lane also defaults to automate).
-   - **First durable stamp:** the invoking session does not stamp and does not ask `y`. It stops at the launcher. Durable `executionMode` is not this session's job.
-   - **Clear stamp / leave-automate HARD-GATE (before Mode 1):** if `clearExecutionMode` is true **or** the session would otherwise enter Mode 1 (`--mode=1` while a prior automate stamp exists), **first** resolve the selected plan (Step 0.1–0.3) and call `assertLeaseAbsent(statusRoot, planSlug)` in `src/writer-lease.js` (also `readLeaseResult` / `isLeaseBlocking` / `hasActiveLease`). **Refuse `--clear-execution-mode` and refuse Mode-1 entry** while any lease file residue exists (`active`, `cleared`, or `malformed`), or while a sibling phase merge is mid-flight. Clear/unstamp only when the lease is `missing` (clean) — never bypass the fence by flipping mode first. Only then: `clearExecutionModeStamp` on the plan frontmatter when leaving durable automate, persist, log, and treat automate as off for this session.
-   - When automate is active (default or stamp/CLI), this invocation does **not** enter Steps A–I. After Step 0 binds the worktree, run the **Launcher** below and STOP. The new session that receives the pasted `/loop` line is the orchestrator. Foreign automate uses the foreign maestro light in `implement-foreign-plan.md` (not AS `assert-automate-gate` inventory gates).
-0b. **Classify target kind (before inventory select).** Call `classifyImplementTarget({ arg: planArg })` (inject real `exists` / path resolve at runtime). Branch:
-   - **`missing-arg`** — ask which plan (slug or path); do not invent.
-   - **`path-not-found`** — refuse with the missing path; do not invent a slug.
-   - **`atomic-plan` / `atomic-plan-path`** — continue Step 0.1+ (inventory / that plan.md). `atomic-plan-path` is already an AS `plan.md`; do **not** offer foreign entry choice.
-   - **`foreign-plan`** — **entry choice HARD-GATE (start only).** Use {{ASK_USER_QUESTION_TOOL}} with exactly two options (no silent default):
-     1. **Promote to Atomic Skills plan** — run `atomic-skills:project adopt <sourcePath>` (preview + confirmation + materialize per `project-create-plan.md` adopt). Then re-enter implement as Flow A on the new inventory slug. **Promote is entry-time only** — never offer promote at FINALIZE/ARCHIVE.
-     2. **Implement as Foreign** — `{{READ_TOOL}} skills/shared/implement-foreign-plan.md` and follow it end-to-end (worktree `plan/<slug>`, colocated `*.implement.yaml` sidecar, ground-truth mandatory, admit SPEC, automate default, work phases, then terminal **FINALIZE** + **ARCHIVE** for validation/PR and worktree/branch cleanup). Do **not** continue Steps 0.1–3 / Step 1 AS inventory load for this choice.
-1. **Parse the arg (Atomic Skills path only).** After classification is `atomic-plan` or `atomic-plan-path`, residual arg is a bare slug (`plan-b`) or `<project-id>/<plan-slug>` (`atomic-skills/plan-b`), or resolve slug from the AS plan.md path. If missing, ask which plan; do not silently pick a different active plan when more than one is open.
-2. **Select the plan** from nested inventory (`.atomic-skills/projects/*/*/plan.md`). Prefer exact slug (+ project when given). On ambiguity, disambiguate — never invent.
-3. **Bind branch + worktree.** Read the plan's `branch:` (usually `plan/<slug>`). Compare to `git symbolic-ref --short HEAD` and `git worktree list --porcelain`.
-   - Already on the plan branch → home. Slug and absolute worktree are resolved. Run the launcher below on **this** tree and STOP. Do not continue to Step 0.5 in this session.
-   - Plan worktree exists elsewhere → **HALT**. Tell the user to re-run `implement` inside that worktree. Do **not** run the resume gate or write plan state in the caller tree.
-   - Worktree absent → create inside the repo (`.worktrees/<slug>`). If the branch **already exists**, reuse it **without `-b`** (`git worktree add .worktrees/<slug> <plan-branch>`). Only use `-b <plan-branch>` when the branch does not exist. Then **HALT** and re-enter.
-   - **`caller-governs-other-plan`:** if the caller's branch is already the home of a *different* plan, **FAIL** (HARD-GATE). Do not evaluate dirty state for plan-b while sitting on plan-a's tree; do not write plan-b state into the caller tree.
-4. **Legacy `branch:` null** — no worktree binding; record degraded and continue only when a single plan is clearly intended.
+**`executionMode` stamp (durable automate entry / re-entry):**
 
-Reuse `skills/shared/worktree-isolation.md` § *Step 0 — detect existing isolation BEFORE creating one*; never nest. Materialization and implement writes land **only** in the worktree declared by the plan frontmatter `branch:` (AS) or the foreign work-order `branch` (foreign lane).
+1. Harness, not this entry. On the **first** automate-default session (bare `implement` or `--mode=automate`) when frontmatter has **no** `executionMode: automate`: after Step 0 binds the plan worktree and **before** Steps A–I, stamp `stampExecutionMode(plan, 'automate')`. Do not ask `y/N`. The session is already pure-maestro; the stamp is what plan-end gates read. The invoking session does not stamp. It stops at the launcher.
+2. Persist, project-state microcommit, and log the decision. `--mode=1` does not stamp.
+3. **Stamp alone** makes `isAutomateActive({ planExecutionMode: 'automate' })` true on later `implement <plan>` (no CLI mode required) until clear — review cadence + pure-maestro re-entry. **Unstamp alone** does not mean Mode 1: next bare implement is still automate-default (F0).
+4. **Clear path / Mode 1 escape:** `implement --clear-execution-mode` (parse sets `clearExecutionMode: true` → `isAutomateActive` false for the **session**) and/or remove the stamp with `clearExecutionModeStamp(plan)` (delete `executionMode` from frontmatter), persist, record in the decisions log. **HARD-GATE:** before honoring clear or falling into Mode 1, call `assertLeaseAbsent(statusRoot, planSlug)` / `isLeaseBlocking` — refuse while any lease residue exists (`active`, `cleared`, or `malformed`) or merge mid-flight. Explicit `--mode=1` overrides stamp **and** session default for the **coding** session only; **durable finalize/archive gates still use stamp alone** (`planExecutionMode === 'automate'`) until `clearExecutionModeStamp` removes it. Full leave-automate requires clear/unstamp **after** the lease is clean.
+5. Plans that never stamped **omit** the field; schema treats it as optional — still validates. Omission no longer means Mode 1; it means automate-default for the session (P7: session default must still feed machine gates via stamp and/or `automateActive: true`).
 
-### Launcher (only path)
+Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that sits at the tail of the lifecycle (DESIGN → PLAN → DECOMPOSE+SPEC → **IMPLEMENT** → VERIFY). Materialized Tasks from `project` already carry exact paths + `scopeBoundary[]` + `acceptance[]` + a deterministic `verifier:` the SPEC gate admitted. Closing them is verify-on-done, and it is not this session's job. Microcommits anchor the recovered tree; durable `.atomic-skills/` state plus the `## Session handoff` block is how the next session resumes.
 
-This session does not code and does not run Steps A–I. After Step 0 resolves the plan slug and the absolute worktree, stop here. Do not spawn. Do not stamp. Do not run the tick.
+**Clear stamp / leave-automate HARD-GATE (not this entry):** if `clearExecutionMode` is true **or** the session would otherwise enter Mode 1 (`--mode=1` while a prior automate stamp exists), **first** resolve the selected plan (Step 0.1–0.3) and call `assertLeaseAbsent(statusRoot, planSlug)` in `src/writer-lease.js` (also `readLeaseResult` / `isLeaseBlocking` / `hasActiveLease`). **Refuse `--clear-execution-mode` and refuse Mode-1 entry** while any lease file residue exists (`active`, `cleared`, or `malformed`), or while a sibling phase merge is mid-flight. Clear/unstamp only when the lease is `missing` (clean) — never bypass the fence by flipping mode first. Only then: `clearExecutionModeStamp` on the plan frontmatter when leaving durable automate, persist, log, and treat automate as off for this session.
 
-If plan frontmatter `planApprovedAt` is a valid ISO timestamp, run this via {{BASH_TOOL}}:
-
-```bash
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/orchestrator-tick.js" --card --plan <slug> --worktree <absolute-worktree>
-```
-
-Show the stdout verbatim in one fenced block. That stdout is a single `/loop` line. Tell the user to paste that command as the first message of a new session, then STOP.
-
-If `planApprovedAt` is missing or not a valid ISO timestamp, do not print the command. Send them to `project approve`. STOP.
-
-This is the only entry path.
-
-## END OF ENTRY
-
-The invoking session stopped at the Launcher. Do not read on in order to act.
-The `/loop` session does not execute Steps 0.5–3, Mode 1, or A–I from this file.
-Its only procedure is `skills/shared/implement-orchestrator-tick.md`.
-Text below is retained harness. It is not a second path.
-
+**Foreign lane (not this entry):** `{{READ_TOOL}} skills/shared/implement-foreign-plan.md` is the later-session lane (worktree `plan/<slug>`, colocated `*.implement.yaml` sidecar, ground-truth mandatory, admit SPEC, automate default, work phases, then terminal **FINALIZE** + **ARCHIVE** for validation/PR and worktree/branch cleanup). The invoking session does not follow it.
 
 ## Retained harness (not a path)
 

@@ -68,6 +68,24 @@ Then do only the printed actions:
 | `close` | `assert-automate-gate --gate done` exited 0, then `done` for that part. The tick already required a clean review and `verifierPassed`. |
 | `blocked-human` | Stop that reason. Do not stamp the gate. The next wakeup must see the same block and add no new work. |
 
+## How to perform one action
+
+The `/loop` session performs the one action the tick printed. It does not
+re-enter `skills/core/implement.md` as a script. It does not start a Node
+daemon that spawns agents.
+
+- `dispatch` `implement` or `fix`: `assert-automate-gate --gate spawn` must exit 0. One sibling worktree. One writer. Sealed instruction from the action. Do not code in the orchestrator session. Record the agent on the board (lease, alive) before the next wakeup.
+- `dispatch` `review`: a different agent. No product edits.
+- `merge`: at most the one part the tick named. `git merge` onto the plan branch. The next wakeup sees status `merged`.
+- `reverify`: run the verifier command the action printed, on the merged tree. Set `verifierPassed` on the board only from that exit code. A claim is not a pass.
+- `close`: `assert-automate-gate --gate done` exit 0, then `done`. Session handoff is inside that done checkpoint. Do not create a second close commit. Do not write `userValidatedAt`.
+- `blocked-human`: write nothing that stamps the gate. Exit the tick.
+
+Gate prose for phase-done, `evaluationGate`, `deliveryAuditGate`, and plan-end
+`external-both` lives in `skills/shared/implement-automate-maestro.md` and
+`skills/shared/implement-harness-reference.md`. Read it only when the printed
+action needs it.
+
 Before `dispatch`, `assert-automate-gate --gate spawn` must exit 0. Before
 `close`, `--gate done` must exit 0. Phase close still requires evaluation,
 lessons (`recorded` + path, or explicit `none`), review, and

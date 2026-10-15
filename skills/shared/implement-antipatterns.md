@@ -5,6 +5,7 @@ The one-liner Red-Flag **triggers** stay resident in `implement.md` so the ambie
 ## Red Flags — full refutations
 
 - "I'll code or spawn in the session that was asked to run implement, instead of showing the /loop command." → **No.** That session does not code and does not spawn. After Step 0, if `planApprovedAt` is a valid ISO timestamp, show the `/loop` line from `--card` and tell the user to paste it as the first message of a new session, then STOP. If the stamp is missing, send them to `project approve` and do not print the command.
+- "I'll treat `implement-harness-reference.md` as the session script instead of the printed tick action." → **No.** The `/loop` session performs the one printed action in `skills/shared/implement-orchestrator-tick.md`. Do not start at Step 2 or A–I. Read harness prose only when that printed action needs a gate.
 - "I'll spin up two agents to code two tasks in parallel and merge." → Coding stays single-threaded (Iron Law). Concurrent writers on one tree is the corruption this skill forbids; parallelism is for reads only.
 - "It looks finished — mark it done and run the verifier later." → "Later" is how a fabricated-met enters state. The verifier pass is the entry token to done (HARD-GATE), not a follow-up.
 - "The subagent/Codex reported it's done, so it's done." → A foreign executor self-checks but never self-certifies. Re-run the verifier on the committed/merged tree; read the diff, not the narrative.

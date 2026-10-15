@@ -2,6 +2,8 @@
 
 Not an entry. Not a second path. The session that was asked to run `implement` stops at the launcher in `skills/core/implement.md`. The `/loop` session runs `skills/shared/implement-orchestrator-tick.md` and reads this file only when a printed action needs a gate (assert, done, phase-done, handoff, delivery audit). Do not start at Step 0.5.
 
+Do not start at Step 2 or A–I. Start from the printed action in `skills/shared/implement-orchestrator-tick.md`.
+
 ### Step 0.5 — Resume gate (after target is home)
 
 **STOP if this session was asked to run implement.** The launcher already ended it. Do not run this step here.

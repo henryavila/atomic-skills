@@ -315,8 +315,17 @@ describe('skill contract', () => {
     assert.match(implement, /END OF ENTRY/);
     assert.equal(implement.includes('### Step 2 — Execute one task'), false);
     const reference = readFileSync(join('skills/shared/implement-harness-reference.md'), 'utf8');
+    assert.match(reference, /Not an entry/);
     assert.match(reference, /### Step 2 — Execute one task/);
     assert.match(readFileSync(join('skills/core/project.md'), 'utf8'), /approve <slug>/);
+    assert.match(tick, /--from-plan/);
+    assert.match(tick, /Do not re-enter/);
+    const beforeEntry = implement.slice(0, implement.indexOf('## END OF ENTRY'));
+    const stillInEntry = [
+      'Spawn **one fresh phase agent**',
+      'you **are** the single-threaded coder',
+    ].filter((phrase) => beforeEntry.includes(phrase));
+    assert.deepEqual(stillInEntry, []);
   });
 });
 
