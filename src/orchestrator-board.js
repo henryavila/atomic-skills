@@ -235,6 +235,23 @@ export function orchestratorTick(input) {
       continue;
     }
 
+    const unobserved = worker
+      && worker.lease !== true
+      && worker.alive == null
+      && worker.claim !== true
+      && (part.status === 'dispatched' || part.status === 'claimed');
+    if (unobserved) {
+      actions.push({
+        type: 'dispatch',
+        kind: worker.kind === 'fix' ? 'fix' : 'implement',
+        partId: part.id,
+        agentId: worker.id,
+        instruction: worker.instruction
+          || `Implement part ${part.id}. Paths: ${(part.paths || []).join(', ')}.`,
+      });
+      continue;
+    }
+
     if (worker && worker.claim === true && (part.status === 'dispatched' || part.status === 'claimed')) {
       mergeCandidates.push({ part, agent: worker });
       continue;
@@ -247,8 +264,18 @@ export function orchestratorTick(input) {
         continue;
       }
       const reviewUnobserved = reviewer.review == null
-        && !(reviewer.lease === true && reviewer.alive !== true);
-      if (reviewUnobserved) continue;
+        && reviewer.lease !== true
+        && reviewer.alive == null;
+      if (reviewUnobserved) {
+        actions.push({
+          type: 'dispatch',
+          kind: 'review',
+          partId: part.id,
+          agentId: reviewer.id,
+          instruction: reviewer.instruction || 'Review the merged part. Do not edit product source.',
+        });
+        continue;
+      }
       if (reviewer.lease === true && reviewer.alive !== true && reviewer.review == null) {
         redispOrBlock(part, agents, actions, 'review', 'review agent died without a result');
         continue;
@@ -342,10 +369,11 @@ function dispatch(part, agents, actions, kind, instruction) {
     kind,
     partId: part.id,
     lease: false,
-    alive: false,
+    alive: null,
     claim: false,
     review: null,
     finding: null,
+    instruction,
   });
   actions.push({
     type: 'dispatch',

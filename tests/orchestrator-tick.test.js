@@ -18,6 +18,8 @@ import {
   readBoard,
   MAX_REDISPATCH,
 } from '../src/orchestrator-board.js';
+import { buildOrchestratorSnapshot } from '../src/orchestrator-snapshot.js';
+import { isPlanApprovalTimestamp } from '../src/plan-approval.js';
 
 const AT = '2026-10-15T18:00:00.000Z';
 
@@ -48,6 +50,11 @@ describe('plan approval stamp', () => {
     assert.equal(Object.hasOwn(stamped, 'userValidatedAt'), false);
     assert.equal(planApprovalAllowsImplement(stamped).ok, true);
     assert.equal(Object.hasOwn(clearPlanApproval(stamped), 'planApprovedAt'), false);
+  });
+
+  it('rejects a date-only stamp that the plan schema would refuse', () => {
+    assert.equal(isPlanApprovalTimestamp('2026-10-15'), false);
+    assert.equal(isPlanApprovalTimestamp('2026-10-15T18:00:00.000Z'), true);
   });
 
   it('does not clear an existing userValidatedAt when stamping approval', () => {
@@ -123,6 +130,45 @@ describe('orchestrator tick', () => {
     const merges = result.actions.filter((a) => a.type === 'merge');
     assert.equal(merges.length, 1);
     assert.equal(merges[0].partId, 'a');
+  });
+
+  it('re-emits an unobserved dispatch and does not kill a leased writer', () => {
+    const first = orchestratorTick(approved({ parts: [part('a')] }));
+    const agent = first.board.agents[0];
+    assert.equal(agent.alive, null);
+    assert.equal(agent.lease, false);
+    assert.equal(first.board.parts[0].redispatchCount, 0);
+
+    const again = orchestratorTick(approved({
+      parts: first.board.parts,
+      agents: first.board.agents,
+    }));
+    const againDispatch = again.actions.filter((action) => action.type === 'dispatch');
+    assert.equal(againDispatch.length, 1);
+    assert.equal(againDispatch[0].agentId, agent.id);
+    assert.equal(again.board.parts[0].redispatchCount, 0);
+
+    const leased = buildOrchestratorSnapshot({
+      plan: { planApprovedAt: AT },
+      tasks: [{
+        id: 'a',
+        status: 'pending',
+        deps: [],
+        paths: ['src/a.js'],
+        verifier: 'true',
+        acceptance: ['yes'],
+        scopeBoundary: ['no'],
+      }],
+      board: first.board,
+      lease: { status: 'active' },
+    });
+    const running = orchestratorTick(approved({
+      parts: leased.parts,
+      agents: leased.agents,
+    }));
+    assert.equal(running.actions.some((action) => action.type === 'dispatch'), false);
+    assert.equal(running.board.parts[0].redispatchCount, 0);
+    assert.equal(running.board.agents[0].alive, true);
   });
 
   it('redispatches a dead agent and stops at the ceiling without operatorOverride', () => {
@@ -405,6 +451,33 @@ describe('plan file round trip', () => {
       const dispatched = result.actions.filter((action) => action.type === 'dispatch').map((action) => action.partId);
       assert.deepEqual(dispatched.sort(), ['next-a', 'next-b']);
       assert.equal(result.board.parts.find((part) => part.id === 'done-one').status, 'done');
+
+      const leaseDir = join(dir, 'status', 'writer-leases');
+      mkdirSync(leaseDir, { recursive: true });
+      writeFileSync(join(leaseDir, 'demo.json'), JSON.stringify({
+        planSlug: 'demo',
+        phaseId: 'f0',
+        startedAt: '2026-10-15T18:00:00.000Z',
+        hostId: 'test',
+        worktreePath: '/tmp/demo',
+        status: 'active',
+      }));
+      const second = JSON.parse(execFileSync('node', [
+        'scripts/orchestrator-tick.js',
+        '--from-plan', planFile,
+        '--status-root', join(dir, 'status'),
+      ], { encoding: 'utf8' }));
+      assert.equal(second.actions.some((action) => action.type === 'dispatch'), false);
+
+      writeFileSync(join(phases, 'f1-bad.md'), '---\nthis: [\n---\n');
+      assert.throws(
+        () => execFileSync('node', [
+          'scripts/orchestrator-tick.js',
+          '--from-plan', planFile,
+          '--status-root', join(dir, 'status'),
+        ], { encoding: 'utf8' }),
+        (err) => err.status === 1 && /phase-unreadable/.test(`${err.stderr}`),
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

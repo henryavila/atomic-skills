@@ -82,7 +82,7 @@
         "default",
         "2"
       ],
-      "description": "Optional durable implement execution mode stamp (F2/T-009, design D14). Absent on pre-automate plans (still valid). First confirmed `implement --mode=automate` entry MUST stamp `automate` after interactive operator confirm; stamp alone re-enters pure-maestro + review cadence until `implement --clear-execution-mode` or a recorded clear mutation removes the field. Read with `isAutomateActive({ planExecutionMode })` from src/implement-mode.js."
+      "description": "Optional durable implement execution mode stamp (F2/T-009, design D14). Absent on pre-automate plans (still valid). The session that is asked to run implement does not stamp this field and does not ask the operator to confirm. planApprovedAt is the cut into the orchestrator tick. When this field is automate, pure-maestro gates stay on until implement --clear-execution-mode or a recorded clear removes it. Read with isAutomateActive({ planExecutionMode }) from src/implement-mode.js."
     },
     "planApprovedAt": {
       "$ref": "common.schema.json#/$defs/isoTimestamp",

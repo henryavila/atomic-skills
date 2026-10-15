@@ -70,9 +70,12 @@ Then do only the printed actions:
 
 ## How to perform one action
 
-The `/loop` session performs the one action the tick printed. It does not
-re-enter `skills/core/implement.md` as a script. It does not start a Node
-daemon that spawns agents.
+The `/loop` session performs every action the tick printed, then exits.
+One tick may print several dispatches. It does not re-enter
+`skills/core/implement.md` as a script. It does not start a Node daemon
+that spawns agents. If a writer lease for this plan is already active, do
+not spawn another writer; record that agent on the board and let the next
+wakeup read it.
 
 - `dispatch` `implement` or `fix`: `assert-automate-gate --gate spawn` must exit 0. One sibling worktree. One writer. Sealed instruction from the action. Do not code in the orchestrator session. Record the agent on the board (lease, alive) before the next wakeup.
 - `dispatch` `review`: a different agent. No product edits.

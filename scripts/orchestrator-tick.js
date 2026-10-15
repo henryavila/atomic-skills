@@ -63,7 +63,10 @@ if (process.argv.includes('--from-plan')) {
     for (const name of readdirSync(phasesDir)) {
       if (!name.endsWith('.md')) continue;
       const phase = parseFrontmatter(readFileSync(join(phasesDir, name), 'utf8'));
-      if (phase.error) continue;
+      if (phase.error) {
+        console.error(`blocked: phase-unreadable ${name} ${phase.error}`);
+        process.exit(1);
+      }
       tasks.push(...tasksFromInitiativeFrontmatter(phase.frontmatter));
     }
   }
