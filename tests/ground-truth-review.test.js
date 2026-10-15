@@ -83,7 +83,9 @@ test('stripReceiptSections removes Reviews and Ground-truth', () => {
 test('fingerprint ignores lastUpdated and receipt sections', () => {
   const a = planSubstanceText(`---\nslug: x\nlastUpdated: '1'\n---\nbody\n\n## Reviews\n\n- n\n`);
   const b = planSubstanceText(`---\nslug: x\nlastUpdated: '2'\n---\nbody\n\n## Reviews\n\n- different\n`);
+  const approved = planSubstanceText(`---\nslug: x\nlastUpdated: '2'\nplanApprovedAt: '2026-10-15T18:00:00Z'\n---\nbody\n\n## Reviews\n\n- different\n`);
   assert.equal(fingerprintSubstance(a), fingerprintSubstance(b));
+  assert.equal(fingerprintSubstance(a), fingerprintSubstance(approved));
 });
 
 test('assessGroundTruthPlanFile: fresh full receipt passes', () => {

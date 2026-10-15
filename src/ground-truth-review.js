@@ -88,7 +88,7 @@ export function planSubstanceText(raw) {
         const t = line.trim();
         if (!t || t.startsWith('#')) return false;
         // Volatile / non-substance keys — exclude from freshness fingerprint
-        if (/^(lastUpdated|started|userValidatedAt|executionMode)\s*:/i.test(t)) return false;
+        if (/^(lastUpdated|started|userValidatedAt|planApprovedAt|executionMode)\s*:/i.test(t)) return false;
         return true;
       })
       .join('\n');

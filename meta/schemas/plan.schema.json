@@ -84,6 +84,10 @@
       ],
       "description": "Optional durable implement execution mode stamp (F2/T-009, design D14). Absent on pre-automate plans (still valid). First confirmed `implement --mode=automate` entry MUST stamp `automate` after interactive operator confirm; stamp alone re-enters pure-maestro + review cadence until `implement --clear-execution-mode` or a recorded clear mutation removes the field. Read with `isAutomateActive({ planExecutionMode })` from src/implement-mode.js."
     },
+    "planApprovedAt": {
+      "$ref": "common.schema.json#/$defs/isoTimestamp",
+      "description": "Operator acceptance of the plan (businessIntent, flow, ground-truth, admitted tasks) before the orchestrator tick may implement. Written by stampPlanApproval in src/plan-approval.js. Absent until the user accepts. This is not delivery acceptance: userValidatedAt stays a separate plan-end stamp. The tick refuses while this field is missing or not an ISO timestamp."
+    },
     "userValidatedAt": {
       "$ref": "common.schema.json#/$defs/isoTimestamp",
       "description": "Operator validation timestamp for automate finalize/archive (F3/T-010, design D9/D12). Read by userValidationOk({ automateActive: true, userValidatedAt }) from src/plan-end-review.js. Absent on non-automate plans; under executionMode automate, finalize and archive HARD-BLOCK until a non-empty ISO timestamp is recorded after the user validates implementation + decisions."

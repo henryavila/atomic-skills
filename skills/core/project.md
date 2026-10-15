@@ -28,6 +28,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project idea list                    → zero-token view of the ideas.md inbox
 /atomic-skills:project idea promote <n>             → promote idea #n via the emergence ladder (ratify-gated)
 /atomic-skills:project materialize <phase>          → phase descriptor → initiative + businessIntent gate (presence + find-weak-business-intent quality HARD)
+/atomic-skills:project approve <slug>               → stamp planApprovedAt after the user accepts the plan (flow, businessIntent, ground-truth, admitted tasks)
 /atomic-skills:project finalize <slug>              → publish plan/<slug> as a PR vs <integrationRef> (push + gh pr create); operator-prompted, pre-merge, pre-archive
 /atomic-skills:project consolidate                  → merge-train integrate ≥2 READY worktrees into ONE PR (operator-prompted; <2 live WT = no-op, use finalize)
 /atomic-skills:project done|push|pop|park|emerge|promote|unblock|switch|phase-done|phase-reopen|archive
@@ -62,6 +63,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `idea`, `idea list`, `idea promote <n>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-idea.md` |
 | `materialize <phase>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-materialize.md` |
 | `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, `reconcile`, `unblock`, `push`, `pop`, verifier patterns | `{{READ_TOOL}} {{ASSETS_PATH}}/project-transitions.md` |
+| `approve <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/implement-orchestrator-tick.md` |
 | `finalize <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-finalize.md` |
 | `consolidate` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-consolidate.md` |
 | `migrate` (bare = cut-over), `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
@@ -128,6 +130,8 @@ Every code-modifying session must be anchored to an active initiative — a phas
 **Also:** NO IMPLEMENT WITHOUT VALIDATED FLOW (`docs/kb/flow.md`).
 
 Ready without flow is legal. `process.yaml` never satisfies. `implement` HARD-GATES at entry with `scripts/find-missing-flow.js --strict` (exit 0 continue; non-zero REFUSE — instruct `project flow`). Day-2: `project flow` (`process` alias). No `process-map` or `flow` creation stage. Never invent nodes from `phases[]`.
+
+**Plan approval.** The user accepts the plan here (flow, `businessIntent`, ground-truth, admitted tasks). Acceptance is frontmatter `planApprovedAt`. A generic "ok" is not acceptance. After the user accepts, and only then, run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/stamp-plan-approval.js" --plan <plan.md>`. That write does not set `userValidatedAt`. After the stamp, `implement` only prints the `/loop` command for a new session. Procedure: `{{READ_TOOL}} {{ASSETS_PATH}}/implement-orchestrator-tick.md`. Do not start the tick from this skill.
 
 ## Pre-mutation gates (apply before ANY mutating subcommand)
 

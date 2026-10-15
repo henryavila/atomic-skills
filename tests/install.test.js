@@ -482,13 +482,15 @@ describe('installSkills', () => {
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
     // namespace assets: previous set + memory-assets/connect.md + implement-phase-* + maestro + decision-log + foreign-plan
-    assert.strictEqual(files.length, 93,
-      `expected 93 namespace asset entries (shared assets incl. connect.md + implement-phase-* + maestro/decision-log + foreign-plan), got ${files.length}: ${files.join(', ')}`);
+    assert.strictEqual(files.length, 95,
+      `expected 95 namespace asset entries (shared assets incl. connect.md + implement-phase-* + maestro/decision-log + foreign-plan + orchestrator-tick + harness-reference), got ${files.length}: ${files.join(', ')}`);
     assert.ok(files.includes('connect.md'), '_assets/connect.md (from memory-assets) must be installed');
     assert.ok(files.includes('implement-phase-writer.md'), '_assets/implement-phase-writer.md must be installed');
     assert.ok(files.includes('implement-phase-evaluator.md'), '_assets/implement-phase-evaluator.md must be installed');
     assert.ok(files.includes('implement-automate-maestro.md'), '_assets/implement-automate-maestro.md must be installed');
     assert.ok(files.includes('implement-decision-log.md'), '_assets/implement-decision-log.md must be installed');
+    assert.ok(files.includes('implement-orchestrator-tick.md'), '_assets/implement-orchestrator-tick.md must be installed');
+    assert.ok(files.includes('implement-harness-reference.md'), '_assets/implement-harness-reference.md must be installed');
     // F-001 guard: hooks subdir is now recursively installed (was previously dropped silently)
     const hooksDir = pjoin(assetsDir, 'hooks');
     assert.ok(existsSync(hooksDir), '_assets/hooks/ must exist');

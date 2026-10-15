@@ -1,14 +1,16 @@
-Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that sits at the tail of the lifecycle (DESIGN → PLAN → DECOMPOSE+SPEC → **IMPLEMENT** → VERIFY). You read the materialized Tasks `project` produced (each already carrying exact paths + `scopeBoundary[]` + `acceptance[]` + a deterministic `verifier:` the SPEC gate admitted), code them one at a time, and close each only through verify-on-done. Microcommits anchor the recovered tree; durable `.atomic-skills/` state plus the `## Session handoff` block is how the next session resumes.
+**Entry (only path).** This session does not code and does not run Steps A–I. Do Step 0 only far enough to resolve the plan slug and the absolute worktree, then run the launcher there and STOP. If `planApprovedAt` is a valid ISO timestamp, show the `/loop` line and stop. If it is missing, send the user to `project approve` and stop. Do not follow later steps in this session. Later harness text stays in this file for other sessions. It is not an entry.
+
+Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that sits at the tail of the lifecycle (DESIGN → PLAN → DECOMPOSE+SPEC → **IMPLEMENT** → VERIFY). Materialized Tasks from `project` already carry exact paths + `scopeBoundary[]` + `acceptance[]` + a deterministic `verifier:` the SPEC gate admitted. Closing them is verify-on-done, and it is not this session's job. Microcommits anchor the recovered tree; durable `.atomic-skills/` state plus the `## Session handoff` block is how the next session resumes.
 
 **Two target kinds.** The arg may be (1) an **Atomic Skills plan** (`plan-slug` or `<project-id>/<plan-slug>`, or a path to `.atomic-skills/projects/**/plan.md`) or (2) a **foreign markdown plan** (`path/to/file.md` outside the inventory). Foreign targets require an **entry-time** {{ASK_USER_QUESTION_TOOL}} — **Promote to AS** (then `project adopt` + Flow A) or **Implement as Foreign** (colocated sidecar + worktree + automate; FINALIZE/ARCHIVE cleanup — **no promote at the end**). Full foreign lane: `{{READ_TOOL}} skills/shared/implement-foreign-plan.md`.
 
 If {{ARG_VAR}} was provided, use it as the plan-slug, `<project-id>/<plan-slug>`, or `path/to/plan.md` after stripping mode flags. If not, ask the user: "Which plan are we implementing? I'll read its active phase's tasks." Default to the active plan/initiative if one is already selected. **The explicit arg selects plan, branch, and worktree before any resume gate or write** — see Step 0.
 
-**Mode detection (pure):** parse CLI tokens with `src/implement-mode.js` (`parseImplementMode`, `isAutomateActive`, `stampExecutionMode`, `clearExecutionModeStamp`). **Automate is the default** implement path (plan `automate-default-and-operator-gates` F0; supersedes archived `implementation-automate-mode` opt-in-only P1). Bare `implement` / absent mode with no clear flag → `isAutomateActive` **true** → pure-maestro. **Mode 1** (session-writer) requires an **explicit** escape: `--mode=1` / `mode:1` / known Mode-1 tokens. Explicit `--mode=automate` / `mode:automate` remains valid. Plan stamp `executionMode: automate` re-enters automate on later runs until `--clear-execution-mode`. When `isAutomateActive` is true, the host session follows the pure-maestro spine (never product-source edits); Mode 1 iron law still binds the single **phase writer** (or the session-writer under explicit Mode 1).
+**Mode detection (pure):** parse CLI tokens with `src/implement-mode.js` (`parseImplementMode`, `isAutomateActive`, `stampExecutionMode`, `clearExecutionModeStamp`). **Automate is the default** implement path (plan `automate-default-and-operator-gates` F0; supersedes archived `implementation-automate-mode` opt-in-only P1). Bare `implement` / absent mode with no clear flag → `isAutomateActive` **true** → pure-maestro. **Mode 1** (session-writer) requires an **explicit** escape: `--mode=1` / `mode:1` / known Mode-1 tokens. Explicit `--mode=automate` / `mode:automate` remains valid. Plan stamp `executionMode: automate` re-enters automate on later runs until `--clear-execution-mode`. When `isAutomateActive` is true, the pure-maestro spine (never product-source edits) is harness for a later session, not this entry. Mode 1 iron law still binds the single **phase writer** (or the session-writer under explicit Mode 1). This session does not run that spine.
 
 **`executionMode` stamp (durable automate entry / re-entry):**
 
-1. On the **first** automate-default session (bare `implement` or `--mode=automate`) when frontmatter has **no** `executionMode: automate`: after Step 0 binds the plan worktree and **before** Steps A–I, stamp `stampExecutionMode(plan, 'automate')`. Do not ask `y/N`. The session is already pure-maestro; the stamp is what plan-end gates read.
+1. Harness, not this entry. On the **first** automate-default session (bare `implement` or `--mode=automate`) when frontmatter has **no** `executionMode: automate`: after Step 0 binds the plan worktree and **before** Steps A–I, stamp `stampExecutionMode(plan, 'automate')`. Do not ask `y/N`. The session is already pure-maestro; the stamp is what plan-end gates read. The invoking session does not stamp. It stops at the launcher.
 2. Persist, project-state microcommit, and log the decision. `--mode=1` does not stamp.
 3. **Stamp alone** makes `isAutomateActive({ planExecutionMode: 'automate' })` true on later `implement <plan>` (no CLI mode required) until clear — review cadence + pure-maestro re-entry. **Unstamp alone** does not mean Mode 1: next bare implement is still automate-default (F0).
 4. **Clear path / Mode 1 escape:** `implement --clear-execution-mode` (parse sets `clearExecutionMode: true` → `isAutomateActive` false for the **session**) and/or remove the stamp with `clearExecutionModeStamp(plan)` (delete `executionMode` from frontmatter), persist, record in the decisions log. **HARD-GATE:** before honoring clear or falling into Mode 1, call `assertLeaseAbsent(statusRoot, planSlug)` / `isLeaseBlocking` — refuse while any lease residue exists (`active`, `cleared`, or `malformed`) or merge mid-flight. Explicit `--mode=1` overrides stamp **and** session default for the **coding** session only; **durable finalize/archive gates still use stamp alone** (`planExecutionMode === 'automate'`) until `clearExecutionModeStamp` removes it. Full leave-automate requires clear/unstamp **after** the lease is clean.
@@ -27,7 +29,7 @@ One writer touches a given working tree at a time — never two concurrent agent
 2. **One fresh phase agent per phase, code-only.** Granularity is the phase initiative. Spawn **one fresh phase agent** (phase writer) per phase with a **constructed brief only** — **no host chat history**. The phase writer runs orient → code → pre-close self-check → implementation microcommits → **claim report**. It **must not** invoke `done`, `phase-done`, handoff mutation, rollups, lessons, or any durable `.atomic-skills/` write.
 3. **Never self-certify.** A phase-writer claim is confidence, not closure. Only the orchestrator re-running the task verifier on the **MERGED** plan tree (via verify-claim / `done`) may close. **Agents never write decision-review PASS** — only the operator writes PASS on the manual hardgate. **present-before-PASS:** host presents the **decision package** body in the same hardgate turn as PASS|FAIL; stamp requires `packagePresentedAt` and/or `packagePath` under automate (session default or stamp).
 4. **Never silent Mode-1 fallback.** Under automate, spawn failure or review/verifier fail means re-dispatch a code-only fix agent (max **2**) or stop for the operator — **not** the host session coding product source. Leaving automate requires explicit `--clear-execution-mode` / Mode-1 re-entry recorded in the decision log. **Silent auto-PASS** of a plan-direction `businessIntent` that is not yet ratified is forbidden. Later phases inherit a ratified spine when `find-weak-business-intent` exits 0. Decision-review auto-PASS is allowed only when the log has no `tradeoff` or `scope-exit`. **{{ASK_USER_QUESTION_TOOL}}** questions under automate are plan direction, open blocker/critical/major, decision-review on those entries, and plan-end validation. Free-text token recovery after decline is forbidden — re-Ask or STOP.
-5. **No concurrent phase writers** in v1, even when `parallelismAllowed` is true. Sequential phases only.
+5. **One writer per worktree, serial merge.** When `planApprovedAt` is set, the orchestrator tick may dispatch several writers in one wakeup whose `outputs[].path` sets are disjoint and whose dependencies are done. Overlapping paths stay serial. Merge back to the plan branch is always one part at a time. Without that stamp, do not run the tick.
 6. **planEndReviewOk** (and user validation) gate finalize/archive under automate — see plan-end path and `src/plan-end-review.js`. Under automate, plan-end is **intent-vs-delivered** (not generic diff alone): build surfaces → `review-code --mode=external-both` with **Intent vs delivered** brief → stamp receipt with non-empty **`intentVsDelivered`** rows (`matched`|`partial`|`missing`|`extra`) → operator **`userValidatedAt`** → `assert-automate-gate --gate finalize`. Empty `intentVsDelivered` fails finalize.
 7. **assert-automate-gate before every pure-maestro advance.** Under automate, before spawn (Step C), done-batch (Step E), `phase-done` (Step G), or finalize/archive (Step I), run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/assert-automate-gate.js" --plan <slug> --gate spawn|claims|done|phase-done|finalize` (see `skills/shared/implement-automate-maestro.md`). **Non-zero exit ⇒ STOP** — do not acquire a second lease, do not `done`, do not `phase-done`, do not finalize. Layer-1 helpers alone are not enough if the agent skips calling them; the CLI is the machine-checkable call site. **Step E is claim-bound** under durable stamp: `assert-automate-gate --gate done` + `canDoneFromAutomateClaims` / `canCloseTasksFromClaims` after reachability; complex tasks need `complexTaskAllowsDone` before each orchestrator `done`.
 8. **Maestro cursor on every A–I boundary.** Under automate, keep the thin maestro cursor (Layer 2.5 — `src/maestro-cursor.js`, path `.atomic-skills/status/automate/<slug>.json`) current: `ensureCursor` on first entry (A or B), `advanceCursor`/`writeCursorFile` at each step boundary so assert sees step **C** before spawn, **E** before done, **G** before phase-done, **I** before finalize. After successful phase-done call **`recordPhaseDonePause`** → step **`awaiting-operator-advance`** (blocks spawn + Step A). Operator continue requires **`clearContinue`** with explicit token `operator-continue` (or `operatorContinue: true`) → **H** — generic ok is not enough. Never delete the cursor or lease to force progress.
@@ -40,7 +42,7 @@ If you are about to dispatch a read-only subagent or hand off a token-heavy read
 If the caller's tree already governs another plan than the one requested (`caller-governs-other-plan`): STOP. Do not run the resume gate or write plan state here — re-enter the plan's worktree first.
 If `isAutomateActive` and you are about to spawn a phase writer, run orchestrator `done`, run `phase-done`, or finalize/archive **without** a fresh `assert-automate-gate` exit 0 for the matching `--gate` (spawn / claims|done / phase-done / finalize): STOP. Non-zero assert forbids advancing (including illegal maestro cursor step).
 If `isAutomateActive` and you are about to advance a pure-maestro step **without** updating the maestro cursor on that A–I boundary (or you are tempted to `rm` the cursor/lease file to force progress): STOP. Advance via `src/maestro-cursor.js`; never delete status files to skip gates.
-If `isAutomateActive` and the maestro cursor is **`awaiting-operator-advance`**, and you are about to run pure-maestro **Step A**, spawn, materialize-as-auto-chain, or multi-phase auto-run **without** `clearContinue` (`continueToken: 'operator-continue'` / `operatorContinue: true`): STOP. Pause is intentional; generic ok is not a continue token.
+If `isAutomateActive` and the maestro cursor is **`awaiting-operator-advance`**, and you are about to run pure-maestro **Step A**, spawn, materialize-as-auto-chain, or multi-phase auto-run **without** `clearContinue` (`continueToken: 'operator-continue'` / `operatorContinue: true`): STOP. The session that was asked to run implement does not clear that pause and does not tick. It shows the `/loop` command. The new session runs one tick from `skills/shared/implement-orchestrator-tick.md`. Without `planApprovedAt`, generic ok is not a continue token.
 If you are about to code or spawn a phase writer and `find-plans-missing-ground-truth.js` on the plan path is non-zero (or you skipped running it): STOP. Ground-truth review receipt is mandatory; empty-repo still requires a persisted complete-empty-repo result — no chat waiver.
 If you are about to code or spawn a phase writer and `find-missing-flow.js --strict` on the plan path is non-zero (or you skipped running it): STOP. Validated flow is mandatory. `process.yaml` never satisfies. Instruct `atomic-skills:project flow`. No operatorSkip, no chat waiver. Ad-hoc without a plan file is N/A; a plan file always gates.
 </HARD-GATE>
@@ -65,9 +67,9 @@ The snapshot trigger is **event-driven, never a self-measured context gauge.** Y
 **Before any resume gate, dirty check, or write**, classify the arg, select the plan the user asked for, and bind its worktree. Helpers: `src/implement-target-kind.js` (`splitImplementPlanArg`, `classifyImplementTarget`, `classifyImplementArgv`, `normalizeForeignEntryChoice`) then `src/project-target-resolver.js` (`parsePlanArg`, `resolveImplementTarget`, `composePlanWorktreeAdd`) for Atomic Skills inventory targets. Skill prose must follow the same order.
 
 0. **Parse mode flags (before plan selection).** From `{{ARG_VAR}}` / argv, call `parseImplementMode` in `src/implement-mode.js`. Tokens: `--mode=automate` / `mode:automate` / `--mode=1` / `--clear-execution-mode`. Absent mode → `mode: undefined` / `modeExplicit: false` (do **not** invent `cliMode: 'default'` — that forces Mode 1 and breaks stamp re-entry **and** automate-default). Unknown mode → refuse with a clear error (do not ignore). Residual plan arg = `splitImplementPlanArg(...).planArg` (or strip mode tokens yourself). Combine with plan / sidecar `executionMode` via `isAutomateActive({ cliMode: parsed.mode, planExecutionMode, clearExecutionMode })` — **no CLI + no clear + no non-automate stamp → true** (F0 default; foreign lane also defaults to automate).
-   - **First durable stamp (optional for session default, required for plan-end durability):** if plan lacks `executionMode: automate` and the session is automate-active (default or CLI), ask operator confirm (`y`) then `stampExecutionMode` + persist **before** pure-maestro Steps A–I when durable gates need the stamp (see stamp rules above). Foreign sidecar may carry `executionMode: automate` the same way.
+   - **First durable stamp:** the invoking session does not stamp and does not ask `y`. It stops at the launcher. Durable `executionMode` is not this session's job.
    - **Clear stamp / leave-automate HARD-GATE (before Mode 1):** if `clearExecutionMode` is true **or** the session would otherwise enter Mode 1 (`--mode=1` while a prior automate stamp exists), **first** resolve the selected plan (Step 0.1–0.3) and call `assertLeaseAbsent(statusRoot, planSlug)` in `src/writer-lease.js` (also `readLeaseResult` / `isLeaseBlocking` / `hasActiveLease`). **Refuse `--clear-execution-mode` and refuse Mode-1 entry** while any lease file residue exists (`active`, `cleared`, or `malformed`), or while a sibling phase merge is mid-flight. Clear/unstamp only when the lease is `missing` (clean) — never bypass the fence by flipping mode first. Only then: `clearExecutionModeStamp` on the plan frontmatter when leaving durable automate, persist, log, and treat automate as off for this session.
-   - When automate is active (default or stamp/CLI), enter the **Automate mode — pure maestro loop** (Steps A–I below) after Step 1 hard gates pass; do not run Mode 1 Step 2 session-writer coding. Foreign automate uses the foreign maestro light in `implement-foreign-plan.md` (not AS `assert-automate-gate` inventory gates).
+   - When automate is active (default or stamp/CLI), this invocation does **not** enter Steps A–I. After Step 0 binds the worktree, run the **Launcher** below and STOP. The new session that receives the pasted `/loop` line is the orchestrator. Foreign automate uses the foreign maestro light in `implement-foreign-plan.md` (not AS `assert-automate-gate` inventory gates).
 0b. **Classify target kind (before inventory select).** Call `classifyImplementTarget({ arg: planArg })` (inject real `exists` / path resolve at runtime). Branch:
    - **`missing-arg`** — ask which plan (slug or path); do not invent.
    - **`path-not-found`** — refuse with the missing path; do not invent a slug.
@@ -78,7 +80,7 @@ The snapshot trigger is **event-driven, never a self-measured context gauge.** Y
 1. **Parse the arg (Atomic Skills path only).** After classification is `atomic-plan` or `atomic-plan-path`, residual arg is a bare slug (`plan-b`) or `<project-id>/<plan-slug>` (`atomic-skills/plan-b`), or resolve slug from the AS plan.md path. If missing, ask which plan; do not silently pick a different active plan when more than one is open.
 2. **Select the plan** from nested inventory (`.atomic-skills/projects/*/*/plan.md`). Prefer exact slug (+ project when given). On ambiguity, disambiguate — never invent.
 3. **Bind branch + worktree.** Read the plan's `branch:` (usually `plan/<slug>`). Compare to `git symbolic-ref --short HEAD` and `git worktree list --porcelain`.
-   - Already on the plan branch → home; continue to Step 0.5 (resume gate) on **this** tree.
+   - Already on the plan branch → home. Slug and absolute worktree are resolved. Run the launcher below on **this** tree and STOP. Do not continue to Step 0.5 in this session.
    - Plan worktree exists elsewhere → **HALT**. Tell the user to re-run `implement` inside that worktree. Do **not** run the resume gate or write plan state in the caller tree.
    - Worktree absent → create inside the repo (`.worktrees/<slug>`). If the branch **already exists**, reuse it **without `-b`** (`git worktree add .worktrees/<slug> <plan-branch>`). Only use `-b <plan-branch>` when the branch does not exist. Then **HALT** and re-enter.
    - **`caller-governs-other-plan`:** if the caller's branch is already the home of a *different* plan, **FAIL** (HARD-GATE). Do not evaluate dirty state for plan-b while sitting on plan-a's tree; do not write plan-b state into the caller tree.
@@ -86,288 +88,40 @@ The snapshot trigger is **event-driven, never a self-measured context gauge.** Y
 
 Reuse `skills/shared/worktree-isolation.md` § *Step 0 — detect existing isolation BEFORE creating one*; never nest. Materialization and implement writes land **only** in the worktree declared by the plan frontmatter `branch:` (AS) or the foreign work-order `branch` (foreign lane).
 
-### Step 0.5 — Resume gate (after target is home)
+### Launcher (only path)
 
-Run **only after** Step 0 reports home (`resumeGateAllowed`). The gate is authoritative for the **resolved** plan tree, not the tree you happened to invoke from:
+This session does not code and does not run Steps A–I. After Step 0 resolves the plan slug and the absolute worktree, stop here. Do not spawn. Do not stamp. Do not run the tick.
 
-1. Run `git status --porcelain` and `git log --oneline -3` via {{BASH_TOOL}} **in the plan worktree**. A dirty or unexpectedly-advanced tree on resume means the prior session left uncommitted or unrecorded work — **refuse** (HARD-GATE): surface the diff, have the user commit/stash, then retry.
-2. Read the selected plan's active initiative `## Session handoff` block (if present). If it contains an unfilled `TODO`/`REPLACE_*`/`<…>` placeholder, the prior session did not finish writing it — **refuse** and surface which field is unfilled. A handoff with placeholders is not a handoff.
-3. **Writer-lease HARD-GATE (always for the selected plan):** refuse resume **and** refuse `--clear-execution-mode` / Mode-1 entry if `assertLeaseAbsent` / `isLeaseBlocking` is true — **any** non-missing lease residue (`active`, `cleared`, `malformed`; see `src/writer-lease.js`) or a sibling phase merge is mid-flight. Acquire via exclusive create (`acquireLeaseFile` / `wx` → returns `{ path, secret, lease }` with on-disk `tokenHash` only); clear only with the **acquire secret** (`clearLeaseFile(statusRoot, planSlug, secret)`) after sync-wait + claim collect + merge settle — public identity fields alone never clear.
-4. On a clean resume: the handoff IS your re-orientation — read its narrative + decision log + `nextAction`; do NOT cold-re-investigate. Any residual heavy read goes to a read-only subagent (below), never the main coding context.
+If plan frontmatter `planApprovedAt` is a valid ISO timestamp, run this via {{BASH_TOOL}}:
 
-### Step 0.7 — Grok phase scaffold reseed (start + post-compaction)
-
-**Grok-local only** — contract `docs/kb/grok-phase-todo-projection.md`. Session checklist is a **projection only** (never close authority; GATE-R2 stays on verifiers / `done` / `phase-done`). Project **phases** of the active plan — **never** tasks `T-00N` as session todos.
-
-After Step 0 reports home (and a clean Step 0.5 resume), **and after any host context compaction** that drops the session checklist:
-
-1. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"`.
-2. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/project-session-todos.js" --json` and **parse the JSON payload**.
-3. On Grok, apply that payload with the session checklist tool (`todo_write`) **verbatim**: use the emitted `merge` flag and `todos[]` as returned — **do not recompute** merge/winner independently. The helper already encodes winner → `merge: false` (full phase reseed) and empty focus / no winner → `merge: true` + empty todos (no wipe).
-
-**anti-proc:** while a plan is **anchored**, a concurrent process scaffold (`proc:*` from bundled flows) is **forbidden** as competing session todos. Keep process steps as handoff narrative, not a second checklist.
-
-Skill path reseeds independently of SessionStart (Soft hooks are hint-only / fail-open). Host-thin pure-maestro may apply `todo_write` as **orchestration** without product-source edits — detail: `skills/shared/implement-automate-maestro.md`.
-
-### Step 1 — Load the admitted tasks
-
-Resolve the active phase before accepting any pending task:
-
-1. Read the active plan descriptor from `.atomic-skills/projects/<project-id>/<plan-slug>/plan.md` (legacy flat fallback only when that is the active state shape), find the active phase descriptor by `currentPhase` / `phaseId`, and resolve the expected materialized initiative path under `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`.
-2. If the parent plan phase descriptor exists but the matching initiative file is absent, this is a **descriptor-only phase**. **Refuse execution** (HARD-GATE): refuse writer spawn / product coding. Under **automate** (`isAutomateActive`): present the **phase-start package as draft only** (objective + task id/title + drafted BI — **no durable BI write yet**), operator **validate-only** on the BI spine, **explicit ratify**, **then** materialize from the phase source sidecar with the **ratified** spine (materialize accepts pre-ratified complete spine; does not invent from blank form; does not write BI before ratify). No silent host coding of the new phase before ratify. Under Mode 1: stop and tell the operator to run `atomic-skills:project materialize <phase-id>`. Do not enter degraded mode, do not execute a loose checklist, and do not infer tasks from the descriptor.
-3. Read the active phase's initiative from `.atomic-skills/` (or the nested `projects/<id>/<slug>/phases/f<N>-*.md`) and parse its frontmatter before inspecting tasks.
-4. Check the ratified `businessIntent` spine on **both** the parent plan phase descriptor and the initiative frontmatter. The complete required spine fields are: `value`, `workflow`, `rules`, `outOfScope`, `doneWhen`.
-5. If either side is missing `businessIntent`, any required field is absent, blank, empty after trimming, or still contains `[NEEDS CLARIFICATION]`, **refuse execution** (HARD-GATE): stop and instruct `atomic-skills:project materialize <phase-id>` for descriptor-only state, or re-materialize/re-question the `businessIntent` spine before implementation continues. This is not the loose checklist/degraded-mode path.
-
-After that hard pre-check passes, confirm each pending task carries the SPEC interior: one or more exact `outputs[].path` targets, `scopeBoundary[]` explicit exclusions (DO-NOT constraints), `acceptance[]`, and a deterministic `verifier:` (`kind shell|test|query`). A task missing any of these was not admitted (R-ORCH-23) — surface it and stop; do not improvise the missing spec.
-
-6. **Ground-truth review HARD-GATE (mandatory; cannot be skipped).** Before any
-   product coding, Mode 1 task loop, or automate phase-writer spawn, prove the
-   plan carries a durable plan↔code ground-truth receipt (Directions A+B). Run
-   via {{BASH_TOOL}} against the resolved plan file (not the tree-wide scan):
-
-   ```bash
-   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
-   node "$PKG_ROOT/scripts/find-plans-missing-ground-truth.js" \
-     .atomic-skills/projects/<project-id>/<plan-slug>/plan.md
-   ```
-
-   - **Exit 0** → continue.
-   - **Non-zero** → **REFUSE** (HARD-GATE). Do not code, do not spawn a phase
-     writer, do not enter degraded mode for plan tasks. Surface the detector
-     output verbatim and instruct: run the **specialized** ground-truth mode
-     (not internal):
-     `atomic-skills:review-plan --mode=ground-truth <plan>`
-     (alias `--mode=gt`; Flow E — items 21–22; persists `## Ground-truth review`
-     with content floor and `- ground-truth: … | mode=ground-truth | fp=<hex> | …`
-     — see `skills/shared/project-assets/ground-truth-review.md`). Re-run the
-     detector until exit 0. Under automate, `assert-automate-gate --gate spawn`
-     also enforces this fence in JS (not prose-only).
-   - **Empty / no-product-code repo is not an exemption** — the review must
-     still have been run and persisted as `complete-empty-repo` (or complete
-     with A/B "none" + scan evidence). There is **no** operator skip flag and
-     **no** chat waiver that unlocks implement without the receipt.
-
-7. **Validated flow HARD-GATE (mandatory; cannot be skipped).** Before any
-   product coding, Mode 1 task loop, or automate phase-writer spawn, prove the
-   plan carries a ratified flow artefact. Ready without flow is legal;
-   `process.yaml` NEVER satisfies; implement does **not** run show+ratify.
-   Run via {{BASH_TOOL}} against the resolved plan file:
-
-   ```bash
-   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
-   node "$PKG_ROOT/scripts/find-missing-flow.js" \
-     .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --strict
-   ```
-
-   - **Exit 0** → continue.
-   - **Non-zero** → **REFUSE** (HARD-GATE). Do not code, do not spawn. Surface
-     the detector and instruct `atomic-skills:project flow`. Re-run until exit
-     0. Automate: `assert-automate-gate --gate spawn` also fences this in JS.
-   - **No** `operatorSkip`, **no** chat waiver. Foreign: same detector on the
-     source `plan.md` (`dirname(plan.md)/flow/` via `flowPathsForPlan`, never
-     the sidecar). Ad-hoc without a plan file is N/A; a plan file always gates.
-
-### Automate mode — pure maestro loop (when `isAutomateActive`)
-
-When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). After Step 1 hard gates pass, run the pure-maestro spine.
-
-**<HARD-GATE — load maestro asset before any spawn>**
-If `isAutomateActive` and you have **not** `{{READ_TOOL}}` `skills/shared/implement-automate-maestro.md` **in this turn** before acquiring a writer lease or spawning a phase writer: **STOP**. Read that file first. The resident summary below is not a substitute for Steps A–I (claim exclusivity, D.5 merge, evaluationGate, plan-end `external-both`).
-
-**Load the full A–I loop + claim/complex/evaluationGate/plan-end rules:**
-`{{READ_TOOL}} skills/shared/implement-automate-maestro.md`
-
-Also: phase writer `{{READ_TOOL}} skills/shared/implement-phase-writer.md`; isolation/lease `{{READ_TOOL}} skills/shared/worktree-isolation.md` + `src/writer-lease.js`; evaluation `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`; STOP helpers `src/automate-orchestrator-gates.js` (`canSpawnPhaseWriter`, `canCloseTasksFromClaims`, `canDoneFromAutomateClaims` claim-bound done, `canRunPhaseDone`, `canFinalizeOrArchive`) + `complexTaskAllowsDone`; **Layer-2 assert CLI** `scripts/assert-automate-gate.js` (required before Steps C/E/G/I — non-zero exit forbids advance; `--gate done` is claim-bound under stamp); **Layer-2.5 maestro cursor** `src/maestro-cursor.js` (update on each A–I boundary; assert refuses illegal step; after phase-done **`awaiting-operator-advance`** until **`clearContinue`** with `operator-continue`; Step A uses `cursorAllowsStepA`); **Layer-3 runner** `scripts/automate-phase-run.js` (Step C: **prepare → spawn → validate** via `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/automate-phase-run.js"`). Machine preflight: `preflightPhaseDone` blocks under `executionMode: automate` without a valid `evaluationGate` (`phase-done-evaluation-open`).
-**Step A under pause:** if `cursorAllowsStepA` / cursor step is `awaiting-operator-advance`, **refuse** loading/spawning the next phase until `clearContinueFile` with the operator continue token. Do not treat phase-done y-accept alone as continue when the cursor is paused.
-
-**Summary:** one code-only phase writer per phase → merge → post-merge `done` → evaluation agent + `evaluationGate` → **distill lessons + stamp `lessonsState` (recorded+path or explicit none, no operator question)** → `review-code --mode=both` → decision-review (ask only on tradeoff or scope-exit) → **run `audit-delivery` + stamp `deliveryAuditGate` (never skippable)** → `phase-done` → **host `clearContinue` (`operator-continue`, no question)** → next phase (inherit the ratified plan direction) → plan-end **`external-both`** (codex|grok|claude) + user validation via durable stamp. **Assert gates at C/E/G/I** via `assert-automate-gate` before each advance (phase-done requires evaluation **and** lessons **and** `deliveryAuditGate`); **advance the maestro cursor** on every A–I boundary so the step matches. **Never skip skill steps** under automate (evaluation, lessons, review, audit-delivery, assert).
-### Step 2 — Execute one task (single-threaded) — Mode 1 only
-
-**Skip this entire step when `isAutomateActive`.** Mode 1 session-writer path only.
-
-For the chosen task, in this order:
-
-1. **Orient.** Read the task's `outputs[].path`, `acceptance[]`, and `scopeBoundary[]`. Treat `outputs[].path` as the exact implementation targets. Treat `scopeBoundary[]` as explicit exclusions (DO-NOT constraints), never as an allowlist. If implementation requires an unlisted target or would violate an exclusion, stop and report the exact path and reason; do not silently widen. A required violation of `scopeBoundary[]` is a runtime scope exit and a `businessIntent` re-question event because execution has drifted from the ratified spine.
-
-   **D6.1 `businessIntent` re-question events (exactly two):**
-
-   1. A critic/review reports drift from the original `businessIntent`.
-   2. Implement Step 2.1 reports a required violation of a `scopeBoundary` exclusion with the exact path and reason.
-
-   These are the only two `businessIntent` re-question points for this plan. `lint-source.js` is explicitly not the D6.1b runtime trigger: it validates admitted `scopeBoundary[]` at admit time, before implementation, and this flow adds no new static detector machinery.
-2. **Distill heavy reads (optional).** If a read would flood context, snapshot first, then delegate a read-only summary to {{INVESTIGATOR_TOOL}}. The subagent never edits.
-3. **Code the change.** Make the minimum single-threaded edit inside scope; use `atomic-skills:fix` when a failing test needs root-cause work.
-4. **Pre-close check.** Run the deterministic verifier/check before committing implementation code when the task has one, using the cheapest real command available. This is implementation confidence, not closure evidence: `done <task-id>` is the closure authority and reruns the task verifier from `tasks[].verifier`, then writes `tasks[].evidence`. Do not copy a pre-close `verify-claim` transcript into task evidence.
-5. **Commit the implementation diff.** Use `rtk git diff --name-only`, stage only task-owned explicit paths, never `git add .` / `-A`, and commit with a task-scoped subject.
-6. **Load closure authority (required).** Before invoking `done`, `{{READ_TOOL}}` both:
-   - `{{ASSETS_PATH}}/project-transitions.md` (the **canonical done flow** — status, evidence, event, rollups, checkpoint)
-   - `{{ASSETS_PATH}}/verifier-exec.md` (per-kind verifier executor + GATE-R2 evidence shape)
-   Closure **delegates** to that flow. Do **not** reimplement `done` inside implement; do not invent a second evidence path.
-7. **Close it.** After the implementation commit and the loads above, run `done <task-id>` via the project skill. The `done` flow executes the per-task verifier before setting `status: done`, writes evidence + `nextAction` + **`## Session handoff` in the same durable save**, emits an identity-deduped `task-done` completion event, refreshes state, and owns the single project-state checkpoint commit. GATE-R2 enforces evidence. Handoff is **inside** that checkpoint (not a follow-up edit) so resume never sees a clean HEAD with a stale handoff — status, evidence, and handoff share the same commit. Retry of the same close is idempotent (`decideDoneTerminal` / `appendCompletion` — zero duplicate events or terminal rewrites). **Mode 1 post-done Grok projection** is owned by `project-transitions.md` (`done` step 5b: after `refresh-state` → `project-session-todos` → apply via `todo_write` on Grok) — do not invent a second close path or mark session todos completed to *cause* durable close.
-8. **Confirm the close checkpoint.** If `done` reports that its checkpoint commit succeeded, do not create a second close commit (including "fix handoff" commits). If it reports an uncommitted state diff, stop and resolve only the explicit state paths it names. Leaving handoff dirty after the checkpoint is a close failure.
-9. **Snapshot check.** After a healthy close the worktree is clean (or only explicitly unrelated dirty files); the handoff block already in the checkpoint records that. Only refresh handoff outside `done` on non-close events (pre-dispatch, phase boundary, on request).
-
-### Step 3 — Phase boundary
-
-When the last task of the phase closes, `done` announces the phase transition.
-
-- **Mode 1:** Run `phase-done` (`{{ASSETS_PATH}}/project-transitions.md`): it executes every pending exit-gate verifier (verify-on-done), runs the mandatory `review-code` phase-diff gate, **and** the **delivery-audit HARD-GATE** below, advances the plan, and writes phase-boundary microcommits for each logical state checkpoint.
-- **Automate (`isAutomateActive`):** Fixed order — all phase tasks `done` → **evaluation agent** (read-only; see `skills/shared/implement-phase-evaluator.md`) → **persist evaluationReport under `.atomic-skills/reviews/`** → stamp authentic `evaluationGate` (`passed` + non-empty **`reportPath`**, or operator **`operatorSkip`**+reason / disposition — never forge) → **distill lessons** (draft → stamp **`lessonsState: recorded` + `lessonsPath`**, or **`none`** on a clean phase — no operator question) → **`review-code --mode=both`** (default under automate) → stamp honest **`reviewGate`** (`mode: both` + `at` + `reviewFile`; local only with **`overrideReason`**) → decision-review (stamp passed with `packagePath` when the log has no tradeoff or scope-exit; otherwise {{ASK_USER_QUESTION_TOOL}} PASS|FAIL) → **run `atomic-skills:audit-delivery`** against the phase Intent Package / BI spine → **persist report** under `.atomic-skills/reviews/` → stamp **`phases[].deliveryAuditGate`** via `buildDeliveryAuditGate` (`status: passed` + non-empty **`reportPath`** + verdict **`CLOSED|PARTIAL`** + **`verifiedAt`** — **OPEN never stamps passed**; **no `operatorSkip` / no `status: skipped`** — skip is illegal) → **then** **`assert-automate-gate --gate phase-done` (exit 0 required — evaluation + lessons + review + `deliveryAuditAllowsClose`)** → **then** terminal `phase-done` writes. Do not assert before review + delivery audit; do not skip evaluation, lessons, review, **audit-delivery**, or the assert. Plan-end `intentVsDelivered` is **not** a substitute for `deliveryAuditGate`. On evaluation blocker/critical, reopen/fix (max 2 re-dispatches) before phase-done. Evaluation pass does not finalize. Orchestrator writes dispositions to the durable decisions log.
-
-**<HARD-GATE — deliveryAuditGate on every phase-done (Mode-1 + pure-maestro; NEVER skippable)>**
-Before terminal `phase-done` / advance (both Mode-1 session-writer and pure-maestro):
-
-1. Run **`atomic-skills:audit-delivery`** for this phase (Intent Package from handoff / BI spine / phase acceptance — not a chat-only blessing).
-2. Persist the durable report under `.atomic-skills/reviews/`.
-3. Stamp **`phases[].deliveryAuditGate`**: `{ status: 'passed', reportPath, verdict: 'CLOSED'|'PARTIAL', verifiedAt }` (`src/phase-delivery-audit-gate.js` / `buildDeliveryAuditGate`). **OPEN never stamps passed.** Missing gate, empty `reportPath`, `status: skipped`, `operatorSkip`, reason-only, forge, or treating **review-code** / green suite / plan-end **`intentVsDelivered`** as substitute → **STOP** (`deliveryAuditGateHonesty` / `deliveryAuditAllowsClose` / `canRunPhaseDone` fail closed under automate).
-4. Only then run `phase-done` / `assert-automate-gate --gate phase-done`.
-
-There is **no** skip path, tip-only path, or “small phase / no product intent” waiver for this gate.
-</HARD-GATE>
-Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule). Finalize/archive after the last phase still require `planEndReviewOk` (under automate: **intent-vs-delivered** brief + non-empty receipt `intentVsDelivered` — see `src/plan-end-intent-surface.js` / Step I in `implement-automate-maestro.md`), that the **user validates** implementation (automate / `userValidationOk` in `src/plan-end-review.js` — operator-owned, never auto-PASS), and **`assert-automate-gate --gate finalize` exit 0**.
-
-**Session cut-over (advisory, v1).** At a phase boundary, if the next pending task is structurally unrelated to the recent working set, you MAY recommend writing the handoff and starting a fresh session (a tightly-scoped fresh context beats a large stale one). This is advisory only — see `docs/design/project-orchestrator/06-session-boundary-and-telemetry.md` (F-E1). It never forces a cut, and it never reads a self-reported context-%.
-
-## The `## Session handoff` block (the resume contract)
-
-The handoff lives in the active initiative body (durable `.atomic-skills/` state — there is no separate scratch file, R-EXEC-08). It is written event-driven (Step 2.6, before each dispatch, at phase boundaries, on request). It MUST carry these five elements, and **literals are verbatim — never paraphrased** (a paraphrased command/path/error is a different command/path/error):
-
-```markdown
-## Session handoff
-- **Narrative:** where we are, in 2–4 sentences — the phase, what just landed, what is mid-flight.
-- **Decision log:** the load-bearing choices made this session and why (so the next session does not re-litigate them).
-- **Single nextAction:** ONE concrete next step (e.g. "Run `done T-004`, then start T-005 in src/foo.js"). Exactly one — not a list.
-- **Verbatim state:** the exact paths, commands, and error text in play — pasted, not summarized. `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/...`, the failing assertion, the file:line.
-- **Uncommitted changes:** the `git status --porcelain` list at snapshot time. Expected value after a healthy task close is "clean tree" or explicitly unrelated pre-existing files; task-owned dirty files mean the microcommit checkpoint was skipped and must be fixed before continuing.
+```bash
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/orchestrator-tick.js" --card --plan <slug> --worktree <absolute-worktree>
 ```
 
-`resume` reads this block and refuses if the tree is dirty/stale or any field is an unfilled placeholder (Step 0). A self-sufficient handoff is the entire cost of a cheap resume — the next session re-orients from it, not from a cold investigation.
+Show the stdout verbatim in one fenced block. That stdout is a single `/loop` line. Tell the user to paste that command as the first message of a new session, then STOP.
 
-## Microcommit discipline
+If `planApprovedAt` is missing or not a valid ISO timestamp, do not print the command. Send them to `project approve`. STOP.
 
-Microcommits are part of the execution loop, not an end-of-session cleanup. The smallest healthy unit is:
+This is the only entry path.
 
-1. Implementation commit after a real pre-close check: {{BASH_TOOL}} `rtk git add <explicit-paths>` then `rtk git commit -m "feat(T-NNN): <summary>"`.
-2. State close commit is owned by `done <task-id>`: it stages the explicit state paths it writes and commits `rtk git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`. The implement driver verifies that checkpoint happened instead of creating a duplicate close commit.
-3. Phase boundary commit after `phase-done`: {{BASH_TOOL}} `rtk git add <explicit-state-paths>` then `rtk git commit -m "chore(project): advance <plan> <phase>"`.
+## END OF ENTRY
 
-Never use `git add .` or `git add -A`. If a formatter or generator changes additional files, classify them into the relevant microcommit or stop and explain why they are unrelated.
+The invoking session stopped at the Launcher. Do not read on in order to act.
+The `/loop` session does not execute Steps 0.5–3, Mode 1, or A–I from this file.
+Its only procedure is `skills/shared/implement-orchestrator-tick.md`.
+Text below is retained harness. It is not a second path.
 
-## Heavy reads via subagents (snapshot-before-dispatch)
 
-Coding is single-threaded; only **reads** fan out. When a read would flood the main context, dispatch a read-only {{INVESTIGATOR_TOOL}} subagent with a constructed brief, and **snapshot immediately before** the dispatch (R-EXEC-15) so a crash mid-read loses nothing. The subagent returns a distilled summary; the editing still happens in the one main thread.
+## Retained harness (not a path)
 
-{{#if ide.claude-code}}
-Optional accelerator (Claude Code): fan the read-only investigation subagents out in parallel natively. Coding stays single-threaded regardless — parallelism is for reads only.
-{{/if}}
+The `/loop` session does not re-enter this file to code. When a printed action needs a gate, it reads `skills/shared/implement-orchestrator-tick.md`, then `skills/shared/implement-automate-maestro.md` and `skills/shared/implement-harness-reference.md`.
+
+Bare `implement` is `mode=automate`. `parseImplementMode` and `isAutomateActive` decide the session. The host is pure maestro and code-only: it never edits product source. The phase writer brief is `implement-phase-writer.md`. Evaluation is `implement-phase-evaluator.md`.
+
+<HARD-GATE>
+Before spawn, done, phase-done, or finalize, run `assert-automate-gate` as `implement-automate-maestro.md` specifies. `canRunPhaseDone` requires `evaluationGate`, lessons, and `deliveryAuditGate`. `canFinalizeOrArchive` requires `planEndReviewOk` with `external-both` and the user's `userValidatedAt`. Complex tasks stay claim-bound. The Session handoff is written inside the same durable save as `done`. Do not create a second close commit. Close is idempotent.
+</HARD-GATE>
 
 {{#if ide.grok}}
-On Grok Build: heavy reads use `spawn_subagent` (`explore` only). Phase writer under automate uses `spawn_subagent` with **`subagent_type: general-purpose`** (NOT explore), cwd = sibling worktree, sealed brief — full recipe in `skills/shared/implement-automate-maestro.md` Step C. **Host product coding under `isAutomateActive` is forbidden** (Iron Law single-writer applies to the writer in the sibling tree, not permission for host Mode-1 on the plan branch). Do not invent plugin agent types for v1.
+On Grok Build the loop session spawns workers with `spawn_subagent` (`subagent_type: general-purpose`), cwd = the sibling worktree, sealed brief. The orchestrator does not code.
 {{/if}}
-
-## Mode 2 — Codex cross-provider execution (the DEFAULT executor for spec-ready tasks when the lane is on)
-
-When the Codex lane is on, Mode 2 hands spec-ready execution to Codex in an isolated `git worktree`; Opus plans, reviews, and owns state. Read the full contract in `{{READ_TOOL}} skills/shared/mode2-codex-lane.md` before dispatching. Four invariants:
-
-1. **Routing is per-task.** Use Codex only when routing enables it and the task has exact paths, settled design, `scopeBoundary[]`, `acceptance[]`, and a deterministic verifier; otherwise Mode 1, with reason recorded.
-2. **Opus plans + reviews, never executes.** The cheap/Codex executor self-**checks** but never self-**certifies** — the executed verifier on the merged tree is the adjudicator (`verify-claim`, R-EXEC-28).
-3. **State-tree fence.** Codex writes only scoped source inside its worktree and NEVER the durable `.atomic-skills/` project state — Opus owns every state transition (Decision #11).
-4. **Merge-back is serial.** Merge one worktree at a time and re-run the verifier on the MERGED primary; conflicts or post-merge FAIL leave the task `active`.
-
-## Degraded mode (explicit ad-hoc only)
-
-Degraded mode is the absorbed `executing-plans` loop for work the user has **explicitly declared ad-hoc** (Iron Law: "or the user must explicitly declare ad-hoc"). It is **not** a bypass for plan tasks that lack SPEC/verifiers.
-
-**Enter degraded mode only when:**
-1. The user said "ad-hoc" / "one-off" / "no plan" (verbatim declaration), **and**
-2. There is no active plan initiative driving the session.
-
-**Never enter degraded mode when:**
-- A plan task is missing admitted outputs/scopeBoundary/acceptance/verifier — **STOP and surface the SPEC gap** (Step 1 hard-stop). Do not improvise.
-- A descriptor-only phase is active — refuse and `materialize` first.
-- Mode 2 / Codex is expected — degraded has no tiering, no worktrees, no Mode 2.
-
-In degraded mode: do one item, verify it with the cheapest real check available, microcommit it, snapshot, next. The same single-threaded code→verify→commit→snapshot rhythm without lifecycle scaffolding.
-
-## Cross-agent note
-
-The spine is portable across Claude Code, Codex, Antigravity, and Grok Build: tasks read from durable `.atomic-skills/` state, verifiers run via {{BASH_TOOL}}, the phase writer is one write-capable {{INVESTIGATOR_TOOL}} call (host argument shapes in `skills/shared/implement-automate-maestro.md` Step C), handoff/resume via durable markdown. No host-orchestration tooling drives the loop, so it runs identically on every IDE; the Claude-Code accelerators (native parallel read fan-out, native worktree tools) are admitted only inside Claude-Code-only conditional blocks and are never the only path.
-
-## Code-quality gates
-
-This flow is bound by `docs/kb/code-quality-gates.md`:
-
-- **G1 read-before-claim** — before stating what a task's code does or that a verifier passed, paste the source lines / the captured run output.
-- **G2 soft-language ban** — no `should`/`probably`/`works`/`looks done` in a completion claim or the handoff narrative; a task is `done` with `passed: true` evidence or it is not done.
-- **G6 reference-or-strike** — every claim in the handoff carries a verbatim path/command/error or is struck; a vague "fixed the thing" is deleted on the next read.
-
-## Self-review against gates
-
-Before declaring a phase's implementation done, append to the initiative's self-review block:
-
-```
-- G1 read-before-claim: applied — each closed task links source lines / the verifier run that closed it
-- G2 soft-language: applied — completion claims are passed:true evidence, handoff scanned for the ban list
-- G6 reference-or-strike: applied — handoff literals are verbatim paths/commands/errors
-```
-
-Silent application is forbidden; the checkpoint ships in the durable state.
-
-## Red Flags
-
-Resident **triggers** only — if a thought matches one, STOP and read its full refutation in `{{READ_TOOL}} skills/shared/implement-antipatterns.md` (§ Red Flags — full refutations) before acting:
-
-- "I'll spin up two agents to code two tasks in parallel and merge."
-- "It looks finished — mark it done and run the verifier later."
-- "The subagent/Codex reported it's done, so it's done."
-- "I'm probably running low on context, let me wrap up."
-- "The handoff narrative reads cleaner if I summarize the error instead of pasting it."
-- "The tree's a little dirty but I know what I was doing — resume anyway."
-- "This change violates one scopeBoundary exclusion, I'll just include it."
-- "This task is roughly specified, but Codex is the default now — it'll figure out the rest."
-- "Codex is the default executor now, so I'll let it edit `.atomic-skills/` state / touch a file outside its `scopeBoundary[]`."
-- "The spec isn't fully settled, but I'll dispatch Codex and let it fill the gaps as it goes."
-- "All six Codex tasks came back reporting their verifiers passed — I'll mark the batch done and merge."
-- "All three worktrees passed in isolation — I'll merge all three, then run the verifier once at the end."
-- "It passed in the worktree and the merge applied cleanly — the re-run on the primary is redundant."
-- "The merge conflict is trivial — I'll force-resolve it and `git worktree remove --force` to keep moving."
-- "The user/lead told me to code tasks in parallel — the files don't overlap, so it's safe."
-- "Eight verifiers passed this session, the ninth is identical — running it is busywork."
-- "The handoff has a TODO but the user said keep going — I'll stub the unfilled piece and work around it."
-- "The user prefers terse handoffs — 'ran validate-state' is clear enough."
-- "Automate is active but the phase writer died — I'll just code the remaining tasks myself (silent Mode-1 fallback)."
-- "The phase writer said all verifiers passed — mark them done without re-running on the merged tree."
-- "I'll spawn two phase writers for independent phases in parallel under automate."
-- "I'll nest the phase worktree under the plan worktree to keep paths tidy."
-- "I'll skip assert-automate-gate — the pure helpers already exist in my head."
-- "I'll host-code product source on the plan branch under automate (Mode-1 plan-tree commit)."
-- "Skill prose said spawn — skip the Layer 3 automate-phase-run runner."
-- "Stamp is automate but I'll silently drop into Mode 1 coding without clear-execution-mode."
-- "Bare `implement` is session-writer Mode 1 — I'll code product source myself without `--mode=1`."
-- "No product code yet / greenfield — skip ground-truth and start coding."
-- "Internal review receipt exists — ground-truth is optional for implement."
-- "User said go ahead without the ground-truth section — waive the detector."
-- "process.yaml exists — skip flow."
-- "User said waive flow."
-- "I'll run project flow ceremony inside implement."
-- "Ad-hoc with a plan file — skip flow (only no plan file is N/A)."
-- "Foreign sidecar is the flow path."
-- "This is path/to/plan.md — I'll just code the checklist (skip entry {{ASK_USER_QUESTION_TOOL}})."
-- "Foreign lane finished — promote/adopt into .atomic-skills at FINALIZE."
-- "Foreign plan — skip worktree / skip ground-truth / mark done without verifier on the sidecar."
-- "I'll only recommend audit-delivery after phase-done instead of running it."
-- "I'll skip audit-delivery / stamp deliveryAuditGate skipped / operatorSkip — small phase."
-- "review-code / green suite / plan-end intentVsDelivered already ran — skip delivery audit."
-- "I'll forge deliveryAuditGate passed without a real reportPath."
-If you thought any of the above: STOP. Go back to the step you were skipping.
-
-## Rationalization
-
-The full Temptation→Reality table (every rationalization above, refuted with its rule cite) lives in `{{READ_TOOL}} skills/shared/implement-antipatterns.md` (§ Rationalization) — read it when you catch yourself reaching for one of these. The load-bearing ones, in one line each: concurrent coding corrupts (serial by law, R-EXEC-13); the verifier is the only thing separating `done` from a claim (GATE-R2); a foreign executor self-checks but never self-certifies — re-run on the merged tree (R-EXEC-28/29); merge-back is serial (R-XAGENT-03); you cannot read your own context % — snapshot on events (R-ORCH-32); handoff literals are verbatim (R-EXEC-10); refuse a dirty/placeholder resume (R-ORCH-33); Codex-as-default is still gated on the F1 spec-ready + F2 verifier routing gates and the state-tree fence (R-EXEC-44/43, Decision #11).
-
-## Closing
-
-Output of a clean run: the phase's tasks each closed through a verified PASS (evidence in durable state), the `## Session handoff` block current and self-sufficient, the tree committed or its uncommitted changes recorded verbatim, and — at a phase boundary — `phase-done` run with its exit-gate verifiers and review gate. implement never closes a task on a claim and never codes two tasks at once.
-
-Under **automate default** (bare `implement` / `--mode=automate` / stamp) / pure maestro: the session never edits product source; one code-only phase writer per phase; orchestrator owns merge, post-merge re-verify, `done`, evaluation agent, **lessons distill + stamp**, **audit-delivery + `deliveryAuditGate`**, and `phase-done`; never self-certify; never silent Mode-1 fallback; **never skip skill steps** (evaluation, lessons, review, audit-delivery, assert); run `assert-automate-gate` before spawn/done/phase-done/finalize (non-zero forbids advance; phase-done requires evaluation **and** `lessonsState` **and** valid `deliveryAuditGate`); keep the **maestro cursor** current on each A–I boundary (`awaiting-operator-advance` after phase-done); never delete cursor/lease to force progress; finalize/archive require `planEndReviewOk` and that the user validates implementation. Mode 1 is the **explicit** escape (`--mode=1`), not the bare-implement path — and Mode-1 still hard-requires `deliveryAuditGate` before phase-done.
