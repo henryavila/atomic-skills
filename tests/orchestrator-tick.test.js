@@ -318,35 +318,43 @@ describe('orchestrator tick cli', () => {
   });
 
   it('prints one /loop card line for --card without a snapshot', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'orch-card-'));
     const slug = 'approved-plan';
     const worktree = '/repo/.worktrees/approved-plan';
-    const stdout = execFileSync('node', [
-      'scripts/orchestrator-tick.js',
-      '--card',
-      '--plan', slug,
-      '--worktree', worktree,
-    ], { encoding: 'utf8' });
-    const card = orchestratorCard({ slug, worktree });
-    assert.equal(stdout, `${card}\n`);
-    assert.equal(card.includes('\n'), false);
-
+    const planFile = join(dir, 'plan.md');
     const quiet = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
-    assert.throws(
-      () => execFileSync('node', [
+    try {
+      writeFileSync(planFile, `---\nslug: ${slug}\n---\n`);
+      assert.throws(
+        () => execFileSync('node', [
+          'scripts/orchestrator-tick.js',
+          '--card',
+          '--plan-file', planFile,
+          '--worktree', worktree,
+        ], quiet),
+        (err) => err.status === 1 && /plan-not-approved/.test(`${err.stderr}`),
+      );
+      writeFileSync(planFile, `---\nslug: ${slug}\nplanApprovedAt: '2026-10-15T18:00:00.000Z'\n---\n`);
+      const stdout = execFileSync('node', [
         'scripts/orchestrator-tick.js',
         '--card',
-        '--plan', slug,
-      ], quiet),
-      (err) => err.status === 1,
-    );
-    assert.throws(
-      () => execFileSync('node', [
-        'scripts/orchestrator-tick.js',
-        '--card',
+        '--plan-file', planFile,
         '--worktree', worktree,
-      ], quiet),
-      (err) => err.status === 1,
-    );
+      ], { encoding: 'utf8' });
+      const card = orchestratorCard({ slug, worktree });
+      assert.equal(stdout, `${card}\n`);
+      assert.equal(card.includes('\n'), false);
+      assert.throws(
+        () => execFileSync('node', [
+          'scripts/orchestrator-tick.js',
+          '--card',
+          '--plan-file', planFile,
+        ], quiet),
+        (err) => err.status === 1,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -113,7 +113,7 @@ to continue between parts of an approved plan.
 
 ## Card
 
-The command is the single `/loop` line from `--card`, pasted into a new session. `implement` prints that line. This file does not. There is no other start path.
+The command is the single `/loop` line from `--card --plan-file <plan.md>`. It exits 1 with `blocked: plan-not-approved` when `planApprovedAt` is missing. `implement` prints that line only after the stamp. This file does not. There is no other start path.
 
 The loop session runs one tick and must not print another `/loop`. Read the board, run `scripts/orchestrator-tick.js` once, dispatch only the printed actions, and exit. The next fire of that same `/loop` is the next wakeup. The board is the memory. The skill does not schedule the loop.
 

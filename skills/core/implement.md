@@ -39,7 +39,7 @@ This session does not code and does not run Steps A–I. After Step 0 resolves t
 If plan frontmatter `planApprovedAt` is a valid ISO timestamp, run this via {{BASH_TOOL}}:
 
 ```bash
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/orchestrator-tick.js" --card --plan <slug> --worktree <absolute-worktree>
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/orchestrator-tick.js" --card --plan-file <plan.md> --worktree <absolute-worktree>
 ```
 
 Show the stdout verbatim in one fenced block. That stdout is a single `/loop` line. Tell the user to paste that command as the first message of a new session, then STOP.
