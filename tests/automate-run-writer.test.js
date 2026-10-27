@@ -11,11 +11,12 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   inspectPenLock,
@@ -545,6 +546,18 @@ describe('automate-run writer (T-001 lock)', () => {
   });
 });
 
+function canonicalPath(path) {
+  const missing = [];
+  let current = path;
+  while (!existsSync(current)) {
+    const parent = dirname(current);
+    if (parent === current) break;
+    missing.push(basename(current));
+    current = parent;
+  }
+  return join(realpathSync(current), ...missing.reverse());
+}
+
 describe('automate-run writer (T-002 spawn)', () => {
   it('spawns the injected host CLI inside a worktree created by automate-run.js', () => {
     const h = buildHarness();
@@ -553,7 +566,12 @@ describe('automate-run writer (T-002 spawn)', () => {
       assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
       assert.equal(existsSync(h.cwdFile), true);
       const cwd = readFileSync(h.cwdFile, 'utf8').trim();
-      assert.ok(cwd.startsWith(h.wtParent), `cwd ${cwd} not under ${h.wtParent}`);
+      // pwd and mkdtemp disagree on the macOS /var → /private/var symlink.
+      // The writer directory is removed after merge, so realpath the longest
+      // existing ancestor of each side and keep the containment check.
+      const cwdReal = canonicalPath(cwd);
+      const parentReal = canonicalPath(h.wtParent);
+      assert.ok(cwdReal.startsWith(parentReal + sep), `cwd ${cwd} not under ${h.wtParent}`);
       const src = readFileSync(RUNNER, 'utf8');
       assert.match(src, /worktree['",\s]+add/);
       assert.doesNotMatch(src, /automate-phase-run/);
