@@ -472,7 +472,8 @@ function hostArgv(args, env) {
 
 function startHost(opts) {
   const argv = Array.isArray(opts.argv) ? opts.argv : [];
-  const child = spawn(opts.bin, argv, {
+  const launch = executableLaunch(opts.bin, argv);
+  const child = spawn(launch.command, launch.args, {
     cwd: opts.cwd,
     env: opts.env,
     stdio: ['pipe', 'ignore', 'ignore'],
@@ -796,6 +797,15 @@ function shebangArgv(file) {
     }
   }
 }
+function executableLaunch(bin, argv) {
+  const relaunch = shebangArgv(bin);
+  if (!relaunch) return { command: bin, args: argv };
+  const [interpreter, ...prefix] = relaunch;
+  // The kernel splits a shebang on the first space, so an interpreter under
+  // "Application Support" is ENOENT. Launch that interpreter ourselves.
+  if (!interpreter.includes(' ')) return { command: bin, args: argv };
+  return { command: interpreter, args: [...prefix, ...argv] };
+}
 function spawnReviewCli(bin, argv, options) {
   const execution = spawnSync(bin, argv, options);
   if (execution.error?.code !== 'ENOENT' || !existsSync(bin)) return execution;
@@ -921,7 +931,8 @@ function defaultPr(input) {
   const branch=gitOrThrow(input.root,['rev-parse','--abbrev-ref','HEAD'],'read branch').stdout.trim();
   if(branch==='HEAD') throw new Error('PR requires a branch');
   gitOrThrow(input.root,['push','--set-upstream','origin',branch],'deliver branch');
-  const existing=spawnSync(bin,['pr','view','--json','url,state'],{cwd:input.root,encoding:'utf8'});
+  const gh = executableLaunch(bin, []);
+  const existing=spawnSync(gh.command,[...gh.args,'pr','view','--json','url,state'],{cwd:input.root,encoding:'utf8'});
   if(existing.status===0) {
     const pr=JSON.parse(existing.stdout);if(pr.state!=='OPEN') throw new Error('existing PR is not open');return pr;
   }
@@ -930,7 +941,7 @@ function defaultPr(input) {
   if(!base) throw new Error('PR base is required (--pr-base or origin/HEAD)');
   const bodyPath=join(dirname(input.plan),'automate-pr-body.txt');
   writeFileSync(bodyPath,`Delivered the ratified plan on the branch.\n\nReviews: whole plan and delivery audit, including phase residual findings.\n\nValidate delivery on the HTTP final page before finalize/archive.\n`);
-  const result=spawnSync(bin,['pr','create','--base',base,'--head',branch,'--title',`Deliver ${planSlugOf(input.plan)}`,'--body-file',bodyPath],{cwd:input.root,encoding:'utf8'});
+  const result=spawnSync(gh.command,[...gh.args,'pr','create','--base',base,'--head',branch,'--title',`Deliver ${planSlugOf(input.plan)}`,'--body-file',bodyPath],{cwd:input.root,encoding:'utf8'});
   if(result.status!==0) throw new Error(`PR create failed: ${result.stderr}`);
   const url=result.stdout.trim();if(!/^https?:\/\//.test(url)) throw new Error('PR create returned no URL');
   return {url,state:'OPEN'};
