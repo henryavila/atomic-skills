@@ -1,6 +1,15 @@
-import { describe, it } from 'node:test';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { serveFlowHtml } from '../scripts/lib/serve-flow.js';
+import { after, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
+  readUserValidationEvidence,
+  validationSnapshot,
+  productSnapshot,
+  withButtonValidationTimestamp,
   planEndReviewOk,
   userValidationOk,
   automatePlanEndGatesOk,
@@ -10,6 +19,73 @@ import {
   INTENT_VS_DELIVERED_STATUSES,
   isDurableAutomateActive,
 } from '../src/plan-end-review.js';
+
+it('snapshot framing distinguishes optional flow and decision evidence boundaries',()=>{
+ const root=mkdtempSync(join(tmpdir(),'plan-end-boundaries-'));const plan=join(root,'plan.md');
+ try {
+  writeFileSync(plan,'---\nslug: fixture\n---\n');mkdirSync(join(root,'flow'));mkdirSync(join(root,'decisions'));
+  const html=join(root,'flow/flow.html');const decision=join(root,'decisions/example.jsonl');
+  const body='<html>Ratified flow</html>';const row=JSON.stringify({said:'Original intent',saw:'Original evidence'})+'\n';
+  writeFileSync(html,body);writeFileSync(decision,row);
+  const before=validationSnapshot(plan,{reviewInputs:true});
+  writeFileSync(html,body+decision+row);rmSync(decision);
+  assert.notEqual(validationSnapshot(plan,{reviewInputs:true}),before);
+ } finally {rmSync(root,{recursive:true,force:true});}
+});
+
+it('last CRLF frontmatter timestamp retains one exact closing newline',()=>{
+ const at='2026-10-03T12:00:00.000Z';
+ assert.equal(withButtonValidationTimestamp('---\r\nuserValidatedAt: old\r\n---\r\nbody',at),`---\r\nuserValidatedAt: "${at}"\r\n---\r\nbody`);
+});
+
+it('initialized gitlinks bind clean commit identity and fail closed on every dirty submodule edit', () => {
+ const tmp=mkdtempSync(join(tmpdir(),'plan-end-submodule-'));const root=join(tmp,'repo');const source=join(tmp,'module');
+ mkdirSync(root);mkdirSync(source);
+ const git=(cwd,args)=>{const result=spawnSync('git',['-c','user.name=fixture','-c','user.email=fixture@test',...args],{cwd,encoding:'utf8'});assert.equal(result.status,0,result.stderr);return result.stdout.trim();};
+ try {
+  git(source,['init']);writeFileSync(join(source,'source.js'),'version 1\n');git(source,['add','source.js']);git(source,['commit','-m','module fixture']);
+  git(root,['init']);const plan=join(root,'plan.md');writeFileSync(plan,'---\nslug: fixture\n---\n');git(root,['add','plan.md']);git(root,['commit','-m','plan fixture']);
+  git(root,['-c','protocol.file.allow=always','submodule','add',source,'vendor']);git(root,['commit','-am','add actual initialized submodule']);
+  const initial=productSnapshot(plan);assert.equal(productSnapshot(plan).digest,initial.digest);
+  const input=validationSnapshot(plan,{reviewInputs:true});
+  const module=join(root,'vendor');writeFileSync(join(module,'source.js'),'version 2\n');
+  assert.throws(()=>productSnapshot(plan),/Submodule vendor must be clean and initialized/);
+  assert.throws(()=>validationSnapshot(plan,{reviewInputs:true}),/Submodule vendor must be clean and initialized/);
+  writeFileSync(join(module,'source.js'),'version 3\n');
+  assert.throws(()=>productSnapshot(plan),/Submodule vendor must be clean and initialized/);
+  git(module,['add','source.js']);git(module,['commit','-m','changed module commit']);
+  assert.notEqual(productSnapshot(plan).digest,initial.digest);
+  assert.notEqual(validationSnapshot(plan,{reviewInputs:true}),input);
+  const checkout=productSnapshot(plan);git(root,['add','vendor']);assert.notEqual(productSnapshot(plan).digest,checkout.digest);
+  writeFileSync(join(module,'untracked.js'),'unreviewed source\n');
+  assert.throws(()=>productSnapshot(plan),/Submodule vendor must be clean and initialized/);
+ } finally {rmSync(tmp,{recursive:true,force:true});}
+});
+
+const signingHome=mkdtempSync(join(tmpdir(),'final-signing-home-'));
+const previousSigningHome=process.env.HOME, previousSigningProfile=process.env.USERPROFILE;
+process.env.HOME=signingHome;process.env.USERPROFILE=signingHome;
+after(()=>{if(previousSigningHome===undefined) delete process.env.HOME;else process.env.HOME=previousSigningHome;if(previousSigningProfile===undefined) delete process.env.USERPROFILE;else process.env.USERPROFILE=previousSigningProfile;rmSync(signingHome,{recursive:true,force:true});});
+
+const buttonDir=mkdtempSync(join(tmpdir(),'plan-end-button-'));
+const buttonPlan=join(buttonDir,'plan.md');
+writeFileSync(buttonPlan,'---\nslug: fixture\nphases:\n - id: F0\n   deliveryAuditGate:\n     status: passed\n---\n');
+mkdirSync(join(buttonDir,'flow'));writeFileSync(join(buttonDir,'flow/flow.html'),'<html>Preview</html>');
+writeFileSync(join(buttonDir,'audit.json'), JSON.stringify({verdict:'CLOSED', findings:[]}));
+writeFileSync(join(buttonDir,'automate-plan-end-review.json'), JSON.stringify({
+ mode:'external-both', reviewFile:'audit.json', verifiedAt:'2026-10-02T12:00:00Z',
+ legs:[{provider:'grok',status:'succeeded',familyDifferent:true}],
+ intentVsDelivered:[{status:'matched'}],
+ reviewInputSnapshot:validationSnapshot(buttonPlan,{reviewInputs:true}),
+}));
+const buttonServer=await serveFlowHtml(join(buttonDir,'flow/flow.html'),{planPath:buttonPlan});
+const buttonOrigin=new URL(buttonServer.url).origin;
+const buttonPage=await fetch(buttonOrigin+'/final');const buttonToken=(await buttonPage.text()).match(/name="token" value="([^"]+)"/)[1];
+assert.equal((await fetch(buttonOrigin+'/api/validate',{method:'POST',headers:{origin:buttonOrigin,cookie:buttonPage.headers.get('set-cookie').split(';')[0]},body:new URLSearchParams({token:buttonToken})})).status,200);
+await buttonServer.close();
+const buttonAt=JSON.parse(readFileSync(join(buttonDir,'final-validation.json'),'utf8')).proof.at;
+const buttonEvidence=readUserValidationEvidence(buttonPlan);
+after(()=>rmSync(buttonDir,{recursive:true,force:true}));
 
 /** Minimal valid intent-vs-delivered rows for automate receipts (F2). */
 const SAMPLE_INTENT_VS_DELIVERED = [
@@ -516,36 +592,12 @@ describe('userValidationOk', () => {
     }
   });
 
-  it('true only with non-empty ISO timestamp under automate', () => {
-    assert.equal(
-      userValidationOk({
-        automateActive: true,
-        userValidatedAt: '2026-07-17T19:00:00.000Z',
-      }),
-      true,
-    );
-    assert.equal(
-      userValidationOk({
-        automateActive: true,
-        userValidatedAt: '2026-07-17T19:00:00.000Z',
-        validatorId: 'operator-henry',
-      }),
-      true,
-    );
-    assert.equal(
-      userValidationOk({
-        automateActive: true,
-        userValidatedAt: '2026-07-17T19:00:00Z',
-      }),
-      true,
-    );
-    assert.equal(
-      userValidationOk({
-        automateActive: true,
-        userValidatedAt: '2026-07-17',
-      }),
-      true,
-    );
+  it('requires authenticated button evidence and rejects session ISO timestamps', () => {
+    assert.equal(userValidationOk({automateActive:true,userValidatedAt:buttonAt,userValidationEvidence:buttonEvidence}),true);
+    for(const at of ['2026-07-17T19:00:00.000Z','2026-07-17T19:00:00Z','2026-07-17',buttonAt]) {
+      assert.equal(userValidationOk({automateActive:true,userValidatedAt:at,validatorId:'operator-henry'}),false);
+    }
+    assert.equal(userValidationOk({automateActive:true,userValidatedAt:buttonAt,userValidationEvidence:{at:buttonAt}}),false);
   });
 
   it('optional validatorId does not alone satisfy the gate', () => {
@@ -568,7 +620,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
     legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
     intentVsDelivered: SAMPLE_INTENT_VS_DELIVERED,
   };
-  const goodAt = '2026-07-17T19:00:00.000Z';
+  const goodAt = buttonAt;
 
   it('inactive when automateActive is not true and no automate stamp', () => {
     assert.deepEqual(automatePlanEndGatesOk({}), {
@@ -593,6 +645,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       planExecutionMode: 'automate',
       receipt: null,
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.equal(r.ok, false);
     assert.equal(r.planEndReviewOk, false);
@@ -614,6 +667,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       planExecutionMode: 'automate',
       receipt: goodReceipt,
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.deepEqual(r, {
       ok: true,
@@ -670,6 +724,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       automateActive: true,
       receipt: null,
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.equal(r.ok, false);
     assert.equal(r.planEndReviewOk, false);
@@ -689,6 +744,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
         ],
       },
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.equal(r.ok, false);
     assert.equal(r.planEndReviewOk, false);
@@ -703,6 +759,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
         skipReason: '   ',
       },
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.equal(r.ok, false);
     assert.equal(r.planEndReviewOk, false);
@@ -723,6 +780,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       automateActive: true,
       receipt: goodReceipt,
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.deepEqual(r, {
       ok: true,
@@ -741,6 +799,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
         legs: [{ provider: 'codex', status: 'skipped', familyDifferent: false }],
       },
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.equal(r.ok, false);
     assert.equal(r.planEndReviewOk, false);
@@ -757,6 +816,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
         skipReason: 'operator-accepted-residual-risk',
       },
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.equal(r.ok, false);
     assert.equal(r.planEndReviewOk, false);
@@ -773,6 +833,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       planExecutionMode: 'automate',
       receipt: withoutIvd,
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.equal(stamp.ok, false);
     assert.equal(stamp.planEndReviewOk, false);
@@ -781,6 +842,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       automateActive: true,
       receipt: { ...withoutIvd, intentVsDelivered: [] },
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.equal(sessionDefault.ok, false);
     assert.equal(sessionDefault.planEndReviewOk, false);
@@ -799,6 +861,7 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
         ],
       },
       userValidatedAt: goodAt,
+      userValidationEvidence: buttonEvidence,
     });
     assert.equal(r.ok, true);
     assert.equal(r.planEndReviewOk, true);

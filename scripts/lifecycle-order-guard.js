@@ -551,10 +551,27 @@ function checkPhaseDoneDecisionReview(input) {
  */
 function checkPhaseDoneDeliveryAudit(input) {
   const planExecutionMode = planExecutionModeOf(input);
+  const planPhase = planPhaseEntry(input);
   const result = deliveryAuditAllowsClose({
     planExecutionMode: planExecutionMode || null,
     automateActive: input.automateActive === true,
     deliveryAuditGate: deliveryAuditGateOf(input),
+    phase: planPhase != null ? planPhase : phaseSlice(input),
+    planPath: input.planPath,
+    cwd: input.cwd,
+    flowDoc: input.flowDoc,
+    flowPath: input.flowPath,
+    ratifiedGraphSha: input.ratifiedGraphSha,
+    actualSha: input.actualSha,
+    reportContent: input.reportContent,
+    reportText: input.reportText,
+    reportContents: input.reportContents,
+    readFile: input.readFile,
+    exists: input.exists,
+    businessIntent: input.businessIntent,
+    finalPage: input.finalPage,
+    userValidatedAt: input.userValidatedAt,
+    checkAuthenticity: input.checkAuthenticity,
   });
   if (result.ok) return allow();
   return block(

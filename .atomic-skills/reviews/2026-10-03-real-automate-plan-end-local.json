@@ -1,0 +1,347 @@
+{
+  "schemaVersion": 1,
+  "reviewType": "independent-whole-plan-local",
+  "sourceHead": "8c3dcb3c499caa055199d3de293a8cb08c1f5739",
+  "planPath": ".atomic-skills/projects/atomic-skills/real-automate/plan.md",
+  "assessmentDate": "2026-10-03",
+  "status": "completed",
+  "verdict": "PARTIAL",
+  "scope": "Whole plan F0–F5 against ratified graph, actual completion paths, and retained phase reports; no claim of a complete automatic phase driver.",
+  "ratifiedGraph": {
+    "path": ".atomic-skills/projects/atomic-skills/real-automate/flow/flow.json",
+    "expectedSha": "8210bfc367f08e285b279b7dc69716d91df665281ffc2af1eebc1be619761285",
+    "actualSha": "8210bfc367f08e285b279b7dc69716d91df665281ffc2af1eebc1be619761285",
+    "hashMatches": true,
+    "subjects": 7
+  },
+  "findings": [],
+  "intentVsDelivered": [
+    {
+      "id": "F0",
+      "label": "Foreground command refuses failed startup gates and host pen proofs",
+      "status": "matched",
+      "note": "scripts/automate-run.js main runs registration, synthetic/host-shaped write probes and strict detectors; F0 audit CLOSED. Existing report proves host-shaped subprocess fixtures; this review does not certify a fresh live three-provider run."
+    },
+    {
+      "id": "F1",
+      "label": "Architecture detector requires two stamped sketches and chosen block",
+      "status": "matched",
+      "note": "scripts/find-missing-architecture.js validates two sketches, chosen, SHA and ratifiedAt; main invokes --strict. F1 audit CLOSED; capability differs from recording a card for this self-plan."
+    },
+    {
+      "id": "F2",
+      "label": "Prototype detector rejects missing stamps, missing screens and UI none when UI is touched",
+      "status": "matched",
+      "note": "scripts/find-missing-ui.js checks screens/none, actual paths and architecture citation, with accepted F2 robustness residuals retained from its source report."
+    },
+    {
+      "id": "F3",
+      "label": "Isolated writer, lease/pen lock, wait, merge and cleanup for the one-writer milestone",
+      "status": "matched",
+      "note": "runWriterSession is called from the production executable. Historical milestone tests explicitly select AUTOMATE_STOP_AFTER_MERGE=1. F3 accepted concurrency/path/process residuals are retained."
+    },
+    {
+      "id": "F4-selection",
+      "label": "Choose one family-different review CLI before the first phase",
+      "status": "partial",
+      "note": "prepareReviewExternalCli persists injected env/plan selection and current main refuses a missing selection. Main has no interactive ask callback. F4 H1 acceptance retained; no new disposition."
+    },
+    {
+      "id": "F4-phase-loop",
+      "label": "Review, repair, claim/fence close and automatic advance through every phase",
+      "status": "partial",
+      "note": "Predicates and graph close gates exist, but production main runs one writer then plan-end workflow; it does not invoke a complete phase review/close/openNext loop. F4 H1–H9 retain their original accepted status."
+    },
+    {
+      "id": "F4-graph-audit",
+      "label": "Audit each machine and XOR of the exact ratified graph",
+      "status": "matched",
+      "note": "deliveryAuditGraphCoverage validates flowDocumentSha and subjects; close adapter supplies planPath; this report records all seven actual subjects with honest partial statuses."
+    },
+    {
+      "id": "F5-page",
+      "label": "HTTP page presents said/saw, architecture, prototype, delivered evidence and retained findings",
+      "status": "matched",
+      "note": "Reader, confined admitted iframe assets, same-origin server and final presentation are delivered. Merged stop-only page binds exact saved runtime/file identity while delivery evidence is unavailable; invalid delivery cannot validate. Fresh missing-screen/UI/audit and stale-token tests pass."
+    },
+    {
+      "id": "F5-reviews",
+      "label": "Whole-plan review then delivery audit, capped repairs and retained phase residuals",
+      "status": "matched",
+      "note": "runPlanEndWorkflow implements plan/audit/pr/complete and native final transport parsing, current-input binding, repair caps and retained phase reports. Clean initialized Gitlinks now bind both index and checkout commit identity; dirty or untracked submodule source is refused. Fresh workflow and native transport regressions pass."
+    },
+    {
+      "id": "F5-publication",
+      "label": "Push reviewed branch and open an unmerged PR without archive",
+      "status": "matched",
+      "note": "defaultPr rejects dirty product, pushes and uses gh pr view/create. Actual recorded PR readback: #50 OPEN, draft true, mergedAt null, head plan/real-automate, base develop. Recording is evidence from .atomic-skills/reviews/2026-10-03-real-automate-F5-pr-evidence.json, not a fresh remote query."
+    },
+    {
+      "id": "F5-validation-contract",
+      "label": "Only the authenticated HTTP button authorizes userValidatedAt and finalize",
+      "status": "matched",
+      "note": "HTTP route uses same-origin POST, token/cookie and presentation freshness. HMAC evidence plus WeakSet identity gates finalize; session timestamps fail. Actual validation by the operator is not claimed."
+    },
+    {
+      "id": "self-architecture",
+      "label": "Architecture card for the real-automate self-plan",
+      "status": "missing",
+      "note": "architecture/decisions.json is not recorded next to this plan. Detector delivery does not supply or ratify the self-plan card."
+    },
+    {
+      "id": "self-ui",
+      "label": "Prototype or explicit no-screen stamp for the real-automate self-plan",
+      "status": "missing",
+      "note": "ui/ui.json is not recorded next to this plan. No explicit no-screen choice or operator stamp is inferred."
+    },
+    {
+      "id": "operator-validation",
+      "label": "Operator validates this plan's final delivery",
+      "status": "missing",
+      "note": "No genuine HTTP operator validation is claimed by this review; no finalize/archive authority is minted."
+    }
+  ],
+  "graphCoverage": [
+    {
+      "kind": "machine",
+      "id": "corrida",
+      "status": "pela metade",
+      "note": "Startup and writer milestone plus plan/audit/PR/final validation are present. New F5 blockers are repaired; automatic phase close/advance remains the original accepted F4 limitation."
+    },
+    {
+      "kind": "xor",
+      "id": "gates",
+      "status": "faz",
+      "note": "Startup refusal checks exist in main; stricter architecture/UI detectors delivered. Missing self-plan cards remain refusal inputs, not fabricated gate passes."
+    },
+    {
+      "kind": "xor",
+      "id": "review_fase",
+      "status": "pela metade",
+      "note": "Review decision, cap, mix, residual and claim/fence libraries exist; full production phase review/close integration remains partial under retained F4 H1–H9."
+    },
+    {
+      "kind": "xor",
+      "id": "mais_fases",
+      "status": "pela metade",
+      "note": "No complete production sim loop closes a phase and opens the next. The nao/end path requires all phase audits before final review."
+    },
+    {
+      "kind": "xor",
+      "id": "review_plano",
+      "status": "faz",
+      "note": "Plan both-review, isolated repair, cap and controlled stops are implemented. Native structured transport, malformed/OPEN rejection, review-budget retention and clean Gitlink input identity regressions pass."
+    },
+    {
+      "kind": "xor",
+      "id": "review_audit",
+      "status": "faz",
+      "note": "Audit follows whole-plan review, validates all seven ratified graph subjects and accepted PARTIAL status, carries phase residuals, and prevents publication after dirty/stale inputs. Fresh regressions pass."
+    },
+    {
+      "kind": "xor",
+      "id": "validacao",
+      "status": "faz",
+      "note": "Authenticated final validation and wait-without-click behavior are implemented. Missing evidence produces a stop-only page with disabled validation; exact saved stop confirmation retains origin, token/cookie and freshness requirements. Actual self-plan operator validation remains absent."
+    }
+  ],
+  "retainedFindings": {
+    "acceptanceAuthority": ".atomic-skills/reviews/audit-delivery-real-automate-F4.md#Accept Register; decision package #11",
+    "operatorDecision": 11,
+    "acceptedAt": "2026-10-02T19:38:21Z",
+    "newAcceptance": false,
+    "F4": [
+      {
+        "id": "H1",
+        "severity": "high",
+        "status": "previously-accepted-retained",
+        "title": "Main lacks initial ask-once CLI path; current missing-CLI refusal improved in F5 but full ask path is not certified"
+      },
+      {
+        "id": "H2",
+        "severity": "high",
+        "status": "previously-accepted-retained",
+        "title": "Production phase both-review dispatch/brief limitations; final-plan review does not prove phase review completion"
+      },
+      {
+        "id": "H3",
+        "severity": "high",
+        "status": "previously-accepted-retained",
+        "title": "Automatic phase review/claim/fence close/advance remains incomplete"
+      },
+      {
+        "id": "H4",
+        "severity": "high",
+        "status": "previously-accepted-retained",
+        "title": "Library closePhase result is not awaited/checked before openNext"
+      },
+      {
+        "id": "H5",
+        "severity": "high",
+        "status": "previously-accepted-retained",
+        "title": "Both phase close receipt floor is separate from external receipt parser"
+      },
+      {
+        "id": "H6",
+        "severity": "high",
+        "status": "previously-accepted-retained",
+        "title": "ReviewGate schema stderr fields differ from honesty predicate"
+      },
+      {
+        "id": "H7",
+        "severity": "high",
+        "status": "previously-accepted-retained",
+        "title": "Legacy external verdict extractor accepts standalone PASS/CLEAN"
+      },
+      {
+        "id": "H8",
+        "severity": "high",
+        "status": "previously-accepted-retained",
+        "title": "reviewExternalCli reader searches body without a size-capped YAML parse"
+      },
+      {
+        "id": "H9",
+        "severity": "high",
+        "status": "previously-accepted-retained",
+        "title": "Legacy architecture mix RegExp does not escape chosen sketch"
+      },
+      {
+        "id": "M1",
+        "severity": "medium",
+        "status": "retained-no-new-disposition",
+        "title": "Plan/source teach <slug>.json while residual sidecar is *-residuals.json"
+      },
+      {
+        "id": "L1",
+        "severity": "low",
+        "status": "retained-no-new-disposition",
+        "title": "Prototype property constructor can count as graph coverage"
+      },
+      {
+        "id": "L2",
+        "severity": "low",
+        "status": "retained-no-new-disposition",
+        "title": "reportContents map does not feed graph coverage reader"
+      }
+    ],
+    "earlierPhaseResidualSources": [
+      {
+        "phase": "F2",
+        "source": ".atomic-skills/reviews/audit-delivery-real-automate-F2.md",
+        "acceptedFindings": [
+          "H-fence",
+          "H-symlink",
+          "H-phase-io"
+        ],
+        "newAcceptance": false
+      },
+      {
+        "phase": "F3",
+        "source": ".atomic-skills/reviews/audit-delivery-real-automate-F3.md",
+        "acceptedFindings": [
+          "F-001 git-before-lease",
+          "F-002 EPERM=dead",
+          "Codex-2 phaseId path",
+          "Codex-3 branch -D on failure",
+          "Codex-4 coordinator pid"
+        ],
+        "newAcceptance": false
+      }
+    ]
+  },
+  "evidenceRead": [
+    ".atomic-skills/projects/atomic-skills/real-automate/plan.md",
+    ".atomic-skills/projects/atomic-skills/real-automate/flow/flow.json",
+    ".atomic-skills/reviews/audit-delivery-real-automate-F0.md",
+    ".atomic-skills/reviews/audit-delivery-real-automate-F1.md",
+    ".atomic-skills/reviews/audit-delivery-real-automate-F2.md",
+    ".atomic-skills/reviews/audit-delivery-real-automate-F3.md",
+    ".atomic-skills/reviews/audit-delivery-real-automate-F4.md",
+    ".atomic-skills/reviews/audit-delivery-real-automate-F5.md",
+    ".atomic-skills/reviews/eval-real-automate-F5.md",
+    ".atomic-skills/reviews/2026-10-02-real-automate-F4-decision-package.md",
+    "scripts/automate-run.js",
+    "src/phase-review-gate.js",
+    "src/automate-product-fence.js",
+    "src/phase-delivery-audit-gate.js",
+    "scripts/find-missing-architecture.js",
+    "scripts/find-missing-ui.js",
+    "scripts/lib/serve-flow.js",
+    "scripts/serve-flow.js",
+    "src/decision-log.js",
+    "src/plan-end-review.js",
+    "scripts/assert-automate-gate.js"
+  ],
+  "verification": {
+    "preFixFocused": {
+      "command": "node --test tests/automate-run-stops.test.js tests/final-page-http.test.js tests/final-page-reader.test.js",
+      "tests": 70,
+      "passed": 70,
+      "failed": 0
+    },
+    "freshMergedVerification": {
+      "sourceHead": "8c3dcb3c499caa055199d3de293a8cb08c1f5739",
+      "batches": [
+        {
+          "command": "node --test tests/automate-run-stops.test.js tests/final-page-http.test.js tests/final-page-reader.test.js tests/plan-end-review.test.js",
+          "exitCode": 0,
+          "tests": 132,
+          "passed": 132,
+          "failed": 0
+        },
+        {
+          "command": "node --test --test-name-pattern='production plan-end command' tests/automate-run-writer.test.js",
+          "exitCode": 0,
+          "tests": 1,
+          "passed": 1,
+          "failed": 0
+        }
+      ],
+      "evidence": [
+        "Actual returned stop URLs render and confirm after missing screen, malformed UI, or missing passed audit; recovery resumes reviews.",
+        "Forged token, missing cookie, foreign origin, changed stop id/findings/runtime stage/replaced state, replay and invalid delivery validation are rejected.",
+        "Real initialized submodule workflow succeeds; repeated dirty source edits invalidate validation and produce confirmable stops.",
+        "Optional flow/decision boundary substitution changes the framed snapshot; last CRLF timestamp replacement preserves the exact closing newline."
+      ]
+    },
+    "fullSuite": {
+      "certifiedGreen": false,
+      "settledLog": "/tmp/real-automate-F5-settled-full-suite.log",
+      "baselineLog": "/tmp/real-automate-baseline-tests.log",
+      "independentFailureNameComparison": {
+        "baseline": 28,
+        "current": 28,
+        "new": [],
+        "resolved": []
+      },
+      "note": "Independent comparison of settled pre-fix3 logs confirms existing baseline failures. This report does not claim a fresh full-suite pass; root is running broader merged verification."
+    }
+  },
+  "decision": "No unresolved new F5 major found in the merged five-file fix and freshly passing affected suites. Whole-plan remains PARTIAL because corrida/review_fase/mais_fases retain accepted F4 limitations, self-plan architecture/UI cards are not recorded, and genuine operator validation has not occurred. Original accepted findings are preserved without renewed or broadened acceptance.",
+  "mutations": "Review artifact only; no gate, plan, source, acceptance, validation, finalize or archive writes.",
+  "reviewedDiff": "0ca408865b661f4b0a3556688319e70b163dd641..8c3dcb3c499caa055199d3de293a8cb08c1f5739",
+  "resolvedFindings": [
+    {
+      "id": "E-F5-001",
+      "severity": "major",
+      "file": "scripts/lib/serve-flow.js",
+      "line": 120,
+      "status": "resolved-in-merged-fix3",
+      "title": "Missing admitted screen prevents controlled-stop confirmation",
+      "reproduction": "Admit missing ui/missing.html. runPlanEndWorkflow returns não avanço and /final?stop=...; GET the exact URL returns 409 ENOENT without a confirmation form.",
+      "evidence": "GET of exact returned stop URLs now succeeds with missing screen, malformed UI, or missing passed audit. Same-origin token/cookie remain required; altered stop id, findings, runtime stage or file replacement expire tokens; disabled validation POST returns 409. Independently rerun regressions pass.",
+      "resolvedHead": "8c3dcb3c499caa055199d3de293a8cb08c1f5739"
+    },
+    {
+      "id": "E-F5-002",
+      "severity": "major",
+      "file": "src/plan-end-review.js",
+      "line": 557,
+      "status": "resolved-in-merged-fix3",
+      "title": "Initialized tracked Git submodule throws during productSnapshot",
+      "reproduction": "Create an initialized gitlink entry mode 160000 with an existing directory. productSnapshot(planPath) reads the directory and throws EISDIR.",
+      "evidence": "Actual initialized clean submodule succeeds through plan/audit/publication and authentic fixture HTTP validation. Snapshot hashes index gitlink and checked-out clean HEAD; repeated dirty edits and untracked submodule source fail closed, with confirmable stop pages. Independently rerun real git submodule regressions pass.",
+      "resolvedHead": "8c3dcb3c499caa055199d3de293a8cb08c1f5739"
+    }
+  ]
+}

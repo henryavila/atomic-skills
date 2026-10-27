@@ -1,0 +1,148 @@
+{
+  "provider": "grok",
+  "reviewKind": "independent-code-review",
+  "at": "2026-10-03T05:39:10.150843+00:00",
+  "sourceHead": "df15b63560c41d1f0e45e0fdc5a0649ee5040f25",
+  "sourceDigests": {
+    "src/plan-end-review.js": "3bceb2d0d7dab4abc5908db371bb4fefee799f2d0a1c9f744a3c8c813506cd04",
+    "scripts/lib/serve-flow.js": "8b1ab106650ba40650e3e9d2b521cd8bb45c8985b44ac736e6c2f151be6ab4f7",
+    "src/phase-review-gate.js": "322814aabd7dde0dd9f6efb818f520945014d8585f1e92ef2cba1d5ec1a4c231",
+    "scripts/automate-run.js": "20bbff93e44b23b1e17e6488eae4b158fa54e2de409a5a222d2cc5d35f89aef8",
+    "tests/plan-end-review.test.js": "7f4ec2388e29e1fb2866eb186252a6836bb145a43bee161d9c60aba7d4c4a676",
+    "tests/final-page-http.test.js": "6afbb9a05e6ea5e08fa9f43c4f25954e8636899f6a24accad2b0f3aa93f4be0c"
+  },
+  "verdict": "needs_changes",
+  "identityMatchesAtExtraction": false,
+  "reviewedFileDigestsMatchAtExtraction": true,
+  "sourceHeadMatchesAtExtraction": false,
+  "currentHeadAtExtraction": "247b580631708d383f8664881f92246165ec8506",
+  "evidenceDirectory": "/tmp/real-automate-f5-tiny-grok-9HgrAi",
+  "inputTransformation": "acorn removes comments without changing line ranges; esbuild minifyWhitespace=true, minifyIdentifiers=false, minifySyntax=false",
+  "coverage": [
+    "authority-tiny"
+  ],
+  "packets": [
+    {
+      "provider": "grok",
+      "scope": "authority-tiny",
+      "command": "grok",
+      "argv": [
+        "--sandbox",
+        "read-only",
+        "--disallowed-tools",
+        "search_replace,write,run_terminal_cmd,run_terminal_command,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,spawn_subagent,monitor",
+        "--no-memory",
+        "--no-subagents",
+        "--disable-web-search",
+        "--json-schema",
+        "{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"verdict\",\"findings\"],\"properties\":{\"verdict\":{\"type\":\"string\",\"enum\":[\"PASSED\",\"needs_changes\"]},\"findings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"required\":[\"severity\",\"file\",\"line\",\"claim\",\"impact\",\"recommendation\",\"confidence\"],\"properties\":{\"severity\":{\"type\":\"string\",\"enum\":[\"blocker\",\"critical\",\"major\",\"minor\"]},\"file\":{\"type\":\"string\"},\"line\":{\"type\":\"integer\"},\"claim\":{\"type\":\"string\"},\"impact\":{\"type\":\"string\"},\"recommendation\":{\"type\":\"string\"},\"confidence\":{\"type\":\"string\"},\"reproduction\":{\"type\":\"string\"}}}}}}",
+        "--prompt-file",
+        "/tmp/real-automate-f5-tiny-grok-9HgrAi/authority-tiny.md"
+      ],
+      "timeoutWrapper": [
+        "timeout",
+        "600"
+      ],
+      "exit": 0,
+      "startedAt": "2026-10-03T05:30:17.211013+00:00",
+      "finishedAt": "2026-10-03T05:38:24.070580+00:00",
+      "promptPath": "/tmp/real-automate-f5-tiny-grok-9HgrAi/authority-tiny.md",
+      "promptSha256": "280f621b16390a37703153666e8e3824b619a39447e6442774bc72873a3ef364",
+      "promptBytes": 5449,
+      "rawEnvelopePath": "/tmp/real-automate-f5-tiny-grok-9HgrAi/authority-tiny.out.json",
+      "rawEnvelopeSha256": "0cb0169e7e29d316dae6dccc7c1444dcfd8dd3cac82c7de3fe6fd62dcf937ac7",
+      "stderrPath": "/tmp/real-automate-f5-tiny-grok-9HgrAi/authority-tiny.stderr",
+      "stderr": "",
+      "report": {
+        "verdict": "needs_changes",
+        "findings": [
+          {
+            "severity": "critical",
+            "file": "src/plan-end-review.js",
+            "line": 463,
+            "claim": "The delivered-HTML evidence loop binds each references entry as `rel` but reads `ref.kind` / `ref.path` / `ref.label`. `ref` is not in scope in this ES module (the earlier `filter(ref => ...)` parameter does not leak).",
+            "impact": "`validationSnapshot` throws `ReferenceError` on the first `fm.references` item, so any plan with a non-empty `references` array cannot produce a snapshot and delivered HTML files are never hashed.",
+            "recommendation": "Iterate `for (const ref of fm.references || [])` (or use `rel` consistently in the condition and `addFile(resolve(planDir, rel.path))`).",
+            "confidence": "high",
+            "reproduction": "Call `validationSnapshot(planPath)` on a plan whose frontmatter includes `references: [{ kind: file, path: foo.html, label: delivered }]`. It throws before hashing that file."
+          },
+          {
+            "severity": "major",
+            "file": "src/plan-end-review.js",
+            "line": 538,
+            "claim": "When replacing an existing `userValidatedAt`, `end` uses `pair.value.range[2]` (yaml scalar token end, not including the following line break) while the replacement still appends `newline`. `updatedYaml.slice(0, -newline.length)` only strips the trailing terminator; the original break remains in `text.slice(prefixLength + match[1].length)`.",
+            "impact": "`withButtonValidationTimestamp('---\\r\\nuserValidatedAt: old\\r\\n---\\r\\nbody', at)` yields an extra blank line before the closing fence (`...\"\\r\\n\\r\\n---\\r\\nbody`), which fails the in-packet CRLF equality test. The same extra line is inserted for LF input.",
+            "recommendation": "Advance `end` through the original line break (the `indexOf('\\n', start) + 1` fallback, or `pair.range[2]` if that includes the separator) so `yamlText.slice(end)` does not start with another newline.",
+            "confidence": "high",
+            "reproduction": "The in-packet test `last CRLF frontmatter timestamp retains one exact closing newline` expects `---\\r\\nuserValidatedAt: \"<at>\"\\r\\n---\\r\\nbody` and will see `---\\r\\nuserValidatedAt: \"<at>\"\\r\\n\\r\\n---\\r\\nbody`."
+          }
+        ]
+      },
+      "extraction": "structuredOutput",
+      "transportStopReason": "end_turn"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "critical",
+      "file": "src/plan-end-review.js",
+      "line": 463,
+      "claim": "The delivered-HTML evidence loop binds each references entry as `rel` but reads `ref.kind` / `ref.path` / `ref.label`. `ref` is not in scope in this ES module (the earlier `filter(ref => ...)` parameter does not leak).",
+      "impact": "`validationSnapshot` throws `ReferenceError` on the first `fm.references` item, so any plan with a non-empty `references` array cannot produce a snapshot and delivered HTML files are never hashed.",
+      "recommendation": "Iterate `for (const ref of fm.references || [])` (or use `rel` consistently in the condition and `addFile(resolve(planDir, rel.path))`).",
+      "confidence": "high",
+      "reproduction": "Call `validationSnapshot(planPath)` on a plan whose frontmatter includes `references: [{ kind: file, path: foo.html, label: delivered }]`. It throws before hashing that file."
+    },
+    {
+      "severity": "major",
+      "file": "src/plan-end-review.js",
+      "line": 538,
+      "claim": "When replacing an existing `userValidatedAt`, `end` uses `pair.value.range[2]` (yaml scalar token end, not including the following line break) while the replacement still appends `newline`. `updatedYaml.slice(0, -newline.length)` only strips the trailing terminator; the original break remains in `text.slice(prefixLength + match[1].length)`.",
+      "impact": "`withButtonValidationTimestamp('---\\r\\nuserValidatedAt: old\\r\\n---\\r\\nbody', at)` yields an extra blank line before the closing fence (`...\"\\r\\n\\r\\n---\\r\\nbody`), which fails the in-packet CRLF equality test. The same extra line is inserted for LF input.",
+      "recommendation": "Advance `end` through the original line break (the `indexOf('\\n', start) + 1` fallback, or `pair.range[2]` if that includes the separator) so `yamlText.slice(end)` does not start with another newline.",
+      "confidence": "high",
+      "reproduction": "The in-packet test `last CRLF frontmatter timestamp retains one exact closing newline` expects `---\\r\\nuserValidatedAt: \"<at>\"\\r\\n---\\r\\nbody` and will see `---\\r\\nuserValidatedAt: \"<at>\"\\r\\n\\r\\n---\\r\\nbody`."
+    }
+  ],
+  "triage": [
+    {
+      "packet": "authority-tiny",
+      "findingIndex": 0,
+      "status": "dismissed-factual-false-positive",
+      "evidence": "Actual src/plan-end-review.js465 and exact immutable authority-tiny.md prompt both declare for(const ref of fm.references||[]). The provider claim that this loop declares rel contradicts both. Direct fixture with non-empty delivered-HTML references returned a valid 64-character snapshot without ReferenceError."
+    },
+    {
+      "packet": "authority-tiny",
+      "findingIndex": 1,
+      "status": "dismissed-factual-false-positive",
+      "evidence": "Direct withButtonValidationTimestamp probe returned exactly one CRLF before the closing fence. The exact supplied regression and snapshot framing regression were rerun at current product bytes: node --test --test-name-pattern=\"snapshot framing distinguishes|last CRLF frontmatter\" tests/plan-end-review.test.js; exit0, tests2, pass2, fail0. Coordinator separately reproduced exact output and successfully parsed the timestamp."
+    }
+  ],
+  "triageConclusion": {
+    "assessment": "approved-after-factual-triage",
+    "scope": "targeted fixed snapshot framing and CRLF timestamp code only",
+    "unresolvedCritical": 0,
+    "unresolvedMajor": 0,
+    "providerVerdictUnchanged": "needs_changes",
+    "providerPassedClaimed": false
+  },
+  "sourceEquivalence": {
+    "reviewedSourceHead": "df15b63560c41d1f0e45e0fdc5a0649ee5040f25",
+    "currentHead": "247b580631708d383f8664881f92246165ec8506",
+    "command": [
+      "git",
+      "diff",
+      "--name-only",
+      "df15b63560c41d1f0e45e0fdc5a0649ee5040f25",
+      "247b580631708d383f8664881f92246165ec8506",
+      "--",
+      "src",
+      "scripts",
+      "tests",
+      "skills"
+    ],
+    "exit": 0,
+    "changedProductPaths": [],
+    "equivalentProductSource": true
+  }
+}

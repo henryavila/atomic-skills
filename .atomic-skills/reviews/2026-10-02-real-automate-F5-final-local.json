@@ -1,0 +1,53 @@
+{
+  "verdict": "needs_changes",
+  "reviewedHead": "8f39b92b75b18557dcd516e3043100583c045f3d",
+  "provider": "local",
+  "confidence": "high",
+  "findings": [
+    {
+      "id": "F-001",
+      "severity": "major",
+      "file": "scripts/automate-run.js",
+      "line": 789,
+      "claim": "Non-complete PR/audit resume overwrites saved reviewed inputs before comparing them.",
+      "reproduction": "Saved stage=pr/snapshot OLD + source NEW returns pr-open after zero reviews.",
+      "recommendation": "Compare every saved stage before updating inputs. Source changes or audit repairs must invalidate earlier whole-plan reviews while preserving cap and durable resume semantics."
+    },
+    {
+      "id": "F-002",
+      "severity": "major",
+      "file": "scripts/automate-run.js",
+      "line": 812,
+      "claim": "Default repair receives the original review brief and drops the actual current findings.",
+      "reproduction": "Major UNIQUE_CURRENT_FAILURE_TO_REPAIR is absent from captured writer prompt; operation remains review-whole-plan.",
+      "recommendation": "Deliver an explicit bounded repair prompt, current findings/evidence and required verification through supported noninteractive writer invocation, including proper stdin."
+    },
+    {
+      "id": "F-003",
+      "severity": "major",
+      "file": "scripts/lib/serve-flow.js",
+      "line": 88,
+      "claim": "A fresh page validates changed source using stale completed reviews.",
+      "reproduction": "Complete review for v1, change source to v2, GET a fresh final page and POST its authentic form: HTTP200 and final gate true with old review snapshot.",
+      "recommendation": "Bind successful plan-end reviews to source/input identity and enforce it in the button plus proof reader/final gate. Missing/stale review identity must fail closed; positive fixtures must have authentic current reviewed evidence."
+    },
+    {
+      "id": "F-004",
+      "severity": "major",
+      "file": "scripts/automate-run.js",
+      "line": 819,
+      "claim": "OPEN verdict can advance if findings are medium or lower; combined review discards local verdict.",
+      "reproduction": "Plan PASSED; audit OPEN + medium finding + intent missing + coverage nao faz produces succeeded receipt and opens PR.",
+      "recommendation": "Require accepted stage-specific verdicts from both legs in addition to severity. An OPEN leg must not be turned into successful receipt. Keep the three-round repair/stop semantics."
+    },
+    {
+      "id": "F-005",
+      "severity": "minor",
+      "file": "tests/implement-automate-contract.test.js",
+      "line": 263,
+      "claim": "Shared test still expects an ISO timestamp alone to validate.",
+      "reproduction": "Full suite adds one failure beyond the 28 baseline failures; old expectation true vs actual false.",
+      "recommendation": "Migrate obsolete expectation to the new authenticated contract without weakening gate; retain positive HTTP evidence checks."
+    }
+  ]
+}

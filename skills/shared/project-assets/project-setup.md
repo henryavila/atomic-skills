@@ -58,7 +58,7 @@ Present Structured Options:
 > (b) Soft (recommended) — hard-gate + SessionStart hook + PreToolUse provenance gate (dry-run)
 > (c) Strict — hard-gate + SessionStart + Stop hook + PreToolUse provenance gate (all dry-run 7d before real strict)
 
-For eligible hosts only, option (b): copy `session-start.sh` and `pre-write.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, then register only `SessionStart` and `PreToolUse` in the host hook config with merge-only changes. Option (c) does the same and additionally copies/registers `stop.sh` as `Stop`.
+For eligible hosts only, option (b): copy `session-start.sh`, `pre-write.sh`, and `automate-pen.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, then register `SessionStart` and both `PreToolUse` entries in the host hook config with merge-only changes. Option (c) does the same and additionally copies/registers `stop.sh` as `Stop`. `automate-pen.sh` allows every call unless `.atomic-skills/status/automate/pen.lock` or `.atomic-skills/status/automate/probe.lock` exists. `probe.lock` is the startup proof, not the operational lock. While either lock is held the hook denies product writes and shells (exit 2) on Claude Code, Codex, and Grok.
 
 - Claude Code: `.claude/settings.local.json`
 - Codex: `.codex/hooks.json`
@@ -73,12 +73,16 @@ Option (b), Soft:
 {
   "hooks": {
     "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
-    "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit|search_replace|write", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }]
+    "PreToolUse": [
+      { "matcher": "Edit|Write|MultiEdit|search_replace|write", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] },
+      { "matcher": "Edit|Write|MultiEdit|NotebookEdit|search_replace|write|apply_patch|Bash|shell|run_terminal_command", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/automate-pen.sh\"" }] },
+      { "matcher": ".*", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/automate-pen.sh\"" }] }
+    ]
   }
 }
 ```
 
-Dual-vocab PreToolUse matcher: Claude tools (`Edit|Write|MultiEdit`) and Grok write tools (`search_replace|write`). Hosts that only emit one vocabulary still match.
+Dual-vocab PreToolUse matcher: Claude tools (`Edit|Write|MultiEdit`) and Grok write tools (`search_replace|write`). Hosts that only emit one vocabulary still match. The named pen matcher lists write and shell tools; hosts that accept a catch-all PreToolUse matcher (`.*`) also register `automate-pen.sh` so unknown tools still hit the pen.
 
 Option (c), Strict: add `Stop` under the same `hooks` object:
 

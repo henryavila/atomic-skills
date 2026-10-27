@@ -3,7 +3,14 @@
  *
  * Covers spawn / claims|done / phase-done / finalize via Layer-1 helpers.
  */
-import { describe, it } from 'node:test';
+import { serveFlowHtml } from '../scripts/lib/serve-flow.js';
+import { validationSnapshot } from '../src/plan-end-review.js';
+
+const signingHome=mkdtempSync(join(tmpdir(),'final-signing-home-'));
+const previousSigningHome=process.env.HOME, previousSigningProfile=process.env.USERPROFILE;
+process.env.HOME=signingHome;process.env.USERPROFILE=signingHome;
+after(()=>{if(previousSigningHome===undefined) delete process.env.HOME;else process.env.HOME=previousSigningHome;if(previousSigningProfile===undefined) delete process.env.USERPROFILE;else process.env.USERPROFILE=previousSigningProfile;rmSync(signingHome,{recursive:true,force:true});});
+import { after, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   mkdtempSync,
@@ -36,21 +43,22 @@ const MINIMAL_FLOW = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'design', 'project-flow', 'dogfood', 'minimal-xor.json'), 'utf8'),
 );
 
-function writeDeliveryAuditReport(root, rel = '.atomic-skills/reviews/audit-delivery-demo.md') {
+function writeDeliveryAuditReport(root, rel = '.atomic-skills/reviews/audit-delivery-demo.md', opts = {}) {
   const abs = join(root, rel);
   mkdirSync(dirname(abs), { recursive: true });
-  writeFileSync(
-    abs,
-    [
-      '# Delivery audit',
-      '',
-      'verdict: CLOSED',
-      'intent: demo phase delivered the agreed value.',
-      'residual: none in fixture',
-      'findings: none',
-      '',
-    ].join('\n'),
-  );
+  const lines = [
+    '# Delivery audit',
+    '',
+    'verdict: CLOSED',
+    'intent: demo phase delivered the agreed value.',
+    'residual: none in fixture',
+    'findings: none',
+    '',
+  ];
+  if (opts.graphCoverage !== false) {
+    lines.push('## Flow graph', 'machine request: faz', 'xor D1: faz', '');
+  }
+  writeFileSync(abs, lines.join('\n'));
 }
 
 /** Write ratified flow/flow.json + matching flow.html next to plan.md (spawn fence). */
@@ -1083,6 +1091,63 @@ describe('assert-automate-gate CLI', () => {
       }
     });
 
+    it('exit 1 when honest CLOSED report lacks graph coverage at ratifiedGraphSha', () => {
+      const root = tmpRoot();
+      try {
+        writePlan(root, {
+          executionMode: 'automate',
+          evaluationGate: {
+            status: 'passed',
+            verdict: 'pass',
+            reportPath: '.atomic-skills/reviews/eval-demo-f0.md',
+          },
+          lessonsState: 'none',
+          reviewGate: {
+            status: 'passed',
+            mode: 'both',
+            at: 'a'.repeat(40),
+            reviewFile: '.atomic-skills/reviews/f0-both.md',
+            localReceiptPath: '.atomic-skills/reviews/f0-local.md',
+            codexReceiptPath: '.atomic-skills/reviews/f0-codex.md',
+          },
+          decisionReview: {
+            status: 'passed',
+            verifiedAt: '2026-07-21T00:00:00.000Z',
+            packagePresentedAt: '2026-07-21T00:00:00.000Z',
+            packagePath: 'decisions/F0.jsonl',
+          },
+          deliveryAuditGate: {
+            status: 'passed',
+            verdict: 'CLOSED',
+            reportPath: '.atomic-skills/reviews/audit-delivery-demo.md',
+            verifiedAt: '2026-08-04T15:00:00.000Z',
+          },
+        });
+        writeDeliveryAuditReport(root, '.atomic-skills/reviews/audit-delivery-demo.md', {
+          graphCoverage: false,
+        });
+        const stateRoot = join(root, '.atomic-skills');
+        writeCursor(join(stateRoot, 'status'), 'demo-plan', 'G');
+        const r = run(
+          [
+            '--plan',
+            'demo-plan',
+            '--gate',
+            'phase-done',
+            '--state-root',
+            stateRoot,
+            '--status-root',
+            join(stateRoot, 'status'),
+          ],
+          { cwd: root },
+        );
+        assert.equal(r.status, 1, combined(r));
+        assert.match(combined(r), /xor|graph|machine|flow\/flow\.json|ratifiedGraphSha/i);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
     it('exit 0 when non-automate (gate inactive)', () => {
       const root = tmpRoot();
       try {
@@ -1168,11 +1233,12 @@ describe('assert-automate-gate CLI', () => {
       }
     });
 
-    it('exit 0 when plan-end receipt + userValidatedAt ok', () => {
+    it('exit 0 when plan-end receipt + userValidatedAt ok', async () => {
       const root = tmpRoot();
       try {
         writePlan(root, {
           executionMode: 'automate',
+          deliveryAuditGate: {status:'passed'},
           planEndReview: {
             mode: 'external-both',
             reviewFile: '.atomic-skills/reviews/x-plan-end.md',
@@ -1186,6 +1252,14 @@ describe('assert-automate-gate CLI', () => {
           },
           userValidatedAt: '2026-07-21T12:00:00.000Z',
         });
+        const actualPlan=join(root,'.atomic-skills/projects/atomic-skills/demo-plan/plan.md');
+        mkdirSync(join(dirname(actualPlan),'flow'),{recursive:true});writeFileSync(join(dirname(actualPlan),'flow/flow.html'),'<html>Preview</html>');
+        const snapshot = validationSnapshot(actualPlan, {reviewInputs:true});
+        writeFileSync(actualPlan, readFileSync(actualPlan,'utf8').replace(
+          'planEndReview:\n', `planEndReview:\n  reviewInputSnapshot: ${snapshot}\n`,
+        ));
+        const server=await serveFlowHtml(join(dirname(actualPlan),'flow/flow.html'),{planPath:actualPlan});
+        try {const origin=new URL(server.url).origin;const page=await fetch(origin+'/final');const token=(await page.text()).match(/name="token" value="([^"]+)"/)[1];assert.equal((await fetch(origin+'/api/validate',{method:'POST',headers:{origin,cookie:page.headers.get('set-cookie').split(';')[0]},body:new URLSearchParams({token})})).status,200);}finally{await server.close();}
         const stateRoot = join(root, '.atomic-skills');
         writeCursor(join(stateRoot, 'status'), 'demo-plan', 'I');
         const r = run(

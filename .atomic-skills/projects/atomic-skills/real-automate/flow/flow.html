@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-fl-slug="real-automate" data-fl-content-sha="8210bfc367f08e285b279b7dc69716d91df665281ffc2af1eebc1be619761285">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fluxo — Corrida --automate</title>
+<script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return'system'}}function apply(mode){var r=document.documentElement;if(mode==='light'||mode==='dark')r.setAttribute('data-theme',mode);else r.removeAttribute('data-theme');document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-checked',String(b.getAttribute('data-theme-set')===mode))})}apply(read());document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;var mode=b.getAttribute('data-theme-set');try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener('DOMContentLoaded',function(){apply(read())})})();</script>
+<style>
+/*
+ * Atomic Skills product docs — shared design-system tokens.
+ * Extracted from docs/design/project-onboarding/index.html (aiDeck foundations).
+ * Dark default. Light via prefers-color-scheme or html[data-theme=light].
+ * Site pages link this file; onboarding may keep its inline copy.
+ */
+
+/* ─────────────────────────────────────────────────────────────────────
+   aiDeck Design System — Foundations (v2)
+   Dark default. Light is a second palette on the same token names.
+
+   Tokens are intentionally domain-agnostic — `status-success` not
+   `phase-done`, `chart-1..8` not `verifier-shell`.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Fonts — Inter (sans) + JetBrains Mono (identifiers). System stacks fall
+   back when webfonts are unavailable (offline-friendly). */
+
+:root {
+  color-scheme: dark;
+
+  /* ── Surfaces ───────────────────────────────────────────────── */
+  --bg-sunken:      #07090d;   /* inputs, code blocks, deepest wells */
+  --bg-canvas:      #0a0d12;   /* page background */
+  --bg-surface:     #12161d;   /* widget cards, section panels */
+  --bg-elevated:    #1a1f28;   /* hover, popovers, dropdowns */
+  --bg-overlay:     #232936;   /* selected rows, focus halos */
+  --bg-highlight:   #2d3340;   /* highest — used sparingly */
+
+  /* ── Glass ──────────────────────────────────────────────────── */
+  --glass-thin:     rgba(18, 22, 29, 0.55);
+  --glass-medium:   rgba(18, 22, 29, 0.72);
+  --glass-thick:    rgba(10, 13, 18, 0.85);
+  --glass-border:   rgba(255, 255, 255, 0.06);
+  --glass-blur:     saturate(180%) blur(20px);
+  --glass-blur-sm:  saturate(160%) blur(10px);
+
+  /* ── Borders ────────────────────────────────────────────────── */
+  --border-subtle:  #1a2029;
+  --border-default: #262d38;
+  --border-strong:  #3d4656;
+  --border-bright:  #555f72;
+
+  /* ── Foreground ─────────────────────────────────────────────── */
+  --fg-default:     #e9eef5;   /* primary text — body, headings */
+  --fg-muted:       #98a1ad;   /* secondary — captions, labels */
+  --fg-subtle:      #6b7585;   /* tertiary — metadata */
+  --fg-faint:       #424a5a;   /* lowest — disabled */
+  --fg-on-accent:   #08090d;   /* text on saturated chip fill */
+
+  /* ── Semantic status ────────────────────────────────────────── */
+  --status-success: #4cc28e;   /* emerald   — passed, done, healthy */
+  --status-warning: #e0a44a;   /* amber     — needs attention, blocked */
+  --status-error:   #ff5c5c;   /* coral red — failed, critical, broken */
+  --status-info:    #5fb1ff;   /* azure     — active, running, current */
+  --status-neutral: #8b95a3;   /* slate     — idle, pending, unknown */
+
+  --status-success-bg: color-mix(in srgb, var(--status-success) 14%, var(--bg-surface));
+  --status-warning-bg: color-mix(in srgb, var(--status-warning) 14%, var(--bg-surface));
+  --status-error-bg:   color-mix(in srgb, var(--status-error)   16%, var(--bg-surface));
+  --status-info-bg:    color-mix(in srgb, var(--status-info)    14%, var(--bg-surface));
+  --status-neutral-bg: var(--bg-elevated);
+
+  --status-success-line: color-mix(in srgb, var(--status-success) 42%, var(--border-default));
+  --status-warning-line: color-mix(in srgb, var(--status-warning) 42%, var(--border-default));
+  --status-error-line:   color-mix(in srgb, var(--status-error)   48%, var(--border-default));
+  --status-info-line:    color-mix(in srgb, var(--status-info)    42%, var(--border-default));
+  --status-neutral-line: var(--border-default);
+
+  /* ── Accents ────────────────────────────────────────────────── */
+  --accent-primary: var(--status-info);
+  --accent-focus:   #88c4ff;
+  --accent-link:    #88c4ff;
+
+  /* ── Typography stacks ──────────────────────────────────────── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+               "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono",
+               "Menlo", "Consolas", monospace;
+  --font-display: var(--font-sans);
+
+  /* ── Type scale ─────────────────────────────────────────────── */
+  --fs-2xs: 10px;
+  --fs-xs:  11px;
+  --fs-sm:  12px;
+  --fs-base:13px;
+  --fs-md:  14px;
+  --fs-lg:  16px;
+  --fs-xl:  20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  --fs-4xl: 40px;
+  --fs-5xl: 56px;
+
+  --lh-tight:  1.15;
+  --lh-snug:   1.35;
+  --lh-normal: 1.5;
+  --lh-relaxed:1.65;
+
+  --tracking-tight:  -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-wider:  0.08em;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* ── Spacing (4px base) ─────────────────────────────────────── */
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  10px;
+  --space-6:  12px;
+  --space-7:  14px;
+  --space-8:  16px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --space-14: 28px;
+  --space-16: 32px;
+  --space-20: 40px;
+  --space-24: 48px;
+  --space-32: 64px;
+
+  /* ── Radii ──────────────────────────────────────────────────── */
+  --radius-none: 0;
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-pill: 999px;
+
+  --border-width: 1px;
+
+  /* ── Elevation ──────────────────────────────────────────────── */
+  --highlight-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --highlight-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.075);
+  --shadow-sm:      0 2px 4px -2px rgba(0, 0, 0, 0.5),
+                    var(--highlight-inset);
+  --shadow-md:      0 8px 24px -8px rgba(0, 0, 0, 0.6),
+                    0 2px 6px -2px rgba(0, 0, 0, 0.4),
+                    var(--highlight-inset);
+  --shadow-focus:   0 0 0 2px var(--bg-canvas),
+                    0 0 0 4px var(--accent-focus);
+}
+
+@media (prefers-color-scheme: light) {
+  html:not([data-theme="dark"]) {
+    color-scheme: light;
+
+    --bg-sunken:      #e8edf4;
+    --bg-canvas:      #f4f6fa;
+    --bg-surface:     #ffffff;
+    --bg-elevated:    #eef2f7;
+    --bg-overlay:     #e2e8f0;
+    --bg-highlight:   #d8dee8;
+
+    --glass-thin:     rgba(255, 255, 255, 0.55);
+    --glass-medium:   rgba(255, 255, 255, 0.78);
+    --glass-thick:    rgba(244, 246, 250, 0.9);
+    --glass-border:   rgba(15, 23, 42, 0.08);
+
+    --border-subtle:  #e8edf3;
+    --border-default: #d5dce6;
+    --border-strong:  #b8c2d0;
+    --border-bright:  #8b97a8;
+
+    --fg-default:     #12161d;
+    --fg-muted:       #4a5565;
+    --fg-subtle:      #6b7585;
+    --fg-faint:       #98a1ad;
+    --fg-on-accent:   #ffffff;
+
+    --accent-focus:   #1565c0;
+    --accent-link:    #1565c0;
+
+    --highlight-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    --highlight-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    --shadow-sm:      0 1px 2px rgba(15, 23, 42, 0.06),
+                      0 1px 3px rgba(15, 23, 42, 0.04);
+    --shadow-md:      0 8px 24px -8px rgba(15, 23, 42, 0.12),
+                      0 2px 6px -2px rgba(15, 23, 42, 0.08);
+  }
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-sunken:      #e8edf4;
+  --bg-canvas:      #f4f6fa;
+  --bg-surface:     #ffffff;
+  --bg-elevated:    #eef2f7;
+  --bg-overlay:     #e2e8f0;
+  --bg-highlight:   #d8dee8;
+
+  --glass-thin:     rgba(255, 255, 255, 0.55);
+  --glass-medium:   rgba(255, 255, 255, 0.78);
+  --glass-thick:    rgba(244, 246, 250, 0.9);
+  --glass-border:   rgba(15, 23, 42, 0.08);
+
+  --border-subtle:  #e8edf3;
+  --border-default: #d5dce6;
+  --border-strong:  #b8c2d0;
+  --border-bright:  #8b97a8;
+
+  --fg-default:     #12161d;
+  --fg-muted:       #4a5565;
+  --fg-subtle:      #6b7585;
+  --fg-faint:       #98a1ad;
+  --fg-on-accent:   #ffffff;
+
+  --accent-focus:   #1565c0;
+  --accent-link:    #1565c0;
+
+  --highlight-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --highlight-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --shadow-sm:      0 1px 2px rgba(15, 23, 42, 0.06),
+                    0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-md:      0 8px 24px -8px rgba(15, 23, 42, 0.12),
+                    0 2px 6px -2px rgba(15, 23, 42, 0.08);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-canvas);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "calt" 0;
+}
+
+code {
+  font-size: 0.92em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.35em;
+}
+
+pre {
+  margin: 0;
+  padding: var(--space-8);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+}
+
+pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ── Layout chrome for product docs ───────────────────────────────── */
+
+.site-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-10) var(--space-24);
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
+  padding-bottom: var(--space-10);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.site-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--fg-default);
+  text-decoration: none;
+}
+
+.site-brand:hover {
+  text-decoration: none;
+}
+
+.site-brand-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.site-brand-sub {
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: var(--fg-default);
+  background: var(--bg-elevated);
+  text-decoration: none;
+}
+
+.site-nav a.active {
+  color: var(--status-info);
+  background: var(--status-info-bg);
+  border-color: var(--status-info-line);
+}
+
+.site-header-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.theme-switch {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.theme-switch button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  height: 28px;
+  padding: 0 var(--space-5);
+  cursor: pointer;
+}
+
+.theme-switch button[aria-checked="true"] {
+  background: var(--bg-surface);
+  color: var(--fg-default);
+}
+
+.theme-switch button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.site-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.site-footer {
+  margin-top: var(--space-24);
+  padding-top: var(--space-10);
+  border-top: 1px solid var(--border-default);
+  color: var(--fg-subtle);
+  font-size: var(--fs-sm);
+}
+
+h1, h2, h3 {
+  margin: 0;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--fw-semibold);
+}
+
+h1 {
+  font-size: var(--fs-3xl);
+}
+
+h2 {
+  font-size: var(--fs-xl);
+  margin-top: var(--space-4);
+}
+
+h3 {
+  font-size: var(--fs-lg);
+}
+
+.lede {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-md);
+  line-height: var(--lh-relaxed);
+  max-width: 68ch;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10) var(--space-12);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-8);
+}
+
+.card a.card-title {
+  color: var(--fg-default);
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+}
+
+.card a.card-title:hover {
+  color: var(--accent-link);
+  text-decoration: underline;
+}
+
+.card .one-liner {
+  margin: var(--space-4) 0 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+}
+
+.iron-law {
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  background: color-mix(in srgb, var(--status-warning) 10%, var(--bg-surface));
+  border: 1px solid var(--status-warning-line);
+  border-radius: var(--radius-md);
+  color: var(--status-warning);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.badge-tested {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-line);
+  color: var(--status-success);
+}
+
+.badge-theoretical {
+  background: var(--status-neutral-bg);
+  border-color: var(--status-neutral-line);
+  color: var(--fg-muted);
+}
+
+.badge-module {
+  background: var(--status-info-bg);
+  border-color: var(--status-info-line);
+  color: var(--status-info);
+}
+
+ul.plain {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--fg-muted);
+}
+
+ul.plain li + li {
+  margin-top: var(--space-3);
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+}
+
+table.docs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+table.docs th,
+table.docs td {
+  padding: var(--space-6) var(--space-8);
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+table.docs th {
+  color: var(--fg-subtle);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  background: var(--bg-elevated);
+}
+
+table.docs tr:last-child td {
+  border-bottom: 0;
+}
+
+table.docs td {
+  color: var(--fg-default);
+}
+
+.eyebrow {
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.install-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.back-link {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+.prose p {
+  margin: 0;
+  color: var(--fg-muted);
+  max-width: 70ch;
+  line-height: var(--lh-relaxed);
+}
+
+.prose p + p {
+  margin-top: var(--space-6);
+}
+
+.list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list-stack li {
+  padding: var(--space-6) var(--space-8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.list-stack .cmd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--status-info);
+}
+
+.list-stack .desc {
+  margin-top: var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+}
+
+.footnote {
+  color: var(--fg-subtle);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+  max-width: 70ch;
+}
+
+/* ── Project guide spine ────────────────────────────────────────────── */
+
+ol.spine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spine-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 7.5rem;
+  max-width: 11rem;
+  flex: 1 1 7.5rem;
+  padding: var(--space-6) var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+.spine-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--status-info);
+}
+
+.spine-note {
+  font-size: var(--fs-2xs);
+  color: var(--fg-muted);
+  line-height: var(--lh-snug);
+}
+
+.spine-arrow {
+  display: none;
+}
+
+.list-stack .cmd-args {
+  margin-left: var(--space-2);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+/* flow layout — tokens from inlined ds.css only */
+html,body{height:100%;overflow:hidden;margin:0;background:var(--bg-canvas);color:var(--fg-default);font-family:var(--font-sans)}
+.app{display:grid;grid-template-rows:auto 1fr;height:100%;min-height:0}
+.fl-header.top{z-index:20;background:color-mix(in srgb,var(--bg-canvas) 92%,transparent);border-bottom:1px solid var(--border-default);padding:var(--space-6) var(--space-8);display:flex;flex-direction:column;gap:var(--space-4)}
+.top-row{display:flex;flex-wrap:wrap;gap:var(--space-6) var(--space-8);align-items:center;justify-content:space-between}
+.brand{min-width:0;flex:1 1 220px}
+.fl-title{margin:0;font-size:var(--fs-3xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight);line-height:var(--lh-tight)}
+.fl-scenario{margin:2px 0 0;font-size:var(--fs-sm);color:var(--fg-muted);max-width:72ch}
+.fl-toc{display:flex;flex-wrap:wrap;gap:var(--space-3);margin:0;padding:0}
+.fl-toc button{appearance:none;display:inline-flex;align-items:center;height:30px;padding:0 var(--space-6);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font:500 12px var(--font-sans);cursor:pointer}
+.fl-toc button[aria-selected="true"]{color:var(--bg-canvas);background:var(--fg-default);border-color:var(--fg-default)}
+.fl-toc button:focus-visible,.fl-toolbar button:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+.fl-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3)}
+.fl-toolbar button{appearance:none;height:28px;min-width:28px;padding:0 var(--space-4);border-radius:var(--radius-md);border:1px solid var(--border-default);background:var(--bg-surface);color:var(--fg-muted);font:600 12px var(--font-sans);cursor:pointer}
+.fl-toolbar .zoom{font:700 12px var(--font-mono);color:var(--fg-subtle);padding:0 var(--space-3);min-width:3.2rem;text-align:center}
+.theme-switch{display:inline-flex;gap:var(--space-2)}
+.theme-switch button{appearance:none;height:28px;padding:0 var(--space-4);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font:500 12px var(--font-sans);cursor:pointer}
+.theme-switch button[aria-checked="true"]{background:var(--bg-surface);color:var(--fg-default)}
+.fl-hint{margin:0;font-size:var(--fs-sm);color:var(--fg-subtle);display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center}
+.fl-meta{display:inline-flex;flex-wrap:wrap;gap:var(--space-6)}
+.fl-meta span{font-size:var(--fs-sm);color:var(--fg-subtle)}
+.fl-meta strong{color:var(--fg-muted);font-weight:var(--fw-medium)}
+.fl-footer{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-faint)}
+.fl-viewport{position:relative;overflow:auto;min-width:0;min-height:0;cursor:grab;background:radial-gradient(circle at 1px 1px,var(--border-default) 1px,transparent 0) 0 0/22px 22px,var(--bg-sunken)}
+.fl-viewport.is-panning{cursor:grabbing;user-select:none}
+#fl-sizer{position:relative;min-width:100%;min-height:100%}
+#fl-stage{position:absolute;top:0;left:0;padding:var(--space-12)}
+.fl-surface{display:inline-block}
+.fl-surface[hidden]{display:none !important}
+.fl-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.sheet{display:inline-block;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);padding:18px 20px}
+svg.diagram{display:block;max-width:none;font-family:var(--font-sans);shape-rendering:geometricPrecision;text-rendering:geometricPrecision}
+svg.diagram text{fill:var(--fg-default)}
+.actor-box{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1}
+.actor-label{fill:var(--fg-default);font-size:11px;font-weight:600}
+.actor-stick-bg{fill:var(--bg-surface)}
+.actor-stick-rule{stroke:var(--border-default);stroke-width:1}
+.lifeline{stroke:var(--fg-faint);stroke-width:1;stroke-dasharray:3 5;pointer-events:none}
+.life-hit{stroke:transparent;stroke-width:20;fill:none}
+.arrow{stroke:var(--fg-muted);stroke-width:1.25;fill:none}
+.arrow.async{stroke-dasharray:5 4}
+.arrow-head{fill:var(--fg-muted)}
+.msg{fill:var(--fg-default);font-size:12px}
+.xor-wash{fill:color-mix(in srgb,var(--bg-elevated) 18%,transparent);stroke:none}
+.xor-rail{stroke:var(--status-warning-line);stroke-width:2;fill:none}
+.xor-q{fill:var(--status-warning);font-size:12px;font-weight:600}
+.hair{stroke:var(--border-subtle);stroke-width:1}
+.pill{fill:var(--bg-sunken);stroke:var(--status-warning-line);stroke-width:1}
+.pill-t{fill:var(--status-warning);font-size:11px;font-weight:600}
+.loop-arc{fill:none;stroke:var(--status-warning);stroke-width:1.25;stroke-dasharray:4 3}
+.loop-head{fill:var(--status-warning)}
+.act{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1.25}
+.act-t{fill:var(--fg-default);font-size:12px;font-weight:500}
+.who{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-mono)}
+.diamond{fill:color-mix(in srgb,var(--status-warning) 10%,var(--bg-surface));stroke:var(--status-warning-line);stroke-width:1.25}
+.xor-t{fill:var(--fg-default);font-size:12px;font-weight:600}
+.bar{fill:var(--fg-muted)}
+.evt{fill:var(--bg-canvas);stroke:var(--status-error-line);stroke-width:1.5}
+.sub-mark{fill:none;stroke:var(--border-default);stroke-width:1}
+.edge{stroke:var(--fg-faint);stroke-width:1.15;fill:none}
+.edge.back{stroke:var(--status-warning);stroke-dasharray:4 3}
+.edge-head{fill:var(--fg-muted)}
+.edge-head.back{fill:var(--status-warning)}
+.edge-t{fill:var(--fg-muted);font-size:11px}
+.end-ok{fill:var(--status-success);stroke:var(--status-success);stroke-width:1.5}
+.end-bad{fill:var(--status-error);stroke:var(--status-error);stroke-width:1.5}
+.end-t{fill:var(--fg-muted);font-size:11px}
+.end-hole{fill:var(--bg-canvas)}
+.st{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1.15}
+.st.entry{stroke:var(--status-info);stroke-width:1.75}
+.st.term{stroke:var(--status-success);stroke-width:1.75}
+.st-t{fill:var(--fg-default);font-size:12px;font-weight:500}
+.mach-title{fill:var(--fg-muted);font-size:12px;font-weight:600}
+.mach-legend{fill:var(--fg-subtle);font-size:10px}
+.edge-cap{fill:var(--bg-surface);stroke:var(--border-default);stroke-width:1}
+.edge-title{fill:var(--fg-default);font-size:11px;font-weight:600}
+.fx{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-sans)}
+.fx-pill{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1}
+.fx-pill-t{fill:var(--fg-muted);font-size:9px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="fl-header top">
+    <div class="top-row">
+      <div class="brand">
+        <h1 class="fl-title">Corrida --automate</h1>
+        <p class="fl-scenario">Um plano fechado corre sozinho até o relatório. A pessoa só entra se os gates recusarem a partida, se a corrida travar, se o bloco misturar, ou para validar no fim.</p>
+      </div>
+      <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
+        <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
+        <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
+        <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
+      </nav>
+      <div class="fl-toolbar">
+        <button type="button" data-zoom="out" aria-label="Diminuir">−</button>
+        <span class="zoom" id="z-lab">100%</span>
+        <button type="button" data-zoom="in" aria-label="Aumentar">+</button>
+        <button type="button" data-zoom="height">À altura</button>
+        <button type="button" data-zoom="width">À largura</button>
+        <button type="button" data-action="pdf" data-pdf-name="real-automate-fluxo.pdf">PDF</button>
+        <div class="theme-switch" role="radiogroup" aria-label="Aparência"><button type="button" role="radio" data-theme-set="system" aria-checked="true">Sistema</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Claro</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Escuro</button></div>
+      </div>
+    </div>
+    <p class="fl-hint" id="fl-hint">
+      <span class="fl-meta"><span><strong>Ator:</strong> Quem pede o --automate</span><span><strong>Plano:</strong> real-automate</span></span>
+      <span class="fl-footer">content-sha 8210bfc367f08e28 · schema 1.0</span>
+    </p>
+  </header>
+  <div class="fl-viewport" id="fl-viewport">
+    <div id="fl-sizer">
+      <div id="fl-stage">
+        <section id="fl-sequence" class="fl-surface" role="tabpanel" data-surface="sequence" aria-labelledby="fl-sequence-title">
+      <h2 id="fl-sequence-title" class="fl-sr-only">Sequência</h2>
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="1364" viewBox="0 0 472 1364" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Corrida --automate</title>
+    <desc>Um plano fechado corre sozinho até o relatório. A pessoa só entra se os gates recusarem a partida, se a corrida travar, se o bloco misturar, ou para validar no fim.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="1178" rx="10"/>
+    <g data-actor-id="Operador">
+        <line class="lifeline" data-lifeline="Operador" x1="150" y1="50" x2="150" y2="1320"/>
+        <line class="life-hit" data-actor-label="Quem pede o --automate" x1="150" y1="50" x2="150" y2="1320"/>
+      </g>
+<g data-actor-id="Programa">
+        <line class="lifeline" data-lifeline="Programa" x1="346" y1="50" x2="346" y2="1320"/>
+        <line class="life-hit" data-actor-label="Programa" x1="346" y1="50" x2="346" y2="1320"/>
+      </g>
+    <g data-xor-rail="gates">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="1284"/>
+        <text class="xor-q" x="38" y="136">◇ Os gates da partida passam?</text>
+      </g>
+<g data-xor-rail="review_fase">
+        <line class="xor-rail" x1="36" y1="220" x2="36" y2="1236"/>
+        <text class="xor-q" x="52" y="232">◇ O que a review both da fase encontrou?</text>
+      </g>
+<g data-xor-rail="mais_fases">
+        <line class="xor-rail" x1="50" y1="316" x2="50" y2="1092"/>
+        <text class="xor-q" x="66" y="328">◇ Ainda há fase pending?</text>
+      </g>
+<g data-xor-rail="review_plano">
+        <line class="xor-rail" x1="64" y1="460" x2="64" y2="1092"/>
+        <text class="xor-q" x="80" y="472">◇ O que a review both do plano encontrou?</text>
+      </g>
+<g data-xor-rail="review_audit">
+        <line class="xor-rail" x1="78" y1="556" x2="78" y2="948"/>
+        <text class="xor-q" x="94" y="568">◇ O que o audit encontrou?</text>
+      </g>
+<g data-xor-rail="validacao">
+        <line class="xor-rail" x1="92" y1="690" x2="92" y2="804"/>
+        <text class="xor-q" x="108" y="702">◇ A pessoa confirma o relatório?</text>
+      </g>
+    <g data-from="Operador" data-to="Programa">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Começa a corrida deste plano.</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="parte" x="76" y="184" text-anchor="middle">parte</text>
+        </g>
+
+<g>
+          <line class="hair" x1="36" y1="276" x2="54" y2="276"/>
+          <rect class="pill" x="54" y="264" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="segue" x="90" y="280" text-anchor="middle">segue</text>
+        </g>
+
+<g>
+          <line class="hair" x1="50" y1="372" x2="68" y2="372"/>
+          <rect class="pill" x="68" y="360" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="sim" x="104" y="376" text-anchor="middle">sim</text>
+        </g>
+<g data-loop-ref="implementar_fase">
+          <path class="loop-arc" d="M346 78 C152 114, 78 414, 68 368"/>
+          <polygon class="loop-head" points="68,358 63,368 74,366"/>
+        </g>
+<g>
+          <line class="hair" x1="50" y1="420" x2="68" y2="420"/>
+          <rect class="pill" x="68" y="408" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="nao" x="104" y="424" text-anchor="middle">nao</text>
+        </g>
+
+<g>
+          <line class="hair" x1="64" y1="516" x2="82" y2="516"/>
+          <rect class="pill" x="82" y="504" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="segue" x="118" y="520" text-anchor="middle">segue</text>
+        </g>
+
+<g>
+          <line class="hair" x1="78" y1="612" x2="96" y2="612"/>
+          <rect class="pill" x="96" y="600" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="segue" x="132" y="616" text-anchor="middle">segue</text>
+        </g>
+<g data-from="Programa" data-to="Operador">
+          <line class="arrow" x1="338" y1="642" x2="166" y2="642"/>
+          <polygon class="arrow-head" points="158,642 166,638 166,646"/>
+          <text class="msg" x="248" y="622" text-anchor="middle">O relatório está pronto para</text><text class="msg" x="248" y="634" text-anchor="middle">validar.</text>
+        </g>
+
+<g>
+          <line class="hair" x1="92" y1="746" x2="110" y2="746"/>
+          <rect class="pill" x="110" y="734" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="valida" x="146" y="750" text-anchor="middle">valida</text>
+        </g>
+<g>
+          <line class="hair" x1="92" y1="794" x2="110" y2="794"/>
+          <rect class="pill" x="110" y="782" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="deixa" x="146" y="798" text-anchor="middle">deixa</text>
+        </g>
+<g>
+          <line class="hair" x1="78" y1="842" x2="96" y2="842"/>
+          <rect class="pill" x="96" y="830" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="corrige" x="132" y="846" text-anchor="middle">corrige</text>
+        </g>
+<g data-loop-ref="audit_run">
+          <path class="loop-arc" d="M150 642 C114 678, 106 884, 96 838"/>
+          <polygon class="loop-head" points="96,828 91,838 102,836"/>
+        </g>
+<g>
+          <line class="hair" x1="78" y1="890" x2="96" y2="890"/>
+          <rect class="pill" x="96" y="878" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="trava" x="132" y="894" text-anchor="middle">trava</text>
+        </g>
+<g>
+          <line class="hair" x1="78" y1="938" x2="96" y2="938"/>
+          <rect class="pill" x="96" y="926" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="muda" x="132" y="942" text-anchor="middle">muda</text>
+        </g>
+<g>
+          <line class="hair" x1="64" y1="986" x2="82" y2="986"/>
+          <rect class="pill" x="82" y="974" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="corrige" x="118" y="990" text-anchor="middle">corrige</text>
+        </g>
+<g data-loop-ref="review_plano_run">
+          <path class="loop-arc" d="M150 642 C114 678, 92 1028, 82 982"/>
+          <polygon class="loop-head" points="82,972 77,982 88,980"/>
+        </g>
+<g>
+          <line class="hair" x1="64" y1="1034" x2="82" y2="1034"/>
+          <rect class="pill" x="82" y="1022" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="trava" x="118" y="1038" text-anchor="middle">trava</text>
+        </g>
+<g>
+          <line class="hair" x1="64" y1="1082" x2="82" y2="1082"/>
+          <rect class="pill" x="82" y="1070" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="muda" x="118" y="1086" text-anchor="middle">muda</text>
+        </g>
+<g>
+          <line class="hair" x1="36" y1="1130" x2="54" y2="1130"/>
+          <rect class="pill" x="54" y="1118" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="corrige" x="90" y="1134" text-anchor="middle">corrige</text>
+        </g>
+<g data-loop-ref="review_fase_run">
+          <path class="loop-arc" d="M150 642 C114 678, 64 1172, 54 1126"/>
+          <polygon class="loop-head" points="54,1116 49,1126 60,1124"/>
+        </g>
+<g>
+          <line class="hair" x1="36" y1="1178" x2="54" y2="1178"/>
+          <rect class="pill" x="54" y="1166" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="trava" x="90" y="1182" text-anchor="middle">trava</text>
+        </g>
+<g>
+          <line class="hair" x1="36" y1="1226" x2="54" y2="1226"/>
+          <rect class="pill" x="54" y="1214" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="muda" x="90" y="1230" text-anchor="middle">muda</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="1274" x2="40" y2="1274"/>
+          <rect class="pill" x="40" y="1262" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="recusa" x="76" y="1278" text-anchor="middle">recusa</text>
+        </g>
+    <g data-actor-id="Operador">
+        <rect class="actor-box" x="66" y="1328" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="1346" text-anchor="middle">Quem pede o --automate</text>
+      </g>
+<g data-actor-id="Programa">
+        <rect class="actor-box" x="262" y="1328" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="1346" text-anchor="middle">Programa</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="Operador">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Quem pede o --automate</text>
+      </g>
+<g data-actor-id="Programa">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Programa</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+        <section id="fl-bpm" class="fl-surface" role="tabpanel" data-surface="bpm" aria-labelledby="fl-bpm-title" hidden>
+      <h2 id="fl-bpm-title" class="fl-sr-only">Fluxo BPM</h2>
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="3036" height="1882" viewBox="0 0 3036 1882" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Corrida --automate</title>
+    <path class="edge" d="M1468 96 L1468 152"/>
+<path class="edge" d="M1332 362 L1332 418"/>
+<path class="edge" d="M1332 474 L1332 530"/>
+<path class="edge" d="M1332 586 L1332 642"/>
+<path class="edge" d="M974 845 L974 869 L1332 869 L1332 418"/>
+<path class="edge" d="M1060 978 L1060 1034"/>
+<path class="edge" d="M652 1230 L652 1286"/>
+<path class="edge" d="M244 1482 L244 1538"/>
+<path class="edge" d="M244 1594 L244 1650"/>
+<path class="edge" d="M194 1713 L108 1713 L108 1792"/>
+<path class="edge" d="M294 1713 L380 1713 L380 1792"/>
+<path class="edge" d="M602 1349 L244 1349 L244 1426"/>
+<path class="edge" d="M652 1370 L652 1426"/>
+<path class="edge" d="M1010 1097 L652 1097 L652 1174"/>
+<path class="edge" d="M1110 1097 L1468 1097 L1468 1174"/>
+<path class="edge" d="M974 845 L1060 845 L1060 922"/>
+<path class="edge" d="M1110 1097 L1110 446 L1232 446"/>
+<path class="edge" d="M1282 705 L924 705 L924 782"/>
+<path class="edge" d="M1382 705 L2284 705 L2284 782"/>
+<path class="edge" d="M1418 215 L1332 215 L1332 292"/>
+<path class="edge" d="M1518 215 L2964 215 L2964 294"/>
+    <g data-node-id="comecar" data-node-type="activity" data-shape="rect" data-next="gates">
+        <rect class="act" x="1368" y="40" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1468" y="62" text-anchor="middle" dominant-baseline="central">Começar o --automate</text><text class="who" x="1468" y="75" text-anchor="middle" dominant-baseline="central">Operador</text>
+      </g>
+<g data-node-id="gates" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="1468,152 1568,194 1468,236 1368,194"/>
+          <text class="xor-t" x="1468" y="194" text-anchor="middle" dominant-baseline="central">Gates?</text>
+        </g>
+<g data-node-id="escolher_cli" data-node-type="activity" data-shape="rect" data-next="implementar_fase">
+        <rect class="act" x="1232" y="292" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="1332" y="314" text-anchor="middle" dominant-baseline="central">Escolher o CLI de</text><text class="act-t" x="1332" y="328" text-anchor="middle" dominant-baseline="central">review</text><text class="who" x="1332" y="341" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="implementar_fase" data-node-type="activity" data-shape="rect" data-next="review_fase_run">
+        <rect class="act" x="1232" y="418" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1332" y="440" text-anchor="middle" dominant-baseline="central">Implementar a fase</text><text class="who" x="1332" y="453" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="review_fase_run" data-node-type="activity" data-shape="rect" data-next="review_fase">
+        <rect class="act" x="1232" y="530" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1332" y="552" text-anchor="middle" dominant-baseline="central">Review both da fase</text><text class="who" x="1332" y="565" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="review_fase" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="1332,642 1432,684 1332,726 1232,684"/>
+          <text class="xor-t" x="1332" y="684" text-anchor="middle" dominant-baseline="central">Review da fase?</text>
+        </g>
+<g data-node-id="mais_fases" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="924,782 1024,824 924,866 824,824"/>
+          <text class="xor-t" x="924" y="824" text-anchor="middle" dominant-baseline="central">Mais fases?</text>
+        </g>
+<g data-node-id="review_plano_run" data-node-type="activity" data-shape="rect" data-next="review_plano">
+        <rect class="act" x="960" y="922" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1060" y="944" text-anchor="middle" dominant-baseline="central">Review both do plano</text><text class="who" x="1060" y="957" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="review_plano" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="1060,1034 1160,1076 1060,1118 960,1076"/>
+          <text class="xor-t" x="1060" y="1076" text-anchor="middle" dominant-baseline="central">Review do plano?</text>
+        </g>
+<g data-node-id="audit_run" data-node-type="activity" data-shape="rect" data-next="review_audit">
+        <rect class="act" x="552" y="1174" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="652" y="1196" text-anchor="middle" dominant-baseline="central">Audit de entrega</text><text class="who" x="652" y="1209" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="review_audit" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="652,1286 752,1328 652,1370 552,1328"/>
+          <text class="xor-t" x="652" y="1328" text-anchor="middle" dominant-baseline="central">Audit?</text>
+        </g>
+<g data-node-id="abrir_pr" data-node-type="activity" data-shape="rect" data-next="mostrar_relatorio">
+        <rect class="act" x="144" y="1426" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="244" y="1448" text-anchor="middle" dominant-baseline="central">Abrir o PR sem merge</text><text class="who" x="244" y="1461" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="mostrar_relatorio" data-node-type="activity" data-shape="rect" data-next="validacao">
+        <rect class="act" x="144" y="1538" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="244" y="1560" text-anchor="middle" dominant-baseline="central">Mostrar o relatório</text><text class="who" x="244" y="1573" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="validacao" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="244,1650 344,1692 244,1734 144,1692"/>
+          <text class="xor-t" x="244" y="1692" text-anchor="middle" dominant-baseline="central">Validação?</text>
+        </g>
+<g data-node-id="fim_validado" data-node-type="end" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="1802" r="10"/>
+
+          <text class="end-t" x="108" y="1826" text-anchor="middle">Validado</text>
+        </g>
+<g data-node-id="fim_aguardando" data-node-type="end" data-shape="circle">
+          <circle class="end-ok" cx="380" cy="1802" r="10"/>
+
+          <text class="end-t" x="380" y="1826" text-anchor="middle">Aguardando</text>
+        </g>
+<g data-node-id="corrigir_audit" data-node-type="activity" data-shape="rect" data-next="audit_run">
+        <rect class="act" x="552" y="1426" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="652" y="1448" text-anchor="middle" dominant-baseline="central">Corrigir o audit</text><text class="who" x="652" y="1461" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="corrigir_plano" data-node-type="activity" data-shape="rect" data-next="review_plano_run">
+        <rect class="act" x="1368" y="1174" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1468" y="1196" text-anchor="middle" dominant-baseline="central">Corrigir o plano</text><text class="who" x="1468" y="1209" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="corrigir_fase" data-node-type="activity" data-shape="rect" data-next="review_fase_run">
+        <rect class="act" x="2184" y="782" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="2284" y="804" text-anchor="middle" dominant-baseline="central">Corrigir critical e</text><text class="act-t" x="2284" y="818" text-anchor="middle" dominant-baseline="central">major</text><text class="who" x="2284" y="831" text-anchor="middle" dominant-baseline="central">Programa</text>
+      </g>
+<g data-node-id="fim_recusa" data-node-type="end" data-shape="circle">
+          <circle class="end-bad" cx="2964" cy="304" r="10"/>
+          <circle class="end-hole" cx="2964" cy="304" r="5"/>
+          <text class="end-t" x="2964" y="328" text-anchor="middle">Recusado</text>
+        </g>
+    <polygon class="edge-head" points="1468,152 1471.6,144 1464.4,144"/>
+<polygon class="edge-head" points="1332,418 1335.6,410 1328.4,410"/>
+<polygon class="edge-head" points="1332,530 1335.6,522 1328.4,522"/>
+<polygon class="edge-head" points="1332,642 1335.6,634 1328.4,634"/>
+<polygon class="edge-head" points="1332,418 1328.4,426 1335.6,426"/>
+<polygon class="edge-head" points="1060,1034 1063.6,1026 1056.4,1026"/>
+<polygon class="edge-head" points="652,1286 655.6,1278 648.4,1278"/>
+<polygon class="edge-head" points="244,1538 247.6,1530 240.4,1530"/>
+<polygon class="edge-head" points="244,1650 247.6,1642 240.4,1642"/>
+<polygon class="edge-head" points="108,1792 111.6,1784 104.4,1784"/>
+<polygon class="edge-head" points="380,1792 383.6,1784 376.4,1784"/>
+<polygon class="edge-head" points="244,1426 247.6,1418 240.4,1418"/>
+<polygon class="edge-head" points="652,1426 655.6,1418 648.4,1418"/>
+<polygon class="edge-head" points="652,1174 655.6,1166 648.4,1166"/>
+<polygon class="edge-head" points="1468,1174 1471.6,1166 1464.4,1166"/>
+<polygon class="edge-head" points="1060,922 1063.6,914 1056.4,914"/>
+<polygon class="edge-head" points="1232,446 1224,442.4 1224,449.6"/>
+<polygon class="edge-head" points="924,782 927.6,774 920.4,774"/>
+<polygon class="edge-head" points="2284,782 2287.6,774 2280.4,774"/>
+<polygon class="edge-head" points="1332,292 1335.6,284 1328.4,284"/>
+<polygon class="edge-head" points="2964,294 2967.6,286 2960.4,286"/>
+
+
+
+
+<text class="edge-t" x="1340" y="643.5" text-anchor="start">sim</text>
+
+
+
+
+<text class="edge-t" x="151" y="1705" text-anchor="middle">valida</text>
+<text class="edge-t" x="337" y="1705" text-anchor="middle">deixa</text>
+<text class="edge-t" x="423" y="1341" text-anchor="middle">segue</text>
+<text class="edge-t" x="660" y="1398" text-anchor="start">corrige</text>
+<text class="edge-t" x="831" y="1089" text-anchor="middle">segue</text>
+<text class="edge-t" x="1289" y="1089" text-anchor="middle">corrige</text>
+<text class="edge-t" x="1017" y="837" text-anchor="middle">nao</text>
+
+<text class="edge-t" x="1103" y="697" text-anchor="middle">segue</text>
+<text class="edge-t" x="1833" y="697" text-anchor="middle">corrige</text>
+<text class="edge-t" x="1375" y="207" text-anchor="middle">parte</text>
+<text class="edge-t" x="2241" y="207" text-anchor="middle">recusa</text>
+  </svg></div>
+    </section>
+        <section id="fl-machines" class="fl-surface" role="tabpanel" data-surface="machines" aria-labelledby="fl-machines-title" hidden>
+      <h2 id="fl-machines-title" class="fl-sr-only">Máquinas</h2>
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="1652" height="652" viewBox="0 0 1652 652" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Corrida</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="corrida">
+      <text class="mach-title" x="16" y="16">Corrida</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M700 228 L992 228"/>
+<path class="edge" d="M700 228 L992 228"/>
+<path class="edge" d="M700 228 L992 228"/>
+<path class="edge" d="M700 228 L992 416"/>
+<path class="edge" d="M700 228 L992 416"/>
+<path class="edge" d="M700 228 L992 416"/>
+<path class="edge" d="M700 228 L992 604"/>
+<path class="edge" d="M1160 604 L1452 228"/>
+<path class="edge" d="M156 244 L156 400"/>
+      <g data-state-id="ociosa">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Ociosa</text>
+      </g>
+<g data-state-id="recusada">
+        <rect class="st term" x="72" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="75" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="156" y="416" text-anchor="middle" dominant-baseline="central">Recusada</text>
+      </g>
+<g data-state-id="rodando">
+        <rect class="st" x="532" y="212" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Rodando</text>
+      </g>
+<g data-state-id="travada">
+        <rect class="st term" x="992" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="995" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1076" y="228" text-anchor="middle" dominant-baseline="central">Travada</text>
+      </g>
+<g data-state-id="mudanca_grande">
+        <rect class="st term" x="992" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="995" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1076" y="416" text-anchor="middle" dominant-baseline="central">Mudança grande</text>
+      </g>
+<g data-state-id="aguardando">
+        <rect class="st term" x="992" y="588" width="168" height="32" rx="16"/>
+        <rect class="st term" x="995" y="591" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1076" y="604" text-anchor="middle" dominant-baseline="central">Aguardando validação</text>
+      </g>
+<g data-state-id="validada">
+        <rect class="st term" x="1452" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="1455" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1536" y="228" text-anchor="middle" dominant-baseline="central">Validada</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="992,228 984,224.4 984,231.6"/>
+<polygon class="edge-head" points="992,228 984,224.4 984,231.6"/>
+<polygon class="edge-head" points="992,228 984,224.4 984,231.6"/>
+<polygon class="edge-head" points="992,416 987.2223901529783,408.64238869267734 983.3247450897379,414.696177833455"/>
+<polygon class="edge-head" points="992,416 987.2223901529783,408.64238869267734 983.3247450897379,414.696177833455"/>
+<polygon class="edge-head" points="992,416 987.2223901529783,408.64238869267734 983.3247450897379,414.696177833455"/>
+<polygon class="edge-head" points="992,604 989.9364258778928,595.4734730492087 984.2498339974281,599.8896561053143"/>
+<polygon class="edge-head" points="1452,228 1444.2498339974281,232.11034389468574 1449.9364258778928,236.52652695079126"/>
+<polygon class="edge-head" points="156,400 159.6,392 152.4,392"/>
+      <g data-transition-id="T_parte" data-from="ociosa" data-to="rodando"><rect class="edge-cap" x="294" y="156" width="184" height="46" rx="6"/><text class="edge-title" x="302" y="169" dominant-baseline="central">Gates passam</text><rect class="fx-pill" x="302" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="322" y="187" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="348" y="187" dominant-baseline="central" data-effect-kind="write" data-effect-target="reviewExternalCli">Grava o CLI de review</text></g>
+<g data-transition-id="T_trava" data-from="rodando" data-to="travada"><rect class="edge-cap" x="729.5" y="142" width="233" height="60" rx="6"/><text class="edge-title" x="737.5" y="155" dominant-baseline="central">Terceira review ainda tem critical</text><text class="edge-title" x="737.5" y="169" dominant-baseline="central">ou major</text><rect class="fx-pill" x="737.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="757.5" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="783.5" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Operador">Abre parada travei</text></g>
+<g data-transition-id="T_trava_plano" data-from="rodando" data-to="travada"><rect class="edge-cap" x="762.5" y="156" width="167" height="46" rx="6"/><text class="edge-title" x="770.5" y="169" dominant-baseline="central">Review do plano trava</text><rect class="fx-pill" x="770.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="790.5" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="816.5" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Operador">Abre parada travei</text></g>
+<g data-transition-id="T_trava_audit" data-from="rodando" data-to="travada"><rect class="edge-cap" x="762.5" y="156" width="167" height="46" rx="6"/><text class="edge-title" x="770.5" y="169" dominant-baseline="central">Audit trava</text><rect class="fx-pill" x="770.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="790.5" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="816.5" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Operador">Abre parada travei</text></g>
+<g data-transition-id="T_muda" data-from="rodando" data-to="mudanca_grande"><rect class="edge-cap" x="739.5" y="156" width="213" height="46" rx="6"/><text class="edge-title" x="747.5" y="169" dominant-baseline="central">Mistura do bloco</text><rect class="fx-pill" x="747.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="767.5" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="793.5" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Operador">Abre parada mudança grande</text></g>
+<g data-transition-id="T_muda_plano" data-from="rodando" data-to="mudanca_grande"><rect class="edge-cap" x="739.5" y="156" width="213" height="46" rx="6"/><text class="edge-title" x="747.5" y="169" dominant-baseline="central">Review do plano vê mistura</text><rect class="fx-pill" x="747.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="767.5" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="793.5" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Operador">Abre parada mudança grande</text></g>
+<g data-transition-id="T_muda_audit" data-from="rodando" data-to="mudanca_grande"><rect class="edge-cap" x="739.5" y="156" width="213" height="46" rx="6"/><text class="edge-title" x="747.5" y="169" dominant-baseline="central">Audit vê mistura</text><rect class="fx-pill" x="747.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="767.5" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="793.5" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Operador">Abre parada mudança grande</text></g>
+<g data-transition-id="T_relatorio" data-from="rodando" data-to="aguardando"><rect class="edge-cap" x="730.5" y="156" width="231" height="46" rx="6"/><text class="edge-title" x="738.5" y="169" dominant-baseline="central">PR aberto, relatório pronto</text><rect class="fx-pill" x="738.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="758.5" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="784.5" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Operador">Abre o relatório para validar</text></g>
+<g data-transition-id="T_valida" data-from="aguardando" data-to="validada"><rect class="edge-cap" x="1214" y="532" width="184" height="46" rx="6"/><text class="edge-title" x="1222" y="545" dominant-baseline="central">Pessoa confirma</text><rect class="fx-pill" x="1222" y="556" width="40" height="14" rx="7"/><text class="fx-pill-t" x="1242" y="563" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="1268" y="563" dominant-baseline="central" data-effect-kind="write" data-effect-target="plano">Grava userValidatedAt</text></g>
+<g data-transition-id="T_recusa" data-from="ociosa" data-to="recusada"><rect class="edge-cap" x="168" y="299" width="161" height="46" rx="6"/><text class="edge-title" x="176" y="312" dominant-baseline="central">Gates recusam</text><rect class="fx-pill" x="176" y="323" width="40" height="14" rx="7"/><text class="fx-pill-t" x="196" y="330" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="222" y="330" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Operador">Lista o que falta</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+var MIN=0.3,MAX=2.8,PREFIX="as-flow-zoom:";
+var PDF_DIAGRAM_STYLE="svg{--bg-sunken:#e8edf4;--bg-canvas:#f4f6fa;--bg-surface:#ffffff;--bg-elevated:#eef2f7;--border-subtle:#e8edf3;--border-default:#d5dce6;--fg-default:#12161d;--fg-muted:#4a5565;--fg-subtle:#6b7585;--fg-faint:#98a1ad;--status-success:#4cc28e;--status-warning:#e0a44a;--status-error:#ff5c5c;--status-info:#5fb1ff;--status-success-line:#9bd1c1;--status-warning-line:#dac4a4;--status-error-line:#e99fa4;--status-info-line:#a3caf0;--font-sans:\"Inter\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;--font-mono:\"JetBrains Mono\", ui-monospace, \"SF Mono\", \"Menlo\", \"Consolas\", monospace}svg.diagram{display:block;max-width:none;font-family:var(--font-sans);shape-rendering:geometricPrecision;text-rendering:geometricPrecision}\nsvg.diagram text{fill:var(--fg-default)}\n.actor-box{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1}\n.actor-label{fill:var(--fg-default);font-size:11px;font-weight:600}\n.actor-stick-bg{fill:var(--bg-surface)}\n.actor-stick-rule{stroke:var(--border-default);stroke-width:1}\n.lifeline{stroke:var(--fg-faint);stroke-width:1;stroke-dasharray:3 5;pointer-events:none}\n.life-hit{stroke:transparent;stroke-width:20;fill:none}\n.arrow{stroke:var(--fg-muted);stroke-width:1.25;fill:none}\n.arrow.async{stroke-dasharray:5 4}\n.arrow-head{fill:var(--fg-muted)}\n.msg{fill:var(--fg-default);font-size:12px}\n.xor-wash{fill:color-mix(in srgb,var(--bg-elevated) 18%,transparent);stroke:none}\n.xor-rail{stroke:var(--status-warning-line);stroke-width:2;fill:none}\n.xor-q{fill:var(--status-warning);font-size:12px;font-weight:600}\n.hair{stroke:var(--border-subtle);stroke-width:1}\n.pill{fill:var(--bg-sunken);stroke:var(--status-warning-line);stroke-width:1}\n.pill-t{fill:var(--status-warning);font-size:11px;font-weight:600}\n.loop-arc{fill:none;stroke:var(--status-warning);stroke-width:1.25;stroke-dasharray:4 3}\n.loop-head{fill:var(--status-warning)}\n.act{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1.25}\n.act-t{fill:var(--fg-default);font-size:12px;font-weight:500}\n.who{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-mono)}\n.diamond{fill:color-mix(in srgb,var(--status-warning) 10%,var(--bg-surface));stroke:var(--status-warning-line);stroke-width:1.25}\n.xor-t{fill:var(--fg-default);font-size:12px;font-weight:600}\n.bar{fill:var(--fg-muted)}\n.evt{fill:var(--bg-canvas);stroke:var(--status-error-line);stroke-width:1.5}\n.sub-mark{fill:none;stroke:var(--border-default);stroke-width:1}\n.edge{stroke:var(--fg-faint);stroke-width:1.15;fill:none}\n.edge.back{stroke:var(--status-warning);stroke-dasharray:4 3}\n.edge-head{fill:var(--fg-muted)}\n.edge-head.back{fill:var(--status-warning)}\n.edge-t{fill:var(--fg-muted);font-size:11px}\n.end-ok{fill:var(--status-success);stroke:var(--status-success);stroke-width:1.5}\n.end-bad{fill:var(--status-error);stroke:var(--status-error);stroke-width:1.5}\n.end-t{fill:var(--fg-muted);font-size:11px}\n.end-hole{fill:var(--bg-canvas)}\n.st{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1.15}\n.st.entry{stroke:var(--status-info);stroke-width:1.75}\n.st.term{stroke:var(--status-success);stroke-width:1.75}\n.st-t{fill:var(--fg-default);font-size:12px;font-weight:500}\n.mach-title{fill:var(--fg-muted);font-size:12px;font-weight:600}\n.mach-legend{fill:var(--fg-subtle);font-size:10px}\n.edge-cap{fill:var(--bg-surface);stroke:var(--border-default);stroke-width:1}\n.edge-title{fill:var(--fg-default);font-size:11px;font-weight:600}\n.fx{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-sans)}\n.fx-pill{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1}\n.fx-pill-t{fill:var(--fg-muted);font-size:9px;font-weight:600}\n.xor-wash{fill:rgba(238,242,247,0.18);stroke:none}\n.diamond{fill:#fcf6ed;stroke:var(--status-warning-line);stroke-width:1.25}\n";
+var slug=document.documentElement.getAttribute("data-fl-slug")||"default";
+var key=PREFIX+slug;
+var viewport=document.getElementById("fl-viewport");
+var sizer=document.getElementById("fl-sizer");
+var stage=document.getElementById("fl-stage");
+var lab=document.getElementById("z-lab");
+var scale=1;
+function readZoom(){
+  try{
+    var n=parseFloat(localStorage.getItem(key));
+    if(Number.isFinite(n)) return Math.min(MAX,Math.max(MIN,n));
+  }catch(e){}
+  return 1;
+}
+function saveZoom(){try{localStorage.setItem(key,String(scale))}catch(e){}}
+function visiblePanel(){return document.querySelector(".fl-surface:not([hidden])")}
+function visibleSvg(){
+  var p=visiblePanel();
+  return p?p.querySelector("svg"):null;
+}
+function svgNative(svg){
+  if(!svg) return {w:0,h:0};
+  if(!svg.dataset.nw){
+    var vb=svg.viewBox&&svg.viewBox.baseVal;
+    svg.dataset.nw=String((vb&&vb.width)||0);
+    svg.dataset.nh=String((vb&&vb.height)||0);
+  }
+  return {w:+svg.dataset.nw,h:+svg.dataset.nh};
+}
+function applySvgScale(){
+  var svg=visibleSvg();
+  if(!svg) return;
+  var n=svgNative(svg);
+  svg.setAttribute("width",String(n.w*scale));
+  svg.setAttribute("height",String(n.h*scale));
+}
+function applyStageGeometry(){
+  applySvgScale();
+  var sheet=document.querySelector(".fl-surface:not([hidden]) .sheet");
+  if(!sheet||!viewport||!sizer||!stage) return null;
+  var w=sheet.offsetWidth,h=sheet.offsetHeight,pad=40;
+  var contentW=w+pad*2,contentH=h+pad*2;
+  sizer.style.width=Math.max(viewport.clientWidth,Math.ceil(contentW))+"px";
+  sizer.style.height=Math.max(viewport.clientHeight,Math.ceil(contentH))+"px";
+  var sizerW=Math.max(viewport.clientWidth,Math.ceil(contentW));
+  stage.style.left=Math.max(0,(sizerW-contentW)/2)+"px";
+  stage.style.top="0px";
+  if(lab) lab.textContent=Math.round(scale*100)+"%";
+  return {contentW:contentW};
+}
+function setScale(next){
+  scale=Math.min(MAX,Math.max(MIN,next));
+  applyStageGeometry();
+  saveZoom();
+}
+function selectTab(name){
+  var tabs=document.querySelectorAll('[role="tab"][data-tab]');
+  var i=0;
+  for(;i<tabs.length;i++){
+    var t=tabs[i];
+    var on=t.getAttribute("data-tab")===name;
+    t.setAttribute("aria-selected",on?"true":"false");
+    var panel=document.getElementById(t.getAttribute("aria-controls"));
+    if(!panel) continue;
+    if(on) panel.removeAttribute("hidden");
+    else panel.setAttribute("hidden","");
+  }
+  applyStageGeometry();
+}
+var toc=document.querySelector(".fl-toc");
+if(toc) toc.addEventListener("click",function(e){
+  var t=e.target.closest("[data-tab]");
+  if(!t||t.hidden) return;
+  selectTab(t.getAttribute("data-tab"));
+});
+function pdfFilename(slug){
+  var s=String(slug||"").trim().replace(/[^a-zA-Z0-9._-]+/g,"-").replace(/^-+|-+$/g,"");
+  return s?s+"-fluxo.pdf":"fluxo.pdf";
+}
+function enc(s){return new TextEncoder().encode(s)}
+function concat(chunks){
+  var n=0,i=0;
+  for(;i<chunks.length;i++) n+=chunks[i].length;
+  var out=new Uint8Array(n),o=0;
+  for(i=0;i<chunks.length;i++){out.set(chunks[i],o);o+=chunks[i].length}
+  return out;
+}
+function buildFlowPdf(input){
+  var list=Array.isArray(input&&input.pages)?input.pages:[];
+  if(!list.length) throw new Error("buildFlowPdf: pages required");
+  var header=enc("%PDF-1.4\n%\x80\x80\x80\x80\n");
+  var bodyParts=[],offsets=[0],pos=header.length;
+  function pushObj(num,payload){
+    var start=enc(num+" 0 obj\n"),end=enc("\nendobj\n");
+    offsets[num]=pos;
+    var chunk=concat([start,payload,end]);
+    bodyParts.push(chunk);
+    pos+=chunk.length;
+  }
+  var n=list.length,kids=list.map(function(_,i){return (3+i*3)+" 0 R"}).join(" ");
+  pushObj(1,enc("<< /Type /Catalog /Pages 2 0 R >>"));
+  pushObj(2,enc("<< /Type /Pages /Kids [ "+kids+" ] /Count "+n+" >>"));
+  list.forEach(function(p,i){
+    var pageNo=3+i*3,contentNo=pageNo+1,imageNo=pageNo+2;
+    var ptW=Number(p.ptWidth)||Number(p.width)||595;
+    var ptH=Number(p.ptHeight)||Number(p.height)||842;
+    var raw=p.jpeg;
+    var jpeg=raw instanceof Uint8Array?raw:new Uint8Array(raw);
+    var pxW=Math.max(1,Number(p.width)||1),pxH=Math.max(1,Number(p.height)||1);
+    var content="q "+ptW+" 0 0 "+ptH+" 0 0 cm /Im0 Do Q";
+    pushObj(pageNo,enc("<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 "+ptW+" "+ptH+" ] /Resources << /XObject << /Im0 "+imageNo+" 0 R >> >> /Contents "+contentNo+" 0 R >>"));
+    pushObj(contentNo,enc("<< /Length "+content.length+" >>\nstream\n"+content+"\nendstream"));
+    pushObj(imageNo,concat([enc("<< /Type /XObject /Subtype /Image /Width "+pxW+" /Height "+pxH+" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "+jpeg.length+" >>\nstream\n"),jpeg,enc("\nendstream")]));
+  });
+  var xrefStart=pos,maxObj=2+n*3,xref="xref\n0 "+(maxObj+1)+"\n0000000000 65535 f \n",i;
+  for(i=1;i<=maxObj;i++) xref+=String(offsets[i]).padStart(10,"0")+" 00000 n \n";
+  return concat([header].concat(bodyParts).concat([enc(xref),enc("trailer\n<< /Size "+(maxObj+1)+" /Root 1 0 R >>\nstartxref\n"+xrefStart+"\n%%EOF\n")]));
+}
+function svgForPdf(svg){
+  var clone=svg.cloneNode(true);
+  clone.removeAttribute("id");
+  var style=document.createElementNS("http://www.w3.org/2000/svg","style");
+  style.setAttribute("data-fl-pdf","1");
+  style.textContent=PDF_DIAGRAM_STYLE;
+  clone.insertBefore(style,clone.firstChild);
+  return clone;
+}
+function svgToJpeg(svg){
+  return new Promise(function(resolve,reject){
+    var vb=svg.viewBox&&svg.viewBox.baseVal;
+    var w=(vb&&vb.width)||svg.width.baseVal.value||1;
+    var h=(vb&&vb.height)||svg.height.baseVal.value||1;
+    var xml=new XMLSerializer().serializeToString(svgForPdf(svg));
+    if(xml.indexOf('xmlns="http://www.w3.org/2000/svg"')<0){
+      xml=xml.replace(/^<svg/,'<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    var blob=new Blob([xml],{type:"image/svg+xml;charset=utf-8"});
+    var url=URL.createObjectURL(blob);
+    var img=new Image();
+    img.onload=function(){
+      URL.revokeObjectURL(url);
+      var canvas=document.createElement("canvas");
+      canvas.width=Math.max(1,Math.round(w*2));
+      canvas.height=Math.max(1,Math.round(h*2));
+      var ctx=canvas.getContext("2d");
+      ctx.fillStyle="#ffffff";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      canvas.toBlob(function(b){
+        if(!b){reject(new Error("jpeg"));return}
+        b.arrayBuffer().then(function(buf){
+          resolve({jpeg:new Uint8Array(buf),width:canvas.width,height:canvas.height,ptWidth:539,ptHeight:539*(canvas.height/canvas.width)});
+        }).catch(reject);
+      },"image/jpeg",0.92);
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);reject(new Error("svg"))};
+    img.src=url;
+  });
+}
+async function downloadPdf(btn){
+  if(btn.disabled) return;
+  btn.disabled=true;
+  var prev=btn.textContent;
+  btn.textContent="PDF…";
+  try{
+    var ids=["seq-svg","bpm-svg","mach-svg"],pages=[],i;
+    for(i=0;i<ids.length;i++){
+      var svg=document.getElementById(ids[i]);
+      if(svg) pages.push(await svgToJpeg(svg));
+    }
+    if(!pages.length) throw new Error("Nenhum diagrama para exportar");
+    var bytes=buildFlowPdf({pages:pages});
+    var url=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));
+    var name=btn.getAttribute("data-pdf-name")||pdfFilename(document.documentElement.getAttribute("data-fl-slug")||"");
+    var a=document.createElement("a");
+    a.href=url;a.download=name;a.click();
+    setTimeout(function(){URL.revokeObjectURL(url)},60000);
+  }catch(err){
+    var hint=document.getElementById("fl-hint");
+    if(hint) hint.appendChild(document.createTextNode(" "+((err&&err.message)||"Falha ao gerar PDF")));
+  }finally{
+    btn.disabled=false;
+    btn.textContent=prev||"PDF";
+  }
+}
+var bar=document.querySelector(".fl-toolbar");
+if(bar) bar.addEventListener("click",function(e){
+  var pdf=e.target.closest("[data-action=pdf]");
+  if(pdf){downloadPdf(pdf);return}
+  var b=e.target.closest("[data-zoom]");
+  if(!b) return;
+  var a=b.getAttribute("data-zoom");
+  if(a==="in") setScale(scale+0.1);
+  else if(a==="out") setScale(scale-0.1);
+  else if(a==="height"||a==="width"){
+    var n=svgNative(visibleSvg());
+    if(!n.w||!n.h||!viewport) return;
+    var fitX=(viewport.clientWidth-24)/(n.w+80);
+    var fitY=(viewport.clientHeight-24)/(n.h+80);
+    setScale(a==="height"?fitY:fitX);
+  } else {
+    setScale(1);
+  }
+});
+if(viewport){
+  var panning=false,px=0,py=0,sx=0,sy=0;
+  viewport.addEventListener("pointerdown",function(e){
+    if(e.button!==0) return;
+    panning=true;px=e.clientX;py=e.clientY;sx=viewport.scrollLeft;sy=viewport.scrollTop;
+    viewport.classList.add("is-panning");
+    viewport.setPointerCapture(e.pointerId);
+  });
+  viewport.addEventListener("pointermove",function(e){
+    if(!panning) return;
+    viewport.scrollLeft=sx-(e.clientX-px);
+    viewport.scrollTop=sy-(e.clientY-py);
+  });
+  function endPan(){panning=false;viewport.classList.remove("is-panning")}
+  viewport.addEventListener("pointerup",endPan);
+  viewport.addEventListener("pointercancel",endPan);
+  viewport.addEventListener("wheel",function(e){
+    if(!e.ctrlKey) return;
+    e.preventDefault();
+    setScale(scale+(e.deltaY<0?0.1:-0.1));
+  },{passive:false});
+}
+scale=readZoom();
+applyStageGeometry();
+window.addEventListener("resize",applyStageGeometry);
+})();
+</script>
+</body>
+</html>

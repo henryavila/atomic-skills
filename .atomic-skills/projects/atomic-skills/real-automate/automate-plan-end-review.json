@@ -1,0 +1,137 @@
+{
+  "mode": "external-both",
+  "reviewFile": ".atomic-skills/reviews/2026-10-03-real-automate-plan-end-grok.json",
+  "verifiedAt": "2026-10-03T05:43:36.069Z",
+  "reviewedSourceHead": "df15b63560c41d1f0e45e0fdc5a0649ee5040f25",
+  "reviewInputSnapshot": "4338b18a8f156b0c74e04d33aae569eafaa3c4d67c9ced42397395b39a77aac4",
+  "orchestration": "Authorized implementation session; actual native external process and separate local review agent. This does not certify self-plan product startup without its cards.",
+  "legs": [
+    {
+      "provider": "grok",
+      "status": "succeeded",
+      "familyDifferent": true,
+      "command": "grok",
+      "argv": [
+        "--sandbox",
+        "read-only",
+        "--disallowed-tools",
+        "search_replace,write,run_terminal_cmd,run_terminal_command,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,spawn_subagent,monitor",
+        "--no-memory",
+        "--no-subagents",
+        "--disable-web-search",
+        "--json-schema",
+        "{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"verdict\",\"findings\",\"intentVsDelivered\",\"graphCoverage\",\"limitations\"],\"properties\":{\"verdict\":{\"type\":\"string\",\"enum\":[\"PASSED\",\"CLOSED\",\"PARTIAL\",\"OPEN\"]},\"findings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"required\":[\"severity\",\"title\",\"evidence\"],\"properties\":{\"severity\":{\"type\":\"string\",\"enum\":[\"blocker\",\"critical\",\"major\",\"minor\"]},\"title\":{\"type\":\"string\"},\"evidence\":{\"type\":\"string\"}}}},\"intentVsDelivered\":{\"type\":\"array\",\"minItems\":1,\"items\":{\"type\":\"object\",\"required\":[\"label\",\"status\",\"note\"],\"properties\":{\"label\":{\"type\":\"string\"},\"status\":{\"type\":\"string\",\"enum\":[\"matched\",\"partial\",\"missing\",\"extra\"]},\"note\":{\"type\":\"string\"}}}},\"graphCoverage\":{\"type\":\"array\",\"minItems\":7,\"maxItems\":7,\"items\":{\"type\":\"object\",\"required\":[\"kind\",\"id\",\"status\",\"note\"],\"properties\":{\"kind\":{\"type\":\"string\",\"enum\":[\"machine\",\"xor\"]},\"id\":{\"type\":\"string\"},\"status\":{\"type\":\"string\",\"enum\":[\"faz\",\"pela metade\",\"não faz\"]},\"note\":{\"type\":\"string\"}}}},\"limitations\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}",
+        "--prompt-file",
+        "/tmp/real-automate-plan-audit-grok-5GOT5p/whole-plan-audit.md"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "verdict": "PARTIAL",
+      "receiptPath": ".atomic-skills/reviews/2026-10-03-real-automate-plan-end-grok.json"
+    },
+    {
+      "provider": "codex",
+      "status": "succeeded",
+      "familyDifferent": false,
+      "verdict": "PARTIAL",
+      "receiptPath": ".atomic-skills/reviews/2026-10-03-real-automate-plan-end-local.json",
+      "execution": "separate independent local review agent"
+    }
+  ],
+  "intentVsDelivered": [
+    {
+      "label": "F0 Partida que recusa",
+      "status": "matched",
+      "note": "Production main refuses without host, plan, live pen.lock, registered PreToolUse, isolated probe.lock (exit 2 then 0, not repo pen.lock), host-shaped write probe that must refuse and leave no sentinel, and detectors flow/review/ground-truth/architecture/ui. Blockers print and exit 1 before any writer."
+    },
+    {
+      "label": "F1 Cartão de bloco (detector)",
+      "status": "matched",
+      "note": "scripts/find-missing-architecture.js exists and main calls it --strict. That is the F1 product. This plan itself has no architecture/decisions.json (separate missing row)."
+    },
+    {
+      "label": "F1 Self-plan architecture/decisions.json",
+      "status": "missing",
+      "note": "No architecture card on real-automate. Chat ok is not a stamp. Detectors would refuse this plan."
+    },
+    {
+      "label": "F2 Protótipo (detector)",
+      "status": "matched",
+      "note": "scripts/find-missing-ui.js exists and main calls it --strict. exitGateType ui-gate is not the stamp."
+    },
+    {
+      "label": "F2 Self-plan ui/ui.json",
+      "status": "missing",
+      "note": "No ui/ui.json. The F5 /final page is a visible surface, so this plan needs a real screen stamp, not an automatic none."
+    },
+    {
+      "label": "F3 Um writer, merge, e para",
+      "status": "matched",
+      "note": "runWriterSession in scripts/automate-run.js cuts a worktree, writes pen.lock with owner and pid, spawns the host CLI, merges onto the plan branch, kills a live writer, drops the lock, reclaims a dead-pid lock. AUTOMATE_STOP_AFTER_MERGE is the F3 test pare. Finished main continues to plan-end. automate-phase-run.js is not called."
+    },
+    {
+      "label": "F4 Review e o flow no audit",
+      "status": "partial",
+      "note": "Library and tests cover ask-once, both, 3-review, mix stop, park, fence, and phase-delivery-audit-gate reading flow/flow.json at ratifiedGraphSha. audit-delivery skill now requires graph lines. Production main never loops pending phases, never dispatches an isolated implementer for frontmatter pending tasks, and never runs per-phase both/close/open-next. After one writer it jumps to runPlanEndWorkflow. H1–H9 remain accepted residuals, not complete F4 delivery."
+    },
+    {
+      "label": "F5 Página final, botão, PR sem merge, loop plano+audit",
+      "status": "matched",
+      "note": "serve-flow --up serves /final with stamps, said/saw, prototype beside delivered, leftovers, residuals. POST /api/validate is the only userValidatedAt writer (HMAC http-button proof; deliveryAuditGate and current plan-end review required). Chat ok does not write. Session ISO without evidence fails userValidationOk and assert-automate-gate --gate finalize. defaultPr pushes and opens a PR and never merges or archives. Recorded PR #50 is OPEN draft, mergedAt null. Plan-end runs the 3-review loop on whole plan then audit-delivery with phase residuals."
+    },
+    {
+      "label": "F5 Genuine operator validation of this plan",
+      "status": "missing",
+      "note": "operatorValidationClaimed=false. No userValidatedAt on plan.md. Capability exists; this instance has not taken validacao.valida. Archive correctly has not run."
+    },
+    {
+      "label": "P6 Unidade=fase corrente com agente isolado por passo",
+      "status": "partial",
+      "note": "Session main orchestrates gates then one writer then plan-end. Isolated per-phase implement/review/close/advance is library-only, not the production driver."
+    }
+  ],
+  "graphCoverage": [
+    {
+      "kind": "machine",
+      "id": "corrida",
+      "status": "pela metade",
+      "note": "ociosa→recusada and ociosa→rodando live in main. Writer then plan-end can reach aguardando (PR + /final) and validada (HTTP button). Phase cycle inside rodando (implementar_fase → review_fase → mais_fases.sim) is not in production main. Phase-level T_trava/T_muda exist only as library predicates reused at plan-end."
+    },
+    {
+      "kind": "xor",
+      "id": "gates",
+      "status": "faz",
+      "note": "main builds blockers (pen, isolated probe, host write, five detectors) and either prints the missing list and exits 1 (gates.recusa) or proceeds (gates.parte) and calls prepareReviewExternalCli. Interactive ask in main remains the accepted H1 residual; env/frontmatter CLI still writes reviewExternalCli."
+    },
+    {
+      "kind": "xor",
+      "id": "review_fase",
+      "status": "pela metade",
+      "note": "nextPhaseReviewAction implements segue/corrige/trava/muda; tests cover mix, third critical, park. Production main never runs isolated phase both. continuePhaseAfterReview is reused inside runPlanEndWorkflow for whole-plan and audit stages, not for the current phase unit."
+    },
+    {
+      "kind": "xor",
+      "id": "mais_fases",
+      "status": "não faz",
+      "note": "main runs at most one runWriterSession (phase from args/env, default F0) then runPlanEndWorkflow. No branch on remaining pending phases. mais_fases.sim → implementar_fase does not exist in the production driver."
+    },
+    {
+      "kind": "xor",
+      "id": "review_plano",
+      "status": "faz",
+      "note": "runPlanEndWorkflow stage=plan: dual-leg both, 3-round cap, mix→mudança grande, critical/major→fix writer then re-review, else advance to audit. Isolated host CLIs, not the chat session."
+    },
+    {
+      "kind": "xor",
+      "id": "review_audit",
+      "status": "faz",
+      "note": "stage=audit uses the same 3-review loop, requires structured graphCoverage over flow/flow.json at ratifiedGraphSha 8210bfc367f08e285b279b7dc69716d91df665281ffc2af1eebc1be619761285, then opens an unmerged PR (review_audit.segue → abrir_pr)."
+    },
+    {
+      "kind": "xor",
+      "id": "validacao",
+      "status": "faz",
+      "note": "Authenticated /api/validate writes userValidatedAt and final-validation.json (source http-button). Button disabled unless every deliveryAuditGate passed and plan-end review is current. Leaving the page is validacao.deixa (aguardando). This plan has not pressed the button; that is instance state, not missing program branches."
+    }
+  ]
+}

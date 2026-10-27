@@ -1,0 +1,84 @@
+{
+  "ok": true,
+  "workOrder": {
+    "planSlug": "real-automate",
+    "phaseId": "F5",
+    "tasks": [
+      {
+        "taskId": "T-002",
+        "paths": [
+          "scripts/serve-flow.js",
+          "scripts/lib/serve-flow.js",
+          "src/plan-end-review.js",
+          "scripts/assert-automate-gate.js",
+          "tests/final-page-http.test.js",
+          "tests/plan-end-review.test.js",
+          "tests/assert-automate-gate.test.js",
+          "tests/implement-automate-contract.test.js",
+          "skills/shared/project-assets/project-finalize.md",
+          "skills/shared/project-assets/project-transitions.md"
+        ],
+        "scopeBoundary": [
+          "Do not serve the final page as file://.",
+          "Do not let a session-written userValidatedAt pass finalize.",
+          "Do not stop serving flow.html preview from serve-flow.js."
+        ],
+        "acceptance": [
+          "it - the final view does not open as file://.",
+          "it - the button stays off while any phase deliveryAuditGate is not passed.",
+          "it - serve-flow.js still serves the flow.html preview.",
+          "it - the button is the only writer of userValidatedAt.",
+          "it - a session-written timestamp fails userValidationOk and assert-automate-gate --gate finalize."
+        ],
+        "verifier": {
+          "kind": "shell",
+          "command": "node --test tests/final-page-http.test.js",
+          "expectExitCode": 0
+        },
+        "title": "Servidor",
+        "status": "pending",
+        "weight": 1
+      },
+      {
+        "taskId": "T-003",
+        "paths": [
+          "scripts/automate-run.js",
+          "tests/automate-run-stops.test.js"
+        ],
+        "scopeBoundary": [
+          "Do not reinstall a stop per phase after resume.",
+          "Do not merge the PR.",
+          "Do not archive in the PR command."
+        ],
+        "acceptance": [
+          "it - travei, não avanço, and mudança grande open the same origin.",
+          "it - confirmation is recorded in the log.",
+          "it - the program resumes without reinstalling a stop per phase."
+        ],
+        "verifier": {
+          "kind": "shell",
+          "command": "node --test tests/automate-run-stops.test.js",
+          "expectExitCode": 0
+        },
+        "title": "Paradas",
+        "status": "pending",
+        "weight": 1
+      }
+    ],
+    "initiativePath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/projects/atomic-skills/real-automate/phases/f5-pagina-final.md",
+    "decisionLogPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/projects/atomic-skills/real-automate/decisions/F5.jsonl",
+    "projectId": "atomic-skills",
+    "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F5-fix3-writer",
+    "writerBranch": "impl/real-automate-F5-fix3-writer",
+    "baseRef": "0ca408865b661f4b0a3556688319e70b163dd641"
+  },
+  "sealedBriefPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F5-fix3-sealed-brief.md",
+  "claimReportPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F5-fix3-claims.json",
+  "claimReportPathForBrief": ".atomic-skills/status/automate/real-automate-claims.json",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F5-fix3-writer",
+  "writerBranch": "impl/real-automate-F5-fix3-writer",
+  "baseRef": "0ca408865b661f4b0a3556688319e70b163dd641",
+  "leasePath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/writer-leases/real-automate.json",
+  "metaPath": "/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F5-prepare.json",
+  "spawnInstructions": "## Spawn instructions (host-invoked — runner does not spawn)\n\n1. cwd / isolation = `/home/henry/atomic-skills/.worktrees/real-automate-F5-fix3-writer`\n2. Read sealed brief: `/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F5-fix3-sealed-brief.md`\n3. Spawn code-only phase writer (Grok: spawn_subagent subagent_type=general-purpose; NOT explore).\n4. Sync-wait until writer exits.\n5. Expect claim report at: `/home/henry/atomic-skills/.worktrees/real-automate/.atomic-skills/status/automate/real-automate-F5-fix3-claims.json` (or brief path `.atomic-skills/status/automate/real-automate-claims.json`)\n6. Then: node scripts/automate-phase-run.js validate --plan real-automate --phase F5 --claim-report <path>\n\nHold lease secret in memory only — never commit it. Clear lease only after merge settle with secret."
+}

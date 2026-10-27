@@ -421,6 +421,21 @@ export function majorDispositionAllowsClose(input = {}) {
  *   declined?: boolean | null,
  *   hostJudgmentAccept?: boolean | null,
  *   hostAcceptAfterDecline?: boolean | null,
+ *   flowDoc?: unknown,
+ *   flowPath?: string | null,
+ *   planPath?: string | null,
+ *   cwd?: string | null,
+ *   ratifiedGraphSha?: string | null,
+ *   actualSha?: string | null,
+ *   reportContent?: string | Buffer | null,
+ *   reportText?: string | null,
+ *   reportContents?: Record<string, string | Buffer> | null,
+ *   readFile?: ((path: string) => string | Buffer) | null,
+ *   exists?: ((path: string) => boolean) | null,
+ *   businessIntent?: unknown,
+ *   finalPage?: boolean | null,
+ *   userValidatedAt?: string | null,
+ *   checkAuthenticity?: boolean,
  * }} [input]
  * @returns {{ ok: boolean, reason?: string }}
  */
@@ -478,11 +493,27 @@ export function canRunPhaseDone(input = {}) {
   });
   if (!decision.ok) return decision;
 
-  // F2 T-017: audit-delivery hard-gate — never skippable (no operatorSkip).
+  // F2 T-017 / F4 T-002: audit-delivery hard-gate — never skippable; load
+  // flow/flow.json at ratifiedGraphSha (missing cited path fails closed).
   return deliveryAuditAllowsClose({
     ...base,
     deliveryAuditGate: input.deliveryAuditGate,
     phase: input.phase,
+    flowDoc: input.flowDoc,
+    flowPath: input.flowPath,
+    planPath: input.planPath,
+    cwd: input.cwd,
+    ratifiedGraphSha: input.ratifiedGraphSha,
+    actualSha: input.actualSha,
+    reportContent: input.reportContent,
+    reportText: input.reportText,
+    reportContents: input.reportContents,
+    readFile: input.readFile,
+    exists: input.exists,
+    businessIntent: input.businessIntent,
+    finalPage: input.finalPage,
+    userValidatedAt: input.userValidatedAt,
+    checkAuthenticity: input.checkAuthenticity,
   });
 }
 

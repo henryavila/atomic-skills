@@ -28,7 +28,7 @@
  *   - provider is a known external ('codex' | 'grok' | 'claude')
  *
  * userValidationOk: under automateActive === true, require a non-empty
- * ISO-8601-ish timestamp in userValidatedAt. When automate is not active
+ * ISO-8601-ish timestamp plus authenticated HTTP-button evidence. When automate is not active
  * the gate does not apply (returns true). Stamp alone also activates via
  * durable plan-end resolution. Operator-owned — never auto-stamped by review.
  *
@@ -46,9 +46,15 @@
  * `## Reviews` section; frontmatter may carry a machine-readable
  * `planEndReview` object (finalize-shaped receipt) plus `userValidatedAt`.
  *
- * No I/O.
+ * Pure gate predicates; server proof helpers below perform bounded filesystem I/O.
  */
 
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { homedir } from 'node:os';
+import { basename, dirname, join, resolve, sep } from 'node:path';
+import { parse as parseYaml, parseDocument } from 'yaml';
 import { EXTERNAL_PROVIDER_ORDER } from './cross-model-host-default.js';
 import { INTENT_VS_DELIVERED_STATUSES } from './plan-end-intent-surface.js';
 
@@ -310,7 +316,7 @@ function resolveDurableAutomateForGates(input = {}) {
  * When automate is not active, returns true (gate does not apply).
  * Activation: automateActive === true, OR durable stamp planExecutionMode
  * automate (session CLI override does not disable — F4). Under automate,
- * userValidatedAt must be a non-empty ISO-8601-ish timestamp.
+ * userValidatedAt must match authenticated HTTP-button evidence loaded from disk.
  *
  * @param {{
  *   automateActive?: boolean,
@@ -330,7 +336,8 @@ export function userValidationOk(input = {}) {
   const at = input.userValidatedAt;
   if (at == null) return false;
   if (typeof at !== 'string') return false;
-  return isIsoTimestamp(at);
+  return isIsoTimestamp(at) && authenticatedEvidence.has(input.userValidationEvidence)
+    && input.userValidationEvidence.at === at;
 }
 
 /**
@@ -374,6 +381,7 @@ export function automatePlanEndGatesOk(input = {}) {
     automateActive: true,
     userValidatedAt: input.userValidatedAt,
     validatorId: input.validatorId,
+    userValidationEvidence: input.userValidationEvidence,
   });
   return {
     ok: pe && uv,
@@ -381,4 +389,224 @@ export function automatePlanEndGatesOk(input = {}) {
     userValidationOk: uv,
     reviewSkipForbidden: true,
   };
+}
+
+
+// Server authority lives outside the repository; copying a timestamp or a receipt
+// cannot mint evidence. Only disk-authenticated objects enter this WeakSet.
+const authenticatedEvidence = new WeakSet();
+export function validationKeyPath(planPath) {
+  const identity = createHash('sha256').update(realpathSync(planPath)).digest('hex');
+  return join(process.env.HOME || process.env.USERPROFILE || homedir(), '.atomic-skills', 'final-page-keys', identity);
+}
+export function readFinalPlan(planPath) {
+  const text = readFileSync(planPath, 'utf8');
+  if (Buffer.byteLength(text) > 2_000_000) throw new Error('plan exceeds size cap');
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) throw new Error('invalid plan frontmatter');
+  const fm = parseYaml(match[1]);
+  if (!fm || typeof fm !== 'object') throw new Error('invalid plan');
+  const sidecar=join(dirname(planPath),'automate-plan-end-review.json');
+  // The runner owns this sidecar. A stale or malformed sidecar must fail closed,
+  // never fall back to a legacy inline receipt after a new review has run.
+  if (existsSync(sidecar)) fm.planEndReview = JSON.parse(readFileSync(sidecar, 'utf8'));
+  return { text, fm };
+}
+export function finalAuditsPassed(planPath) {
+  try {
+    const {fm} = readFinalPlan(planPath);
+    return Array.isArray(fm.phases) && fm.phases.length > 0 && fm.phases.every(p => p && p.deliveryAuditGate?.status === 'passed');
+  } catch { return false; }
+}
+export function validationSnapshot(planPath, options = {}) {
+  const {text, fm} = readFinalPlan(planPath);
+  // Hash parsed metadata so timestamp syntax and YAML formatting do not affect
+  // identity. Lifecycle bookkeeping cannot change the delivered artifact.
+  const fields = {...fm};
+  delete fields.userValidatedAt;
+  delete fields.status;
+  delete fields.lastUpdated;
+  if (options.reviewInputs) delete fields.planEndReview;
+  if (Array.isArray(fields.references)) {
+    fields.references = fields.references.filter(ref => !isLifecyclePrReference(ref));
+    if (!fields.references.length) delete fields.references;
+  }
+  const body = text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '');
+  const planInput = JSON.stringify(fields) + body;
+  const hash = createHash('sha256').update(JSON.stringify([productSnapshot(planPath),planInput]));
+  // Frame both identity and byte length: one file cannot absorb a following
+  // optional file's path and bytes while retaining reviewed authority.
+  const addEvidence=(file,bytes,kind='file')=>hash.update(JSON.stringify([kind,file,bytes.length])).update('\0').update(bytes);
+  const planDir = realpathSync(dirname(planPath));
+  const marker = `${sep}.atomic-skills${sep}`;
+  const root = planDir.includes(marker) ? planDir.slice(0, planDir.indexOf(marker)) : planDir;
+  for (const p of fm.phases || []) {
+    for (const rel of [p.initiativePath || p.initiative, p.deliveryAuditGate?.reportPath].filter(Boolean)) {
+      const cited=resolve(String(rel).startsWith('.atomic-skills/') ? root : planDir, String(rel));
+      if(p.deliveryAuditGate?.status!=='passed' && !existsSync(cited)) {addEvidence(cited,Buffer.alloc(0),'pending');continue;}
+      const file = realpathSync(cited);
+      if (!file.startsWith(root + sep)) throw new Error('delivery path escapes plan');
+      const bytes = readFileSync(file);
+      if (!bytes.length || bytes.length > 2_000_000) throw new Error('empty or oversized delivery evidence');
+      addEvidence(file,bytes);
+    }
+  }
+  const addFile=(file)=>{
+    const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('presentation path escapes root');
+    const bytes=readFileSync(actual);if(bytes.length>2_000_000) throw new Error('presentation exceeds size cap');addEvidence(actual,bytes);
+  };
+  for(const rel of ['architecture/decisions.json','ui/ui.json','flow/flow.json','flow/flow.html',...(options.reviewInputs?[]:['automate-run-state.json','automate-plan-end-review.json'])]) {const file=join(planDir,rel);if(existsSync(file)) addFile(file);}
+  const decisions=join(planDir,'decisions');
+  if(existsSync(decisions)) for(const name of readdirSync(decisions).filter(n=>n.endsWith('.jsonl')).sort()) {
+    // Confirming a transport retry is operational state, not new plan intent.
+    if(options.reviewInputs && name==='operator-stops.jsonl') continue;
+    addFile(join(decisions,name));
+  }
+  for(const ref of fm.references||[]) if(ref.kind==='file' && /\.html$/i.test(ref.path) && /delivered|built|entreg|constru/i.test(ref.label||'')) addFile(resolve(planDir,ref.path));
+  const uiPath=join(planDir,'ui/ui.json');
+  if(existsSync(uiPath)) {const ui=JSON.parse(readFileSync(uiPath,'utf8'));for(const screen of ui.screens||[]) if(screen.path) addFile(resolve(planDir,screen.path));}
+  return hash.digest('hex');
+}
+export function readUserValidationEvidence(planPath) {
+  try {
+    if (!finalAuditsPassed(planPath) || !planEndReviewCurrent(planPath)) return null;
+    const {fm} = readFinalPlan(planPath);
+    const {proof,signature} = JSON.parse(readFileSync(join(dirname(planPath),'final-validation.json'),'utf8'));
+    if (proof.source !== 'http-button' || proof.planPath !== realpathSync(planPath) || proof.at !== fm.userValidatedAt || proof.snapshot !== validationSnapshot(planPath)) return null;
+    const expected=createHmac('sha256',readFileSync(validationKeyPath(planPath))).update(JSON.stringify(proof)).digest();
+    const actual=Buffer.from(signature,'hex');
+    if(actual.length !== expected.length || !timingSafeEqual(actual,expected)) return null;
+    const evidence=Object.freeze({at:proof.at}); authenticatedEvidence.add(evidence); return evidence;
+  } catch {return null;}
+}
+
+/** A completed review authorizes only the exact source and inputs it examined. */
+export function planEndReviewCurrent(planPath) {
+  try {
+    const {fm} = readFinalPlan(planPath);
+    const receipt = fm.planEndReview;
+    return planEndReviewOk(receipt, {forbidSkip:true})
+      && typeof receipt.reviewInputSnapshot === 'string'
+      && receipt.reviewInputSnapshot === validationSnapshot(planPath, {reviewInputs:true});
+  } catch {return false;}
+}
+
+
+/** The documented PR pointer is lifecycle bookkeeping, not delivered evidence. */
+function isLifecyclePrReference(ref) {
+  if (!ref || ref.kind !== 'url') return false;
+  const number = /^PR #([1-9]\d*)$/.exec(ref.label || '')?.[1];
+  if (!number) return false;
+  try {
+    const url = new URL(ref.path);
+    return url.protocol === 'https:' && url.pathname.endsWith(`/pull/${number}`)
+      && !url.search && !url.hash;
+  } catch {return false;}
+}
+
+/**
+ * Same path after symlink resolution. macOS tmpdir() is /var, a symlink of
+ * /private/var; product identity realpaths the git toplevel first. A file that
+ * does not exist yet uses the realpath of the nearest existing parent.
+ */
+function canonicalOwnedPath(filePath) {
+  const resolved = resolve(filePath);
+  try {
+    return realpathSync(resolved);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') return resolved;
+  }
+  const missing = [];
+  let current = resolved;
+  while (current !== dirname(current)) {
+    const parent = dirname(current);
+    missing.push(basename(current));
+    try {
+      return join(realpathSync(parent), ...missing.reverse());
+    } catch (error) {
+      if (error?.code !== 'ENOENT') return resolved;
+    }
+    current = parent;
+  }
+  return resolved;
+}
+
+/** Exact files owned by this plan's runner, shared with publication dirty checks. */
+export function isOwnedOperationalPath(planPath, filePath, repoRoot) {
+  const file = canonicalOwnedPath(filePath);
+  const stateRoot = canonicalOwnedPath(resolve(repoRoot, '.atomic-skills'));
+  if (file === stateRoot || file.startsWith(stateRoot + sep) || file === canonicalOwnedPath(planPath)) return true;
+  const names = [
+    'automate-run-state.json', 'automate-plan-end-review.json', 'final-validation.json',
+    'automate-pr-body.txt', 'automate-review-output.schema.json', 'decisions/operator-stops.jsonl',
+  ];
+  for (const stage of ['plan', 'audit']) {
+    names.push(`automate-${stage}-review-prompt.txt`);
+    for (let round = 1; round <= 3; round++) {
+      names.push(`automate-${stage}-review-${round}.json`, `automate-${stage}-fix-${round}-prompt.txt`);
+    }
+  }
+  const planDir = dirname(planPath);
+  return names.some(name => file === canonicalOwnedPath(resolve(planDir, name))
+    || file === canonicalOwnedPath(resolve(planDir, name + '.tmp')));
+}
+
+/** Replace only this YAML field, retaining unrelated metadata and body bytes. */
+export function withButtonValidationTimestamp(text, at) {
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) throw new Error('invalid plan frontmatter');
+  const newline = text.startsWith('---\r\n') ? '\r\n' : '\n';
+  const yamlText = match[1] + newline;
+  const doc = parseDocument(yamlText);
+  if (doc.errors.length || !Array.isArray(doc.contents?.items)) throw new Error('invalid plan frontmatter');
+  const pair = doc.contents.items.find(item => item.key?.value === 'userValidatedAt');
+  let updatedYaml = yamlText;
+  if (pair) {
+    const start = pair.key.range[0];
+    const end = pair.value?.range?.[2] ?? yamlText.indexOf('\n', start) + 1;
+    updatedYaml = yamlText.slice(0, start) + `userValidatedAt: ${JSON.stringify(at)}${newline}` + yamlText.slice(end);
+  } else updatedYaml = `userValidatedAt: ${JSON.stringify(at)}${newline}` + yamlText;
+  const prefixLength = text.indexOf('\n') + 1;
+  return text.slice(0, prefixLength) + updatedYaml.slice(0, -newline.length)
+    + text.slice(prefixLength + match[1].length);
+}
+
+/**
+ * Current tracked product bytes, excluding operational plan/runtime files.
+ * Gitlinks support clean initialized checkouts only: dirty or untracked nested
+ * source fails closed rather than reducing changed bytes to a dirty flag.
+ */
+export function productSnapshot(planPath) {
+  const repo=spawnSync('git',['rev-parse','--show-toplevel'],{cwd:dirname(planPath),encoding:'utf8',timeout:10000});
+  if(repo.status!==0) return null;
+  const root=realpathSync(repo.stdout.trim());
+  const result=spawnSync('git',['ls-files','--stage','-z'],{cwd:root,encoding:'utf8',timeout:10000,maxBuffer:4_000_000});
+  if(result.status!==0) throw new Error('Cannot read tracked product identity');
+  const hash=createHash('sha256');
+  for(const entry of result.stdout.split('\0').filter(Boolean).sort()) {
+    const match=/^(\d+) ([a-f0-9]+) (\d)\t([\s\S]+)$/.exec(entry);
+    if(!match || match[3]!=='0') throw new Error('Cannot read unmerged tracked product identity');
+    const [,mode,oid,,relative]=match;
+    const file=resolve(root,relative);
+    if(isOwnedOperationalPath(planPath, file, root)) continue;
+    hash.update(relative).update('\0');
+    if(mode==='160000') {
+      const policy=`Submodule ${relative} must be clean and initialized for delivery review; commit tracked edits and remove or commit untracked source`;
+      if(!existsSync(file)) throw new Error(policy);
+      const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('Tracked product path escapes repository');
+      const git=args=>spawnSync('git',args,{cwd:actual,encoding:'utf8',timeout:10000,maxBuffer:4_000_000});
+      const identity=git(['rev-parse','--show-toplevel','HEAD']);
+      const [moduleRoot,head]=identity.stdout?.trim().split('\n')||[];
+      if(identity.status!==0 || !moduleRoot || realpathSync(moduleRoot)!==actual || !/^[a-f0-9]{40,64}$/.test(head||'')) throw new Error(policy);
+      const dirty=git(['status','--porcelain','--untracked-files=all','--ignore-submodules=none']);
+      if(dirty.status!==0 || dirty.stdout.trim()) throw new Error(policy);
+      hash.update(`gitlink:${oid}:${head}`).update('\0');
+      continue;
+    }
+    if(!existsSync(file)) {hash.update('deleted');continue;}
+    const actual=realpathSync(file);if(!actual.startsWith(root+sep)) throw new Error('Tracked product path escapes repository');
+    const bytes=readFileSync(file);if(bytes.length>20_000_000) throw new Error('Tracked product exceeds size cap');
+    hash.update(bytes).update('\0');
+  }
+  return {digest:hash.digest('hex')};
 }

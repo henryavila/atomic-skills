@@ -401,9 +401,58 @@ const automateDeliveryAuditPassed = {
   verifiedAt: '2026-07-23T12:01:00.000Z',
 };
 
+/** Graph coverage so honest CLOSED can allow (F4 T-002); stamp-only is not enough. */
+const XOR_FLOW = {
+  schemaVersion: '1.0',
+  planSlug: 'minimal-xor',
+  ratifiedGraphSha: 'a'.repeat(64),
+  graph: {
+    entry: 'S1',
+    nodes: {
+      S1: { type: 'activity', next: 'D1' },
+      D1: {
+        type: 'xor',
+        branches: [
+          { id: 'D1.yes', next: 'end_ok' },
+          { id: 'D1.no', next: 'end_no' },
+        ],
+      },
+      end_ok: { type: 'end' },
+      end_no: { type: 'end' },
+    },
+  },
+  machines: [{ id: 'request' }],
+};
+
+const COVERING_REPORT = [
+  '# Audit Delivery — demo',
+  '**Verdict:** CLOSED',
+  '## Intent Package',
+  'D1',
+  '## Residual',
+  'none CRITICAL',
+  '## Findings',
+  'All RESOLVED',
+  '',
+  '## Flow graph',
+  'machine request: faz',
+  'xor D1: faz',
+].join('\n');
+
+function graphCoverageFields() {
+  return {
+    planPath: '/tmp/demo-plan/plan.md',
+    flowDoc: XOR_FLOW,
+    ratifiedGraphSha: XOR_FLOW.ratifiedGraphSha,
+    actualSha: XOR_FLOW.ratifiedGraphSha,
+    reportContent: COVERING_REPORT,
+  };
+}
+
 test('B1: under durable automate, reviewGate skipped is blocked even with reason', () => {
   const result = commitGuardPhaseDone(
     happyCommitInput({
+      ...graphCoverageFields(),
       plan: {
         executionMode: 'automate',
         phases: [
@@ -436,6 +485,7 @@ test('B1: under durable automate, reviewGate skipped is blocked even with reason
 test('B1: under durable automate, reviewGate passed + mode local is blocked', () => {
   const result = commitGuardPhaseDone(
     happyCommitInput({
+      ...graphCoverageFields(),
       plan: {
         executionMode: 'automate',
         phases: [
@@ -464,6 +514,7 @@ test('B1: under durable automate, reviewGate passed + mode local is blocked', ()
 test('B1: under durable automate, reviewGate passed + mode both is allowed', () => {
   const result = commitGuardPhaseDone(
     happyCommitInput({
+      ...graphCoverageFields(),
       plan: {
         executionMode: 'automate',
         phases: [
@@ -660,6 +711,7 @@ test('preflightPhaseDone blocks automate when decisionReview pending', () => {
 
 test('preflightPhaseDone allows automate when evaluationGate and decisionReview and deliveryAuditGate all passed', () => {
   const result = preflightPhaseDone({
+    ...graphCoverageFields(),
     parentPlan: 'demo',
     phaseId: 'F0',
     plan: {
@@ -729,6 +781,7 @@ test('top-level executionMode automate: preflight/commitGuard allow when decisio
     verifiedAt: '2026-07-23T12:01:00.000Z',
   };
   const input = happyCommitInput({
+    ...graphCoverageFields(),
     executionMode: 'automate',
     plan: {
       phases: [
@@ -867,6 +920,7 @@ test('preflightPhaseDone under automate blocks without deliveryAuditGate', () =>
 
 test('preflightPhaseDone under automate allows honest deliveryAuditGate on phase', () => {
   const result = preflightPhaseDone({
+    ...graphCoverageFields(),
     parentPlan: 'p',
     phaseId: 'F0',
     plan: {

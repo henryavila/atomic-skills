@@ -1,0 +1,28 @@
+{
+  "planSlug": "real-automate",
+  "phaseId": "F4",
+  "worktreePath": "/home/henry/atomic-skills/.worktrees/real-automate-F4-fix2-writer",
+  "writerBranch": "impl/real-automate-F4-fix2-writer",
+  "finishedAt": "2026-10-02T18:05:42.000Z",
+  "tasks": [
+    {
+      "taskId": "T-002",
+      "status": "claimed-pass",
+      "commitShas": [
+        "b5679b2e87bb40af97f344afaaa06080307380a5"
+      ],
+      "base": "b1fb283fad138389da6ec859920b173e198e9954",
+      "head": "b5679b2e87bb40af97f344afaaa06080307380a5",
+      "paths": [
+        "scripts/lifecycle-order-guard.js",
+        "tests/lifecycle-order-guard.test.js",
+        "tests/decision-review-gate.test.js",
+        "tests/fixtures/implement-phase-agents/phase-done-allowed.json"
+      ],
+      "verifierCommand": "node --test tests/phase-delivery-audit-gate.test.js",
+      "exitCode": 0,
+      "transcript": "ℹ tests 49\nℹ suites 11\nℹ pass 49\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 166.058727\n",
+      "notes": "Did not weaken deliveryAuditAllowsClose: honest CLOSED without graph still fails (49/49 includes that case). Allow fixtures inject planPath + flowDoc at ratifiedGraphSha + one faz line per machine and xor. B1 review-open cases inject the same graph so the first failing gate is still phase-done-review-open. Product change: checkPhaseDoneDeliveryAudit now forwards graph fields (tests could not inject otherwise). Self-check: lifecycle-order-guard 41/41, decision-review-gate 28/28, implement-phase-agents-contract 13/13. tests/automate-orchestrator-gates.test.js still has 4 pre-existing spawn fails (missing/invalid validated flow on fixtures without stampValidFlowOnPlan); left untouched, not an F4-fix1 regression of the close-path graph load."
+    }
+  ]
+}

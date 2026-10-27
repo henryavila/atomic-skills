@@ -353,6 +353,28 @@ describe('validateDecisionEntry', () => {
       /secret shape/,
     );
   });
+
+  it('persists said and saw when both are present', () => {
+    const e = validateDecisionEntry(
+      baseEntry({
+        said: 'the third review still has a major',
+        saw: 'travei on the same origin',
+      }),
+    );
+    assert.equal(e.said, 'the third review still has a major');
+    assert.equal(e.saw, 'travei on the same origin');
+  });
+
+  it('rejects empty said or saw when the property is present', () => {
+    assert.throws(
+      () => validateDecisionEntry(baseEntry({ said: '   ', saw: 'visible' })),
+      /said/,
+    );
+    assert.throws(
+      () => validateDecisionEntry(baseEntry({ said: 'spoken', saw: '' })),
+      /saw/,
+    );
+  });
 });
 
 describe('appendDecision + listDecisions', () => {
@@ -406,6 +428,25 @@ describe('appendDecision + listDecisions', () => {
     const listed = listDecisions(locator());
     assert.equal(listed.length, 1);
     assert.equal(listed[0].decision, 'use JSONL not markdown table');
+  });
+
+  it('appends said and saw onto the JSONL line', () => {
+    const result = appendDecision(locator('said-saw'), {
+      category: 'tradeoff',
+      decision: 'serve the final page over HTTP',
+      why: 'file:// is not the habit',
+      impact: 'button can write userValidatedAt',
+      said: 'open serve-flow --up',
+      saw: 'http://127.0.0.1 preview, not file://',
+      at: '2026-10-02T12:00:00.000Z',
+      id: 'ss-1',
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.entry.said, 'open serve-flow --up');
+    assert.equal(result.entry.saw, 'http://127.0.0.1 preview, not file://');
+    const parsed = JSON.parse(readFileSync(result.path, 'utf8').trim());
+    assert.equal(parsed.said, 'open serve-flow --up');
+    assert.equal(parsed.saw, 'http://127.0.0.1 preview, not file://');
   });
 
   it('appends multiple entries and filters by category', () => {
