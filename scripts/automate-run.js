@@ -11,10 +11,13 @@
  */
 
 import {
+  closeSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
+  readSync,
   renameSync,
   realpathSync,
   rmSync,
@@ -765,9 +768,53 @@ function parseReportText(text) {
   if (typeof text !== 'string') throw new Error('review transport lacks structured report text');
   try {return JSON.parse(text);} catch {throw new Error('review report text must be structured JSON');}
 }
+// Kernel shebangs split on the first space. An interpreter under a path such
+// as "Application Support" is ENOENT: status null, empty stderr, no envelope.
+function shebangArgv(file) {
+  let fd;
+  try {
+    fd = openSync(file, 'r');
+    const buf = Buffer.alloc(2048);
+    const n = readSync(fd, buf, 0, buf.length, 0);
+    const text = buf.toString('utf8', 0, n);
+    if (!text.startsWith('#!')) return null;
+    const nl = text.indexOf('\n');
+    const line = (nl === -1 ? text : text.slice(0, nl)).slice(2).replace(/\r$/, '').trim();
+    if (!line) return null;
+    if (existsSync(line)) return [line, file];
+    const space = line.indexOf(' ');
+    if (space <= 0) return null;
+    const interpreter = line.slice(0, space);
+    const rest = line.slice(space + 1).trim();
+    if (!existsSync(interpreter)) return null;
+    return rest ? [interpreter, rest, file] : [interpreter, file];
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) {
+      try { closeSync(fd); } catch { /* ignore */ }
+    }
+  }
+}
+function spawnReviewCli(bin, argv, options) {
+  const execution = spawnSync(bin, argv, options);
+  if (execution.error?.code !== 'ENOENT' || !existsSync(bin)) return execution;
+  const relaunch = shebangArgv(bin);
+  if (!relaunch) return execution;
+  const [interpreter, ...prefix] = relaunch;
+  return spawnSync(interpreter, [...prefix, ...argv], options);
+}
 function parseReviewResult(result) {
-  if (!result || result.status !== 0) throw new Error(`review process failed: ${result?.stderr || 'missing process receipt'}`);
-  const body = finalReviewReport(result.stdout);
+  if (!result) throw new Error('review process failed: missing process receipt');
+  // A final envelope is transport success. Reject the report contract after
+  // decoding it; do not report that envelope as a failed process.
+  let body;
+  try {
+    body = finalReviewReport(result.stdout);
+  } catch (error) {
+    if (result.status !== 0) throw new Error(`review process failed: ${result.stderr || 'missing process receipt'}`);
+    throw error;
+  }
   if (!body || typeof body !== 'object' || Array.isArray(body)
       || !['PASSED','CLOSED','PARTIAL','OPEN'].includes(body.verdict) || !Array.isArray(body.findings)) throw new Error('review output missing verdict or findings');
   if (body.findings.some(f => !f || typeof f !== 'object' || Array.isArray(f)
@@ -959,7 +1006,7 @@ export async function runPlanEndWorkflow(input) {
       }
       else if(provider==='grok') {const promptPath=join(dirname(plan),`automate-${request.stage}-review-prompt.txt`);writeFileSync(promptPath,prompt);argv=['--prompt-file',promptPath,'--sandbox','read-only','--no-memory','--output-format','json','--json-schema',JSON.stringify(REVIEW_OUTPUT_SCHEMA)];}
       else argv=['-p','--output-format','json','--json-schema',JSON.stringify(REVIEW_OUTPUT_SCHEMA),'--permission-mode','dontAsk','--tools','Read,Grep,Glob'];
-      const execution = spawnSync(bin,argv,{cwd:root,encoding:'utf8',input:prompt,timeout:120000});
+      const execution = spawnReviewCli(bin,argv,{cwd:root,encoding:'utf8',input:prompt,timeout:120000});
       return {...execution,command:bin,argv};
     };
     const localProvider=input.host==='claude-code'?'claude':input.host;
