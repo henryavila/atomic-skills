@@ -53,7 +53,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
-import { dirname, join, resolve, sep } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { parse as parseYaml, parseDocument } from 'yaml';
 import { EXTERNAL_PROVIDER_ORDER } from './cross-model-host-default.js';
 import { INTENT_VS_DELIVERED_STATUSES } from './plan-end-intent-surface.js';
@@ -504,11 +504,38 @@ function isLifecyclePrReference(ref) {
   } catch {return false;}
 }
 
+/**
+ * Same path after symlink resolution. macOS tmpdir() is /var, a symlink of
+ * /private/var; product identity realpaths the git toplevel first. A file that
+ * does not exist yet uses the realpath of the nearest existing parent.
+ */
+function canonicalOwnedPath(filePath) {
+  const resolved = resolve(filePath);
+  try {
+    return realpathSync(resolved);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') return resolved;
+  }
+  const missing = [];
+  let current = resolved;
+  while (current !== dirname(current)) {
+    const parent = dirname(current);
+    missing.push(basename(current));
+    try {
+      return join(realpathSync(parent), ...missing.reverse());
+    } catch (error) {
+      if (error?.code !== 'ENOENT') return resolved;
+    }
+    current = parent;
+  }
+  return resolved;
+}
+
 /** Exact files owned by this plan's runner, shared with publication dirty checks. */
 export function isOwnedOperationalPath(planPath, filePath, repoRoot) {
-  const file = resolve(filePath);
-  const stateRoot = resolve(repoRoot, '.atomic-skills');
-  if (file === stateRoot || file.startsWith(stateRoot + sep) || file === resolve(planPath)) return true;
+  const file = canonicalOwnedPath(filePath);
+  const stateRoot = canonicalOwnedPath(resolve(repoRoot, '.atomic-skills'));
+  if (file === stateRoot || file.startsWith(stateRoot + sep) || file === canonicalOwnedPath(planPath)) return true;
   const names = [
     'automate-run-state.json', 'automate-plan-end-review.json', 'final-validation.json',
     'automate-pr-body.txt', 'automate-review-output.schema.json', 'decisions/operator-stops.jsonl',
@@ -519,8 +546,9 @@ export function isOwnedOperationalPath(planPath, filePath, repoRoot) {
       names.push(`automate-${stage}-review-${round}.json`, `automate-${stage}-fix-${round}-prompt.txt`);
     }
   }
-  return names.some(name => file === resolve(dirname(planPath), name)
-    || file === resolve(dirname(planPath), name + '.tmp'));
+  const planDir = dirname(planPath);
+  return names.some(name => file === canonicalOwnedPath(resolve(planDir, name))
+    || file === canonicalOwnedPath(resolve(planDir, name + '.tmp')));
 }
 
 /** Replace only this YAML field, retaining unrelated metadata and body bytes. */
