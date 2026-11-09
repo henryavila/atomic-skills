@@ -56,6 +56,7 @@ fi
 # REVIEW_MODEL_ID must be empty or pass isSafeReviewModelId (slug-shaped).
 # Briefing channel: prompt argument via -p "$(cat <BRIEFING_PATH>)"
 run_with_timeout <TIMEOUT_SECONDS> agy \
+  --dangerously-skip-permissions \
   -p "$(cat <BRIEFING_PATH>)" \
   ${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"} \
   --effort high \
@@ -70,6 +71,7 @@ run_with_timeout <TIMEOUT_SECONDS> agy \
 | Flag | Why |
 |------|-----|
 | `run_with_timeout <N>` | External kill. Portable across Linux/macOS/WSL. |
+| `--dangerously-skip-permissions` | Headless must not prompt. Without this flag `agy -p` asks for permission and the sealed envelope hangs. |
 | `-p "$(cat <BRIEFING_PATH>)"` | Headless one-shot execution. Injects sealed briefing without interactive TUI. |
 | `--effort high` | High reasoning effort for adversarial review (flash models do not support max). |
 | `--sandbox` | Run in sandbox with terminal restrictions enabled. Reviewer must not mutate workspace. |
@@ -80,6 +82,7 @@ run_with_timeout <TIMEOUT_SECONDS> agy \
 
 ## DO NOT
 
+- DO NOT omit `--dangerously-skip-permissions` — headless `agy` prompts and the review hangs.
 - DO NOT omit `--disable-slash-commands` — skills could inject framing.
 - DO NOT use `--mode accept-edits` — reviewer must be read-only.
 - DO NOT use `--effort max` — incompatible with Gemini Flash models.

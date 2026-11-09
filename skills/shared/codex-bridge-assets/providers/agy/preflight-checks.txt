@@ -25,7 +25,7 @@ Record the version string in the briefing metadata (for the audit trail).
 
 Auth probe:
 ```bash
-PROBE=$(agy -p "ping" --output-format text --disable-slash-commands 2>&1 || true)
+PROBE=$(agy --dangerously-skip-permissions -p "ping" --output-format text --disable-slash-commands 2>&1 || true)
 if echo "$PROBE" | grep -qiE "not signed in|Signing in|sign in"; then
   echo "ERROR: Antigravity CLI is not authenticated. Please run agy interactively to authenticate." >&2
   exit 1
