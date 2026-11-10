@@ -97,3 +97,4 @@
 | 2026-07-17 | plan | installer-hardening-p0-p1 | both→codex | needs_changes | 0B/3C/5M | .atomic-skills/reviews/2026-07-17-1816-installer-hardening-p0-p1-codex.md |
 | 2026-07-23 | implement-phase-agents branch ext-both | external-both | needs_changes | 0B/1C/9M/1m | .atomic-skills/reviews/implement-phase-agents-branch-external-both-2026-07-23-1227.md |
 | 2026-08-12 20:36 | [project-flow-design](2026-08-12-2036-project-flow-design.md) | plan | local | needs_changes | 0B/2C/5M/2m/0n | n/a (Codex abort: dirty tree) |
+| 2026-11-09 16:54 | [ide-symlink-root](2026-11-09-1654-ide-symlink-root.md) | code (both-agy) | needs_changes→fixed | 0B/2C/1M/0m/0n (agy final; blind 3C/2M/2m; local 2C/1M/1m) | 4d/3=/0+ |
