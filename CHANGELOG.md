@@ -49,7 +49,7 @@ Canonical human product docs: **https://atomic-skills.henryavila.com** (static s
 - **Slim README.** npm/GitHub envelope only: positioning, install, host tiers, compact skills table. Long skill blurbs and module essays live on the product docs site, not in README body regions.
 - **Engineering archive stays off the product site.** `docs/kb/`, `docs/design/`, plans, audits, and handoffs remain repo MD for agents and maintainers; they are not published as product pages. Generated per-skill Markdown under `docs/skills/` remains a secondary offline/GitHub view (site is the canonical human product surface).
 
-## [2.0.0] — 2026-05-23
+## [2.0.0] - 2026-05-23
 
 ### Removed
 
