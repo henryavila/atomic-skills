@@ -8,17 +8,6 @@ import { fileURLToPath } from 'node:url';
 import { install, installSkills, resolveProjectScopeTarget, installRuntimeArtifacts } from '../src/install.js';
 import { PUBLIC_IDE_IDS, getSkillPath } from '../src/config.js';
 
-/** Builds a throwaway @henryavila/aideck-shaped package dir (dist/cli.js +
- *  dist/client/index.html) so installRuntimeArtifacts can be exercised without
- *  the real published dependency on disk. */
-function fakeAideckPkg() {
-  const dir = mkdtempSync(join(tmpdir(), 'as-fake-aideck-'));
-  mkdirSync(join(dir, 'dist', 'client'), { recursive: true });
-  writeFileSync(join(dir, 'dist', 'cli.js'), 'export {}\n');
-  writeFileSync(join(dir, 'dist', 'client', 'index.html'), '<!doctype html><title>aideck</title>\n');
-  return dir;
-}
-
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const SKILLS_DIR = join(__dirname, '..', 'skills');
 const META_DIR = join(__dirname, '..', 'meta');
@@ -48,7 +37,7 @@ describe('installSkills', () => {
     // Repro: journal only owns a Grok path; disk has a stale Claude command from an
     // older install. Namespace leftover with frontmatter + known basename → adopt (P1-A).
     const { writeManifest } = await import('../src/manifest.js');
-    const rel = '.claude/commands/atomic-skills/project.md';
+    const rel = '.claude/commands/atomic-skills/hunt.md';
     mkdirSync(join(tempDir, '.claude/commands/atomic-skills'), { recursive: true });
     writeFileSync(
       join(tempDir, rel),
@@ -101,7 +90,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 133); // single IDE: core + shared assets (implement-phase-* + maestro/decision-log + foreign-plan + providers/claude) + auto-update
+    assert.strictEqual(result.files.length, 82); // single IDE: core + shared assets + auto-update
   });
 
   it('creates markdown files for antigravity skills under .agent/skills', () => {
@@ -154,15 +143,7 @@ describe('installSkills', () => {
     const hooks = JSON.parse(
       readFileSync(join(tempDir, '.grok/plugins/atomic-skills/hooks/hooks.json'), 'utf8'),
     );
-    // Soft envelope: SessionStart + PreToolUse; Stop is Strict-only (setup).
-    assert.ok(hooks.hooks?.SessionStart?.length >= 1, 'plugin Soft SessionStart');
-    assert.ok(hooks.hooks?.PreToolUse?.length >= 1, 'plugin Soft PreToolUse');
-    assert.equal(hooks.hooks?.Stop, undefined, 'plugin Soft must omit Stop');
-    assert.match(
-      hooks.hooks.PreToolUse[0].matcher || '',
-      /search_replace\|write/,
-      'PreToolUse matcher includes Grok write tools',
-    );
+    assert.deepEqual(hooks, { hooks: {} }, 'plugin hooks envelope is empty');
 
     // Grok auto-update SessionStart under .grok/hooks/ (D3) — not Claude settings.
     assert.ok(
@@ -230,7 +211,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
     assert.ok(existsSync(join(tempDir, '.claude/atomic-skills/_assets/connect.md')));
-    assert.strictEqual(result.files.length, 133); // core + shared assets (implement-phase-* + maestro/decision-log + foreign-plan + providers/claude) + auto-update hook
+    assert.strictEqual(result.files.length, 82); // core + shared assets + auto-update hook
     assert.ok(result.files.some((f) => f.source === 'core/init-memory'));
     assert.ok(result.files.some((f) => f.source === '_assets/memory-assets/connect.md'));
   });
@@ -297,7 +278,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.agent/skills/atomic-skills-fix/SKILL.md')));
-    assert.strictEqual(result.files.length, 265); // 2 IDEs + shared assets; antigravity has no namespace-root SKILL.md
+    assert.strictEqual(result.files.length, 163); // 2 IDEs + shared assets; antigravity has no namespace-root SKILL.md
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -373,7 +354,7 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    assert.strictEqual(result.files.length, 133);
+    assert.strictEqual(result.files.length, 82);
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -481,20 +462,20 @@ describe('installSkills', () => {
     const assetsDir = pjoin(projectDir, '.claude/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
-    // namespace assets: previous set + memory-assets/connect.md + implement-phase-* + maestro + decision-log + foreign-plan
-    assert.strictEqual(files.length, 93,
-      `expected 93 namespace asset entries (shared assets incl. connect.md + implement-phase-* + maestro/decision-log + foreign-plan), got ${files.length}: ${files.join(', ')}`);
     assert.ok(files.includes('connect.md'), '_assets/connect.md (from memory-assets) must be installed');
-    assert.ok(files.includes('implement-phase-writer.md'), '_assets/implement-phase-writer.md must be installed');
-    assert.ok(files.includes('implement-phase-evaluator.md'), '_assets/implement-phase-evaluator.md must be installed');
-    assert.ok(files.includes('implement-automate-maestro.md'), '_assets/implement-automate-maestro.md must be installed');
-    assert.ok(files.includes('implement-decision-log.md'), '_assets/implement-decision-log.md must be installed');
-    // F-001 guard: hooks subdir is now recursively installed (was previously dropped silently)
-    const hooksDir = pjoin(assetsDir, 'hooks');
-    assert.ok(existsSync(hooksDir), '_assets/hooks/ must exist');
-    for (const h of ['session-start.sh', 'stop.sh', 'pre-write.sh', 'config.json']) {
-      assert.ok(existsSync(pjoin(hooksDir, h)), `_assets/hooks/${h} must be installed`);
+    assert.ok(files.includes('verifier-exec.md'), '_assets/verifier-exec.md must be installed');
+    assert.ok(files.includes('ground-truth-review.md'), '_assets/ground-truth-review.md must be installed');
+    for (const gone of [
+      'implement-phase-writer.md',
+      'implement-automate-maestro.md',
+      'project-view.md',
+      'project-materialize.md',
+      'mode2-codex-lane.md',
+      'CLAUDE.md-gate.template.md',
+    ]) {
+      assert.equal(files.includes(gone), false, `${gone} must not be installed`);
     }
+    assert.equal(existsSync(pjoin(assetsDir, 'hooks')), false, 'project hooks must not be installed');
     // F2: nested provider leaves must install (recursive walk, not one-level only)
     assert.ok(files.includes('providers'), 'must include providers/ dir for cross-model leaves');
     assert.ok(
@@ -521,14 +502,8 @@ describe('installSkills', () => {
     assert.ok(files.includes('preflight-checks.txt'), 'must include codex-bridge asset');
     assert.ok(files.includes('host-default-external.md'), 'must include host-default-external matrix asset');
     assert.ok(files.includes('review-mode-ux.md'), 'must include review-mode-ux shared picker asset');
-    assert.ok(files.includes('CLAUDE.md-gate.template.md'), 'must include project-status asset');
-    assert.ok(files.includes('minimal-source.template.md'), 'must include project asset (minimal-source)');
-    assert.ok(files.includes('project-materialize.md'), 'must include project lazy detail (project-materialize)');
-    assert.ok(files.includes('project-view.md'), 'must include project lazy detail (project-view)');
     for (const helper of [
       'worktree-isolation.md',
-      'mode2-codex-lane.md',
-      'implement-antipatterns.md',
       'debug-techniques.md',
       'diff-capture.md',
       'briefing-template.txt',
@@ -539,49 +514,21 @@ describe('installSkills', () => {
 });
 
 describe('install command artifacts', () => {
-  it('stages the aideck launcher shim + client from the resolved published package', async () => {
+  it('writes package-root and does not stage a dashboard', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-install-home-'));
-    const aideckDir = fakeAideckPkg();
     const originalHome = process.env.HOME;
 
     try {
       process.env.HOME = fakeHome;
-      installRuntimeArtifacts({ aideckDir });
+      installRuntimeArtifacts();
 
-      const shim = join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs');
-      assert.ok(existsSync(shim), 'must write the launcher shim');
-      // The shim rewrites argv[1] to the resolved published cli, then imports
-      // it — so the CLI's `import.meta.url===pathToFileURL(argv[1])` guard fires.
-      const cliLit = JSON.stringify(join(aideckDir, 'dist', 'cli.js'));
-      const shimBody = readFileSync(shim, 'utf8');
-      assert.ok(shimBody.includes(`process.argv[1] = ${cliLit}`), 'shim must rewrite argv[1] to the cli');
-      assert.ok(shimBody.includes(`await import(${cliLit})`), 'shim must import the resolved cli');
-      assert.ok(
-        existsSync(join(fakeHome, '.atomic-skills', 'dashboard', 'index.html')),
-        'must copy the aideck client to the dashboard dir'
-      );
-    } finally {
-      if (originalHome === undefined) delete process.env.HOME;
-      else process.env.HOME = originalHome;
-      rmSync(fakeHome, { recursive: true, force: true });
-      rmSync(aideckDir, { recursive: true, force: true });
-    }
-  });
-
-  it('skips the aideck shim + client gracefully when the package is unresolved (pre-publish)', async () => {
-    const fakeHome = mkdtempSync(join(tmpdir(), 'as-install-home-'));
-    const originalHome = process.env.HOME;
-    try {
-      process.env.HOME = fakeHome;
-      // aideckDir: null mirrors the pre-publish / stripped-checkout reality.
-      assert.doesNotThrow(() => installRuntimeArtifacts({ aideckDir: null }));
-      assert.ok(!existsSync(join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs')), 'no shim without the package');
-      assert.ok(!existsSync(join(fakeHome, '.atomic-skills', 'dashboard')), 'no dashboard without the package');
-      // The consumer template + provisioner are staged from this package regardless.
-      assert.ok(
-        existsSync(join(fakeHome, '.atomic-skills', 'aideck-consumer', 'manifest.yaml')),
-        'consumer template still staged'
-      );
+      const marker = join(fakeHome, '.atomic-skills', 'package-root');
+      assert.ok(existsSync(marker), 'must write package-root');
+      assert.ok(readFileSync(marker, 'utf8').trim().length > 0);
+      assert.equal(existsSync(join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs')), false);
+      assert.equal(existsSync(join(fakeHome, '.atomic-skills', 'dashboard')), false);
+      assert.equal(existsSync(join(fakeHome, '.atomic-skills', 'aideck-consumer')), false);
+      assert.equal(existsSync(join(fakeHome, '.atomic-skills', 'src', 'provision-consumer.js')), false);
     } finally {
       if (originalHome === undefined) delete process.env.HOME;
       else process.env.HOME = originalHome;

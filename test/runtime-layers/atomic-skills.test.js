@@ -8,7 +8,6 @@ import { dirname, isAbsolute, join } from 'node:path';
 
 import { defineInstaller } from '@henryavila/minimalist-installer';
 import { createStageRuntimeArtifactsEffect } from '../../src/runtime-layers/effects/stage-runtime-artifacts.js';
-import { createAideckRuntimeProvider } from '../../src/runtime-layers/aideck.js';
 import {
   createAutoUpdateRuntimeProvider,
   GROK_AUTO_UPDATE_HOOK_REL,
@@ -99,36 +98,6 @@ function makeFixtures(root) {
 
   return { aideckDir, packageRoot, skillsDir };
 }
-
-test('aiDeck runtime layer — stages artifacts (binary-safe) and reverts to baseline via the journal', () => {
-  withTmp((root) => {
-    const { aideckDir, packageRoot } = makeFixtures(root);
-    const projectDir = join(root, 'install');
-    mkdirSync(projectDir, { recursive: true });
-
-    const installer = defineInstaller({
-      effects: [createStageRuntimeArtifactsEffect()],
-      providers: [createAideckRuntimeProvider()],
-      config: { manifestDir: '.atomic-skills', aideckDir, packageRoot },
-    });
-
-    installer.install({ projectDir });
-
-    const state = join(projectDir, '.atomic-skills');
-    assert.ok(existsSync(join(state, 'bin', 'aideck.mjs')), 'bin shim staged');
-    assert.ok(existsSync(join(state, 'dashboard', 'index.html')), 'dashboard staged');
-    assert.deepEqual(readFileSync(join(state, 'dashboard', 'logo.png')), BINARY, 'binary asset survives staging');
-    assert.ok(existsSync(join(state, 'aideck-consumer', 'manifest.yaml')), 'consumer template staged');
-    assert.ok(existsSync(join(state, 'src', 'provision-consumer.js')), 'provisioner staged');
-    assert.equal(readFileSync(join(state, 'package-root'), 'utf8'), packageRoot + '\n', 'package-root marker staged');
-
-    installer.uninstall({ projectDir });
-
-    for (const p of ['bin/aideck.mjs', 'dashboard', 'aideck-consumer', 'src/provision-consumer.js', 'package-root']) {
-      assert.ok(!existsSync(join(state, p)), `removed ${p} on uninstall`);
-    }
-  });
-});
 
 test('stageRuntimeArtifacts sourceTree refuses to replace a pre-existing non-owned directory', () => {
   withTmp((root) => {
@@ -584,27 +553,26 @@ test('auto-update runtime layer — claude+grok registers both surfaces', () => 
   });
 });
 
-test('runtime layers compose — both providers + custom effect in one defineInstaller round-trip', () => {
+test('runtime layers compose — auto-update provider + custom effect in one defineInstaller round-trip', () => {
   withTmp((root) => {
-    const { aideckDir, packageRoot, skillsDir } = makeFixtures(root);
+    const { skillsDir } = makeFixtures(root);
     const projectDir = join(root, 'install');
     mkdirSync(join(projectDir, '.claude'), { recursive: true });
     const settingsPath = join(projectDir, '.claude', 'settings.json');
 
     const installer = defineInstaller({
       effects: [createStageRuntimeArtifactsEffect()],
-      providers: [createAideckRuntimeProvider(), createAutoUpdateRuntimeProvider()],
-      config: { manifestDir: '.atomic-skills', aideckDir, packageRoot, skillsDir },
+      providers: [createAutoUpdateRuntimeProvider()],
+      config: { manifestDir: '.atomic-skills', skillsDir },
     });
 
     installer.install({ projectDir });
     const state = join(projectDir, '.atomic-skills');
-    assert.ok(existsSync(join(state, 'bin', 'aideck.mjs')), 'aiDeck staged');
+    assert.equal(existsSync(join(state, 'bin', 'aideck.mjs')), false, 'dashboard launcher is not staged');
     assert.ok(existsSync(join(state, 'hooks', 'version-check.sh')), 'hook staged');
     assert.ok(existsSync(settingsPath), 'settings.json created');
 
     installer.uninstall({ projectDir });
-    assert.ok(!existsSync(join(state, 'bin', 'aideck.mjs')), 'aiDeck removed');
     assert.ok(!existsSync(join(state, 'hooks', 'version-check.sh')), 'hook removed');
     // installer created settings.json from scratch; jsonMerge revert empties + removes it.
     assert.ok(!existsSync(settingsPath), 'installer-created settings.json removed on uninstall');

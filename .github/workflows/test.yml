@@ -30,7 +30,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: node -p "process.version"
-      - run: node --test tests/windows-installer-platform.test.js tests/windows-path-contract.test.js tests/multiplatform-contract.test.js tests/antigravity-contract.test.js tests/install-uninstall-roundtrip.test.js tests/validate-state.test.js tests/normalize.test.js
+      - run: node --test tests/windows-installer-platform.test.js tests/multiplatform-contract.test.js tests/antigravity-contract.test.js tests/install-uninstall-roundtrip.test.js
 
   # Multi-platform install contract: force path-nofollow backend on Linux so
   # /proc/self/fd regressions fail here instead of only on macOS hosts.

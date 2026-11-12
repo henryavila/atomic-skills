@@ -105,7 +105,7 @@ function probeLayout(hostId) {
   const projectDir = mkdtempSync(join(tmpdir(), 'as-host-probe-proj-'));
   process.env.HOME = home;
   process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = '1';
-  const skillRel = getSkillPath(hostId, 'project');
+  const skillRel = getSkillPath(hostId, 'fix');
   try {
     installSkills(projectDir, {
       language: 'en',

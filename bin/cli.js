@@ -15,9 +15,6 @@ try {
       json: { type: 'boolean', default: false },
       'all-detected': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
-      port: { type: 'string' },
-      'aideck-bin': { type: 'string' },
-      demo: { type: 'boolean', default: false },
       repair: { type: 'boolean', default: false },
       'force-incomplete': { type: 'boolean', default: false },
       'force-adopt': { type: 'boolean', default: false },
@@ -39,7 +36,6 @@ if (values.help || !command) {
     npx @henryavila/atomic-skills detect     [--project] [--json]
     npx @henryavila/atomic-skills status     [--project]
     npx @henryavila/atomic-skills uninstall  [--yes] [--project] [--force-incomplete]
-    npx @henryavila/atomic-skills serve      [--demo] [--port <N>] [--aideck-bin <path>]
 
   Options:
     --yes, -y         Non-interactive: (install) accept auto-detected defaults;
@@ -59,15 +55,8 @@ if (values.help || !command) {
                       install is stuck incomplete; routes to the incomplete scope;
                       writes a residual recovery ledger (never hand-edit manifest JSON);
                       exits non-zero if reverse fails or incomplete is retained
-    --demo            (serve) Stage demo fixtures (a sample plan + initiative)
-                      in a tmp dir and serve from there. Useful for first
-                      look without bootstrapping your own .atomic-skills/.
-    --port <N>        (serve) Port for the aideck backend (default 7777)
-    --aideck-bin <p>  (serve) Path to aideck binary or its dist/cli.js. Default: probes
-                      $AIDECK_BIN, installed launcher shim, the @henryavila/aideck
-                      package, ../aideck/dist/cli.js, then PATH lookup of "aideck"
 
-  Docs: https://github.com/henryavila/atomic-skills
+    Docs: https://github.com/henryavila/atomic-skills
   `);
 } else if (command === 'install') {
   if (values.ide && values['all-detected']) {
@@ -125,13 +114,6 @@ if (values.help || !command) {
 } else if (command === 'status') {
   const { status } = await import('../src/status.js');
   status(process.cwd(), { forceProject: values.project });
-} else if (command === 'serve') {
-  const { serve } = await import('../src/serve.js');
-  await serve({
-    port: values.port,
-    aideckBin: values['aideck-bin'],
-    demo: values.demo,
-  });
 } else {
   console.error(`  Unknown command: ${command}. Run with --help for usage.`);
   process.exit(1);

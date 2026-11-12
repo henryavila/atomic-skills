@@ -8,7 +8,7 @@ The failure this prevents is premature convergence — locking onto the first wo
 
 ## Purpose
 
-Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. Multi-phase always runs B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write + `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under `brainstorm-assets/`). Section lint requires Context, Non-goals, Interview, Decisions, and Chosen approach on every design (Blast radius migration-only). The head of the lifecycle chain that `project new plan` decomposes.
+Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. Multi-phase always runs B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write + `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under `brainstorm-assets/`). Section lint requires Context, Non-goals, Interview, Decisions, and Chosen approach on every design (Blast radius migration-only). The deliverable is the approved design.
 
 ## Usage
 
@@ -39,7 +39,7 @@ Drive an open idea to a committed, section-linted, critic-approved design.md —
 
 **Dependencies:** `git`
 
-**Related:** `debate`, `project`, `review-plan`
+**Related:** `debate`, `review-plan`
 
 **Tags:** `design`, `brainstorming`, `lifecycle`, `core`
 

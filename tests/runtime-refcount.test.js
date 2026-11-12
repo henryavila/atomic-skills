@@ -77,8 +77,8 @@ describe('package-root record for hook detector resolution (F-002)', () => {
         assert.ok(existsSync(rec), 'package-root recorded on install');
         const pkgRoot = readFileSync(rec, 'utf8').trim();
         assert.ok(
-          existsSync(join(pkgRoot, 'scripts', 'detect-completion.js')),
-          'recorded package-root resolves the detector (with its node_modules)',
+          existsSync(join(pkgRoot, 'package.json')),
+          'recorded package-root is this package (scripts resolve with its node_modules)',
         );
 
         removeRuntimeArtifacts();

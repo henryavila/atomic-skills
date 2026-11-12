@@ -1,7 +1,6 @@
 Perform an adversarial analysis of the plan {{ARG_VAR}} looking for
 internal errors, gaps, and inconsistencies. Step 0 picks a mode: `local`,
-`ground-truth` (plan↔code premises + silent-code impacts — **required before
-implement**), `codex`, `grok`, `claude`, `agy`, `both` (local→**host external default**),
+`ground-truth` (plan↔code premises + silent-code impacts), `codex`, `grok`, `claude`, `agy`, `both` (local→**host external default**),
 `both-codex`, `both-grok`, `both-claude`, `both-agy`, or `external-both`. Full mode table,
 host-aware picker, and same-family rules: {{READ_TOOL}}
 `skills/shared/codex-bridge-assets/review-mode-ux.md` (routing:
@@ -73,15 +72,14 @@ whitespace. Do NOT pass unparsed {{ARG_VAR}} to {{READ_TOOL}} (avoids
 Before Step 0b, resolve `plan_path` (a file path | a plan **slug** | empty =
 the active plan) into a real `plan.md` via the 4-step ladder (readable file →
 slug → active plan → abort) in {{READ_TOOL}}
-`skills/shared/project-assets/review-plan-target-resolution.md`, mirroring the
-router's `## Initial detection`. Do NOT re-implement plan discovery here.
+`skills/shared/review-plan-assets/review-plan-target-resolution.md`.
+Do NOT re-implement plan discovery here.
 
 **Non-interactive abort.** If neither a TTY nor an explicit `--mode=` flag
-is available (hook, `parallel-dispatch`, or `project-status`/`project-plan`
-loop), abort with: "review-plan invoked without TTY and without `--mode=`;
+is available (hook or `parallel-dispatch`), abort with: "review-plan invoked without TTY and without `--mode=`;
 pass `--mode=local|ground-truth|codex|grok|claude|agy|both|both-codex|both-grok|both-claude|both-agy|external-both`
 explicitly." Do NOT invoke {{ASK_USER_QUESTION_TOOL}} in background.
-Workflows that loop over plans (e.g. `project-plan` Stage 8) MUST pass an
+Workflows that loop over plans MUST pass an
 explicit mode (`--mode=local` / `--mode=ground-truth` / external) to skip the prompt.
 
 ## Step 0a — Pick review mode + same-family route
@@ -168,7 +166,7 @@ and ask the user how to resolve it. DO NOT edit artifacts.
 ## Step 0c — Auto-discover initiative files
 
 Skip this step entirely if `--no-initiatives` was supplied. Otherwise
-{{READ_TOOL}} `skills/shared/project-assets/plan-initiative-depth.md` § *Step 0c*
+{{READ_TOOL}} `skills/shared/review-plan-assets/plan-initiative-depth.md` § *Step 0c*
 and follow it to build `initiative_map` (`phaseId → { path, slug, title, tasks[],
 exitGates[], scope? }`) from the plan's `phases:`. When `initiative_map` is
 non-empty, the **Initiative HARD-GATE** below and the **initiative-depth checks
@@ -198,15 +196,14 @@ Resolve route first (Step 0a). Then Step 0b → cross-ref (skipped for
 
 **Specialized review type** (not a subset of “internal consistency”). Owns
 plan↔code Directions A+B only. Full procedure:
-{{READ_TOOL}} `skills/shared/project-assets/ground-truth-review.md`.
+{{READ_TOOL}} `skills/shared/review-plan-assets/ground-truth-review.md`.
 
 1. {{READ_TOOL}} the plan; when `initiative_map` non-empty, {{READ_TOOL}} each
    initiative (task descriptions / paths are the premise source).
 2. Run **items 21–22 only** (do **not** run items 1–20, cross-ref, or external).
 3. Apply plan fixes for critical/significant phantom premises and undisposed
    direct impacts (never edit initiative files — Initiative HARD-GATE).
-4. **Persist** (required — what `implement`, Stage 8c, and `assert-automate-gate
-   --gate spawn` check):
+4. **Persist** (required — the receipt this mode's detector checks):
    - `## Ground-truth review` section with **content floor**: Status +
      `**Scanned:**` + ### A + ### B (table rows or explicit none) + `**Counts:**`
    - Under `## Reviews`, write/refresh (idempotent by prefix):
@@ -231,7 +228,7 @@ Run **Self-loop checklist** (below). Ground-truth (21–22) is **not** part of
 Flow A — use Flow E (`--mode=ground-truth`) so the receipt is attributable.
 After a clean local pass, if `find-plans-missing-ground-truth.js` is non-zero,
 announce: "Ground-truth receipt missing — run
-`atomic-skills:review-plan --mode=ground-truth <plan>` before implement."
+`atomic-skills:review-plan --mode=ground-truth <plan>`."
 END.
 
 ### Flow B — external only (`mode ∈ {codex, grok, claude, agy}` after route stays external)
@@ -306,7 +303,7 @@ verified.
 
 When `initiative_map` is non-empty, ADDITIONALLY run the **7 initiative-depth
 checks (items 14-20)** — they live in
-`skills/shared/project-assets/plan-initiative-depth.md` § *Initiative-depth
+`skills/shared/review-plan-assets/plan-initiative-depth.md` § *Initiative-depth
 checks*. {{READ_TOOL}} that section and run each, citing line numbers from BOTH
 the plan file AND the relevant initiative file(s) (`plan.md:L42 ↔ init-f0.md:L18`).
 If a finding is initiative-only, cite the initiative `file:line` but reference the
@@ -325,7 +322,7 @@ Not part of the local self-loop. Run only under **Flow E**. Checklist body:
     direct/indirect impact; require disposition (task/gate/oos/accepted).
 
 Full procedure + empty-repo rules + section template:
-{{READ_TOOL}} `skills/shared/project-assets/ground-truth-review.md`.
+{{READ_TOOL}} `skills/shared/review-plan-assets/ground-truth-review.md`.
 
 ### Iteration (Flow A / local leg of both* — items 1–20 only)
 
@@ -467,7 +464,7 @@ skipping is forbidden.
 - "I'll edit the initiative file to fix this task" (initiative-depth — HARD-GATE violation)
 - "The initiative file is too long, I'll skim the tasks" (initiative-depth)
 - "Repo has no code / is greenfield — skip ground-truth" (still write complete-empty-repo + A/B none)
-- "Internal receipt is enough for implement" (implement requires Flow E receipt: `- ground-truth:` + section)
+- "Internal receipt is enough for ground-truth" (Flow E receipt is `- ground-truth:` + the section)
 - "I'll fold ground-truth into --mode=internal so I only run one mode" (use `--mode=ground-truth` — attributable receipt)
 - "I'll only put ground-truth in chat / reviews/*.md" (plan body section + Reviews line are the gate)
 
@@ -490,16 +487,16 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "External will figure it out from context" | Sealed envelope: facts only |
 | "The local pass already fixed everything, external is a formality" (both*) | Empirically family-different reviewers catch disjoint findings — see [arXiv 2603.12123](https://arxiv.org/abs/2603.12123) |
 | "The tasks obviously deliver what the gate requires" (initiative-depth) | Prove with task description ↔ gate description cross-reference |
-| "I'll fix the initiative file directly, it's faster" (initiative-depth) | HARD-GATE: never edit initiative files — record finding, fix via project-status |
+| "I'll fix the initiative file directly, it's faster" (initiative-depth) | HARD-GATE: never edit initiative files — record the finding |
 | "subPhaseCount is just metadata, mismatch doesn't matter" (initiative-depth) | Mismatch means plan and initiative diverged — one is wrong |
-| "Empty repo — skip ground-truth" | Write complete-empty-repo with scan evidence; implement blocks without it |
+| "Empty repo — skip ground-truth" | Write complete-empty-repo with scan evidence |
 | "Internal review already ran, ground-truth is optional" | Different axis; run `--mode=ground-truth` (Flow E); detector is independent of `- internal:` |
-| "Ground-truth is just part of local mode" | Flow E is a specialized type; Stage 8 and implement attribute the `- ground-truth:` line to it |
+| "Ground-truth is just part of local mode" | Flow E is a specialized type; the `- ground-truth:` line belongs to it |
 
 ## Closing
 
 The review output uses the `### Analysis Summary` template in
-`skills/shared/project-assets/plan-initiative-depth.md` § *Closing template*.
+`skills/shared/review-plan-assets/plan-initiative-depth.md` § *Closing template*.
 {{READ_TOOL}} it and present the summary in that format — include
 **Provider:** `codex|grok|claude|agy|local` from the route (never codex/grok after
 same-family remap). Sections marked `(local/both*)` / `(external)` apply

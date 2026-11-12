@@ -80,18 +80,13 @@ Prove **what was promised is present in the running system** (code + ops surface
 |-----------|-------------|
 | Review a **diff** without product criteria | `atomic-skills:review-code` |
 | One claim + one deterministic command | `atomic-skills:verify-claim` |
-| Plan premises vs code before implement | `atomic-skills:review-plan --mode=ground-truth` |
-| Plan-end lifecycle inventory only (`intentVsDelivered`) | Plan-end under automate finalize — **not** a substitute on phase close |
+| Plan premises vs code | `atomic-skills:review-plan --mode=ground-truth` |
 | Parallel-dispatch WP / fan-out hygiene | `atomic-skills:parallel-dispatch-audit` |
 | No decisions / handoff yet | `atomic-skills:brainstorm` or write the handoff first |
 
-**Phase close is hard:** every `phase-done` (Mode-1 + pure-maestro) **requires** a real `audit-delivery` run and durable `deliveryAuditGate` — never tip-only, never skippable. Plan-end `intentVsDelivered` is **not** a substitute.
-
-**Flow graph (HARD):** read `flow/flow.json` at `ratifiedGraphSha`. Refuse a divergent sha. Emit **one line per machine and per xor** with `faz` | `pela metade` | `não faz`. Where `businessIntent` disagrees with the graph, **the graph wins**. A missing xor/machine line fails. The final page / `userValidatedAt` button does **not** substitute this gate. A cited `flow/flow.json` path that is missing, empty, or escaped is an issue (never treat exists=false as pass). Phase-done (`deliveryAuditAllowsClose` / `canRunPhaseDone` / `assert-automate-gate --gate phase-done`) **loads** `flow/flow.json` at `ratifiedGraphSha` even when the caller did not inject the graph; an honest CLOSED stamp without graph coverage fails under automate.
-
 ```text
 review-code → PATCH correct? (intent FORBIDDEN)
-audit-delivery → INTENT delivered? (intent REQUIRED) — hard on phase-done
+audit-delivery → INTENT delivered? (intent REQUIRED)
 verify-claim → THIS verifier pass? (binary)
 ```
 
@@ -216,7 +211,7 @@ Bound by `docs/kb/code-quality-gates.md`: **G1**, **G2**, **G6** (fix agents als
 - "PARTIAL is good enough for CLOSED if handoff said shipped"
 - "Docs/MCP don't count" / "Fix agent said done — skip reaudit"
 - "One more fix round after plateau" / invent decisions not in the package
-- "Plan-end intentVsDelivered ⇒ skip audit-delivery on phase-done"
+- "A prose summary of intent is this audit"
 - "Light depth ⇒ CLOSED with CRITICAL" / "RESOLVED with one hop and stages still ?"
 
 If you thought any of the above: STOP. Return to the phase you were skipping.

@@ -544,7 +544,7 @@ export function renderProjectGuidePage({ guide }) {
   const lede = typeof g.lede === 'string' ? g.lede.trim() : '';
   const oneLiner = typeof g.one_liner === 'string' ? g.one_liner.trim() : '';
   const iron = typeof g.iron_law === 'string' ? g.iron_law.trim() : '';
-  const prefix = typeof g.prefix === 'string' ? g.prefix.trim() : '/atomic-skills:project';
+  const prefix = typeof g.prefix === 'string' ? g.prefix.trim() : '';
   const stateRoot =
     typeof g.state_root === 'string' ? g.state_root.trim() : '.atomic-skills/';
   const entities = Array.isArray(g.entities) ? g.entities : [];

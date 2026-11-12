@@ -52,8 +52,8 @@ describe('installed runtime closure', () => {
 
     for (const helper of [
       'worktree-isolation.md',
-      'mode2-codex-lane.md',
-      'implement-antipatterns.md',
+      'verifier-exec.md',
+      'ground-truth-review.md',
       'debug-techniques.md',
       'diff-capture.md',
       'briefing-template.txt',
@@ -81,17 +81,15 @@ describe('installed runtime closure', () => {
       metaDir: META_DIR,
       scope: 'project',
     });
-    const project = files.find(
-      (f) => f.path === '.grok/plugins/atomic-skills/skills/project/SKILL.md',
+    const release = files.find(
+      (f) => f.path === '.grok/plugins/atomic-skills/skills/release/SKILL.md',
     );
-    assert.ok(project, 'expected grok project SKILL.md in file set');
+    assert.ok(release, 'expected grok release SKILL.md in file set');
     assert.match(
-      project.content,
-      /^---\nname: project\ndescription: '[\s\S]*?'\nargument-hint: '\[status\|/m,
-      'Grok project skill must advertise subcommands via argument-hint',
+      release.content,
+      /^---\nname: release\ndescription: '[\s\S]*?'\nargument-hint: '\[plan\|apply\|ship\|adopt\]'/m,
+      'Grok release skill must advertise subcommands via argument-hint',
     );
-    // Catalog-curated prefix (grammar order); full list lives in subcommands[].
-    assert.match(project.content, /argument-hint: '\[status\|help\|verify\|/);
   });
 
   it('recurses through arbitrary asset depth without flattening nested paths', (t) => {
@@ -230,6 +228,7 @@ describe('installed runtime closure', () => {
     const paths = new Set(manifest.files.map((file) => file.path));
 
     assert.ok(paths.has('scripts/validate-runtime-closure.js'));
-    assert.ok(paths.has('docs/design/project-onboarding/index.html'));
+    assert.equal(paths.has('docs/design/project-onboarding/index.html'), false);
+    assert.equal([...paths].some((p) => p.includes('aideck')), false);
   });
 });

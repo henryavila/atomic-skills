@@ -96,29 +96,14 @@ describe('renderTemplate', () => {
   });
 
   it('renders ide.grok conditionals from hot skill bodies', () => {
-    const implement = readFileSync(join(process.cwd(), 'skills/core/implement.md'), 'utf8');
     const parallel = readFileSync(join(process.cwd(), 'skills/core/parallel-dispatch.md'), 'utf8');
-    const project = readFileSync(join(process.cwd(), 'skills/core/project.md'), 'utf8');
 
-    assert.match(implement, /\{\{#if ide\.grok\}\}/);
     assert.match(parallel, /\{\{#if ide\.grok\}\}/);
-    assert.match(project, /\{\{#if ide\.grok\}\}/);
-
-    const implGrok = renderTemplate(implement, {}, 'grok');
-    const implClaude = renderTemplate(implement, {}, 'claude-code');
-    assert.match(implGrok, /spawn_subagent/);
-    assert.doesNotMatch(
-      implClaude,
-      /Prefer one focused read-only subagent unless the host clearly supports parallel spawn/,
-    );
 
     const parGrok = renderTemplate(parallel, {}, 'grok');
-    assert.match(parGrok, /spawn_subagent.*\(explore\)/);
-    assert.match(parGrok, /custom plugin agent types/);
-
-    const projGrok = renderTemplate(project, {}, 'grok');
-    assert.match(projGrok, /ask_user_question/);
-    assert.match(projGrok, /fail-open/);
+    const parClaude = renderTemplate(parallel, {}, 'claude-code');
+    assert.match(parGrok, /spawn_subagent/);
+    assert.doesNotMatch(parClaude, /spawn_subagent/);
   });
 
   it('substitutes ASSETS_PATH for claude-code IDE', () => {
@@ -274,29 +259,6 @@ describe('renderForIDE', () => {
     const toml = renderForIDE('toml', 'fix', 'desc', 'body', { argumentHint: '[x]' });
     assert.ok(!toml.includes('argument-hint'));
     assert.ok(!toml.includes('argument_hint'));
-  });
-
-  it('phase-writer spawn renders a write-capable shape on Claude, Codex, Antigravity, and Grok', () => {
-    const maestro = readFileSync(join(process.cwd(), 'skills/shared/implement-automate-maestro.md'), 'utf8');
-    const hosts = [
-      ['claude-code', /\bAgent\b/, [/spawn_subagent/, /invoke_subagent/, /spawn_agent/]],
-      ['codex', /spawn_agent/, [/spawn_subagent/, /invoke_subagent/]],
-      ['antigravity', /invoke_subagent/, [/spawn_subagent/, /spawn_agent/]],
-      ['grok', /spawn_subagent/, [/invoke_subagent/, /spawn_agent/]],
-    ];
-    for (const [ide, required, forbidden] of hosts) {
-      const rendered = renderTemplate(maestro, {}, ide);
-      assert.match(rendered, /write-capable phase writer/, `${ide} missing portable writer contract`);
-      assert.match(rendered, required, `${ide} missing its spawn tool`);
-      assert.match(rendered, /sealed brief/, `${ide} missing sealed brief`);
-      assert.doesNotMatch(rendered, /\{\{#if/);
-      for (const other of forbidden) {
-        assert.doesNotMatch(rendered, other, `${ide} leaked another host's spawn tool`);
-      }
-    }
-    assert.match(maestro, /plan direction/);
-    assert.match(maestro, /find-weak-business-intent/);
-    assert.match(maestro, /Do not re-ask/);
   });
 
   it('escapes single quotes in argument-hint (command + markdown)', () => {

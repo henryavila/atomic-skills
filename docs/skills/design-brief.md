@@ -36,7 +36,7 @@ Generate the two design prompts (Design System, then screens that consume the in
 
 ## Metadata
 
-**Related:** `brainstorm`, `project`
+**Related:** `brainstorm`
 
 **Tags:** `design`, `prompts`, `anti-contamination`, `core`
 

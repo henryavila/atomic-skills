@@ -1,12 +1,12 @@
 /*
  * Atomic Skills product docs — shared design-system tokens.
- * Extracted from docs/design/project-onboarding/index.html (aiDeck foundations).
+ * Shared tokens for the product docs site.
  * Dark default. Light via prefers-color-scheme or html[data-theme=light].
  * Site pages link this file; onboarding may keep its inline copy.
  */
 
 /* ─────────────────────────────────────────────────────────────────────
-   aiDeck Design System — Foundations (v2)
+   Product docs — Foundations (v2)
    Dark default. Light is a second palette on the same token names.
 
    Tokens are intentionally domain-agnostic — `status-success` not

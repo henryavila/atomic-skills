@@ -39,7 +39,7 @@ Verify a completion claim by executing its deterministic verifier and citing the
 
 **Dependencies:** `git`
 
-**Related:** `implement`, `fix`, `project`, `audit-delivery`
+**Related:** `fix`, `audit-delivery`
 
 **Tags:** `quality`, `verification`, `gate`, `core`
 

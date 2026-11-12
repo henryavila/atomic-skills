@@ -54,7 +54,7 @@ Prove product intent was delivered end-to-end across code and ops surfaces, with
 
 **Dependencies:** `git`
 
-**Related:** `review-code`, `verify-claim`, `review-plan`, `parallel-dispatch`, `parallel-dispatch-audit`, `fix`, `implement`
+**Related:** `review-code`, `verify-claim`, `review-plan`, `parallel-dispatch`, `parallel-dispatch-audit`, `fix`
 
 **Tags:** `review`, `quality`, `delivery`, `adversarial`, `core`
 

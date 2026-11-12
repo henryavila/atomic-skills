@@ -96,15 +96,12 @@ match logic, it defers to that module.
    per surface, never overwriting earlier entries. The persisted review file (Step
    "Persist") supplies `reviewFile`. **Do NOT unilaterally flip a project's
    `last-review.json` format:** where a project still keeps the legacy single-pointer
-   shape with pointer-readers not yet migrated (e.g. this repo — see `project-drift.md`'s
-   "State file" ⚠️ note), the record-back-write is deferred to that project's coordinated
-   lockstep flip; until then the skip-read above is the only active dedup effect (safe,
-   since a pointer reads as "nothing reviewed"). `recordReview` on a legacy pointer starts
+   shape, the record-back-write waits until that project migrates the pointer.
+   Until then the skip-read above is the only active dedup effect (safe, since a
+   pointer reads as "nothing reviewed"). `recordReview` on a legacy pointer starts
    a fresh ledger, so the flip happens the first time the write-back is enabled.
 
-This dedup is the code legs only (`review-code` local + external providers, and
-`review-due` → `project-drift.md`); the `project review` composer (Layer B) carries
-its own append-only run-record via a separate work-order, never written from here.
+This dedup is the code review ledger (`review-code` local + external providers).
 
 ---
 

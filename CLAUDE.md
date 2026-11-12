@@ -18,14 +18,6 @@ Para manter compatibilidade entre Claude Code, Antigravity e outros:
 3. **Renderização Condicional**: Use `{{#if ide.antigravity}}` ou `{{#if ide.claude-code}}` para instruções específicas.
 4. **Guia Completo**: Veja `docs/kb/antigravity-compatibility.md`.
 
-## Rastreamento de iniciativas
-
-Este repo tem a skill `atomic-skills:project` (router fino + detalhe lazy em `skills/shared/project-assets/`). Estado operacional canônico em `.atomic-skills/` é mantido via esta skill + hooks opcionais. Execute `atomic-skills:project` para setup na primeira vez, depois para operação durante desenvolvimento.
-
-Planos multi-fase usam materialização lazy: `new plan` cria o `plan.md`, materializa só a F0 e mantém F1..N como descritores até `atomic-skills:project materialize <phase>`. O contrato operacional, incluindo `descriptor-only` vs `materializada`, gate `businessIntent`, D9 como hipótese e D10 como non-goal, está em `docs/kb/project-lazy-materialization.md`.
-
-**Validated flow (Iron Law):** **NO IMPLEMENT WITHOUT VALIDATED FLOW**. Ready sem flow é legal. `process.yaml` nunca satisfaz. `implement` HARD-GATE no entry: `node "$PKG_ROOT/scripts/find-missing-flow.js" <plan.md> --strict` — exit 0 continua; non-zero REFUSE (instrua `atomic-skills:project flow`). Sem `operatorSkip`, sem chat waiver. Ad-hoc sem arquivo de plano = N/A. Ver `docs/kb/flow.md`.
-
 ## Install / Uninstall parity (HARD RULE)
 
 Every persistent mutation the installer (`src/install.js`) makes MUST have a
@@ -48,9 +40,9 @@ its reversal — that is the gate.
   untouched. Do NOT re-introduce a `.gitignore` mutation.
 
 **Out of install-parity scope (NOT an allowlist entry):**
-- `~/.aideck/` — the user's provisioned plans/initiatives. The installer never
-  creates it (it is provisioned lazily at runtime by the project skill), so it
-  is outside the parity contract entirely. The round-trip never sees it.
+- `~/.aideck/` — leftover user data from the removed dashboard. The installer
+  never creates it and `removeRuntimeArtifacts` never deletes it. The
+  round-trip never sees it.
 
 ## Testing & verification
 
@@ -85,17 +77,15 @@ express a conditional, refcounted, or cross-version-format reclaim):
 
 | Install action | Reversal |
 |---|---|
-| Runtime `~/.atomic-skills/{bin,dashboard,aideck-consumer,src,package-root}` | `removeRuntimeArtifacts` — reclaimed only when the LAST install leaves |
+| Runtime `~/.atomic-skills/package-root` (plus leftover aiDeck paths from older installs: `bin/aideck.mjs`, `dashboard/`, `aideck-consumer/`, `src/provision-consumer.js`) | `removeRuntimeArtifacts` — reclaimed only when the LAST install leaves |
 | Cross-install refcount `~/.atomic-skills/installs.json` | `registerInstall` ↔ `unregisterInstall` (returns remaining count; 0 → reclaim runtime) |
 | Legacy-namespace orphans at obsolete paths | `findLegacyOrphans`/`removeLegacyOrphans` (frontmatter safelist = the only ownership proof, P3) |
 | Grok host plugin registry (`grok plugin install --trust` → snapshot under `~/.grok/installed-plugins/`) | `unregisterGrokPluginHost` (`grok plugin uninstall atomic-skills`) before journal reverse — fail-open if `grok` missing; package tree itself is journal-owned under `.grok/plugins/atomic-skills/` (outside Codex `.agents/`). Re-register **uninstalls+installs** (not `plugin update`) so the host snapshot re-copies `argument-hint` and other re-renders |
 | Grok foreign-skills isolation (`~/.grok/config.toml` → `[skills].ignore` for `~/.agents|cursor|claude…/atomic-skills`) | `applyGrokAgentsIsolation` on install / `revertGrokAgentsIsolation` on uninstall (refcount: keep while any other install still lists `grok`) — stops Grok listing Cursor/Codex/Claude-rendered Atomic Skills as `user:*` duplicates next to `atomic-skills:*` plugin skills |
 
-The aiDeck **bin** (`bin/aideck.mjs`, an argv[1]-rewrite launcher shim) and
-**dashboard** (the aiDeck client) are restaged by `installRuntimeArtifacts` from
-the published `@henryavila/aideck` npm dependency (T-004). When the dependency is
-not resolvable (pre-publish / stripped checkout) those two are skipped; the
-consumer template + provisioner always stage.
+`installRuntimeArtifacts` writes only `~/.atomic-skills/package-root` so installed
+skills can resolve `scripts/` with dependencies intact. It does not stage a
+dashboard, a launcher shim, or a consumer template.
 
 A **pre-kernel (legacy) install** (manifest with `files{}` but no `effects`) is
 adopted into journal ownership records by `migrateLegacyInstall` (T-F3-6) at the

@@ -68,7 +68,6 @@
       "git"
     ],
     "refs": [
-      "/atomic-skills:project",
       "/atomic-skills:init-memory",
       "/atomic-skills:release"
     ]
@@ -115,8 +114,7 @@
       "gh"
     ],
     "refs": [
-      "/atomic-skills:save-and-push",
-      "/atomic-skills:project"
+      "/atomic-skills:save-and-push"
     ]
   },
   {
@@ -290,263 +288,6 @@
     ]
   },
   {
-    "id": "/atomic-skills:project",
-    "icon": "📊",
-    "oneLiner": "Plan / Initiative / Task state your agent reloads every session",
-    "facets": [
-      "tracking",
-      "anchoring",
-      "planning",
-      "bootstrap",
-      "create",
-      "migrate",
-      "core"
-    ],
-    "summary": "Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: view current state (compact terminal or browser dashboard), create plans/initiatives, run daily mutations and phase transitions, discover in-flight work, adopt existing markdown plans, migrate legacy state, report drift, and reconcile state against code. Procedures load on demand from project-assets per subcommand.",
-    "pros": [
-      "Resuming after a break — view current state (`status`)",
-      "Starting a new multi-phase plan (`new plan`) or initiative (`new initiative`)",
-      "Daily mutations: push/pop, park/emerge, promote, done, phase-done",
-      "Organizing in-flight work scattered across repo (`discover`)",
-      "Capturing an existing markdown plan (`adopt`)",
-      "Migrating legacy state files (`migrate`)",
-      "Checking drift / un-reviewed code / state-vs-code coherence (`scope-creep`, `verify`)"
-    ],
-    "cons": [
-      "One-shot questions or work that fits in the current session",
-      "Editing .atomic-skills/ files by hand (use the subcommands — they set provenance + validate)"
-    ],
-    "examples": [
-      "/atomic-skills:project",
-      "/atomic-skills:project status --browser",
-      "/atomic-skills:project new plan v3-redesign",
-      "/atomic-skills:project done T-005",
-      "/atomic-skills:project verify"
-    ],
-    "subItems": [
-      {
-        "name": "status",
-        "description": "View current state: compact summary, browser dashboard, full terminal view, or filtered tables",
-        "group": "View"
-      },
-      {
-        "name": "help",
-        "description": "Terminal GPS: where am I + the next concrete step, derived from real state; lifecycle-order blockers surface predecessor commands before archive/teardown (alias: next; --html opens the visual guide)",
-        "group": "View"
-      },
-      {
-        "name": "verify",
-        "description": "Reconcile .atomic-skills/ against the repo: schema, legacy-layout, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix)",
-        "group": "View"
-      },
-      {
-        "name": "new",
-        "description": "Create a Plan (multi-phase bootstrap) or an Initiative (standalone or anchored to a phase); bare `new` prints the menu",
-        "group": "Create"
-      },
-      {
-        "name": "discover",
-        "description": "Scan the repo (git, PRs, docs, roadmaps, memory), cluster signals, and propose Plans + Initiatives for approve/reject",
-        "group": "Create"
-      },
-      {
-        "name": "adopt",
-        "description": "Capture an existing free-form markdown plan into structured Plan + Initiatives + Tasks; previews before materializing",
-        "group": "Create"
-      },
-      {
-        "name": "push",
-        "description": "Open a lateral stack frame on top of the current work; type is inferred from the verb",
-        "group": "Stack frames"
-      },
-      {
-        "name": "pop",
-        "description": "Close the top frame with a destination: --resolve (drop), --park (note), or --emerge (follow-up)",
-        "group": "Stack frames"
-      },
-      {
-        "name": "park",
-        "description": "File a low-commitment note for later into parked[]; ratify gate forces a readable solves/trigger",
-        "group": "Backlog"
-      },
-      {
-        "name": "emerge",
-        "description": "File a real follow-up into emerged[] (same ratify gate); --target <phaseId> lands it in another phase",
-        "group": "Backlog"
-      },
-      {
-        "name": "promote",
-        "description": "Turn a parked item into a real task (assigns next T-NNN, carries its context forward)",
-        "group": "Backlog"
-      },
-      {
-        "name": "idea",
-        "description": "Capture a raw idea into the ideas.md inbox (fork: just save / analyze); `idea list` is a zero-token view; `idea promote <n>` routes idea #n through the emergence ladder (ratify-gated)",
-        "group": "Backlog"
-      },
-      {
-        "name": "done",
-        "description": "Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive",
-        "group": "Tasks & phases"
-      },
-      {
-        "name": "reconcile",
-        "description": "Dispose tasks/gates that look done in the repo — the only detection-drift-triggered completion-mutation path (done stays task closure authority); verifier-aware (Run verifier when one exists, Mark done only when verifier-absent); never silent auto-close",
-        "group": "Tasks & phases"
-      },
-      {
-        "name": "materialize",
-        "description": "Turn a descriptor-only phase into a full initiative file, capturing the businessIntent spine (value/workflow/rules/outOfScope/doneWhen) at a HARD gate — the bridge from a decomposed plan to `implement`",
-        "group": "Tasks & phases"
-      },
-      {
-        "name": "unblock",
-        "description": "Return a blocked task to workable state (does NOT close it) — the documented forward exit from `blocked`; surfaces blockedBy[] blockers and their status first",
-        "group": "Tasks & phases"
-      },
-      {
-        "name": "phase-done",
-        "description": "Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase",
-        "group": "Tasks & phases"
-      },
-      {
-        "name": "phase-reopen",
-        "description": "Reverse a phase-done: restore the initiative to active, clear metAt on criteria, reset tasks to pending",
-        "group": "Tasks & phases"
-      },
-      {
-        "name": "split-phase",
-        "description": "Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done",
-        "group": "Tasks & phases"
-      },
-      {
-        "name": "finalize",
-        "description": "Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; requires explicit slug and runs before merge/archive",
-        "group": "Lifecycle"
-      },
-      {
-        "name": "consolidate",
-        "description": "Merge-train integrate the READY plans across ≥2 live worktrees into ONE integration branch + PR (the 1:N counterpart to finalize): typed-allowlist conflict policy, revert-of-revert for merged-then-reverted heads, eject-and-continue HALT; operator-prompted (<2 live worktrees = no-op → use finalize)",
-        "group": "Lifecycle"
-      },
-      {
-        "name": "archive",
-        "description": "Move a finished plan or initiative to archive/ after lifecycle-order guard confirms finalize/merge/integration; archiving a plan cascades to its child initiatives",
-        "group": "Lifecycle"
-      },
-      {
-        "name": "switch",
-        "description": "Pause the current plan/initiative and activate the target; offers to switch the plan too if it differs",
-        "group": "Lifecycle"
-      },
-      {
-        "name": "migrate",
-        "description": "Two modes: `migrate <slug>` converts a legacy (pre-0.1) initiative to schemaVersion 0.1 (field-mapping diff + placeholder flags); bare `migrate` runs the flat→projects/<id>/<slug>/ layout cut-over (deterministic copy-verify-delete behind a tar snapshot)",
-        "group": "Lifecycle"
-      },
-      {
-        "name": "re-bootstrap",
-        "description": "After migrate: batch re-articulate every parked/emerged item still holding a placeholder into real ratified context",
-        "group": "Lifecycle"
-      },
-      {
-        "name": "why",
-        "description": "Read-only deep view of one item: status, ratified solves/trigger/assumptions, provenance, staleness",
-        "group": "Context & drift"
-      },
-      {
-        "name": "re-ratify",
-        "description": "Refresh a stale item: re-confirm the premises (bump review date) or rewrite solves/trigger/assumptions",
-        "group": "Context & drift"
-      },
-      {
-        "name": "scope-creep",
-        "description": "Read-only drift report: phase growth %, scope expansion %, parked zombies, and stale-context items",
-        "group": "Context & drift"
-      },
-      {
-        "name": "detect-scope",
-        "description": "Suggest a scope.paths value from recent git activity on the branch, as a checklist you accept",
-        "group": "Context & drift"
-      },
-      {
-        "name": "review",
-        "description": "Mutation-gated adversarial audit of a plan/initiative — delegates to review-plan (and review-code with --with-code); reports findings only, NEVER closes tasks or advances phases",
-        "group": "Review"
-      },
-      {
-        "name": "review-due",
-        "description": "Run a cross-model codex review on the diff since the last review and record the result for the default view",
-        "group": "Review"
-      },
-      {
-        "name": "depend",
-        "description": "Manage cross-plan execution dependencies (dependsOnPlans[]): list edges, add/remove a prerequisite, or resolve one against an archived plan; drives the dashboard Caminho de execucao lanes (Liberado/Em andamento/Bloqueado/Concluido)",
-        "group": "Dependencies"
-      }
-    ],
-    "fields": [
-      {
-        "name": "--browser",
-        "kind": "flag",
-        "required": false,
-        "description": "Open the aiDeck dashboard in the browser (status view)"
-      },
-      {
-        "name": "--terminal",
-        "kind": "flag",
-        "required": false,
-        "description": "Full terminal-only view, no browser (status view)"
-      },
-      {
-        "name": "--list",
-        "kind": "flag",
-        "required": false,
-        "description": "List all plans + standalone initiatives (status view)"
-      },
-      {
-        "name": "--plan",
-        "kind": "option",
-        "required": false,
-        "description": "Filter view to a specific plan slug (status view)"
-      },
-      {
-        "name": "--phase",
-        "kind": "option",
-        "required": false,
-        "description": "Filter view to a specific phase id (status view)"
-      },
-      {
-        "name": "--scan",
-        "kind": "option",
-        "required": false,
-        "description": "Extra source paths for discover (comma-separated). E.g. --scan=NOTES/,~/team-plans/"
-      },
-      {
-        "name": "--scope",
-        "kind": "option",
-        "required": false,
-        "description": "Discover: comma-separated source kinds (git,github,docs,roadmap,memory-local,memory-claude,claude-mem)"
-      }
-    ],
-    "deps": [
-      "git"
-    ],
-    "outputs": [
-      ".atomic-skills/PROJECT-STATUS.md",
-      ".atomic-skills/projects/<project-id>/<slug>/plan.md (nested canonical)",
-      ".atomic-skills/projects/<project-id>/<slug>/phases/f<N>-*.md (phase initiatives)",
-      ".atomic-skills/status/config.json",
-      ".atomic-skills/bootstrap-drafts/ (discover output)",
-      "legacy flat plans/ + initiatives/ remain readable during migration"
-    ],
-    "refs": [
-      "/atomic-skills:fix",
-      "/atomic-skills:save-and-push",
-      "/atomic-skills:review-plan"
-    ]
-  },
-  {
     "id": "/atomic-skills:prompt",
     "icon": "📝",
     "oneLiner": "Generate a self-contained prompt with exact paths and guardrails",
@@ -580,8 +321,7 @@
     ],
     "refs": [
       "/atomic-skills:parallel-dispatch",
-      "/atomic-skills:fix",
-      "/atomic-skills:project"
+      "/atomic-skills:fix"
     ]
   },
   {
@@ -718,7 +458,7 @@
       "lifecycle",
       "core"
     ],
-    "summary": "Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. Multi-phase always runs B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write + `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under `brainstorm-assets/`). Section lint requires Context, Non-goals, Interview, Decisions, and Chosen approach on every design (Blast radius migration-only). The head of the lifecycle chain that `project new plan` decomposes.",
+    "summary": "Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. Multi-phase always runs B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write + `lint-design` → B4 critic → B5 handoff (no skip ladder; assets under `brainstorm-assets/`). Section lint requires Context, Non-goals, Interview, Decisions, and Chosen approach on every design (Blast radius migration-only). The deliverable is the approved design.",
     "pros": [
       "Starting a multi-phase plan whose approach is not yet decided",
       "You need a committed design.md before decomposing into tasks",
@@ -747,7 +487,6 @@
     ],
     "refs": [
       "/atomic-skills:debate",
-      "/atomic-skills:project",
       "/atomic-skills:review-plan"
     ]
   },
@@ -785,8 +524,7 @@
       }
     ],
     "refs": [
-      "/atomic-skills:brainstorm",
-      "/atomic-skills:project"
+      "/atomic-skills:brainstorm"
     ]
   },
   {
@@ -856,66 +594,6 @@
     ]
   },
   {
-    "id": "/atomic-skills:implement",
-    "icon": "⚙️",
-    "oneLiner": "Drive plan tasks to done; AS slug or path/to/plan.md; automate default",
-    "facets": [
-      "execution",
-      "lifecycle",
-      "implement",
-      "core"
-    ],
-    "summary": "Read admitted Tasks (AS inventory or foreign work-order sidecar) and drive them to done one at a time, gating each completion on its deterministic verifier and keeping durable state recoverable across sessions. Every phase-done hard-requires a real audit-delivery run and durable deliveryAuditGate (CLOSED|PARTIAL + reportPath) — never skippable; plan-end intentVsDelivered is not a substitute.",
-    "pros": [
-      "A plan has been decomposed and its tasks admitted by the SPEC gate",
-      "You are implementing a phase task-by-task and want verifier-gated completion",
-      "Resuming a prior implementation session from its handoff block",
-      "You want pure-maestro multi-phase execution (default; or explicit --mode=automate)",
-      "You have a freeform path/to/plan.md and want implement discipline (promote or foreign)"
-    ],
-    "cons": [
-      "There is no plan/design yet (use brainstorm, then project new plan)",
-      "A one-off bug fix with a known root cause (use fix)",
-      "You only need to verify a single claim, not drive a plan (use verify-claim)",
-      "You only need intent-vs-delivered residual proof without driving a plan (use audit-delivery)"
-    ],
-    "examples": [
-      "/atomic-skills:implement migration-self-host",
-      "/atomic-skills:implement my-plan --mode=automate",
-      "/atomic-skills:implement docs/plans/cutover.md",
-      "/atomic-skills:implement"
-    ],
-    "fields": [
-      {
-        "name": "plan-slug",
-        "kind": "positional",
-        "required": false,
-        "description": "AS plan slug, project-id/plan-slug, or path/to/plan.md (foreign entry choice). If omitted, uses the active plan/initiative."
-      },
-      {
-        "name": "--mode",
-        "kind": "flag",
-        "required": false,
-        "description": "Execution mode. Absent = automate default (pure maestro). automate = pure maestro + phase writers; 1 = Mode 1 session writer. Stamps executionMode on durable automate entry."
-      },
-      {
-        "name": "--clear-execution-mode",
-        "kind": "flag",
-        "required": false,
-        "description": "Leave durable automate (unstamp executionMode). Refuses while a writer lease is active or malformed."
-      }
-    ],
-    "deps": [
-      "git"
-    ],
-    "refs": [
-      "/atomic-skills:project",
-      "/atomic-skills:verify-claim",
-      "/atomic-skills:fix",
-      "/atomic-skills:audit-delivery"
-    ]
-  },
-  {
     "id": "/atomic-skills:verify-claim",
     "icon": "✅",
     "oneLiner": "No success claim without fresh verification — run it, cite it",
@@ -953,9 +631,7 @@
       "git"
     ],
     "refs": [
-      "/atomic-skills:implement",
       "/atomic-skills:fix",
-      "/atomic-skills:project",
       "/atomic-skills:audit-delivery"
     ]
   },
@@ -1081,8 +757,7 @@
       "/atomic-skills:review-plan",
       "/atomic-skills:parallel-dispatch",
       "/atomic-skills:parallel-dispatch-audit",
-      "/atomic-skills:fix",
-      "/atomic-skills:implement"
+      "/atomic-skills:fix"
     ]
   }
 ]

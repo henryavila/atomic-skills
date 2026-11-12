@@ -25,10 +25,11 @@ import { MANIFEST_DIR } from './manifest.js';
  * property of each effect.
  *
  * NOT part of this journal (orchestrated outside it — see install.js): the GLOBAL
- * shared runtime artifacts under ~/.atomic-skills/{bin,dashboard,aideck-consumer,
- * src,package-root} and the cross-install refcount registry. They live at homedir,
- * are shared across every install, and must be reclaimed only when the LAST owner
- * leaves — a conditional reclaim the journal's blind replayReverse cannot express.
+ * ~/.atomic-skills/package-root pointer and the cross-install refcount registry.
+ * They live at homedir, are shared across every install, and must be reclaimed
+ * only when the LAST owner leaves — a conditional reclaim the journal's blind
+ * replayReverse cannot express. Last-owner reclaim also deletes leftover aiDeck
+ * paths from older installs.
  *
  * @param {object} config
  * @param {string} config.language - communication language code (e.g. 'en')

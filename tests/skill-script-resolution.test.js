@@ -3,7 +3,7 @@
 //
 // Skill markdown is RENDERED INTO and EXECUTED FROM a consuming repo (the
 // user's project), not from this repo. A bare `node scripts/lint-design.js`
-// or `npm run validate-state` only resolves when cwd === the atomic-skills
+// or `npm run validate-skills` only resolves when cwd === the atomic-skills
 // checkout — in any consuming repo the path / package.json script is absent,
 // so the deterministic gate fails to run (observed in the field: `project new`
 // in ~/tital-chordpro-lib reported "scripts/lint-design.js does not exist").
@@ -16,7 +16,7 @@
 //
 // (the `|| echo .` tail keeps it working in this repo's own dev/test runs,
 // where no package-root file exists and cwd IS the checkout). The hooks
-// (session-start.sh / stop.sh) already resolve this way; this test makes the
+// The auto-update hook already resolves this way; this test makes the
 // same invariant hold for the skill bodies, so a future edit can't silently
 // re-introduce the cwd-bound form.
 
@@ -35,7 +35,7 @@ const PRIVATE_PACKAGES = new Set(Object.keys(PACKAGE_JSON.dependencies ?? {}))
 // npm scripts that map 1:1 to a bundled scripts/<name>.js and so are only
 // resolvable from this repo (they live in THIS package.json, never the
 // consumer's). Keep in sync with package.json `scripts`.
-const LOCAL_NPM_SCRIPTS = ['validate-state', 'validate-skills', 'detect-scope']
+const LOCAL_NPM_SCRIPTS = ['validate-skills']
 
 // `node scripts/<name>.js` with no resolver prefix in front of `scripts/`.
 const BARE_NODE_SCRIPTS = /\bnode\s+scripts\//

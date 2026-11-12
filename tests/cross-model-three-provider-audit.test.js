@@ -16,10 +16,6 @@ import {
   defaultExternalProvider,
 } from '../src/cross-model-host-default.js';
 import { PROVIDER_ENUM, normalizeProvider } from '../src/review-provider-field.js';
-import {
-  KNOWN_EXTERNAL_PROVIDERS,
-  planEndReviewOk,
-} from '../src/plan-end-review.js';
 import { EXTERNAL_PROVIDER_ORDER as MERGE_ORDER } from '../src/external-both-merge.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,7 +25,6 @@ describe('cross-model external matrix (audit)', () => {
   it('EXTERNAL_PROVIDER_ORDER is codex → grok → claude → agy on host + merge modules', () => {
     assert.deepEqual([...EXTERNAL_PROVIDER_ORDER], PROVIDERS);
     assert.deepEqual([...MERGE_ORDER], PROVIDERS);
-    assert.deepEqual([...KNOWN_EXTERNAL_PROVIDERS].sort(), [...PROVIDERS].sort());
   });
 
   it('PROVIDER_ENUM includes all three externals + local', () => {
@@ -100,19 +95,6 @@ describe('cross-model external matrix (audit)', () => {
     assert.equal(defaultExternalProvider('codex'), 'grok');
     assert.equal(defaultExternalProvider('grok'), 'codex');
     assert.equal(defaultExternalProvider('agy'), 'codex');
-  });
-
-  it('planEndReviewOk accepts each provider as sole succeeded family-different leg', () => {
-    const shape = (provider) => ({
-      mode: 'external-both',
-      reviewFile: '.atomic-skills/reviews/audit-plan-end.md',
-      verifiedAt: '2026-07-21T00:00:00.000Z',
-      legs: [{ provider, status: 'succeeded', familyDifferent: true }],
-    });
-    for (const p of PROVIDERS) {
-      assert.equal(planEndReviewOk(shape(p)), true, `${p} leg must count`);
-    }
-    assert.equal(planEndReviewOk(shape('local')), false);
   });
 
   it('skill/envelope prose names all three providers', () => {

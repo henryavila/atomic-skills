@@ -2,12 +2,11 @@
  * find-plans-missing-ground-truth.js — deterministic, zero-token DETECTOR of
  * materialized plans that lack a durable plan↔code ground-truth review receipt.
  *
- * The ground-truth review (review-plan Flow E / --mode=ground-truth — items
- * 21–22 / lazy asset ground-truth-review.md) is MANDATORY before implement:
- * Direction A (plan premises that do not exist in code) and Direction B (code
- * that exists and the plan does not model). Even an empty / no-product-code
- * repo must run the review and persist an explicit empty-repo result — silence
- * is not a pass.
+ * The ground-truth review (review-plan Flow E / --mode=ground-truth, lazy asset
+ * ground-truth-review.md) checks Direction A (plan premises that do not exist
+ * in code) and Direction B (code that exists and the plan does not model).
+ * Even an empty / no-product-code repo must run the review and persist an
+ * explicit empty-repo result — silence is not a pass.
  *
  * Receipt (required):
  *   1. `## Reviews` line: `- ground-truth: … | mode=ground-truth | fp=<hex> | …`
@@ -23,7 +22,7 @@
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import { parseFrontmatter } from './validate-state.js';
+import { parseFrontmatter } from './lib/frontmatter.js';
 import {
   assessGroundTruthPlanFile,
   groundTruthReceiptGap,
@@ -180,7 +179,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`  ${r.projectId}/${r.planSlug}/${r.planFile}: ${groundTruthGapMessage(r.reason)}${fp}`);
   }
   console.log(
-    '\nRun `atomic-skills:review-plan --mode=ground-truth <plan>` (specialized Flow E; alias --mode=gt).',
+    '\nRun `atomic-skills:review-plan --mode=ground-truth <plan>` (Flow E; alias --mode=gt).',
   );
   console.log(
     'Persist `## Ground-truth review` (Status + Scanned + ### A + ### B + Counts) and',
@@ -188,6 +187,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(
     '`- ground-truth: … | mode=ground-truth | fp=<hex> | …` under `## Reviews` (fp from plan substance).',
   );
-  console.log('implement / assert-automate-gate --gate spawn HARD-BLOCK until this receipt is valid and fresh.');
   process.exit(1);
 }

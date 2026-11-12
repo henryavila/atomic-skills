@@ -51,12 +51,15 @@ Canonical human product docs: **https://atomic-skills.henryavila.com** (static s
 
 ## [2.0.0] — 2026-05-23
 
-First major bump since 1.8.x. Consolidates **five** threads of work — the
-review skills refactor (4 → 2 with a mode picker), the catalog v0.2 schema
-+ rename to `meta/catalog.yaml`, a README + dashboard doc generator with
-five marker-bounded regions, a husky auto-regen pre-commit hook, and the
-unification of `project-status` + `project-plan` into a single `project`
-skill (a thin router + lazy-loaded detail files).
+### Removed
+
+- **Plan (`project`), implement, and aiDeck.** Cut before this version shipped: they cost more than they helped. Fifteen support skills remain (review-code, review-plan, audit-delivery, verify-claim, fix, hunt, brainstorm, debate, design-brief, prompt, parallel-dispatch, parallel-dispatch-audit, init-memory, save-and-push, release).
+
+First major bump since 1.8.x. Ships the review skills refactor (4 → 2 with a
+mode picker), the catalog v0.2 schema + rename to `meta/catalog.yaml`, and a
+husky auto-regen pre-commit hook. Notes below that describe `project`,
+`implement`, or the aiDeck dashboard record work that was removed before
+publish.
 
 ### `project` skill unification (supersedes the project-status / project-plan split below)
 

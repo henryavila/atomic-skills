@@ -14,7 +14,7 @@ export function normalizeIronLaw(text) {
  * one-line Iron Law rule (the first non-empty line after the H2), or null
  * if the body has no Iron Law section.
  *
- * The regex contract (see docs/plan-skills-catalog-v0.2.md Phase D):
+ * The regex contract:
  *   - First occurrence only (prompt.md has 2 — the canonical at top, plus
  *     one inside the template the skill emits).
  *   - Capture content up to the next H2 (`^## `) or `---` separator.

@@ -147,8 +147,11 @@ describe('packed consumer runtime works without the source checkout', { concurre
 
   it('installs the tgz and records its extracted runtime root', () => {
     assert.ok(existsSync(markerPath), 'installed CLI did not write the package-root marker')
-    assert.ok(existsSync(join(packageRoot, 'scripts', 'decompose-plan.js')))
-    assert.ok(existsSync(join(packageRoot, 'meta', 'schemas', 'plan.schema.json')))
+    assert.ok(existsSync(join(packageRoot, 'scripts', 'lint-design.js')))
+    assert.ok(existsSync(join(packageRoot, 'meta', 'schemas', 'app-map.schema.json')))
+    assert.equal(existsSync(join(packageRoot, 'scripts', 'decompose-plan.js')), false)
+    assert.equal(existsSync(join(packageRoot, 'skills', 'core', 'project.md')), false)
+    assert.equal(existsSync(join(packageRoot, 'skills', 'core', 'implement.md')), false)
     assert.equal(lstatSync(packageRoot).isSymbolicLink(), false, 'npm install must extract, not link, the package')
 
     const recordedRoot = realpathSync(readFileSync(markerPath, 'utf8').trim())
@@ -159,96 +162,26 @@ describe('packed consumer runtime works without the source checkout', { concurre
     assert.notEqual(recordedRoot, checkoutRoot, 'package-root leaked back to the source checkout')
   })
 
-  it('executes decompose, discover, depend, normalize, and verify from the installed root', () => {
-    const source = join(consumer, 'source.md')
-    writeFileSync(source, [
-      '# Consumer Runtime Plan',
-      '',
-      'Proves an installed tarball can operate without its source checkout.',
-      '',
-      '## F0 — Runtime Proof',
-      '',
-      'Goal: execute the package-owned runtime from a consumer.',
-      '',
-      '### T-001 Exercise installed commands',
-      '',
-      '```yaml',
-      'exit_gate:',
-      '  - id: F0-G1',
-      '    description: Runtime remains package-relative',
-      '    verifier: { kind: manual, description: E2E observation }',
-      '```',
-      '',
-    ].join('\n'))
-    const businessIntent = JSON.stringify({
-      value: 'Prove the packed runtime executes from a consumer.',
-      workflow: 'Pack, install, materialize, normalize, and validate.',
-      rules: 'Never resolve package code through the consumer cwd.',
-      outOfScope: 'Using the atomic-skills source checkout at runtime.',
-      doneWhen: 'Every installed command exits successfully.',
-    })
-
-    const materialize = (slug) => {
-      const result = runInstalled(
-        'scripts/decompose-plan.js',
-        'materialize',
-        '--source', source,
-        '--slug', slug,
-        '--project-id', 'consumer',
-        '--branch', `plan/${slug}`,
-        '--business-intent', businessIntent,
-      )
-      const files = JSON.parse(result.stdout)
-      assert.ok(files.some((file) => file.kind === 'plan'))
-      assert.ok(files.some((file) => file.kind === 'initiative'))
-      persistMaterialized(files)
-      return files
-    }
-
-    dependentFiles = materialize('dependent')
-    materialize('prerequisite')
-
-    const signals = join(consumer, 'signals.json')
-    writeFileSync(signals, JSON.stringify([{
-      slug: 'packed-runtime',
-      source_type: 'git-branch',
-      last_activity: '2026-07-11T00:00:00Z',
-    }]))
-    const discovered = runInstalled('scripts/bootstrap-project.js', 'cluster', '--signals', signals)
-    const clusters = JSON.parse(discovered.stdout)
-    assert.equal(clusters.clusters[0].canonical.slug, 'packed-runtime')
-
-    const dependentDir = join(consumer, '.atomic-skills', 'projects', 'consumer', 'dependent')
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      runInstalled('scripts/plan-dependencies.js', 'add', dependentDir, 'prerequisite')
-    }
-    const dependentPlan = readFileSync(join(dependentDir, 'plan.md'), 'utf8')
-    assert.equal((dependentPlan.match(/plan: prerequisite/g) ?? []).length, 1)
-
-    const initiative = dependentFiles.find((file) => file.kind === 'initiative')
-    const initiativePath = join(consumer, initiative.relativePath)
-    const validInitiative = readFileSync(initiativePath, 'utf8')
-    const invalidInitiative = validInitiative.replace(
-      /(id: F0-G1[\s\S]*?\n\s+status:) pending/,
-      '$1 active',
-    )
-    assert.notEqual(invalidInitiative, validInitiative, 'fixture failed to inject invalid gate status')
-    writeFileSync(initiativePath, invalidInitiative)
-
-    const normalized = runInstalled('src/normalize.js', join(consumer, '.atomic-skills'))
-    assert.match(normalized.stdout, /normalized 1 file\(s\), 1 change\(s\)/)
-    assert.doesNotMatch(`${normalized.stdout}\n${normalized.stderr}`, new RegExp(SENTINEL))
-    assert.match(readFileSync(initiativePath, 'utf8'), /id: F0-G1[\s\S]*?status: pending/)
-
-    const verified = runInstalled('scripts/validate-state.js', join(consumer, '.atomic-skills'))
-    assert.match(verified.stdout, /All \d+ file\(s\) valid/)
+  it('ships surviving scripts and omits the removed plan runtime', () => {
+    assert.ok(existsSync(join(packageRoot, 'scripts', 'find-plans-missing-ground-truth.js')))
+    assert.equal(existsSync(join(packageRoot, 'assets', 'aideck-consumer')), false)
+    const closure = runInstalled('scripts/validate-runtime-closure.js')
+    assert.match(closure.stdout, /Runtime closure valid:/)
   })
 
   it('loads lazy helpers from rendered installed skill references', () => {
     const skillPaths = [
-      join(consumer, '.agents', 'skills', 'atomic-skills', 'implement', 'SKILL.md'),
-      join(consumer, '.agents', 'skills', 'atomic-skills', 'project', 'SKILL.md'),
+      join(consumer, '.agents', 'skills', 'atomic-skills', 'verify-claim', 'SKILL.md'),
+      join(consumer, '.agents', 'skills', 'atomic-skills', 'review-plan', 'SKILL.md'),
     ]
+    assert.equal(
+      existsSync(join(consumer, '.agents', 'skills', 'atomic-skills', 'implement', 'SKILL.md')),
+      false,
+    )
+    assert.equal(
+      existsSync(join(consumer, '.agents', 'skills', 'atomic-skills', 'project', 'SKILL.md')),
+      false,
+    )
     const helperRefs = new Set()
     for (const path of skillPaths) {
       const content = readFileSync(path, 'utf8')
@@ -257,7 +190,8 @@ describe('packed consumer runtime works without the source checkout', { concurre
         helperRefs.add(match[0])
       }
     }
-    assert.ok(helperRefs.size >= 10, `expected lazy helper references, found ${helperRefs.size}`)
+    assert.ok(helperRefs.size >= 1, `expected lazy helper references, found ${helperRefs.size}`)
+    assert.ok(existsSync(join(consumer, '.agents', 'atomic-skills', '_assets', 'verifier-exec.md')))
 
     for (const ref of helperRefs) {
       const path = join(consumer, ref)
@@ -285,15 +219,12 @@ describe('packed consumer runtime works without the source checkout', { concurre
     }
     for (const relativePath of [
       'package.json',
-      'scripts/decompose-plan.js',
-      'scripts/bootstrap-project.js',
-      'scripts/plan-dependencies.js',
-      'scripts/validate-state.js',
+      'scripts/lint-design.js',
+      'scripts/find-plans-missing-ground-truth.js',
       'scripts/validate-runtime-closure.js',
       'src/runtime-paths.js',
-      'src/normalize.js',
-      'meta/schemas/plan.schema.json',
-      'meta/schemas/initiative.schema.json',
+      'src/ground-truth-review.js',
+      'meta/schemas/app-map.schema.json',
     ]) {
       const path = join(packageRoot, relativePath)
       installedText.set(path, readFileSync(path, 'utf8'))

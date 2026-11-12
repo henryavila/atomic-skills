@@ -45,21 +45,6 @@ const REPO_ROOT = resolve(__dirname, '..')
 
 // [relative path under skills/, hard ceiling in bytes, provenance]
 const BUDGETS = [
-  // Raised 2026-07-16 integrity-remediation F0–F5: setup sentinel + structural
-  // setup rules (F0) plus integrity operator surface (state join, sidecar lazy
-  // descriptors, verify/cross-validation pointers) that must stay resident in
-  // the thin router — not movable prose.
-  ['core/project.md', 26000, 'F1 — thin router (raised 22000→23000 2026-06-26; 23000→23500→24000 2026-07-16 integrity F0–F5; 24000→25000 2026-07-29: foreign-plan / integrity surface headroom; 25000→26000 2026-09-29: flow validation + Antigravity abstraction)'],
-  // Raised 2026-07-16 integrity-remediation F3–F5: load/closure authority,
-  // plan/worktree resume gate, verifier/concurrency/resolution policy, and
-  // handoff checkpoint prose required on the implement driver surface.
-  // Raised 2026-07-17 implementation-automate-mode F1–F4: pure-maestro Steps A–I,
-  // executionMode stamp, writer-lease gates, complex both, plan-end pointers —
-  // resident driver surface (lazy assets hold phase-writer/evaluator detail).
-  // Raised 2026-07-29 automate-writer-runtime F0–F1: Grok general-purpose spawn
-  // pointer + Layer-3 runner package-root line on the driver (detail stays lazy in
-  // implement-automate-maestro / implement-phase-writer).
-  ['core/implement.md', 56000, 'F1 — lean driver (raised 22000→24500 2026-07-16 integrity F3–F5; 24500→40000 2026-07-17 automate F1–F4; 40000→53000 2026-07-29 automate-writer-runtime spawn recipe; 53000→56000 2026-09-29: flow validation T-009 + Antigravity subagent headroom)'],
   // Raised 2026-07-16 for grok-build-integration F3–F5: multi-provider modes
   // (codex|grok|external-both), host-default picker, and CROSS-MODEL REVIEW
   // provider field. ~20B / ~700B over prior ceilings; content is resident

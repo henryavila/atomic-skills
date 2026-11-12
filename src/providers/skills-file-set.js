@@ -19,7 +19,7 @@ export const DEFAULT_MEMORY_PATH = '.ai/memory/';
 
 /**
  * Pure computation of the atomic-skills file set — skill bodies, shared assets
- * (including arbitrary subdir recursion, e.g. project-assets/hooks/ and
+ * (including arbitrary subdir recursion, e.g. codex-bridge-assets/providers/ and
  * codex-bridge-assets/providers/{codex,grok}/) and the per-IDE namespace root —
  * returned as `[{ path, content }]` with project-root-relative paths. This is
  * the declarative file-set domain (P2) the reconcileFileSet effect manages.
@@ -193,34 +193,10 @@ function generatePluginJson() {
 }
 
 /**
- * Soft project hooks for plugin-delivery hosts (Grok Build).
- * Soft = SessionStart + PreToolUse; Strict adds Stop at project setup.
+ * Plugin hook file for Grok Build. Plan/implement session hooks are gone, so
+ * the file stays valid and empty. Auto-update SessionStart is a separate file
+ * written by the auto-update provider, not this envelope.
  */
 function generatePluginHooksSoft() {
-  const cmd = (script) =>
-    `bash "\${GROK_PLUGIN_ROOT:-\${CLAUDE_PROJECT_DIR:-\$PWD}/.grok/plugins/atomic-skills}/_assets/hooks/${script}"`;
-  const envelope = {
-    hooks: {
-      SessionStart: [
-        {
-          hooks: [{ type: 'command', command: cmd('session-start.sh') }],
-        },
-      ],
-      PreToolUse: [
-        {
-          matcher: 'Edit|Write|MultiEdit|search_replace|write',
-          hooks: [{ type: 'command', command: cmd('pre-write.sh') }],
-        },
-        {
-          matcher: 'Edit|Write|MultiEdit|NotebookEdit|search_replace|write|apply_patch|Bash|shell|run_terminal_command',
-          hooks: [{ type: 'command', command: cmd('automate-pen.sh') }],
-        },
-        {
-          matcher: '.*',
-          hooks: [{ type: 'command', command: cmd('automate-pen.sh') }],
-        },
-      ],
-    },
-  };
-  return `${JSON.stringify(envelope, null, 2)}\n`;
+  return `${JSON.stringify({ hooks: {} }, null, 2)}\n`;
 }

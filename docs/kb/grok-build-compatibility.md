@@ -36,8 +36,8 @@ Atomic Skills for Grok only under `.grok/plugins/` keeps a Grok-rendered body
    `~/.grok/config.toml`) — add every non-Grok Atomic Skills root that Grok
    harness-scans to `[skills].ignore`, so Grok does **not** list
    Cursor/Codex/Claude-rendered Atomic Skills (wrong tool names) next to the
-   plugin package. Without this, `/project` shows both `atomic-skills:project`
-   and `user:project`. Surgical: other `ignore` entries and unrelated config
+   plugin package. Without this, a skill shows twice: `atomic-skills:<name>`
+   and `user:<name>`. Surgical: other `ignore` entries and unrelated config
    keys are preserved.
 
 **Uninstall steps:**
@@ -259,61 +259,17 @@ version matching the **installed** package (`~/.atomic-skills/package-root` →
 consumer project's `package.json`. The filesystem contract above is the
 automated gate (`tests/install.test.js`); host UI listing is a manual smoke.
 
-## 7. Trust, hooks-trust, and Soft fail-open
+## 7. Trust and the auto-update hook
 
-Grok Build may require **folder trust** and/or **hooks trust** before plugin
-hooks execute in a project clone. Atomic Skills Soft hooks are designed to be
-safe when untrusted:
+Grok Build may require **folder trust** before plugin skills load, and
+**hooks trust** before the auto-update SessionStart runs.
 
 | Situation | Expected behavior |
 |-----------|-------------------|
-| Project folder not trusted | Skills may still load from the plugin package (read-only skill bodies); hooks do not run |
-| Plugin present but hooks untrusted (`/hooks-trust` not granted) | Soft SessionStart / PreToolUse **fail-open**: no SessionStart digest, no PreToolUse provenance gate; agent continues without blocking |
-| Soft installed, Strict not opted in | SessionStart + PreToolUse only; no Stop / scope-drift gate |
-| Auto-update only (`~/.grok/hooks/atomic-skills-auto-update.json`) | Independent of project plugin trust — version-check SessionStart may still fire at user scope |
+| Project folder not trusted | Skills may still be absent until the folder is trusted |
+| Auto-update hook (`~/.grok/hooks/atomic-skills-auto-update.json`) | Version-check SessionStart. Independent of the plugin `hooks/hooks.json` file, which is an empty envelope |
 
-**Operator steps (project Soft):**
-
-1. Install with `--ides grok` (or multi-IDE including `grok`).
-2. Open the repo in Grok Build; grant folder trust if prompted.
-3. If hooks do not fire, grant hooks trust for the project plugin
-   (`/hooks-trust` or host Settings → Hooks) so
-   `.grok/plugins/atomic-skills/hooks/hooks.json` is allowed.
-4. Confirm Soft entries: `jq '.hooks | keys' .grok/plugins/atomic-skills/hooks/hooks.json`
-   → expect `SessionStart` and `PreToolUse` (no `Stop` until Strict setup).
-
-**Do not** treat missing hook fire as an install failure when trust is
-withheld — that is intentional Soft fail-open. Install parity still requires
-the hook **files** to reverse cleanly on uninstall.
-
-Marketplace publish and MCP project-state servers remain non-goals (design D10).
-
-## 8. Phase scaffold → session todos (Grok-local)
-
-While a plan is anchored, **Atomic Skills / the agent** projects **plan phases**
-(not tasks `T-00N`) into the Grok session checklist via the session checklist
-tool (`todo_write`). That **phase scaffold** is **Grok-local** only — the host
-product does not auto-project; Claude/Codex/Cursor do not get a mirrored todo
-board from this package; portable SoT remains `.atomic-skills/`.
-
-| Piece | Role |
-|---|---|
-| Contract | `docs/kb/grok-phase-todo-projection.md` (label, status map, SoT order, reseed/merge, **anti-proc**) |
-| Helper (shipped) | `scripts/project-session-todos.js` — emits `{ merge, todos[] }` for the agent |
-| Agent tool | session checklist tool (`todo_write`) applies the payload; never closes durable phase/task state |
-
-**Anti-competition (anti-proc).** A process scaffold (`proc:*` from bundled flows)
-must **not** compete with the phase scaffold while a plan is anchored. When
-pickFocus has a **winner**, apply the helper payload **as emitted** (`merge:
-false` full phase reseed) — including mid-flight / after-done updates (anti-proc:
-full replace clears competing `proc:*`). Empty focus / paused plan (**no
-winner**) → skip reseed / no-op (helper `merge: true` + empty todos; do **not**
-wipe the board). `merge: true` overlay is exceptional only when the board is
-already pure phase scaffold (no `proc:*`) — **not** the default while a winner
-is anchored.
-
-**SessionStart** Soft hooks may *hint* reseed but fail-open without hooks-trust;
-skill paths (`project` / `implement` start) reseed independently when a plan is
-anchored. The host does **not** auto-read `focus.json` for this board — the
-agent applies the session checklist tool (`todo_write`).
+The plugin file `.grok/plugins/atomic-skills/hooks/hooks.json` is `{"hooks":{}}`.
+It does not register SessionStart, PreToolUse, or Stop. Install parity still
+requires that file to reverse cleanly on uninstall.
 

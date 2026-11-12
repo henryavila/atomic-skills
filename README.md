@@ -67,7 +67,7 @@ Support column in the table:
 
 Compact index (name · one-liner · Iron Law).
 
-**Dual docs view (intentional):** the product docs site ([online](https://atomic-skills.henryavila.com/) or offline `site/dist/` via `npm run generate-site`) is the **canonical human product surface** (modules, long skill write-ups, project guide). Generated Markdown under [`docs/skills/`](docs/skills/) is a **secondary** offline / agent / GitHub-browsing reference, kept drift-checked by `npm run generate-skill-docs` (still part of `npm run check-docs`). Engineering archive paths (`docs/kb/`, `docs/design/`, plans, audits) are not product docs and are not published on the site.
+**Dual docs view (intentional):** the product docs site ([online](https://atomic-skills.henryavila.com/) or offline `site/dist/` via `npm run generate-site`) is the **canonical human product surface** (modules and long skill write-ups). Generated Markdown under [`docs/skills/`](docs/skills/) is a **secondary** offline / agent / GitHub-browsing reference, kept drift-checked by `npm run generate-skill-docs` (still part of `npm run check-docs`). Engineering archive paths (`docs/kb/`, `docs/design/`, plans, audits) are not product docs and are not published on the site.
 
 [VERSION_NOTE_START]: #
 
@@ -81,7 +81,6 @@ Compact index (name · one-liner · Iron Law).
 | 🚀 | [`release`](docs/skills/release.md) | Chooser plans bump; ship GH Release; npm stage+2FA only | `NO BUMP WITHOUT THE CHOOSER.` |
 | 🔍 | [`review-plan`](docs/skills/review-plan.md) | Adversarial plan review with local/ground-truth/codex/both modes | `NO APPROVAL WITHOUT EVIDENCE.` |
 | 🔬 | [`review-code`](docs/skills/review-code.md) | Adversarial code review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
-| 📊 | [`project`](docs/skills/project.md) | Plan / Initiative / Task state your agent reloads every session | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |
 | 📝 | [`prompt`](docs/skills/prompt.md) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS.` |
 | 🎯 | [`hunt`](docs/skills/hunt.md) | Adversarial tests from the spec, not the code — depth over breadth | `NO HUNT WITHOUT BOUNDED SCOPE.` |
 | 🚀 | [`parallel-dispatch`](docs/skills/parallel-dispatch.md) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
@@ -89,7 +88,6 @@ Compact index (name · one-liner · Iron Law).
 | 💡 | [`brainstorm`](docs/skills/brainstorm.md) | Interview, research, debate --gate, then critic-gated design.md | `NO PLAN WITHOUT AN APPROVED DESIGN.` |
 | 🎨 | [`design-brief`](docs/skills/design-brief.md) | Generate DS + screens prompts for a design agent, contamination-free | `NEVER SILENCE BEHAVIOUR OR PHILOSOPHY — SILENCE IS FOR VISUAL FORM ONLY.` |
 | 🎭 | [`debate`](docs/skills/debate.md) | Roundtable of independent subagent personas for divergent thinking | `NO SYNTHESIS WITHOUT INDEPENDENT VOICES.` |
-| ⚙️ | [`implement`](docs/skills/implement.md) | Drive plan tasks to done; AS slug or path/to/plan.md; automate default | `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).` |
 | ✅ | [`verify-claim`](docs/skills/verify-claim.md) | No success claim without fresh verification — run it, cite it | `NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.` |
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Consolidate scattered memory into .ai/memory/ and wire it to the IDE | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
 | 📦 | [`audit-delivery`](docs/skills/audit-delivery.md) | Intent-vs-delivered system audit with residual hunt and reaudit gate | `NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.` |

@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, copyFileSync, cpSync, mkdirSync, existsSync, unlinkSync, rmSync, rmdirSync, readdirSync, statSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmSync, rmdirSync, readdirSync, statSync, renameSync } from 'node:fs';
 import { join, dirname, relative, basename, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -56,108 +56,21 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
 
 /**
- * Resolves the installed @henryavila/aideck package directory, or null when it
- * is not installed (e.g. before the npm publish lands, or in a stripped
- * checkout). Pure; never throws.
+ * Stages the shared package-root pointer under ~/.atomic-skills/.
  *
- * Uses a node_modules filesystem walk rather than require.resolve: the
- * published package is ESM-only and its `exports` map exposes neither
- * `./package.json` nor `./dist/cli.js` (and offers no `require` condition), so
- * CJS resolution throws ERR_PACKAGE_PATH_NOT_EXPORTED. Reading the dir off disk
- * sidesteps `exports` entirely.
+ * Surviving skills resolve bundled scripts from this file
+ * (`node "$(cat "$HOME/.atomic-skills/package-root")/scripts/..."`). The
+ * pointer is this package directory (scripts/ plus its node_modules).
  *
- * @returns {string|null}
+ * Older installs also staged an aiDeck launcher, a dashboard client, and a
+ * consumer template. This function no longer creates those paths.
+ * removeRuntimeArtifacts still deletes them when a previous version left them
+ * behind, and never touches ~/.aideck/.
  */
-export function resolveAideckPackageDir() {
-  let dir = PACKAGE_ROOT;
-  for (;;) {
-    const cand = join(dir, 'node_modules', '@henryavila', 'aideck');
-    if (existsSync(join(cand, 'package.json'))) return cand;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
-/**
- * Stages the global runtime artifacts under ~/.atomic-skills/.
- *
- * The aiDeck bin + dashboard client come from the published @henryavila/aideck
- * dependency (T-004 / doc 13 Phase D — the vendored single-file bundle was
- * dropped once aiDeck shipped to npm). We write a one-line launcher SHIM at
- * bin/aideck.mjs that re-execs the resolved dist/cli.js (an absolute import, so
- * node resolves the package's hoisted deps regardless of cwd), and copy the
- * package's dist/client to dashboard/. Both are skipped gracefully when the
- * dependency is not yet installed — the skill's status flow falls back to a
- * terminal view. The consumer template + provisioner are always staged from
- * this package's own assets/ + src/.
- *
- * @param {object} [opts]
- * @param {string|null} [opts.aideckDir] - override the resolved aiDeck package
- *   dir (testing seam); defaults to resolveAideckPackageDir().
- */
-export function installRuntimeArtifacts({ aideckDir = resolveAideckPackageDir() } = {}) {
-  if (aideckDir) {
-    const cli = join(aideckDir, 'dist', 'cli.js');
-    if (existsSync(cli)) {
-      const binDir = join(homedir(), '.atomic-skills', 'bin');
-      mkdirSync(binDir, { recursive: true });
-      // The published cli.js only runs its CLI when
-      // `import.meta.url === pathToFileURL(process.argv[1]).href` (cli.ts:392),
-      // so the shim rewrites argv[1] to the resolved cli before importing it —
-      // a bare `import` would load the module without firing the CLI.
-      const cliLit = JSON.stringify(cli);
-      const shim =
-        '// atomic-skills launcher for the published @henryavila/aideck CLI.\n' +
-        '// Rewrites argv[1] so the CLI entrypoint guard fires under\n' +
-        '// `node aideck.mjs <args>`. Regenerated on every install.\n' +
-        `process.argv[1] = ${cliLit}\n` +
-        `await import(${cliLit})\n`;
-      writeFileSync(join(binDir, 'aideck.mjs'), shim);
-    }
-
-    const clientSrc = join(aideckDir, 'dist', 'client');
-    const dashboardDest = join(homedir(), '.atomic-skills', 'dashboard');
-    if (existsSync(join(clientSrc, 'index.html'))) {
-      if (existsSync(dashboardDest)) rmSync(dashboardDest, { recursive: true, force: true });
-      cpSync(clientSrc, dashboardDest, { recursive: true });
-    }
-  }
-
-  // aiDeck v2 consumer is provisioned PER-PROJECT (consumer id + title = the
-  // consuming repo, NOT a fixed atomic-skills/Project Status) lazily by the
-  // project skill's `status` flow — see src/provision-consumer.js + project-view.md.
-  // aiDeck keys each consumer by its manifest.id, so running the skill in repo
-  // `foo` yields ~/.aideck/consumers/foo/ titled "Foo".
-  //
-  // Install does NOT drop a fixed ~/.aideck/consumers/atomic-skills/ anymore (that
-  // hardcoded identity was the bug). It only stages the TEMPLATE + the provisioner
-  // in a stable runtime location so the lazy flow can resolve them from any repo
-  // (the package's own assets/ + src/ also satisfy the global-npm resolver path).
-  const consumerSrc = join(PACKAGE_ROOT, 'assets', 'aideck-consumer');
-  if (existsSync(join(consumerSrc, 'manifest.yaml'))) {
-    const tmplDest = join(homedir(), '.atomic-skills', 'aideck-consumer');
-    if (existsSync(tmplDest)) rmSync(tmplDest, { recursive: true, force: true });
-    cpSync(consumerSrc, tmplDest, { recursive: true });
-  }
-  const provSrc = join(PACKAGE_ROOT, 'src', 'provision-consumer.js');
-  if (existsSync(provSrc)) {
-    const srcDest = join(homedir(), '.atomic-skills', 'src');
-    mkdirSync(srcDest, { recursive: true });
-    copyFileSync(provSrc, join(srcDest, 'provision-consumer.js'));
-  }
-
-  // Record THIS package's root (the dir holding scripts/ AND its node_modules)
-  // so the project hooks can resolve the runtime detectors from where they
-  // actually run, WITH dependencies intact — instead of copying scripts/ here
-  // dep-less (which would crash with ERR_MODULE_NOT_FOUND on `yaml`/`ajv`) or
-  // silently never running for an `npx`/local install where neither the
-  // consuming repo nor global-npm resolves them (F-002).
-  if (existsSync(join(PACKAGE_ROOT, 'scripts', 'detect-completion.js'))) {
-    const root = join(homedir(), '.atomic-skills');
-    mkdirSync(root, { recursive: true });
-    writeFileSync(join(root, 'package-root'), PACKAGE_ROOT + '\n');
-  }
+export function installRuntimeArtifacts() {
+  const root = join(homedir(), '.atomic-skills');
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, 'package-root'), `${PACKAGE_ROOT}\n`);
 }
 
 /** Absolute path of the cross-install runtime registry (refcount file). */
@@ -439,8 +352,7 @@ function writeInstallsRegistryAtomic(filePath, list, prior, opts = {}) {
  */
 export function restagePackageRootFrom(packageRoot) {
   if (typeof packageRoot !== 'string' || !packageRoot) return false;
-  if (!existsSync(join(packageRoot, 'scripts', 'detect-completion.js'))
-    && !existsSync(join(packageRoot, 'package.json'))) {
+  if (!existsSync(join(packageRoot, 'package.json'))) {
     return false;
   }
   const root = join(homedir(), '.atomic-skills');
@@ -712,17 +624,18 @@ export function releaseGrokAndUnregisterRuntime(basePath, releaseOpts = {}) {
 }
 
 /**
- * Reverse of installRuntimeArtifacts(): remove the global runtime artifacts
- * staged under ~/.atomic-skills/ (bin/aideck.mjs, dashboard/, aideck-consumer/,
- * src/provision-consumer.js). These are NOT manifest-tracked because they live
+ * Reverse of installRuntimeArtifacts(): remove ~/.atomic-skills/package-root.
+ * Also deletes leftover aiDeck paths from older installs (bin/aideck.mjs,
+ * dashboard/, aideck-consumer/, src/provision-consumer.js). Current installs
+ * do not create those paths. They are not manifest-tracked because they live
  * at a fixed user path regardless of install scope.
  *
  * Caller is responsible for scope-gating: these artifacts are shared across all
  * installs, so only a USER-scope uninstall should call this (a project uninstall
  * must leave them so other repos / the user install keep working).
  *
- * Never touches ~/.aideck/ — that holds the user's own provisioned consumer data
- * (plans, initiatives), which is data, not an install artifact.
+ * Never touches ~/.aideck/. That directory is leftover user data from the
+ * removed dashboard, not an install artifact.
  */
 export function removeRuntimeArtifacts() {
   const root = join(homedir(), '.atomic-skills');
@@ -759,6 +672,8 @@ const HISTORICAL_ATOMIC_SKILLS_NAMES = new Set([
   'review-plan-with-codex', 'review-code-with-codex',
   // Removed in v2.0.0 consolidation (project-status + project-plan → project)
   'project-status', 'project-plan',
+  // Removed: plan lifecycle and the implement driver
+  'project', 'implement',
   // Pre-1.x prefix (original `as-` form, deprecated)
   'as-fix', 'as-hunt', 'as-prompt', 'as-save-and-push', 'as-init-memory',
   // Namespace root SKILL.md

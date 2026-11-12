@@ -8,7 +8,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { install, removeRuntimeArtifacts, installRuntimeArtifacts } from '../src/install.js';
+import { install, removeRuntimeArtifacts } from '../src/install.js';
 import { uninstall, pruneEmptyParents } from '../src/uninstall.js';
 import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir.js';
 
@@ -26,16 +26,6 @@ function withHome(fakeHome, fn) {
     if (originalSkip === undefined) delete process.env.ATOMIC_SKILLS_SKIP_GROK_HOST;
     else process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = originalSkip;
   });
-}
-
-/** A throwaway @henryavila/aideck-shaped package dir, so the runtime stage
- *  (shim + client) can be exercised without the published dependency on disk. */
-function fakeAideckPkg() {
-  const dir = mkdtempSync(join(tmpdir(), 'as-fake-aideck-'));
-  mkdirSync(join(dir, 'dist', 'client'), { recursive: true });
-  writeFileSync(join(dir, 'dist', 'cli.js'), 'export {}\n');
-  writeFileSync(join(dir, 'dist', 'client', 'index.html'), '<!doctype html>\n');
-  return dir;
 }
 
 const RUNTIME_ARTIFACTS = [
@@ -178,62 +168,52 @@ describe('uninstall (integration)', () => {
     }
   });
 
-  it('user-scope uninstall removes global runtime artifacts', async () => {
+  it('user-scope uninstall removes package-root and leftover dashboard paths', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-uninst-home-'));
     const projectDir = mkdtempSync(join(tmpdir(), 'as-uninst-proj-'));
-    const aideckDir = fakeAideckPkg();
     try {
       await withHome(fakeHome, async () => {
         await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' });
-        // Stage the aideck runtime from a fake package (the published dep is
-        // not on disk in CI) so the removal path is exercised.
-        installRuntimeArtifacts({ aideckDir });
-        assert.ok(existsSync(join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs')), 'precondition: runtime present');
+        const marker = join(fakeHome, '.atomic-skills', 'package-root');
+        assert.ok(existsSync(marker), 'precondition: package-root present');
+        const shim = join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs');
+        mkdirSync(join(shim, '..'), { recursive: true });
+        writeFileSync(shim, 'leftover');
 
         await uninstall(projectDir, { scope: 'user', yes: true });
 
-        assert.ok(!existsSync(join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs')), 'runtime removed on user uninstall');
-        assert.ok(!existsSync(join(fakeHome, '.atomic-skills', 'dashboard')), 'dashboard removed');
+        assert.equal(existsSync(marker), false, 'package-root removed on user uninstall');
+        assert.equal(existsSync(shim), false, 'leftover launcher removed');
       });
     } finally {
       rmSync(fakeHome, { recursive: true, force: true });
       rmSync(projectDir, { recursive: true, force: true });
-      rmSync(aideckDir, { recursive: true, force: true });
     }
   });
 
   it('shared runtime survives while ANY install remains, reclaimed only when the LAST goes (F-003 refcount)', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-uninst-home-'));
     const repo = mkdtempSync(join(tmpdir(), 'as-uninst-repo-'));
-    const aideckDir = fakeAideckPkg();
-    const bin = join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs');
+    const marker = join(fakeHome, '.atomic-skills', 'package-root');
     try {
       execFileSync('git', ['init', '-q'], { cwd: repo });
       await withHome(fakeHome, async () => {
-        // Two coexisting installs: a user install AND a project install. Each
-        // registers itself in ~/.atomic-skills/installs.json (the refcount).
-        await install(repo, { yes: true, ide: ['claude-code'], lang: 'en' });               // user scope
-        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' }); // project scope
-        installRuntimeArtifacts({ aideckDir }); // guarantee the shared bin is staged
-        assert.ok(existsSync(bin), 'precondition: shared runtime present');
+        await install(repo, { yes: true, ide: ['claude-code'], lang: 'en' });
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+        assert.ok(existsSync(marker), 'precondition: shared runtime present');
         assert.ok(existsSync(join(repo, '.atomic-skills', 'manifest.json')), 'precondition: project manifest');
         assert.ok(existsSync(join(fakeHome, '.atomic-skills', 'manifest.json')), 'precondition: user manifest');
 
-        // Removing the project install: the user install still depends on the
-        // shared runtime, so it MUST survive (the exact bug F-003 fixes — a
-        // single uninstall used to strand the other install).
         await uninstall(repo, { scope: 'project', yes: true });
         assert.ok(!existsSync(join(repo, '.atomic-skills', 'manifest.json')), 'project manifest removed');
-        assert.ok(existsSync(bin), 'shared runtime survives while the user install remains');
+        assert.ok(existsSync(marker), 'shared runtime survives while the user install remains');
 
-        // Removing the LAST install reclaims the shared runtime (no residue).
         await uninstall(repo, { scope: 'user', yes: true });
-        assert.ok(!existsSync(bin), 'shared runtime reclaimed once the last install is gone');
+        assert.equal(existsSync(marker), false, 'shared runtime reclaimed once the last install is gone');
       });
     } finally {
       rmSync(fakeHome, { recursive: true, force: true });
       rmSync(repo, { recursive: true, force: true });
-      rmSync(aideckDir, { recursive: true, force: true });
     }
   });
 

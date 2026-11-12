@@ -2,9 +2,17 @@
 
 Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, evoluiu para **Atomic Skills** (namespace `atomic-skills/` via subdiretório) — pacote npm multi-IDE.
 
+## Decisão 2026-11-12 — plano, implement e aiDeck saíram
+
+A skill de ciclo de plano (`project` / `atomic-skills:project`), a skill `implement` e o aiDeck (dashboard, `bin/aideck.mjs`, consumer, `@henryavila/aideck`) foram removidos. Não reintroduzir, não rotear trabalho por elas, e não tratar `find-missing-flow`, `NO IMPLEMENT WITHOUT VALIDATED FLOW` ou o dashboard como produto vigente.
+
+Continuam: `review-code`, `review-plan`, `audit-delivery`, `parallel-dispatch-audit`, `verify-claim`, `fix`, `hunt`, `brainstorm`, `debate`, `design-brief`, `prompt`, `parallel-dispatch`, `release`, `save-and-push`, `init-memory`.
+
+Os handoffs e notas abaixo que falam de automate, project flow ou dashboard são arquivo histórico deste repo. Não são instrução de retomada.
+
 ## Arquivos de memória
 
-- [handoff-real-automate-2026-10-05.md](handoff-real-automate-2026-10-05.md) — **Retomar daqui.** Branch `plan/real-automate`, PR #50 rascunho/sem merge. F0–F5 registradas done, mas entrega PARTIAL: cartões próprios de arquitetura/UI ausentes e ciclo automático da F4 incompleto. Próximo: revisar a página final e os cartões; depois delimitar a integração da F4. Validação real pelo botão pendente.
+- [handoff-real-automate-2026-10-05.md](handoff-real-automate-2026-10-05.md) — Arquivo. O ciclo automate/implement foi abandonado em 2026-11-12. Não retomar.
 
 - [handoff-real-automate-2026-09-25.md](handoff-real-automate-2026-09-25.md) — Histórico do pause/format de setembro; substituído pelo handoff de 2026-10-05.
 

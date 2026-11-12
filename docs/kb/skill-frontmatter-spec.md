@@ -1,31 +1,29 @@
 # Skill Metadata Spec
 
 > Canonical schema for skill metadata in atomic-skills.
-> Used by aiDeck's help page renderer, by CLI discovery commands, by the installer, and by tooling that lists/filters skills.
+> Used by the installer and by tooling that lists and validates skills.
 
 ## Architecture
 
 atomic-skills uses **separate sources** for skill metadata and skill body:
 
 ```
-meta/skills.yaml              ← CANONICAL metadata (name, description, all new fields)
-skills/<lang>/<category>/<name>.md  ← Skill body (AI instructions only, no frontmatter)
+meta/catalog.yaml             ← CANONICAL metadata (name, description, iron law)
+skills/core/<name>.md         ← Skill body (AI instructions only, no frontmatter)
 ```
 
-At install time, `src/render.js:renderForIDE` **generates** frontmatter for the IDE's chosen format, combining `meta/skills.yaml` data with the rendered body.
+At install time, `src/render.js:renderForIDE` **generates** frontmatter for the IDE's chosen format, combining `meta/catalog.yaml` data with the rendered body.
 
 This means:
-- **Hand-edit only `meta/skills.yaml`** when adding metadata
-- `.md` files in `skills/` stay frontmatter-free (just AI instructions)
-- Rendered output (in user's IDE) has frontmatter at install time
-- aiDeck reads `meta/skills.yaml` directly as canonical source
+- **Hand-edit only `meta/catalog.yaml`** when adding metadata
+- `.md` files in `skills/core/` stay frontmatter-free (just AI instructions)
+- Rendered output (in the user's IDE) has frontmatter at install time
 
 ## Why this architecture
 
-- **Single source of truth**: one file holds all metadata for all skills. No drift between body frontmatter and skills.yaml.
+- **Single source of truth**: one file holds all metadata for all skills. No drift between body frontmatter and the catalog.
 - **Bulk edits cheap**: adding a new optional field touches 1 file, not 12.
-- **Render-time flexibility**: each IDE format (Claude markdown, TOML for Codex, command-style for Claude Code commands) gets the metadata it needs without skill files knowing about IDE specifics.
-- **aiDeck contract is stable**: aiDeck consumes `meta/skills.yaml`. Skills can change body without affecting aiDeck.
+- **Render-time flexibility**: each IDE format gets the metadata it needs without skill files knowing about IDE specifics.
 
 ## Schema versions
 
@@ -128,11 +126,11 @@ core:
       - name: new           # kebab-case, unique within the skill
         signature: '<slug>' # CLI-style: <required> [<optional>] --flag
         description: 'Create a new Initiative (standalone or under active plan)'
-        example: '/atomic-skills:project-status new my-feature'
+        example: '/atomic-skills:<skill> <subcommand>'
       - name: pop
         signature: '[--resolve|--park|--emerge]'
         description: 'Pop the top stack frame with a destination'
-        example: '/atomic-skills:project-status pop --park'
+        example: '/atomic-skills:<skill> <subcommand> --flag'
 
     args:
       - name: '--list'
@@ -312,14 +310,13 @@ Additionally, the catalog-level cross-checks (run by
 Validation runs at:
 - Install time (`installSkills` rejects invalid skills with clear error)
 - Build/CI time (`npm run validate-skills`)
-- aiDeck help page load (skips invalid skills, logs warning)
 
 ## Migration v0.1 → v0.2
 
 The validator accepts both versions during the migration window
 (`ACCEPTED_SCHEMA_VERSIONS = {'0.1', '0.2'}`). The plan:
 
-1. Phase B — pilot one entry (`project-status`) to v0.2; confirm the
+1. Phase B — pilot one entry (`fix`) to v0.2; confirm the
    shape works for the most surface-rich skill in the catalog.
 2. Phase C — bulk-migrate the remaining 10 entries; normalize the 6
    bodies that are missing `## Iron Law`; flip `ACCEPTED_SCHEMA_VERSIONS`
@@ -336,73 +333,31 @@ Existing v0.1 fields are preserved literally — v0.2 does NOT rewrite them.
 
 ## Consumer rendering
 
-### aiDeck help page
-
-Reads `meta/skills.yaml` directly. Renders cards (see [aiDeck/docs/ui-layouts.md § 4](../../../aideck/docs/ui-layouts.md#4-help--skills-directory-help)):
-
-```
-┌──────────────────────────────────────────┐
-│ project-status   [mutates] [core]        │
-│ Project Status — Initiative Tracking     │
-│ ─────────────────────────────────────── │
-│ Canonical per-initiative status tracking.│
-│ Maintains .atomic-skills/ tree...        │
-│                                          │
-│ ✓ Starting a new piece of work           │
-│ ✓ Resuming after break                   │
-│ ✗ One-shot questions                     │
-│                                          │
-│ [/atomic-skills:project-status] [📋]     │
-│ Related: project-plan · fix · save-...   │
-└──────────────────────────────────────────┘
-```
-
 ### IDE rendered output
 
-`src/render.js:renderForIDE` continues using `name + description` to produce IDE-format frontmatter (TOML, command-style, or markdown YAML). New fields (`when_to_use`, `examples`, etc.) are NOT included in the rendered output by default — they're aiDeck-only metadata.
+`src/render.js:renderForIDE` uses `name` + `description` to produce IDE-format frontmatter (TOML, command-style, or markdown YAML). Extra catalog fields (`when_to_use`, `examples`, and so on) stay in `meta/catalog.yaml`; they are not copied into the rendered skill body.
 
 If we later decide the AI should see `when_to_use` etc. in the conversation context, `render.js` can be extended to include them. For v0.1 of the migration, IDE output stays unchanged.
 
-## Example: filled metadata for `project-status` and `hunt`
+## Example: filled metadata for `fix` and `hunt`
 
 ```yaml
 core:
-  project-status:
-    name: project-status
-    title: 'Project Status — Initiative Tracking'
+  fix:
+    name: fix
+    title: 'Fix — Root Cause + TDD'
     description: >
-      Canonical per-initiative status tracking. Maintains .atomic-skills/
-      tree with plan/initiative/task hierarchy. Auto-installs HARD-GATE,
-      hooks, and aiDeck integration.
-    purpose: >
-      Track work via Plan/Initiative/Task hierarchy with stack, parked,
-      emerged, and verifiable exit gates. Bird's-eye + zoom mental model.
+      Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior.
     when_to_use:
-      - 'Starting a new piece of work'
-      - 'Resuming after break'
-      - 'Pushing or popping a stack frame'
-      - 'Parking lateral findings'
-      - 'Viewing status across sessions'
+      - 'A test failed'
+      - 'Behavior does not match the spec'
     when_not_to_use:
-      - 'One-shot questions'
-      - 'Work that fits entirely in the current session'
-      - 'Creating a multi-phase plan (use project-plan instead)'
+      - 'You want a review of a diff'
     examples:
-      - command: '/atomic-skills:project-status'
-        description: 'View current state'
-      - command: '/atomic-skills:project-status new my-feature'
-        description: 'Start a new standalone initiative'
-      - command: '/atomic-skills:project-status push "investigating slow query"'
-        description: 'Push a side-investigation frame'
-      - command: '/atomic-skills:project-status done T-005'
-        description: 'Close a task (triggers phase-completion check if last)'
-    related: [project-plan, fix, save-and-push]
-    tags: [tracking, anchoring, planning, core]
-    ide_compatibility: [claude-code, antigravity, cursor]
-    requires_args: false
-    mutates_repo: true
-    network_required: false
-    schema_version: '0.1'
+      - command: '/atomic-skills:fix'
+        description: 'Diagnose and fix the current failure'
+    related: [hunt, review-code]
+    schema_version: '0.2'
 
   hunt:
     name: hunt

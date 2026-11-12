@@ -141,7 +141,7 @@ describe('F6 release black-box (packed tarball)', { concurrency: false }, () => 
   it('installs project-scope skills from the tarball without source checkout', () => {
     runCli('install', '--yes', '--project', '--ide', 'codex', '--lang', 'en');
 
-    const skill = join(consumer, getSkillPath('codex', 'project'));
+    const skill = join(consumer, getSkillPath('codex', 'fix'));
     assert.ok(existsSync(skill), `missing installed skill: ${skill}`);
     assert.ok(existsSync(join(consumer, '.atomic-skills', 'manifest.json')));
 
@@ -167,72 +167,15 @@ describe('F6 release black-box (packed tarball)', { concurrency: false }, () => 
 
   it('update (re-install) is idempotent for the same desired set', () => {
     runCli('install', '--yes', '--project', '--ide', 'codex', '--lang', 'en');
-    assert.ok(existsSync(join(consumer, getSkillPath('codex', 'implement'))));
+    assert.ok(existsSync(join(consumer, getSkillPath('codex', 'fix'))));
+    assert.equal(existsSync(join(consumer, getSkillPath('codex', 'implement'))), false);
+    assert.equal(existsSync(join(consumer, getSkillPath('codex', 'project'))), false);
   });
 
-  it('runs packaged project scripts from the installed package root', () => {
-    const source = join(consumer, 'release-plan.md');
-    writeFileSync(
-      source,
-      [
-        '# Release Blackbox Plan',
-        '',
-        'Proves packed CLIs work outside the source checkout.',
-        '',
-        '## F0 — Blackbox',
-        '',
-        'Goal: materialize from installed package.',
-        '',
-        '### T-001 Pack proof',
-        '',
-        '```yaml',
-        'exit_gate:',
-        '  - id: F0-G1',
-        '    description: Packaged runtime works',
-        '    verifier: { kind: manual, description: blackbox }',
-        '```',
-        '',
-      ].join('\n'),
-    );
-
-    const businessIntent = JSON.stringify({
-      value: 'Qualify packed product without source checkout.',
-      workflow: 'Pack, install, materialize, validate.',
-      rules: 'Never resolve package code through consumer cwd source tree.',
-      outOfScope: 'npm publish.',
-      doneWhen: 'Installed scripts exit 0.',
-    });
-
-    const materialize = runInstalled(
-      'scripts/decompose-plan.js',
-      'materialize',
-      '--source',
-      source,
-      '--slug',
-      'release-blackbox',
-      '--project-id',
-      'release-consumer',
-      '--branch',
-      'plan/release-blackbox',
-      '--business-intent',
-      businessIntent,
-    );
-    const files = JSON.parse(materialize.stdout);
-    assert.ok(files.some((f) => f.kind === 'plan'));
-    assert.ok(files.some((f) => f.kind === 'initiative'));
-
-    for (const file of files) {
-      const dest = join(consumer, file.relativePath);
-      mkdirSync(dirname(dest), { recursive: true });
-      writeFileSync(dest, file.content);
-    }
-
-    const validate = runInstalled(
-      'scripts/validate-state.js',
-      join(consumer, '.atomic-skills'),
-    );
-    assert.match(validate.stdout, /All \d+ file\(s\) valid|valid/i);
-
+  it('runs packaged surviving scripts from the installed package root', () => {
+    assert.equal(existsSync(join(packageRoot, 'scripts', 'decompose-plan.js')), false);
+    assert.equal(existsSync(join(packageRoot, 'skills', 'core', 'project.md')), false);
+    assert.ok(existsSync(join(packageRoot, 'scripts', 'lint-design.js')));
     const closure = runInstalled('scripts/validate-runtime-closure.js');
     assert.match(closure.stdout, /Runtime closure valid:/);
   });
@@ -249,7 +192,7 @@ describe('F6 release black-box (packed tarball)', { concurrency: false }, () => 
       'en',
     );
     for (const ide of PUBLIC_IDE_IDS) {
-      const path = join(consumer, getSkillPath(ide, 'project'));
+      const path = join(consumer, getSkillPath(ide, 'fix'));
       assert.ok(existsSync(path), `layout missing for ${ide}: ${path}`);
     }
   });

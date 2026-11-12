@@ -1,4 +1,4 @@
-Turn an open idea into a committed, approved **design doc** — the divergent front-half of DESIGN. You interview the user, research the repo into a digest, always run `atomic-skills:debate --gate`, let the user ratify, write `design.md`, and have an independent critic gate it before any plan is written. brainstorm is the head of the lifecycle chain: its output is exactly the input `project new plan` decomposes.
+Turn an open idea into a committed, approved **design doc**. You interview the user, research the repo into a digest, always run `atomic-skills:debate --gate`, let the user ratify, write `design.md`, and have an independent critic gate it. brainstorm's deliverable is the approved design. It does not write a task list.
 
 If {{ARG_VAR}} was provided, use it as the project goal / problem statement. If not, ask the user: "What are we designing? State the problem and the goal in one or two sentences." Then ask for the `<project-id>` and `<plan-slug>` this design belongs to (the design doc lands at `projects/<project-id>/<plan-slug>/design.md`).
 
@@ -6,12 +6,12 @@ If {{ARG_VAR}} was provided, use it as the project goal / problem statement. If 
 
 NO PLAN WITHOUT AN APPROVED DESIGN.
 
-Do not hand off to `project new plan`, and do not author any plan/source markdown, until a `design.md` exists, has passed the section lint, the critic has returned **Approved**, AND the user has explicitly approved it. A design the panel liked is not an approved design — approval is the critic verdict plus the user's word, never panel agreement.
+Do not author a task list, and do not declare the design done, until a `design.md` exists, has passed the section lint, the critic has returned **Approved**, AND the user has explicitly approved it. A design the panel liked is not an approved design — approval is the critic verdict plus the user's word, never panel agreement.
 
 **Multi-phase always runs the full process:** B0 Interview → B0b research-digest → B1 `debate --gate` → B2 user ratify → B3 write → B4 critic → B5 handoff. There is no skip ladder. Ad-hoc / single-task / `adopt` are DESIGN-exempt (R-ORCH-03) and never force this path.
 
 <HARD-GATE>
-Do NOT invoke any implementation or plan-authoring skill until you have presented a design and the user has approved it. (rented verbatim from T02 — docs/kb/analise-superpowers-v5.0.5.md:58-71)
+Do NOT start implementation until you have presented a design and the user has approved it.
 If you are about to skip the critic ("the design is obviously fine"): STOP. The critic is the gate; an unchecked design is an opinion.
 If you are about to skip Interview, research-digest, or debate because "one approach is obvious": STOP. Multi-phase always runs them.
 </HARD-GATE>
@@ -72,7 +72,7 @@ Invoke the critic per `skills/shared/debate-assets/critic.md` — a **fresh, ind
 
 {{READ_TOOL}} `skills/shared/brainstorm-assets/process-receipt.md` and write/update `.atomic-skills/status/design-gates/<projectId>-<slug>.json` so Interview, digest, debate, critic, and user approval are recorded (`status: ready` only when complete). Helpers: `scripts/design-gates.js`.
 
-**HARD-BLOCK before handoff** — refuse to hand off to `project new plan` unless the process receipt is ready and the design is not weak:
+**HARD-BLOCK before declaring the design done** — the process receipt must be ready and the design must not be weak:
 
 ```bash
 PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
@@ -88,7 +88,7 @@ node "$PKG_ROOT/scripts/find-weak-design.js" "$DESIGN_MD" "$DIGEST_MD"
 
 Any non-zero exit **HARD-BLOCKS** handoff — fix Interview/debate/digest/critic/user approval or rewrite weak sections; do not announce handoff on a partial receipt. Ad-hoc / single-task / `adopt` never take this multi-phase path (R-ORCH-03).
 
-Only on critic **Approved** AND explicit user approval AND detectors exit 0: announce the design path, the headline decision, and hand off — `atomic-skills:project new plan <plan-slug>` consumes the approved `design.md` as its source-of-truth for the PLAN stage. brainstorm's job ends here; it never writes the plan itself.
+Only on critic **Approved** AND explicit user approval AND detectors exit 0: announce the design path and the headline decision. brainstorm's job ends here; it never writes the task list.
 
 ## The design doc
 
@@ -134,7 +134,7 @@ Silent application is forbidden; the checkpoint ships in the committed doc.
 - "The design is obviously fine; I'll skip the critic." → An unchecked design is an opinion. The critic is the gate.
 - "Three critic rounds and still Issues-Found — one more pass will land it." → No. Ceiling is 3; the 4th pass is the signal to escalate to the user, not to grind.
 - "The panel split, I'll just pick one and not mention the other." → Dissent is preserved as a Rejected-alternatives entry, never smoothed over.
-- "design.md is approved, I'll write the plan here to save a step." → brainstorm hands off to `project new plan`; it never authors the plan itself.
+- "design.md is approved, I'll write the task list here to save a step." → brainstorm stops at the approved design; it never authors the task list.
 - "We aligned on A yesterday / the lead prefers it — I'll just document it cleanly." → Prior alignment is not evidence A is right. Still Interview, research, and debate; if a sharper alternative surfaces, escalate it.
 - "I'll write the one approach plus a throwaway 'considered X, rejected as non-scalable' line to look like I compared." → Fabricated Rejected-alternative is fake rigor. Record only comparisons that actually happened.
 - "The user said skip the design doc, so I'll dump the task list and document the decisions later." → "Skip the doc" ≠ "skip the decisions." Write Decisions + Chosen approach first, then derive tasks.
@@ -144,4 +144,4 @@ If you thought any of the above: STOP. Go back to the phase you were skipping.
 
 ## Closing
 
-Output of a clean run: a committed `projects/<id>/<slug>/design.md` (lint-clean, gates self-reviewed), `research-digest.md`, design-gates receipt with `interviewAccepted`, a critic **Approved** verdict, the user's explicit approval, and a handoff line to `atomic-skills:project new plan <slug>`. Nothing downstream of the design is brainstorm's to write.
+Output of a clean run: a committed `projects/<id>/<slug>/design.md` (lint-clean, gates self-reviewed), `research-digest.md`, design-gates receipt with `interviewAccepted`, a critic **Approved** verdict, and the user's explicit approval. Nothing downstream of the design is brainstorm's to write.

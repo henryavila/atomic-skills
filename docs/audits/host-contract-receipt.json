@@ -11,7 +11,7 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".claude/commands/atomic-skills/project.md"
+        "skillPath": ".claude/commands/atomic-skills/fix.md"
       },
       "cli": {
         "present": true,
@@ -32,7 +32,7 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".cursor/skills/atomic-skills/project/SKILL.md"
+        "skillPath": ".cursor/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
         "present": true,
@@ -53,7 +53,7 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".agent/skills/atomic-skills/project/SKILL.md"
+        "skillPath": ".agent/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
         "present": true,
@@ -74,7 +74,7 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".agents/skills/atomic-skills/project/SKILL.md"
+        "skillPath": ".agents/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
         "present": true,
@@ -95,7 +95,7 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".opencode/skills/atomic-skills/project/SKILL.md"
+        "skillPath": ".opencode/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
         "present": true,
@@ -116,7 +116,7 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".github/skills/atomic-skills/project/SKILL.md"
+        "skillPath": ".github/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
         "present": false,
@@ -137,7 +137,7 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".grok/plugins/atomic-skills/skills/project/SKILL.md"
+        "skillPath": ".grok/plugins/atomic-skills/skills/fix/SKILL.md"
       },
       "cli": {
         "present": true,

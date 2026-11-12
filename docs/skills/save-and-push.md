@@ -31,7 +31,7 @@ Close out a work session safely: extract durable learnings to memory, scan the d
 
 **Dependencies:** `git`
 
-**Related:** `project`, `init-memory`, `release`
+**Related:** `init-memory`, `release`
 
 **Tags:** `workflow`, `git`, `memory`, `core`
 

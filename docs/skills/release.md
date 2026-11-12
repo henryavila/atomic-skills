@@ -40,7 +40,7 @@ Plan the next semver with a deterministic chooser, apply version + CHANGELOG, sh
 
 **Dependencies:** `git`, `node`, `gh`
 
-**Related:** `save-and-push`, `project`
+**Related:** `save-and-push`
 
 **Tags:** `workflow`, `git`, `release`, `npm`, `core`
 
