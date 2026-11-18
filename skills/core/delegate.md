@@ -23,9 +23,10 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 | `agy` | Antigravity, `gemini-4-hydrogen-high` | implement or fix when DeepSeek is unavailable or in its peak window; second opinion on a failed task |
 | `agy-review` | Antigravity, `gemini-4-hydrogen-xhigh`, plan mode (no writes) | review of DeepSeek's work |
 
-- **Prefer DeepSeek**, and prefer running it **outside its peak window** (07:00–21:59, UTC−3; override with `DELEGATE_PEAK_START`, `DELEGATE_PEAK_END`, `DELEGATE_PEAK_TZ_OFFSET`). Inside the window the runner refuses DeepSeek unless the user allowed it for the batch: queue the task for off-peak, route it to `agy`, or ask.
+- **Prefer DeepSeek**, and prefer running it **outside its peak window** (peak is 22:00–07:00, UTC−3, so off-peak is 07:01–21:59; override with `DELEGATE_PEAK_START`, `DELEGATE_PEAK_END`, `DELEGATE_PEAK_TZ_OFFSET`). Inside the window the runner refuses DeepSeek unless the user allowed it for the batch: queue the task for off-peak, route it to `agy`, or ask.
 - **The reviewer is never the family that wrote the code.** DeepSeek's work is reviewed by `agy-review`; `agy`'s work is reviewed by `deepseek-pro` with a review card.
 - **Claude reviews only on escalation:** the cross-family review and the executor disagree after two fix rounds, the change touches auth, money, data deletion or a migration, or the user asks. Say so in the batch table.
+- The runner finds the CLIs itself: PATH, the usual bin folders, and for OpenCode the `opencode-cli` inside `OpenCode.app` (the desktop app does not add it to PATH). Do not conclude an executor is missing from `which`; run the runner.
 - Always pass a model. `agy` without `--model` can hang on its default; the runner always passes one.
 
 ## The loop

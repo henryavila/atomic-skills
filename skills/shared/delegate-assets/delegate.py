@@ -19,8 +19,9 @@ from pathlib import Path
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
 LOG = HOME / "delegate" / "runs.jsonl"
 # DeepSeek peak window, local wall clock of PEAK_TZ_OFFSET (hours from UTC).
-PEAK_START = os.environ.get("DELEGATE_PEAK_START", "07:00")
-PEAK_END = os.environ.get("DELEGATE_PEAK_END", "21:59")
+# The default window crosses midnight: peak is 22:00-07:00, off-peak is 07:01-21:59.
+PEAK_START = os.environ.get("DELEGATE_PEAK_START", "22:00")
+PEAK_END = os.environ.get("DELEGATE_PEAK_END", "07:00")
 PEAK_TZ_OFFSET = float(os.environ.get("DELEGATE_PEAK_TZ_OFFSET", "-3"))
 
 MODELS = {
@@ -41,7 +42,9 @@ def now():
 def in_peak(t=None):
     t = (t or now()) + dt.timedelta(hours=PEAK_TZ_OFFSET)
     hhmm = t.strftime("%H:%M")
-    return PEAK_START <= hhmm <= PEAK_END
+    if PEAK_START <= PEAK_END:
+        return PEAK_START <= hhmm <= PEAK_END
+    return hhmm >= PEAK_START or hhmm <= PEAK_END  # window crosses midnight
 
 
 def append(rec):
@@ -63,7 +66,16 @@ def find(binary):
         c = Path(d).expanduser() / binary
         if c.exists():
             return str(c)
-    sys.exit(f"delegate: `{binary}` not found; install it or add it to PATH")
+    if binary == "opencode":
+        # The desktop app ships the CLI inside the bundle and does not add it to PATH.
+        apps = [Path("/Applications"), Path("~/Applications").expanduser(),
+                *Path("/Volumes").glob("*/Applications")]
+        for app in apps:
+            c = app / "OpenCode.app/Contents/Resources/opencode-cli"
+            if c.exists():
+                return str(c)
+    sys.exit(f"delegate: `{binary}` not found on PATH, in the usual bin folders, or (opencode) inside "
+             "OpenCode.app; install it or add it to PATH")
 
 
 def cmd_run(a):
