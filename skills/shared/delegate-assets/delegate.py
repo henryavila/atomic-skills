@@ -79,7 +79,7 @@ def tree_snapshot(cwd):
 
 def find_optional(binary):
     p = shutil.which(binary)
-    if p:
+    if p or os.environ.get("DELEGATE_NO_FALLBACK_PATHS") == "1":
         return p
     for d in ("~/.npm-global/bin", "~/.local/bin", "~/.opencode/bin", "/opt/homebrew/bin"):
         c = Path(d).expanduser() / binary
