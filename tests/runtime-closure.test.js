@@ -1,7 +1,15 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -264,7 +272,21 @@ describe('installed runtime closure', () => {
   it('excludes Python bytecode caches from the npm tarball', (t) => {
     const root = mkdtempSync(join(tmpdir(), 'atomic-skills-pack-pycache-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));
-    cpSync(join(PACKAGE_ROOT, 'package.json'), join(root, 'package.json'));
+    // A minimal manifest: lifecycle scripts (e.g. `prepare`) would otherwise run
+    // and fail outside a git checkout, and they have no influence on `files`.
+    const sourceManifest = JSON.parse(
+      readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'),
+    );
+    const fixtureManifest = {
+      name: sourceManifest.name,
+      version: sourceManifest.version,
+      files: sourceManifest.files,
+    };
+    assert.equal('scripts' in fixtureManifest, false);
+    writeFileSync(
+      join(root, 'package.json'),
+      `${JSON.stringify(fixtureManifest, null, 2)}\n`,
+    );
     const assetDir = join(root, 'skills', 'shared', 'delegate-assets');
     const cacheDir = join(assetDir, '__pycache__');
     mkdirSync(cacheDir, { recursive: true });
