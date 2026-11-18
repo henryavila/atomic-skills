@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
-    "@henryavila/minimalist-installer": "github:henryavila/minimalist-installer#1565a58fb5e9b1e51da7aa75c9624dd170da8740",
+    "@henryavila/minimalist-installer": "github:henryavila/minimalist-installer#e37ae7f3d70c96ab3d920522ba739da5fb324a03",
     "@iarna/toml": "^2.2.5",
     "ajv": "^8.20.0",
     "picocolors": "^1.1.1",
