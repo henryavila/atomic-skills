@@ -1629,11 +1629,13 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(pipeRec.auto_committed, true);
     assert.equal(pipeRec.outcome, 'reviewed');
 
-    const revStdin = readFileSync(join(seqDir, 'stdin_1.txt'), 'utf8');
+    const revCard = readFileSync(join(outDir, 'T-PIPE-AUTO.review-card.md'), 'utf8');
     assert.ok(
-      revStdin.includes(`${preRunHead}...HEAD`),
-      `expected ${preRunHead}...HEAD in reviewer card, got:\n${revStdin}`,
+      revCard.includes(`${preRunHead}...HEAD`),
+      `expected ${preRunHead}...HEAD in reviewer card, got:\n${revCard}`,
     );
+    const revArgv = JSON.parse(readFileSync(join(seqDir, 'argv_1.json'), 'utf8'));
+    assert.ok(revArgv.includes(revCard));
   });
 
   it('pipeline executor changes nothing ends with no_changes', () => {
@@ -1704,19 +1706,100 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(recs.filter((r) => r.role === 'review').length, 0);
   });
 
-  it('pipeline reviewer selection: skips same family, skips empty output, ends with no_reviewer when none left', () => {
+  it('pipeline reviewer of the same family as executor is skipped', () => {
     writeFileSync(
       join(seqDir, 'step_0.json'),
       JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
     );
     // Executor is codex (openai).
-    // review-route: codex-review (openai - same family, skipped!), agy-review (empty output, skipped!), hy4-review (empty output, skipped!)
+    // review-route: codex-review (openai - same family, skipped!), agy-review (gemini - runs!)
+    const reviewOutput = 'Reviewed.\nTOTAL major=0 medium=0 minor=0\n';
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-FAM-SKIP',
+        '--task', 'same family skip',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'codex',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review,agy-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    const revRecs = recs.filter((r) => r.role === 'review');
+    assert.equal(revRecs.length, 1);
+    assert.equal(revRecs[0].executor, 'agy');
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.equal(pipeRec.reviewer_profile, 'agy-review');
+    assert.equal(pipeRec.outcome, 'reviewed');
+  });
+
+  it('pipeline skips reviewer with empty output and tries next', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+    );
+    // First reviewer agy-review returns empty output
     writeFileSync(
       join(seqDir, 'step_1.json'),
       JSON.stringify({ FAKE_STDOUT: '', FAKE_LAST_MESSAGE: '' }),
     );
+    // Second reviewer codex-review returns valid review
+    const reviewOutput = 'Checked.\nTOTAL major=0 medium=1 minor=0\n';
     writeFileSync(
       join(seqDir, 'step_2.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-EMPTY-REV',
+        '--task', 'empty reviewer skip',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'agy-review,codex-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    const revRecs = recs.filter((r) => r.role === 'review');
+    assert.equal(revRecs.length, 2);
+    assert.equal(revRecs[0].failure, 'empty_output');
+    assert.equal(revRecs[1].failure, 'none');
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.equal(pipeRec.reviewer_profile, 'codex-review');
+    assert.equal(pipeRec.outcome, 'reviewed');
+  });
+
+  it('pipeline ends with no_reviewer when no reviewer delivers', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+    );
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
       JSON.stringify({ FAKE_STDOUT: '', FAKE_LAST_MESSAGE: '' }),
     );
 
@@ -1728,10 +1811,10 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         '--role', 'implement',
         '--cwd', repoDir,
         '--card', cardPath,
-        '--route', 'codex',
+        '--route', 'flash',
         '--gate', 'true',
         '--review-card', reviewCardPath,
-        '--review-route', 'codex-review,agy-review,hy4-review',
+        '--review-route', 'agy-review',
         '--out', outDir,
         '--confirmed',
       ],
@@ -1743,13 +1826,6 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     const pipeRec = recs.find((r) => r.kind === 'pipeline');
     assert.ok(pipeRec);
     assert.equal(pipeRec.outcome, 'no_reviewer');
-
-    // codex-review must never have been run
-    const revRecs = recs.filter((r) => r.role === 'review');
-    for (const r of revRecs) {
-      assert.notEqual(r.family, 'openai', 'same family reviewer must not run');
-    }
-    assert.equal(revRecs.length, 2); // agy-review and hy4-review both tried and failed
   });
 
   it('pipeline replaces {{DIFF_RANGE}} in the reviewer card', () => {
@@ -1846,6 +1922,61 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     // Wait for background process to finish
     bgProc.kill('SIGTERM');
+    for (let i = 0; i < 40; i++) {
+      execFileSync('sleep', ['0.05']);
+      if (!readdirSync(runningDir).find((f) => f.startsWith('opencode-T-CONC-1-'))) {
+        break;
+      }
+    }
+
+    const afterRes = runDelegate(
+      [
+        'run',
+        '--id', 'T-CONC-AFTER',
+        '--task', 'run after first ends',
+        '--role', 'implement',
+        '--profile', 'flash',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--wait', '0',
+        '--confirmed',
+      ],
+      { ...baseEnv, DELEGATE_MAX_OPENCODE: '1' },
+    );
+    assert.equal(afterRes.status, 0, afterRes.stderr);
+  });
+
+  it('pipeline between steps stops with outcome paused when pause file is created', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-MID-PAUSE',
+        '--task', 'mid pause test',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash',
+        '--gate', `python3 ${DELEGATE_PY} pause --reason "mid-gate stop"`,
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.equal(res.status, 3);
+    assert.match(res.stderr, /delegate: paused/);
+    const recs = readLogRecords(atomicHome);
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.ok(pipeRec);
+    assert.equal(pipeRec.outcome, 'paused');
   });
 
   it('concurrency: slot file with a dead pid is ignored and cleaned up', () => {
