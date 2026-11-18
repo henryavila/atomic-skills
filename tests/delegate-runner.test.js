@@ -2236,7 +2236,8 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     const runningDir = join(atomicHome, 'delegate', 'running');
     mkdirSync(runningDir, { recursive: true });
     // Keep a running process to test listing
-    const bg = spawn('sleep', ['5']);
+    const bg = spawn('sleep', ['5'], { detached: true });
+    const identity = pythonHarness(`print(d.process_identity(${bg.pid}))`).stdout.trim();
     writeFileSync(
       join(runningDir, `opencode-T-RUNNING-${bg.pid}.json`),
       JSON.stringify({
@@ -2246,6 +2247,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         role: 'implement',
         pid: bg.pid,
         pgid: bg.pid,
+        process_start: identity,
         started: '2026-11-18T10:00:00+00:00',
       }),
     );
@@ -2297,7 +2299,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.match(res.stdout, /^active/);
   });
 
-  it('kill <ID> ends a running fake run and slot disappears, unknown id exits 1', () => {
+  it('kill <ID> ends a running fake run and slot disappears, unknown id exits 1', async () => {
     const bgProc = spawn(
       PYTHON3,
       [
@@ -2315,7 +2317,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       {
         env: {
           ...baseEnv,
-          FAKE_SLEEP: '10',
+          FAKE_SLEEP: '60',
         },
       },
     );
@@ -2333,6 +2335,8 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       } catch {}
     }
 
+    assert.ok(slotPath, 'running slot never published');
+    const exited = new Promise(resolve => bgProc.once('exit', (code, signal) => resolve({code, signal})));
     const killUnknown = runDelegate(['kill', 'T-UNKNOWN-ID'], baseEnv);
     assert.equal(killUnknown.status, 1);
 
@@ -2341,8 +2345,16 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     // Give it a moment to terminate and clean slot
     execFileSync('sleep', ['0.2']);
-    if (slotPath) {
+    let timer;
+    try {
+      const result = await Promise.race([exited, new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('background runner still alive')), 3000);
+      })]);
+      assert.ok(result.code !== null || result.signal !== null);
       assert.throws(() => readFileSync(slotPath), { code: 'ENOENT' });
+    } finally {
+      clearTimeout(timer);
+      if (bgProc.exitCode === null && bgProc.signalCode === null) bgProc.kill('SIGTERM');
     }
   });
 
@@ -2385,6 +2397,192 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.match(res.stdout, /gate_failed.*1/);
   });
 
+  for (const timing of ['normal', 'timeout']) for (const fault of ['PermissionError', 'ProcessLookupError']) {
+    it(`R2 R01 ${timing} ${fault} still reaps leader and removes slot`, () => {
+      const res = pythonHarness(`
+original_killpg = os.killpg
+original_wait = subprocess.Popen.wait
+children = []
+original_popen = subprocess.Popen
+def spawn(*args, **kwargs):
+ p = original_popen(*args, **kwargs)
+ if kwargs.get('start_new_session'): children.append(p)
+ return p
+d.subprocess.Popen = spawn
+def killpg(pid, sig):
+ if sig and any(p.pid == pid for p in children): raise ${fault}('injected zombie error')
+ return original_killpg(pid, sig)
+os.killpg = killpg
+original_observe = d.wait_for_exit
+def observe(p, timeout):
+ original_observe(p, timeout)
+ if '${timing}' == 'timeout' and not getattr(p, '_timeout_injected', False):
+  p._timeout_injected = True
+  raise subprocess.TimeoutExpired(p.args, timeout)
+d.wait_for_exit = observe
+try:
+ d.execute_run('zombie', 'zombie', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, confirmed=True)
+ assert children and children[0].returncode is not None, 'leader not reaped'
+ assert not list(d.RUNNING.glob('*.json')), 'slot leaked'
+finally:
+ os.killpg = original_killpg
+ for p in children:
+  if p.poll() is None: p.kill(); original_wait(p)
+`);
+      assert.equal(res.status, 0, res.stderr);
+    });
+  }
+  it('R2 R02 stale identity never lists or kills an unrelated group', () => {
+    const res = pythonHarness(`
+p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+try:
+ d.RUNNING.mkdir(parents=True)
+ slot = d.RUNNING / ('opencode-stale-%s.json' % p.pid)
+ slot.write_text(json.dumps({'id':'stale', 'pid':p.pid, 'pgid':p.pid, 'process_start':'obsolete identity'}))
+ assert d.get_active_slots() == [], 'stale PID identity still active'
+ class Args: id = 'stale'
+ try: d.cmd_kill(Args())
+ except SystemExit as exc: assert exc.code == 1
+ assert p.poll() is None, 'unrelated group killed'
+ assert not slot.exists()
+finally:
+ p.kill(); p.wait()
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+  for (const phase of ['TERM', 'KILL']) {
+    it(`R2 R02 rechecks slot identity under lock before ${phase}`, () => {
+      const res = pythonHarness(`
+p = subprocess.Popen([sys.executable, '-c', 'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(60)'], start_new_session=True)
+time.sleep(.1)
+d.RUNNING.mkdir(parents=True)
+slot = d.RUNNING / ('opencode-race-%s.json' % p.pid)
+data = {'id':'race', 'pid':p.pid, 'pgid':p.pid, 'process_start':d.process_identity(p.pid)}
+slot.write_text(json.dumps(data))
+original_active = d.get_active_slots
+original_sleep = time.sleep
+original_mono = time.monotonic
+original_killpg = os.killpg
+offset = 0
+sent = []
+def replace_slot():
+ slot.write_text(json.dumps(dict(data, process_start='reused')))
+def active(*args):
+ result = original_active(*args)
+ if '${phase}' == 'TERM': replace_slot()
+ return result
+def sleep(seconds):
+ global offset
+ replace_slot()
+ offset = 20
+def killpg(pid, sig):
+ if sig:
+  probe = subprocess.run([sys.executable, '-c', "import fcntl,sys; f=open(sys.argv[1],'w'); fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)", str(d.RUNNING / '.lock')], capture_output=True)
+  assert probe.returncode != 0, 'signal sent outside slot lock'
+  sent.append(sig)
+ return original_killpg(pid, sig)
+d.get_active_slots = active
+time.sleep = sleep
+time.monotonic = lambda: original_mono() + offset
+os.killpg = killpg
+try:
+ class Args: id = 'race'
+ d.cmd_kill(Args())
+ assert sent == ([] if '${phase}' == 'TERM' else [signal.SIGTERM]), sent
+ assert p.poll() is None, 'replacement identity killed'
+finally:
+ os.killpg = original_killpg
+ time.sleep = original_sleep
+ time.monotonic = original_mono
+ p.kill(); p.wait()
+`);
+      assert.equal(res.status, 0, res.stderr);
+    });
+  }
+  it('R2 R03 normal executor and gate never signal a reaped leader', () => {
+    const res = pythonHarness(`
+reaped = set()
+original_wait = subprocess.Popen.wait
+original_killpg = os.killpg
+def wait(self, *args, **kwargs):
+ result = original_wait(self, *args, **kwargs)
+ reaped.add(self.pid)
+ return result
+def killpg(pid, sig):
+ assert pid not in reaped, 'killpg after reap'
+ return original_killpg(pid, sig)
+subprocess.Popen.wait = wait
+os.killpg = killpg
+sys.argv = ['delegate', *json.loads(os.environ['PIPE_ARGS'])]
+try: d.main()
+except SystemExit as exc: assert exc.code == 0, exc
+`, { ...steps([{ FAKE_COMMIT_FILE: 'feature' }, { FAKE_LAST_MESSAGE: 'TOTAL major=0 medium=0 minor=0' }]), PIPE_ARGS: JSON.stringify(pipelineArgs()) });
+    assert.equal(res.status, 0, res.stderr);
+  });
+  it('R2 R04 gate timeout reports duration reason and log tail', () => {
+    const res = runDelegate(pipelineArgs(['--gate', 'echo SENTINEL_GATE_OUTPUT; sleep 5', '--timeout', '1']),
+      steps([{ FAKE_COMMIT_FILE: 'feature' }]));
+    assert.equal(res.status, 1, res.stderr);
+    assert.match(summary(), /gate timed out/);
+    assert.match(summary(), /Gate log tail:\nSENTINEL_GATE_OUTPUT/);
+    const rec = readLogRecords(atomicHome).at(-1);
+    assert.equal(rec.gate_timed_out, true);
+    assert.ok(summary().includes(`exit ${rec.gate_exit}`), 'gate exit code missing');
+    assert.ok(rec.gate_duration_s >= 1);
+  });
+  it('R2 R05 long route keeps winning executor and reviewer outputs', () => {
+    const res = runDelegate(pipelineArgs(['--route', [...Array(35).fill('flash'), 'codex'].join(','), '--review-route', 'agy-review']),
+      steps([...Array.from({length:35}, () => ({FAKE_EXIT:1, FAKE_STDERR:'quota'})),
+        {FAKE_COMMIT_FILE:'feature'}, {FAKE_STDOUT:'TOTAL major=0 medium=0 minor=0'}]));
+    assert.equal(res.status, 0, res.stderr);
+    const runs = readLogRecords(atomicHome).filter(r => r.kind === 'run');
+    for (const r of runs.slice(-2)) assert.ok(summary().includes(r.stdout), r.profile);
+    assert.ok(summary().trimEnd().split('\n').length < 60);
+  });
+  it('R2 R05 summary links only files written by this invocation', () => {
+    mkdirSync(outDir, {recursive:true});
+    const oldGate = join(outDir, 'R1.gate.log');
+    writeFileSync(oldGate, 'OLD_RUN_GATE_FAILURE');
+    const res = runDelegate(pipelineArgs(), { ...baseEnv, FAKE_EXIT:'1', FAKE_STDERR:'quota' });
+    assert.equal(res.status, 1);
+    assert.ok(!summary().includes(oldGate));
+    assert.doesNotMatch(summary(), /commit\.log/);
+  });
+  for (const mode of ['slot', 'paused', 'interrupt']) {
+    it(`R2 R06 ${mode} has actionable summary and record`, () => {
+      let res;
+      if (mode === 'interrupt') {
+        res = pythonHarness(`
+def interrupted(*args, **kwargs): raise KeyboardInterrupt()
+d.execute_run = interrupted
+sys.argv = ['delegate', *json.loads(os.environ['PIPE_ARGS'])]
+try: d.main()
+except SystemExit as exc: assert exc.code == 1
+`, { PIPE_ARGS:JSON.stringify(pipelineArgs()) });
+        assert.equal(res.status, 0, res.stderr);
+      } else {
+        if (mode === 'paused') runDelegate(['pause'], baseEnv);
+        res = runDelegate(pipelineArgs(['--wait', '0']), {...baseEnv, DELEGATE_MAX_OPENCODE:'0'});
+        assert.equal(res.status, mode === 'paused' ? 3 : 1);
+      }
+      const reason = mode === 'slot' ? /slot wait timed out.*opencode/ : mode === 'paused' ? /paused/ : /interrupted/;
+      const rec = readLogRecords(atomicHome).at(-1);
+      assert.match(rec.error, reason);
+      if (mode !== 'paused') assert.match(rec.attempts[0].failure, reason);
+      if (mode === 'paused') assert.equal((res.stderr.match(/delegate: paused/g) || []).length, 1);
+      if (mode !== 'slot') assert.doesNotMatch(summary(), /stdout:|stderr:/);
+      if (mode === 'interrupt') {
+        assert.equal(rec.attempts[0].stdout, null);
+        assert.equal(rec.attempts[0].stderr, null);
+      }
+    });
+  }
+  it('R2 R07 fix round asks only outside the approved route', () => {
+    const skill = readFileSync(join(REPO_ROOT, 'skills/core/delegate.md'), 'utf8');
+    const line = skill.split('\n').find(l => l.startsWith('5. **Fix round.**'));
+    assert.match(line, /new yes only.*outside the approved route/);
+  });
+
   // AS-D4 round 1 regressions. All executors below are disposable fake CLIs.
   function pipelineArgs(extra = []) {
     return ['pipeline', '--id', 'R1', '--task', 'regression', '--role', 'implement',
@@ -2404,7 +2602,7 @@ d = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(d)
 `;
     return spawnSync(PYTHON3, ['-B', '-c', prelude + code], {
-      env: { ...process.env, ...baseEnv, ...env }, encoding: 'utf8', timeout: 25000,
+      env: { ...process.env, ...baseEnv, ...env }, encoding: 'utf8', timeout: 25000, detached: true,
     });
   }
 
@@ -2492,30 +2690,33 @@ spec.loader.exec_module(d)
     assert.notEqual(res.status, 0);
     for (const r of readLogRecords(atomicHome).filter(r => r.kind === 'run')) assert.ok(summary().includes(r.stderr));
   });
-  it('D4 R07 status waits for slot publication instead of deleting partial JSON', () => {
+  it('D4 R07 status waits for real execute_run atomic slot publication', () => {
     const res = pythonHarness(`
-d.RUNNING.mkdir(parents=True)
-ready = d.RUNNING / 'ready'
-writer = subprocess.Popen([sys.executable, '-c', '''
-import fcntl, pathlib, os, time, json, sys
-r = pathlib.Path(sys.argv[1])
-with open(r / '.lock', 'w') as lock:
- fcntl.flock(lock, fcntl.LOCK_EX)
- p = r / ('opencode-live-%s.json' % os.getpid())
- p.write_text('')
- (r / 'ready').touch()
- time.sleep(.4)
- p.write_text(json.dumps({'pid': os.getpid(), 'id': 'live'}))
-time.sleep(3)
-''', str(d.RUNNING)])
+original_write = pathlib.Path.write_text
+cleaners = []
+probe = "import fcntl,sys; f=open(sys.argv[1], 'w'); fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)"
+def slow_publish(path, content, *args, **kwargs):
+ if path.parent == d.RUNNING and path.suffix in ('.tmp', '.json'):
+  assert path.suffix == '.tmp', 'execute_run published directly to JSON'
+  lock = subprocess.run([sys.executable, '-c', probe, str(d.RUNNING / '.lock')], capture_output=True)
+  assert lock.returncode != 0, 'execute_run did not hold slot lock'
+  original_write(path, '')
+  cleaner = subprocess.Popen([sys.executable, '-c', "import importlib.util; s=importlib.util.spec_from_file_location('d', " + repr(d.__file__) + "); d=importlib.util.module_from_spec(s); s.loader.exec_module(d); print([s['id'] for _,s in d.get_active_slots()])"], stdout=subprocess.PIPE, text=True)
+  cleaners.append(cleaner)
+  time.sleep(.2)
+  assert cleaner.poll() is None, 'cleaner entered during publication'
+ return original_write(path, content, *args, **kwargs)
+pathlib.Path.write_text = slow_publish
 try:
- while not ready.exists(): time.sleep(.01)
- slots = d.get_active_slots()
- assert len(slots) == 1, slots
- assert slots[0][1]['id'] == 'live'
+ d.execute_run('live', 'live', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, confirmed=True)
+ assert cleaners, 'real slot writer not exercised'
+ for cleaner in cleaners:
+  output, _ = cleaner.communicate(timeout=3)
+  assert 'live' in output, output
 finally:
- writer.terminate(); writer.wait()
-`);
+ for cleaner in cleaners:
+  if cleaner.poll() is None: cleaner.kill(); cleaner.wait()
+`, { FAKE_SLEEP:'0.5' });
     assert.equal(res.status, 0, res.stderr);
   });
   it('D4 R12 kill escalates for a surviving group after its leader exits', () => {
@@ -2530,7 +2731,7 @@ try:
  while not heartbeat.exists() and time.time() < deadline: time.sleep(.01)
  assert heartbeat.exists()
  d.RUNNING.mkdir(parents=True)
- (d.RUNNING / ('opencode-orphan-%s.json' % leader.pid)).write_text(json.dumps({'id': 'orphan', 'pid': leader.pid, 'pgid': leader.pid}))
+ (d.RUNNING / ('opencode-orphan-%s.json' % leader.pid)).write_text(json.dumps({'id': 'orphan', 'pid': leader.pid, 'pgid': leader.pid, 'process_start':d.process_identity(leader.pid), 'runner_pid':os.getpid(), 'runner_start':d.process_identity(os.getpid())}))
  class Args: id = 'orphan'
  d.cmd_kill(Args())
  leader.wait(timeout=2)
@@ -2559,7 +2760,8 @@ while True:
  time.sleep(.02)
 """)
 script.write_text(f"""#!${PYTHON3}
-import subprocess, sys, pathlib, time
+import subprocess, sys, pathlib, time, signal
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
 p = subprocess.Popen([sys.executable, {str(child_script)!r}, {str(child_file) + '.heartbeat'!r}])
 pathlib.Path({str(child_file)!r}).write_text(str(p.pid))
 time.sleep(60)
@@ -2567,7 +2769,7 @@ time.sleep(60)
 args = [${JSON.stringify(DELEGATE_PY)}, 'run', '--id', 'group', '--task', 'group', '--role', 'implement', '--profile', 'flash', '--cwd', ${JSON.stringify(repoDir)}, '--card', ${JSON.stringify(cardPath)}, '--out', ${JSON.stringify(outDir)}, '--confirmed', '--timeout', '${mode === 'timeout' ? '1' : '60'}']
 mode = '${mode}'
 if mode == 'exception':
- original_wait = d.subprocess.Popen.wait
+ original_wait = d.wait_for_exit
  def broken_wait(self, *args, **kwargs):
   if self.args[0] == str(script) and not getattr(self, '_injected', False):
    self._injected = True
@@ -2575,7 +2777,7 @@ if mode == 'exception':
    time.sleep(.1)
    raise RuntimeError('injected wait error')
   return original_wait(self, *args, **kwargs)
- d.subprocess.Popen.wait = broken_wait
+ d.wait_for_exit = broken_wait
  runner = None
 else:
  runner = subprocess.Popen([sys.executable, *args], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
@@ -2592,7 +2794,7 @@ try:
   elif mode == 'kill':
    killed = subprocess.run([sys.executable, ${JSON.stringify(DELEGATE_PY)}, 'kill', 'group'], capture_output=True)
    assert killed.returncode == 0, killed.stderr
-  _, runner_stderr = runner.communicate(timeout=22)
+  _, runner_stderr = runner.communicate(timeout=3 if mode == 'kill' else 22)
  child = int(child_file.read_text())
  heartbeat = pathlib.Path(str(child_file) + '.heartbeat')
  before = heartbeat.read_text()
@@ -2603,7 +2805,7 @@ finally:
  if child_file.exists():
   try: os.kill(int(child_file.read_text()), signal.SIGKILL)
   except ProcessLookupError: pass
- if runner is not None and runner.poll() is None: runner.kill(); runner.wait()
+ if runner is not None and runner.poll() is None: runner.terminate(); runner.wait(timeout=3)
 `);
       assert.equal(res.status, 0, res.stderr || String(res.error));
     });
@@ -2612,7 +2814,7 @@ finally:
     const res = pythonHarness(`
 d.RUNNING.mkdir(parents=True)
 slot = d.RUNNING / ('opencode-held-%s.json' % os.getpid())
-slot.write_text(json.dumps({'pid': os.getpid()}))
+slot.write_text(json.dumps({'pid': os.getpid(), 'pgid':os.getpgrp(), 'process_start':d.process_identity(os.getpid())}))
 def release():
  time.sleep(1.2)
  subprocess.run(['git', '-C', ${JSON.stringify(repoDir)}, 'commit', '--allow-empty', '-m', 'queued commit'], check=True, stdout=subprocess.DEVNULL)
@@ -2631,7 +2833,7 @@ assert (d.now() - d.dt.datetime.fromisoformat(rec['started'])).total_seconds() <
     const res = pythonHarness(`
 d.RUNNING.mkdir(parents=True)
 slot = d.RUNNING / ('codex-held-%s.json' % os.getpid())
-slot.write_text(json.dumps({'pid': os.getpid()}))
+slot.write_text(json.dumps({'pid': os.getpid(), 'pgid':os.getpgrp(), 'process_start':d.process_identity(os.getpid())}))
 runner = subprocess.Popen([sys.executable, ${JSON.stringify(DELEGATE_PY)}, *json.loads(os.environ['PIPE_ARGS'])], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 try:
  deadline = time.time() + 5

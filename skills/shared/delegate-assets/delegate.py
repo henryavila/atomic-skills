@@ -241,13 +241,53 @@ def is_pid_alive(pid):
         return False
 
 
+def process_identity(pid):
+    """Kernel start time, independent of the runner's wall clock."""
+    if not isinstance(pid, int) or pid <= 0:
+        return None
+    try:
+        if sys.platform == "darwin":
+            import ctypes
+            import struct
+            # Darwin proc_bsdinfo ends with uint64 start_tvsec/start_tvusec.
+            info = ctypes.create_string_buffer(136)
+            libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+            size = libproc.proc_pidinfo(pid, 3, 0, info, len(info))  # PROC_PIDTBSDINFO
+            if size != len(info):
+                return None
+            return "darwin:%s:%s" % struct.unpack_from("QQ", info.raw, 120)
+        stat = Path(f"/proc/{pid}/stat").read_text()
+        start = stat[stat.rfind(")") + 2:].split()[19]
+        boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        return f"linux:{boot}:{start}"
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def slot_owned(slot):
+    pid = slot.get("pid")
+    identity = slot.get("process_start")
+    if not identity or slot.get("pgid") != pid:
+        return False
+    current = process_identity(pid)
+    if current is None:
+        # Darwin hides zombie identities. The live runner reserves its child until
+        # it reaps AND removes this slot under SlotLock, so this interval is owned.
+        runner = slot.get("runner_pid")
+        runner_start = slot.get("runner_start")
+        return bool(runner_start and process_identity(runner) == runner_start)
+    try:
+        return current == identity and os.getpgid(pid) == pid
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
 def _clean_stale_slots():
     RUNNING.mkdir(parents=True, exist_ok=True)
     for p in list(RUNNING.glob("*.json")):
         try:
             data = json.loads(p.read_text())
-            pid = data.get("pid")
-            if not is_pid_alive(pid) and not group_alive(data.get("pgid")):
+            if not slot_owned(data):
                 p.unlink(missing_ok=True)
         except Exception:
             p.unlink(missing_ok=True)
@@ -289,21 +329,54 @@ def group_alive(pgid):
         return True
 
 
+def wait_for_exit(process, timeout):
+    """Observe exit without reaping: the zombie reserves PID/PGID until cleanup."""
+    deadline = time.monotonic() + timeout
+    while True:
+        result = os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+        if result is not None:
+            return
+        if time.monotonic() >= deadline:
+            raise subprocess.TimeoutExpired(process.args, timeout)
+        time.sleep(0.02)
+
+
 def stop_process(process):
-    """Own the entire session until it is killed and the leader is reaped."""
-    if not getattr(process, "_group_stopped", False):
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        process._group_stopped = True
-    process.wait()
+    """Signal only an unreaped child, then always reap it, including on macOS EPERM."""
+    try:
+        if process.returncode is None and not getattr(process, "_group_stopped", False):
+            # WNOWAIT proves this PID is still our child, without releasing its identity.
+            os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            process._group_stopped = True
+    except ChildProcessError:
+        pass  # A caller already reaped it: never signal its former PGID.
+    finally:
+        process.wait()
+
+
+class PausedError(Exception):
+    pass
+
+
+class SlotTimeoutError(Exception):
+    def __init__(self, executor):
+        self.executor = executor
+        super().__init__(f"slot wait timed out: no free {executor} slot")
+
+
+def exception_reason(exc):
+    if isinstance(exc, KeyboardInterrupt) or (isinstance(exc, SystemExit) and exc.code in (130, 143)):
+        return "interrupted"
+    return str(exc) or type(exc).__name__
 
 
 def check_paused():
     if PAUSED.exists():
-        print("delegate: paused", file=sys.stderr)
-        sys.exit(3)
+        raise PausedError("paused")
 
 
 def is_paused():
@@ -397,6 +470,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                             "pid": p.pid,
                             "pgid": p.pid,
                             "started": started,
+                            "process_start": process_identity(p.pid) or f"unreaped:{os.getpid()}:{p.pid}",
+                            "runner_pid": os.getpid(),
+                            "runner_start": process_identity(os.getpid()),
                         }
                         slot_tmp = slot_file.with_suffix(".tmp")
                         slot_tmp.write_text(json.dumps(slot_data, ensure_ascii=False))
@@ -404,37 +480,39 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                         break
 
                 if time.time() >= deadline:
-                    print(f"delegate: no free {executor} slot", file=sys.stderr)
-                    sys.exit(4)
+                    raise SlotTimeoutError(executor)
                 remaining = deadline - time.time()
                 time.sleep(min(5.0, max(0.05, remaining)))
 
             try:
-                code = p.wait(timeout=timeout)
+                wait_for_exit(p, timeout)
             except subprocess.TimeoutExpired:
                 timed_out = True
                 try:
                     os.killpg(p.pid, signal.SIGTERM)
-                except ProcessLookupError:
+                except (ProcessLookupError, PermissionError):
                     pass
-                # Waiting on the leader alone does not imply its descendants exited.
-                deadline_term = time.monotonic() + 10
-                while group_alive(p.pid) and time.monotonic() < deadline_term:
-                    p.poll()  # reap an exited leader
-                    time.sleep(0.05)
-                stop_process(p)
-                code = p.returncode
+                try:
+                    wait_for_exit(p, 10)
+                except subprocess.TimeoutExpired:
+                    pass
     finally:
-        # This also covers publish failures, wait errors, SIGTERM and KeyboardInterrupt.
-        # Keep the slot until the process group is stopped.
-        if p is not None:
-            stop_process(p)
-        if si is not None:
-            si.close()
-        if slot_file:
+        # Reap and removal are one locked transition: kill can trust the runner
+        # identity while Darwin hides the unreaped zombie's start time.
+        try:
             with SlotLock():
-                slot_file.unlink(missing_ok=True)
-                slot_file.with_suffix(".tmp").unlink(missing_ok=True)
+                try:
+                    if p is not None:
+                        stop_process(p)
+                finally:
+                    if slot_file:
+                        slot_file.unlink(missing_ok=True)
+                        slot_file.with_suffix(".tmp").unlink(missing_ok=True)
+        finally:
+            if si is not None:
+                si.close()
+
+    code = p.returncode
 
     snap1 = tree_snapshot(cwd)
     head1 = snap1[0]
@@ -508,6 +586,8 @@ def cmd_pipeline(a):
     auto_committed = False
     gate_exit = None
     gate_duration_s = 0
+    gate_timed_out = False
+    gate_ran = False
     gate_log = out / f"{task_id}.gate.log"
     commit_log = attempt_root / "commit.log"
     attempts = []
@@ -533,7 +613,10 @@ def cmd_pipeline(a):
                 wait_s=a.wait, confirmed=True, attempt=len(attempts),
             ))
         except BaseException as exc:
-            rec["failure"] = "paused" if isinstance(exc, SystemExit) and exc.code == 3 else str(exc)
+            rec["failure"] = exception_reason(exc)
+            for key in ("stdout", "stderr", "last_message"):
+                if key in rec and not Path(rec[key]).is_file():
+                    rec[key] = None
             rec["duration_s"] = round(time.monotonic() - started)
             raise
         return rec
@@ -580,14 +663,21 @@ def cmd_pipeline(a):
             check_paused()
             t0_gate = time.monotonic()
             with open(gate_log, "w") as gf:
+                gate_ran = True
                 gate_process = subprocess.Popen(["bash", "-lc", a.gate], cwd=cwd,
                                                 stdout=gf, stderr=subprocess.STDOUT,
                                                 start_new_session=True)
                 try:
-                    gate_exit = gate_process.wait(timeout=a.timeout)
+                    wait_for_exit(gate_process, a.timeout)
+                except subprocess.TimeoutExpired:
+                    gate_timed_out = True
+                    error = "gate timed out"
                 finally:
-                    stop_process(gate_process)
-            gate_duration_s = round(time.monotonic() - t0_gate)
+                    try:
+                        stop_process(gate_process)
+                        gate_exit = gate_process.returncode
+                    finally:
+                        gate_duration_s = round(time.monotonic() - t0_gate)
             if gate_exit != 0:
                 outcome = "gate_failed"
 
@@ -624,8 +714,8 @@ def cmd_pipeline(a):
             if outcome is None:
                 outcome = "no_reviewer"
     except (Exception, SystemExit, KeyboardInterrupt) as exc:
-        error = str(exc)
-        outcome = "paused" if isinstance(exc, SystemExit) and exc.code == 3 else (
+        error = exception_reason(exc)
+        outcome = "paused" if isinstance(exc, PausedError) else (
             "no_reviewer" if step == "review" else "gate_failed" if step == "gate" else "executor_failed")
 
     findings = {"major": 0, "medium": 0, "minor": 0}
@@ -650,21 +740,33 @@ def cmd_pipeline(a):
 
     lines = [f"# Pipeline {task_id}: {task} — {outcome}",
              f"- committed: {base_commit}..{head}; dirty: {bool(tree_snapshot(cwd)[1])}",
-             f"- commit: {commit_result} | {commit_duration_s}s | log: {commit_log}"]
+             f"- commit: {commit_result} | {commit_duration_s}s" +
+             (f" | log: {commit_log}" if commit_log.is_file() else "")]
     if error:
         lines.append(f"- stopped at {step}: {error}")
     for rec in attempts:
-        paths = f"stdout: {rec['stdout']} | stderr: {rec['stderr']}"
-        if rec.get("last_message"):
-            paths += f" | last_message: {rec['last_message']}"
+        paths = " | ".join(f"{key}: {rec[key]}" for key in ("stdout", "stderr", "last_message")
+                           if rec.get(key) and Path(rec[key]).is_file())
         lines.append(f"- {rec['role']}: {rec['profile']} | {rec['duration_s']}s | {rec['failure']} | {paths}")
-    lines.append(f"- gate: `{a.gate}` | exit {gate_exit} | {gate_duration_s}s | log: {gate_log}")
+    gate_result = f"timed out (exit {gate_exit})" if gate_timed_out else f"exit {gate_exit}" if gate_ran else "not run"
+    lines.append(f"- gate: `{a.gate}` | {gate_result} | {gate_duration_s}s" +
+                 (f" | log: {gate_log}" if gate_ran and gate_log.is_file() else ""))
     lines.append(f"- full step outputs: {details}")
     lines = [one_line(line) for line in lines]
     # Very long routes still have a complete machine-readable attempt manifest.
     if len(lines) > 39:
-        lines = lines[:37] + [lines[-2], f"- additional steps omitted; full step outputs: {details}"]
-    if gate_exit is not None and gate_exit != 0 and gate_log.exists():
+        # Preserve both winners, even with a long executor or reviewer quota route.
+        decisive = [i for i, rec in enumerate(attempts)
+                    if rec is executor_rec or rec is review_rec]
+        prefix = 4 if error else 3
+        keep = set(range(prefix)) | {prefix + i for i in decisive} | {len(lines) - 2, len(lines) - 1}
+        for i in reversed(range(prefix, len(lines) - 2)):
+            if len(keep) >= 38:
+                break
+            keep.add(i)
+        lines = [line for i, line in enumerate(lines) if i in keep]
+        lines.append(f"- additional steps omitted; full step outputs: {details}")
+    if gate_ran and (gate_exit != 0 or gate_timed_out) and gate_log.is_file():
         lines += ["Gate log tail:"] + gate_log.read_text(errors="replace").splitlines()[-15:]
     if finding_lines or total_line:
         budget = max(0, 59 - len(lines) - 2)  # TOTAL and explicit overflow link
@@ -680,7 +782,8 @@ def cmd_pipeline(a):
     append({
         "kind": "pipeline", "id": task_id, "project": project, "outcome": outcome,
         "executor_profile": executor_profile, "reviewer_profile": reviewer_profile,
-        "gate_exit": gate_exit, "auto_committed": auto_committed, "findings": findings,
+        "gate_exit": gate_exit, "gate_timed_out": gate_timed_out, "gate_duration_s": gate_duration_s,
+        "auto_committed": auto_committed, "findings": findings,
         "duration_s": round(time.monotonic() - t0_pipeline), "base": base_commit, "head": head,
         "failed_step": step if outcome not in ("reviewed", "no_changes") else None,
         "error": error, "attempts": attempts, "summary": str(summary_file),
@@ -767,33 +870,34 @@ def cmd_status(a):
 
 def cmd_kill(a):
     target_id = a.id
-    active_slots = get_active_slots()
-    matching = [slot for (_, slot) in active_slots if slot.get("id") == target_id]
+    matching = [(path, slot) for path, slot in get_active_slots() if slot.get("id") == target_id]
     if not matching:
         print(f"delegate: no running slot for {target_id}", file=sys.stderr)
         sys.exit(1)
 
-    for slot in matching:
-        pgid = slot.get("pgid") or slot.get("pid")
+    def still_owned(path, slot):
         try:
-            os.killpg(pgid, signal.SIGTERM)
-        except OSError:
-            pass
+            return json.loads(path.read_text()) == slot and slot_owned(slot)
+        except (OSError, ValueError):
+            return False
 
-    deadline = time.time() + 10.0
-    while time.time() < deadline:
-        alive = [s for s in matching if group_alive(s.get("pgid") or s.get("pid"))]
-        if not alive:
-            break
+    def signal_owned(sig):
+        with SlotLock():
+            for path, slot in matching:
+                if still_owned(path, slot):
+                    try:
+                        os.killpg(slot["pgid"], sig)
+                    except (ProcessLookupError, PermissionError):
+                        pass
+
+    signal_owned(signal.SIGTERM)
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        with SlotLock():
+            if not any(still_owned(path, slot) for path, slot in matching):
+                break
         time.sleep(0.05)
-
-    for s in matching:
-        if group_alive(s.get("pgid") or s.get("pid")):
-            pgid = s.get("pgid") or s.get("pid")
-            try:
-                os.killpg(pgid, signal.SIGKILL)
-            except OSError:
-                pass
+    signal_owned(signal.SIGKILL)
     clean_stale_slots()
 
 
@@ -963,7 +1067,13 @@ def main():
 
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
-    a = ap.parse_args(); a.f(a)
+    a = ap.parse_args()
+    try:
+        a.f(a)
+    except (PausedError, SlotTimeoutError) as exc:
+        message = f"no free {exc.executor} slot (slot wait timed out)" if isinstance(exc, SlotTimeoutError) else str(exc)
+        print(f"delegate: {message}", file=sys.stderr)
+        sys.exit(3 if isinstance(exc, PausedError) else 4)
 
 
 if __name__ == "__main__":
