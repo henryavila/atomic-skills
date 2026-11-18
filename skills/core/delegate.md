@@ -6,7 +6,7 @@ If {{ARG_VAR}} was provided, treat it as the task or list of tasks to delegate (
 
 THE ORCHESTRATOR CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.
 
-Do not implement the task yourself "because it is small", and do not hand it to a subagent of your own model family. The model choice decides cost and quota, so the user approves it per batch. An executor's report is a claim, never evidence: only the gate you run on the host and the review decide.
+Do not implement the task yourself "because it is small", and do not hand it to a subagent of your own model family. The model choice decides cost and quota, so the user approves it per batch. An executor's report is a claim, not evidence: only the gate you run on the host and the review decide.
 
 <HARD-GATE>
 About to edit product code yourself, or to hand it to a subagent of your own model family to implement or fix? STOP — write a card and delegate.
@@ -19,6 +19,7 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 | Profile | CLI and model | Use for |
 |---|---|---|
 | `flash` | OpenCode, `opencode-go/deepseek-v4.1-flash` (`deepseek`) | default for implement, fix, mechanical, test |
+| `flash-review` | OpenCode, `opencode-go/deepseek-v4.1-flash` (`deepseek`) | review of `codex` or `agy` work |
 | `codex` | Codex, `gpt-6.1-sol` (`openai`; override: `DELEGATE_CODEX_MODEL`) | implement or fix with open design decisions, concurrency, security or migrations |
 | `codex-review` | Codex, `gpt-6.1-sol` (`openai`), read-only sandbox | review of `flash` or `agy` work |
 | `agy` | Antigravity, `gemini-4-hydrogen-high` (`gemini`) | implement or fix when Codex is unavailable |
@@ -32,12 +33,13 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 | implement or fix, closed card | `flash` | `codex` (after one failed `flash` attempt; do not retry `flash`) |
 | implement or fix with open design decisions, concurrency, security, migrations | `codex` | `agy` |
 | review of `flash` work | `codex-review` | `agy-review` |
-| review of `agy` work | `codex-review` | none: wait for the quota or ask the user |
-| review of `codex` work | `agy-review` | none: wait for the quota or ask the user |
+| review of `codex` work | `flash-review` | `agy-review` |
+| review of `agy` work | `codex-review` | `flash-review` |
 
-- **Flash is the default executor.** It is good at a closed card (files, values and tests named), mechanical work, and a fix round with exact `file:line` findings. It is weak at: code review (never use it as reviewer), work with a design decision left open, and hard algorithmic problems; and it can fit the code to the test instead of solving the problem — which is why the host gate and a reviewer of another family are mandatory.
+- **Flash is the default executor.** It is good at a closed card (files, values and tests named), mechanical work, and a fix round with exact `file:line` findings. It is weak at: work with a design decision left open, and hard algorithmic problems; and it can fit the code to the test instead of solving the problem — which is why the host gate and a cross-family review are mandatory for Flash's own work.
+- **Flash reviews work of another family.** It is the cheapest reviewer and also the slowest (about an hour on a 600-line diff, against minutes for the others), so prefer `codex-review` when the author is not Codex and time matters.
 - **Only Flash is used in OpenCode.** Do not enable or select another OpenCode model, and never one whose terms train on request data. The runner refuses any other OpenCode model and exits before launching.
-- **The reviewer is never the family that wrote the code, and `flash` is never a reviewer.** Not even when the Codex and Antigravity reviewers are out of quota: wait for the quota or ask the user. The runner refuses a reviewer route that names `flash`. Families: `deepseek`, `openai`, `gemini`.
+- **The reviewer is never of the family that wrote the code.** That is the only rule for choosing a reviewer: `flash-review` reviews `codex` and `agy` work, `codex-review` reviews `flash` and `agy` work, `agy-review` reviews `flash` and `codex` work. Not even when the other reviewers are out of quota: wait for the quota or ask the user. Families: `deepseek`, `openai`, `gemini`.
 - **Check availability and switch on quota limits.** Before building the batch table, run `python3 {{ASSETS_PATH}}/delegate.py profiles`; when a `run` record says `"failure": "provider_limit"`, do not retry that executor. Switch according to the routing table. A pipeline automatically tries the next profile in its approved route; ask for a new yes only for a profile outside the approved route. For standalone `run`, show and confirm the fallback if it was not already approved.
 - **DeepSeek peak hours** (weekdays 01:00–04:00 and 06:00–10:00 UTC) double its price; the runner records it and proceeds. Prefer off-peak for a large batch.
 - **The orchestrator reviews only on escalation:** the cross-family review and the executor disagree after two fix rounds, the change touches auth, money, data deletion or a migration, or the user asks. Say so in the batch table.
@@ -71,7 +73,8 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
    - **Executor step:** Tries profiles in `--route` in order. On `provider_limit` it falls back to the next profile.
    - **Commit step:** If the executor left changes uncommitted, the runner stages everything and commits with message `<ID>: <task> (committed by the delegate runner)` (`auto_committed: true`). If the executor changed nothing (no commits and clean tree), the pipeline ends with outcome `no_changes`.
    - **Gate step:** Runs `--gate` in `<worktree>` via `bash -lc`, capturing output to `<out>/<ID>.gate.log`. Non-zero ends the pipeline with outcome `gate_failed` without running review.
-   - **Review step:** Picks the first profile in `--review-route` whose family differs from the executor family; the runner refuses a review route that names an OpenCode profile, because `flash` is never a reviewer. Replaces `{{DIFF_RANGE}}` in the review card with `<base>...HEAD` (from the pre-run commit); retries on `provider_limit`, `empty_output`, or `incomplete_review`.
+   - **Review step:** Picks the first profile in `--review-route` whose family differs from the executor family; a review route that names `flash` resolves to `flash-review`, and both are skipped when the executor is Flash. Replaces `{{DIFF_RANGE}}` in the review card with `<base>...HEAD` (from the pre-run commit); retries on `provider_limit`, `empty_output`, or `incomplete_review`.
+   - **Review cards for signal or process-group code:** forbid probes that signal processes — a Flash review run was killed by its own probe.
    - **Summary:** You are woken once, read `<ID>.summary.md` instead of the full outputs, triage the findings, send a fix card (another `pipeline` with `--role fix`), then `record` the verdict.
 
    To run a single step standalone (debugging or manual retry), use `run`:
@@ -127,5 +130,5 @@ Never edit or delete past lines. A correction is a new `verdict` line for the sa
 - "The executor says the tests pass." — Record that as `--gate-claim`. Run the gate.
 - "The review found nothing." — Possible, but rare. Check that the reviewer actually read the diff range.
 - "Flash failed, I'll run it again." — Do not retry `flash`; switch to `codex` (or follow the routing table); ask for a new yes if the fallback is outside the approved route.
-- "Flash can review this, it's cheap." — Never, not even when Codex and Antigravity are out of quota. `flash` is weak at review, and the reviewer must be a different family from the author.
+- "Flash can review this, it's cheap." — It can, when another family wrote the code. It is the cheapest reviewer and also the slowest (about an hour on a 600-line diff, against minutes for the others), so prefer `codex-review` when the author is not Codex and time matters; and in a review card for code that sends signals or manages process groups, forbid probes that signal processes — a Flash review run was killed by its own probe.
 - "I'll log it later." — The runner already wrote the `run` row; an id without a verdict shows up in the report as "no verdict".
