@@ -19,21 +19,24 @@ from pathlib import Path
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
 LOG = HOME / "delegate" / "runs.jsonl"
-# DeepSeek peak window, local wall clock of PEAK_TZ_OFFSET (hours from UTC).
-# The default window crosses midnight: peak is 22:00-07:00, off-peak is 07:01-21:59.
-PEAK_START = os.environ.get("DELEGATE_PEAK_START", "22:00")
-PEAK_END = os.environ.get("DELEGATE_PEAK_END", "07:00")
-PEAK_TZ_OFFSET = float(os.environ.get("DELEGATE_PEAK_TZ_OFFSET", "-3"))
-CODEX_MODEL = os.environ.get("DELEGATE_CODEX_MODEL") or "gpt-6-astra"
+# DeepSeek peak windows in UTC, Monday-Friday only.
+DEFAULT_PEAK_WINDOWS = "01:00-04:00,06:00-10:00"
+CODEX_MODEL = os.environ.get("DELEGATE_CODEX_MODEL") or "gpt-6.1-sol"
 LIMIT_RE = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b", re.IGNORECASE)
+TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=\d+ medium=\d+ minor=\d+[ \t`*]*$")
 
 MODELS = {
-    "deepseek-pro": ("opencode", "opencode-go/deepseek-v4-pro", "deepseek"),
-    "deepseek-light": ("opencode", "opencode-go/deepseek-v4.1-flash", "deepseek"),
-    "agy": ("agy", "gemini-4-hydrogen-high", "gemini"),
-    "agy-review": ("agy", "gemini-4-hydrogen-xhigh", "gemini"),
+    "flash": ("opencode", "opencode-go/deepseek-v4.1-flash", "deepseek"),
+    "glm-flash": ("opencode", "opencode-go/glm-5.3-flash", "zhipu"),
+    "kimi": ("opencode", "opencode-go/kimi-k3.1-pro", "moonshot"),
+    "hy4-review": ("opencode", "opencode-go/hy4", "tencent"),
     "codex": ("codex", CODEX_MODEL, "openai"),
     "codex-review": ("codex", CODEX_MODEL, "openai"),
+    "agy": ("agy", "gemini-4-hydrogen-high", "gemini"),
+    "agy-review": ("agy", "gemini-4-hydrogen-xhigh", "gemini"),
+}
+ALIASES = {
+    "deepseek-light": "flash",
 }
 ROLES = ["implement", "fix", "review", "mechanical", "test"]
 GATE = ["pass", "fail", "not_run"]
@@ -52,12 +55,33 @@ def now():
     return dt.datetime.now(dt.timezone.utc)
 
 
+def parse_peak_windows(raw):
+    windows = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        start, end = part.split("-", 1)
+        windows.append((start.strip(), end.strip()))
+    return windows
+
+
 def in_peak(t=None):
-    t = (t or now()) + dt.timedelta(hours=PEAK_TZ_OFFSET)
-    hhmm = t.strftime("%H:%M")
-    if PEAK_START <= PEAK_END:
-        return PEAK_START <= hhmm <= PEAK_END
-    return hhmm >= PEAK_START or hhmm <= PEAK_END  # window crosses midnight
+    raw = os.environ.get("DELEGATE_PEAK_WINDOWS", DEFAULT_PEAK_WINDOWS)
+    windows = parse_peak_windows(raw)
+    if not windows:
+        return False
+    utc_t = (t or now()).astimezone(dt.timezone.utc)
+    if utc_t.weekday() >= 5:
+        return False
+    hhmm = utc_t.strftime("%H:%M")
+    for start, end in windows:
+        if start <= end:
+            if start <= hhmm <= end:
+                return True
+        elif hhmm >= start or hhmm <= end:
+            return True
+    return False
 
 
 def append(rec):
@@ -116,8 +140,8 @@ def build_argv(executor, model, role, cwd, card, last_msg):
     if executor == "opencode":
         return [find("opencode"), "run", "--auto", "--archived", "-m", model, card]
     if executor == "agy":
-        argv = [find("agy"), "-p", card, "--model", model, "--output-format", "text"]
-        return argv + (["--dangerously-skip-permissions", "--mode", "plan"] if role == "review" else ["--dangerously-skip-permissions"])
+        return [find("agy"), "-p", card, "--model", model, "--output-format", "text",
+                "--dangerously-skip-permissions"]
     if executor == "codex":
         effort = "high" if role == "review" else "medium"
         sandbox = "read-only" if role == "review" else "workspace-write"
@@ -169,12 +193,19 @@ def classify_failure(timed_out, code, stdout, stderr, review_wrote, review_outpu
             review_text = ""
         if not review_text.strip():
             return "empty_output"
+        if not any(TOTAL_RE.match(line) for line in review_text.splitlines()):
+            return "incomplete_review"
     return "none"
 
 
 def cmd_run(a):
-    if a.profile:
-        executor, model, family = MODELS[a.profile]
+    profile = a.profile
+    if profile in ALIASES:
+        target = ALIASES[profile]
+        print(f"delegate: profile {profile} is deprecated; use --profile {target}", file=sys.stderr)
+        profile = target
+    if profile:
+        executor, model, family = MODELS[profile]
     else:
         executor, model, family = a.executor, a.model, None
     if not executor or not model:
@@ -189,10 +220,10 @@ def cmd_run(a):
     stdout, stderr = out / f"{a.id}.out.md", out / f"{a.id}.err"
     last_msg = out / f"{a.id}.last.md"
     argv = build_argv(executor, model, a.role, cwd, card, last_msg)
-    peak = in_peak()
-    if peak and executor == "opencode" and not a.allow_peak:
-        sys.exit(f"delegate: DeepSeek peak window ({PEAK_START}-{PEAK_END}, UTC{PEAK_TZ_OFFSET:+g}). "
-                 "Wait, use codex or agy, or pass --allow-peak after the user says so.")
+    peak = in_peak() and family == "deepseek"
+    if peak:
+        print("delegate: DeepSeek peak window (UTC); DeepSeek costs double now — proceeding",
+              file=sys.stderr)
     if executor == "codex":
         last_msg.unlink(missing_ok=True)  # A retry must not reuse an earlier review.
     snap0 = tree_snapshot(cwd)
@@ -303,12 +334,20 @@ def cmd_report(a):
 
 
 def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == "run":
+        pre = argparse.ArgumentParser(add_help=False)
+        pre.add_argument("--profile")
+        known, _ = pre.parse_known_args(sys.argv[2:])
+        if known.profile == "deepseek-pro":
+            print("delegate: profile deepseek-pro was removed (poor cost/benefit); use --profile flash",
+                  file=sys.stderr)
+            sys.exit(2)
     ap = argparse.ArgumentParser(prog="delegate.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
     r.add_argument("--id", required=True); r.add_argument("--task", required=True)
     r.add_argument("--role", required=True, choices=ROLES)
-    r.add_argument("--profile", choices=sorted(MODELS)); r.add_argument("--executor"); r.add_argument("--model")
+    r.add_argument("--profile", choices=sorted([*MODELS, *ALIASES])); r.add_argument("--executor"); r.add_argument("--model")
     r.add_argument("--cwd", required=True); r.add_argument("--card", required=True)
     r.add_argument("--out"); r.add_argument("--project"); r.add_argument("--timeout", type=int, default=5400)
     r.add_argument("--attempt", type=int, default=1)
