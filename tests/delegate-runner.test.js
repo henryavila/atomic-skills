@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -1816,8 +1817,8 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     for (let i = 0; i < 40; i++) {
       execFileSync('sleep', ['0.05']);
       try {
-        const files = readFileSync(join(runningDir, `opencode-T-CONC-1-${bgProc.pid}.json`));
-        if (files) {
+        const found = readdirSync(runningDir).find((f) => f.startsWith('opencode-T-CONC-1-'));
+        if (found) {
           slotFound = true;
           break;
         }
@@ -2048,9 +2049,9 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     for (let i = 0; i < 40; i++) {
       execFileSync('sleep', ['0.05']);
       try {
-        const p = join(runningDir, `opencode-T-KILL-TARGET-${bgProc.pid}.json`);
-        if (readFileSync(p)) {
-          slotPath = p;
+        const found = readdirSync(runningDir).find((f) => f.startsWith('opencode-T-KILL-TARGET-'));
+        if (found) {
+          slotPath = join(runningDir, found);
           break;
         }
       } catch {}
