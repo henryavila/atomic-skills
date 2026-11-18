@@ -275,8 +275,21 @@ def process_identity(pid):
 def slot_owned(slot):
     pid = slot.get("pid")
     identity = slot.get("process_start")
-    if not identity or slot.get("pgid") != pid:
+    if not identity:
+        # Older runners cannot prove identity, so retain live slots but never kill them.
+        return is_pid_alive(pid)
+    if slot.get("pgid") != pid:
         return False
+    if identity.startswith("unreaped:"):
+        # This marker is not a kernel identity. Require both runner and child;
+        # a reaped child must not leave a slot pinned by a long-lived runner.
+        runner_start = slot.get("runner_start")
+        if not runner_start or process_identity(slot.get("runner_pid")) != runner_start:
+            return False
+        try:
+            return os.getpgid(pid) == pid
+        except (ProcessLookupError, PermissionError):
+            return False
     current = process_identity(pid)
     if current is None:
         # Darwin hides zombie identities. The live runner reserves its child until
@@ -292,6 +305,9 @@ def slot_owned(slot):
 
 def _clean_stale_slots():
     RUNNING.mkdir(parents=True, exist_ok=True)
+    for p in RUNNING.glob("*.tmp"):
+        if time.time() - p.stat().st_mtime > 60:
+            p.unlink(missing_ok=True)
     for p in list(RUNNING.glob("*.json")):
         try:
             data = json.loads(p.read_text())
@@ -350,20 +366,34 @@ def wait_for_exit(process, timeout):
 
 
 def stop_process(process):
-    """Signal only an unreaped child, then always reap it, including on macOS EPERM."""
+    """Signal an unreaped child even if interrupted during ownership proof."""
     try:
         if process.returncode is None and not getattr(process, "_group_stopped", False):
-            # WNOWAIT proves this PID is still our child, without releasing its identity.
-            os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+            owned = True  # Popen owns this unreaped child until waitid says otherwise.
             try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
-            process._group_stopped = True
-    except ChildProcessError:
-        pass  # A caller already reaped it: never signal its former PGID.
+                try:
+                    os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+                except ChildProcessError:
+                    owned = False
+            finally:
+                if owned:
+                    try:
+                        try:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        except (ProcessLookupError, PermissionError):
+                            pass
+                        except BaseException:
+                            # A raising signal handler can land at the call itself.
+                            # Complete the signal before propagating that exception.
+                            try:
+                                os.killpg(process.pid, signal.SIGKILL)
+                            except (ProcessLookupError, PermissionError):
+                                pass
+                            raise
+                    finally:
+                        process._group_stopped = True
     finally:
-        process.wait()
+        process.wait(timeout=10)
 
 
 class PausedError(Exception):
@@ -676,6 +706,7 @@ def cmd_pipeline(a):
             break
         else:
             outcome = "no_executor"
+            error = "every executor route hit provider_limit: " + ", ".join(route)
 
         if outcome is None:
             step = "commit"
@@ -729,9 +760,11 @@ def cmd_pipeline(a):
             review_card_copy = attempt_root / "review-card.md"
             review_card_copy.write_text(Path(a.review_card).read_text().replace("{{DIFF_RANGE}}", f"{base_commit}...HEAD"))
             executor_family = MODELS[executor_profile][2]
+            skipped_reviewers = []
             for profile in review_route:
                 check_paused()
                 if MODELS[profile][2] == executor_family:
+                    skipped_reviewers.append(profile)
                     continue
                 review_rec = run_attempt(profile, "review", str(review_card_copy))
                 # Quota classification retains its precedence, but writes are never safe to retry.
@@ -750,6 +783,16 @@ def cmd_pipeline(a):
                 break
             if outcome is None:
                 outcome = "no_reviewer"
+                tried = [rec for rec in attempts if rec["role"] == "review"]
+                if not tried:
+                    error = "no reviewer outside the executor family"
+                elif all(rec["failure"] == "provider_limit" for rec in tried):
+                    error = "every reviewer route hit provider_limit: " + ", ".join(rec["profile"] for rec in tried)
+                else:
+                    error = "reviewer routes exhausted: " + ", ".join(
+                        f"{rec['profile']} ({rec['failure']})" for rec in tried)
+                if skipped_reviewers:
+                    error += "; skipped executor family: " + ", ".join(skipped_reviewers)
     except (Exception, SystemExit, KeyboardInterrupt) as exc:
         error = exception_reason(exc)
         outcome = "paused" if isinstance(exc, PausedError) else (
@@ -911,6 +954,11 @@ def cmd_kill(a):
     if not matching:
         print(f"delegate: no running slot for {target_id}", file=sys.stderr)
         sys.exit(1)
+
+    for _, slot in matching:
+        if not slot.get("process_start"):
+            print(f"delegate: slot predates identity checks; refusing to signal pid {slot['pid']}", file=sys.stderr)
+            sys.exit(1)
 
     def still_owned(path, slot):
         try:

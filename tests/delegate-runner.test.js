@@ -2685,6 +2685,182 @@ finally:
       assert.equal(res.status, 0, res.stderr);
     });
   }
+  it('R3 legacy slot stays counted and kill refuses with pid', () => {
+    const res = pythonHarness(`
+p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+try:
+ d.RUNNING.mkdir(parents=True)
+ slot = d.RUNNING / ('opencode-legacy-%s.json' % p.pid)
+ slot.write_text(json.dumps({'id':'legacy', 'pid':p.pid, 'pgid':p.pid, 'profile':'flash'}))
+ assert len(d.get_active_slots('opencode')) == 1, 'live legacy slot deleted'
+ try:
+  d.execute_run('blocked', 'blocked', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, wait_s=0, confirmed=True)
+ except d.SlotTimeoutError: pass
+ else: raise AssertionError('legacy slot did not enforce cap')
+ class Args: id = 'legacy'
+ try: d.cmd_kill(Args())
+ except SystemExit as exc: assert exc.code == 1
+ else: raise AssertionError('legacy kill accepted')
+ assert p.poll() is None, 'legacy child signalled'
+ assert slot.exists()
+ p.kill(); p.wait()
+ assert d.get_active_slots() == [], 'dead legacy slot retained'
+finally:
+ if p.poll() is None: p.kill()
+ p.wait()
+`, {...baseEnv, DELEGATE_MAX_OPENCODE:'1'});
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stderr, /slot predates identity checks.*pid \d+/);
+    assert.equal(res.stderr.trim().split('\n').length, 1);
+  });
+
+  it('R3 placeholder retains live child and reclaims leftovers and old tmp', () => {
+    const res = pythonHarness(`
+p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+try:
+ d.RUNNING.mkdir(parents=True)
+ slot = d.RUNNING / ('opencode-placeholder-%s.json' % p.pid)
+ slot.write_text(json.dumps({'id':'placeholder', 'pid':p.pid, 'pgid':p.pid, 'process_start':f'unreaped:{os.getpid()}:{p.pid}', 'runner_pid':os.getpid(), 'runner_start':d.process_identity(os.getpid())}))
+ assert d.process_identity(p.pid), 'child identity not visible'
+ assert len(d.get_active_slots()) == 1, 'visible placeholder child deleted'
+ p.kill(); p.wait()
+ assert d.get_active_slots() == [], 'leftover retained by live runner'
+ old = d.RUNNING / 'opencode-old.tmp'
+ fresh = d.RUNNING / 'opencode-fresh.tmp'
+ old.write_text('partial'); fresh.write_text('partial')
+ os.utime(old, (time.time()-61, time.time()-61))
+ d.clean_stale_slots()
+ assert not old.exists(), 'old temporary retained'
+ assert fresh.exists(), 'recent temporary removed'
+finally:
+ if p.poll() is None: p.kill()
+ p.wait()
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  for (const mode of ['executor quota', 'reviewer quota', 'same family']) {
+    it(`R3 exhausted routes explain ${mode} in record and summary`, () => {
+      const extra = mode === 'executor quota' ? ['--route','flash,codex'] :
+        mode === 'same family' ? ['--review-route','flash-review'] : ['--review-route','codex-review,agy-review'];
+      const configs = mode === 'executor quota' ? [{FAKE_EXIT:1,FAKE_STDERR:'quota'}, {FAKE_EXIT:1,FAKE_STDERR:'quota'}] :
+        [{FAKE_COMMIT_FILE:'feature'}, {FAKE_EXIT:1,FAKE_STDERR:'quota'}, {FAKE_EXIT:1,FAKE_STDERR:'quota'}];
+      const res = runDelegate(pipelineArgs(extra), steps(configs));
+      assert.equal(res.status, 1, res.stderr);
+      const rec = readLogRecords(atomicHome).at(-1);
+      const reason = mode === 'same family' ? /no reviewer outside the executor family.*flash-review/ :
+        mode === 'executor quota' ? /every executor route hit provider_limit.*flash.*codex/ :
+        /every reviewer route hit provider_limit.*codex-review.*agy-review/;
+      assert.match(rec.error, reason);
+      assert.ok(summary().includes(`- stopped at ${mode === 'executor quota' ? 'executor' : 'review'}: ${rec.error}`));
+    });
+  }
+
+  for (const phase of ['proof', 'signal']) {
+    it(`R3 interruption at ${phase} signals reaps and removes slot before propagating`, () => {
+      const res = pythonHarness(`
+children = []
+original_popen = subprocess.Popen
+original_waitid = os.waitid
+original_killpg = os.killpg
+def spawn(*args, **kwargs):
+ p = original_popen(*args, **kwargs)
+ if kwargs.get('start_new_session'): children.append(p)
+ return p
+d.subprocess.Popen = spawn
+d.wait_for_exit = lambda *args: None
+injected = False
+sent = []
+def waitid(*args):
+ global injected
+ if '${phase}' == 'proof' and not injected:
+  injected = True
+  raise SystemExit(143)
+ return original_waitid(*args)
+def killpg(pid, sig):
+ global injected
+ if '${phase}' == 'signal' and not injected:
+  injected = True
+  raise KeyboardInterrupt()
+ sent.append(sig)
+ return original_killpg(pid, sig)
+os.waitid = waitid
+os.killpg = killpg
+started = time.monotonic()
+try:
+ try:
+  d.execute_run('interrupt', 'interrupt', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, confirmed=True)
+ except (SystemExit, KeyboardInterrupt): pass
+ else: raise AssertionError('exception swallowed')
+ assert signal.SIGKILL in sent, 'executor not signalled'
+ assert children[0].returncode is not None, 'executor not reaped'
+ assert not list(d.RUNNING.glob('*.json')), 'slot retained'
+ assert time.monotonic()-started < 3, 'cleanup blocked on live executor'
+finally:
+ os.waitid = original_waitid
+ os.killpg = original_killpg
+ for p in children:
+  if p.poll() is None: p.kill()
+  p.wait()
+`, {...baseEnv, FAKE_SLEEP:'4'});
+      assert.equal(res.status, 0, res.stderr);
+    });
+  }
+
+  it('R3 reap and slot removal both hold the slot lock', () => {
+    const res = pythonHarness(`
+original_wait = subprocess.Popen.wait
+original_unlink = pathlib.Path.unlink
+observed = set()
+def probe():
+ result = subprocess.run([sys.executable, '-c', "import fcntl,sys; f=open(sys.argv[1],'w'); fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)", str(d.RUNNING / '.lock')], capture_output=True)
+ assert result.returncode != 0, 'cleanup outside slot lock'
+def wait(self, *args, **kwargs):
+ if self.pid == child_pid[0]:
+  try:
+   probe(); observed.add('reap')
+  finally:
+   result = original_wait(self, *args, **kwargs)
+  return result
+ return original_wait(self, *args, **kwargs)
+def unlink(self, *args, **kwargs):
+ if self.parent == d.RUNNING and self.suffix == '.json':
+  probe(); observed.add('remove')
+ return original_unlink(self, *args, **kwargs)
+original_popen = subprocess.Popen
+child_pid = [None]
+def spawn(*args, **kwargs):
+ p = original_popen(*args, **kwargs)
+ if kwargs.get('start_new_session'): child_pid[0] = p.pid
+ return p
+subprocess.Popen.wait = wait
+subprocess.Popen = spawn
+pathlib.Path.unlink = unlink
+d.execute_run('locked', 'locked', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, confirmed=True)
+assert observed == {'reap', 'remove'}, observed
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('R3 summary omits missing output path still present in record', () => {
+    const res = pythonHarness(`
+original_run = d.execute_run
+def run(*args, **kwargs):
+ rec = original_run(*args, **kwargs)
+ pathlib.Path(rec['stdout']).unlink()
+ return rec
+d.execute_run = run
+sys.argv = ['delegate', *json.loads(os.environ['PIPE_ARGS'])]
+try: d.main()
+except SystemExit as exc: assert exc.code == 1
+`, {...baseEnv, FAKE_EXIT:'1', FAKE_STDERR:'quota', PIPE_ARGS:JSON.stringify(pipelineArgs())});
+    assert.equal(res.status, 0, res.stderr);
+    const rec = readLogRecords(atomicHome).at(-1).attempts[0];
+    assert.ok(rec.stdout);
+    assert.ok(!summary().includes(rec.stdout), 'missing file printed');
+    assert.ok(summary().includes(rec.stderr), 'existing file omitted');
+  });
+
   it('R2 R02 stale identity never lists or kills an unrelated group', () => {
     const res = pythonHarness(`
 p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
