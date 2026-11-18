@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🤝 Delegate — External Executors, Claude Only Creates and Validates · Atomic Skills</title>
-<meta name="description" content="Claude writes the card and judges; DeepSeek or agy does the work">
+<title>🤝 Delegate — External Executors, the Orchestrator Only Creates and Validates · Atomic Skills</title>
+<meta name="description" content="The orchestrator writes the card and judges; cheap executors do the work">
 <link rel="stylesheet" href="../../assets/ds.css">
 <script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return'system'}}function apply(mode){var r=document.documentElement;if(mode==='light'||mode==='dark')r.setAttribute('data-theme',mode);else r.removeAttribute('data-theme');document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-checked',String(b.getAttribute('data-theme-set')===mode))})}apply(read());document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;var mode=b.getAttribute('data-theme-set');try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener('DOMContentLoaded',function(){apply(read())})})();</script>
 </head>
@@ -32,21 +32,21 @@
         <span class="eyebrow">delegate</span>
         <span class="badge badge-module">core</span>
       </div>
-      <h1>🤝 Delegate — External Executors, Claude Only Creates and Validates</h1>
-      <p class="lede">Claude writes the card and judges; DeepSeek or agy does the work</p>
-      <div class="iron-law">CLAUDE CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.</div>
+      <h1>🤝 Delegate — External Executors, the Orchestrator Only Creates and Validates</h1>
+      <p class="lede">The orchestrator writes the card and judges; cheap executors do the work</p>
+      <div class="iron-law">THE ORCHESTRATOR CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.</div>
     </section>
 
     <section class="section card prose">
       <h2>Why it exists</h2>
-      <p>Run work on external executors with a user-confirmed model choice, a host-run gate, a cross-family review and an append-only audit log, keeping Claude usage to creating cards and validating results.</p>
+      <p>Run work on external executors with a user-confirmed model choice, a host-run gate, a cross-family review and an append-only audit log, keeping the orchestrator usage to creating cards and validating results.</p>
     </section>
 
     <section class="section">
       <h2>When to use</h2>
       <ul class="plain">
 <li>Work that an external executor can do: implementing a card, fixing review findings, mechanical sweeps</li>
-<li>You want Claude usage limited to writing the card and validating the result</li>
+<li>You want the orchestrator usage limited to writing the card and validating the result</li>
 <li>You need comparable, auditable numbers per executor and model</li>
 </ul>
     </section>
@@ -63,7 +63,7 @@
     <section class="section">
       <h2>Examples</h2>
       <ul class="list-stack">
-<li><div class="cmd">/atomic-skills:delegate T-12 T-13</div><div class="desc">Show the batch table, wait for the yes, then run each card on DeepSeek with an agy review</div></li>
+<li><div class="cmd">/atomic-skills:delegate T-12 T-13</div><div class="desc">Show the batch table, wait for the yes, then run each card on Flash with a Codex review</div></li>
 <li><div class="cmd">/atomic-skills:delegate &quot;fix the review findings on the billing branch&quot;</div><div class="desc">Write a fix card, run it on the executor that wrote the code, gate and record</div></li>
 </ul>
     </section>

@@ -91,7 +91,7 @@ Compact index (name · one-liner · Iron Law).
 | ✅ | [`verify-claim`](docs/skills/verify-claim.md) | No success claim without fresh verification — run it, cite it | `NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.` |
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Consolidate scattered memory into .ai/memory/ and wire it to the IDE | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
 | 📦 | [`audit-delivery`](docs/skills/audit-delivery.md) | Intent-vs-delivered system audit with residual hunt and reaudit gate | `NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.` |
-| 🤝 | [`delegate`](docs/skills/delegate.md) | Claude writes the card and judges; DeepSeek or agy does the work | `CLAUDE CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.` |
+| 🤝 | [`delegate`](docs/skills/delegate.md) | The orchestrator writes the card and judges; cheap executors do the work | `THE ORCHESTRATOR CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.` |
 [SKILLS_TABLE_END]: #
 
 [SKILL_DETAILS_START]: #

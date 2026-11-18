@@ -763,17 +763,17 @@
   {
     "id": "/atomic-skills:delegate",
     "icon": "🤝",
-    "oneLiner": "Claude writes the card and judges; DeepSeek or agy does the work",
+    "oneLiner": "The orchestrator writes the card and judges; cheap executors do the work",
     "facets": [
       "orchestration",
       "delegation",
       "executors",
       "core"
     ],
-    "summary": "Run work on external executors with a user-confirmed model choice, a host-run gate, a cross-family review and an append-only audit log, keeping Claude usage to creating cards and validating results.",
+    "summary": "Run work on external executors with a user-confirmed model choice, a host-run gate, a cross-family review and an append-only audit log, keeping the orchestrator usage to creating cards and validating results.",
     "pros": [
       "Work that an external executor can do: implementing a card, fixing review findings, mechanical sweeps",
-      "You want Claude usage limited to writing the card and validating the result",
+      "You want the orchestrator usage limited to writing the card and validating the result",
       "You need comparable, auditable numbers per executor and model"
     ],
     "cons": [
