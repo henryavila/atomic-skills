@@ -233,46 +233,70 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     });
   }
 
-  // AS-D5 R1 R01/R02: one check refuses every OpenCode model except Flash, and
-  // refuses OpenCode whenever the role is review, after alias/profile resolution.
-  for (const [label, args, reason] of [
-    ['--role review --profile flash', ['--role', 'review', '--profile', 'flash'],
-      /OpenCode\/Flash is never a reviewer; use codex-review or agy-review/],
-    ['--role review --profile deepseek-light', ['--role', 'review', '--profile', 'deepseek-light'],
-      /OpenCode\/Flash is never a reviewer; use codex-review or agy-review/],
+  // AS-D6: Flash is a reviewer. `--role review --profile flash` (and its alias)
+  // resolves to `flash-review`; a raw OpenCode Flash review also runs.
+  for (const [label, args, expectedFamily] of [
+    ['--role review --profile flash', ['--role', 'review', '--profile', 'flash'], 'deepseek'],
+    ['--role review --profile deepseek-light', ['--role', 'review', '--profile', 'deepseek-light'], 'deepseek'],
     ['--role review with raw opencode Flash',
-      ['--role', 'review', '--executor', 'opencode', '--model', 'opencode-go/deepseek-v4.1-flash'],
-      /OpenCode\/Flash is never a reviewer; use codex-review or agy-review/],
-    ['--role implement with raw opencode hy4',
-      ['--role', 'implement', '--executor', 'opencode', '--model', 'opencode-go/hy4'],
-      /OpenCode runs only opencode-go\/deepseek-v4\.1-flash; use codex or agy for another model/],
+      ['--role', 'review', '--executor', 'opencode', '--model', 'opencode-go/deepseek-v4.1-flash'], null],
   ]) {
-    it(`run ${label} is refused before launch`, () => {
+    it(`run ${label} launches an OpenCode review with the Flash model`, () => {
       const res = runDelegate([
-        'run', '--id', 'T-REFUSED', '--task', label,
+        'run', '--id', 'T-FLASH-REVIEW', '--task', label,
         ...args,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], baseEnv);
+      assert.equal(res.status, 0, res.stderr);
+      assert.deepEqual(JSON.parse(readFileSync(argvFile, 'utf8')), [
+        fakePaths.opencode,
+        'run',
+        '--auto',
+        '--archived',
+        '-m',
+        'opencode-go/deepseek-v4.1-flash',
+        readFileSync(cardPath, 'utf8'),
+      ]);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.role, 'review');
+      assert.equal(rec.executor, 'opencode');
+      assert.equal(rec.model, 'opencode-go/deepseek-v4.1-flash');
+      assert.equal(rec.family, expectedFamily);
+      assert.equal(rec.failure, 'none');
+    });
+  }
+
+  // AS-D6: the model rule survives; any non-Flash OpenCode model is refused for
+  // every role, including review.
+  for (const role of ['implement', 'review']) {
+    it(`run --role ${role} with raw opencode hy4 is refused before launch`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-REFUSED', '--task', `refused ${role}`,
+        '--role', role, '--executor', 'opencode', '--model', 'opencode-go/hy4',
         '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
       ], baseEnv);
       assert.equal(res.status, 2, res.stderr);
       assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
-      assert.match(res.stderr, reason);
+      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash; use codex or agy for another model/);
       assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
       assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
     });
   }
 
-  it('DELEGATE_OPENCODE_MODEL cannot select another OpenCode model', () => {
-    const res = runDelegate([
-      'run', '--id', 'T-ENV-MODEL', '--task', 'environment model override',
-      '--role', 'implement', '--profile', 'flash',
-      '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
-    ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: 'opencode-go/hy4' });
-    assert.equal(res.status, 2, res.stderr);
-    assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
-    assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash; use codex or agy/);
-    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
-    assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
-  });
+  for (const role of ['implement', 'review']) {
+    it(`DELEGATE_OPENCODE_MODEL cannot select another OpenCode model for ${role}`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-ENV-MODEL', '--task', 'environment model override',
+        '--role', role, '--profile', 'flash',
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: 'opencode-go/hy4' });
+      assert.equal(res.status, 2, res.stderr);
+      assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
+      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash; use codex or agy/);
+      assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+      assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
+    });
+  }
 
   for (const [role, profile] of [
     ['implement', 'codex'],
@@ -1028,6 +1052,41 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     }
   });
 
+  it('--profile flash-review --role review builds the OpenCode argv with the Flash model', () => {
+    const cardText = readFileSync(cardPath, 'utf8');
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-FLASH-REV',
+        '--task', 'flash review',
+        '--role', 'review',
+        '--profile', 'flash-review',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      baseEnv,
+    );
+    assert.equal(res.status, 0, res.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(argvFile, 'utf8')), [
+      fakePaths.opencode,
+      'run',
+      '--auto',
+      '--archived',
+      '-m',
+      'opencode-go/deepseek-v4.1-flash',
+      cardText,
+    ]);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.role, 'review');
+    assert.equal(rec.executor, 'opencode');
+    assert.equal(rec.model, 'opencode-go/deepseek-v4.1-flash');
+    assert.equal(rec.family, 'deepseek');
+    assert.equal(rec.failure, 'none');
+    assert.ok(!('last_message' in rec));
+  });
+
   for (const profile of ['glm-flash', 'kimi', 'hy4-review']) {
     it(`removed profile ${profile} is refused before anything runs`, () => {
       const res = runDelegate(
@@ -1047,7 +1106,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       assert.notEqual(res.status, 0);
       assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
       assert.match(res.stderr, new RegExp(`delegate: profile ${profile} was removed`));
-      assert.match(res.stderr, /valid profiles: flash, codex, codex-review, agy, agy-review/);
+      assert.match(res.stderr, /valid profiles: flash, flash-review, codex, codex-review, agy, agy-review/);
       assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
       assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
     });
@@ -1074,7 +1133,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.notEqual(res.status, 0);
     assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
     assert.match(res.stderr, /delegate: profile hy4-review was removed/);
-    assert.match(res.stderr, /valid profiles: flash, codex, codex-review, agy, agy-review/);
+    assert.match(res.stderr, /valid profiles: flash, flash-review, codex, codex-review, agy, agy-review/);
     assert.throws(() => readFileSync(join(seqDir, 'count')), { code: 'ENOENT' });
   });
 
@@ -1381,7 +1440,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     });
   }
 
-  it('profiles lists exactly the five supported profiles in order and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
+  it('profiles lists exactly the six supported profiles in order and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
     const partialDir = join(root, 'partial');
     const { binDir: partialBin } = makeFakeBin(partialDir, ['opencode', 'agy']);
     const res = runDelegate(['profiles'], {
@@ -1393,14 +1452,36 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 5);
+    assert.equal(lines.length, 6);
     assert.deepEqual(lines, [
       'flash | opencode | opencode-go/deepseek-v4.1-flash | deepseek | found',
+      'flash-review | opencode | opencode-go/deepseek-v4.1-flash | deepseek | found',
       'codex | codex | gpt-6.1-sol | openai | missing',
       'codex-review | codex | gpt-6.1-sol | openai | missing',
       'agy | agy | gemini-4-hydrogen-high | gemini | found',
       'agy-review | agy | gemini-4-hydrogen-xhigh | gemini | found',
     ]);
+  });
+
+  it('profiles shows the Flash model and marks OpenCode entries refused when DELEGATE_OPENCODE_MODEL names another model', () => {
+    const res = runDelegate(['profiles'], {
+      ...baseEnv,
+      DELEGATE_NO_FALLBACK_PATHS: '1',
+      DELEGATE_OPENCODE_MODEL: 'opencode-go/hy4',
+    });
+
+    assert.equal(res.status, 0, res.stderr);
+    const lines = res.stdout.trim().split('\n');
+    assert.equal(lines.length, 6);
+    assert.ok(
+      lines.includes('flash | opencode | opencode-go/deepseek-v4.1-flash | deepseek | refused'),
+      res.stdout,
+    );
+    assert.ok(
+      lines.includes('flash-review | opencode | opencode-go/deepseek-v4.1-flash | deepseek | refused'),
+      res.stdout,
+    );
+    assert.doesNotMatch(res.stdout, /hy4/);
   });
 
   it('profiles falls back to ~/.local/bin when codex is absent from PATH', () => {
@@ -1421,7 +1502,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 5);
+    assert.equal(lines.length, 6);
     assert.ok(lines.includes('codex | codex | gpt-6.1-sol | openai | found'));
     assert.ok(lines.includes('codex-review | codex | gpt-6.1-sol | openai | found'));
   });
@@ -1924,19 +2005,32 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(pipeRec.outcome, 'reviewed');
   });
 
-  // AS-D5 R1 R02: a reviewer route that names an OpenCode profile is refused
-  // outright; the old pipeline-only skip is gone.
-  for (const reviewRoute of ['flash', 'flash,codex-review,agy-review', 'flash,agy-review']) {
-    it(`pipeline reviewer route "${reviewRoute}" is refused before anything launches`, () => {
+  // AS-D6: Flash reviews another family's work but never its own, including
+  // when the executor is named through the deprecated alias.
+  for (const [label, route, reviewRoute, expectedReviewer] of [
+    ['a flash executor', 'flash', 'flash-review,codex-review', 'codex-review'],
+    ['a flash executor through the alias', 'deepseek-light', 'flash-review,agy-review', 'agy-review'],
+  ]) {
+    it(`pipeline with ${label} never selects flash-review`, () => {
+      writeFileSync(
+        join(seqDir, 'step_0.json'),
+        JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+      );
+      const reviewOutput = 'Reviewed.\nTOTAL major=0 medium=0 minor=0\n';
+      writeFileSync(
+        join(seqDir, 'step_1.json'),
+        JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+      );
+
       const res = runDelegate(
         [
           'pipeline',
-          '--id', 'T-PIPE-OPENCODE-REVIEW',
-          '--task', 'opencode is never a reviewer',
+          '--id', 'T-PIPE-FLASH-SELF',
+          '--task', 'flash never reviews flash',
           '--role', 'implement',
           '--cwd', repoDir,
           '--card', cardPath,
-          '--route', 'codex',
+          '--route', route,
           '--gate', 'true',
           '--review-card', reviewCardPath,
           '--review-route', reviewRoute,
@@ -1946,13 +2040,104 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         { ...baseEnv, FAKE_SEQ_DIR: seqDir },
       );
 
-      assert.equal(res.status, 2, res.stderr);
-      assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
-      assert.match(res.stderr, /OpenCode\/Flash is never a reviewer; use codex-review or agy-review/);
-      assert.throws(() => readFileSync(join(seqDir, 'count')), { code: 'ENOENT' });
-      assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
+      assert.equal(res.status, 0, res.stderr);
+      const recs = readLogRecords(atomicHome);
+      const revRecs = recs.filter((r) => r.role === 'review');
+      assert.equal(revRecs.length, 1);
+      assert.equal(revRecs[0].family, expectedReviewer === 'codex-review' ? 'openai' : 'gemini');
+      const pipeRec = recs.find((r) => r.kind === 'pipeline');
+      assert.equal(pipeRec.reviewer_profile, expectedReviewer);
+      assert.equal(pipeRec.outcome, 'reviewed');
     });
   }
+
+  // AS-D6 default reviewer routes when the executor is another family.
+  for (const [label, route, reviewRoute, expectedReviewer, expectedExecutor] of [
+    ['codex work prefers flash-review', 'codex', 'flash-review,agy-review', 'flash-review', 'opencode'],
+    ['agy work prefers codex-review', 'agy', 'codex-review,flash-review', 'codex-review', 'codex'],
+  ]) {
+    it(`pipeline with ${label}`, () => {
+      writeFileSync(
+        join(seqDir, 'step_0.json'),
+        JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+      );
+      const reviewOutput = 'Reviewed.\nTOTAL major=0 medium=0 minor=0\n';
+      writeFileSync(
+        join(seqDir, 'step_1.json'),
+        JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+      );
+
+      const res = runDelegate(
+        [
+          'pipeline',
+          '--id', 'T-PIPE-DEFAULT-REV',
+          '--task', label,
+          '--role', 'implement',
+          '--cwd', repoDir,
+          '--card', cardPath,
+          '--route', route,
+          '--gate', 'true',
+          '--review-card', reviewCardPath,
+          '--review-route', reviewRoute,
+          '--out', outDir,
+          '--confirmed',
+        ],
+        { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+      );
+
+      assert.equal(res.status, 0, res.stderr);
+      const recs = readLogRecords(atomicHome);
+      const revRecs = recs.filter((r) => r.role === 'review');
+      assert.equal(revRecs.length, 1);
+      assert.equal(revRecs[0].executor, expectedExecutor);
+      const pipeRec = recs.find((r) => r.kind === 'pipeline');
+      assert.equal(pipeRec.reviewer_profile, expectedReviewer);
+      assert.equal(pipeRec.outcome, 'reviewed');
+    });
+  }
+
+  // AS-D6 reversed AS-D5-F1: a review route that names `flash` resolves to
+  // `flash-review` and runs when the executor family differs.
+  it('pipeline review route "flash" resolves to flash-review for a codex executor', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+    );
+    const reviewOutput = 'Checked.\nTOTAL major=0 medium=0 minor=0\n';
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-FLASH-REVIEW-ROUTE',
+        '--task', 'flash resolves to flash-review',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'codex',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'flash',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    const revRecs = recs.filter((r) => r.role === 'review');
+    assert.equal(revRecs.length, 1);
+    assert.equal(revRecs[0].executor, 'opencode');
+    assert.equal(revRecs[0].model, 'opencode-go/deepseek-v4.1-flash');
+    assert.equal(revRecs[0].family, 'deepseek');
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.equal(pipeRec.reviewer_profile, 'flash-review');
+    assert.equal(pipeRec.outcome, 'reviewed');
+  });
 
   it('pipeline skips reviewer with empty output and tries next', () => {
     writeFileSync(

@@ -40,6 +40,7 @@ TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=\d+ medium=\d+ minor=\d+[ \t`*]*$")
 
 MODELS = {
     "flash": ("opencode", OPENCODE_MODEL, "deepseek"),
+    "flash-review": ("opencode", OPENCODE_MODEL, "deepseek"),
     "codex": ("codex", CODEX_MODEL, "openai"),
     "codex-review": ("codex", CODEX_MODEL, "openai"),
     "agy": ("agy", "gemini-4-hydrogen-high", "gemini"),
@@ -48,12 +49,15 @@ MODELS = {
 ALIASES = {
     "deepseek-light": "flash",
 }
+# A reviewer route that names `flash` means `flash-review`: the only rule for a
+# reviewer is that it is not of the family that wrote the code.
+REVIEW_PROFILES = {"flash": "flash-review"}
 # Removed on 2026-11-18: OpenCode runs a single model (Flash). Old log lines may
 # still name these profiles, their models and their families; readers must keep
 # showing them, but no new run may be launched with one.
 REMOVED_PROFILES = ("hy4-review", "glm-flash", "kimi")
 REMOVED_PROFILE_MESSAGE = ("delegate: profile {name} was removed; valid profiles: "
-                           "flash, codex, codex-review, agy, agy-review")
+                           "flash, flash-review, codex, codex-review, agy, agy-review")
 ROLES = ["implement", "fix", "review", "mechanical", "test"]
 GATE = ["pass", "fail", "not_run"]
 DELIVERED = ["yes", "partial", "no"]
@@ -406,16 +410,13 @@ class SlotLock:
 def check_model_allowed(role, executor, model):
     """The one check for the OpenCode rule.
 
-    OpenCode runs DeepSeek Flash only, and Flash is never a reviewer — never as a
-    fallback either. Called after every alias, profile, flag and environment
-    override is resolved, and before anything is launched or any slot is taken.
+    OpenCode runs DeepSeek Flash only. The reviewer rule lives in the pipeline
+    family check, not here: Flash reviews another family's work. Called after
+    every alias, profile, flag and environment override is resolved, and before
+    anything is launched or any slot is taken.
     """
     if executor != "opencode":
         return
-    if role == "review":
-        print("delegate: OpenCode/Flash is never a reviewer; use codex-review or agy-review",
-              file=sys.stderr)
-        sys.exit(2)
     if model != FLASH_MODEL:
         print(f"delegate: OpenCode runs only {FLASH_MODEL}; use codex or agy for another model",
               file=sys.stderr)
@@ -434,6 +435,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if profile in REMOVED_PROFILES:
         print(REMOVED_PROFILE_MESSAGE.format(name=profile), file=sys.stderr)
         sys.exit(2)
+    if role == "review" and profile in REVIEW_PROFILES:
+        profile = REVIEW_PROFILES[profile]
     if profile:
         executor, model, family = MODELS[profile]
     else:
@@ -608,6 +611,7 @@ def cmd_pipeline(a):
     # profile in both routes goes through the same check as a standalone run.
     try:
         route, review_route = canonical_route(a.route), canonical_route(a.review_route)
+        review_route = [REVIEW_PROFILES.get(p, p) for p in review_route]
     except ValueError as exc:
         message = str(exc)
         sys.exit(message if message.startswith("delegate:") else f"delegate: {message}")
@@ -936,7 +940,12 @@ def cmd_kill(a):
 
 def cmd_profiles(a):
     for name, (executor, model, family) in MODELS.items():
-        status = "found" if find_optional(executor) else "missing"
+        if executor == "opencode" and model != FLASH_MODEL:
+            # `run` refuses the same override; show Flash and mark the entries
+            # refused instead of advertising a model that will never launch.
+            model, status = FLASH_MODEL, "refused"
+        else:
+            status = "found" if find_optional(executor) else "missing"
         print(f"{name} | {executor} | {model} | {family} | {status}")
 
 
