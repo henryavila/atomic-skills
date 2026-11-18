@@ -133,6 +133,20 @@ export function computeSkillsFileSet(config) {
   return files;
 }
 
+/**
+ * Python bytecode caches are incidental build artifacts, not skill assets:
+ * importing a helper (e.g. delegate.py) can leave `__pycache__/*.pyc` beside
+ * it, and shipping those breaks runtime closure because the binary content
+ * trips the asset-reference scanner. Never enumerate them as assets.
+ */
+function isPythonBytecodeFile(name) {
+  return name.endsWith('.pyc') || name.endsWith('.pyo');
+}
+
+function isPythonCacheDirectory(name) {
+  return name === '__pycache__';
+}
+
 function collectSharedAssetSources(sharedDir) {
   const sources = [];
 
@@ -140,6 +154,8 @@ function collectSharedAssetSources(sharedDir) {
     const entries = readdirSync(directory, { withFileTypes: true })
       .sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
+      if (isPythonCacheDirectory(entry.name)) continue;
+      if (entry.isFile() && isPythonBytecodeFile(entry.name)) continue;
       const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
         walk(join(directory, entry.name), relativePath);
@@ -151,7 +167,9 @@ function collectSharedAssetSources(sharedDir) {
 
   for (const entry of readdirSync(sharedDir, { withFileTypes: true })
     .sort((a, b) => a.name.localeCompare(b.name))) {
+    if (isPythonCacheDirectory(entry.name)) continue;
     if (entry.isFile()) {
+      if (isPythonBytecodeFile(entry.name)) continue;
       sources.push(entry.name);
     } else if (entry.isDirectory() && entry.name.endsWith('-assets')) {
       walk(join(sharedDir, entry.name), entry.name);
