@@ -52,16 +52,33 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 
 1. **Batch table and confirmation.** Before launching anything, show one table and wait for an explicit yes:
 
-   | # | Task | Role | Model | Executor | Reviewer | When |
-   |---|---|---|---|---|---|---|
+   | # | Task | Role | Route | Review route | When |
+   |---|---|---|---|---|---|
 
-   Roles: `implement`, `fix`, `mechanical`, `test`, `review`. "When" is `now` or `off-peak`. The yes covers that batch only; a new batch, or reusing an executor for a new task, needs a new yes. If the user is on a remote client, ask in the message text.
+   Roles: `implement`, `fix`, `mechanical`, `test`. "When" is `now` or `off-peak`. The batch table shows the **route** and the user's yes covers every profile in it; a new batch, or reusing an executor for a new task, needs a new yes. If the user is on a remote client, ask in the message text.
 
 2. **Isolate.** Commit your own work first. One worktree per task, cut from the integration branch, dependencies installed in it (`skills/shared/worktree-isolation.md`). Two executors never share a worktree.
 
 3. **Write the card** — the only code-shaped thing the orchestrator produces. Use `{{ASSETS_PATH}}/card-template.md`. State the rule by its **result** ("a visitor never sees X on any route"), not only by a file list; name files with lines, what must not change, how to check, a final grep, and the delivery (commits, no push). Tell the executor to stay inside the worktree, to write a failing test first, and to commit early.
 
-4. **Run the executor** in the background through the runner, never by hand:
+4. **Pipeline (executor, host gate, cross-family review)** — the default way to run steps 4 to 6 in one call:
+
+   ```bash
+   python3 {{ASSETS_PATH}}/delegate.py pipeline --id <ID> --task "<short title>" --role implement \
+     --cwd <worktree> --card <card.md> --route flash,codex,agy \
+     --gate "<gate shell command>" \
+     --review-card {{ASSETS_PATH}}/review-card-template.md \
+     --review-route codex-review,agy-review,hy4-review --confirmed
+   ```
+
+   The runner executes the task end-to-end:
+   - **Executor step:** Tries profiles in `--route` in order. On `provider_limit` it falls back to the next profile.
+   - **Commit step:** If the executor left changes uncommitted, the runner stages everything and commits with message `<ID>: <task> (committed by the delegate runner)` (`auto_committed: true`). If the executor changed nothing (no commits and clean tree), the pipeline ends with outcome `no_changes`.
+   - **Gate step:** Runs `--gate` in `<worktree>` via `bash -lc`, capturing output to `<out>/<ID>.gate.log`. Non-zero ends the pipeline with outcome `gate_failed` without running review.
+   - **Review step:** Picks the first profile in `--review-route` whose family differs from the executor family; replaces `{{DIFF_RANGE}}` in the review card with `<base>...HEAD` (from the pre-run commit); retries on `provider_limit`, `empty_output`, or `incomplete_review`.
+   - **Summary:** You are woken once, read `<ID>.summary.md` instead of the full outputs, triage the findings, send a fix card (another `pipeline` with `--role fix`), then `record` the verdict.
+
+   To run a single step standalone (debugging or manual retry), use `run`:
 
    ```bash
    python3 {{ASSETS_PATH}}/delegate.py run --id <ID> --task "<short title>" --role implement \
@@ -70,13 +87,9 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 
    The runner enforces the timeout (default 90 min), kills the whole process group, captures output outside the repo, and appends a `run` record with what it measured: duration, exit code, timeout, commits, files changed, peak flag. `--confirmed` asserts step 1 happened; never pass it otherwise. A non-zero exit or a timeout is a failed run: read the stderr file, then retry once, switch profile, or surface it. A `run` record with `"uncommitted": true` means the executor changed files but could not commit (Codex's sandbox denies writes to git metadata in a linked worktree); read the diff, commit it yourself with a message that names the task, and write that in `--deviation` when recording the verdict.
 
-5. **Host gate.** In the worktree, run the project's real gate yourself (its QA script, test suite, type check) and read the diff from the base commit — `git diff <base>...HEAD`. Use `atomic-skills:verify-claim` semantics: exit code and a non-zero test count, never the executor's narrative. An empty or out-of-scope diff is a fail before any test runs.
+5. **Fix round.** Real findings go back to the **same executor** as a fix card (role `fix`, `--attempt 2`, or another `pipeline` with `--role fix`), unless it is out of quota or it is the `flash` second attempt (then follow the routing table and ask for a new yes), then the host gate runs again. Stop at three rounds; after that escalate to an orchestrator review or the user.
 
-6. **Cross-family review.** Launch the reviewer profile on a review card (`{{ASSETS_PATH}}/review-card-template.md`) that points at the diff range. Findings come back with id, severity (`major`, `medium`, `minor`) and `file:line`. Expect findings: in the pilot the first review of executor code never came back empty (0 of 76), and 26 of 76 had a major one. Triage them yourself — you decide which are real. A review run with `"failure": "empty_output"` or `"failure": "incomplete_review"` is not a review; fix the cause or switch reviewer.
-
-7. **Fix round.** Real findings go back to the **same executor** as a fix card (role `fix`, `--attempt 2`), unless it is out of quota or it is the `flash` second attempt (then follow the routing table and ask for a new yes), then the host gate runs again. Stop at three rounds; after that escalate to an orchestrator review or the user.
-
-8. **Record the verdict**, always, including failures:
+6. **Record the verdict**, always, including failures:
 
    ```bash
    python3 {{ASSETS_PATH}}/delegate.py record --id <ID> --gate-host pass --gate-claim pass \
@@ -86,7 +99,14 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 
    `--gate-host` is what **you** observed (`pass`, `fail`, `not_run`); `--gate-claim` is what the executor said. Keeping them apart is the point: in the pilot they were one field and 67 of 150 rows could not say who ran the gate. `--rework` is how much you had to do by hand (`none`, `small`, `large`); `--deviation` and `--note` are one short line each.
 
-9. **Hand off.** Push the branch and open the PR. Whether a green PR is merged without asking is the project's rule, not this skill's — follow the project instructions, and ask when there are none.
+7. **Hand off.** Push the branch and open the PR. Whether a green PR is merged without asking is the project's rule, not this skill's — follow the project instructions, and ask when there are none.
+
+## Several orchestrators on one machine
+
+The provider quotas are shared across the whole machine; the runner limits concurrent executors to prevent starvation (at most `DELEGATE_MAX_OPENCODE` default 2, `DELEGATE_MAX_CODEX` default 1, `DELEGATE_MAX_AGY` default 2 processes at once across all orchestrators).
+- Run `python3 {{ASSETS_PATH}}/delegate.py status` before proposing a batch to check running slots and recent quota resets (`try again at <time>`).
+- Never raise the `DELEGATE_MAX_*` values without the user's explicit approval.
+- `python3 {{ASSETS_PATH}}/delegate.py pause` is the operator's stop for every agent on the machine: active runs finish, and all agents pause before launching new processes until `python3 {{ASSETS_PATH}}/delegate.py resume`.
 
 ## The audit log
 

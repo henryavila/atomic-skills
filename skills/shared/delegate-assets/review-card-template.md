@@ -1,6 +1,6 @@
 # Review <ID>: <task title>
 
-You are a reviewer in a clean context. **Do not change any file.** Review the diff `git diff <base>...HEAD` in this worktree; read whole files at HEAD when you need context.
+You are a reviewer in a clean context. **Do not change any file.** Review the diff `git diff {{DIFF_RANGE}}` in this worktree; read whole files at HEAD when you need context.
 
 Do not write a plan and wait for approval. Run your checks and deliver the full report in this same turn.
 
