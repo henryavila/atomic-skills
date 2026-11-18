@@ -194,6 +194,36 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     });
   }
 
+  for (const [role, profile] of [
+    ['implement', 'codex'],
+    ['implement', 'agy'],
+    ['fix', 'deepseek-pro'],
+  ]) {
+    it(`${role} on ${profile} accepts empty output`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-NON-REVIEW-EMPTY', '--task', 'empty output',
+        '--role', role, '--profile', profile,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], {
+        ...baseEnv,
+        FAKE_STDOUT: '',
+        FAKE_LAST_MESSAGE: undefined,
+        FAKE_EXIT: '0',
+        DELEGATE_PEAK_START: '09:00',
+        DELEGATE_PEAK_END: '17:00',
+        DELEGATE_PEAK_TZ_OFFSET: '0',
+        DELEGATE_NOW: '2026-11-18T18:00:00Z',
+      });
+      assert.equal(res.status, 0, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'none');
+      assert.equal(readFileSync(rec.stdout, 'utf8'), '');
+      if (profile === 'codex') {
+        assert.throws(() => readFileSync(rec.last_message), { code: 'ENOENT' });
+      }
+    });
+  }
+
   for (const [label, env, dirtyBefore, uncommitted, commits] of [
     ['edits without commit', { FAKE_TOUCH_FILE: 'README.md' }, false, true, 0],
     ['creates without commit', { FAKE_TOUCH_FILE: 'new.txt' }, false, true, 0],
@@ -828,7 +858,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.match(readFileSync(rec.stderr, 'utf8'), /rate limit/);
   });
 
-  it('keeps agy and opencode argvs unchanged and omits last_message for non-codex executors', () => {
+  it('builds exact opencode and agy argvs and omits last_message for non-codex executors', () => {
     const cardText = readFileSync(cardPath, 'utf8');
 
     const opRes = runDelegate(
