@@ -169,7 +169,7 @@ def cmd_run(a):
     top = git(cwd, "rev-parse", "--show-toplevel") or cwd
     project = a.project or Path(top).name
     # Outside the repo by default: executor output never dirties the worktree.
-    out = Path(a.out or HOME / "delegate" / "out" / project)
+    out = Path(a.out or HOME / "delegate" / "out" / project).resolve()
     out.mkdir(parents=True, exist_ok=True)
     stdout, stderr = out / f"{a.id}.out.md", out / f"{a.id}.err"
     last_msg = out / f"{a.id}.last.md"
