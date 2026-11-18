@@ -2714,6 +2714,117 @@ finally:
     assert.equal(res.stderr.trim().split('\n').length, 1);
   });
 
+  for (const group of ['nonleader', 'missing']) {
+    it(`R4 R01 legacy slot with ${group} group is stale and cleaned`, () => {
+      const res = pythonHarness(`
+p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session='${group}' == 'missing')
+try:
+ assert (os.getpgid(p.pid) != p.pid) == ('${group}' == 'nonleader')
+ d.RUNNING.mkdir(parents=True)
+ slot = d.RUNNING / ('opencode-legacy-%s.json' % p.pid)
+ data = {'id':'legacy', 'pid':p.pid}
+ if '${group}' == 'nonleader': data['pgid'] = p.pid
+ slot.write_text(json.dumps(data))
+ assert not d.slot_owned(data), 'unproven legacy process retained'
+ assert d.get_active_slots() == [], 'stale legacy slot counted'
+ assert not slot.exists(), 'stale legacy slot not cleaned'
+ assert p.poll() is None, 'unrelated child signalled'
+finally:
+ if p.poll() is None: p.kill()
+ p.wait()
+`);
+      assert.equal(res.status, 0, res.stderr);
+    });
+  }
+
+  for (const phase of ['proof', 'signal']) {
+    it(`R4 R02 bounded reap at ${phase} preserves exception and survivor slot`, () => {
+      const res = pythonHarness(`
+class Survivor:
+ pid = 987654321
+ args = ['fake']
+ returncode = None
+ def wait(self, timeout):
+  assert timeout == 10
+  raise subprocess.TimeoutExpired(self.args, timeout)
+p = Survivor()
+original_popen = subprocess.Popen
+def spawn(*args, **kwargs):
+ if kwargs.get('start_new_session'): return p
+ return original_popen(*args, **kwargs)
+d.subprocess.Popen = spawn
+d.process_identity = lambda pid: 'fake-start'
+d.wait_for_exit = lambda *args: None
+original = SystemExit(143) if '${phase}' == 'proof' else KeyboardInterrupt()
+injected = False
+sent = []
+def waitid(*args):
+ global injected
+ if '${phase}' == 'proof' and not injected:
+  injected = True
+  raise original
+def killpg(pid, sig):
+ global injected
+ if '${phase}' == 'signal' and not injected:
+  injected = True
+  raise original
+ sent.append((pid, sig))
+os.waitid = waitid
+os.killpg = killpg
+os.getpgid = lambda pid: pid
+try:
+ d.execute_run('survivor', 'survivor', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, confirmed=True)
+except BaseException as exc:
+ assert exc is original, repr(exc)
+else: raise AssertionError('original exception swallowed')
+assert (p.pid, signal.SIGKILL) in sent
+assert p.returncode is None
+slots = d.get_active_slots()
+assert len(slots) == 1 and slots[0][1]['pid'] == p.pid, 'survivor slot lost'
+class Args: id = 'survivor'
+d.time.sleep = lambda seconds: None
+clock = iter([0, 11])
+d.time.monotonic = lambda: next(clock)
+d.cmd_kill(Args())
+assert (p.pid, signal.SIGTERM) in sent, 'survivor invisible to kill'
+`);
+      assert.equal(res.status, 0, res.stderr);
+    });
+  }
+
+  it('R4 R03 kill skips legacy slot and kills current slot with same id', () => {
+    const res = pythonHarness(`
+children = [subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True) for _ in range(2)]
+legacy, current = children
+try:
+ d.RUNNING.mkdir(parents=True)
+ for index, p in enumerate(children):
+  data = {'id':'shared', 'pid':p.pid, 'pgid':p.pid}
+  if index: data['process_start'] = d.process_identity(p.pid)
+  (d.RUNNING / ('opencode-%s-%s.json' % (index, p.pid))).write_text(json.dumps(data))
+ original_killpg = os.killpg
+ sent = []
+ def killpg(pid, sig):
+  sent.append((pid, sig))
+  original_killpg(pid, sig)
+  if pid == current.pid: current.wait(timeout=3)
+ os.killpg = killpg
+ class Args: id = 'shared'
+ d.cmd_kill(Args())
+ assert (current.pid, signal.SIGTERM) in sent, 'current slot not killed'
+ assert current.returncode is not None
+ assert legacy.poll() is None, 'legacy child signalled'
+ assert not any(pid == legacy.pid for pid, sig in sent)
+finally:
+ for p in children:
+  if p.poll() is None: p.kill()
+  p.wait()
+`);
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stderr, /slot predates identity checks.*pid \d+/);
+    assert.equal(res.stderr.trim().split('\n').length, 1);
+  });
+
   it('R3 placeholder retains live child and reclaims leftovers and old tmp', () => {
     const res = pythonHarness(`
 p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
@@ -2916,7 +3027,10 @@ time.monotonic = lambda: original_mono() + offset
 os.killpg = killpg
 try:
  class Args: id = 'race'
- d.cmd_kill(Args())
+ try: d.cmd_kill(Args())
+ except SystemExit as exc:
+  assert '${phase}' == 'TERM' and exc.code == 1, exc
+ else: assert '${phase}' == 'KILL', 'kill succeeded without signalling'
  assert sent == ([] if '${phase}' == 'TERM' else [signal.SIGTERM]), sent
  assert p.poll() is None, 'replacement identity killed'
 finally:

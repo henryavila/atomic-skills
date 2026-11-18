@@ -276,8 +276,13 @@ def slot_owned(slot):
     pid = slot.get("pid")
     identity = slot.get("process_start")
     if not identity:
-        # Older runners cannot prove identity, so retain live slots but never kill them.
-        return is_pid_alive(pid)
+        # Legacy slots must still name a live group leader; never signal them.
+        if slot.get("pgid") != pid or not is_pid_alive(pid):
+            return False
+        try:
+            return os.getpgid(pid) == pid
+        except (ProcessLookupError, PermissionError):
+            return False
     if slot.get("pgid") != pid:
         return False
     if identity.startswith("unreaped:"):
@@ -393,7 +398,10 @@ def stop_process(process):
                     finally:
                         process._group_stopped = True
     finally:
-        process.wait(timeout=10)
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
 
 
 class PausedError(Exception):
@@ -565,7 +573,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                     if p is not None:
                         stop_process(p)
                 finally:
-                    if slot_file:
+                    if slot_file and (p is None or p.returncode is not None):
                         slot_file.unlink(missing_ok=True)
                         slot_file.with_suffix(".tmp").unlink(missing_ok=True)
         finally:
@@ -958,7 +966,11 @@ def cmd_kill(a):
     for _, slot in matching:
         if not slot.get("process_start"):
             print(f"delegate: slot predates identity checks; refusing to signal pid {slot['pid']}", file=sys.stderr)
-            sys.exit(1)
+
+    matching = [(path, slot) for path, slot in matching if slot.get("process_start")]
+    if not matching:
+        sys.exit(1)
+    killed = False
 
     def still_owned(path, slot):
         try:
@@ -967,11 +979,13 @@ def cmd_kill(a):
             return False
 
     def signal_owned(sig):
+        nonlocal killed
         with SlotLock():
             for path, slot in matching:
                 if still_owned(path, slot):
                     try:
                         os.killpg(slot["pgid"], sig)
+                        killed = True
                     except (ProcessLookupError, PermissionError):
                         pass
 
@@ -984,6 +998,8 @@ def cmd_kill(a):
         time.sleep(0.05)
     signal_owned(signal.SIGKILL)
     clean_stale_slots()
+    if not killed:
+        sys.exit(1)
 
 
 def cmd_profiles(a):
