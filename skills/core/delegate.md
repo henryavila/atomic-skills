@@ -1,4 +1,4 @@
-Keep Claude for the two things only it should do here — **create** the task card and **validate** the result — and hand every action (implementing, fixing, mechanical edits, scripted checks) to an external executor: DeepSeek through OpenCode, or Antigravity (`agy`). Every run is measured and appended to one audit log, so the skill can be judged and improved from data.
+Keep Claude for the two things only it should do here — **create** the task card and **validate** the result — and hand every action (implementing, fixing, mechanical edits, scripted checks) to an external executor: DeepSeek through OpenCode, Codex (`codex`), or Antigravity (`agy`). Every run is measured and appended to one audit log, so the skill can be judged and improved from data.
 
 If {{ARG_VAR}} was provided, treat it as the task or list of tasks to delegate (ids, a plan file, or a description). If not, ask the user what to delegate.
 
@@ -21,10 +21,13 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 | `deepseek-pro` | OpenCode, `opencode-go/deepseek-v4-pro` | implement and fix: the default executor |
 | `deepseek-light` | OpenCode, `opencode-go/deepseek-v4.1-flash` | mechanical work: renames, sweeps, scripted edits, docs, test scaffolds |
 | `agy` | Antigravity, `gemini-4-hydrogen-high` | implement or fix when DeepSeek is unavailable or in its peak window; second opinion on a failed task |
-| `agy-review` | Antigravity, `gemini-4-hydrogen-xhigh`, plan mode (no writes) | review of DeepSeek's work |
+| `agy-review` | Antigravity, `gemini-4-hydrogen-xhigh`, plan mode (no writes) | review of DeepSeek's or Codex's work |
+| `codex` | Codex, `gpt-6-astra` (override: `DELEGATE_CODEX_MODEL`) | implement or fix when DeepSeek is out of quota or in its peak window |
+| `codex-review` | Codex, `gpt-6-astra`, read-only sandbox | read-only sandbox; review of DeepSeek or `agy` work |
 
-- **Prefer DeepSeek**, and prefer running it **outside its peak window** (peak is 22:00–07:00, UTC−3, so off-peak is 07:01–21:59; override with `DELEGATE_PEAK_START`, `DELEGATE_PEAK_END`, `DELEGATE_PEAK_TZ_OFFSET`). Inside the window the runner refuses DeepSeek unless the user allowed it for the batch: queue the task for off-peak, route it to `agy`, or ask.
-- **The reviewer is never the family that wrote the code.** DeepSeek's work is reviewed by `agy-review`; `agy`'s work is reviewed by `deepseek-pro` with a review card.
+- **Prefer DeepSeek**, and prefer running it **outside its peak window** (peak is 22:00–07:00, UTC−3, so off-peak is 07:01–21:59; override with `DELEGATE_PEAK_START`, `DELEGATE_PEAK_END`, `DELEGATE_PEAK_TZ_OFFSET`). Inside the window the runner refuses DeepSeek unless the user allowed it for the batch: queue the task for off-peak, route it to `codex` or `agy`, or ask.
+- **The reviewer is never the family that wrote the code.** Families are `deepseek`, `gemini`, `openai`; the reviewer profile must be of another family. Prefer `codex-review` or `agy-review` because both run without write access.
+- **Check availability and switch on quota limits.** Before building the batch table, run `python3 {{ASSETS_PATH}}/delegate.py profiles`; and when a `run` record says `"failure": "provider_limit"`, do not retry that executor — rebuild the table with the next available one (order: `deepseek-pro`, `codex`, `agy`) and ask for a new yes.
 - **Claude reviews only on escalation:** the cross-family review and the executor disagree after two fix rounds, the change touches auth, money, data deletion or a migration, or the user asks. Say so in the batch table.
 - The runner finds the CLIs itself: PATH, the usual bin folders, and for OpenCode the `opencode-cli` inside `OpenCode.app` (the desktop app does not add it to PATH). Do not conclude an executor is missing from `which`; run the runner.
 - Always pass a model. `agy` without `--model` can hang on its default; the runner always passes one.
