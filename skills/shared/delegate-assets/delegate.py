@@ -14,7 +14,7 @@ The log is one JSONL file shared by every project and agent on this machine:
   ${ATOMIC_SKILLS_HOME:-~/.atomic-skills}/delegate/runs.jsonl
 Records are append-only. Values are enums, never free text, so the log can be audited.
 """
-import argparse, datetime as dt, json, os, re, shutil, signal, subprocess, sys, time
+import argparse, datetime as dt, hashlib, json, os, re, shutil, signal, subprocess, sys, time
 from pathlib import Path
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
@@ -61,6 +61,20 @@ def append(rec):
 def git(cwd, *a):
     r = subprocess.run(["git", "-C", cwd, *a], capture_output=True, text=True)
     return r.stdout.strip() if r.returncode == 0 else ""
+
+
+def git_bytes(cwd, *a):
+    r = subprocess.run(["git", "-C", cwd, *a], capture_output=True)
+    return r.stdout if r.returncode == 0 else b""
+
+
+def tree_snapshot(cwd):
+    head = git(cwd, "rev-parse", "HEAD")
+    status = git_bytes(cwd, "status", "--porcelain=v1", "-z", "--untracked-files=all").decode(
+        "utf-8", errors="surrogateescape"
+    )
+    diff_hash = hashlib.sha256(git_bytes(cwd, "diff", "HEAD")).hexdigest()
+    return (head, status, diff_hash)
 
 
 def find_optional(binary):
@@ -164,8 +178,9 @@ def cmd_run(a):
     if peak and executor == "opencode" and not a.allow_peak:
         sys.exit(f"delegate: DeepSeek peak window ({PEAK_START}-{PEAK_END}, UTC{PEAK_TZ_OFFSET:+g}). "
                  "Wait, use codex or agy, or pass --allow-peak after the user says so.")
-    head0 = git(cwd, "rev-parse", "HEAD")
-    dirty_before = bool(git(cwd, "status", "--porcelain"))
+    snap0 = tree_snapshot(cwd)
+    head0 = snap0[0]
+    dirty_before = bool(snap0[1])
     t0 = time.time()
     started = now().isoformat(timespec="seconds")
     timed_out = False
@@ -190,9 +205,10 @@ def cmd_run(a):
         finally:
             if si is not None:
                 si.close()
-    head1 = git(cwd, "rev-parse", "HEAD")
-    dirty_after = bool(git(cwd, "status", "--porcelain"))
-    review_wrote = a.role == "review" and (head1 != head0 or (dirty_after and not dirty_before))
+    snap1 = tree_snapshot(cwd)
+    head1 = snap1[0]
+    dirty_after = bool(snap1[1])
+    review_wrote = a.role == "review" and snap1 != snap0
     failure = classify_failure(timed_out, code, stdout, stderr, review_wrote)
     commits = git(cwd, "rev-list", "--count", f"{head0}..{head1}") if head0 and head1 else ""
     files = git(cwd, "diff", "--name-only", f"{head0}..{head1}") if head0 and head1 else ""
