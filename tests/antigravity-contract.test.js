@@ -7,7 +7,7 @@ import { strict as assert } from 'node:assert';
 import {
   mkdtempSync, rmSync, existsSync, readFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -23,6 +23,11 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = join(__dirname, '..');
 const SKILLS_DIR = join(ROOT, 'skills');
 const META_DIR = join(ROOT, 'meta');
+
+/** Compare joined paths separator-independently (Windows uses `\`). */
+function toPosixPath(path) {
+  return path.split(sep).join('/');
+}
 
 const CORE_SKILLS = Object.keys(
   parseYaml(readFileSync(join(META_DIR, 'catalog.yaml'), 'utf8')).core || {},
@@ -145,8 +150,8 @@ describe('Antigravity + Codex dual selection', () => {
       assert.ok(existsSync(agyPath), 'antigravity skill exists');
       assert.ok(existsSync(codexPath), 'codex skill exists');
       assert.notEqual(agyPath, codexPath);
-      assert.ok(agyPath.includes('.agent/skills/'));
-      assert.ok(codexPath.includes('.agents/skills/'));
+      assert.ok(toPosixPath(agyPath).includes('.agent/skills/'));
+      assert.ok(toPosixPath(codexPath).includes('.agents/skills/'));
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
