@@ -12,7 +12,7 @@ Os handoffs e notas abaixo que falam de automate, project flow ou dashboard são
 
 ## Arquivos de memória
 
-- [handoff-delegate-orquestracao-2026-11-18.md](handoff-delegate-orquestracao-2026-11-18.md) — **Entrada atual.** Frente delegate fechada em 18/11/2026: skill instalada com seis perfis (OpenCode só Flash, Flash também revisa), MI-T1 e RR-T3a prontos; falta decisão do operador (push, merge, publicação) e o T2
+- [handoff-delegate-orquestracao-2026-11-18.md](handoff-delegate-orquestracao-2026-11-18.md) — **Entrada atual.** Delegate consolidado em `main` (PR #54) e instalado nos seis agentes em 18/11/2026; regras de modelo, armadilhas e o que falta (T2)
 
 - [handoff-real-automate-2026-10-05.md](handoff-real-automate-2026-10-05.md) — Arquivo. O ciclo automate/implement foi abandonado em 2026-11-12. Não retomar.
 

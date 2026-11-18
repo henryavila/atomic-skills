@@ -5,9 +5,13 @@ metadata:
   type: project
 ---
 
-# Delegate: estado ao fim de 18/11/2026 (18h30 GMT-3)
+# Delegate: estado ao fim de 18/11/2026 (20h GMT-3)
 
-O Claude reassumiu a orquestração à tarde e fechou a fila. Nada foi enviado (`push`), nenhum PR, nenhum merge em `main`, nenhuma publicação: isso é decisão do operador (Henry).
+Tudo consolidado em `main` e instalado para os seis agentes detectados (Claude Code, Cursor, Antigravity, Codex, OpenCode, Grok Build).
+
+- **atomic-skills:** PR #54 com merge em `main` (`ebf5007f`): skill `delegate` (AS-D1 a AS-D7), a remoção de `plan`, `implement` e aiDeck (era o PR #53, fechado como substituído) e o pin do motor em `e37ae7f`. CI verde nos nove jobs.
+- **minimalist-installer:** `textBlock` em `main` (`e37ae7f`, PR #4). Sem publicação no npm; o atomic-skills consome por commit.
+- **remote-runner:** `feat/core` em `main` local (`637fe0c`); o repositório não tem remoto.
 
 ## Como operar
 
@@ -24,21 +28,13 @@ O Claude reassumiu a orquestração à tarde e fechou a fila. Nada foi enviado (
 - Nunca modelo caro sem mostrar o custo e receber o sim: `gpt-6-astra`, Claude pelo `agy`, esforço xhigh (o `agy-review` é xhigh).
 - Cotas vistas hoje: Codex estourou duas vezes a janela de 5 horas (voltou 12h44 e 17h51); Antigravity sem cota até cerca de 17h21.
 
-## Estado das tarefas
+## O que falta
 
-| Id | O quê | Onde | Estado |
-|---|---|---|---|
-| AS-D1 a AS-D6 | Delegate: `pipeline`, `status`, `pause`, `resume`, `kill`, limite de simultâneos, OpenCode só Flash, Flash como revisor | `atomic-skills`, ramo `feat/delegate-skill` em `6028a57c` (merge de `feat/delegate-pipeline` `a33481bd`), local, **instalado** | **Fechado.** Runner 165/165, `npm test` 1348/1350 (2 pulados de plataforma), `validate-skills` e `check-docs` ok. AS-D4 levou quatro rodadas de correção (F1 a F4); AS-D5 e AS-D6 revisados por `codex-review` sem achado grave. Espera: `push` e PR |
-| MI-T1 | Efeito `textBlock` no motor | `minimalist-installer/.worktrees/text-block`, ramo `feat/text-block-effect` em `2504b3d` | **Pronto para decisão.** 512/512; contrato estreitado em nove pontos (F5); sete revisões, a última (Flash) sem achado grave. Limitações conhecidas, sem perda de dados: (1) recusa adotar um bloco já presente quando o mesmo plano remove outro `textBlock` do arquivo (em duas execuções funciona; `text-block.js:201`); (2) journal gravado por commits antigos do ramo, nunca publicados, pode deixar arquivo vazio. Espera: merge e publicação |
-| RR-T3a | Núcleo do `remote-runner` | `remote-runner/.worktrees/core`, ramo `feat/core` em `637fe0c` | **Fechado no código.** 80/80 no Mac e no Linux (`ultron run -- 'npm test'`), revisado por duas famílias. Espera: merge em `main` |
-
-Worktrees que podem ser removidos depois do merge: `atomic-skills/.worktrees/delegate-pipeline` e `delegate-flash-only`.
-
-## O que falta, na ordem
-
-1. **Decisões do operador:** `push`/PR do `feat/delegate-skill`; merge e publicação do MI-T1; merge do RR-T3a.
-2. **T2 — instruções globais pelo instalador do atomic-skills.** Depende do MI-T1 com merge e do pin do motor atualizado em `package.json`. Item **opcional** do instalador que grava, com `textBlock`, um bloco gerenciado no arquivo global de instruções de cada agente instalado, com a regra de delegação em papéis neutros; o texto aparece antes de gravar; a desinstalação remove só o bloco. Regra dura: reversão e `tests/install-uninstall-roundtrip.test.js`.
-3. **Adiados:** `remote-runner` `setup-client`/`teardown`/`provision` (T3b, T3c), recursos de banco e carga (decidir se entram no `remote-runner`), detecção automática de host no delegate.
+1. **T2 — instruções globais pelo instalador do atomic-skills** (desbloqueado: o motor com `textBlock` já está pinado). Item **opcional** do instalador que grava, com `textBlock`, um bloco gerenciado no arquivo global de instruções de cada agente instalado, com a regra de delegação em papéis neutros; o texto aparece antes de gravar; a desinstalação remove só o bloco. Regra dura: reversão e `tests/install-uninstall-roundtrip.test.js`.
+2. **Limitações conhecidas do `textBlock`**, sem perda de dados: recusa adotar um bloco já presente quando o mesmo plano remove outro `textBlock` do arquivo (`text-block.js:201`).
+3. **Pequenos:** `delegate.py status` mostra o texto do limite do Codex misturado com saída de teste; os testes do AS-D7 não isolam o filtro de diretório do de extensão; `status` do instalador acusa "Ghost owners: 1"; o `user.name` do git neste repo é `Test`.
+4. **Adiados:** `remote-runner` `setup-client`/`teardown`/`provision`, recursos de banco e carga, remoto para o `remote-runner`, detecção automática de host no delegate.
+5. Worktrees já integrados, removíveis: `.worktrees/delegate-pipeline`, `delegate-flash-only`, `ci-fix`.
 
 ## Armadilhas
 
@@ -47,6 +43,7 @@ Worktrees que podem ser removidos depois do merge: `atomic-skills/.worktrees/del
 - **Executor sai do cartão:** um Flash criou uma VM Lima na home e outro gravou relatório dentro do repo. No cartão: proibir VM, instalar software e relatórios no repo. VM só em `/Volumes/External` (a `rr` está em `/Volumes/External/lima`); para Linux, `ultron run -- '<cmd>'`.
 - **Matar o runner com TERM** na versão antiga deixava filhos do `opencode` vivos; a versão instalada agora mata o grupo e guarda o slot do sobrevivente.
 - **zsh não divide variável em palavras:** `$D run ...` não roda; use o caminho por extenso ou função.
+- **O CI pega o que o gate local não pega:** os testes importam o `delegate.py`, o Python deixa `__pycache__` ao lado e o pacote o levava junto (AS-D7); e o npm do Node 22 roda `prepare` mesmo com `--ignore-scripts`.
 - **Revisão cruzada é indispensável:** com gate verde, revisores provaram perda de dados no MI-T1 e slots apagados com executor vivo no AS-D4.
 - **`install --yes --force-adopt`** sobrescreve arquivos `kept-local`. Não usar sem o operador.
 - O `~/.claude/CLAUDE.md` global do operador ainda cita `deepseek-pro`, `deepseek-light` e só `agy`/`agy-review`; os perfis certos são os seis acima. Avisar, não editar.
