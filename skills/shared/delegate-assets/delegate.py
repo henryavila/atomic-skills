@@ -117,7 +117,7 @@ def build_argv(executor, model, role, cwd, card, last_msg):
         return [find("opencode"), "run", "--auto", "--archived", "-m", model, card]
     if executor == "agy":
         argv = [find("agy"), "-p", card, "--model", model, "--output-format", "text"]
-        return argv + (["--mode", "plan"] if role == "review" else ["--dangerously-skip-permissions"])
+        return argv + (["--dangerously-skip-permissions", "--mode", "plan"] if role == "review" else ["--dangerously-skip-permissions"])
     if executor == "codex":
         effort = "high" if role == "review" else "medium"
         sandbox = "read-only" if role == "review" else "workspace-write"
@@ -153,7 +153,7 @@ def has_provider_limit(stdout, stderr):
     return False
 
 
-def classify_failure(timed_out, code, stdout, stderr, review_wrote):
+def classify_failure(timed_out, code, stdout, stderr, review_wrote, review_output=None):
     if timed_out:
         return "timeout"
     if code != 0 and has_provider_limit(stdout, stderr):
@@ -162,6 +162,13 @@ def classify_failure(timed_out, code, stdout, stderr, review_wrote):
         return "review_wrote"
     if code != 0:
         return "error"
+    if review_output is not None:
+        try:
+            review_text = review_output.read_text(errors="replace")
+        except FileNotFoundError:
+            review_text = ""
+        if not review_text.strip():
+            return "empty_output"
     return "none"
 
 
@@ -186,6 +193,8 @@ def cmd_run(a):
     if peak and executor == "opencode" and not a.allow_peak:
         sys.exit(f"delegate: DeepSeek peak window ({PEAK_START}-{PEAK_END}, UTC{PEAK_TZ_OFFSET:+g}). "
                  "Wait, use codex or agy, or pass --allow-peak after the user says so.")
+    if executor == "codex":
+        last_msg.unlink(missing_ok=True)  # A retry must not reuse an earlier review.
     snap0 = tree_snapshot(cwd)
     head0 = snap0[0]
     dirty_before = bool(snap0[1])
@@ -217,7 +226,9 @@ def cmd_run(a):
     head1 = snap1[0]
     dirty_after = bool(snap1[1])
     review_wrote = a.role == "review" and snap1 != snap0
-    failure = classify_failure(timed_out, code, stdout, stderr, review_wrote)
+    review_output = (last_msg if executor == "codex" else stdout) if a.role == "review" else None
+    failure = classify_failure(timed_out, code, stdout, stderr, review_wrote, review_output)
+    uncommitted = a.role != "review" and head1 == head0 and snap1 != snap0
     commits = git(cwd, "rev-list", "--count", f"{head0}..{head1}") if head0 and head1 else ""
     files = git(cwd, "diff", "--name-only", f"{head0}..{head1}") if head0 and head1 else ""
     rec = {
@@ -231,6 +242,7 @@ def cmd_run(a):
         "files_changed": len([f for f in files.splitlines() if f]),
         "dirty_before": dirty_before,
         "dirty_after": dirty_after,
+        "uncommitted": uncommitted,
         "card": str(Path(a.card).resolve()), "stdout": str(stdout), "stderr": str(stderr),
         "attempt": a.attempt,
     }

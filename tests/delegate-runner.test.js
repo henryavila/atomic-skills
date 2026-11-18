@@ -40,6 +40,10 @@ if out_text:
     sys.stdout.write(out_text)
     sys.stdout.flush()
 
+last_message = os.environ.get("FAKE_LAST_MESSAGE")
+if "-o" in sys.argv and last_message is not None:
+    pathlib.Path(sys.argv[sys.argv.index("-o") + 1]).write_text(last_message)
+
 err_text = os.environ.get("FAKE_STDERR", "")
 if err_text:
     sys.stderr.write(err_text)
@@ -152,12 +156,66 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       DELEGATE_PEAK_END: '25:00',
       FAKE_ARGV_FILE: argvFile,
       FAKE_STDIN_FILE: stdinFile,
+      FAKE_STDOUT: 'Reviewed the diff; no findings.',
+      FAKE_LAST_MESSAGE: 'Reviewed the diff; no findings.',
     };
   });
 
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
   });
+
+  for (const [label, profile, env, failure] of [
+    ['agy empty', 'agy-review', { FAKE_STDOUT: '' }, 'empty_output'],
+    ['agy whitespace', 'agy-review', { FAKE_STDOUT: ' \n\t' }, 'empty_output'],
+    ['agy text', 'agy-review', {}, 'none'],
+    ['opencode empty', 'deepseek-pro', { FAKE_STDOUT: '' }, 'empty_output'],
+    ['codex missing last message', 'codex-review', { FAKE_LAST_MESSAGE: undefined }, 'empty_output'],
+    ['codex stale last message', 'codex-review', { FAKE_LAST_MESSAGE: undefined }, 'empty_output'],
+    ['codex whitespace last message', 'codex-review', { FAKE_LAST_MESSAGE: ' \n\t' }, 'empty_output'],
+    ['codex text with empty stdout', 'codex-review', { FAKE_STDOUT: '' }, 'none'],
+    ['error before empty', 'agy-review', { FAKE_EXIT: '1', FAKE_STDOUT: '' }, 'error'],
+    ['write before empty', 'agy-review', { FAKE_TOUCH_FILE: 'README.md', FAKE_STDOUT: '' }, 'review_wrote'],
+  ]) {
+    it(`review ${label} records ${failure}`, () => {
+      if (label === 'codex stale last message') {
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(join(outDir, 'T-REVIEW-OUTPUT.last.md'), 'Previous review');
+      }
+      const res = runDelegate([
+        'run', '--id', 'T-REVIEW-OUTPUT', '--task', label,
+        '--role', 'review', '--profile', profile,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], { ...baseEnv, ...env });
+      assert.equal(res.status, failure === 'none' ? 0 : 1, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, failure);
+      assert.equal(rec.uncommitted, false);
+    });
+  }
+
+  for (const [label, env, dirtyBefore, uncommitted, commits] of [
+    ['edits without commit', { FAKE_TOUCH_FILE: 'README.md' }, false, true, 0],
+    ['creates without commit', { FAKE_TOUCH_FILE: 'new.txt' }, false, true, 0],
+    ['commits', { FAKE_COMMIT_FILE: 'README.md' }, false, false, 1],
+    ['does nothing', {}, false, false, 0],
+    ['leaves existing dirt unchanged', {}, true, false, 0],
+    ['edits existing dirt', { FAKE_TOUCH_FILE: 'README.md' }, true, true, 0],
+  ]) {
+    it(`implement ${label} records uncommitted=${uncommitted}`, () => {
+      if (dirtyBefore) writeFileSync(join(repoDir, 'README.md'), 'existing dirt\n');
+      const res = runDelegate([
+        'run', '--id', 'T-UNCOMMITTED', '--task', label,
+        '--role', 'implement', '--profile', 'codex',
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], { ...baseEnv, ...env });
+      assert.equal(res.status, 0, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'none');
+      assert.equal(rec.uncommitted, uncommitted);
+      assert.equal(rec.commits, commits);
+    });
+  }
 
   it('--profile codex --role implement builds exact argv, sends card on stdin, and records openai family', () => {
     const res = runDelegate(
@@ -849,6 +907,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       'gemini-4-hydrogen-xhigh',
       '--output-format',
       'text',
+      '--dangerously-skip-permissions',
       '--mode',
       'plan',
     ]);

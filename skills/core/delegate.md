@@ -21,12 +21,12 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 | `deepseek-pro` | OpenCode, `opencode-go/deepseek-v4-pro` | implement and fix: the default executor |
 | `deepseek-light` | OpenCode, `opencode-go/deepseek-v4.1-flash` | mechanical work: renames, sweeps, scripted edits, docs, test scaffolds |
 | `agy` | Antigravity, `gemini-4-hydrogen-high` | implement or fix when DeepSeek is unavailable or in its peak window; second opinion on a failed task |
-| `agy-review` | Antigravity, `gemini-4-hydrogen-xhigh`, plan mode (no writes) | review of DeepSeek's or Codex's work |
+| `agy-review` | Antigravity, `gemini-4-hydrogen-xhigh`, plan mode; the runner fails the run if the review changed the tree | review of DeepSeek's or Codex's work |
 | `codex` | Codex, `gpt-6-astra` (override: `DELEGATE_CODEX_MODEL`) | implement or fix when DeepSeek is out of quota or in its peak window |
 | `codex-review` | Codex, `gpt-6-astra`, read-only sandbox | read-only sandbox; review of DeepSeek or `agy` work |
 
 - **Prefer DeepSeek**, and prefer running it **outside its peak window** (peak is 22:00–07:00, UTC−3, so off-peak is 07:01–21:59; override with `DELEGATE_PEAK_START`, `DELEGATE_PEAK_END`, `DELEGATE_PEAK_TZ_OFFSET`). Inside the window the runner refuses DeepSeek unless the user allowed it for the batch: queue the task for off-peak, route it to `codex` or `agy`, or ask.
-- **The reviewer is never the family that wrote the code.** Families are `deepseek`, `gemini`, `openai`; the reviewer profile must be of another family. Prefer `codex-review` or `agy-review` because both run without write access.
+- **The reviewer is never the family that wrote the code.** Families are `deepseek`, `gemini`, `openai`; the reviewer profile must be of another family. Prefer `codex-review` or `agy-review` because the runner fails reviews that change the tree.
 - **Check availability and switch on quota limits.** Before building the batch table, run `python3 {{ASSETS_PATH}}/delegate.py profiles`; and when a `run` record says `"failure": "provider_limit"`, do not retry that executor — rebuild the table with the next available one (order: `deepseek-pro`, `codex`, `agy`) and ask for a new yes.
 - **Claude reviews only on escalation:** the cross-family review and the executor disagree after two fix rounds, the change touches auth, money, data deletion or a migration, or the user asks. Say so in the batch table.
 - The runner finds the CLIs itself: PATH, the usual bin folders, and for OpenCode the `opencode-cli` inside `OpenCode.app` (the desktop app does not add it to PATH). Do not conclude an executor is missing from `which`; run the runner.
@@ -52,11 +52,11 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
      --profile deepseek-pro --cwd <worktree> --card <card.md> --confirmed
    ```
 
-   The runner enforces the timeout (default 90 min), kills the whole process group, captures output outside the repo, and appends a `run` record with what it measured: duration, exit code, timeout, commits, files changed, peak flag. `--confirmed` asserts step 1 happened; never pass it otherwise. A non-zero exit or a timeout is a failed run: read the stderr file, then retry once, switch profile, or surface it.
+   The runner enforces the timeout (default 90 min), kills the whole process group, captures output outside the repo, and appends a `run` record with what it measured: duration, exit code, timeout, commits, files changed, peak flag. `--confirmed` asserts step 1 happened; never pass it otherwise. A non-zero exit or a timeout is a failed run: read the stderr file, then retry once, switch profile, or surface it. A `run` record with `"uncommitted": true` means the executor changed files but could not commit (Codex's sandbox denies writes to git metadata in a linked worktree); read the diff, commit it yourself with a message that names the task, and write that in `--deviation` when recording the verdict.
 
 5. **Host gate.** In the worktree, run the project's real gate yourself (its QA script, test suite, type check) and read the diff from the base commit — `git diff <base>...HEAD`. Use `atomic-skills:verify-claim` semantics: exit code and a non-zero test count, never the executor's narrative. An empty or out-of-scope diff is a fail before any test runs.
 
-6. **Cross-family review.** Launch the reviewer profile on a review card (`{{ASSETS_PATH}}/review-card-template.md`) that points at the diff range. Findings come back with id, severity (`major`, `medium`, `minor`) and `file:line`. Expect findings: in the pilot the first review of executor code never came back empty (0 of 76), and 26 of 76 had a major one. Triage them yourself — you decide which are real.
+6. **Cross-family review.** Launch the reviewer profile on a review card (`{{ASSETS_PATH}}/review-card-template.md`) that points at the diff range. Findings come back with id, severity (`major`, `medium`, `minor`) and `file:line`. Expect findings: in the pilot the first review of executor code never came back empty (0 of 76), and 26 of 76 had a major one. Triage them yourself — you decide which are real. A review run with `"failure": "empty_output"` is not a review; fix the cause or switch reviewer.
 
 7. **Fix round.** Real findings go back to the **same executor** as a fix card (role `fix`, `--attempt 2`), then the host gate runs again. Stop at three rounds; after that escalate to a Claude review or the user.
 
