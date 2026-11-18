@@ -20,7 +20,7 @@ The log is one JSONL file shared by every project and agent on this machine:
   ${ATOMIC_SKILLS_HOME:-~/.atomic-skills}/delegate/runs.jsonl
 Records are append-only. Values are enums, never free text, so the log can be audited.
 """
-import argparse, datetime as dt, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time
+import argparse, datetime as dt, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time, tempfile
 from pathlib import Path
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
@@ -238,20 +238,20 @@ def is_pid_alive(pid):
         return False
 
 
-def clean_stale_slots():
+def _clean_stale_slots():
     RUNNING.mkdir(parents=True, exist_ok=True)
     for p in list(RUNNING.glob("*.json")):
         try:
             data = json.loads(p.read_text())
             pid = data.get("pid")
-            if not pid or not is_pid_alive(pid):
+            if not is_pid_alive(pid) and not group_alive(data.get("pgid")):
                 p.unlink(missing_ok=True)
         except Exception:
             p.unlink(missing_ok=True)
 
 
-def get_active_slots(executor=None):
-    clean_stale_slots()
+def _get_active_slots(executor=None):
+    _clean_stale_slots()
     active = []
     for p in list(RUNNING.glob("*.json")):
         try:
@@ -262,6 +262,39 @@ def get_active_slots(executor=None):
         except Exception:
             continue
     return active
+
+
+def clean_stale_slots():
+    with SlotLock():
+        _clean_stale_slots()
+
+
+def get_active_slots(executor=None):
+    with SlotLock():
+        return _get_active_slots(executor)
+
+
+def group_alive(pgid):
+    if not pgid or pgid <= 0:
+        return False
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def stop_process(process):
+    """Own the entire session until it is killed and the leader is reaped."""
+    if not getattr(process, "_group_stopped", False):
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process._group_stopped = True
+    process.wait()
 
 
 def check_paused():
@@ -321,17 +354,12 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if executor == "codex":
         last_msg.unlink(missing_ok=True)
 
-    snap0 = tree_snapshot(cwd)
-    head0 = snap0[0]
-    dirty_before = bool(snap0[1])
-
     # Slot acquisition with polling
     deadline = time.time() + wait_s
     max_slots = get_max_slots(executor)
     p = None
     slot_file = None
-    started = now().isoformat(timespec="seconds")
-    t0 = time.time()
+    queued_at = time.monotonic()
     timed_out = False
 
     si = open(card, "rb") if executor == "codex" else None
@@ -340,8 +368,15 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
             while True:
                 check_paused()
                 with SlotLock():
-                    active = get_active_slots(executor)
+                    active = _get_active_slots(executor)
                     if len(active) < max_slots:
+                        check_paused()
+                        snap0 = tree_snapshot(cwd)
+                        head0 = snap0[0]
+                        dirty_before = bool(snap0[1])
+                        started = now().isoformat(timespec="microseconds")
+                        t0 = time.monotonic()
+                        wait_duration_s = t0 - queued_at
                         p = subprocess.Popen(
                             argv, cwd=cwd, stdout=so, stderr=se,
                             stdin=si if si is not None else subprocess.DEVNULL,
@@ -354,10 +389,12 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                             "profile": profile,
                             "role": role,
                             "pid": p.pid,
-                            "pgid": os.getpgid(p.pid) if hasattr(os, "getpgid") else p.pid,
+                            "pgid": p.pid,
                             "started": started,
                         }
-                        slot_file.write_text(json.dumps(slot_data, ensure_ascii=False))
+                        slot_tmp = slot_file.with_suffix(".tmp")
+                        slot_tmp.write_text(json.dumps(slot_data, ensure_ascii=False))
+                        os.replace(slot_tmp, slot_file)
                         break
 
                 if time.time() >= deadline:
@@ -372,21 +409,26 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 timed_out = True
                 try:
                     os.killpg(p.pid, signal.SIGTERM)
-                except OSError:
+                except ProcessLookupError:
                     pass
-                try:
-                    code = p.wait(timeout=20)
-                except subprocess.TimeoutExpired:
-                    try:
-                        os.killpg(p.pid, signal.SIGKILL)
-                    except OSError:
-                        pass
-                    code = p.wait()
+                # Waiting on the leader alone does not imply its descendants exited.
+                deadline_term = time.monotonic() + 10
+                while group_alive(p.pid) and time.monotonic() < deadline_term:
+                    p.poll()  # reap an exited leader
+                    time.sleep(0.05)
+                stop_process(p)
+                code = p.returncode
     finally:
+        # This also covers publish failures, wait errors, SIGTERM and KeyboardInterrupt.
+        # Keep the slot until the process group is stopped.
+        if p is not None:
+            stop_process(p)
         if si is not None:
             si.close()
         if slot_file:
-            slot_file.unlink(missing_ok=True)
+            with SlotLock():
+                slot_file.unlink(missing_ok=True)
+                slot_file.with_suffix(".tmp").unlink(missing_ok=True)
 
     snap1 = tree_snapshot(cwd)
     head1 = snap1[0]
@@ -401,7 +443,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         "kind": "run", "id": task_id, "project": project,
         "task": task, "role": role, "executor": executor, "model": model, "family": family,
         "user_confirmed": bool(confirmed), "started": started,
-        "duration_s": round(time.time() - t0), "exit_code": code, "timed_out": timed_out,
+        "duration_s": round(time.monotonic() - t0), "exit_code": code, "timed_out": timed_out,
+        "completed": now().isoformat(timespec="microseconds"), "wait_s": round(wait_duration_s, 3),
         "failure": failure,
         "peak": peak, "base": head0[:10], "head": head1[:10],
         "commits": int(commits) if commits.isdigit() else 0,
@@ -430,225 +473,208 @@ def cmd_run(a):
     sys.exit(0 if rec["failure"] == "none" else 1)
 
 
+def canonical_route(raw):
+    route = [ALIASES.get(p.strip(), p.strip()) for p in raw.split(",") if p.strip()]
+    if not route or any(p not in MODELS for p in route):
+        raise ValueError(f"invalid route: {raw}")
+    return route
+
+
 def cmd_pipeline(a):
     if not a.confirmed:
         sys.exit("delegate: --confirmed required")
-    check_paused()
-
-    t0_pipeline = time.time()
-    task_id = a.id
-    task = a.task
-    role = a.role
+    t0_pipeline = time.monotonic()
+    task_id, task, role = a.id, a.task, a.role
     cwd = str(Path(a.cwd).resolve())
     top = git(cwd, "rev-parse", "--show-toplevel") or cwd
     project = a.project or Path(top).name
     out = Path(a.out or HOME / "delegate" / "out" / project).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    card_path = str(Path(a.card).resolve())
-    route = [p.strip() for p in a.route.split(",") if p.strip()]
-    gate_cmd = a.gate
-    review_card_path = str(Path(a.review_card).resolve())
-    review_route = [p.strip() for p in a.review_route.split(",") if p.strip()]
-    timeout = a.timeout
-    review_timeout = a.review_timeout if a.review_timeout is not None else a.timeout
-    wait_s = a.wait if a.wait is not None else 3600
-
+    # Each invocation and attempt owns its outputs, even when the same ID is reused.
+    attempt_root = Path(tempfile.mkdtemp(prefix=f"{task_id}-", dir=out))
     base_commit = git(cwd, "rev-parse", "HEAD")
-    chosen_executor_profile = None
-    executor_rec = None
     outcome = None
-    all_quota = True
-
-    # Step 1: Executor step
-    for p_name in route:
-        if is_paused():
-            outcome = "paused"
-            break
-        exec_rec = execute_run(
-            task_id=task_id, task=task, role=role, profile=p_name,
-            cwd=cwd, card=card_path, out=str(out), project=project,
-            timeout=timeout, wait_s=wait_s, confirmed=True,
-        )
-        if exec_rec["failure"] == "provider_limit":
-            continue
-        all_quota = False
-        if exec_rec["failure"] == "none":
-            chosen_executor_profile = p_name
-            executor_rec = exec_rec
-            break
-        else:
-            outcome = "executor_failed"
-            chosen_executor_profile = p_name
-            executor_rec = exec_rec
-            break
-
-    if outcome is None and chosen_executor_profile is None:
-        outcome = "no_executor" if all_quota else "executor_failed"
-
-    # Step 2: Commit step
+    executor_profile = reviewer_profile = None
+    executor_rec = review_rec = None
     auto_committed = False
-    if outcome is None:
-        if executor_rec.get("uncommitted"):
-            git(cwd, "add", "-A")
-            git(cwd, "commit", "-m", f"{task_id}: {task} (committed by the delegate runner)")
-            auto_committed = True
-
-        current_head = git(cwd, "rev-parse", "HEAD")
-        current_snap = tree_snapshot(cwd)
-        if current_head == base_commit and not current_snap[1] and executor_rec.get("commits", 0) == 0:
-            outcome = "no_changes"
-
-    # Step 3: Gate step
     gate_exit = None
     gate_duration_s = 0
-    gate_log_file = out / f"{task_id}.gate.log"
-    if outcome is None:
-        if is_paused():
-            outcome = "paused"
+    gate_log = out / f"{task_id}.gate.log"
+    commit_log = attempt_root / "commit.log"
+    attempts = []
+    step = "executor"
+    error = ""
+    commit_result = "not_run"
+    commit_duration_s = 0
+
+    def run_attempt(profile, run_role, card):
+        step_out = attempt_root / f"{len(attempts) + 1}-{run_role}-{profile}"
+        # Include pending attempts as well: a pause/slot exhaustion/exception has paths.
+        rec = {"profile": profile, "role": run_role, "failure": "interrupted", "duration_s": 0,
+               "stdout": str(step_out / f"{task_id}.out.md"),
+               "stderr": str(step_out / f"{task_id}.err")}
+        attempts.append(rec)
+        started = time.monotonic()
+        try:
+            rec.update(execute_run(
+                task_id=task_id, task=task, role=run_role, profile=profile,
+                cwd=cwd, card=card, out=str(step_out), project=project,
+                timeout=(a.review_timeout if a.review_timeout is not None else a.timeout)
+                if run_role == "review" else a.timeout,
+                wait_s=a.wait, confirmed=True, attempt=len(attempts),
+            ))
+        except BaseException as exc:
+            rec["failure"] = "paused" if isinstance(exc, SystemExit) and exc.code == 3 else str(exc)
+            rec["duration_s"] = round(time.monotonic() - started)
+            raise
+        return rec
+
+    try:
+        route, review_route = canonical_route(a.route), canonical_route(a.review_route)
+        check_paused()
+        for profile in route:
+            check_paused()
+            executor_rec = run_attempt(profile, role, a.card)
+            if executor_rec["failure"] == "provider_limit":
+                continue
+            executor_profile = profile
+            if executor_rec["failure"] != "none":
+                outcome = "executor_failed"
+            break
         else:
-            t0_gate = time.time()
-            with open(gate_log_file, "w") as gf:
-                p_gate = subprocess.run(
-                    ["bash", "-lc", gate_cmd],
-                    cwd=cwd,
-                    stdout=gf,
-                    stderr=subprocess.STDOUT,
-                )
-                gate_exit = p_gate.returncode
-            gate_duration_s = round(time.time() - t0_gate)
+            outcome = "no_executor"
+
+        if outcome is None:
+            step = "commit"
+            check_paused()
+            commit_t0 = time.monotonic()
+            commit_result = "executor_committed"
+            if executor_rec.get("dirty_after"):
+                commit_result = "failed"
+                with open(commit_log, "w") as cf:
+                    for args in (("add", "-A"), ("commit", "-m", f"{task_id}: {task} (committed by the delegate runner)")):
+                        result = subprocess.run(["git", "-C", cwd, *args], stdout=cf, stderr=subprocess.STDOUT)
+                        if result.returncode != 0:
+                            raise RuntimeError(f"commit {args[0]} failed (exit {result.returncode})")
+                if git(cwd, "rev-parse", "HEAD").startswith(executor_rec["head"]) or tree_snapshot(cwd)[1]:
+                    raise RuntimeError("commit failed to produce a clean committed tree")
+                auto_committed = True
+                commit_result = "auto_committed"
+            current = tree_snapshot(cwd)
+            if current[0] == base_commit and not current[1]:
+                commit_result = "no_changes"
+                outcome = "no_changes"
+            commit_duration_s = round(time.monotonic() - commit_t0)
+
+        if outcome is None:
+            step = "gate"
+            check_paused()
+            t0_gate = time.monotonic()
+            with open(gate_log, "w") as gf:
+                gate_process = subprocess.Popen(["bash", "-lc", a.gate], cwd=cwd,
+                                                stdout=gf, stderr=subprocess.STDOUT,
+                                                start_new_session=True)
+                try:
+                    gate_exit = gate_process.wait(timeout=a.timeout)
+                finally:
+                    stop_process(gate_process)
+            gate_duration_s = round(time.monotonic() - t0_gate)
             if gate_exit != 0:
                 outcome = "gate_failed"
 
-    # Step 4: Review step
-    chosen_reviewer_profile = None
-    review_rec = None
-    if outcome is None:
-        if is_paused():
-            outcome = "paused"
-        else:
-            review_card_content = Path(review_card_path).read_text()
-            diff_range = f"{base_commit}...HEAD"
-            review_card_copy_content = review_card_content.replace("{{DIFF_RANGE}}", diff_range)
-            review_card_copy = out / f"{task_id}.review-card.md"
-            review_card_copy.write_text(review_card_copy_content)
-
-            executor_family = MODELS.get(chosen_executor_profile, (None, None, None))[2]
-
-            for r_name in review_route:
-                if is_paused():
-                    outcome = "paused"
-                    break
-                r_family = MODELS.get(r_name, (None, None, None))[2]
-                if r_family == executor_family:
+        if outcome is None:
+            step = "review"
+            check_paused()
+            gated_snapshot = tree_snapshot(cwd)
+            review_card_copy = attempt_root / "review-card.md"
+            review_card_copy.write_text(Path(a.review_card).read_text().replace("{{DIFF_RANGE}}", f"{base_commit}...HEAD"))
+            executor_family = MODELS[executor_profile][2]
+            for profile in review_route:
+                check_paused()
+                if MODELS[profile][2] == executor_family:
                     continue
-                r_rec = execute_run(
-                    task_id=task_id, task=task, role="review", profile=r_name,
-                    cwd=cwd, card=str(review_card_copy), out=str(out), project=project,
-                    timeout=review_timeout, wait_s=wait_s, confirmed=True,
-                )
-                if r_rec["failure"] in ("provider_limit", "empty_output", "incomplete_review"):
-                    continue
-                elif r_rec["failure"] == "none":
-                    chosen_reviewer_profile = r_name
-                    review_rec = r_rec
-                    break
-                else:
-                    continue
-
-            if outcome is None:
-                if chosen_reviewer_profile is None:
+                review_rec = run_attempt(profile, "review", str(review_card_copy))
+                # Quota classification retains its precedence, but writes are never safe to retry.
+                if tree_snapshot(cwd) != gated_snapshot:
+                    error = "review_wrote: tree changed after gate"
                     outcome = "no_reviewer"
-                else:
+                    break
+                if review_rec["failure"] in ("provider_limit", "empty_output", "incomplete_review"):
+                    continue
+                if review_rec["failure"] == "none":
+                    reviewer_profile = profile
                     outcome = "reviewed"
+                else:
+                    error = review_rec["failure"]
+                    outcome = "no_reviewer"
+                break
+            if outcome is None:
+                outcome = "no_reviewer"
+    except (Exception, SystemExit, KeyboardInterrupt) as exc:
+        error = str(exc)
+        outcome = "paused" if isinstance(exc, SystemExit) and exc.code == 3 else (
+            "no_reviewer" if step == "review" else "gate_failed" if step == "gate" else "executor_failed")
 
-    # Parse review findings
     findings = {"major": 0, "medium": 0, "minor": 0}
-    finding_lines = []
-    total_line = ""
-    if outcome == "reviewed" and review_rec:
-        rev_file = review_rec.get("last_message") or review_rec.get("stdout")
-        try:
-            rev_text = Path(rev_file).read_text(errors="replace")
-            for l in rev_text.splitlines():
-                if re.match(r"^\W*R\d+\s*\|", l):
-                    finding_lines.append(l)
-                m = re.search(r"TOTAL\s+major=(\d+)\s+medium=(\d+)\s+minor=(\d+)", l)
-                if m:
-                    total_line = l.strip()
-                    findings = {
-                        "major": int(m.group(1)),
-                        "medium": int(m.group(2)),
-                        "minor": int(m.group(3)),
-                    }
-        except Exception:
-            pass
+    finding_lines, total_line = [], ""
+    review_file = None
+    if outcome == "reviewed":
+        review_file = review_rec.get("last_message") or review_rec["stdout"]
+        for line in Path(review_file).read_text(errors="replace").splitlines():
+            if re.match(r"^\W*R\d+\s*\|", line):
+                finding_lines.append(line)
+            match = re.search(r"TOTAL\s+major=(\d+)\s+medium=(\d+)\s+minor=(\d+)", line)
+            if match:
+                total_line = line.strip()
+                findings = dict(zip(("major", "medium", "minor"), map(int, match.groups())))
 
-    # Summary
-    summary_lines = []
-    summary_lines.append(f"# Pipeline {task_id}: {task} — {outcome}")
-    summary_lines.append("")
-    summary_lines.append("## Steps")
-    if executor_rec:
-        res_str = "pass" if executor_rec["failure"] == "none" else executor_rec["failure"]
-        summary_lines.append(f"- executor: {chosen_executor_profile} | {executor_rec['duration_s']}s | {res_str}")
-    if gate_exit is not None:
-        gres_str = "pass" if gate_exit == 0 else f"fail (exit {gate_exit})"
-        summary_lines.append(f"- gate: `{gate_cmd}` | exit {gate_exit} | {gate_duration_s}s | {gres_str}")
-    if review_rec:
-        rres_str = "pass" if review_rec["failure"] == "none" else review_rec["failure"]
-        summary_lines.append(f"- reviewer: {chosen_reviewer_profile} | {review_rec['duration_s']}s | {rres_str}")
-    summary_lines.append("")
+    head = git(cwd, "rev-parse", "HEAD")
+    details = attempt_root / "steps.json"
+    details.write_text(json.dumps(attempts, ensure_ascii=False, indent=2))
+    # Bound all free text to one physical line, then reserve room for findings and tail.
+    def one_line(value):
+        return " ".join(str(value).splitlines())
 
-    if gate_exit is not None and gate_exit != 0:
-        summary_lines.append("## Gate log tail")
-        if gate_log_file.exists():
-            log_lines = gate_log_file.read_text(errors="replace").splitlines()
-            for l in log_lines[-15:]:
-                summary_lines.append(l)
-        summary_lines.append("")
-
+    lines = [f"# Pipeline {task_id}: {task} — {outcome}",
+             f"- committed: {base_commit}..{head}; dirty: {bool(tree_snapshot(cwd)[1])}",
+             f"- commit: {commit_result} | {commit_duration_s}s | log: {commit_log}"]
+    if error:
+        lines.append(f"- stopped at {step}: {error}")
+    for rec in attempts:
+        paths = f"stdout: {rec['stdout']} | stderr: {rec['stderr']}"
+        if rec.get("last_message"):
+            paths += f" | last_message: {rec['last_message']}"
+        lines.append(f"- {rec['role']}: {rec['profile']} | {rec['duration_s']}s | {rec['failure']} | {paths}")
+    lines.append(f"- gate: `{a.gate}` | exit {gate_exit} | {gate_duration_s}s | log: {gate_log}")
+    lines.append(f"- full step outputs: {details}")
+    lines = [one_line(line) for line in lines]
+    # Very long routes still have a complete machine-readable attempt manifest.
+    if len(lines) > 39:
+        lines = lines[:37] + [lines[-2], f"- additional steps omitted; full step outputs: {details}"]
+    if gate_exit is not None and gate_exit != 0 and gate_log.exists():
+        lines += ["Gate log tail:"] + gate_log.read_text(errors="replace").splitlines()[-15:]
     if finding_lines or total_line:
-        summary_lines.append("## Review findings")
-        for fl in finding_lines:
-            summary_lines.append(fl)
+        budget = max(0, 59 - len(lines) - 2)  # TOTAL and explicit overflow link
+        lines.extend(finding_lines[:budget])
+        if len(finding_lines) > budget:
+            lines.append(f"- {len(finding_lines) - budget} findings omitted; full review: {review_file}")
         if total_line:
-            summary_lines.append(total_line)
-        summary_lines.append("")
-
-    summary_lines.append("## Outputs")
-    if executor_rec:
-        summary_lines.append(f"- executor stdout: {executor_rec['stdout']}")
-    if gate_exit is not None:
-        summary_lines.append(f"- gate log: {gate_log_file}")
-    if review_rec:
-        summary_lines.append(f"- reviewer stdout: {review_rec['stdout']}")
-
-    summary_text = "\n".join(summary_lines) + "\n"
+            lines.append(total_line)
+    summary_text = "\n".join(lines) + "\n"
     summary_file = out / f"{task_id}.summary.md"
     summary_file.write_text(summary_text)
     print(summary_text, end="")
-
-    pipe_rec = {
-        "kind": "pipeline",
-        "id": task_id,
-        "project": project,
-        "outcome": outcome,
-        "executor_profile": chosen_executor_profile,
-        "reviewer_profile": chosen_reviewer_profile,
-        "gate_exit": gate_exit,
-        "auto_committed": auto_committed,
-        "findings": findings,
-        "duration_s": round(time.time() - t0_pipeline),
-    }
-    append(pipe_rec)
-
-    if outcome == "reviewed":
-        sys.exit(0)
-    elif outcome == "paused":
+    append({
+        "kind": "pipeline", "id": task_id, "project": project, "outcome": outcome,
+        "executor_profile": executor_profile, "reviewer_profile": reviewer_profile,
+        "gate_exit": gate_exit, "auto_committed": auto_committed, "findings": findings,
+        "duration_s": round(time.monotonic() - t0_pipeline), "base": base_commit, "head": head,
+        "failed_step": step if outcome not in ("reviewed", "no_changes") else None,
+        "error": error, "attempts": attempts, "summary": str(summary_file),
+    })
+    if outcome == "paused":
         print("delegate: paused", file=sys.stderr)
-        sys.exit(3)
-    else:
-        sys.exit(1)
+    sys.exit(0 if outcome == "reviewed" else 3 if outcome == "paused" else 1)
 
 
 def cmd_pause(a):
@@ -693,13 +719,15 @@ def cmd_status(a):
                 continue
             if r.get("kind") == "run" and r.get("failure") == "provider_limit":
                 ex = r.get("executor")
-                started_str = r.get("started")
+                started_str = r.get("completed") or r.get("started")
                 if not ex or not started_str:
                     continue
                 try:
                     s_dt = dt.datetime.fromisoformat(started_str)
                     if s_dt.tzinfo is None:
                         s_dt = s_dt.replace(tzinfo=dt.timezone.utc)
+                    if not r.get("completed"):
+                        s_dt += dt.timedelta(seconds=r.get("duration_s", 0))
                     age = (now_dt - s_dt).total_seconds()
                     if 0 <= age <= 6 * 3600:
                         if ex not in limits or s_dt > limits[ex][0]:
@@ -741,13 +769,13 @@ def cmd_kill(a):
 
     deadline = time.time() + 10.0
     while time.time() < deadline:
-        alive = [s for s in matching if is_pid_alive(s.get("pid"))]
+        alive = [s for s in matching if group_alive(s.get("pgid") or s.get("pid"))]
         if not alive:
             break
         time.sleep(0.05)
 
     for s in matching:
-        if is_pid_alive(s.get("pid")):
+        if group_alive(s.get("pgid") or s.get("pid")):
             pgid = s.get("pgid") or s.get("pid")
             try:
                 os.killpg(pgid, signal.SIGKILL)
@@ -805,14 +833,14 @@ def cmd_report(a):
         major = sum(v.get("findings_major") or 0 for _, v in items)
         secs = sorted(r["duration_s"] for rs, _ in items for r in rs)
         med = secs[len(secs) // 2] if secs else 0
-        fails = sum(1 for rs, _ in items for r in rs if r["exit_code"] != 0 or r["timed_out"])
+        fails = sum(1 for rs, _ in items for r in rs if r["exit_code"] != 0 or r["timed_out"] or r.get("failure", "none") != "none")
         unconfirmed = sum(1 for rs, _ in items if not rs[0].get("user_confirmed"))
         rr = f"{sum(rounds) / len(rounds):.1f}" if rounds else "n/a"
         print(f"- {role} | {ex} | {model}: n={n}; host gate {ok}/{len(gated)} (no verdict: {n - len(gated)}); "
               f"review rounds avg {rr}; major findings {major}; median {med}s; failed runs {fails}; "
               f"unconfirmed {unconfirmed}")
 
-    for (ex_prof, rev_prof), items in sorted(pipelines.items()):
+    for (ex_prof, rev_prof), items in sorted(pipelines.items(), key=lambda item: tuple(p or "" for p in item[0])):
         n = len(items)
         outcomes = {}
         for p in items:
@@ -893,6 +921,11 @@ def main():
     sub.add_parser("peak").set_defaults(f=lambda a: print("peak" if in_peak() else "off-peak"))
     sub.add_parser("profiles").set_defaults(f=cmd_profiles)
 
+    def interrupted(signum, frame):
+        raise SystemExit(128 + signum)
+
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
     a = ap.parse_args(); a.f(a)
 
 

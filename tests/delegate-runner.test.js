@@ -91,6 +91,9 @@ if commit_rel:
     subprocess.run(["git", "add", str(p)], check=True)
     subprocess.run(["git", "commit", "-m", "fake commit"], check=True)
 
+if os.environ.get("FAKE_PAUSE"):
+    pathlib.Path(os.environ["ATOMIC_SKILLS_HOME"], "delegate", "PAUSED").touch()
+
 sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
 `;
 
@@ -121,13 +124,14 @@ function makeFakeBin(dir, names = ['codex', 'agy', 'opencode']) {
 }
 
 function runDelegate(args, env = {}, cwd = undefined) {
+  const childEnv = { ...process.env, ...env };
+  for (const [key, value] of Object.entries(childEnv)) {
+    if (value === undefined) delete childEnv[key];
+  }
   return spawnSync(PYTHON3, [DELEGATE_PY, ...args], {
     encoding: 'utf8',
     cwd,
-    env: {
-      ...process.env,
-      ...env,
-    },
+    env: childEnv,
   });
 }
 
@@ -1105,7 +1109,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       ...baseEnv,
       DELEGATE_NOW: '2026-11-18T02:00:00Z',
     };
-    delete peakEnv.DELEGATE_PEAK_WINDOWS;
+    peakEnv.DELEGATE_PEAK_WINDOWS = undefined;
 
     const flashRes = runDelegate(
       [
@@ -1173,7 +1177,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     ];
     for (const [instant, expected] of cases) {
       const env = { ...baseEnv, DELEGATE_NOW: instant };
-      delete env.DELEGATE_PEAK_WINDOWS;
+      env.DELEGATE_PEAK_WINDOWS = undefined;
       const res = runDelegate(['peak'], env);
       assert.equal(res.status, 0, res.stderr);
       assert.equal(res.stdout.trim(), expected, `instant ${instant}`);
@@ -1629,7 +1633,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(pipeRec.auto_committed, true);
     assert.equal(pipeRec.outcome, 'reviewed');
 
-    const revCard = readFileSync(join(outDir, 'T-PIPE-AUTO.review-card.md'), 'utf8');
+    const revCard = readFileSync(recs.find(r => r.kind === 'run' && r.role === 'review').card, 'utf8');
     assert.ok(
       revCard.includes(`${preRunHead}...HEAD`),
       `expected ${preRunHead}...HEAD in reviewer card, got:\n${revCard}`,
@@ -1863,7 +1867,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.match(revStdin, /[0-9a-f]{40}\.\.\.HEAD/);
   });
 
-  it('concurrency: with DELEGATE_MAX_OPENCODE=1, second run --wait 0 exits 4, runs after first ends', () => {
+  it('D4 R17 normal completion removes owned slot before second run', async () => {
     const bgProc = spawn(
       PYTHON3,
       [
@@ -1920,8 +1924,13 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(secondRes.status, 4);
     assert.match(secondRes.stderr, /delegate: no free opencode slot/);
 
-    // Wait for background process to finish
-    bgProc.kill('SIGTERM');
+    assert.ok(slotFound, 'first runner published a slot');
+    const slotName = readdirSync(runningDir).find(f => f.startsWith('opencode-T-CONC-1-'));
+    const slotPid = JSON.parse(readFileSync(join(runningDir, slotName), 'utf8')).pid;
+    // Await the owner; no second caller may clean the slot for it.
+    const exit = await new Promise(resolve => bgProc.once('close', resolve));
+    assert.equal(exit, 0);
+    assert.throws(() => process.kill(slotPid, 0), { code: 'ESRCH' });
     for (let i = 0; i < 40; i++) {
       execFileSync('sleep', ['0.05']);
       if (!readdirSync(runningDir).find((f) => f.startsWith('opencode-T-CONC-1-'))) {
@@ -1929,6 +1938,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       }
     }
 
+    assert.equal(readdirSync(runningDir).filter(f => f.endsWith('.json')).length, 0);
     const afterRes = runDelegate(
       [
         'run',
@@ -2239,4 +2249,334 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.match(res.stdout, /reviewed.*1/);
     assert.match(res.stdout, /gate_failed.*1/);
   });
+
+  // AS-D4 round 1 regressions. All executors below are disposable fake CLIs.
+  function pipelineArgs(extra = []) {
+    return ['pipeline', '--id', 'R1', '--task', 'regression', '--role', 'implement',
+      '--cwd', repoDir, '--card', cardPath, '--route', 'flash', '--gate', 'true',
+      '--review-card', reviewCardPath, '--review-route', 'codex-review,agy-review',
+      '--out', outDir, '--confirmed', ...extra];
+  }
+  function steps(configs) {
+    configs.forEach((cfg, i) => writeFileSync(join(seqDir, `step_${i}.json`), JSON.stringify(cfg)));
+    return { ...baseEnv, FAKE_SEQ_DIR: seqDir };
+  }
+  function summary() { return readFileSync(join(outDir, 'R1.summary.md'), 'utf8'); }
+  function pythonHarness(code, env = {}) {
+    const prelude = `import importlib.util, pathlib, os, sys, json, subprocess, time, signal, threading
+spec = importlib.util.spec_from_file_location('delegate', ${JSON.stringify(DELEGATE_PY)})
+d = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(d)
+`;
+    return spawnSync(PYTHON3, ['-B', '-c', prelude + code], {
+      env: { ...process.env, ...baseEnv, ...env }, encoding: 'utf8', timeout: 25000,
+    });
+  }
+
+  for (const stage of ['add', 'commit']) {
+    it(`D4 R01 ${stage} failure stops before gate and never claims a commit`, () => {
+      if (stage === 'commit') {
+        const hook = join(repoDir, '.git/hooks/pre-commit');
+        writeFileSync(hook, '#!/bin/sh\nexit 1\n'); chmodSync(hook, 0o755);
+      } else writeFileSync(join(repoDir, '.git/index.lock'), 'locked');
+      const base = git(repoDir, 'rev-parse', 'HEAD');
+      const res = runDelegate(pipelineArgs(), steps([{ FAKE_TOUCH_FILE: 'feature' }]));
+      assert.notEqual(res.status, 0);
+      const rec = readLogRecords(atomicHome).at(-1);
+      assert.equal(rec.auto_committed, false);
+      assert.equal(rec.gate_exit, null);
+      assert.equal(git(repoDir, 'rev-parse', 'HEAD'), base);
+      assert.match(summary(), /commit.*fail/i);
+    });
+  }
+  it('D4 R02 R06 preserves every attempt output and links Codex final message and commit', () => {
+    const res = runDelegate(pipelineArgs(['--route', 'flash,agy']), steps([
+      { FAKE_EXIT: 1, FAKE_STDERR: 'quota; try again at 12:44 PM', FAKE_STDOUT: 'quota attempt' },
+      { FAKE_COMMIT_FILE: 'feature', FAKE_STDOUT: 'executor output' },
+      { FAKE_STDOUT: 'review transport', FAKE_LAST_MESSAGE: 'TOTAL major=0 medium=0 minor=0' },
+    ]));
+    assert.equal(res.status, 0, res.stderr);
+    const runs = readLogRecords(atomicHome).filter(r => r.kind === 'run');
+    assert.equal(new Set(runs.map(r => r.stdout)).size, 3);
+    for (const r of runs) {
+      assert.match(summary(), new RegExp(r.stdout.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+      assert.ok(summary().includes(r.stderr));
+      if (r.last_message) assert.ok(summary().includes(r.last_message));
+    }
+    assert.equal(readFileSync(runs[0].stdout, 'utf8'), 'quota attempt');
+    assert.match(readFileSync(runs[1].stdout, 'utf8'), /^executor output/);
+    assert.match(summary(), /commit:/);
+    assert.match(summary(), /provider_limit/);
+  });
+  for (const failure of ['review_wrote', 'error', 'timeout']) {
+    it(`D4 R03 stops on nonrecoverable reviewer ${failure}`, () => {
+      const cfg = failure === 'review_wrote' ? { FAKE_TOUCH_FILE: 'README.md' }
+        : failure === 'error' ? { FAKE_EXIT: 2 } : { FAKE_SLEEP: 2 };
+      const res = runDelegate(pipelineArgs(['--review-timeout', '1']), steps([
+        { FAKE_COMMIT_FILE: 'feature' }, cfg, {},
+      ]));
+      assert.notEqual(res.status, 0);
+      assert.equal(readFileSync(join(seqDir, 'count'), 'utf8'), '2');
+      assert.match(summary(), new RegExp(failure));
+    });
+  }
+  it('D4 R04 canonicalizes aliases before comparing reviewer families', () => {
+    const res = runDelegate(pipelineArgs(['--route', 'deepseek-light', '--review-route', 'flash,agy-review']),
+      steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]));
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(readLogRecords(atomicHome).at(-1).reviewer_profile, 'agy-review');
+  });
+  it('D4 R04 validates the complete routes before launching', () => {
+    const res = runDelegate(pipelineArgs(['--review-route', 'bogus']), steps([{ FAKE_COMMIT_FILE: 'feature' }]));
+    assert.notEqual(res.status, 0);
+    assert.throws(() => readFileSync(join(seqDir, 'count')), { code: 'ENOENT' });
+  });
+  it('D4 R05 keeps large reviews under 60 lines with explicit overflow path', () => {
+    const text = Array.from({ length: 70 }, (_, i) => `R${i + 1} | minor | finding`).join('\n') + '\nTOTAL major=0 medium=0 minor=70';
+    const res = runDelegate(pipelineArgs(), steps([{ FAKE_COMMIT_FILE: 'feature' }, { FAKE_LAST_MESSAGE: text }]));
+    assert.equal(res.status, 0, res.stderr);
+    assert.ok(summary().trimEnd().split('\n').length < 60);
+    assert.match(summary(), /omitted.*full review/i);
+    assert.match(summary(), /TOTAL major=0 medium=0 minor=70/);
+  });
+  it('D4 R05 R06 long routes preserve gate command and full attempt manifest', () => {
+    const res = runDelegate(pipelineArgs(['--route', Array(40).fill('flash').join(','), '--gate', 'printf gate-sentinel']),
+      { ...baseEnv, FAKE_EXIT: '1', FAKE_STDERR: 'quota' });
+    assert.notEqual(res.status, 0);
+    assert.ok(summary().trimEnd().split('\n').length < 60);
+    assert.match(summary(), /printf gate-sentinel/);
+    assert.match(summary(), /additional steps omitted; full step outputs:/);
+    const pipeRec = readLogRecords(atomicHome).at(-1);
+    assert.equal(pipeRec.attempts.length, 40);
+    for (const rec of pipeRec.attempts) assert.ok(readFileSync(rec.stderr, 'utf8').includes('quota'));
+  });
+  it('D4 R06 no_executor summary includes every quota attempt', () => {
+    const res = runDelegate(pipelineArgs(['--route', 'flash,agy']), steps([
+      { FAKE_EXIT: 1, FAKE_STDERR: 'quota' }, { FAKE_EXIT: 1, FAKE_STDERR: 'quota' },
+    ]));
+    assert.notEqual(res.status, 0);
+    for (const r of readLogRecords(atomicHome).filter(r => r.kind === 'run')) assert.ok(summary().includes(r.stderr));
+  });
+  it('D4 R07 status waits for slot publication instead of deleting partial JSON', () => {
+    const res = pythonHarness(`
+d.RUNNING.mkdir(parents=True)
+ready = d.RUNNING / 'ready'
+writer = subprocess.Popen([sys.executable, '-c', '''
+import fcntl, pathlib, os, time, json, sys
+r = pathlib.Path(sys.argv[1])
+with open(r / '.lock', 'w') as lock:
+ fcntl.flock(lock, fcntl.LOCK_EX)
+ p = r / ('opencode-live-%s.json' % os.getpid())
+ p.write_text('')
+ (r / 'ready').touch()
+ time.sleep(.4)
+ p.write_text(json.dumps({'pid': os.getpid(), 'id': 'live'}))
+time.sleep(3)
+''', str(d.RUNNING)])
+try:
+ while not ready.exists(): time.sleep(.01)
+ slots = d.get_active_slots()
+ assert len(slots) == 1, slots
+ assert slots[0][1]['id'] == 'live'
+finally:
+ writer.terminate(); writer.wait()
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+  it('D4 R12 kill escalates for a surviving group after its leader exits', () => {
+    const res = pythonHarness(`
+marker = pathlib.Path(${JSON.stringify(join(root, 'orphan.pid'))})
+heartbeat = marker.with_suffix('.heartbeat')
+child_code = "import signal,time,pathlib; signal.signal(signal.SIGTERM, signal.SIG_IGN); h=pathlib.Path(" + repr(str(heartbeat)) + "); exec('while True: h.write_text(str(time.time())); time.sleep(.02)')"
+leader_code = "import subprocess,sys,pathlib,time; p=subprocess.Popen([sys.executable,'-c'," + repr(child_code) + "]); pathlib.Path(" + repr(str(marker)) + ").write_text(str(p.pid)); time.sleep(60)"
+leader = subprocess.Popen([sys.executable, '-c', leader_code], start_new_session=True)
+try:
+ deadline = time.time() + 5
+ while not heartbeat.exists() and time.time() < deadline: time.sleep(.01)
+ assert heartbeat.exists()
+ d.RUNNING.mkdir(parents=True)
+ (d.RUNNING / ('opencode-orphan-%s.json' % leader.pid)).write_text(json.dumps({'id': 'orphan', 'pid': leader.pid, 'pgid': leader.pid}))
+ class Args: id = 'orphan'
+ d.cmd_kill(Args())
+ leader.wait(timeout=2)
+ before = heartbeat.read_text()
+ time.sleep(.3)
+ assert heartbeat.read_text() == before, 'kill left a descendant running'
+finally:
+ if marker.exists():
+  try: os.kill(int(marker.read_text()), signal.SIGKILL)
+  except ProcessLookupError: pass
+ if leader.poll() is None: leader.kill(); leader.wait()
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+  for (const mode of ['exception', 'signal', 'timeout', 'kill']) {
+    it(`D4 R08 R12 cleans real process group after ${mode} with TERM resistant descendant`, () => {
+      const res = pythonHarness(`
+child_file = pathlib.Path(${JSON.stringify(join(root, 'child.pid'))})
+script = pathlib.Path(${JSON.stringify(fakePaths.opencode)})
+child_script = child_file.with_suffix('.py')
+child_script.write_text("""import signal, time, pathlib, sys
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+h = pathlib.Path(sys.argv[1])
+while True:
+ h.write_text(str(time.time()))
+ time.sleep(.02)
+""")
+script.write_text(f"""#!${PYTHON3}
+import subprocess, sys, pathlib, time
+p = subprocess.Popen([sys.executable, {str(child_script)!r}, {str(child_file) + '.heartbeat'!r}])
+pathlib.Path({str(child_file)!r}).write_text(str(p.pid))
+time.sleep(60)
+""")
+args = [${JSON.stringify(DELEGATE_PY)}, 'run', '--id', 'group', '--task', 'group', '--role', 'implement', '--profile', 'flash', '--cwd', ${JSON.stringify(repoDir)}, '--card', ${JSON.stringify(cardPath)}, '--out', ${JSON.stringify(outDir)}, '--confirmed', '--timeout', '${mode === 'timeout' ? '1' : '60'}']
+mode = '${mode}'
+if mode == 'exception':
+ original_wait = d.subprocess.Popen.wait
+ def broken_wait(self, *args, **kwargs):
+  if self.args[0] == str(script) and not getattr(self, '_injected', False):
+   self._injected = True
+   while not child_file.exists(): time.sleep(.01)
+   time.sleep(.1)
+   raise RuntimeError('injected wait error')
+  return original_wait(self, *args, **kwargs)
+ d.subprocess.Popen.wait = broken_wait
+ runner = None
+else:
+ runner = subprocess.Popen([sys.executable, *args], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+try:
+ if mode == 'exception':
+  try: d.execute_run('group', 'group', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, confirmed=True)
+  except RuntimeError: pass
+ else:
+  deadline = time.time() + 5
+  while not child_file.exists() and time.time() < deadline: time.sleep(.01)
+  assert child_file.exists()
+  time.sleep(.15)
+  if mode == 'signal': runner.terminate()
+  elif mode == 'kill':
+   killed = subprocess.run([sys.executable, ${JSON.stringify(DELEGATE_PY)}, 'kill', 'group'], capture_output=True)
+   assert killed.returncode == 0, killed.stderr
+  _, runner_stderr = runner.communicate(timeout=22)
+ child = int(child_file.read_text())
+ heartbeat = pathlib.Path(str(child_file) + '.heartbeat')
+ before = heartbeat.read_text()
+ time.sleep(.3)
+ assert heartbeat.read_text() == before, 'descendant still running'
+ assert not list(d.RUNNING.glob('*.json')), 'slot survived cleanup: ' + (runner_stderr if runner else '')
+finally:
+ if child_file.exists():
+  try: os.kill(int(child_file.read_text()), signal.SIGKILL)
+  except ProcessLookupError: pass
+ if runner is not None and runner.poll() is None: runner.kill(); runner.wait()
+`);
+      assert.equal(res.status, 0, res.stderr || String(res.error));
+    });
+  }
+  it('D4 R09 records slot wait separately from launch snapshot and execution duration', () => {
+    const res = pythonHarness(`
+d.RUNNING.mkdir(parents=True)
+slot = d.RUNNING / ('opencode-held-%s.json' % os.getpid())
+slot.write_text(json.dumps({'pid': os.getpid()}))
+def release():
+ time.sleep(1.2)
+ subprocess.run(['git', '-C', ${JSON.stringify(repoDir)}, 'commit', '--allow-empty', '-m', 'queued commit'], check=True, stdout=subprocess.DEVNULL)
+ slot.unlink()
+thread = threading.Thread(target=release); thread.start()
+rec = d.execute_run('queue', 'queue', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, wait_s=2, confirmed=True)
+thread.join()
+assert rec['duration_s'] < 1, rec
+assert rec['wait_s'] >= 1, rec
+assert rec['base'] == d.git(${JSON.stringify(repoDir)}, 'rev-parse', 'HEAD')[:10], rec
+assert (d.now() - d.dt.datetime.fromisoformat(rec['started'])).total_seconds() < 1.5, rec
+`, { DELEGATE_MAX_OPENCODE: '1' });
+    assert.equal(res.status, 0, res.stderr);
+  });
+  it('D4 R10 pause while waiting for reviewer writes summary and pipeline record', () => {
+    const res = pythonHarness(`
+d.RUNNING.mkdir(parents=True)
+slot = d.RUNNING / ('codex-held-%s.json' % os.getpid())
+slot.write_text(json.dumps({'pid': os.getpid()}))
+runner = subprocess.Popen([sys.executable, ${JSON.stringify(DELEGATE_PY)}, *json.loads(os.environ['PIPE_ARGS'])], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+try:
+ deadline = time.time() + 5
+ while not pathlib.Path(${JSON.stringify(join(outDir, 'R1.gate.log'))}).exists() and time.time() < deadline: time.sleep(.01)
+ time.sleep(.15)
+ d.PAUSED.touch()
+ stdout, stderr = runner.communicate(timeout=8)
+ assert runner.returncode == 3, stderr
+ assert pathlib.Path(${JSON.stringify(join(outDir, 'R1.summary.md'))}).exists(), 'missing summary'
+ assert json.loads(d.LOG.read_text().splitlines()[-1])['outcome'] == 'paused'
+finally:
+ if runner.poll() is None: runner.kill(); runner.wait()
+`, { ...steps([{ FAKE_COMMIT_FILE: 'feature' }]), PIPE_ARGS: JSON.stringify(pipelineArgs(['--wait', '3'])) });
+    assert.equal(res.status, 0, res.stderr);
+  });
+  it('D4 R11 pause at executor completion prevents auto commit', () => {
+    // Fake touches PAUSED after editing, before its exit.
+    const res = runDelegate(pipelineArgs(), steps([{ FAKE_TOUCH_FILE: 'feature', FAKE_PAUSE: '1' }]));
+    assert.equal(res.status, 3, res.stderr);
+    assert.equal(readLogRecords(atomicHome).at(-1).auto_committed, false);
+    assert.equal(git(repoDir, 'rev-list', '--count', 'HEAD'), '1');
+  });
+  it('D4 R13 status orders limits by completion and supports legacy duration', () => {
+    const logDir = join(atomicHome, 'delegate'); mkdirSync(logDir, { recursive: true });
+    const oldErr = join(root, 'old.err'), newErr = join(root, 'new.err');
+    writeFileSync(oldErr, 'quota try again at OLD RESET'); writeFileSync(newErr, 'quota try again at NEW RESET');
+    const records = [
+      { kind: 'run', failure: 'provider_limit', executor: 'codex', started: '2026-11-18T00:00:00+00:00', completed: '2026-11-18T11:59:00+00:00', stderr: newErr },
+      { kind: 'run', failure: 'provider_limit', executor: 'codex', started: '2026-11-18T11:00:00+00:00', completed: '2026-11-18T11:30:00+00:00', stderr: oldErr },
+      { kind: 'run', failure: 'provider_limit', executor: 'agy', started: '2026-11-18T00:00:00+00:00', duration_s: 42000, stderr: newErr },
+    ];
+    writeFileSync(join(logDir, 'runs.jsonl'), records.map(JSON.stringify).join('\n'));
+    const res = runDelegate(['status'], { ...baseEnv, DELEGATE_NOW: '2026-11-18T12:00:00Z' });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /codex: provider_limit \(try again at NEW RESET\)/);
+    assert.match(res.stdout, /agy: provider_limit \(try again at NEW RESET\)/);
+    assert.doesNotMatch(res.stdout, /OLD RESET/);
+  });
+  it('D4 R14 report accepts real pipeline pairs with null profiles', () => {
+    const logDir = join(atomicHome, 'delegate'); mkdirSync(logDir, { recursive: true });
+    writeFileSync(join(logDir, 'runs.jsonl'), [
+      ['flash', 'codex-review', 'reviewed'], ['flash', null, 'gate_failed'], [null, null, 'no_executor'],
+    ].map(([executor_profile, reviewer_profile, outcome]) => JSON.stringify({ kind: 'pipeline', executor_profile, reviewer_profile, outcome })).join('\n'));
+    const res = runDelegate(['report'], baseEnv);
+    assert.equal(res.status, 0, res.stderr); assert.match(res.stdout, /gate_failed 1/);
+  });
+  it('D3 R01 report counts classified failures with zero exit', () => {
+    runDelegate(['run', '--id', 'incomplete', '--task', 'incomplete', '--role', 'review', '--profile', 'agy-review', '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed'], { ...baseEnv, FAKE_STDOUT: 'unfinished' });
+    const res = runDelegate(['report'], baseEnv);
+    assert.equal(res.status, 0, res.stderr); assert.match(res.stdout, /failed runs 1/);
+  });
+  it('D3 R03 default peak tests remove inherited configuration', () => {
+    const saved = process.env.DELEGATE_PEAK_WINDOWS;
+    process.env.DELEGATE_PEAK_WINDOWS = '';
+    try {
+      const res = runDelegate(['peak'], { ...baseEnv, DELEGATE_PEAK_WINDOWS: undefined, DELEGATE_NOW: '2026-11-18T02:00:00Z' });
+      assert.equal(res.stdout.trim(), 'peak');
+    } finally {
+      if (saved === undefined) delete process.env.DELEGATE_PEAK_WINDOWS;
+      else process.env.DELEGATE_PEAK_WINDOWS = saved;
+    }
+  });
+  it('D3 R04 provider_limit takes precedence over review_wrote together', () => {
+    const res = runDelegate(['run', '--id', 'both', '--task', 'both', '--role', 'review', '--profile', 'agy-review', '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed'], { ...baseEnv, FAKE_TOUCH_FILE: 'README.md', FAKE_EXIT: '1', FAKE_STDERR: '429 quota' });
+    assert.equal(res.status, 1);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.dirty_after, true); assert.equal(rec.failure, 'provider_limit');
+  });
+  for (const [id, pattern] of [
+    ['D4 R15', /Create a filled review card[\s\S]*--review-card <review.md>/],
+    ['D4 R16', /outside the approved route/],
+    ['D4 R18', /default way to run the executor, commit, gate and review/],
+    ['D3 R02', /retry once only[\s\S]*neither `flash` nor `provider_limit`/],
+  ]) {
+    it(`${id} delegate instructions are consistent`, () => {
+      const skill = readFileSync(join(REPO_ROOT, 'skills/core/delegate.md'), 'utf8');
+      assert.match(skill, pattern);
+      if (id === 'D4 R16') assert.match(skill, /fallback is outside the approved route/);
+      assert.doesNotMatch(skill, /verdict` records by step 8/);
+    });
+  }
+
 });

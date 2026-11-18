@@ -41,7 +41,7 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 - **Flash is the default executor.** It is good at a closed card (files, values and tests named), mechanical work, and a fix round with exact `file:line` findings. It is weak at: code review (never use it as reviewer), work with a design decision left open, and hard algorithmic problems; and it can fit the code to the test instead of solving the problem — which is why the host gate and a reviewer of another family are mandatory.
 - **The OpenCode allowance is shared.** Every OpenCode model draws on the same 5-hour allowance, as a fraction of that model's own dollar limit. One session of an expensive model can block Flash for hours: inside OpenCode use `flash` and `glm-flash` for volume, `kimi` only for the case in the table, and keep strong review on Codex and Antigravity, which have separate quotas.
 - **The reviewer is never the family that wrote the code.** Families: `deepseek`, `zhipu`, `moonshot`, `tencent`, `openai`, `gemini`.
-- **Check availability and switch on quota limits.** Before building the batch table, run `python3 {{ASSETS_PATH}}/delegate.py profiles`; and when a `run` record says `"failure": "provider_limit"`, do not retry that executor — rebuild the table with the next available fallback from the routing table and ask for a new yes.
+- **Check availability and switch on quota limits.** Before building the batch table, run `python3 {{ASSETS_PATH}}/delegate.py profiles`; when a `run` record says `"failure": "provider_limit"`, do not retry that executor. Switch according to the routing table. A pipeline automatically tries the next profile in its approved route; ask for a new yes only for a profile outside the approved route. For standalone `run`, show and confirm the fallback if it was not already approved.
 - **Models must be enabled in the OpenCode console** before the first use. Never enable a model whose terms train on request data (the "contributor" and stealth models) for a private repository, and never turn on the console option that allows such endpoints.
 - **DeepSeek peak hours** (weekdays 01:00–04:00 and 06:00–10:00 UTC) double its price; the runner records it and proceeds. Prefer off-peak for a large batch.
 - **The orchestrator reviews only on escalation:** the cross-family review and the executor disagree after two fix rounds, the change touches auth, money, data deletion or a migration, or the user asks. Say so in the batch table.
@@ -61,13 +61,13 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 
 3. **Write the card** — the only code-shaped thing the orchestrator produces. Use `{{ASSETS_PATH}}/card-template.md`. State the rule by its **result** ("a visitor never sees X on any route"), not only by a file list; name files with lines, what must not change, how to check, a final grep, and the delivery (commits, no push). Tell the executor to stay inside the worktree, to write a failing test first, and to commit early.
 
-4. **Pipeline (executor, host gate, cross-family review)** — the default way to run steps 4 to 6 in one call:
+4. **Pipeline (executor, host gate, cross-family review)** — the default way to run the executor, commit, gate and review in one call. Create a filled review card at `<review.md>` from `{{ASSETS_PATH}}/review-card-template.md`: replace the task ID, title and `<path to the task card>` with this task’s values and the absolute path of `<card.md>`. Leave `{{DIFF_RANGE}}` for the runner to fill:
 
    ```bash
    python3 {{ASSETS_PATH}}/delegate.py pipeline --id <ID> --task "<short title>" --role implement \
      --cwd <worktree> --card <card.md> --route flash,codex,agy \
      --gate "<gate shell command>" \
-     --review-card {{ASSETS_PATH}}/review-card-template.md \
+     --review-card <review.md> \
      --review-route codex-review,agy-review,hy4-review --confirmed
    ```
 
@@ -85,7 +85,7 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
      --profile flash --cwd <worktree> --card <card.md> --confirmed
    ```
 
-   The runner enforces the timeout (default 90 min), kills the whole process group, captures output outside the repo, and appends a `run` record with what it measured: duration, exit code, timeout, commits, files changed, peak flag. `--confirmed` asserts step 1 happened; never pass it otherwise. A non-zero exit or a timeout is a failed run: read the stderr file, then retry once, switch profile, or surface it. A `run` record with `"uncommitted": true` means the executor changed files but could not commit (Codex's sandbox denies writes to git metadata in a linked worktree); read the diff, commit it yourself with a message that names the task, and write that in `--deviation` when recording the verdict.
+   The runner enforces the timeout (default 90 min), kills the whole process group, captures output outside the repo, and appends a `run` record with what it measured: duration, exit code, timeout, commits, files changed, peak flag. `--confirmed` asserts step 1 happened; never pass it otherwise. A non-zero exit or a timeout is a failed run: read the stderr file, then retry once only when the routing rules allow it and the failed profile and failure are neither `flash` nor `provider_limit`; otherwise switch profile according to the routing table or surface it. Obtain a new yes for any profile outside the approved route. A `run` record with `"uncommitted": true` means the executor changed files but could not commit (Codex's sandbox denies writes to git metadata in a linked worktree); read the diff, commit it yourself with a message that names the task, and write that in `--deviation` when recording the verdict.
 
 5. **Fix round.** Real findings go back to the **same executor** as a fix card (role `fix`, `--attempt 2`, or another `pipeline` with `--role fix`), unless it is out of quota or it is the `flash` second attempt (then follow the routing table and ask for a new yes), then the host gate runs again. Stop at three rounds; after that escalate to an orchestrator review or the user.
 
@@ -110,7 +110,7 @@ The provider quotas are shared across the whole machine; the runner limits concu
 
 ## The audit log
 
-One append-only JSONL file for every project and agent on the machine: `~/.atomic-skills/delegate/runs.jsonl` (or `$ATOMIC_SKILLS_HOME/delegate/runs.jsonl`). `run` records are written by the runner; `verdict` records by step 8; both share the task id. Values are enums and numbers so the log can be compared across executors.
+One append-only JSONL file for every project and agent on the machine: `~/.atomic-skills/delegate/runs.jsonl` (or `$ATOMIC_SKILLS_HOME/delegate/runs.jsonl`). `run` records are written by the runner; `verdict` records by the verdict step; both share the task id. Values are enums and numbers so the log can be compared across executors.
 
 ```bash
 python3 {{ASSETS_PATH}}/delegate.py report   # per role/executor/model: host-gate rate, review rounds, majors, time
@@ -130,6 +130,6 @@ Never edit or delete past lines. A correction is a new `verdict` line for the sa
 - "It's a two-line change, I'll just do it." — That is how orchestrator usage creeps back. Card it; `flash` exists for this.
 - "The executor says the tests pass." — Record that as `--gate-claim`. Run the gate.
 - "The review found nothing." — Possible, but rare. Check that the reviewer actually read the diff range.
-- "Flash failed, I'll run it again." — Do not retry `flash`; switch to `codex` (or follow the routing table) and ask for a new yes.
+- "Flash failed, I'll run it again." — Do not retry `flash`; switch to `codex` (or follow the routing table); ask for a new yes if the fallback is outside the approved route.
 - "Flash can review this, it's cheap." — Never. `flash` is weak at review, and the reviewer must be a different family from the author.
 - "I'll log it later." — The runner already wrote the `run` row; an id without a verdict shows up in the report as "no verdict".
