@@ -10,7 +10,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, isAbsolute } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -18,7 +18,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
 const DELEGATE_PY = join(REPO_ROOT, 'skills/shared/delegate-assets/delegate.py');
 
-const hasPython3 = spawnSync('python3', ['--version'], { encoding: 'utf8' }).status === 0;
+const pythonProbe = spawnSync('python3', ['-c', 'import sys; print(sys.executable)'], {
+  encoding: 'utf8',
+});
+const hasPython3 = pythonProbe.status === 0;
+const PYTHON3 = hasPython3 ? pythonProbe.stdout.trim() : 'python3';
 
 const FAKE_SCRIPT = `#!/usr/bin/env python3
 import json, os, pathlib, subprocess, sys, time
@@ -30,6 +34,16 @@ if argv_file:
 stdin_file = os.environ.get("FAKE_STDIN_FILE")
 if stdin_file:
     pathlib.Path(stdin_file).write_text(sys.stdin.read())
+
+out_text = os.environ.get("FAKE_STDOUT", "")
+if out_text:
+    sys.stdout.write(out_text)
+    sys.stdout.flush()
+
+err_text = os.environ.get("FAKE_STDERR", "")
+if err_text:
+    sys.stderr.write(err_text)
+    sys.stderr.flush()
 
 sleep_s = float(os.environ.get("FAKE_SLEEP", "0"))
 if sleep_s > 0:
@@ -46,14 +60,6 @@ if commit_rel:
     p.write_text("committed by fake\\n")
     subprocess.run(["git", "add", str(p)], check=True)
     subprocess.run(["git", "commit", "-m", "fake commit"], check=True)
-
-out_text = os.environ.get("FAKE_STDOUT", "")
-if out_text:
-    sys.stdout.write(out_text)
-
-err_text = os.environ.get("FAKE_STDERR", "")
-if err_text:
-    sys.stderr.write(err_text)
 
 sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
 `;
@@ -84,9 +90,10 @@ function makeFakeBin(dir, names = ['codex', 'agy', 'opencode']) {
   return { binDir, paths };
 }
 
-function runDelegate(args, env = {}) {
-  return spawnSync('python3', [DELEGATE_PY, ...args], {
+function runDelegate(args, env = {}, cwd = undefined) {
+  return spawnSync(PYTHON3, [DELEGATE_PY, ...args], {
     encoding: 'utf8',
+    cwd,
     env: {
       ...process.env,
       ...env,
@@ -101,13 +108,6 @@ function readLogRecords(atomicHome) {
     .split('\n')
     .filter(Boolean)
     .map((line) => JSON.parse(line));
-}
-
-function formatUtcHhMm(totalMinutes) {
-  const norm = ((totalMinutes % 1440) + 1440) % 1440;
-  const h = String(Math.floor(norm / 60)).padStart(2, '0');
-  const m = String(norm % 60).padStart(2, '0');
-  return `${h}:${m}`;
 }
 
 describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
@@ -479,6 +479,114 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(rec.dirty_after, false);
   });
 
+  it('review on an already dirty tree left unchanged exits 0 with failure=none', () => {
+    writeFileSync(join(repoDir, 'README.md'), 'dirty before\n');
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-REV-DIRTY-OK',
+        '--task', 'dirty tree clean review',
+        '--role', 'review',
+        '--profile', 'codex-review',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      baseEnv,
+    );
+    assert.equal(res.status, 0, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.dirty_before, true);
+    assert.equal(rec.dirty_after, true);
+    assert.equal(rec.failure, 'none');
+  });
+
+  it('review on an already dirty tree where fake creates a second file exits 1 with failure=review_wrote', () => {
+    writeFileSync(join(repoDir, 'README.md'), 'dirty before\n');
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-REV-DIRTY-SECOND',
+        '--task', 'dirty tree second file',
+        '--role', 'review',
+        '--profile', 'codex-review',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      {
+        ...baseEnv,
+        FAKE_EXIT: '0',
+        FAKE_TOUCH_FILE: join(repoDir, 'second.txt'),
+      },
+    );
+    assert.equal(res.status, 1);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.dirty_before, true);
+    assert.equal(rec.dirty_after, true);
+    assert.equal(rec.failure, 'review_wrote');
+  });
+
+  it('review on an already dirty tree where fake modifies further an already modified file exits 1 with failure=review_wrote', () => {
+    writeFileSync(join(repoDir, 'README.md'), 'dirty before\n');
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-REV-DIRTY-FURTHER',
+        '--task', 'dirty tree modify modified file',
+        '--role', 'review',
+        '--profile', 'codex-review',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      {
+        ...baseEnv,
+        FAKE_EXIT: '0',
+        FAKE_TOUCH_FILE: join(repoDir, 'README.md'),
+      },
+    );
+    assert.equal(res.status, 1);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.dirty_before, true);
+    assert.equal(rec.dirty_after, true);
+    assert.equal(rec.failure, 'review_wrote');
+  });
+
+  it('relative --out from a working directory different from --cwd passes absolute -o in same dir as stdout', () => {
+    const callerDir = join(root, 'caller');
+    mkdirSync(callerDir, { recursive: true });
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-REL-OUT',
+        '--task', 'relative out path',
+        '--role', 'implement',
+        '--profile', 'codex',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', 'rel-out',
+        '--confirmed',
+      ],
+      baseEnv,
+      callerDir,
+    );
+    assert.equal(res.status, 0, res.stderr);
+    const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
+    const oIdx = argv.indexOf('-o');
+    assert.notEqual(oIdx, -1);
+    const lastMsgArg = argv[oIdx + 1];
+    assert.ok(isAbsolute(lastMsgArg), `expected absolute -o path, got: ${lastMsgArg}`);
+
+    const [rec] = readLogRecords(atomicHome);
+    assert.ok(isAbsolute(rec.stdout), `expected absolute stdout path, got: ${rec.stdout}`);
+    assert.equal(dirname(lastMsgArg), dirname(rec.stdout));
+    assert.equal(dirname(lastMsgArg), join(callerDir, 'rel-out'));
+  });
+
   it('records failure=timeout when the executor exceeds --timeout', () => {
     const res = runDelegate(
       [
@@ -526,6 +634,140 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(res.status, 1);
     const [rec] = readLogRecords(atomicHome);
     assert.equal(rec.failure, 'provider_limit');
+  });
+
+  it('ignores provider_limit message outside the last 4000 characters and records failure=error', () => {
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-LIMIT-OLD-TAIL',
+        '--task', 'limit before tail',
+        '--role', 'implement',
+        '--profile', 'codex',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      {
+        ...baseEnv,
+        FAKE_EXIT: '1',
+        FAKE_STDERR: `usage limit reached\n${'x'.repeat(4005)}`,
+      },
+    );
+    assert.equal(res.status, 1);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'error');
+  });
+
+  for (const [label, phrase] of [
+    ['usage limit', 'Usage Limit exceeded'],
+    ['rate limit', 'Rate Limit hit'],
+    ['quota', 'Quota exhausted'],
+    ['too many requests', 'Too Many Requests'],
+    ['429', 'status 429'],
+  ]) {
+    it(`detects provider_limit for "${label}" on its own with mixed case`, () => {
+      const res = runDelegate(
+        [
+          'run',
+          '--id', `T-LIMIT-${label.replace(/\s+/g, '-').toUpperCase()}`,
+          '--task', `limit ${label}`,
+          '--role', 'implement',
+          '--profile', 'codex',
+          '--cwd', repoDir,
+          '--card', cardPath,
+          '--out', outDir,
+          '--confirmed',
+        ],
+        {
+          ...baseEnv,
+          FAKE_EXIT: '1',
+          FAKE_STDERR: `${phrase}\n`,
+        },
+      );
+      assert.equal(res.status, 1);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'provider_limit');
+    });
+  }
+
+  for (const codeLike of ['4290', '1429']) {
+    it(`does not treat ${codeLike} as a 429 provider_limit`, () => {
+      const res = runDelegate(
+        [
+          'run',
+          '--id', `T-NO-LIMIT-${codeLike}`,
+          '--task', `non-matching ${codeLike}`,
+          '--role', 'implement',
+          '--profile', 'codex',
+          '--cwd', repoDir,
+          '--card', cardPath,
+          '--out', outDir,
+          '--confirmed',
+        ],
+        {
+          ...baseEnv,
+          FAKE_EXIT: '1',
+          FAKE_STDERR: `error code ${codeLike}\n`,
+        },
+      );
+      assert.equal(res.status, 1);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'error');
+    });
+  }
+
+  it('records failure=none on exit 0 even when output contains a limit message', () => {
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-LIMIT-EXIT0',
+        '--task', 'limit text on success',
+        '--role', 'implement',
+        '--profile', 'codex',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      {
+        ...baseEnv,
+        FAKE_EXIT: '0',
+        FAKE_STDOUT: 'note: discussed quota and 429 handling\n',
+        FAKE_STDERR: 'usage limit mentioned in log\n',
+      },
+    );
+    assert.equal(res.status, 0, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'none');
+  });
+
+  it('records failure=timeout when a timed-out run also emits a limit message', () => {
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-TIMEOUT-LIMIT',
+        '--task', 'timeout with limit text',
+        '--role', 'implement',
+        '--profile', 'codex',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--timeout', '1',
+        '--confirmed',
+      ],
+      {
+        ...baseEnv,
+        FAKE_SLEEP: '5',
+        FAKE_STDERR: 'rate limit retrying...\n',
+      },
+    );
+    assert.equal(res.status, 1);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.timed_out, true);
+    assert.equal(rec.failure, 'timeout');
+    assert.match(readFileSync(rec.stderr, 'utf8'), /rate limit/);
   });
 
   it('keeps agy and opencode argvs unchanged and omits last_message for non-codex executors', () => {
@@ -643,7 +885,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(rec.model, 'custom-codex');
   });
 
-  it('peak window 00:00-23:59 refuses deepseek-pro while codex still runs; midnight-crossing peak prints peak/off-peak accurately', () => {
+  it('peak window 00:00-23:59 refuses deepseek-pro while codex still runs', () => {
     const alwaysPeakEnv = {
       ...baseEnv,
       DELEGATE_PEAK_START: '00:00',
@@ -681,55 +923,58 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       alwaysPeakEnv,
     );
     assert.equal(allowed.status, 0, allowed.stderr);
-
-    const now = new Date();
-    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
-    let insideStart;
-    let insideEnd;
-    let outsideStart;
-    let outsideEnd;
-
-    if (utcMin < 720) {
-      insideStart = '23:50';
-      insideEnd = formatUtcHhMm(utcMin + 5);
-      outsideStart = '23:59';
-      outsideEnd = formatUtcHhMm(Math.max(0, utcMin - 2));
-    } else {
-      insideStart = formatUtcHhMm(utcMin - 5);
-      insideEnd = '00:10';
-      outsideStart = formatUtcHhMm(Math.min(1439, utcMin + 2));
-      outsideEnd = '00:00';
-    }
-
-    assert.ok(insideStart > insideEnd, `expected midnight crossing: ${insideStart} > ${insideEnd}`);
-    assert.ok(outsideStart > outsideEnd, `expected midnight crossing: ${outsideStart} > ${outsideEnd}`);
-
-    const peakRes = runDelegate(['peak'], {
-      ...baseEnv,
-      DELEGATE_PEAK_TZ_OFFSET: '0',
-      DELEGATE_PEAK_START: insideStart,
-      DELEGATE_PEAK_END: insideEnd,
-    });
-    assert.equal(peakRes.status, 0);
-    assert.equal(peakRes.stdout.trim(), 'peak');
-
-    const offPeakRes = runDelegate(['peak'], {
-      ...baseEnv,
-      DELEGATE_PEAK_TZ_OFFSET: '0',
-      DELEGATE_PEAK_START: outsideStart,
-      DELEGATE_PEAK_END: outsideEnd,
-    });
-    assert.equal(offPeakRes.status, 0);
-    assert.equal(offPeakRes.stdout.trim(), 'off-peak');
   });
 
-  it('profiles lists six profiles and marks executors absent from PATH as missing', () => {
+  it('midnight-crossing peak window 22:00-07:00 at offset -3 evaluates fixed DELEGATE_NOW instants', () => {
+    const cases = [
+      ['2026-11-18T01:00:00Z', 'peak'],
+      ['2026-11-18T09:59:00Z', 'peak'],
+      ['2026-11-18T10:00:00Z', 'peak'],
+      ['2026-11-18T10:01:00Z', 'off-peak'],
+      ['2026-11-18T00:59:00Z', 'off-peak'],
+      ['2026-11-18T15:00:00Z', 'off-peak'],
+    ];
+    for (const [instant, expected] of cases) {
+      const res = runDelegate(['peak'], {
+        ...baseEnv,
+        DELEGATE_PEAK_START: '22:00',
+        DELEGATE_PEAK_END: '07:00',
+        DELEGATE_PEAK_TZ_OFFSET: '-3',
+        DELEGATE_NOW: instant,
+      });
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(res.stdout.trim(), expected, `instant ${instant}`);
+    }
+  });
+
+  it('same-day peak window 09:00-17:00 at offset 0 evaluates fixed DELEGATE_NOW instants', () => {
+    const cases = [
+      ['2026-11-18T08:59:00Z', 'off-peak'],
+      ['2026-11-18T09:00:00Z', 'peak'],
+      ['2026-11-18T17:00:00Z', 'peak'],
+      ['2026-11-18T17:01:00Z', 'off-peak'],
+    ];
+    for (const [instant, expected] of cases) {
+      const res = runDelegate(['peak'], {
+        ...baseEnv,
+        DELEGATE_PEAK_START: '09:00',
+        DELEGATE_PEAK_END: '17:00',
+        DELEGATE_PEAK_TZ_OFFSET: '0',
+        DELEGATE_NOW: instant,
+      });
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(res.stdout.trim(), expected, `instant ${instant}`);
+    }
+  });
+
+  it('profiles lists six profiles and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
     const partialDir = join(root, 'partial');
     const { binDir: partialBin } = makeFakeBin(partialDir, ['opencode', 'agy']);
     const res = runDelegate(['profiles'], {
       PATH: `${partialBin}:/usr/bin:/bin`,
       HOME: emptyHome,
       ATOMIC_SKILLS_HOME: atomicHome,
+      DELEGATE_NO_FALLBACK_PATHS: '1',
     });
 
     assert.equal(res.status, 0, res.stderr);
@@ -743,6 +988,29 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       'codex | codex | gpt-6-astra | openai | missing',
       'codex-review | codex | gpt-6-astra | openai | missing',
     ]);
+  });
+
+  it('profiles falls back to ~/.local/bin when codex is absent from PATH', () => {
+    const emptyPathDir = join(root, 'empty-path');
+    mkdirSync(emptyPathDir, { recursive: true });
+    const fallbackHome = join(root, 'fallback-home');
+    const localBin = join(fallbackHome, '.local', 'bin');
+    mkdirSync(localBin, { recursive: true });
+    const codexBin = join(localBin, 'codex');
+    writeFileSync(codexBin, FAKE_SCRIPT);
+    chmodSync(codexBin, 0o755);
+
+    const res = runDelegate(['profiles'], {
+      PATH: emptyPathDir,
+      HOME: fallbackHome,
+      ATOMIC_SKILLS_HOME: atomicHome,
+    });
+
+    assert.equal(res.status, 0, res.stderr);
+    const lines = res.stdout.trim().split('\n');
+    assert.equal(lines.length, 6);
+    assert.ok(lines.includes('codex | codex | gpt-6-astra | openai | found'));
+    assert.ok(lines.includes('codex-review | codex | gpt-6-astra | openai | found'));
   });
 
   it('report handles a log mixing old-shape and new-shape records without crashing', () => {
