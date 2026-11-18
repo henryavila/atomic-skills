@@ -152,12 +152,11 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       PATH: `${fakeBin}:${process.env.PATH || '/usr/bin:/bin'}`,
       HOME: emptyHome,
       ATOMIC_SKILLS_HOME: atomicHome,
-      DELEGATE_PEAK_START: '25:00',
-      DELEGATE_PEAK_END: '25:00',
+      DELEGATE_PEAK_WINDOWS: '',
       FAKE_ARGV_FILE: argvFile,
       FAKE_STDIN_FILE: stdinFile,
-      FAKE_STDOUT: 'Reviewed the diff; no findings.',
-      FAKE_LAST_MESSAGE: 'Reviewed the diff; no findings.',
+      FAKE_STDOUT: 'Reviewed the diff; no findings.\nTOTAL major=0 medium=0 minor=0\n',
+      FAKE_LAST_MESSAGE: 'Reviewed the diff; no findings.\nTOTAL major=0 medium=0 minor=0\n',
     };
   });
 
@@ -169,7 +168,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     ['agy empty', 'agy-review', { FAKE_STDOUT: '' }, 'empty_output'],
     ['agy whitespace', 'agy-review', { FAKE_STDOUT: ' \n\t' }, 'empty_output'],
     ['agy text', 'agy-review', {}, 'none'],
-    ['opencode empty', 'deepseek-pro', { FAKE_STDOUT: '' }, 'empty_output'],
+    ['opencode empty', 'flash', { FAKE_STDOUT: '' }, 'empty_output'],
     ['codex missing last message', 'codex-review', { FAKE_LAST_MESSAGE: undefined }, 'empty_output'],
     ['codex stale last message', 'codex-review', { FAKE_LAST_MESSAGE: undefined }, 'empty_output'],
     ['codex whitespace last message', 'codex-review', { FAKE_LAST_MESSAGE: ' \n\t' }, 'empty_output'],
@@ -197,7 +196,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
   for (const [role, profile] of [
     ['implement', 'codex'],
     ['implement', 'agy'],
-    ['fix', 'deepseek-pro'],
+    ['fix', 'flash'],
   ]) {
     it(`${role} on ${profile} accepts empty output`, () => {
       const res = runDelegate([
@@ -209,9 +208,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         FAKE_STDOUT: '',
         FAKE_LAST_MESSAGE: undefined,
         FAKE_EXIT: '0',
-        DELEGATE_PEAK_START: '09:00',
-        DELEGATE_PEAK_END: '17:00',
-        DELEGATE_PEAK_TZ_OFFSET: '0',
+        DELEGATE_PEAK_WINDOWS: '09:00-17:00',
         DELEGATE_NOW: '2026-11-18T18:00:00Z',
       });
       assert.equal(res.status, 0, res.stderr);
@@ -270,7 +267,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       fakePaths.codex,
       '-a', 'never',
       'exec',
-      '--model', 'gpt-6-astra',
+      '--model', 'gpt-6.1-sol',
       '-c', 'model_reasoning_effort=medium',
       '--sandbox', 'workspace-write',
       '--skip-git-repo-check',
@@ -286,7 +283,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     const [rec] = readLogRecords(atomicHome);
     assert.equal(rec.executor, 'codex');
-    assert.equal(rec.model, 'gpt-6-astra');
+    assert.equal(rec.model, 'gpt-6.1-sol');
     assert.equal(rec.family, 'openai');
     assert.equal(rec.failure, 'none');
     assert.equal(rec.last_message, expectedLastMsg);
@@ -319,7 +316,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       fakePaths.codex,
       '-a', 'never',
       'exec',
-      '--model', 'gpt-6-astra',
+      '--model', 'gpt-6.1-sol',
       '-c', 'model_reasoning_effort=high',
       '--sandbox', 'read-only',
       '--skip-git-repo-check',
@@ -357,7 +354,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       fakePaths.codex,
       '-a', 'never',
       'exec',
-      '--model', 'gpt-6-astra',
+      '--model', 'gpt-6.1-sol',
       '-c', 'model_reasoning_effort=medium',
       '--sandbox', 'workspace-write',
       '--skip-git-repo-check',
@@ -867,7 +864,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         '--id', 'T-OP',
         '--task', 'opencode task',
         '--role', 'implement',
-        '--profile', 'deepseek-pro',
+        '--profile', 'flash',
         '--cwd', repoDir,
         '--card', cardPath,
         '--out', outDir,
@@ -882,7 +879,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       '--auto',
       '--archived',
       '-m',
-      'opencode-go/deepseek-v4-pro',
+      'opencode-go/deepseek-v4.1-flash',
       cardText,
     ]);
     assert.equal(readFileSync(stdinFile, 'utf8'), '');
@@ -938,8 +935,6 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       '--output-format',
       'text',
       '--dangerously-skip-permissions',
-      '--mode',
-      'plan',
     ]);
 
     const recs = readLogRecords(atomicHome);
@@ -950,6 +945,100 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     for (const r of recs) {
       assert.ok(!('last_message' in r), 'last_message must be absent for non-codex');
     }
+  });
+
+  for (const [profile, role, expectedModel, expectedFamily] of [
+    ['glm-flash', 'mechanical', 'opencode-go/glm-5.3-flash', 'zhipu'],
+    ['kimi', 'implement', 'opencode-go/kimi-k3.1-pro', 'moonshot'],
+    ['hy4-review', 'review', 'opencode-go/hy4', 'tencent'],
+  ]) {
+    it(`--profile ${profile} builds opencode argv with ${expectedModel} and records ${expectedFamily}`, () => {
+      const cardText = readFileSync(cardPath, 'utf8');
+      const res = runDelegate(
+        [
+          'run',
+          '--id', `T-OP-${profile}`,
+          '--task', `opencode ${profile}`,
+          '--role', role,
+          '--profile', profile,
+          '--cwd', repoDir,
+          '--card', cardPath,
+          '--out', outDir,
+          '--confirmed',
+        ],
+        baseEnv,
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.deepEqual(JSON.parse(readFileSync(argvFile, 'utf8')), [
+        fakePaths.opencode,
+        'run',
+        '--auto',
+        '--archived',
+        '-m',
+        expectedModel,
+        cardText,
+      ]);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.executor, 'opencode');
+      assert.equal(rec.model, expectedModel);
+      assert.equal(rec.family, expectedFamily);
+    });
+  }
+
+  it('--profile deepseek-light acts as a deprecated alias for flash', () => {
+    const cardText = readFileSync(cardPath, 'utf8');
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-ALIAS',
+        '--task', 'deprecated alias',
+        '--role', 'mechanical',
+        '--profile', 'deepseek-light',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      baseEnv,
+    );
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stderr, /deprecated/i);
+    assert.deepEqual(JSON.parse(readFileSync(argvFile, 'utf8')), [
+      fakePaths.opencode,
+      'run',
+      '--auto',
+      '--archived',
+      '-m',
+      'opencode-go/deepseek-v4.1-flash',
+      cardText,
+    ]);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.executor, 'opencode');
+    assert.equal(rec.model, 'opencode-go/deepseek-v4.1-flash');
+    assert.equal(rec.family, 'deepseek');
+  });
+
+  it('--profile deepseek-pro exits 2 with removal message and launches nothing', () => {
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-REMOVED',
+        '--task', 'removed profile',
+        '--role', 'implement',
+        '--profile', 'deepseek-pro',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      baseEnv,
+    );
+    assert.equal(res.status, 2);
+    assert.match(
+      res.stderr,
+      /delegate: profile deepseek-pro was removed \(poor cost\/benefit\); use --profile flash/,
+    );
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
   });
 
   it('sets family to null when --executor and --model are given manually', () => {
@@ -974,61 +1063,107 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(rec.model, 'custom-codex');
   });
 
-  it('peak window 00:00-23:59 refuses deepseek-pro while codex still runs', () => {
-    const alwaysPeakEnv = {
+  it('during peak (Wednesday 02:00 UTC) flash proceeds with peak=true and warning, while glm-flash records peak=false', () => {
+    const peakEnv = {
       ...baseEnv,
-      DELEGATE_PEAK_START: '00:00',
-      DELEGATE_PEAK_END: '23:59',
+      DELEGATE_NOW: '2026-11-18T02:00:00Z',
     };
+    delete peakEnv.DELEGATE_PEAK_WINDOWS;
 
-    const refused = runDelegate(
+    const flashRes = runDelegate(
       [
         'run',
-        '--id', 'T-PEAK-DS',
-        '--task', 'deepseek during peak',
+        '--id', 'T-PEAK-FLASH',
+        '--task', 'flash during peak',
         '--role', 'implement',
-        '--profile', 'deepseek-pro',
+        '--profile', 'flash',
         '--cwd', repoDir,
         '--card', cardPath,
         '--out', outDir,
         '--confirmed',
       ],
-      alwaysPeakEnv,
+      peakEnv,
     );
-    assert.notEqual(refused.status, 0);
+    assert.equal(flashRes.status, 0, flashRes.stderr);
+    assert.match(flashRes.stderr, /double/i);
 
-    const allowed = runDelegate(
+    const flashAllowPeakRes = runDelegate(
       [
         'run',
-        '--id', 'T-PEAK-CDX',
-        '--task', 'codex during peak',
+        '--id', 'T-PEAK-FLASH-ALLOW',
+        '--task', 'flash with --allow-peak',
         '--role', 'implement',
-        '--profile', 'codex',
+        '--profile', 'flash',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+        '--allow-peak',
+      ],
+      peakEnv,
+    );
+    assert.equal(flashAllowPeakRes.status, 0, flashAllowPeakRes.stderr);
+
+    const glmRes = runDelegate(
+      [
+        'run',
+        '--id', 'T-PEAK-GLM',
+        '--task', 'glm-flash during deepseek peak',
+        '--role', 'mechanical',
+        '--profile', 'glm-flash',
         '--cwd', repoDir,
         '--card', cardPath,
         '--out', outDir,
         '--confirmed',
       ],
-      alwaysPeakEnv,
+      peakEnv,
     );
-    assert.equal(allowed.status, 0, allowed.stderr);
+    assert.equal(glmRes.status, 0, glmRes.stderr);
+    assert.doesNotMatch(glmRes.stderr, /double/i);
+
+    const [flashRec, flashAllowRec, glmRec] = readLogRecords(atomicHome);
+    assert.equal(flashRec.peak, true);
+    assert.equal(flashAllowRec.peak, true);
+    assert.equal(glmRec.peak, false);
   });
 
-  it('midnight-crossing peak window 22:00-07:00 at offset -3 evaluates fixed DELEGATE_NOW instants', () => {
+  it('default DELEGATE_PEAK_WINDOWS evaluates weekday/weekend UTC instants correctly', () => {
     const cases = [
-      ['2026-11-18T01:00:00Z', 'peak'],
-      ['2026-11-18T09:59:00Z', 'peak'],
-      ['2026-11-18T10:00:00Z', 'peak'],
-      ['2026-11-18T10:01:00Z', 'off-peak'],
-      ['2026-11-18T00:59:00Z', 'off-peak'],
-      ['2026-11-18T15:00:00Z', 'off-peak'],
+      ['2026-11-18T02:00:00Z', 'peak'],     // Wednesday 02:00 UTC
+      ['2026-11-21T02:00:00Z', 'off-peak'], // Saturday 02:00 UTC
+      ['2026-11-18T05:00:00Z', 'off-peak'], // Wednesday 05:00 UTC
+      ['2026-11-18T09:59:00Z', 'peak'],     // Wednesday 09:59 UTC
+    ];
+    for (const [instant, expected] of cases) {
+      const env = { ...baseEnv, DELEGATE_NOW: instant };
+      delete env.DELEGATE_PEAK_WINDOWS;
+      const res = runDelegate(['peak'], env);
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(res.stdout.trim(), expected, `instant ${instant}`);
+    }
+  });
+
+  it('DELEGATE_PEAK_WINDOWS="" disables peak window completely', () => {
+    const res = runDelegate(['peak'], {
+      ...baseEnv,
+      DELEGATE_PEAK_WINDOWS: '',
+      DELEGATE_NOW: '2026-11-18T02:00:00Z',
+    });
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(res.stdout.trim(), 'off-peak');
+  });
+
+  it('custom midnight-crossing DELEGATE_PEAK_WINDOWS 23:00-01:00 evaluates weekday and weekend instants', () => {
+    const cases = [
+      ['2026-11-18T23:30:00Z', 'peak'],     // Wednesday 23:30 UTC
+      ['2026-11-18T00:30:00Z', 'peak'],     // Wednesday 00:30 UTC
+      ['2026-11-18T12:00:00Z', 'off-peak'], // Wednesday 12:00 UTC
+      ['2026-11-21T23:30:00Z', 'off-peak'], // Saturday 23:30 UTC
     ];
     for (const [instant, expected] of cases) {
       const res = runDelegate(['peak'], {
         ...baseEnv,
-        DELEGATE_PEAK_START: '22:00',
-        DELEGATE_PEAK_END: '07:00',
-        DELEGATE_PEAK_TZ_OFFSET: '-3',
+        DELEGATE_PEAK_WINDOWS: '23:00-01:00',
         DELEGATE_NOW: instant,
       });
       assert.equal(res.status, 0, res.stderr);
@@ -1036,27 +1171,124 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     }
   });
 
-  it('same-day peak window 09:00-17:00 at offset 0 evaluates fixed DELEGATE_NOW instants', () => {
-    const cases = [
-      ['2026-11-18T08:59:00Z', 'off-peak'],
-      ['2026-11-18T09:00:00Z', 'peak'],
-      ['2026-11-18T17:00:00Z', 'peak'],
-      ['2026-11-18T17:01:00Z', 'off-peak'],
-    ];
-    for (const [instant, expected] of cases) {
-      const res = runDelegate(['peak'], {
-        ...baseEnv,
-        DELEGATE_PEAK_START: '09:00',
-        DELEGATE_PEAK_END: '17:00',
-        DELEGATE_PEAK_TZ_OFFSET: '0',
-        DELEGATE_NOW: instant,
-      });
-      assert.equal(res.status, 0, res.stderr);
-      assert.equal(res.stdout.trim(), expected, `instant ${instant}`);
-    }
-  });
+  for (const [label, profile, text, expectedFailure] of [
+    [
+      'plan instead of verdict on agy-review',
+      'agy-review',
+      'Here is my plan to review the diff. Confirm if you would like me to proceed.',
+      'incomplete_review',
+    ],
+    [
+      'text lacking TOTAL line on codex-review',
+      'codex-review',
+      'R01 | major | foo.py:10 | bug | checked | fix it',
+      'incomplete_review',
+    ],
+    [
+      'lowercase total line',
+      'agy-review',
+      'Checked everything.\ntotal major=0 medium=1 minor=2\n',
+      'incomplete_review',
+    ],
+    [
+      'valid TOTAL line',
+      'agy-review',
+      'R01 | medium | a.js:3 | issue | saw | fix\nTOTAL major=0 medium=1 minor=2\n',
+      'none',
+    ],
+    [
+      'TOTAL line wrapped in backticks',
+      'agy-review',
+      'All clean.\n`TOTAL major=0 medium=1 minor=2`\n',
+      'none',
+    ],
+    [
+      'TOTAL line wrapped in asterisks and spaces',
+      'codex-review',
+      'All clean.\n  **TOTAL major=0 medium=1 minor=2**  \n',
+      'none',
+    ],
+  ]) {
+    it(`review ${label} records failure=${expectedFailure}`, () => {
+      const res = runDelegate(
+        [
+          'run',
+          '--id', 'T-INC-REV',
+          '--task', label,
+          '--role', 'review',
+          '--profile', profile,
+          '--cwd', repoDir,
+          '--card', cardPath,
+          '--out', outDir,
+          '--confirmed',
+        ],
+        {
+          ...baseEnv,
+          FAKE_STDOUT: text,
+          FAKE_LAST_MESSAGE: text,
+        },
+      );
+      assert.equal(res.status, expectedFailure === 'none' ? 0 : 1, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, expectedFailure);
+    });
+  }
 
-  it('profiles lists six profiles and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
+  for (const role of ['implement', 'fix', 'mechanical', 'test']) {
+    it(`non-review role ${role} without TOTAL line records failure=none`, () => {
+      const res = runDelegate(
+        [
+          'run',
+          '--id', `T-NONREV-${role}`,
+          '--task', `${role} output`,
+          '--role', role,
+          '--profile', 'flash',
+          '--cwd', repoDir,
+          '--card', cardPath,
+          '--out', outDir,
+          '--confirmed',
+        ],
+        {
+          ...baseEnv,
+          FAKE_STDOUT: 'Done implementing.',
+        },
+      );
+      assert.equal(res.status, 0, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'none');
+    });
+  }
+
+  for (const [label, extraEnv, extraArgs, expectedFailure] of [
+    ['timeout beats incomplete_review', { FAKE_SLEEP: '5', FAKE_STDOUT: 'incomplete' }, ['--timeout', '1'], 'timeout'],
+    ['provider_limit beats incomplete_review', { FAKE_EXIT: '1', FAKE_STDERR: '429', FAKE_STDOUT: 'incomplete' }, [], 'provider_limit'],
+    ['review_wrote beats incomplete_review', { FAKE_TOUCH_FILE: 'README.md', FAKE_STDOUT: 'incomplete' }, [], 'review_wrote'],
+    ['error beats incomplete_review', { FAKE_EXIT: '1', FAKE_STDOUT: 'incomplete' }, [], 'error'],
+    ['empty_output beats incomplete_review', { FAKE_STDOUT: '' }, [], 'empty_output'],
+  ]) {
+    it(`failure precedence: ${label}`, () => {
+      const res = runDelegate(
+        [
+          'run',
+          '--id', 'T-PREC',
+          '--task', label,
+          '--role', 'review',
+          '--profile', 'agy-review',
+          '--cwd', repoDir,
+          '--card', cardPath,
+          '--out', outDir,
+          ...extraArgs,
+          '--confirmed',
+        ],
+        { ...baseEnv, ...extraEnv },
+      );
+      assert.equal(res.status, 1);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, expectedFailure);
+    });
+  }
+
+  it('profiles lists eight profiles in order and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
     const partialDir = join(root, 'partial');
     const { binDir: partialBin } = makeFakeBin(partialDir, ['opencode', 'agy']);
     const res = runDelegate(['profiles'], {
@@ -1068,14 +1300,16 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 6);
+    assert.equal(lines.length, 8);
     assert.deepEqual(lines, [
-      'deepseek-pro | opencode | opencode-go/deepseek-v4-pro | deepseek | found',
-      'deepseek-light | opencode | opencode-go/deepseek-v4.1-flash | deepseek | found',
+      'flash | opencode | opencode-go/deepseek-v4.1-flash | deepseek | found',
+      'glm-flash | opencode | opencode-go/glm-5.3-flash | zhipu | found',
+      'kimi | opencode | opencode-go/kimi-k3.1-pro | moonshot | found',
+      'hy4-review | opencode | opencode-go/hy4 | tencent | found',
+      'codex | codex | gpt-6.1-sol | openai | missing',
+      'codex-review | codex | gpt-6.1-sol | openai | missing',
       'agy | agy | gemini-4-hydrogen-high | gemini | found',
       'agy-review | agy | gemini-4-hydrogen-xhigh | gemini | found',
-      'codex | codex | gpt-6-astra | openai | missing',
-      'codex-review | codex | gpt-6-astra | openai | missing',
     ]);
   });
 
@@ -1097,9 +1331,9 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 6);
-    assert.ok(lines.includes('codex | codex | gpt-6-astra | openai | found'));
-    assert.ok(lines.includes('codex-review | codex | gpt-6-astra | openai | found'));
+    assert.equal(lines.length, 8);
+    assert.ok(lines.includes('codex | codex | gpt-6.1-sol | openai | found'));
+    assert.ok(lines.includes('codex-review | codex | gpt-6.1-sol | openai | found'));
   });
 
   it('report handles a log mixing old-shape and new-shape records without crashing', () => {
@@ -1153,15 +1387,27 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       dirty_before: false,
       last_message: join(outDir, 'NEW-1.last.md'),
     };
+    const legacyNamedRun = {
+      ...oldRun,
+      id: 'OLD-2',
+      profile: 'deepseek-pro',
+      model: 'deepseek-pro',
+    };
     writeFileSync(
       join(logDir, 'runs.jsonl'),
-      [JSON.stringify(oldRun), JSON.stringify(oldVerdict), JSON.stringify(newRun)].join('\n') + '\n',
+      [
+        JSON.stringify(oldRun),
+        JSON.stringify(oldVerdict),
+        JSON.stringify(newRun),
+        JSON.stringify(legacyNamedRun),
+      ].join('\n') + '\n',
     );
 
     const res = runDelegate(['report'], baseEnv);
     assert.equal(res.status, 0, res.stderr);
-    assert.match(res.stdout, /2 tasks, 2 runs/);
+    assert.match(res.stdout, /3 tasks, 3 runs/);
     assert.match(res.stdout, /implement \| opencode \| opencode-go\/deepseek-v4-pro/);
+    assert.match(res.stdout, /implement \| opencode \| deepseek-pro/);
     assert.match(res.stdout, /implement \| codex \| gpt-6-astra/);
   });
 });
