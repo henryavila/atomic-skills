@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { spawnSync, execFileSync } from 'node:child_process';
+import { spawnSync, execFileSync, spawn } from 'node:child_process';
 import {
   chmodSync,
   mkdirSync,
@@ -27,13 +27,38 @@ const PYTHON3 = hasPython3 ? pythonProbe.stdout.trim() : 'python3';
 const FAKE_SCRIPT = `#!/usr/bin/env python3
 import json, os, pathlib, subprocess, sys, time
 
+seq_dir = os.environ.get("FAKE_SEQ_DIR")
+if seq_dir:
+    cnt_p = pathlib.Path(seq_dir) / "count"
+    try:
+        cnt = int(cnt_p.read_text()) if cnt_p.exists() else 0
+    except Exception:
+        cnt = 0
+    cnt_p.write_text(str(cnt + 1))
+    step_file = pathlib.Path(seq_dir) / f"step_{cnt}.json"
+    if step_file.exists():
+        step_cfg = json.loads(step_file.read_text())
+        for k, v in step_cfg.items():
+            os.environ[k] = str(v)
+    pathlib.Path(seq_dir, f"argv_{cnt}.json").write_text(json.dumps(sys.argv))
+
 argv_file = os.environ.get("FAKE_ARGV_FILE")
 if argv_file:
     pathlib.Path(argv_file).write_text(json.dumps(sys.argv))
 
+stdin_content = ""
+if not sys.stdin.isatty():
+    try:
+        stdin_content = sys.stdin.read()
+    except Exception:
+        pass
+
+if seq_dir:
+    pathlib.Path(seq_dir, f"stdin_{cnt}.txt").write_text(stdin_content)
+
 stdin_file = os.environ.get("FAKE_STDIN_FILE")
 if stdin_file:
-    pathlib.Path(stdin_file).write_text(sys.stdin.read())
+    pathlib.Path(stdin_file).write_text(stdin_content)
 
 out_text = os.environ.get("FAKE_STDOUT", "")
 if out_text:
@@ -122,6 +147,8 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
   let fakeBin;
   let fakePaths;
   let cardPath;
+  let reviewCardPath;
+  let seqDir;
   let argvFile;
   let stdinFile;
   let outDir;
@@ -144,6 +171,15 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     cardPath = join(root, 'card.md');
     writeFileSync(cardPath, '# Task CARD-1\nImplement feature X.\n');
+
+    reviewCardPath = join(root, 'review-card.md');
+    writeFileSync(
+      reviewCardPath,
+      '# Review CARD-1\nReview the diff `git diff {{DIFF_RANGE}}`\nTOTAL major=0 medium=0 minor=0\n',
+    );
+
+    seqDir = join(root, 'seq');
+    mkdirSync(seqDir, { recursive: true });
 
     argvFile = join(root, 'captured.argv.json');
     stdinFile = join(root, 'captured.stdin.txt');
@@ -1409,5 +1445,666 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.match(res.stdout, /implement \| opencode \| opencode-go\/deepseek-v4-pro/);
     assert.match(res.stdout, /implement \| opencode \| deepseek-pro/);
     assert.match(res.stdout, /implement \| codex \| gpt-6-astra/);
+  });
+
+  it('pipeline happy path: executor commits, gate passes, reviewer reports findings', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feature.txt' }),
+    );
+    const reviewOutput =
+      'R01 | major | feature.txt:1 | bug | test | fix it\n' +
+      'R02 | medium | feature.txt:2 | nit | test | fix it\n' +
+      'TOTAL major=1 medium=1 minor=0\n';
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-HAPPY',
+        '--task', 'happy path feature',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    const summaryPath = join(outDir, 'T-PIPE-HAPPY.summary.md');
+    const summaryText = readFileSync(summaryPath, 'utf8');
+    const summaryLines = summaryText.trim().split('\n');
+    assert.ok(summaryLines.length < 60, `summary lines: ${summaryLines.length} >= 60`);
+    assert.match(summaryText, /R01\s*\|\s*major/);
+    assert.match(summaryText, /R02\s*\|\s*medium/);
+    assert.match(summaryText, /TOTAL major=1 medium=1 minor=0/);
+    assert.equal(res.stdout.trim(), summaryText.trim());
+
+    const recs = readLogRecords(atomicHome);
+    assert.equal(recs.length, 3);
+    const [execRec, revRec, pipeRec] = recs;
+    assert.equal(execRec.kind, 'run');
+    assert.equal(execRec.role, 'implement');
+    assert.equal(revRec.kind, 'run');
+    assert.equal(revRec.role, 'review');
+    assert.equal(pipeRec.kind, 'pipeline');
+    assert.equal(pipeRec.id, 'T-PIPE-HAPPY');
+    assert.equal(pipeRec.outcome, 'reviewed');
+    assert.equal(pipeRec.executor_profile, 'flash');
+    assert.equal(pipeRec.reviewer_profile, 'codex-review');
+    assert.equal(pipeRec.gate_exit, 0);
+    assert.equal(pipeRec.auto_committed, false);
+    assert.deepEqual(pipeRec.findings, { major: 1, medium: 1, minor: 0 });
+    assert.ok(typeof pipeRec.duration_s === 'number');
+  });
+
+  it('pipeline route fallback: first profile hits provider limit, second succeeds', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_EXIT: '1', FAKE_STDERR: 'Error: 5 hour usage limit reached\n' }),
+    );
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feature.txt', FAKE_EXIT: '0' }),
+    );
+    const reviewOutput = 'All good.\nTOTAL major=0 medium=0 minor=0\n';
+    writeFileSync(
+      join(seqDir, 'step_2.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-FALLBACK',
+        '--task', 'fallback feature',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash,codex',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'agy-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    assert.equal(recs.length, 4);
+    assert.equal(recs[0].failure, 'provider_limit');
+    assert.equal(recs[1].failure, 'none');
+    assert.equal(recs[1].executor, 'codex');
+    const pipeRec = recs[3];
+    assert.equal(pipeRec.kind, 'pipeline');
+    assert.equal(pipeRec.outcome, 'reviewed');
+    assert.equal(pipeRec.executor_profile, 'codex');
+  });
+
+  it('pipeline every profile out of quota ends with no_executor and no gate run', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_EXIT: '1', FAKE_STDERR: 'Rate limit hit\n' }),
+    );
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_EXIT: '1', FAKE_STDERR: 'Quota exhausted\n' }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-NO-EXEC',
+        '--task', 'no executor',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash,glm-flash',
+        '--gate', 'touch should_not_run.txt; false',
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.notEqual(res.status, 0);
+    assert.throws(() => readFileSync(join(repoDir, 'should_not_run.txt')), { code: 'ENOENT' });
+    const recs = readLogRecords(atomicHome);
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.ok(pipeRec);
+    assert.equal(pipeRec.outcome, 'no_executor');
+  });
+
+  it('pipeline executor edits without committing triggers runner auto_committed and pre-run diff range', () => {
+    const preRunHead = git(repoDir, 'rev-parse', 'HEAD');
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_TOUCH_FILE: 'uncommitted.txt', FAKE_EXIT: '0' }),
+    );
+    const reviewOutput = 'TOTAL major=0 medium=0 minor=0\n';
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-AUTO',
+        '--task', 'auto commit test',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'codex',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'agy-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    const lastCommitMsg = git(repoDir, 'log', '-1', '--pretty=%B');
+    assert.equal(lastCommitMsg, 'T-PIPE-AUTO: auto commit test (committed by the delegate runner)');
+
+    const recs = readLogRecords(atomicHome);
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.ok(pipeRec);
+    assert.equal(pipeRec.auto_committed, true);
+    assert.equal(pipeRec.outcome, 'reviewed');
+
+    const revStdin = readFileSync(join(seqDir, 'stdin_1.txt'), 'utf8');
+    assert.ok(
+      revStdin.includes(`${preRunHead}...HEAD`),
+      `expected ${preRunHead}...HEAD in reviewer card, got:\n${revStdin}`,
+    );
+  });
+
+  it('pipeline executor changes nothing ends with no_changes', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_EXIT: '0' }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-NO-CHG',
+        '--task', 'clean tree',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.notEqual(res.status, 0);
+    const recs = readLogRecords(atomicHome);
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.ok(pipeRec);
+    assert.equal(pipeRec.outcome, 'no_changes');
+  });
+
+  it('pipeline gate false ends with gate_failed and includes gate log tail in summary', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'gate_test.txt', FAKE_EXIT: '0' }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-GATE-FAIL',
+        '--task', 'gate fail test',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash',
+        '--gate', 'echo "FATAL: gate check exploded"; false',
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.notEqual(res.status, 0);
+    const summaryPath = join(outDir, 'T-PIPE-GATE-FAIL.summary.md');
+    const summaryText = readFileSync(summaryPath, 'utf8');
+    assert.match(summaryText, /FATAL: gate check exploded/);
+
+    const recs = readLogRecords(atomicHome);
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.ok(pipeRec);
+    assert.equal(pipeRec.outcome, 'gate_failed');
+    assert.equal(pipeRec.reviewer_profile, null);
+    assert.equal(recs.filter((r) => r.role === 'review').length, 0);
+  });
+
+  it('pipeline reviewer selection: skips same family, skips empty output, ends with no_reviewer when none left', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+    );
+    // Executor is codex (openai).
+    // review-route: codex-review (openai - same family, skipped!), agy-review (empty output, skipped!), hy4-review (empty output, skipped!)
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_STDOUT: '', FAKE_LAST_MESSAGE: '' }),
+    );
+    writeFileSync(
+      join(seqDir, 'step_2.json'),
+      JSON.stringify({ FAKE_STDOUT: '', FAKE_LAST_MESSAGE: '' }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-NO-REV',
+        '--task', 'reviewer skip test',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'codex',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review,agy-review,hy4-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.notEqual(res.status, 0);
+    const recs = readLogRecords(atomicHome);
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.ok(pipeRec);
+    assert.equal(pipeRec.outcome, 'no_reviewer');
+
+    // codex-review must never have been run
+    const revRecs = recs.filter((r) => r.role === 'review');
+    for (const r of revRecs) {
+      assert.notEqual(r.family, 'openai', 'same family reviewer must not run');
+    }
+    assert.equal(revRecs.length, 2); // agy-review and hy4-review both tried and failed
+  });
+
+  it('pipeline replaces {{DIFF_RANGE}} in the reviewer card', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'diff_test.txt', FAKE_EXIT: '0' }),
+    );
+    const reviewOutput = 'TOTAL major=0 medium=0 minor=0\n';
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-DIFF-RANGE',
+        '--task', 'diff range test',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    const revStdin = readFileSync(join(seqDir, 'stdin_1.txt'), 'utf8');
+    assert.doesNotMatch(revStdin, /\{\{DIFF_RANGE\}\}/);
+    assert.match(revStdin, /[0-9a-f]{40}\.\.\.HEAD/);
+  });
+
+  it('concurrency: with DELEGATE_MAX_OPENCODE=1, second run --wait 0 exits 4, runs after first ends', () => {
+    const bgProc = spawn(
+      PYTHON3,
+      [
+        DELEGATE_PY,
+        'run',
+        '--id', 'T-CONC-1',
+        '--task', 'long run',
+        '--role', 'implement',
+        '--profile', 'flash',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      {
+        env: {
+          ...baseEnv,
+          FAKE_SLEEP: '2',
+          DELEGATE_MAX_OPENCODE: '1',
+        },
+      },
+    );
+
+    // Wait until slot file is written
+    const runningDir = join(atomicHome, 'delegate', 'running');
+    let slotFound = false;
+    for (let i = 0; i < 40; i++) {
+      execFileSync('sleep', ['0.05']);
+      try {
+        const files = readFileSync(join(runningDir, `opencode-T-CONC-1-${bgProc.pid}.json`));
+        if (files) {
+          slotFound = true;
+          break;
+        }
+      } catch {}
+    }
+
+    const secondRes = runDelegate(
+      [
+        'run',
+        '--id', 'T-CONC-2',
+        '--task', 'second run',
+        '--role', 'implement',
+        '--profile', 'flash',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--wait', '0',
+        '--confirmed',
+      ],
+      { ...baseEnv, DELEGATE_MAX_OPENCODE: '1' },
+    );
+
+    assert.equal(secondRes.status, 4);
+    assert.match(secondRes.stderr, /delegate: no free opencode slot/);
+
+    // Wait for background process to finish
+    bgProc.kill('SIGTERM');
+  });
+
+  it('concurrency: slot file with a dead pid is ignored and cleaned up', () => {
+    const runningDir = join(atomicHome, 'delegate', 'running');
+    mkdirSync(runningDir, { recursive: true });
+    const staleSlot = join(runningDir, 'opencode-T-STALE-999999.json');
+    writeFileSync(
+      staleSlot,
+      JSON.stringify({
+        id: 'T-STALE',
+        project: 'repo',
+        profile: 'flash',
+        role: 'implement',
+        pid: 999999,
+        pgid: 999999,
+        started: '2026-11-18T10:00:00+00:00',
+      }),
+    );
+
+    const res = runDelegate(
+      [
+        'run',
+        '--id', 'T-AFTER-STALE',
+        '--task', 'clean stale run',
+        '--role', 'implement',
+        '--profile', 'flash',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--wait', '0',
+        '--confirmed',
+      ],
+      { ...baseEnv, DELEGATE_MAX_OPENCODE: '1' },
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    assert.throws(() => readFileSync(staleSlot), { code: 'ENOENT' });
+  });
+
+  it('pause makes run and pipeline exit 3 and launch nothing; resume restores', () => {
+    const pauseRes = runDelegate(['pause', '--reason', 'scheduled maintenance'], baseEnv);
+    assert.equal(pauseRes.status, 0);
+    const pauseFile = join(atomicHome, 'delegate', 'PAUSED');
+    assert.equal(readFileSync(pauseFile, 'utf8').trim(), 'scheduled maintenance');
+
+    const runRes = runDelegate(
+      [
+        'run',
+        '--id', 'T-PAUSED-RUN',
+        '--task', 'run during pause',
+        '--role', 'implement',
+        '--profile', 'flash',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      baseEnv,
+    );
+    assert.equal(runRes.status, 3);
+    assert.match(runRes.stderr, /delegate: paused/);
+
+    const pipeRes = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PAUSED-PIPE',
+        '--task', 'pipeline during pause',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      baseEnv,
+    );
+    assert.equal(pipeRes.status, 3);
+    assert.match(pipeRes.stderr, /delegate: paused/);
+
+    const resumeRes = runDelegate(['resume'], baseEnv);
+    assert.equal(resumeRes.status, 0);
+    assert.throws(() => readFileSync(pauseFile), { code: 'ENOENT' });
+
+    const okRes = runDelegate(
+      [
+        'run',
+        '--id', 'T-RESUMED-RUN',
+        '--task', 'run after resume',
+        '--role', 'implement',
+        '--profile', 'flash',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      baseEnv,
+    );
+    assert.equal(okRes.status, 0);
+  });
+
+  it('status prints paused/active and lists running slot', () => {
+    runDelegate(['pause'], baseEnv);
+    const pausedRes = runDelegate(['status'], baseEnv);
+    assert.equal(pausedRes.status, 0);
+    assert.match(pausedRes.stdout, /^paused/);
+
+    runDelegate(['resume'], baseEnv);
+
+    const runningDir = join(atomicHome, 'delegate', 'running');
+    mkdirSync(runningDir, { recursive: true });
+    // Keep a running process to test listing
+    const bg = spawn('sleep', ['5']);
+    writeFileSync(
+      join(runningDir, `opencode-T-RUNNING-${bg.pid}.json`),
+      JSON.stringify({
+        id: 'T-RUNNING',
+        project: 'test-proj',
+        profile: 'flash',
+        role: 'implement',
+        pid: bg.pid,
+        pgid: bg.pid,
+        started: '2026-11-18T10:00:00+00:00',
+      }),
+    );
+
+    const activeRes = runDelegate(['status'], baseEnv);
+    bg.kill();
+    assert.equal(activeRes.status, 0);
+    assert.match(activeRes.stdout, /^active/);
+    assert.match(activeRes.stdout, /T-RUNNING/);
+    assert.match(activeRes.stdout, /test-proj/);
+    assert.match(activeRes.stdout, /flash/);
+  });
+
+  it('status shows try again at 12:44 PM text after a recorded limit failure', () => {
+    const logDir = join(atomicHome, 'delegate');
+    mkdirSync(logDir, { recursive: true });
+    const errFile = join(outDir, 'T-LIMIT-RESET.err');
+    mkdirSync(outDir, { recursive: true });
+    writeFileSync(errFile, 'Error: rate limit reached. Please try again at 12:44 PM.\n');
+
+    const limitRun = {
+      kind: 'run',
+      id: 'T-LIMIT-RESET',
+      project: 'demo',
+      task: 'hit limit',
+      role: 'implement',
+      executor: 'opencode',
+      model: 'opencode-go/deepseek-v4.1-flash',
+      started: '2026-11-18T10:00:00+00:00',
+      duration_s: 5,
+      exit_code: 1,
+      timed_out: false,
+      failure: 'provider_limit',
+      stderr: errFile,
+    };
+    writeFileSync(join(logDir, 'runs.jsonl'), JSON.stringify(limitRun) + '\n');
+
+    const res = runDelegate(['status'], {
+      ...baseEnv,
+      DELEGATE_NOW: '2026-11-18T11:00:00Z',
+    });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /try again at 12:44 PM/);
+  });
+
+  it('status exits 0 on a machine with no log', () => {
+    const res = runDelegate(['status'], baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /^active/);
+  });
+
+  it('kill <ID> ends a running fake run and slot disappears, unknown id exits 1', () => {
+    const bgProc = spawn(
+      PYTHON3,
+      [
+        DELEGATE_PY,
+        'run',
+        '--id', 'T-KILL-TARGET',
+        '--task', 'kill target',
+        '--role', 'implement',
+        '--profile', 'flash',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--out', outDir,
+        '--confirmed',
+      ],
+      {
+        env: {
+          ...baseEnv,
+          FAKE_SLEEP: '10',
+        },
+      },
+    );
+
+    const runningDir = join(atomicHome, 'delegate', 'running');
+    let slotPath = null;
+    for (let i = 0; i < 40; i++) {
+      execFileSync('sleep', ['0.05']);
+      try {
+        const p = join(runningDir, `opencode-T-KILL-TARGET-${bgProc.pid}.json`);
+        if (readFileSync(p)) {
+          slotPath = p;
+          break;
+        }
+      } catch {}
+    }
+
+    const killUnknown = runDelegate(['kill', 'T-UNKNOWN-ID'], baseEnv);
+    assert.equal(killUnknown.status, 1);
+
+    const killRes = runDelegate(['kill', 'T-KILL-TARGET'], baseEnv);
+    assert.equal(killRes.status, 0, killRes.stderr);
+
+    // Give it a moment to terminate and clean slot
+    execFileSync('sleep', ['0.2']);
+    if (slotPath) {
+      assert.throws(() => readFileSync(slotPath), { code: 'ENOENT' });
+    }
+  });
+
+  it('report includes line per (executor_profile, reviewer_profile) pair of pipeline records', () => {
+    const logDir = join(atomicHome, 'delegate');
+    mkdirSync(logDir, { recursive: true });
+    const pipeRec1 = {
+      kind: 'pipeline',
+      id: 'P-1',
+      project: 'demo',
+      outcome: 'reviewed',
+      executor_profile: 'flash',
+      reviewer_profile: 'codex-review',
+      gate_exit: 0,
+      auto_committed: false,
+      findings: { major: 0, medium: 1, minor: 0 },
+      duration_s: 30,
+    };
+    const pipeRec2 = {
+      kind: 'pipeline',
+      id: 'P-2',
+      project: 'demo',
+      outcome: 'gate_failed',
+      executor_profile: 'flash',
+      reviewer_profile: 'codex-review',
+      gate_exit: 1,
+      auto_committed: false,
+      findings: { major: 0, medium: 0, minor: 0 },
+      duration_s: 15,
+    };
+    writeFileSync(
+      join(logDir, 'runs.jsonl'),
+      [JSON.stringify(pipeRec1), JSON.stringify(pipeRec2)].join('\n') + '\n',
+    );
+
+    const res = runDelegate(['report'], baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /flash.*codex-review/);
+    assert.match(res.stdout, /reviewed.*1/);
+    assert.match(res.stdout, /gate_failed.*1/);
   });
 });
