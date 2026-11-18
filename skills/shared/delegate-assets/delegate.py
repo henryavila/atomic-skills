@@ -41,6 +41,14 @@ DELIVERED = ["yes", "partial", "no"]
 
 
 def now():
+    raw = os.environ.get("DELEGATE_NOW")
+    if raw:
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        parsed = dt.datetime.fromisoformat(raw)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt.timezone.utc)
+        return parsed.astimezone(dt.timezone.utc)
     return dt.datetime.now(dt.timezone.utc)
 
 
