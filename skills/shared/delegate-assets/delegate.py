@@ -31,11 +31,15 @@ PAUSED = HOME / "delegate" / "PAUSED"
 # DeepSeek peak windows in UTC, Monday-Friday only.
 DEFAULT_PEAK_WINDOWS = "01:00-04:00,06:00-10:00"
 CODEX_MODEL = os.environ.get("DELEGATE_CODEX_MODEL") or "gpt-6.1-sol"
+# OpenCode runs one model. The variable can only pin it to the same value; any
+# other value is refused by check_model_allowed before anything is launched.
+FLASH_MODEL = "opencode-go/deepseek-v4.1-flash"
+OPENCODE_MODEL = os.environ.get("DELEGATE_OPENCODE_MODEL") or FLASH_MODEL
 LIMIT_RE = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b", re.IGNORECASE)
 TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=\d+ medium=\d+ minor=\d+[ \t`*]*$")
 
 MODELS = {
-    "flash": ("opencode", "opencode-go/deepseek-v4.1-flash", "deepseek"),
+    "flash": ("opencode", OPENCODE_MODEL, "deepseek"),
     "codex": ("codex", CODEX_MODEL, "openai"),
     "codex-review": ("codex", CODEX_MODEL, "openai"),
     "agy": ("agy", "gemini-4-hydrogen-high", "gemini"),
@@ -399,13 +403,33 @@ class SlotLock:
             pass
 
 
+def check_model_allowed(role, executor, model):
+    """The one check for the OpenCode rule.
+
+    OpenCode runs DeepSeek Flash only, and Flash is never a reviewer — never as a
+    fallback either. Called after every alias, profile, flag and environment
+    override is resolved, and before anything is launched or any slot is taken.
+    """
+    if executor != "opencode":
+        return
+    if role == "review":
+        print("delegate: OpenCode/Flash is never a reviewer; use codex-review or agy-review",
+              file=sys.stderr)
+        sys.exit(2)
+    if model != FLASH_MODEL:
+        print(f"delegate: OpenCode runs only {FLASH_MODEL}; use codex or agy for another model",
+              file=sys.stderr)
+        sys.exit(2)
+
+
 def execute_run(task_id, task, role, profile=None, executor=None, model=None, cwd=None,
                 card=None, out=None, project=None, timeout=5400, wait_s=3600, attempt=1,
                 confirmed=False, allow_peak=False):
     check_paused()
+    alias_notice = None
     if profile in ALIASES:
         target = ALIASES[profile]
-        print(f"delegate: profile {profile} is deprecated; use --profile {target}", file=sys.stderr)
+        alias_notice = f"delegate: profile {profile} is deprecated; use --profile {target}"
         profile = target
     if profile in REMOVED_PROFILES:
         print(REMOVED_PROFILE_MESSAGE.format(name=profile), file=sys.stderr)
@@ -416,6 +440,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         family = None
     if not executor or not model:
         sys.exit("delegate: give --profile, or both --executor and --model")
+    check_model_allowed(role, executor, model)
+    if alias_notice:
+        print(alias_notice, file=sys.stderr)
 
     cwd = str(Path(cwd).resolve())
     card_content = Path(card).read_text()
@@ -577,6 +604,17 @@ def cmd_pipeline(a):
     project = a.project or Path(top).name
     out = Path(a.out or HOME / "delegate" / "out" / project).resolve()
     out.mkdir(parents=True, exist_ok=True)
+    # Refuse before creating outputs, taking a slot or launching anything: every
+    # profile in both routes goes through the same check as a standalone run.
+    try:
+        route, review_route = canonical_route(a.route), canonical_route(a.review_route)
+    except ValueError as exc:
+        message = str(exc)
+        sys.exit(message if message.startswith("delegate:") else f"delegate: {message}")
+    for profile in route:
+        check_model_allowed(role, *MODELS[profile][:2])
+    for profile in review_route:
+        check_model_allowed("review", *MODELS[profile][:2])
     # Each invocation and attempt owns its outputs, even when the same ID is reused.
     attempt_root = Path(tempfile.mkdtemp(prefix=f"{task_id}-", dir=out))
     base_commit = git(cwd, "rev-parse", "HEAD")
@@ -622,7 +660,6 @@ def cmd_pipeline(a):
         return rec
 
     try:
-        route, review_route = canonical_route(a.route), canonical_route(a.review_route)
         check_paused()
         for profile in route:
             check_paused()
@@ -690,10 +727,6 @@ def cmd_pipeline(a):
             executor_family = MODELS[executor_profile][2]
             for profile in review_route:
                 check_paused()
-                # OpenCode runs Flash only, and Flash is never a reviewer — not even
-                # as a fallback when every Codex/Antigravity reviewer is out of quota.
-                if MODELS[profile][0] == "opencode":
-                    continue
                 if MODELS[profile][2] == executor_family:
                     continue
                 review_rec = run_attempt(profile, "review", str(review_card_copy))
@@ -937,25 +970,28 @@ def cmd_report(a):
             pipelines.setdefault(pair, []).append(r)
 
     groups = {}
-    for i, rs in runs.items():
-        first = rs[0]
+    for task_id, rs in runs.items():
         # Old log lines may name profiles, models and families that no longer exist;
-        # report them verbatim instead of looking them up.
-        g = groups.setdefault((first.get("role", ""), first.get("executor", ""),
-                               first.get("model", "")), [])
-        g.append((rs, (verdicts.get(i) or [{}])[-1]))
+        # report them verbatim instead of looking them up. A task id can hold runs of
+        # several roles/models, so group every run by its own role, executor and model.
+        verdict = (verdicts.get(task_id) or [{}])[-1]
+        by_route = {}
+        for r in rs:
+            by_route.setdefault((r.get("role", ""), r.get("executor", ""), r.get("model", "")), []).append(r)
+        for key, route_runs in by_route.items():
+            groups.setdefault(key, []).append((task_id, route_runs, verdict))
     print(f"{len(runs)} tasks, {sum(len(v) for v in runs.values())} runs, log: {LOG}")
     for (role, ex, model), items in sorted(groups.items()):
         n = len(items)
-        gated = [v for _, v in items if v.get("gate_host") in ("pass", "fail")]
+        gated = [v for _, _, v in items if v.get("gate_host") in ("pass", "fail")]
         ok = sum(1 for v in gated if v["gate_host"] == "pass")
-        rounds = [v.get("review_rounds") for _, v in items if v.get("review_rounds") is not None]
-        major = sum(v.get("findings_major") or 0 for _, v in items)
-        secs = sorted(r.get("duration_s") or 0 for rs, _ in items for r in rs)
+        rounds = [v.get("review_rounds") for _, _, v in items if v.get("review_rounds") is not None]
+        major = sum(v.get("findings_major") or 0 for _, _, v in items)
+        secs = sorted(r.get("duration_s") or 0 for _, route_runs, _ in items for r in route_runs)
         med = secs[len(secs) // 2] if secs else 0
-        fails = sum(1 for rs, _ in items for r in rs
+        fails = sum(1 for _, route_runs, _ in items for r in route_runs
                     if r.get("exit_code", 0) != 0 or r.get("timed_out") or r.get("failure", "none") != "none")
-        unconfirmed = sum(1 for rs, _ in items if not rs[0].get("user_confirmed"))
+        unconfirmed = sum(1 for _, route_runs, _ in items if not route_runs[0].get("user_confirmed"))
         rr = f"{sum(rounds) / len(rounds):.1f}" if rounds else "n/a"
         print(f"- {role} | {ex} | {model}: n={n}; host gate {ok}/{len(gated)} (no verdict: {n - len(gated)}); "
               f"review rounds avg {rr}; major findings {major}; median {med}s; failed runs {fails}; "
