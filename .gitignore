@@ -42,3 +42,4 @@ node_modules/
 
 # project-status hooks: runtime dry-run logs (not content)
 .atomic-skills/status/hooks/*.log
+__pycache__/

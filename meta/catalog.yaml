@@ -898,3 +898,39 @@ core:
       - '.atomic-skills/reviews/audit-delivery-*.md'
     iron_law: 'NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.'
     schema_version: '0.2'
+  delegate:
+    name: delegate
+    title: 'Delegate — External Executors, Claude Only Creates and Validates'
+    description: 'Delegate implementation, fixes and mechanical work to an external executor (DeepSeek via OpenCode, or Antigravity agy) while Claude only writes the task card and validates the result with the host gate and a cross-family review. Confirms task, role, model and executor with the user before each batch and logs every run for later audit. Use whenever work could be done by an executor instead of a Claude model.'
+    purpose: 'Run work on external executors with a user-confirmed model choice, a host-run gate, a cross-family review and an append-only audit log, keeping Claude usage to creating cards and validating results.'
+    when_to_use:
+      - 'Work that an external executor can do: implementing a card, fixing review findings, mechanical sweeps'
+      - 'You want Claude usage limited to writing the card and validating the result'
+      - 'You need comparable, auditable numbers per executor and model'
+    when_not_to_use:
+      - 'Deciding what to build or designing it (use brainstorm)'
+      - 'A question, a read, or a one-command check with no product change'
+      - 'No worktree isolation or no runnable gate is possible for the task'
+    examples:
+      - command: '/atomic-skills:delegate T-12 T-13'
+        description: 'Show the batch table, wait for the yes, then run each card on DeepSeek with an agy review'
+      - command: '/atomic-skills:delegate "fix the review findings on the billing branch"'
+        description: 'Write a fix card, run it on the executor that wrote the code, gate and record'
+    related: [verify-claim, review-code, parallel-dispatch, prompt]
+    tags: [orchestration, delegation, executors, core]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
+    requires_args: false
+    mutates_repo: true
+    network_required: true
+    one_liner: 'Claude writes the card and judges; DeepSeek or agy does the work'
+    emoji: '🤝'
+    version_added: '2.0.0'
+    argument_hint: '[tasks]'
+    args:
+      - name: tasks
+        kind: positional
+        required: false
+        description: 'Task ids, a plan file, or a description of what to delegate. If omitted, the skill asks.'
+    dependencies: [git, python3]
+    schema_version: '0.2'
+    iron_law: 'CLAUDE CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.'

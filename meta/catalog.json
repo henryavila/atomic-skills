@@ -759,5 +759,49 @@
       "/atomic-skills:parallel-dispatch-audit",
       "/atomic-skills:fix"
     ]
+  },
+  {
+    "id": "/atomic-skills:delegate",
+    "icon": "🤝",
+    "oneLiner": "Claude writes the card and judges; DeepSeek or agy does the work",
+    "facets": [
+      "orchestration",
+      "delegation",
+      "executors",
+      "core"
+    ],
+    "summary": "Run work on external executors with a user-confirmed model choice, a host-run gate, a cross-family review and an append-only audit log, keeping Claude usage to creating cards and validating results.",
+    "pros": [
+      "Work that an external executor can do: implementing a card, fixing review findings, mechanical sweeps",
+      "You want Claude usage limited to writing the card and validating the result",
+      "You need comparable, auditable numbers per executor and model"
+    ],
+    "cons": [
+      "Deciding what to build or designing it (use brainstorm)",
+      "A question, a read, or a one-command check with no product change",
+      "No worktree isolation or no runnable gate is possible for the task"
+    ],
+    "examples": [
+      "/atomic-skills:delegate T-12 T-13",
+      "/atomic-skills:delegate \"fix the review findings on the billing branch\""
+    ],
+    "fields": [
+      {
+        "name": "tasks",
+        "kind": "positional",
+        "required": false,
+        "description": "Task ids, a plan file, or a description of what to delegate. If omitted, the skill asks."
+      }
+    ],
+    "deps": [
+      "git",
+      "python3"
+    ],
+    "refs": [
+      "/atomic-skills:verify-claim",
+      "/atomic-skills:review-code",
+      "/atomic-skills:parallel-dispatch",
+      "/atomic-skills:prompt"
+    ]
   }
 ]
