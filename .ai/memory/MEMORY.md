@@ -12,7 +12,7 @@ Os handoffs e notas abaixo que falam de automate, project flow ou dashboard são
 
 ## Arquivos de memória
 
-- [handoff-delegate-orquestracao-2026-11-18.md](handoff-delegate-orquestracao-2026-11-18.md) — **Entrada atual.** Orquestração do delegate passou para o Antigravity em 18/11/2026: estado de AS-D1..D3, MI-T1 e RR-T3a, fila em ordem (AS-D4 primeiro), regras de custo (`flash` padrão, nunca modelo caro sem o sim) e armadilhas.
+- [handoff-delegate-orquestracao-2026-11-18.md](handoff-delegate-orquestracao-2026-11-18.md) — **Entrada atual.** Frente delegate fechada em 18/11/2026: skill instalada com seis perfis (OpenCode só Flash, Flash também revisa), MI-T1 e RR-T3a prontos; falta decisão do operador (push, merge, publicação) e o T2
 
 - [handoff-real-automate-2026-10-05.md](handoff-real-automate-2026-10-05.md) — Arquivo. O ciclo automate/implement foi abandonado em 2026-11-12. Não retomar.
 
