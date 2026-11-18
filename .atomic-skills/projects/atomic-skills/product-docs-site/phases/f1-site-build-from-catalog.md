@@ -29,6 +29,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 2
 gatesTotal: 2
+weightDone: 8
+weightTotal: 8
 exitGates:
   - id: F1-G1
     description: generate-site produces dist HTML for landing, skills, modules, hosts.
@@ -45,6 +47,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F1-G1 after review fixes
+    verifierLabel: "shell: npm run generate-site && test -d site/dist -o -d docs/site/…"
+    evidenceSummary: passed · 2026-07-17
   - id: F1-G2
     description: check-site catches stale dist.
     verifier:
@@ -60,6 +64,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F1-G2 after review fixes
+    verifierLabel: "shell: npm run check-site"
+    evidenceSummary: passed · 2026-07-17
 stack: []
 tasks:
   - id: T-004
@@ -175,6 +181,7 @@ reviewGate:
     minor: 0
     nit: 0
   reviewFile: .atomic-skills/reviews/product-docs-site-f1-codex-pass1.md
+planTitle: Product docs site from catalog SSOT
 ---
 
 # Narrative / notes

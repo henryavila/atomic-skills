@@ -84,7 +84,7 @@ describe('versioned registry + restage (P1-B / F-005)', () => {
           writeFileSync(join(r, 'package.json'), JSON.stringify({
             name: '@henryavila/atomic-skills', version: r === rootA ? '1.0.0' : '2.0.0',
           }));
-          writeFileSync(join(r, 'scripts', 'detect-completion.js'), '// ok\n');
+          writeFileSync(join(r, 'scripts', 'lint-design.js'), '// ok\n');
         }
 
         const owners = [
@@ -139,7 +139,7 @@ describe('versioned registry + restage (P1-B / F-005)', () => {
         writeFileSync(join(rootV, 'package.json'), JSON.stringify({
           name: '@henryavila/atomic-skills', version: '3.0.0',
         }));
-        writeFileSync(join(rootV, 'scripts', 'detect-completion.js'), '// ok\n');
+        writeFileSync(join(rootV, 'scripts', 'lint-design.js'), '// ok\n');
 
         // Start as legacy array, then register a live owner → migrates.
         mkdirSync(join(home, '.atomic-skills'), { recursive: true });

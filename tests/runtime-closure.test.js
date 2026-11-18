@@ -1,13 +1,22 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { validateRuntimeClosure } from '../scripts/validate-runtime-closure.js';
-import { PUBLIC_IDE_IDS } from '../src/config.js';
+import { PUBLIC_IDE_IDS, getAssetsDir } from '../src/config.js';
+import { installSkills } from '../src/install.js';
 import { computeSkillsFileSet } from '../src/providers/skills-file-set.js';
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,6 +48,17 @@ function createFixture(t, catalog) {
   };
 }
 
+/** Relative POSIX-style paths of every file under `root`. */
+function collectInstalledFiles(root, prefix = '') {
+  const files = [];
+  for (const entry of readdirSync(join(root, prefix), { withFileTypes: true })) {
+    const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) files.push(...collectInstalledFiles(root, relativePath));
+    else if (entry.isFile()) files.push(relativePath);
+  }
+  return files;
+}
+
 describe('installed runtime closure', () => {
   it('installs the audited standalone helpers and removes source-tree references', () => {
     const files = computeSkillsFileSet({
@@ -52,8 +72,8 @@ describe('installed runtime closure', () => {
 
     for (const helper of [
       'worktree-isolation.md',
-      'mode2-codex-lane.md',
-      'implement-antipatterns.md',
+      'verifier-exec.md',
+      'ground-truth-review.md',
       'debug-techniques.md',
       'diff-capture.md',
       'briefing-template.txt',
@@ -81,17 +101,15 @@ describe('installed runtime closure', () => {
       metaDir: META_DIR,
       scope: 'project',
     });
-    const project = files.find(
-      (f) => f.path === '.grok/plugins/atomic-skills/skills/project/SKILL.md',
+    const release = files.find(
+      (f) => f.path === '.grok/plugins/atomic-skills/skills/release/SKILL.md',
     );
-    assert.ok(project, 'expected grok project SKILL.md in file set');
+    assert.ok(release, 'expected grok release SKILL.md in file set');
     assert.match(
-      project.content,
-      /^---\nname: project\ndescription: '[\s\S]*?'\nargument-hint: '\[status\|/m,
-      'Grok project skill must advertise subcommands via argument-hint',
+      release.content,
+      /^---\nname: release\ndescription: '[\s\S]*?'\nargument-hint: '\[plan\|apply\|ship\|adopt\]'/m,
+      'Grok release skill must advertise subcommands via argument-hint',
     );
-    // Catalog-curated prefix (grammar order); full list lives in subcommands[].
-    assert.match(project.content, /argument-hint: '\[status\|help\|verify\|/);
   });
 
   it('recurses through arbitrary asset depth without flattening nested paths', (t) => {
@@ -219,6 +237,81 @@ describe('installed runtime closure', () => {
     assert.ok(result.filesChecked > 0);
   });
 
+  it('never treats Python bytecode caches as shared assets', (t) => {
+    const root = mkdtempSync(join(tmpdir(), 'atomic-skills-pycache-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const skillsDir = join(root, 'skills');
+    const installRoot = join(root, 'install');
+    cpSync(SKILLS_DIR, skillsDir, { recursive: true });
+
+    // Simulate `import delegate` leaving bytecode beside the helper.
+    const cacheDir = join(skillsDir, 'shared', 'delegate-assets', '__pycache__');
+    mkdirSync(cacheDir, { recursive: true });
+    writeFileSync(join(cacheDir, 'delegate.cpython-314.pyc'), 'bytecode');
+    writeFileSync(join(cacheDir, 'x.pyo'), 'bytecode');
+
+    installSkills(installRoot, {
+      language: 'en',
+      ides: ['codex', 'antigravity'],
+      skillsDir,
+      metaDir: META_DIR,
+      scope: 'project',
+    });
+
+    const installed = collectInstalledFiles(installRoot);
+    const bytecode = installed.filter(
+      (path) => path.includes('__pycache__') || /\.(?:pyc|pyo)$/.test(path),
+    );
+    assert.deepEqual(bytecode, [], 'installer must never ship Python bytecode caches');
+    assert.ok(
+      installed.includes(`${getAssetsDir('codex')}/delegate.py`),
+      'delegate.py must still be installed as an asset',
+    );
+  });
+
+  it('excludes Python bytecode caches from the npm tarball', (t) => {
+    const root = mkdtempSync(join(tmpdir(), 'atomic-skills-pack-pycache-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    // A minimal manifest: lifecycle scripts (e.g. `prepare`) would otherwise run
+    // and fail outside a git checkout, and they have no influence on `files`.
+    const sourceManifest = JSON.parse(
+      readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'),
+    );
+    const fixtureManifest = {
+      name: sourceManifest.name,
+      version: sourceManifest.version,
+      files: sourceManifest.files,
+    };
+    assert.equal('scripts' in fixtureManifest, false);
+    writeFileSync(
+      join(root, 'package.json'),
+      `${JSON.stringify(fixtureManifest, null, 2)}\n`,
+    );
+    const assetDir = join(root, 'skills', 'shared', 'delegate-assets');
+    const cacheDir = join(assetDir, '__pycache__');
+    mkdirSync(cacheDir, { recursive: true });
+    writeFileSync(join(assetDir, 'delegate.py'), '# helper\n');
+    writeFileSync(join(assetDir, 'card-template.md'), '# card\n');
+    writeFileSync(join(cacheDir, 'delegate.cpython-314.pyc'), 'bytecode');
+
+    const packed = spawnSync(
+      'npm',
+      ['pack', '--dry-run', '--json', '--ignore-scripts'],
+      { cwd: root, encoding: 'utf8' },
+    );
+    assert.equal(packed.status, 0, packed.stderr || packed.stdout);
+    const [manifest] = JSON.parse(packed.stdout);
+    const paths = manifest.files.map((file) => file.path);
+
+    assert.ok(paths.includes('skills/shared/delegate-assets/delegate.py'));
+    assert.ok(paths.includes('skills/shared/delegate-assets/card-template.md'));
+    assert.deepEqual(
+      paths.filter((path) => path.includes('__pycache__') || /\.(?:pyc|pyo)$/.test(path)),
+      [],
+      'npm tarball must never include Python bytecode caches',
+    );
+  });
+
   it('publishes the closure validator and project help HTML in the npm tarball', () => {
     const packed = spawnSync(
       'npm',
@@ -230,6 +323,7 @@ describe('installed runtime closure', () => {
     const paths = new Set(manifest.files.map((file) => file.path));
 
     assert.ok(paths.has('scripts/validate-runtime-closure.js'));
-    assert.ok(paths.has('docs/design/project-onboarding/index.html'));
+    assert.equal(paths.has('docs/design/project-onboarding/index.html'), false);
+    assert.equal([...paths].some((p) => p.includes('aideck')), false);
   });
 });

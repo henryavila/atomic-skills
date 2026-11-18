@@ -24,6 +24,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 2
 gatesTotal: 2
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: F2-G1
     description: README is the slim envelope and check-docs passes.
@@ -40,6 +42,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F2-G1
+    verifierLabel: "shell: npm run check-docs && test $(wc -l < README.md) -le 200"
+    evidenceSummary: passed · 2026-07-17
   - id: F2-G2
     description: package homepage points at the docs site.
     verifier:
@@ -57,6 +61,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: F2-G2
+    verifierLabel: "shell: node -e \"const p=require('./package.json'); if(!String(p.ho…"
+    evidenceSummary: passed · 2026-07-17
 stack:
   - id: 1
     title: Slim README and envelope
@@ -145,6 +151,7 @@ reviewGate:
     minor: 2
     nit: 0
   reviewFile: .atomic-skills/reviews/product-docs-site-f2-codex-pass1.md
+planTitle: Product docs site from catalog SSOT
 ---
 
 # F2 — Slim README envelope

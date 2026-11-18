@@ -1,0 +1,4 @@
+{"id":"37263a1f-f8b2-4255-8529-37595a3dcf24","category":"routing","decision":"f4-writer-merge","why":"authenticity writer merge FF","evidencePath":"src/phase-review-gate.js","impact":"T-001..T-005 closed","at":"2026-07-27T08:36:44.695Z"}
+{"id":"22b7b122-7eff-42e4-af9c-c5513b849c01","category":"gate","decision":"evaluation-pass-f4","why":"eval pass","evidencePath":".atomic-skills/reviews/eval-automate-default-and-operator-gates-F4.md","impact":"evaluationGate","at":"2026-07-27T08:36:44.697Z"}
+{"id":"5763e637-6c90-4fbe-8e9c-ae963db7b2be","category":"gate","decision":"lessons-none-f4","why":"operator none","evidencePath":"none","impact":"lessonsState none","at":"2026-07-27T08:36:44.697Z"}
+{"id":"b9cc6da7-e2da-4223-a7ac-3d657962e9da","category":"gate","decision":"review-both-f4","why":"review both","evidencePath":".atomic-skills/reviews/2026-07-27-automate-default-F4-phase-both.md","impact":"reviewGate","at":"2026-07-27T08:36:44.698Z"}

@@ -1,0 +1,46 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "automate-default-and-operator-gates-f3-dogfood-checklist",
+  "title": "Dogfood checklist",
+  "goal": "Checklist so the next automate run proves the three gates without chat memory.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Dogfood checklist update",
+      "scopeBoundary": [
+        "Checklist and KB only. No product app code."
+      ],
+      "acceptance": [
+        "it - Rows cover bare implement activates automate.; it - Rows cover Mode 1 explicit escape.; it - Rows cover decision package shown before PASS.; it - Rows cover plan-end receipt intentVsDelivered and finalize blocked without it.; it - File docs/kb/automate-default-dogfood.md or dogfood section exists with those rows."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'read-before-PASS|intentVsDelivered|default' docs/kb/",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/kb/implement-phase-agents-dogfood.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/automate-default-dogfood.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F3-G1",
+      "description": "Dogfood checklist covers default decision package and intent-vs-delivered.",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'read-before-PASS|intentVsDelivered|default' docs/kb/",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

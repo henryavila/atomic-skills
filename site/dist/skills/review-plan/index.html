@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>🔍 Review Plan — Adversarial (Local + Codex) · Atomic Skills</title>
-<meta name="description" content="Adversarial plan review with local/codex/both mode picker">
+<meta name="description" content="Adversarial plan review with local/ground-truth/codex/both modes">
 <link rel="stylesheet" href="../../assets/ds.css">
+<script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return'system'}}function apply(mode){var r=document.documentElement;if(mode==='light'||mode==='dark')r.setAttribute('data-theme',mode);else r.removeAttribute('data-theme');document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-checked',String(b.getAttribute('data-theme-set')===mode))})}apply(read());document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;var mode=b.getAttribute('data-theme-set');try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener('DOMContentLoaded',function(){apply(read())})})();</script>
 </head>
 <body>
 <div class="site-shell">
@@ -14,13 +15,15 @@
       <span class="site-brand-title">Atomic Skills</span>
       <span class="site-brand-sub">product docs</span>
     </a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="../../index.html">Home</a>
+    <div class="site-header-tools">
+      <nav class="site-nav" aria-label="Primary">
+        <a href="../../index.html">Home</a>
       <a href="../../skills/index.html" class="active">Skills</a>
-      <a href="../../project/index.html">Project</a>
       <a href="../../modules/index.html">Modules</a>
       <a href="../../hosts/index.html">Hosts</a>
-    </nav>
+      </nav>
+      <div class="theme-switch" role="radiogroup" aria-label="Appearance"><button type="button" role="radio" data-theme-set="system" aria-checked="true">System</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+    </div>
   </header>
   <main class="site-main">
     <section class="section">
@@ -30,7 +33,7 @@
         <span class="badge badge-module">core</span>
       </div>
       <h1>🔍 Review Plan — Adversarial (Local + Codex)</h1>
-      <p class="lede">Adversarial plan review with local/codex/both mode picker</p>
+      <p class="lede">Adversarial plan review with local/ground-truth/codex/both modes</p>
       <div class="iron-law">NO APPROVAL WITHOUT EVIDENCE.</div>
     </section>
 
@@ -55,6 +58,7 @@
 <li>Plan is still brainstorming (not structured yet)</li>
 <li>Trivial plan (skip review entirely)</li>
 <li>Codex CLI not installed and you need codex mode (use --mode=local)</li>
+<li>Post-ship residual / intent-vs-delivered system audit (use audit-delivery — hard on phase-done)</li>
 </ul>
     </section>
 
@@ -62,8 +66,9 @@
       <h2>Examples</h2>
       <ul class="list-stack">
 <li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md</div><div class="desc">Interactive picker — chooses mode + cross-ref</div></li>
-<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=local</div><div class="desc">Force local-only self-loop</div></li>
-<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=both</div><div class="desc">Local then codex (sealed envelope)</div></li>
+<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=local</div><div class="desc">Force local-only self-loop (consistency — not ground-truth)</div></li>
+<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=ground-truth</div><div class="desc">Plan↔code ground-truth (A+B) — mandatory before implement; alias --mode=gt</div></li>
+<li><div class="cmd">/atomic-skills:review-plan docs/plans/migration.md --mode=both</div><div class="desc">Local then host external default (sealed envelope)</div></li>
 </ul>
     </section>
   </main>

@@ -29,6 +29,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 2
 gatesTotal: 2
+weightDone: 6
+weightTotal: 6
 exitGates:
   - id: F1-G1
     description: fingerprint unit tests and materialize-state fingerprint tests pass
@@ -43,6 +45,8 @@ exitGates:
       verifiedAt: 2026-07-22T10:53:24.446Z
       passed: true
       outputSummary: F1-G* verifiers
+    verifierLabel: "shell: node --test tests/tasks-fingerprint.test.js tests/materiali…"
+    evidenceSummary: passed · 2026-07-22
   - id: F1-G2
     description: skill and kb document refuse and re-spec path
     status: met
@@ -57,6 +61,8 @@ exitGates:
       verifiedAt: 2026-07-22T10:53:24.446Z
       passed: true
       outputSummary: F1-G* verifiers
+    verifierLabel: "shell: rg -n 'fingerprint|re-spec|tasks core' skills/shared/projec…"
+    evidenceSummary: passed · 2026-07-22
 stack: []
 tasks:
   - id: T-001
@@ -151,7 +157,9 @@ tasks:
       outputSummary: F1 fingerprint tests pass + dogfood refuse
 parked: []
 emerged: []
+planTitle: materialize-spec-quality-guards
 ---
+
 # Sidecar fingerprint + materialize-state refuse (P1)
 
 Hash live do tasks core do sidecar vs initiative; allowlist; refuse no publish; skill red-flag R3.

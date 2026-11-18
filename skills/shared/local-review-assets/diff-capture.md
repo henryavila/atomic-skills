@@ -189,6 +189,3 @@ before picking a mode; it is deterministic, not a judgement call:
   removal, OR
 - removal-shaped churn: deleted lines dominate (deletions ≥ 3× additions)
   AND ≥ 50 lines are removed.
-
-This same signal is what `phase-done` computes over the phase diff to choose
-its review mode (`project-transitions.md` → `phase-done` step 6).

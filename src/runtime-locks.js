@@ -76,6 +76,10 @@ function localAcquireLocks(identities, { lockRoot, timeoutMs = 60_000, pollMs = 
           held.push(identity);
           break;
         } catch (err) {
+          if (err.code === 'ENOENT') {
+            mkdirSync(lockRoot, { recursive: true });
+            continue;
+          }
           if (err.code !== 'EEXIST') throw err;
           try {
             const raw = readFileSync(file, 'utf8');

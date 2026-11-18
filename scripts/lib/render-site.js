@@ -13,6 +13,7 @@ import {
   getIdeSupportLabel,
 } from '../../src/config.js';
 import { collectSkills } from './validate-skills-core.js';
+import { colorSchemeBootScript, renderColorSchemeSwitch } from './color-scheme.js';
 
 /** Path/URL-safe catalog key: kebab-case slug only (no traversal). */
 const SAFE_KEY_RE = /^[a-z][a-z0-9-]*$/;
@@ -130,6 +131,7 @@ export function renderShell({ title, depth, activeNav, body, description, includ
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(pageTitle)}</title>${desc}
 <link rel="stylesheet" href="${cssHref}">
+<script>${colorSchemeBootScript()}</script>
 </head>
 <body>
 <div class="site-shell">
@@ -138,9 +140,12 @@ export function renderShell({ title, depth, activeNav, body, description, includ
       <span class="site-brand-title">Atomic Skills</span>
       <span class="site-brand-sub">product docs</span>
     </a>
-    <nav class="site-nav" aria-label="Primary">
-      ${renderNav(activeNav, depth, includeProject)}
-    </nav>
+    <div class="site-header-tools">
+      <nav class="site-nav" aria-label="Primary">
+        ${renderNav(activeNav, depth, includeProject)}
+      </nav>
+      ${renderColorSchemeSwitch({ locale: 'en' })}
+    </div>
   </header>
   <main class="site-main">
 ${body}
@@ -474,7 +479,7 @@ export function renderModulesPage({ moduleMeta, includeProject = false }) {
 export function renderHostsPage(opts = {}) {
   const ideConfig = opts.ideConfig ?? IDE_CONFIG;
   const supportLabel = opts.supportLabel ?? getIdeSupportLabel;
-  // Public product surface only — exclude internal aliases (e.g. gemini-commands).
+  // Public product surface only — exclude internal aliases.
   const publicIds = opts.publicIdeIds ?? PUBLIC_IDE_IDS;
   const includeProject = opts.includeProject === true;
 
@@ -539,7 +544,7 @@ export function renderProjectGuidePage({ guide }) {
   const lede = typeof g.lede === 'string' ? g.lede.trim() : '';
   const oneLiner = typeof g.one_liner === 'string' ? g.one_liner.trim() : '';
   const iron = typeof g.iron_law === 'string' ? g.iron_law.trim() : '';
-  const prefix = typeof g.prefix === 'string' ? g.prefix.trim() : '/atomic-skills:project';
+  const prefix = typeof g.prefix === 'string' ? g.prefix.trim() : '';
   const stateRoot =
     typeof g.state_root === 'string' ? g.state_root.trim() : '.atomic-skills/';
   const entities = Array.isArray(g.entities) ? g.entities : [];

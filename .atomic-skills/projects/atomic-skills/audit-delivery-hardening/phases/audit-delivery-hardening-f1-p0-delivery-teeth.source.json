@@ -1,0 +1,104 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "audit-delivery-hardening-f1-p0-delivery-teeth",
+  "title": "P0 delivery teeth",
+  "goal": "Close false-CLOSED paths — hard Intent Package admission, domain-agnostic residual protocol, product+residual defaults, severity closing rules with Accept Records; demote audit-and-fix from primary identity.",
+  "tasks": [
+    {
+      "id": "T-006",
+      "title": "Intent Package template + admission gate",
+      "scopeBoundary": ["Do not implement full businessIntent importer (F4)."],
+      "acceptance": [
+        "HARD-GATE requires decisions/problems plus acceptance (or doneWhen) and vocabulary delta for migrations; surface inventory or single-surface flag; abort points at template."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "test -f skills/shared/audit-delivery-assets/intent-package.md && rg -n 'Intent Package|vocabulary|surface inventory|acceptance' skills/core/audit-delivery.md skills/shared/audit-delivery-assets/intent-package.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        { "kind": "file", "path": "skills/shared/audit-delivery-assets/intent-package.md" },
+        { "kind": "file", "path": "skills/core/audit-delivery.md" }
+      ]
+    },
+    {
+      "id": "T-007",
+      "title": "Residual hunt protocol domain-agnostic",
+      "scopeBoundary": ["Lekto examples only as e.g., not universal steps."],
+      "acceptance": [
+        "Protocol OLD_TERMS/NEW_TERMS x surfaces with classification; invalid residual blocks CLOSED."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "test -f skills/shared/audit-delivery-assets/residual-hunt-protocol.md && rg -n 'OLD_TERMS|surface inventory|invalid residual' skills/shared/audit-delivery-assets/residual-hunt-protocol.md skills/core/audit-delivery.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        { "kind": "file", "path": "skills/shared/audit-delivery-assets/residual-hunt-protocol.md" }
+      ]
+    },
+    {
+      "id": "T-008",
+      "title": "Default axes product+residual; opt-out caps PARTIAL",
+      "scopeBoundary": ["backend/frontend remain valid --axes values."],
+      "acceptance": [
+        "Default axes product,residual; excluding residual logs and caps verdict PARTIAL."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'product,residual|product \\+ residual|cap.*PARTIAL|exclude.residual' skills/core/audit-delivery.md meta/catalog.yaml",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        { "kind": "file", "path": "skills/core/audit-delivery.md" },
+        { "kind": "file", "path": "meta/catalog.yaml" }
+      ]
+    },
+    {
+      "id": "T-009",
+      "title": "Verdict gate + Accept Record schema",
+      "scopeBoundary": ["Multi-hop stages are F2."],
+      "acceptance": [
+        "CLOSED needs zero CRITICAL; CRITICAL never accepted; HIGH needs Accept Record or PARTIAL; suite alone never upgrades."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "test -f skills/shared/audit-delivery-assets/verdict-gate.md && rg -n 'Accept Record|CRITICAL|CLOSED|green suite' skills/shared/audit-delivery-assets/verdict-gate.md skills/core/audit-delivery.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        { "kind": "file", "path": "skills/shared/audit-delivery-assets/verdict-gate.md" }
+      ]
+    },
+    {
+      "id": "T-010",
+      "title": "Demote audit-and-fix from primary path",
+      "scopeBoundary": ["Keep composition recipe path; full fix WP optional F4."],
+      "acceptance": [
+        "Default audit RO; composition audit then fix then re-run; catalog examples prefer re-run."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'read-only|re-run|composition|parallel-dispatch' skills/core/audit-delivery.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        { "kind": "file", "path": "skills/core/audit-delivery.md" },
+        { "kind": "file", "path": "meta/catalog.yaml" }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-F1-1",
+      "description": "Intent + residual protocol + verdict assets; default axes",
+      "status": "pending",
+      "verifier": {
+        "kind": "shell",
+        "command": "test -f skills/shared/audit-delivery-assets/intent-package.md && test -f skills/shared/audit-delivery-assets/residual-hunt-protocol.md && test -f skills/shared/audit-delivery-assets/verdict-gate.md && rg -q 'product,residual|product \\+ residual' skills/core/audit-delivery.md",
+        "expectExitCode": 0
+      }
+    }
+  ]
+}

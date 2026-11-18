@@ -1,0 +1,92 @@
+{
+  "planSlug": "audit-delivery-hardening",
+  "phaseId": "F4",
+  "worktreePath": "/Volumes/External/code/audit-delivery-hardening-F4-writer",
+  "writerBranch": "impl/audit-delivery-hardening-F4-writer",
+  "finishedAt": "2026-08-04T15:31:51.000Z",
+  "tasks": [
+    {
+      "taskId": "T-022",
+      "status": "claimed-pass",
+      "commitShas": [
+        "7eaa440d14e82819f99ffb03fd1fc3109f503107"
+      ],
+      "paths": [
+        "skills/shared/audit-delivery-assets/checklists/prosecution.md"
+      ],
+      "verifierCommand": "rg -n 'prosecution|NO-only|disprove' skills/core/audit-delivery.md skills/shared/audit-delivery-assets/",
+      "exitCode": 0,
+      "transcript": "prosecution checklist NO-only (cannot emit RESOLVED); disprove mission; auto-recommend empty first merge large rewrite; body wires prosecution axis (exit 0)"
+    },
+    {
+      "taskId": "T-023",
+      "status": "claimed-pass",
+      "commitShas": [
+        "1c21a6fcc7ab6a2c15284474c529578303e96b95"
+      ],
+      "paths": [
+        "skills/shared/audit-delivery-assets/critic-merge.md"
+      ],
+      "verifierCommand": "rg -n 'critic|fresh|Gap List|downgrade' skills/core/audit-delivery.md skills/shared/audit-delivery-assets/",
+      "exitCode": 0,
+      "transcript": "critic-merge.md: Gap List → product downgrade-only → fresh critic preferred at full depth; light may keep parent merge (exit 0)"
+    },
+    {
+      "taskId": "T-024",
+      "status": "claimed-pass",
+      "commitShas": [
+        "b19b70d4f8d50dd0b886f5e6275f92b47ad39c53"
+      ],
+      "paths": [
+        "skills/shared/audit-delivery-assets/reaudit-entry.md"
+      ],
+      "verifierCommand": "rg -n 'residual-blind|ledger|claimed fix' skills/shared/audit-delivery-assets/reaudit-entry.md skills/core/audit-delivery.md",
+      "exitCode": 0,
+      "transcript": "dual reaudit: ledger retest + residual-blind without claimed fix narratives; union residual; plateau on open C+H (exit 0)"
+    },
+    {
+      "taskId": "T-025",
+      "status": "claimed-pass",
+      "commitShas": [
+        "43c1694e7b275d02bdf54a1201b89537e654349a"
+      ],
+      "paths": [
+        "skills/shared/audit-delivery-assets/fix-composition-recipe.md"
+      ],
+      "verifierCommand": "test -f skills/shared/audit-delivery-assets/fix-composition-recipe.md && rg -n 'parallel-dispatch|re-run|plateau' skills/shared/audit-delivery-assets/fix-composition-recipe.md",
+      "exitCode": 0,
+      "transcript": "fix-composition-recipe.md present; partition → parallel-dispatch/fix → re-run; plateau stop (exit 0)"
+    },
+    {
+      "taskId": "T-026",
+      "status": "claimed-pass",
+      "commitShas": [
+        "f59caeb78e9f638f4144d4ededaade8e0587d094",
+        "dc4afaddbdf9cff3d525561416e8bfd776183344"
+      ],
+      "paths": [
+        "skills/core/audit-delivery.md",
+        "meta/catalog.yaml",
+        "docs/skills/audit-delivery.md"
+      ],
+      "verifierCommand": "rg -n 'cross=|cross-model|Spec Package' skills/core/audit-delivery.md meta/catalog.yaml",
+      "exitCode": 0,
+      "transcript": "--cross=off|residual|critic|reaudit default off; Spec Package/ledger external brief; catalog argument_hint ≤120; skill docs regenerated (exit 0)"
+    },
+    {
+      "taskId": "T-027",
+      "status": "claimed-pass",
+      "commitShas": [
+        "df8e0f014df60ee3032c95f21b8f5a20b7e94fea"
+      ],
+      "paths": [
+        "skills/shared/audit-delivery-assets/intent-package.md",
+        ".atomic-skills/projects/atomic-skills/audit-delivery-hardening/dogfood-checklist.md",
+        "meta/catalog.json"
+      ],
+      "verifierCommand": "rg -n 'businessIntent|doneWhen|outOfScope' skills/shared/audit-delivery-assets/intent-package.md && test -f .atomic-skills/projects/atomic-skills/audit-delivery-hardening/dogfood-checklist.md && rg -q 'deliveryAuditGate|never skip|hard-gate' .atomic-skills/projects/atomic-skills/audit-delivery-hardening/dogfood-checklist.md",
+      "exitCode": 0,
+      "transcript": "businessIntent import maps value/workflow/rules/outOfScope/doneWhen; dogfood checklist has four SM modes + deliveryAuditGate never skip hard-gate (exit 0)"
+    }
+  ]
+}

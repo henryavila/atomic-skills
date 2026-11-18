@@ -1,0 +1,5 @@
+{"ts":"2026-07-30T16:01:49Z","category":"lessons","phaseId":"F0","decision":"lessonsState:none","reason":"F0 evaluation note-only; no failure signals requiring lessons file"}
+{"ts":"2026-07-30T16:20:00Z","category":"disposition","phaseId":"F0","id":"local-crit-lint-design","disposition":"defer","reason":"F1 T-004/T-005 lint-design REQUIRED expand"}
+{"ts":"2026-07-30T16:20:00Z","category":"disposition","phaseId":"F0","id":"local-crit-process-proof","disposition":"defer","reason":"F2 design-gates / find-missing-design-process"}
+{"ts":"2026-07-30T16:20:00Z","category":"disposition","phaseId":"F0","id":"codex-docs-stale","disposition":"fixed","reason":"ab41c2ec catalog+generate-docs"}
+{"ts":"2026-07-30T16:20:00Z","category":"lessons","phaseId":"F0","decision":"lessonsState:none","reason":"evaluation note-only"}

@@ -1,0 +1,12 @@
+{
+  "name": "@example/release-hygiene-consumer",
+  "version": "0.1.0",
+  "description": "Fixture consumer proving Atomic Skills release hygiene (chooser, stage Action, PR-only).",
+  "type": "module",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/example/release-hygiene-consumer.git"
+  },
+  "license": "MIT"
+}

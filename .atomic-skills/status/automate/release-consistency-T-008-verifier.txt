@@ -1,0 +1,18 @@
+▶ catalog product.what_is_not boundary (T-008)
+  ✔ keeps not-a-git-workflow-replacement and clarifies agent gates (20.250167ms)
+  ✔ README product region mirrors both what_is_not clauses (0.222375ms)
+  ✔ release and save-and-push docs mention the shared contract (0.182167ms)
+✔ catalog product.what_is_not boundary (T-008) (21.135458ms)
+ℹ tests 3
+ℹ suites 1
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 67.670917
+
+> @henryavila/atomic-skills@2.0.0 validate-skills
+> node scripts/validate-skills.js
+
+✓ All 17 skills valid (schema_version 0.2)

@@ -200,9 +200,6 @@ parked: []
 emerged: []
 summary: "Schema v0.3: iron_law em toda skill + bloco product validado;
   check-docs verde sem site ainda."
-planTitle: Product docs site from catalog SSOT
-planActive: true
-current: true
 lastUpdated: 2026-07-17T15:57:11.533Z
 reviewGate:
   at: 1b26276c3bde2b5efa19987a0fc9a05b19dc1361
@@ -219,6 +216,7 @@ reviewGate:
   note: F-001/F-002/F-003 fixed in follow-up commit; user requested gpt-5.6-sol
     unavailable (ChatGPT account) — used gpt-5.5
 closedAt: 2026-07-17T15:57:11.533Z
+planTitle: Product docs site from catalog SSOT
 ---
 
 # Narrative / notes

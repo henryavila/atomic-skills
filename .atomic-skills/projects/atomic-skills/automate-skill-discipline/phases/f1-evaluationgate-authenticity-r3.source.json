@@ -1,0 +1,105 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "automate-skill-discipline-f1-evaluationgate-authenticity-r3",
+  "title": "evaluationGate authenticity (R3)",
+  "goal": "Make evaluationGate forge-resistant: passed requires evaluationReport path on disk; skipped requires operatorSkip + non-empty reason; GATE-R4 and phaseEvaluationAllowsClose share one honesty definition; buildEvaluationGate and skill evaluator asset updated.",
+  "tasks": [
+    {
+      "id": "T-003",
+      "title": "Schema and pure honesty for evaluation report pointer",
+      "scopeBoundary": [
+        "Do not require evaluationGate on non-automate plans. Do not change planEndReview shape. Do not invent Layer 4. Prefer additive schema fields (reportPath, operatorSkip) with additionalProperties false updated carefully."
+      ],
+      "acceptance": [
+        "it - evaluationGate schema allows reportPath string and operatorSkip boolean with documented required-when rules.; it - phaseEvaluationAllowsClose rejects status passed without non-empty reportPath when authenticity flag or durable automate honesty mode is on (default on for automate).; it - rejects status skipped without operatorSkip true and non-empty reason.; it - accepts passed with reportPath and verdict pass and accepts skipped only with operatorSkip+reason.; it - GATE-R4 / checkEvaluationGate uses the same honesty helper (no divergent prose rules).; it - legacy retroactive skips remain expressible only via operatorSkip+reason (document migration note in test or comment).; it - unit tests cover forge cases."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/phase-evaluation-gate.test.js tests/validate-state-evaluation-gate.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "meta/schemas/plan.schema.json"
+        },
+        {
+          "kind": "file",
+          "path": "src/phase-evaluation-gate.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/phase-evaluation-gate.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/validate-state.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/validate-state-evaluation-gate.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-004",
+      "title": "Evaluator asset and buildEvaluationGate write reportPath",
+      "scopeBoundary": [
+        "Do not auto-run evaluation agent. Do not write product source from evaluator. Do not finalize on evaluation pass."
+      ],
+      "acceptance": [
+        "it - buildEvaluationGate for passed requires or records reportPath.; it - evaluator asset mandates writing evaluationReport under .atomic-skills/reviews/ (or documented path) before orchestrator stamps gate.; it - antipatterns ban forging evaluationGate passed without report and inventing skip without operator.; it - maestro Step F/G references authenticity rules."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'reportPath|operatorSkip' skills/shared/implement-phase-evaluator.md skills/shared/implement-automate-maestro.md && rg -n 'forging evaluationGate|operatorSkip' skills/shared/implement-antipatterns.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/phase-evaluation-gate.js"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-phase-evaluator.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-antipatterns.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F1-G1",
+      "description": "Authenticity unit tests and GATE-R4 path pass.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/phase-evaluation-gate.test.js tests/validate-state-evaluation-gate.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F1-G2",
+      "description": "Prose forbids forge and documents reportPath/operatorSkip.",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'reportPath|operatorSkip' skills/shared/implement-phase-evaluator.md skills/shared/implement-automate-maestro.md && rg -n 'forging evaluationGate|operatorSkip' skills/shared/implement-antipatterns.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

@@ -28,6 +28,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 2
 gatesTotal: 2
+weightDone: 7
+weightTotal: 7
 exitGates:
   - id: F0-G1
     description: find-weak-business-intent golden tests pass
@@ -41,6 +43,8 @@ exitGates:
       verifiedAt: 2026-07-22T10:50:35.849Z
       passed: true
       outputSummary: F0 exit gate verifier run
+    verifierLabel: "shell: node --test tests/find-weak-business-intent.test.js"
+    evidenceSummary: passed · 2026-07-22
   - id: F0-G2
     description: materialize and create-plan wire quality detector
     status: met
@@ -55,6 +59,8 @@ exitGates:
       verifiedAt: 2026-07-22T10:50:35.849Z
       passed: true
       outputSummary: F0 exit gate verifier run
+    verifierLabel: "shell: rg -n 'find-weak-business-intent' skills/shared/project-ass…"
+    evidenceSummary: passed · 2026-07-22
 stack:
   - id: 1
     title: Spine quality lint + skill UX (P0)
@@ -160,7 +166,9 @@ tasks:
 parked: []
 emerged: []
 summary: Lint HARD de qualidade da spine + UX proof-of-work no materialize/new-plan F0
+planTitle: materialize-spec-quality-guards
 ---
+
 # Narrative / notes
 
 Initiative for phase **F0 — Spine quality lint + skill UX (P0)**.

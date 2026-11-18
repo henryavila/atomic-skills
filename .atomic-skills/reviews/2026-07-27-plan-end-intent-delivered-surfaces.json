@@ -1,0 +1,2888 @@
+{
+  "intent": {
+    "items": [
+      {
+        "id": "F0:goal",
+        "kind": "phase-goal",
+        "phaseId": "F0",
+        "text": "Flip default so bare implement enters pure-maestro; Mode 1 is explicit; docs/tests match.",
+        "source": "phase.goal"
+      },
+      {
+        "id": "F0:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Automate is the default implement path so multi-phase plans run pure-maestro without a mode flag, with Mode 1 only via explicit escape.",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "TDD isAutomateActive and parse matrix first, then update implement/maestro prose and antipatterns so docs match machine default.",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Mode 1 remains via --mode=1; host-thin Iron Law unchanged; no auto-merge; durable stamp and clear path stay; session default must activate machine gates even before stamp.",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Decision package UX (F1); intent-vs-delivered plan-end (F2); dogfood checklist (F3); review stub authenticity and post-merge e2e from dump follow-ups.",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "implement-mode tests green for no-CLI no-stamp true; prose states automate default and Mode-1 escape; F0-G1 and F0-G2 met.",
+        "source": "phase.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:exit:0",
+        "kind": "exit-criteria",
+        "phaseId": "F0",
+        "text": "implement-mode unit tests green with automate-default matrix.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F0:exit:1",
+        "kind": "exit-criteria",
+        "phaseId": "F0",
+        "text": "Skill prose states automate default and Mode-1 escape hatch.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F1:goal",
+        "kind": "phase-goal",
+        "phaseId": "F1",
+        "text": "Operator always sees the decision package before PASS/FAIL; under automate every operator hardgate uses AskUserQuestion options only — free-text token recovery is forbidden; decline re-asks or STOPs.",
+        "source": "phase.goal"
+      },
+      {
+        "id": "F1:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Package present-before-PASS + canal AskUserQuestion-only (sem free-text) para hardgates de operador sob automate.",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "TDD package builder → gate machine present evidence → prosa/antipatterns AskUserQuestion-only + decline re-Ask → matriz continue/ratify/disposition/stamp; greps F1-G*.",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Agents never write PASS; present package body no mesmo turno do AskUserQuestion PASS|FAIL; decline re-Ask (bounded) ou STOP (nunca free-text); session default + stamp alimentam gates; host-thin Iron Law intact.",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "F2 intent-vs-delivered; F3 dogfood checklist full; F4 authenticity floors; Lekto product; forçar widget fora de AskUserQuestion.",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "tests package green; present-before-PASS machine; AskUserQuestion-only + free-text ban greppable; F1-G1/G2/G3 met.",
+        "source": "phase.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:exit:0",
+        "kind": "exit-criteria",
+        "phaseId": "F1",
+        "text": "Decision package unit tests pass.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F1:exit:1",
+        "kind": "exit-criteria",
+        "phaseId": "F1",
+        "text": "Present-before-PASS + package evidence mandated in prose/gates.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F1:exit:2",
+        "kind": "exit-criteria",
+        "phaseId": "F1",
+        "text": "AskUserQuestion-only + free-text ban + decline path greppable.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F2:goal",
+        "kind": "phase-goal",
+        "phaseId": "F2",
+        "text": "Plan-end cross-model review compares intended vs delivered with a machine-checkable receipt field.",
+        "source": "phase.goal"
+      },
+      {
+        "id": "F2:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Plan-end sob automate responde \"entregamos o que o plano prometeu?\" via intent-vs-delivered machine-checkable no receipt.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "TDD collectors intent/delivered → brief + receipt intentVsDelivered + wire planEndReviewOk/assert finalize → prosa Step I.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Fail-closed se intentVsDelivered vazio sob automate (session default ou stamp); external-both mantém ≥1 leg family-different; skip plan-end HARD-CLOSED sob stamp; userValidationOk continua operator-owned; sem auto-merge.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "F3 dogfood checklist; F4 authenticity dual-leg floors; Playwright pós-merge; Lekto product; auto-PASS user validation.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "tests intent-surface + plan-end green; receipt exige intentVsDelivered; assert finalize falha se ausente; F2-G1/G2 met.",
+        "source": "phase.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:exit:0",
+        "kind": "exit-criteria",
+        "phaseId": "F2",
+        "text": "Intent surface and plan-end tests pass.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F2:exit:1",
+        "kind": "exit-criteria",
+        "phaseId": "F2",
+        "text": "Maestro Step I requires intent-vs-delivered under automate.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F3:goal",
+        "kind": "phase-goal",
+        "phaseId": "F3",
+        "text": "Checklist so the next automate run proves the three gates without chat memory.",
+        "source": "phase.goal"
+      },
+      {
+        "id": "F3:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Operador tem checklist durable que prova F0 default + F1 present-before-PASS + F2 intentVsDelivered sem memória de chat.",
+        "source": "phase.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "Escrever/atualizar docs/kb checklist rows + greps; zero product code.",
+        "source": "phase.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Só KB/checklist; sem app code; alinhar a F0–F2 já shipped.",
+        "source": "phase.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "F4 authenticity; product Lekto; reimplementar gates F0–F2.",
+        "source": "phase.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "F3-G1 rg green; file(s) com as rows listadas.",
+        "source": "phase.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:exit:0",
+        "kind": "exit-criteria",
+        "phaseId": "F3",
+        "text": "Dogfood checklist covers default decision package and intent-vs-delivered.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F4:goal",
+        "kind": "phase-goal",
+        "phaseId": "F4",
+        "text": "Fail-closed authenticity for phase review dual-leg and evaluation floors; major disposition tokens; decision-log statusRoot normalize; phase-done mirror/assert path (no host hand-edit).",
+        "source": "phase.goal"
+      },
+      {
+        "id": "F4:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Fases sob automate não podem carimbar reviewGate/evaluationGate passed com receipt stub ou disposition major sem token do operador; phase-done não deixa archive com exitGates mentindo; decision-log não aceita statusRoot que duplica projects/.",
+        "source": "phase.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "TDD: authenticity floor em phase-review-gate (dual path, min size, non-binary); evaluation content floor; disposition major exige token operator (decline != accept); decisionLogPath normaliza statusRoot; assert mirror exitGates + validate-state no dir do plan e antipattern hand-edit phase-done; prosa maestro/transitions; testes unitários e greps de prosa.",
+        "source": "phase.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Floor médio (não parser full codex). Não auto-merge. Não reabrir F0–F3. Fora: post-merge Playwright, session-break, phase-done-apply script completo, Layer 4. Host-thin permanece.",
+        "source": "phase.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Post-merge e2e re-run (Cluster B); claims durable path; session-break AskUserQuestion; phase-done-apply atômico completo; forçar 2 external providers; backlog produto Lekto; auto-PASS decision-review.",
+        "source": "phase.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "phase-done sob automate falha com stub/corrupt dual-leg; evaluation thin sem floor falha; major sem disposition token bloqueia; statusRoot double-projects rejeitado; mirror exitGates assert + prosa canônica; F4-G* met.",
+        "source": "phase.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:exit:0",
+        "kind": "exit-criteria",
+        "phaseId": "F4",
+        "text": "phase-review authenticity tests pass (dual leg, min size, non-binary reject stub/corrupt).",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F4:exit:1",
+        "kind": "exit-criteria",
+        "phaseId": "F4",
+        "text": "decision-log statusRoot normalize tests pass; double projects path rejected or fixed.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F4:exit:2",
+        "kind": "exit-criteria",
+        "phaseId": "F4",
+        "text": "Prose requires present dual-leg authenticity, disposition token, canonical phase-done (no hand-edit).",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F4:exit:3",
+        "kind": "exit-criteria",
+        "phaseId": "F4",
+        "text": "assert or unit tests cover exitGate mirror / terminal pending block under automate close.",
+        "source": "exitCriteria"
+      },
+      {
+        "id": "F0:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Automate is the default implement path so multi-phase plans run pure-maestro without a mode flag, with Mode 1 only via explicit escape.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "TDD isAutomateActive and parse matrix first, then update implement/maestro prose and antipatterns so docs match machine default.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Mode 1 remains via --mode=1; host-thin Iron Law unchanged; no auto-merge; durable stamp and clear path stay; session default must activate machine gates even before stamp.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Decision package UX (F1); intent-vs-delivered plan-end (F2); dogfood checklist (F3); review stub authenticity and post-merge e2e from dump follow-ups.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "implement-mode tests green for no-CLI no-stamp true; prose states automate default and Mode-1 escape; F0-G1 and F0-G2 met.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F0"
+      },
+      {
+        "id": "F0:T-001:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - Absent CLI mode and no stamp yields isAutomateActive true.; it - Explicit mode 1 or mode:1 yields isAutomateActive false.; it - mode=automate and stamp-alone still true; clearExecutionMode still false.; it - Unit matrix covers no-CLI no-stamp for automate-default.",
+        "source": "task.acceptance",
+        "phaseId": "F0",
+        "taskId": "T-001"
+      },
+      {
+        "id": "F0:T-002:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - Prose states automate is default and Mode 1 requires explicit flag.; it - Original opt-in only principle is marked superseded by this plan.; it - Antipattern exists for assuming bare implement is session-writer Mode 1.; it - Maestro notes gate activation rule for session default plus stamp.",
+        "source": "task.acceptance",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "F1:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Package present-before-PASS + canal AskUserQuestion-only (sem free-text) para hardgates de operador sob automate.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "TDD package builder → gate machine present evidence → prosa/antipatterns AskUserQuestion-only + decline re-Ask → matriz continue/ratify/disposition/stamp; greps F1-G*.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Agents never write PASS; present package body no mesmo turno do AskUserQuestion PASS|FAIL; decline re-Ask (bounded) ou STOP (nunca free-text); session default + stamp alimentam gates; host-thin Iron Law intact.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "F2 intent-vs-delivered; F3 dogfood checklist full; F4 authenticity floors; Lekto product; forçar widget fora de AskUserQuestion.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "tests package green; present-before-PASS machine; AskUserQuestion-only + free-text ban greppable; F1-G1/G2/G3 met.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:goal",
+        "kind": "phase-goal",
+        "text": "Operator always sees the decision package before PASS/FAIL; under automate every operator hardgate uses AskUserQuestion options only — free-text token recovery is forbidden; decline re-Asks or STOPs.",
+        "source": "initiative.goal",
+        "phaseId": "F1"
+      },
+      {
+        "id": "F1:T-001:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - Helper builds package with phaseId path entries empty flag and summaryMarkdown from listDecisions input.; it - Each entry exposes category decision why impact evidencePath.; it - Empty log yields empty true and explicit no-decisions banner text.; it - Unit tests cover non-empty and empty packages.",
+        "source": "task.acceptance",
+        "phaseId": "F1",
+        "taskId": "T-001"
+      },
+      {
+        "id": "F1:T-002:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - Fixed order requires host render decision package before PASS ask.; it - decisionReview records packagePresentedAt or package present evidence under automate.; it - decisionReviewAllowsPhaseDone or canRunPhaseDone fails closed without present evidence when automate active including no-stamp session default.; it - Antipattern documents Ask PASS without listing decisions.",
+        "source": "task.acceptance",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "F1:T-002:acc:1",
+        "kind": "task-acceptance",
+        "text": "it - Dogfood evidence ask-without-package-body (reviews/2026-07-26-f0-decision-review-ask-without-package-body.md) is treated as FAIL present-before-PASS until package body is in the same hardgate turn as PASS/FAIL AskUserQuestion.",
+        "source": "task.acceptance",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "F1:T-003:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - UX documents two-step: present package body then AskUserQuestion PASS|FAIL options in the same hardgate turn.; it - Free-text recovery (e.g. host asks operator to type decision-review PASS) is forbidden in prose and antipatterns.; it - Decline/cancel of AskUserQuestion re-opens the same question (bounded) or STOPs with nextAction to re-open AskUserQuestion — never chat typing.; it - Single-click PASS without package body in the same turn is forbidden.",
+        "source": "task.acceptance",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "F1:T-003:acc:1",
+        "kind": "task-acceptance",
+        "text": "it - Claiming package apresentado without rendering package body in the same AskUserQuestion turn is forbidden (dogfood 2026-07-26 screenshot + evidence file).",
+        "source": "task.acceptance",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "F1:T-004:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - Maestro lists operator hardgates continue ratify disposition decision-review stamp as AskUserQuestion-only.; it - Each maps options to durable tokens without free-text recovery.; it - Antipattern exists for type token in chat after decline.; it - Dogfood checklist row covers exclusive AskUserQuestion channel.",
+        "source": "task.acceptance",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "F2:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Plan-end sob automate responde \"entregamos o que o plano prometeu?\" via intent-vs-delivered machine-checkable no receipt.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "TDD collectors intent/delivered → brief + receipt intentVsDelivered + wire planEndReviewOk/assert finalize → prosa Step I.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Fail-closed se intentVsDelivered vazio sob automate (session default ou stamp); external-both mantém ≥1 leg family-different; skip plan-end HARD-CLOSED sob stamp; userValidationOk continua operator-owned; sem auto-merge.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "F3 dogfood checklist; F4 authenticity dual-leg floors; Playwright pós-merge; Lekto product; auto-PASS user validation.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "tests intent-surface + plan-end green; receipt exige intentVsDelivered; assert finalize falha se ausente; F2-G1/G2 met.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F2"
+      },
+      {
+        "id": "F2:T-001:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - Builds intent surface from phase goals businessIntent tasks acceptance and exit criteria when provided.; it - Builds delivered surface from task evidence done status claim SHAs and outputs paths when provided.; it - Exports markdown brief section Intent vs delivered checklist for the review prompt.; it - Unit tests cover multi-phase sample input.",
+        "source": "task.acceptance",
+        "phaseId": "F2",
+        "taskId": "T-001"
+      },
+      {
+        "id": "F2:T-002:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - Under automate plan-end requires intent-vs-delivered brief in the cross-model context.; it - Receipt or linked structured section includes intentVsDelivered rows with status matched partial missing or extra.; it - Empty intentVsDelivered fails planEndReviewOk or automatePlanEndGatesOk under automate including session default.; it - Docs state plan-end answers did we build what we planned.",
+        "source": "task.acceptance",
+        "phaseId": "F2",
+        "taskId": "T-002"
+      },
+      {
+        "id": "F2:T-003:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - Step I order is build surfaces run external-both stamp receipt with intentVsDelivered then userValidation then finalize.; it - assert finalize fails if intentVsDelivered missing under automate.; it - implement.md points at intent-vs-delivered plan-end rule.",
+        "source": "task.acceptance",
+        "phaseId": "F2",
+        "taskId": "T-003"
+      },
+      {
+        "id": "F3:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Operador tem checklist durable que prova F0 default + F1 present-before-PASS + F2 intentVsDelivered sem memória de chat.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "Escrever/atualizar docs/kb checklist rows + greps; zero product code.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Só KB/checklist; sem app code; alinhar a F0–F2 já shipped.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "F4 authenticity; product Lekto; reimplementar gates F0–F2.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "F3-G1 rg green; file(s) com as rows listadas.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F3"
+      },
+      {
+        "id": "F3:T-001:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - Rows cover bare implement activates automate.; it - Rows cover Mode 1 explicit escape.; it - Rows cover decision package shown before PASS.; it - Rows cover plan-end receipt intentVsDelivered and finalize blocked without it.; it - File docs/kb/automate-default-dogfood.md or dogfood section exists with those rows.",
+        "source": "task.acceptance",
+        "phaseId": "F3",
+        "taskId": "T-001"
+      },
+      {
+        "id": "F4:bi:value",
+        "kind": "business-intent",
+        "field": "value",
+        "text": "Fases sob automate não podem carimbar reviewGate/evaluationGate passed com receipt stub ou disposition major sem token do operador; phase-done não deixa archive com exitGates mentindo; decision-log não aceita statusRoot que duplica projects/.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:bi:workflow",
+        "kind": "business-intent",
+        "field": "workflow",
+        "text": "TDD: authenticity floor em phase-review-gate (dual path, min size, non-binary); evaluation content floor; disposition major exige token operator (decline != accept); decisionLogPath normaliza statusRoot; assert mirror exitGates + validate-state no dir do plan e antipattern hand-edit phase-done; prosa maestro/transitions; testes unitários e greps de prosa.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:bi:rules",
+        "kind": "business-intent",
+        "field": "rules",
+        "text": "Floor médio (não parser full codex). Não auto-merge. Não reabrir F0–F3. Fora: post-merge Playwright, session-break, phase-done-apply script completo, Layer 4. Host-thin permanece.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:bi:outOfScope",
+        "kind": "business-intent",
+        "field": "outOfScope",
+        "text": "Post-merge e2e re-run (Cluster B); claims durable path; session-break AskUserQuestion; phase-done-apply atômico completo; forçar 2 external providers; backlog produto Lekto; auto-PASS decision-review.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:bi:doneWhen",
+        "kind": "business-intent",
+        "field": "doneWhen",
+        "text": "phase-done sob automate falha com stub/corrupt dual-leg; evaluation thin sem floor falha; major sem disposition token bloqueia; statusRoot double-projects rejeitado; mirror exitGates assert + prosa canônica; F4-G* met.",
+        "source": "initiative.businessIntent",
+        "phaseId": "F4"
+      },
+      {
+        "id": "F4:T-001:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - phaseReviewAllowsClose or honesty helper rejects one-line stub codex/local under mode both.; it - rejects binary/null-byte receipt content.; it - accepts dual non-stub receipts with min size and CLEAN or findings.; it - unit tests cover stub reject and real dual accept.; it - maestro Step G prose states dual-leg authenticity under automate.",
+        "source": "task.acceptance",
+        "phaseId": "F4",
+        "taskId": "T-001"
+      },
+      {
+        "id": "F4:T-002:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - evaluationGate passed requires report file exists with min content keys or min bytes.; it - thin 2-line verdict-only fails floor under automate.; it - unit tests cover thin reject and structured accept.; it - implement-phase-evaluator prose documents floor.",
+        "source": "task.acceptance",
+        "phaseId": "F4",
+        "taskId": "T-002"
+      },
+      {
+        "id": "F4:T-003:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - open major findings block phase-done without review-disposition accept or defer or fix token from operator.; it - host judgment accept after decline fails gate.; it - decision-log and maestro prose state decline is not accept.; it - unit or gate tests cover disposition required path.",
+        "source": "task.acceptance",
+        "phaseId": "F4",
+        "taskId": "T-003"
+      },
+      {
+        "id": "F4:T-004:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - statusRoot ending in projects/id is rejected or normalized to status root without double projects.; it - canonical path remains statusRoot/projects/id/slug/decisions/phase.jsonl.; it - unit tests cover bad statusRoot and happy path.; it - docs mention statusRoot must be .atomic-skills root.",
+        "source": "task.acceptance",
+        "phaseId": "F4",
+        "taskId": "T-004"
+      },
+      {
+        "id": "F4:T-005:acc:0",
+        "kind": "task-acceptance",
+        "text": "it - helper or guard fails when plan criteria met but initiative exitGates pending before archive.; it - project-transitions and antipatterns forbid hand-edit phase-done under automate.; it - prose requires validate-state on plan directory before advance commit.; it - unit or integration tests cover mirror pending block.",
+        "source": "task.acceptance",
+        "phaseId": "F4",
+        "taskId": "T-005"
+      }
+    ]
+  },
+  "delivered": {
+    "items": [
+      {
+        "id": "task:F0:T-001",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/implement-mode.js",
+          "tests/implement-mode.test.js",
+          "src/implement-mode.js",
+          "tests/implement-mode.test.js"
+        ],
+        "phaseId": "F0",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=4"
+      },
+      {
+        "id": "output:F0:T-001:src/implement-mode.js",
+        "kind": "output-path",
+        "path": "src/implement-mode.js",
+        "text": "src/implement-mode.js",
+        "phaseId": "F0",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F0:T-001:tests/implement-mode.test.js",
+        "kind": "output-path",
+        "path": "tests/implement-mode.test.js",
+        "text": "tests/implement-mode.test.js",
+        "phaseId": "F0",
+        "taskId": "T-001"
+      },
+      {
+        "id": "task:F0:T-002",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/core/implement.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "docs/kb/project-lazy-materialization.md",
+          "skills/core/implement.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "docs/kb/project-lazy-materialization.md"
+        ],
+        "phaseId": "F0",
+        "taskId": "T-002",
+        "text": "task T-002 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F0:T-002:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F0:T-002:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F0:T-002:skills/shared/implement-antipatterns.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-antipatterns.md",
+        "text": "skills/shared/implement-antipatterns.md",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F0:T-002:docs/kb/project-lazy-materialization.md",
+        "kind": "output-path",
+        "path": "docs/kb/project-lazy-materialization.md",
+        "text": "docs/kb/project-lazy-materialization.md",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "task:F1:T-001",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/decision-review-package.js",
+          "tests/decision-review-package.test.js",
+          "src/decision-log.js",
+          "src/decision-review-package.js",
+          "tests/decision-review-package.test.js",
+          "src/decision-log.js"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F1:T-001:src/decision-review-package.js",
+        "kind": "output-path",
+        "path": "src/decision-review-package.js",
+        "text": "src/decision-review-package.js",
+        "phaseId": "F1",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F1:T-001:tests/decision-review-package.test.js",
+        "kind": "output-path",
+        "path": "tests/decision-review-package.test.js",
+        "text": "tests/decision-review-package.test.js",
+        "phaseId": "F1",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F1:T-001:src/decision-log.js",
+        "kind": "output-path",
+        "path": "src/decision-log.js",
+        "text": "src/decision-log.js",
+        "phaseId": "F1",
+        "taskId": "T-001"
+      },
+      {
+        "id": "task:F1:T-002",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/core/implement.md",
+          "src/decision-review-gate.js",
+          "src/automate-orchestrator-gates.js",
+          "tests/decision-review-gate.test.js",
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/core/implement.md",
+          "src/decision-review-gate.js",
+          "src/automate-orchestrator-gates.js",
+          "tests/decision-review-gate.test.js"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-002",
+        "text": "task T-002 status=done shas=1 paths=12"
+      },
+      {
+        "id": "output:F1:T-002:skills/shared/implement-decision-log.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-decision-log.md",
+        "text": "skills/shared/implement-decision-log.md",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:src/decision-review-gate.js",
+        "kind": "output-path",
+        "path": "src/decision-review-gate.js",
+        "text": "src/decision-review-gate.js",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:src/automate-orchestrator-gates.js",
+        "kind": "output-path",
+        "path": "src/automate-orchestrator-gates.js",
+        "text": "src/automate-orchestrator-gates.js",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:tests/decision-review-gate.test.js",
+        "kind": "output-path",
+        "path": "tests/decision-review-gate.test.js",
+        "text": "tests/decision-review-gate.test.js",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "task:F1:T-003",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "skills/core/implement.md",
+          "docs/kb/implement-phase-agents-dogfood.md",
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "skills/core/implement.md",
+          "docs/kb/implement-phase-agents-dogfood.md"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-003",
+        "text": "task T-003 status=done shas=1 paths=10"
+      },
+      {
+        "id": "output:F1:T-003:skills/shared/implement-decision-log.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-decision-log.md",
+        "text": "skills/shared/implement-decision-log.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F1:T-003:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F1:T-003:skills/shared/implement-antipatterns.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-antipatterns.md",
+        "text": "skills/shared/implement-antipatterns.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F1:T-003:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F1:T-003:docs/kb/implement-phase-agents-dogfood.md",
+        "kind": "output-path",
+        "path": "docs/kb/implement-phase-agents-dogfood.md",
+        "text": "docs/kb/implement-phase-agents-dogfood.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "task:F1:T-004",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "skills/core/implement.md",
+          "docs/kb/implement-phase-agents-dogfood.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "skills/core/implement.md",
+          "docs/kb/implement-phase-agents-dogfood.md"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-004",
+        "text": "task T-004 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F1:T-004:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F1:T-004:skills/shared/implement-antipatterns.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-antipatterns.md",
+        "text": "skills/shared/implement-antipatterns.md",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F1:T-004:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F1:T-004:docs/kb/implement-phase-agents-dogfood.md",
+        "kind": "output-path",
+        "path": "docs/kb/implement-phase-agents-dogfood.md",
+        "text": "docs/kb/implement-phase-agents-dogfood.md",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "task:F2:T-001",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/plan-end-intent-surface.js",
+          "tests/plan-end-intent-surface.test.js",
+          "src/plan-end-intent-surface.js",
+          "tests/plan-end-intent-surface.test.js"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=4"
+      },
+      {
+        "id": "output:F2:T-001:src/plan-end-intent-surface.js",
+        "kind": "output-path",
+        "path": "src/plan-end-intent-surface.js",
+        "text": "src/plan-end-intent-surface.js",
+        "phaseId": "F2",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F2:T-001:tests/plan-end-intent-surface.test.js",
+        "kind": "output-path",
+        "path": "tests/plan-end-intent-surface.test.js",
+        "text": "tests/plan-end-intent-surface.test.js",
+        "phaseId": "F2",
+        "taskId": "T-001"
+      },
+      {
+        "id": "task:F2:T-002",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/plan-end-review.js",
+          "skills/shared/implement-automate-maestro.md",
+          "docs/kb/cross-model-review-design.md",
+          "tests/plan-end-review.test.js",
+          "src/plan-end-review.js",
+          "skills/shared/implement-automate-maestro.md",
+          "docs/kb/cross-model-review-design.md",
+          "tests/plan-end-review.test.js"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-002",
+        "text": "task T-002 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F2:T-002:src/plan-end-review.js",
+        "kind": "output-path",
+        "path": "src/plan-end-review.js",
+        "text": "src/plan-end-review.js",
+        "phaseId": "F2",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F2:T-002:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F2",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F2:T-002:docs/kb/cross-model-review-design.md",
+        "kind": "output-path",
+        "path": "docs/kb/cross-model-review-design.md",
+        "text": "docs/kb/cross-model-review-design.md",
+        "phaseId": "F2",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F2:T-002:tests/plan-end-review.test.js",
+        "kind": "output-path",
+        "path": "tests/plan-end-review.test.js",
+        "text": "tests/plan-end-review.test.js",
+        "phaseId": "F2",
+        "taskId": "T-002"
+      },
+      {
+        "id": "task:F2:T-003",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/core/implement.md",
+          "skills/shared/implement-automate-maestro.md",
+          "scripts/assert-automate-gate.js",
+          "src/automate-orchestrator-gates.js",
+          "skills/core/implement.md",
+          "skills/shared/implement-automate-maestro.md",
+          "scripts/assert-automate-gate.js",
+          "src/automate-orchestrator-gates.js"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-003",
+        "text": "task T-003 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F2:T-003:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F2",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F2:T-003:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F2",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F2:T-003:scripts/assert-automate-gate.js",
+        "kind": "output-path",
+        "path": "scripts/assert-automate-gate.js",
+        "text": "scripts/assert-automate-gate.js",
+        "phaseId": "F2",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F2:T-003:src/automate-orchestrator-gates.js",
+        "kind": "output-path",
+        "path": "src/automate-orchestrator-gates.js",
+        "text": "src/automate-orchestrator-gates.js",
+        "phaseId": "F2",
+        "taskId": "T-003"
+      },
+      {
+        "id": "task:F3:T-001",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "docs/kb/implement-phase-agents-dogfood.md",
+          "docs/kb/automate-default-dogfood.md",
+          "docs/kb/implement-phase-agents-dogfood.md",
+          "docs/kb/automate-default-dogfood.md"
+        ],
+        "phaseId": "F3",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=4"
+      },
+      {
+        "id": "output:F3:T-001:docs/kb/implement-phase-agents-dogfood.md",
+        "kind": "output-path",
+        "path": "docs/kb/implement-phase-agents-dogfood.md",
+        "text": "docs/kb/implement-phase-agents-dogfood.md",
+        "phaseId": "F3",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F3:T-001:docs/kb/automate-default-dogfood.md",
+        "kind": "output-path",
+        "path": "docs/kb/automate-default-dogfood.md",
+        "text": "docs/kb/automate-default-dogfood.md",
+        "phaseId": "F3",
+        "taskId": "T-001"
+      },
+      {
+        "id": "task:F4:T-001",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/phase-review-gate.js",
+          "tests/phase-review-gate.test.js",
+          "skills/shared/implement-automate-maestro.md",
+          "src/phase-review-gate.js",
+          "tests/phase-review-gate.test.js",
+          "skills/shared/implement-automate-maestro.md"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F4:T-001:src/phase-review-gate.js",
+        "kind": "output-path",
+        "path": "src/phase-review-gate.js",
+        "text": "src/phase-review-gate.js",
+        "phaseId": "F4",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F4:T-001:tests/phase-review-gate.test.js",
+        "kind": "output-path",
+        "path": "tests/phase-review-gate.test.js",
+        "text": "tests/phase-review-gate.test.js",
+        "phaseId": "F4",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F4:T-001:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F4",
+        "taskId": "T-001"
+      },
+      {
+        "id": "task:F4:T-002",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/phase-evaluation-gate.js",
+          "tests/phase-evaluation-gate.test.js",
+          "skills/shared/implement-phase-evaluator.md",
+          "src/phase-evaluation-gate.js",
+          "tests/phase-evaluation-gate.test.js",
+          "skills/shared/implement-phase-evaluator.md"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-002",
+        "text": "task T-002 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F4:T-002:src/phase-evaluation-gate.js",
+        "kind": "output-path",
+        "path": "src/phase-evaluation-gate.js",
+        "text": "src/phase-evaluation-gate.js",
+        "phaseId": "F4",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F4:T-002:tests/phase-evaluation-gate.test.js",
+        "kind": "output-path",
+        "path": "tests/phase-evaluation-gate.test.js",
+        "text": "tests/phase-evaluation-gate.test.js",
+        "phaseId": "F4",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F4:T-002:skills/shared/implement-phase-evaluator.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-phase-evaluator.md",
+        "text": "skills/shared/implement-phase-evaluator.md",
+        "phaseId": "F4",
+        "taskId": "T-002"
+      },
+      {
+        "id": "task:F4:T-003",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/automate-orchestrator-gates.js",
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "src/automate-orchestrator-gates.js",
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-003",
+        "text": "task T-003 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F4:T-003:src/automate-orchestrator-gates.js",
+        "kind": "output-path",
+        "path": "src/automate-orchestrator-gates.js",
+        "text": "src/automate-orchestrator-gates.js",
+        "phaseId": "F4",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F4:T-003:skills/shared/implement-decision-log.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-decision-log.md",
+        "text": "skills/shared/implement-decision-log.md",
+        "phaseId": "F4",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F4:T-003:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F4",
+        "taskId": "T-003"
+      },
+      {
+        "id": "task:F4:T-004",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/decision-log.js",
+          "tests/decision-log.test.js",
+          "docs/kb/implement-decision-log.md",
+          "src/decision-log.js",
+          "tests/decision-log.test.js",
+          "docs/kb/implement-decision-log.md"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-004",
+        "text": "task T-004 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F4:T-004:src/decision-log.js",
+        "kind": "output-path",
+        "path": "src/decision-log.js",
+        "text": "src/decision-log.js",
+        "phaseId": "F4",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F4:T-004:tests/decision-log.test.js",
+        "kind": "output-path",
+        "path": "tests/decision-log.test.js",
+        "text": "tests/decision-log.test.js",
+        "phaseId": "F4",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F4:T-004:docs/kb/implement-decision-log.md",
+        "kind": "output-path",
+        "path": "docs/kb/implement-decision-log.md",
+        "text": "docs/kb/implement-decision-log.md",
+        "phaseId": "F4",
+        "taskId": "T-004"
+      },
+      {
+        "id": "task:F4:T-005",
+        "kind": "task-done",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/shared/project-assets/project-transitions.md",
+          "skills/shared/implement-antipatterns.md",
+          "src/lifecycle-order-guard.js",
+          "tests/lifecycle-order-guard.test.js",
+          "skills/shared/project-assets/project-transitions.md",
+          "skills/shared/implement-antipatterns.md",
+          "src/lifecycle-order-guard.js",
+          "tests/lifecycle-order-guard.test.js"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-005",
+        "text": "task T-005 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F4:T-005:skills/shared/project-assets/project-transitions.md",
+        "kind": "output-path",
+        "path": "skills/shared/project-assets/project-transitions.md",
+        "text": "skills/shared/project-assets/project-transitions.md",
+        "phaseId": "F4",
+        "taskId": "T-005"
+      },
+      {
+        "id": "output:F4:T-005:skills/shared/implement-antipatterns.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-antipatterns.md",
+        "text": "skills/shared/implement-antipatterns.md",
+        "phaseId": "F4",
+        "taskId": "T-005"
+      },
+      {
+        "id": "output:F4:T-005:src/lifecycle-order-guard.js",
+        "kind": "output-path",
+        "path": "src/lifecycle-order-guard.js",
+        "text": "src/lifecycle-order-guard.js",
+        "phaseId": "F4",
+        "taskId": "T-005"
+      },
+      {
+        "id": "output:F4:T-005:tests/lifecycle-order-guard.test.js",
+        "kind": "output-path",
+        "path": "tests/lifecycle-order-guard.test.js",
+        "text": "tests/lifecycle-order-guard.test.js",
+        "phaseId": "F4",
+        "taskId": "T-005"
+      },
+      {
+        "id": "claim:F0:T-001",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/implement-mode.js",
+          "tests/implement-mode.test.js",
+          "src/implement-mode.js",
+          "tests/implement-mode.test.js"
+        ],
+        "phaseId": "F0",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=4"
+      },
+      {
+        "id": "output:F0:T-001:src/implement-mode.js",
+        "kind": "output-path",
+        "path": "src/implement-mode.js",
+        "text": "src/implement-mode.js",
+        "phaseId": "F0",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F0:T-001:tests/implement-mode.test.js",
+        "kind": "output-path",
+        "path": "tests/implement-mode.test.js",
+        "text": "tests/implement-mode.test.js",
+        "phaseId": "F0",
+        "taskId": "T-001"
+      },
+      {
+        "id": "claim:F0:T-002",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/core/implement.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "docs/kb/project-lazy-materialization.md",
+          "skills/core/implement.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "docs/kb/project-lazy-materialization.md"
+        ],
+        "phaseId": "F0",
+        "taskId": "T-002",
+        "text": "task T-002 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F0:T-002:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F0:T-002:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F0:T-002:skills/shared/implement-antipatterns.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-antipatterns.md",
+        "text": "skills/shared/implement-antipatterns.md",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F0:T-002:docs/kb/project-lazy-materialization.md",
+        "kind": "output-path",
+        "path": "docs/kb/project-lazy-materialization.md",
+        "text": "docs/kb/project-lazy-materialization.md",
+        "phaseId": "F0",
+        "taskId": "T-002"
+      },
+      {
+        "id": "claim:F1:T-001",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/decision-review-package.js",
+          "tests/decision-review-package.test.js",
+          "src/decision-log.js",
+          "src/decision-review-package.js",
+          "tests/decision-review-package.test.js",
+          "src/decision-log.js"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F1:T-001:src/decision-review-package.js",
+        "kind": "output-path",
+        "path": "src/decision-review-package.js",
+        "text": "src/decision-review-package.js",
+        "phaseId": "F1",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F1:T-001:tests/decision-review-package.test.js",
+        "kind": "output-path",
+        "path": "tests/decision-review-package.test.js",
+        "text": "tests/decision-review-package.test.js",
+        "phaseId": "F1",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F1:T-001:src/decision-log.js",
+        "kind": "output-path",
+        "path": "src/decision-log.js",
+        "text": "src/decision-log.js",
+        "phaseId": "F1",
+        "taskId": "T-001"
+      },
+      {
+        "id": "claim:F1:T-002",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/core/implement.md",
+          "src/decision-review-gate.js",
+          "src/automate-orchestrator-gates.js",
+          "tests/decision-review-gate.test.js",
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/core/implement.md",
+          "src/decision-review-gate.js",
+          "src/automate-orchestrator-gates.js",
+          "tests/decision-review-gate.test.js"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-002",
+        "text": "task T-002 status=done shas=1 paths=12"
+      },
+      {
+        "id": "output:F1:T-002:skills/shared/implement-decision-log.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-decision-log.md",
+        "text": "skills/shared/implement-decision-log.md",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:src/decision-review-gate.js",
+        "kind": "output-path",
+        "path": "src/decision-review-gate.js",
+        "text": "src/decision-review-gate.js",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:src/automate-orchestrator-gates.js",
+        "kind": "output-path",
+        "path": "src/automate-orchestrator-gates.js",
+        "text": "src/automate-orchestrator-gates.js",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F1:T-002:tests/decision-review-gate.test.js",
+        "kind": "output-path",
+        "path": "tests/decision-review-gate.test.js",
+        "text": "tests/decision-review-gate.test.js",
+        "phaseId": "F1",
+        "taskId": "T-002"
+      },
+      {
+        "id": "claim:F1:T-003",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "skills/core/implement.md",
+          "docs/kb/implement-phase-agents-dogfood.md",
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "skills/core/implement.md",
+          "docs/kb/implement-phase-agents-dogfood.md"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-003",
+        "text": "task T-003 status=done shas=1 paths=10"
+      },
+      {
+        "id": "output:F1:T-003:skills/shared/implement-decision-log.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-decision-log.md",
+        "text": "skills/shared/implement-decision-log.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F1:T-003:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F1:T-003:skills/shared/implement-antipatterns.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-antipatterns.md",
+        "text": "skills/shared/implement-antipatterns.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F1:T-003:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F1:T-003:docs/kb/implement-phase-agents-dogfood.md",
+        "kind": "output-path",
+        "path": "docs/kb/implement-phase-agents-dogfood.md",
+        "text": "docs/kb/implement-phase-agents-dogfood.md",
+        "phaseId": "F1",
+        "taskId": "T-003"
+      },
+      {
+        "id": "claim:F1:T-004",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "skills/core/implement.md",
+          "docs/kb/implement-phase-agents-dogfood.md",
+          "skills/shared/implement-automate-maestro.md",
+          "skills/shared/implement-antipatterns.md",
+          "skills/core/implement.md",
+          "docs/kb/implement-phase-agents-dogfood.md"
+        ],
+        "phaseId": "F1",
+        "taskId": "T-004",
+        "text": "task T-004 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F1:T-004:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F1:T-004:skills/shared/implement-antipatterns.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-antipatterns.md",
+        "text": "skills/shared/implement-antipatterns.md",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F1:T-004:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F1:T-004:docs/kb/implement-phase-agents-dogfood.md",
+        "kind": "output-path",
+        "path": "docs/kb/implement-phase-agents-dogfood.md",
+        "text": "docs/kb/implement-phase-agents-dogfood.md",
+        "phaseId": "F1",
+        "taskId": "T-004"
+      },
+      {
+        "id": "claim:F2:T-001",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/plan-end-intent-surface.js",
+          "tests/plan-end-intent-surface.test.js",
+          "src/plan-end-intent-surface.js",
+          "tests/plan-end-intent-surface.test.js"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=4"
+      },
+      {
+        "id": "output:F2:T-001:src/plan-end-intent-surface.js",
+        "kind": "output-path",
+        "path": "src/plan-end-intent-surface.js",
+        "text": "src/plan-end-intent-surface.js",
+        "phaseId": "F2",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F2:T-001:tests/plan-end-intent-surface.test.js",
+        "kind": "output-path",
+        "path": "tests/plan-end-intent-surface.test.js",
+        "text": "tests/plan-end-intent-surface.test.js",
+        "phaseId": "F2",
+        "taskId": "T-001"
+      },
+      {
+        "id": "claim:F2:T-002",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/plan-end-review.js",
+          "skills/shared/implement-automate-maestro.md",
+          "docs/kb/cross-model-review-design.md",
+          "tests/plan-end-review.test.js",
+          "src/plan-end-review.js",
+          "skills/shared/implement-automate-maestro.md",
+          "docs/kb/cross-model-review-design.md",
+          "tests/plan-end-review.test.js"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-002",
+        "text": "task T-002 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F2:T-002:src/plan-end-review.js",
+        "kind": "output-path",
+        "path": "src/plan-end-review.js",
+        "text": "src/plan-end-review.js",
+        "phaseId": "F2",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F2:T-002:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F2",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F2:T-002:docs/kb/cross-model-review-design.md",
+        "kind": "output-path",
+        "path": "docs/kb/cross-model-review-design.md",
+        "text": "docs/kb/cross-model-review-design.md",
+        "phaseId": "F2",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F2:T-002:tests/plan-end-review.test.js",
+        "kind": "output-path",
+        "path": "tests/plan-end-review.test.js",
+        "text": "tests/plan-end-review.test.js",
+        "phaseId": "F2",
+        "taskId": "T-002"
+      },
+      {
+        "id": "claim:F2:T-003",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/core/implement.md",
+          "skills/shared/implement-automate-maestro.md",
+          "scripts/assert-automate-gate.js",
+          "src/automate-orchestrator-gates.js",
+          "skills/core/implement.md",
+          "skills/shared/implement-automate-maestro.md",
+          "scripts/assert-automate-gate.js",
+          "src/automate-orchestrator-gates.js"
+        ],
+        "phaseId": "F2",
+        "taskId": "T-003",
+        "text": "task T-003 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F2:T-003:skills/core/implement.md",
+        "kind": "output-path",
+        "path": "skills/core/implement.md",
+        "text": "skills/core/implement.md",
+        "phaseId": "F2",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F2:T-003:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F2",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F2:T-003:scripts/assert-automate-gate.js",
+        "kind": "output-path",
+        "path": "scripts/assert-automate-gate.js",
+        "text": "scripts/assert-automate-gate.js",
+        "phaseId": "F2",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F2:T-003:src/automate-orchestrator-gates.js",
+        "kind": "output-path",
+        "path": "src/automate-orchestrator-gates.js",
+        "text": "src/automate-orchestrator-gates.js",
+        "phaseId": "F2",
+        "taskId": "T-003"
+      },
+      {
+        "id": "claim:F3:T-001",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "docs/kb/implement-phase-agents-dogfood.md",
+          "docs/kb/automate-default-dogfood.md",
+          "docs/kb/implement-phase-agents-dogfood.md",
+          "docs/kb/automate-default-dogfood.md"
+        ],
+        "phaseId": "F3",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=4"
+      },
+      {
+        "id": "output:F3:T-001:docs/kb/implement-phase-agents-dogfood.md",
+        "kind": "output-path",
+        "path": "docs/kb/implement-phase-agents-dogfood.md",
+        "text": "docs/kb/implement-phase-agents-dogfood.md",
+        "phaseId": "F3",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F3:T-001:docs/kb/automate-default-dogfood.md",
+        "kind": "output-path",
+        "path": "docs/kb/automate-default-dogfood.md",
+        "text": "docs/kb/automate-default-dogfood.md",
+        "phaseId": "F3",
+        "taskId": "T-001"
+      },
+      {
+        "id": "claim:F4:T-001",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/phase-review-gate.js",
+          "tests/phase-review-gate.test.js",
+          "skills/shared/implement-automate-maestro.md",
+          "src/phase-review-gate.js",
+          "tests/phase-review-gate.test.js",
+          "skills/shared/implement-automate-maestro.md"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-001",
+        "text": "task T-001 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F4:T-001:src/phase-review-gate.js",
+        "kind": "output-path",
+        "path": "src/phase-review-gate.js",
+        "text": "src/phase-review-gate.js",
+        "phaseId": "F4",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F4:T-001:tests/phase-review-gate.test.js",
+        "kind": "output-path",
+        "path": "tests/phase-review-gate.test.js",
+        "text": "tests/phase-review-gate.test.js",
+        "phaseId": "F4",
+        "taskId": "T-001"
+      },
+      {
+        "id": "output:F4:T-001:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F4",
+        "taskId": "T-001"
+      },
+      {
+        "id": "claim:F4:T-002",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/phase-evaluation-gate.js",
+          "tests/phase-evaluation-gate.test.js",
+          "skills/shared/implement-phase-evaluator.md",
+          "src/phase-evaluation-gate.js",
+          "tests/phase-evaluation-gate.test.js",
+          "skills/shared/implement-phase-evaluator.md"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-002",
+        "text": "task T-002 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F4:T-002:src/phase-evaluation-gate.js",
+        "kind": "output-path",
+        "path": "src/phase-evaluation-gate.js",
+        "text": "src/phase-evaluation-gate.js",
+        "phaseId": "F4",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F4:T-002:tests/phase-evaluation-gate.test.js",
+        "kind": "output-path",
+        "path": "tests/phase-evaluation-gate.test.js",
+        "text": "tests/phase-evaluation-gate.test.js",
+        "phaseId": "F4",
+        "taskId": "T-002"
+      },
+      {
+        "id": "output:F4:T-002:skills/shared/implement-phase-evaluator.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-phase-evaluator.md",
+        "text": "skills/shared/implement-phase-evaluator.md",
+        "phaseId": "F4",
+        "taskId": "T-002"
+      },
+      {
+        "id": "claim:F4:T-003",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/automate-orchestrator-gates.js",
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md",
+          "src/automate-orchestrator-gates.js",
+          "skills/shared/implement-decision-log.md",
+          "skills/shared/implement-automate-maestro.md"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-003",
+        "text": "task T-003 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F4:T-003:src/automate-orchestrator-gates.js",
+        "kind": "output-path",
+        "path": "src/automate-orchestrator-gates.js",
+        "text": "src/automate-orchestrator-gates.js",
+        "phaseId": "F4",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F4:T-003:skills/shared/implement-decision-log.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-decision-log.md",
+        "text": "skills/shared/implement-decision-log.md",
+        "phaseId": "F4",
+        "taskId": "T-003"
+      },
+      {
+        "id": "output:F4:T-003:skills/shared/implement-automate-maestro.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-automate-maestro.md",
+        "text": "skills/shared/implement-automate-maestro.md",
+        "phaseId": "F4",
+        "taskId": "T-003"
+      },
+      {
+        "id": "claim:F4:T-004",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "src/decision-log.js",
+          "tests/decision-log.test.js",
+          "docs/kb/implement-decision-log.md",
+          "src/decision-log.js",
+          "tests/decision-log.test.js",
+          "docs/kb/implement-decision-log.md"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-004",
+        "text": "task T-004 status=done shas=1 paths=6"
+      },
+      {
+        "id": "output:F4:T-004:src/decision-log.js",
+        "kind": "output-path",
+        "path": "src/decision-log.js",
+        "text": "src/decision-log.js",
+        "phaseId": "F4",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F4:T-004:tests/decision-log.test.js",
+        "kind": "output-path",
+        "path": "tests/decision-log.test.js",
+        "text": "tests/decision-log.test.js",
+        "phaseId": "F4",
+        "taskId": "T-004"
+      },
+      {
+        "id": "output:F4:T-004:docs/kb/implement-decision-log.md",
+        "kind": "output-path",
+        "path": "docs/kb/implement-decision-log.md",
+        "text": "docs/kb/implement-decision-log.md",
+        "phaseId": "F4",
+        "taskId": "T-004"
+      },
+      {
+        "id": "claim:F4:T-005",
+        "kind": "claim",
+        "status": "done",
+        "done": true,
+        "commitShas": [
+          "85927de02931adb5ec2acfe6a77789879dad6149"
+        ],
+        "paths": [
+          "skills/shared/project-assets/project-transitions.md",
+          "skills/shared/implement-antipatterns.md",
+          "src/lifecycle-order-guard.js",
+          "tests/lifecycle-order-guard.test.js",
+          "skills/shared/project-assets/project-transitions.md",
+          "skills/shared/implement-antipatterns.md",
+          "src/lifecycle-order-guard.js",
+          "tests/lifecycle-order-guard.test.js"
+        ],
+        "phaseId": "F4",
+        "taskId": "T-005",
+        "text": "task T-005 status=done shas=1 paths=8"
+      },
+      {
+        "id": "output:F4:T-005:skills/shared/project-assets/project-transitions.md",
+        "kind": "output-path",
+        "path": "skills/shared/project-assets/project-transitions.md",
+        "text": "skills/shared/project-assets/project-transitions.md",
+        "phaseId": "F4",
+        "taskId": "T-005"
+      },
+      {
+        "id": "output:F4:T-005:skills/shared/implement-antipatterns.md",
+        "kind": "output-path",
+        "path": "skills/shared/implement-antipatterns.md",
+        "text": "skills/shared/implement-antipatterns.md",
+        "phaseId": "F4",
+        "taskId": "T-005"
+      },
+      {
+        "id": "output:F4:T-005:src/lifecycle-order-guard.js",
+        "kind": "output-path",
+        "path": "src/lifecycle-order-guard.js",
+        "text": "src/lifecycle-order-guard.js",
+        "phaseId": "F4",
+        "taskId": "T-005"
+      },
+      {
+        "id": "output:F4:T-005:tests/lifecycle-order-guard.test.js",
+        "kind": "output-path",
+        "path": "tests/lifecycle-order-guard.test.js",
+        "text": "tests/lifecycle-order-guard.test.js",
+        "phaseId": "F4",
+        "taskId": "T-005"
+      }
+    ],
+    "commitShas": [
+      "85927de02931adb5ec2acfe6a77789879dad6149"
+    ],
+    "paths": [
+      "src/implement-mode.js",
+      "tests/implement-mode.test.js",
+      "skills/core/implement.md",
+      "skills/shared/implement-automate-maestro.md",
+      "skills/shared/implement-antipatterns.md",
+      "docs/kb/project-lazy-materialization.md",
+      "src/decision-review-package.js",
+      "tests/decision-review-package.test.js",
+      "src/decision-log.js",
+      "skills/shared/implement-decision-log.md",
+      "src/decision-review-gate.js",
+      "src/automate-orchestrator-gates.js",
+      "tests/decision-review-gate.test.js",
+      "docs/kb/implement-phase-agents-dogfood.md",
+      "src/plan-end-intent-surface.js",
+      "tests/plan-end-intent-surface.test.js",
+      "src/plan-end-review.js",
+      "docs/kb/cross-model-review-design.md",
+      "tests/plan-end-review.test.js",
+      "scripts/assert-automate-gate.js",
+      "docs/kb/automate-default-dogfood.md",
+      "src/phase-review-gate.js",
+      "tests/phase-review-gate.test.js",
+      "src/phase-evaluation-gate.js",
+      "tests/phase-evaluation-gate.test.js",
+      "skills/shared/implement-phase-evaluator.md",
+      "tests/decision-log.test.js",
+      "docs/kb/implement-decision-log.md",
+      "skills/shared/project-assets/project-transitions.md",
+      "src/lifecycle-order-guard.js",
+      "tests/lifecycle-order-guard.test.js"
+    ]
+  },
+  "rows": [
+    {
+      "id": "ivd:F0:goal",
+      "label": "Flip default so bare implement enters pure-maestro; Mode 1 is explicit; docs/tests match.",
+      "status": "matched",
+      "intentId": "F0:goal",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:value",
+      "label": "Automate is the default implement path so multi-phase plans run pure-maestro without a mode flag, with Mode 1 only via explicit escape.",
+      "status": "matched",
+      "intentId": "F0:bi:value",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:workflow",
+      "label": "TDD isAutomateActive and parse matrix first, then update implement/maestro prose and antipatterns so docs match machine default.",
+      "status": "matched",
+      "intentId": "F0:bi:workflow",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:rules",
+      "label": "Mode 1 remains via --mode=1; host-thin Iron Law unchanged; no auto-merge; durable stamp and clear path stay; session default must activate machine gates even before stamp.",
+      "status": "matched",
+      "intentId": "F0:bi:rules",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:outOfScope",
+      "label": "Decision package UX (F1); intent-vs-delivered plan-end (F2); dogfood checklist (F3); review stub authenticity and post-merge e2e from dump follow-ups.",
+      "status": "matched",
+      "intentId": "F0:bi:outOfScope",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:doneWhen",
+      "label": "implement-mode tests green for no-CLI no-stamp true; prose states automate default and Mode-1 escape; F0-G1 and F0-G2 met.",
+      "status": "matched",
+      "intentId": "F0:bi:doneWhen",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:exit:0",
+      "label": "implement-mode unit tests green with automate-default matrix.",
+      "status": "matched",
+      "intentId": "F0:exit:0",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:exit:1",
+      "label": "Skill prose states automate default and Mode-1 escape hatch.",
+      "status": "matched",
+      "intentId": "F0:exit:1",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:goal",
+      "label": "Operator always sees the decision package before PASS/FAIL; under automate every operator hardgate uses AskUserQuestion options only — free-text token recovery is forbidden; decline re-asks or STOPs.",
+      "status": "matched",
+      "intentId": "F1:goal",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:value",
+      "label": "Package present-before-PASS + canal AskUserQuestion-only (sem free-text) para hardgates de operador sob automate.",
+      "status": "matched",
+      "intentId": "F1:bi:value",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:workflow",
+      "label": "TDD package builder → gate machine present evidence → prosa/antipatterns AskUserQuestion-only + decline re-Ask → matriz continue/ratify/disposition/stamp; greps F1-G*.",
+      "status": "matched",
+      "intentId": "F1:bi:workflow",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:rules",
+      "label": "Agents never write PASS; present package body no mesmo turno do AskUserQuestion PASS|FAIL; decline re-Ask (bounded) ou STOP (nunca free-text); session default + stamp alimentam gates; host-thin Iron Law intact.",
+      "status": "matched",
+      "intentId": "F1:bi:rules",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:outOfScope",
+      "label": "F2 intent-vs-delivered; F3 dogfood checklist full; F4 authenticity floors; Lekto product; forçar widget fora de AskUserQuestion.",
+      "status": "matched",
+      "intentId": "F1:bi:outOfScope",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:doneWhen",
+      "label": "tests package green; present-before-PASS machine; AskUserQuestion-only + free-text ban greppable; F1-G1/G2/G3 met.",
+      "status": "matched",
+      "intentId": "F1:bi:doneWhen",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:exit:0",
+      "label": "Decision package unit tests pass.",
+      "status": "matched",
+      "intentId": "F1:exit:0",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:exit:1",
+      "label": "Present-before-PASS + package evidence mandated in prose/gates.",
+      "status": "matched",
+      "intentId": "F1:exit:1",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:exit:2",
+      "label": "AskUserQuestion-only + free-text ban + decline path greppable.",
+      "status": "matched",
+      "intentId": "F1:exit:2",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:goal",
+      "label": "Plan-end cross-model review compares intended vs delivered with a machine-checkable receipt field.",
+      "status": "matched",
+      "intentId": "F2:goal",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:value",
+      "label": "Plan-end sob automate responde \"entregamos o que o plano prometeu?\" via intent-vs-delivered machine-checkable no receipt.",
+      "status": "matched",
+      "intentId": "F2:bi:value",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:workflow",
+      "label": "TDD collectors intent/delivered → brief + receipt intentVsDelivered + wire planEndReviewOk/assert finalize → prosa Step I.",
+      "status": "matched",
+      "intentId": "F2:bi:workflow",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:rules",
+      "label": "Fail-closed se intentVsDelivered vazio sob automate (session default ou stamp); external-both mantém ≥1 leg family-different; skip plan-end HARD-CLOSED sob stamp; userValidationOk continua operator-owned; sem auto-merge.",
+      "status": "matched",
+      "intentId": "F2:bi:rules",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:outOfScope",
+      "label": "F3 dogfood checklist; F4 authenticity dual-leg floors; Playwright pós-merge; Lekto product; auto-PASS user validation.",
+      "status": "matched",
+      "intentId": "F2:bi:outOfScope",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:doneWhen",
+      "label": "tests intent-surface + plan-end green; receipt exige intentVsDelivered; assert finalize falha se ausente; F2-G1/G2 met.",
+      "status": "matched",
+      "intentId": "F2:bi:doneWhen",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:exit:0",
+      "label": "Intent surface and plan-end tests pass.",
+      "status": "matched",
+      "intentId": "F2:exit:0",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:exit:1",
+      "label": "Maestro Step I requires intent-vs-delivered under automate.",
+      "status": "matched",
+      "intentId": "F2:exit:1",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:goal",
+      "label": "Checklist so the next automate run proves the three gates without chat memory.",
+      "status": "matched",
+      "intentId": "F3:goal",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:bi:value",
+      "label": "Operador tem checklist durable que prova F0 default + F1 present-before-PASS + F2 intentVsDelivered sem memória de chat.",
+      "status": "matched",
+      "intentId": "F3:bi:value",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:bi:workflow",
+      "label": "Escrever/atualizar docs/kb checklist rows + greps; zero product code.",
+      "status": "matched",
+      "intentId": "F3:bi:workflow",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:bi:rules",
+      "label": "Só KB/checklist; sem app code; alinhar a F0–F2 já shipped.",
+      "status": "matched",
+      "intentId": "F3:bi:rules",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:bi:outOfScope",
+      "label": "F4 authenticity; product Lekto; reimplementar gates F0–F2.",
+      "status": "matched",
+      "intentId": "F3:bi:outOfScope",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:bi:doneWhen",
+      "label": "F3-G1 rg green; file(s) com as rows listadas.",
+      "status": "matched",
+      "intentId": "F3:bi:doneWhen",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:exit:0",
+      "label": "Dogfood checklist covers default decision package and intent-vs-delivered.",
+      "status": "matched",
+      "intentId": "F3:exit:0",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:goal",
+      "label": "Fail-closed authenticity for phase review dual-leg and evaluation floors; major disposition tokens; decision-log statusRoot normalize; phase-done mirror/assert path (no host hand-edit).",
+      "status": "matched",
+      "intentId": "F4:goal",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:bi:value",
+      "label": "Fases sob automate não podem carimbar reviewGate/evaluationGate passed com receipt stub ou disposition major sem token do operador; phase-done não deixa archive com exitGates mentindo; decision-log não aceita statusRoot que duplica projects/.",
+      "status": "matched",
+      "intentId": "F4:bi:value",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:bi:workflow",
+      "label": "TDD: authenticity floor em phase-review-gate (dual path, min size, non-binary); evaluation content floor; disposition major exige token operator (decline != accept); decisionLogPath normaliza statusRoot; assert mirror exitGates + validate-state no dir do plan e antipattern hand-edit phase-done; prosa maestro/transitions; testes unitários e greps de prosa.",
+      "status": "matched",
+      "intentId": "F4:bi:workflow",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:bi:rules",
+      "label": "Floor médio (não parser full codex). Não auto-merge. Não reabrir F0–F3. Fora: post-merge Playwright, session-break, phase-done-apply script completo, Layer 4. Host-thin permanece.",
+      "status": "matched",
+      "intentId": "F4:bi:rules",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:bi:outOfScope",
+      "label": "Post-merge e2e re-run (Cluster B); claims durable path; session-break AskUserQuestion; phase-done-apply atômico completo; forçar 2 external providers; backlog produto Lekto; auto-PASS decision-review.",
+      "status": "matched",
+      "intentId": "F4:bi:outOfScope",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:bi:doneWhen",
+      "label": "phase-done sob automate falha com stub/corrupt dual-leg; evaluation thin sem floor falha; major sem disposition token bloqueia; statusRoot double-projects rejeitado; mirror exitGates assert + prosa canônica; F4-G* met.",
+      "status": "matched",
+      "intentId": "F4:bi:doneWhen",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:exit:0",
+      "label": "phase-review authenticity tests pass (dual leg, min size, non-binary reject stub/corrupt).",
+      "status": "matched",
+      "intentId": "F4:exit:0",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:exit:1",
+      "label": "decision-log statusRoot normalize tests pass; double projects path rejected or fixed.",
+      "status": "matched",
+      "intentId": "F4:exit:1",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:exit:2",
+      "label": "Prose requires present dual-leg authenticity, disposition token, canonical phase-done (no hand-edit).",
+      "status": "matched",
+      "intentId": "F4:exit:2",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:exit:3",
+      "label": "assert or unit tests cover exitGate mirror / terminal pending block under automate close.",
+      "status": "matched",
+      "intentId": "F4:exit:3",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:value",
+      "label": "Automate is the default implement path so multi-phase plans run pure-maestro without a mode flag, with Mode 1 only via explicit escape.",
+      "status": "matched",
+      "intentId": "F0:bi:value",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:workflow",
+      "label": "TDD isAutomateActive and parse matrix first, then update implement/maestro prose and antipatterns so docs match machine default.",
+      "status": "matched",
+      "intentId": "F0:bi:workflow",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:rules",
+      "label": "Mode 1 remains via --mode=1; host-thin Iron Law unchanged; no auto-merge; durable stamp and clear path stay; session default must activate machine gates even before stamp.",
+      "status": "matched",
+      "intentId": "F0:bi:rules",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:outOfScope",
+      "label": "Decision package UX (F1); intent-vs-delivered plan-end (F2); dogfood checklist (F3); review stub authenticity and post-merge e2e from dump follow-ups.",
+      "status": "matched",
+      "intentId": "F0:bi:outOfScope",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:bi:doneWhen",
+      "label": "implement-mode tests green for no-CLI no-stamp true; prose states automate default and Mode-1 escape; F0-G1 and F0-G2 met.",
+      "status": "matched",
+      "intentId": "F0:bi:doneWhen",
+      "phaseId": "F0",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F0:T-001:acc:0",
+      "label": "it - Absent CLI mode and no stamp yields isAutomateActive true.; it - Explicit mode 1 or mode:1 yields isAutomateActive false.; it - mode=automate and stamp-alone still true; clearExecutionMode still false.; it - Unit matrix covers no-CLI no-stamp for automate-default.",
+      "status": "matched",
+      "intentId": "F0:T-001:acc:0",
+      "deliveredId": "task:F0:T-001",
+      "phaseId": "F0",
+      "taskId": "T-001",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F0:T-002:acc:0",
+      "label": "it - Prose states automate is default and Mode 1 requires explicit flag.; it - Original opt-in only principle is marked superseded by this plan.; it - Antipattern exists for assuming bare implement is session-writer Mode 1.; it - Maestro notes gate activation rule for session default plus stamp.",
+      "status": "matched",
+      "intentId": "F0:T-002:acc:0",
+      "deliveredId": "task:F0:T-002",
+      "phaseId": "F0",
+      "taskId": "T-002",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F1:bi:value",
+      "label": "Package present-before-PASS + canal AskUserQuestion-only (sem free-text) para hardgates de operador sob automate.",
+      "status": "matched",
+      "intentId": "F1:bi:value",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:workflow",
+      "label": "TDD package builder → gate machine present evidence → prosa/antipatterns AskUserQuestion-only + decline re-Ask → matriz continue/ratify/disposition/stamp; greps F1-G*.",
+      "status": "matched",
+      "intentId": "F1:bi:workflow",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:rules",
+      "label": "Agents never write PASS; present package body no mesmo turno do AskUserQuestion PASS|FAIL; decline re-Ask (bounded) ou STOP (nunca free-text); session default + stamp alimentam gates; host-thin Iron Law intact.",
+      "status": "matched",
+      "intentId": "F1:bi:rules",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:outOfScope",
+      "label": "F2 intent-vs-delivered; F3 dogfood checklist full; F4 authenticity floors; Lekto product; forçar widget fora de AskUserQuestion.",
+      "status": "matched",
+      "intentId": "F1:bi:outOfScope",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:bi:doneWhen",
+      "label": "tests package green; present-before-PASS machine; AskUserQuestion-only + free-text ban greppable; F1-G1/G2/G3 met.",
+      "status": "matched",
+      "intentId": "F1:bi:doneWhen",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:goal",
+      "label": "Operator always sees the decision package before PASS/FAIL; under automate every operator hardgate uses AskUserQuestion options only — free-text token recovery is forbidden; decline re-Asks or STOPs.",
+      "status": "matched",
+      "intentId": "F1:goal",
+      "phaseId": "F1",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F1:T-001:acc:0",
+      "label": "it - Helper builds package with phaseId path entries empty flag and summaryMarkdown from listDecisions input.; it - Each entry exposes category decision why impact evidencePath.; it - Empty log yields empty true and explicit no-decisions banner text.; it - Unit tests cover non-empty and empty packages.",
+      "status": "matched",
+      "intentId": "F1:T-001:acc:0",
+      "deliveredId": "task:F1:T-001",
+      "phaseId": "F1",
+      "taskId": "T-001",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F1:T-002:acc:0",
+      "label": "it - Fixed order requires host render decision package before PASS ask.; it - decisionReview records packagePresentedAt or package present evidence under automate.; it - decisionReviewAllowsPhaseDone or canRunPhaseDone fails closed without present evidence when automate active including no-stamp session default.; it - Antipattern documents Ask PASS without listing decisions.",
+      "status": "matched",
+      "intentId": "F1:T-002:acc:0",
+      "deliveredId": "task:F1:T-002",
+      "phaseId": "F1",
+      "taskId": "T-002",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F1:T-002:acc:1",
+      "label": "it - Dogfood evidence ask-without-package-body (reviews/2026-07-26-f0-decision-review-ask-without-package-body.md) is treated as FAIL present-before-PASS until package body is in the same hardgate turn as PASS/FAIL AskUserQuestion.",
+      "status": "matched",
+      "intentId": "F1:T-002:acc:1",
+      "deliveredId": "task:F1:T-002",
+      "phaseId": "F1",
+      "taskId": "T-002",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F1:T-003:acc:0",
+      "label": "it - UX documents two-step: present package body then AskUserQuestion PASS|FAIL options in the same hardgate turn.; it - Free-text recovery (e.g. host asks operator to type decision-review PASS) is forbidden in prose and antipatterns.; it - Decline/cancel of AskUserQuestion re-opens the same question (bounded) or STOPs with nextAction to re-open AskUserQuestion — never chat typing.; it - Single-click PASS without package body in the same turn is forbidden.",
+      "status": "matched",
+      "intentId": "F1:T-003:acc:0",
+      "deliveredId": "task:F1:T-003",
+      "phaseId": "F1",
+      "taskId": "T-003",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F1:T-003:acc:1",
+      "label": "it - Claiming package apresentado without rendering package body in the same AskUserQuestion turn is forbidden (dogfood 2026-07-26 screenshot + evidence file).",
+      "status": "matched",
+      "intentId": "F1:T-003:acc:1",
+      "deliveredId": "task:F1:T-003",
+      "phaseId": "F1",
+      "taskId": "T-003",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F1:T-004:acc:0",
+      "label": "it - Maestro lists operator hardgates continue ratify disposition decision-review stamp as AskUserQuestion-only.; it - Each maps options to durable tokens without free-text recovery.; it - Antipattern exists for type token in chat after decline.; it - Dogfood checklist row covers exclusive AskUserQuestion channel.",
+      "status": "matched",
+      "intentId": "F1:T-004:acc:0",
+      "deliveredId": "task:F1:T-004",
+      "phaseId": "F1",
+      "taskId": "T-004",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F2:bi:value",
+      "label": "Plan-end sob automate responde \"entregamos o que o plano prometeu?\" via intent-vs-delivered machine-checkable no receipt.",
+      "status": "matched",
+      "intentId": "F2:bi:value",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:workflow",
+      "label": "TDD collectors intent/delivered → brief + receipt intentVsDelivered + wire planEndReviewOk/assert finalize → prosa Step I.",
+      "status": "matched",
+      "intentId": "F2:bi:workflow",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:rules",
+      "label": "Fail-closed se intentVsDelivered vazio sob automate (session default ou stamp); external-both mantém ≥1 leg family-different; skip plan-end HARD-CLOSED sob stamp; userValidationOk continua operator-owned; sem auto-merge.",
+      "status": "matched",
+      "intentId": "F2:bi:rules",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:outOfScope",
+      "label": "F3 dogfood checklist; F4 authenticity dual-leg floors; Playwright pós-merge; Lekto product; auto-PASS user validation.",
+      "status": "matched",
+      "intentId": "F2:bi:outOfScope",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:bi:doneWhen",
+      "label": "tests intent-surface + plan-end green; receipt exige intentVsDelivered; assert finalize falha se ausente; F2-G1/G2 met.",
+      "status": "matched",
+      "intentId": "F2:bi:doneWhen",
+      "phaseId": "F2",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F2:T-001:acc:0",
+      "label": "it - Builds intent surface from phase goals businessIntent tasks acceptance and exit criteria when provided.; it - Builds delivered surface from task evidence done status claim SHAs and outputs paths when provided.; it - Exports markdown brief section Intent vs delivered checklist for the review prompt.; it - Unit tests cover multi-phase sample input.",
+      "status": "matched",
+      "intentId": "F2:T-001:acc:0",
+      "deliveredId": "task:F2:T-001",
+      "phaseId": "F2",
+      "taskId": "T-001",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F2:T-002:acc:0",
+      "label": "it - Under automate plan-end requires intent-vs-delivered brief in the cross-model context.; it - Receipt or linked structured section includes intentVsDelivered rows with status matched partial missing or extra.; it - Empty intentVsDelivered fails planEndReviewOk or automatePlanEndGatesOk under automate including session default.; it - Docs state plan-end answers did we build what we planned.",
+      "status": "matched",
+      "intentId": "F2:T-002:acc:0",
+      "deliveredId": "task:F2:T-002",
+      "phaseId": "F2",
+      "taskId": "T-002",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F2:T-003:acc:0",
+      "label": "it - Step I order is build surfaces run external-both stamp receipt with intentVsDelivered then userValidation then finalize.; it - assert finalize fails if intentVsDelivered missing under automate.; it - implement.md points at intent-vs-delivered plan-end rule.",
+      "status": "matched",
+      "intentId": "F2:T-003:acc:0",
+      "deliveredId": "task:F2:T-003",
+      "phaseId": "F2",
+      "taskId": "T-003",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F3:bi:value",
+      "label": "Operador tem checklist durable que prova F0 default + F1 present-before-PASS + F2 intentVsDelivered sem memória de chat.",
+      "status": "matched",
+      "intentId": "F3:bi:value",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:bi:workflow",
+      "label": "Escrever/atualizar docs/kb checklist rows + greps; zero product code.",
+      "status": "matched",
+      "intentId": "F3:bi:workflow",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:bi:rules",
+      "label": "Só KB/checklist; sem app code; alinhar a F0–F2 já shipped.",
+      "status": "matched",
+      "intentId": "F3:bi:rules",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:bi:outOfScope",
+      "label": "F4 authenticity; product Lekto; reimplementar gates F0–F2.",
+      "status": "matched",
+      "intentId": "F3:bi:outOfScope",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:bi:doneWhen",
+      "label": "F3-G1 rg green; file(s) com as rows listadas.",
+      "status": "matched",
+      "intentId": "F3:bi:doneWhen",
+      "phaseId": "F3",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F3:T-001:acc:0",
+      "label": "it - Rows cover bare implement activates automate.; it - Rows cover Mode 1 explicit escape.; it - Rows cover decision package shown before PASS.; it - Rows cover plan-end receipt intentVsDelivered and finalize blocked without it.; it - File docs/kb/automate-default-dogfood.md or dogfood section exists with those rows.",
+      "status": "matched",
+      "intentId": "F3:T-001:acc:0",
+      "deliveredId": "task:F3:T-001",
+      "phaseId": "F3",
+      "taskId": "T-001",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F4:bi:value",
+      "label": "Fases sob automate não podem carimbar reviewGate/evaluationGate passed com receipt stub ou disposition major sem token do operador; phase-done não deixa archive com exitGates mentindo; decision-log não aceita statusRoot que duplica projects/.",
+      "status": "matched",
+      "intentId": "F4:bi:value",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:bi:workflow",
+      "label": "TDD: authenticity floor em phase-review-gate (dual path, min size, non-binary); evaluation content floor; disposition major exige token operator (decline != accept); decisionLogPath normaliza statusRoot; assert mirror exitGates + validate-state no dir do plan e antipattern hand-edit phase-done; prosa maestro/transitions; testes unitários e greps de prosa.",
+      "status": "matched",
+      "intentId": "F4:bi:workflow",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:bi:rules",
+      "label": "Floor médio (não parser full codex). Não auto-merge. Não reabrir F0–F3. Fora: post-merge Playwright, session-break, phase-done-apply script completo, Layer 4. Host-thin permanece.",
+      "status": "matched",
+      "intentId": "F4:bi:rules",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:bi:outOfScope",
+      "label": "Post-merge e2e re-run (Cluster B); claims durable path; session-break AskUserQuestion; phase-done-apply atômico completo; forçar 2 external providers; backlog produto Lekto; auto-PASS decision-review.",
+      "status": "matched",
+      "intentId": "F4:bi:outOfScope",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:bi:doneWhen",
+      "label": "phase-done sob automate falha com stub/corrupt dual-leg; evaluation thin sem floor falha; major sem disposition token bloqueia; statusRoot double-projects rejeitado; mirror exitGates assert + prosa canônica; F4-G* met.",
+      "status": "matched",
+      "intentId": "F4:bi:doneWhen",
+      "phaseId": "F4",
+      "note": "phase tasks fully evidenced"
+    },
+    {
+      "id": "ivd:F4:T-001:acc:0",
+      "label": "it - phaseReviewAllowsClose or honesty helper rejects one-line stub codex/local under mode both.; it - rejects binary/null-byte receipt content.; it - accepts dual non-stub receipts with min size and CLEAN or findings.; it - unit tests cover stub reject and real dual accept.; it - maestro Step G prose states dual-leg authenticity under automate.",
+      "status": "matched",
+      "intentId": "F4:T-001:acc:0",
+      "deliveredId": "task:F4:T-001",
+      "phaseId": "F4",
+      "taskId": "T-001",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F4:T-002:acc:0",
+      "label": "it - evaluationGate passed requires report file exists with min content keys or min bytes.; it - thin 2-line verdict-only fails floor under automate.; it - unit tests cover thin reject and structured accept.; it - implement-phase-evaluator prose documents floor.",
+      "status": "matched",
+      "intentId": "F4:T-002:acc:0",
+      "deliveredId": "task:F4:T-002",
+      "phaseId": "F4",
+      "taskId": "T-002",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F4:T-003:acc:0",
+      "label": "it - open major findings block phase-done without review-disposition accept or defer or fix token from operator.; it - host judgment accept after decline fails gate.; it - decision-log and maestro prose state decline is not accept.; it - unit or gate tests cover disposition required path.",
+      "status": "matched",
+      "intentId": "F4:T-003:acc:0",
+      "deliveredId": "task:F4:T-003",
+      "phaseId": "F4",
+      "taskId": "T-003",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F4:T-004:acc:0",
+      "label": "it - statusRoot ending in projects/id is rejected or normalized to status root without double projects.; it - canonical path remains statusRoot/projects/id/slug/decisions/phase.jsonl.; it - unit tests cover bad statusRoot and happy path.; it - docs mention statusRoot must be .atomic-skills root.",
+      "status": "matched",
+      "intentId": "F4:T-004:acc:0",
+      "deliveredId": "task:F4:T-004",
+      "phaseId": "F4",
+      "taskId": "T-004",
+      "note": "task done with claim SHA(s)"
+    },
+    {
+      "id": "ivd:F4:T-005:acc:0",
+      "label": "it - helper or guard fails when plan criteria met but initiative exitGates pending before archive.; it - project-transitions and antipatterns forbid hand-edit phase-done under automate.; it - prose requires validate-state on plan directory before advance commit.; it - unit or integration tests cover mirror pending block.",
+      "status": "matched",
+      "intentId": "F4:T-005:acc:0",
+      "deliveredId": "task:F4:T-005",
+      "phaseId": "F4",
+      "taskId": "T-005",
+      "note": "task done with claim SHA(s)"
+    }
+  ],
+  "matched": 85,
+  "partial": 0,
+  "missing": 0,
+  "extra": 0
+}

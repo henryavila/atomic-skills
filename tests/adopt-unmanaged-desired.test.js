@@ -38,7 +38,7 @@ describe('unmanaged-desired install path (P1-A / F-004)', () => {
   });
 
   it('preserves user-edited foreign skill body; reports unresolved; retry same', () => {
-    const rel = '.claude/commands/atomic-skills/project.md';
+    const rel = '.claude/commands/atomic-skills/hunt.md';
     mkdirSync(join(tempDir, '.claude/commands/atomic-skills'), { recursive: true });
     const userBody = '# My custom project command — do not clobber\n';
     writeFileSync(join(tempDir, rel), userBody);
@@ -79,7 +79,7 @@ describe('unmanaged-desired install path (P1-A / F-004)', () => {
   });
 
   it('uninstall does not remove unmanaged user file', () => {
-    const rel = '.claude/commands/atomic-skills/project.md';
+    const rel = '.claude/commands/atomic-skills/hunt.md';
     mkdirSync(join(tempDir, '.claude/commands/atomic-skills'), { recursive: true });
     const userBody = '# keep me across uninstall\n';
     writeFileSync(join(tempDir, rel), userBody);
@@ -95,7 +95,7 @@ describe('unmanaged-desired install path (P1-A / F-004)', () => {
   });
 
   it('stale package leftover (namespace + frontmatter + known basename) is reclaimed', () => {
-    const rel = '.claude/commands/atomic-skills/project.md';
+    const rel = '.claude/commands/atomic-skills/hunt.md';
     mkdirSync(join(tempDir, '.claude/commands/atomic-skills'), { recursive: true });
     writeFileSync(
       join(tempDir, rel),
@@ -129,7 +129,7 @@ describe('unmanaged-desired install path (P1-A / F-004)', () => {
   });
 
   it('--force-adopt reclaims foreign content at desired path', () => {
-    const rel = '.claude/commands/atomic-skills/project.md';
+    const rel = '.claude/commands/atomic-skills/hunt.md';
     mkdirSync(join(tempDir, '.claude/commands/atomic-skills'), { recursive: true });
     writeFileSync(join(tempDir, rel), '# totally foreign content\n');
 

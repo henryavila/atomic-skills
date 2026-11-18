@@ -1,0 +1,8 @@
+{
+  "at": "2026-10-03T02:29:38.398Z",
+  "phaseId": "F5",
+  "writerBranch": "impl/real-automate-F5-writer",
+  "previousStartedAt": "2026-10-02T20:00:59.499Z",
+  "reason": "Recovered prior-session lease only after resumed writer exited, claims validated and implementation merged. Prior acquire secret was not retained; identity backup preserved privately. No second writer was acquired.",
+  "backupPath": "/tmp/real-automate-settled-lease-KXCGOP"
+}

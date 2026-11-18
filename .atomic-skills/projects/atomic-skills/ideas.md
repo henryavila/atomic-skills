@@ -37,3 +37,25 @@ O fluxo ad-hoc/new initiative ficou defasado em relacao ao modelo atual de plano
 `2026-07-09 · branch:develop · status:pending`
 
 O comando project help mostra a espinha IDEIA > DESIGN > PLANO > DECOMPOSE > MATERIALIZE > IMPLEMENT como se os estagios anteriores estivessem comprovadamente concluidos. A auditoria mostrou que o helper apenas calcula spineStage=IMPLEMENT por haver tasks abertas na F0; MATERIALIZE e verdadeiro so para a fase ativa F0, enquanto F1-F3 continuam descriptor-only com sidecars source.json. Corrigir o render/copy para explicitar posicao operacional no fluxo, por exemplo MATERIALIZE(F0), e nao sugerir que todo o plano ja foi materializado.
+
+## #6 · microNote ↔ atomic-skills: card de reentrada humana na implementação multi-agent
+`2026-07-26 · branch:develop · status:pending`
+
+Projetar microNote (micro-notes-cli / MICRONOTE.md) como painel de reentrada humana paralelo ao implement/project — não como SoT nem handoff do agent.
+
+Problema: o scroll do TUI/CLI (Grok e outros) perde o fio entre vários agents, planos e worktrees; o humano não responde em <20s a “qual stream? o que está agora? preciso agir? o que validar?”.
+
+Papel: microNote serve o revisor (humano). Session handoff + .atomic-skills/ continuam SoT de agent/resume. focus.json/statusline = glance; aiDeck = deep routing; microNote = card act-or-ignore por worktree.
+
+Incidente gerador: ao bootstrap do plano automate-default-and-operator-gates o agent editou MICRONOTE.md com situação/instruções (instinto certo) mas com contrato errado — status “handoff” fora do pack, Todo com grafo F0–F4 (task graph do agent), handoff canônico misturado no card, edit MD direto em vez de `mn`.
+
+Direção de produto (se promovida):
+- Projeção one-way nos boundaries de implement/project (spawn, blocked, ready, phase-done): `mn status` + `mn now` + Todo só com itens de validação/decisão humana.
+- Pack ai-dev (coding / review-code / ready / blocked+Wait).
+- Agent preenche, nunca dono; nunca fechar task por check no microNote.
+- Não duplicar T-00N/nextAction no Todo; Now derivado de focus/nextAction quando útil.
+- Evitar commit de MICRONOTE em checkpoint de task (noise de review).
+
+Non-goals: substituir ## Session handoff, orquestrar agents, virar dashboard cross-stream, skill de orquestração.
+
+Repos relacionados: micro-notes-cli SCHEMA-v0.1, pack ai-dev, focus.json / statusline, grok-phase-todo-projection, automate-default decision-review/plan-end human gates.

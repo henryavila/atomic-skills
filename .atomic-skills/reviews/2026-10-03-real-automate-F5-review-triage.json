@@ -1,0 +1,99 @@
+{
+  "reviewedHead": "a12145cc32a06d8b3fcac8f0a4b7ff182123baea",
+  "at": "2026-10-03T04:27:07.286Z",
+  "verdict": "needs_changes",
+  "sources": [
+    "isolated local residual review",
+    "actual Grok structured authority/runtime scope processes"
+  ],
+  "issues": [
+    {
+      "id": "R2-1",
+      "taskId": "T-003",
+      "severity": "major",
+      "file": "scripts/automate-run.js",
+      "line": 777,
+      "claim": "Reviewed working-tree bytes can differ from pushed HEAD.",
+      "repro": "Edit tracked source after PR failure; renewed review passes dirty bytes but defaultPr pushes unchanged committed HEAD.",
+      "fix": "Stop on uncommitted product changes before publication (prefer before actual reviews/repair clones); allow owned operational files only. Real git/bare-remote regression must verify uploaded source."
+    },
+    {
+      "id": "R2-2",
+      "taskId": "T-002",
+      "severity": "major",
+      "file": "src/plan-end-review.js",
+      "line": 425,
+      "claim": "Normal finalize PR tracking invalidates current review and HTTP proof.",
+      "repro": "After genuine button validation, append the documented references[] {kind:url,path:PR URL,label:PR #N}; archive/finalize guard rejects with unchanged delivered bytes.",
+      "fix": "Normalize only proven lifecycle metadata/PR tracking in both review and presentation identity; preserve substantive delivered/reference changes. Update coupled finalize/archive instructions to use real sidecar/authenticated loader, never manually stamp timestamp."
+    },
+    {
+      "id": "R2-3",
+      "taskId": "T-002",
+      "severity": "major",
+      "file": "src/plan-end-review.js",
+      "line": 496,
+      "claim": "Nested tracked operational JSON outside .atomic-skills enters product identity; root prefix exclusion also omits legitimate root automate-*.js product.",
+      "repro": "Tracked docs/demo/automate-plan-end-review.json or final-validation.json changes its own expected snapshot when written.",
+      "fix": "Use exact owned operational artifacts relative to this plan directory plus existing state tree, not broad basename/prefix exemptions. Keep real source named automate-* hashed."
+    },
+    {
+      "id": "R2-4",
+      "taskId": "T-002",
+      "severity": "major",
+      "file": "scripts/lib/serve-flow.js",
+      "line": 202,
+      "claim": "Regex-only timestamp replacement corrupts quoted/folded YAML and body examples.",
+      "repro": "Existing userValidatedAt: |- with indented ISO is removed only on first line, leaving invalid YAML after the real button writes. Quoted key may become duplicate.",
+      "fix": "Handle the actual YAML field structurally/surgically while preserving body, other metadata, and sidecar separation. Use normalized timestamp omission in snapshots; genuine button remains sole writer."
+    },
+    {
+      "id": "R2-5",
+      "taskId": "T-003",
+      "severity": "major",
+      "file": "scripts/automate-run.js",
+      "line": 713,
+      "claim": "Native review CLI transport differs from direct JSON.parse stdout.",
+      "repro": "Real Grok --json-schema review (exit0) returned {text:JSON-string,structuredOutput:object,stopReason:end_turn,...}; plain stdout also carried progress messages.",
+      "fix": "Use native structured-output flags and strictly unwrap only known final provider messages (Grok structuredOutput/text, Claude structured_output/result, Codex completed agent-message NDJSON). Reject error/truncated/non-final transport and malformed report; preserve original process evidence. Actual example is in HOST /tmp/real-automate-scoped-review-tcu0w9xr/authority.out.json; consume only public response fields, never propagate thought."
+    },
+    {
+      "id": "R2-6",
+      "taskId": "T-003",
+      "severity": "minor",
+      "file": "scripts/automate-run.js",
+      "line": 898,
+      "claim": "Null intent rows throw outside controlled stop path.",
+      "repro": "Audit intentVsDelivered=[{status:matched},null] throws rather than recording nao avanço on same origin.",
+      "fix": "Validate row object/status and route malformed review data to the controlled HTTP stop; tests before production edit."
+    },
+    {
+      "id": "R2-7",
+      "taskId": "T-003",
+      "severity": "minor",
+      "file": "scripts/automate-run.js",
+      "line": 872,
+      "claim": "Brief JSON input construction and snapshot errors can throw outside the runtime stop contract.",
+      "repro": "Malformed/missing architecture or flow JSON during saved workflow exits1 outside review catch.",
+      "fix": "Guard runtime input/snapshot construction and return controlled nao avanço when preview can still serve; do not weaken the startup six detectors."
+    }
+  ],
+  "dismissed": [
+    {
+      "claim": "YAML unquoted ISO parsed as Date",
+      "reason": "Actual yaml.parse in installed dependency returned string, isDate=false; no type conversion needed."
+    },
+    {
+      "claim": "external-both requires two family-different legs in this new runner",
+      "reason": "Existing planEndReviewOk requires >=1 succeeded known family-different provider; default review actually invokes separate local + selected external and checks both verdicts. Preserve actual provenance; do not invent another provider."
+    },
+    {
+      "claim": "Audit repair does not advance cap and loops forever",
+      "reason": "Actual code sets state.reviewRounds[stage]=state.round+1 before invalidation; entering audit reads this budget. Existing real repair/cap regressions pass. Do separately check no fourth plan review after successful third plan round and audit source repair."
+    },
+    {
+      "claim": "Hyphenated graph IDs rejected",
+      "reason": "Actual flow.schema id excludes hyphens and shared coverage parser matches the same grammar; not a defect."
+    }
+  ]
+}

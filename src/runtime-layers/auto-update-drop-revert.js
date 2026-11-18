@@ -51,6 +51,7 @@ import {
   GROK_AUTO_UPDATE_HOOK_REL,
 } from './auto-update.js';
 import { MANIFEST_DIR, MANIFEST_FILE } from '../manifest.js';
+import { wrapInstallerRegistryForIdeSymlinks } from '../ide-symlink-install.js';
 
 /** Pending ledger filename under MANIFEST_DIR. */
 export const AUTO_UPDATE_DROP_PENDING_FILE = 'auto-update-drop-pending.json';
@@ -67,6 +68,14 @@ const AUTO_UPDATE_IDS = new Set([STAGE_ID, CLAUDE_JSON_ID, GROK_JSON_ID]);
 
 const stageEffect = createStageRuntimeArtifactsEffect();
 const jsonMergeEffect = createJsonMergeEffect();
+// Shrink revert must use the same IDE-root symlink resolution as install.
+// A fresh unwrapped jsonMerge walks `.grok/...` from the install base and
+// throws UNSAFE_PATH_RACE when that directory is a symlink.
+wrapInstallerRegistryForIdeSymlinks({
+  get(type) {
+    return type === 'jsonMerge' ? jsonMergeEffect : undefined;
+  },
+});
 
 const EFFECT_BY_TYPE = {
   stageRuntimeArtifacts: stageEffect,

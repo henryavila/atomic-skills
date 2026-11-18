@@ -19,6 +19,9 @@ Parallel work is discipline, not a shortcut. Give each agent a self-contained br
 {{#if ide.grok}}
   On Grok Build, that in-session path is `spawn_subagent` (explore). Do not invent custom plugin agent types for v1 — built-in explore/plan + this skill's cross-session isolation are enough.
 {{/if}}
+{{#if ide.antigravity}}
+  On Antigravity, in-session parallel investigation is supported via `invoke_subagent` (using the read-only `research` subagent). For multiple parallel investigations, pass multiple entries in `Subagents` array.
+{{/if}}
 - **User will stay at the keyboard the whole run** — cross-session handoff costs copy-paste friction; only pays off when the user is away (sleeping, in a meeting, switched tasks) or the parent context is tight.
 - **Investigations are short** (under ~15 min each) — setup overhead of this skill (~10 min for plan + audit) outweighs the parallelism gain.
 - **User's request is vague** — HARD-GATE #1 will abort; redirect to `atomic-skills:brainstorm` or `atomic-skills:prompt` first.

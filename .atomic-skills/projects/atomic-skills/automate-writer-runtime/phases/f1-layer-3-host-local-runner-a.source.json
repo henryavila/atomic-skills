@@ -1,0 +1,116 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "automate-writer-runtime-f1-layer-3-host-local-runner-a",
+  "title": "Layer 3 host-local runner (A)",
+  "goal": "Package CLI prepares one phase writer cycle and validates claims without hosting a daemon.",
+  "tasks": [
+    {
+      "id": "T-003",
+      "title": "Pure work-order and sealed-brief builders",
+      "scopeBoundary": [
+        "Do not spawn subagents. Do not mutate plan.md task status. Do not perform git worktree add in pure builders."
+      ],
+      "acceptance": [
+        "it - work-order includes only pending or active SPEC-admitted tasks of the phase.; it - sealed brief includes code-only fence and claim-report shape and excludes host chat history.; it - unit tests pass for missing SPEC fields fail closed."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/automate-work-order.test.js tests/automate-sealed-brief.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/automate-work-order.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/automate-sealed-brief.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/automate-work-order.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/automate-sealed-brief.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-004",
+      "title": "CLI automate-phase-run prepare and validate",
+      "scopeBoundary": [
+        "Do not call spawn_subagent from Node. Do not run orchestrator done or phase-done. Do not nest worktree under plan worktree path. Do not git-add lease secret files."
+      ],
+      "acceptance": [
+        "it - prepare exits 0 only when lease acquired and brief path exists.; it - validate exits non-zero on invalid claim report with shared SHAs without base head.; it - prepare refuses when isLeaseBlocking.; it - tests use temp dirs with no network."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/automate-phase-run.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/automate-phase-run.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/automate-phase-run-lib.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/automate-phase-run.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/automate-orchestrator-realism.md"
+        }
+      ]
+    },
+    {
+      "id": "T-005",
+      "title": "Skill Step C points at runner",
+      "scopeBoundary": [
+        "Do not implement fence logic. Do not hardcode absolute home paths; use package-root pattern."
+      ],
+      "acceptance": [
+        "it - maestro Step C lists prepare then spawn then validate order.; it - package-root resolution pattern matches other scripts in implement.md.; it - grep finds automate-phase-run in maestro asset."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/automate-work-order.test.js tests/automate-sealed-brief.test.js tests/automate-phase-run.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-phase-writer.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-F1-1",
+      "description": "Runner prepare validate covered by unit tests and skill wiring.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/automate-work-order.test.js tests/automate-sealed-brief.test.js tests/automate-phase-run.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

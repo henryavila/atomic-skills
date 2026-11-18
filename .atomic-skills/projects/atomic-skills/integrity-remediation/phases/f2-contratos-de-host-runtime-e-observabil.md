@@ -2,8 +2,11 @@
 schemaVersion: "0.1"
 slug: integrity-remediation-f2-contratos-de-host-runtime-e-observabil
 title: Contratos de host, runtime e observabilidade
-goal: Remover fallbacks silenciosos entre IDEs, classificar cada host como operational ou layout-only, tornar hooks scope-aware e fazer status/install relatarem o estado real de skills, assets, runtime e conflitos.
-summary: Remover fallbacks silenciosos entre IDEs, classificar cada host como operational ou layout-only, tor
+goal: Remover fallbacks silenciosos entre IDEs, classificar cada host como
+  operational ou layout-only, tornar hooks scope-aware e fazer status/install
+  relatarem o estado real de skills, assets, runtime e conflitos.
+summary: Remover fallbacks silenciosos entre IDEs, classificar cada host como
+  operational ou layout-only, tor
 status: done
 branch: plan/integrity-remediation
 started: 2026-07-16T17:23:53.684Z
@@ -12,7 +15,8 @@ nextAction: F2 complete — materialize F5
 parentPlan: integrity-remediation
 phaseId: F2
 businessIntent:
-  value: Hosts declare operational vs layout-only tiers; status reports real hashes/owners.
+  value: Hosts declare operational vs layout-only tiers; status reports real
+    hashes/owners.
   workflow: Host profiles + status observability.
   rules: No silent Claude token leak; no operational without probe.
   outOfScope: Gemini layout depth F5, multi-OS release F6.
@@ -25,11 +29,17 @@ weightDone: 4
 weightTotal: 4
 exitGates:
   - id: F2-G1
-    description: Cada host público declara contrato e support tier, renderizando ferramentas e hooks apenas do próprio perfil. FAILS when tokens/config Claude vazam, host sem probe é marcado operational ou tier fica implícito.
+    description: Cada host público declara contrato e support tier, renderizando
+      ferramentas e hooks apenas do próprio perfil. FAILS when tokens/config
+      Claude vazam, host sem probe é marcado operational ou tier fica implícito.
     status: met
     verifier:
       kind: shell
-      command: node scripts/validate-host-qualification.js --manifest meta/host-qualification.json && node --test tests/host-qualification-manifest.test.js tests/host-profile-contract.test.js tests/auto-update-host-matrix.test.js
+      command: node scripts/validate-host-qualification.js --manifest
+        meta/host-qualification.json && node --test
+        tests/host-qualification-manifest.test.js
+        tests/host-profile-contract.test.js
+        tests/auto-update-host-matrix.test.js
       expectExitCode: 0
     metAt: 2026-07-16T17:30:52.087Z
     evidence:
@@ -39,12 +49,18 @@ exitGates:
       exitCode: 0
       verifiedCommit: 7b1ccea3815c3bd6fc4694a09eb4f60845bc9697
       outputSummary: host qualification + profiles + auto-update matrix
+    verifierLabel: "shell: node scripts/validate-host-qualification.js --manifest meta…"
+    evidenceSummary: passed · 2026-07-16
   - id: F2-G2
-    description: Status e install observam hashes, decisões e runtime real. FAILS when stale, modified, preserved ou runtime mismatch aparece como up-to-date.
+    description: Status e install observam hashes, decisões e runtime real. FAILS
+      when stale, modified, preserved ou runtime mismatch aparece como
+      up-to-date.
     status: met
     verifier:
       kind: shell
-      command: node --test tests/status-verify.test.js tests/status-runtime-owners.test.js tests/runtime-multiversion.test.js tests/runtime-registry-recovery.test.js
+      command: node --test tests/status-verify.test.js
+        tests/status-runtime-owners.test.js tests/runtime-multiversion.test.js
+        tests/runtime-registry-recovery.test.js
       expectExitCode: 0
     metAt: 2026-07-16T17:30:52.087Z
     evidence:
@@ -54,6 +70,8 @@ exitGates:
       exitCode: 0
       verifiedCommit: 7b1ccea3815c3bd6fc4694a09eb4f60845bc9697
       outputSummary: status hash + runtime owners
+    verifierLabel: "shell: node --test tests/status-verify.test.js tests/status-runtim…"
+    evidenceSummary: passed · 2026-07-16
 stack:
   - id: 1
     title: Contratos de host, runtime e observabilidade
@@ -64,16 +82,32 @@ tasks:
     title: Definir perfis explícitos para cada host público
     summary: Definir perfis explícitos para cada host público
     weight: 1
-    description: "Substituir o fallback Claude por adapters declarados para Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot e manter um manifesto canônico com um support tier por PUBLIC_IDE_ID. `operational` exige adapter versionado e operações discovery/load/invoke no CLI real; `layout-only` exige `supportDeclared: false` e justificativa, sem alegação operacional. verified_by: `docs/audits/installer-audit-2026-07-10.md:202-225` e `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:313-345`."
+    description: "Substituir o fallback Claude por adapters declarados para Claude
+      Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot e manter um
+      manifesto canônico com um support tier por PUBLIC_IDE_ID. `operational`
+      exige adapter versionado e operações discovery/load/invoke no CLI real;
+      `layout-only` exige `supportDeclared: false` e justificativa, sem alegação
+      operacional. verified_by:
+      `docs/audits/installer-audit-2026-07-10.md:202-225` e
+      `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:313-345`\
+      ."
     status: done
     lastUpdated: 2026-07-16T17:30:52.087Z
     scopeBoundary:
-      - não reutilizar nomes de ferramentas Claude fora do perfil Claude, não deixar template variable sem substituição e não promover host sem receipt de probe real a operational
+      - não reutilizar nomes de ferramentas Claude fora do perfil Claude, não
+        deixar template variable sem substituição e não promover host sem
+        receipt de probe real a operational
     acceptance:
-      - cada PUBLIC_IDE_ID possui profile e registro únicos; validator rejeita host ausente/duplicado, tier desconhecido, operational sem adapter/version/discovery/load/invoke e layout-only com alegação de suporte
+      - cada PUBLIC_IDE_ID possui profile e registro únicos; validator rejeita
+        host ausente/duplicado, tier desconhecido, operational sem
+        adapter/version/discovery/load/invoke e layout-only com alegação de
+        suporte
     verifier:
       kind: shell
-      command: node scripts/validate-host-qualification.js --manifest meta/host-qualification.json && node --test tests/config.test.js tests/render.test.js tests/host-profile-contract.test.js tests/host-qualification-manifest.test.js
+      command: node scripts/validate-host-qualification.js --manifest
+        meta/host-qualification.json && node --test tests/config.test.js
+        tests/render.test.js tests/host-profile-contract.test.js
+        tests/host-qualification-manifest.test.js
       expectExitCode: 0
     outputs:
       - kind: file
@@ -106,16 +140,22 @@ tasks:
     title: Tornar auto-update condicional por capability e scope
     summary: Tornar auto-update condicional por capability e scope
     weight: 1
-    description: "Planejar hooks somente para hosts com contrato e emitir comando de atualização correspondente ao scope que disparou o alerta. verified_by: `docs/audits/installer-audit-2026-07-10.md:276-302`."
+    description: "Planejar hooks somente para hosts com contrato e emitir comando de
+      atualização correspondente ao scope que disparou o alerta. verified_by:
+      `docs/audits/installer-audit-2026-07-10.md:276-302`."
     status: done
     lastUpdated: 2026-07-16T17:30:52.087Z
     scopeBoundary:
-      - não escrever `.claude/settings.json` em instalação sem Claude e não remover hooks de terceiros
+      - não escrever `.claude/settings.json` em instalação sem Claude e não
+        remover hooks de terceiros
     acceptance:
-      - Codex-only causa zero mutações Claude, user-scope recomenda atualização user, project-scope inclui `--project`, e uninstall remove somente o delta owned
+      - Codex-only causa zero mutações Claude, user-scope recomenda atualização
+        user, project-scope inclui `--project`, e uninstall remove somente o
+        delta owned
     verifier:
       kind: shell
-      command: node --test tests/auto-update-host-matrix.test.js tests/install-uninstall-roundtrip.test.js
+      command: node --test tests/auto-update-host-matrix.test.js
+        tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
     outputs:
       - kind: file
@@ -140,16 +180,23 @@ tasks:
     title: Classificar status e decisões do reconciler por hash
     summary: Classificar status e decisões do reconciler por hash
     weight: 1
-    description: "Comparar todo o manifest e runtime por hash/fingerprint e expor `unchanged`, `updated`, `missing`, `modified`, `stale`, `preserved`, `conflict` e `runtime-mismatch`. verified_by: `docs/audits/installer-audit-2026-07-10.md:303-330`."
+    description: "Comparar todo o manifest e runtime por hash/fingerprint e expor
+      `unchanged`, `updated`, `missing`, `modified`, `stale`, `preserved`,
+      `conflict` e `runtime-mismatch`. verified_by:
+      `docs/audits/installer-audit-2026-07-10.md:303-330`."
     status: done
     lastUpdated: 2026-07-16T17:30:52.087Z
     scopeBoundary:
-      - não inferir up-to-date apenas de semver ou presença e não contar desired paths como removidos sem observar o filesystem
+      - não inferir up-to-date apenas de semver ou presença e não contar desired
+        paths como removidos sem observar o filesystem
     acceptance:
-      - fixtures classificam cada estado exatamente, install resume as decisões efetivas, uninstall conta remoções reais, e asset preservado aparece como conflito observável
+      - fixtures classificam cada estado exatamente, install resume as decisões
+        efetivas, uninstall conta remoções reais, e asset preservado aparece
+        como conflito observável
     verifier:
       kind: shell
-      command: node --test tests/status.test.js tests/status-verify.test.js tests/install-uninstall-roundtrip.test.js
+      command: node --test tests/status.test.js tests/status-verify.test.js
+        tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
     outputs:
       - kind: file
@@ -178,16 +225,24 @@ tasks:
     title: Observar runtime versionado e owners sobreviventes
     summary: Observar runtime versionado e owners sobreviventes
     weight: 1
-    description: "Consumir de forma read-only a autoridade de mutação entregue por F1/T-005 e expor no status o registry versionado, o owner selecionado por fingerprint, ghosts, corrupção e runtime mismatch. verified_by: `docs/audits/installer-audit-2026-07-10.md:226-274,303-349`."
+    description: "Consumir de forma read-only a autoridade de mutação entregue por
+      F1/T-005 e expor no status o registry versionado, o owner selecionado por
+      fingerprint, ghosts, corrupção e runtime mismatch. verified_by:
+      `docs/audits/installer-audit-2026-07-10.md:226-274,303-349`."
     status: done
     lastUpdated: 2026-07-16T17:30:52.087Z
     scopeBoundary:
-      - não mutar/reconciliar registry ou runtime nesta fase, não apontar `package-root` para cache inexistente e não reduzir registry corrompido a lista vazia
+      - não mutar/reconciliar registry ou runtime nesta fase, não apontar
+        `package-root` para cache inexistente e não reduzir registry corrompido
+        a lista vazia
     acceptance:
-      - status relata o owner que F1 elegeu, ghosts em quarentena, corrupção, zero owners e runtime mismatch sem produzir qualquer write
+      - status relata o owner que F1 elegeu, ghosts em quarentena, corrupção,
+        zero owners e runtime mismatch sem produzir qualquer write
     verifier:
       kind: shell
-      command: node --test tests/status-verify.test.js tests/status-runtime-owners.test.js tests/runtime-multiversion.test.js tests/runtime-registry-recovery.test.js
+      command: node --test tests/status-verify.test.js
+        tests/status-runtime-owners.test.js tests/runtime-multiversion.test.js
+        tests/runtime-registry-recovery.test.js
       expectExitCode: 0
     outputs:
       - kind: file
@@ -209,8 +264,6 @@ tasks:
 parked: []
 emerged: []
 planTitle: Remediação integral de segurança, lifecycle e distribuição
-planActive: true
-current: true
-
 ---
+
 # F2

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "reviewType": "independent-local",
+  "sourceHead": "8b843c253cb5c0161fa8b9a93af16eb39cc972d2",
+  "headObservedAtEnd": "0ca408865b661f4b0a3556688319e70b163dd641",
+  "scope": [
+    "scripts/automate-run.js:705 onward",
+    "src/plan-end-review.js",
+    "scripts/lib/serve-flow.js",
+    "scripts/serve-flow.js",
+    "src/decision-log.js",
+    "scripts/assert-automate-gate.js:finalize adapter",
+    "related F5 tests"
+  ],
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    {
+      "id": "F5-LOCAL-001",
+      "severity": "medium",
+      "priority": "P2",
+      "file": "scripts/lib/serve-flow.js",
+      "line": 120,
+      "title": "Render controlled stops even when delivery evidence cannot be hashed",
+      "claim": "The final route computes validationSnapshot before rendering pendingStop. The runner sends snapshot failures to this same final route, so those controlled stops have no usable HTTP confirmation page.",
+      "impact": "An admitted screen that is missing, an unreadable passed audit report, or malformed UI JSON causes /final to return 409 instead of the stop explanation and Confirm/resume button. The saved run keeps pendingStop and each subsequent invocation returns the same unusable URL until the underlying evidence is repaired externally.",
+      "reproduction": [
+        "Create plan.md with a passed phase citing a nonempty audit.md, flow/flow.html, and ui/ui.json containing screens:[{path:'ui/missing.html'}]; do not create that screen.",
+        "Start serveFlowHtml(flowHtml,{planPath:plan}), then call runPlanEndWorkflow with preview returning that server URL.",
+        "The workflow returns {action:'stop',reason:'não avanço',url:'http://127.0.0.1:<port>/final?stop=...'} without invoking a reviewer.",
+        "Fetch outcome.url: observed HTTP 409 with ENOENT lstat .../ui/missing.html. There is no confirmation form or token."
+      ],
+      "evidence": "Runner scripts/automate-run.js:908-909 catches the snapshot failure and saves pendingStop; GET /final calls the same snapshot unconditionally at scripts/lib/serve-flow.js:120. Existing runtime missing-ui-screen test only fetches server.url (/flow.html), leaving this failure untested.",
+      "recommendation": "Allow a stop-only presentation and confirmation token to bind to the exact saved pendingStop id and runtime identity when delivered evidence is unavailable. Keep same-origin POST and matching token/cookie checks, reject a stale token after the pending stop changes, and keep the delivery-validation button disabled with its full snapshot requirements.",
+      "confidence": "high"
+    },
+    {
+      "id": "F5-LOCAL-002",
+      "severity": "medium",
+      "priority": "P2",
+      "file": "src/plan-end-review.js",
+      "line": 557,
+      "title": "Handle Git submodule entries before reading tracked product bytes",
+      "claim": "git ls-files lists an initialized submodule as its gitlink directory, but productSnapshot treats every entry as an ordinary file and calls readFileSync on that directory.",
+      "impact": "Any initialized tracked submodule in a target repository makes productSnapshot throw EISDIR. Whole-plan review cannot begin, and the HTTP final page also fails because both validationSnapshot and rendering call productSnapshot.",
+      "reproduction": [
+        "Initialize a Git repository with plan.md and a commit; create an existing vendor directory representing an initialized submodule.",
+        "Add its Gitlink using git update-index --add --cacheinfo 160000,<valid-commit-sha>,vendor, or use a normal git submodule add.",
+        "Call productSnapshot(planPath). Observed EISDIR: illegal operation on a directory, read."
+      ],
+      "evidence": "src/plan-end-review.js:548 obtains paths without Git entry modes, and lines 551-557 read existing paths as files. A Gitlink is mode 160000 and resolves to a directory when initialized.",
+      "recommendation": "Read tracked entries with their modes, hash each gitlink commit identity, and explicitly define how changed submodule contents invalidate reviews. Add a real initialized-submodule regression case.",
+      "confidence": "high"
+    }
+  ],
+  "verification": {
+    "command": "node --test tests/automate-run-stops.test.js tests/final-page-http.test.js tests/final-page-reader.test.js",
+    "exitCode": 0,
+    "tests": 70,
+    "passed": 70,
+    "failed": 0,
+    "manualReproductions": [
+      "controlled stop returns /final URL whose GET is HTTP 409 ENOENT",
+      "productSnapshot with tracked existing gitlink directory throws EISDIR"
+    ]
+  },
+  "limitations": [
+    "Bounded to F5 completion paths; unrelated F4 phase driver was not audited.",
+    "The workspace HEAD changed concurrently after source inspection; findings bind to the requested sourceHead."
+  ],
+  "productEdits": false
+}

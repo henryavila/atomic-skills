@@ -24,7 +24,7 @@ const PACKAGE_ROOT = join(__dirname, '..', '..');
 // `_hooks` manifest source.
 const baseConfig = {
   language: 'en',
-  ides: ['claude-code', 'codex', 'gemini-commands'],
+  ides: ['claude-code', 'antigravity', 'opencode'],
   skillsDir: join(PACKAGE_ROOT, 'skills'),
   metaDir: join(PACKAGE_ROOT, 'meta'),
   scope: 'project',

@@ -1,17 +1,18 @@
 Perform an adversarial analysis of the plan {{ARG_VAR}} looking for
 internal errors, gaps, and inconsistencies. Step 0 picks a mode: `local`,
-`codex`, `grok`, `claude`, `both` (local→**host external default**), `both-codex`,
-`both-grok`, `both-claude`, or `external-both`. Full mode table, host-aware picker, and
-same-family rules: {{READ_TOOL}}
+`ground-truth` (plan↔code premises + silent-code impacts), `codex`, `grok`, `claude`, `agy`, `both` (local→**host external default**),
+`both-codex`, `both-grok`, `both-claude`, `both-agy`, or `external-both`. Full mode table,
+host-aware picker, and same-family rules: {{READ_TOOL}}
 `skills/shared/codex-bridge-assets/review-mode-ux.md` (routing:
 `src/cross-model-host-default.js`). All modes may cross-reference source
-artifacts (PRD, specs, designs).
+artifacts (PRD, specs, designs) except `ground-truth`, which is code-tree
+scoped (cross-ref N/A).
 
 ## Iron Law
 
 NO APPROVAL WITHOUT EVIDENCE.
 - Local mode: every checklist item marked "ok" MUST cite plan line numbers. When cross-ref is active: line numbers from BOTH plan AND artifact. When initiative-depth is active: line numbers from BOTH plan AND initiative file(s).
-- External mode (`codex`/`grok`/`claude`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
+- External mode (`codex`/`grok`/`claude`/`agy`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
 
 NO INTENT IN THE BRIEFING (external sub-flow).
 The briefing sent to the external provider contains ONLY externally
@@ -45,17 +46,18 @@ plan — facilitate the critique.
 
 Parse {{ARG_VAR}} BEFORE any prompt or file read. First
 `parseModelArgs({{ARG_VAR}})` so model flags **and values** are consumed
-(`--model=<id>`, `--model <id>`, `model:<id>`, `--model-codex`/`--model-grok`
+(`--model=<id>`, `--model <id>`, `model:<id>`, `--model-codex`/`--model-grok`/`--model-claude`/`--model-agy`
 eq or space, `--ask-model`). Then split `remainingTokens` into `plan_path` +
 flags. Tokens starting with `--` are flags:
 
 | Flag | Effect |
 |---|---|
-| `--mode=local\|codex\|grok\|claude\|both\|both-codex\|both-grok\|both-claude\|external-both` | Skip Step 0a; force mode (`both` = local→host external default). |
+| `--mode=local\|ground-truth\|codex\|grok\|claude\|agy\|both\|both-codex\|both-grok\|both-claude\|both-agy\|external-both` | Skip Step 0a; force mode (`both` = local→host external default). |
 | `--mode=internal` | Alias for `--mode=local` (compat with v2.x). |
+| `--mode=gt` | Alias for `--mode=ground-truth` (plan↔code ground-truth only). |
 | `--accept-same-family-as-local` | Non-interactive same-family → sealed local (`provider:local`); see review-mode-ux.md. |
-| `--model=<id>` / `--model <id>` / `model:<id>` / `--model-codex=` / `--model-grok=` / `--model-claude=` / `--ask-model` | External model (review-mode-ux.md Step 0.model). Values are **not** part of `plan_path`. |
-| `--no-cross-ref` | Skip Step 0b; force internal-only. Valid when mode has a local leg or is local-only. |
+| `--model=<id>` / `--model <id>` / `model:<id>` / `--model-codex=` / `--model-grok=` / `--model-claude=` / `--model-agy=` / `--ask-model` | External model (review-mode-ux.md Step 0.model). Values are **not** part of `plan_path`. |
+| `--no-cross-ref` | Skip Step 0b; force internal-only. Valid when mode has a local leg or is local-only. Implied for `ground-truth`. |
 | `--cross-ref=path1,path2,...` | Skip Step 0b; use listed artifacts. Same validity as `--no-cross-ref`. |
 | `--artifacts=path1,path2,...` | Alias for `--cross-ref=` (compat with v2.x). |
 | `--allow-dirty` | Pass through to external pre-flight (suppresses dirty-tree abort). |
@@ -70,28 +72,36 @@ whitespace. Do NOT pass unparsed {{ARG_VAR}} to {{READ_TOOL}} (avoids
 Before Step 0b, resolve `plan_path` (a file path | a plan **slug** | empty =
 the active plan) into a real `plan.md` via the 4-step ladder (readable file →
 slug → active plan → abort) in {{READ_TOOL}}
-`skills/shared/project-assets/review-plan-target-resolution.md`, mirroring the
-router's `## Initial detection`. Do NOT re-implement plan discovery here.
+`skills/shared/review-plan-assets/review-plan-target-resolution.md`.
+Do NOT re-implement plan discovery here.
 
 **Non-interactive abort.** If neither a TTY nor an explicit `--mode=` flag
-is available (hook, `parallel-dispatch`, or `project-status`/`project-plan`
-loop), abort with: "review-plan invoked without TTY and without `--mode=`;
-pass `--mode=local|codex|grok|claude|both|both-codex|both-grok|both-claude|external-both`
+is available (hook or `parallel-dispatch`), abort with: "review-plan invoked without TTY and without `--mode=`;
+pass `--mode=local|ground-truth|codex|grok|claude|agy|both|both-codex|both-grok|both-claude|both-agy|external-both`
 explicitly." Do NOT invoke {{ASK_USER_QUESTION_TOOL}} in background.
-Workflows that loop over plans (e.g. `project-plan` Stage 8b) MUST pass
-`--mode=local` (or `--mode=internal`) to skip the prompt.
+Workflows that loop over plans MUST pass an
+explicit mode (`--mode=local` / `--mode=ground-truth` / external) to skip the prompt.
 
 ## Step 0a — Pick review mode + same-family route
 
-Skip the picker if `--mode=` was supplied. Otherwise {{READ_TOOL}}
+Skip the picker if `--mode=` was supplied. Normalize aliases first:
+`--mode=internal` → `local`; `--mode=gt` → `ground-truth`.
+
+Otherwise {{READ_TOOL}}
 `skills/shared/codex-bridge-assets/review-mode-ux.md` and run its
 **host-aware Step 0 picker** via {{ASK_USER_QUESTION_TOOL}}. Default:
-**Both** (local → host external default).
+**Both** (local → host external default). The interactive picker does **not**
+list `ground-truth` (it is a specialized non-interactive type — pass
+`--mode=ground-truth` explicitly).
 
-After `mode` is known, run the **same-family gate** in review-mode-ux.md
-(`resolveReviewRoute`). Interactive same-family → confirm→local;
-non-interactive without `--accept-same-family-as-local` → **HARD ABORT**.
-Record `provider` / `sameFamilyRemap` from the route result.
+**When `mode == ground-truth`:** skip same-family gate, skip Step 0.model,
+force `cross_ref = none` (skip Step 0b prompts), still run Step 0c
+(initiatives help premises). Go to **Flow E**. Do not run Flow A–D.
+
+After `mode` is known (and is not `ground-truth`), run the **same-family gate**
+in review-mode-ux.md (`resolveReviewRoute`). Interactive same-family →
+confirm→local; non-interactive without `--accept-same-family-as-local` →
+**HARD ABORT**. Record `provider` / `sameFamilyRemap` from the route result.
 
 When the route keeps an external provider, run **Step 0.model** in
 review-mode-ux.md (discover catalog → recommended → picker or
@@ -156,7 +166,7 @@ and ask the user how to resolve it. DO NOT edit artifacts.
 ## Step 0c — Auto-discover initiative files
 
 Skip this step entirely if `--no-initiatives` was supplied. Otherwise
-{{READ_TOOL}} `skills/shared/project-assets/plan-initiative-depth.md` § *Step 0c*
+{{READ_TOOL}} `skills/shared/review-plan-assets/plan-initiative-depth.md` § *Step 0c*
 and follow it to build `initiative_map` (`phaseId → { path, slug, title, tasks[],
 exitGates[], scope? }`) from the plan's `phases:`. When `initiative_map` is
 non-empty, the **Initiative HARD-GATE** below and the **initiative-depth checks
@@ -179,19 +189,55 @@ DO NOT use {{REPLACE_TOOL}} on initiative files.
 
 ## Flow per mode
 
-Resolve route first (Step 0a). Then Step 0b → cross-ref. Step 0c → initiatives.
+Resolve route first (Step 0a). Then Step 0b → cross-ref (skipped for
+`ground-truth`). Step 0c → initiatives. Then branch:
+
+### Flow E — ground-truth only (`mode == ground-truth` | `gt`)
+
+**Specialized review type** (not a subset of “internal consistency”). Owns
+plan↔code Directions A+B only. Full procedure:
+{{READ_TOOL}} `skills/shared/review-plan-assets/ground-truth-review.md`.
+
+1. {{READ_TOOL}} the plan; when `initiative_map` non-empty, {{READ_TOOL}} each
+   initiative (task descriptions / paths are the premise source).
+2. Run **items 21–22 only** (do **not** run items 1–20, cross-ref, or external).
+3. Apply plan fixes for critical/significant phantom premises and undisposed
+   direct impacts (never edit initiative files — Initiative HARD-GATE).
+4. **Persist** (required — the receipt this mode's detector checks):
+   - `## Ground-truth review` section with **content floor**: Status +
+     `**Scanned:**` + ### A + ### B (table rows or explicit none) + `**Counts:**`
+   - Under `## Reviews`, write/refresh (idempotent by prefix):
+     `- ground-truth: <status> | mode=ground-truth | fp=<12-hex> | premises=N | impacts=K @ <sha|uncommitted> (<ISO UTC>)`
+     - `mode=ground-truth` attributes Flow E
+     - `fp=` is the plan substance fingerprint (plan + phase initiatives;
+       excludes Reviews/Ground-truth sections and volatile frontmatter). Stale
+       after plan/task edits → re-run Flow E.
+5. Prove:
+   ```bash
+   node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-plans-missing-ground-truth.js" <plan_path>
+   ```
+   Non-zero ⇒ incomplete/thin/stale — do not declare done. CLI prints
+   `current fp=` on failure — use it to stamp `fp=`. Empty/no-product-code repo
+   still requires `complete-empty-repo` (silence is not a pass).
+6. Closing summary: **Mode:** `ground-truth`; include Ground-truth counts + fp;
+   **Provider:** `local` (host-side only). END.
 
 ### Flow A — local only (`mode == local`, or same-family remap → `provider: local`)
 
-Run **Self-loop checklist** (below). END.
+Run **Self-loop checklist** (below). Ground-truth (21–22) is **not** part of
+Flow A — use Flow E (`--mode=ground-truth`) so the receipt is attributable.
+After a clean local pass, if `find-plans-missing-ground-truth.js` is non-zero,
+announce: "Ground-truth receipt missing — run
+`atomic-skills:review-plan --mode=ground-truth <plan>`."
+END.
 
-### Flow B — external only (`mode ∈ {codex, grok, claude}` after route stays external)
+### Flow B — external only (`mode ∈ {codex, grok, claude, agy}` after route stays external)
 
 Run **External sealed-envelope sub-flow** with `«PROVIDER»` =
 `route.externalProvider` (result of `resolveReviewRoute` — never re-derive from
 the forced mode after the same-family decision). END.
 
-### Flow C — local then external (`mode ∈ {both, both-codex, both-grok, both-claude}`)
+### Flow C — local then external (`mode ∈ {both, both-codex, both-grok, both-claude, both-agy}`)
 
 1. **LOCAL PHASE** — Self-loop checklist; apply fixes inline. Audit trail goes
    into the persisted review file, NOT the external briefing.
@@ -211,14 +257,14 @@ details: `docs/kb/cross-model-review-design.md` § external-both +
 `{{ASSETS_PATH}}/envelope-orchestration.md` § external-both):
 
 1. **Collect.** Run External sealed-envelope per remaining provider
-   (**codex → grok → claude**, family-filtered) on the same CLEANED plan. No triage/edit between legs.
+   (**codex → grok → claude → agy**, family-filtered) on the same CLEANED plan. No triage/edit between legs.
    Per-provider failure records `{ status: failed, error }` and **continues**
    the other leg (single-provider modes still abort on failure).
    Family-filtered legs: `status: skipped`.
 2. **Merge.**
    ```bash
    node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
-     <codex-findings.json|-|skip> <grok-findings.json|-|skip> [claude-findings.json|-|skip]
+     <codex-findings.json|-|skip> <grok-findings.json|-|skip> [claude-findings.json|-|skip] [agy-findings.json|-|skip]
    ```
    Or `mergeExternalBothFindings` from
    `"$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/external-both-merge.js"`.
@@ -257,23 +303,38 @@ verified.
 
 When `initiative_map` is non-empty, ADDITIONALLY run the **7 initiative-depth
 checks (items 14-20)** — they live in
-`skills/shared/project-assets/plan-initiative-depth.md` § *Initiative-depth
+`skills/shared/review-plan-assets/plan-initiative-depth.md` § *Initiative-depth
 checks*. {{READ_TOOL}} that section and run each, citing line numbers from BOTH
 the plan file AND the relevant initiative file(s) (`plan.md:L42 ↔ init-f0.md:L18`).
 If a finding is initiative-only, cite the initiative `file:line` but reference the
 phase in the plan.
 
-### Iteration
+### Ground-truth items (21–22) — Flow E only (`--mode=ground-truth`)
+
+Not part of the local self-loop. Run only under **Flow E**. Checklist body:
+
+21. **Direction A — plan premises vs code:** extract existence premises (paths,
+    modules, APIs, "existing X", commands); GLOB/GREP/READ each. Phantom or
+    false premise = finding. Outputs the plan **creates** are not existence
+    premises.
+22. **Direction B — code present, plan silent:** inventory blast radius for
+    constraints/dual paths/hooks/data the plan never models; classify
+    direct/indirect impact; require disposition (task/gate/oos/accepted).
+
+Full procedure + empty-repo rules + section template:
+{{READ_TOOL}} `skills/shared/review-plan-assets/ground-truth-review.md`.
+
+### Iteration (Flow A / local leg of both* — items 1–20 only)
 
 **ITERATION 1.** {{READ_TOOL}} the entire plan. When `initiative_map` is
 non-empty, also {{READ_TOOL}} each discovered initiative file. Apply EACH
 applicable checklist item: items 1–7 to the plan; items 8–13 when
-cross-ref is active; items 14–20 when initiative_map is non-empty. For
-each, record: status (ok / problem), line numbers verified (plan +
-artifact when cross-ref, plan + initiative when initiative-depth). Fix
-errors found directly in the plan (never in initiative files — see
-Initiative HARD-GATE). When cross-ref and the divergence is intentional,
-document it as an "alignment note" in the plan itself.
+cross-ref is active; items 14–20 when initiative_map is non-empty.
+**Do not** run 21–22 here — that is Flow E. For each item, record: status
+(ok / problem), line numbers verified (plan + artifact when cross-ref, plan +
+initiative when initiative-depth). Fix errors found directly in the plan
+(never in initiative files — see Initiative HARD-GATE). When cross-ref and
+the divergence is intentional, document it as an "alignment note" in the plan.
 
 **VERIFICATION LOOP (max 3 iterations).**
 - {{READ_TOOL}} the CORRECTED plan from the beginning (NOT mental review — execute {{READ_TOOL}} on the file). Cite line numbers.
@@ -287,11 +348,11 @@ document it as an "alignment note" in the plan itself.
 
 ---
 
-## External sealed-envelope sub-flow (modes: codex, grok, claude, both*, external-both)
+## External sealed-envelope sub-flow (modes: codex, grok, claude, agy, both*, external-both)
 
 Run the canonical two-pass sealed envelope per
 `{{ASSETS_PATH}}/envelope-orchestration.md` (byte-identical skeleton shared with
-`review-code`). Bind `«PROVIDER»` ∈ {`codex`,`grok`,`claude`} from the route (never after
+`review-code`). Bind `«PROVIDER»` ∈ {`codex`,`grok`,`claude`,`agy`} from the route (never after
 same-family remap). Leaf assets under
 `skills/shared/codex-bridge-assets/providers/«PROVIDER»/`; do NOT inline-rewrite
 them. Plan-review artifact slots:
@@ -370,6 +431,7 @@ code-quality gates` block:
 - G2 soft-language: ran the ban-list grep; found M occurrences (cited at lines …) / 0.
 - G6 reference-or-strike: counted K total assertions in the plan body + tasks; J have `verified_by:`, L have `unverified:`, R bare (FINDINGS at lines …).
 - Initiative-depth: discovered N/M initiatives; gate-task alignment: X gates checked, Y covered, Z uncovered (FINDINGS …).
+- Ground-truth: N/A in local/external legs — use Flow E (`--mode=ground-truth`). When mode=ground-truth: Status=<…>; mode=ground-truth in Reviews line; detector exit 0.
 ```
 
 If you found zero gate violations, treat that with suspicion —
@@ -401,6 +463,10 @@ skipping is forbidden.
 - "The initiative tasks obviously cover the exit gates, I don't need to check each one" (initiative-depth)
 - "I'll edit the initiative file to fix this task" (initiative-depth — HARD-GATE violation)
 - "The initiative file is too long, I'll skim the tasks" (initiative-depth)
+- "Repo has no code / is greenfield — skip ground-truth" (still write complete-empty-repo + A/B none)
+- "Internal receipt is enough for ground-truth" (Flow E receipt is `- ground-truth:` + the section)
+- "I'll fold ground-truth into --mode=internal so I only run one mode" (use `--mode=ground-truth` — attributable receipt)
+- "I'll only put ground-truth in chat / reviews/*.md" (plan body section + Reviews line are the gate)
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
@@ -421,14 +487,17 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "External will figure it out from context" | Sealed envelope: facts only |
 | "The local pass already fixed everything, external is a formality" (both*) | Empirically family-different reviewers catch disjoint findings — see [arXiv 2603.12123](https://arxiv.org/abs/2603.12123) |
 | "The tasks obviously deliver what the gate requires" (initiative-depth) | Prove with task description ↔ gate description cross-reference |
-| "I'll fix the initiative file directly, it's faster" (initiative-depth) | HARD-GATE: never edit initiative files — record finding, fix via project-status |
+| "I'll fix the initiative file directly, it's faster" (initiative-depth) | HARD-GATE: never edit initiative files — record the finding |
 | "subPhaseCount is just metadata, mismatch doesn't matter" (initiative-depth) | Mismatch means plan and initiative diverged — one is wrong |
+| "Empty repo — skip ground-truth" | Write complete-empty-repo with scan evidence |
+| "Internal review already ran, ground-truth is optional" | Different axis; run `--mode=ground-truth` (Flow E); detector is independent of `- internal:` |
+| "Ground-truth is just part of local mode" | Flow E is a specialized type; the `- ground-truth:` line belongs to it |
 
 ## Closing
 
 The review output uses the `### Analysis Summary` template in
-`skills/shared/project-assets/plan-initiative-depth.md` § *Closing template*.
+`skills/shared/review-plan-assets/plan-initiative-depth.md` § *Closing template*.
 {{READ_TOOL}} it and present the summary in that format — include
-**Provider:** `codex|grok|claude|local` from the route (never codex/grok after
+**Provider:** `codex|grok|claude|agy|local` from the route (never codex/grok after
 same-family remap). Sections marked `(local/both*)` / `(external)` apply
 by leg.

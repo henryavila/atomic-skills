@@ -1,0 +1,39 @@
+{
+  "planSlug": "automate-default-and-operator-gates",
+  "phaseId": "F1",
+  "base": "a248bd0b457d6abe52f19f580098fcbfc1c114b3",
+  "tasks": [
+    {
+      "taskId": "T-001",
+      "commitShas": ["a552ef3b834319746a898db976e69740f10ab574"],
+      "paths": ["src/decision-review-package.js", "tests/decision-review-package.test.js"],
+      "verifierCommand": "node --test tests/decision-review-package.test.js",
+      "exitCode": 0,
+      "transcript": "tests 6 pass 6 fail 0"
+    },
+    {
+      "taskId": "T-002",
+      "commitShas": ["53d182fd4ed8acbfc0711b23ff3171b78f6861f1"],
+      "paths": ["src/decision-review-gate.js", "meta/schemas/plan.schema.json", "tests/decision-review-gate.test.js"],
+      "verifierCommand": "node --test tests/decision-review-gate.test.js",
+      "exitCode": 0,
+      "transcript": "tests 28 pass 28 fail 0"
+    },
+    {
+      "taskId": "T-003",
+      "commitShas": ["119658113337e239bc821ef5b4099211c62212ff"],
+      "paths": ["skills/shared/implement-antipatterns.md", "skills/shared/implement-decision-log.md", "skills/shared/implement-automate-maestro.md", "skills/core/implement.md"],
+      "verifierCommand": "rg -n 'AskUserQuestion|free-text|re-Ask|operator-continue' skills/shared/implement-decision-log.md skills/shared/implement-automate-maestro.md skills/shared/implement-antipatterns.md skills/core/implement.md",
+      "exitCode": 0,
+      "transcript": "rg matched 32 lines"
+    },
+    {
+      "taskId": "T-004",
+      "commitShas": ["8879297ae66517a51f9c5af952b67aed95b8ddb3"],
+      "paths": ["skills/shared/implement-automate-maestro.md", "docs/kb/implement-phase-agents-dogfood.md"],
+      "verifierCommand": "rg -n 'AskUserQuestion|operator-continue|disposition|free-text|stamp' skills/shared/implement-automate-maestro.md skills/shared/implement-antipatterns.md skills/core/implement.md",
+      "exitCode": 0,
+      "transcript": "rg matched 72 lines"
+    }
+  ]
+}

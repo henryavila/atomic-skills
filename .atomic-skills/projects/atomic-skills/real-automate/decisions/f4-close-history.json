@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1",
+  "planSlug": "real-automate",
+  "phaseId": "F4",
+  "closeSha": "a8f459b353aa9d9d7fddc2e435bc90382deebfc3",
+  "generatedAt": "2026-10-02T19:59:08.528Z",
+  "reconciledCommit": "a8f459b353aa9d9d7fddc2e435bc90382deebfc3",
+  "artifacts": {
+    "descriptor": {
+      "path": ".atomic-skills/projects/atomic-skills/real-automate/plan.md",
+      "projection": "phase:F4",
+      "sha256": "eb6d3a242055e045b1db5f741d70e698daf9e1dcc76c0e68809285fcbfb0d1ff"
+    },
+    "initiative": {
+      "path": ".atomic-skills/projects/atomic-skills/real-automate/phases/real-automate-f4-review-e-o-flow-no-audit.md",
+      "sha256": "e6a986ad792c4ec9f29696149894f2fa61c4118ffd3878b807f8c6f132deb3e9"
+    },
+    "sidecars": [
+      {
+        "path": ".atomic-skills/projects/atomic-skills/real-automate/phases/f1-cartao-de-bloco.source.json",
+        "sha256": "401e50688d7d71f08be6229043dfad6ec52dbb89fbfe5e822ab851a3862f92af"
+      },
+      {
+        "path": ".atomic-skills/projects/atomic-skills/real-automate/phases/f2-prototipo.source.json",
+        "sha256": "208a255159a2bb87cdd45c2a14ce3f24edfe1a6f284044a7ef10029c98b95e15"
+      },
+      {
+        "path": ".atomic-skills/projects/atomic-skills/real-automate/phases/f3-um-writer-merge-e-para.source.json",
+        "sha256": "3696c4e0c77d31ccb4d0dc3e1774a97f8764da397e4d479b98cb49bd58655b86"
+      },
+      {
+        "path": ".atomic-skills/projects/atomic-skills/real-automate/phases/f4-review-e-o-flow-no-audit.source.json",
+        "sha256": "99e829be91b88b57aaf13006a7dd6c942095ee01dc71cc555cbabc18d9bab4e4"
+      },
+      {
+        "path": ".atomic-skills/projects/atomic-skills/real-automate/phases/f5-pagina-final.source.json",
+        "sha256": "798d5b20492353b9bb916fbed098af44472e405221595aed685ac0b97d228eb2"
+      }
+    ],
+    "creationGate": {
+      "path": ".atomic-skills/status/creation-gates/atomic-skills-real-automate.json",
+      "sha256": "f55ee1a49dbcf194199676430493dc59219961e3f6d65f5b80081c2e85844010"
+    },
+    "gateEvidence": {
+      "G-1": true
+    },
+    "completionEvents": {
+      "taskIds": [
+        "T-002",
+        "T-003"
+      ],
+      "phaseDone": true,
+      "keys": [
+        "phase-done\u0000atomic-skills\u0000real-automate\u0000F4\u0000",
+        "task-done\u0000atomic-skills\u0000real-automate\u0000F4\u0000T-002",
+        "task-done\u0000atomic-skills\u0000real-automate\u0000F4\u0000T-003"
+      ]
+    }
+  },
+  "status": "reconciled"
+}

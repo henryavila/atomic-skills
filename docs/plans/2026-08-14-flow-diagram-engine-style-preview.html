@@ -1,0 +1,3262 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-fl-plan="project-flow-preview" data-fl-slug="sugestao-necessidade-pdti">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f6fa" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<title>Sugestão de necessidade PDTI · interface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){var K="as-color-scheme";var NEXT={system:"light",light:"dark",dark:"system"};var LABEL={system:"Aparência: automático. Toque para claro",light:"Aparência: claro. Toque para escuro",dark:"Aparência: escuro. Toque para automático"};function read(){try{var v=localStorage.getItem(K);return v==="light"||v==="dark"?v:"system"}catch(e){return"system"}}function paintMeta(mode){var dark=mode==="dark"||(mode==="system"&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches);document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",dark?"#0a0d12":"#f4f6fa")})}function apply(mode){var r=document.documentElement;if(mode==="light"||mode==="dark")r.setAttribute("data-theme",mode);else r.removeAttribute("data-theme");var c=document.getElementById("theme-cycle");if(c){c.setAttribute("data-mode",mode);c.setAttribute("aria-label",LABEL[mode]||LABEL.system);c.title=LABEL[mode]||LABEL.system}paintMeta(mode)}apply(read());document.addEventListener("click",function(e){var cycle=e.target&&e.target.closest&&e.target.closest("[data-theme-cycle]");if(!cycle)return;var mode=NEXT[read()];try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener("DOMContentLoaded",function(){apply(read())})})();</script>
+<style>
+:root {
+  color-scheme: dark;
+  --bg-sunken: #07090d;
+  --bg-canvas: #0a0d12;
+  --bg-surface: #12161d;
+  --bg-elevated: #1a1f28;
+  --bg-overlay: #232936;
+  --border-subtle: #1a2029;
+  --border-default: #262d38;
+  --border-strong: #3d4656;
+  --fg-default: #e9eef5;
+  --fg-muted: #98a1ad;
+  --fg-subtle: #6b7585;
+  --fg-faint: #424a5a;
+  --status-success: #4cc28e;
+  --status-warning: #e0a44a;
+  --status-error: #ff5c5c;
+  --status-info: #5fb1ff;
+  --status-success-bg: color-mix(in srgb, var(--status-success) 14%, var(--bg-surface));
+  --status-warning-bg: color-mix(in srgb, var(--status-warning) 14%, var(--bg-surface));
+  --status-error-bg: color-mix(in srgb, var(--status-error) 16%, var(--bg-surface));
+  --status-info-bg: color-mix(in srgb, var(--status-info) 14%, var(--bg-surface));
+  --status-success-line: color-mix(in srgb, var(--status-success) 42%, var(--border-default));
+  --status-warning-line: color-mix(in srgb, var(--status-warning) 42%, var(--border-default));
+  --status-error-line: color-mix(in srgb, var(--status-error) 48%, var(--border-default));
+  --status-info-line: color-mix(in srgb, var(--status-info) 42%, var(--border-default));
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --fs-2xs: 10px; --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px;
+  --fw-medium: 500; --fw-semibold: 600;
+  --space-3: 6px; --space-4: 8px; --space-6: 12px; --space-8: 16px;
+  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px; --radius-pill: 999px;
+  --tracking-tight: -0.015em; --tracking-wide: 0.04em;
+  --shadow-sm: 0 2px 4px -2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.045);
+  --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px #88c4ff;
+  --actor-fill: var(--bg-elevated);
+  --actor-stroke: var(--border-default);
+  --actor-fg: var(--fg-default);
+  --life: var(--fg-faint);
+  --arrow: var(--fg-muted);
+  --msg: var(--fg-default);
+  --xor-wash: color-mix(in srgb, var(--bg-elevated) 18%, transparent);
+  --xor-rail: var(--status-warning-line);
+  --pill-fill: var(--bg-sunken);
+  --pill-stroke: var(--status-warning-line);
+  --pill-fg: var(--status-warning);
+  --act-fill: var(--bg-elevated);
+  --act-stroke: var(--border-default);
+  --act-fg: var(--fg-default);
+  --xor-fill: color-mix(in srgb, var(--status-warning) 10%, var(--bg-surface));
+  --xor-edge: var(--status-warning-line);
+  --end-fill: var(--status-success);
+  --end-stroke: var(--status-success);
+  --end-bad-fill: var(--status-error);
+  --st-fill: var(--bg-sunken);
+  --st-stroke: var(--border-default);
+  --st-entry-stroke: var(--status-info);
+  --st-term-stroke: var(--status-success);
+  --edge: var(--fg-faint);
+  --node-sw: 1.25;
+}
+@media (prefers-color-scheme: light) {
+  html:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg-sunken: #e8edf4;
+    --bg-canvas: #f4f6fa;
+    --bg-surface: #ffffff;
+    --bg-elevated: #eef2f7;
+    --bg-overlay: #e2e8f0;
+    --border-subtle: #e8edf3;
+    --border-default: #d5dce6;
+    --border-strong: #b8c2d0;
+    --fg-default: #12161d;
+    --fg-muted: #4a5565;
+    --fg-subtle: #6b7585;
+    --fg-faint: #98a1ad;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
+    --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px #1565c0;
+  }
+}
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg-sunken: #e8edf4;
+  --bg-canvas: #f4f6fa;
+  --bg-surface: #ffffff;
+  --bg-elevated: #eef2f7;
+  --bg-overlay: #e2e8f0;
+  --border-subtle: #e8edf3;
+  --border-default: #d5dce6;
+  --border-strong: #b8c2d0;
+  --fg-default: #12161d;
+  --fg-muted: #4a5565;
+  --fg-subtle: #6b7585;
+  --fg-faint: #98a1ad;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
+  --shadow-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px #1565c0;
+}
+html[data-theme="dark"] { color-scheme: dark; }
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: manipulation; }
+html, body {
+  margin: 0;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg-canvas); color: var(--fg-default);
+  font-family: var(--font-sans);
+}
+.app {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "top dock"
+    "view view";
+  height: 100%; height: 100dvh;
+  min-height: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+.top { grid-area: top; }
+.dock {
+  grid-area: dock;
+  display: flex; align-items: center;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg-canvas) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-default);
+  padding: 10px 16px 8px 0;
+}
+#fl-viewport { grid-area: view; }
+
+.top {
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg-canvas) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-default);
+  padding: 10px 16px 8px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.top-row {
+  display: flex; flex-wrap: wrap; gap: 10px 16px;
+  align-items: center; justify-content: space-between;
+}
+.brand { min-width: 0; flex: 1 1 220px; }
+.brand .fl-title {
+  margin: 0; font-size: 15px; font-weight: 600;
+  letter-spacing: var(--tracking-tight); line-height: 1.25;
+}
+.brand .fl-scenario {
+  margin: 2px 0 0; font-size: 12px; color: var(--fg-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 72ch;
+}
+.fl-toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; }
+.fl-toc button {
+  appearance: none; display: inline-flex; align-items: center; height: 30px; padding: 0 12px;
+  border-radius: var(--radius-pill); border: 1px solid var(--border-default); background: var(--bg-elevated);
+  color: var(--fg-muted); font: 500 12px var(--font-sans); cursor: pointer;
+}
+.fl-toc button[aria-selected="true"] { color: var(--bg-canvas); background: var(--fg-default); border-color: var(--fg-default); }
+.fl-toc button kbd {
+  font: 600 10px var(--font-mono);
+  line-height: 16px; min-width: 16px; height: 16px;
+  margin-left: 6px; padding: 0 4px;
+  border-radius: 4px; border: 1px solid var(--border-default);
+  background: var(--bg-sunken); color: var(--fg-subtle);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.fl-toc button[aria-selected="true"] kbd {
+  border-color: color-mix(in srgb, var(--bg-canvas) 35%, transparent);
+  background: color-mix(in srgb, var(--bg-canvas) 14%, transparent);
+  color: inherit; opacity: 0.7;
+}
+.fl-toc button:focus-visible, .toolbar button:focus-visible, .theme-cycle:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.toolbar button {
+  appearance: none; height: 28px; min-width: 28px; padding: 0 8px; border-radius: 6px;
+  border: 1px solid var(--border-default); background: var(--bg-surface); color: var(--fg-muted);
+  font: 600 12px var(--font-sans); cursor: pointer;
+}
+.toolbar button.primary { background: var(--fg-default); color: var(--bg-canvas); border-color: var(--fg-default); }
+.toolbar .zoom { font: 700 12px var(--font-mono); color: var(--fg-subtle); padding: 0 6px; min-width: 3.2rem; text-align: center; }
+.theme-cycle {
+  appearance: none; flex: 0 0 auto;
+  width: 28px; height: 28px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated); color: var(--fg-muted);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.theme-cycle svg { display: none; width: 16px; height: 16px; }
+.theme-cycle:not([data-mode]) .i-system,
+.theme-cycle[data-mode="system"] .i-system,
+.theme-cycle[data-mode="light"] .i-light,
+.theme-cycle[data-mode="dark"] .i-dark { display: block; }
+.hint-bar {
+  font-size: 12px; color: var(--fg-subtle);
+  display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center;
+}
+.hint-bar .val {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default); color: var(--fg-muted); background: var(--bg-elevated);
+}
+.hint-bar kbd {
+  font: 600 11px var(--font-mono); background: var(--bg-sunken);
+  border: 1px solid var(--border-default); border-radius: 4px; padding: 0 5px;
+}
+.hint-bar .fl-meta { display: inline-flex; flex-wrap: wrap; gap: 10px; }
+.hint-bar .fl-meta span { font-size: 12px; color: var(--fg-subtle); }
+.hint-bar .fl-meta strong { color: var(--fg-muted); font-weight: 500; }
+
+.proc-open {
+  appearance: none; display: flex; align-items: center; gap: 8px;
+  width: 100%; height: 30px; padding: 0 10px;
+  border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+  background: var(--bg-elevated); color: var(--fg-default);
+  font: 500 12px var(--font-sans); cursor: pointer; text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.proc-open-kicker { flex: 0 0 auto; color: var(--fg-subtle); font-size: 11px; }
+.proc-open-label {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600;
+}
+.proc-open-meta {
+  flex: 0 0 auto; color: var(--fg-subtle);
+  font-size: 11px; font-variant-numeric: tabular-nums;
+}
+.proc-open[aria-expanded="true"] { border-color: var(--border-strong); }
+.proc-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg-canvas) 52%, transparent);
+}
+.proc-overlay[hidden] { display: none !important; }
+.proc-sheet {
+  position: absolute; left: 50%; top: 10%;
+  transform: translateX(-50%);
+  width: min(460px, calc(100% - 24px));
+  max-height: min(72vh, 640px);
+  display: flex; flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.proc-sheet-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-default);
+}
+#proc-q {
+  flex: 1; min-width: 0; height: 34px; padding: 0 10px;
+  border: 1px solid var(--border-default); border-radius: 8px;
+  background: var(--bg-elevated); color: var(--fg-default);
+  font: 400 14px var(--font-sans);
+}
+#proc-q:focus { outline: none; box-shadow: var(--shadow-focus); }
+#proc-count { font-size: 11px; color: var(--fg-subtle); white-space: nowrap; }
+#proc-close {
+  appearance: none; flex: 0 0 auto; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--border-default); border-radius: 8px;
+  background: var(--bg-elevated); color: var(--fg-muted);
+  font: 600 16px var(--font-sans); cursor: pointer;
+}
+#proc-list { overflow: auto; flex: 1; -webkit-overflow-scrolling: touch; padding: 6px; }
+.proc-item {
+  appearance: none; display: flex; flex-direction: column; gap: 2px;
+  width: 100%; padding: 8px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; font: inherit;
+  text-align: left; cursor: pointer;
+}
+.proc-item[aria-selected="true"] { background: var(--bg-elevated); }
+.proc-item:hover, .proc-item:focus-visible { background: var(--bg-elevated); outline: none; }
+.proc-item-title { font: 600 13px var(--font-sans); color: var(--fg-default); }
+.proc-item-sub {
+  font-size: 11px; color: var(--fg-subtle);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.proc-empty { padding: 24px 12px; text-align: center; color: var(--fg-subtle); font-size: 13px; }
+
+#fl-viewport {
+  position: relative; overflow: auto; overscroll-behavior: contain;
+  min-width: 0; min-height: 0;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+  background:
+    radial-gradient(circle at 1px 1px, var(--border-default) 1px, transparent 0) 0 0 / 22px 22px,
+    var(--bg-sunken);
+  cursor: grab; scrollbar-gutter: stable both-edges;
+}
+#fl-viewport.is-panning { cursor: grabbing; user-select: none; }
+#fl-sizer { position: relative; min-width: 100%; min-height: 100%; }
+#fl-stage {
+  position: absolute; top: 0; left: 0;
+  padding: 40px;
+}
+.diagram-panel { display: inline-block; }
+.diagram-panel[hidden] { display: none !important; }
+.sheet {
+  display: inline-block;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: 18px 20px;
+}
+svg.diagram {
+  display: block; max-width: none; font-family: var(--font-sans);
+  shape-rendering: geometricPrecision; text-rendering: geometricPrecision;
+}
+svg.diagram text { fill: var(--fg-default); }
+.actor-box { fill: var(--actor-fill); stroke: var(--actor-stroke); stroke-width: 1; }
+.actor-label { fill: var(--actor-fg); font-size: 11px; font-weight: 600; }
+.actor-stick-bg { fill: var(--bg-surface); }
+.actor-stick-rule { stroke: var(--border-default); stroke-width: 1; }
+.lifeline { stroke: var(--life); stroke-width: 1; stroke-dasharray: 3 5; pointer-events: none; }
+.life-hit { stroke: transparent; stroke-width: 20; fill: none; }
+#actor-tip {
+  position: fixed; z-index: 40; pointer-events: none;
+  background: var(--bg-elevated); color: var(--fg-default);
+  border: 1px solid var(--border-default); border-radius: 6px;
+  padding: 3px 8px; font: 600 12px var(--font-sans);
+  box-shadow: var(--shadow-sm);
+}
+#actor-tip[hidden] { display: none; }
+.arrow { stroke: var(--arrow); stroke-width: 1.25; fill: none; }
+.arrow.async { stroke-dasharray: 5 4; }
+.arrow-head { fill: var(--arrow); }
+.msg { fill: var(--msg); font-size: 12px; }
+.xor-wash { fill: var(--xor-wash); stroke: none; }
+.xor-rail { stroke: var(--xor-rail); stroke-width: 2; fill: none; }
+.xor-q { fill: var(--status-warning); font-size: 12px; font-weight: 600; }
+.hair { stroke: var(--border-subtle); stroke-width: 1; }
+.pill { fill: var(--pill-fill); stroke: var(--pill-stroke); stroke-width: 1; }
+.pill-t { fill: var(--pill-fg); font-size: 11px; font-weight: 600; }
+.loop { fill: var(--fg-muted); font-size: 11px; }
+.loop-arc { fill: none; stroke: var(--status-warning); stroke-width: 1.25; stroke-dasharray: 4 3; }
+.loop-head { fill: var(--status-warning); }
+.act { fill: var(--act-fill); stroke: var(--act-stroke); stroke-width: var(--node-sw); }
+.act-t { fill: var(--act-fg); font-size: 12px; font-weight: 500; }
+.who { fill: var(--fg-subtle); font-size: 10px; font-family: var(--font-mono); }
+.diamond { fill: var(--xor-fill); stroke: var(--xor-edge); stroke-width: var(--node-sw); }
+.xor-t { fill: var(--fg-default); font-size: 12px; font-weight: 600; }
+.bar { fill: var(--fg-muted); }
+.evt { fill: var(--bg-canvas); stroke: var(--status-error-line); stroke-width: 1.5; }
+.sub-mark { fill: none; stroke: var(--act-stroke); stroke-width: 1; }
+.edge { stroke: var(--edge); stroke-width: 1.15; fill: none; }
+.edge.back { stroke: var(--status-warning); stroke-dasharray: 4 3; }
+.edge-head { fill: var(--fg-muted); }
+.edge-head.back { fill: var(--status-warning); }
+.edge-t, .fx {
+  fill: var(--fg-subtle);
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--bg-surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.fx { font-size: 10px; font-family: var(--font-sans); stroke: none; }
+.end-ok { fill: var(--end-fill); stroke: var(--end-stroke); stroke-width: 1.5; }
+.end-bad { fill: var(--end-bad-fill); stroke: var(--status-error); stroke-width: 1.5; }
+.end-t { fill: var(--fg-muted); font-size: 11px; }
+.end-hole { fill: var(--bg-canvas); }
+.st { fill: var(--st-fill); stroke: var(--st-stroke); stroke-width: 1.15; }
+.st.entry { stroke: var(--st-entry-stroke); stroke-width: 1.75; }
+.st.term { stroke: var(--st-term-stroke); stroke-width: 1.75; }
+.st-t { fill: var(--fg-default); font-size: 12px; font-weight: 500; }
+.mach-title { fill: var(--fg-muted); font-size: 12px; font-weight: 600; }
+.mach-legend { fill: var(--fg-subtle); font-size: 10px; }
+.edge-cap { fill: var(--bg-surface); stroke: var(--border-default); stroke-width: 1; }
+.edge-title { fill: var(--fg-default); font-size: 11px; font-weight: 600; }
+.edge-note { fill: var(--fg-subtle); font-size: 10px; }
+.fx-pill { fill: var(--bg-sunken); stroke: var(--border-default); stroke-width: 1; }
+.fx-pill-t { fill: var(--fg-muted); font-size: 9px; font-weight: 600; }
+
+.gesture-hint {
+  display: none;
+  position: absolute; z-index: 15; left: 50%; bottom: 16px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  padding: 8px 12px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  color: var(--fg-muted); font: 600 12px var(--font-sans);
+  pointer-events: none; text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.gesture-hint[hidden] { display: none !important; }
+
+@media (max-width: 860px), ((pointer: coarse) and (hover: none)) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "top"
+      "view"
+      "dock";
+  }
+  .top {
+    padding: 6px 12px 6px;
+    gap: 6px;
+  }
+  .top-row { gap: 6px; width: 100%; min-width: 0; }
+  .brand { flex: 1 1 100%; min-width: 0; width: 100%; }
+  .brand .fl-title {
+    font-size: 14px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .brand .fl-scenario {
+    white-space: nowrap; max-width: 100%;
+    font-size: 11px;
+  }
+  .fl-toc {
+    flex: 1 1 100%;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;
+    width: 100%; min-width: 0;
+  }
+  .fl-toc button {
+    height: 34px; padding: 0 6px; justify-content: center;
+    font-size: 12px; min-width: 0; width: 100%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .fl-toc button kbd { display: none; }
+  .dock {
+    border-bottom: 0;
+    border-top: 1px solid var(--border-default);
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
+    min-width: 0;
+  }
+  .toolbar {
+    width: 100%; min-width: 0;
+    justify-content: flex-start;
+    gap: 5px;
+  }
+  .toolbar button {
+    height: 32px; min-width: 32px; padding: 0 8px;
+    font-size: 12px; -webkit-tap-highlight-color: transparent;
+  }
+  .toolbar .zoom { min-width: 3rem; font-size: 12px; }
+  .theme-cycle { width: 32px; height: 32px; margin-left: auto; }
+  .theme-cycle svg { width: 16px; height: 16px; }
+  .proc-open { height: 34px; }
+  .proc-sheet {
+    top: auto; bottom: 0; left: 0; right: 0; transform: none;
+    width: 100%; max-height: min(82dvh, 720px);
+    border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .hint-bar { display: none; }
+  .gesture-hint { display: block; }
+  #fl-viewport {
+    scrollbar-gutter: auto;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  #fl-stage { padding: 16px; }
+  .sheet { padding: 10px 12px; border-radius: 10px; }
+}
+
+@media (max-width: 860px) and (max-height: 500px) {
+  .brand .fl-scenario { display: none; }
+  .fl-toc button { height: 30px; }
+  .toolbar button { height: 28px; }
+  .theme-cycle { width: 28px; height: 28px; }
+  .top { padding: 4px 10px; gap: 4px; }
+  .gesture-hint { display: none; }
+}
+
+@media (pointer: coarse) {
+  .fl-toc button, .toolbar button, .theme-cycle {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .fl-toc button:active, .toolbar button:active, .theme-cycle:active {
+    filter: brightness(1.08);
+  }
+}
+</style>
+</head>
+<body data-look="line">
+  <div class="app">
+    <header class="top">
+      <div class="top-row">
+        <div class="brand">
+          <h1 class="fl-title">Sugestão de necessidade PDTI · interface</h1>
+          <p class="fl-scenario">GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.</p>
+        </div>
+        <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
+          <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence" title="Sequência (1)">Sequência <kbd>1</kbd></button>
+          <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm" title="Fluxo (2)">Fluxo <kbd>2</kbd></button>
+          <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines" title="Estados (3)">Estados <kbd>3</kbd></button>
+        </nav>
+      </div>
+      <div class="hint-bar">
+        <span class="val">Look A · Linha</span>
+        <span class="fl-meta">
+          <span><strong>Ator:</strong> <span id="fl-actor">GETIN</span></span>
+          <span><strong>Plano:</strong> Project Flow</span>
+          <span><strong>Processos:</strong> 14</span>
+        </span>
+        <span id="tab-hint">Tronco + trilho XOR</span>
+        <span>Arrastar = pan · <kbd>Ctrl</kbd>+scroll = zoom · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> mapas</span>
+      </div>
+      <button type="button" class="proc-open" id="proc-open" aria-haspopup="listbox" aria-expanded="false" aria-controls="proc-overlay">
+        <span class="proc-open-kicker">Processo</span>
+        <span class="proc-open-label" id="proc-current">Sugestão de necessidade PDTI · interface</span>
+        <span class="proc-open-meta"><span id="proc-n">14</span> ▾</span>
+      </button>
+    </header>
+    <div class="proc-overlay" id="proc-overlay" hidden>
+      <div class="proc-sheet" role="dialog" aria-label="Processos do plano">
+        <div class="proc-sheet-head">
+          <input id="proc-q" type="search" placeholder="Buscar processo" autocomplete="off" enterkeyhint="search">
+          <span id="proc-count">14 processos</span>
+          <button type="button" id="proc-close" aria-label="Fechar lista">×</button>
+        </div>
+        <div id="proc-list" role="listbox" aria-label="Lista de processos"></div>
+      </div>
+    </div>
+
+    <div id="fl-viewport" title="Arraste para navegar · pinça ou Ctrl+scroll para zoom">
+      <div id="fl-sizer">
+        <div id="fl-stage"></div>
+      </div>
+      <div class="gesture-hint" id="gesture-hint">Arraste · pinça = zoom</div>
+    </div>
+    <footer class="dock">
+      <div class="toolbar" aria-label="Zoom">
+        <button type="button" id="z-out" title="Afastar">−</button>
+        <span class="zoom" id="z-lab">100%</span>
+        <button type="button" id="z-in" title="Aproximar">+</button>
+        <button type="button" id="z-100">100%</button>
+        <button type="button" id="z-fit" class="primary" data-fit="height" title="Ajustar à altura">À altura</button>
+        <button type="button" id="btn-pdf" title="Baixar PDF do fluxo (anexo)">PDF</button>
+        <button type="button" class="theme-cycle" id="theme-cycle" data-theme-cycle data-mode="system" aria-label="Aparência: automático. Toque para claro" title="Aparência: automático. Toque para claro">
+          <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3a9 9 0 0 0 0 18V3z" fill="currentColor"/></svg>
+          <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.2 3.2a8.5 8.5 0 1 0 5.6 14.3A8.5 8.5 0 0 1 15.2 3.2z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </footer>
+  </div>
+  <div id="actor-tip" hidden></div>
+  <template id="pack-sugestao-necessidade-pdti">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="668" height="1626" viewBox="0 0 668 1626" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Sugestão de necessidade PDTI · interface</title>
+    <desc>GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.</desc>
+    <rect class="xor-wash" x="8" y="294" width="652" height="1260" rx="10"/>
+    <g data-actor-id="G">
+        <line class="lifeline" data-lifeline="G" x1="150" y1="50" x2="150" y2="1582"/>
+        <line class="life-hit" data-actor-label="GETIN" x1="150" y1="50" x2="150" y2="1582"/>
+      </g>
+<g data-actor-id="App">
+        <line class="lifeline" data-lifeline="App" x1="346" y1="50" x2="346" y2="1582"/>
+        <line class="life-hit" data-actor-label="Sistema" x1="346" y1="50" x2="346" y2="1582"/>
+      </g>
+<g data-actor-id="L">
+        <line class="lifeline" data-lifeline="L" x1="542" y1="50" x2="542" y2="1582"/>
+        <line class="life-hit" data-actor-label="Líder" x1="542" y1="50" x2="542" y2="1582"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="304" x2="22" y2="1546"/>
+        <text class="xor-q" x="38" y="316">◇ O envio é válido?</text>
+      </g>
+<g data-xor-rail="D_edit">
+        <line class="xor-rail" x1="36" y1="772" x2="36" y2="1546"/>
+        <text class="xor-q" x="52" y="784">◇ O líder edita a sugestão antes de decidir?</text>
+      </g>
+<g data-xor-rail="D2">
+        <line class="xor-rail" x1="50" y1="940" x2="50" y2="1444"/>
+        <text class="xor-q" x="66" y="952">◇ Aceitar ou recusar a sugestão?</text>
+      </g>
+    <g data-from="G" data-to="App">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Abre lista de solicitações PDTI</text>
+        </g>
+<g data-from="App" data-to="G">
+          <line class="arrow async" x1="338" y1="114" x2="166" y2="114"/>
+          <polygon class="arrow-head" points="158,114 166,110 166,118"/>
+          <text class="msg" x="248" y="94" text-anchor="middle">Mostra lista com ação Sugerir</text><text class="msg" x="248" y="106" text-anchor="middle">necessidade</text>
+        </g>
+<g data-from="G" data-to="App">
+          <line class="arrow" x1="158" y1="150" x2="330" y2="150"/>
+          <polygon class="arrow-head" points="338,150 330,146 330,154"/>
+          <text class="msg" x="248" y="142" text-anchor="middle">Clica em Sugerir necessidade</text>
+        </g>
+<g data-from="App" data-to="G">
+          <line class="arrow async" x1="338" y1="186" x2="166" y2="186"/>
+          <polygon class="arrow-head" points="158,186 166,182 166,190"/>
+          <text class="msg" x="248" y="178" text-anchor="middle">Abre o formulário</text>
+        </g>
+<g data-from="G" data-to="App">
+          <line class="arrow" x1="158" y1="222" x2="330" y2="222"/>
+          <polygon class="arrow-head" points="338,222 330,218 330,226"/>
+          <text class="msg" x="248" y="214" text-anchor="middle">Preenche e clica Enviar</text>
+        </g>
+<g data-from="App" data-to="App">
+          <circle cx="346" cy="258" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="262">Valida permissão, dados e</text><text class="msg" x="356" y="274">líder da área</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="360" x2="40" y2="360"/>
+          <rect class="pill" x="40" y="348" width="118" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Envio inválido" x="99" y="364" text-anchor="middle">Envio inválido</text>
+        </g>
+<g data-from="App" data-to="G">
+          <line class="arrow async" x1="338" y1="390" x2="166" y2="390"/>
+          <polygon class="arrow-head" points="158,390 166,386 166,394"/>
+          <text class="msg" x="248" y="370" text-anchor="middle">Mostra erro (líder, dados ou</text><text class="msg" x="248" y="382" text-anchor="middle">permissão)</text>
+        </g>
+<g data-from="G" data-to="App">
+          <line class="arrow" x1="158" y1="426" x2="330" y2="426"/>
+          <polygon class="arrow-head" points="338,426 330,422 330,430"/>
+          <text class="msg" x="248" y="406" text-anchor="middle">Ajusta os dados e clica Enviar</text><text class="msg" x="248" y="418" text-anchor="middle">de novo</text>
+        </g>
+<g data-from="App" data-to="App">
+          <circle cx="346" cy="462" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="466">Valida novamente</text>
+        </g>
+<g data-loop-ref="D1">
+          <path class="loop-arc" d="M346 462 C124 498, 50 372, 40 326"/>
+          <polygon class="loop-head" points="40,316 35,326 46,324"/>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="516" x2="40" y2="516"/>
+          <rect class="pill" x="40" y="504" width="104" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Envio válido" x="92" y="520" text-anchor="middle">Envio válido</text>
+        </g>
+<g data-from="App" data-to="App">
+          <circle cx="346" cy="546" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="550">Grava como pendente da área</text>
+        </g>
+<g data-from="App" data-to="G">
+          <line class="arrow async" x1="338" y1="582" x2="166" y2="582"/>
+          <polygon class="arrow-head" points="158,582 166,578 166,586"/>
+          <text class="msg" x="248" y="574" text-anchor="middle">Confirmação de sucesso</text>
+        </g>
+<g data-from="App" data-to="L">
+          <line class="arrow async" x1="354" y1="618" x2="526" y2="618"/>
+          <polygon class="arrow-head" points="534,618 526,614 526,622"/>
+          <text class="msg" x="444" y="598" text-anchor="middle">E-mail com resumo e botão</text><text class="msg" x="444" y="610" text-anchor="middle">Validar</text>
+        </g>
+<g data-from="L" data-to="App">
+          <line class="arrow" x1="534" y1="654" x2="362" y2="654"/>
+          <polygon class="arrow-head" points="354,654 362,650 362,658"/>
+          <text class="msg" x="444" y="646" text-anchor="middle">Clica em Validar no e-mail</text>
+        </g>
+<g data-from="App" data-to="L">
+          <line class="arrow async" x1="354" y1="690" x2="526" y2="690"/>
+          <polygon class="arrow-head" points="534,690 526,686 526,694"/>
+          <text class="msg" x="444" y="682" text-anchor="middle">Solicita login (se necessário)</text>
+        </g>
+<g data-from="App" data-to="L">
+          <line class="arrow async" x1="354" y1="726" x2="526" y2="726"/>
+          <polygon class="arrow-head" points="534,726 526,722 526,730"/>
+          <text class="msg" x="444" y="718" text-anchor="middle">Tela da sugestão pendente</text>
+        </g>
+
+<g>
+          <line class="hair" x1="36" y1="828" x2="54" y2="828"/>
+          <rect class="pill" x="54" y="816" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Edita" x="90" y="832" text-anchor="middle">Edita</text>
+        </g>
+<g data-from="L" data-to="App">
+          <line class="arrow" x1="534" y1="858" x2="362" y2="858"/>
+          <polygon class="arrow-head" points="354,858 362,854 362,862"/>
+          <text class="msg" x="444" y="850" text-anchor="middle">Edita campos e clica Salvar</text>
+        </g>
+<g data-from="App" data-to="L">
+          <line class="arrow async" x1="354" y1="894" x2="526" y2="894"/>
+          <polygon class="arrow-head" points="534,894 526,890 526,898"/>
+          <text class="msg" x="444" y="886" text-anchor="middle">Confirma conteúdo atualizado</text>
+        </g>
+
+<g>
+          <line class="hair" x1="50" y1="996" x2="68" y2="996"/>
+          <rect class="pill" x="68" y="984" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Aceita" x="104" y="1000" text-anchor="middle">Aceita</text>
+        </g>
+<g data-from="L" data-to="App">
+          <line class="arrow" x1="534" y1="1026" x2="362" y2="1026"/>
+          <polygon class="arrow-head" points="354,1026 362,1022 362,1030"/>
+          <text class="msg" x="444" y="1018" text-anchor="middle">Clica Aceitar</text>
+        </g>
+<g data-from="App" data-to="L">
+          <line class="arrow async" x1="354" y1="1062" x2="526" y2="1062"/>
+          <polygon class="arrow-head" points="534,1062 526,1058 526,1066"/>
+          <text class="msg" x="444" y="1054" text-anchor="middle">Modal Confirmar aceite?</text>
+        </g>
+<g data-from="L" data-to="App">
+          <line class="arrow" x1="534" y1="1098" x2="362" y2="1098"/>
+          <polygon class="arrow-head" points="354,1098 362,1094 362,1102"/>
+          <text class="msg" x="444" y="1090" text-anchor="middle">Confirma no modal</text>
+        </g>
+<g data-from="App" data-to="App">
+          <circle cx="346" cy="1134" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="1138">Adota e vira solicitação no</text><text class="msg" x="356" y="1150">funil</text>
+        </g>
+<g data-from="App" data-to="L">
+          <line class="arrow async" x1="354" y1="1170" x2="526" y2="1170"/>
+          <polygon class="arrow-head" points="534,1170 526,1166 526,1174"/>
+          <text class="msg" x="444" y="1162" text-anchor="middle">Tela de sucesso</text>
+        </g>
+<g>
+          <line class="hair" x1="50" y1="1224" x2="68" y2="1224"/>
+          <rect class="pill" x="68" y="1212" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Recusa" x="104" y="1228" text-anchor="middle">Recusa</text>
+        </g>
+<g data-from="L" data-to="App">
+          <line class="arrow" x1="534" y1="1254" x2="362" y2="1254"/>
+          <polygon class="arrow-head" points="354,1254 362,1250 362,1258"/>
+          <text class="msg" x="444" y="1246" text-anchor="middle">Clica Recusar</text>
+        </g>
+<g data-from="App" data-to="L">
+          <line class="arrow async" x1="354" y1="1290" x2="526" y2="1290"/>
+          <polygon class="arrow-head" points="534,1290 526,1286 526,1294"/>
+          <text class="msg" x="444" y="1282" text-anchor="middle">Modal com motivo opcional</text>
+        </g>
+<g data-from="L" data-to="App">
+          <line class="arrow" x1="534" y1="1326" x2="362" y2="1326"/>
+          <polygon class="arrow-head" points="354,1326 362,1322 362,1330"/>
+          <text class="msg" x="444" y="1318" text-anchor="middle">Confirma recusa no modal</text>
+        </g>
+<g data-from="App" data-to="App">
+          <circle cx="346" cy="1362" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="1366">Marca como recusada</text>
+        </g>
+<g data-from="App" data-to="L">
+          <line class="arrow async" x1="354" y1="1398" x2="526" y2="1398"/>
+          <polygon class="arrow-head" points="534,1398 526,1394 526,1402"/>
+          <text class="msg" x="444" y="1390" text-anchor="middle">Tela de confirmação</text>
+        </g>
+<g data-from="App" data-to="G">
+          <line class="arrow async" x1="338" y1="1434" x2="166" y2="1434"/>
+          <polygon class="arrow-head" points="158,1434 166,1430 166,1438"/>
+          <text class="msg" x="248" y="1426" text-anchor="middle">Notificação ou e-mail de recusa</text>
+        </g>
+<g>
+          <line class="hair" x1="36" y1="1488" x2="54" y2="1488"/>
+          <rect class="pill" x="54" y="1476" width="83" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Não edita" x="95.5" y="1492" text-anchor="middle">Não edita</text>
+        </g>
+<g data-join-ref="1">
+          <line class="hair" x1="50" y1="1536" x2="68" y2="1536"/>
+          <rect class="pill" x="68" y="1524" width="216.4" height="24" rx="12"/>
+          <text class="pill-t" x="176.2" y="1540" text-anchor="middle">→ Aceitar ou recusar a sugestão?</text>
+        </g>
+    <g data-actor-id="G">
+        <rect class="actor-box" x="66" y="1590" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="1608" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="App">
+        <rect class="actor-box" x="262" y="1590" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="1608" text-anchor="middle">Sistema</text>
+      </g>
+<g data-actor-id="L">
+        <rect class="actor-box" x="458" y="1590" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="1608" text-anchor="middle">Líder</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="668" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="668" y2="41.5"/>
+    <g data-actor-id="G">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">GETIN</text>
+      </g>
+<g data-actor-id="App">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Sistema</text>
+      </g>
+<g data-actor-id="L">
+        <rect class="actor-box" x="458" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="26" text-anchor="middle">Líder</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="784" height="1238" viewBox="0 0 784 1238" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Sugestão de necessidade PDTI · interface</title>
+    <path class="edge" d="M488 96 L488 152"/>
+<path class="edge back" d="M116 320 L64 320 L64 220 L388 220 L388 194"/>
+<path class="edge" d="M438 215 L216 215 L216 292"/>
+<path class="edge" d="M488 348 L488 404"/>
+<path class="edge" d="M488 460 L488 516"/>
+<path class="edge" d="M488 572 L488 628"/>
+<path class="edge" d="M438 691 L352 691 L352 768"/>
+<path class="edge" d="M488 712 L488 880"/>
+<path class="edge" d="M352 1090 L352 1148"/>
+<path class="edge" d="M438 943 L352 943 L352 1020"/>
+<path class="edge" d="M624 1090 L624 1148"/>
+<path class="edge" d="M538 943 L624 943 L624 1020"/>
+<path class="edge" d="M352 824 L352 922 L388 922"/>
+<path class="edge" d="M488 236 L488 292"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="388" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="488" y="62" text-anchor="middle" dominant-baseline="central">Criar sugestão</text><text class="who" x="488" y="75" text-anchor="middle" dominant-baseline="central">GETIN</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="488,152 588,194 488,236 388,194"/>
+          <text class="xor-t" x="488" y="188" text-anchor="middle" dominant-baseline="central">Envio válido?</text><text class="who" x="488" y="201" text-anchor="middle" dominant-baseline="central">Sistema</text>
+        </g>
+<g data-node-id="S1e" data-shape="rect" data-next="D1">
+        <rect class="act" x="116" y="292" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="216" y="314" text-anchor="middle" dominant-baseline="central">Corrigir e reenviar</text><text class="who" x="216" y="327" text-anchor="middle" dominant-baseline="central">GETIN</text>
+      </g>
+<g data-node-id="S1ok" data-shape="rect" data-next="S2">
+        <rect class="act" x="388" y="292" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="488" y="314" text-anchor="middle" dominant-baseline="central">Gravar como pendente</text><text class="who" x="488" y="327" text-anchor="middle" dominant-baseline="central">Sistema</text>
+      </g>
+<g data-node-id="S2" data-shape="rect" data-next="S3">
+        <rect class="act" x="388" y="404" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="488" y="426" text-anchor="middle" dominant-baseline="central">Avisar o líder</text><text class="who" x="488" y="439" text-anchor="middle" dominant-baseline="central">Sistema</text>
+      </g>
+<g data-node-id="S3" data-shape="rect" data-next="D_edit">
+        <rect class="act" x="388" y="516" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="488" y="538" text-anchor="middle" dominant-baseline="central">Validar a sugestão</text><text class="who" x="488" y="551" text-anchor="middle" dominant-baseline="central">Líder</text>
+      </g>
+<g data-node-id="D_edit" data-shape="diamond">
+          <polygon class="diamond" points="488,628 588,670 488,712 388,670"/>
+          <text class="xor-t" x="488" y="657" text-anchor="middle" dominant-baseline="central">Editar o</text><text class="xor-t" x="488" y="671" text-anchor="middle" dominant-baseline="central">conteúdo?</text><text class="who" x="488" y="684" text-anchor="middle" dominant-baseline="central">Líder</text>
+        </g>
+<g data-node-id="S3edit" data-shape="rect" data-next="D2">
+        <rect class="act" x="252" y="768" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="352" y="790" text-anchor="middle" dominant-baseline="central">Atualizar o conteúdo</text><text class="who" x="352" y="803" text-anchor="middle" dominant-baseline="central">Líder</text>
+      </g>
+<g data-node-id="D2" data-shape="diamond">
+          <polygon class="diamond" points="488,880 588,922 488,964 388,922"/>
+          <text class="xor-t" x="488" y="909" text-anchor="middle" dominant-baseline="central">Aceitar ou</text><text class="xor-t" x="488" y="923" text-anchor="middle" dominant-baseline="central">recusar?</text><text class="who" x="488" y="936" text-anchor="middle" dominant-baseline="central">Líder</text>
+        </g>
+<g data-node-id="S4a" data-shape="rect" data-next="end_accept">
+        <rect class="act" x="252" y="1020" width="200" height="70" rx="8"/>
+        
+        <text class="act-t" x="352" y="1042" text-anchor="middle" dominant-baseline="central">Aceitar e entrar no</text><text class="act-t" x="352" y="1056" text-anchor="middle" dominant-baseline="central">funil</text><text class="who" x="352" y="1069" text-anchor="middle" dominant-baseline="central">Líder + Sistema + GETIN</text>
+      </g>
+<g data-node-id="end_accept" data-shape="circle">
+          <circle class="end-ok" cx="352" cy="1158" r="10"/>
+          
+          <text class="end-t" x="352" y="1182" text-anchor="middle">Fim · no funil</text>
+        </g>
+<g data-node-id="S4b" data-shape="rect" data-next="end_refuse">
+        <rect class="act" x="524" y="1020" width="200" height="70" rx="8"/>
+        
+        <text class="act-t" x="624" y="1042" text-anchor="middle" dominant-baseline="central">Recusar e avisar a</text><text class="act-t" x="624" y="1056" text-anchor="middle" dominant-baseline="central">GETIN</text><text class="who" x="624" y="1069" text-anchor="middle" dominant-baseline="central">Líder + Sistema</text>
+      </g>
+<g data-node-id="end_refuse" data-shape="circle">
+          <circle class="end-bad" cx="624" cy="1158" r="10"/>
+          <circle class="end-hole" cx="624" cy="1158" r="5"/>
+          <text class="end-t" x="624" y="1182" text-anchor="middle">Fim · sem funil</text>
+        </g>
+    <polygon class="edge-head" points="488,152 491.6,144 484.4,144"/>
+<polygon class="edge-head back" points="388,194 384.4,202 391.6,202"/>
+<polygon class="edge-head" points="216,292 219.6,284 212.4,284"/>
+<polygon class="edge-head" points="488,404 491.6,396 484.4,396"/>
+<polygon class="edge-head" points="488,516 491.6,508 484.4,508"/>
+<polygon class="edge-head" points="488,628 491.6,620 484.4,620"/>
+<polygon class="edge-head" points="352,768 355.6,760 348.4,760"/>
+<polygon class="edge-head" points="488,880 491.6,872 484.4,872"/>
+<polygon class="edge-head" points="352,1148 355.6,1140 348.4,1140"/>
+<polygon class="edge-head" points="352,1020 355.6,1012 348.4,1012"/>
+<polygon class="edge-head" points="624,1148 627.6,1140 620.4,1140"/>
+<polygon class="edge-head" points="624,1020 627.6,1012 620.4,1012"/>
+<polygon class="edge-head" points="388,922 380,918.4 380,925.6"/>
+<polygon class="edge-head" points="488,292 491.6,284 484.4,284"/>
+    
+
+<text class="edge-t" x="327" y="207" text-anchor="middle">Envio inválido</text>
+
+
+
+<text class="edge-t" x="395" y="683" text-anchor="middle">Edita</text>
+<text class="edge-t" x="496" y="796" text-anchor="start">Não edita</text>
+
+<text class="edge-t" x="395" y="935" text-anchor="middle">Aceita</text>
+
+<text class="edge-t" x="581" y="935" text-anchor="middle">Recusa</text>
+
+<text class="edge-t" x="496" y="264" text-anchor="start">Envio válido</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="1192" height="464" viewBox="0 0 1192 464" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Sugestão PDTI</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="sugestao">
+      <text class="mach-title" x="16" y="16">Sugestão PDTI</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M700 228 L992 228"/>
+<path class="edge" d="M616 244 L616 400"/>
+<path class="edge" d="M144 212 C128 172, 184 172, 168 212"/>
+<path class="edge" d="M569.04 212 C559.04 176, 599.04 176, 589.04 212"/>
+<path class="edge" d="M604 212 C588 172, 644 172, 628 212"/>
+      <g data-state-id="rascunho">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Rascunho</text>
+      </g>
+<g data-state-id="pendente">
+        <rect class="st" x="532" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Pendente da área</text>
+      </g>
+<g data-state-id="ativo">
+        <rect class="st" x="992" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="1076" y="228" text-anchor="middle" dominant-baseline="central">Ativa</text>
+      </g>
+<g data-state-id="recusada">
+        <rect class="st term" x="532" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="416" text-anchor="middle" dominant-baseline="central">Recusada</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="992,228 984,224.4 984,231.6"/>
+<polygon class="edge-head" points="616,400 619.6,392 612.4,392"/>
+<polygon class="edge-head" points="168,212 174.31364149801976,205.90919290779271 167.6286093236459,203.23518003804315"/>
+<polygon class="edge-head" points="589.04,212 594.6498153849565,205.2553746325904 587.7124864356209,203.32833881333053"/>
+<polygon class="edge-head" points="628,212 634.3136414980198,205.90919290779271 627.628609323646,203.23518003804315"/>
+      <g data-transition-id="T_to_pending" data-from="rascunho" data-to="pendente"><rect class="edge-cap" x="276.5" y="156" width="219" height="46" rx="6"/><text class="edge-title" x="284.5" y="169" dominant-baseline="central">Envio válido</text><rect class="fx-pill" x="284.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="304.5" y="187" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="330.5" y="187" dominant-baseline="central" data-effect-kind="write" data-effect-target="sugestao">Grava como pendente da área</text></g>
+<g data-transition-id="T_aceita" data-from="pendente" data-to="ativo"><rect class="edge-cap" x="751" y="140" width="190" height="62" rx="6"/><text class="edge-title" x="759" y="153" dominant-baseline="central">Líder aceita</text><rect class="fx-pill" x="759" y="164" width="40" height="14" rx="7"/><text class="fx-pill-t" x="779" y="171" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="805" y="171" dominant-baseline="central" data-effect-kind="write" data-effect-target="solicitacao">Adota e entra no funil</text><rect class="fx-pill" x="759" y="180" width="44" height="14" rx="7"/><text class="fx-pill-t" x="781" y="187" text-anchor="middle" dominant-baseline="central">E-mail</text><text class="fx" x="809" y="187" dominant-baseline="central" data-effect-kind="email" data-effect-target="GETIN">Avisa a GETIN</text></g>
+<g data-transition-id="T_refuse" data-from="pendente" data-to="recusada"><rect class="edge-cap" x="628" y="299" width="200" height="46" rx="6"/><text class="edge-title" x="636" y="312" dominant-baseline="central">Líder recusa</text><rect class="fx-pill" x="636" y="323" width="44" height="14" rx="7"/><text class="fx-pill-t" x="658" y="330" text-anchor="middle" dominant-baseline="central">E-mail</text><text class="fx" x="686" y="330" dominant-baseline="central" data-effect-kind="email" data-effect-target="GETIN">Avisa a GETIN da recusa</text></g>
+<g data-transition-id="T_draft_loop" data-from="rascunho" data-to="rascunho"><rect class="edge-cap" x="39.5" y="120" width="233" height="46" rx="6"/><text class="edge-title" x="47.5" y="133" dominant-baseline="central">Envio inválido · corrige e reenvia</text><rect class="fx-pill" x="47.5" y="144" width="40" height="14" rx="7"/><text class="fx-pill-t" x="67.5" y="151" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="93.5" y="151" dominant-baseline="central" data-effect-kind="notify" data-effect-target="GETIN">Mostra erro de envio</text></g>
+<g data-transition-id="T_edit_pending" data-from="pendente" data-to="pendente"><rect class="edge-cap" x="370.03999999999996" y="110" width="227" height="60" rx="6"/><text class="edge-title" x="378.03999999999996" y="123" dominant-baseline="central">Líder atualiza o conteúdo · ainda</text><text class="edge-title" x="378.03999999999996" y="137" dominant-baseline="central">pendente</text><rect class="fx-pill" x="378.03999999999996" y="148" width="40" height="14" rx="7"/><text class="fx-pill-t" x="398.03999999999996" y="155" text-anchor="middle" dominant-baseline="central">Grava</text></g>
+<g data-transition-id="T_skip_edit" data-from="pendente" data-to="pendente"><rect class="edge-cap" x="537.5" y="140" width="157" height="26" rx="6"/><text class="edge-title" x="545.5" y="153" dominant-baseline="central">Líder segue sem editar</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-linear-chain">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="282" viewBox="0 0 472 282" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Linear four-step chain</title>
+    <desc>Linear four-step chain.</desc>
+    
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="238"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="238"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="238"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="238"/>
+      </g>
+    
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Opens the form</text>
+        </g>
+<g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="114" x2="330" y2="114"/>
+          <polygon class="arrow-head" points="338,114 330,110 330,118"/>
+          <text class="msg" x="248" y="106" text-anchor="middle">Submits details</text>
+        </g>
+<g data-from="S" data-to="S">
+          <circle cx="346" cy="150" r="3" class="arrow-head"/>
+          <text class="msg" x="356" y="154">Writes the row</text>
+        </g>
+<g data-from="S" data-to="A">
+          <line class="arrow async" x1="338" y1="186" x2="166" y2="186"/>
+          <polygon class="arrow-head" points="158,186 166,182 166,190"/>
+          <text class="msg" x="248" y="178" text-anchor="middle">Shows confirmation</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="246" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="264" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="246" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="264" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="356" height="580" viewBox="0 0 356 580" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Linear four-step chain</title>
+    <path class="edge" d="M196 96 L196 152"/>
+<path class="edge" d="M196 208 L196 264"/>
+<path class="edge" d="M196 320 L196 376"/>
+<path class="edge" d="M196 432 L196 490"/>
+    <g data-node-id="S1" data-shape="rect" data-next="S2">
+        <rect class="act" x="96" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="196" y="62" text-anchor="middle" dominant-baseline="central">Start request</text><text class="who" x="196" y="75" text-anchor="middle" dominant-baseline="central">Actor</text>
+      </g>
+<g data-node-id="S2" data-shape="rect" data-next="S3">
+        <rect class="act" x="96" y="152" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="196" y="174" text-anchor="middle" dominant-baseline="central">Fill details</text><text class="who" x="196" y="187" text-anchor="middle" dominant-baseline="central">Actor</text>
+      </g>
+<g data-node-id="S3" data-shape="rect" data-next="S4">
+        <rect class="act" x="96" y="264" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="196" y="286" text-anchor="middle" dominant-baseline="central">Store record</text><text class="who" x="196" y="299" text-anchor="middle" dominant-baseline="central">System</text>
+      </g>
+<g data-node-id="S4" data-shape="rect" data-next="end_ok">
+        <rect class="act" x="96" y="376" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="196" y="398" text-anchor="middle" dominant-baseline="central">Confirm</text><text class="who" x="196" y="411" text-anchor="middle" dominant-baseline="central">System</text>
+      </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="196" cy="500" r="10"/>
+          
+          <text class="end-t" x="196" y="524" text-anchor="middle">Rejected fail error inválido sem funil</text>
+        </g>
+    <polygon class="edge-head" points="196,152 199.6,144 192.4,144"/>
+<polygon class="edge-head" points="196,264 199.6,256 192.4,256"/>
+<polygon class="edge-head" points="196,376 199.6,368 192.4,368"/>
+<polygon class="edge-head" points="196,490 199.6,482 192.4,482"/>
+    
+
+
+
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Linear four-step chain</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="linear_chain">
+      <text class="mach-title" x="16" y="16">Linear four-step chain</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="done">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Done</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_done" data-from="open" data-to="done"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Finishes</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-xor-three-way">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="402" viewBox="0 0 472 402" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Three exclusive outcomes</title>
+    <desc>Three exclusive outcomes.</desc>
+    <rect class="xor-wash" x="8" y="150" width="456" height="180" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="358"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="358"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="358"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="358"/>
+      </g>
+    <g data-xor-rail="X1">
+        <line class="xor-rail" x1="22" y1="160" x2="22" y2="322"/>
+        <text class="xor-q" x="38" y="172">◇ Which queue should receive this ticket?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Opens triage</text>
+        </g>
+<g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="114" x2="330" y2="114"/>
+          <polygon class="arrow-head" points="338,114 330,110 330,118"/>
+          <text class="msg" x="248" y="106" text-anchor="middle">Picks a queue</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="216" x2="40" y2="216"/>
+          <rect class="pill" x="40" y="204" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Low" x="76" y="220" text-anchor="middle">Low</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="264" x2="40" y2="264"/>
+          <rect class="pill" x="40" y="252" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Medium" x="76" y="268" text-anchor="middle">Medium</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="312" x2="40" y2="312"/>
+          <rect class="pill" x="40" y="300" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="High" x="76" y="316" text-anchor="middle">High</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="366" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="384" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="366" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="384" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="724" height="384" viewBox="0 0 724 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Three exclusive outcomes</title>
+    <path class="edge" d="M380 96 L380 152"/>
+<path class="edge" d="M330 215 L108 215 L108 294"/>
+<path class="edge" d="M380 236 L380 294"/>
+<path class="edge" d="M430 215 L652 215 L652 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="X1">
+        <rect class="act" x="280" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="380" y="62" text-anchor="middle" dominant-baseline="central">Triage the ticket</text><text class="who" x="380" y="75" text-anchor="middle" dominant-baseline="central">Actor</text>
+      </g>
+<g data-node-id="X1" data-shape="diamond">
+          <polygon class="diamond" points="380,152 480,194 380,236 280,194"/>
+          <text class="xor-t" x="380" y="188" text-anchor="middle" dominant-baseline="central">Which queue?</text><text class="who" x="380" y="201" text-anchor="middle" dominant-baseline="central">Actor</text>
+        </g>
+<g data-node-id="end_low" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Queued low</text>
+        </g>
+<g data-node-id="end_mid" data-shape="circle">
+          <circle class="end-ok" cx="380" cy="304" r="10"/>
+          
+          <text class="end-t" x="380" y="328" text-anchor="middle">Queued medium</text>
+        </g>
+<g data-node-id="end_high" data-shape="circle">
+          <circle class="end-ok" cx="652" cy="304" r="10"/>
+          
+          <text class="end-t" x="652" y="328" text-anchor="middle">Queued high</text>
+        </g>
+    <polygon class="edge-head" points="380,152 383.6,144 376.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="380,294 383.6,286 376.4,286"/>
+<polygon class="edge-head" points="652,294 655.6,286 648.4,286"/>
+    
+<text class="edge-t" x="219" y="207" text-anchor="middle">Low</text>
+<text class="edge-t" x="388" y="265" text-anchor="start">Medium</text>
+<text class="edge-t" x="541" y="207" text-anchor="middle">High</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Three exclusive outcomes</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="xor_three_way">
+      <text class="mach-title" x="16" y="16">Three exclusive outcomes</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="done">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Done</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_done" data-from="open" data-to="done"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Finishes</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-and-join">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="864" height="390" viewBox="0 0 864 390" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Parallel review then merge</title>
+    <desc>Parallel review then merge.</desc>
+    <rect class="xor-wash" x="8" y="114" width="848" height="198" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="346"/>
+        <line class="life-hit" data-actor-label="Requester" x1="150" y1="50" x2="150" y2="346"/>
+      </g>
+<g data-actor-id="L">
+        <line class="lifeline" data-lifeline="L" x1="346" y1="50" x2="346" y2="346"/>
+        <line class="life-hit" data-actor-label="Legal" x1="346" y1="50" x2="346" y2="346"/>
+      </g>
+<g data-actor-id="F">
+        <line class="lifeline" data-lifeline="F" x1="542" y1="50" x2="542" y2="346"/>
+        <line class="life-hit" data-actor-label="Finance" x1="542" y1="50" x2="542" y2="346"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="738" y1="50" x2="738" y2="346"/>
+        <line class="life-hit" data-actor-label="System" x1="738" y1="50" x2="738" y2="346"/>
+      </g>
+    <g data-xor-rail="P1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="304"/>
+        <text class="xor-q" x="38" y="136">◇ Review in parallel</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="722" y2="78"/>
+          <polygon class="arrow-head" points="730,78 722,74 722,82"/>
+          <text class="msg" x="444" y="70" text-anchor="middle">Sends the pack</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Legal" x="76" y="184" text-anchor="middle">Legal</text>
+        </g>
+<g data-from="L" data-to="S">
+          <line class="arrow" x1="354" y1="210" x2="722" y2="210"/>
+          <polygon class="arrow-head" points="730,210 722,206 722,214"/>
+          <text class="msg" x="542" y="202" text-anchor="middle">Records legal OK</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="264" x2="40" y2="264"/>
+          <rect class="pill" x="40" y="252" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Finance" x="76" y="268" text-anchor="middle">Finance</text>
+        </g>
+<g data-from="F" data-to="S">
+          <line class="arrow" x1="550" y1="294" x2="722" y2="294"/>
+          <polygon class="arrow-head" points="730,294 722,290 722,298"/>
+          <text class="msg" x="640" y="286" text-anchor="middle">Records finance OK</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="354" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="372" text-anchor="middle">Requester</text>
+      </g>
+<g data-actor-id="L">
+        <rect class="actor-box" x="262" y="354" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="372" text-anchor="middle">Legal</text>
+      </g>
+<g data-actor-id="F">
+        <rect class="actor-box" x="458" y="354" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="372" text-anchor="middle">Finance</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="654" y="354" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="738" y="372" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="864" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="864" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Requester</text>
+      </g>
+<g data-actor-id="L">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Legal</text>
+      </g>
+<g data-actor-id="F">
+        <rect class="actor-box" x="458" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="26" text-anchor="middle">Finance</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="654" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="738" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="628" height="484" viewBox="0 0 628 484" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Parallel review then merge</title>
+    <path class="edge" d="M332 96 L332 152"/>
+<path class="edge" d="M314 156 L196 156 L196 216"/>
+<path class="edge" d="M350 156 L468 156 L468 216"/>
+<path class="edge" d="M332 336 L332 394"/>
+<path class="edge" d="M196 272 L196 332 L314 332"/>
+<path class="edge" d="M468 272 L468 332 L350 332"/>
+    <g data-node-id="S1" data-shape="rect" data-next="P1">
+        <rect class="act" x="232" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="332" y="62" text-anchor="middle" dominant-baseline="central">Submit pack</text><text class="who" x="332" y="75" text-anchor="middle" dominant-baseline="central">Requester</text>
+      </g>
+<g data-node-id="P1" data-shape="bar">
+          <rect class="bar" x="314" y="152" width="36" height="8" rx="2"/>
+        </g>
+<g data-node-id="SL" data-shape="rect" data-next="J1">
+        <rect class="act" x="96" y="216" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="196" y="238" text-anchor="middle" dominant-baseline="central">Legal review</text><text class="who" x="196" y="251" text-anchor="middle" dominant-baseline="central">Legal</text>
+      </g>
+<g data-node-id="SF" data-shape="rect" data-next="J1">
+        <rect class="act" x="368" y="216" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="468" y="238" text-anchor="middle" dominant-baseline="central">Finance review</text><text class="who" x="468" y="251" text-anchor="middle" dominant-baseline="central">Finance</text>
+      </g>
+<g data-node-id="J1" data-shape="bar">
+          <rect class="bar" x="314" y="328" width="36" height="8" rx="2"/>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="332" cy="404" r="10"/>
+          
+          <text class="end-t" x="332" y="428" text-anchor="middle">Approved</text>
+        </g>
+    <polygon class="edge-head" points="332,152 335.6,144 328.4,144"/>
+<polygon class="edge-head" points="196,216 199.6,208 192.4,208"/>
+<polygon class="edge-head" points="468,216 471.6,208 464.4,208"/>
+<polygon class="edge-head" points="332,394 335.6,386 328.4,386"/>
+<polygon class="edge-head" points="314,332 306,328.4 306,335.6"/>
+<polygon class="edge-head" points="350,332 358,335.6 358,328.4"/>
+    
+<text class="edge-t" x="255" y="148" text-anchor="middle">Legal</text>
+<text class="edge-t" x="409" y="148" text-anchor="middle">Finance</text>
+
+
+
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Parallel review then merge</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="and_join">
+      <text class="mach-title" x="16" y="16">Parallel review then merge</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="done">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Done</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_done" data-from="open" data-to="done"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Finishes</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-nested-xor">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="462" viewBox="0 0 472 462" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Nested exclusive gates</title>
+    <desc>Nested exclusive gates.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="276" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="418"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="418"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="418"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="418"/>
+      </g>
+    <g data-xor-rail="X1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="382"/>
+        <text class="xor-q" x="38" y="136">◇ Did the actor attach a file?</text>
+      </g>
+<g data-xor-rail="X2">
+        <line class="xor-rail" x1="36" y1="268" x2="36" y2="382"/>
+        <text class="xor-q" x="52" y="280">◇ Is the attached file valid?</text>
+      </g>
+    <g data-from="S" data-to="A">
+          <line class="arrow async" x1="338" y1="78" x2="166" y2="78"/>
+          <polygon class="arrow-head" points="158,78 166,74 166,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Asks for a file</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Missing" x="76" y="184" text-anchor="middle">Missing</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Present" x="76" y="232" text-anchor="middle">Present</text>
+        </g>
+
+<g>
+          <line class="hair" x1="36" y1="324" x2="54" y2="324"/>
+          <rect class="pill" x="54" y="312" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Invalid" x="90" y="328" text-anchor="middle">Invalid</text>
+        </g>
+<g>
+          <line class="hair" x1="36" y1="372" x2="54" y2="372"/>
+          <rect class="pill" x="54" y="360" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Valid" x="90" y="376" text-anchor="middle">Valid</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="426" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="444" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="426" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="444" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="724" height="524" viewBox="0 0 724 524" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Nested exclusive gates</title>
+    <path class="edge" d="M380 96 L380 152"/>
+<path class="edge" d="M330 215 L108 215 L108 294"/>
+<path class="edge" d="M466 355 L380 355 L380 434"/>
+<path class="edge" d="M566 355 L652 355 L652 434"/>
+<path class="edge" d="M430 215 L516 215 L516 292"/>
+    <g data-node-id="S1" data-shape="rect" data-next="X1">
+        <rect class="act" x="280" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="380" y="62" text-anchor="middle" dominant-baseline="central">Receive file</text><text class="who" x="380" y="75" text-anchor="middle" dominant-baseline="central">System</text>
+      </g>
+<g data-node-id="X1" data-shape="diamond">
+          <polygon class="diamond" points="380,152 480,194 380,236 280,194"/>
+          <text class="xor-t" x="380" y="194" text-anchor="middle" dominant-baseline="central">File present?</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">No file</text>
+        </g>
+<g data-node-id="X2" data-shape="diamond">
+          <polygon class="diamond" points="516,292 616,334 516,376 416,334"/>
+          <text class="xor-t" x="516" y="334" text-anchor="middle" dominant-baseline="central">File valid?</text>
+        </g>
+<g data-node-id="end_bad" data-shape="circle">
+          <circle class="end-ok" cx="380" cy="444" r="10"/>
+          
+          <text class="end-t" x="380" y="468" text-anchor="middle">Invalid file</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="652" cy="444" r="10"/>
+          
+          <text class="end-t" x="652" y="468" text-anchor="middle">Accepted file</text>
+        </g>
+    <polygon class="edge-head" points="380,152 383.6,144 376.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="380,434 383.6,426 376.4,426"/>
+<polygon class="edge-head" points="652,434 655.6,426 648.4,426"/>
+<polygon class="edge-head" points="516,292 519.6,284 512.4,284"/>
+    
+<text class="edge-t" x="219" y="207" text-anchor="middle">Missing</text>
+<text class="edge-t" x="423" y="347" text-anchor="middle">Invalid</text>
+<text class="edge-t" x="609" y="347" text-anchor="middle">Valid</text>
+<text class="edge-t" x="473" y="207" text-anchor="middle">Present</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Nested exclusive gates</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="nested_xor">
+      <text class="mach-title" x="16" y="16">Nested exclusive gates</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="done">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Done</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_done" data-from="open" data-to="done"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Finishes</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-two-back-edges">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="534" viewBox="0 0 472 534" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Two correction loops</title>
+    <desc>Two correction loops.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="348" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="490"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="490"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="490"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="490"/>
+      </g>
+    <g data-xor-rail="X1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="454"/>
+        <text class="xor-q" x="38" y="136">◇ Is the draft syntactically valid?</text>
+      </g>
+<g data-xor-rail="X2">
+        <line class="xor-rail" x1="36" y1="304" x2="36" y2="454"/>
+        <text class="xor-q" x="52" y="316">◇ Does the draft pass policy?</text>
+      </g>
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Saves a draft</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="104" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Syntax error" x="92" y="184" text-anchor="middle">Syntax error</text>
+        </g>
+<g data-from="S" data-to="A">
+          <line class="arrow async" x1="338" y1="210" x2="166" y2="210"/>
+          <polygon class="arrow-head" points="158,210 166,206 166,214"/>
+          <text class="msg" x="248" y="202" text-anchor="middle">Shows syntax errors</text>
+        </g>
+<g data-loop-ref="X1">
+          <path class="loop-arc" d="M150 210 C114 246, 50 192, 40 146"/>
+          <polygon class="loop-head" points="40,136 35,146 46,144"/>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="264" x2="40" y2="264"/>
+          <rect class="pill" x="40" y="252" width="83" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Syntax ok" x="81.5" y="268" text-anchor="middle">Syntax ok</text>
+        </g>
+
+<g>
+          <line class="hair" x1="36" y1="360" x2="54" y2="360"/>
+          <rect class="pill" x="54" y="348" width="104" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Policy error" x="106" y="364" text-anchor="middle">Policy error</text>
+        </g>
+<g data-from="S" data-to="A">
+          <line class="arrow async" x1="338" y1="390" x2="166" y2="390"/>
+          <polygon class="arrow-head" points="158,390 166,386 166,394"/>
+          <text class="msg" x="248" y="382" text-anchor="middle">Shows policy errors</text>
+        </g>
+<g data-loop-ref="X2">
+          <path class="loop-arc" d="M150 390 C114 426, 64 372, 54 326"/>
+          <polygon class="loop-head" points="54,316 49,326 60,324"/>
+        </g>
+<g>
+          <line class="hair" x1="36" y1="444" x2="54" y2="444"/>
+          <rect class="pill" x="54" y="432" width="83" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Policy ok" x="95.5" y="448" text-anchor="middle">Policy ok</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="498" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="516" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="498" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="516" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="668" height="532" viewBox="0 0 668 532" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Two correction loops</title>
+    <path class="edge" d="M508 96 L508 152"/>
+<path class="edge back" d="M136 320 L84 320 L84 220 L408 220 L408 194"/>
+<path class="edge" d="M458 215 L236 215 L236 292"/>
+<path class="edge back" d="M136 460 L64 460 L64 360 L408 360 L408 334"/>
+<path class="edge" d="M458 355 L236 355 L236 432"/>
+<path class="edge" d="M508 376 L508 434"/>
+<path class="edge" d="M508 236 L508 292"/>
+    <g data-node-id="S1" data-shape="rect" data-next="X1">
+        <rect class="act" x="408" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="508" y="62" text-anchor="middle" dominant-baseline="central">Draft</text><text class="who" x="508" y="75" text-anchor="middle" dominant-baseline="central">Actor</text>
+      </g>
+<g data-node-id="X1" data-shape="diamond">
+          <polygon class="diamond" points="508,152 608,194 508,236 408,194"/>
+          <text class="xor-t" x="508" y="194" text-anchor="middle" dominant-baseline="central">Syntax ok?</text>
+        </g>
+<g data-node-id="C1" data-shape="rect" data-next="X1">
+        <rect class="act" x="136" y="292" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="236" y="314" text-anchor="middle" dominant-baseline="central">Fix syntax</text><text class="who" x="236" y="327" text-anchor="middle" dominant-baseline="central">Actor</text>
+      </g>
+<g data-node-id="X2" data-shape="diamond">
+          <polygon class="diamond" points="508,292 608,334 508,376 408,334"/>
+          <text class="xor-t" x="508" y="334" text-anchor="middle" dominant-baseline="central">Policy ok?</text>
+        </g>
+<g data-node-id="C2" data-shape="rect" data-next="X2">
+        <rect class="act" x="136" y="432" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="236" y="454" text-anchor="middle" dominant-baseline="central">Fix policy</text><text class="who" x="236" y="467" text-anchor="middle" dominant-baseline="central">Actor</text>
+      </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="508" cy="444" r="10"/>
+          
+          <text class="end-t" x="508" y="468" text-anchor="middle">Published</text>
+        </g>
+    <polygon class="edge-head" points="508,152 511.6,144 504.4,144"/>
+<polygon class="edge-head back" points="408,194 404.4,202 411.6,202"/>
+<polygon class="edge-head" points="236,292 239.6,284 232.4,284"/>
+<polygon class="edge-head back" points="408,334 404.4,342 411.6,342"/>
+<polygon class="edge-head" points="236,432 239.6,424 232.4,424"/>
+<polygon class="edge-head" points="508,434 511.6,426 504.4,426"/>
+<polygon class="edge-head" points="508,292 511.6,284 504.4,284"/>
+    
+
+<text class="edge-t" x="347" y="207" text-anchor="middle">Syntax error</text>
+
+<text class="edge-t" x="347" y="347" text-anchor="middle">Policy error</text>
+<text class="edge-t" x="516" y="405" text-anchor="start">Policy ok</text>
+<text class="edge-t" x="516" y="264" text-anchor="start">Syntax ok</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Two correction loops</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="two_back_edges">
+      <text class="mach-title" x="16" y="16">Two correction loops</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="done">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Done</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_done" data-from="open" data-to="done"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Finishes</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-event-subprocess">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="210" viewBox="0 0 472 210" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Timer then named subprocess</title>
+    <desc>Timer then named subprocess.</desc>
+    
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="166"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="166"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="166"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="166"/>
+      </g>
+    
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Books a window</text>
+        </g>
+<g data-from="S" data-to="A">
+          <line class="arrow async" x1="338" y1="114" x2="166" y2="114"/>
+          <polygon class="arrow-head" points="158,114 166,110 166,118"/>
+          <text class="msg" x="248" y="106" text-anchor="middle">Window opened</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="174" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="192" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="174" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="192" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="356" height="444" viewBox="0 0 356 444" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Timer then named subprocess</title>
+    <path class="edge" d="M196 96 L196 154"/>
+<path class="edge" d="M196 178 L196 254"/>
+<path class="edge" d="M196 296 L196 354"/>
+    <g data-node-id="S1" data-shape="rect" data-next="E1">
+        <rect class="act" x="96" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="196" y="62" text-anchor="middle" dominant-baseline="central">Schedule window</text><text class="who" x="196" y="75" text-anchor="middle" dominant-baseline="central">Actor</text>
+      </g>
+<g data-node-id="E1" data-shape="circle">
+          <circle class="evt" cx="196" cy="166" r="12"/>
+          <text class="end-t" x="196" y="192" text-anchor="middle">Wait 24h</text>
+        </g>
+<g data-node-id="P1" data-shape="rect" data-next="end_ok">
+        <rect class="act" x="96" y="254" width="200" height="42" rx="8"/>
+        <rect class="sub-mark" x="101" y="259" width="190" height="32" rx="4"/>
+        <text class="act-t" x="196" y="275" text-anchor="middle" dominant-baseline="central">Collect signatures</text>
+      </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="196" cy="364" r="10"/>
+          
+          <text class="end-t" x="196" y="388" text-anchor="middle">Signed</text>
+        </g>
+    <polygon class="edge-head" points="196,154 199.6,146 192.4,146"/>
+<polygon class="edge-head" points="196,254 199.6,246 192.4,246"/>
+<polygon class="edge-head" points="196,354 199.6,346 192.4,346"/>
+    
+
+
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Timer then named subprocess</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="event_subprocess">
+      <text class="mach-title" x="16" y="16">Timer then named subprocess</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="done">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Done</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_done" data-from="open" data-to="done"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Finishes</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-machine-diamond">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="174" viewBox="0 0 472 174" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Diamond state machine</title>
+    <desc>Diamond state machine.</desc>
+    
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="130"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="130"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="130"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="130"/>
+      </g>
+    
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Opens a case</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="138" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="156" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="138" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="156" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="356" height="230" viewBox="0 0 356 230" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Diamond state machine</title>
+    <path class="edge" d="M196 82 L196 140"/>
+    <g data-node-id="S1" data-shape="rect" data-next="end_ok">
+        <rect class="act" x="96" y="40" width="200" height="42" rx="8"/>
+        
+        <text class="act-t" x="196" y="61" text-anchor="middle" dominant-baseline="central">Open case</text>
+      </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="196" cy="150" r="10"/>
+          
+          <text class="end-t" x="196" y="174" text-anchor="middle">Filed</text>
+        </g>
+    <polygon class="edge-head" points="196,140 199.6,132 192.4,132"/>
+    
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="1192" height="464" viewBox="0 0 1192 464" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Case</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="case">
+      <text class="mach-title" x="16" y="16">Case</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 416"/>
+<path class="edge" d="M700 228 L992 228"/>
+<path class="edge" d="M700 416 L992 228"/>
+      <g data-state-id="new">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">New</text>
+      </g>
+<g data-state-id="legal">
+        <rect class="st" x="532" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Legal track</text>
+      </g>
+<g data-state-id="finance">
+        <rect class="st" x="532" y="400" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="616" y="416" text-anchor="middle" dominant-baseline="central">Finance track</text>
+      </g>
+<g data-state-id="closed">
+        <rect class="st term" x="992" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="995" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1076" y="228" text-anchor="middle" dominant-baseline="central">Closed</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,416 527.2223901529783,408.64238869267734 523.3247450897379,414.696177833455"/>
+<polygon class="edge-head" points="992,228 984,224.4 984,231.6"/>
+<polygon class="edge-head" points="992,228 983.3247450897379,229.30382216654496 987.2223901529783,235.35761130732263"/>
+      <g data-transition-id="T_legal" data-from="new" data-to="legal"><rect class="edge-cap" x="336.5" y="176" width="99" height="26" rx="6"/><text class="edge-title" x="344.5" y="189" dominant-baseline="central">Goes to legal</text></g>
+<g data-transition-id="T_fin" data-from="new" data-to="finance"><rect class="edge-cap" x="330" y="176" width="112" height="26" rx="6"/><text class="edge-title" x="338" y="189" dominant-baseline="central">Goes to finance</text></g>
+<g data-transition-id="T_lclose" data-from="legal" data-to="closed"><rect class="edge-cap" x="765.5" y="156" width="161" height="46" rx="6"/><text class="edge-title" x="773.5" y="169" dominant-baseline="central">Legal closes</text><rect class="fx-pill" x="773.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="793.5" y="187" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="819.5" y="187" dominant-baseline="central" data-effect-kind="write" data-effect-target="case">Stores legal memo</text></g>
+<g data-transition-id="T_fclose" data-from="finance" data-to="closed"><rect class="edge-cap" x="759.5" y="344" width="173" height="46" rx="6"/><text class="edge-title" x="767.5" y="357" dominant-baseline="central">Finance closes</text><rect class="fx-pill" x="767.5" y="368" width="40" height="14" rx="7"/><text class="fx-pill-t" x="787.5" y="375" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="813.5" y="375" dominant-baseline="central" data-effect-kind="write" data-effect-target="case">Stores finance memo</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-machine-three-loops">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="174" viewBox="0 0 472 174" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Three self-loops on one state</title>
+    <desc>Three self-loops on one state.</desc>
+    
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="130"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="130"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="130"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="130"/>
+      </g>
+    
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Keeps the item</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="138" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="156" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="138" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="156" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="356" height="230" viewBox="0 0 356 230" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Three self-loops on one state</title>
+    <path class="edge" d="M196 82 L196 140"/>
+    <g data-node-id="S1" data-shape="rect" data-next="end_ok">
+        <rect class="act" x="96" y="40" width="200" height="42" rx="8"/>
+        
+        <text class="act-t" x="196" y="61" text-anchor="middle" dominant-baseline="central">Hold</text>
+      </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="196" cy="150" r="10"/>
+          
+          <text class="end-t" x="196" y="174" text-anchor="middle">Held</text>
+        </g>
+    <polygon class="edge-head" points="196,140 199.6,132 192.4,132"/>
+    
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Hold</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="hold">
+      <text class="mach-title" x="16" y="16">Hold</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M109.04 212 C99.04 176, 139.04000000000002 176, 129.04000000000002 212"/>
+<path class="edge" d="M144 212 C128 172, 184 172, 168 212"/>
+<path class="edge" d="M182.95999999999998 212 C172.95999999999998 176, 212.95999999999998 176, 202.95999999999998 212"/>
+      <g data-state-id="parked">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Parked</text>
+      </g>
+<g data-state-id="done">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Released</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="129.04000000000002,212 134.64981538495655,205.2553746325904 127.71248643562099,203.32833881333053"/>
+<polygon class="edge-head" points="168,212 174.31364149801976,205.90919290779271 167.6286093236459,203.23518003804315"/>
+<polygon class="edge-head" points="202.95999999999998,212 208.5698153849565,205.2553746325904 201.63248643562096,203.32833881333053"/>
+      <g data-transition-id="T_go" data-from="parked" data-to="done"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Release</text></g>
+<g data-transition-id="T_ping" data-from="parked" data-to="parked"><rect class="edge-cap" x="5.040000000000006" y="124" width="132" height="46" rx="6"/><text class="edge-title" x="13.040000000000006" y="137" dominant-baseline="central">Ping</text><rect class="fx-pill" x="13.040000000000006" y="148" width="40" height="14" rx="7"/><text class="fx-pill-t" x="33.040000000000006" y="155" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="59.040000000000006" y="155" dominant-baseline="central" data-effect-kind="notify" data-effect-target="A">Nudges owner</text></g>
+<g data-transition-id="T_note" data-from="parked" data-to="parked"><rect class="edge-cap" x="84" y="120" width="144" height="46" rx="6"/><text class="edge-title" x="92" y="133" dominant-baseline="central">Add note</text><rect class="fx-pill" x="92" y="144" width="40" height="14" rx="7"/><text class="fx-pill-t" x="112" y="151" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="138" y="151" dominant-baseline="central" data-effect-kind="write" data-effect-target="hold">Appends a note</text></g>
+<g data-transition-id="T_snooze" data-from="parked" data-to="parked"><rect class="edge-cap" x="174.95999999999998" y="144" width="96" height="26" rx="6"/><text class="edge-title" x="182.95999999999998" y="157" dominant-baseline="central">Snooze</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-machine-peer-terminals">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="174" viewBox="0 0 472 174" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Two peer terminal states</title>
+    <desc>Two peer terminal states.</desc>
+    
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="130"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="130"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="130"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="130"/>
+      </g>
+    
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Decides</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="138" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="156" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="138" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="156" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="356" height="230" viewBox="0 0 356 230" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Two peer terminal states</title>
+    <path class="edge" d="M196 82 L196 140"/>
+    <g data-node-id="S1" data-shape="rect" data-next="end_ok">
+        <rect class="act" x="96" y="40" width="200" height="42" rx="8"/>
+        
+        <text class="act-t" x="196" y="61" text-anchor="middle" dominant-baseline="central">Decide</text>
+      </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="196" cy="150" r="10"/>
+          
+          <text class="end-t" x="196" y="174" text-anchor="middle">Decided</text>
+        </g>
+    <polygon class="edge-head" points="196,140 199.6,132 192.4,132"/>
+    
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="464" viewBox="0 0 732 464" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Peer</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="peer">
+      <text class="mach-title" x="16" y="16">Peer</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 416"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="yes">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Accepted</text>
+      </g>
+<g data-state-id="no">
+        <rect class="st term" x="532" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="416" text-anchor="middle" dominant-baseline="central">Rejected</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,416 527.2223901529783,408.64238869267734 523.3247450897379,414.696177833455"/>
+      <g data-transition-id="T_yes" data-from="open" data-to="yes"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Accepts</text></g>
+<g data-transition-id="T_no" data-from="open" data-to="no"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Rejects</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-two-machines">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="174" viewBox="0 0 472 174" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Two stacked machines</title>
+    <desc>Two stacked machines.</desc>
+    
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="130"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="130"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="130"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="130"/>
+      </g>
+    
+    <g data-from="A" data-to="S">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Starts both tracks</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="138" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="156" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="138" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="156" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="356" height="230" viewBox="0 0 356 230" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Two stacked machines</title>
+    <path class="edge" d="M196 82 L196 140"/>
+    <g data-node-id="S1" data-shape="rect" data-next="end_ok">
+        <rect class="act" x="96" y="40" width="200" height="42" rx="8"/>
+        
+        <text class="act-t" x="196" y="61" text-anchor="middle" dominant-baseline="central">Start both</text>
+      </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="196" cy="150" r="10"/>
+          
+          <text class="end-t" x="196" y="174" text-anchor="middle">Started</text>
+        </g>
+    <polygon class="edge-head" points="196,140 199.6,132 192.4,132"/>
+    
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="604" viewBox="0 0 732 604" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Alpha</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="alpha">
+      <text class="mach-title" x="16" y="16">Alpha</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="a0">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Alpha open</text>
+      </g>
+<g data-state-id="a1">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Alpha done</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="Ta" data-from="a0" data-to="a1"><rect class="edge-cap" x="333" y="176" width="106" height="26" rx="6"/><text class="edge-title" x="341" y="189" dominant-baseline="central">Alpha finishes</text></g>
+    </g>
+<g data-machine-id="beta">
+      <text class="mach-title" x="16" y="452">Beta</text>
+      <text class="mach-legend" x="16" y="466">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 556 L532 556"/>
+      <g data-state-id="b0">
+        <rect class="st entry" x="72" y="540" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="556" text-anchor="middle" dominant-baseline="central">Beta open</text>
+      </g>
+<g data-state-id="b1">
+        <rect class="st term" x="532" y="540" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="543" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="556" text-anchor="middle" dominant-baseline="central">Beta done</text>
+      </g>
+      <polygon class="edge-head" points="532,556 524,552.4 524,559.6"/>
+      <g data-transition-id="Tb" data-from="b0" data-to="b1"><rect class="edge-cap" x="336.5" y="504" width="99" height="26" rx="6"/><text class="edge-title" x="344.5" y="517" dominant-baseline="central">Beta finishes</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-five-actors">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="1060" height="318" viewBox="0 0 1060 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Five-actor conversation</title>
+    <desc>Five-actor conversation.</desc>
+    
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Author" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="E">
+        <line class="lifeline" data-lifeline="E" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Editor" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+<g data-actor-id="R">
+        <line class="lifeline" data-lifeline="R" x1="542" y1="50" x2="542" y2="274"/>
+        <line class="life-hit" data-actor-label="Reviewer" x1="542" y1="50" x2="542" y2="274"/>
+      </g>
+<g data-actor-id="P">
+        <line class="lifeline" data-lifeline="P" x1="738" y1="50" x2="738" y2="274"/>
+        <line class="life-hit" data-actor-label="Publisher" x1="738" y1="50" x2="738" y2="274"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="934" y1="50" x2="934" y2="274"/>
+        <line class="life-hit" data-actor-label="System" x1="934" y1="50" x2="934" y2="274"/>
+      </g>
+    
+    <g data-from="A" data-to="E">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Sends draft</text>
+        </g>
+<g data-from="E" data-to="R">
+          <line class="arrow" x1="354" y1="114" x2="526" y2="114"/>
+          <polygon class="arrow-head" points="534,114 526,110 526,118"/>
+          <text class="msg" x="444" y="106" text-anchor="middle">Asks for review</text>
+        </g>
+<g data-from="R" data-to="P">
+          <line class="arrow" x1="550" y1="150" x2="722" y2="150"/>
+          <polygon class="arrow-head" points="730,150 722,146 722,154"/>
+          <text class="msg" x="640" y="142" text-anchor="middle">Approves</text>
+        </g>
+<g data-from="P" data-to="S">
+          <line class="arrow" x1="746" y1="186" x2="918" y2="186"/>
+          <polygon class="arrow-head" points="926,186 918,182 918,190"/>
+          <text class="msg" x="836" y="178" text-anchor="middle">Publishes</text>
+        </g>
+<g data-from="S" data-to="A">
+          <line class="arrow async" x1="926" y1="222" x2="166" y2="222"/>
+          <polygon class="arrow-head" points="158,222 166,218 166,226"/>
+          <text class="msg" x="542" y="214" text-anchor="middle">Confirms live</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Author</text>
+      </g>
+<g data-actor-id="E">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Editor</text>
+      </g>
+<g data-actor-id="R">
+        <rect class="actor-box" x="458" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="300" text-anchor="middle">Reviewer</text>
+      </g>
+<g data-actor-id="P">
+        <rect class="actor-box" x="654" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="738" y="300" text-anchor="middle">Publisher</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="850" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="934" y="300" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="1060" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="1060" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Author</text>
+      </g>
+<g data-actor-id="E">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Editor</text>
+      </g>
+<g data-actor-id="R">
+        <rect class="actor-box" x="458" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="26" text-anchor="middle">Reviewer</text>
+      </g>
+<g data-actor-id="P">
+        <rect class="actor-box" x="654" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="738" y="26" text-anchor="middle">Publisher</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="850" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="934" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="356" height="230" viewBox="0 0 356 230" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Five-actor conversation</title>
+    <path class="edge" d="M196 82 L196 140"/>
+    <g data-node-id="S1" data-shape="rect" data-next="end_ok">
+        <rect class="act" x="96" y="40" width="200" height="42" rx="8"/>
+        
+        <text class="act-t" x="196" y="61" text-anchor="middle" dominant-baseline="central">Handoff chain</text>
+      </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="196" cy="150" r="10"/>
+          
+          <text class="end-t" x="196" y="174" text-anchor="middle">Live</text>
+        </g>
+    <polygon class="edge-head" points="196,140 199.6,132 192.4,132"/>
+    
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Five-actor conversation</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="five_actors">
+      <text class="mach-title" x="16" y="16">Five-actor conversation</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="done">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Done</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_done" data-from="open" data-to="done"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Finishes</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-minimal-xor">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="318" viewBox="0 0 472 318" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Minimal accept-or-reject</title>
+    <desc>A requester submits a request and a reviewer accepts or rejects it.</desc>
+    <rect class="xor-wash" x="8" y="114" width="456" height="132" rx="10"/>
+    <g data-actor-id="U">
+        <line class="lifeline" data-lifeline="U" x1="150" y1="50" x2="150" y2="274"/>
+        <line class="life-hit" data-actor-label="Requester" x1="150" y1="50" x2="150" y2="274"/>
+      </g>
+<g data-actor-id="R">
+        <line class="lifeline" data-lifeline="R" x1="346" y1="50" x2="346" y2="274"/>
+        <line class="life-hit" data-actor-label="Reviewer" x1="346" y1="50" x2="346" y2="274"/>
+      </g>
+    <g data-xor-rail="D1">
+        <line class="xor-rail" x1="22" y1="124" x2="22" y2="238"/>
+        <text class="xor-q" x="38" y="136">◇ Accept the request?</text>
+      </g>
+    <g data-from="U" data-to="R">
+          <line class="arrow" x1="158" y1="78" x2="330" y2="78"/>
+          <polygon class="arrow-head" points="338,78 330,74 330,82"/>
+          <text class="msg" x="248" y="70" text-anchor="middle">Sends the request</text>
+        </g>
+
+<g>
+          <line class="hair" x1="22" y1="180" x2="40" y2="180"/>
+          <rect class="pill" x="40" y="168" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Accepts" x="76" y="184" text-anchor="middle">Accepts</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="228" x2="40" y2="228"/>
+          <rect class="pill" x="40" y="216" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Rejects" x="76" y="232" text-anchor="middle">Rejects</text>
+        </g>
+    <g data-actor-id="U">
+        <rect class="actor-box" x="66" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="300" text-anchor="middle">Requester</text>
+      </g>
+<g data-actor-id="R">
+        <rect class="actor-box" x="262" y="282" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="300" text-anchor="middle">Reviewer</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="U">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Requester</text>
+      </g>
+<g data-actor-id="R">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Reviewer</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="452" height="384" viewBox="0 0 452 384" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Minimal accept-or-reject</title>
+    <path class="edge" d="M244 96 L244 152"/>
+<path class="edge" d="M194 215 L108 215 L108 294"/>
+<path class="edge" d="M294 215 L380 215 L380 294"/>
+    <g data-node-id="S1" data-shape="rect" data-next="D1">
+        <rect class="act" x="144" y="40" width="200" height="56" rx="8"/>
+        
+        <text class="act-t" x="244" y="62" text-anchor="middle" dominant-baseline="central">Submit request</text><text class="who" x="244" y="75" text-anchor="middle" dominant-baseline="central">Requester</text>
+      </g>
+<g data-node-id="D1" data-shape="diamond">
+          <polygon class="diamond" points="244,152 344,194 244,236 144,194"/>
+          <text class="xor-t" x="244" y="188" text-anchor="middle" dominant-baseline="central">Accept?</text><text class="who" x="244" y="201" text-anchor="middle" dominant-baseline="central">Reviewer</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="304" r="10"/>
+          
+          <text class="end-t" x="108" y="328" text-anchor="middle">Accepted</text>
+        </g>
+<g data-node-id="end_no" data-shape="circle">
+          <circle class="end-ok" cx="380" cy="304" r="10"/>
+          
+          <text class="end-t" x="380" y="328" text-anchor="middle">Rejected</text>
+        </g>
+    <polygon class="edge-head" points="244,152 247.6,144 240.4,144"/>
+<polygon class="edge-head" points="108,294 111.6,286 104.4,286"/>
+<polygon class="edge-head" points="380,294 383.6,286 376.4,286"/>
+    
+<text class="edge-t" x="151" y="207" text-anchor="middle">Accepts</text>
+<text class="edge-t" x="337" y="207" text-anchor="middle">Rejects</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="464" viewBox="0 0 732 464" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Request</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="request">
+      <text class="mach-title" x="16" y="16">Request</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M240 228 L532 416"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="accepted">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Accepted</text>
+      </g>
+<g data-state-id="rejected">
+        <rect class="st term" x="532" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="416" text-anchor="middle" dominant-baseline="central">Rejected</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="532,416 527.2223901529783,408.64238869267734 523.3247450897379,414.696177833455"/>
+      <g data-transition-id="T_yes" data-from="open" data-to="accepted"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Accepts</text></g>
+<g data-transition-id="T_no" data-from="open" data-to="rejected"><rect class="edge-cap" x="314" y="156" width="144" height="46" rx="6"/><text class="edge-title" x="322" y="169" dominant-baseline="central">Rejects</text><rect class="fx-pill" x="322" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="342" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="368" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="U">Tell requester</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<template id="pack-entry-is-xor">
+    <section id="fl-sequence" class="diagram-panel fl-surface" role="tabpanel" data-surface="sequence" aria-hidden="false">
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="472" height="282" viewBox="0 0 472 282" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Decision at the door</title>
+    <desc>Decision at the door.</desc>
+    <rect class="xor-wash" x="8" y="78" width="456" height="132" rx="10"/>
+    <g data-actor-id="A">
+        <line class="lifeline" data-lifeline="A" x1="150" y1="50" x2="150" y2="238"/>
+        <line class="life-hit" data-actor-label="Actor" x1="150" y1="50" x2="150" y2="238"/>
+      </g>
+<g data-actor-id="S">
+        <line class="lifeline" data-lifeline="S" x1="346" y1="50" x2="346" y2="238"/>
+        <line class="life-hit" data-actor-label="System" x1="346" y1="50" x2="346" y2="238"/>
+      </g>
+    <g data-xor-rail="X0">
+        <line class="xor-rail" x1="22" y1="88" x2="22" y2="202"/>
+        <text class="xor-q" x="38" y="100">◇ Is the actor already known?</text>
+      </g>
+    
+<g>
+          <line class="hair" x1="22" y1="144" x2="40" y2="144"/>
+          <rect class="pill" x="40" y="132" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Known" x="76" y="148" text-anchor="middle">Known</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="192" x2="40" y2="192"/>
+          <rect class="pill" x="40" y="180" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="New" x="76" y="196" text-anchor="middle">New</text>
+        </g>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="246" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="264" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="246" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="264" text-anchor="middle">System</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="472" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="472" y2="41.5"/>
+    <g data-actor-id="A">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Actor</text>
+      </g>
+<g data-actor-id="S">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">System</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+    <section id="fl-bpm" class="diagram-panel fl-surface" role="tabpanel" data-surface="bpm" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="452" height="272" viewBox="0 0 452 272" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Decision at the door</title>
+    <path class="edge" d="M194 103 L108 103 L108 182"/>
+<path class="edge" d="M294 103 L380 103 L380 182"/>
+    <g data-node-id="X0" data-shape="diamond">
+          <polygon class="diamond" points="244,40 344,82 244,124 144,82"/>
+          <text class="xor-t" x="244" y="82" text-anchor="middle" dominant-baseline="central">Already known?</text>
+        </g>
+<g data-node-id="end_ok" data-shape="circle">
+          <circle class="end-ok" cx="108" cy="192" r="10"/>
+          
+          <text class="end-t" x="108" y="216" text-anchor="middle">Continue</text>
+        </g>
+<g data-node-id="end_new" data-shape="circle">
+          <circle class="end-ok" cx="380" cy="192" r="10"/>
+          
+          <text class="end-t" x="380" y="216" text-anchor="middle">Register first</text>
+        </g>
+    <polygon class="edge-head" points="108,182 111.6,174 104.4,174"/>
+<polygon class="edge-head" points="380,182 383.6,174 376.4,174"/>
+    <text class="edge-t" x="151" y="95" text-anchor="middle">Known</text>
+<text class="edge-t" x="337" y="95" text-anchor="middle">New</text>
+  </svg></div>
+    </section>
+    <section id="fl-machines" class="diagram-panel fl-surface" role="tabpanel" data-surface="machines" hidden aria-hidden="true">
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="732" height="276" viewBox="0 0 732 276" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Decision at the door</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="entry_is_xor">
+      <text class="mach-title" x="16" y="16">Decision at the door</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+      <g data-state-id="open">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+        
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Open</text>
+      </g>
+<g data-state-id="done">
+        <rect class="st term" x="532" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="535" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Done</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+      <g data-transition-id="T_done" data-from="open" data-to="done"><rect class="edge-cap" x="338" y="176" width="96" height="26" rx="6"/><text class="edge-title" x="346" y="189" dominant-baseline="central">Finishes</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+  </template>
+<script type="application/json" id="fl-catalog">[{"slug":"sugestao-necessidade-pdti","title":"Sugestão de necessidade PDTI · interface","scenario":"GETIN sugere uma necessidade PDTI e o líder da área aceita ou recusa.","actor":"GETIN","pack":"sugestao-necessidade-pdti"},{"slug":"linear-chain","title":"Linear four-step chain","scenario":"Linear four-step chain.","actor":"Actor","pack":"linear-chain"},{"slug":"xor-three-way","title":"Three exclusive outcomes","scenario":"Three exclusive outcomes.","actor":"Actor","pack":"xor-three-way"},{"slug":"and-join","title":"Parallel review then merge","scenario":"Parallel review then merge.","actor":"Actor","pack":"and-join"},{"slug":"nested-xor","title":"Nested exclusive gates","scenario":"Nested exclusive gates.","actor":"Actor","pack":"nested-xor"},{"slug":"two-back-edges","title":"Two correction loops","scenario":"Two correction loops.","actor":"Actor","pack":"two-back-edges"},{"slug":"event-subprocess","title":"Timer then named subprocess","scenario":"Timer then named subprocess.","actor":"Actor","pack":"event-subprocess"},{"slug":"machine-diamond","title":"Diamond state machine","scenario":"Diamond state machine.","actor":"Actor","pack":"machine-diamond"},{"slug":"machine-three-loops","title":"Three self-loops on one state","scenario":"Three self-loops on one state.","actor":"Actor","pack":"machine-three-loops"},{"slug":"machine-peer-terminals","title":"Two peer terminal states","scenario":"Two peer terminal states.","actor":"Actor","pack":"machine-peer-terminals"},{"slug":"two-machines","title":"Two stacked machines","scenario":"Two stacked machines.","actor":"Actor","pack":"two-machines"},{"slug":"five-actors","title":"Five-actor conversation","scenario":"Five-actor conversation.","actor":"Actor","pack":"five-actors"},{"slug":"minimal-xor","title":"Minimal accept-or-reject","scenario":"A requester submits a request and a reviewer accepts or rejects it.","actor":"Requester","pack":"minimal-xor"},{"slug":"entry-is-xor","title":"Decision at the door","scenario":"Decision at the door.","actor":"Actor","pack":"entry-is-xor"}]</script>
+<script>
+/**
+ * Build a multi-page PDF (one JPEG per flow surface) for attachment.
+ * Runtime download only — not part of HTML bytes / content-sha.
+ */
+
+/**
+ * @param {unknown} slug
+ * @returns {string}
+ */
+function pdfFilename(slug) {
+  const s = String(slug || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return s ? `${s}-fluxo.pdf` : 'fluxo.pdf';
+}
+
+/**
+ * @param {string} s
+ * @returns {Uint8Array}
+ */
+function enc(s) {
+  return new TextEncoder().encode(s);
+}
+
+/**
+ * @param {Uint8Array[]} chunks
+ * @returns {Uint8Array}
+ */
+function concat(chunks) {
+  let n = 0;
+  for (const c of chunks) n += c.length;
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const c of chunks) {
+    out.set(c, o);
+    o += c.length;
+  }
+  return out;
+}
+
+/**
+ * @param {{ pages: Array<{ jpeg: Uint8Array|ArrayBuffer, width: number, height: number, ptWidth?: number, ptHeight?: number }> }} input
+ * @returns {Uint8Array}
+ */
+function buildFlowPdf(input) {
+  const list = Array.isArray(input?.pages) ? input.pages : [];
+  if (!list.length) throw new Error('buildFlowPdf: pages required');
+
+  const header = enc('%PDF-1.4\n%\x80\x80\x80\x80\n');
+  const bodyParts = [];
+  const offsets = [0];
+  let pos = header.length;
+
+  function pushObj(num, payload) {
+    const start = enc(`${num} 0 obj\n`);
+    const end = enc('\nendobj\n');
+    offsets[num] = pos;
+    const chunk = concat([start, payload, end]);
+    bodyParts.push(chunk);
+    pos += chunk.length;
+  }
+
+  const n = list.length;
+  const kids = list.map((_, i) => `${3 + i * 3} 0 R`).join(' ');
+  pushObj(1, enc('<< /Type /Catalog /Pages 2 0 R >>'));
+  pushObj(2, enc(`<< /Type /Pages /Kids [ ${kids} ] /Count ${n} >>`));
+
+  list.forEach((p, i) => {
+    const pageNo = 3 + i * 3;
+    const contentNo = pageNo + 1;
+    const imageNo = pageNo + 2;
+    const ptW = Number(p.ptWidth) || Number(p.width) || 595;
+    const ptH = Number(p.ptHeight) || Number(p.height) || 842;
+    const raw = p.jpeg;
+    const jpeg = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
+    const pxW = Math.max(1, Number(p.width) || 1);
+    const pxH = Math.max(1, Number(p.height) || 1);
+    const content = `q ${ptW} 0 0 ${ptH} 0 0 cm /Im0 Do Q`;
+    pushObj(
+      pageNo,
+      enc(
+        `<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 ${ptW} ${ptH} ] /Resources << /XObject << /Im0 ${imageNo} 0 R >> >> /Contents ${contentNo} 0 R >>`,
+      ),
+    );
+    pushObj(contentNo, enc(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
+    pushObj(
+      imageNo,
+      concat([
+        enc(
+          `<< /Type /XObject /Subtype /Image /Width ${pxW} /Height ${pxH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`,
+        ),
+        jpeg,
+        enc('\nendstream'),
+      ]),
+    );
+  });
+
+  const xrefStart = pos;
+  const maxObj = 2 + n * 3;
+  let xref = `xref\n0 ${maxObj + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i <= maxObj; i += 1) {
+    xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  return concat([
+    header,
+    ...bodyParts,
+    enc(xref),
+    enc(`trailer\n<< /Size ${maxObj + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`),
+  ]);
+}
+
+(function () {
+  const catalog = JSON.parse(document.getElementById('fl-catalog').textContent);
+  const tabs = [...document.querySelectorAll('.fl-toc [data-tab]')];
+  let panels = [];
+  const stage = document.getElementById('fl-stage');
+  const viewport = document.getElementById('fl-viewport');
+  const sizer = document.getElementById('fl-sizer');
+  const lab = document.getElementById('z-lab');
+  const hint = document.getElementById('tab-hint');
+  const tip = document.getElementById('actor-tip');
+  const HINTS = {
+    sequence: 'Tronco + trilho XOR',
+    bpm: 'Caixa / losango / fim · sem id técnico',
+    machines: 'Laço = permanece · pastilha = efeito',
+  };
+  const MIN = 0.3, MAX = 2.8, STEP = 0.1;
+  const phoneUi = window.matchMedia('(max-width: 860px), (pointer: coarse) and (hover: none)').matches;
+  const PAD = phoneUi ? 16 : 40;
+  const planId = document.documentElement.getAttribute('data-fl-plan') || 'preview';
+  const PROC_KEY = 'as-flow-process:' + planId;
+  function zoomKeyFor(slug) {
+    return "as-flow-zoom:" + (slug || 'default') + (phoneUi ? ':m' : '');
+  }
+  let zoomKey = zoomKeyFor(document.documentElement.getAttribute('data-fl-slug') || 'default');
+  function readZoom() {
+    try {
+      const n = parseFloat(localStorage.getItem(zoomKey));
+      if (Number.isFinite(n)) return Math.min(MAX, Math.max(MIN, n));
+    } catch (e) {}
+    return null;
+  }
+  function saveZoom() {
+    try { localStorage.setItem(zoomKey, String(scale)); } catch (e) {}
+  }
+  let scale = 1;
+
+  function visibleSvg() {
+    return document.querySelector('.diagram-panel:not([hidden]) svg');
+  }
+  function svgNative(svg) {
+    if (!svg) return { w: 0, h: 0 };
+    if (!svg.dataset.nw) {
+      const vb = svg.viewBox && svg.viewBox.baseVal;
+      svg.dataset.nw = String((vb && vb.width) || svg.width.baseVal.value || 0);
+      svg.dataset.nh = String((vb && vb.height) || svg.height.baseVal.value || 0);
+    }
+    return { w: +svg.dataset.nw, h: +svg.dataset.nh };
+  }
+  function fitScale(axis) {
+    const n = svgNative(visibleSvg());
+    if (!n.w || !n.h) return 1;
+    const fitX = (viewport.clientWidth - 24) / (n.w + PAD * 2 + 40);
+    const fitY = (viewport.clientHeight - 24) / (n.h + PAD * 2 + 36);
+    const next = axis === 'height' ? fitY : fitX;
+    return Math.max(MIN, Math.min(MAX, next));
+  }
+  function applySvgScale() {
+    const svg = visibleSvg();
+    if (!svg) return;
+    const n = svgNative(svg);
+    svg.setAttribute('width', String(n.w * scale));
+    svg.setAttribute('height', String(n.h * scale));
+  }
+  function naturalSize() {
+    applySvgScale();
+    const sheet = document.querySelector('.diagram-panel:not([hidden]) .sheet');
+    if (!sheet) return { w: 0, h: 0 };
+    let w = sheet.offsetWidth;
+    let h = sheet.offsetHeight;
+    if (!w || !h) {
+      const n = svgNative(visibleSvg());
+      w = n.w * scale + 40;
+      h = n.h * scale + 36;
+    }
+    return { w, h };
+  }
+  function applyStageGeometry() {
+    const { w, h } = naturalSize();
+    if (!w || !h) return null;
+    const contentW = w + PAD * 2;
+    const contentH = h + PAD * 2;
+    const sizerW = Math.max(viewport.clientWidth, Math.ceil(contentW));
+    const sizerH = Math.max(viewport.clientHeight, Math.ceil(contentH));
+    sizer.style.width = sizerW + 'px';
+    sizer.style.height = sizerH + 'px';
+    const left = Math.max(0, (sizerW - contentW) / 2);
+    const top = 0;
+    stage.style.left = left + 'px';
+    stage.style.top = top + 'px';
+    stage.style.transform = '';
+    lab.textContent = Math.round(scale * 100) + '%';
+    updateStickyActors();
+    return { left, top, scaledW: contentW, scaledH: contentH };
+  }
+  function updateStickyActors() {
+    const svg = document.getElementById('seq-svg');
+    const layer = svg && svg.querySelector('[data-actor-stick]');
+    const seq = document.getElementById('fl-sequence');
+    if (!svg || !layer || !seq || seq.hidden) return;
+    const vb = svg.viewBox.baseVal;
+    const svgRect = svg.getBoundingClientRect();
+    if (!vb.width || svgRect.width < 1) return;
+    const k = vb.width / svgRect.width;
+    const visibleTop = (viewport.getBoundingClientRect().top - svgRect.top) * k;
+    layer.setAttribute('transform', 'translate(0 ' + Math.max(0, visibleTop) + ')');
+  }
+  function centerHorizontally(scrollTop) {
+    const geo = applyStageGeometry();
+    if (!geo) return;
+    viewport.scrollLeft = geo.scaledW > viewport.clientWidth ? (geo.scaledW - viewport.clientWidth) / 2 : 0;
+    viewport.scrollTop = scrollTop == null ? 0 : scrollTop;
+  }
+  function setScale(next, anchor) {
+    const prev = scale || 1;
+    scale = Math.min(MAX, Math.max(MIN, next));
+    const prevLeft = parseFloat(stage.style.left) || 0;
+    const prevTop = parseFloat(stage.style.top) || 0;
+    let contentX, contentY, cx, cy;
+    if (anchor) {
+      const rect = viewport.getBoundingClientRect();
+      cx = anchor.clientX - rect.left;
+      cy = anchor.clientY - rect.top;
+      contentX = (viewport.scrollLeft + cx - prevLeft) / prev;
+      contentY = (viewport.scrollTop + cy - prevTop) / prev;
+    } else {
+      contentX = (viewport.scrollLeft + viewport.clientWidth / 2 - prevLeft) / prev;
+      contentY = (viewport.scrollTop + viewport.clientHeight / 2 - prevTop) / prev;
+    }
+    const geo = applyStageGeometry();
+    if (!geo) return;
+    if (anchor) {
+      viewport.scrollLeft = contentX * scale + geo.left - cx;
+      viewport.scrollTop = contentY * scale + geo.top - cy;
+    } else {
+      viewport.scrollLeft = contentX * scale + geo.left - viewport.clientWidth / 2;
+      viewport.scrollTop = contentY * scale + geo.top - viewport.clientHeight / 2;
+    }
+    saveZoom();
+  }
+  function showTab(name, opts) {
+    tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+    panels.forEach((p) => {
+      const on = p.dataset.surface === name;
+      p.hidden = !on;
+      p.setAttribute('aria-hidden', String(!on));
+    });
+    if (hint) hint.textContent = HINTS[name] || '';
+    if (tip) tip.hidden = true;
+    requestAnimationFrame(function () {
+      if (phoneUi && !(opts && opts.keepZoom)) scale = fitScale('width');
+      centerHorizontally(0);
+    });
+  }
+  tabs.forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+  function itemBySlug(slug) {
+    return catalog.find((c) => c.slug === slug) || catalog[0];
+  }
+  function currentSlug() {
+    return document.documentElement.getAttribute('data-fl-slug') || (catalog[0] && catalog[0].slug) || '';
+  }
+  function foldTxt(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+  const overlay = document.getElementById('proc-overlay');
+  const procOpen = document.getElementById('proc-open');
+  const procQ = document.getElementById('proc-q');
+  const procList = document.getElementById('proc-list');
+  const procCount = document.getElementById('proc-count');
+  function closeProc() {
+    if (!overlay) return;
+    overlay.hidden = true;
+    if (procOpen) procOpen.setAttribute('aria-expanded', 'false');
+  }
+  function renderProcList(q) {
+    if (!procList) return;
+    const needle = foldTxt(q);
+    const slug = currentSlug();
+    const hits = catalog.filter((c) => {
+      if (!needle) return true;
+      return foldTxt([c.title, c.scenario, c.actor, c.slug].join(' ')).includes(needle);
+    });
+    if (procCount) {
+      procCount.textContent = hits.length === catalog.length
+        ? catalog.length + ' processos'
+        : hits.length + ' de ' + catalog.length;
+    }
+    procList.replaceChildren();
+    if (!hits.length) {
+      const empty = document.createElement('div');
+      empty.className = 'proc-empty';
+      empty.textContent = 'Nenhum processo com esse nome';
+      procList.appendChild(empty);
+      return;
+    }
+    hits.forEach((c) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'proc-item';
+      b.setAttribute('role', 'option');
+      b.dataset.slug = c.slug;
+      b.setAttribute('aria-selected', String(c.slug === slug));
+      const t = document.createElement('span');
+      t.className = 'proc-item-title';
+      t.textContent = c.title;
+      const s = document.createElement('span');
+      s.className = 'proc-item-sub';
+      s.textContent = (c.actor || '') + (c.scenario ? ' · ' + c.scenario : '');
+      b.append(t, s);
+      b.addEventListener('click', () => mountProcess(c.slug));
+      procList.appendChild(b);
+    });
+  }
+  function openProc() {
+    if (!overlay) return;
+    overlay.hidden = false;
+    if (procOpen) procOpen.setAttribute('aria-expanded', 'true');
+    renderProcList(procQ ? procQ.value : '');
+    if (procQ) {
+      procQ.value = procQ.value;
+      setTimeout(() => procQ.focus(), 20);
+    }
+    const sel = procList && procList.querySelector('[aria-selected="true"]');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+  function mountProcess(slug) {
+    const item = itemBySlug(slug);
+    if (!item) return;
+    const tpl = document.getElementById('pack-' + item.pack);
+    if (!tpl) return;
+    const keepTab = (document.querySelector('.fl-toc [aria-selected="true"]') || {}).dataset
+      ? document.querySelector('.fl-toc [aria-selected="true"]').dataset.tab
+      : 'sequence';
+    stage.innerHTML = '';
+    stage.appendChild(tpl.content.cloneNode(true));
+    panels = [...stage.querySelectorAll('.fl-surface[data-surface]')];
+    document.documentElement.setAttribute('data-fl-slug', item.slug);
+    zoomKey = zoomKeyFor(item.slug);
+    const saved = readZoom();
+    scale = saved == null ? 1 : saved;
+    const titleEl = document.querySelector('.fl-title');
+    const scEl = document.querySelector('.fl-scenario');
+    const cur = document.getElementById('proc-current');
+    const actorEl = document.getElementById('fl-actor');
+    if (titleEl) titleEl.textContent = item.title;
+    if (scEl) scEl.textContent = item.scenario || '';
+    if (cur) cur.textContent = item.title;
+    if (actorEl) actorEl.textContent = item.actor || '';
+    document.title = item.title;
+    try { localStorage.setItem(PROC_KEY, item.slug); } catch (e) {}
+    const nextHash = '#p=' + encodeURIComponent(item.slug);
+    if (location.hash !== nextHash) history.replaceState(null, '', nextHash);
+    closeProc();
+    showTab(keepTab || 'sequence', { keepZoom: true });
+    if (saved == null && phoneUi) {
+      requestAnimationFrame(function () {
+        scale = fitScale('width');
+        centerHorizontally(0);
+      });
+    }
+  }
+  if (procOpen) procOpen.addEventListener('click', () => {
+    if (overlay && !overlay.hidden) closeProc();
+    else openProc();
+  });
+  const procClose = document.getElementById('proc-close');
+  if (procClose) procClose.addEventListener('click', closeProc);
+  if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeProc(); });
+  if (procQ) procQ.addEventListener('input', () => renderProcList(procQ.value));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay && !overlay.hidden) {
+      e.preventDefault();
+      closeProc();
+    }
+  });
+
+  document.getElementById('z-in').onclick = () => setScale(scale + STEP);
+  document.getElementById('z-out').onclick = () => setScale(scale - STEP);
+  document.getElementById('z-100').onclick = () => { scale = 1; centerHorizontally(0); saveZoom(); };
+  document.getElementById('z-fit').onclick = () => {
+    const btn = document.getElementById('z-fit');
+    const axis = btn.getAttribute('data-fit') === 'width' ? 'width' : 'height';
+    scale = fitScale(axis);
+    centerHorizontally(0);
+    const other = axis === 'height' ? 'width' : 'height';
+    btn.setAttribute('data-fit', other);
+    btn.textContent = other === 'width' ? 'À largura' : 'À altura';
+    btn.title = other === 'width' ? 'Ajustar à largura' : 'Ajustar à altura';
+    saveZoom();
+  };
+
+  const EXPORT_SVG_CSS = [
+    'svg.diagram{font-family:Inter,ui-sans-serif,system-ui,sans-serif}',
+    'svg.diagram text{fill:#12161d}',
+    '.actor-box{fill:#eef2f7;stroke:#d5dce6;stroke-width:1}',
+    '.actor-label{fill:#12161d;font-size:11px;font-weight:600}',
+    '.actor-stick-bg{fill:#ffffff}',
+    '.actor-stick-rule{stroke:#d5dce6;stroke-width:1}',
+    '.lifeline{stroke:#98a1ad;stroke-width:1;stroke-dasharray:3 5}',
+    '.life-hit{stroke:none}',
+    '.arrow{stroke:#4a5565;stroke-width:1.25;fill:none}',
+    '.arrow.async{stroke-dasharray:5 4}',
+    '.arrow-head{fill:#4a5565}',
+    '.msg{fill:#12161d;font-size:12px}',
+    '.xor-wash{fill:rgba(238,242,247,.18);stroke:none}',
+    '.xor-rail{stroke:#c9a36a;stroke-width:2;fill:none}',
+    '.xor-q{fill:#b8860b;font-size:12px;font-weight:600}',
+    '.hair{stroke:#e8edf3;stroke-width:1}',
+    '.pill{fill:#e8edf4;stroke:#c9a36a;stroke-width:1}',
+    '.pill-t{fill:#b8860b;font-size:11px;font-weight:600}',
+    '.loop{fill:#4a5565;font-size:11px}',
+    '.loop-arc{fill:none;stroke:#b8860b;stroke-width:1.25;stroke-dasharray:4 3}',
+    '.loop-head{fill:#b8860b}',
+    '.act{fill:#eef2f7;stroke:#d5dce6;stroke-width:1.25}',
+    '.act-t{fill:#12161d;font-size:12px;font-weight:500}',
+    '.who{fill:#6b7585;font-size:10px;font-family:ui-monospace,monospace}',
+    '.diamond{fill:#fff8eb;stroke:#c9a36a;stroke-width:1.25}',
+    '.xor-t{fill:#12161d;font-size:12px;font-weight:600}',
+    '.bar{fill:#4a5565}',
+    '.evt{fill:#ffffff;stroke:#e08a8a;stroke-width:1.5}',
+    '.sub-mark{fill:none;stroke:#d5dce6;stroke-width:1}',
+    '.edge{stroke:#98a1ad;stroke-width:1.15;fill:none}',
+    '.edge.back{stroke:#b8860b;stroke-dasharray:4 3}',
+    '.edge-head{fill:#4a5565}',
+    '.edge-head.back{fill:#b8860b}',
+    '.edge-t,.fx{fill:#6b7585;font-size:11px;paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round}',
+    '.fx{font-size:10px;font-family:ui-monospace,monospace}',
+    '.end-ok{fill:#4cc28e;stroke:#4cc28e;stroke-width:1.5}',
+    '.end-bad{fill:#ff5c5c;stroke:#ff5c5c;stroke-width:1.5}',
+    '.end-t{fill:#4a5565;font-size:11px}',
+    '.end-hole{fill:#ffffff}',
+    '.st{fill:#e8edf4;stroke:#d5dce6;stroke-width:1.15}',
+    '.st.entry{stroke:#5fb1ff;stroke-width:1.75}',
+    '.st.term{stroke:#4cc28e;stroke-width:1.75}',
+    '.st-t{fill:#12161d;font-size:12px;font-weight:500}',
+    '.fx{fill:#6b7585;font-size:10px;font-family:ui-monospace,monospace}',
+    '.mach-title{fill:#4a5565;font-size:12px;font-weight:600}',
+    '.mach-legend{fill:#6b7585;font-size:10px}',
+    '.edge-cap{fill:#ffffff;stroke:#d5dce6;stroke-width:1}',
+    '.edge-title{fill:#12161d;font-size:11px;font-weight:600}',
+    '.edge-note{fill:#6b7585;font-size:10px}',
+    '.fx-pill{fill:#e8edf4;stroke:#d5dce6;stroke-width:1}',
+    '.fx-pill-t{fill:#4a5565;font-size:9px;font-weight:600}',
+  ].join('');
+
+  function nativeBox(svg) {
+    const vb = svg.viewBox && svg.viewBox.baseVal;
+    if (vb && vb.width && vb.height) return { w: vb.width, h: vb.height };
+    return { w: svg.width.baseVal.value, h: svg.height.baseVal.value };
+  }
+  function svgToImage(svg) {
+    return new Promise((resolve, reject) => {
+      const clone = svg.cloneNode(true);
+      const n = nativeBox(svg);
+      clone.setAttribute('width', String(n.w));
+      clone.setAttribute('height', String(n.h));
+      const stick = clone.querySelector('[data-actor-stick]');
+      if (stick) stick.removeAttribute('transform');
+      const ns = 'http://www.w3.org/2000/svg';
+      const style = document.createElementNS(ns, 'style');
+      style.textContent = EXPORT_SVG_CSS;
+      const bg = document.createElementNS(ns, 'rect');
+      bg.setAttribute('width', '100%');
+      bg.setAttribute('height', '100%');
+      bg.setAttribute('fill', '#ffffff');
+      clone.insertBefore(style, clone.firstChild);
+      clone.insertBefore(bg, style.nextSibling);
+      const xml = new XMLSerializer().serializeToString(clone);
+      const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }));
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Falha ao rasterizar o diagrama')); };
+      img.src = url;
+    });
+  }
+  function jpegFromCanvas(canvas) {
+    const url = canvas.toDataURL('image/jpeg', 0.92);
+    const bin = atob(url.slice(url.indexOf(',') + 1));
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  async function rasterSurface(svg, heading, title, scenario) {
+    const n = nativeBox(svg);
+    const img = await svgToImage(svg);
+    const scale = 2;
+    const head = 64 * scale;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(n.w * scale));
+    canvas.height = Math.max(1, Math.round(head + n.h * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#12161d';
+    ctx.font = '600 ' + (16 * scale) + 'px Inter, ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText(title, 16 * scale, 22 * scale);
+    ctx.fillStyle = '#4a5565';
+    ctx.font = '500 ' + (11 * scale) + 'px Inter, ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText(heading, 16 * scale, 38 * scale);
+    if (scenario) {
+      ctx.fillStyle = '#6b7585';
+      ctx.fillText(scenario, 16 * scale, 52 * scale);
+    }
+    ctx.drawImage(img, 0, head, n.w * scale, n.h * scale);
+    const jpeg = jpegFromCanvas(canvas);
+    const ptW = 539;
+    const ptH = ptW * (canvas.height / canvas.width);
+    return { jpeg, width: canvas.width, height: canvas.height, ptWidth: ptW, ptHeight: ptH };
+  }
+  document.getElementById('btn-pdf').onclick = async () => {
+    const btn = document.getElementById('btn-pdf');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'PDF…';
+    try {
+      const title = (document.querySelector('.fl-title') || {}).textContent || 'Fluxo';
+      const scenario = (document.querySelector('.fl-scenario') || {}).textContent || '';
+      const slug = document.documentElement.getAttribute('data-fl-slug') || '';
+      const specs = [
+        ['seq-svg', 'Sequência'],
+        ['bpm-svg', 'Fluxo'],
+        ['mach-svg', 'Estados'],
+      ];
+      const pages = [];
+      for (const [id, label] of specs) {
+        const svg = document.getElementById(id);
+        if (!svg) continue;
+        pages.push(await rasterSurface(svg, label, title, scenario));
+      }
+      if (!pages.length) throw new Error('Nenhum diagrama para exportar');
+      const bytes = buildFlowPdf({ pages });
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const name = pdfFilename(slug);
+      const isiOS = /iP(ad|hone|od)/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isiOS) {
+        const opened = window.open(url, '_blank');
+        if (!opened) location.href = url;
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      console.error(err);
+      if (hint) hint.textContent = (err && err.message) || 'Falha ao gerar PDF';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'PDF';
+    }
+  };
+
+  viewport.addEventListener('wheel', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    setScale(scale + (e.deltaY > 0 ? -STEP : STEP), e);
+  }, { passive: false });
+
+  const gHint = document.getElementById('gesture-hint');
+  function hideGestureHint() {
+    if (gHint) gHint.hidden = true;
+  }
+  if (gHint && phoneUi) setTimeout(hideGestureHint, 4200);
+
+  function showActorTip(hit, x, y) {
+    if (!tip || !hit) return;
+    tip.hidden = false;
+    tip.textContent = hit.getAttribute('data-actor-label') || '';
+    const tw = 12;
+    tip.style.left = Math.min(window.innerWidth - 8, Math.max(8, x + tw)) + 'px';
+    tip.style.top = Math.min(window.innerHeight - 8, Math.max(8, y + tw)) + 'px';
+  }
+
+  let pan = false, sx = 0, sy = 0, sl = 0, st = 0;
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') return;
+    if (e.button !== 0 && e.button !== 1) return;
+    pan = true;
+    viewport.classList.add('is-panning');
+    sx = e.clientX; sy = e.clientY; sl = viewport.scrollLeft; st = viewport.scrollTop;
+    viewport.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  viewport.addEventListener('pointermove', (e) => {
+    if (pan) {
+      viewport.scrollLeft = sl - (e.clientX - sx);
+      viewport.scrollTop = st - (e.clientY - sy);
+      return;
+    }
+    if (e.pointerType === 'touch') return;
+    const hit = e.target && e.target.closest && e.target.closest('[data-actor-label]');
+    if (!hit) { if (tip) tip.hidden = true; return; }
+    showActorTip(hit, e.clientX, e.clientY);
+  });
+  viewport.addEventListener('click', (e) => {
+    const hit = e.target && e.target.closest && e.target.closest('[data-actor-label]');
+    if (!hit) { if (tip) tip.hidden = true; return; }
+    if (!phoneUi) return;
+    showActorTip(hit, e.clientX, e.clientY);
+    setTimeout(() => { if (tip) tip.hidden = true; }, 2200);
+  });
+  viewport.addEventListener('pointerleave', () => { if (tip) tip.hidden = true; });
+  viewport.addEventListener('scroll', () => { updateStickyActors(); hideGestureHint(); }, { passive: true });
+  const endPan = (e) => {
+    if (!pan) return;
+    pan = false;
+    viewport.classList.remove('is-panning');
+    try { viewport.releasePointerCapture(e.pointerId); } catch (err) {}
+  };
+  viewport.addEventListener('pointerup', endPan);
+  viewport.addEventListener('pointercancel', endPan);
+
+  function touchDist(a, b) {
+    const dx = a.clientX - b.clientX;
+    const dy = a.clientY - b.clientY;
+    return Math.hypot(dx, dy);
+  }
+  let pinch = null;
+  let gestureBase = null;
+  let usingGesture = false;
+  viewport.addEventListener('touchstart', (e) => {
+    hideGestureHint();
+    if (e.touches.length === 2) {
+      pinch = {
+        d: touchDist(e.touches[0], e.touches[1]),
+        scale,
+      };
+    }
+  }, { passive: true });
+  viewport.addEventListener('touchmove', (e) => {
+    if (usingGesture || e.touches.length !== 2 || !pinch || pinch.d < 1) return;
+    e.preventDefault();
+    const d = touchDist(e.touches[0], e.touches[1]);
+    const mid = {
+      clientX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+      clientY: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+    };
+    setScale(pinch.scale * (d / pinch.d), mid);
+  }, { passive: false });
+  viewport.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) pinch = null;
+  });
+  viewport.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+    usingGesture = true;
+    gestureBase = scale;
+  }, { passive: false });
+  viewport.addEventListener('gesturechange', (e) => {
+    e.preventDefault();
+    if (gestureBase == null) return;
+    setScale(gestureBase * e.scale, e);
+  }, { passive: false });
+  viewport.addEventListener('gestureend', () => {
+    usingGesture = false;
+    gestureBase = null;
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); setScale(scale + STEP); }
+      if (e.key === '-') { e.preventDefault(); setScale(scale - STEP); }
+      if (e.key === '0') { e.preventDefault(); scale = 1; centerHorizontally(0); saveZoom(); }
+      return;
+    }
+    if (e.altKey || e.repeat) return;
+    const typing = e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]');
+    if (typing) return;
+    const name = { 1: 'sequence', 2: 'bpm', 3: 'machines' }[e.key];
+    if (!name) return;
+    if (!document.querySelector('.fl-toc [data-tab="' + name + '"]')) return;
+    e.preventDefault();
+    showTab(name);
+  });
+  window.addEventListener('resize', () => applyStageGeometry());
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => applyStageGeometry());
+  }
+  function bootSlug() {
+    let hash = '';
+    try {
+      hash = decodeURIComponent((location.hash.match(/^#p=(.+)$/) || [])[1] || '');
+    } catch (e) {}
+    let saved = '';
+    try { saved = localStorage.getItem(PROC_KEY) || ''; } catch (e) {}
+    const want = hash || saved || (catalog[0] && catalog[0].slug) || '';
+    return catalog.some((c) => c.slug === want) ? want : (catalog[0] && catalog[0].slug) || '';
+  }
+  if (catalog.length) mountProcess(bootSlug());
+})();
+</script>
+</body>
+</html>

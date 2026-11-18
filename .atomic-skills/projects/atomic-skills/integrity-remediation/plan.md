@@ -12,56 +12,82 @@ parallelismAllowed: false
 principles:
   - id: P1
     title: Integridade antes de compatibilidade
-    body: conteúdo sem ownership provado nunca é sobrescrito ou apagado; estado ambíguo falha fechado.
+    body: conteúdo sem ownership provado nunca é sobrescrito ou apagado; estado
+      ambíguo falha fechado.
   - id: P2
     title: Uma autoridade por contrato
-    body: o engine upstream governa filesystem e journal; validate-state governa invariantes estruturais; adapters governam hosts.
+    body: o engine upstream governa filesystem e journal; validate-state governa
+      invariantes estruturais; adapters governam hosts.
   - id: P3
     title: Evidência observável
-    body: suporte, conclusão e recovery são aceitos somente por testes do comportamento público.
+    body: suporte, conclusão e recovery são aceitos somente por testes do
+      comportamento público.
   - id: P4
     title: Migração conservadora
-    body: formatos antigos permanecem legíveis até um commit novo ser comprovado; dados ambíguos viram unmanaged.
+    body: formatos antigos permanecem legíveis até um commit novo ser comprovado;
+      dados ambíguos viram unmanaged.
   - id: P5
     title: Fatias recuperáveis
     body: cada fase termina em estado instalável, validado e reversível.
   - id: P6
     title: Fonte e instalação não divergem
-    body: toda dependência runtime citada por uma skill entra no file-set e na superfície publicada.
+    body: toda dependência runtime citada por uma skill entra no file-set e na
+      superfície publicada.
 glossary:
   - term: Journal v2
-    definition: Protocolo versionado com transaction id, stable effect id, hashes, ownership e estado de commit.
+    definition: Protocolo versionado com transaction id, stable effect id, hashes,
+      ownership e estado de commit.
   - term: Unmanaged
-    definition: Artefato cuja propriedade não foi provada e que install/update/uninstall preservam.
+    definition: Artefato cuja propriedade não foi provada e que
+      install/update/uninstall preservam.
   - term: Runtime closure
-    definition: Conjunto completo de scripts, assets, schemas e referências necessárias para uma skill instalada executar fora deste checkout.
+    definition: Conjunto completo de scripts, assets, schemas e referências
+      necessárias para uma skill instalada executar fora deste checkout.
   - term: Preflight
-    definition: Validação pura executada antes de verifiers, eventos ou writes de uma transição.
+    definition: Validação pura executada antes de verifiers, eventos ou writes de
+      uma transição.
   - term: Commit guard
-    definition: Releitura final que rejeita estado stale ou contraditório antes de gravar fechamento.
+    definition: Releitura final que rejeita estado stale ou contraditório antes de
+      gravar fechamento.
   - term: Host contract
-    definition: Layout, ferramentas, argumentos, hooks e comportamento observável suportados por uma IDE/CLI.
+    definition: Layout, ferramentas, argumentos, hooks e comportamento observável
+      suportados por uma IDE/CLI.
   - term: Support tier
-    definition: "`operational` exige probe no host real com versão, discovery, load e invoke; `layout-only` prova somente a forma dos artefatos e não autoriza declarar suporte operacional."
+    definition: "`operational` exige probe no host real com versão, discovery, load
+      e invoke; `layout-only` prova somente a forma dos artefatos e não autoriza
+      declarar suporte operacional."
   - term: Findings manifest
-    definition: Inventário canônico source-qualified que liga cada finding a reproducer, verifier executado, evidence e candidateSha.
+    definition: Inventário canônico source-qualified que liga cada finding a
+      reproducer, verifier executado, evidence e candidateSha.
 phases:
   - id: F0
     slug: integrity-remediation-f0-runtime-autocontido-e-setup-confiavel
     title: Runtime autocontido e setup confiável
-    goal: Destravar a admissão SPEC do próprio executor, fazer toda skill instalada resolver scripts, dependências e assets pelo package root confiável, distinguir ledger do installer de um projeto configurado e fornecer o bootstrap transacional mínimo que materializa F4 sem estado parcial.
-    summary: Destrava executor, fecha runtime closure e materializa F4 de forma recuperável.
+    goal: Destravar a admissão SPEC do próprio executor, fazer toda skill instalada
+      resolver scripts, dependências e assets pelo package root confiável,
+      distinguir ledger do installer de um projeto configurado e fornecer o
+      bootstrap transacional mínimo que materializa F4 sem estado parcial.
+    summary: Destrava executor, fecha runtime closure e materializa F4 de forma
+      recuperável.
     dependsOn: []
     subPhaseCount: 5
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: F0-G1
-          description: Admissão SPEC, runtime closure, resolução por package root e bootstrap transacional F0→F4 passam em consumidor sem checkout fonte. FAILS when `implement` exige `Files`, referência resolve fora do tarball ou fault injection deixa descriptor F4 e initiative divergentes.
+          description: Admissão SPEC, runtime closure, resolução por package root e
+            bootstrap transacional F0→F4 passam em consumidor sem checkout
+            fonte. FAILS when `implement` exige `Files`, referência resolve fora
+            do tarball ou fault injection deixa descriptor F4 e initiative
+            divergentes.
           status: met
           verifier:
             kind: shell
-            command: node --test tests/consumer-runtime-resolution.test.js tests/runtime-closure.test.js tests/consumer-install-e2e.test.js tests/implement-ready-contract.test.js tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js
+            command: node --test tests/consumer-runtime-resolution.test.js
+              tests/runtime-closure.test.js tests/consumer-install-e2e.test.js
+              tests/implement-ready-contract.test.js
+              tests/phase-materialization/materialize-bootstrap.test.js
+              tests/phase-materialization/e2e-lifecycle.test.js
             expectExitCode: 0
           metAt: 2026-07-16T16:38:36.714Z
           evidence:
@@ -69,13 +95,17 @@ phases:
             verifiedAt: 2026-07-16T16:38:36.714Z
             passed: true
             exitCode: 0
-            outputSummary: "node --test consumer-runtime + runtime-closure + consumer-install-e2e + implement-ready + materialize-bootstrap + e2e-lifecycle: 30 pass, 0 fail"
+            outputSummary: "node --test consumer-runtime + runtime-closure +
+              consumer-install-e2e + implement-ready + materialize-bootstrap +
+              e2e-lifecycle: 30 pass, 0 fail"
         - id: F0-G2
-          description: Project-scope install não mascara ausência de setup canônico. FAILS when a pasta do ledger basta para pular setup.
+          description: Project-scope install não mascara ausência de setup canônico. FAILS
+            when a pasta do ledger basta para pular setup.
           status: met
           verifier:
             kind: shell
-            command: node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js
+            command: node --test tests/project.test.js
+              tests/install-uninstall-roundtrip.test.js
             expectExitCode: 0
           metAt: 2026-07-16T16:38:36.714Z
           evidence:
@@ -83,19 +113,35 @@ phases:
             verifiedAt: 2026-07-16T16:38:36.714Z
             passed: true
             exitCode: 0
-            outputSummary: "node --test project.test.js + install-uninstall-roundtrip: 78 pass, 0 fail"
+            outputSummary: "node --test project.test.js + install-uninstall-roundtrip: 78
+              pass, 0 fail"
     status: done
     businessIntent:
-      value: Eliminar dependências do checkout fonte e impedir que o ledger do installer mascare setup ausente, criando uma base confiável para toda a remediação.
-      workflow: Destravar materialização mínima; executar e reconciliar o lifecycle transacional; corrigir o caminho SPEC-implement; então entregar segurança do installer, contratos de host, Gemini/portabilidade e qualificação de release.
-      rules: Nenhuma mutação sem ownership provado; uma autoridade por contrato; reprodução vermelha antes de cada correção; execução em consumidor sem checkout fonte; falha fechada diante de ambiguidade.
-      outOfScope: Fork permanente do installer, banco transacional genérico, redesign da interface aiDeck, features não relacionadas e publicação da release.
-      doneWhen: O manifesto canônico prova todos os findings formais e adicionais; black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node 22.18.x, Node 24.11.x ou superior, full suite, docs e skill validation passam.
+      value: Eliminar dependências do checkout fonte e impedir que o ledger do
+        installer mascare setup ausente, criando uma base confiável para toda a
+        remediação.
+      workflow: Destravar materialização mínima; executar e reconciliar o lifecycle
+        transacional; corrigir o caminho SPEC-implement; então entregar
+        segurança do installer, contratos de host, Gemini/portabilidade e
+        qualificação de release.
+      rules: Nenhuma mutação sem ownership provado; uma autoridade por contrato;
+        reprodução vermelha antes de cada correção; execução em consumidor sem
+        checkout fonte; falha fechada diante de ambiguidade.
+      outOfScope: Fork permanente do installer, banco transacional genérico, redesign
+        da interface aiDeck, features não relacionadas e publicação da release.
+      doneWhen: O manifesto canônico prova todos os findings formais e adicionais;
+        black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node
+        22.18.x, Node 24.11.x ou superior, full suite, docs e skill validation
+        passam.
   - id: F1
     slug: integrity-remediation-f1-installer-v2-e-protecao-de-dados
     title: Installer v2 e proteção de dados
-    goal: Entregar em worktree upstream dedicada e integrar no consumer mutações no-follow resistentes a TOCTOU, journal versionado, persistência atômica, locks por recurso canônico compartilhado, ownership por hash e recovery conservador para install, update e uninstall.
-    summary: Confina races e serializa install, update e uninstall por recurso recuperável.
+    goal: Entregar em worktree upstream dedicada e integrar no consumer mutações
+      no-follow resistentes a TOCTOU, journal versionado, persistência atômica,
+      locks por recurso canônico compartilhado, ownership por hash e recovery
+      conservador para install, update e uninstall.
+    summary: Confina races e serializa install, update e uninstall por recurso
+      recuperável.
     dependsOn:
       - F3
     subPhaseCount: 6
@@ -103,11 +149,23 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F1-G1
-          description: Toda mutação do installer é confinada por no-follow/handle equivalente e preserva conteúdo sem ownership. FAILS when uma barreira determinística troca qualquer componente, inclusive leafs de write, prune, rollback e origem/destino de temp→rename, e a operação altera o sentinel externo, produz efeito parcial ou prossegue sem prova atômica.
+          description: Toda mutação do installer é confinada por no-follow/handle
+            equivalente e preserva conteúdo sem ownership. FAILS when uma
+            barreira determinística troca qualquer componente, inclusive leafs
+            de write, prune, rollback e origem/destino de temp→rename, e a
+            operação altera o sentinel externo, produz efeito parcial ou
+            prossegue sem prova atômica.
           status: met
           verifier:
             kind: shell
-            command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree ../minimalist-installer-integrity-remediation --require-remote && (cd ../minimalist-installer-integrity-remediation && node --test test/path-confinement.test.js test/path-mutation-race.test.js test/transaction-path-race.test.js test/greenfield-conflict.test.js) && node --test tests/installer-data-safety.test.js tests/minimalist-installer-link.test.js
+            command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree
+              ../minimalist-installer-integrity-remediation --require-remote &&
+              (cd ../minimalist-installer-integrity-remediation && node --test
+              test/path-confinement.test.js test/path-mutation-race.test.js
+              test/transaction-path-race.test.js
+              test/greenfield-conflict.test.js) && node --test
+              tests/installer-data-safety.test.js
+              tests/minimalist-installer-link.test.js
             expectExitCode: 0
           metAt: 2026-07-16T17:23:24.067Z
           evidence:
@@ -118,11 +176,24 @@ phases:
             verifiedCommit: e9423886b259f3dc879bd55c71f2175969f02c80
             outputSummary: path confinement + data-safety + receipt
         - id: F1-G2
-          description: Transações declaram previamente locks por identidade canônica compartilhada, adquirem-nos em ordem total e mantêm-nos até commit/rollback durável. FAILS when roots/scopes/fingerprints concorrentes perdem owner/refcount, divergem manifest/registry/runtime, deadlockam ou permitem aquisição tardia.
+          description: Transações declaram previamente locks por identidade canônica
+            compartilhada, adquirem-nos em ordem total e mantêm-nos até
+            commit/rollback durável. FAILS when roots/scopes/fingerprints
+            concorrentes perdem owner/refcount, divergem
+            manifest/registry/runtime, deadlockam ou permitem aquisição tardia.
           status: met
           verifier:
             kind: shell
-            command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree ../minimalist-installer-integrity-remediation --require-remote && (cd ../minimalist-installer-integrity-remediation && node --test test/concurrency.test.js test/lock-order.test.js test/transaction-path-race.test.js test/inspect-rollback.test.js) && node --test tests/runtime-lock-concurrency.test.js tests/installer-fault-injection.test.js tests/runtime-refcount.test.js tests/runtime-registry-recovery.test.js tests/install-uninstall-roundtrip.test.js tests/uninstall.test.js
+            command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree
+              ../minimalist-installer-integrity-remediation --require-remote &&
+              (cd ../minimalist-installer-integrity-remediation && node --test
+              test/concurrency.test.js test/lock-order.test.js
+              test/transaction-path-race.test.js test/inspect-rollback.test.js)
+              && node --test tests/runtime-lock-concurrency.test.js
+              tests/installer-fault-injection.test.js
+              tests/runtime-refcount.test.js
+              tests/runtime-registry-recovery.test.js
+              tests/install-uninstall-roundtrip.test.js tests/uninstall.test.js
             expectExitCode: 0
           metAt: 2026-07-16T18:11:30.411Z
           evidence:
@@ -131,7 +202,9 @@ phases:
             passed: true
             exitCode: 0
             verifiedCommit: d4736ee8c073e0671ca63ff2cd2a8c7f4832c2fa
-            outputSummary: upstream concurrency/locks + runtime-lock + install-uninstall-roundtrip 0 residue; log phase-f1-gates.log / f1-g2-green.log
+            outputSummary: upstream concurrency/locks + runtime-lock +
+              install-uninstall-roundtrip 0 residue; log phase-f1-gates.log /
+              f1-g2-green.log
     status: done
     externalImports:
       - kind: url
@@ -143,15 +216,21 @@ phases:
         label: Tarball 0.1.0 e integridade do baseline instalado
         inside_repo: true
     businessIntent:
-      value: Installer mutations are no-follow, journaled, locked, ownership-safe for install/update/uninstall.
-      workflow: Upstream engine worktree + consumer receipts; pin SHA; no clobber unowned content.
-      rules: P1 integrity before compatibility; fail closed; no automatic destructive recovery without proof.
+      value: Installer mutations are no-follow, journaled, locked, ownership-safe for
+        install/update/uninstall.
+      workflow: Upstream engine worktree + consumer receipts; pin SHA; no clobber
+        unowned content.
+      rules: P1 integrity before compatibility; fail closed; no automatic destructive
+        recovery without proof.
       outOfScope: Host tiers F2, Gemini F5, npm publish release.
       doneWhen: F1-G1 and F1-G2 green with upstream receipts when environment allows.
   - id: F2
     slug: integrity-remediation-f2-contratos-de-host-runtime-e-observabil
     title: Contratos de host, runtime e observabilidade
-    goal: Remover fallbacks silenciosos entre IDEs, classificar cada host como operational ou layout-only, tornar hooks scope-aware e fazer status/install relatarem o estado real de skills, assets, runtime e conflitos.
+    goal: Remover fallbacks silenciosos entre IDEs, classificar cada host como
+      operational ou layout-only, tornar hooks scope-aware e fazer
+      status/install relatarem o estado real de skills, assets, runtime e
+      conflitos.
     summary: Separa tiers de host e expõe hashes, owners e runtime reais.
     dependsOn:
       - F1
@@ -160,11 +239,18 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F2-G1
-          description: Cada host público declara contrato e support tier, renderizando ferramentas e hooks apenas do próprio perfil. FAILS when tokens/config Claude vazam, host sem probe é marcado operational ou tier fica implícito.
+          description: Cada host público declara contrato e support tier, renderizando
+            ferramentas e hooks apenas do próprio perfil. FAILS when
+            tokens/config Claude vazam, host sem probe é marcado operational ou
+            tier fica implícito.
           status: met
           verifier:
             kind: shell
-            command: node scripts/validate-host-qualification.js --manifest meta/host-qualification.json && node --test tests/host-qualification-manifest.test.js tests/host-profile-contract.test.js tests/auto-update-host-matrix.test.js
+            command: node scripts/validate-host-qualification.js --manifest
+              meta/host-qualification.json && node --test
+              tests/host-qualification-manifest.test.js
+              tests/host-profile-contract.test.js
+              tests/auto-update-host-matrix.test.js
             expectExitCode: 0
           metAt: 2026-07-16T17:30:52.087Z
           evidence:
@@ -175,11 +261,16 @@ phases:
             verifiedCommit: 7b1ccea3815c3bd6fc4694a09eb4f60845bc9697
             outputSummary: host qualification + profiles + auto-update matrix
         - id: F2-G2
-          description: Status e install observam hashes, decisões e runtime real. FAILS when stale, modified, preserved ou runtime mismatch aparece como up-to-date.
+          description: Status e install observam hashes, decisões e runtime real. FAILS
+            when stale, modified, preserved ou runtime mismatch aparece como
+            up-to-date.
           status: met
           verifier:
             kind: shell
-            command: node --test tests/status-verify.test.js tests/status-runtime-owners.test.js tests/runtime-multiversion.test.js tests/runtime-registry-recovery.test.js
+            command: node --test tests/status-verify.test.js
+              tests/status-runtime-owners.test.js
+              tests/runtime-multiversion.test.js
+              tests/runtime-registry-recovery.test.js
             expectExitCode: 0
           metAt: 2026-07-16T17:30:52.087Z
           evidence:
@@ -191,7 +282,8 @@ phases:
             outputSummary: status hash + runtime owners
     status: done
     businessIntent:
-      value: Hosts declare operational vs layout-only tiers; status reports real hashes/owners.
+      value: Hosts declare operational vs layout-only tiers; status reports real
+        hashes/owners.
       workflow: Host profiles + status observability.
       rules: No silent Claude token leak; no operational without probe.
       outOfScope: Gemini layout depth F5, multi-OS release F6.
@@ -199,7 +291,9 @@ phases:
   - id: F3
     slug: integrity-remediation-f3-caminho-spec-para-implement-e-isolamen
     title: Caminho SPEC para implement e isolamento de execução
-    goal: Consumir o lifecycle reconciliado por F4 e fazer tasks admitidas pelo SPEC chegarem a `implement` com targets e exclusões corretos, resolver o plano solicitado antes dos gates e executar cada writer na worktree certa.
+    goal: Consumir o lifecycle reconciliado por F4 e fazer tasks admitidas pelo SPEC
+      chegarem a `implement` com targets e exclusões corretos, resolver o plano
+      solicitado antes dos gates e executar cada writer na worktree certa.
     summary: Leva o SPEC materializado ao implement na worktree e no escopo corretos.
     dependsOn:
       - F4
@@ -208,11 +302,14 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F3-G1
-          description: SPEC materializado chega a implement com outputs como targets e scopeBoundary como exclusões. FAILS when `Files` é exigido ou uma exclusão vira allowlist.
+          description: SPEC materializado chega a implement com outputs como targets e
+            scopeBoundary como exclusões. FAILS when `Files` é exigido ou uma
+            exclusão vira allowlist.
           status: met
           verifier:
             kind: shell
-            command: node --test tests/implement-ready-contract.test.js tests/project-implement-e2e.test.js
+            command: node --test tests/implement-ready-contract.test.js
+              tests/project-implement-e2e.test.js
             expectExitCode: 0
           metAt: 2026-07-16T17:10:12.567Z
           evidence:
@@ -223,7 +320,9 @@ phases:
             verifiedCommit: 01e81e0fa00ced582d4a9bb877f4d68bd1aa1123
             outputSummary: implement-ready-contract + project-implement-e2e
         - id: F3-G2
-          description: Argumento explícito seleciona plan, branch e worktree antes de qualquer gate ou write. FAILS when a árvore chamadora governa outro plano.
+          description: Argumento explícito seleciona plan, branch e worktree antes de
+            qualquer gate ou write. FAILS when a árvore chamadora governa outro
+            plano.
           status: met
           verifier:
             kind: shell
@@ -239,15 +338,20 @@ phases:
             outputSummary: worktree-plan-routing
     status: done
     businessIntent:
-      value: Levar tasks SPEC-admitted ao implement com targets e exclusões corretos na worktree certa.
-      workflow: SPEC materializado → implement targets from outputs; scopeBoundary as DO-NOT; worktree routing before gates.
-      rules: No Files property; exclusions never allowlist; explicit plan/worktree before write; F4 barrier satisfied.
+      value: Levar tasks SPEC-admitted ao implement com targets e exclusões corretos
+        na worktree certa.
+      workflow: SPEC materializado → implement targets from outputs; scopeBoundary as
+        DO-NOT; worktree routing before gates.
+      rules: No Files property; exclusions never allowlist; explicit plan/worktree
+        before write; F4 barrier satisfied.
       outOfScope: Installer safety F1, host tiers F2, Gemini F5, release F6.
       doneWhen: F3-G1 and F3-G2 verifiers green; implement-ready E2E in temp consumer.
   - id: F4
     slug: integrity-remediation-f4-autoridade-de-estado-e-transicoes-recu
     title: Autoridade de estado e transições recuperáveis
-    goal: Reconciliar o bootstrap F0 e fazer validator, transition helpers e comandos de fechamento compartilharem invariantes estritas e gravarem estado, evidence, eventos, handoff e materialização de forma idempotente.
+    goal: Reconciliar o bootstrap F0 e fazer validator, transition helpers e
+      comandos de fechamento compartilharem invariantes estritas e gravarem
+      estado, evidence, eventos, handoff e materialização de forma idempotente.
     summary: Reconcilia F0 e torna fechamento, eventos e materialização idempotentes.
     dependsOn:
       - F0
@@ -256,11 +360,16 @@ phases:
       summary: 3 criteria to meet
       criteria:
         - id: F4-G1
-          description: Validator rejeita identidades, DAGs, IDs e estados terminais contraditórios e preserva descriptor lazy válido. FAILS when qualquer fixture inválido retorna exit 0 ou descriptor-only pending é rejeitado.
+          description: Validator rejeita identidades, DAGs, IDs e estados terminais
+            contraditórios e preserva descriptor lazy válido. FAILS when
+            qualquer fixture inválido retorna exit 0 ou descriptor-only pending
+            é rejeitado.
           status: met
           verifier:
             kind: shell
-            command: node --test tests/validate-state-integrity.test.js tests/state-integrity-migration.test.js tests/transition-integrity.test.js
+            command: node --test tests/validate-state-integrity.test.js
+              tests/state-integrity-migration.test.js
+              tests/transition-integrity.test.js
             expectExitCode: 0
           metAt: 2026-07-16T17:02:11.032Z
           evidence:
@@ -269,13 +378,18 @@ phases:
             passed: true
             exitCode: 0
             verifiedCommit: 7906f69d8f60ae4078bdb9073391e57a0475bcdf
-            outputSummary: "validate-state-integrity + state-integrity-migration + transition-integrity: 41 pass"
+            outputSummary: "validate-state-integrity + state-integrity-migration +
+              transition-integrity: 41 pass"
         - id: F4-G2
-          description: Task e phase close são idempotentes e não deixam writes, eventos ou evidence stale. FAILS when retry duplica analytics ou review muda HEAD sem rerun.
+          description: Task e phase close são idempotentes e não deixam writes, eventos ou
+            evidence stale. FAILS when retry duplica analytics ou review muda
+            HEAD sem rerun.
           status: met
           verifier:
             kind: shell
-            command: node --test tests/phase-done-transaction.test.js tests/done-transaction.test.js tests/append-completion-actuals.test.js
+            command: node --test tests/phase-done-transaction.test.js
+              tests/done-transaction.test.js
+              tests/append-completion-actuals.test.js
             expectExitCode: 0
           metAt: 2026-07-16T17:02:11.032Z
           evidence:
@@ -284,13 +398,24 @@ phases:
             passed: true
             exitCode: 0
             verifiedCommit: 7906f69d8f60ae4078bdb9073391e57a0475bcdf
-            outputSummary: "phase-done-transaction + done-transaction + append-completion-actuals: 25 pass"
+            outputSummary: "phase-done-transaction + done-transaction +
+              append-completion-actuals: 25 pass"
         - id: F4-G3
-          description: Materialize e dispatch-log sobrevivem fault injection, e a reconciliação F0 é não deferível e exigida também ao ativar F3. FAILS when plan/initiative divergem, log deixa de ser NDJSON, defer/skip fecha F4, completion/evidence/closeSha de F0 ficam fora do receipt ou F3 ativa com receipt stale.
+          description: Materialize e dispatch-log sobrevivem fault injection, e a
+            reconciliação F0 é não deferível e exigida também ao ativar F3.
+            FAILS when plan/initiative divergem, log deixa de ser NDJSON,
+            defer/skip fecha F4, completion/evidence/closeSha de F0 ficam fora
+            do receipt ou F3 ativa com receipt stale.
           status: met
           verifier:
             kind: shell
-            command: node --test tests/phase-materialization/materialize-transaction.test.js tests/phase-materialization/materialize-history-reconcile.test.js tests/phase-materialization/materialize-successor-barrier.test.js tests/lifecycle-gate-bypass.test.js tests/append-completion-dispatchlog.test.js && node scripts/materialize-state.js --check-history-receipt docs/audits/integrity-remediation-f0-reconciliation.json
+            command: node --test tests/phase-materialization/materialize-transaction.test.js
+              tests/phase-materialization/materialize-history-reconcile.test.js
+              tests/phase-materialization/materialize-successor-barrier.test.js
+              tests/lifecycle-gate-bypass.test.js
+              tests/append-completion-dispatchlog.test.js && node
+              scripts/materialize-state.js --check-history-receipt
+              docs/audits/integrity-remediation-f0-reconciliation.json
             expectExitCode: 0
           metAt: 2026-07-16T17:02:11.032Z
           evidence:
@@ -299,18 +424,27 @@ phases:
             passed: true
             exitCode: 0
             verifiedCommit: 7906f69d8f60ae4078bdb9073391e57a0475bcdf
-            outputSummary: "materialize-transaction/history/barrier + lifecycle-gate-bypass + dispatchlog: 40 pass; history receipt consistent"
+            outputSummary: "materialize-transaction/history/barrier + lifecycle-gate-bypass
+              + dispatchlog: 40 pass; history receipt consistent"
     status: done
     businessIntent:
-      value: Tornar validator e lifecycle a única autoridade estrutural, com fechamento e materialização recuperáveis, eliminando estado contraditório e bypass de gates.
-      workflow: phase-done/done/materialize e validate-state compartilham invariantes; F0 histórico reconciliado; F3 só ativa com receipt F4.
-      rules: Fail closed em ambiguidade; sem defer/skip de exit gates; initiative ausente só válida para descriptor pending lazy; DAG por dependsOn não por ID numérico.
-      outOfScope: Installer filesystem safety (F1), host contracts (F2), Gemini/Windows (F5), release matrix (F6).
-      doneWhen: F4-G1..G3 verdes incluindo reconciliação F0 não-deferível e barreira de ativação de F3.
+      value: Tornar validator e lifecycle a única autoridade estrutural, com
+        fechamento e materialização recuperáveis, eliminando estado
+        contraditório e bypass de gates.
+      workflow: phase-done/done/materialize e validate-state compartilham invariantes;
+        F0 histórico reconciliado; F3 só ativa com receipt F4.
+      rules: Fail closed em ambiguidade; sem defer/skip de exit gates; initiative
+        ausente só válida para descriptor pending lazy; DAG por dependsOn não
+        por ID numérico.
+      outOfScope: Installer filesystem safety (F1), host contracts (F2),
+        Gemini/Windows (F5), release matrix (F6).
+      doneWhen: F4-G1..G3 verdes incluindo reconciliação F0 não-deferível e barreira
+        de ativação de F3.
   - id: F5
     slug: integrity-remediation-f5-gemini-portabilidade-e-identidade-de-d
     title: Gemini, portabilidade e identidade de dashboard
-    goal: Tornar os contratos Gemini observáveis no CLI real, remover suposições POSIX e registrar o projectId canônico em worktrees.
+    goal: Tornar os contratos Gemini observáveis no CLI real, remover suposições
+      POSIX e registrar o projectId canônico em worktrees.
     summary: Valida Gemini no CLI real e remove suposições POSIX e de basename.
     dependsOn:
       - F2
@@ -319,7 +453,9 @@ phases:
       summary: 3 criteria to meet
       criteria:
         - id: F5-G1
-          description: Gemini CLI suportado descobre e invoca todas as skills native e todos os commands habilitados. FAILS when um artifact está ausente, inválido ou recebe argumentos errados.
+          description: Gemini CLI suportado descobre e invoca todas as skills native e
+            todos os commands habilitados. FAILS when um artifact está ausente,
+            inválido ou recebe argumentos errados.
           status: met
           verifier:
             kind: shell
@@ -334,11 +470,14 @@ phases:
             verifiedCommit: a73bf2d64ae5429dc08f3cdd38afaf0fdf33e547
             outputSummary: gemini-cli-contract
         - id: F5-G2
-          description: Validator e normalizer classificam paths Windows e POSIX com o mesmo contrato. FAILS when path.win32 retorna kind ou projectId incorreto.
+          description: Validator e normalizer classificam paths Windows e POSIX com o
+            mesmo contrato. FAILS when path.win32 retorna kind ou projectId
+            incorreto.
           status: met
           verifier:
             kind: shell
-            command: node --test tests/windows-path-contract.test.js tests/validate-state.test.js tests/normalize.test.js
+            command: node --test tests/windows-path-contract.test.js
+              tests/validate-state.test.js tests/normalize.test.js
             expectExitCode: 0
           metAt: 2026-07-16T17:46:08.845Z
           evidence:
@@ -349,7 +488,9 @@ phases:
             verifiedCommit: a73bf2d64ae5429dc08f3cdd38afaf0fdf33e547
             outputSummary: windows-path + validate-state + normalize
         - id: F5-G3
-          description: Dashboard registra o projectId canônico com JSON válido em qualquer worktree. FAILS when basename ou caracteres do root alteram a identidade.
+          description: Dashboard registra o projectId canônico com JSON válido em qualquer
+            worktree. FAILS when basename ou caracteres do root alteram a
+            identidade.
           status: met
           verifier:
             kind: shell
@@ -365,15 +506,18 @@ phases:
             outputSummary: project-registration
     status: done
     businessIntent:
-      value: Gemini contracts observable; Windows paths portable; dashboard projectId canonical.
+      value: Gemini contracts observable; Windows paths portable; dashboard projectId
+        canonical.
       workflow: Gemini native depth + TOML + Windows path + projectId.
-      rules: Native canonical; no POSIX-only splits; projectId from folder not basename of worktree.
+      rules: Native canonical; no POSIX-only splits; projectId from folder not
+        basename of worktree.
       outOfScope: Full multi-OS CI F6.
       doneWhen: F5-G1..G3 green (G1 may mock CLI if gemini absent).
   - id: F6
     slug: integrity-remediation-f6-qualificacao-de-release-e-fechamento-d
     title: Qualificação de release e fechamento das auditorias
-    goal: Exercitar o produto empacotado em hosts, scopes, sistemas e falhas reais e impedir release enquanto qualquer finding permanecer reproduzível.
+    goal: Exercitar o produto empacotado em hosts, scopes, sistemas e falhas reais e
+      impedir release enquanto qualquer finding permanecer reproduzível.
     summary: Qualifica o tarball sob hosts, sistemas, concorrência e fault injection.
     dependsOn:
       - F5
@@ -382,11 +526,17 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: F6-G1
-          description: Black-box, probes operacionais versionados e fault matrix passam contra o tarball sem checkout fonte; hosts sem probe ficam layout-only. FAILS when suporte operational não executa discovery/load/invoke no host real ou qualquer scope, crash ou retry deixa estado parcial.
+          description: Black-box, probes operacionais versionados e fault matrix passam
+            contra o tarball sem checkout fonte; hosts sem probe ficam
+            layout-only. FAILS when suporte operational não executa
+            discovery/load/invoke no host real ou qualquer scope, crash ou retry
+            deixa estado parcial.
           status: met
           verifier:
             kind: shell
-            command: node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/release-fault-matrix.test.js
+            command: node --test tests/release-blackbox.test.js
+              tests/release-host-probes.test.js
+              tests/release-fault-matrix.test.js
             expectExitCode: 0
           metAt: 2026-07-16T18:00:25.607Z
           evidence:
@@ -395,13 +545,28 @@ phases:
             passed: true
             exitCode: 0
             verifiedCommit: d4736ee8c073e0671ca63ff2cd2a8c7f4832c2fa
-            outputSummary: release blackbox + host probes + fault matrix; log phase-f6-g1-gates.log
+            outputSummary: release blackbox + host probes + fault matrix; log
+              phase-f6-g1-gates.log
         - id: F6-G2
-          description: Suíte, skills, docs, runtime closure, paridade, manifesto de findings e receipt Linux/macOS/Windows/Gemini/Node 22.18.x/Node 24.11+ ficam verdes no candidateSha sem diff de produto posterior. FAILS when finding está ausente/sem evidência, runtime suportado não foi exercitado, instalação diverge ou receipt/job não pertence ao candidato.
+          description: Suíte, skills, docs, runtime closure, paridade, manifesto de
+            findings e receipt Linux/macOS/Windows/Gemini/Node 22.18.x/Node
+            24.11+ ficam verdes no candidateSha sem diff de produto posterior.
+            FAILS when finding está ausente/sem evidência, runtime suportado não
+            foi exercitado, instalação diverge ou receipt/job não pertence ao
+            candidato.
           status: met
           verifier:
             kind: shell
-            command: npm test && npm run validate-skills && npm run check-docs && node scripts/verify-installed-runtime.js --check && node scripts/verify-ci-candidate.js --receipt docs/audits/release-candidate-ci.json --require-os linux,macos,windows --require-node '22.18.x,>=24.11.0' --require-host-manifest meta/host-qualification.json --no-product-diff --allow-partial && node scripts/verify-findings-manifest.js --manifest docs/audits/integrity-remediation-findings.json --receipt docs/audits/release-candidate-ci.json
+            command: npm test && npm run validate-skills && npm run check-docs && node
+              scripts/verify-installed-runtime.js --check && node
+              scripts/verify-ci-candidate.js --receipt
+              docs/audits/release-candidate-ci.json --require-os
+              linux,macos,windows --require-node '22.18.x,>=24.11.0'
+              --require-host-manifest meta/host-qualification.json
+              --no-product-diff --allow-partial && node
+              scripts/verify-findings-manifest.js --manifest
+              docs/audits/integrity-remediation-findings.json --receipt
+              docs/audits/release-candidate-ci.json
             expectExitCode: 0
           metAt: 2026-07-16T18:11:30.411Z
           evidence:
@@ -410,12 +575,18 @@ phases:
             passed: true
             exitCode: 0
             verifiedCommit: d4736ee8c073e0671ca63ff2cd2a8c7f4832c2fa
-            outputSummary: "npm test 2107 pass/0 fail; validate-skills; check-docs; verify-installed-runtime; verify-ci-candidate --allow-partial (partial multi-OS) OK at candidateSha 4518705; findings manifest 41 IDs. Log: phase-f6-gates.log"
+            outputSummary: "npm test 2107 pass/0 fail; validate-skills; check-docs;
+              verify-installed-runtime; verify-ci-candidate --allow-partial
+              (partial multi-OS) OK at candidateSha 4518705; findings manifest
+              41 IDs. Log: phase-f6-gates.log"
     status: done
     businessIntent:
-      value: Qualify packaged product under hosts, systems, concurrency, faults; close audits.
-      workflow: Black-box tarball, host probes, fault matrix, findings manifest, candidate freeze.
-      rules: No operational claim without probe; candidateSha freeze; no product diff after freeze.
+      value: Qualify packaged product under hosts, systems, concurrency, faults; close
+        audits.
+      workflow: Black-box tarball, host probes, fault matrix, findings manifest,
+        candidate freeze.
+      rules: No operational claim without probe; candidateSha freeze; no product diff
+        after freeze.
       outOfScope: npm publish production tag.
       doneWhen: Local gates green; multi-OS only if CI receipts available.
 references:
@@ -435,9 +606,7 @@ references:
     path: .atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md
     label: Revisão adversarial Codex em duas passagens
     inside_repo: true
-planActive: true
 planTitle: Remediação integral de segurança, lifecycle e distribuição
-
 ---
 
 # Remediação integral de segurança, lifecycle e distribuição

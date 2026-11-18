@@ -1,0 +1,73 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "grok-phase-todo-projection-f1-helper-deterministico-de-projecao",
+  "title": "Helper determinístico de projeção",
+  "goal": "Script zero-token que, dado o repo, emite o array de session todos das fases do plan pickFocus com label canônico e statuses corretos.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Implementar helper e CLI",
+      "scopeBoundary": [
+        "do not call todo_write or write under ~/.grok/sessions; do not mutate plan or initiative frontmatter; do not invent tasksDone or total for descriptor-only phases"
+      ],
+      "acceptance": [
+        "emits todos with stable id planSlug colon phase id; content uses done/total and summary or title when rollups exist and em-dash when descriptor-only; only current active phase is in_progress; empty focus emits empty array; CLI prints JSON exit 0"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project-session-todos.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "scripts/project-session-todos.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Testes golden do helper",
+      "scopeBoundary": [
+        "do not depend on a live Grok session; do not use the network"
+      ],
+      "acceptance": [
+        "fixture F0 2 of 5 active and F1 pending produces correct content and statuses; descriptor-only F2 uses em-dash total; no active plan emits empty list; paused phase maps to pending with paused suffix"
+      ],
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/project-session-todos.test.js"
+        }
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project-session-todos.test.js",
+        "expectExitCode": 0
+      }
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F1-G1",
+      "description": "Helper tests pass",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project-session-todos.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F1-G2",
+      "description": "CLI json on repo root exits 0 and prints todos array",
+      "verifier": {
+        "kind": "shell",
+        "command": "node scripts/project-session-todos.js --json . | node -e \"let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const j=JSON.parse(d); if(!Array.isArray(j.todos)) process.exit(1); process.exit(0)})\"",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

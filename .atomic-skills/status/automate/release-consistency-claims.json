@@ -1,0 +1,66 @@
+{
+  "planSlug": "release-consistency",
+  "phaseId": "F2",
+  "worktreePath": "/Volumes/External/code/atomic-skills/.worktrees/release-consistency-F2-writer",
+  "writerBranch": "impl/release-consistency-F2-writer",
+  "finishedAt": "2026-09-24T23:48:06Z",
+  "tasks": [
+    {
+      "taskId": "T-006",
+      "status": "claimed-pass",
+      "commitShas": [
+        "a2bd78da05c22dbed8d7423341b30568e5949d54"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "tests/fixtures/release-hygiene-consumer/.github/workflows/publish.yml",
+        "tests/fixtures/release-hygiene-consumer/CHANGELOG.md",
+        "tests/fixtures/release-hygiene-consumer/package.json",
+        "tests/release-fixture.test.js"
+      ],
+      "verifierCommand": "node --test tests/release-fixture.test.js",
+      "exitCode": 0,
+      "transcript": "\u25b6 release-hygiene-consumer fixture layout\n  \u2714 includes sample package.json, CHANGELOG, and adopted stage workflow\n\u2714 release-hygiene-consumer fixture layout\n\u25b6 chooser plan on hygiene fixture\n  \u2714 plans minor next version from feat + Unreleased Added\n\u2714 chooser plan on hygiene fixture\n\u25b6 refuse ship when Action missing without GH-only opt-out\n  \u2714 release skill dual-mode refuses ship when stage Action missing unless opt-out\n  \u2714 fixture without stage Action is detectable as adopt/refuse case\n  \u2714 with explicit GH-only opt-out flag language, skill allows GH Release path\n\u2714 refuse ship when Action missing without GH-only opt-out\n\u25b6 save-and-push contract still refuses default push language\n  \u2714 HARD-GATE refuses push on default; no push-directly ask\n\u2714 save-and-push contract still refuses default push language\n\u25b6 hygiene fixture is distinct from release-blackbox fixture\n  \u2714 does not collide with tests/fixtures/release-consumer/\n\u2714 hygiene fixture is distinct from release-blackbox fixture\n\u2139 tests 7\n\u2139 suites 5\n\u2139 pass 7\n\u2139 fail 0\n\u2139 duration_ms 55.918"
+    },
+    {
+      "taskId": "T-007",
+      "status": "claimed-pass",
+      "commitShas": [
+        "4287e01a98acce8982812765550b33cf4f257999"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        ".github/workflows/publish.yml",
+        "CHANGELOG.md",
+        "docs/kb/release-npm-stage.md"
+      ],
+      "verifierCommand": "rg -q 'stage publish' .github/workflows/publish.yml && ! rg -q '^\\s+- run: npm publish' .github/workflows/publish.yml && test -f docs/kb/release-npm-stage.md && rg -q 'stage approve|Trusted Publisher' docs/kb/release-npm-stage.md",
+      "exitCode": 0,
+      "transcript": "T007_OK\nEXIT_T007:0"
+    },
+    {
+      "taskId": "T-008",
+      "status": "claimed-pass",
+      "commitShas": [
+        "a9ee9ffaff0d04c622349c2628982c3a308876eb"
+      ],
+      "base": null,
+      "head": null,
+      "paths": [
+        "README.md",
+        "docs/skills/release.md",
+        "docs/skills/save-and-push.md",
+        "meta/catalog.json",
+        "meta/catalog.yaml",
+        "site/dist/index.html",
+        "tests/catalog-product-boundary.test.js",
+        "docs/kb/release-npm-stage.md"
+      ],
+      "verifierCommand": "node --test tests/catalog-product-boundary.test.js && npm run validate-skills",
+      "exitCode": 0,
+      "transcript": "\u25b6 catalog product.what_is_not boundary (T-008)\n  \u2714 keeps not-a-git-workflow-replacement and clarifies agent gates\n  \u2714 README product region mirrors both what_is_not clauses\n  \u2714 release and save-and-push docs mention the shared contract\n\u2714 catalog product.what_is_not boundary (T-008)\n\u2139 tests 3\n\u2139 suites 1\n\u2139 pass 3\n\u2139 fail 0\n> @henryavila/atomic-skills@2.0.0 validate-skills\n> node scripts/validate-skills.js\n\n\u2713 All 17 skills valid (schema_version 0.2)"
+    }
+  ]
+}

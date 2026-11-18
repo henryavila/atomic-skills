@@ -1,0 +1,64 @@
+{
+  "id": "phase-done-allowed",
+  "description": "decisionReview passed (with verifiedAt + present-before-PASS package evidence) + evaluationGate passed under automate ⇒ canRunPhaseDone true when other automate requirements are satisfied (mocked here as pure gate inputs).",
+  "phaseDoneInput": {
+    "planExecutionMode": "automate",
+    "evaluationGate": {
+      "status": "passed",
+      "verdict": "pass",
+      "reportPath": ".atomic-skills/reviews/eval-demo.md"
+    },
+    "lessonsState": "none",
+    "reviewGate": {
+      "status": "passed",
+      "mode": "both",
+      "at": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reviewFile": ".atomic-skills/reviews/f0-both.md",
+      "localReceiptPath": ".atomic-skills/reviews/f0-local.md",
+      "codexReceiptPath": ".atomic-skills/reviews/f0-codex.md"
+    },
+    "decisionReview": {
+      "status": "passed",
+      "verifiedAt": "2026-07-23T12:00:00.000Z",
+      "evidencePath": "tests/fixtures/implement-phase-agents/decisions-sample.jsonl",
+      "packagePresentedAt": "2026-07-23T11:59:00.000Z",
+      "packagePath": "tests/fixtures/implement-phase-agents/decisions-sample.jsonl"
+    },
+    "deliveryAuditGate": {
+      "status": "passed",
+      "verdict": "CLOSED",
+      "reportPath": ".atomic-skills/reviews/audit-delivery-demo.md",
+      "verifiedAt": "2026-08-04T15:00:00.000Z"
+    },
+    "planPath": "/tmp/demo-plan/plan.md",
+    "flowDoc": {
+      "schemaVersion": "1.0",
+      "planSlug": "minimal-xor",
+      "ratifiedGraphSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "graph": {
+        "entry": "S1",
+        "nodes": {
+          "S1": { "type": "activity", "next": "D1" },
+          "D1": {
+            "type": "xor",
+            "branches": [
+              { "id": "D1.yes", "next": "end_ok" },
+              { "id": "D1.no", "next": "end_no" }
+            ]
+          },
+          "end_ok": { "type": "end" },
+          "end_no": { "type": "end" }
+        }
+      },
+      "machines": [{ "id": "request" }]
+    },
+    "ratifiedGraphSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "actualSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "reportContent": "# Audit Delivery — demo\n**Verdict:** CLOSED\n## Intent Package\nD1\n## Residual\nnone CRITICAL\n## Findings\nAll RESOLVED\n\n## Flow graph\nmachine request: faz\nxor D1: faz\n"
+  },
+  "expect": {
+    "canRunPhaseDoneOk": true,
+    "decisionReviewAllowsOk": true,
+    "phaseEvaluationAllowsOk": true
+  }
+}

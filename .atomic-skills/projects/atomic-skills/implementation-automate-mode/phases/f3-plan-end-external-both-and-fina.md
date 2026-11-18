@@ -2,7 +2,8 @@
 schemaVersion: "0.1"
 slug: implementation-automate-mode-f3-plan-end-external-both-and-fina
 title: Plan-end external-both and finalize hard gate
-goal: Finalize and archive under automate require external-both receipt satisfying planEndReviewOk; missing success without skip hard-blocks.
+goal: Finalize and archive under automate require external-both receipt
+  satisfying planEndReviewOk; missing success without skip hard-blocks.
 status: archived
 branch: plan/implementation-automate-mode
 started: 2026-07-17T19:29:38.832Z
@@ -12,7 +13,8 @@ parentPlan: implementation-automate-mode
 phaseId: F3
 businessIntent:
   value: Finalize/archive sob automate exigem planEndReviewOk e userValidationOk.
-  workflow: Wire finalize hard-block + skip-plan-end-review reason; unit tests plan-end-review.
+  workflow: Wire finalize hard-block + skip-plan-end-review reason; unit tests
+    plan-end-review.
   rules: HARD-BLOCK without receipt success or skip reason; archive same gate.
   outOfScope: F4 contract tests/docs only after F3.
   doneWhen: planEndReviewOk tests + finalize docs hard-block + skip reason.
@@ -20,13 +22,16 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 2
 gatesTotal: 2
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: F3-G1
     description: planEndReviewOk unit tests pass and finalize documents the hard-block.
     status: met
     verifier:
       kind: shell
-      command: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk' skills/shared/project-assets/project-finalize.md
+      command: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk'
+        skills/shared/project-assets/project-finalize.md
       expectExitCode: 0
     metAt: 2026-07-17T19:33:38.000Z
     evidence:
@@ -35,13 +40,17 @@ exitGates:
       verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
       passed: true
       exitCode: 0
-      outputSummary: "orch: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk' skills/shared/project-assets/project-finalize.md"
+      outputSummary: "orch: node --test tests/plan-end-review.test.js && rg -n
+        'planEndReviewOk' skills/shared/project-assets/project-finalize.md"
+    verifierLabel: "shell: node --test tests/plan-end-review.test.js && rg -n 'planEnd…"
+    evidenceSummary: passed · 2026-07-17
   - id: F3-G2
     description: skip-plan-end-review requires non-empty reason in documented contract.
     status: met
     verifier:
       kind: shell
-      command: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md
+      command: rg -n 'skip-plan-end-review'
+        skills/shared/project-assets/project-finalize.md
       expectExitCode: 0
     metAt: 2026-07-17T19:33:38.000Z
     evidence:
@@ -50,7 +59,10 @@ exitGates:
       verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
       passed: true
       exitCode: 0
-      outputSummary: "orch: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md"
+      outputSummary: "orch: rg -n 'skip-plan-end-review'
+        skills/shared/project-assets/project-finalize.md"
+    verifierLabel: "shell: rg -n 'skip-plan-end-review' skills/shared/project-assets/p…"
+    evidenceSummary: passed · 2026-07-17
 stack:
   - id: 1
     title: Plan-end external-both and finalize hard gate
@@ -62,12 +74,24 @@ tasks:
     status: done
     lastUpdated: 2026-07-17T19:33:38.000Z
     scopeBoundary:
-      - Do not change finalize for non-automate plans beyond detection of executionMode. Do not auto-merge PRs. Do not skip the user-validation step after plan-end review.
+      - Do not change finalize for non-automate plans beyond detection of
+        executionMode. Do not auto-merge PRs. Do not skip the user-validation
+        step after plan-end review.
     acceptance:
-      - it - Under automate, finalize runs review-code external-both on the plan integration range before PR create or records skip with reason.; it - planEndReviewOk false hard-blocks finalize and archive.; it - receipt is linked from plan Reviews section with per-leg succeeded failed skipped.; it - plan schema admits durable userValidatedAt (or plan-end receipt fields) used by userValidationOk.; it - finalize hard-blocks unless userValidationOk is true after last phase and plan-end review.; it - zero family-different provider path offers guided skip with non-empty reason taxonomy rather than stranding the plan.
+      - it - Under automate, finalize runs review-code external-both on the plan
+        integration range before PR create or records skip with reason.; it -
+        planEndReviewOk false hard-blocks finalize and archive.; it - receipt is
+        linked from plan Reviews section with per-leg succeeded failed skipped.;
+        it - plan schema admits durable userValidatedAt (or plan-end receipt
+        fields) used by userValidationOk.; it - finalize hard-blocks unless
+        userValidationOk is true after last phase and plan-end review.; it -
+        zero family-different provider path offers guided skip with non-empty
+        reason taxonomy rather than stranding the plan.
     verifier:
       kind: shell
-      command: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk|userValidationOk|userValidatedAt' skills/shared/project-assets/project-finalize.md
+      command: node --test tests/plan-end-review.test.js && rg -n
+        'planEndReviewOk|userValidationOk|userValidatedAt'
+        skills/shared/project-assets/project-finalize.md
       expectExitCode: 0
     outputs:
       - kind: file
@@ -87,18 +111,27 @@ tasks:
       verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
       passed: true
       exitCode: 0
-      outputSummary: "orch: node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk|userValidationOk|userValidatedAt' skills/shared/project-assets/project-finalize.md"
+      outputSummary: "orch: node --test tests/plan-end-review.test.js && rg -n
+        'planEndReviewOk|userValidationOk|userValidatedAt'
+        skills/shared/project-assets/project-finalize.md"
   - id: T-011
     title: Archive hard-block and status visibility of plan-end receipt
     status: done
     lastUpdated: 2026-07-17T19:33:38.000Z
     scopeBoundary:
-      - Do not invent a third external provider. Do not change CROSS-MODEL REVIEW cadence for non-automate. Soft pointer to finalize is not an archive success path.
+      - Do not invent a third external provider. Do not change CROSS-MODEL
+        REVIEW cadence for non-automate. Soft pointer to finalize is not an
+        archive success path.
     acceptance:
-      - it - Archive under automate HARD-FAILS unless planEndReviewOk is true and userValidationOk is true.; it - status and drift may surface missing plan-end receipt on read-only paths without mutating state.; it - unit tests cover missing receipt, all failed or skipped legs, skip without reason, valid skip, valid successful leg, and missing userValidatedAt.
+      - it - Archive under automate HARD-FAILS unless planEndReviewOk is true
+        and userValidationOk is true.; it - status and drift may surface missing
+        plan-end receipt on read-only paths without mutating state.; it - unit
+        tests cover missing receipt, all failed or skipped legs, skip without
+        reason, valid skip, valid successful leg, and missing userValidatedAt.
     verifier:
       kind: shell
-      command: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md
+      command: rg -n 'skip-plan-end-review'
+        skills/shared/project-assets/project-finalize.md
       expectExitCode: 0
     outputs:
       - kind: file
@@ -118,11 +151,14 @@ tasks:
       verifiedCommit: ec0d8de06ae2c098ca748a9e86267b318892ec06
       passed: true
       exitCode: 0
-      outputSummary: "orch: rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md"
+      outputSummary: "orch: rg -n 'skip-plan-end-review'
+        skills/shared/project-assets/project-finalize.md"
 parked: []
 emerged: []
 summary: Finalize/archive hard-block planEndReviewOk + userValidationOk.
+planTitle: Implementation Automate Mode
 ---
+
 # F3
 
 ## Session handoff

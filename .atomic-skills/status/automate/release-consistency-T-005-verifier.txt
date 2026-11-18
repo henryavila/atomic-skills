@@ -1,0 +1,19 @@
+▶ publish-stage.yml template
+  ✔ exists and uses release published + id-token write + npm stage publish (0.979417ms)
+  ✔ happy-path run steps use stage publish, not bare npm publish (0.480084ms)
+✔ publish-stage.yml template (1.847583ms)
+▶ publish-gh-only.yml template
+  ✔ exists, triggers on release published, and does not npm publish (0.213375ms)
+✔ publish-gh-only.yml template (0.259833ms)
+▶ adopt.md + release skill pointer
+  ✔ requires dry-run/--check with pin, diff, and consent before write (0.195125ms)
+  ✔ release.md points at adopt (0.069375ms)
+✔ adopt.md + release skill pointer (0.321333ms)
+ℹ tests 5
+ℹ suites 3
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 37.838917

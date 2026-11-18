@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-03T05:44:08.048Z",
+  "url": "http://127.0.0.1:34773/final",
+  "status": 200,
+  "main": true,
+  "validationEnabled": true,
+  "intentTable": true,
+  "retainedFindings": true,
+  "missingCardsVisible": true,
+  "reviewCurrent": true,
+  "userValidatedAt": null,
+  "authenticatedUserEvidence": null,
+  "snapshot": "a49bee15ab18f62b7fa65309524c47014e478455ec80650a06b639374762891d"
+}

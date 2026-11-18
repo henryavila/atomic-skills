@@ -28,7 +28,7 @@ mk_tmp_repo() {
     git config commit.gpgsign false
   )
   # Copy the essentials. node_modules is symlinked (large; read-only).
-  for d in .husky scripts meta skills src bin package.json package-lock.json README.md CHANGELOG.md; do
+  for d in .husky scripts meta skills src bin site package.json package-lock.json README.md CHANGELOG.md; do
     if [[ -e "$REPO_ROOT/$d" ]]; then
       cp -R "$REPO_ROOT/$d" "$tmp/"
     fi

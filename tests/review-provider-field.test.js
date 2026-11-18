@@ -16,8 +16,8 @@ import {
 import { HOST_FAMILIES, defaultExternalProvider } from '../src/cross-model-host-default.js';
 
 describe('PROVIDER_ENUM', () => {
-  it('is exactly codex | grok | claude | local', () => {
-    assert.deepEqual([...PROVIDER_ENUM].sort(), ['claude', 'codex', 'grok', 'local'].sort());
+  it('is exactly codex | grok | claude | local | agy', () => {
+    assert.deepEqual([...PROVIDER_ENUM].sort(), ['agy', 'claude', 'codex', 'grok', 'local'].sort());
   });
 });
 

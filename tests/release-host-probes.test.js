@@ -81,18 +81,18 @@ describe('F6 release host probes', () => {
       schemaVersion: '1',
       hosts: [
         {
-          id: 'gemini',
+          id: 'antigravity',
           supportTier: 'operational',
           supportDeclared: true,
           adapter: {
-            id: 'gemini-tools',
+            id: 'antigravity-tools',
             version: '1',
             discovery: 'd',
             load: 'l',
             invoke: 'i',
           },
         },
-        ...PUBLIC_IDE_IDS.filter((id) => id !== 'gemini').map((id) => ({
+        ...PUBLIC_IDE_IDS.filter((id) => id !== 'antigravity').map((id) => ({
           id,
           supportTier: 'layout-only',
           supportDeclared: false,

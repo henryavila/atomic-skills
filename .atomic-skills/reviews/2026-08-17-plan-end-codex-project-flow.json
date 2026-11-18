@@ -1,0 +1,13 @@
+{
+  "provider": "codex",
+  "status": "failed",
+  "familyDifferent": true,
+  "kind": "usage-limit",
+  "error": "You have hit your usage limit. Upgrade to Plus, or try again at Sep 9th, 2026 6:46 PM.",
+  "modelTried": [
+    "gpt-5.6-sol (recommended, ChatGPT account unsupported)",
+    "gpt-5.2 (ChatGPT account unsupported)",
+    "cli-default (usage-limit)"
+  ],
+  "at": "2026-08-17T13:00:43.616Z"
+}

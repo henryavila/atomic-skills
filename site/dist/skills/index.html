@@ -6,6 +6,7 @@
 <title>Skills · Atomic Skills</title>
 <meta name="description" content="Atomic Skills catalog — Iron Laws and when-to-use from product SSOT.">
 <link rel="stylesheet" href="../assets/ds.css">
+<script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return'system'}}function apply(mode){var r=document.documentElement;if(mode==='light'||mode==='dark')r.setAttribute('data-theme',mode);else r.removeAttribute('data-theme');document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-checked',String(b.getAttribute('data-theme-set')===mode))})}apply(read());document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;var mode=b.getAttribute('data-theme-set');try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener('DOMContentLoaded',function(){apply(read())})})();</script>
 </head>
 <body>
 <div class="site-shell">
@@ -14,13 +15,15 @@
       <span class="site-brand-title">Atomic Skills</span>
       <span class="site-brand-sub">product docs</span>
     </a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="../index.html">Home</a>
+    <div class="site-header-tools">
+      <nav class="site-nav" aria-label="Primary">
+        <a href="../index.html">Home</a>
       <a href="../skills/index.html" class="active">Skills</a>
-      <a href="../project/index.html">Project</a>
       <a href="../modules/index.html">Modules</a>
       <a href="../hosts/index.html">Hosts</a>
-    </nav>
+      </nav>
+      <div class="theme-switch" role="radiogroup" aria-label="Appearance"><button type="button" role="radio" data-theme-set="system" aria-checked="true">System</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+    </div>
   </header>
   <main class="site-main">
     <section class="section">
@@ -47,10 +50,18 @@
         </article>
         <article class="card">
           <div class="meta-row">
+            <a class="card-title" href="release/index.html">🚀 Release — Chooser + GH Release + npm stage</a>
+            
+          </div>
+          <p class="one-liner">Chooser plans bump; ship GH Release; npm stage+2FA only</p>
+          <div class="iron-law">NO BUMP WITHOUT THE CHOOSER.</div>
+        </article>
+        <article class="card">
+          <div class="meta-row">
             <a class="card-title" href="review-plan/index.html">🔍 Review Plan — Adversarial (Local + Codex)</a>
             
           </div>
-          <p class="one-liner">Adversarial plan review with local/codex/both mode picker</p>
+          <p class="one-liner">Adversarial plan review with local/ground-truth/codex/both modes</p>
           <div class="iron-law">NO APPROVAL WITHOUT EVIDENCE.</div>
         </article>
         <article class="card">
@@ -60,14 +71,6 @@
           </div>
           <p class="one-liner">Adversarial code review with local/codex/both mode picker</p>
           <div class="iron-law">NO APPROVAL WITHOUT EVIDENCE.</div>
-        </article>
-        <article class="card">
-          <div class="meta-row">
-            <a class="card-title" href="project/index.html">📊 Project — Plan / Initiative / Task Tracking</a>
-            
-          </div>
-          <p class="one-liner">Plan / Initiative / Task state your agent reloads every session</p>
-          <div class="iron-law">NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.</div>
         </article>
         <article class="card">
           <div class="meta-row">
@@ -106,7 +109,7 @@
             <a class="card-title" href="brainstorm/index.html">💡 Brainstorm — Divergent DESIGN front-half</a>
             
           </div>
-          <p class="one-liner">Diverge, decide, then write a critic-gated design.md before any plan</p>
+          <p class="one-liner">Interview, research, debate --gate, then critic-gated design.md</p>
           <div class="iron-law">NO PLAN WITHOUT AN APPROVED DESIGN.</div>
         </article>
         <article class="card">
@@ -127,14 +130,6 @@
         </article>
         <article class="card">
           <div class="meta-row">
-            <a class="card-title" href="implement/index.html">⚙️ Implement — Mode 2-aware Execution Driver</a>
-            
-          </div>
-          <p class="one-liner">Drive plan tasks to done; optional --mode=automate pure maestro</p>
-          <div class="iron-law">CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).</div>
-        </article>
-        <article class="card">
-          <div class="meta-row">
             <a class="card-title" href="verify-claim/index.html">✅ Verify Claim — Completion-Evidence Gate</a>
             
           </div>
@@ -148,6 +143,22 @@
           </div>
           <p class="one-liner">Consolidate scattered memory into .ai/memory/ and wire it to the IDE</p>
           <div class="iron-law">NO DELETION WITHOUT CONFIRMED BACKUP.</div>
+        </article>
+        <article class="card">
+          <div class="meta-row">
+            <a class="card-title" href="audit-delivery/index.html">📦 Audit Delivery — Intent vs Delivered</a>
+            
+          </div>
+          <p class="one-liner">Intent-vs-delivered system audit with residual hunt and reaudit gate</p>
+          <div class="iron-law">NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.</div>
+        </article>
+        <article class="card">
+          <div class="meta-row">
+            <a class="card-title" href="delegate/index.html">🤝 Delegate — External Executors, the Orchestrator Only Creates and Validates</a>
+            
+          </div>
+          <p class="one-liner">The orchestrator writes the card and judges; cheap executors do the work</p>
+          <div class="iron-law">THE ORCHESTRATOR CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.</div>
         </article>
     </section>
   </main>

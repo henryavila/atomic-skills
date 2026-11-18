@@ -8,8 +8,9 @@ Pure routing helper (unit-tested): `src/cross-model-host-default.js`.
 
 ## Host detection order
 
-1. Explicit `ATOMIC_SKILLS_HOST` (`claude` | `codex` | `grok` | `cursor` | `unknown`)
+1. Explicit `ATOMIC_SKILLS_HOST` (`claude` | `codex` | `grok` | `agy` | `cursor` | `unknown`)
 2. Session/env signals:
+   - Antigravity: `ANTIGRAVITY_AGENT` / `ANTIGRAVITY_CONVERSATION_ID` set
    - Grok: `GROK_SESSION_ID` or `GROK_WORKSPACE_ROOT` set
    - Codex: `CODEX_THREAD_ID` / `CODEX_CI` / obvious Codex host markers
    - Claude Code: `CLAUDECODE` / `CLAUDE_CODE_ENTRYPOINT` / `.claude` session norms
@@ -17,13 +18,17 @@ Pure routing helper (unit-tested): `src/cross-model-host-default.js`.
 
 ## Host → external default matrix
 
-| Host session (`hostFamily`) | External default | Also available |
-|-----------------------------|------------------|----------------|
-| `grok` | `codex` | local only as same-family path (not cross-model) |
-| `codex` | `grok` | local |
-| `claude` | `codex` (legacy `both` = local→codex) | `grok`; `external-both` (F3/F5) |
-| `cursor` | `codex` | `grok` |
-| `unknown` | `codex` | `grok` |
+| Host session (`hostFamily`) | External default | Family-different externals (`externalBothLegs`) |
+|-----------------------------|------------------|--------------------------------------------------|
+| `agy` | `codex` | **codex**, **grok**, **claude** (not agy — same-family) |
+| `grok` | `codex` | **codex**, **claude**, **agy** (not grok — same-family) |
+| `codex` | `grok` | **grok**, **claude**, **agy** (not codex — same-family) |
+| `claude` | `codex` (legacy `both` = local→codex) | **codex**, **grok**, **agy** (not claude — same-family) |
+| `cursor` | `codex` | **codex**, **grok**, **claude**, **agy** (cursor ≠ any external family) |
+| `unknown` | `codex` | **codex**, **grok**, **claude**, **agy** |
+
+Interactive picker primary options = family-different legs only (see
+`review-mode-ux.md` Step 0). Same-family external is never a default suggestion.
 
 Modes consumed by review-code / review-plan (F3 fills UX; F2 locks routing):
 
@@ -32,11 +37,11 @@ Modes consumed by review-code / review-plan (F3 fills UX; F2 locks routing):
 | `local` | same-model sealed self-loop on host |
 | `codex` | external sealed via Codex only |
 | `grok` | external sealed via Grok only |
-| `both` | local → **host external default** |
-| `both-codex` / `both-grok` | local → forced provider |
-| `external-both` | family-filtered legs in order **codex → grok → claude** (merge after all) |
 | `claude` | external sealed via Claude Code only |
-| `both-claude` | local → Claude |
+| `agy` | external sealed via Antigravity only |
+| `both` | local → **host external default** |
+| `both-codex` / `both-grok` / `both-claude` / `both-agy` | local → forced provider |
+| `external-both` | family-filtered legs in order **codex → grok → claude → agy** (merge after all) |
 
 ## Same-family is not external
 
@@ -55,8 +60,8 @@ pipeline. Same-family headless is **not** labeled CROSS-MODEL REVIEW.
 3. On confirm → run **`local`** sealed path (`provider: local`,
    `sameFamilyRemap: true` on the receipt).
 4. On decline → **abort** **or** offer the correct cross-family provider
-   (host Grok → Codex; host Codex → Grok; host Claude is never same-family for
-   codex/grok external).
+   (host Grok → Codex default, Claude also family-different; host Codex → Grok
+   default, Claude also; host Claude → Codex default, Grok also).
 
 ### Non-interactive (no TTY, CI, headless skill invoke)
 
@@ -70,7 +75,7 @@ pipeline. Same-family headless is **not** labeled CROSS-MODEL REVIEW.
 
 ## Envelope binding
 
-When the route resolves to an external provider `P ∈ {codex, grok, claude}`:
+When the route resolves to an external provider `P ∈ {codex, grok, claude, agy}`:
 
 1. Bind `«PROVIDER»` = `P` in `envelope-orchestration.md`
 2. Preflight: `{{ASSETS_PATH}}/providers/«PROVIDER»/preflight-checks.txt`

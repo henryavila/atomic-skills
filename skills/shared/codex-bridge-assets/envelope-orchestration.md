@@ -2,7 +2,7 @@
 
 The two-pass sealed-envelope sub-flow is **byte-identical** between
 `review-code` and `review-plan` except for a handful of artifact-specific slots
-and the external **provider** (`codex` | `grok` | `claude`). This file is the single source
+and the external **provider** (`codex` | `grok` | `claude` | `agy`). This file is the single source
 for the orchestration skeleton; each caller references it and binds only the
 `«SLOTS»` listed under **Artifact bindings**.
 
@@ -26,7 +26,7 @@ two callers.
 ### external-both (multi-provider callers)
 
 When the caller mode is `external-both`, invoke this skeleton **once per
-remaining provider** in order (**codex → grok → claude**, family-filtered) on the **same** cleaned
+remaining provider** in order (**codex → grok → claude → agy**, family-filtered) on the **same** cleaned
 artifact. Family-filtered legs are recorded as `status: skipped` and are not
 invoked.
 
@@ -39,11 +39,11 @@ invoked.
    / validation failure for one provider: record
    `{ status: failed, error: <message>, findings: <any partial> }` and
    **continue** to the next provider. Only single-provider modes
-   (`codex` / `grok` / `claude` / the external leg of `both*`) still **ABORT** on that
+   (`codex` / `grok` / `claude` / `agy` / the external leg of `both*`) still **ABORT** on that
    provider's failure (existing steps 1/5–9 behaviour below).
 3. **Merge after both legs settle.** Feed both provider payloads into
    `mergeExternalBothFindings` (`src/external-both-merge.js`), or via CLI:
-   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" <codex.json|-|skip> <grok.json|-|skip> [claude.json|-|skip]`.
+   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" <codex.json|-|skip> <grok.json|-|skip> [claude.json|-|skip] [agy.json|-|skip]`.
 4. **Triage only the merged list.** Human triage on the merged findings (+ any
    `errors` / `providerStatus`). Auto-apply of external findings is a non-goal.
 
@@ -57,7 +57,7 @@ surfaces the error.
 
 | Slot | Bound by the caller to |
 |------|------------------------|
-| `«PROVIDER»` | external provider id: `codex`, `grok`, or `claude` (never the host family without same-family routing — see `host-default-external.md`) |
+| `«PROVIDER»` | external provider id: `codex`, `grok`, `claude`, or `agy` (never the host family without same-family routing — see `host-default-external.md`) |
 | `«INPUT»` | what the captured/validated input is, and how it is obtained (no re-capture) |
 | `«PASS1_TEMPLATE»` | the `{{ASSETS_PATH}}/pass1-briefing-template-*.txt` for this artifact |
 | `«CONSTRAINTS»` | how externally-verifiable factual constraints are gathered |
@@ -114,8 +114,22 @@ surfaces the error.
    → timeout, abort with retry suggestion; other non-zero → provider error,
    abort.
 
+5b. **Capacity / session-limit gate (before validation)** — read
+   `<OUTPUT_PATH>` + stderr log and run
+   `classifyProviderLimitFailure` from `src/provider-limit-failure.js`
+   (provider-agnostic; **required for Claude** — session limit often **exits 0**
+   with `You've hit your session limit · resets …` on stdout). On match:
+   - **Do not** run validation, Pass 2, or corrective retries (`doNotRetry`).
+   - `external-both`: record `{ status: failed, error, kind }` for this leg and
+     **continue** other providers (merge keeps successful half).
+   - single-provider / external leg of `both*`: **ABORT** with
+     `formatProviderLimitFailureMessage` (suggest family-different `--mode=`,
+     e.g. codex when Claude is limited).
+
 6. **Pass 1 validation** — `{{ASSETS_PATH}}/validation-checklist.txt` (universal
-   checks 1-9). Failure → 1 corrective retry. Failure again → escalate raw.
+   checks 1-9). Failure → 1 corrective retry **unless** the raw output classifies
+   as a limit failure (then go to 5b path — never retry a session/rate limit).
+   Failure again → escalate raw.
 
 7. **Build Pass 2 briefing (informed)** — Pass 1 briefing (without
    `Begin review now.`) + contents of `{{ASSETS_PATH}}/pass2-prompt-suffix.txt`,
@@ -125,11 +139,12 @@ surfaces the error.
    `/tmp/cross-model-briefing-pass2-<PROVIDER>-<ts>.md`.
 
 8. **Pass 2 invocation (informed)** — same command as step 5 with the pass-2
-   briefing path and output path.
+   briefing path and output path. Re-run **step 5b** on Pass 2 output (session
+   limit can hit mid-envelope after Pass 1 succeeded).
 
 9. **Pass 2 validation** — universal checks 1-9 + Pass-2-only checks 10-13 from
-   `{{ASSETS_PATH}}/validation-checklist.txt`. Failure → 1 corrective retry.
-   Failure again → escalate raw.
+   `{{ASSETS_PATH}}/validation-checklist.txt`. Failure → 1 corrective retry
+   **unless** limit-classified (5b). Failure again → escalate raw.
 
 10. **Persistence**
     - {{BASH_TOOL}}: `mkdir -p .atomic-skills/reviews/`

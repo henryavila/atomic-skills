@@ -6,6 +6,7 @@
 <title>💾 Save &amp; Push — Commit + Memory + Push · Atomic Skills</title>
 <meta name="description" content="Scan for secrets, group commits, save learnings, push safely">
 <link rel="stylesheet" href="../../assets/ds.css">
+<script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return'system'}}function apply(mode){var r=document.documentElement;if(mode==='light'||mode==='dark')r.setAttribute('data-theme',mode);else r.removeAttribute('data-theme');document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-checked',String(b.getAttribute('data-theme-set')===mode))})}apply(read());document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;var mode=b.getAttribute('data-theme-set');try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener('DOMContentLoaded',function(){apply(read())})})();</script>
 </head>
 <body>
 <div class="site-shell">
@@ -14,13 +15,15 @@
       <span class="site-brand-title">Atomic Skills</span>
       <span class="site-brand-sub">product docs</span>
     </a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="../../index.html">Home</a>
+    <div class="site-header-tools">
+      <nav class="site-nav" aria-label="Primary">
+        <a href="../../index.html">Home</a>
       <a href="../../skills/index.html" class="active">Skills</a>
-      <a href="../../project/index.html">Project</a>
       <a href="../../modules/index.html">Modules</a>
       <a href="../../hosts/index.html">Hosts</a>
-    </nav>
+      </nav>
+      <div class="theme-switch" role="radiogroup" aria-label="Appearance"><button type="button" role="radio" data-theme-set="system" aria-checked="true">System</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+    </div>
   </header>
   <main class="site-main">
     <section class="section">
@@ -36,7 +39,7 @@
 
     <section class="section card prose">
       <h2>Why it exists</h2>
-      <p>Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit, and learnings lost to context death. `save-and-push` scans the diff for secrets and sensitive files before staging, groups changes into logical commits (never `git add .`), persists durable learnings to memory, and refuses to push to main/master without confirmation. The next session resumes with clean history and context intact.</p>
+      <p>Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit, and learnings lost to context death. `save-and-push` scans the diff for secrets and sensitive files before staging, groups changes into logical commits (never `git add .`), persists durable learnings to memory, and on the default branch (via `origin/HEAD`, else main|master) refuses a direct push — requiring a work branch plus PR (`gh pr create` when authenticated) instead of asking to push directly. The next session resumes with clean history and context intact.</p>
     </section>
 
     <section class="section">

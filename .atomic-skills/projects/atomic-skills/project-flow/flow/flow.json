@@ -1,0 +1,484 @@
+{
+  "schemaVersion": "1.0",
+  "planSlug": "project-flow",
+  "title": "Carimbar o fluxo antes de executar o plano",
+  "description": "Objetivo operacional do produto Project Flow: o operador vê e carimba um grafo de negócio; sem esse carimbo o implement recusa. Draft vem do desenho, não da árvore de fases. process.yaml nunca cumpre.",
+  "scenario": "O operador carimba o fluxo operacional de um plano; sem o carimbo, a execução recusa.",
+  "actor": "Operador",
+  "audience": "both",
+  "youAreHere": "Decidir",
+  "actors": [
+    {
+      "id": "Op",
+      "label": "Operador",
+      "kind": "actor"
+    },
+    {
+      "id": "Ag",
+      "label": "Agente",
+      "kind": "participant"
+    },
+    {
+      "id": "Sys",
+      "label": "Atomic Skills",
+      "kind": "participant"
+    }
+  ],
+  "graph": {
+    "entry": "TemArquivo",
+    "nodes": {
+      "TemArquivo": {
+        "type": "xor",
+        "label": "O pedido tem arquivo de plano?",
+        "who": "Atomic Skills",
+        "question": "Existe um arquivo de plano neste pedido?",
+        "branches": [
+          {
+            "id": "TemArquivo.nao",
+            "when": "sem_arquivo",
+            "label": "Sem arquivo",
+            "next": "FimNaoSeAplica"
+          },
+          {
+            "id": "TemArquivo.sim",
+            "when": "com_arquivo",
+            "label": "Com arquivo",
+            "next": "QualPedido"
+          }
+        ]
+      },
+      "QualPedido": {
+        "type": "xor",
+        "label": "Validar o fluxo ou executar o plano?",
+        "who": "Operador",
+        "question": "O operador pediu para carimbar o fluxo ou para executar o plano?",
+        "branches": [
+          {
+            "id": "QualPedido.flow",
+            "when": "validar_fluxo",
+            "label": "Validar o fluxo",
+            "next": "Draftar"
+          },
+          {
+            "id": "QualPedido.implement",
+            "when": "executar_plano",
+            "label": "Executar o plano",
+            "next": "ChecarParaExecutar"
+          }
+        ]
+      },
+      "ChecarParaExecutar": {
+        "type": "xor",
+        "label": "O fluxo está carimbado e atual?",
+        "who": "Atomic Skills",
+        "question": "O documento tem carimbo e o grafo não mudou depois?",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Sys",
+            "text": "Roda o detector em modo estrito no arquivo do plano",
+            "async": false
+          }
+        ],
+        "branches": [
+          {
+            "id": "ChecarParaExecutar.ok",
+            "when": "carimbo_valido",
+            "label": "Carimbo válido",
+            "next": "Executar"
+          },
+          {
+            "id": "ChecarParaExecutar.falta",
+            "when": "falta_ou_mudou",
+            "label": "Falta ou o grafo mudou",
+            "next": "Recusar"
+          }
+        ]
+      },
+      "Draftar": {
+        "type": "activity",
+        "title": "Draftar o grafo a partir do desenho",
+        "label": "Draftar o grafo a partir do desenho",
+        "who": "Agente",
+        "messages": [
+          {
+            "from": "Op",
+            "to": "Ag",
+            "text": "Pede project flow no plano",
+            "async": false
+          },
+          {
+            "from": "Ag",
+            "to": "Ag",
+            "text": "Lê o desenho, a fonte e o intent de negócio — não a lista de fases",
+            "async": false
+          },
+          {
+            "from": "Ag",
+            "to": "Sys",
+            "text": "Grava flow.json sem carimbo",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Sys",
+            "text": "Gera flow.html com conversa, processo e estados",
+            "async": false
+          }
+        ],
+        "next": "Mostrar"
+      },
+      "Mostrar": {
+        "type": "activity",
+        "title": "Mostrar as três camadas",
+        "label": "Mostrar conversa, processo e estados",
+        "who": "Agente",
+        "messages": [
+          {
+            "from": "Ag",
+            "to": "Op",
+            "text": "Abre o painel HTML e resume o grafo no terminal",
+            "async": true
+          },
+          {
+            "from": "Ag",
+            "to": "Op",
+            "text": "Pergunta se aprova, ajusta ou cancela — chat ok não conta",
+            "async": false
+          }
+        ],
+        "next": "Decidir"
+      },
+      "Decidir": {
+        "type": "xor",
+        "label": "Aprovar este fluxo?",
+        "who": "Operador",
+        "question": "O operador aprova o fluxo que viu?",
+        "branches": [
+          {
+            "id": "Decidir.aprova",
+            "when": "aprova",
+            "label": "Aprova",
+            "next": "Carimbar"
+          },
+          {
+            "id": "Decidir.ajusta",
+            "when": "ajusta",
+            "label": "Ajusta",
+            "next": "Ajustar"
+          },
+          {
+            "id": "Decidir.cancela",
+            "when": "cancela",
+            "label": "Cancela",
+            "next": "FimSemCarimbo"
+          }
+        ]
+      },
+      "Ajustar": {
+        "type": "activity",
+        "title": "Ajustar o grafo",
+        "label": "Ajustar o grafo",
+        "who": "Operador + Agente",
+        "messages": [
+          {
+            "from": "Op",
+            "to": "Ag",
+            "text": "Diz o que está errado no grafo, nas mensagens ou nas máquinas",
+            "async": false
+          },
+          {
+            "from": "Ag",
+            "to": "Sys",
+            "text": "Reescreve flow.json e regenera o painel — sem editor visual",
+            "async": false
+          }
+        ],
+        "next": "Mostrar"
+      },
+      "Carimbar": {
+        "type": "activity",
+        "title": "Carimbar o documento",
+        "label": "Carimbar o documento",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Sys",
+            "text": "Só o carimbo oficial grava a data e o hash do documento",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Op",
+            "text": "Confirma o fluxo carimbado",
+            "async": true
+          }
+        ],
+        "next": "FimCarimbado"
+      },
+      "Executar": {
+        "type": "activity",
+        "title": "Entrar na execução",
+        "label": "Entrar na execução",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Op",
+            "to": "Sys",
+            "text": "Pede implement no plano",
+            "async": false
+          },
+          {
+            "from": "Sys",
+            "to": "Sys",
+            "text": "O detector em modo estrito passa; a execução começa",
+            "async": false
+          }
+        ],
+        "next": "FimEmExecucao"
+      },
+      "Recusar": {
+        "type": "activity",
+        "title": "Recusar a execução",
+        "label": "Recusar a execução",
+        "who": "Atomic Skills",
+        "messages": [
+          {
+            "from": "Sys",
+            "to": "Op",
+            "text": "Recusa. process.yaml não vale. Rode project flow e carimbe.",
+            "async": true
+          }
+        ],
+        "next": "FimRecusado"
+      },
+      "FimNaoSeAplica": {
+        "type": "end",
+        "title": "Fim · sem plano",
+        "label": "Fim · não se aplica"
+      },
+      "FimSemCarimbo": {
+        "type": "end",
+        "title": "Fim · ready continua legal",
+        "label": "Fim · sem carimbo"
+      },
+      "FimCarimbado": {
+        "type": "end",
+        "title": "Fim · fluxo carimbado",
+        "label": "Fim · carimbado"
+      },
+      "FimEmExecucao": {
+        "type": "end",
+        "title": "Fim · plano em execução",
+        "label": "Fim · em execução"
+      },
+      "FimRecusado": {
+        "type": "end",
+        "title": "Fim · execução recusada",
+        "label": "Fim · recusado"
+      }
+    }
+  },
+  "machines": [
+    {
+      "id": "artefato",
+      "label": "Artefato de flow",
+      "entry": "ausente",
+      "nodes": {
+        "ausente": {
+          "label": "Ausente"
+        },
+        "rascunho": {
+          "label": "Rascunho"
+        },
+        "mostrado": {
+          "label": "Mostrado"
+        },
+        "carimbado": {
+          "label": "Carimbado"
+        },
+        "obsoleto": {
+          "label": "Obsoleto"
+        },
+        "cancelado": {
+          "label": "Cancelado",
+          "terminal": true
+        },
+        "recusado": {
+          "label": "Recusado na execução",
+          "terminal": true
+        },
+        "em_execucao": {
+          "label": "Em execução",
+          "terminal": true
+        },
+        "nao_aplica": {
+          "label": "Não se aplica",
+          "terminal": true
+        }
+      },
+      "transitions": [
+        {
+          "id": "T_nao_aplica",
+          "from": "ausente",
+          "to": "nao_aplica",
+          "when": "sem_arquivo",
+          "label": "Pedido sem arquivo de plano",
+          "via": "TemArquivo.nao",
+          "effects": []
+        },
+        {
+          "id": "T_draft",
+          "from": "ausente",
+          "to": "rascunho",
+          "when": "validar_fluxo",
+          "label": "Drafta o grafo",
+          "via": "QualPedido.flow",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "Grava o rascunho do grafo",
+              "target": "flow.json"
+            },
+            {
+              "kind": "write",
+              "label": "Gera o painel",
+              "target": "flow.html"
+            }
+          ]
+        },
+        {
+          "id": "T_redraft",
+          "from": "obsoleto",
+          "to": "rascunho",
+          "when": "validar_fluxo",
+          "label": "Redesenha depois que o grafo mudou",
+          "via": "QualPedido.flow",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "Atualiza o rascunho",
+              "target": "flow.json"
+            }
+          ]
+        },
+        {
+          "id": "T_show",
+          "from": "rascunho",
+          "to": "mostrado",
+          "when": "painel_aberto",
+          "label": "Mostra as três camadas",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Mostra o painel ao operador",
+              "target": "Op"
+            }
+          ]
+        },
+        {
+          "id": "T_aprova",
+          "from": "mostrado",
+          "to": "carimbado",
+          "when": "aprova",
+          "label": "Operador aprova",
+          "via": "Decidir.aprova",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "Grava data e hash do documento",
+              "target": "flow.json"
+            }
+          ]
+        },
+        {
+          "id": "T_ajusta",
+          "from": "mostrado",
+          "to": "rascunho",
+          "when": "ajusta",
+          "label": "Operador pede ajuste",
+          "via": "Decidir.ajusta",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "Reescreve o grafo",
+              "target": "flow.json"
+            }
+          ]
+        },
+        {
+          "id": "T_cancela",
+          "from": "mostrado",
+          "to": "cancelado",
+          "when": "cancela",
+          "label": "Operador cancela",
+          "via": "Decidir.cancela",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Ready continua legal; execução não",
+              "target": "Op"
+            }
+          ]
+        },
+        {
+          "id": "T_executa",
+          "from": "carimbado",
+          "to": "em_execucao",
+          "when": "carimbo_valido",
+          "label": "Detector libera a execução",
+          "via": "ChecarParaExecutar.ok",
+          "effects": []
+        },
+        {
+          "id": "T_recusa_ausente",
+          "from": "ausente",
+          "to": "recusado",
+          "when": "falta_ou_mudou",
+          "label": "Execução sem artefato",
+          "via": "ChecarParaExecutar.falta",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Recusa e manda carimbar no comando",
+              "target": "Op"
+            }
+          ]
+        },
+        {
+          "id": "T_recusa_obsoleto",
+          "from": "obsoleto",
+          "to": "recusado",
+          "when": "falta_ou_mudou",
+          "label": "Execução com grafo mudado",
+          "via": "ChecarParaExecutar.falta",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Recusa até recarimbar",
+              "target": "Op"
+            }
+          ]
+        },
+        {
+          "id": "T_obsoleto",
+          "from": "carimbado",
+          "to": "obsoleto",
+          "when": "grafo_mudou",
+          "label": "Grafo mudou depois do carimbo",
+          "effects": [
+            {
+              "kind": "other",
+              "label": "Hash do carimbo deixa de bater",
+              "target": "ratifiedGraphSha"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ratifiedAt": "2026-08-13T23:09:22.520Z",
+  "ratifiedGraphSha": "4d7f75f0f83ad5a8fabbc450653debba14aab822936920b8f36769da42944aff",
+  "ratifiedBy": "operator"
+}

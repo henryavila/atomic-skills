@@ -12,10 +12,10 @@ import {
   normalizeHostFamily,
 } from './cross-model-host-default.js';
 
-/** @typedef {'codex' | 'grok' | 'claude' | 'local'} ProviderId */
+/** @typedef {'codex' | 'grok' | 'claude' | 'agy' | 'local'} ProviderId */
 
 export const PROVIDER_ENUM = Object.freeze(
-  /** @type {const} */ (['codex', 'grok', 'claude', 'local']),
+  /** @type {const} */ (['codex', 'grok', 'claude', 'agy', 'local']),
 );
 
 const PROVIDER_SET = new Set(PROVIDER_ENUM);

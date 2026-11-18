@@ -17,6 +17,7 @@ Battle-tested skill prompts that make AI coding agents follow through — each s
 
 - A copy-paste prompt pack or chat snippet library
 - A replacement for your IDE, model, or git workflow
+- Ownership of your team's branching or release platform — persistence and release skills impose agent gates (PR-only on the default branch, npm stage+2FA, deterministic chooser) when those skills are invoked; they do not replace the repo's git workflow
 - An engineering archive of plans, audits, or design notes
 - A claim that every host adapter is day-to-day tested (only Claude Code, Cursor, Codex, and Grok Build are)
 
@@ -41,9 +42,9 @@ Then open `site/dist/index.html` in a browser. Details: [`site/DEPLOY.md`](site/
 
 ## Hosts
 
-**Tested** (real sessions): Claude Code, Cursor, Codex, Grok Build.
+**Tested** (real sessions): Claude Code, Cursor, Antigravity, Codex, Grok Build.
 
-**Theoretical** (install + adapters ship; not day-to-day QA): Gemini CLI, OpenCode, GitHub Copilot, and other profiles.
+**Theoretical** (install + adapters ship; not day-to-day QA): OpenCode, GitHub Copilot, and other profiles.
 
 Support column in the table:
 
@@ -55,8 +56,7 @@ Support column in the table:
 |-----|---------|-----------|--------|---------|
 | Claude Code | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) | Tested |
 | Cursor | `cursor` | `.cursor/skills/atomic-skills/` | Markdown | Tested |
-| Gemini CLI (Skills) | `gemini` | `.gemini/skills/atomic-skills-<skill>/` | Markdown | Theoretical |
-| Gemini CLI (Commands) | `gemini-commands` | `.gemini/commands/` | TOML (Slash commands) | Theoretical |
+| Antigravity | `antigravity` | `.agent/skills/atomic-skills-<skill>/` | Markdown | Tested |
 | Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown | Tested |
 | OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown | Theoretical |
 | GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown | Theoretical |
@@ -67,7 +67,7 @@ Support column in the table:
 
 Compact index (name · one-liner · Iron Law).
 
-**Dual docs view (intentional):** the product docs site ([online](https://atomic-skills.henryavila.com/) or offline `site/dist/` via `npm run generate-site`) is the **canonical human product surface** (modules, long skill write-ups, project guide). Generated Markdown under [`docs/skills/`](docs/skills/) is a **secondary** offline / agent / GitHub-browsing reference, kept drift-checked by `npm run generate-skill-docs` (still part of `npm run check-docs`). Engineering archive paths (`docs/kb/`, `docs/design/`, plans, audits) are not product docs and are not published on the site.
+**Dual docs view (intentional):** the product docs site ([online](https://atomic-skills.henryavila.com/) or offline `site/dist/` via `npm run generate-site`) is the **canonical human product surface** (modules and long skill write-ups). Generated Markdown under [`docs/skills/`](docs/skills/) is a **secondary** offline / agent / GitHub-browsing reference, kept drift-checked by `npm run generate-skill-docs` (still part of `npm run check-docs`). Engineering archive paths (`docs/kb/`, `docs/design/`, plans, audits) are not product docs and are not published on the site.
 
 [VERSION_NOTE_START]: #
 
@@ -78,19 +78,20 @@ Compact index (name · one-liner · Iron Law).
 |-|-------|-----------|----------|
 | 🔧 | [`fix`](docs/skills/fix.md) | Diagnose root cause → write test → fix → verify | `NO FIX WITHOUT ROOT CAUSE.` |
 | 💾 | [`save-and-push`](docs/skills/save-and-push.md) | Scan for secrets, group commits, save learnings, push safely | `NO PUSH WITHOUT FRESH VERIFICATION.` |
-| 🔍 | [`review-plan`](docs/skills/review-plan.md) | Adversarial plan review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
+| 🚀 | [`release`](docs/skills/release.md) | Chooser plans bump; ship GH Release; npm stage+2FA only | `NO BUMP WITHOUT THE CHOOSER.` |
+| 🔍 | [`review-plan`](docs/skills/review-plan.md) | Adversarial plan review with local/ground-truth/codex/both modes | `NO APPROVAL WITHOUT EVIDENCE.` |
 | 🔬 | [`review-code`](docs/skills/review-code.md) | Adversarial code review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
-| 📊 | [`project`](docs/skills/project.md) | Plan / Initiative / Task state your agent reloads every session | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |
 | 📝 | [`prompt`](docs/skills/prompt.md) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS.` |
 | 🎯 | [`hunt`](docs/skills/hunt.md) | Adversarial tests from the spec, not the code — depth over breadth | `NO HUNT WITHOUT BOUNDED SCOPE.` |
 | 🚀 | [`parallel-dispatch`](docs/skills/parallel-dispatch.md) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
 | 👁️ | [`parallel-dispatch-audit`](docs/skills/parallel-dispatch-audit.md) | Verify each batch deliverable on disk; fix or escalate with evidence | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.` |
-| 💡 | [`brainstorm`](docs/skills/brainstorm.md) | Diverge, decide, then write a critic-gated design.md before any plan | `NO PLAN WITHOUT AN APPROVED DESIGN.` |
+| 💡 | [`brainstorm`](docs/skills/brainstorm.md) | Interview, research, debate --gate, then critic-gated design.md | `NO PLAN WITHOUT AN APPROVED DESIGN.` |
 | 🎨 | [`design-brief`](docs/skills/design-brief.md) | Generate DS + screens prompts for a design agent, contamination-free | `NEVER SILENCE BEHAVIOUR OR PHILOSOPHY — SILENCE IS FOR VISUAL FORM ONLY.` |
 | 🎭 | [`debate`](docs/skills/debate.md) | Roundtable of independent subagent personas for divergent thinking | `NO SYNTHESIS WITHOUT INDEPENDENT VOICES.` |
-| ⚙️ | [`implement`](docs/skills/implement.md) | Drive plan tasks to done; optional --mode=automate pure maestro | `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).` |
 | ✅ | [`verify-claim`](docs/skills/verify-claim.md) | No success claim without fresh verification — run it, cite it | `NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.` |
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Consolidate scattered memory into .ai/memory/ and wire it to the IDE | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
+| 📦 | [`audit-delivery`](docs/skills/audit-delivery.md) | Intent-vs-delivered system audit with residual hunt and reaudit gate | `NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.` |
+| 🤝 | [`delegate`](docs/skills/delegate.md) | The orchestrator writes the card and judges; cheap executors do the work | `THE ORCHESTRATOR CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.` |
 [SKILLS_TABLE_END]: #
 
 [SKILL_DETAILS_START]: #

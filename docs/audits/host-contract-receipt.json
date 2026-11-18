@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "generatedAt": "2026-07-16T17:53:38.647Z",
+  "generatedAt": "2026-09-29T12:39:20.459Z",
   "platform": "linux",
   "node": "v24.15.0",
   "manifest": "/home/henry/atomic-skills/meta/host-qualification.json",
@@ -11,11 +11,11 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".claude/commands/atomic-skills/project.md"
+        "skillPath": ".claude/commands/atomic-skills/fix.md"
       },
       "cli": {
         "present": true,
-        "version": "2.1.199 (Claude Code)",
+        "version": "2.1.214 (Claude Code)",
         "detail": "ok"
       },
       "operational": {
@@ -23,7 +23,7 @@
         "skipped": true,
         "reason": "layout-only — no discovery/load/invoke claim",
         "cliPresent": true,
-        "cliVersion": "2.1.199 (Claude Code)"
+        "cliVersion": "2.1.214 (Claude Code)"
       }
     },
     {
@@ -32,32 +32,32 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".cursor/skills/atomic-skills/project/SKILL.md"
+        "skillPath": ".cursor/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
-        "present": false,
-        "version": null,
-        "detail": "cursor not on PATH"
+        "present": true,
+        "version": "Installing Cursor Server for commit 9998796a6096ce83d83a9332bfe7473b985db750",
+        "detail": "exit null"
       },
       "operational": {
         "ok": true,
         "skipped": true,
         "reason": "layout-only — no discovery/load/invoke claim",
-        "cliPresent": false,
-        "cliVersion": null
+        "cliPresent": true,
+        "cliVersion": "Installing Cursor Server for commit 9998796a6096ce83d83a9332bfe7473b985db750"
       }
     },
     {
-      "id": "gemini",
+      "id": "antigravity",
       "supportTier": "layout-only",
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".gemini/skills/atomic-skills-project/SKILL.md"
+        "skillPath": ".agent/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
         "present": true,
-        "version": "0.35.3",
+        "version": "1.2.13",
         "detail": "ok"
       },
       "operational": {
@@ -65,7 +65,7 @@
         "skipped": true,
         "reason": "layout-only — no discovery/load/invoke claim",
         "cliPresent": true,
-        "cliVersion": "0.35.3"
+        "cliVersion": "1.2.13"
       }
     },
     {
@@ -74,11 +74,11 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".agents/skills/atomic-skills/project/SKILL.md"
+        "skillPath": ".agents/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
         "present": true,
-        "version": "codex-cli 0.144.4",
+        "version": "codex-cli 0.154.0",
         "detail": "ok"
       },
       "operational": {
@@ -86,7 +86,7 @@
         "skipped": true,
         "reason": "layout-only — no discovery/load/invoke claim",
         "cliPresent": true,
-        "cliVersion": "codex-cli 0.144.4"
+        "cliVersion": "codex-cli 0.154.0"
       }
     },
     {
@@ -95,7 +95,7 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".opencode/skills/atomic-skills/project/SKILL.md"
+        "skillPath": ".opencode/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
         "present": true,
@@ -116,7 +116,7 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".github/skills/atomic-skills/project/SKILL.md"
+        "skillPath": ".github/skills/atomic-skills/fix/SKILL.md"
       },
       "cli": {
         "present": false,
@@ -137,11 +137,11 @@
       "supportDeclared": false,
       "layout": {
         "ok": true,
-        "skillPath": ".grok/plugins/atomic-skills/skills/project/SKILL.md"
+        "skillPath": ".grok/plugins/atomic-skills/skills/fix/SKILL.md"
       },
       "cli": {
         "present": true,
-        "version": "grok 0.2.101 (5bc4b5dfad)",
+        "version": "grok 1.0.41 (4220f3b224a6)",
         "detail": "ok"
       },
       "operational": {
@@ -149,7 +149,7 @@
         "skipped": true,
         "reason": "layout-only — no discovery/load/invoke claim",
         "cliPresent": true,
-        "cliVersion": "grok 0.2.101 (5bc4b5dfad)"
+        "cliVersion": "grok 1.0.41 (4220f3b224a6)"
       }
     }
   ],

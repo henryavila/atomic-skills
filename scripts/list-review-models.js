@@ -26,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import {
   catalogDiscoveryResult,
+  parseAgyModelsList,
   parseClaudeModelsAliases,
   parseCodexModelsCatalog,
   parseGrokModelsList,
@@ -110,14 +111,32 @@ function fetchModels(provider, catalogPath) {
         ? parseCodexModelsCatalog(text)
         : provider === 'claude'
           ? parseClaudeModelsAliases(text)
-          : parseGrokModelsList(text);
+          : provider === 'agy' || provider === 'antigravity'
+            ? parseAgyModelsList(text)
+            : parseGrokModelsList(text);
     // File catalogs: no process status; still report parse failure on nonblank empty parse.
     return catalogDiscoveryResult({
-      provider,
+      provider: provider === 'antigravity' ? 'agy' : provider,
       models,
       text,
       status: 0,
       spawnError: null,
+    });
+  }
+  if (provider === 'agy' || provider === 'antigravity') {
+    const r = spawnSync('agy', ['models'], {
+      encoding: 'utf8',
+      maxBuffer: 2 * 1024 * 1024,
+      timeout: 30_000,
+    });
+    const text = `${r.stdout || ''}\n${r.stderr || ''}`;
+    const models = parseAgyModelsList(r.stdout || '');
+    return catalogDiscoveryResult({
+      provider: 'agy',
+      models,
+      text,
+      status: r.status,
+      spawnError: r.error || (r.status != null && r.status !== 0 ? r.stderr || `agy models exited ${r.status}` : null),
     });
   }
   if (provider === 'codex') {
@@ -173,26 +192,27 @@ function main() {
   const { flags, modelArgs } = parseCli(process.argv.slice(2));
   if (flags.help) {
     process.stdout.write(
-      'Usage: list-review-models.js --provider=codex|grok|claude [--resolve] [--model=ID] [--ask-model] [--interactive] [--user-choice=ID] [--catalog=path] [--human]\n',
+      'Usage: list-review-models.js --provider=codex|grok|claude|agy [--resolve] [--model=ID] [--ask-model] [--interactive] [--user-choice=ID] [--catalog=path] [--human]\n',
     );
     process.exit(0);
   }
-  const provider = String(flags.provider || '').toLowerCase();
-  if (provider !== 'codex' && provider !== 'grok' && provider !== 'claude') {
-    process.stderr.write('ERROR: --provider=codex|grok|claude is required\n');
+  let provider = String(flags.provider || '').toLowerCase();
+  if (provider === 'antigravity') provider = 'agy';
+  if (provider !== 'codex' && provider !== 'grok' && provider !== 'claude' && provider !== 'agy') {
+    process.stderr.write('ERROR: --provider=codex|grok|claude|agy is required\n');
     process.exit(1);
   }
 
   const catalogPath = flags.catalog ? String(flags.catalog) : undefined;
   const { models, error } = fetchModels(
-    /** @type {'codex'|'grok'|'claude'} */ (provider),
+    /** @type {'codex'|'grok'|'claude'|'agy'} */ (provider),
     catalogPath,
   );
   const ranked = rankModelsForReview(models, {
-    provider: /** @type {'codex'|'grok'|'claude'} */ (provider),
+    provider: /** @type {'codex'|'grok'|'claude'|'agy'} */ (provider),
   });
   const recommended = recommendedReviewModel(models, {
-    provider: /** @type {'codex'|'grok'|'claude'} */ (provider),
+    provider: /** @type {'codex'|'grok'|'claude'|'agy'} */ (provider),
   });
 
   if (!flags.resolve) {
@@ -233,12 +253,13 @@ function main() {
 
   const explicitFromFlag = flags.model ? String(flags.model) : null;
   const resolved = resolveReviewModel({
-    provider: /** @type {'codex'|'grok'|'claude'} */ (provider),
+    provider: /** @type {'codex'|'grok'|'claude'|'agy'} */ (provider),
     models,
     explicitModel: modelArgs.model || explicitFromFlag,
     modelCodex: modelArgs.modelCodex,
     modelGrok: modelArgs.modelGrok,
     modelClaude: modelArgs.modelClaude,
+    modelAgy: modelArgs.modelAgy,
     askModel: modelArgs.askModel || flags['ask-model'] === true || flags['ask-model'] === '1',
     interactive: Boolean(flags.interactive),
     userChoice: flags['user-choice'] ? String(flags['user-choice']) : null,

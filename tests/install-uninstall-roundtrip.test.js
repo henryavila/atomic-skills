@@ -100,10 +100,10 @@ describe('install→uninstall round-trip', () => {
   });
 
   it('user scope reverts EVERY item across ALL public IDEs (no residue)', async () => {
-    // Each IDE writes to a different path tree (.claude, .cursor, .gemini,
-    // .codex/.agents, .opencode, .github). Installing all of them at once is
+    // Each IDE writes to a different path tree (.claude, .cursor, .agent,
+    // .codex/.agents, .opencode, .github, .grok). Installing all of them at once is
     // the strongest parity proof: ~300+ files, and every one must be reverted.
-    const ALL_IDES = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot', 'grok'];
+    const ALL_IDES = ['claude-code', 'cursor', 'antigravity', 'codex', 'opencode', 'github-copilot', 'grok'];
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
     const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
     try {
@@ -286,7 +286,7 @@ describe('install→uninstall round-trip', () => {
     }
   });
 
-  it('project-scope install leaves a ledger-only tree that the installed router sends to setup', async () => {
+  it('project-scope install ships surviving skills and not the removed plan or implement skills', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
     const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
     try {
@@ -300,19 +300,12 @@ describe('install→uninstall round-trip', () => {
         assert.equal(existsSync(join(stateRoot, 'PROJECT-STATUS.md')), false);
         assert.equal(existsSync(join(stateRoot, 'projects')), false);
 
-        const router = readFileSync(
-          join(repo, '.claude', 'commands', 'atomic-skills', 'project.md'),
-          'utf8',
-        );
-        const initialDetection = router.slice(
-          router.indexOf('## Initial detection'),
-          router.indexOf('## No-args'),
-        );
-        assert.doesNotMatch(initialDetection, /test -d \.atomic-skills\//);
-        assert.match(initialDetection, /manifest\.json.*(?:ledger|installer)/is);
-        assert.match(initialDetection, /PROJECT-STATUS\.md/);
-        assert.match(initialDetection, /projects\/.+plan\.md/s);
-        assert.match(initialDetection, /setup\s+mode/i);
+        const commands = join(repo, '.claude', 'commands', 'atomic-skills');
+        assert.ok(existsSync(join(commands, 'fix.md')));
+        assert.ok(existsSync(join(commands, 'review-plan.md')));
+        assert.ok(existsSync(join(commands, 'verify-claim.md')));
+        assert.equal(existsSync(join(commands, 'project.md')), false);
+        assert.equal(existsSync(join(commands, 'implement.md')), false);
 
         await uninstall(repo, { scope: 'project', yes: true });
       });

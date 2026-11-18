@@ -1,0 +1,122 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F2",
+  "slug": "automate-default-and-operator-gates-f2-plan-end-intent-vs-deliv",
+  "title": "Plan-end intent-vs-delivered cross-model review",
+  "goal": "Plan-end cross-model review compares intended vs delivered with a machine-checkable receipt field.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Intent and delivered surface collectors",
+      "scopeBoundary": [
+        "Pure read of plan and initiative shaped objects plus optional git SHA list. No network. No finalize side effects."
+      ],
+      "acceptance": [
+        "it - Builds intent surface from phase goals businessIntent tasks acceptance and exit criteria when provided.; it - Builds delivered surface from task evidence done status claim SHAs and outputs paths when provided.; it - Exports markdown brief section Intent vs delivered checklist for the review prompt.; it - Unit tests cover multi-phase sample input."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/plan-end-intent-surface.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/plan-end-intent-surface.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/plan-end-intent-surface.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Plan-end brief and receipt contract",
+      "scopeBoundary": [
+        "Do not auto-merge. Skip path under durable automate stays HARD-CLOSED. Keep at least one family-different leg rule."
+      ],
+      "acceptance": [
+        "it - Under automate plan-end requires intent-vs-delivered brief in the cross-model context.; it - Receipt or linked structured section includes intentVsDelivered rows with status matched partial missing or extra.; it - Empty intentVsDelivered fails planEndReviewOk or automatePlanEndGatesOk under automate including session default.; it - Docs state plan-end answers did we build what we planned."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/plan-end-review.test.js tests/plan-end-intent-surface.test.js && rg -n 'intentVsDelivered|intent-vs-delivered' src/plan-end-review.js skills/shared/implement-automate-maestro.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/plan-end-review.js"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/kb/cross-model-review-design.md"
+        },
+        {
+          "kind": "file",
+          "path": "tests/plan-end-review.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "Skill prose and finalize gate wire",
+      "scopeBoundary": [
+        "userValidationOk remains operator-owned after review. Do not auto-PASS user validation."
+      ],
+      "acceptance": [
+        "it - Step I order is build surfaces run external-both stamp receipt with intentVsDelivered then userValidation then finalize.; it - assert finalize fails if intentVsDelivered missing under automate.; it - implement.md points at intent-vs-delivered plan-end rule."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'intent-vs-delivered|intentVsDelivered' skills/shared/implement-automate-maestro.md src/plan-end-review.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/implement-automate-maestro.md"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/assert-automate-gate.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/automate-orchestrator-gates.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F2-G1",
+      "description": "Intent surface and plan-end tests pass.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/plan-end-intent-surface.test.js tests/plan-end-review.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F2-G2",
+      "description": "Maestro Step I requires intent-vs-delivered under automate.",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'intent-vs-delivered|intentVsDelivered' skills/shared/implement-automate-maestro.md src/plan-end-review.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

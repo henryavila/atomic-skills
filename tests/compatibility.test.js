@@ -104,19 +104,19 @@ describe('Cross-Agent Rendering Integration', () => {
   const sampleContent = `
 # Test Skill
 Use {{BASH_TOOL}} and {{READ_TOOL}}.
-{{#if ide.gemini}}
-Gemini hacks here.
+{{#if ide.antigravity}}
+Antigravity hacks here.
 {{/if}}
 {{#if ide.claude-code}}
 Claude specific instructions.
 {{/if}}
   `.trim();
 
-  it('renders correctly for Gemini', () => {
-    const rendered = renderTemplate(sampleContent, {}, 'gemini');
-    assert.ok(rendered.includes('run_shell_command'));
-    assert.ok(rendered.includes('read_file'));
-    assert.ok(rendered.includes('Gemini hacks here.'));
+  it('renders correctly for Antigravity', () => {
+    const rendered = renderTemplate(sampleContent, {}, 'antigravity');
+    assert.ok(rendered.includes('run_command'));
+    assert.ok(rendered.includes('view_file'));
+    assert.ok(rendered.includes('Antigravity hacks here.'));
     assert.ok(!rendered.includes('Claude specific instructions.'));
   });
 
@@ -125,7 +125,7 @@ Claude specific instructions.
     assert.ok(rendered.includes('Bash'));
     assert.ok(rendered.includes('Read tool'));
     assert.ok(rendered.includes('Claude specific instructions.'));
-    assert.ok(!rendered.includes('Gemini hacks here.'));
+    assert.ok(!rendered.includes('Antigravity hacks here.'));
   });
 
   it('substitutes ASSETS_PATH for every public IDE', () => {
@@ -141,10 +141,10 @@ Claude specific instructions.
 
 // ── R-XAGENT-01: host-orchestration ban + byte-runnable-when-stripped test ──
 // The Claude-Code Workflow/Task/Worktree/Cron tooling is host-only; skills must
-// also run on Gemini, where the portable spine is {{INVESTIGATOR_TOOL}} subagent
+// also run on Antigravity, where the portable spine is native subagent
 // dispatch + {{BASH_TOOL}} + durable state. Those host tools are admitted ONLY
 // inside {{#if ide.claude-code}} accelerator blocks. We enforce this by RENDERING
-// each skill for gemini (which strips every ide.claude-code block) and asserting
+// each skill for antigravity (which strips every ide.claude-code block) and asserting
 // the result is "byte-runnable when stripped": no dangling conditional, no
 // claude-code block leaked, and no host-orchestration tool survives. This is the
 // CI guarantee R-ORCH-30/31 rest on — it MUST land before any orchestration does.
@@ -177,24 +177,24 @@ describe('Cross-Agent Portability — host-orchestration ban + strip-test (R-XAG
   skills.forEach(file => {
     const relativePath = file.replace(SKILLS_ROOT, '');
 
-    it(`skill "${relativePath}" is byte-runnable when stripped for Gemini`, () => {
+    it(`skill "${relativePath}" is byte-runnable when stripped for Antigravity`, () => {
       const source = readFileSync(file, 'utf8');
-      const rendered = renderTemplate(source, {}, 'gemini');
+      const rendered = renderTemplate(source, {}, 'antigravity');
 
       // 1) every conditional was processed — no dangling handlebars structure.
       assert.ok(!rendered.includes('{{#if'),
-        `File ${relativePath} has an unprocessed {{#if ...}} after rendering for Gemini.`);
+        `File ${relativePath} has an unprocessed {{#if ...}} after rendering for Antigravity.`);
       assert.ok(!rendered.includes('{{/if}}'),
-        `File ${relativePath} has a dangling {{/if}} after rendering for Gemini.`);
+        `File ${relativePath} has a dangling {{/if}} after rendering for Antigravity.`);
 
       // 2) no claude-code conditional leaked through the strip.
       assert.ok(!rendered.includes('ide.claude-code'),
-        `File ${relativePath} still references ide.claude-code after the Gemini render (block not stripped).`);
+        `File ${relativePath} still references ide.claude-code after the Antigravity render (block not stripped).`);
 
       // 3) no Claude-Code-only host-orchestration tool survives outside a CC block.
       const violations = hostToolViolations(rendered);
       assert.equal(violations.length, 0,
-        `File ${relativePath} uses host-orchestration tool(s) [${violations.join(', ')}] OUTSIDE a {{#if ide.claude-code}} block. Wrap CC-only orchestration in an ide.claude-code conditional so the skill stays runnable on Gemini.`);
+        `File ${relativePath} uses host-orchestration tool(s) [${violations.join(', ')}] OUTSIDE a {{#if ide.claude-code}} block. Wrap CC-only orchestration in an ide.claude-code conditional so the skill stays runnable on Antigravity.`);
     });
   });
 
@@ -206,12 +206,12 @@ describe('Cross-Agent Portability — host-orchestration ban + strip-test (R-XAG
       'Dispatch the work:',
       'TaskCreate({ subject: "x" })',
     ].join('\n');
-    const rendered = renderTemplate(bad, {}, 'gemini');
+    const rendered = renderTemplate(bad, {}, 'antigravity');
     assert.deepEqual(hostToolViolations(rendered), ['TaskCreate'],
-      'a TaskCreate( call outside a CC block must be detected after the Gemini render');
+      'a TaskCreate( call outside a CC block must be detected after the Antigravity render');
   });
 
-  it('ALLOWS the same tool INSIDE an ide.claude-code block (stripped for Gemini, kept for Claude Code)', () => {
+  it('ALLOWS the same tool INSIDE an ide.claude-code block (stripped for Antigravity, kept for Claude Code)', () => {
     const good = [
       '# Good skill',
       'Portable step using {{INVESTIGATOR_TOOL}}.',
@@ -219,10 +219,10 @@ describe('Cross-Agent Portability — host-orchestration ban + strip-test (R-XAG
       'Accelerator: TaskCreate({ subject: "x" })',
       '{{/if}}',
     ].join('\n');
-    const gemini = renderTemplate(good, {}, 'gemini');
-    assert.equal(hostToolViolations(gemini).length, 0,
-      'a CC-only TaskCreate inside an ide.claude-code block must be stripped for Gemini → no violation');
-    assert.ok(!gemini.includes('TaskCreate'), 'the CC block must actually be removed for Gemini');
+    const agy = renderTemplate(good, {}, 'antigravity');
+    assert.equal(hostToolViolations(agy).length, 0,
+      'a CC-only TaskCreate inside an ide.claude-code block must be stripped for Antigravity → no violation');
+    assert.ok(!agy.includes('TaskCreate'), 'the CC block must actually be removed for Antigravity');
     const claude = renderTemplate(good, {}, 'claude-code');
     assert.ok(claude.includes('TaskCreate('),
       'the claude-code render must keep the in-block accelerator');
@@ -230,7 +230,7 @@ describe('Cross-Agent Portability — host-orchestration ban + strip-test (R-XAG
 
   it('does NOT flag ordinary prose containing the bare words "monitor"/"workflow"', () => {
     const prose = 'Monitor the build output and follow the workflow of the audit.';
-    const rendered = renderTemplate(prose, {}, 'gemini');
+    const rendered = renderTemplate(prose, {}, 'antigravity');
     assert.equal(hostToolViolations(rendered).length, 0,
       'bare English words must not be flagged — only code-shaped tool references');
   });

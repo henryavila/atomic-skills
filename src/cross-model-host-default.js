@@ -6,11 +6,11 @@
  * rather than re-deriving same-family rules ad hoc.
  */
 
-/** @typedef {'claude' | 'codex' | 'grok' | 'cursor' | 'unknown'} HostFamily */
-/** @typedef {'local' | 'codex' | 'grok' | 'claude'} ProviderId */
-/** @typedef {'local' | 'codex' | 'grok' | 'claude' | 'both' | 'both-codex' | 'both-grok' | 'both-claude' | 'external-both'} ReviewMode */
+/** @typedef {'claude' | 'codex' | 'grok' | 'agy' | 'cursor' | 'unknown'} HostFamily */
+/** @typedef {'local' | 'codex' | 'grok' | 'claude' | 'agy'} ProviderId */
+/** @typedef {'local' | 'codex' | 'grok' | 'claude' | 'agy' | 'both' | 'both-codex' | 'both-grok' | 'both-claude' | 'both-agy' | 'external-both'} ReviewMode */
 
-export const HOST_FAMILIES = Object.freeze(['claude', 'codex', 'grok', 'cursor', 'unknown']);
+export const HOST_FAMILIES = Object.freeze(['claude', 'codex', 'grok', 'agy', 'cursor', 'unknown']);
 
 /** External default when mode is `both` or when resolving the host default provider. */
 export const HOST_EXTERNAL_DEFAULT = Object.freeze({
@@ -18,11 +18,12 @@ export const HOST_EXTERNAL_DEFAULT = Object.freeze({
   codex: 'grok',
   claude: 'codex',
   cursor: 'codex',
+  agy: 'codex',
   unknown: 'codex',
 });
 
 /** Fixed order for multi-provider legs (external-both). */
-export const EXTERNAL_PROVIDER_ORDER = Object.freeze(/** @type {const} */ (['codex', 'grok', 'claude']));
+export const EXTERNAL_PROVIDER_ORDER = Object.freeze(/** @type {const} */ (['codex', 'grok', 'claude', 'agy']));
 
 const EXTERNAL_PROVIDERS = new Set(EXTERNAL_PROVIDER_ORDER);
 
@@ -32,10 +33,12 @@ export const REVIEW_MODES = Object.freeze([
   'codex',
   'grok',
   'claude',
+  'agy',
   'both',
   'both-codex',
   'both-grok',
   'both-claude',
+  'both-agy',
   'external-both',
 ]);
 
@@ -50,6 +53,7 @@ export function normalizeHostFamily(raw) {
   if (s === 'claude' || s === 'claude-code' || s === 'claude_code') return 'claude';
   if (s === 'codex' || s === 'openai-codex') return 'codex';
   if (s === 'grok' || s === 'grok-build' || s === 'grok_build') return 'grok';
+  if (s === 'agy' || s === 'antigravity' || s === 'antigravity-cli') return 'agy';
   if (s === 'cursor') return 'cursor';
   if (s === 'unknown') return 'unknown';
   return 'unknown';
@@ -69,6 +73,14 @@ export function detectHostFamily(input = {}) {
   }
   if (env.ATOMIC_SKILLS_HOST != null && String(env.ATOMIC_SKILLS_HOST).trim() !== '') {
     return normalizeHostFamily(env.ATOMIC_SKILLS_HOST);
+  }
+  if (
+    env.ANTIGRAVITY_AGENT ||
+    env.ANTIGRAVITY_CONVERSATION_ID ||
+    env.ANTIGRAVITY_APP_DATA_DIR ||
+    env.AGY_SESSION_ID
+  ) {
+    return 'agy';
   }
   if (env.GROK_SESSION_ID || env.GROK_WORKSPACE_ROOT) return 'grok';
   if (env.CODEX_THREAD_ID || env.CODEX_CI === '1' || env.CODEX_CI === 'true') return 'codex';
@@ -135,6 +147,7 @@ export function externalProviderForMode(mode, hostFamily) {
   if (m === 'codex' || m === 'both-codex') return 'codex';
   if (m === 'grok' || m === 'both-grok') return 'grok';
   if (m === 'claude' || m === 'both-claude') return 'claude';
+  if (m === 'agy' || m === 'both-agy') return 'agy';
   if (m === 'both') return defaultExternalProvider(hostFamily);
   if (m === 'external-both') {
     const legs = externalBothLegs(hostFamily);
@@ -149,8 +162,8 @@ export function externalProviderForMode(mode, hostFamily) {
  * @property {ProviderId} [provider] - effective provider when action is run
  * @property {boolean} [sameFamilyRemap]
  * @property {boolean} [includesLocal] - true for both* modes that run local first
- * @property {'codex' | 'grok' | 'claude' | null} [externalProvider] - external leg if any
- * @property {'codex' | 'grok' | 'claude'} [crossFamilyAlternative]
+ * @property {'codex' | 'grok' | 'claude' | 'agy' | null} [externalProvider] - external leg if any
+ * @property {'codex' | 'grok' | 'claude' | 'agy'} [crossFamilyAlternative]
  * @property {string} [message]
  * @property {HostFamily} hostFamily
  * @property {string} mode
@@ -195,7 +208,11 @@ export function resolveReviewRoute(input) {
   }
 
   const includesLocal =
-    mode === 'both' || mode === 'both-codex' || mode === 'both-grok' || mode === 'both-claude';
+    mode === 'both' ||
+    mode === 'both-codex' ||
+    mode === 'both-grok' ||
+    mode === 'both-claude' ||
+    mode === 'both-agy';
   const externalProvider = externalProviderForMode(mode, hostFamily);
   const crossFamilyAlternative = defaultExternalProvider(hostFamily);
 

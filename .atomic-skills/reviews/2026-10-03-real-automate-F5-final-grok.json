@@ -1,0 +1,440 @@
+{
+  "provider": "grok",
+  "reviewKind": "independent-code-review",
+  "at": "2026-10-03T05:16:35.759778+00:00",
+  "sourceHead": "0ca408865b661f4b0a3556688319e70b163dd641",
+  "sourceDigests": {
+    "src/plan-end-review.js": "6d1928acc6ca475d1a1bb7583bc5bc43e4624dfbdfe0c7debf60f50fbdcb4b71",
+    "scripts/lib/serve-flow.js": "744941fc947877c7de21dc2c34a8576c807b1a2c0a8186529b1853bfff81010c",
+    "scripts/automate-run.js": "20bbff93e44b23b1e17e6488eae4b158fa54e2de409a5a222d2cc5d35f89aef8",
+    "src/phase-review-gate.js": "322814aabd7dde0dd9f6efb818f520945014d8585f1e92ef2cba1d5ec1a4c231"
+  },
+  "verdict": "review_failed",
+  "identityMatchesAtExtraction": false,
+  "currentHeadAtExtraction": "f686076046a531a9ae68d0b4532608efced16106",
+  "evidenceDirectory": "/tmp/real-automate-f5-final-grok-it9AAz",
+  "inputTransformation": "acorn removes comments without changing line ranges; esbuild minifyWhitespace=true, minifyIdentifiers=false, minifySyntax=false",
+  "coverage": [
+    "src/plan-end-review.js1-561",
+    "scripts/lib/serve-flow.js1-211",
+    "scripts/automate-run.js705-1153"
+  ],
+  "packets": [
+    {
+      "provider": "grok",
+      "scope": "authority",
+      "command": "grok",
+      "argv": [
+        "--sandbox",
+        "read-only",
+        "--disallowed-tools",
+        "search_replace,write,run_terminal_cmd,run_terminal_command,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,spawn_subagent,monitor",
+        "--no-memory",
+        "--no-subagents",
+        "--disable-web-search",
+        "--json-schema",
+        "{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"verdict\",\"findings\"],\"properties\":{\"verdict\":{\"type\":\"string\",\"enum\":[\"PASSED\",\"needs_changes\"]},\"findings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"required\":[\"severity\",\"file\",\"line\",\"claim\",\"impact\",\"recommendation\",\"confidence\"],\"properties\":{\"severity\":{\"type\":\"string\",\"enum\":[\"blocker\",\"critical\",\"major\",\"minor\"]},\"file\":{\"type\":\"string\"},\"line\":{\"type\":\"integer\"},\"claim\":{\"type\":\"string\"},\"impact\":{\"type\":\"string\"},\"recommendation\":{\"type\":\"string\"},\"confidence\":{\"type\":\"string\"},\"reproduction\":{\"type\":\"string\"}}}}}}",
+        "--prompt-file",
+        "/tmp/real-automate-f5-final-grok-it9AAz/authority.md"
+      ],
+      "timeoutWrapper": [
+        "timeout",
+        "600"
+      ],
+      "exit": 0,
+      "startedAt": "2026-10-03T05:06:04.579276+00:00",
+      "finishedAt": "2026-10-03T05:13:10.317556+00:00",
+      "promptPath": "/tmp/real-automate-f5-final-grok-it9AAz/authority.md",
+      "promptSha256": "d1dfefc4aa49dc967e673e0ae879621f6705a32b44fb03eb5feaa855d80180fe",
+      "promptBytes": 12588,
+      "rawEnvelopePath": "/tmp/real-automate-f5-final-grok-it9AAz/authority.out.json",
+      "rawEnvelopeSha256": "72b051d8d7aa97871e5d484512a1a191c19aa22f809ca93685cc26bac88f6162",
+      "stderrPath": "/tmp/real-automate-f5-final-grok-it9AAz/authority.stderr",
+      "stderr": "",
+      "report": {
+        "verdict": "needs_changes",
+        "findings": [
+          {
+            "severity": "critical",
+            "file": "src/plan-end-review.js",
+            "line": 280,
+            "claim": "validationSnapshot concatenates hashed inputs without delimiters, so distinct file sets can produce the same digest.",
+            "impact": "A user can HMAC-validate one tree, then rearrange optional on-disk files so the snapshot still matches while contents differ; readUserValidationEvidence and planEndReviewCurrent will still accept it.",
+            "recommendation": "Hash a length-prefixed or NUL-delimited (path, size, bytes) tuple for every update, including pending: entries, and keep productSnapshot's existing NUL framing.",
+            "confidence": "high",
+            "reproduction": "Hash planDir with only architecture/decisions.json whose bytes equal honestContent + realpath(ui/ui.json) + uiBytes, versus the same decisions content plus a separate ui/ui.json; both validationSnapshot() digests match if ui.json is untracked."
+          },
+          {
+            "severity": "major",
+            "file": "src/plan-end-review.js",
+            "line": 530,
+            "claim": "productSnapshot reads every git ls-files path as a regular file and throws on directories, so submodules or tracked directory symlinks make snapshot generation fail.",
+            "impact": "planEndReviewCurrent and readUserValidationEvidence return false/null (fail closed) for otherwise valid plans in repos that contain gitlinks; automate plan-end gates cannot pass.",
+            "recommendation": "stat each path after realpathSync; skip or encode directory/gitlink entries instead of readFileSync, and only hash regular files.",
+            "confidence": "high",
+            "reproduction": "In a repo with a submodule at vendor/lib, git ls-files lists vendor/lib; existsSync is true; readFileSync throws EISDIR; productSnapshot() throws 'EISDIR'."
+          },
+          {
+            "severity": "major",
+            "file": "src/plan-end-review.js",
+            "line": 95,
+            "claim": "planEndReviewOk treats any non-empty skipReason as success and never consults SKIP_PLAN_END_REASON_TAXONOMY.",
+            "impact": "When forbidSkip is false, skipPlanEndReview: true with skipReason: 'x' makes planEndReviewOk return true with no legs, mode, or review file.",
+            "recommendation": "Require String(reason).trim() to be a member of SKIP_PLAN_END_REASON_TAXONOMY before returning true on the skip path.",
+            "confidence": "high",
+            "reproduction": "planEndReviewOk({ skipPlanEndReview: true, skipReason: 'not-in-taxonomy' }) === true."
+          },
+          {
+            "severity": "major",
+            "file": "src/plan-end-review.js",
+            "line": 470,
+            "claim": "withButtonValidationTimestamp always drops the last character of updatedYaml, which is not the extra appended LF when the replaced pair already consumed that LF via value.range[2].",
+            "impact": "On CRLF frontmatter the last YAML character can be eaten (or an extra CR left), corrupting the last key or producing `\\r\\r\\n---` so later parseYaml/readFinalPlan fail or drop userValidatedAt.",
+            "recommendation": "Rebuild as opening delimiter + yamlText without relying on slice(0,-1); join with the same newline as the original document and do not append a dummy LF to compute ranges.",
+            "confidence": "medium",
+            "reproduction": "Pass text '---\\r\\nuserValidatedAt: old\\r\\n---\\r\\nbody' and at '2026-01-01T00:00:00Z'; if value.range[2] includes the trailing LF, the returned string ends the YAML line with a lone CR before '---'."
+          },
+          {
+            "severity": "minor",
+            "file": "src/plan-end-review.js",
+            "line": 220,
+            "claim": "readFinalPlan enforces the 2e6-byte cap only after readFileSync has already loaded the whole file.",
+            "impact": "The size cap does not bound memory; an oversized plan (or delivery/presentation file with the same read-then-check pattern) can OOM the process before the error is thrown.",
+            "recommendation": "statSync and reject on size before read, or read with a bounded buffer, for plan, delivery, presentation, and product files.",
+            "confidence": "high",
+            "reproduction": "Point planPath at a file larger than 2e6 bytes; readFileSync reads it fully, then throw 'plan exceeds size cap'."
+          }
+        ]
+      },
+      "extraction": "structuredOutput",
+      "transportStopReason": "end_turn"
+    },
+    {
+      "provider": "grok",
+      "scope": "transport-publication",
+      "command": "grok",
+      "argv": [
+        "--sandbox",
+        "read-only",
+        "--disallowed-tools",
+        "search_replace,write,run_terminal_cmd,run_terminal_command,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,spawn_subagent,monitor",
+        "--no-memory",
+        "--no-subagents",
+        "--disable-web-search",
+        "--json-schema",
+        "{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"verdict\",\"findings\"],\"properties\":{\"verdict\":{\"type\":\"string\",\"enum\":[\"PASSED\",\"needs_changes\"]},\"findings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"required\":[\"severity\",\"file\",\"line\",\"claim\",\"impact\",\"recommendation\",\"confidence\"],\"properties\":{\"severity\":{\"type\":\"string\",\"enum\":[\"blocker\",\"critical\",\"major\",\"minor\"]},\"file\":{\"type\":\"string\"},\"line\":{\"type\":\"integer\"},\"claim\":{\"type\":\"string\"},\"impact\":{\"type\":\"string\"},\"recommendation\":{\"type\":\"string\"},\"confidence\":{\"type\":\"string\"},\"reproduction\":{\"type\":\"string\"}}}}}}",
+        "--prompt-file",
+        "/tmp/real-automate-f5-final-grok-it9AAz/transport-publication.md"
+      ],
+      "timeoutWrapper": [
+        "timeout",
+        "600"
+      ],
+      "exit": 0,
+      "startedAt": "2026-10-03T05:06:04.580383+00:00",
+      "finishedAt": "2026-10-03T05:08:41.999411+00:00",
+      "promptPath": "/tmp/real-automate-f5-final-grok-it9AAz/transport-publication.md",
+      "promptSha256": "8b1d59850a428b4e082b31a5eb43793bbb55501f9945d82b7674aacd39d531b3",
+      "promptBytes": 15701,
+      "rawEnvelopePath": "/tmp/real-automate-f5-final-grok-it9AAz/transport-publication.out.json",
+      "rawEnvelopeSha256": "babb77f01f9c3da21b5f0271614b9aaa1a80428ce452352c88cfdb4e95b394fe",
+      "stderrPath": "/tmp/real-automate-f5-final-grok-it9AAz/transport-publication.stderr",
+      "stderr": "",
+      "report": {
+        "verdict": "needs_changes",
+        "findings": [
+          {
+            "severity": "major",
+            "file": "scripts/automate-run.js",
+            "line": 1149,
+            "claim": "The ESM entry guard compares import.meta.url to file://${process.argv[1]}, so a relative argv path never equals the absolute file URL and main() does not run.",
+            "impact": "Invoking the script as node scripts/automate-run.js (or any non-absolute path) skips host-write-probe handling and main(), so automate never starts.",
+            "recommendation": "Compare fileURLToPath(import.meta.url) to path.resolve(process.argv[1]) (or equivalent realpath) before calling main().",
+            "confidence": "high",
+            "reproduction": "node scripts/automate-run.js --plan plan.md — import.meta.url is file:///abs/.../scripts/automate-run.js while file://${argv[1]} is file://scripts/automate-run.js."
+          },
+          {
+            "severity": "major",
+            "file": "scripts/automate-run.js",
+            "line": 831,
+            "claim": "uncommittedProductPaths treats any porcelain XY that contains R or C as a two-path rename/copy, then consumes the next NUL field as a path.",
+            "impact": "A status such as AU/UD/?? is fine, but any XY where the second column is R/C is intended; the unanchored /R|C/ also matches unrelated letters if they appear in the two-char code, and a non-rename line that happens to match skips the next file so dirty product files are omitted from the publication gate.",
+            "recommendation": "Detect rename/copy only when X or Y is exactly R or C as git documents (e.g. /^[RC]/ or /[RC]/.test on each status column), and only then consume the following NUL pathname.",
+            "confidence": "medium",
+            "reproduction": "git status --porcelain=v1 -z with an ordinary path after a line whose first two bytes match /R|C/; the next entry is pushed raw and the following file is not scanned."
+          }
+        ]
+      },
+      "extraction": "structuredOutput",
+      "transportStopReason": "end_turn"
+    },
+    {
+      "provider": "grok",
+      "scope": "workflow",
+      "command": "grok",
+      "argv": [
+        "--sandbox",
+        "read-only",
+        "--disallowed-tools",
+        "search_replace,write,run_terminal_cmd,run_terminal_command,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,spawn_subagent,monitor",
+        "--no-memory",
+        "--no-subagents",
+        "--disable-web-search",
+        "--json-schema",
+        "{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"verdict\",\"findings\"],\"properties\":{\"verdict\":{\"type\":\"string\",\"enum\":[\"PASSED\",\"needs_changes\"]},\"findings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"required\":[\"severity\",\"file\",\"line\",\"claim\",\"impact\",\"recommendation\",\"confidence\"],\"properties\":{\"severity\":{\"type\":\"string\",\"enum\":[\"blocker\",\"critical\",\"major\",\"minor\"]},\"file\":{\"type\":\"string\"},\"line\":{\"type\":\"integer\"},\"claim\":{\"type\":\"string\"},\"impact\":{\"type\":\"string\"},\"recommendation\":{\"type\":\"string\"},\"confidence\":{\"type\":\"string\"},\"reproduction\":{\"type\":\"string\"}}}}}}",
+        "--prompt-file",
+        "/tmp/real-automate-f5-final-grok-it9AAz/workflow.md"
+      ],
+      "timeoutWrapper": [
+        "timeout",
+        "600"
+      ],
+      "exit": 0,
+      "startedAt": "2026-10-03T05:06:04.579330+00:00",
+      "finishedAt": "2026-10-03T05:09:40.061324+00:00",
+      "promptPath": "/tmp/real-automate-f5-final-grok-it9AAz/workflow.md",
+      "promptSha256": "55bde0f4981a00d6cdd0c4786a7c9e7698e5c6cf45314d3d600147fea2e129b9",
+      "promptBytes": 15371,
+      "rawEnvelopePath": "/tmp/real-automate-f5-final-grok-it9AAz/workflow.out.json",
+      "rawEnvelopeSha256": "b100e6ebd483792e514b80a452a575c32872f67bfe8d0d2b5c11e37c26112604",
+      "stderrPath": "/tmp/real-automate-f5-final-grok-it9AAz/workflow.stderr",
+      "stderr": "",
+      "report": {
+        "verdict": "needs_changes",
+        "findings": [
+          {
+            "severity": "critical",
+            "file": "scripts/automate-run.js",
+            "line": 1018,
+            "claim": "A successful fix-and-review at round 3 assigns state.round = state.round + 1 (value 4), then saveRunState persists it. loadRunState rejects any round outside 1..3, so the next process load throws 'invalid saved automate state'. The same process also continues the while loop and runs a fourth review: the only round-cap conversion is for close-and-advance with a rejected verdict, not for the fix-and-review action this loop handles.",
+            "impact": "After the third-round repair the saved automate-run-state.json is unloadable, crashing plan-end on resume. In-process, the documented three-round cap is skipped and a fourth review/repair cycle runs.",
+            "recommendation": "Before incrementing, if state.round >= 3 treat fix-and-review as the round-cap stop (same as the close-and-advance override). Never persist state.round > 3.",
+            "confidence": "high",
+            "reproduction": "Resume or start runPlanEndWorkflow with stage 'plan' or 'audit', round 3, matching reviewInputSnapshot. Make continuePhaseAfterReview return {action:'fix-and-review'} (findings present). Make fix() return {ok:true} without changing the audit snapshot. After saveRunState, loadRunState(statePath) throws; the in-memory loop continues with round 4."
+          },
+          {
+            "severity": "major",
+            "file": "scripts/automate-run.js",
+            "line": 962,
+            "claim": "The dual-review same-provider guard normalizes only input.host ('claude-code' → 'claude') and compares that to raw input.cli. The inverse pair is not rejected. Receipt construction later does String(input.cli||'').replace('claude-code','claude'), so the code already treats those names as one family, but the guard does not.",
+            "impact": "host 'claude' with cli 'claude-code' (or any unnormalized alias of the local host) runs both legs on the same provider family while still stamping familyDifferent:true and writing the plan-end receipt. The 'external review must use a different provider' invariant is not enforced.",
+            "recommendation": "Normalize host and cli with the same mapping before the equality check (e.g. both through the claude-code → claude replace), and compare the normalized values.",
+            "confidence": "high",
+            "reproduction": "Call the default deps.review path with input.host='claude' and input.cli='claude-code'. localProvider is 'claude', which is !== 'claude-code', so invoke() runs twice with Claude-family argv instead of throwing."
+          },
+          {
+            "severity": "major",
+            "file": "scripts/automate-run.js",
+            "line": 1022,
+            "claim": "After an audit-stage repair that changes validationSnapshot, invalidateReviews() resets stage to plan and continues the while loop immediately. Every other snapshot-mismatch path in this function returns stop('não avanço') so the operator must confirm before re-review. This path does not.",
+            "impact": "A delivery repair that touches review inputs silently restarts whole-plan review in the same invocation, skipping the confirm-to-review-again gate used on resume, mid-review drift, and post-loop publication drift. Operator-visible stop/confirm is bypassed for this invalidation.",
+            "recommendation": "On successful invalidateReviews after audit repair, save state and return stop('não avanço', [{title: '...confirm to review the current source again'}]) consistent with the other mismatch branches.",
+            "confidence": "high",
+            "reproduction": "In stage 'audit' with reviewRounds.plan < 3, take fix-and-review, have fix() succeed, and make validationSnapshot(plan,{reviewInputs:true}) differ from state.reviewInputSnapshot. invalidateReviews returns true; the function continues into a plan-stage review instead of returning action 'stop'."
+          }
+        ]
+      },
+      "extraction": "structuredOutput",
+      "transportStopReason": "end_turn"
+    },
+    {
+      "provider": "grok",
+      "scope": "presentation",
+      "command": "grok",
+      "argv": [
+        "--sandbox",
+        "read-only",
+        "--disallowed-tools",
+        "search_replace,write,run_terminal_cmd,run_terminal_command,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,spawn_subagent,monitor",
+        "--no-memory",
+        "--no-subagents",
+        "--disable-web-search",
+        "--json-schema",
+        "{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"verdict\",\"findings\"],\"properties\":{\"verdict\":{\"type\":\"string\",\"enum\":[\"PASSED\",\"needs_changes\"]},\"findings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"required\":[\"severity\",\"file\",\"line\",\"claim\",\"impact\",\"recommendation\",\"confidence\"],\"properties\":{\"severity\":{\"type\":\"string\",\"enum\":[\"blocker\",\"critical\",\"major\",\"minor\"]},\"file\":{\"type\":\"string\"},\"line\":{\"type\":\"integer\"},\"claim\":{\"type\":\"string\"},\"impact\":{\"type\":\"string\"},\"recommendation\":{\"type\":\"string\"},\"confidence\":{\"type\":\"string\"},\"reproduction\":{\"type\":\"string\"}}}}}}",
+        "--prompt-file",
+        "/tmp/real-automate-f5-final-grok-it9AAz/presentation.md"
+      ],
+      "timeoutWrapper": [
+        "timeout",
+        "600"
+      ],
+      "exit": 124,
+      "startedAt": "2026-10-03T05:06:04.579568+00:00",
+      "finishedAt": "2026-10-03T05:16:04.581081+00:00",
+      "promptPath": "/tmp/real-automate-f5-final-grok-it9AAz/presentation.md",
+      "promptSha256": "f00039ea0237865c8b872f104ddaa2e79da09bd677e3f635e3e77675dbd03710",
+      "promptBytes": 14797,
+      "rawEnvelopePath": "/tmp/real-automate-f5-final-grok-it9AAz/presentation.out.json",
+      "rawEnvelopeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrPath": "/tmp/real-automate-f5-final-grok-it9AAz/presentation.stderr",
+      "stderr": "",
+      "reviewFailed": true,
+      "extractionError": "provider process did not exit successfully"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "critical",
+      "file": "src/plan-end-review.js",
+      "line": 280,
+      "claim": "validationSnapshot concatenates hashed inputs without delimiters, so distinct file sets can produce the same digest.",
+      "impact": "A user can HMAC-validate one tree, then rearrange optional on-disk files so the snapshot still matches while contents differ; readUserValidationEvidence and planEndReviewCurrent will still accept it.",
+      "recommendation": "Hash a length-prefixed or NUL-delimited (path, size, bytes) tuple for every update, including pending: entries, and keep productSnapshot's existing NUL framing.",
+      "confidence": "high",
+      "reproduction": "Hash planDir with only architecture/decisions.json whose bytes equal honestContent + realpath(ui/ui.json) + uiBytes, versus the same decisions content plus a separate ui/ui.json; both validationSnapshot() digests match if ui.json is untracked."
+    },
+    {
+      "severity": "major",
+      "file": "src/plan-end-review.js",
+      "line": 530,
+      "claim": "productSnapshot reads every git ls-files path as a regular file and throws on directories, so submodules or tracked directory symlinks make snapshot generation fail.",
+      "impact": "planEndReviewCurrent and readUserValidationEvidence return false/null (fail closed) for otherwise valid plans in repos that contain gitlinks; automate plan-end gates cannot pass.",
+      "recommendation": "stat each path after realpathSync; skip or encode directory/gitlink entries instead of readFileSync, and only hash regular files.",
+      "confidence": "high",
+      "reproduction": "In a repo with a submodule at vendor/lib, git ls-files lists vendor/lib; existsSync is true; readFileSync throws EISDIR; productSnapshot() throws 'EISDIR'."
+    },
+    {
+      "severity": "major",
+      "file": "src/plan-end-review.js",
+      "line": 95,
+      "claim": "planEndReviewOk treats any non-empty skipReason as success and never consults SKIP_PLAN_END_REASON_TAXONOMY.",
+      "impact": "When forbidSkip is false, skipPlanEndReview: true with skipReason: 'x' makes planEndReviewOk return true with no legs, mode, or review file.",
+      "recommendation": "Require String(reason).trim() to be a member of SKIP_PLAN_END_REASON_TAXONOMY before returning true on the skip path.",
+      "confidence": "high",
+      "reproduction": "planEndReviewOk({ skipPlanEndReview: true, skipReason: 'not-in-taxonomy' }) === true."
+    },
+    {
+      "severity": "major",
+      "file": "src/plan-end-review.js",
+      "line": 470,
+      "claim": "withButtonValidationTimestamp always drops the last character of updatedYaml, which is not the extra appended LF when the replaced pair already consumed that LF via value.range[2].",
+      "impact": "On CRLF frontmatter the last YAML character can be eaten (or an extra CR left), corrupting the last key or producing `\\r\\r\\n---` so later parseYaml/readFinalPlan fail or drop userValidatedAt.",
+      "recommendation": "Rebuild as opening delimiter + yamlText without relying on slice(0,-1); join with the same newline as the original document and do not append a dummy LF to compute ranges.",
+      "confidence": "medium",
+      "reproduction": "Pass text '---\\r\\nuserValidatedAt: old\\r\\n---\\r\\nbody' and at '2026-01-01T00:00:00Z'; if value.range[2] includes the trailing LF, the returned string ends the YAML line with a lone CR before '---'."
+    },
+    {
+      "severity": "minor",
+      "file": "src/plan-end-review.js",
+      "line": 220,
+      "claim": "readFinalPlan enforces the 2e6-byte cap only after readFileSync has already loaded the whole file.",
+      "impact": "The size cap does not bound memory; an oversized plan (or delivery/presentation file with the same read-then-check pattern) can OOM the process before the error is thrown.",
+      "recommendation": "statSync and reject on size before read, or read with a bounded buffer, for plan, delivery, presentation, and product files.",
+      "confidence": "high",
+      "reproduction": "Point planPath at a file larger than 2e6 bytes; readFileSync reads it fully, then throw 'plan exceeds size cap'."
+    },
+    {
+      "severity": "major",
+      "file": "scripts/automate-run.js",
+      "line": 1149,
+      "claim": "The ESM entry guard compares import.meta.url to file://${process.argv[1]}, so a relative argv path never equals the absolute file URL and main() does not run.",
+      "impact": "Invoking the script as node scripts/automate-run.js (or any non-absolute path) skips host-write-probe handling and main(), so automate never starts.",
+      "recommendation": "Compare fileURLToPath(import.meta.url) to path.resolve(process.argv[1]) (or equivalent realpath) before calling main().",
+      "confidence": "high",
+      "reproduction": "node scripts/automate-run.js --plan plan.md — import.meta.url is file:///abs/.../scripts/automate-run.js while file://${argv[1]} is file://scripts/automate-run.js."
+    },
+    {
+      "severity": "major",
+      "file": "scripts/automate-run.js",
+      "line": 831,
+      "claim": "uncommittedProductPaths treats any porcelain XY that contains R or C as a two-path rename/copy, then consumes the next NUL field as a path.",
+      "impact": "A status such as AU/UD/?? is fine, but any XY where the second column is R/C is intended; the unanchored /R|C/ also matches unrelated letters if they appear in the two-char code, and a non-rename line that happens to match skips the next file so dirty product files are omitted from the publication gate.",
+      "recommendation": "Detect rename/copy only when X or Y is exactly R or C as git documents (e.g. /^[RC]/ or /[RC]/.test on each status column), and only then consume the following NUL pathname.",
+      "confidence": "medium",
+      "reproduction": "git status --porcelain=v1 -z with an ordinary path after a line whose first two bytes match /R|C/; the next entry is pushed raw and the following file is not scanned."
+    },
+    {
+      "severity": "critical",
+      "file": "scripts/automate-run.js",
+      "line": 1018,
+      "claim": "A successful fix-and-review at round 3 assigns state.round = state.round + 1 (value 4), then saveRunState persists it. loadRunState rejects any round outside 1..3, so the next process load throws 'invalid saved automate state'. The same process also continues the while loop and runs a fourth review: the only round-cap conversion is for close-and-advance with a rejected verdict, not for the fix-and-review action this loop handles.",
+      "impact": "After the third-round repair the saved automate-run-state.json is unloadable, crashing plan-end on resume. In-process, the documented three-round cap is skipped and a fourth review/repair cycle runs.",
+      "recommendation": "Before incrementing, if state.round >= 3 treat fix-and-review as the round-cap stop (same as the close-and-advance override). Never persist state.round > 3.",
+      "confidence": "high",
+      "reproduction": "Resume or start runPlanEndWorkflow with stage 'plan' or 'audit', round 3, matching reviewInputSnapshot. Make continuePhaseAfterReview return {action:'fix-and-review'} (findings present). Make fix() return {ok:true} without changing the audit snapshot. After saveRunState, loadRunState(statePath) throws; the in-memory loop continues with round 4."
+    },
+    {
+      "severity": "major",
+      "file": "scripts/automate-run.js",
+      "line": 962,
+      "claim": "The dual-review same-provider guard normalizes only input.host ('claude-code' → 'claude') and compares that to raw input.cli. The inverse pair is not rejected. Receipt construction later does String(input.cli||'').replace('claude-code','claude'), so the code already treats those names as one family, but the guard does not.",
+      "impact": "host 'claude' with cli 'claude-code' (or any unnormalized alias of the local host) runs both legs on the same provider family while still stamping familyDifferent:true and writing the plan-end receipt. The 'external review must use a different provider' invariant is not enforced.",
+      "recommendation": "Normalize host and cli with the same mapping before the equality check (e.g. both through the claude-code → claude replace), and compare the normalized values.",
+      "confidence": "high",
+      "reproduction": "Call the default deps.review path with input.host='claude' and input.cli='claude-code'. localProvider is 'claude', which is !== 'claude-code', so invoke() runs twice with Claude-family argv instead of throwing."
+    },
+    {
+      "severity": "major",
+      "file": "scripts/automate-run.js",
+      "line": 1022,
+      "claim": "After an audit-stage repair that changes validationSnapshot, invalidateReviews() resets stage to plan and continues the while loop immediately. Every other snapshot-mismatch path in this function returns stop('não avanço') so the operator must confirm before re-review. This path does not.",
+      "impact": "A delivery repair that touches review inputs silently restarts whole-plan review in the same invocation, skipping the confirm-to-review-again gate used on resume, mid-review drift, and post-loop publication drift. Operator-visible stop/confirm is bypassed for this invalidation.",
+      "recommendation": "On successful invalidateReviews after audit repair, save state and return stop('não avanço', [{title: '...confirm to review the current source again'}]) consistent with the other mismatch branches.",
+      "confidence": "high",
+      "reproduction": "In stage 'audit' with reviewRounds.plan < 3, take fix-and-review, have fix() succeed, and make validationSnapshot(plan,{reviewInputs:true}) differ from state.reviewInputSnapshot. invalidateReviews returns true; the function continues into a plan-stage review instead of returning action 'stop'."
+    }
+  ],
+  "triageSource": "Coordinator independently checked the concrete source paths and reproductions; this triage does not alter any provider verdict.",
+  "triage": [
+    {
+      "packet": "authority",
+      "findingIndex": 0,
+      "status": "pending_reproduction",
+      "evidence": "Snapshot framing collision has been assigned for concrete reproduction; no dismissal or remediation assertion yet."
+    },
+    {
+      "packet": "authority",
+      "findingIndex": 1,
+      "status": "confirmed",
+      "evidence": "Coordinator reproduced gitlink directory EISDIR; source repair is in progress outside this source-pinned review."
+    },
+    {
+      "packet": "authority",
+      "findingIndex": 2,
+      "status": "dismissed",
+      "evidence": "Free-form skip reasons are existing supported non-automate behavior. Under automate forbidSkip:true rejects all skip receipts."
+    },
+    {
+      "packet": "authority",
+      "findingIndex": 3,
+      "status": "confirmed",
+      "evidence": "Coordinator reproduced CRLF last-field timestamp output containing extra CR before closing delimiter, causing parseFrontmatter to return undefined."
+    },
+    {
+      "packet": "authority",
+      "findingIndex": 4,
+      "status": "retained_minor",
+      "evidence": "readFileSync precedes byte-length check; the size cap does not limit peak memory. Retained as a minor caveat."
+    },
+    {
+      "packet": "transport-publication",
+      "findingIndex": 0,
+      "status": "dismissed",
+      "evidence": "Coordinator ran node scripts/automate-run.js --help; main executed and emitted the expected refusal. Node normalizes the entry script path in argv[1]."
+    },
+    {
+      "packet": "transport-publication",
+      "findingIndex": 1,
+      "status": "dismissed",
+      "evidence": "The regex is applied to entry.slice(0,2), exactly porcelain XY. /R|C/ and /[RC]/ are equivalent here. Git emits the additional source-path record for rename/copy; actual rename dirty-source regressions pass."
+    },
+    {
+      "packet": "workflow",
+      "findingIndex": 0,
+      "status": "dismissed",
+      "evidence": "continuePhaseAfterReview calls runPhaseReviewLoop, which delegates to nextPhaseReviewAction. At round>=PHASE_REVIEW_CAP critical/major findings return STOP before fix-and-review. Mocking that function to return an impossible action does not reproduce production behavior."
+    },
+    {
+      "packet": "workflow",
+      "findingIndex": 1,
+      "status": "dismissed",
+      "evidence": "Production main takes prepared.cli from prepareReviewExternalCli -> resolveReviewExternalCli -> isValidReviewExternalCli. hostCliName normalizes provider aliases and rejects same-host selection; the proposed raw alias pair is unreachable through that entry point."
+    },
+    {
+      "packet": "workflow",
+      "findingIndex": 2,
+      "status": "dismissed",
+      "evidence": "Audit repair re-review is authorized bounded repair-loop behavior. Tests verify source repairs repeat whole-plan review while retaining round budgets and refusing a fourth review after the third successful plan round."
+    }
+  ]
+}

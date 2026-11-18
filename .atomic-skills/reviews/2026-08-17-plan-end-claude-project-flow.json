@@ -1,0 +1,10 @@
+{
+  "provider": "claude",
+  "status": "failed",
+  "familyDifferent": true,
+  "kind": "auth",
+  "error": "Failed to authenticate: OAuth session expired and could not be refreshed",
+  "model": "opus",
+  "cli": "2.1.214",
+  "at": "2026-08-17T13:01:28.086Z"
+}

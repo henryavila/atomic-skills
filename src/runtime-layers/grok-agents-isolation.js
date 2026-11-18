@@ -17,8 +17,8 @@ import { listKnownInstallBases, normalizeInstallBase } from './grok-refcount.js'
  * Atomic Skills installs a Grok-native package under
  * `.grok/plugins/atomic-skills/` (plugin delivery). Without isolation,
  * Grok also lists the same skill names from Cursor/Codex/Claude trees
- * (wrong tool names) — slash menu shows both `atomic-skills:project`
- * and `user:project`.
+ * (wrong tool names) — slash menu shows both `atomic-skills:fix`
+ * and `user:fix`.
  *
  * Writes (user Grok config, always under $HOME — not project config):
  *   ~/.grok/config.toml

@@ -1,0 +1,466 @@
+{
+  "schemaVersion": "1.0",
+  "planSlug": "real-automate",
+  "title": "Corrida --automate",
+  "description": "A sessão só orquestra. Agentes isolados implementam a fase, fazem review both, corrigem, fecham e avançam. A pessoa valida no fim.",
+  "actor": "Quem pede o --automate",
+  "scenario": "Um plano fechado corre sozinho até o relatório. A pessoa só entra se os gates recusarem a partida, se a corrida travar, se o bloco misturar, ou para validar no fim.",
+  "audience": "both",
+  "actors": [
+    {
+      "id": "Operador",
+      "label": "Quem pede o --automate",
+      "kind": "actor"
+    },
+    {
+      "id": "Programa",
+      "label": "Programa",
+      "kind": "participant"
+    }
+  ],
+  "graph": {
+    "entry": "comecar",
+    "nodes": {
+      "comecar": {
+        "type": "activity",
+        "label": "Começar o --automate",
+        "who": "Operador",
+        "messages": [
+          {
+            "from": "Operador",
+            "to": "Programa",
+            "text": "Começa a corrida deste plano."
+          }
+        ],
+        "next": "gates"
+      },
+      "gates": {
+        "type": "xor",
+        "label": "Gates",
+        "question": "Os gates da partida passam?",
+        "branches": [
+          {
+            "id": "gates.parte",
+            "when": "parte",
+            "label": "parte",
+            "next": "escolher_cli"
+          },
+          {
+            "id": "gates.recusa",
+            "when": "recusa",
+            "label": "recusa",
+            "next": "fim_recusa"
+          }
+        ]
+      },
+      "escolher_cli": {
+        "type": "activity",
+        "label": "Escolher o CLI de review",
+        "who": "Programa",
+        "next": "implementar_fase"
+      },
+      "implementar_fase": {
+        "type": "activity",
+        "label": "Implementar a fase",
+        "who": "Programa",
+        "next": "review_fase_run"
+      },
+      "review_fase_run": {
+        "type": "activity",
+        "label": "Review both da fase",
+        "who": "Programa",
+        "next": "review_fase"
+      },
+      "review_fase": {
+        "type": "xor",
+        "label": "Review da fase",
+        "question": "O que a review both da fase encontrou?",
+        "branches": [
+          {
+            "id": "review_fase.segue",
+            "when": "segue",
+            "label": "segue",
+            "next": "mais_fases"
+          },
+          {
+            "id": "review_fase.corrige",
+            "when": "corrige",
+            "label": "corrige",
+            "next": "corrigir_fase"
+          },
+          {
+            "id": "review_fase.trava",
+            "when": "trava",
+            "label": "trava",
+            "next": "fim_travei"
+          },
+          {
+            "id": "review_fase.muda",
+            "when": "muda",
+            "label": "muda",
+            "next": "fim_mudanca"
+          }
+        ]
+      },
+      "corrigir_fase": {
+        "type": "activity",
+        "label": "Corrigir critical e major",
+        "who": "Programa",
+        "next": "review_fase_run"
+      },
+      "mais_fases": {
+        "type": "xor",
+        "label": "Mais fases?",
+        "question": "Ainda há fase pending?",
+        "branches": [
+          {
+            "id": "mais_fases.sim",
+            "when": "sim",
+            "label": "sim",
+            "next": "implementar_fase"
+          },
+          {
+            "id": "mais_fases.nao",
+            "when": "nao",
+            "label": "nao",
+            "next": "review_plano_run"
+          }
+        ]
+      },
+      "review_plano_run": {
+        "type": "activity",
+        "label": "Review both do plano",
+        "who": "Programa",
+        "next": "review_plano"
+      },
+      "review_plano": {
+        "type": "xor",
+        "label": "Review do plano",
+        "question": "O que a review both do plano encontrou?",
+        "branches": [
+          {
+            "id": "review_plano.segue",
+            "when": "segue",
+            "label": "segue",
+            "next": "audit_run"
+          },
+          {
+            "id": "review_plano.corrige",
+            "when": "corrige",
+            "label": "corrige",
+            "next": "corrigir_plano"
+          },
+          {
+            "id": "review_plano.trava",
+            "when": "trava",
+            "label": "trava",
+            "next": "fim_travei"
+          },
+          {
+            "id": "review_plano.muda",
+            "when": "muda",
+            "label": "muda",
+            "next": "fim_mudanca"
+          }
+        ]
+      },
+      "corrigir_plano": {
+        "type": "activity",
+        "label": "Corrigir o plano",
+        "who": "Programa",
+        "next": "review_plano_run"
+      },
+      "audit_run": {
+        "type": "activity",
+        "label": "Audit de entrega",
+        "who": "Programa",
+        "next": "review_audit"
+      },
+      "review_audit": {
+        "type": "xor",
+        "label": "Audit",
+        "question": "O que o audit encontrou?",
+        "branches": [
+          {
+            "id": "review_audit.segue",
+            "when": "segue",
+            "label": "segue",
+            "next": "abrir_pr"
+          },
+          {
+            "id": "review_audit.corrige",
+            "when": "corrige",
+            "label": "corrige",
+            "next": "corrigir_audit"
+          },
+          {
+            "id": "review_audit.trava",
+            "when": "trava",
+            "label": "trava",
+            "next": "fim_travei"
+          },
+          {
+            "id": "review_audit.muda",
+            "when": "muda",
+            "label": "muda",
+            "next": "fim_mudanca"
+          }
+        ]
+      },
+      "corrigir_audit": {
+        "type": "activity",
+        "label": "Corrigir o audit",
+        "who": "Programa",
+        "next": "audit_run"
+      },
+      "abrir_pr": {
+        "type": "activity",
+        "label": "Abrir o PR sem merge",
+        "who": "Programa",
+        "next": "mostrar_relatorio"
+      },
+      "mostrar_relatorio": {
+        "type": "activity",
+        "label": "Mostrar o relatório",
+        "who": "Programa",
+        "messages": [
+          {
+            "from": "Programa",
+            "to": "Operador",
+            "text": "O relatório está pronto para validar."
+          }
+        ],
+        "next": "validacao"
+      },
+      "validacao": {
+        "type": "xor",
+        "label": "Validação",
+        "question": "A pessoa confirma o relatório?",
+        "branches": [
+          {
+            "id": "validacao.valida",
+            "when": "valida",
+            "label": "valida",
+            "next": "fim_validado"
+          },
+          {
+            "id": "validacao.deixa",
+            "when": "deixa",
+            "label": "deixa",
+            "next": "fim_aguardando"
+          }
+        ]
+      },
+      "fim_recusa": {
+        "type": "end",
+        "label": "Recusado"
+      },
+      "fim_travei": {
+        "type": "end",
+        "label": "Travei"
+      },
+      "fim_mudanca": {
+        "type": "end",
+        "label": "Mudança grande"
+      },
+      "fim_validado": {
+        "type": "end",
+        "label": "Validado"
+      },
+      "fim_aguardando": {
+        "type": "end",
+        "label": "Aguardando"
+      }
+    }
+  },
+  "machines": [
+    {
+      "id": "corrida",
+      "label": "Corrida",
+      "entry": "ociosa",
+      "nodes": {
+        "ociosa": {
+          "label": "Ociosa"
+        },
+        "recusada": {
+          "label": "Recusada",
+          "terminal": true
+        },
+        "rodando": {
+          "label": "Rodando"
+        },
+        "travada": {
+          "label": "Travada",
+          "terminal": true
+        },
+        "mudanca_grande": {
+          "label": "Mudança grande",
+          "terminal": true
+        },
+        "aguardando": {
+          "label": "Aguardando validação",
+          "terminal": true
+        },
+        "validada": {
+          "label": "Validada",
+          "terminal": true
+        }
+      },
+      "transitions": [
+        {
+          "id": "T_parte",
+          "from": "ociosa",
+          "to": "rodando",
+          "when": "parte",
+          "label": "Gates passam",
+          "via": "gates.parte",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "Grava o CLI de review",
+              "target": "reviewExternalCli"
+            }
+          ]
+        },
+        {
+          "id": "T_recusa",
+          "from": "ociosa",
+          "to": "recusada",
+          "when": "recusa",
+          "label": "Gates recusam",
+          "via": "gates.recusa",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Lista o que falta",
+              "target": "Operador"
+            }
+          ]
+        },
+        {
+          "id": "T_trava",
+          "from": "rodando",
+          "to": "travada",
+          "when": "trava",
+          "label": "Terceira review ainda tem critical ou major",
+          "via": "review_fase.trava",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Abre parada travei",
+              "target": "Operador"
+            }
+          ]
+        },
+        {
+          "id": "T_trava_plano",
+          "from": "rodando",
+          "to": "travada",
+          "when": "trava",
+          "label": "Review do plano trava",
+          "via": "review_plano.trava",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Abre parada travei",
+              "target": "Operador"
+            }
+          ]
+        },
+        {
+          "id": "T_trava_audit",
+          "from": "rodando",
+          "to": "travada",
+          "when": "trava",
+          "label": "Audit trava",
+          "via": "review_audit.trava",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Abre parada travei",
+              "target": "Operador"
+            }
+          ]
+        },
+        {
+          "id": "T_muda",
+          "from": "rodando",
+          "to": "mudanca_grande",
+          "when": "muda",
+          "label": "Mistura do bloco",
+          "via": "review_fase.muda",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Abre parada mudança grande",
+              "target": "Operador"
+            }
+          ]
+        },
+        {
+          "id": "T_muda_plano",
+          "from": "rodando",
+          "to": "mudanca_grande",
+          "when": "muda",
+          "label": "Review do plano vê mistura",
+          "via": "review_plano.muda",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Abre parada mudança grande",
+              "target": "Operador"
+            }
+          ]
+        },
+        {
+          "id": "T_muda_audit",
+          "from": "rodando",
+          "to": "mudanca_grande",
+          "when": "muda",
+          "label": "Audit vê mistura",
+          "via": "review_audit.muda",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Abre parada mudança grande",
+              "target": "Operador"
+            }
+          ]
+        },
+        {
+          "id": "T_relatorio",
+          "from": "rodando",
+          "to": "aguardando",
+          "when": "segue",
+          "label": "PR aberto, relatório pronto",
+          "via": "review_audit.segue",
+          "effects": [
+            {
+              "kind": "notify",
+              "label": "Abre o relatório para validar",
+              "target": "Operador"
+            }
+          ]
+        },
+        {
+          "id": "T_valida",
+          "from": "aguardando",
+          "to": "validada",
+          "when": "valida",
+          "label": "Pessoa confirma",
+          "via": "validacao.valida",
+          "effects": [
+            {
+              "kind": "write",
+              "label": "Grava userValidatedAt",
+              "target": "plano"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ratifiedAt": "2026-09-25T17:43:12.500Z",
+  "ratifiedGraphSha": "8210bfc367f08e285b279b7dc69716d91df665281ffc2af1eebc1be619761285",
+  "ratifiedBy": "operator"
+}

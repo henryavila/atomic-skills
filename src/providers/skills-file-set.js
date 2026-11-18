@@ -19,7 +19,7 @@ export const DEFAULT_MEMORY_PATH = '.ai/memory/';
 
 /**
  * Pure computation of the atomic-skills file set — skill bodies, shared assets
- * (including arbitrary subdir recursion, e.g. project-assets/hooks/ and
+ * (including arbitrary subdir recursion, e.g. codex-bridge-assets/providers/ and
  * codex-bridge-assets/providers/{codex,grok}/) and the per-IDE namespace root —
  * returned as `[{ path, content }]` with project-root-relative paths. This is
  * the declarative file-set domain (P2) the reconcileFileSet effect manages.
@@ -133,6 +133,20 @@ export function computeSkillsFileSet(config) {
   return files;
 }
 
+/**
+ * Python bytecode caches are incidental build artifacts, not skill assets:
+ * importing a helper (e.g. delegate.py) can leave `__pycache__/*.pyc` beside
+ * it, and shipping those breaks runtime closure because the binary content
+ * trips the asset-reference scanner. Never enumerate them as assets.
+ */
+function isPythonBytecodeFile(name) {
+  return name.endsWith('.pyc') || name.endsWith('.pyo');
+}
+
+function isPythonCacheDirectory(name) {
+  return name === '__pycache__';
+}
+
 function collectSharedAssetSources(sharedDir) {
   const sources = [];
 
@@ -140,6 +154,8 @@ function collectSharedAssetSources(sharedDir) {
     const entries = readdirSync(directory, { withFileTypes: true })
       .sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
+      if (isPythonCacheDirectory(entry.name)) continue;
+      if (entry.isFile() && isPythonBytecodeFile(entry.name)) continue;
       const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
         walk(join(directory, entry.name), relativePath);
@@ -151,7 +167,9 @@ function collectSharedAssetSources(sharedDir) {
 
   for (const entry of readdirSync(sharedDir, { withFileTypes: true })
     .sort((a, b) => a.name.localeCompare(b.name))) {
+    if (isPythonCacheDirectory(entry.name)) continue;
     if (entry.isFile()) {
+      if (isPythonBytecodeFile(entry.name)) continue;
       sources.push(entry.name);
     } else if (entry.isDirectory() && entry.name.endsWith('-assets')) {
       walk(join(sharedDir, entry.name), entry.name);
@@ -193,26 +211,10 @@ function generatePluginJson() {
 }
 
 /**
- * Soft project hooks for plugin-delivery hosts (Grok Build).
- * Soft = SessionStart + PreToolUse; Strict adds Stop at project setup.
+ * Plugin hook file for Grok Build. Plan/implement session hooks are gone, so
+ * the file stays valid and empty. Auto-update SessionStart is a separate file
+ * written by the auto-update provider, not this envelope.
  */
 function generatePluginHooksSoft() {
-  const cmd = (script) =>
-    `bash "\${GROK_PLUGIN_ROOT:-\${CLAUDE_PROJECT_DIR:-\$PWD}/.grok/plugins/atomic-skills}/_assets/hooks/${script}"`;
-  const envelope = {
-    hooks: {
-      SessionStart: [
-        {
-          hooks: [{ type: 'command', command: cmd('session-start.sh') }],
-        },
-      ],
-      PreToolUse: [
-        {
-          matcher: 'Edit|Write|MultiEdit|search_replace|write',
-          hooks: [{ type: 'command', command: cmd('pre-write.sh') }],
-        },
-      ],
-    },
-  };
-  return `${JSON.stringify(envelope, null, 2)}\n`;
+  return `${JSON.stringify({ hooks: {} }, null, 2)}\n`;
 }

@@ -1,0 +1,25 @@
+▶ release-hygiene-consumer fixture layout
+  ✔ includes sample package.json, CHANGELOG, and adopted stage workflow (0.589084ms)
+✔ release-hygiene-consumer fixture layout (1.009125ms)
+▶ chooser plan on hygiene fixture
+  ✔ plans minor next version from feat + Unreleased Added (1.097208ms)
+✔ chooser plan on hygiene fixture (1.159292ms)
+▶ refuse ship when Action missing without GH-only opt-out
+  ✔ release skill dual-mode refuses ship when stage Action missing unless opt-out (0.329ms)
+  ✔ fixture without stage Action is detectable as adopt/refuse case (0.953625ms)
+  ✔ with explicit GH-only opt-out flag language, skill allows GH Release path (0.157292ms)
+✔ refuse ship when Action missing without GH-only opt-out (1.547708ms)
+▶ save-and-push contract still refuses default push language
+  ✔ HARD-GATE refuses push on default; no push-directly ask (0.187ms)
+✔ save-and-push contract still refuses default push language (0.678625ms)
+▶ hygiene fixture is distinct from release-blackbox fixture
+  ✔ does not collide with tests/fixtures/release-consumer/ (0.185292ms)
+✔ hygiene fixture is distinct from release-blackbox fixture (0.286875ms)
+ℹ tests 7
+ℹ suites 5
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.858292

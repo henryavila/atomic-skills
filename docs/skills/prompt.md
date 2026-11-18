@@ -36,7 +36,7 @@ Turn a one-line task into a self-contained, codebase-grounded prompt — real fi
 
 ## Metadata
 
-**Related:** `parallel-dispatch`, `fix`, `project`
+**Related:** `parallel-dispatch`, `fix`
 
 **Tags:** `meta`, `generation`, `planning`
 

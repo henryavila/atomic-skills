@@ -30,6 +30,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 2
 gatesTotal: 2
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: F0-G1
     description: Smoke notes record briefing-channel, tools-allowlist, auth-path,
@@ -58,6 +60,8 @@ exitGates:
       exitCode: 0
       outputSummary: smoke-notes markers present
       verifiedCommit: b0de8446fd78b12057889196b54692521134fb88
+    verifierLabel: "shell: test -s .atomic-skills/projects/atomic-skills/claude-cross-…"
+    evidenceSummary: passed · 2026-07-17
   - id: F0-G2
     description: Both Claude provider leaf files exist (preflight + invocation) with
       safe-mode and non-bypass permission surface.
@@ -81,6 +85,8 @@ exitGates:
       exitCode: 0
       outputSummary: providers/claude preflight+invocation with safe-mode/dontAsk
       verifiedCommit: b0de8446fd78b12057889196b54692521134fb88
+    verifierLabel: "shell: test -s skills/shared/codex-bridge-assets/providers/claude/…"
+    evidenceSummary: passed · 2026-07-17
 stack:
   - id: 1
     title: Smoke and draft Claude leaf
@@ -167,6 +173,7 @@ tasks:
 parked: []
 emerged: []
 summary: Provar headless Claude e rascunhar a folha providers/claude.
+planTitle: Claude as external cross-model review provider
 ---
 
 # Narrative / notes

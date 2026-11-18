@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-fl-slug="release-consistency" data-fl-content-sha="ed2015e795431f000e19b6054a1ab1fed30655b008d8ae7e64d412fd5983362a">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fluxo — Persistir e publicar sem atalho na default</title>
+<script>(function(){var K="as-color-scheme";function read(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return'system'}}function apply(mode){var r=document.documentElement;if(mode==='light'||mode==='dark')r.setAttribute('data-theme',mode);else r.removeAttribute('data-theme');document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-checked',String(b.getAttribute('data-theme-set')===mode))})}apply(read());document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;var mode=b.getAttribute('data-theme-set');try{localStorage.setItem(K,mode)}catch(err){}apply(mode)});document.addEventListener('DOMContentLoaded',function(){apply(read())})})();</script>
+<style>
+/*
+ * Atomic Skills product docs — shared design-system tokens.
+ * Extracted from docs/design/project-onboarding/index.html (aiDeck foundations).
+ * Dark default. Light via prefers-color-scheme or html[data-theme=light].
+ * Site pages link this file; onboarding may keep its inline copy.
+ */
+
+/* ─────────────────────────────────────────────────────────────────────
+   aiDeck Design System — Foundations (v2)
+   Dark default. Light is a second palette on the same token names.
+
+   Tokens are intentionally domain-agnostic — `status-success` not
+   `phase-done`, `chart-1..8` not `verifier-shell`.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Fonts — Inter (sans) + JetBrains Mono (identifiers). System stacks fall
+   back when webfonts are unavailable (offline-friendly). */
+
+:root {
+  color-scheme: dark;
+
+  /* ── Surfaces ───────────────────────────────────────────────── */
+  --bg-sunken:      #07090d;   /* inputs, code blocks, deepest wells */
+  --bg-canvas:      #0a0d12;   /* page background */
+  --bg-surface:     #12161d;   /* widget cards, section panels */
+  --bg-elevated:    #1a1f28;   /* hover, popovers, dropdowns */
+  --bg-overlay:     #232936;   /* selected rows, focus halos */
+  --bg-highlight:   #2d3340;   /* highest — used sparingly */
+
+  /* ── Glass ──────────────────────────────────────────────────── */
+  --glass-thin:     rgba(18, 22, 29, 0.55);
+  --glass-medium:   rgba(18, 22, 29, 0.72);
+  --glass-thick:    rgba(10, 13, 18, 0.85);
+  --glass-border:   rgba(255, 255, 255, 0.06);
+  --glass-blur:     saturate(180%) blur(20px);
+  --glass-blur-sm:  saturate(160%) blur(10px);
+
+  /* ── Borders ────────────────────────────────────────────────── */
+  --border-subtle:  #1a2029;
+  --border-default: #262d38;
+  --border-strong:  #3d4656;
+  --border-bright:  #555f72;
+
+  /* ── Foreground ─────────────────────────────────────────────── */
+  --fg-default:     #e9eef5;   /* primary text — body, headings */
+  --fg-muted:       #98a1ad;   /* secondary — captions, labels */
+  --fg-subtle:      #6b7585;   /* tertiary — metadata */
+  --fg-faint:       #424a5a;   /* lowest — disabled */
+  --fg-on-accent:   #08090d;   /* text on saturated chip fill */
+
+  /* ── Semantic status ────────────────────────────────────────── */
+  --status-success: #4cc28e;   /* emerald   — passed, done, healthy */
+  --status-warning: #e0a44a;   /* amber     — needs attention, blocked */
+  --status-error:   #ff5c5c;   /* coral red — failed, critical, broken */
+  --status-info:    #5fb1ff;   /* azure     — active, running, current */
+  --status-neutral: #8b95a3;   /* slate     — idle, pending, unknown */
+
+  --status-success-bg: color-mix(in srgb, var(--status-success) 14%, var(--bg-surface));
+  --status-warning-bg: color-mix(in srgb, var(--status-warning) 14%, var(--bg-surface));
+  --status-error-bg:   color-mix(in srgb, var(--status-error)   16%, var(--bg-surface));
+  --status-info-bg:    color-mix(in srgb, var(--status-info)    14%, var(--bg-surface));
+  --status-neutral-bg: var(--bg-elevated);
+
+  --status-success-line: color-mix(in srgb, var(--status-success) 42%, var(--border-default));
+  --status-warning-line: color-mix(in srgb, var(--status-warning) 42%, var(--border-default));
+  --status-error-line:   color-mix(in srgb, var(--status-error)   48%, var(--border-default));
+  --status-info-line:    color-mix(in srgb, var(--status-info)    42%, var(--border-default));
+  --status-neutral-line: var(--border-default);
+
+  /* ── Accents ────────────────────────────────────────────────── */
+  --accent-primary: var(--status-info);
+  --accent-focus:   #88c4ff;
+  --accent-link:    #88c4ff;
+
+  /* ── Typography stacks ──────────────────────────────────────── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+               "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono",
+               "Menlo", "Consolas", monospace;
+  --font-display: var(--font-sans);
+
+  /* ── Type scale ─────────────────────────────────────────────── */
+  --fs-2xs: 10px;
+  --fs-xs:  11px;
+  --fs-sm:  12px;
+  --fs-base:13px;
+  --fs-md:  14px;
+  --fs-lg:  16px;
+  --fs-xl:  20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  --fs-4xl: 40px;
+  --fs-5xl: 56px;
+
+  --lh-tight:  1.15;
+  --lh-snug:   1.35;
+  --lh-normal: 1.5;
+  --lh-relaxed:1.65;
+
+  --tracking-tight:  -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-wider:  0.08em;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* ── Spacing (4px base) ─────────────────────────────────────── */
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  10px;
+  --space-6:  12px;
+  --space-7:  14px;
+  --space-8:  16px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --space-14: 28px;
+  --space-16: 32px;
+  --space-20: 40px;
+  --space-24: 48px;
+  --space-32: 64px;
+
+  /* ── Radii ──────────────────────────────────────────────────── */
+  --radius-none: 0;
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-pill: 999px;
+
+  --border-width: 1px;
+
+  /* ── Elevation ──────────────────────────────────────────────── */
+  --highlight-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --highlight-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.075);
+  --shadow-sm:      0 2px 4px -2px rgba(0, 0, 0, 0.5),
+                    var(--highlight-inset);
+  --shadow-md:      0 8px 24px -8px rgba(0, 0, 0, 0.6),
+                    0 2px 6px -2px rgba(0, 0, 0, 0.4),
+                    var(--highlight-inset);
+  --shadow-focus:   0 0 0 2px var(--bg-canvas),
+                    0 0 0 4px var(--accent-focus);
+}
+
+@media (prefers-color-scheme: light) {
+  html:not([data-theme="dark"]) {
+    color-scheme: light;
+
+    --bg-sunken:      #e8edf4;
+    --bg-canvas:      #f4f6fa;
+    --bg-surface:     #ffffff;
+    --bg-elevated:    #eef2f7;
+    --bg-overlay:     #e2e8f0;
+    --bg-highlight:   #d8dee8;
+
+    --glass-thin:     rgba(255, 255, 255, 0.55);
+    --glass-medium:   rgba(255, 255, 255, 0.78);
+    --glass-thick:    rgba(244, 246, 250, 0.9);
+    --glass-border:   rgba(15, 23, 42, 0.08);
+
+    --border-subtle:  #e8edf3;
+    --border-default: #d5dce6;
+    --border-strong:  #b8c2d0;
+    --border-bright:  #8b97a8;
+
+    --fg-default:     #12161d;
+    --fg-muted:       #4a5565;
+    --fg-subtle:      #6b7585;
+    --fg-faint:       #98a1ad;
+    --fg-on-accent:   #ffffff;
+
+    --accent-focus:   #1565c0;
+    --accent-link:    #1565c0;
+
+    --highlight-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    --highlight-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    --shadow-sm:      0 1px 2px rgba(15, 23, 42, 0.06),
+                      0 1px 3px rgba(15, 23, 42, 0.04);
+    --shadow-md:      0 8px 24px -8px rgba(15, 23, 42, 0.12),
+                      0 2px 6px -2px rgba(15, 23, 42, 0.08);
+  }
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-sunken:      #e8edf4;
+  --bg-canvas:      #f4f6fa;
+  --bg-surface:     #ffffff;
+  --bg-elevated:    #eef2f7;
+  --bg-overlay:     #e2e8f0;
+  --bg-highlight:   #d8dee8;
+
+  --glass-thin:     rgba(255, 255, 255, 0.55);
+  --glass-medium:   rgba(255, 255, 255, 0.78);
+  --glass-thick:    rgba(244, 246, 250, 0.9);
+  --glass-border:   rgba(15, 23, 42, 0.08);
+
+  --border-subtle:  #e8edf3;
+  --border-default: #d5dce6;
+  --border-strong:  #b8c2d0;
+  --border-bright:  #8b97a8;
+
+  --fg-default:     #12161d;
+  --fg-muted:       #4a5565;
+  --fg-subtle:      #6b7585;
+  --fg-faint:       #98a1ad;
+  --fg-on-accent:   #ffffff;
+
+  --accent-focus:   #1565c0;
+  --accent-link:    #1565c0;
+
+  --highlight-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --highlight-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --shadow-sm:      0 1px 2px rgba(15, 23, 42, 0.06),
+                    0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-md:      0 8px 24px -8px rgba(15, 23, 42, 0.12),
+                    0 2px 6px -2px rgba(15, 23, 42, 0.08);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-canvas);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "calt" 0;
+}
+
+code {
+  font-size: 0.92em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.35em;
+}
+
+pre {
+  margin: 0;
+  padding: var(--space-8);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+}
+
+pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ── Layout chrome for product docs ───────────────────────────────── */
+
+.site-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-10) var(--space-24);
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
+  padding-bottom: var(--space-10);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.site-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--fg-default);
+  text-decoration: none;
+}
+
+.site-brand:hover {
+  text-decoration: none;
+}
+
+.site-brand-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.site-brand-sub {
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: var(--fg-default);
+  background: var(--bg-elevated);
+  text-decoration: none;
+}
+
+.site-nav a.active {
+  color: var(--status-info);
+  background: var(--status-info-bg);
+  border-color: var(--status-info-line);
+}
+
+.site-header-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.theme-switch {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.theme-switch button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  height: 28px;
+  padding: 0 var(--space-5);
+  cursor: pointer;
+}
+
+.theme-switch button[aria-checked="true"] {
+  background: var(--bg-surface);
+  color: var(--fg-default);
+}
+
+.theme-switch button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.site-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.site-footer {
+  margin-top: var(--space-24);
+  padding-top: var(--space-10);
+  border-top: 1px solid var(--border-default);
+  color: var(--fg-subtle);
+  font-size: var(--fs-sm);
+}
+
+h1, h2, h3 {
+  margin: 0;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--fw-semibold);
+}
+
+h1 {
+  font-size: var(--fs-3xl);
+}
+
+h2 {
+  font-size: var(--fs-xl);
+  margin-top: var(--space-4);
+}
+
+h3 {
+  font-size: var(--fs-lg);
+}
+
+.lede {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-md);
+  line-height: var(--lh-relaxed);
+  max-width: 68ch;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10) var(--space-12);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-8);
+}
+
+.card a.card-title {
+  color: var(--fg-default);
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+}
+
+.card a.card-title:hover {
+  color: var(--accent-link);
+  text-decoration: underline;
+}
+
+.card .one-liner {
+  margin: var(--space-4) 0 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+}
+
+.iron-law {
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  background: color-mix(in srgb, var(--status-warning) 10%, var(--bg-surface));
+  border: 1px solid var(--status-warning-line);
+  border-radius: var(--radius-md);
+  color: var(--status-warning);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.badge-tested {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-line);
+  color: var(--status-success);
+}
+
+.badge-theoretical {
+  background: var(--status-neutral-bg);
+  border-color: var(--status-neutral-line);
+  color: var(--fg-muted);
+}
+
+.badge-module {
+  background: var(--status-info-bg);
+  border-color: var(--status-info-line);
+  color: var(--status-info);
+}
+
+ul.plain {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--fg-muted);
+}
+
+ul.plain li + li {
+  margin-top: var(--space-3);
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+}
+
+table.docs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+table.docs th,
+table.docs td {
+  padding: var(--space-6) var(--space-8);
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+table.docs th {
+  color: var(--fg-subtle);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  background: var(--bg-elevated);
+}
+
+table.docs tr:last-child td {
+  border-bottom: 0;
+}
+
+table.docs td {
+  color: var(--fg-default);
+}
+
+.eyebrow {
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.install-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.back-link {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+.prose p {
+  margin: 0;
+  color: var(--fg-muted);
+  max-width: 70ch;
+  line-height: var(--lh-relaxed);
+}
+
+.prose p + p {
+  margin-top: var(--space-6);
+}
+
+.list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list-stack li {
+  padding: var(--space-6) var(--space-8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.list-stack .cmd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--status-info);
+}
+
+.list-stack .desc {
+  margin-top: var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+}
+
+.footnote {
+  color: var(--fg-subtle);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+  max-width: 70ch;
+}
+
+/* ── Project guide spine ────────────────────────────────────────────── */
+
+ol.spine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spine-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 7.5rem;
+  max-width: 11rem;
+  flex: 1 1 7.5rem;
+  padding: var(--space-6) var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+.spine-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--status-info);
+}
+
+.spine-note {
+  font-size: var(--fs-2xs);
+  color: var(--fg-muted);
+  line-height: var(--lh-snug);
+}
+
+.spine-arrow {
+  display: none;
+}
+
+.list-stack .cmd-args {
+  margin-left: var(--space-2);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+/* flow layout — tokens from inlined ds.css only */
+html,body{height:100%;overflow:hidden;margin:0;background:var(--bg-canvas);color:var(--fg-default);font-family:var(--font-sans)}
+.app{display:grid;grid-template-rows:auto 1fr;height:100%;min-height:0}
+.fl-header.top{z-index:20;background:color-mix(in srgb,var(--bg-canvas) 92%,transparent);border-bottom:1px solid var(--border-default);padding:var(--space-6) var(--space-8);display:flex;flex-direction:column;gap:var(--space-4)}
+.top-row{display:flex;flex-wrap:wrap;gap:var(--space-6) var(--space-8);align-items:center;justify-content:space-between}
+.brand{min-width:0;flex:1 1 220px}
+.fl-title{margin:0;font-size:var(--fs-3xl);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight);line-height:var(--lh-tight)}
+.fl-scenario{margin:2px 0 0;font-size:var(--fs-sm);color:var(--fg-muted);max-width:72ch}
+.fl-toc{display:flex;flex-wrap:wrap;gap:var(--space-3);margin:0;padding:0}
+.fl-toc button{appearance:none;display:inline-flex;align-items:center;height:30px;padding:0 var(--space-6);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font:500 12px var(--font-sans);cursor:pointer}
+.fl-toc button[aria-selected="true"]{color:var(--bg-canvas);background:var(--fg-default);border-color:var(--fg-default)}
+.fl-toc button:focus-visible,.fl-toolbar button:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+.fl-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3)}
+.fl-toolbar button{appearance:none;height:28px;min-width:28px;padding:0 var(--space-4);border-radius:var(--radius-md);border:1px solid var(--border-default);background:var(--bg-surface);color:var(--fg-muted);font:600 12px var(--font-sans);cursor:pointer}
+.fl-toolbar .zoom{font:700 12px var(--font-mono);color:var(--fg-subtle);padding:0 var(--space-3);min-width:3.2rem;text-align:center}
+.theme-switch{display:inline-flex;gap:var(--space-2)}
+.theme-switch button{appearance:none;height:28px;padding:0 var(--space-4);border-radius:var(--radius-pill);border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--fg-muted);font:500 12px var(--font-sans);cursor:pointer}
+.theme-switch button[aria-checked="true"]{background:var(--bg-surface);color:var(--fg-default)}
+.fl-hint{margin:0;font-size:var(--fs-sm);color:var(--fg-subtle);display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center}
+.fl-meta{display:inline-flex;flex-wrap:wrap;gap:var(--space-6)}
+.fl-meta span{font-size:var(--fs-sm);color:var(--fg-subtle)}
+.fl-meta strong{color:var(--fg-muted);font-weight:var(--fw-medium)}
+.fl-footer{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--fg-faint)}
+.fl-viewport{position:relative;overflow:auto;min-width:0;min-height:0;cursor:grab;background:radial-gradient(circle at 1px 1px,var(--border-default) 1px,transparent 0) 0 0/22px 22px,var(--bg-sunken)}
+.fl-viewport.is-panning{cursor:grabbing;user-select:none}
+#fl-sizer{position:relative;min-width:100%;min-height:100%}
+#fl-stage{position:absolute;top:0;left:0;padding:var(--space-12)}
+.fl-surface{display:inline-block}
+.fl-surface[hidden]{display:none !important}
+.fl-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.sheet{display:inline-block;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);padding:18px 20px}
+svg.diagram{display:block;max-width:none;font-family:var(--font-sans);shape-rendering:geometricPrecision;text-rendering:geometricPrecision}
+svg.diagram text{fill:var(--fg-default)}
+.actor-box{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1}
+.actor-label{fill:var(--fg-default);font-size:11px;font-weight:600}
+.actor-stick-bg{fill:var(--bg-surface)}
+.actor-stick-rule{stroke:var(--border-default);stroke-width:1}
+.lifeline{stroke:var(--fg-faint);stroke-width:1;stroke-dasharray:3 5;pointer-events:none}
+.life-hit{stroke:transparent;stroke-width:20;fill:none}
+.arrow{stroke:var(--fg-muted);stroke-width:1.25;fill:none}
+.arrow.async{stroke-dasharray:5 4}
+.arrow-head{fill:var(--fg-muted)}
+.msg{fill:var(--fg-default);font-size:12px}
+.xor-wash{fill:color-mix(in srgb,var(--bg-elevated) 18%,transparent);stroke:none}
+.xor-rail{stroke:var(--status-warning-line);stroke-width:2;fill:none}
+.xor-q{fill:var(--status-warning);font-size:12px;font-weight:600}
+.hair{stroke:var(--border-subtle);stroke-width:1}
+.pill{fill:var(--bg-sunken);stroke:var(--status-warning-line);stroke-width:1}
+.pill-t{fill:var(--status-warning);font-size:11px;font-weight:600}
+.loop-arc{fill:none;stroke:var(--status-warning);stroke-width:1.25;stroke-dasharray:4 3}
+.loop-head{fill:var(--status-warning)}
+.act{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1.25}
+.act-t{fill:var(--fg-default);font-size:12px;font-weight:500}
+.who{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-mono)}
+.diamond{fill:color-mix(in srgb,var(--status-warning) 10%,var(--bg-surface));stroke:var(--status-warning-line);stroke-width:1.25}
+.xor-t{fill:var(--fg-default);font-size:12px;font-weight:600}
+.bar{fill:var(--fg-muted)}
+.evt{fill:var(--bg-canvas);stroke:var(--status-error-line);stroke-width:1.5}
+.sub-mark{fill:none;stroke:var(--border-default);stroke-width:1}
+.edge{stroke:var(--fg-faint);stroke-width:1.15;fill:none}
+.edge.back{stroke:var(--status-warning);stroke-dasharray:4 3}
+.edge-head{fill:var(--fg-muted)}
+.edge-head.back{fill:var(--status-warning)}
+.edge-t{fill:var(--fg-muted);font-size:11px}
+.end-ok{fill:var(--status-success);stroke:var(--status-success);stroke-width:1.5}
+.end-bad{fill:var(--status-error);stroke:var(--status-error);stroke-width:1.5}
+.end-t{fill:var(--fg-muted);font-size:11px}
+.end-hole{fill:var(--bg-canvas)}
+.st{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1.15}
+.st.entry{stroke:var(--status-info);stroke-width:1.75}
+.st.term{stroke:var(--status-success);stroke-width:1.75}
+.st-t{fill:var(--fg-default);font-size:12px;font-weight:500}
+.mach-title{fill:var(--fg-muted);font-size:12px;font-weight:600}
+.mach-legend{fill:var(--fg-subtle);font-size:10px}
+.edge-cap{fill:var(--bg-surface);stroke:var(--border-default);stroke-width:1}
+.edge-title{fill:var(--fg-default);font-size:11px;font-weight:600}
+.fx{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-sans)}
+.fx-pill{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1}
+.fx-pill-t{fill:var(--fg-muted);font-size:9px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="fl-header top">
+    <div class="top-row">
+      <div class="brand">
+        <h1 class="fl-title">Persistir e publicar sem atalho na default</h1>
+        <p class="fl-scenario">O agente persiste trabalho e/ou publica versão sem push na default, sem inventar bump e sem npm publish direto.</p>
+      </div>
+      <nav class="fl-toc" role="tablist" aria-label="Camadas do fluxo">
+        <button type="button" role="tab" data-tab="sequence" aria-selected="true" aria-controls="fl-sequence">Sequência</button>
+        <button type="button" role="tab" data-tab="bpm" aria-selected="false" aria-controls="fl-bpm">Fluxo</button>
+        <button type="button" role="tab" data-tab="machines" aria-selected="false" aria-controls="fl-machines">Máquinas</button>
+      </nav>
+      <div class="fl-toolbar">
+        <button type="button" data-zoom="out" aria-label="Diminuir">−</button>
+        <span class="zoom" id="z-lab">100%</span>
+        <button type="button" data-zoom="in" aria-label="Aumentar">+</button>
+        <button type="button" data-zoom="height">À altura</button>
+        <button type="button" data-zoom="width">À largura</button>
+        <button type="button" data-action="pdf" data-pdf-name="release-consistency-fluxo.pdf">PDF</button>
+        <div class="theme-switch" role="radiogroup" aria-label="Aparência"><button type="button" role="radio" data-theme-set="system" aria-checked="true">Sistema</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Claro</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Escuro</button></div>
+      </div>
+    </div>
+    <p class="fl-hint" id="fl-hint">
+      <span class="fl-meta"><span><strong>Ator:</strong> Agente de coding</span><span><strong>Plano:</strong> release-consistency</span></span>
+      <span class="fl-footer">content-sha ed2015e795431f00 · schema 1.0</span>
+    </p>
+  </header>
+  <div class="fl-viewport" id="fl-viewport">
+    <div id="fl-sizer">
+      <div id="fl-stage">
+        <section id="fl-sequence" class="fl-surface" role="tabpanel" data-surface="sequence" aria-labelledby="fl-sequence-title">
+      <h2 id="fl-sequence-title" class="fl-sr-only">Sequência</h2>
+      <div class="sheet"><svg class="diagram" id="seq-svg" data-surface="sequence" width="1060" height="1892" viewBox="0 0 1060 1892" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de sequência — Persistir e publicar sem atalho na default</title>
+    <desc>O agente persiste trabalho e/ou publica versão sem push na default, sem inventar bump e sem npm publish direto.</desc>
+    <rect class="xor-wash" x="8" y="78" width="1044" height="1734" rx="10"/>
+    <g data-actor-id="Ag">
+        <line class="lifeline" data-lifeline="Ag" x1="150" y1="50" x2="150" y2="1848"/>
+        <line class="life-hit" data-actor-label="Agente" x1="150" y1="50" x2="150" y2="1848"/>
+      </g>
+<g data-actor-id="Op">
+        <line class="lifeline" data-lifeline="Op" x1="346" y1="50" x2="346" y2="1848"/>
+        <line class="life-hit" data-actor-label="Operador" x1="346" y1="50" x2="346" y2="1848"/>
+      </g>
+<g data-actor-id="Sys">
+        <line class="lifeline" data-lifeline="Sys" x1="542" y1="50" x2="542" y2="1848"/>
+        <line class="life-hit" data-actor-label="Atomic Skills" x1="542" y1="50" x2="542" y2="1848"/>
+      </g>
+<g data-actor-id="Gh">
+        <line class="lifeline" data-lifeline="Gh" x1="738" y1="50" x2="738" y2="1848"/>
+        <line class="life-hit" data-actor-label="GitHub" x1="738" y1="50" x2="738" y2="1848"/>
+      </g>
+<g data-actor-id="Npm">
+        <line class="lifeline" data-lifeline="Npm" x1="934" y1="50" x2="934" y2="1848"/>
+        <line class="life-hit" data-actor-label="npm registry" x1="934" y1="50" x2="934" y2="1848"/>
+      </g>
+    <g data-xor-rail="QualPedido">
+        <line class="xor-rail" x1="22" y1="88" x2="22" y2="1804"/>
+        <text class="xor-q" x="38" y="100">◇ O pedido é persistir trabalho (save-and-push) ou publicar release?</text>
+      </g>
+<g data-xor-rail="NaDefault">
+        <line class="xor-rail" x1="36" y1="274" x2="36" y2="818"/>
+        <text class="xor-q" x="52" y="286">◇ A branch atual é a default (origin/HEAD)?</text>
+      </g>
+<g data-xor-rail="GhAuth">
+        <line class="xor-rail" x1="50" y1="460" x2="50" y2="680"/>
+        <text class="xor-q" x="66" y="472">◇ O gh está autenticado para abrir a PR?</text>
+      </g>
+<g data-xor-rail="BumpOk">
+        <line class="xor-rail" x1="36" y1="990" x2="36" y2="1804"/>
+        <text class="xor-q" x="52" y="1002">◇ O chooser encontrou bump com evidência?</text>
+      </g>
+<g data-xor-rail="NpmEscopo">
+        <line class="xor-rail" x1="50" y1="1138" x2="50" y2="1704"/>
+        <text class="xor-q" x="66" y="1150">◇ Há pacote npm no escopo deste ship?</text>
+      </g>
+<g data-xor-rail="StageOk">
+        <line class="xor-rail" x1="64" y1="1358" x2="64" y2="1704"/>
+        <text class="xor-q" x="80" y="1370">◇ A Action stage está adotada e válida?</text>
+      </g>
+
+<g>
+          <line class="hair" x1="22" y1="144" x2="40" y2="144"/>
+          <rect class="pill" x="40" y="132" width="83" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Persistir" x="81.5" y="148" text-anchor="middle">Persistir</text>
+        </g>
+<g data-from="Ag" data-to="Sys">
+          <line class="arrow" x1="158" y1="174" x2="526" y2="174"/>
+          <polygon class="arrow-head" points="534,174 526,170 526,178"/>
+          <text class="msg" x="346" y="154" text-anchor="middle">Pede save-and-push com commits</text><text class="msg" x="346" y="166" text-anchor="middle">prontos</text>
+        </g>
+<g data-from="Sys" data-to="Sys">
+          <circle cx="542" cy="212" r="3" class="arrow-head"/>
+          <text class="msg" x="552" y="216">Resolve default via</text><text class="msg" x="552" y="228">origin/HEAD com fallback</text><text class="msg" x="552" y="240">main|master</text>
+        </g>
+
+<g>
+          <line class="hair" x1="36" y1="330" x2="54" y2="330"/>
+          <rect class="pill" x="54" y="318" width="90" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Na default" x="99" y="334" text-anchor="middle">Na default</text>
+        </g>
+<g data-from="Sys" data-to="Ag">
+          <line class="arrow" x1="534" y1="360" x2="166" y2="360"/>
+          <polygon class="arrow-head" points="158,360 166,356 166,364"/>
+          <text class="msg" x="346" y="340" text-anchor="middle">Recusa push na default — sem</text><text class="msg" x="346" y="352" text-anchor="middle">perguntar push direto</text>
+        </g>
+<g data-from="Sys" data-to="Ag">
+          <line class="arrow" x1="534" y1="398" x2="166" y2="398"/>
+          <polygon class="arrow-head" points="158,398 166,394 166,402"/>
+          <text class="msg" x="346" y="366" text-anchor="middle">Cria ou reusa branch de</text><text class="msg" x="346" y="378" text-anchor="middle">trabalho, commit e push da</text><text class="msg" x="346" y="390" text-anchor="middle">branch</text>
+        </g>
+
+<g>
+          <line class="hair" x1="50" y1="516" x2="68" y2="516"/>
+          <rect class="pill" x="68" y="504" width="118" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="gh autenticado" x="127" y="520" text-anchor="middle">gh autenticado</text>
+        </g>
+<g data-from="Sys" data-to="Gh">
+          <line class="arrow" x1="550" y1="546" x2="722" y2="546"/>
+          <polygon class="arrow-head" points="730,546 722,542 722,550"/>
+          <text class="msg" x="640" y="526" text-anchor="middle">gh pr create da branch de</text><text class="msg" x="640" y="538" text-anchor="middle">trabalho contra a default</text>
+        </g>
+<g data-from="Sys" data-to="Op">
+          <line class="arrow async" x1="534" y1="584" x2="362" y2="584"/>
+          <polygon class="arrow-head" points="354,584 362,580 362,588"/>
+          <text class="msg" x="444" y="564" text-anchor="middle">Informa URL da PR — sem</text><text class="msg" x="444" y="576" text-anchor="middle">auto-merge</text>
+        </g>
+<g>
+          <line class="hair" x1="50" y1="640" x2="68" y2="640"/>
+          <rect class="pill" x="68" y="628" width="90" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="gh ausente" x="113" y="644" text-anchor="middle">gh ausente</text>
+        </g>
+<g data-from="Sys" data-to="Op">
+          <line class="arrow async" x1="534" y1="670" x2="362" y2="670"/>
+          <polygon class="arrow-head" points="354,670 362,666 362,674"/>
+          <text class="msg" x="444" y="638" text-anchor="middle">Para com branch já pushed e</text><text class="msg" x="444" y="650" text-anchor="middle">comando/URL explícitos para</text><text class="msg" x="444" y="662" text-anchor="middle">abrir a PR</text>
+        </g>
+<g>
+          <line class="hair" x1="36" y1="740" x2="54" y2="740"/>
+          <rect class="pill" x="54" y="728" width="125" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Fora da default" x="116.5" y="744" text-anchor="middle">Fora da default</text>
+        </g>
+<g data-from="Sys" data-to="Gh">
+          <line class="arrow" x1="550" y1="770" x2="722" y2="770"/>
+          <polygon class="arrow-head" points="730,770 722,766 722,774"/>
+          <text class="msg" x="640" y="750" text-anchor="middle">Push da branch atual — fora da</text><text class="msg" x="640" y="762" text-anchor="middle">default, permitido</text>
+        </g>
+<g data-from="Sys" data-to="Op">
+          <line class="arrow async" x1="534" y1="808" x2="362" y2="808"/>
+          <polygon class="arrow-head" points="354,808 362,804 362,812"/>
+          <text class="msg" x="444" y="800" text-anchor="middle">Confirma branch enviada</text>
+        </g>
+<g>
+          <line class="hair" x1="22" y1="862" x2="40" y2="862"/>
+          <rect class="pill" x="40" y="850" width="76" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Publicar" x="78" y="866" text-anchor="middle">Publicar</text>
+        </g>
+<g data-from="Ag" data-to="Sys">
+          <line class="arrow" x1="158" y1="892" x2="526" y2="892"/>
+          <polygon class="arrow-head" points="534,892 526,888 526,896"/>
+          <text class="msg" x="346" y="884" text-anchor="middle">Pede release plan/apply/ship</text>
+        </g>
+<g data-from="Sys" data-to="Sys">
+          <circle cx="542" cy="928" r="3" class="arrow-head"/>
+          <text class="msg" x="552" y="932">Classifica bump por commits</text><text class="msg" x="552" y="944">conventional + CHANGELOG</text><text class="msg" x="552" y="956">Unreleased — sem inventar</text>
+        </g>
+
+<g>
+          <line class="hair" x1="36" y1="1046" x2="54" y2="1046"/>
+          <rect class="pill" x="54" y="1034" width="76" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Com bump" x="92" y="1050" text-anchor="middle">Com bump</text>
+        </g>
+<g data-from="Sys" data-to="Sys">
+          <circle cx="542" cy="1076" r="3" class="arrow-head"/>
+          <text class="msg" x="552" y="1080">Aplica bump, notes do</text><text class="msg" x="552" y="1092">CHANGELOG e prepara</text><text class="msg" x="552" y="1104">tag/Release</text>
+        </g>
+
+<g>
+          <line class="hair" x1="50" y1="1194" x2="68" y2="1194"/>
+          <rect class="pill" x="68" y="1182" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sem npm" x="104" y="1198" text-anchor="middle">Sem npm</text>
+        </g>
+<g data-from="Sys" data-to="Gh">
+          <line class="arrow" x1="550" y1="1224" x2="722" y2="1224"/>
+          <polygon class="arrow-head" points="730,1224 722,1220 722,1228"/>
+          <text class="msg" x="640" y="1204" text-anchor="middle">Cria tag + GitHub Release com</text><text class="msg" x="640" y="1216" text-anchor="middle">notes do CHANGELOG</text>
+        </g>
+<g data-from="Sys" data-to="Op">
+          <line class="arrow async" x1="534" y1="1262" x2="362" y2="1262"/>
+          <polygon class="arrow-head" points="354,1262 362,1258 362,1266"/>
+          <text class="msg" x="444" y="1242" text-anchor="middle">Confirma Release publicado — sem</text><text class="msg" x="444" y="1254" text-anchor="middle">canal npm</text>
+        </g>
+<g>
+          <line class="hair" x1="50" y1="1318" x2="68" y2="1318"/>
+          <rect class="pill" x="68" y="1306" width="72" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Com npm" x="104" y="1322" text-anchor="middle">Com npm</text>
+        </g>
+
+<g>
+          <line class="hair" x1="64" y1="1414" x2="82" y2="1414"/>
+          <rect class="pill" x="82" y="1402" width="76" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Stage OK" x="120" y="1418" text-anchor="middle">Stage OK</text>
+        </g>
+<g data-from="Sys" data-to="Gh">
+          <line class="arrow" x1="550" y1="1444" x2="722" y2="1444"/>
+          <polygon class="arrow-head" points="730,1444 722,1440 722,1448"/>
+          <text class="msg" x="640" y="1424" text-anchor="middle">GitHub Release dispara Action</text><text class="msg" x="640" y="1436" text-anchor="middle">npm stage publish</text>
+        </g>
+<g data-from="Sys" data-to="Npm">
+          <line class="arrow async" x1="550" y1="1482" x2="918" y2="1482"/>
+          <polygon class="arrow-head" points="926,1482 918,1478 918,1486"/>
+          <text class="msg" x="738" y="1462" text-anchor="middle">Upload em stage — ainda não</text><text class="msg" x="738" y="1474" text-anchor="middle">instalável</text>
+        </g>
+<g data-from="Op" data-to="Npm">
+          <line class="arrow" x1="354" y1="1520" x2="918" y2="1520"/>
+          <polygon class="arrow-head" points="926,1520 918,1516 918,1524"/>
+          <text class="msg" x="640" y="1512" text-anchor="middle">npm stage approve com 2FA humano</text>
+        </g>
+<g data-from="Npm" data-to="Op">
+          <line class="arrow async" x1="926" y1="1556" x2="362" y2="1556"/>
+          <polygon class="arrow-head" points="354,1556 362,1552 362,1560"/>
+          <text class="msg" x="640" y="1536" text-anchor="middle">Pacote fica instalável após</text><text class="msg" x="640" y="1548" text-anchor="middle">approve</text>
+        </g>
+<g>
+          <line class="hair" x1="64" y1="1612" x2="82" y2="1612"/>
+          <rect class="pill" x="82" y="1600" width="111" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Stage ausente" x="137.5" y="1616" text-anchor="middle">Stage ausente</text>
+        </g>
+<g data-from="Sys" data-to="Ag">
+          <line class="arrow" x1="534" y1="1642" x2="166" y2="1642"/>
+          <polygon class="arrow-head" points="158,1642 166,1638 166,1646"/>
+          <text class="msg" x="346" y="1610" text-anchor="middle">Recusa ship que implicaria</text><text class="msg" x="346" y="1622" text-anchor="middle">publish npm — publish direto é</text><text class="msg" x="346" y="1634" text-anchor="middle">proibido</text>
+        </g>
+<g data-from="Sys" data-to="Op">
+          <line class="arrow async" x1="534" y1="1694" x2="362" y2="1694"/>
+          <polygon class="arrow-head" points="354,1694 362,1690 362,1698"/>
+          <text class="msg" x="444" y="1662" text-anchor="middle">Oferece adopt/init do template</text><text class="msg" x="444" y="1674" text-anchor="middle">stage com</text><text class="msg" x="444" y="1686" text-anchor="middle">check+diff+consentimento</text>
+        </g>
+<g>
+          <line class="hair" x1="36" y1="1764" x2="54" y2="1764"/>
+          <rect class="pill" x="54" y="1752" width="76" height="24" rx="12"/>
+          <text class="pill-t" data-branch-label="Sem bump" x="92" y="1768" text-anchor="middle">Sem bump</text>
+        </g>
+<g data-from="Sys" data-to="Ag">
+          <line class="arrow" x1="534" y1="1794" x2="166" y2="1794"/>
+          <polygon class="arrow-head" points="158,1794 166,1790 166,1798"/>
+          <text class="msg" x="346" y="1774" text-anchor="middle">Recusa apply/ship quando kind é</text><text class="msg" x="346" y="1786" text-anchor="middle">none ou override sem evidência</text>
+        </g>
+    <g data-actor-id="Ag">
+        <rect class="actor-box" x="66" y="1856" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="1874" text-anchor="middle">Agente</text>
+      </g>
+<g data-actor-id="Op">
+        <rect class="actor-box" x="262" y="1856" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="1874" text-anchor="middle">Operador</text>
+      </g>
+<g data-actor-id="Sys">
+        <rect class="actor-box" x="458" y="1856" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="1874" text-anchor="middle">Atomic Skills</text>
+      </g>
+<g data-actor-id="Gh">
+        <rect class="actor-box" x="654" y="1856" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="738" y="1874" text-anchor="middle">GitHub</text>
+      </g>
+<g data-actor-id="Npm">
+        <rect class="actor-box" x="850" y="1856" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="934" y="1874" text-anchor="middle">npm registry</text>
+      </g>
+    <g data-actor-stick>
+    <rect class="actor-stick-bg" x="0" y="0" width="1060" height="42"/>
+    <line class="actor-stick-rule" x1="0" y1="41.5" x2="1060" y2="41.5"/>
+    <g data-actor-id="Ag">
+        <rect class="actor-box" x="66" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="150" y="26" text-anchor="middle">Agente</text>
+      </g>
+<g data-actor-id="Op">
+        <rect class="actor-box" x="262" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="346" y="26" text-anchor="middle">Operador</text>
+      </g>
+<g data-actor-id="Sys">
+        <rect class="actor-box" x="458" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="542" y="26" text-anchor="middle">Atomic Skills</text>
+      </g>
+<g data-actor-id="Gh">
+        <rect class="actor-box" x="654" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="738" y="26" text-anchor="middle">GitHub</text>
+      </g>
+<g data-actor-id="Npm">
+        <rect class="actor-box" x="850" y="8" width="168" height="26" rx="8"/>
+        <text class="actor-label" x="934" y="26" text-anchor="middle">npm registry</text>
+      </g>
+  </g>
+  </svg></div>
+    </section>
+        <section id="fl-bpm" class="fl-surface" role="tabpanel" data-surface="bpm" aria-labelledby="fl-bpm-title" hidden>
+      <h2 id="fl-bpm-title" class="fl-sr-only">Fluxo BPM</h2>
+      <div class="sheet"><svg class="diagram" id="bpm-svg" data-surface="bpm" width="1988" height="1064" viewBox="0 0 1988 1064" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de processo — Persistir e publicar sem atalho na default</title>
+    <path class="edge" d="M468 258 L468 314"/>
+<path class="edge" d="M332 524 L332 580"/>
+<path class="edge" d="M196 776 L196 834"/>
+<path class="edge" d="M282 643 L196 643 L196 720"/>
+<path class="edge" d="M468 790 L468 848"/>
+<path class="edge" d="M382 643 L468 643 L468 720"/>
+<path class="edge" d="M418 377 L332 377 L332 454"/>
+<path class="edge" d="M740 524 L740 582"/>
+<path class="edge" d="M518 377 L740 377 L740 454"/>
+<path class="edge" d="M962 109 L468 109 L468 188"/>
+<path class="edge" d="M1420 258 L1420 314"/>
+<path class="edge" d="M1284 510 L1284 566"/>
+<path class="edge" d="M1012 776 L1012 834"/>
+<path class="edge" d="M1234 629 L1012 629 L1012 706"/>
+<path class="edge" d="M1284 902 L1284 960"/>
+<path class="edge" d="M1370 769 L1284 769 L1284 846"/>
+<path class="edge" d="M1556 916 L1556 974"/>
+<path class="edge" d="M1470 769 L1556 769 L1556 846"/>
+<path class="edge" d="M1334 629 L1420 629 L1420 706"/>
+<path class="edge" d="M1370 377 L1284 377 L1284 454"/>
+<path class="edge" d="M1828 510 L1828 568"/>
+<path class="edge" d="M1470 377 L1828 377 L1828 454"/>
+<path class="edge" d="M1062 109 L1420 109 L1420 188"/>
+    <g data-node-id="QualPedido" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="1012,40 1112,86 1012,132 912,86"/>
+          <text class="xor-t" x="1012" y="66" text-anchor="middle" dominant-baseline="central">Persistir</text><text class="xor-t" x="1012" y="80" text-anchor="middle" dominant-baseline="central">trabalho ou</text><text class="xor-t" x="1012" y="94" text-anchor="middle" dominant-baseline="central">publicar</text><text class="who" x="1012" y="107" text-anchor="middle" dominant-baseline="central">Agente</text>
+        </g>
+<g data-node-id="DetectarDefault" data-node-type="activity" data-shape="rect" data-next="NaDefault">
+        <rect class="act" x="368" y="188" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="468" y="210" text-anchor="middle" dominant-baseline="central">Detectar a default</text><text class="act-t" x="468" y="224" text-anchor="middle" dominant-baseline="central">branch</text><text class="who" x="468" y="237" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="NaDefault" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="468,314 568,356 468,398 368,356"/>
+          <text class="xor-t" x="468" y="343" text-anchor="middle" dominant-baseline="central">A branch atual é</text><text class="xor-t" x="468" y="357" text-anchor="middle" dominant-baseline="central">a default?</text><text class="who" x="468" y="370" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+        </g>
+<g data-node-id="RecusarPush" data-node-type="activity" data-shape="rect" data-next="GhAuth">
+        <rect class="act" x="232" y="454" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="332" y="476" text-anchor="middle" dominant-baseline="central">Recusar push direto na</text><text class="act-t" x="332" y="490" text-anchor="middle" dominant-baseline="central">default</text><text class="who" x="332" y="503" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="GhAuth" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="332,580 432,622 332,664 232,622"/>
+          <text class="xor-t" x="332" y="609" text-anchor="middle" dominant-baseline="central">O gh está</text><text class="xor-t" x="332" y="623" text-anchor="middle" dominant-baseline="central">autenticado?</text><text class="who" x="332" y="636" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+        </g>
+<g data-node-id="AbrirPr" data-node-type="activity" data-shape="rect" data-next="FimPrAberta">
+        <rect class="act" x="96" y="720" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="196" y="742" text-anchor="middle" dominant-baseline="central">Abrir a PR</text><text class="who" x="196" y="755" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="FimPrAberta" data-node-type="end" data-shape="circle">
+          <circle class="end-ok" cx="196" cy="844" r="10"/>
+
+          <text class="end-t" x="196" y="868" text-anchor="middle">Fim · PR aberta</text>
+        </g>
+<g data-node-id="InstruirPr" data-node-type="activity" data-shape="rect" data-next="FimPrInstruida">
+        <rect class="act" x="368" y="720" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="468" y="742" text-anchor="middle" dominant-baseline="central">Instruir abertura da</text><text class="act-t" x="468" y="756" text-anchor="middle" dominant-baseline="central">PR</text><text class="who" x="468" y="769" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="FimPrInstruida" data-node-type="end" data-shape="circle">
+          <circle class="end-ok" cx="468" cy="858" r="10"/>
+
+          <text class="end-t" x="468" y="882" text-anchor="middle">Fim · PR instruída</text>
+        </g>
+<g data-node-id="PushBranch" data-node-type="activity" data-shape="rect" data-next="FimBranchEnviada">
+        <rect class="act" x="640" y="454" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="740" y="476" text-anchor="middle" dominant-baseline="central">Enviar a branch de</text><text class="act-t" x="740" y="490" text-anchor="middle" dominant-baseline="central">trabalho</text><text class="who" x="740" y="503" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="FimBranchEnviada" data-node-type="end" data-shape="circle">
+          <circle class="end-bad" cx="740" cy="592" r="10"/>
+          <circle class="end-hole" cx="740" cy="592" r="5"/>
+          <text class="end-t" x="740" y="616" text-anchor="middle">Fim · branch enviada</text>
+        </g>
+<g data-node-id="RodarChooser" data-node-type="activity" data-shape="rect" data-next="BumpOk">
+        <rect class="act" x="1320" y="188" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="1420" y="210" text-anchor="middle" dominant-baseline="central">Rodar o chooser</text><text class="act-t" x="1420" y="224" text-anchor="middle" dominant-baseline="central">determinístico</text><text class="who" x="1420" y="237" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="BumpOk" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="1420,314 1520,356 1420,398 1320,356"/>
+          <text class="xor-t" x="1420" y="343" text-anchor="middle" dominant-baseline="central">Há bump com</text><text class="xor-t" x="1420" y="357" text-anchor="middle" dominant-baseline="central">evidência?</text><text class="who" x="1420" y="370" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+        </g>
+<g data-node-id="AplicarVersao" data-node-type="activity" data-shape="rect" data-next="NpmEscopo">
+        <rect class="act" x="1184" y="454" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1284" y="476" text-anchor="middle" dominant-baseline="central">Aplicar versão e notes</text><text class="who" x="1284" y="489" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="NpmEscopo" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="1284,566 1384,608 1284,650 1184,608"/>
+          <text class="xor-t" x="1284" y="595" text-anchor="middle" dominant-baseline="central">Há npm no</text><text class="xor-t" x="1284" y="609" text-anchor="middle" dominant-baseline="central">escopo?</text><text class="who" x="1284" y="622" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+        </g>
+<g data-node-id="GhReleaseOnly" data-node-type="activity" data-shape="rect" data-next="FimGhRelease">
+        <rect class="act" x="912" y="706" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="1012" y="728" text-anchor="middle" dominant-baseline="central">Publicar só GitHub</text><text class="act-t" x="1012" y="742" text-anchor="middle" dominant-baseline="central">Release</text><text class="who" x="1012" y="755" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="FimGhRelease" data-node-type="end" data-shape="circle">
+          <circle class="end-bad" cx="1012" cy="844" r="10"/>
+          <circle class="end-hole" cx="1012" cy="844" r="5"/>
+          <text class="end-t" x="1012" y="868" text-anchor="middle">Fim · GitHub Release</text>
+        </g>
+<g data-node-id="StageOk" data-node-type="xor" data-shape="diamond">
+          <polygon class="diamond" points="1420,706 1520,748 1420,790 1320,748"/>
+          <text class="xor-t" x="1420" y="735" text-anchor="middle" dominant-baseline="central">Action stage</text><text class="xor-t" x="1420" y="749" text-anchor="middle" dominant-baseline="central">adotada?</text><text class="who" x="1420" y="762" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+        </g>
+<g data-node-id="ShipComStage" data-node-type="activity" data-shape="rect" data-next="FimNpmAprovado">
+        <rect class="act" x="1184" y="846" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1284" y="868" text-anchor="middle" dominant-baseline="central">Ship com stage + 2FA</text><text class="who" x="1284" y="881" text-anchor="middle" dominant-baseline="central">Operador + Atomic Skills</text>
+      </g>
+<g data-node-id="FimNpmAprovado" data-node-type="end" data-shape="circle">
+          <circle class="end-ok" cx="1284" cy="970" r="10"/>
+
+          <text class="end-t" x="1284" y="994" text-anchor="middle">Fim · npm aprovado</text>
+        </g>
+<g data-node-id="RecusarShipNpm" data-node-type="activity" data-shape="rect" data-next="FimAdoptOferecido">
+        <rect class="act" x="1456" y="846" width="200" height="70" rx="8"/>
+
+        <text class="act-t" x="1556" y="868" text-anchor="middle" dominant-baseline="central">Recusar ship npm e</text><text class="act-t" x="1556" y="882" text-anchor="middle" dominant-baseline="central">oferecer adopt</text><text class="who" x="1556" y="895" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="FimAdoptOferecido" data-node-type="end" data-shape="circle">
+          <circle class="end-ok" cx="1556" cy="984" r="10"/>
+
+          <text class="end-t" x="1556" y="1008" text-anchor="middle">Fim · adopt oferecido</text>
+        </g>
+<g data-node-id="RecusarBump" data-node-type="activity" data-shape="rect" data-next="FimBumpRecusado">
+        <rect class="act" x="1728" y="454" width="200" height="56" rx="8"/>
+
+        <text class="act-t" x="1828" y="476" text-anchor="middle" dominant-baseline="central">Recusar inventar bump</text><text class="who" x="1828" y="489" text-anchor="middle" dominant-baseline="central">Atomic Skills</text>
+      </g>
+<g data-node-id="FimBumpRecusado" data-node-type="end" data-shape="circle">
+          <circle class="end-bad" cx="1828" cy="578" r="10"/>
+          <circle class="end-hole" cx="1828" cy="578" r="5"/>
+          <text class="end-t" x="1828" y="602" text-anchor="middle">Fim · bump recusado</text>
+        </g>
+    <polygon class="edge-head" points="468,314 471.6,306 464.4,306"/>
+<polygon class="edge-head" points="332,580 335.6,572 328.4,572"/>
+<polygon class="edge-head" points="196,834 199.6,826 192.4,826"/>
+<polygon class="edge-head" points="196,720 199.6,712 192.4,712"/>
+<polygon class="edge-head" points="468,848 471.6,840 464.4,840"/>
+<polygon class="edge-head" points="468,720 471.6,712 464.4,712"/>
+<polygon class="edge-head" points="332,454 335.6,446 328.4,446"/>
+<polygon class="edge-head" points="740,582 743.6,574 736.4,574"/>
+<polygon class="edge-head" points="740,454 743.6,446 736.4,446"/>
+<polygon class="edge-head" points="468,188 471.6,180 464.4,180"/>
+<polygon class="edge-head" points="1420,314 1423.6,306 1416.4,306"/>
+<polygon class="edge-head" points="1284,566 1287.6,558 1280.4,558"/>
+<polygon class="edge-head" points="1012,834 1015.6,826 1008.4,826"/>
+<polygon class="edge-head" points="1012,706 1015.6,698 1008.4,698"/>
+<polygon class="edge-head" points="1284,960 1287.6,952 1280.4,952"/>
+<polygon class="edge-head" points="1284,846 1287.6,838 1280.4,838"/>
+<polygon class="edge-head" points="1556,974 1559.6,966 1552.4,966"/>
+<polygon class="edge-head" points="1556,846 1559.6,838 1552.4,838"/>
+<polygon class="edge-head" points="1420,706 1423.6,698 1416.4,698"/>
+<polygon class="edge-head" points="1284,454 1287.6,446 1280.4,446"/>
+<polygon class="edge-head" points="1828,568 1831.6,560 1824.4,560"/>
+<polygon class="edge-head" points="1828,454 1831.6,446 1824.4,446"/>
+<polygon class="edge-head" points="1420,188 1423.6,180 1416.4,180"/>
+
+
+
+<text class="edge-t" x="239" y="635" text-anchor="middle">gh autenticado</text>
+
+<text class="edge-t" x="425" y="635" text-anchor="middle">gh ausente</text>
+<text class="edge-t" x="375" y="369" text-anchor="middle">Na default</text>
+
+<text class="edge-t" x="629" y="369" text-anchor="middle">Fora da default</text>
+<text class="edge-t" x="715" y="101" text-anchor="middle">Persistir</text>
+
+
+
+<text class="edge-t" x="1123" y="621" text-anchor="middle">Sem npm</text>
+
+<text class="edge-t" x="1327" y="761" text-anchor="middle">Stage OK</text>
+
+<text class="edge-t" x="1513" y="761" text-anchor="middle">Stage ausente</text>
+<text class="edge-t" x="1377" y="621" text-anchor="middle">Com npm</text>
+<text class="edge-t" x="1327" y="369" text-anchor="middle">Com bump</text>
+
+<text class="edge-t" x="1649" y="369" text-anchor="middle">Sem bump</text>
+<text class="edge-t" x="1241" y="101" text-anchor="middle">Publicar</text>
+  </svg></div>
+    </section>
+        <section id="fl-machines" class="fl-surface" role="tabpanel" data-surface="machines" aria-labelledby="fl-machines-title" hidden>
+      <h2 id="fl-machines-title" class="fl-sr-only">Máquinas</h2>
+      <div class="sheet"><svg class="diagram" id="mach-svg" data-surface="machines" width="1192" height="840" viewBox="0 0 1192 840" xmlns="http://www.w3.org/2000/svg" role="img">
+    <title>Diagrama de estados — Estado da entrega</title>
+    <g transform="translate(16 16)">
+    <g data-machine-id="entrega">
+      <text class="mach-title" x="16" y="16">Estado da entrega</text>
+      <text class="mach-legend" x="16" y="30">Laço = permanece no estado · pastilha = o que o sistema faz</text>
+      <path class="edge" d="M240 228 L532 228"/>
+<path class="edge" d="M700 228 L992 228"/>
+<path class="edge" d="M700 228 L992 416"/>
+<path class="edge" d="M240 228 L532 416"/>
+<path class="edge" d="M700 416 L992 604"/>
+<path class="edge" d="M240 228 L532 604"/>
+<path class="edge" d="M700 604 L992 792"/>
+<path class="edge" d="M156 244 L156 400"/>
+<path class="edge" d="M156 244 L156 588"/>
+<path class="edge" d="M156 244 L156 776"/>
+      <g data-state-id="iniciado">
+        <rect class="st entry" x="72" y="212" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="156" y="228" text-anchor="middle" dominant-baseline="central">Iniciado</text>
+      </g>
+<g data-state-id="recusado_push">
+        <rect class="st" x="532" y="212" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="616" y="228" text-anchor="middle" dominant-baseline="central">Push na default recusado</text>
+      </g>
+<g data-state-id="pr_aberta">
+        <rect class="st term" x="992" y="212" width="168" height="32" rx="16"/>
+        <rect class="st term" x="995" y="215" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1076" y="228" text-anchor="middle" dominant-baseline="central">PR aberta</text>
+      </g>
+<g data-state-id="pr_instruida">
+        <rect class="st term" x="992" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="995" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1076" y="416" text-anchor="middle" dominant-baseline="central">PR instruída</text>
+      </g>
+<g data-state-id="branch_enviada">
+        <rect class="st term" x="72" y="400" width="168" height="32" rx="16"/>
+        <rect class="st term" x="75" y="403" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="156" y="416" text-anchor="middle" dominant-baseline="central">Branch enviada</text>
+      </g>
+<g data-state-id="bump_recusado">
+        <rect class="st term" x="72" y="588" width="168" height="32" rx="16"/>
+        <rect class="st term" x="75" y="591" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="156" y="604" text-anchor="middle" dominant-baseline="central">Bump inventado recusado</text>
+      </g>
+<g data-state-id="gh_release">
+        <rect class="st term" x="72" y="776" width="168" height="32" rx="16"/>
+        <rect class="st term" x="75" y="779" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="156" y="792" text-anchor="middle" dominant-baseline="central">GitHub Release</text>
+      </g>
+<g data-state-id="npm_stage_pendente">
+        <rect class="st" x="532" y="400" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="616" y="416" text-anchor="middle" dominant-baseline="central">npm em stage</text>
+      </g>
+<g data-state-id="npm_aprovado">
+        <rect class="st term" x="992" y="588" width="168" height="32" rx="16"/>
+        <rect class="st term" x="995" y="591" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1076" y="604" text-anchor="middle" dominant-baseline="central">npm aprovado (2FA)</text>
+      </g>
+<g data-state-id="ship_recusado">
+        <rect class="st" x="532" y="588" width="168" height="32" rx="16"/>
+
+        <text class="st-t" x="616" y="604" text-anchor="middle" dominant-baseline="central">Ship npm recusado</text>
+      </g>
+<g data-state-id="adopt_oferecido">
+        <rect class="st term" x="992" y="776" width="168" height="32" rx="16"/>
+        <rect class="st term" x="995" y="779" width="162" height="26" rx="13" fill="none"/>
+        <text class="st-t" x="1076" y="792" text-anchor="middle" dominant-baseline="central">Adopt stage oferecido</text>
+      </g>
+      <polygon class="edge-head" points="532,228 524,224.4 524,231.6"/>
+<polygon class="edge-head" points="992,228 984,224.4 984,231.6"/>
+<polygon class="edge-head" points="992,416 987.2223901529783,408.64238869267734 983.3247450897379,414.696177833455"/>
+<polygon class="edge-head" points="532,416 527.2223901529783,408.64238869267734 523.3247450897379,414.696177833455"/>
+<polygon class="edge-head" points="992,604 987.2223901529783,596.6423886926773 983.3247450897379,602.6961778334551"/>
+<polygon class="edge-head" points="532,604 529.9364258778928,595.4734730492087 524.2498339974281,599.8896561053143"/>
+<polygon class="edge-head" points="992,792 987.2223901529783,784.6423886926773 983.3247450897379,790.6961778334551"/>
+<polygon class="edge-head" points="156,400 159.6,392 152.4,392"/>
+<polygon class="edge-head" points="156,588 159.6,580 152.4,580"/>
+<polygon class="edge-head" points="156,776 159.6,768 152.4,768"/>
+      <g data-transition-id="T_recusa_push" data-from="iniciado" data-to="recusado_push"><rect class="edge-cap" x="247.5" y="156" width="277" height="46" rx="6"/><text class="edge-title" x="255.5" y="169" dominant-baseline="central">Está na default — recusa push direto</text><rect class="fx-pill" x="255.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="275.5" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="301.5" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Ag">Informa recusa sem ask de push direto</text></g>
+<g data-transition-id="T_pr_aberta" data-from="recusado_push" data-to="pr_aberta"><rect class="edge-cap" x="765.5" y="156" width="161" height="46" rx="6"/><text class="edge-title" x="773.5" y="169" dominant-baseline="central">Abre a PR com gh</text><rect class="fx-pill" x="773.5" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="793.5" y="187" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="819.5" y="187" dominant-baseline="central" data-effect-kind="write" data-effect-target="pull_request">Cria PR no GitHub</text></g>
+<g data-transition-id="T_pr_instruida" data-from="recusado_push" data-to="pr_instruida"><rect class="edge-cap" x="742" y="156" width="208" height="46" rx="6"/><text class="edge-title" x="750" y="169" dominant-baseline="central">Instrui abrir a PR manualmente</text><rect class="fx-pill" x="750" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="770" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="796" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Op">Entrega comando/URL da PR</text></g>
+<g data-transition-id="T_stage" data-from="iniciado" data-to="npm_stage_pendente"><rect class="edge-cap" x="263" y="156" width="246" height="46" rx="6"/><text class="edge-title" x="271" y="169" dominant-baseline="central">Npm no escopo com stage — sobe stage</text><rect class="fx-pill" x="271" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="291" y="187" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="317" y="187" dominant-baseline="central" data-effect-kind="write" data-effect-target="npm_stage">npm stage publish via Action</text></g>
+<g data-transition-id="T_approve" data-from="npm_stage_pendente" data-to="npm_aprovado"><rect class="edge-cap" x="751" y="344" width="190" height="46" rx="6"/><text class="edge-title" x="759" y="357" dominant-baseline="central">Humano aprova stage com 2FA</text><rect class="fx-pill" x="759" y="368" width="40" height="14" rx="7"/><text class="fx-pill-t" x="779" y="375" text-anchor="middle" dominant-baseline="central">other</text><text class="fx" x="805" y="375" dominant-baseline="central" data-effect-kind="other" data-effect-target="npm_registry">Pacote fica instalável</text></g>
+<g data-transition-id="T_ship_recusado" data-from="iniciado" data-to="ship_recusado"><rect class="edge-cap" x="279" y="156" width="214" height="46" rx="6"/><text class="edge-title" x="287" y="169" dominant-baseline="central">Npm sem stage — recusa ship npm</text><rect class="fx-pill" x="287" y="180" width="40" height="14" rx="7"/><text class="fx-pill-t" x="307" y="187" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="333" y="187" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Ag">Bloqueia publish direto</text></g>
+<g data-transition-id="T_adopt" data-from="ship_recusado" data-to="adopt_oferecido"><rect class="edge-cap" x="701.5" y="532" width="289" height="46" rx="6"/><text class="edge-title" x="709.5" y="545" dominant-baseline="central">Oferece materializar template stage</text><rect class="fx-pill" x="709.5" y="556" width="40" height="14" rx="7"/><text class="fx-pill-t" x="729.5" y="563" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="755.5" y="563" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Op">Adopt/init com check+diff+consentimento</text></g>
+<g data-transition-id="T_push_branch" data-from="iniciado" data-to="branch_enviada"><rect class="edge-cap" x="168" y="299" width="221" height="46" rx="6"/><text class="edge-title" x="176" y="312" dominant-baseline="central">Fora da default — envia a branch</text><rect class="fx-pill" x="176" y="323" width="40" height="14" rx="7"/><text class="fx-pill-t" x="196" y="330" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="222" y="330" dominant-baseline="central" data-effect-kind="write" data-effect-target="remote">Push da branch de trabalho</text></g>
+<g data-transition-id="T_bump_recusado" data-from="iniciado" data-to="bump_recusado"><rect class="edge-cap" x="168" y="386" width="208" height="60" rx="6"/><text class="edge-title" x="176" y="399" dominant-baseline="central">Chooser sem evidência — recusa</text><text class="edge-title" x="176" y="413" dominant-baseline="central">inventar</text><rect class="fx-pill" x="176" y="424" width="40" height="14" rx="7"/><text class="fx-pill-t" x="196" y="431" text-anchor="middle" dominant-baseline="central">Avisa</text><text class="fx" x="222" y="431" dominant-baseline="central" data-effect-kind="notify" data-effect-target="Ag">Bloqueia apply/ship</text></g>
+<g data-transition-id="T_gh_only" data-from="iniciado" data-to="gh_release"><rect class="edge-cap" x="168" y="487" width="189" height="46" rx="6"/><text class="edge-title" x="176" y="500" dominant-baseline="central">Sem npm — só GitHub Release</text><rect class="fx-pill" x="176" y="511" width="40" height="14" rx="7"/><text class="fx-pill-t" x="196" y="518" text-anchor="middle" dominant-baseline="central">Grava</text><text class="fx" x="222" y="518" dominant-baseline="central" data-effect-kind="write" data-effect-target="github_release">Cria tag e Release</text></g>
+    </g>
+    </g>
+  </svg></div>
+    </section>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+var MIN=0.3,MAX=2.8,PREFIX="as-flow-zoom:";
+var PDF_DIAGRAM_STYLE="svg{--bg-sunken:#e8edf4;--bg-canvas:#f4f6fa;--bg-surface:#ffffff;--bg-elevated:#eef2f7;--border-subtle:#e8edf3;--border-default:#d5dce6;--fg-default:#12161d;--fg-muted:#4a5565;--fg-subtle:#6b7585;--fg-faint:#98a1ad;--status-success:#4cc28e;--status-warning:#e0a44a;--status-error:#ff5c5c;--status-info:#5fb1ff;--status-success-line:#9bd1c1;--status-warning-line:#dac4a4;--status-error-line:#e99fa4;--status-info-line:#a3caf0;--font-sans:\"Inter\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;--font-mono:\"JetBrains Mono\", ui-monospace, \"SF Mono\", \"Menlo\", \"Consolas\", monospace}svg.diagram{display:block;max-width:none;font-family:var(--font-sans);shape-rendering:geometricPrecision;text-rendering:geometricPrecision}\nsvg.diagram text{fill:var(--fg-default)}\n.actor-box{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1}\n.actor-label{fill:var(--fg-default);font-size:11px;font-weight:600}\n.actor-stick-bg{fill:var(--bg-surface)}\n.actor-stick-rule{stroke:var(--border-default);stroke-width:1}\n.lifeline{stroke:var(--fg-faint);stroke-width:1;stroke-dasharray:3 5;pointer-events:none}\n.life-hit{stroke:transparent;stroke-width:20;fill:none}\n.arrow{stroke:var(--fg-muted);stroke-width:1.25;fill:none}\n.arrow.async{stroke-dasharray:5 4}\n.arrow-head{fill:var(--fg-muted)}\n.msg{fill:var(--fg-default);font-size:12px}\n.xor-wash{fill:color-mix(in srgb,var(--bg-elevated) 18%,transparent);stroke:none}\n.xor-rail{stroke:var(--status-warning-line);stroke-width:2;fill:none}\n.xor-q{fill:var(--status-warning);font-size:12px;font-weight:600}\n.hair{stroke:var(--border-subtle);stroke-width:1}\n.pill{fill:var(--bg-sunken);stroke:var(--status-warning-line);stroke-width:1}\n.pill-t{fill:var(--status-warning);font-size:11px;font-weight:600}\n.loop-arc{fill:none;stroke:var(--status-warning);stroke-width:1.25;stroke-dasharray:4 3}\n.loop-head{fill:var(--status-warning)}\n.act{fill:var(--bg-elevated);stroke:var(--border-default);stroke-width:1.25}\n.act-t{fill:var(--fg-default);font-size:12px;font-weight:500}\n.who{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-mono)}\n.diamond{fill:color-mix(in srgb,var(--status-warning) 10%,var(--bg-surface));stroke:var(--status-warning-line);stroke-width:1.25}\n.xor-t{fill:var(--fg-default);font-size:12px;font-weight:600}\n.bar{fill:var(--fg-muted)}\n.evt{fill:var(--bg-canvas);stroke:var(--status-error-line);stroke-width:1.5}\n.sub-mark{fill:none;stroke:var(--border-default);stroke-width:1}\n.edge{stroke:var(--fg-faint);stroke-width:1.15;fill:none}\n.edge.back{stroke:var(--status-warning);stroke-dasharray:4 3}\n.edge-head{fill:var(--fg-muted)}\n.edge-head.back{fill:var(--status-warning)}\n.edge-t{fill:var(--fg-muted);font-size:11px}\n.end-ok{fill:var(--status-success);stroke:var(--status-success);stroke-width:1.5}\n.end-bad{fill:var(--status-error);stroke:var(--status-error);stroke-width:1.5}\n.end-t{fill:var(--fg-muted);font-size:11px}\n.end-hole{fill:var(--bg-canvas)}\n.st{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1.15}\n.st.entry{stroke:var(--status-info);stroke-width:1.75}\n.st.term{stroke:var(--status-success);stroke-width:1.75}\n.st-t{fill:var(--fg-default);font-size:12px;font-weight:500}\n.mach-title{fill:var(--fg-muted);font-size:12px;font-weight:600}\n.mach-legend{fill:var(--fg-subtle);font-size:10px}\n.edge-cap{fill:var(--bg-surface);stroke:var(--border-default);stroke-width:1}\n.edge-title{fill:var(--fg-default);font-size:11px;font-weight:600}\n.fx{fill:var(--fg-subtle);font-size:10px;font-family:var(--font-sans)}\n.fx-pill{fill:var(--bg-sunken);stroke:var(--border-default);stroke-width:1}\n.fx-pill-t{fill:var(--fg-muted);font-size:9px;font-weight:600}\n.xor-wash{fill:rgba(238,242,247,0.18);stroke:none}\n.diamond{fill:#fcf6ed;stroke:var(--status-warning-line);stroke-width:1.25}\n";
+var slug=document.documentElement.getAttribute("data-fl-slug")||"default";
+var key=PREFIX+slug;
+var viewport=document.getElementById("fl-viewport");
+var sizer=document.getElementById("fl-sizer");
+var stage=document.getElementById("fl-stage");
+var lab=document.getElementById("z-lab");
+var scale=1;
+function readZoom(){
+  try{
+    var n=parseFloat(localStorage.getItem(key));
+    if(Number.isFinite(n)) return Math.min(MAX,Math.max(MIN,n));
+  }catch(e){}
+  return 1;
+}
+function saveZoom(){try{localStorage.setItem(key,String(scale))}catch(e){}}
+function visiblePanel(){return document.querySelector(".fl-surface:not([hidden])")}
+function visibleSvg(){
+  var p=visiblePanel();
+  return p?p.querySelector("svg"):null;
+}
+function svgNative(svg){
+  if(!svg) return {w:0,h:0};
+  if(!svg.dataset.nw){
+    var vb=svg.viewBox&&svg.viewBox.baseVal;
+    svg.dataset.nw=String((vb&&vb.width)||0);
+    svg.dataset.nh=String((vb&&vb.height)||0);
+  }
+  return {w:+svg.dataset.nw,h:+svg.dataset.nh};
+}
+function applySvgScale(){
+  var svg=visibleSvg();
+  if(!svg) return;
+  var n=svgNative(svg);
+  svg.setAttribute("width",String(n.w*scale));
+  svg.setAttribute("height",String(n.h*scale));
+}
+function applyStageGeometry(){
+  applySvgScale();
+  var sheet=document.querySelector(".fl-surface:not([hidden]) .sheet");
+  if(!sheet||!viewport||!sizer||!stage) return null;
+  var w=sheet.offsetWidth,h=sheet.offsetHeight,pad=40;
+  var contentW=w+pad*2,contentH=h+pad*2;
+  sizer.style.width=Math.max(viewport.clientWidth,Math.ceil(contentW))+"px";
+  sizer.style.height=Math.max(viewport.clientHeight,Math.ceil(contentH))+"px";
+  var sizerW=Math.max(viewport.clientWidth,Math.ceil(contentW));
+  stage.style.left=Math.max(0,(sizerW-contentW)/2)+"px";
+  stage.style.top="0px";
+  if(lab) lab.textContent=Math.round(scale*100)+"%";
+  return {contentW:contentW};
+}
+function setScale(next){
+  scale=Math.min(MAX,Math.max(MIN,next));
+  applyStageGeometry();
+  saveZoom();
+}
+function selectTab(name){
+  var tabs=document.querySelectorAll('[role="tab"][data-tab]');
+  var i=0;
+  for(;i<tabs.length;i++){
+    var t=tabs[i];
+    var on=t.getAttribute("data-tab")===name;
+    t.setAttribute("aria-selected",on?"true":"false");
+    var panel=document.getElementById(t.getAttribute("aria-controls"));
+    if(!panel) continue;
+    if(on) panel.removeAttribute("hidden");
+    else panel.setAttribute("hidden","");
+  }
+  applyStageGeometry();
+}
+var toc=document.querySelector(".fl-toc");
+if(toc) toc.addEventListener("click",function(e){
+  var t=e.target.closest("[data-tab]");
+  if(!t||t.hidden) return;
+  selectTab(t.getAttribute("data-tab"));
+});
+function pdfFilename(slug){
+  var s=String(slug||"").trim().replace(/[^a-zA-Z0-9._-]+/g,"-").replace(/^-+|-+$/g,"");
+  return s?s+"-fluxo.pdf":"fluxo.pdf";
+}
+function enc(s){return new TextEncoder().encode(s)}
+function concat(chunks){
+  var n=0,i=0;
+  for(;i<chunks.length;i++) n+=chunks[i].length;
+  var out=new Uint8Array(n),o=0;
+  for(i=0;i<chunks.length;i++){out.set(chunks[i],o);o+=chunks[i].length}
+  return out;
+}
+function buildFlowPdf(input){
+  var list=Array.isArray(input&&input.pages)?input.pages:[];
+  if(!list.length) throw new Error("buildFlowPdf: pages required");
+  var header=enc("%PDF-1.4\n%\x80\x80\x80\x80\n");
+  var bodyParts=[],offsets=[0],pos=header.length;
+  function pushObj(num,payload){
+    var start=enc(num+" 0 obj\n"),end=enc("\nendobj\n");
+    offsets[num]=pos;
+    var chunk=concat([start,payload,end]);
+    bodyParts.push(chunk);
+    pos+=chunk.length;
+  }
+  var n=list.length,kids=list.map(function(_,i){return (3+i*3)+" 0 R"}).join(" ");
+  pushObj(1,enc("<< /Type /Catalog /Pages 2 0 R >>"));
+  pushObj(2,enc("<< /Type /Pages /Kids [ "+kids+" ] /Count "+n+" >>"));
+  list.forEach(function(p,i){
+    var pageNo=3+i*3,contentNo=pageNo+1,imageNo=pageNo+2;
+    var ptW=Number(p.ptWidth)||Number(p.width)||595;
+    var ptH=Number(p.ptHeight)||Number(p.height)||842;
+    var raw=p.jpeg;
+    var jpeg=raw instanceof Uint8Array?raw:new Uint8Array(raw);
+    var pxW=Math.max(1,Number(p.width)||1),pxH=Math.max(1,Number(p.height)||1);
+    var content="q "+ptW+" 0 0 "+ptH+" 0 0 cm /Im0 Do Q";
+    pushObj(pageNo,enc("<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 "+ptW+" "+ptH+" ] /Resources << /XObject << /Im0 "+imageNo+" 0 R >> >> /Contents "+contentNo+" 0 R >>"));
+    pushObj(contentNo,enc("<< /Length "+content.length+" >>\nstream\n"+content+"\nendstream"));
+    pushObj(imageNo,concat([enc("<< /Type /XObject /Subtype /Image /Width "+pxW+" /Height "+pxH+" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "+jpeg.length+" >>\nstream\n"),jpeg,enc("\nendstream")]));
+  });
+  var xrefStart=pos,maxObj=2+n*3,xref="xref\n0 "+(maxObj+1)+"\n0000000000 65535 f \n",i;
+  for(i=1;i<=maxObj;i++) xref+=String(offsets[i]).padStart(10,"0")+" 00000 n \n";
+  return concat([header].concat(bodyParts).concat([enc(xref),enc("trailer\n<< /Size "+(maxObj+1)+" /Root 1 0 R >>\nstartxref\n"+xrefStart+"\n%%EOF\n")]));
+}
+function svgForPdf(svg){
+  var clone=svg.cloneNode(true);
+  clone.removeAttribute("id");
+  var style=document.createElementNS("http://www.w3.org/2000/svg","style");
+  style.setAttribute("data-fl-pdf","1");
+  style.textContent=PDF_DIAGRAM_STYLE;
+  clone.insertBefore(style,clone.firstChild);
+  return clone;
+}
+function svgToJpeg(svg){
+  return new Promise(function(resolve,reject){
+    var vb=svg.viewBox&&svg.viewBox.baseVal;
+    var w=(vb&&vb.width)||svg.width.baseVal.value||1;
+    var h=(vb&&vb.height)||svg.height.baseVal.value||1;
+    var xml=new XMLSerializer().serializeToString(svgForPdf(svg));
+    if(xml.indexOf('xmlns="http://www.w3.org/2000/svg"')<0){
+      xml=xml.replace(/^<svg/,'<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    var blob=new Blob([xml],{type:"image/svg+xml;charset=utf-8"});
+    var url=URL.createObjectURL(blob);
+    var img=new Image();
+    img.onload=function(){
+      URL.revokeObjectURL(url);
+      var canvas=document.createElement("canvas");
+      canvas.width=Math.max(1,Math.round(w*2));
+      canvas.height=Math.max(1,Math.round(h*2));
+      var ctx=canvas.getContext("2d");
+      ctx.fillStyle="#ffffff";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      canvas.toBlob(function(b){
+        if(!b){reject(new Error("jpeg"));return}
+        b.arrayBuffer().then(function(buf){
+          resolve({jpeg:new Uint8Array(buf),width:canvas.width,height:canvas.height,ptWidth:539,ptHeight:539*(canvas.height/canvas.width)});
+        }).catch(reject);
+      },"image/jpeg",0.92);
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);reject(new Error("svg"))};
+    img.src=url;
+  });
+}
+async function downloadPdf(btn){
+  if(btn.disabled) return;
+  btn.disabled=true;
+  var prev=btn.textContent;
+  btn.textContent="PDF…";
+  try{
+    var ids=["seq-svg","bpm-svg","mach-svg"],pages=[],i;
+    for(i=0;i<ids.length;i++){
+      var svg=document.getElementById(ids[i]);
+      if(svg) pages.push(await svgToJpeg(svg));
+    }
+    if(!pages.length) throw new Error("Nenhum diagrama para exportar");
+    var bytes=buildFlowPdf({pages:pages});
+    var url=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));
+    var name=btn.getAttribute("data-pdf-name")||pdfFilename(document.documentElement.getAttribute("data-fl-slug")||"");
+    var a=document.createElement("a");
+    a.href=url;a.download=name;a.click();
+    setTimeout(function(){URL.revokeObjectURL(url)},60000);
+  }catch(err){
+    var hint=document.getElementById("fl-hint");
+    if(hint) hint.appendChild(document.createTextNode(" "+((err&&err.message)||"Falha ao gerar PDF")));
+  }finally{
+    btn.disabled=false;
+    btn.textContent=prev||"PDF";
+  }
+}
+var bar=document.querySelector(".fl-toolbar");
+if(bar) bar.addEventListener("click",function(e){
+  var pdf=e.target.closest("[data-action=pdf]");
+  if(pdf){downloadPdf(pdf);return}
+  var b=e.target.closest("[data-zoom]");
+  if(!b) return;
+  var a=b.getAttribute("data-zoom");
+  if(a==="in") setScale(scale+0.1);
+  else if(a==="out") setScale(scale-0.1);
+  else if(a==="height"||a==="width"){
+    var n=svgNative(visibleSvg());
+    if(!n.w||!n.h||!viewport) return;
+    var fitX=(viewport.clientWidth-24)/(n.w+80);
+    var fitY=(viewport.clientHeight-24)/(n.h+80);
+    setScale(a==="height"?fitY:fitX);
+  } else {
+    setScale(1);
+  }
+});
+if(viewport){
+  var panning=false,px=0,py=0,sx=0,sy=0;
+  viewport.addEventListener("pointerdown",function(e){
+    if(e.button!==0) return;
+    panning=true;px=e.clientX;py=e.clientY;sx=viewport.scrollLeft;sy=viewport.scrollTop;
+    viewport.classList.add("is-panning");
+    viewport.setPointerCapture(e.pointerId);
+  });
+  viewport.addEventListener("pointermove",function(e){
+    if(!panning) return;
+    viewport.scrollLeft=sx-(e.clientX-px);
+    viewport.scrollTop=sy-(e.clientY-py);
+  });
+  function endPan(){panning=false;viewport.classList.remove("is-panning")}
+  viewport.addEventListener("pointerup",endPan);
+  viewport.addEventListener("pointercancel",endPan);
+  viewport.addEventListener("wheel",function(e){
+    if(!e.ctrlKey) return;
+    e.preventDefault();
+    setScale(scale+(e.deltaY<0?0.1:-0.1));
+  },{passive:false});
+}
+scale=readZoom();
+applyStageGeometry();
+window.addEventListener("resize",applyStageGeometry);
+})();
+</script>
+</body>
+</html>

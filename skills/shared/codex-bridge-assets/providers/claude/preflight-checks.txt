@@ -69,6 +69,31 @@ Run: `git rev-parse --is-inside-work-tree`
 If exit != 0 AND user did NOT pass `--skip-git-check`: ABORT with message:
 > "Not inside a git repository. Re-invoke with `--skip-git-check` if intentional."
 
+## 6. Session / usage capacity (optional probe — skip unless env set)
+
+Claude **session limits** often exit **0** with a stdout banner (not a review).
+A full envelope on a limited account wastes operator time on briefing curation.
+
+Only when `ATOMIC_SKILLS_CLAUDE_CAPACITY_PROBE=1` (opt-in; costs one tiny call):
+
+```bash
+PROBE_OUT=$(mktemp)
+PROBE_ERR=$(mktemp)
+echo 'reply with only: pong' | claude \
+  --safe-mode -p --tools "" --permission-mode dontAsk \
+  --no-session-persistence --disable-slash-commands \
+  --output-format text --effort low \
+  >"$PROBE_OUT" 2>"$PROBE_ERR" || true
+# classifyProviderLimitFailure({ stdout: PROBE_OUT, stderr: PROBE_ERR, exitCode })
+```
+
+If classified as `session-limit` / `usage-limit` / `rate-limit` / `auth`:
+**ABORT** before briefing with the classifier message + alternatives
+(`--mode=codex`, wait until reset). Do **not** start Pass 1.
+
+Default (env unset): skip the probe; still run the **post-invoke** classifier in
+`invocation-canonical.txt` after every Pass so exit-0 banners never become findings.
+
 ## All checks passed
 
 Proceed to briefing curation.

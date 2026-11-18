@@ -1,0 +1,35 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "real-automate-f1-cartao-de-bloco",
+  "title": "Cartão de bloco",
+  "goal": "o detector de arquitetura existe e recusa um plano sem os dois esboços e sem a escolha carimbada de qual esboço vale. “Nada fora” é uma opção do cartão, não a resposta automática. O protótipo cita essa escolha. `scripts/find-missing-design-process.js` e o `userApproved` do recibo design-gates não são este cartão. O cartão é `architecture/decisions.json`, lido por `scripts/find-missing-architecture.js`, que esta fase cria.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Formato do cartão",
+      "description": "`architecture/decisions.json` no diretório do plano guarda o delimitador, a lista do que ficou fora, a linha da mistura, o segundo esboço, e qual esboço foi escolhido. Chat “ok” não carimba. Verifier: `node scripts/find-missing-architecture.js --strict` num fixture sem carimbo sai 1."
+    },
+    {
+      "id": "T-002",
+      "title": "Detector",
+      "description": "`scripts/find-missing-architecture.js` sai 0 só com sha e `ratifiedAt`. Proíbe as frases “se eu mexer nisto”, “a outra”, “consistente” e “isolado” sem o desenho. `scripts/find-missing-design-process.js` e o `userApproved` do recibo design-gates não satisfazem este detector. Verifier: `node --test tests/find-missing-architecture.test.js`."
+    },
+    {
+      "id": "T-003",
+      "title": "A partida passa a exigir o detector",
+      "description": "`automate-run.js` chama o script em vez de só checar se o arquivo existe. Verifier: `node scripts/automate-run.js --host grok --plan <fixture sem cartão>` sai 1 com o motivo do detector."
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "`node --test tests/find-missing-architecture.test.js` verde.",
+      "status": "pending",
+      "verifier": {
+        "kind": "manual",
+        "description": "Verify exit-gate prose with the user during phase-done."
+      }
+    }
+  ]
+}

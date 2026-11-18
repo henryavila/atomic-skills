@@ -1,10 +1,12 @@
-name: Publish to npm
+name: Publish to npm (stage)
 
 on:
   release:
     types: [published]
 
-# OIDC Trusted Publishing — no npm token needed
+# OIDC Trusted Publishing — no long-lived npm token / NODE_AUTH_TOKEN.
+# Preferred model: stage from CI, maintainer approves with 2FA on npm UI.
+# See docs/kb/release-npm-stage.md.
 permissions:
   contents: read
   id-token: write
@@ -15,14 +17,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Trusted Publishing needs Node ≥ 22.14 and npm ≥ 11.5.1
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm test
 
-      # No NODE_AUTH_TOKEN — OIDC handles auth via id-token
-      - run: npm publish --provenance --access public
+      # Stage only — do not allow direct `npm publish` on the Trusted Publisher.
+      # Maintainer approves with 2FA on the npmjs.com UI (Staged packages) — not CLI.
+      - name: Stage package on npm
+        run: |
+          # Node 22 may ship npm 10; `npm stage` needs ≥ 11.5.1
+          npx --yes npm@11.19.1 --version
+          NAME="$(node -p 'require("./package.json").name')"
+          VERSION="$(node -p 'require("./package.json").version')"
+          echo "Staging ${NAME}@${VERSION}"
+          npx --yes npm@11.19.1 stage publish --access public
+          {
+            echo "## Staged ${NAME}@${VERSION}"
+            echo ""
+            echo "This Release uploaded a **staged** version. It is **not** installable until a maintainer approves with 2FA on the **npm UI**:"
+            echo ""
+            echo "https://www.npmjs.com/package/${NAME}?activeTab=versions"
+            echo ""
+            echo "Runbook: docs/kb/release-npm-stage.md"
+          } >> "$GITHUB_STEP_SUMMARY"

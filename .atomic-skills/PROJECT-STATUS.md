@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-22T10:43:32.449Z
+lastUpdated: 2026-07-29T17:03:10.876Z
 schemaVersion: "0.1"
-activePlans: 1
-activeInitiatives: 1
-archivedCount: 24
+activePlans: 0
+activeInitiatives: 0
+archivedCount: 25
 ---
 
 # Project Status Index
@@ -20,7 +20,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
-| materialize-spec-quality-guards | active | F0 | plan/materialize-spec-quality-guards | 2026-07-22 | 1/5 |
 
 
 
@@ -28,6 +27,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| materialize-spec-quality-guards | done | F4 | plan/materialize-spec-quality-guards | 2026-07-22 | 5/5 |
 | claude-cross-model-review | done | F5 | plan/claude-cross-model-review | 2026-07-17 | 6/6 |
 | product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
 | integrity-remediation | done | F6 | plan/integrity-remediation | 2026-07-10 | 7/7 |
@@ -59,6 +59,8 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| automate-writer-runtime | 2026-07-29 | F3 | 4/4 | Automate writer runtime (1 + A + B) |
+| implement-phase-agents | 2026-07-23 | F5 | 6/6 | Implement phase agents (host-thin automate) |
 | implementation-automate-mode | 2026-07-17 | F4 | 5/5 | Implementation Automate Mode |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final | 2026-07-10 | F3 | 4/4 | Reparo local e validacao final |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f2-testes-de-regressao | 2026-07-10 | F2 | 3/4 | Testes de regressao |

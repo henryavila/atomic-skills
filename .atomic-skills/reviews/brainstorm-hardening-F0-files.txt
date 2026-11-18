@@ -1,0 +1,7 @@
+docs/skills/brainstorm.md
+skills/core/brainstorm.md
+skills/shared/brainstorm-assets/interview.md
+skills/shared/brainstorm-assets/process-receipt.md
+skills/shared/brainstorm-assets/research.md
+skills/shared/project-assets/project-create-plan.md
+tests/project.test.js

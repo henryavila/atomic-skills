@@ -2,14 +2,38 @@
 
 Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, evoluiu para **Atomic Skills** (namespace `atomic-skills/` via subdiretório) — pacote npm multi-IDE.
 
+## Decisão 2026-11-12 — plano, implement e aiDeck saíram
+
+A skill de ciclo de plano (`project` / `atomic-skills:project`), a skill `implement` e o aiDeck (dashboard, `bin/aideck.mjs`, consumer, `@henryavila/aideck`) foram removidos. Não reintroduzir, não rotear trabalho por elas, e não tratar `find-missing-flow`, `NO IMPLEMENT WITHOUT VALIDATED FLOW` ou o dashboard como produto vigente.
+
+Continuam: `review-code`, `review-plan`, `audit-delivery`, `parallel-dispatch-audit`, `verify-claim`, `fix`, `hunt`, `brainstorm`, `debate`, `design-brief`, `prompt`, `parallel-dispatch`, `release`, `save-and-push`, `init-memory`.
+
+Os handoffs e notas abaixo que falam de automate, project flow ou dashboard são arquivo histórico deste repo. Não são instrução de retomada.
+
 ## Arquivos de memória
 
+- [handoff-delegate-orquestracao-2026-11-18.md](handoff-delegate-orquestracao-2026-11-18.md) — **Entrada atual.** Frente delegate fechada em 18/11/2026: skill instalada com seis perfis (OpenCode só Flash, Flash também revisa), MI-T1 e RR-T3a prontos; falta decisão do operador (push, merge, publicação) e o T2
+
+- [handoff-real-automate-2026-10-05.md](handoff-real-automate-2026-10-05.md) — Arquivo. O ciclo automate/implement foi abandonado em 2026-11-12. Não retomar.
+
+- [handoff-real-automate-2026-09-25.md](handoff-real-automate-2026-09-25.md) — Histórico do pause/format de setembro; substituído pelo handoff de 2026-10-05.
+
+- [decisao-unattended-bloco.md](decisao-unattended-bloco.md) — Contrato de `implement --automate` (programa, não skill; flow é SoT do audit; cartão de bloco; página). Documento histórico; estado atual e pendências no handoff de 2026-10-05.
+
+- [reference-project-flow.md](reference-project-flow.md) — Project Flow substitui process-map (descarte completo, 2026-08-12). Dentes = implement entry HARD em **qualquer plano** + comando `project flow`. HTML gerado = `flow/flow.html` (nunca `map.html`); L2 = 3 diagramas SVG (não lista/card); show sempre via `serve-flow.js --up` (HTTP, nunca `file://`; recusa `map.html`). Q8-A: `ratifiedGraphSha`. Entrada `docs/design/project-flow/HANDOFF.md`. Incidente 2026-08-28: vista lista ainda era o mapa — engine SVG ligada + serve durável no Windows.
+
+- [reference-cross-model-review-host-picker.md](reference-cross-model-review-host-picker.md) — Picker host-aware (Grok→codex+claude, não Grok+Codex fixo); Claude session limit exit 0 + `classify-provider-limit` (sem retry).
+
+- [reference-automate-writer-runtime.md](reference-automate-writer-runtime.md) — Plan `automate-writer-runtime`: skill recipe (#1) + Layer 3 runner (A) + plan-tree product fence (B). Not Layer 4.
+
+- [reference-implement-phase-agents.md](reference-implement-phase-agents.md) — Plan `implement-phase-agents`: host-thin phase agents, decision-review hardgate, two-stop dogfood UX, package→ratify→materialize Mode B. Supersedes prior “hand bare materialize to user” full-plan automate path; links dogfood-stops note.
+- [reference-implement-phase-agents-dogfood-stops.md](reference-implement-phase-agents-dogfood-stops.md) — Dogfood automate: **exactly 2 operator stops/phase** (package ratify + decision-review PASS on log). No literal-token ceremony; no mid-phase micro-approvals. 2026-07-23 Henry stop. **2026-10-06:** plan direction is asked once at the start; later phases inherit it. Lessons, continue, and empty decision-review are host stamps. Spawn shapes for Claude Code, Codex, Antigravity, and Grok live in the maestro Step C blocks.
 - [decisoes-arquitetura.md](decisoes-arquitetura.md) — Padrões definidos: `.ai/memory/`, prefixos, exceção BMAD, regras de KB, organização contextual; **scripts de runtime DEVEM estar em package.json `files`** (senão `node scripts/*.js` de skill body faz no-op p/ consumidor); completion reconciler (sinal de detecção ≠ autoridade de fechamento, hooks fail-open)
 - [inventario-projetos.md](inventario-projetos.md) — Levantamento dos padrões de memória em cada projeto do Henry (referência para migração)
 - [feedback-prompts.md](feedback-prompts.md) — Lições sobre comportamento do agente: checklists > prosa, loops explícitos, ferramentas nomeadas
 - [feedback-skill-args-ux.md](feedback-skill-args-ux.md) — Arg obrigatório é atrito: zero-arg + detecção de escopo (wip|branch|all), hard abort só sem TTY, gates condicionais ao sujeito (dirty-tree ≠ perigo quando o worktree é o assunto)
 - [padroes-testing.md](padroes-testing.md) — Static guards para rename/delete; isolar TODAS as fontes externas (incluindo HOME/env); novo lazy asset exige atualizar contratos de instalação e byte budget; lifecycle E2E deve afirmar estado pós-transição; runtime artifacts precisam testar recuperação de journals antigos; run records de rollback precisam registrar o alvo antes da escrita canônica; installer exige fault injection por effect + retry/uninstall byte-a-byte; referências renderizadas exigem closure test com oracle independente; pacote publicado precisa de E2E sobre o `.tgz` extraído; transação plan+initiative usa marker antes dos renames e publica initiative antes do plan; **multiplataforma: install não pode ser Linux-only** (`multiplatform-contract` + CI `path-nofollow`)
-- [reference-installer-path-safety-multiplatform.md](reference-installer-path-safety-multiplatform.md) — PathSafetyError UNSUPPORTED_PLATFORM: macOS usa path-nofollow; Windows usa backend `windows-noreparse` (lstat em cada open, sem O_NOFOLLOW=0); CI Windows roda install real + junction; `withHome` isola USERPROFILE
+- [reference-installer-path-safety-multiplatform.md](reference-installer-path-safety-multiplatform.md) — PathSafetyError UNSUPPORTED_PLATFORM: macOS usa path-nofollow; Windows usa backend `windows-noreparse` (lstat em cada open, sem O_NOFOLLOW=0); CI Windows roda install real + junction; `withHome` isola USERPROFILE. **IDE root symlink:** se o diretório da IDE direto na base (`~/.grok`, `~/.cursor`, qualquer IDE) é symlink, o install lê o link e grava no diretório final (`src/ide-symlink-install.js`). Symlink aninhado ou folha continua recusado. Não contornar isso alterando o home do usuário.
 - [feedback-formato-retorno.md](feedback-formato-retorno.md) — Skills interativas: markdown + frontmatter YAML > JSON Schema puro. JSON é só para pipeline CI.
 - [feedback-framing-llm-judge.md](feedback-framing-llm-judge.md) — LLM-as-judge: cortar intent narrativo e memória curada do briefing (envenena em -93pp). Só fatos verificáveis.
 - [kb-skills-reference.md](kb-skills-reference.md) — Ponteiro para Knowledge Base de técnicas em `docs/kb/`
@@ -29,3 +53,7 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 - [reference-installer-hooks-cross-ide.md](reference-installer-hooks-cross-ide.md) — Fechamento do plano `installer-hooks-cross-ide`: `.codex/hooks.json` fica local/ignorado por git; verifier final deve rodar `node scripts/validate-state.js` completo; reconciliar `PROJECT-STATUS.md`; exemplos de hooks precisam do wrapper top-level `"hooks"` e Soft (`SessionStart` + `PreToolUse`) difere de Strict (`Stop` adicional). Follow-up de auditoria: atomicidade por effect, retry que re-adota desired bytes, closure pós-render, separação ledger/setup e runtime multi-owner versionado.
 - [reference-installer-hardening-2026-07-17.md](reference-installer-hardening-2026-07-17.md) — **Próxima sessão:** plano P0+P1 do installer + audit 2026-07-17 (F-001 incomplete TX, F-002 shrink auto-update, F-003 Grok host, F-004–F-009).
 - [reference-implement-automate-dogfood-gates.md](reference-implement-automate-dogfood-gates.md) — Pure-maestro dogfood 2026-07-21: skips (lessons, review both, cursor) → hard-gates `phase-lessons-gate`, `phase-review-gate`, complex auto-load on assert done, `lastAssert` mutation fence; never commit writer-lease secrets; plan-end still external-both + userValidatedAt.
+- [reference-ground-truth-review-gate.md](reference-ground-truth-review-gate.md) — Plan↔code ground-truth (A phantoms + B silent code) mandatory before implement; receipt `## Ground-truth review` + `- ground-truth:`; detector `find-plans-missing-ground-truth.js`; empty-repo still `complete-empty-repo`.
+- [reference-implement-foreign-plan.md](reference-implement-foreign-plan.md) — `implement path/to/plan.md`: entry AskUserQuestion Promote vs Foreign; sidecar `*.implement.yaml`; FINALIZE/ARCHIVE; no late promote. Helpers `implement-target-kind`, `foreign-work-order`, `foreign-plan-parse`.
+- [reference-audit-delivery-hardening.md](reference-audit-delivery-hardening.md) — Skill `audit-delivery` + hard-gate `deliveryAuditGate` on every phase-done (schema, lifecycle, validate-state GATE-R4, assert authenticity); EN SSOT; plan-end intentVsDelivered ≠ phase gate. Review dogfood: land gate in all five surfaces same PR.
+- Headless `agy` em review-plan/review-code: o leaf compartilhado `skills/shared/codex-bridge-assets/providers/agy/` (`invocation-canonical.txt` e o probe `-p` de `preflight-checks.txt`) exige `--dangerously-skip-permissions`. Sem a flag o CLI pede permissão e o envelope trava. Não copiar o DO-NOT do leaf Claude.

@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-22T10:43:32.445Z
+lastUpdated: 2026-10-03T05:45:12.743Z
 schemaVersion: "0.1"
 activePlans: 1
-activeInitiatives: 1
-archivedCount: 24
+activeInitiatives: 3
+archivedCount: 26
 ---
 
 # Project Status Index
@@ -18,16 +18,37 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
-| Slug | Status | Current Phase | Branch | Started | Phases |
-|------|--------|---------------|--------|---------|
-| materialize-spec-quality-guards | active | F0 | plan/materialize-spec-quality-guards | 2026-07-22 | 1/5 |
+- **release-consistency** — Release consistency — PR-only default branch + GH Release + npm stage (F0 active)
+  - `release-consistency-f0-contrato-compartilhado-save-and-push-pr` — Contrato compartilhado + save-and-push PR-only
 
+| Slug | Status | Current Phase | Branch | Started | Phases |
+|------|--------|---------------|--------|---------|--------|
+| project-flow | active | F0 | plan/project-flow | 2026-08-13 | 0/3 |
+
+### real-automate — Initiatives
+
+| Slug | Status | Phase | nextAction |
+|------|--------|-------|-----------|
+| real-automate-f5-pagina-final | done | F5 | Review the final-page prototype and missing architecture/UI cards. |
+
+### project-flow — Initiatives
+
+| Slug | Status | Phase | nextAction |
+|------|--------|-------|-----------|
+| project-flow-f0-modelo-no-disco | active | F0 | Start T-001: Substituir flow.schema.json pelo MODEL |
+
+### brainstorm-hardening — Initiatives
+
+| Slug | Status | Phase | nextAction |
+|------|--------|-------|-----------|
+| brainstorm-hardening-f0-skill-rewrite-and-lazy-assets | active | F0 | Start T-001: Author brainstorm-assets lazy pack |
 
 
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| real-automate | done | F5 | plan/real-automate | 2026-09-25 | 6/6 |
 | claude-cross-model-review | done | F5 | plan/claude-cross-model-review | 2026-07-17 | 6/6 |
 | product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
 | integrity-remediation | done | F6 | plan/integrity-remediation | 2026-07-10 | 7/7 |
@@ -51,7 +72,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Path | Status | Phase | Branch | Tasks |
 |------|--------|-------|--------|-------|
 | materialize-spec-quality-guards/phases/f0-spine-quality-lint-skill-ux.md | active | F0 | plan/materialize-spec-quality-guards | 0/3 |
-
 ## Active Initiatives (standalone)
 
 _(none)_
@@ -60,6 +80,9 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| automate-writer-runtime | 2026-07-29 | F3 | 4/4 | Automate writer runtime (1 + A + B) |
+| automate-default-and-operator-gates | 2026-07-27 | F4 | 5/5 | Automate default + operator gates (decision-review + plan-end intent) |
+| automate-skill-discipline | 2026-07-25 | F4 | 5/5 | Automate skill discipline remediation |
 | implementation-automate-mode | 2026-07-17 | F4 | 5/5 | Implementation Automate Mode |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final | 2026-07-10 | F3 | 4/4 | Reparo local e validacao final |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f2-testes-de-regressao | 2026-07-10 | F2 | 3/4 | Testes de regressao |
@@ -68,9 +91,8 @@ _(none)_
 | project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | help-command/f3-guarda-de-fidelidade-help-nunca-cita-um | 2026-07-08 | F3 | 4/4 | Comando `help` - F3 Guarda de fidelidade (help nunca cita um verbo que não existe) |
-| help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
-| help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |
 
 ## Ad-Hoc Sessions Log (last 5)
 
 _(empty)_
+| grok-phase-todo-projection | 2026-07-25 | plan/grok-phase-todo-projection | 5/5 |

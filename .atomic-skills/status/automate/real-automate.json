@@ -1,0 +1,69 @@
+{
+  "step": "I",
+  "phaseId": "F5",
+  "redispatchCount": 12,
+  "updatedAt": "2026-10-03T05:42:51.667Z",
+  "operatorOverrides": [
+    {
+      "at": "2026-09-25T22:19:08.523Z",
+      "reason": "Codex residual still critical after two redispatches; operator session authorized continue-until-findings-cleared",
+      "priorCount": 2,
+      "gate": "phase-review"
+    },
+    {
+      "at": "2026-09-25T22:52:47.911Z",
+      "reason": "F1 local review critical/major on chosen-sketch validation",
+      "priorCount": 3,
+      "gate": "phase-review"
+    },
+    {
+      "at": "2026-10-02T10:28:16.492Z",
+      "reason": "Operator asked to continue F2 after local+codex needs_changes (critical missing screen file; majors on architecture sha, phase scan, keyword forms). Previous in-tree NLP runaway stashed; targeted code-only fix agent for F-001..F-005.",
+      "priorCount": 4,
+      "gate": "phase-review"
+    },
+    {
+      "at": "2026-10-02T15:18:53.711Z",
+      "reason": "Operator asked to dispatch F3 correction writer after residual local+Codex needs_changes (B1 leftover writer branch; C1 non-exclusive pen.lock; C2 lease residue; C3 empty host argv; C4 spawn error unhandled).",
+      "priorCount": 5,
+      "gate": "phase-review"
+    },
+    {
+      "at": "2026-10-02T17:31:16.540Z",
+      "reason": "Operator asked to dispatch F4-fix1 writer after evaluation fail (1 major: deliveryAuditAllowsClose / canRunPhaseDone / assert-automate-gate skip flow/flow.json unless caller injects graph). Close path must load ratifiedGraphSha.",
+      "priorCount": 6,
+      "gate": "evaluation"
+    },
+    {
+      "at": "2026-10-02T17:58:39.889Z",
+      "reason": "Operator asked F4-fix2 after F4-fix1 merge: green lifecycle-order-guard, decision-review-gate, implement-phase-agents-contract tests that still expect stamp-only CLOSED allow without graph coverage.",
+      "priorCount": 7,
+      "gate": "evaluation"
+    },
+    {
+      "at": "2026-10-02T19:18:41.874Z",
+      "reason": "Operator asked F4-fix3 after review-code both: two local criticals — invalid flow hash throw vacuous-pass; parkResidualFindings overwrites automate cursor.",
+      "priorCount": 8,
+      "gate": "phase-review"
+    },
+    {
+      "at": "2026-10-03T02:39:39.762Z",
+      "reason": "Operator explicitly requested full automatic completion; reproduce and fix the four independent F5 review findings plus the obsolete shared timestamp expectation.",
+      "priorCount": 9,
+      "gate": "phase-review"
+    },
+    {
+      "at": "2026-10-03T04:18:13.696Z",
+      "reason": "Operator authorizes full automatic completion; verified additional F5 local/Grok findings and actual native CLI JSON envelope require a second isolated repair.",
+      "priorCount": 10,
+      "gate": "phase-review"
+    },
+    {
+      "at": "2026-10-03T05:06:25.127Z",
+      "reason": "Operator explicitly authorizes full automatic completion; repair two independently reproduced final F5 defects.",
+      "priorCount": 11,
+      "gate": "phase-review"
+    }
+  ],
+  "claimReportPath": ".atomic-skills/status/automate/real-automate-F5-final-claims.json"
+}

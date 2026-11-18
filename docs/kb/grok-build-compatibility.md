@@ -36,8 +36,8 @@ Atomic Skills for Grok only under `.grok/plugins/` keeps a Grok-rendered body
    `~/.grok/config.toml`) — add every non-Grok Atomic Skills root that Grok
    harness-scans to `[skills].ignore`, so Grok does **not** list
    Cursor/Codex/Claude-rendered Atomic Skills (wrong tool names) next to the
-   plugin package. Without this, `/project` shows both `atomic-skills:project`
-   and `user:project`. Surgical: other `ignore` entries and unrelated config
+   plugin package. Without this, a skill shows twice: `atomic-skills:<name>`
+   and `user:<name>`. Surgical: other `ignore` entries and unrelated config
    keys are preserved.
 
 **Uninstall steps:**
@@ -96,16 +96,16 @@ Layout:
 **Never** hardcode Claude tool names (`Bash`, `Read tool`) in skill bodies. Use
 template variables; the renderer substitutes per IDE.
 
-| Variable | Claude Code | Gemini CLI | Grok Build (provisional) | Codex CLI |
-|----------|-------------|------------|--------------------------|-----------|
-| `{{BASH_TOOL}}` | `Bash` | `run_shell_command` | `run_terminal_command` | `shell` |
-| `{{READ_TOOL}}` | `Read tool` | `read_file` | `read_file` | `read_file` |
-| `{{WRITE_TOOL}}` | `Write tool` | `write_file` | `write` | `apply_patch` |
-| `{{REPLACE_TOOL}}` | `Edit tool` | `replace` | `search_replace` | `apply_patch` |
-| `{{GREP_TOOL}}` | `Grep` | `grep_search` | `grep` | `grep_files` |
-| `{{GLOB_TOOL}}` | `Glob` | `glob` | `list_dir` | `list_dir` |
-| `{{INVESTIGATOR_TOOL}}` | `Agent` | `codebase_investigator` | `spawn_subagent` | `spawn_agent` |
-| `{{ASK_USER_QUESTION_TOOL}}` | `AskUserQuestion tool` | plain-text multi-choice prompt | `ask_user_question` | plain-text multi-choice prompt |
+| Variable | Claude Code | Antigravity | Grok Build (provisional) | Codex CLI |
+|----------|-------------|-------------|--------------------------|-----------|
+| `{{BASH_TOOL}}` | `Bash` | `run_command` | `run_terminal_command` | `shell` |
+| `{{READ_TOOL}}` | `Read tool` | `view_file` | `read_file` | `read_file` |
+| `{{WRITE_TOOL}}` | `Write tool` | `write_to_file` | `write` | `apply_patch` |
+| `{{REPLACE_TOOL}}` | `Edit tool` | `replace_file_content` | `search_replace` | `apply_patch` |
+| `{{GREP_TOOL}}` | `Grep` | `grep` | `grep` | `grep_files` |
+| `{{GLOB_TOOL}}` | `Glob` | `find` | `list_dir` | `list_dir` |
+| `{{INVESTIGATOR_TOOL}}` | `Agent` | `invoke_subagent` | `spawn_subagent` | `spawn_agent` |
+| `{{ASK_USER_QUESTION_TOOL}}` | `AskUserQuestion tool` | `ask_question` | `ask_user_question` | plain-text multi-choice prompt |
 | `{{ARG_VAR}}` | `$ARGUMENTS` | `$ARGUMENTS` | `$ARGUMENTS` | `$ARGUMENTS` |
 
 Notes:
@@ -154,7 +154,7 @@ ellipsis). The installer emits it for:
 |-------------|------|------------------------|
 | `command` (Claude Code) | `.claude/commands/…` | yes |
 | `markdown` (Grok Build, Cursor, Codex, …) | `SKILL.md` | **yes** (required for Grok) |
-| `toml` (Gemini) | `.toml` | no surface |
+| `toml` (OpenCode) | `.toml` | no surface |
 
 Without the markdown emit, Grok lists `/project` but not its subcommand options.
 
@@ -259,32 +259,17 @@ version matching the **installed** package (`~/.atomic-skills/package-root` →
 consumer project's `package.json`. The filesystem contract above is the
 automated gate (`tests/install.test.js`); host UI listing is a manual smoke.
 
-## 7. Trust, hooks-trust, and Soft fail-open
+## 7. Trust and the auto-update hook
 
-Grok Build may require **folder trust** and/or **hooks trust** before plugin
-hooks execute in a project clone. Atomic Skills Soft hooks are designed to be
-safe when untrusted:
+Grok Build may require **folder trust** before plugin skills load, and
+**hooks trust** before the auto-update SessionStart runs.
 
 | Situation | Expected behavior |
 |-----------|-------------------|
-| Project folder not trusted | Skills may still load from the plugin package (read-only skill bodies); hooks do not run |
-| Plugin present but hooks untrusted (`/hooks-trust` not granted) | Soft SessionStart / PreToolUse **fail-open**: no SessionStart digest, no PreToolUse provenance gate; agent continues without blocking |
-| Soft installed, Strict not opted in | SessionStart + PreToolUse only; no Stop / scope-drift gate |
-| Auto-update only (`~/.grok/hooks/atomic-skills-auto-update.json`) | Independent of project plugin trust — version-check SessionStart may still fire at user scope |
+| Project folder not trusted | Skills may still be absent until the folder is trusted |
+| Auto-update hook (`~/.grok/hooks/atomic-skills-auto-update.json`) | Version-check SessionStart. Independent of the plugin `hooks/hooks.json` file, which is an empty envelope |
 
-**Operator steps (project Soft):**
+The plugin file `.grok/plugins/atomic-skills/hooks/hooks.json` is `{"hooks":{}}`.
+It does not register SessionStart, PreToolUse, or Stop. Install parity still
+requires that file to reverse cleanly on uninstall.
 
-1. Install with `--ides grok` (or multi-IDE including `grok`).
-2. Open the repo in Grok Build; grant folder trust if prompted.
-3. If hooks do not fire, grant hooks trust for the project plugin
-   (`/hooks-trust` or host Settings → Hooks) so
-   `.grok/plugins/atomic-skills/hooks/hooks.json` is allowed.
-4. Confirm Soft entries: `jq '.hooks | keys' .grok/plugins/atomic-skills/hooks/hooks.json`
-   → expect `SessionStart` and `PreToolUse` (no `Stop` until Strict setup).
-
-**Do not** treat missing hook fire as an install failure when trust is
-withheld — that is intentional Soft fail-open. Install parity still requires
-the hook **files** to reverse cleanly on uninstall.
-
-Marketplace publish and MCP project-state servers remain non-goals (design D10).
-)

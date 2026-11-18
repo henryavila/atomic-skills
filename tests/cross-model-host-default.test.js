@@ -60,6 +60,7 @@ describe('host → external default matrix (every host row)', () => {
       codex: 'grok',
       claude: 'codex',
       cursor: 'codex',
+      agy: 'codex',
       unknown: 'codex',
     });
   });
@@ -129,28 +130,34 @@ describe('resolveReviewRoute — happy paths per host matrix row', () => {
     assert.equal(r.externalProvider, null);
   });
 
-  it('external-both runs codex then grok legs', () => {
-    const r = resolveReviewRoute({ hostFamily: 'claude', mode: 'external-both' });
+  it('external-both runs remaining external legs after dropping same-family', () => {
+    const r = resolveReviewRoute({ hostFamily: 'cursor', mode: 'external-both' });
     assert.equal(r.action, 'run');
-    assert.deepEqual(r.externalProviders, ['codex', 'grok']); // claude host: drops claude
+    assert.deepEqual(r.externalProviders, ['codex', 'grok', 'claude', 'agy']); // cursor host: no drop
   });
 
   it('external-both on codex host drops the same-family codex leg', () => {
     const r = resolveReviewRoute({ hostFamily: 'codex', mode: 'external-both' });
     assert.equal(r.action, 'run');
-    assert.deepEqual(r.externalProviders, ['grok', 'claude']);
+    assert.deepEqual(r.externalProviders, ['grok', 'claude', 'agy']);
   });
 
   it('external-both on grok host drops the same-family grok leg', () => {
     const r = resolveReviewRoute({ hostFamily: 'grok', mode: 'external-both' });
     assert.equal(r.action, 'run');
-    assert.deepEqual(r.externalProviders, ['codex', 'claude']);
+    assert.deepEqual(r.externalProviders, ['codex', 'claude', 'agy']);
   });
 
   it('external-both on claude host drops the same-family claude leg', () => {
     const r = resolveReviewRoute({ hostFamily: 'claude', mode: 'external-both' });
     assert.equal(r.action, 'run');
-    assert.deepEqual(r.externalProviders, ['codex', 'grok']);
+    assert.deepEqual(r.externalProviders, ['codex', 'grok', 'agy']);
+  });
+
+  it('external-both on agy host drops the same-family agy leg', () => {
+    const r = resolveReviewRoute({ hostFamily: 'agy', mode: 'external-both' });
+    assert.equal(r.action, 'run');
+    assert.deepEqual(r.externalProviders, ['codex', 'grok', 'claude']);
   });
 
   it('both-claude routes external leg to claude', () => {

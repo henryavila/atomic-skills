@@ -16,20 +16,15 @@ import {
   defaultExternalProvider,
 } from '../src/cross-model-host-default.js';
 import { PROVIDER_ENUM, normalizeProvider } from '../src/review-provider-field.js';
-import {
-  KNOWN_EXTERNAL_PROVIDERS,
-  planEndReviewOk,
-} from '../src/plan-end-review.js';
 import { EXTERNAL_PROVIDER_ORDER as MERGE_ORDER } from '../src/external-both-merge.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const PROVIDERS = ['codex', 'grok', 'claude'];
+const PROVIDERS = ['codex', 'grok', 'claude', 'agy'];
 
-describe('three-provider external matrix (audit)', () => {
-  it('EXTERNAL_PROVIDER_ORDER is codex → grok → claude on host + merge modules', () => {
+describe('cross-model external matrix (audit)', () => {
+  it('EXTERNAL_PROVIDER_ORDER is codex → grok → claude → agy on host + merge modules', () => {
     assert.deepEqual([...EXTERNAL_PROVIDER_ORDER], PROVIDERS);
     assert.deepEqual([...MERGE_ORDER], PROVIDERS);
-    assert.deepEqual([...KNOWN_EXTERNAL_PROVIDERS].sort(), [...PROVIDERS].sort());
   });
 
   it('PROVIDER_ENUM includes all three externals + local', () => {
@@ -57,11 +52,14 @@ describe('three-provider external matrix (audit)', () => {
   });
 
   it('external-both filters same-family host correctly for each host', () => {
-    assert.deepEqual(externalBothLegs('claude'), ['codex', 'grok']);
-    assert.deepEqual(externalBothLegs('codex'), ['grok', 'claude']);
-    assert.deepEqual(externalBothLegs('grok'), ['codex', 'claude']);
+    assert.deepEqual(externalBothLegs('claude'), ['codex', 'grok', 'agy']);
+    assert.deepEqual(externalBothLegs('codex'), ['grok', 'claude', 'agy']);
+    assert.deepEqual(externalBothLegs('grok'), ['codex', 'claude', 'agy']);
+    assert.deepEqual(externalBothLegs('agy'), ['codex', 'grok', 'claude']);
     assert.equal(isSameFamilyExternal('claude', 'claude'), true);
     assert.equal(isSameFamilyExternal('claude', 'codex'), false);
+    assert.equal(isSameFamilyExternal('agy', 'agy'), true);
+    assert.equal(isSameFamilyExternal('agy', 'codex'), false);
   });
 
   it('resolveReviewRoute supports claude / both-claude / external-both', () => {
@@ -89,26 +87,14 @@ describe('three-provider external matrix (audit)', () => {
     });
     assert.equal(ext.action, 'run');
     assert.ok(Array.isArray(ext.externalProviders));
-    assert.deepEqual(ext.externalProviders, ['codex', 'grok']);
+    assert.deepEqual(ext.externalProviders, ['codex', 'grok', 'agy']);
   });
 
   it('default external provider matrix is family-different', () => {
     assert.equal(defaultExternalProvider('claude'), 'codex');
     assert.equal(defaultExternalProvider('codex'), 'grok');
     assert.equal(defaultExternalProvider('grok'), 'codex');
-  });
-
-  it('planEndReviewOk accepts each provider as sole succeeded family-different leg', () => {
-    const shape = (provider) => ({
-      mode: 'external-both',
-      reviewFile: '.atomic-skills/reviews/audit-plan-end.md',
-      verifiedAt: '2026-07-21T00:00:00.000Z',
-      legs: [{ provider, status: 'succeeded', familyDifferent: true }],
-    });
-    for (const p of PROVIDERS) {
-      assert.equal(planEndReviewOk(shape(p)), true, `${p} leg must count`);
-    }
-    assert.equal(planEndReviewOk(shape('local')), false);
+    assert.equal(defaultExternalProvider('agy'), 'codex');
   });
 
   it('skill/envelope prose names all three providers', () => {
@@ -125,5 +111,27 @@ describe('three-provider external matrix (audit)', () => {
       assert.ok(modeUx.includes(p), `review-mode-ux must mention ${p}`);
     }
     assert.ok(env.includes('codex → grok → claude') || env.includes('codex → grok → claude'.replace(/ /g, ' ')));
+  });
+
+  it('review-mode-ux host-aware picker prefers family-different legs (not static Grok+Codex)', () => {
+    const modeUx = readFileSync(
+      join(ROOT, 'skills/shared/codex-bridge-assets/review-mode-ux.md'),
+      'utf8',
+    );
+    // Must document host → legs matrix for all three hosts
+    assert.match(modeUx, /externalBothLegs/);
+    assert.match(modeUx, /crossFamilyLegs/);
+    assert.match(modeUx, /Grok host[\s\S]*codex[\s\S]*claude|codex.*claude/i);
+    assert.ok(modeUx.includes('Codex then Claude'), 'Grok host external-both label');
+    assert.ok(modeUx.includes('Grok then Claude'), 'Codex host external-both label');
+    assert.ok(modeUx.includes('Codex then Grok'), 'Claude host external-both label');
+    // both-claude must NOT be aliased to Grok (historical UX bug)
+    assert.ok(
+      !/both-grok.*both-claude.*[Ff]orce Grok|both-claude.*forced Grok/.test(modeUx),
+      'both-claude must not be documented as forced Grok',
+    );
+    assert.match(modeUx, /both-claude`?\s*\|?\s*local → forced Claude|`both-claude` \| local → forced Claude/);
+    // Primary picker excludes same-family
+    assert.match(modeUx, /Do not\*\* list the same-family external|does \*\*not\*\* offer "Grok only"/i);
   });
 });

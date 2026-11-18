@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`release` skill.** Deterministic semver chooser (`plan` / `apply` / `ship`)
+  and opt-in adopt of a stage or GitHub-only workflow. Ship uses the chooser
+  version, ignores prerelease tags as a baseline, and refuses a default-branch
+  push. Runbook: `docs/kb/release-npm-stage.md`. Skill: `skills/core/release.md`.
+
+### Changed
+
+- **npm publish process → Trusted Publisher stage-only.**
+  `.github/workflows/publish.yml` now runs `npm stage publish` under OIDC
+  (`id-token: write`) after a GitHub Release. A maintainer must **stage
+  approve** with 2FA on the npm UI before the version is installable. There is
+  no `NODE_AUTH_TOKEN` / bare `npm publish` happy path. Runbook:
+  `docs/kb/release-npm-stage.md`.
+
 ### Fixed
 
 - **Install GREENFIELD_CONFLICT when expanding IDEs / partial journal.** Pre-existing skill files on disk that were missing from the journal `reconcileFileSet` beforeState (e.g. Claude leftovers while the journal only tracked Grok) no longer abort install. Desired paths already on disk are adopted into the journal before the Driver runs so the 3-hash update can rewrite them. Regression: `tests/install.test.js` + `tests/adopt-preexisting-desired.test.js`.
@@ -33,14 +49,17 @@ Canonical human product docs: **https://atomic-skills.henryavila.com** (static s
 - **Slim README.** npm/GitHub envelope only: positioning, install, host tiers, compact skills table. Long skill blurbs and module essays live on the product docs site, not in README body regions.
 - **Engineering archive stays off the product site.** `docs/kb/`, `docs/design/`, plans, audits, and handoffs remain repo MD for agents and maintainers; they are not published as product pages. Generated per-skill Markdown under `docs/skills/` remains a secondary offline/GitHub view (site is the canonical human product surface).
 
-## [2.0.0] — 2026-05-23
+## [2.0.0] - 2026-05-23
 
-First major bump since 1.8.x. Consolidates **five** threads of work — the
-review skills refactor (4 → 2 with a mode picker), the catalog v0.2 schema
-+ rename to `meta/catalog.yaml`, a README + dashboard doc generator with
-five marker-bounded regions, a husky auto-regen pre-commit hook, and the
-unification of `project-status` + `project-plan` into a single `project`
-skill (a thin router + lazy-loaded detail files).
+### Removed
+
+- **Plan (`project`), implement, and aiDeck.** Cut before this version shipped: they cost more than they helped. Fifteen support skills remain (review-code, review-plan, audit-delivery, verify-claim, fix, hunt, brainstorm, debate, design-brief, prompt, parallel-dispatch, parallel-dispatch-audit, init-memory, save-and-push, release).
+
+First major bump since 1.8.x. Ships the review skills refactor (4 → 2 with a
+mode picker), the catalog v0.2 schema + rename to `meta/catalog.yaml`, and a
+husky auto-regen pre-commit hook. Notes below that describe `project`,
+`implement`, or the aiDeck dashboard record work that was removed before
+publish.
 
 ### `project` skill unification (supersedes the project-status / project-plan split below)
 

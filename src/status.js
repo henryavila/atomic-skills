@@ -130,7 +130,7 @@ export function status(projectDir, options = {}) {
       if (ideId === 'claude-code' && f.startsWith('.claude/')) return true;
       if (ideId === 'cursor' && f.startsWith('.cursor/')) return true;
       if (ideId === 'codex' && f.startsWith('.agents/')) return true;
-      if ((ideId === 'gemini' || ideId === 'gemini-commands') && f.startsWith('.gemini/')) return true;
+      if (ideId === 'antigravity' && f.startsWith('.agent/')) return true;
       if (ideId === 'opencode' && f.startsWith('.opencode/')) return true;
       if (ideId === 'github-copilot' && f.startsWith('.github/')) return true;
       if (ideId === 'grok' && f.startsWith('.grok/')) return true;

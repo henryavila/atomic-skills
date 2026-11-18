@@ -45,7 +45,7 @@ const META_DIR = join(ROOT, 'meta');
 const HOST_CLI = {
   'claude-code': { bin: 'claude', versionArgs: ['--version'] },
   cursor: { bin: 'cursor', versionArgs: ['--version'] },
-  gemini: { bin: 'gemini', versionArgs: ['--version'] },
+  antigravity: { bin: 'agy', versionArgs: ['--version'] },
   codex: { bin: 'codex', versionArgs: ['--version'] },
   opencode: { bin: 'opencode', versionArgs: ['--version'] },
   'github-copilot': null, // no standalone skills CLI
@@ -105,7 +105,7 @@ function probeLayout(hostId) {
   const projectDir = mkdtempSync(join(tmpdir(), 'as-host-probe-proj-'));
   process.env.HOME = home;
   process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = '1';
-  const skillRel = getSkillPath(hostId, 'project');
+  const skillRel = getSkillPath(hostId, 'fix');
   try {
     installSkills(projectDir, {
       language: 'en',
@@ -177,15 +177,11 @@ function probeOperational(host, cli) {
   let invoke = false;
   let detail = '';
 
-  if (host.id === 'gemini') {
-    const list = spawnSync(spec.bin, ['skills', 'list'], {
-      encoding: 'utf8',
-      timeout: 30_000,
-      env: process.env,
-    });
-    load = list.status === 0;
-    detail = (list.stdout || list.stderr || '').slice(0, 200);
-    invoke = load; // list is the load/invoke surface we can automate
+  if (host.id === 'antigravity') {
+    const help = spawnSync(spec.bin, ['--help'], { encoding: 'utf8', timeout: 15_000 });
+    load = help.status === 0 || /usage|antigravity|agy/i.test(`${help.stdout}${help.stderr}`);
+    detail = (help.stdout || help.stderr || '').slice(0, 200);
+    invoke = load;
   } else if (host.id === 'claude-code') {
     const help = spawnSync(spec.bin, ['--help'], { encoding: 'utf8', timeout: 15_000 });
     load = help.status === 0 || /usage|claude/i.test(`${help.stdout}${help.stderr}`);
