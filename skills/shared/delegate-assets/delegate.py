@@ -36,9 +36,6 @@ TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=\d+ medium=\d+ minor=\d+[ \t`*]*$")
 
 MODELS = {
     "flash": ("opencode", "opencode-go/deepseek-v4.1-flash", "deepseek"),
-    "glm-flash": ("opencode", "opencode-go/glm-5.3-flash", "zhipu"),
-    "kimi": ("opencode", "opencode-go/kimi-k3.1-pro", "moonshot"),
-    "hy4-review": ("opencode", "opencode-go/hy4", "tencent"),
     "codex": ("codex", CODEX_MODEL, "openai"),
     "codex-review": ("codex", CODEX_MODEL, "openai"),
     "agy": ("agy", "gemini-4-hydrogen-high", "gemini"),
@@ -47,6 +44,12 @@ MODELS = {
 ALIASES = {
     "deepseek-light": "flash",
 }
+# Removed on 2026-11-18: OpenCode runs a single model (Flash). Old log lines may
+# still name these profiles, their models and their families; readers must keep
+# showing them, but no new run may be launched with one.
+REMOVED_PROFILES = ("hy4-review", "glm-flash", "kimi")
+REMOVED_PROFILE_MESSAGE = ("delegate: profile {name} was removed; valid profiles: "
+                           "flash, codex, codex-review, agy, agy-review")
 ROLES = ["implement", "fix", "review", "mechanical", "test"]
 GATE = ["pass", "fail", "not_run"]
 DELIVERED = ["yes", "partial", "no"]
@@ -331,6 +334,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         target = ALIASES[profile]
         print(f"delegate: profile {profile} is deprecated; use --profile {target}", file=sys.stderr)
         profile = target
+    if profile in REMOVED_PROFILES:
+        print(REMOVED_PROFILE_MESSAGE.format(name=profile), file=sys.stderr)
+        sys.exit(2)
     if profile:
         executor, model, family = MODELS[profile]
     else:
@@ -475,6 +481,9 @@ def cmd_run(a):
 
 def canonical_route(raw):
     route = [ALIASES.get(p.strip(), p.strip()) for p in raw.split(",") if p.strip()]
+    for p in route:
+        if p in REMOVED_PROFILES:
+            raise ValueError(REMOVED_PROFILE_MESSAGE.format(name=p))
     if not route or any(p not in MODELS for p in route):
         raise ValueError(f"invalid route: {raw}")
     return route
@@ -591,6 +600,10 @@ def cmd_pipeline(a):
             executor_family = MODELS[executor_profile][2]
             for profile in review_route:
                 check_paused()
+                # OpenCode runs Flash only, and Flash is never a reviewer — not even
+                # as a fallback when every Codex/Antigravity reviewer is out of quota.
+                if MODELS[profile][0] == "opencode":
+                    continue
                 if MODELS[profile][2] == executor_family:
                     continue
                 review_rec = run_attempt(profile, "review", str(review_card_copy))
@@ -812,9 +825,9 @@ def cmd_report(a):
             continue
         kind = r.get("kind")
         if kind == "run":
-            runs.setdefault(r["id"], []).append(r)
+            runs.setdefault(r.get("id", ""), []).append(r)
         elif kind == "verdict":
-            verdicts.setdefault(r["id"], []).append(r)
+            verdicts.setdefault(r.get("id", ""), []).append(r)
         elif kind == "pipeline":
             pair = (r.get("executor_profile"), r.get("reviewer_profile"))
             pipelines.setdefault(pair, []).append(r)
@@ -822,7 +835,10 @@ def cmd_report(a):
     groups = {}
     for i, rs in runs.items():
         first = rs[0]
-        g = groups.setdefault((first["role"], first["executor"], first["model"]), [])
+        # Old log lines may name profiles, models and families that no longer exist;
+        # report them verbatim instead of looking them up.
+        g = groups.setdefault((first.get("role", ""), first.get("executor", ""),
+                               first.get("model", "")), [])
         g.append((rs, (verdicts.get(i) or [{}])[-1]))
     print(f"{len(runs)} tasks, {sum(len(v) for v in runs.values())} runs, log: {LOG}")
     for (role, ex, model), items in sorted(groups.items()):
@@ -831,9 +847,10 @@ def cmd_report(a):
         ok = sum(1 for v in gated if v["gate_host"] == "pass")
         rounds = [v.get("review_rounds") for _, v in items if v.get("review_rounds") is not None]
         major = sum(v.get("findings_major") or 0 for _, v in items)
-        secs = sorted(r["duration_s"] for rs, _ in items for r in rs)
+        secs = sorted(r.get("duration_s") or 0 for rs, _ in items for r in rs)
         med = secs[len(secs) // 2] if secs else 0
-        fails = sum(1 for rs, _ in items for r in rs if r["exit_code"] != 0 or r["timed_out"] or r.get("failure", "none") != "none")
+        fails = sum(1 for rs, _ in items for r in rs
+                    if r.get("exit_code", 0) != 0 or r.get("timed_out") or r.get("failure", "none") != "none")
         unconfirmed = sum(1 for rs, _ in items if not rs[0].get("user_confirmed"))
         rr = f"{sum(rounds) / len(rounds):.1f}" if rounds else "n/a"
         print(f"- {role} | {ex} | {model}: n={n}; host gate {ok}/{len(gated)} (no verdict: {n - len(gated)}); "
@@ -850,7 +867,27 @@ def cmd_report(a):
         print(f"- pipeline | {ex_prof} -> {rev_prof}: n={n}; {outcomes_str}")
 
 
+def removed_profile_asked(argv):
+    """Return the first removed profile named by --profile/--route/--review-route."""
+    for i, arg in enumerate(argv):
+        if arg in ("--profile", "--route", "--review-route"):
+            value = argv[i + 1] if i + 1 < len(argv) else ""
+        elif arg.startswith(("--profile=", "--route=", "--review-route=")):
+            value = arg.split("=", 1)[1]
+        else:
+            continue
+        for part in value.split(","):
+            name = part.strip()
+            if name in REMOVED_PROFILES:
+                return name
+    return None
+
+
 def main():
+    removed = removed_profile_asked(sys.argv[1:])
+    if removed:
+        print(REMOVED_PROFILE_MESSAGE.format(name=removed), file=sys.stderr)
+        sys.exit(2)
     if len(sys.argv) >= 2 and sys.argv[1] == "run":
         pre = argparse.ArgumentParser(add_help=False)
         pre.add_argument("--profile")
