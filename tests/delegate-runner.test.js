@@ -988,19 +988,14 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     }
   });
 
-  for (const [profile, role, expectedModel, expectedFamily] of [
-    ['glm-flash', 'mechanical', 'opencode-go/glm-5.3-flash', 'zhipu'],
-    ['kimi', 'implement', 'opencode-go/kimi-k3.1-pro', 'moonshot'],
-    ['hy4-review', 'review', 'opencode-go/hy4', 'tencent'],
-  ]) {
-    it(`--profile ${profile} builds opencode argv with ${expectedModel} and records ${expectedFamily}`, () => {
-      const cardText = readFileSync(cardPath, 'utf8');
+  for (const profile of ['glm-flash', 'kimi', 'hy4-review']) {
+    it(`removed profile ${profile} is refused before anything runs`, () => {
       const res = runDelegate(
         [
           'run',
-          '--id', `T-OP-${profile}`,
-          '--task', `opencode ${profile}`,
-          '--role', role,
+          '--id', `T-REMOVED-${profile}`,
+          '--task', `removed ${profile}`,
+          '--role', 'implement',
           '--profile', profile,
           '--cwd', repoDir,
           '--card', cardPath,
@@ -1009,22 +1004,39 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         ],
         baseEnv,
       );
-      assert.equal(res.status, 0, res.stderr);
-      assert.deepEqual(JSON.parse(readFileSync(argvFile, 'utf8')), [
-        fakePaths.opencode,
-        'run',
-        '--auto',
-        '--archived',
-        '-m',
-        expectedModel,
-        cardText,
-      ]);
-      const [rec] = readLogRecords(atomicHome);
-      assert.equal(rec.executor, 'opencode');
-      assert.equal(rec.model, expectedModel);
-      assert.equal(rec.family, expectedFamily);
+      assert.notEqual(res.status, 0);
+      assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
+      assert.match(res.stderr, new RegExp(`delegate: profile ${profile} was removed`));
+      assert.match(res.stderr, /valid profiles: flash, codex, codex-review, agy, agy-review/);
+      assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+      assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
     });
   }
+
+  it('pipeline route naming a removed profile is refused before launching', () => {
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-REMOVED',
+        '--task', 'removed route',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'flash,hy4-review',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'codex-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+    assert.notEqual(res.status, 0);
+    assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
+    assert.match(res.stderr, /delegate: profile hy4-review was removed/);
+    assert.match(res.stderr, /valid profiles: flash, codex, codex-review, agy, agy-review/);
+    assert.throws(() => readFileSync(join(seqDir, 'count')), { code: 'ENOENT' });
+  });
 
   it('--profile deepseek-light acts as a deprecated alias for flash', () => {
     const cardText = readFileSync(cardPath, 'utf8');
@@ -1104,7 +1116,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.equal(rec.model, 'custom-codex');
   });
 
-  it('during peak (Wednesday 02:00 UTC) flash proceeds with peak=true and warning, while glm-flash records peak=false', () => {
+  it('during peak (Wednesday 02:00 UTC) flash proceeds with peak=true and warning, while codex records peak=false', () => {
     const peakEnv = {
       ...baseEnv,
       DELEGATE_NOW: '2026-11-18T02:00:00Z',
@@ -1145,13 +1157,13 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     );
     assert.equal(flashAllowPeakRes.status, 0, flashAllowPeakRes.stderr);
 
-    const glmRes = runDelegate(
+    const codexRes = runDelegate(
       [
         'run',
-        '--id', 'T-PEAK-GLM',
-        '--task', 'glm-flash during deepseek peak',
+        '--id', 'T-PEAK-CODEX',
+        '--task', 'codex during deepseek peak',
         '--role', 'mechanical',
-        '--profile', 'glm-flash',
+        '--profile', 'codex',
         '--cwd', repoDir,
         '--card', cardPath,
         '--out', outDir,
@@ -1159,13 +1171,13 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       ],
       peakEnv,
     );
-    assert.equal(glmRes.status, 0, glmRes.stderr);
-    assert.doesNotMatch(glmRes.stderr, /double/i);
+    assert.equal(codexRes.status, 0, codexRes.stderr);
+    assert.doesNotMatch(codexRes.stderr, /double/i);
 
-    const [flashRec, flashAllowRec, glmRec] = readLogRecords(atomicHome);
+    const [flashRec, flashAllowRec, codexRec] = readLogRecords(atomicHome);
     assert.equal(flashRec.peak, true);
     assert.equal(flashAllowRec.peak, true);
-    assert.equal(glmRec.peak, false);
+    assert.equal(codexRec.peak, false);
   });
 
   it('default DELEGATE_PEAK_WINDOWS evaluates weekday/weekend UTC instants correctly', () => {
@@ -1329,7 +1341,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     });
   }
 
-  it('profiles lists eight profiles in order and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
+  it('profiles lists exactly the five supported profiles in order and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
     const partialDir = join(root, 'partial');
     const { binDir: partialBin } = makeFakeBin(partialDir, ['opencode', 'agy']);
     const res = runDelegate(['profiles'], {
@@ -1341,12 +1353,9 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 8);
+    assert.equal(lines.length, 5);
     assert.deepEqual(lines, [
       'flash | opencode | opencode-go/deepseek-v4.1-flash | deepseek | found',
-      'glm-flash | opencode | opencode-go/glm-5.3-flash | zhipu | found',
-      'kimi | opencode | opencode-go/kimi-k3.1-pro | moonshot | found',
-      'hy4-review | opencode | opencode-go/hy4 | tencent | found',
       'codex | codex | gpt-6.1-sol | openai | missing',
       'codex-review | codex | gpt-6.1-sol | openai | missing',
       'agy | agy | gemini-4-hydrogen-high | gemini | found',
@@ -1372,7 +1381,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 8);
+    assert.equal(lines.length, 5);
     assert.ok(lines.includes('codex | codex | gpt-6.1-sol | openai | found'));
     assert.ok(lines.includes('codex-review | codex | gpt-6.1-sol | openai | found'));
   });
@@ -1450,6 +1459,62 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.match(res.stdout, /implement \| opencode \| opencode-go\/deepseek-v4-pro/);
     assert.match(res.stdout, /implement \| opencode \| deepseek-pro/);
     assert.match(res.stdout, /implement \| codex \| gpt-6-astra/);
+  });
+
+  it('report and status read old removed-profile records as they are without crashing', () => {
+    const logDir = join(atomicHome, 'delegate');
+    mkdirSync(logDir, { recursive: true });
+    mkdirSync(outDir, { recursive: true });
+    const errFile = join(outDir, 'OLD-HY4.err');
+    writeFileSync(errFile, 'Error: rate limit reached. Please try again at 9:30 AM.\n');
+    const base = {
+      kind: 'run',
+      project: 'demo',
+      task: 'legacy task',
+      user_confirmed: true,
+      started: '2026-10-01T10:00:00+00:00',
+      duration_s: 12,
+      exit_code: 0,
+      timed_out: false,
+      peak: false,
+      base: 'abcdef1234',
+      head: 'abcdef1234',
+      commits: 1,
+      files_changed: 2,
+      dirty_after: false,
+      card: cardPath,
+      stdout: join(outDir, 'legacy.out.md'),
+      attempt: 1,
+    };
+    const oldRuns = [
+      { ...base, id: 'OLD-GLM', role: 'mechanical', executor: 'opencode',
+        model: 'opencode-go/glm-5.3-flash', profile: 'glm-flash', family: 'zhipu' },
+      { ...base, id: 'OLD-KIMI', role: 'implement', executor: 'opencode',
+        model: 'opencode-go/kimi-k3.1-pro', profile: 'kimi', family: 'moonshot' },
+      { ...base, id: 'OLD-HY4', role: 'review', executor: 'opencode',
+        model: 'opencode-go/hy4', profile: 'hy4-review', family: 'tencent',
+        exit_code: 1, failure: 'provider_limit', stderr: errFile },
+    ];
+    const oldPipeline = {
+      kind: 'pipeline', id: 'OLD-PIPE', project: 'demo', outcome: 'reviewed',
+      executor_profile: 'glm-flash', reviewer_profile: 'hy4-review', gate_exit: 0,
+      auto_committed: false, findings: { major: 0, medium: 0, minor: 0 }, duration_s: 20,
+    };
+    writeFileSync(
+      join(logDir, 'runs.jsonl'),
+      [...oldRuns, oldPipeline].map((r) => JSON.stringify(r)).join('\n') + '\n',
+    );
+
+    const report = runDelegate(['report'], baseEnv);
+    assert.equal(report.status, 0, report.stderr);
+    assert.match(report.stdout, /mechanical \| opencode \| opencode-go\/glm-5\.3-flash/);
+    assert.match(report.stdout, /implement \| opencode \| opencode-go\/kimi-k3\.1-pro/);
+    assert.match(report.stdout, /review \| opencode \| opencode-go\/hy4/);
+    assert.match(report.stdout, /glm-flash -> hy4-review/);
+
+    const status = runDelegate(['status'], { ...baseEnv, DELEGATE_NOW: '2026-10-01T11:00:00Z' });
+    assert.equal(status.status, 0, status.stderr);
+    assert.match(status.stdout, /opencode: provider_limit \(try again at 9:30 AM\)/);
   });
 
   it('pipeline happy path: executor commits, gate passes, reviewer reports findings', () => {
@@ -1575,7 +1640,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         '--role', 'implement',
         '--cwd', repoDir,
         '--card', cardPath,
-        '--route', 'flash,glm-flash',
+        '--route', 'flash,codex',
         '--gate', 'touch should_not_run.txt; false',
         '--review-card', reviewCardPath,
         '--review-route', 'codex-review',
@@ -1749,6 +1814,76 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     const pipeRec = recs.find((r) => r.kind === 'pipeline');
     assert.equal(pipeRec.reviewer_profile, 'agy-review');
     assert.equal(pipeRec.outcome, 'reviewed');
+  });
+
+  it('reviewer fallback never resolves to an OpenCode model', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+    );
+    const reviewOutput = 'Reviewed.\nTOTAL major=0 medium=0 minor=0\n';
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-NO-OPENCODE-REVIEW',
+        '--task', 'opencode is never a reviewer',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'codex',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'flash,codex-review,agy-review',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    const revRecs = recs.filter((r) => r.role === 'review');
+    assert.equal(revRecs.length, 1);
+    assert.notEqual(revRecs[0].executor, 'opencode');
+    assert.equal(revRecs[0].executor, 'agy');
+    assert.equal(recs.find((r) => r.kind === 'pipeline').reviewer_profile, 'agy-review');
+  });
+
+  it('a review route with only an OpenCode profile ends with no_reviewer and no review run', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+    );
+
+    const res = runDelegate(
+      [
+        'pipeline',
+        '--id', 'T-PIPE-OPENCODE-ONLY-REVIEW',
+        '--task', 'no opencode reviewer',
+        '--role', 'implement',
+        '--cwd', repoDir,
+        '--card', cardPath,
+        '--route', 'codex',
+        '--gate', 'true',
+        '--review-card', reviewCardPath,
+        '--review-route', 'flash',
+        '--out', outDir,
+        '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+
+    assert.notEqual(res.status, 0);
+    const recs = readLogRecords(atomicHome);
+    assert.equal(recs.filter((r) => r.role === 'review').length, 0);
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.equal(pipeRec.outcome, 'no_reviewer');
+    assert.equal(pipeRec.reviewer_profile, null);
   });
 
   it('pipeline skips reviewer with empty output and tries next', () => {
