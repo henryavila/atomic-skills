@@ -5119,6 +5119,46 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.equal(readFileSync(join(repoDir, '.env'), 'utf8'), 'REMOTE-WORKTREE-CANARY\n');
   });
 
+  it('R09 gives ids that sanitize alike separate checkouts and cleans only one', () => {
+    const idArgs = id => ['run', '--id', id, '--task', 'collision', '--role', 'implement',
+      '--profile', 'flash', '--cwd', repoDir, '--card', cardPath,
+      '--out', outDir, '--confirmed', '--host', 'devbox'];
+    const first = runDelegate(idArgs('A B'), remoteEnv());
+    assert.equal(first.status, 0, first.stderr);
+    const second = runDelegate(idArgs('A@B'), remoteEnv());
+    assert.equal(second.status, 0, second.stderr);
+    const [recOne, recTwo] = readLogRecords(atomicHome);
+    assert.notEqual(recOne.remote_dir, recTwo.remote_dir);
+    assert.match(recOne.remote_dir, /A_B-[0-9a-f]{8}$/);
+    assert.match(recTwo.remote_dir, /A_B-[0-9a-f]{8}$/);
+    const clean = runDelegate(['remote-clean', '--host', 'devbox', '--cwd', repoDir,
+      '--id', 'A B'], remoteEnv());
+    assert.equal(clean.status, 0, clean.stderr);
+    assert.equal(existsSync(recOne.remote_dir), false);
+    assert.equal(existsSync(recTwo.remote_dir), true);
+  });
+
+  it('R09 does not read an undocumented DELEGATE_REMOTE_BASE on the host', async () => {
+    const ready = join(root, 'base-ready');
+    const release = join(root, 'base-release');
+    const child = spawnDelegate(runArgs(), remoteEnv({
+      FAKE_READY_FILE: ready,
+      FAKE_WAIT_FILE: release,
+      DELEGATE_REMOTE_BASE: join(remote.root, 'ignored-base'),
+    }));
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    await waitFor(() => existsSync(ready), 30000, 'remote executor ready');
+    const scripts = findFiles(remote.root, file => file.endsWith('/remote-run.sh'));
+    assert.ok(scripts.length >= 1, 'the driver script is on the host');
+    const driver = readFileSync(scripts[0], 'utf8');
+    assert.doesNotMatch(driver, /DELEGATE_REMOTE_BASE/);
+    assert.match(driver, /R="\$HOME\/\.atomic-skills\/delegate\/remote\//);
+    writeFileSync(release, 'go\n');
+    const status = await new Promise(resolve => child.on('exit', resolve));
+    assert.equal(status, 0, stderr);
+  });
+
   it('R04 reuses a clean checkout that is exactly the commit being sent', () => {
     const first = runDelegate(runArgs(), remoteEnv());
     assert.equal(first.status, 0, first.stderr);
