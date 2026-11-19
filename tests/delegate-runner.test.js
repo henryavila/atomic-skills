@@ -5066,6 +5066,31 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.notEqual(rec.sync.sent, rec.sync.received);
   });
 
+  it('R03 turns a failed remote auto-commit into remote_error with the reason', () => {
+    const hooks = join(root, 'hooks');
+    mkdirSync(hooks, { recursive: true });
+    const hook = join(hooks, 'pre-commit');
+    writeFileSync(hook, '#!/bin/sh\necho "refused by test hook" >&2\nexit 1\n');
+    chmodSync(hook, 0o755);
+    const before = git(repoDir, 'rev-parse', 'HEAD');
+    const res = runDelegate(runArgs(), remoteEnv({
+      FAKE_TOUCH_FILE: 'remote-uncommitted.txt',
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'core.hooksPath',
+      GIT_CONFIG_VALUE_0: hooks,
+    }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'remote_error');
+    assert.match(rec.remote_error, /remote auto-commit failed \(git exit [1-9]/);
+    assert.match(rec.remote_error, /refused by test hook/);
+    assert.equal(rec.uncommitted, true);
+    assert.equal(git(repoDir, 'rev-parse', 'HEAD'), before,
+      'a failed commit must not move the local branch');
+    assert.equal(findFiles(remote.root, file => file.endsWith('/remote-uncommitted.txt')).length, 1,
+      'the uncommitted remote work is still in the checkout');
+  });
+
   it('fails a remote review that writes in the remote checkout without touching the local branch', () => {
     const base = git(repoDir, 'rev-parse', 'HEAD');
     writeFileSync(join(repoDir, 'review-input.txt'), 'review me\n');

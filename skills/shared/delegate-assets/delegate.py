@@ -1337,14 +1337,13 @@ code=$?
 received=$(git -C "$tree" rev-parse HEAD)
 dirty=0
 if [ -n "$(git -C "$tree" status --porcelain)" ]; then dirty=1; fi
-commit_rc=
+commit_rc=0
 if [ {q('1' if not review else '0')} = 1 ] && {{ [ "$dirty" = 1 ] || [ "$received" != "$sent" ]; }}; then
   if [ "$dirty" = 1 ]; then
     git -C "$tree" add -A
-    if ! git -C "$tree" -c user.name="Delegate Runner" -c user.email="delegate@localhost" \
-        commit -q -m "$msg" >>"$run/commit.log" 2>&1; then
-      commit_rc=$?
-    fi
+    git -C "$tree" -c user.name="Delegate Runner" -c user.email="delegate@localhost" \
+        commit -q -m "$msg" >>"$run/commit.log" 2>&1
+    commit_rc=$?
   fi
   received=$(git -C "$tree" rev-parse HEAD)
 fi
@@ -1625,6 +1624,17 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         remote_exit = int(meta.get("exit") or 0)
         remote_dirty = meta.get("dirty") == "1"
         commit_rc = meta.get("commit_rc") or ""
+        commit_failed = commit_rc not in ("", "0")
+        commit_error = None
+        if commit_failed:
+            commit_error = f"remote auto-commit failed (git exit {commit_rc})"
+            try:
+                tail = [line for line in (local_res / "commit.log").read_text(
+                    errors="replace").splitlines() if line.strip()]
+            except OSError:
+                tail = []
+            if tail:
+                commit_error += ": " + tail[-1]
         _copy_result(local_res / "stdout", stdout)
         _copy_result(local_res / "stderr", stderr)
         if executor == "codex":
@@ -1669,8 +1679,8 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             failure = "remote_error"
         elif review_wrote:
             failure = "review_wrote"
-        elif commit_rc and commit_rc != "0":
-            failure = "error"
+        elif commit_failed:
+            failure = "remote_error"
         else:
             review_output = None
             if role == "review":
@@ -1703,6 +1713,8 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         }
         if fetch_error:
             rec["remote_error"] = fetch_error
+        elif commit_error:
+            rec["remote_error"] = commit_error
         if executor == "codex":
             rec["last_message"] = str(last_msg)
         append(rec)
