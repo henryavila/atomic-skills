@@ -1299,6 +1299,12 @@ R="$HOME/.atomic-skills/delegate/remote/{project_dir}/{task_dir}"
 tree="$R/tree"
 run="$R/run"
 res="$PWD/{REMOTE_RESULT_PREFIX}{digest}"
+cleanup() {{
+  [ -n "${{run:-}}" ] && rm -rf "$run"
+  [ -n "${{stage:-}}" ] && rm -rf "$stage"
+}}
+trap 'cleanup; exit 143' TERM INT HUP
+trap cleanup EXIT
 rm -rf "$run" "$res"
 mkdir -p "$R"
 # Identify this run exactly: the run record written by remote-runner holds this
@@ -1320,16 +1326,46 @@ if [ -n "$run_id" ]; then
   printf '%s alive pgid=%s\\n' "$run_id" "$$" > "$R/.delegate-run-$token"
   printf '__DELEGATE_REMOTE_RUN__ %s %s\\n' "$token" "$run_id" >&2
 fi
-rm -rf "$tree"
-git init -q "$tree" || exit 70
-git -C "$tree" fetch -q "$stage/code.bundle" "$sent:refs/heads/$branch" || exit 70
-git -C "$tree" symbolic-ref HEAD "refs/heads/$branch" || exit 70
-git -C "$tree" reset -q --hard "$sent" || exit 70
+# Reuse only a checkout that is exactly the commit being sent and clean.
+# Anything else is remote work that never reached the local branch: keep it
+# under a timestamped name instead of deleting it.
+reuse=0
+kept=""
+kept_head=""
+if [ -d "$tree/.git" ]; then
+  kept_head=$(git -C "$tree" rev-parse HEAD 2>/dev/null || true)
+  if [ -n "$kept_head" ] && [ "$kept_head" = "$sent" ] && \
+      [ -z "$(git -C "$tree" status --porcelain 2>/dev/null)" ]; then
+    reuse=1
+  else
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    kept="$R/kept-$stamp"
+    n=1
+    while [ -e "$kept" ]; do kept="$R/kept-$stamp-$n"; n=$((n+1)); done
+    mv "$tree" "$kept" || exit 70
+  fi
+fi
+if [ "$reuse" != 1 ]; then
+  git init -q "$tree" || exit 70
+  git -C "$tree" fetch -q "$stage/code.bundle" "$sent:refs/heads/$branch" || exit 70
+  git -C "$tree" symbolic-ref HEAD "refs/heads/$branch" || exit 70
+  git -C "$tree" reset -q --hard "$sent" || exit 70
+fi
 mkdir -p "$run"
 cp "$stage/prompt.md" "$run/prompt.md"
 if [ -d "$stage/attachments" ]; then cp -a "$stage/attachments" "$run/attachments"; fi
 if [ -f "$stage/diff.txt" ]; then cp "$stage/diff.txt" "$run/diff.txt"; fi
 cp "$stage/exec.sh" "$run/exec.sh"
+work_dir="$tree"
+work_head="$sent"
+work_source=tree
+if [ -n "$kept" ]; then
+  work_dir="$kept"
+  work_head="$kept_head"
+  work_source=kept
+fi
+printf '__DELEGATE_REMOTE_WORK__\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \
+  "$token" "$work_source" "$work_dir" "$branch" "$work_head" >&2
 export R
 cd "$tree" || exit 70
 bash "$run/exec.sh" >"$run/stdout" 2>"$run/stderr"
@@ -1363,12 +1399,12 @@ cp "$run/stdout" "$run/stderr" "$run/meta.txt" "$res/"
 for f in last.md result.bundle commit.log; do
   if [ -f "$run/$f" ]; then cp "$run/$f" "$res/"; fi
 done
-rm -rf "$run" "$stage"
 exit 0
 """
 
 
 REMOTE_RUN_MARKER = "__DELEGATE_REMOTE_RUN__"
+REMOTE_WORK_MARKER = "__DELEGATE_REMOTE_WORK__"
 
 
 def remote_run_marker(path, token):
@@ -1384,6 +1420,21 @@ def remote_run_marker(path, token):
             if re.fullmatch(r"[0-9a-fA-F-]{36}", parts[2]):
                 run_id = parts[2]
     return run_id
+
+
+def remote_work_marker(path, token):
+    """Return where this run kept the remote work, from its stderr marker line."""
+    try:
+        text = Path(path).read_text(errors="replace")
+    except OSError:
+        return None
+    work = None
+    for line in text.splitlines():
+        parts = line.split("\t")
+        if len(parts) == 6 and parts[0] == REMOTE_WORK_MARKER and parts[1] == token:
+            work = {"source": parts[2], "dir": parts[3], "branch": parts[4],
+                    "head": parts[5]}
+    return work
 
 
 def remote_kill(host, run_id):
@@ -1585,6 +1636,16 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
     except OSError:
         pass
     last_line = (remote_stderr.splitlines() or [""])[-1]
+    work_info = remote_work_marker(remote_err.name, run_token)
+
+    def kept_record(extra=None):
+        if not work_info:
+            return None
+        kept = {"dir": work_info["dir"], "branch": work_info["branch"],
+                "head": work_info["head"]}
+        if extra:
+            kept.update(extra)
+        return kept
 
     try:
         if remote_code == 74:
@@ -1600,15 +1661,17 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             fetch_s = time.monotonic() - fetch_t0
             _cleanup_remote_local(stage, local_res)
             if timed_out:
+                extra = {"remote_work_kept": kept_record()} if kept_record() else {}
                 return _remote_record_failure(
                     pending, "timeout", wait_s=round(run_s, 3), timed_out=True,
                     send_s=round(send_s, 3), run_s=round(run_s, 3),
-                    fetch_s=round(fetch_s, 3), exit_code=remote_code)
+                    fetch_s=round(fetch_s, 3), exit_code=remote_code, **extra)
             if orphan_failure:
+                extra = {"remote_work_kept": kept_record()} if kept_record() else {}
                 return _remote_record_failure(
                     pending, orphan_failure, wait_s=round(run_s, 3),
                     send_s=round(send_s, 3), run_s=round(run_s, 3),
-                    fetch_s=round(fetch_s, 3), exit_code=remote_code)
+                    fetch_s=round(fetch_s, 3), exit_code=remote_code, **extra)
             detail = last_line or (pull.stderr.strip().splitlines() or [""])[-1]
             return _remote_record_failure(
                 pending, "remote_error", detail or "remote run produced no result",
@@ -1715,6 +1778,10 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             rec["remote_error"] = fetch_error
         elif commit_error:
             rec["remote_error"] = commit_error
+        if failure != "none":
+            kept = kept_record({"ref": fetched_ref} if diverged and fetched_ref else None)
+            if kept:
+                rec["remote_work_kept"] = kept
         if executor == "codex":
             rec["last_message"] = str(last_msg)
         append(rec)

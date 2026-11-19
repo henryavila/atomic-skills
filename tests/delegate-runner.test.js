@@ -5054,6 +5054,65 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.equal(existsSync(join(repoDir, 'remote-diverged.txt')), false);
   });
 
+  it('R04 reuses a clean checkout that is exactly the commit being sent', () => {
+    const first = runDelegate(runArgs(), remoteEnv());
+    assert.equal(first.status, 0, first.stderr);
+    const second = runDelegate(runArgs(), remoteEnv({ FAKE_STDOUT: 'second round\n' }));
+    assert.equal(second.status, 0, second.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    const taskDirs = readdirSync(dirname(rec.remote_dir)).filter(name => name.startsWith('RMT-'));
+    const kept = taskDirs.flatMap(name =>
+      readdirSync(join(dirname(rec.remote_dir), name)).filter(entry => entry.startsWith('kept-')));
+    assert.deepEqual(kept, [], 'the exact commit is reused, nothing is moved aside');
+  });
+
+  it('R04 moves a diverged checkout aside, records it, and cleans run and stage on timeout', () => {
+    const first = runDelegate(runArgs(), remoteEnv());
+    assert.equal(first.status, 0, first.stderr);
+    const [firstRec] = readLogRecords(atomicHome);
+    const oldHead = firstRec.sync.received;
+    writeFileSync(join(firstRec.remote_dir, 'tree', 'leftover-work.txt'), 'never fetched\n');
+    const res = runDelegate(runArgs(['--timeout', '1']), remoteEnv({ FAKE_SLEEP: '30' }));
+    assert.equal(res.status, 1, res.stderr);
+    const rec = readLogRecords(atomicHome).at(-1);
+    assert.equal(rec.failure, 'timeout');
+    assert.ok(rec.remote_work_kept, JSON.stringify(rec));
+    assert.equal(rec.remote_work_kept.head, oldHead);
+    assert.equal(rec.remote_work_kept.branch, 'main');
+    assert.match(rec.remote_work_kept.dir, /\/kept-\d{8}T\d{6}Z$/);
+    assert.equal(readFileSync(join(rec.remote_work_kept.dir, 'leftover-work.txt'), 'utf8'),
+      'never fetched\n', 'the moved-aside checkout is kept');
+    assert.equal(findFiles(remote.root, file => file.endsWith('/run/meta.txt')).length, 0);
+    const remoteRunDirs = [];
+    const walk = dir => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (entry.name === 'run') remoteRunDirs.push(join(dir, entry.name));
+        else walk(join(dir, entry.name));
+      }
+    };
+    walk(remote.root);
+    assert.deepEqual(remoteRunDirs, [], 'the per-run directory is removed after a kill');
+    const common = resolve(repoDir, git(repoDir, 'rev-parse', '--git-common-dir'));
+    const stages = existsSync(join(common, 'delegate')) ? readdirSync(join(common, 'delegate')) : [];
+    assert.deepEqual(stages, [], 'the local stage is removed');
+  });
+
+  it('R04 remote-clean removes the kept copies too', () => {
+    const first = runDelegate(runArgs(), remoteEnv());
+    assert.equal(first.status, 0, first.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    writeFileSync(join(rec.remote_dir, 'tree', 'leftover-work.txt'), 'never fetched\n');
+    const second = runDelegate(runArgs(['--timeout', '1']), remoteEnv({ FAKE_SLEEP: '30' }));
+    assert.equal(second.status, 1, second.stderr);
+    const kept = readLogRecords(atomicHome).at(-1).remote_work_kept.dir;
+    assert.ok(existsSync(kept));
+    const clean = runDelegate(['remote-clean', '--host', 'devbox', '--cwd', repoDir, '--id', 'RMT'],
+      remoteEnv());
+    assert.equal(clean.status, 0, clean.stderr);
+    assert.equal(existsSync(kept), false);
+  });
+
   it('commits uncommitted remote changes with the local runner message and fetches them', () => {
     const res = runDelegate(runArgs(), remoteEnv({ FAKE_TOUCH_FILE: 'remote-uncommitted.txt' }));
     assert.equal(res.status, 0, res.stderr);
