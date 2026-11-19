@@ -1094,7 +1094,7 @@ def remote_runner_cmd():
     return shutil.which("remote-runner")
 
 
-def remote_cli(args, timeout=120):
+def remote_cli(args, timeout=120, timeout_failure="remote_not_ready"):
     exe = remote_runner_cmd()
     if not exe:
         raise RemoteError("remote_not_ready",
@@ -1104,7 +1104,7 @@ def remote_cli(args, timeout=120):
     except OSError as exc:
         raise RemoteError("remote_not_ready", f"cannot run remote-runner: {exc}")
     except subprocess.TimeoutExpired:
-        raise RemoteError("remote_not_ready", "remote-runner timed out")
+        raise RemoteError(timeout_failure, "remote-runner timed out")
 
 
 def remote_doctor(host):
@@ -1622,7 +1622,8 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
 
         send_t0 = time.monotonic()
         sync_result = remote_cli(["sync", "--host", host, str(staging)],
-                                 timeout=max(120, timeout + 120))
+                                 timeout=max(120, timeout + 120),
+                                 timeout_failure="remote_error")
         send_s = time.monotonic() - send_t0
         if sync_result.returncode != 0:
             detail = (sync_result.stderr.strip().splitlines() or

@@ -5382,6 +5382,24 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.match(rec.remote_error, /remote run failed: .*oops/);
   });
 
+  it('R11 reports a sync timeout as remote_error, not remote_not_ready', () => {
+    const slow = join(root, 'slow-remote-runner');
+    writeFileSync(slow, '#!/bin/sh\nsleep 5\n');
+    chmodSync(slow, 0o755);
+    const probe = spawnSync(PYTHON3, ['-c', `
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("delegate", ${JSON.stringify(DELEGATE_PY)})
+delegate = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(delegate)
+try:
+    delegate.remote_cli(["sync"], timeout=0.2, timeout_failure="remote_error")
+except delegate.RemoteError as exc:
+    print(exc.failure)
+`], { encoding: 'utf8', env: { ...process.env, DELEGATE_REMOTE_RUNNER: slow } });
+    assert.equal(probe.status, 0, probe.stderr);
+    assert.equal(probe.stdout.trim(), 'remote_error');
+  });
+
   it('a remote review run with empty output is empty_output and exits non-zero', () => {
     const base = git(repoDir, 'rev-parse', 'HEAD');
     writeFileSync(join(repoDir, 'review-input.txt'), 'review me\n');
