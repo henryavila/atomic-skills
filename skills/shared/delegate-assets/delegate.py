@@ -74,6 +74,15 @@ FORBIDDEN_ARGV_FLAGS = (
 )
 # TERM grace before an orphaned executor group is killed.
 ORPHAN_GRACE_S = 2.0
+# Poll interval for the executor's descendant tree; short enough that a child
+# detached right before the executor exits is still seen as a descendant.
+ORPHAN_POLL_S = 0.2
+# Commands kept in the `orphans.sample` of a run record.
+ORPHAN_SAMPLE = 5
+ORPHAN_SAMPLE_CHARS = 80
+# Output names that belong to one run round; a repeated id or a later attempt
+# must never overwrite them.
+RUN_OUTPUT_SUFFIXES = (".out.md", ".err", ".last.md", ".prompt.md")
 ALIASES = {
     "deepseek-light": "flash",
 }
@@ -697,16 +706,20 @@ class ParentGone(Exception):
     """The runner was reparented: its original parent exited or was killed."""
 
 
-def wait_for_exit(process, timeout, parent_pid=None):
+def wait_for_exit(process, timeout, parent_pid=None, tracker=None):
     """Observe exit without reaping: the zombie reserves PID/PGID until cleanup.
 
     With parent_pid, also notice the runner losing its original parent (a
-    portable getppid() check, not Linux-only prctl) and stop the child.
+    portable getppid() check, not Linux-only prctl) and stop the child. With a
+    tracker, keep walking the child's descendant tree while it runs, so a
+    detached grandchild is remembered before the executor exits.
     """
     deadline = time.monotonic() + timeout
     while True:
         if parent_pid is not None and os.getppid() != parent_pid:
             raise ParentGone()
+        if tracker is not None:
+            tracker.poll()
         if child_exited(process.pid):
             return
         if time.monotonic() >= deadline:
@@ -761,6 +774,174 @@ def stop_process(process):
             process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             pass
+
+
+class ProcessTracker:
+    """Remember the executor's descendants and end whatever survives the run.
+
+    The runner signals only the executor's process group, so a descendant that
+    changed group (setsid, a daemonized server, a test that detaches a busy
+    loop) escapes it. While the executor runs, this tracker polls the process
+    table (`ps -axo pid,ppid,pgid`), walks the tree below the executor and
+    remembers each descendant's pid together with its kernel start time
+    (`process_identity`). A reused pid never matches its remembered start time,
+    so it is never signalled. At the end, `sweep()` ends the remembered
+    processes that are still alive — including the ones reparented to pid 1
+    when the executor exited — with TERM, a short grace and KILL.
+
+    Nothing outside `seen` is ever signalled: no name or path match, no process
+    group. A remote (`--host`) runner would apply the same rule on the host in
+    its own cleanup and skip this tracker locally.
+    """
+
+    def __init__(self, interval=None, grace=None):
+        self.interval = ORPHAN_POLL_S if interval is None else interval
+        self.grace = ORPHAN_GRACE_S if grace is None else grace
+        self.runner_pid = os.getpid()
+        self.roots = set()
+        self.seen = {}
+        self.last_poll = 0.0
+
+    def watch(self, pid):
+        """Start tracking the descendants of the executor's group leader."""
+        if not isinstance(pid, int) or pid <= 0:
+            return
+        self.roots.add(pid)
+        self.poll(force=True)
+
+    @staticmethod
+    def _table():
+        try:
+            result = subprocess.run(
+                ["ps", "-axo", "pid=,ppid=,pgid="],
+                capture_output=True, text=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if result.returncode != 0:
+            return None
+        table = {}
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            try:
+                pid, ppid = int(parts[0]), int(parts[1])
+                pgid = int(parts[2]) if len(parts) > 2 else 0
+            except ValueError:
+                continue
+            table[pid] = (ppid, pgid)
+        return table
+
+    def poll(self, force=False):
+        """Walk the current tree below the roots and remember new descendants."""
+        current = time.monotonic()
+        if not force and current - self.last_poll < self.interval:
+            return
+        self.last_poll = current
+        if not self.roots:
+            return
+        table = self._table()
+        if not table:
+            return
+        children = {}
+        for pid, (ppid, _pgid) in table.items():
+            children.setdefault(ppid, []).append(pid)
+        stack = [pid for pid in self.roots if pid in table]
+        visited = set(stack)
+        while stack:
+            parent = stack.pop()
+            for child in children.get(parent, ()):
+                if child in visited:
+                    continue
+                visited.add(child)
+                stack.append(child)
+                if child == self.runner_pid or child in self.seen:
+                    continue
+                identity = process_identity(child)
+                if identity:
+                    self.seen[child] = identity
+
+    @staticmethod
+    def _commands(pids):
+        if not pids:
+            return {}
+        try:
+            result = subprocess.run(
+                ["ps", "-p", ",".join(str(pid) for pid in pids), "-o", "pid=,command="],
+                capture_output=True, text=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            return {}
+        commands = {}
+        for line in result.stdout.splitlines():
+            parts = line.strip().split(None, 1)
+            if len(parts) != 2:
+                continue
+            try:
+                commands[int(parts[0])] = parts[1]
+            except ValueError:
+                continue
+        return commands
+
+    def _owned(self, pid):
+        """True only while the pid still carries its remembered start time."""
+        identity = self.seen.get(pid)
+        if not identity or pid == self.runner_pid or pid in self.roots:
+            return False
+        return process_identity(pid) == identity
+
+    def _signal(self, pids, sig):
+        sent = []
+        for pid in pids:
+            if not self._owned(pid):
+                continue
+            try:
+                os.kill(pid, sig)
+            except (ProcessLookupError, PermissionError, OSError):
+                continue
+            sent.append(pid)
+        return sent
+
+    def _wait_gone(self, pids, timeout):
+        deadline = time.monotonic() + timeout
+        while pids and time.monotonic() < deadline:
+            time.sleep(0.05)
+            pids = [pid for pid in pids if self._owned(pid)]
+        return [pid for pid in pids if self._owned(pid)]
+
+    def sweep(self):
+        """TERM, grace, KILL every remembered descendant still alive."""
+        found = [pid for pid in list(self.seen) if self._owned(pid)]
+        if not found:
+            return {"found": 0, "killed": 0, "sample": []}
+        commands = self._commands(found)
+        sample = [commands.get(pid, f"pid {pid}").strip()[:ORPHAN_SAMPLE_CHARS]
+                  for pid in found[:ORPHAN_SAMPLE]]
+        survivor = self._wait_gone(self._signal(found, signal.SIGTERM), self.grace)
+        survivor = self._wait_gone(self._signal(survivor, signal.SIGKILL), 2.0)
+        return {"found": len(found), "killed": len(found) - len(survivor),
+                "sample": sample}
+
+
+def run_output_paths(out_path, task_id, attempt):
+    """Output paths that never overwrite an earlier round of the same id.
+
+    The first attempt of a fresh id keeps `<id>.<ext>`. A repeated id or an
+    attempt above 1 gets `<id>.attempt<N>.<ext>`; when that name is taken too,
+    the next free number is used. The record names the paths chosen here.
+    """
+    def free(stem):
+        return not any((out_path / f"{stem}{suffix}").exists()
+                       for suffix in RUN_OUTPUT_SUFFIXES)
+
+    stem = task_id if attempt <= 1 and free(task_id) else None
+    if stem is None:
+        number = max(2, attempt)
+        while not free(f"{task_id}.attempt{number}"):
+            number += 1
+        stem = f"{task_id}.attempt{number}"
+    base = out_path / stem
+    return (Path(f"{base}.out.md"), Path(f"{base}.err"),
+            Path(f"{base}.last.md"), Path(f"{base}.prompt.md"))
 
 
 class PausedError(Exception):
@@ -910,6 +1091,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if role == "review" and EXECUTOR_FLAGS.get(executor, {}).get("requires_review_diff") and not diff_range:
         usage_error(f"{executor} review requires --diff-range; the runner attaches the exact diff")
     card_content, input_sizes, input_failure = compose_prompt(card, attachments, diff_range, cwd)
+    if role == "review" and not diff_range and "{{DIFF_RANGE}}" in card_content:
+        usage_error("review card contains {{DIFF_RANGE}} but no --diff-range was given; "
+                    "pass --diff-range <base>...<head>")
     size_failure = "review_input_too_large" if role == "review" else "input_too_large"
     if input_sizes["prompt_bytes"] > MAX_REVIEW_INPUT_BYTES:
         input_failure = size_failure
@@ -922,9 +1106,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     out_path = Path(out or HOME / "delegate" / "out" / project).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
     policy = access_policy(executor, role, cwd, out_path, strict=access_mode == "strict")
-    stdout, stderr = out_path / f"{task_id}.out.md", out_path / f"{task_id}.err"
-    last_msg = out_path / f"{task_id}.last.md"
-    prompt = out_path / f"{task_id}.prompt.md"
+    stdout, stderr, last_msg, prompt = run_output_paths(out_path, task_id, attempt)
     prompt.write_text(card_content, encoding="utf-8")
     # A refused input or a queue timeout has an audit record, but no child snapshot.
     pending = {
@@ -932,7 +1114,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         "executor": executor, "model": model, "family": family, "attempt": attempt,
         "user_confirmed": bool(confirmed), "duration_s": 0, "exit_code": None,
         "timed_out": False, "card": str(Path(card).resolve()), "prompt": str(prompt),
-        "stdout": str(stdout), "stderr": str(stderr), "access": policy["access"], **input_sizes,
+        "stdout": str(stdout), "stderr": str(stderr), "access": policy["access"],
+        "orphans": {"found": 0, "killed": 0, "sample": []}, **input_sizes,
     }
     if input_failure:
         pending.update(failure=input_failure, completed=now().isoformat(timespec="microseconds"))
@@ -955,6 +1138,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     timed_out = False
     orphan_failure = None
     interrupted_exc = None
+    tracker = ProcessTracker()
+    orphans = {"found": 0, "killed": 0, "sample": []}
 
     # Codex and Antigravity read the prompt from stdin; OpenCode takes it as an
     # argv element (see ARGV_PROMPT_EXECUTORS).
@@ -982,6 +1167,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                             stdin=si if si is not None else subprocess.DEVNULL,
                             start_new_session=True, env=child_env,
                         )
+                        tracker.watch(p.pid)
                         slot_file = RUNNING / f"{executor}-{task_id}-{p.pid}.json"
                         slot_data = {
                             "id": task_id,
@@ -1006,7 +1192,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 time.sleep(min(5.0, max(0.05, remaining)))
 
             try:
-                wait_for_exit(p, timeout, parent_pid=parent_pid)
+                wait_for_exit(p, timeout, parent_pid=parent_pid, tracker=tracker)
             except ParentGone:
                 # The orchestrator's background task (or the parent shell) went
                 # away. TERM the whole group, then KILL after the grace period.
@@ -1023,7 +1209,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 except (ProcessLookupError, PermissionError):
                     pass
                 try:
-                    wait_for_exit(p, 10)
+                    wait_for_exit(p, 10, tracker=tracker)
                 except subprocess.TimeoutExpired:
                     pass
     except ParentGone:
@@ -1044,14 +1230,21 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
             with SlotLock():
                 try:
                     if p is not None:
+                        if p.returncode is None:
+                            tracker.poll(force=True)
                         stop_process(p)
                 finally:
                     if slot_file and (p is None or p.returncode is not None):
                         slot_file.unlink(missing_ok=True)
                         slot_file.with_suffix(".tmp").unlink(missing_ok=True)
         finally:
-            if si is not None:
-                si.close()
+            try:
+                # Runs on success, failure, timeout, stop and the orphan watcher:
+                # whatever the executor left outside its group ends here.
+                orphans = tracker.sweep()
+            finally:
+                if si is not None:
+                    si.close()
 
     code = p.returncode
 
@@ -1080,6 +1273,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         "uncommitted": uncommitted,
         "card": str(Path(card).resolve()), "stdout": str(stdout), "stderr": str(stderr),
         "attempt": attempt, "prompt": str(prompt), "access": policy["access"], **input_sizes,
+        "orphans": orphans,
     }
     if executor == "codex":
         rec["last_message"] = str(last_msg)
@@ -1158,11 +1352,13 @@ def cmd_pipeline(a):
     commit_duration_s = 0
 
     def run_attempt(profile, run_role, card, diff_range=None, attachments=None):
-        step_out = attempt_root / f"{len(attempts) + 1}-{run_role}-{profile}"
+        attempt_number = len(attempts) + 1
+        step_out = attempt_root / f"{attempt_number}-{run_role}-{profile}"
+        default_stdout, default_stderr, _, _ = run_output_paths(step_out, task_id, attempt_number)
         # Include pending attempts as well: a pause/slot exhaustion/exception has paths.
         rec = {"profile": profile, "role": run_role, "failure": "interrupted", "duration_s": 0,
-               "stdout": str(step_out / f"{task_id}.out.md"),
-               "stderr": str(step_out / f"{task_id}.err")}
+               "stdout": str(default_stdout),
+               "stderr": str(default_stderr)}
         attempts.append(rec)
         started = time.monotonic()
         try:
@@ -1405,12 +1601,16 @@ def cmd_status(a):
 
     if LOG.exists():
         limits = {}
+        recent_runs = []
         for line in LOG.read_text().splitlines():
             try:
                 r = json.loads(line)
             except Exception:
                 continue
-            if r.get("kind") == "run" and r.get("failure") == "provider_limit":
+            if r.get("kind") != "run":
+                continue
+            recent_runs.append(r)
+            if r.get("failure") == "provider_limit":
                 ex = r.get("executor")
                 started_str = r.get("completed") or r.get("started")
                 if not ex or not started_str:
@@ -1443,6 +1643,13 @@ def cmd_status(a):
                 print(f"{ex}: provider_limit ({reset_text})")
             else:
                 print(f"{ex}: provider_limit at {s_dt.strftime('%H:%M:%S UTC')}")
+
+        recent = recent_runs[-10:]
+        found = sum((r.get("orphans") or {}).get("found") or 0 for r in recent)
+        if found:
+            killed = sum((r.get("orphans") or {}).get("killed") or 0 for r in recent)
+            print(f"warning: recent runs left {found} orphan process(es) ({killed} killed); "
+                  "see the `orphans` field of the run records")
 
 
 def cmd_kill(a):
