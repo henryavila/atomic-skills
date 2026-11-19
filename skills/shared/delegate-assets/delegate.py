@@ -1143,6 +1143,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     interrupted_exc = None
     tracker = ProcessTracker()
     orphans = {"found": 0, "killed": 0, "sample": []}
+    child_finished = False
 
     # Codex and Antigravity read the prompt from stdin; OpenCode takes it as an
     # argv element (see ARGV_PROMPT_EXECUTORS).
@@ -1196,6 +1197,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
 
             try:
                 wait_for_exit(p, timeout, parent_pid=parent_pid, tracker=tracker)
+                child_finished = True
             except ParentGone:
                 # The orchestrator's background task (or the parent shell) went
                 # away. TERM the whole group, then KILL after the grace period.
@@ -1233,15 +1235,10 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
             with SlotLock():
                 try:
                     if p is not None:
-                        if p.returncode is None:
-                            # Only a live executor can still gain a descendant;
-                            # an unreaped zombie's children are already gone.
-                            try:
-                                live = not child_exited(p.pid)
-                            except (ChildProcessError, OSError):
-                                live = False
-                            if live:
-                                tracker.poll(force=True)
+                        if p.returncode is None and not child_finished:
+                            # Still running long enough that a poll may not have
+                            # happened yet; an exited child has no descendants left.
+                            tracker.poll(force=True)
                         stop_process(p)
                 finally:
                     if slot_file and (p is None or p.returncode is not None):
