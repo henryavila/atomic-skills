@@ -1,3 +1,4 @@
+import { createDriver } from './installer-driver.js';
 import { defineInstaller } from '@henryavila/minimalist-installer';
 import { createSkillsProvider } from './providers/skills-provider.js';
 import { createAutoUpdateRuntimeProvider } from './runtime-layers/auto-update.js';
@@ -20,7 +21,8 @@ import { MANIFEST_DIR } from './manifest.js';
  *
  * IDE config roots that are symlinks (~/.grok, ~/.cursor, … for any IDE) are
  * read and the files are written at the final directory. Nested and leaf
- * symlinks stay refused.
+ * symlinks stay refused for skills and runtime effects. Global instruction
+ * text blocks also resolve parent directories and file links at preflight.
  *
  * Uninstall replays the journal in reverse (Driver.uninstall) — there is no
  * bespoke unlink loop and no consumer-written revert logic; reversibility is a
@@ -42,11 +44,19 @@ import { MANIFEST_DIR } from './manifest.js';
  * @returns {{ install: Function, uninstall: Function, registry: object }}
  */
 export function buildInstaller(config) {
+  const providers = [createSkillsProvider(), createAutoUpdateRuntimeProvider(), createGlobalInstructionsProvider()];
   const installer = defineInstaller({
     config: { manifestDir: MANIFEST_DIR, ...config },
-    providers: [createSkillsProvider(), createAutoUpdateRuntimeProvider(), createGlobalInstructionsProvider()],
+    providers,
     effects: [createStageRuntimeArtifactsEffect()],
   });
   wrapInstallerRegistryForIdeSymlinks(installer.registry);
-  return installer;
+  const driver = createDriver({ registry: installer.registry, providers,
+    manifestDir: config.manifestDir ?? MANIFEST_DIR,
+    lockRoot: config.lockRoot, resourceIdentities: config.resourceIdentities,
+  });
+  return { ...installer,
+    install: ({ projectDir }) => driver.install({ manifestDir: MANIFEST_DIR, ...config }, { projectDir }),
+    uninstall: (args) => driver.uninstall(args),
+  };
 }

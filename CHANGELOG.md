@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Global instructions now resolve directory and file symlinks and install directly
+  at the destination, preserving the links and user bytes on update, opt-out,
+  and uninstall. Status recognizes the destination block. Invalid links refuse
+  only that file; repointed links leave both destinations untouched on removal.
+
 ## [2.1.0] - 2026-11-18
 
 ### Added

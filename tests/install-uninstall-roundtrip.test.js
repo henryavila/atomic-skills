@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { execFileSync } from 'node:child_process';
 import {
-  mkdtempSync, rmSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, chmodSync, renameSync,
+  mkdtempSync, rmSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, chmodSync, renameSync, lstatSync, unlinkSync,
 } from 'node:fs';
 import { join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -720,72 +720,118 @@ describe('optional global delegation instructions', () => {
       else assert.deepEqual(readFileSync(file), expected);
     }));
   }
-  for (const kind of ['symlinked parent', 'symlinked file', 'directory', 'unreadable', 'malformed']) {
+  for (const scenario of ['root-created', 'root-existing', 'file', 'config-created', 'config-parent', 'opencode-root', 'gemini-root']) {
+    it(`global symlink destination roundtrip: ${scenario}`, (t) => fixture(async (home, repo) => {
+      const target = mkdtempSync(join(tmpdir(), 'as-global-target-'));
+      try {
+        const opencode = scenario.startsWith('config-') || scenario === 'opencode-root';
+        const agent = opencode ? 'opencode' : scenario === 'file' ? 'claude-code' : scenario === 'gemini-root' ? 'antigravity' : 'codex';
+        const logical = opencode ? '.config/opencode/AGENTS.md' : agent === 'claude-code' ? '.claude/CLAUDE.md' : agent === 'antigravity' ? '.gemini/GEMINI.md' : '.codex/AGENTS.md';
+        const link = join(home, scenario.startsWith('config-') ? '.config' : scenario === 'opencode-root' ? '.config/opencode' : logical.split('/')[0]);
+        const realFile = join(target, scenario.startsWith('config-') ? 'opencode/AGENTS.md' : logical.split('/').at(-1));
+        const original = Buffer.from('user before\r\n\xff\nuser after', 'latin1');
+        if (scenario !== 'config-created') mkdirSync(join(realFile, '..'), { recursive: true });
+        if (!['root-created', 'config-created'].includes(scenario)) writeFileSync(realFile, original);
+        if (scenario === 'file') {
+          mkdirSync(link, { recursive: true });
+          try { symlinkSync(realFile, join(home, logical)); }
+          catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+        } else {
+          mkdirSync(join(link, '..'), { recursive: true });
+          symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
+        }
+        const baseline = snapshotTree(target);
+        const linkedPath = scenario === 'file' ? join(home, logical) : link;
+        const output = execFileSync(process.execPath, [CLI, 'install', '--yes', '--ide', agent, '--lang', 'en', '--global-instructions'],
+          { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
+        assert.doesNotMatch(output, /refused/i);
+        assert.ok(readFileSync(realFile, 'utf8').includes(begin));
+        assert.ok(lstatSync(linkedPath).isSymbolicLink());
+        assert.deepEqual(installedGlobalInstructionPaths(home), [logical]);
+        const status = execFileSync(process.execPath, [CLI, 'status'], { cwd: repo, encoding: 'utf8', env: process.env });
+        assert.ok(status.includes(logical));
+        await install(repo, { ...opts, ide: [agent], lang: 'pt' });
+        assert.ok(lstatSync(linkedPath).isSymbolicLink());
+        await install(repo, { ...opts, ide: [agent], globalInstructions: false });
+        assert.ok(lstatSync(linkedPath).isSymbolicLink());
+        if (['root-created', 'config-created'].includes(scenario)) assert.equal(existsSync(realFile), false);
+        else assert.deepEqual(readFileSync(realFile), original);
+        await install(repo, { ...opts, ide: [agent] });
+        await uninstall(repo, { scope: 'user', yes: true });
+        assert.deepEqual(snapshotTree(target), baseline);
+        assert.ok(lstatSync(linkedPath).isSymbolicLink());
+      } finally { rmSync(target, { recursive: true, force: true }); }
+    }));
+  }
+  for (const kind of ['directory', 'file']) {
+    it(`global symlink repoint (${kind}) refuses the journaled file and leaves both destinations untouched`, (t) => fixture(async (home, repo) => {
+      const old = join(home, 'old');
+      const next = join(home, 'next');
+      mkdirSync(old); mkdirSync(next);
+      writeFileSync(join(old, 'AGENTS.md'), 'old user\n');
+      writeFileSync(join(next, 'AGENTS.md'), 'new user\n');
+      const link = join(home, kind === 'file' ? '.codex/AGENTS.md' : '.codex');
+      if (kind === 'file') mkdirSync(join(home, '.codex'));
+      const linkTo = (dir) => symlinkSync(kind === 'file' ? join(dir, 'AGENTS.md') : dir, link,
+        kind === 'file' ? undefined : process.platform === 'win32' ? 'junction' : 'dir');
+      try { linkTo(old); }
+      catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+      await install(repo, opts);
+      const oldBytes = readFileSync(join(old, 'AGENTS.md'));
+      const originalState = JSON.parse(readFileSync(join(home, '.atomic-skills/manifest.json'), 'utf8'))
+        .effects.find(e => e.type === 'textBlock').beforeState;
+      unlinkSync(link);
+      linkTo(next);
+      assert.deepEqual(installedGlobalInstructionPaths(home), []);
+      for (const flag of ['--global-instructions', '--no-global-instructions']) {
+        const update = execFileSync(process.execPath, [CLI, 'install', '--yes', '--ide', 'codex', '--lang', 'en', flag],
+          { cwd: repo, encoding: 'utf8', env: process.env });
+        assert.equal(update.split('Global instructions refused:').length - 1, 1);
+        const journal = JSON.parse(readFileSync(join(home, '.atomic-skills/manifest.json'), 'utf8'));
+        assert.deepEqual(journal.effects.find(e => e.type === 'textBlock').beforeState, originalState);
+        assert.deepEqual(readFileSync(join(old, 'AGENTS.md')), oldBytes);
+        assert.equal(readFileSync(join(next, 'AGENTS.md'), 'utf8'), 'new user\n');
+      }
+      const output = execFileSync(process.execPath, [CLI, 'uninstall', '--yes'], { cwd: repo, encoding: 'utf8', env: process.env });
+      assert.match(output, /Global instructions refused: .*AGENTS.md/);
+      assert.ok(output.includes(join(originalState.resolvedBase, originalState.resolvedPath)));
+      assert.deepEqual(readFileSync(join(old, 'AGENTS.md')), oldBytes);
+      assert.equal(readFileSync(join(next, 'AGENTS.md'), 'utf8'), 'new user\n');
+    }));
+  }
+  for (const kind of ['dangling-root', 'loop-root', 'dangling', 'loop', 'wrong-directory-target', 'wrong-file-target', 'directory', 'unreadable', 'malformed']) {
     it(`R01 refuses ${kind} but CLI installs skills with exit 0`, { skip: kind === 'unreadable' && process.platform === 'win32' }, (t) => fixture(async (home, repo) => {
       const file = join(home, '.codex/AGENTS.md');
       const target = join(home, 'dotfiles');
       mkdirSync(target);
       writeFileSync(join(target, 'AGENTS.md'), 'foreign text\n');
-      if (kind === 'symlinked parent') symlinkSync(target, join(home, '.codex'), process.platform === 'win32' ? 'junction' : 'dir');
-      else {
-        mkdirSync(join(home, '.codex'));
-        if (kind === 'symlinked file') {
-          try { symlinkSync(join(target, 'AGENTS.md'), file); }
-          catch (err) {
-            // File symlinks need Developer Mode/admin on Windows; only then skip.
-            if (err.code === 'EPERM') { t.skip('creating a file symlink needs Developer Mode on Windows'); return; }
-            throw err;
-          }
-        }
-        else if (kind === 'directory') mkdirSync(file);
-        else { writeFileSync(file, kind === 'malformed' ? `${begin}\nbroken\n` : 'private\n'); if (kind === 'unreadable') chmodSync(file, 0); }
-      }
+      mkdirSync(join(home, '.codex'));
+      if (kind === 'dangling-root' || kind === 'loop-root') {
+        rmSync(join(home, '.codex'), { recursive: true });
+        symlinkSync(kind === 'dangling-root' ? join(target, 'missing') : join(home, '.codex'),
+          join(home, '.codex'), process.platform === 'win32' ? 'junction' : 'dir');
+      } else if (['dangling', 'loop', 'wrong-file-target'].includes(kind)) {
+        try { symlinkSync(kind === 'dangling' ? join(target, 'missing') : kind === 'loop' ? file : target, file,
+          kind === 'wrong-file-target' && process.platform === 'win32' ? 'junction' : undefined); }
+        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+      } else if (kind === 'wrong-directory-target') {
+        rmSync(join(home, '.codex'), { recursive: true });
+        try { symlinkSync(join(target, 'AGENTS.md'), join(home, '.codex')); }
+        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+      } else if (kind === 'directory') mkdirSync(file);
+      else { writeFileSync(file, kind === 'malformed' ? `${begin}\nbroken\n` : 'private\n'); if (kind === 'unreadable') chmodSync(file, 0); }
       try {
         const output = execFileSync(process.execPath, [CLI,
           'install', '--yes', '--ide', 'codex', '--lang', 'en', '--global-instructions'],
         { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
         assert.match(output, /Global instructions refused: .codex\/AGENTS.md/);
+        assert.equal(output.split('Global instructions refused:').length - 1, 1);
         assert.ok(existsSync(join(home, '.agents/skills/atomic-skills/fix/SKILL.md')));
         assert.equal(readFileSync(join(target, 'AGENTS.md'), 'utf8'), 'foreign text\n');
         assert.doesNotMatch(output, / at .*\.js:\d/);
       } finally { if (kind === 'unreadable') chmodSync(file, 0o600); }
     }));
   }
-  // F01 regression: once a block is journaled, a later path-safety refusal
-  // (symlinked parent) stops the install with ONE line and no stack, and the
-  // way out is to make the path a real, readable file/directory again — the
-  // marker-line advice cannot apply when there is no marker to repair.
-  it('F01 journaled path-safety refusal keeps the target intact and recovers once the path is real', () => fixture(async (home, repo) => {
-    await install(repo, opts);
-    const file = join(home, '.codex/AGENTS.md');
-    const dotfiles = join(home, 'dotfiles');
-    mkdirSync(dotfiles);
-    writeFileSync(join(dotfiles, 'AGENTS.md'), 'foreign text\n');
-    // Move the owned tree aside and put a symlinked parent in its place.
-    renameSync(join(home, '.codex'), join(home, 'codex-owned'));
-    symlinkSync(dotfiles, join(home, '.codex'), process.platform === 'win32' ? 'junction' : 'dir');
-    try {
-      execFileSync(process.execPath, [CLI, 'install', '--yes', '--ide', 'codex', '--lang', 'en'],
-        { cwd: repo, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, NO_COLOR: '1' } });
-      assert.fail('a journaled block behind a symlinked parent must stop the install');
-    } catch (err) {
-      assert.equal(err.status, 1);
-      assert.match(err.stderr, /Global instructions refused: \.codex\/AGENTS\.md/);
-      assert.doesNotMatch(err.stderr, / at .*\.js:\d/);
-    }
-    // The symlink target is never written through.
-    assert.equal(readFileSync(join(dotfiles, 'AGENTS.md'), 'utf8'), 'foreign text\n');
-
-    // Documented recovery for a path refusal: restore a real directory (there
-    // are no markers to repair) and re-opt in explicitly.
-    renameSync(join(home, '.codex'), join(home, 'codex-link')); // move the link, not its target
-    mkdirSync(join(home, '.codex'));
-    execFileSync(process.execPath, [CLI, 'install', '--yes', '--ide', 'codex', '--lang', 'en', '--global-instructions'],
-      { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
-    assert.match(readFileSync(file, 'utf8'), /BEGIN atomic-skills:delegate/);
-    await uninstall(repo, { scope: 'user', yes: true });
-    assert.equal(existsSync(file), false);
-  }));
   it('R02 status requires journal ownership, including after foreign block opt-out', () => fixture(async (home, repo) => {
     const file = join(home, '.codex/AGENTS.md');
     mkdirSync(join(home, '.codex'));

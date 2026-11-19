@@ -6,11 +6,14 @@
  *
  * Only that one component is resolved. A symlink nested under the target, or a
  * symlink leaf, still refuses. Non-IDE directories (including .atomic-skills)
- * are never resolved.
+ * are never resolved by those effects. Global instruction text blocks alone
+ * also resolve parent and leaf links, then use the same no-follow engine.
  */
 
 import { lstatSync, realpathSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname, isAbsolute, relative } from 'node:path';
+import { assertLexicalWithinBase } from '@henryavila/minimalist-installer';
+import { prepareTextBlockPlan } from './installer-driver.js';
 import { IDE_CONFIG } from './config.js';
 
 /**
@@ -327,13 +330,149 @@ function revertJsonMerge(originalRevert, ctx, beforeState) {
   );
 }
 
+// Only global instruction files opt into resolving every directory component
+// and the leaf. Other text blocks retain the engine's strict no-follow rule.
+const instructionAgents = new Map([
+  ['.claude/CLAUDE.md', 'claude-code'], ['.codex/AGENTS.md', 'codex'],
+  ['.config/opencode/AGENTS.md', 'opencode'], ['.gemini/GEMINI.md', 'antigravity'],
+]);
+const instructionPaths = new Set(instructionAgents.keys());
+const isInstructionBlock = (state) => instructionPaths.has(state.path)
+  && state.id === `global-instructions:${instructionAgents.get(state.path)}`;
+
+export function resolveInstructionPath(basePath, path) {
+  assertLexicalWithinBase(basePath, path);
+  if (!instructionPaths.has(path)) return { basePath, path };
+  let current = basePath;
+  let resolvedBase;
+  const parts = path.split('/');
+  try {
+    for (let i = 0; i < parts.length; i++) {
+      current = join(current, parts[i]);
+      let st;
+      try { st = lstatSync(current); }
+      catch (err) { if (err.code === 'ENOENT') continue; throw err; }
+      if (st.isSymbolicLink()) {
+        current = realpathSync(current); // dangling links and loops refuse
+        st = statSync(current);
+        resolvedBase = i < parts.length - 1 ? current : dirname(current);
+      }
+      if (i < parts.length - 1 ? !st.isDirectory() : !st.isFile()) {
+        throw new Error(`Expected ${i < parts.length - 1 ? 'directory' : 'regular file'} at ${current}`);
+      }
+    }
+    return resolvedBase ? { basePath: resolvedBase, path: relative(resolvedBase, current).replace(/\\/g, '/') } : { basePath, path };
+  } catch (err) {
+    err.globalInstructionPath = path;
+    throw err;
+  }
+}
+
+export function instructionLocation(basePath, state) {
+  // Old textBlock journals predate link support and refer to the logical
+  // real file. A new link cannot grant ownership of a different destination.
+  const storedBase = state.resolvedBase ?? basePath;
+  const storedPath = state.resolvedPath ?? state.path;
+  const stored = join(storedBase, storedPath);
+  let live;
+  try { live = resolveInstructionPath(basePath, state.path); }
+  catch (err) {
+    err.message = `${err.message}; journaled file ${stored}`;
+    throw err;
+  }
+  if (!isAbsolute(storedBase) || join(live.basePath, live.path) !== stored) {
+    const err = new Error(`Destination changed for "${state.path}"; journaled file ${stored}`);
+    err.globalInstructionPath = state.path;
+    throw err;
+  }
+  return live;
+}
+
+function prepareInstructionPlan(entries, states, basePath) {
+  const ordinary = prepareTextBlockPlan(entries.filter((args) => !isInstructionBlock(args)),
+    states.filter((state) => !isInstructionBlock(state)), basePath);
+  entries = entries.filter(isInstructionBlock);
+  states = states.filter(isInstructionBlock);
+  const logicalByState = new Map();
+  const parked = [];
+  const relocatedStates = states.flatMap((state) => {
+    let loc;
+    try { loc = instructionLocation(basePath, state); }
+    catch { parked.push(state); return []; }
+    const relocated = { ...state, path: loc.path };
+    logicalByState.set(relocated, state);
+    return [relocated];
+  });
+  const relocatedEntries = entries.map((args) => {
+    const refused = parked.find((state) => state.id === args.id);
+    if (refused) instructionLocation(basePath, refused); // changed during preflight: abort before mutations
+    const loc = resolveInstructionPath(args.basePath, args.path);
+    return { ...args, ...loc,
+      previous: relocatedStates.find((state) => logicalByState.get(state) === args.previous),
+      logicalPath: args.path,
+    };
+  });
+  // The upstream planner reads omitted states relative to basePath. Validate
+  // each global file independently, with its own physical directory, including
+  // removals. There is exactly one global block per supported file.
+  const result = { entries: [...ordinary.entries], removals: [...ordinary.removals], parked };
+  const handled = new Set();
+  for (const args of relocatedEntries) {
+    const prior = relocatedStates.filter((state) => logicalByState.get(state).path === args.logicalPath);
+    prior.forEach((state) => handled.add(state));
+    const prepared = prepareTextBlockPlan([args], prior, args.basePath);
+    result.entries.push(...prepared.entries.map((entry) => ({ ...entry,
+      basePath, path: args.logicalPath, resolvedBase: args.basePath, resolvedPath: args.path,
+      previous: entry.previous && { ...entry.previous, path: args.logicalPath },
+    })));
+    result.removals.push(...prepared.removals.map((state) => logicalByState.get(state)));
+  }
+  for (const state of relocatedStates.filter((state) => !handled.has(state))) {
+    const logical = logicalByState.get(state);
+    const loc = instructionLocation(basePath, logical);
+    prepareTextBlockPlan([], [state], loc.basePath);
+    result.removals.push(logical);
+  }
+  return result;
+}
+
+function wrapTextBlock(registry) {
+  const effect = registry.get('textBlock');
+  if (!effect || effect.ideSymlinkWrapped) return;
+  const apply = effect.apply.bind(effect);
+  const revert = effect.revert.bind(effect);
+  effect.preparePlan = prepareInstructionPlan;
+  effect.apply = (args) => {
+    if (!isInstructionBlock(args)) return apply(args);
+    const loc = resolveInstructionPath(args.basePath, args.path);
+    if (args.resolvedBase && (loc.basePath !== args.resolvedBase || loc.path !== args.resolvedPath)) {
+      throw new Error(`Destination changed for "${args.path}" before apply`);
+    }
+    const state = apply({ ...args, ...loc,
+      previous: args.previous && { ...args.previous, path: loc.path },
+    });
+    return { ...state, path: args.path, resolvedBase: loc.basePath, resolvedPath: loc.path };
+  };
+  effect.revert = (ctx, state) => {
+    if (!isInstructionBlock(state)) return revert(ctx, state);
+    try {
+      const loc = instructionLocation(ctx.basePath, state);
+      return revert({ ...ctx, basePath: loc.basePath }, { ...state, path: loc.path });
+    } catch (err) {
+      console.log(`  Global instructions refused: ${state.path} (${err.message}; kept unchanged)`);
+    }
+  };
+  effect.ideSymlinkWrapped = true;
+}
+
 /**
- * Mutate reconcileFileSet and jsonMerge on this installer registry so IDE-root
+ * Mutate reconcileFileSet, jsonMerge and global instruction textBlock on this installer registry so IDE-root
  * symlinks are installed at their final directory. Same journal paths as a
  * real directory (`.grok/...`), so status and uninstall stay on the logical path.
  * @param {{ get: (type: string) => { apply?: Function, revert?: Function } | undefined }} registry
  */
 export function wrapInstallerRegistryForIdeSymlinks(registry) {
+  wrapTextBlock(registry);
   const reconcile = registry.get('reconcileFileSet');
   if (reconcile && !reconcile.ideSymlinkWrapped) {
     const originalApply = reconcile.apply.bind(reconcile);

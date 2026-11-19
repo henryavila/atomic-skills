@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { existsNoFollow, readFileNoFollow } from '@henryavila/minimalist-installer';
+import { resolveInstructionPath, instructionLocation } from './ide-symlink-install.js';
+import { msg } from './ui.js';
 import { readManifest } from './manifest.js';
 
 // File-based user instructions: https://code.claude.com/docs/en/memory,
@@ -26,10 +28,11 @@ export function globalInstructionBody(language, read = readFileSync) {
     .replace(/\r\n/g, '\n').trimEnd();
 }
 
-// Use the engine's no-follow boundary even for observations: no instruction
-// reader should follow a symlink that the writer would refuse.
+// Resolve opted-in instruction links exactly as the registry wrapper does,
+// then observe the destination through the engine's no-follow boundary.
 export function globalInstructionState(basePath, path) {
-  const bytes = existsNoFollow(basePath, path) ? readFileNoFollow(basePath, path, null) : null;
+  const loc = resolveInstructionPath(basePath, path);
+  const bytes = existsNoFollow(loc.basePath, loc.path) ? readFileNoFollow(loc.basePath, loc.path, null) : null;
   const lines = bytes?.toString('utf8').split(/\r?\n/) ?? [];
   const begins = lines.flatMap((line, i) => line === DELEGATE_MARKERS.begin ? [i] : []);
   const ends = lines.flatMap((line, i) => line === DELEGATE_MARKERS.end ? [i] : []);
@@ -43,7 +46,10 @@ export function installedGlobalInstructionPaths(basePath) {
   return Object.entries(GLOBAL_INSTRUCTION_PATHS).flatMap(([agent, path]) => {
     if (!path || !prior.some(e => e.type === 'textBlock' && e.id === `global-instructions:${agent}`
       && e.beforeState?.path === path)) return [];
-    try { return globalInstructionState(basePath, path) === 'present' ? [path] : []; }
+    try {
+      instructionLocation(basePath, prior.find(e => e.type === 'textBlock' && e.beforeState?.path === path).beforeState);
+      return globalInstructionState(basePath, path) === 'present' ? [path] : [];
+    }
     catch { return []; }
   });
 }
@@ -71,8 +77,20 @@ export function createGlobalInstructionsProvider() {
         const owned = prior.some(e => e.type === 'textBlock' && e.id === id);
         const enabled = config.globalInstructions ?? owned;
         if (!path || (!enabled && !owned) || config.refusedGlobalPaths?.includes(path)) return [];
+        let state;
         try {
-          const state = globalInstructionState(basePath, path);
+          const previous = prior.find(e => e.type === 'textBlock' && e.id === id)?.beforeState;
+          if (previous) instructionLocation(basePath, previous);
+          state = globalInstructionState(basePath, path);
+        } catch (err) {
+          if (owned) {
+            console.log(`  ${msg(config.language).globalInstructionsRefused(path, err.message)}`);
+            return [];
+          }
+          err.globalInstructionPath = path;
+          throw err;
+        }
+        try {
           if (state !== 'absent' && state !== 'present') throw new Error(state);
           if (owned && state === 'absent' && config.globalInstructions === undefined) {
             config.optedOutGlobalPaths?.add(path);
