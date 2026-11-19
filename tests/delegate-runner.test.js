@@ -142,7 +142,8 @@ const cp = require('child_process');
 const crypto = require('crypto');
 
 const root = process.env.FAKE_REMOTE_ROOT;
-const state = path.join(root, 'state');
+const remoteHome = path.join(root, 'home');
+const state = path.join(remoteHome, '.local/state/remote-runner');
 fs.mkdirSync(state, { recursive: true });
 const argvLog = process.env.FAKE_REMOTE_ARGV_LOG;
 if (argvLog) fs.appendFileSync(argvLog, JSON.stringify(process.argv.slice(2)) + '\\n');
@@ -243,13 +244,19 @@ function remoteFor(localTarget) {
   return null;
 }
 function runRecordFile(id) {
-  return path.join(state, 'runs', id + '.json');
+  return path.join(state, 'runs', id);
 }
 function finish(id) {
   fs.rmSync(runRecordFile(id), { force: true });
 }
 function alive(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
+}
+function readRunRecord(id) {
+  try {
+    const lines = fs.readFileSync(runRecordFile(id), 'utf8').split('\\n');
+    return { pid: Number(lines[0]), started: lines[1] || 'unknown' };
+  } catch { return null; }
 }
 
 if (cmd === 'sync') {
@@ -280,27 +287,45 @@ if (cmd === 'runs') {
   const dirname = path.join(state, 'runs');
   fs.mkdirSync(dirname, { recursive: true });
   for (const name of fs.readdirSync(dirname)) {
-    if (!name.endsWith('.json')) continue;
-    const id = name.slice(0, -5);
-    let record;
-    try { record = JSON.parse(fs.readFileSync(path.join(dirname, name), 'utf8')); }
-    catch { continue; }
-    if (alive(record.pid)) process.stdout.write(id + ' alive pgid=' + record.pid + '\\n');
+    if (name.startsWith('.') || name.endsWith('.env') || name.endsWith('.cancel') ||
+        name.endsWith('.gate') || name.endsWith('.owner')) continue;
+    const record = readRunRecord(name);
+    if (!record) { fs.rmSync(path.join(dirname, name), { force: true }); continue; }
+    if (alive(record.pid)) process.stdout.write(name + ' alive pgid=' + record.pid + '\\n');
     else fs.rmSync(path.join(dirname, name), { force: true });
+  }
+  const queue = path.join(state, 'queue');
+  fs.mkdirSync(queue, { recursive: true });
+  for (const name of fs.readdirSync(queue)) {
+    if (name.endsWith('.cancel')) continue;
+    const lines = (() => {
+      try { return fs.readFileSync(path.join(queue, name), 'utf8').split('\\n'); }
+      catch { return []; }
+    })();
+    const seen = Number(lines[1] || 0) || Math.floor(Date.now() / 1000);
+    const age = Math.max(0, Math.floor(Date.now() / 1000) - seen);
+    process.stdout.write(name + ' queued age=' + age + 's priority=' + (lines[0] || 'normal') + '\\n');
   }
   process.exit(0);
 }
 if (cmd === 'kill') {
   const id = operands[0];
   const killLog = process.env.FAKE_REMOTE_KILL_LOG;
-  if (killLog) fs.appendFileSync(killLog, id + '\\n');
-  const record = id && runRecordFile(id);
-  if (record && fs.existsSync(record)) {
-    const data = JSON.parse(fs.readFileSync(record, 'utf8'));
-    try { process.kill(-data.pid, 'SIGTERM'); } catch {}
-    setTimeout(() => { try { process.kill(-data.pid, 'SIGKILL'); } catch {} }, 200);
-    fs.rmSync(record, { force: true });
+  if (killLog) fs.appendFileSync(killLog, String(id) + '\\n');
+  if (process.env.FAKE_REMOTE_KILL_FAIL === '1') process.exit(1);
+  if (id) {
+    const queued = path.join(state, 'queue', id);
+    if (fs.existsSync(queued)) {
+      fs.writeFileSync(queued + '.cancel', '');
+      fs.rmSync(queued, { force: true });
+      process.exit(0);
+    }
   }
+  const record = id && readRunRecord(id);
+  if (!record || !alive(record.pid)) process.exit(1);
+  try { process.kill(-record.pid, 'SIGTERM'); } catch {}
+  setTimeout(() => { try { process.kill(-record.pid, 'SIGKILL'); } catch {} }, 200);
+  fs.rmSync(runRecordFile(id), { force: true });
   process.exit(0);
 }
 if (cmd === 'pull') {
@@ -334,30 +359,60 @@ if (cmd === 'run') {
     process.exit(74);
   }
   const id = crypto.randomUUID();
-  const env = {
-    ...process.env,
-    HOME: path.join(root, 'home'),
-    ATOMIC_SKILLS_HOME: path.join(root, 'home', '.atomic-skills'),
-    GIT_AUTHOR_NAME: 'Remote Executor',
-    GIT_AUTHOR_EMAIL: 'executor@example.com',
-    GIT_COMMITTER_NAME: 'Remote Executor',
-    GIT_COMMITTER_EMAIL: 'executor@example.com'
-  };
-  const child = command.length === 1
-    ? cp.spawn('bash', ['-c', command[0]], { cwd: entry.remote, env, detached: true, stdio: 'inherit' })
-    : cp.spawn(command[0], command.slice(1), { cwd: entry.remote, env, detached: true, stdio: 'inherit' });
-  fs.mkdirSync(path.join(state, 'runs'), { recursive: true });
-  fs.writeFileSync(runRecordFile(id), JSON.stringify({ id, pid: child.pid }));
+  let stopping = false;
+  let child = null;
   const stop = () => {
-    try { process.kill(-child.pid, 'SIGTERM'); } catch {}
-    setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }, 200);
+    stopping = true;
+    if (child) {
+      try { process.kill(-child.pid, 'SIGTERM'); } catch {}
+      setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }, 200);
+    }
   };
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
   process.on('SIGHUP', stop);
-  child.on('exit', code => { finish(id); process.exit(code === null ? 1 : code); });
-  child.on('error', () => { finish(id); process.exit(70); });
+  const queueMs = Number(process.env.FAKE_REMOTE_QUEUE_MS || 0);
+  if (queueMs > 0) {
+    const queue = path.join(state, 'queue');
+    fs.mkdirSync(queue, { recursive: true });
+    fs.writeFileSync(path.join(queue, id), 'normal\\n' + Math.floor(Date.now() / 1000) + '\\n');
+    const deadline = Date.now() + queueMs;
+    const tick = () => {
+      if (fs.existsSync(path.join(queue, id + '.cancel')) || stopping) {
+        fs.rmSync(path.join(queue, id), { force: true });
+        fs.rmSync(path.join(queue, id + '.cancel'), { force: true });
+        process.exit(130);
+      }
+      if (Date.now() >= deadline) { launch(); return; }
+      setTimeout(tick, 25);
+    };
+    tick();
+    return;
+  }
+  launch();
   return;
+
+  function launch() {
+    const env = {
+      ...process.env,
+      HOME: remoteHome,
+      ATOMIC_SKILLS_HOME: path.join(remoteHome, '.atomic-skills'),
+      GIT_AUTHOR_NAME: 'Remote Executor',
+      GIT_AUTHOR_EMAIL: 'executor@example.com',
+      GIT_COMMITTER_NAME: 'Remote Executor',
+      GIT_COMMITTER_EMAIL: 'executor@example.com'
+    };
+    const queue = path.join(state, 'queue', id);
+    fs.rmSync(queue, { force: true });
+    fs.rmSync(queue + '.cancel', { force: true });
+    child = command.length === 1
+      ? cp.spawn('bash', ['-c', command[0]], { cwd: entry.remote, env, detached: true, stdio: 'inherit' })
+      : cp.spawn(command[0], command.slice(1), { cwd: entry.remote, env, detached: true, stdio: 'inherit' });
+    fs.mkdirSync(path.join(state, 'runs'), { recursive: true });
+    fs.writeFileSync(runRecordFile(id), child.pid + '\\nunknown\\n');
+    child.on('exit', code => { finish(id); process.exit(code === null ? 1 : code); });
+    child.on('error', () => { finish(id); process.exit(70); });
+  }
 }
 process.stderr.write('remote-runner: unknown command\\n');
 process.exit(64);
@@ -4093,6 +4148,21 @@ spec.loader.exec_module(d)
       env: { ...process.env, ...baseEnv, ...env }, encoding: 'utf8', timeout: 60000, detached: true,
     });
   }
+  function findFiles(dir, predicate) {
+    const found = [];
+    const walk = current => {
+      let names;
+      try { names = readdirSync(current, { withFileTypes: true }); } catch { return; }
+      for (const entry of names) {
+        const full = join(current, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (predicate(full)) found.push(full);
+      }
+    };
+    walk(dir);
+    return found;
+  }
+
   async function waitFor(predicate, timeoutMs, label) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -4787,6 +4857,21 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     return existsSync(remote.argvLog) ? readFileSync(remote.argvLog, 'utf8') : '';
   }
 
+  function findFiles(dir, predicate) {
+    const found = [];
+    const walk = current => {
+      let names;
+      try { names = readdirSync(current, { withFileTypes: true }); } catch { return; }
+      for (const entry of names) {
+        const full = join(current, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (predicate(full)) found.push(full);
+      }
+    };
+    walk(dir);
+    return found;
+  }
+
   async function waitFor(predicate, timeoutMs, label) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -5008,6 +5093,31 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.equal(rec.timed_out, true);
     const killed = readFileSync(remote.killLog, 'utf8').trim();
     assert.match(killed, /^[0-9a-f-]{36}$/);
+  });
+
+  it('R02 kills only the run identified by this run marker, never the first new id', async () => {
+    const foreignId = '00000000-0000-4000-8000-000000000001';
+    const runsDir = join(remote.home, '.local/state/remote-runner/runs');
+    mkdirSync(runsDir, { recursive: true });
+    const foreign = spawn('sleep', ['30'], { detached: true, stdio: 'ignore' });
+    foreign.unref();
+    writeFileSync(join(runsDir, foreignId), `${foreign.pid}\nunknown\n`);
+    try {
+      const res = runDelegate(runArgs(['--timeout', '1']), remoteEnv({ FAKE_SLEEP: '30' }));
+      assert.equal(res.status, 1, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'timeout');
+      const killed = readFileSync(remote.killLog, 'utf8').trim().split('\n').filter(Boolean);
+      assert.equal(killed.length, 1, killed.join(','));
+      assert.notEqual(killed[0], foreignId, 'must not kill another task run');
+      assert.match(killed[0], /^[0-9a-f-]{36}$/);
+      process.kill(foreign.pid, 0);
+      const markers = findFiles(remote.root, file => file.includes('/.delegate-run-'));
+      assert.equal(markers.length, 1, markers.join(','));
+      assert.match(readFileSync(markers[0], 'utf8'), new RegExp('^' + killed[0] + ' alive pgid='));
+    } finally {
+      try { process.kill(-foreign.pid, 'SIGKILL'); } catch {}
+    }
   });
 
   it('a remote review run with empty output is empty_output and exits non-zero', () => {

@@ -1205,8 +1205,14 @@ def safe_remote_name(value):
     return name[:120]
 
 
+def remote_task_dir(task_id):
+    """Stable per-id directory; sanitized ids that collide stay separate."""
+    raw = str(task_id or "")
+    return f"{safe_remote_name(raw)}-{hashlib.sha256(raw.encode('utf-8')).hexdigest()[:8]}"
+
+
 def remote_base_rel(project, task_id):
-    return f"{REMOTE_BASE_DEFAULT}/{safe_remote_name(project)}/{safe_remote_name(task_id)}"
+    return f"{REMOTE_BASE_DEFAULT}/{safe_remote_name(project)}/{remote_task_dir(task_id)}"
 
 
 def remote_delegate_ref(task_id):
@@ -1273,10 +1279,10 @@ def remote_exec_script(executor, model, role, policy):
     return "\n".join(variables + lines) + "\n"
 
 
-def remote_driver_script(task_id, task, role, branch, sent, project, digest):
+def remote_driver_script(task_id, task, role, branch, sent, project, digest, token):
     q = shlex.quote
     project_dir = safe_remote_name(project)
-    task_dir = safe_remote_name(task_id)
+    task_dir = remote_task_dir(task_id)
     message = q(f"{task_id}: {task} (committed by the delegate runner)")
     review = role == "review"
     return f"""#!/bin/bash
@@ -1286,14 +1292,34 @@ branch={q(branch)}
 sent={q(sent)}
 role={q(role)}
 msg={message}
+token={q(token)}
 common=$(git rev-parse --path-format=absolute --git-common-dir)
 stage="$common/delegate/{digest}"
-R="${{DELEGATE_REMOTE_BASE:-$HOME/.atomic-skills/delegate/remote/{project_dir}/{task_dir}}}"
+R="$HOME/.atomic-skills/delegate/remote/{project_dir}/{task_dir}"
 tree="$R/tree"
 run="$R/run"
 res="$PWD/{REMOTE_RESULT_PREFIX}{digest}"
 rm -rf "$run" "$res"
 mkdir -p "$R"
+# Identify this run exactly: the run record written by remote-runner holds this
+# script's pid on its first line. The marker file (named with a locally
+# generated token) carries the id that `runs` reports; the stderr line lets the
+# local runner read it without ever guessing from a list of new ids.
+state="${{REMOTE_RUNNER_REMOTE_STATE:-$HOME/.local/state/remote-runner}}"
+run_id=""
+if [ -d "$state/runs" ]; then
+  for rec in "$state"/runs/*; do
+    [ -f "$rec" ] || continue
+    case "${{rec##*/}}" in .*|*.env|*.cancel|*.gate|*.owner) continue ;; esac
+    [ "$(sed -n '1p' "$rec" 2>/dev/null)" = "$$" ] || continue
+    run_id="${{rec##*/}}"
+    break
+  done
+fi
+if [ -n "$run_id" ]; then
+  printf '%s alive pgid=%s\\n' "$run_id" "$$" > "$R/.delegate-run-$token"
+  printf '__DELEGATE_REMOTE_RUN__ %s %s\\n' "$token" "$run_id" >&2
+fi
 rm -rf "$tree"
 git init -q "$tree" || exit 70
 git -C "$tree" fetch -q "$stage/code.bundle" "$sent:refs/heads/$branch" || exit 70
@@ -1343,23 +1369,22 @@ exit 0
 """
 
 
-def remote_run_ids(host):
-    exe = remote_runner_cmd()
-    if not exe:
-        return set()
+REMOTE_RUN_MARKER = "__DELEGATE_REMOTE_RUN__"
+
+
+def remote_run_marker(path, token):
+    """Return the run id this driver reported, from its stderr marker line."""
     try:
-        result = subprocess.run([exe, "runs", "--host", host], capture_output=True,
-                                text=True, timeout=20)
-    except (OSError, subprocess.TimeoutExpired):
-        return set()
-    if result.returncode != 0:
-        return set()
-    ids = set()
-    for line in result.stdout.splitlines():
+        text = Path(path).read_text(errors="replace")
+    except OSError:
+        return None
+    run_id = None
+    for line in text.splitlines():
         parts = line.split()
-        if len(parts) >= 2 and parts[1] in ("alive", "queued"):
-            ids.add(parts[0])
-    return ids
+        if len(parts) == 3 and parts[0] == REMOTE_RUN_MARKER and parts[1] == token:
+            if re.fullmatch(r"[0-9a-fA-F-]{36}", parts[2]):
+                run_id = parts[2]
+    return run_id
 
 
 def remote_kill(host, run_id):
@@ -1458,15 +1483,13 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
     orphan_failure = None
     interrupted_exc = None
     remote_id = None
-    before_ids = set()
+    run_token = os.urandom(8).hex()
     run_s = send_s = fetch_s = 0.0
 
     def discover_remote_id():
         nonlocal remote_id
         if not remote_id:
-            new = remote_run_ids(host) - before_ids
-            if new:
-                remote_id = sorted(new)[0]
+            remote_id = remote_run_marker(remote_err.name, run_token)
         return remote_id
 
     try:
@@ -1482,7 +1505,8 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         exec_script = remote_exec_script(executor, model, role, policy)
         (stage / "exec.sh").write_text(exec_script, encoding="utf-8")
         (stage / "remote-run.sh").write_text(
-            remote_driver_script(task_id, task, role, branch, sent, project, digest),
+            remote_driver_script(task_id, task, role, branch, sent, project, digest,
+                                 run_token),
             encoding="utf-8")
         if attachments:
             attach_dir = stage / "attachments"
@@ -1505,7 +1529,6 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
                       ["remote-runner sync failed"])[-1]
             raise RemoteError("remote_error", detail)
 
-        before_ids = remote_run_ids(host)
         snippet = f'exec bash "$(git rev-parse --path-format=absolute --git-common-dir)/delegate/{digest}/remote-run.sh"'
         argv = [remote_runner_cmd(), "run", "-n", "--host", host, "-C", cwd,
                 "--wait", str(wait_s), "--timeout", str(max(1, timeout + 30)), "--", snippet]
@@ -2420,7 +2443,7 @@ def cmd_remote_clean(a):
     project = a.project or Path(git(cwd, "rev-parse", "--show-toplevel") or cwd).name
     target = shlex.quote(safe_remote_name(project))
     if a.id:
-        target += "/" + shlex.quote(safe_remote_name(a.id))
+        target += "/" + shlex.quote(remote_task_dir(a.id))
     snippet = 'base="$HOME/.atomic-skills/delegate/remote"; rm -rf "$base"/' + target
     try:
         result = remote_cli(
