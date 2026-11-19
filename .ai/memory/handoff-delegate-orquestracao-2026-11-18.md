@@ -28,13 +28,22 @@ Tudo consolidado em `main` e instalado para os seis agentes detectados (Claude C
 - Nunca modelo caro sem mostrar o custo e receber o sim: `gpt-6-astra`, Claude pelo `agy`, esforço xhigh (o `agy-review` é xhigh).
 - Cotas vistas hoje: Codex estourou duas vezes a janela de 5 horas (voltou 12h44 e 17h51); Antigravity sem cota até cerca de 17h21.
 
+## T2 e release 2.1.0 (18/11, noite)
+
+- **T2 entregue** (PR #55): `install --global-instructions` grava um bloco gerenciado (`textBlock`) com a regra de delegação em `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.config/opencode/AGENTS.md` e `~/.gemini/GEMINI.md`; `--no-global-instructions` remove; Cursor, Copilot e Grok ficam de fora (sem arquivo global confirmado). Na máquina do operador o bloco entrou em Claude, OpenCode e Antigravity; **o do Codex foi recusado porque `~/.codex` é link simbólico** (o motor não segue links).
+- **Executor não delega de novo:** o Codex, com a skill instalada, leu um cartão e agiu como orquestrador. Os modelos de cartão, a skill e o bloco global agora dizem que quem segura um cartão é o executor.
+- **Release v2.1.0** criado pela skill `release` (PR #56 em `main`); a Action encenou o pacote no npm. **Falta o operador aprovar com 2FA** em https://www.npmjs.com/package/@henryavila/atomic-skills?activeTab=versions.
+
 ## O que falta
 
-1. **T2 — instruções globais pelo instalador do atomic-skills** (desbloqueado: o motor com `textBlock` já está pinado). Item **opcional** do instalador que grava, com `textBlock`, um bloco gerenciado no arquivo global de instruções de cada agente instalado, com a regra de delegação em papéis neutros; o texto aparece antes de gravar; a desinstalação remove só o bloco. Regra dura: reversão e `tests/install-uninstall-roundtrip.test.js`.
-2. **Limitações conhecidas do `textBlock`**, sem perda de dados: recusa adotar um bloco já presente quando o mesmo plano remove outro `textBlock` do arquivo (`text-block.js:201`).
-3. **Pequenos:** `delegate.py status` mostra o texto do limite do Codex misturado com saída de teste; os testes do AS-D7 não isolam o filtro de diretório do de extensão; `status` do instalador acusa "Ghost owners: 1"; o `user.name` do git neste repo é `Test`.
-4. **Adiados:** `remote-runner` `setup-client`/`teardown`/`provision`, recursos de banco e carga, remoto para o `remote-runner`, detecção automática de host no delegate.
-5. Worktrees já integrados, removíveis: `.worktrees/delegate-pipeline`, `delegate-flash-only`, `ci-fix`.
+1. Aprovação 2FA da 2.1.0 no npm (operador).
+2. Bloco global do Codex: `~/.codex` é link simbólico; decidir entre gravar no destino do link à mão ou ensinar o instalador a aceitar esse caso.
+3. A seção manual "Delegação (18/11/2026)" do `~/.claude/CLAUDE.md` do operador cita perfis que não existem mais e agora convive com o bloco gerenciado; remover com o aval dele.
+4. `minimalist-installer`: o `publish.yml` faz `npm publish` direto; a skill `release` recusa enviar até adotar o modelo de estágio. O atomic-skills consome o motor por commit, então não bloqueia nada.
+5. Limites aceitos do T2: recusa do motor em tempo de aplicação não é tratada; marcador quebrado num bloco próprio para a instalação com instrução de como sair.
+6. Pequenos: o runner marca `incomplete_review` quando a linha TOTAL termina com ponto; `delegate.py status` mistura o aviso de limite do Codex com saída de teste; "Ghost owners: 1" no `status`; `user.name` do git é `Test`.
+7. Adiados: `remote-runner` (`setup-client`/`teardown`/`provision`, banco e carga, remoto), detecção automática de host.
+8. Worktrees integrados, removíveis: `.worktrees/delegate-pipeline`, `delegate-flash-only`, `ci-fix`, `global-instructions`.
 
 ## Armadilhas
 
