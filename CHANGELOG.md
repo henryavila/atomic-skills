@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-18
+
 ### Added
 
 - **Optional global delegation instructions.** `install --global-instructions`
@@ -299,3 +301,6 @@ cost-sensitive cases. Local runs first in `both` so cheap issues filter out
 before the paid codex pass, and so codex sees a CLEANED artifact without
 anchoring on local findings (reverse order would let self-preference bias
 contaminate the cross-model invariant).
+
+[Unreleased]: https://github.com/henryavila/atomic-skills/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/henryavila/atomic-skills/releases/tag/v2.1.0
