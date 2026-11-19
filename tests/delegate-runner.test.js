@@ -3679,8 +3679,11 @@ finally:
   for (const phase of ['TERM', 'KILL']) {
     it(`R2 R02 rechecks slot identity under lock before ${phase}`, () => {
       const res = pythonHarness(`
-p = subprocess.Popen([sys.executable, '-c', 'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(60)'], start_new_session=True)
-deadline = time.time() + 10
+ready = pathlib.Path(${JSON.stringify(join(root, 'term-handler-ready'))})
+p = subprocess.Popen([sys.executable, '-c', "import signal,time,pathlib,sys; signal.signal(signal.SIGTERM,signal.SIG_IGN); pathlib.Path(sys.argv[1]).write_text('ready'); time.sleep(60)", str(ready)], start_new_session=True)
+deadline = time.time() + 20
+while not ready.exists() and time.time() < deadline: time.sleep(.01)
+assert ready.exists(), 'SIGTERM handler not installed'
 while d.process_identity(p.pid) is None and time.time() < deadline: time.sleep(.01)
 assert d.process_identity(p.pid)
 d.RUNNING.mkdir(parents=True)
