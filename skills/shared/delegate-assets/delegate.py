@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """delegate.py — run an external executor on a task card and keep the audit trail.
 
+Requires Python 3.9 or later on macOS or Linux.
+
 Subcommands:
   run       launch one executor (opencode/DeepSeek, codex, or agy) on a card, headless,
             with a hard timeout; capture output; append a `run` record with measured facts.
@@ -20,7 +22,7 @@ The log is one JSONL file shared by every project and agent on this machine:
   ${ATOMIC_SKILLS_HOME:-~/.atomic-skills}/delegate/runs.jsonl
 Records are append-only. Values are enums, never free text, so the log can be audited.
 """
-import argparse, datetime as dt, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time, tempfile
+import argparse, datetime as dt, errno, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time, tempfile
 from pathlib import Path
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
@@ -365,12 +367,41 @@ def group_alive(pgid):
         return True
 
 
+def child_exited(pid):
+    """Non-reaping ownership/exit probe; ECHILD means the PID is no longer ours."""
+    if hasattr(os, "waitid"):
+        return os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
+
+    # macOS libc has waitid even on Python 3.9, which does not expose os.waitid
+    # or its constants. Use the same WNOWAIT contract, never waitpid/poll here:
+    # reaping early would release the PID/PGID before we finish signalling it.
+    import ctypes
+    if sys.platform == "darwin":
+        p_pid, options = 1, 0x04 | 0x01 | 0x20  # WEXITED | WNOHANG | WNOWAIT
+    elif sys.platform.startswith("linux"):
+        p_pid, options = 1, 0x04 | 0x01 | 0x01000000
+    else:
+        raise RuntimeError("non-reaping child observation requires macOS or Linux")
+    waitid = ctypes.CDLL(None, use_errno=True).waitid
+    waitid.argtypes = [ctypes.c_int, ctypes.c_uint, ctypes.c_void_p, ctypes.c_int]
+    waitid.restype = ctypes.c_int
+    # siginfo_t is <=128 bytes on these platforms. Overallocate with native long
+    # alignment; only the common first int (si_signo) is needed. The zero-filled
+    # buffer remains zero when WNOHANG finds no exit; an exit reports SIGCHLD.
+    info = (ctypes.c_long * 32)()
+    while waitid(p_pid, pid, ctypes.byref(info), options) != 0:
+        error = ctypes.get_errno()
+        if error == errno.EINTR:
+            continue
+        raise OSError(error, os.strerror(error))
+    return ctypes.c_int.from_buffer(info).value == signal.SIGCHLD
+
+
 def wait_for_exit(process, timeout):
     """Observe exit without reaping: the zombie reserves PID/PGID until cleanup."""
     deadline = time.monotonic() + timeout
     while True:
-        result = os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
-        if result is not None:
+        if child_exited(process.pid):
             return
         if time.monotonic() >= deadline:
             raise subprocess.TimeoutExpired(process.args, timeout)
@@ -381,10 +412,10 @@ def stop_process(process):
     """Signal an unreaped child even if interrupted during ownership proof."""
     try:
         if process.returncode is None and not getattr(process, "_group_stopped", False):
-            owned = True  # Popen owns this unreaped child until waitid says otherwise.
+            owned = True  # Popen owns this unreaped child until the probe says otherwise.
             try:
                 try:
-                    os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+                    child_exited(process.pid)
                 except ChildProcessError:
                     owned = False
             finally:
@@ -828,7 +859,7 @@ def cmd_pipeline(a):
             t0_gate = time.monotonic()
             with open(gate_log, "w") as gf:
                 gate_ran = True
-                gate_process = subprocess.Popen(["bash", "-lc", a.gate], cwd=cwd,
+                gate_process = subprocess.Popen(["bash", "--noprofile", "--norc", "-p", "-c", a.gate], cwd=cwd,
                                                 stdout=gf, stderr=subprocess.STDOUT,
                                                 start_new_session=True)
                 try:

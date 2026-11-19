@@ -19,13 +19,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
 const DELEGATE_PY = join(REPO_ROOT, 'skills/shared/delegate-assets/delegate.py');
 
-const pythonProbe = spawnSync('python3', ['-c', 'import sys; print(sys.executable)'], {
+const pythonProbe = spawnSync(process.env.DELEGATE_TEST_PYTHON || 'python3', ['-c', 'import sys; print(sys.executable)'], {
   encoding: 'utf8',
 });
+if (process.env.DELEGATE_TEST_PYTHON) assert.equal(pythonProbe.status, 0, pythonProbe.stderr || String(pythonProbe.error));
 const hasPython3 = pythonProbe.status === 0;
 const PYTHON3 = hasPython3 ? pythonProbe.stdout.trim() : 'python3';
 
-const FAKE_SCRIPT = `#!/usr/bin/env python3
+const FAKE_SCRIPT = `#!${PYTHON3}
 import json, os, pathlib, subprocess, sys, time
 
 seq_dir = os.environ.get("FAKE_SEQ_DIR")
@@ -2493,7 +2494,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         '--cwd', repoDir,
         '--card', cardPath,
         '--route', 'flash',
-        '--gate', `python3 ${DELEGATE_PY} pause --reason "mid-gate stop"`,
+        '--gate', `'${PYTHON3}' '${DELEGATE_PY}' pause --reason "mid-gate stop"`,
         '--review-card', reviewCardPath,
         '--review-route', 'codex-review',
         '--out', outDir,
@@ -2891,7 +2892,7 @@ d.wait_for_exit = lambda *args: None
 original = SystemExit(143) if '${phase}' == 'proof' else KeyboardInterrupt()
 injected = False
 sent = []
-def waitid(*args):
+def child_exited(*args):
  global injected
  if '${phase}' == 'proof' and not injected:
   injected = True
@@ -2902,7 +2903,7 @@ def killpg(pid, sig):
   injected = True
   raise original
  sent.append((pid, sig))
-os.waitid = waitid
+d.child_exited = child_exited
 os.killpg = killpg
 os.getpgid = lambda pid: pid
 try:
@@ -3005,7 +3006,7 @@ finally:
       const res = pythonHarness(`
 children = []
 original_popen = subprocess.Popen
-original_waitid = os.waitid
+original_child_exited = d.child_exited
 original_killpg = os.killpg
 def spawn(*args, **kwargs):
  p = original_popen(*args, **kwargs)
@@ -3015,12 +3016,12 @@ d.subprocess.Popen = spawn
 d.wait_for_exit = lambda *args: None
 injected = False
 sent = []
-def waitid(*args):
+def child_exited(*args):
  global injected
  if '${phase}' == 'proof' and not injected:
   injected = True
   raise SystemExit(143)
- return original_waitid(*args)
+ return original_child_exited(*args)
 def killpg(pid, sig):
  global injected
  if '${phase}' == 'signal' and not injected:
@@ -3028,7 +3029,7 @@ def killpg(pid, sig):
   raise KeyboardInterrupt()
  sent.append(sig)
  return original_killpg(pid, sig)
-os.waitid = waitid
+d.child_exited = child_exited
 os.killpg = killpg
 started = time.monotonic()
 try:
@@ -3041,7 +3042,7 @@ try:
  assert not list(d.RUNNING.glob('*.json')), 'slot retained'
  assert time.monotonic()-started < 3, 'cleanup blocked on live executor'
 finally:
- os.waitid = original_waitid
+ d.child_exited = original_child_exited
  os.killpg = original_killpg
  for p in children:
   if p.poll() is None: p.kill()
@@ -3424,6 +3425,58 @@ finally:
 `);
     assert.equal(res.status, 0, res.stderr);
   });
+  // Exercise the fallback even on interpreters that expose os.waitid.
+  function withoutWaitid() {
+    const siteDir = join(root, 'no-waitid');
+    mkdirSync(siteDir, { recursive: true });
+    writeFileSync(join(siteDir, 'sitecustomize.py'),
+      'import os\nif hasattr(os, "waitid"): del os.waitid\n');
+    return { PYTHONPATH: [siteDir, process.env.PYTHONPATH].filter(Boolean).join(':') };
+  }
+
+  it('F1 no waitid: normal exit keeps child reserved and refuses a reaped PID', () => {
+    const res = pythonHarness(`
+assert not hasattr(os, 'waitid')
+p = subprocess.Popen([sys.executable, '-c', 'pass'], start_new_session=True)
+try:
+ d.wait_for_exit(p, 3)
+ assert p.returncode is None, 'observer reaped Popen child'
+ assert os.waitpid(p.pid, os.WNOHANG) == (p.pid, 0), 'exit status lost'
+ sent = []
+ os.killpg = lambda *args: sent.append(args)
+ d.stop_process(p)
+ assert not sent, 'signalled a PID after child was externally reaped'
+finally:
+ p.wait()
+`, withoutWaitid());
+    assert.equal(res.status, 0, res.stderr);
+    const pipeline = runDelegate(pipelineArgs(), {
+      ...baseEnv, ...withoutWaitid(),
+      ...steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]),
+    });
+    assert.equal(pipeline.status, 0, pipeline.stderr);
+    assert.equal(readLogRecords(atomicHome).at(-1).outcome, 'reviewed');
+  });
+
+  it('F1 gate preserves caller PATH and environment without sourcing shell startup files', () => {
+    const marker = join(root, 'gate-env.json');
+    const probe = join(root, 'probe.py');
+    writeFileSync(probe, 'import json, os, sys; json.dump(dict(os.environ), open(sys.argv[1], "w"))');
+    const startup = join(root, 'startup.sh');
+    writeFileSync(startup, 'export PATH=/usr/bin:/bin\nexport F1_STARTUP_LOADED=yes\n');
+    writeFileSync(join(emptyHome, '.bash_profile'), readFileSync(startup));
+    const env = { ...baseEnv, ...steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]),
+      BASH_ENV: startup, F1_SENTINEL: 'caller value', F1_STARTUP_LOADED: undefined };
+    const res = runDelegate(pipelineArgs(['--gate', `'${PYTHON3}' '${probe}' '${marker}'`]), env);
+    assert.equal(res.status, 0, res.stderr);
+    const observed = JSON.parse(readFileSync(marker, 'utf8'));
+    assert.equal(observed.PATH, env.PATH);
+    assert.equal(observed.F1_SENTINEL, env.F1_SENTINEL);
+    assert.equal(observed.BASH_ENV, startup);
+    assert.equal(observed.F1_STARTUP_LOADED, undefined);
+    assert.equal(observed.ATOMIC_SKILLS_HOME, atomicHome);
+  });
+
   for (const mode of ['exception', 'signal', 'timeout', 'kill']) {
     it(`D4 R08 R12 cleans real process group after ${mode} with TERM resistant descendant`, () => {
       const res = pythonHarness(`
@@ -3484,7 +3537,7 @@ finally:
   try: os.kill(int(child_file.read_text()), signal.SIGKILL)
   except ProcessLookupError: pass
  if runner is not None and runner.poll() is None: runner.terminate(); runner.wait(timeout=3)
-`);
+`, withoutWaitid());
       assert.equal(res.status, 0, res.stderr || String(res.error));
     });
   }

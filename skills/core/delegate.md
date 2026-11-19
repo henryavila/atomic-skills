@@ -1,5 +1,7 @@
 This skill is for the orchestrator. An agent holding a task or review card is the executor or reviewer: do the card’s work yourself, without opening this skill, delegating again or asking for confirmation.
 
+The runner requires Python 3.9 or later on macOS or Linux.
+
 Keep the orchestrator for the two things only it should do here — **create** the task card and **validate** the result — and hand every action (implementing, fixing, mechanical edits, scripted checks) to an external executor: OpenCode (`opencode`), Codex (`codex`), or Antigravity (`agy`). Every run is measured and appended to one audit log, so the skill can be judged and improved from data.
 
 If {{ARG_VAR}} was provided, treat it as the task or list of tasks to delegate (ids, a plan file, or a description). If not, ask the user what to delegate.
@@ -47,6 +49,8 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 - **The orchestrator reviews only on escalation:** the cross-family review and the executor disagree after two fix rounds, the change touches auth, money, data deletion or a migration, or the user asks. Say so in the batch table.
 - The runner finds the CLIs itself: PATH, the usual bin folders, and for OpenCode the `opencode-cli` inside `OpenCode.app` (the desktop app does not add it to PATH). Do not conclude an executor is missing from `which`; run the runner.
 - Always pass a model. `agy` without `--model` can hang on its default; the runner always passes one.
+
+The host gate inherits the caller's environment, including PATH, and runs in `--cwd` using `bash` without login or startup files (`--noprofile --norc -p -c`, which also ignores `BASH_ENV`, imported functions and shell option overrides). The runner adds or removes no environment variables; the shell manages `PWD`, `OLDPWD`, `SHLVL` and `_` as part of running the command.
 
 ## The loop
 
