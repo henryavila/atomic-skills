@@ -4453,7 +4453,7 @@ sys.exit(0)
     const card = readFileSync(join(REPO_ROOT, 'skills/shared/delegate-assets/card-template.md'), 'utf8');
     for (const text of [skill, card]) {
       assert.match(text, /afterEach/);
-      assert.match(text, /ps\b/);
+      assert.match(text, /`ps`/);
       assert.match(text, /Xcode|simulator|GUI/);
     }
     assert.match(skill, /orphans/);

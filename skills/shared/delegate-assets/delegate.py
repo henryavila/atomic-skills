@@ -807,7 +807,10 @@ class ProcessTracker:
         if not isinstance(pid, int) or pid <= 0:
             return
         self.roots.add(pid)
-        self.poll(force=True)
+        # The first poll lands one interval from launch, so a run shorter than
+        # that pays no `ps` call at all; its descendants are swept only if a
+        # poll saw them.
+        self.last_poll = time.monotonic()
 
     @staticmethod
     def _table():
@@ -1231,7 +1234,14 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 try:
                     if p is not None:
                         if p.returncode is None:
-                            tracker.poll(force=True)
+                            # Only a live executor can still gain a descendant;
+                            # an unreaped zombie's children are already gone.
+                            try:
+                                live = not child_exited(p.pid)
+                            except (ChildProcessError, OSError):
+                                live = False
+                            if live:
+                                tracker.poll(force=True)
                         stop_process(p)
                 finally:
                     if slot_file and (p is None or p.returncode is not None):
