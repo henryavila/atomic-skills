@@ -14,11 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   themselves in a linked worktree; reviews stay non-writing. Both roles can read
   the repository, git directory, cards and outputs, run read-only `git`, and use
   the network where the CLI allows it. `run` records now carry
-  `access: {network, git_write, extra_read, limits}`, `profiles` shows the
-  effective access and limits, and `--access strict` restores the old factory
-  sandbox for one run. Codex reviewers keep the read-only sandbox and therefore
-  record the missing network as a limit; OpenCode and Antigravity permissions are
-  set explicitly instead of relying on an approval-bypass mode.
+  `access: {network, git_write, extra_read, limits}`, and `profiles` shows the
+  effective access and limits. `--access strict` removes grants instead of
+  restoring a factory bypass: no network, nothing outside the worktree. Codex
+  reviewers keep the read-only sandbox and therefore record the missing network
+  as a limit; OpenCode and Antigravity permissions are set explicitly instead of
+  relying on an approval-bypass mode.
 - **OpenCode concurrency default is 10 slots** (was 2); Codex stays at 1 and
   Antigravity at 2. `DELEGATE_MAX_<EXECUTOR>` still overrides them.
 - Delegate card and review templates now require documentation statements to be

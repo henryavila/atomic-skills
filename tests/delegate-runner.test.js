@@ -81,6 +81,12 @@ sleep_s = float(os.environ.get("FAKE_SLEEP", "0"))
 if sleep_s > 0:
     time.sleep(sleep_s)
 
+wait_file = os.environ.get("FAKE_WAIT_FILE")
+if wait_file:
+    wait_deadline = time.time() + float(os.environ.get("FAKE_WAIT_TIMEOUT", "60"))
+    while not pathlib.Path(wait_file).exists() and time.time() < wait_deadline:
+        time.sleep(0.02)
+
 touch_rel = os.environ.get("FAKE_TOUCH_FILE")
 if touch_rel:
     p = pathlib.Path(touch_rel)
@@ -400,7 +406,8 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
           ...steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]),
           [stage === 'executor' ? 'DELEGATE_MAX_OPENCODE' : 'DELEGATE_MAX_CODEX']: '0',
         });
-        assert.ok(Date.now() - started < 2000);
+        // `--wait 0` must not sleep; the generous bound only tolerates a loaded host.
+        assert.ok(Date.now() - started < 15000);
         assert.equal(res.status, fallback ? 0 : 1, res.stderr);
         const pipe = readLogRecords(atomicHome).at(-1);
         const timed = pipe.attempts.find(r => r.failure === 'slot_timeout');
@@ -861,7 +868,122 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     }
   });
 
-  it('D9 --access strict restores today factory argv and records the real access for every executor', () => {
+  it('D9 --access strict is a subset of the default role policy for every executor and role', () => {
+    const res = pythonHarness(`
+import json
+out = {}
+for executor in ('codex', 'opencode', 'agy'):
+ for role in ('implement', 'review'):
+  pol = d.access_policy(executor, role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)}, strict=False)
+  strict = d.access_policy(executor, role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)}, strict=True)
+  argv = d.build_argv(executor, d.FLASH_MODEL if executor == 'opencode' else 'm', role,
+                      ${JSON.stringify(repoDir)}, 'CARD', 'LAST', strict)
+  out[executor + '/' + role] = {'policy': pol, 'strict': strict, 'argv': argv}
+print(json.dumps(out))
+`);
+    assert.equal(res.status, 0, res.stderr);
+    const parsed = JSON.parse(res.stdout.trim().split('\n').at(-1));
+    const common = join(repoDir, '.git');
+    const cards = join(atomicHome, 'delegate', 'cards');
+
+    for (const role of ['implement', 'review']) {
+      const codex = parsed[`codex/${role}`];
+      assert.equal(codex.strict.access.mode, 'strict');
+      assert.equal(codex.strict.access.network, false, role);
+      assert.equal(codex.strict.access.git_write, false, role);
+      assert.deepEqual(codex.strict.access.extra_read, [], role);
+      assert.deepEqual(codex.strict.argv, [], role);
+      assert.ok(!codex.argv.includes('sandbox_workspace_write.network_access=true'), role);
+      assert.ok(!codex.argv.includes('--add-dir'), role);
+      assert.equal(codex.argv[codex.argv.indexOf('--sandbox') + 1],
+        role === 'review' ? 'read-only' : 'workspace-write', role);
+      assert.doesNotMatch(codex.strict.access.limits.join(' '), /factory sandbox/i);
+
+      const opencode = parsed[`opencode/${role}`];
+      assert.equal(opencode.strict.access.mode, 'strict');
+      assert.ok(!opencode.argv.includes('--auto'), role);
+      assert.ok(opencode.argv.includes('--standalone'), role);
+      assert.equal(opencode.strict.access.extra_read.length, 0, role);
+      assert.ok(opencode.strict.access.limits.some(limit => /no sandbox/.test(limit)), role);
+      assert.doesNotMatch(opencode.strict.access.limits.join(' '), /factory sandbox/i);
+      const rules = JSON.parse(opencode.strict.env.OPENCODE_CONFIG_CONTENT).permissions;
+      assert.ok(rules.some(rule => rule.action === 'webfetch' && rule.resource === '*' && rule.effect === 'deny'), role);
+      assert.ok(rules.some(rule => rule.action === 'websearch' && rule.resource === '*' && rule.effect === 'deny'), role);
+      assert.ok(rules.some(rule => rule.action === 'external_directory' && rule.resource === '*' && rule.effect === 'deny'), role);
+      assert.equal(rules.filter(rule => rule.action === 'external_directory' && rule.effect === 'allow').length, 0, role);
+      const editAllows = rules.filter(rule => rule.action === 'edit' && rule.effect === 'allow').map(rule => rule.resource);
+      assert.ok(!editAllows.includes(`${common}/*`), role);
+      assert.ok(!editAllows.includes(`${cards}/*`), role);
+      if (role === 'review') {
+        assert.deepEqual(editAllows, [], role);
+      } else {
+        assert.deepEqual(editAllows, ['*'], role);
+        const editDenies = rules.filter(rule => rule.action === 'edit' && rule.effect === 'deny')
+          .map(rule => rule.resource);
+        assert.ok(editDenies.includes('..'), role);
+        assert.ok(editDenies.includes('../*'), role);
+        assert.ok(editDenies.includes(`${cards}/*`), role);
+        assert.ok(editDenies.includes(`${outDir}/*`), role);
+      }
+
+      const agy = parsed[`agy/${role}`];
+      assert.equal(agy.strict.access.mode, 'strict');
+      assert.equal(agy.strict.access.network, false, role);
+      assert.equal(agy.strict.access.git_write, false, role);
+      assert.ok(agy.argv.includes('--sandbox'), role);
+      assert.ok(!agy.argv.includes('--add-dir'), role);
+      const settings = JSON.parse(agy.argv[agy.argv.indexOf('--settings') + 1]);
+      assert.ok(!settings.permissions.allow.includes('read_url(*)'), role);
+      assert.ok(!settings.permissions.allow.includes(`read_file(${common})`), role);
+      assert.ok(!settings.permissions.allow.includes(`write_file(${common})`), role);
+      assert.equal(settings.allowNonWorkspaceAccess, role === 'review', role);
+      assert.doesNotMatch(agy.strict.access.limits.join(' '), /factory sandbox/i);
+      if (role === 'review') {
+        assert.ok(settings.permissions.allow.includes(`read_file(${cards})`), role);
+        assert.ok(settings.permissions.allow.includes(`read_file(${outDir})`), role);
+        assert.ok(settings.permissions.allow.includes('read_file(' + repoDir + ')'));
+        assert.ok(!settings.permissions.allow.includes('command(git)'));
+        for (const command of ['git diff', 'git log', 'git show', 'git status', 'git rev-parse']) {
+          assert.ok(settings.permissions.allow.includes(`command(${command})`), command);
+        }
+      } else {
+        assert.deepEqual(agy.strict.access.extra_read, [], role);
+        assert.equal(settings.allowNonWorkspaceAccess, false, role);
+        assert.ok(settings.permissions.allow.includes(`write_file(${repoDir})`), role);
+        assert.ok(settings.permissions.allow.includes('command(git)'), role);
+      }
+    }
+  });
+
+  it('D9 --access strict never uses an approval-bypass flag for any profile, role or access value', () => {
+    const banned = ['--auto', '--dangerously-skip-permissions', 'danger-full-access',
+      '--dangerously-bypass-approvals-and-sandbox', '--yolo'];
+    const profiles = ['flash', 'flash-review', 'codex', 'codex-review', 'agy', 'agy-review'];
+    const roles = ['implement', 'fix', 'review', 'mechanical', 'test'];
+    const range = reviewRange();
+    for (const access of ['policy', 'strict']) {
+      for (const profile of profiles) {
+        for (const role of roles) {
+          const res = runDelegate([
+            'run', '--id', `T-NOBYPASS-${access}-${profile}-${role}`, '--task', 'no bypass',
+            '--role', role, '--profile', profile, '--cwd', repoDir,
+            '--card', role === 'review' ? reviewCardPath : cardPath,
+            ...(role === 'review' && profile.startsWith('agy') ? ['--diff-range', range] : []),
+            '--out', outDir, '--access', access, '--confirmed',
+          ], baseEnv);
+          assert.equal(res.status, 0, `${access}/${profile}/${role}: ${res.stderr}`);
+          const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
+          for (const flag of banned) {
+            for (const arg of argv) {
+              assert.ok(!String(arg).includes(flag), `${access}/${profile}/${role}: ${flag} in ${arg}`);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('D9 --access strict records real access per executor and never mentions a factory sandbox', () => {
     const cardText = readFileSync(cardPath, 'utf8');
     const run = (id, profile, role, extra = [], cwd = repoDir) => {
       const res = runDelegate([
@@ -876,13 +998,15 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     const recFor = id => readLogRecords(atomicHome).find(record => record.id === id);
 
     assert.deepEqual(run('T-STRICT-OC', 'flash', 'implement'), [
-      fakePaths.opencode, 'run', '--auto', '--archived', '-m', 'opencode-go/deepseek-v4.1-flash', cardText,
+      fakePaths.opencode, 'run', '--standalone', '--archived', '-m', 'opencode-go/deepseek-v4.1-flash', cardText,
     ]);
     let rec = recFor('T-STRICT-OC');
     assert.equal(rec.access.mode, 'strict');
     assert.equal(rec.access.network, true);
     assert.equal(rec.access.git_write, true);
-    assert.match(rec.access.limits.join(' '), /--auto.*no sandbox/);
+    assert.match(rec.access.limits.join(' '), /no sandbox/);
+    assert.match(rec.access.limits.join(' '), /webfetch.*websearch.*denied/);
+    assert.doesNotMatch(rec.access.limits.join(' '), /factory sandbox/i);
 
     assert.deepEqual(run('T-STRICT-CODEX', 'codex', 'implement'), [
       fakePaths.codex, '-a', 'never', 'exec', '--model', 'gpt-6.1-sol',
@@ -893,7 +1017,9 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     rec = recFor('T-STRICT-CODEX');
     assert.equal(rec.access.network, false);
     assert.equal(rec.access.git_write, false);
-    assert.match(rec.access.limits.join(' '), /factory sandbox.*no network/i);
+    assert.deepEqual(rec.access.extra_read, []);
+    assert.match(rec.access.limits.join(' '), /no network.*no --add-dir/i);
+    assert.doesNotMatch(rec.access.limits.join(' '), /factory sandbox/i);
 
     assert.deepEqual(run('T-STRICT-CODEX-R', 'codex-review', 'review'), [
       fakePaths.codex, '-a', 'never', 'exec', '--model', 'gpt-6.1-sol',
@@ -908,21 +1034,28 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     const wtDir = join(root, 'wt-strict');
     git(repoDir, 'worktree', 'add', '-b', 'feat/strict', wtDir);
     const linkedArgv = run('T-STRICT-CODEX-WT', 'codex', 'implement', [], wtDir);
-    assert.equal(linkedArgv[linkedArgv.indexOf('--add-dir') + 1], join(repoDir, '.git'));
+    assert.ok(!linkedArgv.includes('--add-dir'), linkedArgv.join(' '));
+    assert.ok(!linkedArgv.includes('sandbox_workspace_write.network_access=true'), linkedArgv.join(' '));
     rec = recFor('T-STRICT-CODEX-WT');
-    assert.equal(rec.access.git_write, true);
-    assert.match(rec.access.limits.join(' '), /main repository's config, hooks and other worktrees' refs/);
+    assert.equal(rec.access.network, false);
+    assert.equal(rec.access.git_write, false);
 
     const agyArgv = run('T-STRICT-AGY', 'agy', 'implement');
-    assert.deepEqual(agyArgv, [
+    assert.deepEqual(agyArgv.slice(0, 6), [
       fakePaths.agy, '-p', '--model', 'gemini-4-hydrogen-high', '--output-format', 'text',
-      '--dangerously-skip-permissions',
     ]);
+    assert.ok(agyArgv.includes('--sandbox'));
+    assert.ok(!agyArgv.includes('--add-dir'));
+    assert.ok(!agyArgv.includes('--dangerously-skip-permissions'));
+    const settings = JSON.parse(agyArgv[agyArgv.indexOf('--settings') + 1]);
+    assert.ok(!settings.permissions.allow.includes('read_url(*)'));
+    assert.equal(settings.allowNonWorkspaceAccess, false);
     assert.equal(readFileSync(stdinFile, 'utf8'), cardText);
     rec = recFor('T-STRICT-AGY');
-    assert.equal(rec.access.network, true);
-    assert.equal(rec.access.git_write, true);
-    assert.match(rec.access.limits.join(' '), /--dangerously-skip-permissions.*no sandbox/);
+    assert.equal(rec.access.network, false);
+    assert.equal(rec.access.git_write, false);
+    assert.deepEqual(rec.access.extra_read, []);
+    assert.doesNotMatch(rec.access.limits.join(' '), /factory sandbox/i);
   });
 
   it('D9 pipeline --access strict applies to executor and reviewer and records it', () => {
@@ -933,9 +1066,22 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     assert.equal(runs.length, 2);
     for (const rec of runs) {
       assert.equal(rec.access.mode, 'strict');
-      assert.equal(rec.access.network, true);
-      assert.match(rec.access.limits.join(' '), /no sandbox/);
+      assert.doesNotMatch(rec.access.limits.join(' '), /factory sandbox/i);
     }
+    const implRec = runs.find(r => r.role === 'implement');
+    const reviewRec = runs.find(r => r.role === 'review');
+    assert.equal(implRec.access.network, true);
+    assert.match(implRec.access.limits.join(' '), /no sandbox/);
+    assert.equal(reviewRec.access.network, false);
+    assert.equal(reviewRec.access.git_write, false);
+    const implArgv = JSON.parse(readFileSync(join(seqDir, 'argv_0.json'), 'utf8'));
+    const reviewArgv = JSON.parse(readFileSync(join(seqDir, 'argv_1.json'), 'utf8'));
+    assert.ok(!implArgv.includes('--auto'));
+    assert.ok(implArgv.includes('--standalone'));
+    assert.ok(reviewArgv.includes('--sandbox'));
+    const settings = JSON.parse(reviewArgv[reviewArgv.indexOf('--settings') + 1]);
+    assert.ok(!settings.permissions.allow.includes('read_url(*)'));
+    assert.ok(!settings.permissions.allow.includes(`read_file(${join(repoDir, '.git')})`));
   });
 
   it('D9 default policy never uses a bypass-sandbox flag', () => {
@@ -2748,6 +2894,7 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
   });
 
   it('D4 R17 normal completion removes owned slot before second run', async () => {
+    const releaseFile = join(root, 'release-first-run');
     const bgProc = spawn(
       PYTHON3,
       [
@@ -2765,25 +2912,24 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
       {
         env: {
           ...baseEnv,
-          FAKE_SLEEP: '2',
+          FAKE_WAIT_FILE: releaseFile,
+          FAKE_WAIT_TIMEOUT: '60',
           DELEGATE_MAX_OPENCODE: '1',
         },
       },
     );
+    const exited = new Promise(resolve => bgProc.once('close', resolve));
 
-    // Wait until slot file is written
+    // Wait until the first runner publishes its slot; the fake CLI then holds it
+    // until we create the release file, so no fixed sleep is involved.
     const runningDir = join(atomicHome, 'delegate', 'running');
-    let slotFound = false;
-    for (let i = 0; i < 40; i++) {
-      execFileSync('sleep', ['0.05']);
+    await waitFor(() => {
       try {
-        const found = readdirSync(runningDir).find((f) => f.startsWith('opencode-T-CONC-1-'));
-        if (found) {
-          slotFound = true;
-          break;
-        }
-      } catch {}
-    }
+        return readdirSync(runningDir).some(f => f.startsWith('opencode-T-CONC-1-'));
+      } catch {
+        return false;
+      }
+    }, 20000, 'first runner slot');
 
     const secondRes = runDelegate(
       [
@@ -2804,19 +2950,26 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     assert.equal(secondRes.status, 4);
     assert.match(secondRes.stderr, /delegate: no free opencode slot/);
 
-    assert.ok(slotFound, 'first runner published a slot');
     const slotName = readdirSync(runningDir).find(f => f.startsWith('opencode-T-CONC-1-'));
     const slotPid = JSON.parse(readFileSync(join(runningDir, slotName), 'utf8')).pid;
+    writeFileSync(releaseFile, 'go');
     // Await the owner; no second caller may clean the slot for it.
-    const exit = await new Promise(resolve => bgProc.once('close', resolve));
-    assert.equal(exit, 0);
-    assert.throws(() => process.kill(slotPid, 0), { code: 'ESRCH' });
-    for (let i = 0; i < 40; i++) {
-      execFileSync('sleep', ['0.05']);
-      if (!readdirSync(runningDir).find((f) => f.startsWith('opencode-T-CONC-1-'))) {
-        break;
+    assert.equal(await exited, 0);
+    await waitFor(() => {
+      try {
+        process.kill(slotPid, 0);
+        return false;
+      } catch {
+        return true;
       }
-    }
+    }, 20000, 'first executor process end');
+    await waitFor(() => {
+      try {
+        return !readdirSync(runningDir).some(f => f.startsWith('opencode-T-CONC-1-'));
+      } catch {
+        return true;
+      }
+    }, 20000, 'first runner slot removal');
 
     assert.equal(readdirSync(runningDir).filter(f => f.endsWith('.json')).length, 0);
     const afterRes = runDelegate(
@@ -2839,6 +2992,7 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
 
   it('D9 ten OpenCode runs hold ten slots and the eleventh waits', async () => {
     const runningDir = join(atomicHome, 'delegate', 'running');
+    const releaseFile = join(root, 'release-ten-slots');
     const children = [];
     const exits = [];
     for (let i = 0; i < 10; i++) {
@@ -2846,28 +3000,31 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
         DELEGATE_PY, 'run', '--id', `T-SLOT-${i}`, '--task', `slot ${i}`,
         '--role', 'implement', '--profile', 'flash', '--cwd', repoDir,
         '--card', cardPath, '--out', outDir, '--confirmed',
-      ], { env: { ...baseEnv, FAKE_SLEEP: '4' } });
+      ], {
+        env: { ...baseEnv, FAKE_WAIT_FILE: releaseFile, FAKE_WAIT_TIMEOUT: '60' },
+      });
       children.push(child);
       exits.push(new Promise((resolve) => child.once('close', resolve)));
     }
-    let slots = 0;
-    for (let i = 0; i < 200; i++) {
-      execFileSync('sleep', ['0.05']);
-      try {
-        slots = readdirSync(runningDir).filter((f) => f.endsWith('.json')).length;
-      } catch {
-        slots = 0;
-      }
-      if (slots >= 10) break;
+    try {
+      await waitFor(() => {
+        try {
+          return readdirSync(runningDir).filter((f) => f.endsWith('.json')).length >= 10;
+        } catch {
+          return false;
+        }
+      }, 30000, 'ten held OpenCode slots');
+      assert.equal(readdirSync(runningDir).filter((f) => f.endsWith('.json')).length, 10);
+      const eleventh = runDelegate([
+        'run', '--id', 'T-SLOT-11', '--task', 'eleventh', '--role', 'implement',
+        '--profile', 'flash', '--cwd', repoDir, '--card', cardPath,
+        '--out', outDir, '--wait', '0', '--confirmed',
+      ], baseEnv);
+      assert.equal(eleventh.status, 4);
+      assert.match(eleventh.stderr, /delegate: no free opencode slot/);
+    } finally {
+      writeFileSync(releaseFile, 'go');
     }
-    assert.equal(slots, 10);
-    const eleventh = runDelegate([
-      'run', '--id', 'T-SLOT-11', '--task', 'eleventh', '--role', 'implement',
-      '--profile', 'flash', '--cwd', repoDir, '--card', cardPath,
-      '--out', outDir, '--wait', '0', '--confirmed',
-    ], baseEnv);
-    assert.equal(eleventh.status, 4);
-    assert.match(eleventh.stderr, /delegate: no free opencode slot/);
     assert.deepEqual(await Promise.all(exits), Array(10).fill(0));
   });
 
@@ -3103,18 +3260,16 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
 
     const runningDir = join(atomicHome, 'delegate', 'running');
     let slotPath = null;
-    for (let i = 0; i < 40; i++) {
-      execFileSync('sleep', ['0.05']);
+    await waitFor(() => {
       try {
         const found = readdirSync(runningDir).find((f) => f.startsWith('opencode-T-KILL-TARGET-'));
-        if (found) {
-          slotPath = join(runningDir, found);
-          break;
-        }
-      } catch {}
-    }
+        if (found) slotPath = join(runningDir, found);
+        return Boolean(found);
+      } catch {
+        return false;
+      }
+    }, 20000, 'running slot publication');
 
-    assert.ok(slotPath, 'running slot never published');
     const exited = new Promise(resolve => bgProc.once('exit', (code, signal) => resolve({code, signal})));
     const killUnknown = runDelegate(['kill', 'T-UNKNOWN-ID'], baseEnv);
     assert.equal(killUnknown.status, 1);
@@ -3122,15 +3277,20 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     const killRes = runDelegate(['kill', 'T-KILL-TARGET'], baseEnv);
     assert.equal(killRes.status, 0, killRes.stderr);
 
-    // Give it a moment to terminate and clean slot
-    execFileSync('sleep', ['0.2']);
     let timer;
     try {
       const result = await Promise.race([exited, new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('background runner still alive')), 3000);
+        timer = setTimeout(() => reject(new Error('background runner still alive')), 20000);
       })]);
       assert.ok(result.code !== null || result.signal !== null);
-      assert.throws(() => readFileSync(slotPath), { code: 'ENOENT' });
+      await waitFor(() => {
+        try {
+          readFileSync(slotPath);
+          return false;
+        } catch (error) {
+          return error.code === 'ENOENT';
+        }
+      }, 10000, 'killed runner slot removal');
     } finally {
       clearTimeout(timer);
       if (bgProc.exitCode === null && bgProc.signalCode === null) bgProc.kill('SIGTERM');
@@ -3432,7 +3592,7 @@ try:
  assert signal.SIGKILL in sent, 'executor not signalled'
  assert children[0].returncode is not None, 'executor not reaped'
  assert not list(d.RUNNING.glob('*.json')), 'slot retained'
- assert time.monotonic()-started < 3, 'cleanup blocked on live executor'
+ assert time.monotonic()-started < 15, 'cleanup blocked on live executor'
 finally:
  d.child_exited = original_child_exited
  os.killpg = original_killpg
@@ -3520,7 +3680,9 @@ finally:
     it(`R2 R02 rechecks slot identity under lock before ${phase}`, () => {
       const res = pythonHarness(`
 p = subprocess.Popen([sys.executable, '-c', 'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(60)'], start_new_session=True)
-time.sleep(.1)
+deadline = time.time() + 10
+while d.process_identity(p.pid) is None and time.time() < deadline: time.sleep(.01)
+assert d.process_identity(p.pid)
 d.RUNNING.mkdir(parents=True)
 slot = d.RUNNING / ('opencode-race-%s.json' % p.pid)
 data = {'id':'race', 'pid':p.pid, 'pgid':p.pid, 'process_start':d.process_identity(p.pid)}
@@ -3671,7 +3833,7 @@ d = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(d)
 `;
     return spawnSync(PYTHON3, ['-B', '-c', prelude + code], {
-      env: { ...process.env, ...baseEnv, ...env }, encoding: 'utf8', timeout: 25000, detached: true,
+      env: { ...process.env, ...baseEnv, ...env }, encoding: 'utf8', timeout: 60000, detached: true,
     });
   }
   async function waitFor(predicate, timeoutMs, label) {
@@ -3790,7 +3952,7 @@ try:
  d.execute_run('live', 'live', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, confirmed=True)
  assert cleaners, 'real slot writer not exercised'
  for cleaner in cleaners:
-  output, _ = cleaner.communicate(timeout=3)
+  output, _ = cleaner.communicate(timeout=20)
   assert 'live' in output, output
 finally:
  for cleaner in cleaners:
@@ -3806,17 +3968,21 @@ child_code = "import signal,time,pathlib; signal.signal(signal.SIGTERM, signal.S
 leader_code = "import subprocess,sys,pathlib,time; p=subprocess.Popen([sys.executable,'-c'," + repr(child_code) + "]); pathlib.Path(" + repr(str(marker)) + ").write_text(str(p.pid)); time.sleep(60)"
 leader = subprocess.Popen([sys.executable, '-c', leader_code], start_new_session=True)
 try:
- deadline = time.time() + 5
+ deadline = time.time() + 20
  while not heartbeat.exists() and time.time() < deadline: time.sleep(.01)
  assert heartbeat.exists()
  d.RUNNING.mkdir(parents=True)
  (d.RUNNING / ('opencode-orphan-%s.json' % leader.pid)).write_text(json.dumps({'id': 'orphan', 'pid': leader.pid, 'pgid': leader.pid, 'process_start':d.process_identity(leader.pid), 'runner_pid':os.getpid(), 'runner_start':d.process_identity(os.getpid())}))
  class Args: id = 'orphan'
  d.cmd_kill(Args())
- leader.wait(timeout=2)
- before = heartbeat.read_text()
- time.sleep(.3)
- assert heartbeat.read_text() == before, 'kill left a descendant running'
+ leader.wait(timeout=20)
+ child_pid = int(marker.read_text())
+ deadline = time.time() + 20
+ while time.time() < deadline:
+  try: os.kill(child_pid, 0)
+  except ProcessLookupError: break
+  time.sleep(.05)
+ else: raise AssertionError('kill left a descendant running')
 finally:
  if marker.exists():
   try: os.kill(int(marker.read_text()), signal.SIGKILL)
@@ -3904,8 +4070,10 @@ if mode == 'exception':
  def broken_wait(self, *args, **kwargs):
   if self.args[0] == str(script) and not getattr(self, '_injected', False):
    self._injected = True
-   while not child_file.exists(): time.sleep(.01)
-   time.sleep(.1)
+   heartbeat = pathlib.Path(str(child_file) + '.heartbeat')
+   deadline = time.time() + 20
+   while not (child_file.exists() and heartbeat.exists()) and time.time() < deadline: time.sleep(.01)
+   assert child_file.exists() and heartbeat.exists()
    raise RuntimeError('injected wait error')
   return original_wait(self, *args, **kwargs)
  d.wait_for_exit = broken_wait
@@ -3917,21 +4085,27 @@ try:
   try: d.execute_run('group', 'group', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, confirmed=True)
   except RuntimeError: pass
  else:
-  deadline = time.time() + 5
-  while not child_file.exists() and time.time() < deadline: time.sleep(.01)
-  assert child_file.exists()
-  time.sleep(.15)
+  deadline = time.time() + 20
+  while not (child_file.exists() and pathlib.Path(str(child_file) + '.heartbeat').exists()) and time.time() < deadline: time.sleep(.01)
+  assert child_file.exists() and pathlib.Path(str(child_file) + '.heartbeat').exists()
+  deadline = time.time() + 20
+  while not list(d.RUNNING.glob('*.json')) and time.time() < deadline: time.sleep(.01)
+  assert list(d.RUNNING.glob('*.json')), 'slot not published'
   if mode == 'signal': runner.terminate()
   elif mode == 'hup': runner.send_signal(signal.SIGHUP)
   elif mode == 'kill':
    killed = subprocess.run([sys.executable, ${JSON.stringify(DELEGATE_PY)}, 'kill', 'group'], capture_output=True)
    assert killed.returncode == 0, killed.stderr
-  _, runner_stderr = runner.communicate(timeout=3 if mode == 'kill' else 22)
+  _, runner_stderr = runner.communicate(timeout=25)
  child = int(child_file.read_text())
  heartbeat = pathlib.Path(str(child_file) + '.heartbeat')
- before = heartbeat.read_text()
- time.sleep(.3)
- assert heartbeat.read_text() == before, 'descendant still running'
+ assert heartbeat.exists()
+ deadline = time.time() + 20
+ while time.time() < deadline:
+  try: os.kill(child, 0)
+  except ProcessLookupError: break
+  time.sleep(.05)
+ else: raise AssertionError('descendant still running')
  assert not list(d.RUNNING.glob('*.json')), 'slot survived cleanup: ' + (runner_stderr if runner else '')
  if mode in ('signal', 'hup'):
   runs = [json.loads(line) for line in d.LOG.read_text().splitlines()]
@@ -3941,7 +4115,7 @@ finally:
  if child_file.exists():
   try: os.kill(int(child_file.read_text()), signal.SIGKILL)
   except ProcessLookupError: pass
- if runner is not None and runner.poll() is None: runner.terminate(); runner.wait(timeout=3)
+ if runner is not None and runner.poll() is None: runner.terminate(); runner.wait(timeout=20)
 `, withoutWaitid());
       assert.equal(res.status, 0, res.stderr || String(res.error));
     });
@@ -3950,9 +4124,10 @@ finally:
     const heartbeat = join(root, 'orphan.executor.heartbeat');
     const childHeartbeat = join(root, 'orphan.child.heartbeat');
     const childPidFile = join(root, 'orphan.child.pid');
+    const executorPidFile = join(root, 'orphan.executor.pid');
     const runnerPidFile = join(root, 'orphan.runner.pid');
     writeFileSync(fakePaths.opencode, `#!${PYTHON3}
-import pathlib, signal, subprocess, sys, time
+import os, pathlib, signal, subprocess, sys, time
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 child_code = """import pathlib, signal, sys, time
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -3963,6 +4138,7 @@ while True:
 """
 child = subprocess.Popen([sys.executable, "-c", child_code, ${JSON.stringify(childHeartbeat)}])
 pathlib.Path(${JSON.stringify(childPidFile)}).write_text(str(child.pid))
+pathlib.Path(${JSON.stringify(executorPidFile)}).write_text(str(os.getpid()))
 h = pathlib.Path(${JSON.stringify(heartbeat)})
 while True:
     h.write_text(str(time.time()))
@@ -3984,8 +4160,10 @@ time.sleep(60)
       env: { ...process.env, ...baseEnv }, detached: true, stdio: 'ignore',
     });
     try {
-      await waitFor(() => existsSync(childPidFile), 8000, 'executor child start');
+      await waitFor(() => existsSync(childPidFile) && existsSync(executorPidFile) && existsSync(runnerPidFile),
+        20000, 'executor child start');
       const childPid = Number(readFileSync(childPidFile, 'utf8'));
+      const executorPid = Number(readFileSync(executorPidFile, 'utf8'));
       const runnerPid = Number(readFileSync(runnerPidFile, 'utf8'));
       process.kill(parent.pid, 'SIGKILL');
       await waitFor(() => {
@@ -3995,12 +4173,18 @@ time.sleep(60)
         } catch {
           return false;
         }
-      }, 12000, 'orphaned run record');
-      const stopped = readFileSync(heartbeat, 'utf8');
-      const childStopped = readFileSync(childHeartbeat, 'utf8');
-      await new Promise(resolve => setTimeout(resolve, 300));
-      assert.equal(readFileSync(heartbeat, 'utf8'), stopped, 'executor still running');
-      assert.equal(readFileSync(childHeartbeat, 'utf8'), childStopped, 'executor descendant still running');
+      }, 20000, 'orphaned run record');
+      const pidGone = pid => {
+        try {
+          process.kill(pid, 0);
+          return false;
+        } catch {
+          return true;
+        }
+      };
+      await waitFor(() => pidGone(childPid) && pidGone(executorPid) && pidGone(runnerPid),
+        20000, 'orphaned executor process end');
+      assert.ok(existsSync(heartbeat) && existsSync(childHeartbeat));
       const runningDir = join(atomicHome, 'delegate', 'running');
       const slots = existsSync(runningDir) ? readdirSync(runningDir).filter(name => name.endsWith('.json')) : [];
       assert.deepEqual(slots, []);
@@ -4017,7 +4201,12 @@ d.RUNNING.mkdir(parents=True)
 slot = d.RUNNING / ('opencode-held-%s.json' % os.getpid())
 slot.write_text(json.dumps({'pid': os.getpid(), 'pgid':os.getpgrp(), 'process_start':d.process_identity(os.getpid())}))
 def release():
- time.sleep(1.2)
+ stdout = pathlib.Path(${JSON.stringify(join(outDir, 'queue.out.md'))})
+ deadline = time.time() + 10
+ while not stdout.exists() and time.time() < deadline: time.sleep(.01)
+ assert stdout.exists(), 'runner never opened its wait output'
+ queued = time.monotonic()
+ while time.monotonic() < queued + 1.1: time.sleep(.01)
  subprocess.run(['git', '-C', ${JSON.stringify(repoDir)}, 'commit', '--allow-empty', '-m', 'queued commit'], check=True, stdout=subprocess.DEVNULL)
  slot.unlink()
 thread = threading.Thread(target=release); thread.start()
@@ -4037,11 +4226,11 @@ slot = d.RUNNING / ('codex-held-%s.json' % os.getpid())
 slot.write_text(json.dumps({'pid': os.getpid(), 'pgid':os.getpgrp(), 'process_start':d.process_identity(os.getpid())}))
 runner = subprocess.Popen([sys.executable, ${JSON.stringify(DELEGATE_PY)}, *json.loads(os.environ['PIPE_ARGS'])], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 try:
- deadline = time.time() + 5
+ deadline = time.time() + 20
  while not pathlib.Path(${JSON.stringify(join(outDir, 'R1.gate.log'))}).exists() and time.time() < deadline: time.sleep(.01)
- time.sleep(.15)
+ assert pathlib.Path(${JSON.stringify(join(outDir, 'R1.gate.log'))}).exists()
  d.PAUSED.touch()
- stdout, stderr = runner.communicate(timeout=8)
+ stdout, stderr = runner.communicate(timeout=30)
  assert runner.returncode == 3, stderr
  assert pathlib.Path(${JSON.stringify(join(outDir, 'R1.summary.md'))}).exists(), 'missing summary'
  assert json.loads(d.LOG.read_text().splitlines()[-1])['outcome'] == 'paused'

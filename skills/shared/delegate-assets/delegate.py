@@ -63,6 +63,15 @@ MAX_REVIEW_INPUT_BYTES = 600 * 1024
 # stdin when `-p` has no prompt argument) receive it on stdin instead.
 MAX_ARG_BYTES = 131072
 ARGV_PROMPT_EXECUTORS = {"opencode"}
+# Approval/sandbox bypass flags. The runner never places one in an argv, in any
+# mode; guard_argv enforces that invariant before a child is launched.
+FORBIDDEN_ARGV_FLAGS = (
+    "--auto",
+    "--dangerously-skip-permissions",
+    "--danger-full-access",
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--yolo",
+)
 # TERM grace before an orphaned executor group is killed.
 ORPHAN_GRACE_S = 2.0
 ALIASES = {
@@ -251,37 +260,83 @@ def access_policy(executor, role, cwd, out_path=None, strict=False):
     # codex config reference: "sandbox_workspace_write.network_access boolean
     #   Allow outbound network access inside the workspace-write sandbox."
     if strict:
-        # The strict escape hatch restores each CLI's factory invocation. Its
-        # access is whatever that argv really gives, not a blanket "read-only".
-        argv, limits = [], []
-        network = git_write = False
+        # Strict removes grants from the default role policy; it never adds a
+        # CLI's factory bypass. Every branch below is therefore a subset of the
+        # same executor and role in the policy branch.
+        argv, env, limits = [], {}, []
         if executor == "codex":
-            limits.append("strict: factory sandbox restored for this run; "
-                          "codex workspace-write has no network")
-            if not review and common and not is_within(common, cwd):
-                argv += ["--add-dir", common]
-                git_write = True
+            # build_argv keeps the per-role sandbox (workspace-write for
+            # implement, read-only for review). Strict only removes the
+            # workspace-write network switch and the extra writable directory.
+            limits.append("strict: no network and no --add-dir; "
+                          "the codex sandbox mode is unchanged")
+            return {"argv": [], "env": {}, "access": {
+                "mode": "strict", "network": False, "git_write": False,
+                "extra_read": [], "limits": limits}}
         elif executor == "opencode":
-            # opencode run --help: "--auto Auto-approve permissions that are
-            #   not explicitly denied"; it has no sandbox.
+            # Same role rules as the default, minus web access and every grant
+            # outside the worktree. No approval bypass: the explicit permission
+            # rules and the private server remain in place.
+            rules = [
+                {"action": "external_directory", "resource": "*", "effect": "deny"},
+                {"action": "read", "resource": "*", "effect": "allow"},
+                {"action": "shell", "resource": "*", "effect": "allow"},
+                {"action": "webfetch", "resource": "*", "effect": "deny"},
+                {"action": "websearch", "resource": "*", "effect": "deny"},
+                {"action": "edit", "resource": "*", "effect": "deny"},
+            ]
+            if not review:
+                rules.append({"action": "edit", "resource": "*", "effect": "allow"})
+                for path in ("..", "../*"):
+                    rules.append({"action": "edit", "resource": path, "effect": "deny"})
+                for path in unique_paths([common, *home_dirs]):
+                    if path and not is_within(path, cwd):
+                        rules.append({"action": "edit", "resource": f"{path}/*",
+                                      "effect": "deny"})
+            env["OPENCODE_CONFIG_CONTENT"] = json.dumps({"permissions": rules})
+            limits.append("OpenCode has no sandbox: shell runs with the host user's "
+                          "filesystem and network authority")
+            limits.append("strict: webfetch and websearch are denied and only the "
+                          "worktree is editable; shell can still reach the network "
+                          "and write elsewhere")
             network = git_write = True
-            limits.append("strict: factory invocation restored, but OpenCode --auto "
-                          "auto-approves permissions and has no sandbox: network, "
-                          "filesystem write and git write are open")
+            if review:
+                limits.append("reviewer can still write through the shell; "
+                              "only the edit tool is denied")
+            else:
+                limits.append("edit tool is limited to the worktree; shell can "
+                              "still write elsewhere")
+            return {"argv": [], "env": env, "access": {
+                "mode": "strict", "network": network, "git_write": git_write,
+                "extra_read": [], "limits": limits}}
         elif executor == "agy":
-            # agy --help: "--dangerously-skip-permissions Auto-approve all tool
-            #   permission requests without prompting"; it runs unsandboxed.
-            network = git_write = True
-            limits.append("strict: factory invocation restored, but Antigravity "
-                          "--dangerously-skip-permissions skips permissions and has no sandbox: "
-                          "network, filesystem write and git write are open")
+            # Review inputs (cards and outputs) are the only outside-worktree
+            # reads strict keeps; the git common directory and read_url go away.
+            strict_extra = unique_paths(home_dirs) if review else []
+            allow = [f"read_file({cwd})"]
+            allow += [f"read_file({path})" for path in strict_extra if path != cwd]
+            deny = []
+            if review:
+                allow += [f"command({command})" for command in (
+                    "git diff", "git log", "git show", "git status", "git rev-parse")]
+                deny = [f"write_file({path})" for path in unique_paths([cwd, *strict_extra])]
+                limits.append("agy keeps the worktree read-write on its sandbox mount; "
+                              "write_file is denied and review_wrote still checks the tree")
+            else:
+                allow += [f"write_file({cwd})", "command(git)"]
+            limits.append("strict: no read_url, no git common directory and no "
+                          "directory outside the worktree except attached review inputs")
+            settings = {
+                "toolPermission": "proceed-in-sandbox",
+                "allowNonWorkspaceAccess": bool(strict_extra),
+                "permissions": {"allow": allow, "deny": deny},
+            }
+            argv += ["--sandbox", "--settings", json.dumps(settings, separators=(",", ":"))]
+            return {"argv": argv, "env": {}, "access": {
+                "mode": "strict", "network": False, "git_write": False,
+                "extra_read": strict_extra, "limits": limits}}
         else:
             sys.exit(f"delegate: unknown executor {executor}")
-        if git_write and common:
-            limits.append(git_common_limit)
-        return {"argv": argv, "env": {}, "access": {
-            "mode": "strict", "network": network, "git_write": git_write,
-            "extra_read": [], "limits": limits}}
 
     argv, env, limits = [], {}, []
     network = True
@@ -392,28 +447,39 @@ def access_policy(executor, role, cwd, out_path=None, strict=False):
         "extra_read": extra_read, "limits": limits}}
 
 
+def guard_argv(argv, executor):
+    """Refuse an approval/sandbox bypass flag; never let one reach a child."""
+    for arg in argv:
+        # Only flag-shaped elements; a card or path may legitimately contain the
+        # text of one of these names.
+        if not str(arg).startswith("-"):
+            continue
+        for flag in FORBIDDEN_ARGV_FLAGS:
+            if flag in str(arg):
+                sys.exit(f"delegate: refusing {executor} argv containing {flag}")
+    return argv
+
+
 def build_argv(executor, model, role, cwd, card, last_msg, policy=None):
     policy = policy or access_policy(executor, role, cwd)
-    strict = policy["access"]["mode"] == "strict"
     if executor == "opencode":
         # opencode run --help: "--archived Create the session archived";
-        # "--auto Auto-approve permissions that are not explicitly denied";
         # global "--standalone Run with a private server instead of the
         # background service". The policy needs its own server so the
         # OPENCODE_CONFIG_CONTENT permission rules are read; a background
-        # service started earlier would ignore them. Strict keeps the old
-        # --auto invocation. The message stays an argv element: the CLI has no
-        # stdin prompt, only "--file File to attach to the message".
-        return [find("opencode"), "run", *(["--auto"] if strict else ["--standalone"]),
-                "--archived", "-m", model, card]
+        # service started earlier would ignore them. The message stays an argv
+        # element: the CLI has no stdin prompt, only "--file File to attach to
+        # the message". The runner never passes an auto-approve flag.
+        return guard_argv(
+            [find("opencode"), "run", "--standalone", "--archived", "-m", model, card],
+            executor)
     if executor == "agy":
         # agy --help: "-p, --print Run a single prompt non-interactively";
         #   "--output-format Output format for print mode". Print mode reads
         #   the prompt from stdin when no prompt argument is given; the runner
-        #   writes it there so a composed prompt is not an argv element. Strict
-        #   keeps the old --dangerously-skip-permissions factory mode.
+        #   writes it there so a composed prompt is not an argv element.
         argv = [find("agy"), "-p", "--model", model, "--output-format", "text"]
-        return argv + (["--dangerously-skip-permissions"] if strict else policy["argv"])
+        return guard_argv(argv + policy["argv"], executor)
     if executor == "codex":
         effort = "high" if role == "review" else "medium"
         sandbox = "read-only" if role == "review" else "workspace-write"
@@ -427,7 +493,7 @@ def build_argv(executor, model, role, cwd, card, last_msg, policy=None):
             "-C", cwd,
         ]
         argv += policy["argv"]
-        return argv + ["-o", str(last_msg), "-"]
+        return guard_argv(argv + ["-o", str(last_msg), "-"], executor)
     sys.exit(f"delegate: unknown executor {executor}")
 
 
@@ -1560,7 +1626,7 @@ def main():
     r.add_argument("--confirmed", action="store_true", help="the user approved task/role/model/executor for this batch")
     r.add_argument("--allow-peak", action="store_true")
     r.add_argument("--access", choices=["policy", "strict"], default="policy",
-                   help="policy (default) or strict factory sandbox")
+                   help="policy (default) or strict (no network, nothing outside the worktree)")
     r.set_defaults(f=cmd_run)
 
     pipe = sub.add_parser("pipeline")
@@ -1581,7 +1647,7 @@ def main():
     pipe.add_argument("--project")
     pipe.add_argument("--confirmed", action="store_true", required=True)
     pipe.add_argument("--access", choices=["policy", "strict"], default="policy",
-                      help="policy (default) or strict factory sandbox")
+                      help="policy (default) or strict (no network, nothing outside the worktree)")
     pipe.set_defaults(f=cmd_pipeline)
 
     p_pause = sub.add_parser("pause")
