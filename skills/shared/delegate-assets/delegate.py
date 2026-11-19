@@ -1526,12 +1526,20 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
 
     sent = snap0[0]
     digest = hashlib.sha256(f"{task_id}\0{sent}".encode("utf-8")).hexdigest()[:16]
-    local_res = Path(cwd) / f"{REMOTE_RESULT_PREFIX}{digest}"
+    # Ship a dedicated repository that holds only the bundle and the run files.
+    # Syncing the worktree would also send every untracked and ignored file,
+    # including .env* (remote-runner's includeIgnored default).
+    staging = Path(cwd) / f".delegate-remote-stage-{digest}"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True)
     try:
-        common = Path(git_common_dir(cwd))
-    except SystemExit:
-        raise
-    stage = common / "delegate" / digest
+        subprocess.run(["git", "init", "-q", str(staging)], check=True, capture_output=True)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        shutil.rmtree(staging, ignore_errors=True)
+        return _remote_record_failure(
+            pending, "remote_error", f"cannot prepare the remote staging repository: {exc}")
+    stage = staging / ".git" / "delegate" / digest
+    local_res = staging / f"{REMOTE_RESULT_PREFIX}{digest}"
     stage.mkdir(parents=True, exist_ok=True)
     try:
         os.chmod(stage, 0o700)
@@ -1592,7 +1600,8 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
                 (stage / "diff.txt").write_bytes(diff_result.stdout)
 
         send_t0 = time.monotonic()
-        sync_result = remote_cli(["sync", "--host", host, cwd], timeout=max(120, timeout + 120))
+        sync_result = remote_cli(["sync", "--host", host, str(staging)],
+                                 timeout=max(120, timeout + 120))
         send_s = time.monotonic() - send_t0
         if sync_result.returncode != 0:
             detail = (sync_result.stderr.strip().splitlines() or
@@ -1600,7 +1609,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             raise RemoteError("remote_error", detail)
 
         snippet = f'exec bash "$(git rev-parse --path-format=absolute --git-common-dir)/delegate/{digest}/remote-run.sh"'
-        argv = [remote_runner_cmd(), "run", "-n", "--host", host, "-C", cwd,
+        argv = [remote_runner_cmd(), "run", "-n", "--host", host, "-C", str(staging),
                 "--wait", str(wait_s), "--timeout", str(max(1, timeout + 30)), "--", snippet]
         run_t0 = time.monotonic()
         # The queue is bounded by --wait; the executor timeout starts only when
@@ -1650,7 +1659,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         if process is not None:
             _terminate_remote_process(process)
     except RemoteError as exc:
-        _cleanup_remote_local(stage, local_res)
+        _cleanup_remote_local(staging)
         _cleanup_temp(remote_out.name, remote_err.name)
         return _remote_record_failure(pending, exc.failure, exc.detail,
                                       send_s=round(send_s, 3),
@@ -1698,7 +1707,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         meta_file = local_res / "meta.txt"
         if not meta_file.is_file():
             fetch_s = time.monotonic() - fetch_t0
-            _cleanup_remote_local(stage, local_res)
+            _cleanup_remote_local(staging)
             if timed_out:
                 extra = {"remote_work_kept": kept_record()} if kept_record() else {}
                 if kill_result:
@@ -1783,7 +1792,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         fetch_s = time.monotonic() - fetch_t0
         # The pulled result directory lives under the worktree so the runner can
         # map it; remove it before snapshotting, or it would look like executor dirt.
-        _cleanup_remote_local(stage, local_res)
+        _cleanup_remote_local(staging)
 
         snap1 = tree_snapshot(cwd)
         head1 = snap1[0]
@@ -1854,7 +1863,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             raise interrupted_exc
         return rec
     finally:
-        _cleanup_remote_local(stage, local_res)
+        _cleanup_remote_local(staging)
         _cleanup_temp(remote_out.name, remote_err.name)
 
 
@@ -1878,9 +1887,8 @@ def _terminate_remote_process(process):
         pass
 
 
-def _cleanup_remote_local(stage, local_res):
-    shutil.rmtree(stage, ignore_errors=True)
-    shutil.rmtree(local_res, ignore_errors=True)
+def _cleanup_remote_local(staging):
+    shutil.rmtree(staging, ignore_errors=True)
 
 
 def _cleanup_temp(*paths):
@@ -2589,13 +2597,27 @@ def cmd_remote_clean(a):
     if a.id:
         target += "/" + shlex.quote(remote_task_dir(a.id))
     snippet = 'base="$HOME/.atomic-skills/delegate/remote"; rm -rf "$base"/' + target
+    staging = Path(tempfile.mkdtemp(prefix=".delegate-clean-", dir=cwd))
     try:
+        subprocess.run(["git", "init", "-q", str(staging)], check=True, capture_output=True)
+        sync = remote_cli(["sync", "--host", a.host, str(staging)],
+                          timeout=max(120, a.timeout + 120))
+        if sync.returncode != 0:
+            detail = (sync.stderr.strip().splitlines() or ["remote-clean sync failed"])[-1]
+            print(f"delegate: {detail}", file=sys.stderr)
+            sys.exit(1)
         result = remote_cli(
-            ["run", "-n", "--host", a.host, "-C", cwd, "--wait", str(a.wait),
+            ["run", "-n", "--host", a.host, "-C", str(staging), "--wait", str(a.wait),
              "--", snippet], timeout=max(120, a.timeout + 120))
     except RemoteError as exc:
         print(f"delegate: {exc.detail}", file=sys.stderr)
         sys.exit(1)
+    except subprocess.CalledProcessError as exc:
+        print(f"delegate: cannot prepare the remote-clean staging repository: {exc}",
+              file=sys.stderr)
+        sys.exit(1)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
     if result.returncode != 0:
         detail = (result.stderr.strip().splitlines() or ["remote-clean failed"])[-1]
         print(f"delegate: {detail}", file=sys.stderr)

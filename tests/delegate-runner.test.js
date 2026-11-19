@@ -5103,6 +5103,22 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.equal(readFileSync(join(repoDir, 'README.md'), 'utf8'), 'local edit that overlaps\n');
   });
 
+  it('R08 syncs only the bundle staging directory, never the worktree', () => {
+    writeFileSync(join(repoDir, '.gitignore'), '.env\n');
+    git(repoDir, 'add', '.gitignore');
+    git(repoDir, 'commit', '-m', 'ignore env');
+    writeFileSync(join(repoDir, '.env'), 'REMOTE-WORKTREE-CANARY\n');
+    const res = runDelegate(runArgs(['--profile', 'codex']), remoteEnv());
+    assert.equal(res.status, 0, res.stderr);
+    const leaked = findFiles(remote.root, file => {
+      try { return readFileSync(file, 'utf8').includes('REMOTE-WORKTREE-CANARY'); }
+      catch { return false; }
+    });
+    assert.deepEqual(leaked, [], 'no synced file or bundle may contain the worktree .env');
+    assert.deepEqual(findFiles(remote.root, file => file.endsWith('/.env')), []);
+    assert.equal(readFileSync(join(repoDir, '.env'), 'utf8'), 'REMOTE-WORKTREE-CANARY\n');
+  });
+
   it('R04 reuses a clean checkout that is exactly the commit being sent', () => {
     const first = runDelegate(runArgs(), remoteEnv());
     assert.equal(first.status, 0, first.stderr);
