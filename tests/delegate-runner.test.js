@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import { spawnSync, execFileSync, spawn } from 'node:child_process';
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -241,8 +242,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       assert.ok(diffBlock.some(line => /^`{7,}(diff)?$/.test(line)), 'diff fence must exceed six backticks');
       assert.match(prompt, /`{8,}\nextra card/);
       const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
-      assert.equal(profile === 'codex-review' ? readFileSync(stdinFile, 'utf8') :
-        profile === 'agy-review' ? argv[argv.indexOf('-p') + 1] : argv.at(-1), prompt);
+      assert.equal(profile === 'flash-review' ? argv.at(-1) : readFileSync(stdinFile, 'utf8'), prompt);
     });
   }
   for (const profile of ['agy-review', 'agy']) {
@@ -302,17 +302,30 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.ok(rec.prompt_bytes > 131072);
     assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
   });
-  it('D9 R01/R08 keeps the review name for a review above the argv limit', () => {
+  it('D9 R01/R08 keeps the review name for an OpenCode review above the argv limit', () => {
     const range = reviewRange();
     writeFileSync(reviewCardPath, 'b'.repeat(140000));
-    const res = runDelegate(reviewArgs(['--diff-range', range], 'agy-review'), baseEnv);
+    const res = runDelegate(reviewArgs(['--diff-range', range], 'flash-review'), baseEnv);
     assert.equal(res.status, 1, res.stderr);
     assert.equal(readLogRecords(atomicHome)[0].failure, 'review_input_too_large');
     assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
   });
+  it('D9 R05 sends an Antigravity prompt above the argv limit on stdin', () => {
+    const range = reviewRange();
+    writeFileSync(reviewCardPath, 'd'.repeat(140000));
+    const res = runDelegate(reviewArgs(['--diff-range', range], 'agy-review'), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'none');
+    assert.ok(rec.prompt_bytes > 131072);
+    const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
+    assert.equal(readFileSync(stdinFile, 'utf8'), readFileSync(rec.prompt, 'utf8'));
+    assert.ok(!argv.includes(readFileSync(rec.prompt, 'utf8')));
+  });
   it('D9 R01 lets a pipeline route continue past an oversized executor prompt', () => {
     writeFileSync(cardPath, 'c'.repeat(140000));
-    const res = runDelegate(pipelineArgs(['--route', 'flash,codex']), steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]));
+    const res = runDelegate(pipelineArgs(['--route', 'flash,codex', '--review-route', 'codex-review']),
+      steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]));
     assert.equal(res.status, 1, res.stderr);
     const records = readLogRecords(atomicHome);
     const runs = records.filter(r => r.kind === 'run');
@@ -453,6 +466,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       assert.deepEqual(JSON.parse(readFileSync(argvFile, 'utf8')), [
         fakePaths.opencode,
         'run',
+        '--standalone',
         '--archived',
         '-m',
         'opencode-go/deepseek-v4.1-flash',
@@ -719,6 +733,86 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.ok(reviewRec.access.limits.some(limit => /read-only sandbox cannot enable network/.test(limit)));
   });
 
+  it('D9 R01/R04 scopes OpenCode edit rules and uses the verified permissions shape', () => {
+    const res = pythonHarness(`
+import json
+impl = d.access_policy('opencode', 'implement', ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)})
+rev = d.access_policy('opencode', 'review', ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)})
+def dump(policy):
+    return {'rules': json.loads(policy['env']['OPENCODE_CONFIG_CONTENT'])['permissions'],
+            'access': policy['access']}
+print(json.dumps({'impl': dump(impl), 'rev': dump(rev)}))
+`);
+    assert.equal(res.status, 0, res.stderr);
+    const parsed = JSON.parse(res.stdout.trim().split('\n').at(-1));
+    for (const rules of [parsed.impl.rules, parsed.rev.rules]) {
+      assert.ok(rules.every(rule => typeof rule.action === 'string' &&
+        typeof rule.resource === 'string' && ['allow', 'deny', 'ask'].includes(rule.effect)));
+    }
+    const common = join(repoDir, '.git');
+    const implEdits = parsed.impl.rules
+      .filter(rule => rule.action === 'edit' && rule.effect === 'allow').map(rule => rule.resource);
+    assert.ok(implEdits.includes('*'), JSON.stringify(implEdits));
+    assert.ok(implEdits.includes(`${common}/*`), JSON.stringify(implEdits));
+    const implEditDenies = parsed.impl.rules
+      .filter(rule => rule.action === 'edit' && rule.effect === 'deny').map(rule => rule.resource);
+    assert.ok(implEditDenies.includes('*'), JSON.stringify(implEditDenies));
+    assert.ok(implEditDenies.includes('../*'), JSON.stringify(implEditDenies));
+    assert.ok(implEditDenies.includes(`${join(atomicHome, 'delegate', 'cards')}/*`),
+      JSON.stringify(implEditDenies));
+    assert.ok(implEditDenies.includes(`${outDir}/*`), JSON.stringify(implEditDenies));
+    const externalAllows = parsed.impl.rules
+      .filter(rule => rule.action === 'external_directory' && rule.effect === 'allow')
+      .map(rule => rule.resource);
+    assert.ok(!externalAllows.includes('*'), JSON.stringify(externalAllows));
+    assert.ok(externalAllows.includes(`${common}/*`), JSON.stringify(externalAllows));
+
+    assert.ok(parsed.rev.rules.some(rule => rule.action === 'edit' &&
+      rule.resource === '*' && rule.effect === 'deny'));
+    assert.equal(parsed.rev.rules.filter(rule => rule.action === 'edit' && rule.effect === 'allow').length, 0);
+    assert.ok(parsed.rev.rules.some(rule => rule.action === 'shell' &&
+      rule.resource === '*' && rule.effect === 'allow'));
+    assert.equal(parsed.rev.access.git_write, true);
+    assert.ok(parsed.rev.access.limits.some(limit =>
+      /reviewer can still write through the shell; only the edit tool is denied/.test(limit)));
+  });
+
+  it('D9 R07 validates the resolved git common dir and follows a symlinked git directory', () => {
+    const link = join(root, 'git-link');
+    const res = pythonHarness(`
+os.symlink(${JSON.stringify(join(repoDir, '.git'))}, ${JSON.stringify(link)})
+os.environ['GIT_DIR'] = ${JSON.stringify(link)}
+os.environ['GIT_WORK_TREE'] = ${JSON.stringify(repoDir)}
+print(d.git_common_dir(${JSON.stringify(repoDir)}))
+`);
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(res.stdout.trim().split('\n').at(-1), realpathSync(join(repoDir, '.git')));
+  });
+
+  it('D9 R07 refuses a git common dir without HEAD and objects before any run', () => {
+    const bad = join(root, 'bad-git');
+    mkdirSync(bad);
+    const res = pythonHarness(`
+bad = ${JSON.stringify(bad)}
+real_git = d.git
+def fake_git(cwd, *args):
+    if args and args[0] == 'rev-parse' and '--git-common-dir' in args:
+        return bad
+    return real_git(cwd, *args)
+d.git = fake_git
+try:
+    d.execute_run('bad', 'bad', 'implement', profile='flash',
+                  cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)},
+                  out=${JSON.stringify(outDir)}, confirmed=True)
+    raise AssertionError('run was not refused')
+except SystemExit as exc:
+    assert exc.code == 2, exc.code
+`);
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stderr, /git common directory.*HEAD.*objects/);
+    assert.throws(() => readLogRecords(atomicHome), { code: 'ENOENT' });
+  });
+
   it('D9 agy review keeps read access to cards and git but denies writes in settings', () => {
     const res = runDelegate(reviewArgs(['--diff-range', reviewRange()], 'agy-review'), baseEnv);
     assert.equal(res.status, 0, res.stderr);
@@ -731,6 +825,10 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       assert.ok(settings.permissions.deny.includes(`write_file(${path})`), path);
       assert.ok(settings.permissions.allow.includes(`read_file(${path})`), path);
     }
+    for (const command of ['git diff', 'git log', 'git show', 'git status', 'git rev-parse']) {
+      assert.ok(settings.permissions.allow.includes(`command(${command})`), command);
+    }
+    assert.ok(!settings.permissions.allow.includes('command(git)'));
     assert.ok(rec.access.limits.some(limit => /read-write/.test(limit)));
   });
 
@@ -756,46 +854,75 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
       assert.equal(res.status, 1, `${profile}: ${res.stderr}`);
       const rec = readLogRecords(atomicHome).at(-1);
       assert.equal(rec.failure, 'review_wrote', profile);
-      assert.equal(rec.access.git_write, false, profile);
+      assert.equal(rec.access.git_write, profile === 'flash-review', profile);
+      if (profile === 'flash-review') {
+        assert.ok(rec.access.limits.some(limit => /reviewer can still write through the shell/.test(limit)));
+      }
     }
   });
 
-  it('D9 --access strict restores today factory argv for every executor', () => {
+  it('D9 --access strict restores today factory argv and records the real access for every executor', () => {
     const cardText = readFileSync(cardPath, 'utf8');
-    const run = (id, profile, role, extra = []) => {
+    const run = (id, profile, role, extra = [], cwd = repoDir) => {
       const res = runDelegate([
         'run', '--id', id, '--task', 'strict', '--role', role, '--profile', profile,
         ...(role === 'review' && profile.startsWith('agy') ? ['--diff-range', reviewRange()] : []),
-        '--cwd', repoDir, '--card', role === 'review' ? reviewCardPath : cardPath,
+        '--cwd', cwd, '--card', role === 'review' ? reviewCardPath : cardPath,
         '--out', outDir, '--access', 'strict', '--confirmed', ...extra,
       ], baseEnv);
       assert.equal(res.status, 0, res.stderr);
       return JSON.parse(readFileSync(argvFile, 'utf8'));
     };
+    const recFor = id => readLogRecords(atomicHome).find(record => record.id === id);
 
     assert.deepEqual(run('T-STRICT-OC', 'flash', 'implement'), [
       fakePaths.opencode, 'run', '--auto', '--archived', '-m', 'opencode-go/deepseek-v4.1-flash', cardText,
     ]);
+    let rec = recFor('T-STRICT-OC');
+    assert.equal(rec.access.mode, 'strict');
+    assert.equal(rec.access.network, true);
+    assert.equal(rec.access.git_write, true);
+    assert.match(rec.access.limits.join(' '), /--auto.*no sandbox/);
+
     assert.deepEqual(run('T-STRICT-CODEX', 'codex', 'implement'), [
       fakePaths.codex, '-a', 'never', 'exec', '--model', 'gpt-6.1-sol',
       '-c', 'model_reasoning_effort=medium', '--sandbox', 'workspace-write',
       '--skip-git-repo-check', '--ephemeral', '-C', repoDir,
       '-o', join(outDir, 'T-STRICT-CODEX.last.md'), '-',
     ]);
+    rec = recFor('T-STRICT-CODEX');
+    assert.equal(rec.access.network, false);
+    assert.equal(rec.access.git_write, false);
+    assert.match(rec.access.limits.join(' '), /factory sandbox.*no network/i);
+
     assert.deepEqual(run('T-STRICT-CODEX-R', 'codex-review', 'review'), [
       fakePaths.codex, '-a', 'never', 'exec', '--model', 'gpt-6.1-sol',
       '-c', 'model_reasoning_effort=high', '--sandbox', 'read-only',
       '--skip-git-repo-check', '--ephemeral', '-C', repoDir,
       '-o', join(outDir, 'T-STRICT-CODEX-R.last.md'), '-',
     ]);
+    rec = recFor('T-STRICT-CODEX-R');
+    assert.equal(rec.access.network, false);
+    assert.equal(rec.access.git_write, false);
+
+    const wtDir = join(root, 'wt-strict');
+    git(repoDir, 'worktree', 'add', '-b', 'feat/strict', wtDir);
+    const linkedArgv = run('T-STRICT-CODEX-WT', 'codex', 'implement', [], wtDir);
+    assert.equal(linkedArgv[linkedArgv.indexOf('--add-dir') + 1], join(repoDir, '.git'));
+    rec = recFor('T-STRICT-CODEX-WT');
+    assert.equal(rec.access.git_write, true);
+    assert.match(rec.access.limits.join(' '), /main repository's config, hooks and other worktrees' refs/);
+
     const agyArgv = run('T-STRICT-AGY', 'agy', 'implement');
-    assert.deepEqual(agyArgv.slice(0, 7), [
-      fakePaths.agy, '-p', cardText, '--model', 'gemini-4-hydrogen-high', '--output-format', 'text',
+    assert.deepEqual(agyArgv, [
+      fakePaths.agy, '-p', '--model', 'gemini-4-hydrogen-high', '--output-format', 'text',
+      '--dangerously-skip-permissions',
     ]);
-    assert.deepEqual(agyArgv.slice(7), ['--dangerously-skip-permissions']);
-    const rec = readLogRecords(atomicHome).at(-1);
-    assert.equal(rec.access.mode, 'strict');
-    assert.match(rec.access.limits.join(' '), /factory sandbox/);
+    assert.equal(readFileSync(stdinFile, 'utf8'), cardText);
+    rec = recFor('T-STRICT-AGY');
+    assert.equal(rec.access.network, true);
+    assert.equal(rec.access.git_write, true);
+    assert.match(rec.access.limits.join(' '), /--dangerously-skip-permissions.*no sandbox/);
   });
 
   it('D9 pipeline --access strict applies to executor and reviewer and records it', () => {
@@ -806,8 +933,8 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     assert.equal(runs.length, 2);
     for (const rec of runs) {
       assert.equal(rec.access.mode, 'strict');
-      assert.equal(rec.access.network, false);
-      assert.match(rec.access.limits.join(' '), /factory sandbox/);
+      assert.equal(rec.access.network, true);
+      assert.match(rec.access.limits.join(' '), /no sandbox/);
     }
   });
 
@@ -1323,6 +1450,7 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     assert.deepEqual(opArgv, [
       fakePaths.opencode,
       'run',
+      '--standalone',
       '--archived',
       '-m',
       'opencode-go/deepseek-v4.1-flash',
@@ -1347,24 +1475,24 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     );
     assert.equal(agyImplRes.status, 0, agyImplRes.stderr);
     const implArgv = JSON.parse(readFileSync(argvFile, 'utf8'));
-    assert.deepEqual(implArgv.slice(0, 7), [
+    assert.deepEqual(implArgv.slice(0, 6), [
       fakePaths.agy,
       '-p',
-      cardText,
       '--model',
       'gemini-4-hydrogen-high',
       '--output-format',
       'text',
     ]);
-    assert.deepEqual(implArgv.slice(7, 9), ['--sandbox', '--settings']);
-    const implSettings = JSON.parse(implArgv[9]);
+    assert.deepEqual(implArgv.slice(6, 8), ['--sandbox', '--settings']);
+    const implSettings = JSON.parse(implArgv[implArgv.indexOf('--settings') + 1]);
     assert.equal(implSettings.toolPermission, 'proceed-in-sandbox');
     assert.equal(implSettings.allowNonWorkspaceAccess, true);
     assert.ok(implSettings.permissions.allow.includes('read_url(*)'));
     assert.ok(implSettings.permissions.allow.includes(`write_file(${repoDir})`));
     assert.ok(implSettings.permissions.allow.includes('command(git)'));
     assert.ok(!implArgv.includes('--dangerously-skip-permissions'));
-    assert.equal(readFileSync(stdinFile, 'utf8'), '');
+    assert.ok(!implArgv.includes(cardText));
+    assert.equal(readFileSync(stdinFile, 'utf8'), cardText);
 
     const agyRevRes = runDelegate(
       [
@@ -1382,20 +1510,21 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     );
     assert.equal(agyRevRes.status, 0, agyRevRes.stderr);
     const revArgv = JSON.parse(readFileSync(argvFile, 'utf8'));
-    assert.deepEqual(revArgv.slice(0, 7), [
+    assert.deepEqual(revArgv.slice(0, 6), [
       fakePaths.agy,
       '-p',
-      readFileSync(readLogRecords(atomicHome).at(-1).prompt, 'utf8'),
       '--model',
       'gemini-4-hydrogen-xhigh',
       '--output-format',
       'text',
     ]);
-    assert.deepEqual(revArgv.slice(7, 9), ['--sandbox', '--settings']);
-    const revSettings = JSON.parse(revArgv[9]);
+    assert.deepEqual(revArgv.slice(6, 8), ['--sandbox', '--settings']);
+    const revSettings = JSON.parse(revArgv[revArgv.indexOf('--settings') + 1]);
     assert.ok(!revSettings.permissions.allow.some(rule => rule.startsWith('write_file(')));
     assert.ok(revSettings.permissions.deny.includes(`write_file(${repoDir})`));
     assert.ok(revSettings.permissions.allow.includes('read_url(*)'));
+    assert.equal(readFileSync(stdinFile, 'utf8'), readFileSync(readLogRecords(atomicHome).at(-1).prompt, 'utf8'));
+    assert.ok(!revArgv.includes(readFileSync(stdinFile, 'utf8')));
 
     const recs = readLogRecords(atomicHome);
     assert.equal(recs.length, 3);
@@ -1427,6 +1556,7 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     assert.deepEqual(JSON.parse(readFileSync(argvFile, 'utf8')), [
       fakePaths.opencode,
       'run',
+      '--standalone',
       '--archived',
       '-m',
       'opencode-go/deepseek-v4.1-flash',
@@ -1512,6 +1642,7 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     assert.deepEqual(JSON.parse(readFileSync(argvFile, 'utf8')), [
       fakePaths.opencode,
       'run',
+      '--standalone',
       '--archived',
       '-m',
       'opencode-go/deepseek-v4.1-flash',
@@ -2252,7 +2383,9 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
     );
     const revArgv = JSON.parse(readFileSync(join(seqDir, 'argv_1.json'), 'utf8'));
     const reviewRun = recs.find(r => r.kind === 'run' && r.role === 'review');
-    assert.ok(revArgv.includes(readFileSync(reviewRun.prompt, 'utf8')));
+    const reviewPrompt = readFileSync(reviewRun.prompt, 'utf8');
+    assert.equal(readFileSync(join(seqDir, 'stdin_1.txt'), 'utf8'), reviewPrompt);
+    assert.ok(!revArgv.includes(reviewPrompt));
   });
 
   it('pipeline executor changes nothing ends with no_changes', () => {
@@ -3060,8 +3193,8 @@ def killpg(pid, sig):
  return original_killpg(pid, sig)
 os.killpg = killpg
 original_observe = d.wait_for_exit
-def observe(p, timeout):
- original_observe(p, timeout)
+def observe(p, timeout, **kwargs):
+ original_observe(p, timeout, **kwargs)
  if '${timing}' == 'timeout' and not getattr(p, '_timeout_injected', False):
   p._timeout_injected = True
   raise subprocess.TimeoutExpired(p.args, timeout)
@@ -3541,6 +3674,14 @@ spec.loader.exec_module(d)
       env: { ...process.env, ...baseEnv, ...env }, encoding: 'utf8', timeout: 25000, detached: true,
     });
   }
+  async function waitFor(predicate, timeoutMs, label) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (predicate()) return;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error(`${label} timed out after ${timeoutMs}ms`);
+  }
 
   for (const stage of ['add', 'commit']) {
     it(`D4 R01 ${stage} failure stops before gate and never claims a commit`, () => {
@@ -3736,7 +3877,7 @@ finally:
     assert.equal(observed.ATOMIC_SKILLS_HOME, atomicHome);
   });
 
-  for (const mode of ['exception', 'signal', 'timeout', 'kill']) {
+  for (const mode of ['exception', 'signal', 'hup', 'timeout', 'kill']) {
     it(`D4 R08 R12 cleans real process group after ${mode} with TERM resistant descendant`, () => {
       const res = pythonHarness(`
 child_file = pathlib.Path(${JSON.stringify(join(root, 'child.pid'))})
@@ -3781,6 +3922,7 @@ try:
   assert child_file.exists()
   time.sleep(.15)
   if mode == 'signal': runner.terminate()
+  elif mode == 'hup': runner.send_signal(signal.SIGHUP)
   elif mode == 'kill':
    killed = subprocess.run([sys.executable, ${JSON.stringify(DELEGATE_PY)}, 'kill', 'group'], capture_output=True)
    assert killed.returncode == 0, killed.stderr
@@ -3791,6 +3933,10 @@ try:
  time.sleep(.3)
  assert heartbeat.read_text() == before, 'descendant still running'
  assert not list(d.RUNNING.glob('*.json')), 'slot survived cleanup: ' + (runner_stderr if runner else '')
+ if mode in ('signal', 'hup'):
+  runs = [json.loads(line) for line in d.LOG.read_text().splitlines()]
+  assert any(r.get('kind') == 'run' and r.get('failure') in ('interrupted', 'orphaned')
+             for r in runs), runs
 finally:
  if child_file.exists():
   try: os.kill(int(child_file.read_text()), signal.SIGKILL)
@@ -3800,6 +3946,71 @@ finally:
       assert.equal(res.status, 0, res.stderr || String(res.error));
     });
   }
+  it('D9 an executor is terminated and recorded when the runner parent disappears', async () => {
+    const heartbeat = join(root, 'orphan.executor.heartbeat');
+    const childHeartbeat = join(root, 'orphan.child.heartbeat');
+    const childPidFile = join(root, 'orphan.child.pid');
+    const runnerPidFile = join(root, 'orphan.runner.pid');
+    writeFileSync(fakePaths.opencode, `#!${PYTHON3}
+import pathlib, signal, subprocess, sys, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+child_code = """import pathlib, signal, sys, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+h = pathlib.Path(sys.argv[1])
+while True:
+    h.write_text(str(time.time()))
+    time.sleep(.02)
+"""
+child = subprocess.Popen([sys.executable, "-c", child_code, ${JSON.stringify(childHeartbeat)}])
+pathlib.Path(${JSON.stringify(childPidFile)}).write_text(str(child.pid))
+h = pathlib.Path(${JSON.stringify(heartbeat)})
+while True:
+    h.write_text(str(time.time()))
+    time.sleep(.02)
+`);
+    chmodSync(fakePaths.opencode, 0o755);
+    const parentScript = `
+import pathlib, subprocess, sys, time
+runner = subprocess.Popen([
+    sys.executable, ${JSON.stringify(DELEGATE_PY)}, 'run', '--id', 'ORPHAN',
+    '--task', 'orphan', '--role', 'implement', '--profile', 'flash',
+    '--cwd', ${JSON.stringify(repoDir)}, '--card', ${JSON.stringify(cardPath)},
+    '--out', ${JSON.stringify(outDir)}, '--confirmed',
+], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+pathlib.Path(${JSON.stringify(runnerPidFile)}).write_text(str(runner.pid))
+time.sleep(60)
+`;
+    const parent = spawn(PYTHON3, ['-c', parentScript], {
+      env: { ...process.env, ...baseEnv }, detached: true, stdio: 'ignore',
+    });
+    try {
+      await waitFor(() => existsSync(childPidFile), 8000, 'executor child start');
+      const childPid = Number(readFileSync(childPidFile, 'utf8'));
+      const runnerPid = Number(readFileSync(runnerPidFile, 'utf8'));
+      process.kill(parent.pid, 'SIGKILL');
+      await waitFor(() => {
+        try {
+          return readLogRecords(atomicHome).some(record =>
+            record.kind === 'run' && record.id === 'ORPHAN' && record.failure === 'orphaned');
+        } catch {
+          return false;
+        }
+      }, 12000, 'orphaned run record');
+      const stopped = readFileSync(heartbeat, 'utf8');
+      const childStopped = readFileSync(childHeartbeat, 'utf8');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      assert.equal(readFileSync(heartbeat, 'utf8'), stopped, 'executor still running');
+      assert.equal(readFileSync(childHeartbeat, 'utf8'), childStopped, 'executor descendant still running');
+      const runningDir = join(atomicHome, 'delegate', 'running');
+      const slots = existsSync(runningDir) ? readdirSync(runningDir).filter(name => name.endsWith('.json')) : [];
+      assert.deepEqual(slots, []);
+      for (const pid of [childPid, runnerPid]) {
+        try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
+      }
+    } finally {
+      try { process.kill(parent.pid, 'SIGKILL'); } catch { /* already gone */ }
+    }
+  });
   it('D4 R09 records slot wait separately from launch snapshot and execution duration', () => {
     const res = pythonHarness(`
 d.RUNNING.mkdir(parents=True)
@@ -3905,5 +4116,17 @@ finally:
       assert.doesNotMatch(skill, /verdict` records by step 8/);
     });
   }
+  it('D9 R06 describes the read-only git commands an Antigravity reviewer can run', () => {
+    const skill = readFileSync(join(REPO_ROOT, 'skills/core/delegate.md'), 'utf8');
+    const template = readFileSync(
+      join(REPO_ROOT, 'skills/shared/delegate-assets/review-card-template.md'), 'utf8');
+    for (const text of [skill, template]) {
+      assert.match(text, /read-only git/);
+      assert.match(text, /git diff/);
+      assert.match(text, /git rev-parse/);
+    }
+    assert.doesNotMatch(template, /cannot run git/);
+    assert.doesNotMatch(skill, /cannot assume which read directories/);
+  });
 
 });

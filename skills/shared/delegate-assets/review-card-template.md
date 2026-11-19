@@ -6,7 +6,7 @@ You are a reviewer in a clean context. **Do not change any file.** Review the di
 
 Do not write a plan and wait for approval. Run your checks and deliver the full report in this same turn.
 
-The diff and the author's card are attached below; judge the result against the attached card, not the author's report. Read whole files in this worktree when you need context. `agy` cannot run git outside the context it was given, so rely on the attached diff rather than opening paths outside the worktree.
+The diff and the author's card are attached below; judge the result against the attached card, not the author's report. Read whole files in this worktree when you need context. An `agy` reviewer can also read the policy's allowed directories and run the read-only git commands it is given (`git diff`, `git log`, `git show`, `git status`, `git rev-parse`); it cannot write files.
 
 Look for, in this order: behaviour that contradicts the card's decision; untested or wrongly tested paths; regressions outside the listed files; violations of the project's rules; leftovers (debug code, dead code, TODOs).
 

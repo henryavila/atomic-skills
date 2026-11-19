@@ -56,9 +56,15 @@ EXECUTOR_FLAGS = {
 }
 MAX_REVIEW_INPUT_BYTES = 600 * 1024
 # Linux rejects any single argv element above MAX_ARG_STRLEN (131072 bytes).
-# CLIs that take the prompt as one argument are capped at this measured limit.
+# OpenCode takes the prompt as an argv element (`opencode run --help`:
+# "[<message...>]"; `--file` only attaches a file to that message), so it is
+# capped at this measured limit. Codex (`codex exec --help`: PROMPT "read from
+# stdin" when absent or "-") and Antigravity (print mode reads the prompt from
+# stdin when `-p` has no prompt argument) receive it on stdin instead.
 MAX_ARG_BYTES = 131072
-ARGV_PROMPT_EXECUTORS = {"opencode", "agy"}
+ARGV_PROMPT_EXECUTORS = {"opencode"}
+# TERM grace before an orphaned executor group is killed.
+ORPHAN_GRACE_S = 2.0
 ALIASES = {
     "deepseek-light": "flash",
 }
@@ -184,15 +190,24 @@ def find(binary):
 def git_common_dir(cwd):
     """Absolute common git directory, also for a linked worktree.
 
-    In a linked worktree the common directory lives in the main checkout's
-    `.git/worktrees/<name>`; a plain checkout resolves to `<repo>/.git`.
+    `git rev-parse --git-common-dir` resolves to the main checkout's `.git`
+    directory (`<repo>/.git`) for both a plain checkout and a linked worktree;
+    a linked worktree's own metadata lives under `.git/worktrees/<name>`, which
+    is not this directory. The resolved path is validated before it is trusted
+    or made writable.
     """
     common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
     if not common:
         common = git(cwd, "rev-parse", "--git-common-dir")
         if common:
             common = str((Path(cwd) / common).resolve())
-    return str(Path(common).resolve()) if common else ""
+    if not common:
+        return ""
+    resolved = Path(common).resolve()
+    if not (resolved / "HEAD").is_file() or not (resolved / "objects").is_dir():
+        usage_error(f"git common directory {str(resolved)!r} has no HEAD file and objects directory; "
+                    "refusing to run against it")
+    return str(resolved)
 
 
 def is_within(path, parent):
@@ -228,17 +243,45 @@ def access_policy(executor, role, cwd, out_path=None, strict=False):
     if out_path:
         home_dirs.append(out_path)
     extra_read = unique_paths([common, *home_dirs])
+    git_common_limit = ("git write includes the main repository's config, hooks "
+                        "and other worktrees' refs")
+
     # codex --help: "--add-dir <DIR> Additional directories that should be
     #   writable alongside the primary workspace"
     # codex config reference: "sandbox_workspace_write.network_access boolean
     #   Allow outbound network access inside the workspace-write sandbox."
     if strict:
-        argv = []
-        if executor == "codex" and not review and common and not is_within(common, cwd):
-            argv += ["--add-dir", common]
+        # The strict escape hatch restores each CLI's factory invocation. Its
+        # access is whatever that argv really gives, not a blanket "read-only".
+        argv, limits = [], []
+        network = git_write = False
+        if executor == "codex":
+            limits.append("strict: factory sandbox restored for this run; "
+                          "codex workspace-write has no network")
+            if not review and common and not is_within(common, cwd):
+                argv += ["--add-dir", common]
+                git_write = True
+        elif executor == "opencode":
+            # opencode run --help: "--auto Auto-approve permissions that are
+            #   not explicitly denied"; it has no sandbox.
+            network = git_write = True
+            limits.append("strict: factory invocation restored, but OpenCode --auto "
+                          "auto-approves permissions and has no sandbox: network, "
+                          "filesystem write and git write are open")
+        elif executor == "agy":
+            # agy --help: "--dangerously-skip-permissions Auto-approve all tool
+            #   permission requests without prompting"; it runs unsandboxed.
+            network = git_write = True
+            limits.append("strict: factory invocation restored, but Antigravity "
+                          "--dangerously-skip-permissions skips permissions and has no sandbox: "
+                          "network, filesystem write and git write are open")
+        else:
+            sys.exit(f"delegate: unknown executor {executor}")
+        if git_write and common:
+            limits.append(git_common_limit)
         return {"argv": argv, "env": {}, "access": {
-            "mode": "strict", "network": False, "git_write": False,
-            "extra_read": [], "limits": ["strict: factory sandbox restored for this run"]}}
+            "mode": "strict", "network": network, "git_write": git_write,
+            "extra_read": [], "limits": limits}}
 
     argv, env, limits = [], {}, []
     network = True
@@ -261,21 +304,53 @@ def access_policy(executor, role, cwd, out_path=None, strict=False):
 
     elif executor == "opencode":
         # opencode run --help: "--auto Auto-approve permissions that are not
-        #   explicitly denied"; the policy does not use it. The permission
-        # config is documented at https://opencode.ai/docs/permissions/.
+        #   explicitly denied"; the policy does not use it. The installed CLI
+        #   (v2.3.2) reads OPENCODE_CONFIG_CONTENT as a JSON config document;
+        #   V2 uses "permissions" (plural), "shell" (not "bash") and
+        #   {action, resource, effect} rules, documented at
+        #   https://opencode.ai/docs/permissions. path rules are supported.
         # It has no sandbox or network switch; shell keeps host authority.
         rules = [
+            {"action": "external_directory", "resource": "*", "effect": "deny"},
             {"action": "read", "resource": "*", "effect": "allow"},
             {"action": "shell", "resource": "*", "effect": "allow"},
-            {"action": "external_directory", "resource": "*", "effect": "allow"},
             {"action": "webfetch", "resource": "*", "effect": "allow"},
             {"action": "websearch", "resource": "*", "effect": "allow"},
+            {"action": "edit", "resource": "*", "effect": "deny"},
         ]
-        rules.append({"action": "edit", "resource": "*",
-                      "effect": "deny" if review else "allow"})
+        # External reads are checked before read/edit; allow only the git
+        # common directory, cards and outputs, never every directory.
+        for path in extra_read:
+            rules.append({"action": "external_directory", "resource": f"{path}/*",
+                          "effect": "allow"})
+        # FileAccess.resolve gives an internal path relative to the location
+        # (e.g. "src/a.py") and an external path as an absolute path. So "*"
+        # covers the worktree, the absolute common path covers a linked
+        # worktree's git directory, and the external_directory grants above
+        # bound the rest. Deny project-parent paths and the read-only outputs.
+        if not review:
+            rules.append({"action": "edit", "resource": "*", "effect": "allow"})
+            if common:
+                rules.append({"action": "edit", "resource": f"{common}/*",
+                              "effect": "allow"})
+            for path in ("..", "../*"):
+                rules.append({"action": "edit", "resource": path, "effect": "deny"})
+            for path in unique_paths(home_dirs):
+                if not is_within(path, cwd):
+                    rules.append({"action": "edit", "resource": f"{path}/*",
+                                  "effect": "deny"})
         env["OPENCODE_CONFIG_CONTENT"] = json.dumps({"permissions": rules})
         limits.append("OpenCode has no sandbox: shell runs with the host user's "
                       "filesystem and network authority")
+        if review:
+            # Reviewers need shell for read-only git and tests, but shell keeps
+            # host write authority even though the edit tool is denied.
+            git_write = True
+            limits.append("reviewer can still write through the shell; "
+                          "only the edit tool is denied")
+        else:
+            limits.append("edit tool is limited to the worktree and git common "
+                          "directory; shell can still write elsewhere")
 
     elif executor == "agy":
         # agy --help: "--sandbox Run in a sandbox with terminal restrictions
@@ -283,11 +358,14 @@ def access_policy(executor, role, cwd, out_path=None, strict=False):
         #   a JSON object of settings.json keys, inline or as a file path";
         #   "--add-dir Add a directory to the workspace (repeatable)".
         # settings.json schema: permissions {allow, ask, deny}, toolPermission,
-        # allowNonWorkspaceAccess.
+        # allowNonWorkspaceAccess. Permission rules use command(<prefix>) for
+        # commands, e.g. "command(git status)".
         allow = ["read_url(*)", "read_file(" + cwd + ")"]
         allow += [f"read_file({path})" for path in extra_read if path != cwd]
         deny = []
         if review:
+            allow += [f"command({command})" for command in (
+                "git diff", "git log", "git show", "git status", "git rev-parse")]
             deny = [f"write_file({path})" for path in unique_paths([cwd, common, *home_dirs])]
             limits.append("agy keeps the worktree read-write on its sandbox mount; "
                           "write_file is denied and review_wrote still checks the tree")
@@ -307,6 +385,8 @@ def access_policy(executor, role, cwd, out_path=None, strict=False):
     else:
         sys.exit(f"delegate: unknown executor {executor}")
 
+    if git_write and common:
+        limits.append(git_common_limit)
     return {"argv": argv, "env": env, "access": {
         "mode": "policy", "network": network, "git_write": git_write,
         "extra_read": extra_read, "limits": limits}}
@@ -317,16 +397,22 @@ def build_argv(executor, model, role, cwd, card, last_msg, policy=None):
     strict = policy["access"]["mode"] == "strict"
     if executor == "opencode":
         # opencode run --help: "--archived Create the session archived";
-        # "--auto Auto-approve permissions that are not explicitly denied".
-        # Strict keeps the old --auto invocation; the policy uses explicit
-        # permission rules instead.
-        return [find("opencode"), "run", *(["--auto"] if strict else []),
+        # "--auto Auto-approve permissions that are not explicitly denied";
+        # global "--standalone Run with a private server instead of the
+        # background service". The policy needs its own server so the
+        # OPENCODE_CONFIG_CONTENT permission rules are read; a background
+        # service started earlier would ignore them. Strict keeps the old
+        # --auto invocation. The message stays an argv element: the CLI has no
+        # stdin prompt, only "--file File to attach to the message".
+        return [find("opencode"), "run", *(["--auto"] if strict else ["--standalone"]),
                 "--archived", "-m", model, card]
     if executor == "agy":
         # agy --help: "-p, --print Run a single prompt non-interactively";
-        #   "--output-format Output format for print mode"; strict keeps the
-        #   old --dangerously-skip-permissions factory mode.
-        argv = [find("agy"), "-p", card, "--model", model, "--output-format", "text"]
+        #   "--output-format Output format for print mode". Print mode reads
+        #   the prompt from stdin when no prompt argument is given; the runner
+        #   writes it there so a composed prompt is not an argv element. Strict
+        #   keeps the old --dangerously-skip-permissions factory mode.
+        argv = [find("agy"), "-p", "--model", model, "--output-format", "text"]
         return argv + (["--dangerously-skip-permissions"] if strict else policy["argv"])
     if executor == "codex":
         effort = "high" if role == "review" else "medium"
@@ -541,15 +627,40 @@ def child_exited(pid):
     return ctypes.c_int.from_buffer(info).value == signal.SIGCHLD
 
 
-def wait_for_exit(process, timeout):
-    """Observe exit without reaping: the zombie reserves PID/PGID until cleanup."""
+class ParentGone(Exception):
+    """The runner was reparented: its original parent exited or was killed."""
+
+
+def wait_for_exit(process, timeout, parent_pid=None):
+    """Observe exit without reaping: the zombie reserves PID/PGID until cleanup.
+
+    With parent_pid, also notice the runner losing its original parent (a
+    portable getppid() check, not Linux-only prctl) and stop the child.
+    """
     deadline = time.monotonic() + timeout
     while True:
+        if parent_pid is not None and os.getppid() != parent_pid:
+            raise ParentGone()
         if child_exited(process.pid):
             return
         if time.monotonic() >= deadline:
             raise subprocess.TimeoutExpired(process.args, timeout)
         time.sleep(0.02)
+
+
+def terminate_process(process, grace=ORPHAN_GRACE_S):
+    """TERM the executor's process group, wait briefly, then KILL and reap it."""
+    try:
+        if process.returncode is None:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+    finally:
+        deadline = time.monotonic() + grace
+        while group_alive(process.pid) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        stop_process(process)
 
 
 def stop_process(process):
@@ -729,15 +840,16 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         print(alias_notice, file=sys.stderr)
 
     cwd = str(Path(cwd).resolve())
+    parent_pid = os.getppid()
     if role == "review" and EXECUTOR_FLAGS.get(executor, {}).get("requires_review_diff") and not diff_range:
-        usage_error(f"{executor} review requires --diff-range; it cannot run git or read outside the worktree")
+        usage_error(f"{executor} review requires --diff-range; the runner attaches the exact diff")
     card_content, input_sizes, input_failure = compose_prompt(card, attachments, diff_range, cwd)
     size_failure = "review_input_too_large" if role == "review" else "input_too_large"
     if input_sizes["prompt_bytes"] > MAX_REVIEW_INPUT_BYTES:
         input_failure = size_failure
     elif executor in ARGV_PROMPT_EXECUTORS and input_sizes["prompt_bytes"] >= MAX_ARG_BYTES:
-        # Codex reads the prompt from stdin; these CLIs take it as one argv
-        # element and would fail with E2BIG at or above the kernel limit.
+        # OpenCode takes the prompt as one argv element and would fail with
+        # E2BIG at or above the kernel limit; it has no stdin prompt.
         input_failure = size_failure
     top = git(cwd, "rev-parse", "--show-toplevel") or cwd
     project = project or Path(top).name
@@ -775,12 +887,18 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     slot_file = None
     queued_at = time.monotonic()
     timed_out = False
+    orphan_failure = None
+    interrupted_exc = None
 
-    si = open(prompt, "rb") if executor == "codex" else None
+    # Codex and Antigravity read the prompt from stdin; OpenCode takes it as an
+    # argv element (see ARGV_PROMPT_EXECUTORS).
+    si = open(prompt, "rb") if executor in ("codex", "agy") else None
     try:
         with open(stdout, "w") as so, open(stderr, "w") as se:
             while True:
                 check_paused()
+                if os.getppid() != parent_pid:
+                    raise ParentGone()
                 with SlotLock():
                     active = _get_active_slots(executor)
                     if len(active) < max_slots:
@@ -822,7 +940,16 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 time.sleep(min(5.0, max(0.05, remaining)))
 
             try:
-                wait_for_exit(p, timeout)
+                wait_for_exit(p, timeout, parent_pid=parent_pid)
+            except ParentGone:
+                # The orchestrator's background task (or the parent shell) went
+                # away. TERM the whole group, then KILL after the grace period.
+                orphan_failure = "orphaned"
+                terminate_process(p)
+            except (KeyboardInterrupt, SystemExit) as exc:
+                orphan_failure = "interrupted"
+                interrupted_exc = exc
+                terminate_process(p)
             except subprocess.TimeoutExpired:
                 timed_out = True
                 try:
@@ -833,6 +960,11 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                     wait_for_exit(p, 10)
                 except subprocess.TimeoutExpired:
                     pass
+    except ParentGone:
+        pending.update(failure="orphaned", wait_s=round(time.monotonic() - queued_at, 3),
+                       completed=now().isoformat(timespec="microseconds"))
+        append(pending)
+        return pending
     except SlotTimeoutError as exc:
         pending.update(failure="slot_timeout", wait_s=round(time.monotonic() - queued_at, 3),
                        completed=now().isoformat(timespec="microseconds"))
@@ -862,7 +994,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     dirty_after = bool(snap1[1])
     review_wrote = role == "review" and snap1 != snap0
     review_output = (last_msg if executor == "codex" else stdout) if role == "review" else None
-    failure = classify_failure(timed_out, code, stdout, stderr, review_wrote, review_output)
+    failure = orphan_failure or classify_failure(
+        timed_out, code, stdout, stderr, review_wrote, review_output)
     uncommitted = role != "review" and head1 == head0 and snap1 != snap0
     commits = git(cwd, "rev-list", "--count", f"{head0}..{head1}") if head0 and head1 else ""
     files = git(cwd, "diff", "--name-only", f"{head0}..{head1}") if head0 and head1 else ""
@@ -885,6 +1018,10 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if executor == "codex":
         rec["last_message"] = str(last_msg)
     append(rec)
+    if interrupted_exc is not None:
+        # The record and slot cleanup are complete; keep the runner's normal
+        # signal exit semantics.
+        raise interrupted_exc
     return rec
 
 
@@ -1481,6 +1618,7 @@ def main():
 
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
+    signal.signal(signal.SIGHUP, interrupted)
     a = ap.parse_args()
     try:
         a.f(a)
