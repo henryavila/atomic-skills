@@ -7,7 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Delegate executor access follows the role.** Implement, fix, mechanical and test
+  runs can write the worktree and the repository's git directory, so they commit
+  themselves in a linked worktree; reviews stay non-writing. Both roles can read
+  the repository, git directory, cards and outputs, run read-only `git`, and use
+  the network where the CLI allows it. `run` records now carry
+  `access: {network, git_write, extra_read, limits}`, `profiles` shows the
+  effective access and limits, and `--access strict` restores the old factory
+  sandbox for one run. Codex reviewers keep the read-only sandbox and therefore
+  record the missing network as a limit; OpenCode and Antigravity permissions are
+  set explicitly instead of relying on an approval-bypass mode.
+- **OpenCode concurrency default is 10 slots** (was 2); Codex stays at 1 and
+  Antigravity at 2. `DELEGATE_MAX_<EXECUTOR>` still overrides them.
+- Delegate card and review templates now require documentation statements to be
+  checked against the code, and treat a card's final check as evidence rather
+  than a target.
+
 ### Fixed
+
+- Delegate composed prompts larger than the Linux per-argument limit are refused
+  for CLIs that take the prompt as one argument (Codex uses stdin); non-review
+  runs use the role-neutral `input_too_large` failure and a pipeline route
+  continues past it. Attachments whose names contain control characters are a
+  usage error, and a diff that needed replacement characters is marked in the
+  record and in the prompt.
 
 - Delegate runs on Python 3.9 and later on macOS and Linux, using a non-reaping
   libc fallback when Python lacks `os.waitid`. Host gates preserve the caller's

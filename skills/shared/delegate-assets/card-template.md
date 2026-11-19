@@ -4,9 +4,11 @@ You are the executor of this card: do the work yourself, do not open the `delega
 
 Base: `<branch>` at `<commit>`. You are already in the right worktree and branch; do not switch branches.
 
-Work **only** inside this worktree. Do not touch another worktree or the main checkout, do not `push`, and do not run `git stash`, `reset --hard`, `checkout --` or `clean`.
+Work **only** inside this worktree. Commit your work as you go; you have network access. Never `push`, never change remotes, never touch another worktree or the main checkout, and do not run `git stash`, `reset --hard`, `checkout --` or `clean`.
 
 Read first: the project's instruction file (CLAUDE.md / AGENTS.md) and its quality rules.
+
+If this card asks for documentation, check every statement about behaviour (command, flag, default, file path, exit code) against the code before you write it. Do not document what you have not verified.
 
 ## The decision
 
@@ -27,7 +29,8 @@ Write the failing test first, with the suite that already exists. No new depende
 ## How to check
 
 - `<the project's gate command>` exits 0.
-- Final grep: `<pattern>` finds <N> matches before and <M> after.
+- `<a test or command that exercises the behaviour>`, with its exit code.
+- Final check: `<a behavioural check, or a text match only when no behavioural check exists>`. This check is evidence of the result, not the target: if it can only pass by renaming a field, rewording a line or otherwise fitting the code to the check, stop and report instead.
 
 ## Delivery
 
