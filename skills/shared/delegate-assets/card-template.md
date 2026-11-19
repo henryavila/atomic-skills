@@ -26,10 +26,13 @@ If this card asks for documentation, check every statement about behaviour (comm
 
 Write the failing test first, with the suite that already exists. No new dependency.
 
+A test that starts a detached process, a server or a busy loop must end it in `afterEach`/`finally`. Before you finish, check `ps` for leftovers of your own tests and end them.
+
 ## How to check
 
 - `<the project's gate command>` exits 0.
 - `<a test or command that exercises the behaviour>`, with its exit code.
+- Gates that need Xcode, a simulator, a GUI session or any host-only service are not yours to run: skip them, say so in your report, and the orchestrator runs them in the host gate.
 - Final check: `<a behavioural check, or a text match only when no behavioural check exists>`. This check is evidence of the result, not the target: if it can only pass by renaming a field, rewording a line or otherwise fitting the code to the check, stop and report instead.
 
 ## Delivery

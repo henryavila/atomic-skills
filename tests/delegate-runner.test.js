@@ -463,10 +463,12 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     rmSync(root, { recursive: true, force: true });
   });
 
+  let reviewInputRound = 0;
   function reviewRange(separator = '...') {
     const base = git(repoDir, 'rev-parse', 'HEAD');
-    writeFileSync(join(repoDir, 'review-input.md'), 'changed `````` content\n');
-    git(repoDir, 'add', 'review-input.md');
+    const name = `review-input-${++reviewInputRound}.md`;
+    writeFileSync(join(repoDir, name), 'changed `````` content\n');
+    git(repoDir, 'add', name);
     git(repoDir, 'commit', '-m', 'review input');
     return `${base}${separator}HEAD`;
   }
@@ -668,7 +670,8 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     }
   }
   it('D8 standalone slot timeout retains exit 4 and records slot_timeout', () => {
-    const res = runDelegate(reviewArgs(['--wait', '0'], 'codex-review'), { ...baseEnv, DELEGATE_MAX_CODEX: '0' });
+    const res = runDelegate(reviewArgs(['--diff-range', reviewRange(), '--wait', '0'], 'codex-review'),
+      { ...baseEnv, DELEGATE_MAX_CODEX: '0' });
     assert.equal(res.status, 4, res.stderr);
     assert.match(res.stderr, /slot wait timed out/);
     assert.equal(readLogRecords(atomicHome)[0].failure, 'slot_timeout');
@@ -1104,7 +1107,7 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
 
   it('D9 a review that writes the tree still fails review_wrote under the policy', () => {
     for (const profile of ['codex-review', 'agy-review', 'flash-review']) {
-      const extra = profile === 'agy-review' ? ['--diff-range', reviewRange()] : [];
+      const extra = ['--diff-range', reviewRange()];
       const res = runDelegate(reviewArgs([...extra], profile), {
         ...baseEnv, FAKE_TOUCH_FILE: `${profile}.txt`, FAKE_STDOUT: 'incomplete',
       });
@@ -1218,7 +1221,7 @@ print(json.dumps(out))
             'run', '--id', `T-NOBYPASS-${access}-${profile}-${role}`, '--task', 'no bypass',
             '--role', role, '--profile', profile, '--cwd', repoDir,
             '--card', role === 'review' ? reviewCardPath : cardPath,
-            ...(role === 'review' && profile.startsWith('agy') ? ['--diff-range', range] : []),
+            ...(role === 'review' ? ['--diff-range', range] : []),
             '--out', outDir, '--access', access, '--confirmed',
           ], baseEnv);
           assert.equal(res.status, 0, `${access}/${profile}/${role}: ${res.stderr}`);
@@ -1238,7 +1241,7 @@ print(json.dumps(out))
     const run = (id, profile, role, extra = [], cwd = repoDir) => {
       const res = runDelegate([
         'run', '--id', id, '--task', 'strict', '--role', role, '--profile', profile,
-        ...(role === 'review' && profile.startsWith('agy') ? ['--diff-range', reviewRange()] : []),
+        ...(role === 'review' ? ['--diff-range', reviewRange()] : []),
         '--cwd', cwd, '--card', role === 'review' ? reviewCardPath : cardPath,
         '--out', outDir, '--access', 'strict', '--confirmed', ...extra,
       ], baseEnv);
@@ -1339,7 +1342,8 @@ print(json.dumps(out))
       '--yolo', 'danger-full-access', '--dangerously-skip-permissions'];
     for (const [profile, role, extra] of [
       ['flash', 'implement', []], ['codex', 'implement', []], ['agy', 'implement', []],
-      ['flash-review', 'review', []], ['codex-review', 'review', []],
+      ['flash-review', 'review', ['--diff-range', reviewRange()]],
+      ['codex-review', 'review', ['--diff-range', reviewRange()]],
       ['agy-review', 'review', ['--diff-range', reviewRange()]],
     ]) {
       const res = runDelegate([
@@ -4571,6 +4575,141 @@ finally:
     assert.doesNotMatch(skill, /cannot assume which read directories/);
   });
 
+  // AS-D10a: the runner leaves no process behind.
+  function pidAlive(pid) {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function detachedExecutorFake(pidFile) {
+    writeFileSync(fakePaths.opencode, `#!${PYTHON3}
+import pathlib, subprocess, sys, time
+child = subprocess.Popen([sys.executable, "-c",
+                          "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(600)"],
+                         start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+pathlib.Path(${JSON.stringify(pidFile)}).write_text(str(child.pid))
+time.sleep(2.0)
+sys.exit(0)
+`);
+    chmodSync(fakePaths.opencode, 0o755);
+  }
+
+  function implementArgs(id = 'T-ORPHAN') {
+    return ['run', '--id', id, '--task', 'orphan sweep', '--role', 'implement',
+      '--profile', 'flash', '--cwd', repoDir, '--card', cardPath,
+      '--out', outDir, '--confirmed'];
+  }
+
+  it('AS-D10a kills a detached descendant, counts it, and status warns about it', async () => {
+    const pidFile = join(root, 'detached.pid');
+    detachedExecutorFake(pidFile);
+    const res = runDelegate(implementArgs(), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'none');
+    assert.ok(rec.orphans, JSON.stringify(rec));
+    assert.equal(rec.orphans.found, 1, JSON.stringify(rec.orphans));
+    assert.equal(rec.orphans.killed, 1, JSON.stringify(rec.orphans));
+    assert.equal(rec.orphans.sample.length, 1, JSON.stringify(rec.orphans));
+    assert.equal(typeof rec.orphans.sample[0], 'string');
+    assert.ok(rec.orphans.sample[0].length <= 80, rec.orphans.sample[0]);
+    const detachedPid = Number(readFileSync(pidFile, 'utf8'));
+    await waitFor(() => !pidAlive(detachedPid), 20000, 'detached descendant end');
+    const status = runDelegate(['status'], baseEnv);
+    assert.equal(status.status, 0, status.stderr);
+    assert.match(status.stdout, /warning: recent runs left 1 orphan process/);
+  });
+
+  it('AS-D10a never signals a process the executor did not start', async () => {
+    const decoy = spawn(PYTHON3, ['-c', 'import time; time.sleep(600)'],
+      { detached: true, stdio: 'ignore' });
+    decoy.unref();
+    const pidFile = join(root, 'detached.pid');
+    try {
+      detachedExecutorFake(pidFile);
+      const res = runDelegate(implementArgs('T-NOT-MINE'), baseEnv);
+      assert.equal(res.status, 0, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.orphans.found, 1, JSON.stringify(rec.orphans));
+      assert.ok(!rec.orphans.sample.some(line => line.includes(String(decoy.pid))),
+        JSON.stringify(rec.orphans.sample));
+      assert.ok(pidAlive(decoy.pid), 'a process outside the executor tree must survive');
+    } finally {
+      try { process.kill(decoy.pid, 'SIGKILL'); } catch { /* already gone */ }
+    }
+  });
+
+  it('AS-D10a A1 slot timeout exits non-zero and records slot_timeout, launching nothing', () => {
+    const res = runDelegate([
+      'run', '--id', 'T-SLOT-A1', '--task', 'slot gate', '--role', 'implement',
+      '--profile', 'codex', '--cwd', repoDir, '--card', cardPath,
+      '--out', outDir, '--wait', '0', '--confirmed',
+    ], { ...baseEnv, DELEGATE_MAX_CODEX: '0' });
+    assert.notEqual(res.status, 0);
+    assert.match(res.stderr, /no free codex slot \(slot wait timed out\)/);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'slot_timeout');
+    assert.equal(rec.exit_code, null);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+  });
+
+  it('AS-D10a A2 a plain review run with empty output is empty_output and exits non-zero', () => {
+    const res = runDelegate(reviewArgs(['--diff-range', reviewRange()], 'agy-review'),
+      { ...baseEnv, FAKE_STDOUT: '' });
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'empty_output');
+    assert.equal(rec.exit_code, 0);
+    assert.equal(readFileSync(rec.stdout, 'utf8'), '');
+  });
+
+  it('AS-D10a A2 refuses a review card with {{DIFF_RANGE}} when no --diff-range is given', () => {
+    const args = (extra = []) => ['run', '--id', 'T-PLACEHOLDER', '--task', 'placeholder',
+      '--role', 'review', '--profile', 'codex-review', '--cwd', repoDir,
+      '--card', reviewCardPath, '--out', outDir, '--confirmed', ...extra];
+    const refused = runDelegate(args(), baseEnv);
+    assert.equal(refused.status, 2, refused.stderr);
+    assert.equal(refused.stderr.trim().split('\n').length, 1, refused.stderr);
+    assert.match(refused.stderr, /^delegate: .*\{\{DIFF_RANGE\}\}.*--diff-range/);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+    assert.throws(() => readLogRecords(atomicHome), { code: 'ENOENT' });
+
+    const accepted = runDelegate(args(['--diff-range', reviewRange()]), baseEnv);
+    assert.equal(accepted.status, 0, accepted.stderr);
+    assert.equal(readLogRecords(atomicHome)[0].failure, 'none');
+  });
+
+  it('AS-D10a A4 reusing an id keeps the earlier round output and points each record at its own', () => {
+    const first = runDelegate(implementArgs('T-REUSE'), { ...baseEnv, FAKE_STDOUT: 'first round\n' });
+    assert.equal(first.status, 0, first.stderr);
+    const second = runDelegate(implementArgs('T-REUSE'), { ...baseEnv, FAKE_STDOUT: 'second round\n' });
+    assert.equal(second.status, 0, second.stderr);
+    const [firstRec, secondRec] = readLogRecords(atomicHome);
+    assert.notEqual(secondRec.stdout, firstRec.stdout);
+    assert.notEqual(secondRec.prompt, firstRec.prompt);
+    assert.match(secondRec.stdout, /T-REUSE\.attempt2\.out\.md$/);
+    assert.equal(readFileSync(firstRec.stdout, 'utf8'), 'first round\n');
+    assert.equal(readFileSync(secondRec.stdout, 'utf8'), 'second round\n');
+    assert.match(readFileSync(secondRec.prompt, 'utf8'), /^# Task CARD-1/);
+  });
+
+  it('AS-D10a text: detached processes are ended and host-only gates stay on the host', () => {
+    const skill = readFileSync(join(REPO_ROOT, 'skills/core/delegate.md'), 'utf8');
+    const card = readFileSync(join(REPO_ROOT, 'skills/shared/delegate-assets/card-template.md'), 'utf8');
+    for (const text of [skill, card]) {
+      assert.match(text, /afterEach/);
+      assert.match(text, /`ps`/);
+      assert.match(text, /Xcode|simulator|GUI/);
+    }
+    assert.match(skill, /orphans/);
+    assert.match(skill, /codex.*SSH|SSH.*codex/);
+  });
+
 });
 
 describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
@@ -4698,6 +4837,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.ok(existsSync(join(rec.remote_dir, 'tree')), 'remote checkout is kept');
     assert.equal(existsSync(join(rec.remote_dir, 'run')), false, 'per-run directory is removed');
     assert.ok(rec.access.limits.some(line => /leftover-process cleanup/.test(line)));
+    assert.equal(rec.orphans.found, 0, JSON.stringify(rec.orphans));
     assert.ok(rec.access.extra_read.every(path => path.startsWith(rec.remote_dir)),
       JSON.stringify(rec.access.extra_read));
     assert.equal(JSON.stringify(rec.access).includes('__DELEGATE_REMOTE_BASE__'), false);
@@ -4831,6 +4971,49 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.equal(rec.timed_out, true);
     const killed = readFileSync(remote.killLog, 'utf8').trim();
     assert.match(killed, /^[0-9a-f-]{36}$/);
+  });
+
+  it('a remote review run with empty output is empty_output and exits non-zero', () => {
+    const base = git(repoDir, 'rev-parse', 'HEAD');
+    writeFileSync(join(repoDir, 'review-input.txt'), 'review me\n');
+    git(repoDir, 'add', 'review-input.txt');
+    git(repoDir, 'commit', '-m', 'review input');
+    const head = git(repoDir, 'rev-parse', 'HEAD');
+    const res = runDelegate([
+      'run', '--id', 'REV-EMPTY-RMT', '--task', 'remote empty review', '--role', 'review',
+      '--profile', 'agy-review', '--cwd', repoDir, '--card', reviewCardPath,
+      '--diff-range', `${base}..${head}`, '--out', outDir, '--confirmed', '--host', 'devbox',
+    ], remoteEnv({ FAKE_STDOUT: '' }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'empty_output');
+    assert.equal(rec.exit_code, 0);
+    assert.equal(readFileSync(rec.stdout, 'utf8'), '');
+  });
+
+  it('reusing an id on --host keeps each round output and points each record at its own', () => {
+    const first = runDelegate(runArgs(), remoteEnv({ FAKE_STDOUT: 'first remote round\n' }));
+    assert.equal(first.status, 0, first.stderr);
+    const second = runDelegate(runArgs(), remoteEnv({ FAKE_STDOUT: 'second remote round\n' }));
+    assert.equal(second.status, 0, second.stderr);
+    const [firstRec, secondRec] = readLogRecords(atomicHome);
+    assert.notEqual(secondRec.stdout, firstRec.stdout);
+    assert.notEqual(secondRec.prompt, firstRec.prompt);
+    assert.match(secondRec.stdout, /RMT\.attempt2\.out\.md$/);
+    assert.equal(readFileSync(firstRec.stdout, 'utf8'), 'first remote round\n');
+    assert.equal(readFileSync(secondRec.stdout, 'utf8'), 'second remote round\n');
+  });
+
+  it('refuses a review card with {{DIFF_RANGE}} on --host before any remote call', () => {
+    const res = runDelegate([
+      'run', '--id', 'RMT-PLACEHOLDER', '--task', 'placeholder', '--role', 'review',
+      '--profile', 'codex-review', '--cwd', repoDir, '--card', reviewCardPath,
+      '--out', outDir, '--confirmed', '--host', 'devbox',
+    ], remoteEnv());
+    assert.equal(res.status, 2, res.stderr);
+    assert.match(res.stderr, /\{\{DIFF_RANGE\}\}.*--diff-range/);
+    assert.equal(remoteArgvText(), '');
+    assert.throws(() => readLogRecords(atomicHome), { code: 'ENOENT' });
   });
 
   it('never puts the prompt, diff or attachments in remote-runner argv', () => {
