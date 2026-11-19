@@ -2,16 +2,22 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { execFileSync } from 'node:child_process';
 import {
-  mkdtempSync, rmSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, chmodSync,
+  mkdtempSync, rmSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, chmodSync, renameSync,
 } from 'node:fs';
 import { join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { install } from '../src/install.js';
 import { installedGlobalInstructionPaths, globalInstructionBody, globalInstructionsDecision } from '../src/global-instructions.js';
 import { msg } from '../src/ui.js';
 import { uninstall } from '../src/uninstall.js';
 import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir.js';
+
+// `new URL(...).pathname` yields `/D:/a/...` on Windows, which Node then tries
+// to resolve as `C:\D:\a\...`. fileURLToPath gives the platform path.
+const CLI = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
+const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 function withHome(fakeHome, fn) {
   const restoreHome = isolateHomedir(fakeHome);
@@ -106,14 +112,22 @@ describe('install→uninstall round-trip', () => {
     const repo = mkdtempSync(join(tmpdir(), 'as-global-repo-'));
     try {
       await withHome(home, async () => {
-        for (const path of ['.claude/CLAUDE.md', '.codex/AGENTS.md', '.config/opencode/AGENTS.md', '.gemini/GEMINI.md']) {
+        const paths = ['.claude/CLAUDE.md', '.codex/AGENTS.md', '.config/opencode/AGENTS.md', '.gemini/GEMINI.md'];
+        for (const path of paths) {
           mkdirSync(join(home, path, '..'), { recursive: true });
           writeFileSync(join(home, path), 'user text\r\nwithout final newline');
         }
         const before = snapshotTree(home);
-        execFileSync(process.execPath, [new URL('../bin/cli.js', import.meta.url).pathname,
+        execFileSync(process.execPath, [CLI,
           'install', '--yes', '--ide', 'claude-code,codex,opencode,antigravity', '--global-instructions'],
         { cwd: repo, env: process.env });
+        // Guard the mutation: a clean round-trip of skipped writes proves nothing.
+        for (const path of paths) {
+          assert.ok(
+            readFileSync(join(home, path), 'utf8').includes('<!-- BEGIN atomic-skills:delegate -->'),
+            `${path} must carry the managed block after install`,
+          );
+        }
         await uninstall(repo, { scope: 'user', yes: true });
         assert.deepEqual(diffTree(before, snapshotTree(home)), { added: [], removed: [], modified: [] });
       });
@@ -574,7 +588,7 @@ describe('install→uninstall round-trip', () => {
     try {
       await withHome(fakeHome, async () => {
         const hookRel = '.atomic-skills/hooks/version-check.sh';
-        const hookContent = readFileSync(join(process.cwd(), 'skills', 'shared', 'auto-update-hook', 'version-check.sh'));
+        const hookContent = readFileSync(new URL('../skills/shared/auto-update-hook/version-check.sh', import.meta.url));
         writeAbs(hookRel, hookContent);
         writeAbs(join('.atomic-skills', 'manifest.json'), JSON.stringify({
           version: '2.0.0',
@@ -632,8 +646,9 @@ describe('install→uninstall round-trip', () => {
     };
     try {
       await withHome(fakeHome, async () => {
-        const provedRel = join('.claude', 'skills', 'atomic-skills', 'proved.md');
-        const editedRel = join('.claude', 'skills', 'atomic-skills', 'edited.md');
+        // POSIX relative paths: manifest keys are always forward-slash.
+        const provedRel = '.claude/skills/atomic-skills/proved.md';
+        const editedRel = '.claude/skills/atomic-skills/edited.md';
         const provedContent = '---\nname: proved-skill\n---\n\nproved body\n';
         const editedOriginal = '---\nname: edited-skill\n---\n\noriginal body\n';
         writeAbs(provedRel, provedContent);
@@ -706,20 +721,27 @@ describe('optional global delegation instructions', () => {
     }));
   }
   for (const kind of ['symlinked parent', 'symlinked file', 'directory', 'unreadable', 'malformed']) {
-    it(`R01 refuses ${kind} but CLI installs skills with exit 0`, { skip: kind === 'unreadable' && process.platform === 'win32' }, () => fixture(async (home, repo) => {
+    it(`R01 refuses ${kind} but CLI installs skills with exit 0`, { skip: kind === 'unreadable' && process.platform === 'win32' }, (t) => fixture(async (home, repo) => {
       const file = join(home, '.codex/AGENTS.md');
       const target = join(home, 'dotfiles');
       mkdirSync(target);
       writeFileSync(join(target, 'AGENTS.md'), 'foreign text\n');
-      if (kind === 'symlinked parent') symlinkSync(target, join(home, '.codex'), 'dir');
+      if (kind === 'symlinked parent') symlinkSync(target, join(home, '.codex'), process.platform === 'win32' ? 'junction' : 'dir');
       else {
         mkdirSync(join(home, '.codex'));
-        if (kind === 'symlinked file') symlinkSync(join(target, 'AGENTS.md'), file);
+        if (kind === 'symlinked file') {
+          try { symlinkSync(join(target, 'AGENTS.md'), file); }
+          catch (err) {
+            // File symlinks need Developer Mode/admin on Windows; only then skip.
+            if (err.code === 'EPERM') { t.skip('creating a file symlink needs Developer Mode on Windows'); return; }
+            throw err;
+          }
+        }
         else if (kind === 'directory') mkdirSync(file);
         else { writeFileSync(file, kind === 'malformed' ? `${begin}\nbroken\n` : 'private\n'); if (kind === 'unreadable') chmodSync(file, 0); }
       }
       try {
-        const output = execFileSync(process.execPath, [new URL('../bin/cli.js', import.meta.url).pathname,
+        const output = execFileSync(process.execPath, [CLI,
           'install', '--yes', '--ide', 'codex', '--lang', 'en', '--global-instructions'],
         { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
         assert.match(output, /Global instructions refused: .codex\/AGENTS.md/);
@@ -729,6 +751,41 @@ describe('optional global delegation instructions', () => {
       } finally { if (kind === 'unreadable') chmodSync(file, 0o600); }
     }));
   }
+  // F01 regression: once a block is journaled, a later path-safety refusal
+  // (symlinked parent) stops the install with ONE line and no stack, and the
+  // way out is to make the path a real, readable file/directory again — the
+  // marker-line advice cannot apply when there is no marker to repair.
+  it('F01 journaled path-safety refusal keeps the target intact and recovers once the path is real', () => fixture(async (home, repo) => {
+    await install(repo, opts);
+    const file = join(home, '.codex/AGENTS.md');
+    const dotfiles = join(home, 'dotfiles');
+    mkdirSync(dotfiles);
+    writeFileSync(join(dotfiles, 'AGENTS.md'), 'foreign text\n');
+    // Move the owned tree aside and put a symlinked parent in its place.
+    renameSync(join(home, '.codex'), join(home, 'codex-owned'));
+    symlinkSync(dotfiles, join(home, '.codex'), process.platform === 'win32' ? 'junction' : 'dir');
+    try {
+      execFileSync(process.execPath, [CLI, 'install', '--yes', '--ide', 'codex', '--lang', 'en'],
+        { cwd: repo, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, NO_COLOR: '1' } });
+      assert.fail('a journaled block behind a symlinked parent must stop the install');
+    } catch (err) {
+      assert.equal(err.status, 1);
+      assert.match(err.stderr, /Global instructions refused: \.codex\/AGENTS\.md/);
+      assert.doesNotMatch(err.stderr, / at .*\.js:\d/);
+    }
+    // The symlink target is never written through.
+    assert.equal(readFileSync(join(dotfiles, 'AGENTS.md'), 'utf8'), 'foreign text\n');
+
+    // Documented recovery for a path refusal: restore a real directory (there
+    // are no markers to repair) and re-opt in explicitly.
+    renameSync(join(home, '.codex'), join(home, 'codex-link')); // move the link, not its target
+    mkdirSync(join(home, '.codex'));
+    execFileSync(process.execPath, [CLI, 'install', '--yes', '--ide', 'codex', '--lang', 'en', '--global-instructions'],
+      { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
+    assert.match(readFileSync(file, 'utf8'), /BEGIN atomic-skills:delegate/);
+    await uninstall(repo, { scope: 'user', yes: true });
+    assert.equal(existsSync(file), false);
+  }));
   it('R02 status requires journal ownership, including after foreign block opt-out', () => fixture(async (home, repo) => {
     const file = join(home, '.codex/AGENTS.md');
     mkdirSync(join(home, '.codex'));
@@ -751,7 +808,7 @@ describe('optional global delegation instructions', () => {
       await assert.rejects(install(repo, { ...opts, globalInstructions }), /missing END.*restore.*delete.*run install again/i);
     }
     try {
-      execFileSync(process.execPath, [new URL('../bin/cli.js', import.meta.url).pathname,
+      execFileSync(process.execPath, [CLI,
         'install', '--yes', '--ide', 'codex', '--lang', 'en'], { cwd: repo, encoding: 'utf8', env: process.env, stdio: 'pipe' });
       assert.fail('engine must block this install');
     } catch (err) {
@@ -777,7 +834,7 @@ describe('optional global delegation instructions', () => {
   it('R05 normalises CRLF source bodies and pins source files to LF', () => {
     // Exercise the read boundary without modifying versioned source files.
     assert.equal(globalInstructionBody('en', () => 'one\r\ntwo\r\n'), 'one\ntwo');
-    const attrs = execFileSync('git', ['check-attr', 'eol', '--', 'src/global-instructions/en.md', 'src/global-instructions/pt.md'], { encoding: 'utf8' });
+    const attrs = execFileSync('git', ['check-attr', 'eol', '--', 'src/global-instructions/en.md', 'src/global-instructions/pt.md'], { cwd: REPO_ROOT, encoding: 'utf8' });
     assert.equal(attrs.split('eol: lf').length - 1, 2);
   });
   for (const kind of ['directory', 'unreadable']) {
@@ -788,7 +845,7 @@ describe('optional global delegation instructions', () => {
       else chmodSync(file, 0);
       try {
         assert.deepEqual(installedGlobalInstructionPaths(home), []);
-        const output = execFileSync(process.execPath, [new URL('../bin/cli.js', import.meta.url).pathname, 'status'], { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
+        const output = execFileSync(process.execPath, [CLI, 'status'], { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
         assert.match(output, /Global instructions: not installed/);
       }
       finally { if (kind === 'unreadable') chmodSync(file, 0o600); }
@@ -834,8 +891,7 @@ describe('optional global delegation instructions', () => {
     } finally { console.log = log; }
   }));
   it('CLI flags cover every supported path, status, adoption and language fallback', () => fixture(async (home, repo) => {
-    const cli = new URL('../bin/cli.js', import.meta.url).pathname;
-    const run = (...args) => execFileSync(process.execPath, [cli, ...args], { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
+    const run = (...args) => execFileSync(process.execPath, [CLI, ...args], { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
     assert.match(run('status'), /Global instructions: not installed/);
     const adopted = join(home, '.codex/AGENTS.md');
     mkdirSync(join(home, '.codex'), { recursive: true });
