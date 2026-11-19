@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Optional global delegation instructions.** `install --global-instructions`
+  manages owned blocks in `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`,
+  `~/.config/opencode/AGENTS.md`, and `~/.gemini/GEMINI.md`.
+  `--no-global-instructions` removes them; deleting a block manually opts out
+  until the explicit opt-in flag is used again. Card templates and the delegate
+  skill text tell executors holding a card to execute it without re-delegating.
+
 - **`release` skill.** Deterministic semver chooser (`plan` / `apply` / `ship`)
   and opt-in adopt of a stage or GitHub-only workflow. Ship uses the chooser
   version, ignores prerelease tags as a baseline, and refuses a default-branch

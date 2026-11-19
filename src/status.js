@@ -57,8 +57,9 @@ export function status(projectDir, options = {}) {
     manifestScope = 'user';
     manifestBase = homeDir;
 
-    if (!manifest && projectDir) {
-      manifest = readManifest(projectDir);
+    const projectManifest = !manifest && projectDir ? readManifest(projectDir) : null;
+    if (projectManifest) {
+      manifest = projectManifest;
       manifestScope = 'project';
       manifestBase = projectDir;
     }
@@ -66,7 +67,7 @@ export function status(projectDir, options = {}) {
 
   p.intro(pc.bold(pc.cyan('⚛ Atomic Skills — Status')));
 
-  if (manifestScope === 'user' || (!manifest && !options.forceProject)) {
+  if (manifestScope === 'user') {
     const paths = installedGlobalInstructionPaths(homeDir);
     p.log.message(`Global instructions: ${paths.length ? paths.join(', ') : 'not installed'}`);
   }

@@ -77,16 +77,22 @@ if (values.help || !command) {
   }
   const { install } = await import('../src/install.js');
   const useDetected = values.ide === 'detected' || values['all-detected'];
-  await install(process.cwd(), {
-    yes: values.yes,
-    globalInstructions: values['no-global-instructions'] ? false : values['global-instructions'],
-    project: values.project,
-    ide: values.ide && values.ide !== 'detected' ? values.ide.split(',') : null,
-    lang: values.lang,
-    allDetected: useDetected,
-    repair: values.repair,
-    forceAdopt: values['force-adopt'],
-  });
+  try {
+    await install(process.cwd(), {
+      yes: values.yes,
+      globalInstructions: values['no-global-instructions'] ? false : values['global-instructions'],
+      project: values.project,
+      ide: values.ide && values.ide !== 'detected' ? values.ide.split(',') : null,
+      lang: values.lang,
+      allDetected: useDetected,
+      repair: values.repair,
+      forceAdopt: values['force-adopt'],
+    });
+  } catch (err) {
+    if (err.code !== 'GLOBAL_INSTRUCTIONS_BLOCKED') throw err;
+    console.error(`  ${err.message}`);
+    process.exitCode = 1;
+  }
 } else if (command === 'detect') {
   const { homedir } = await import('node:os');
   const pc = (await import('picocolors')).default;

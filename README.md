@@ -33,14 +33,20 @@ npx @henryavila/atomic-skills install
 User installs can opt into global delegation instructions with
 `install --global-instructions`. Interactive installs show the exact block and
 files before asking yes/no (default no, or yes when installed).
-`install --yes` alone adds none and refreshes previously installed blocks;
+`install --yes` alone adds none and refreshes previously installed blocks.
+Deleting an owned block by hand opts out: a later install without the flag leaves
+it deleted and says so; `--global-instructions` writes it again.
+
 `install --no-global-instructions` removes them. Project installs ignore these flags.
 Supported files are `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`,
 `~/.config/opencode/AGENTS.md`, and `~/.gemini/GEMINI.md`; other selected agents
 are named as skipped. Content outside the managed block is preserved, and
 uninstall reverses only the owned block through the install journal.
-`status` lists files containing the block. Portuguese installs use Portuguese;
-all other languages use English.
+`status` lists only journal-owned files where the block is present.
+A broken owned marker stops installation because the engine cannot retain that
+effect while updating other skills. Restore the missing marker line, or delete
+the remaining marker line and the text, then run install again.
+Portuguese installs use Portuguese; all other languages use English.
 
 ## Offline / local docs
 
