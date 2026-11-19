@@ -1,9 +1,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
-  mkdtempSync, rmSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, chmodSync, renameSync, lstatSync, unlinkSync,
+  mkdtempSync, rmSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, chmodSync, lstatSync, unlinkSync,
 } from 'node:fs';
+import { rename } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
@@ -18,6 +19,24 @@ import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir
 // to resolve as `C:\D:\a\...`. fileURLToPath gives the platform path.
 const CLI = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
+
+// Fault injection at the actual no-follow read boundary, independent of uid and OS ACLs.
+function instructionReadFailure(repo, file, code) {
+  const preload = join(repo, 'instruction-read-failure.cjs');
+  writeFileSync(preload, `const fs = require('node:fs');
+const target = fs.statSync(${JSON.stringify(file)});
+const read = fs.readSync;
+fs.readSync = function(fd, ...args) {
+  const st = fs.fstatSync(fd);
+  if (st.dev === target.dev && st.ino === target.ino) {
+    throw Object.assign(new Error('injected instruction read failure'), { code: ${JSON.stringify(code)} });
+  }
+  return read.call(this, fd, ...args);
+};
+require('node:module').syncBuiltinESMExports();
+`);
+  return preload;
+}
 
 function withHome(fakeHome, fn) {
   const restoreHome = isolateHomedir(fakeHome);
@@ -751,6 +770,7 @@ describe('optional global delegation instructions', () => {
         const status = execFileSync(process.execPath, [CLI, 'status'], { cwd: repo, encoding: 'utf8', env: process.env });
         assert.ok(status.includes(logical));
         await install(repo, { ...opts, ide: [agent], lang: 'pt' });
+        assert.ok(readFileSync(realFile, 'utf8').includes(globalInstructionBody('pt')));
         assert.ok(lstatSync(linkedPath).isSymbolicLink());
         await install(repo, { ...opts, ide: [agent], globalInstructions: false });
         assert.ok(lstatSync(linkedPath).isSymbolicLink());
@@ -761,6 +781,140 @@ describe('optional global delegation instructions', () => {
         assert.deepEqual(snapshotTree(target), baseline);
         assert.ok(lstatSync(linkedPath).isSymbolicLink());
       } finally { rmSync(target, { recursive: true, force: true }); }
+    }));
+  }
+  for (const kind of ['directory', 'file', 'reverse']) for (const action of ['lifecycle', 'uninstall']) {
+    it(`R1-R01 ownership survives same-file migration: ${kind} ${action}`, (t) => fixture(async (home, repo) => {
+      const dir = join(home, '.codex');
+      const file = join(dir, 'AGENTS.md');
+      const target = join(home, 'dotfiles');
+      mkdirSync(dir);
+      writeFileSync(file, 'user baseline\n');
+      if (kind === 'reverse') {
+        await rename(dir, target);
+        symlinkSync(target, dir, process.platform === 'win32' ? 'junction' : 'dir');
+      }
+      await install(repo, opts);
+      if (kind === 'reverse') {
+        unlinkSync(dir);
+        await rename(target, dir);
+      } else if (kind === 'directory') {
+        await rename(dir, target);
+        symlinkSync(target, dir, process.platform === 'win32' ? 'junction' : 'dir');
+      } else {
+        await rename(file, target);
+        try { symlinkSync(target, file); }
+        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+      }
+      assert.deepEqual(installedGlobalInstructionPaths(home), ['.codex/AGENTS.md']);
+      const status = execFileSync(process.execPath, [CLI, 'status'], { cwd: repo, encoding: 'utf8', env: process.env });
+      assert.ok(status.includes('.codex/AGENTS.md'));
+      if (action === 'uninstall') {
+        await uninstall(repo, { scope: 'user', yes: true });
+        assert.equal(readFileSync(file, 'utf8'), 'user baseline\n');
+        assert.equal(existsSync(join(home, '.atomic-skills/manifest.json')), false);
+        return;
+      }
+      await install(repo, { ...opts, lang: 'pt' });
+      assert.match(readFileSync(file, 'utf8'), /## Delegação/);
+      await install(repo, { ...opts, globalInstructions: false });
+      assert.equal(readFileSync(file, 'utf8'), 'user baseline\n');
+      await install(repo, opts);
+      await uninstall(repo, { scope: 'user', yes: true });
+      assert.equal(readFileSync(file, 'utf8'), 'user baseline\n');
+      assert.equal(existsSync(join(home, '.atomic-skills/manifest.json')), false);
+    }));
+  }
+  it('R1-R02 owned unreadable destination parks ownership and installs every other agent', { skip: process.platform === 'win32' }, () => fixture(async (home, repo) => {
+    await install(repo, opts);
+    const file = join(home, '.codex/AGENTS.md');
+    const before = readFileSync(file);
+    const manifestFile = join(home, '.atomic-skills/manifest.json');
+    const owned = JSON.parse(readFileSync(manifestFile)).effects.find(e => e.type === 'textBlock');
+    chmodSync(file, 0);
+    try {
+      const result = spawnSync(process.execPath, [CLI, 'install', '--yes', '--ide', 'codex,claude-code', '--lang', 'en'],
+        { cwd: repo, encoding: 'utf8', env: process.env });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stderr, '');
+      const output = result.stdout;
+      assert.equal(output.split('Global instructions refused:').length - 1, 1);
+      assert.doesNotMatch(output, / at .*\.js:\d/);
+      assert.ok(existsSync(join(home, '.claude/commands/atomic-skills/fix.md')));
+      assert.deepEqual(JSON.parse(readFileSync(manifestFile)).effects.find(e => e.type === 'textBlock'), owned);
+    } finally { chmodSync(file, 0o600); }
+    assert.deepEqual(readFileSync(file), before);
+  }));
+  for (const code of ['EACCES', 'EIO']) {
+    it(`R1-R02 owned read failure ${code} parks ownership and continues`, () => fixture(async (home, repo) => {
+      await install(repo, opts);
+      const file = join(home, '.codex/AGENTS.md');
+      const before = readFileSync(file);
+      const manifestFile = join(home, '.atomic-skills/manifest.json');
+      const owned = JSON.parse(readFileSync(manifestFile)).effects.find(e => e.type === 'textBlock');
+      const preload = instructionReadFailure(repo, file, code);
+      const result = spawnSync(process.execPath, ['--require', preload, CLI, 'install', '--yes', '--ide', 'codex,claude-code', '--lang', 'en'],
+        { cwd: repo, encoding: 'utf8', env: process.env });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stderr, '');
+      const output = result.stdout;
+      assert.equal(output.split('Global instructions refused:').length - 1, 1);
+      assert.doesNotMatch(output, / at .*\.js:\d/);
+      assert.ok(existsSync(join(home, '.claude/commands/atomic-skills/fix.md')));
+      assert.deepEqual(JSON.parse(readFileSync(manifestFile)).effects.find(e => e.type === 'textBlock'), owned);
+      assert.deepEqual(readFileSync(file), before);
+    }));
+  }
+  for (const code of ['EACCES', 'EIO']) {
+    it(`R1-R03 uninstall ${code} retains ownership for a successful retry`, () => fixture(async (home, repo) => {
+      await install(repo, opts);
+      const file = join(home, '.codex/AGENTS.md');
+      const before = readFileSync(file);
+      const manifestFile = join(home, '.atomic-skills/manifest.json');
+      const owned = JSON.parse(readFileSync(manifestFile)).effects.find(e => e.type === 'textBlock');
+      const preload = instructionReadFailure(repo, file, code);
+      assert.throws(() => execFileSync(process.execPath, ['--require', preload, CLI, 'uninstall', '--yes'],
+        { cwd: repo, encoding: 'utf8', env: process.env, stdio: 'pipe' }), err => {
+        assert.equal(err.status, 1);
+        assert.match(err.stderr, /uninstall.*incomplete.*retry.*uninstall --yes/i);
+        assert.doesNotMatch(err.stderr, / at .*\.js:\d/);
+        return true;
+      });
+      assert.deepEqual(JSON.parse(readFileSync(manifestFile)).effects.find(e => e.type === 'textBlock'), owned);
+      assert.deepEqual(readFileSync(file), before);
+      execFileSync(process.execPath, [CLI, 'uninstall', '--yes'], { cwd: repo, encoding: 'utf8', env: process.env });
+      assert.equal(existsSync(file), false);
+      assert.equal(existsSync(manifestFile), false);
+    }));
+  }
+  for (const kind of ['changed', 'dangling', 'loop', 'wrong-type']) {
+    it(`R1-R01/R02/R03 owned ${kind} destination refuses safely`, (t) => fixture(async (home, repo) => {
+      const file = join(home, '.codex/AGENTS.md');
+      await install(repo, opts);
+      const old = join(home, 'old-instructions');
+      await rename(file, old);
+      const oldBytes = readFileSync(old);
+      const next = join(home, 'new-instructions');
+      writeFileSync(next, 'foreign text\n');
+      if (kind === 'wrong-type') mkdirSync(file);
+      else {
+        try { symlinkSync(kind === 'changed' ? next : kind === 'loop' ? file : join(home, 'missing'), file); }
+        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+      }
+      const manifestFile = join(home, '.atomic-skills/manifest.json');
+      const owned = JSON.parse(readFileSync(manifestFile)).effects.find(e => e.type === 'textBlock');
+      for (const flag of ['--global-instructions', '--no-global-instructions']) {
+        const output = execFileSync(process.execPath, [CLI, 'install', '--yes', '--ide', 'codex,claude-code', '--lang', 'en', flag],
+          { cwd: repo, encoding: 'utf8', env: process.env, stdio: 'pipe' });
+        assert.equal(output.split('Global instructions refused:').length - 1, 1);
+        assert.ok(existsSync(join(home, '.claude/commands/atomic-skills/fix.md')));
+        assert.deepEqual(JSON.parse(readFileSync(manifestFile)).effects.find(e => e.type === 'textBlock'), owned);
+      }
+      const output = execFileSync(process.execPath, [CLI, 'uninstall', '--yes'],
+        { cwd: repo, encoding: 'utf8', env: process.env, stdio: 'pipe' });
+      assert.equal(output.split('Global instructions refused:').length - 1, 1);
+      assert.deepEqual(readFileSync(old), oldBytes);
+      assert.equal(readFileSync(next, 'utf8'), 'foreign text\n');
     }));
   }
   for (const kind of ['directory', 'file']) {
@@ -986,6 +1140,14 @@ describe('optional global delegation instructions', () => {
       finally { console.log = log; }
       assert.ok(lines.some(l => l.includes(messages.globalInstructionsSkipped('cursor'))));
       assert.ok(lines.some(l => l.includes(messages.globalInstructionsRefused('.codex/AGENTS.md', 'missing END marker'))));
+      rmSync(file);
+      await install(repo, { ...opts, lang });
+      rmSync(file);
+      mkdirSync(file);
+      const output = execFileSync(process.execPath, [CLI, 'uninstall', '--yes'],
+        { cwd: repo, encoding: 'utf8', env: process.env });
+      assert.ok(output.includes(messages.globalInstructionsRefused('.codex/AGENTS.md', `Expected regular file at ${file}; journaled file ${file}`)));
+      assert.equal(output.split(lang === 'pt' ? 'Instruções globais recusadas:' : 'Global instructions refused:').length - 1, 1);
     }));
   }
   it('versioned block bodies stay neutral and contain the executor exception', () => {

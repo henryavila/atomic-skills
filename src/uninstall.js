@@ -9,7 +9,7 @@ import {
 } from './install.js';
 import { buildInstaller } from './installer.js';
 import { migrateLegacyInstall } from './migrate-legacy-install.js';
-import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
+import { promptConfirmUninstall, promptUninstallScope, msg as uiMessages } from './ui.js';
 import { resolveProjectScopeTarget } from './scope.js';
 import { baseHasGrokResidual } from './runtime-layers/grok-refcount.js';
 import {
@@ -300,7 +300,12 @@ export async function uninstall(projectDir, options = {}) {
   // files is reconcileFileSet's — a third-party SessionStart hook + a user-modified
   // skill survive exactly as before).
   // If this throws, registry still lists basePath (C-codex-3).
-  buildInstaller({}).uninstall({ projectDir: basePath });
+  try { buildInstaller({}).uninstall({ projectDir: basePath }); }
+  catch (err) {
+    console.error(`  ${uiMessages(lang).uninstallIncomplete(err.message)}`);
+    process.exitCode = 1;
+    return;
+  }
 
   // Global runtime artifacts (~/.atomic-skills/{bin,dashboard,...}) and the
   // cross-install registry are shared across ALL installs (user + each project),

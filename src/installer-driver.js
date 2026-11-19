@@ -1,14 +1,17 @@
-// Compatibility adapter for the pinned e37ae7f installer driver (MIT).
+// Mirrors minimalist-installer/src/driver.js (MIT) at upstream commit
+// e37ae7f3d70c96ab3d920522ba739da5fb324a03.
+// tests/installer-driver-sync.test.js guards every deviation from the installed copy.
 // The upstream driver hardcodes textBlock preflight before registry.apply.
 // Keep its transaction/locking protocol, adding only the registry preparePlan
-// hook and retention of refused instruction states below. Drop this adapter
+// hook, retention of refused instruction states, and revert language below. Drop this adapter
 // when upstream exposes those hooks.
 import {
   readManifest, writeManifest, removeManifest, MANIFEST_DIR,
   readEffects, recordEffect, replayReverse, stableEffectId, JOURNAL_VERSION,
   acquireInstallLocks, assertNoIncompleteTransaction,
 } from '@henryavila/minimalist-installer';
-// Pinned dependency's non-public planner: reuse its byte/marker validation.
+// No public prepareTextBlockPlan export exists at this pin (only the effect
+// factory is exported). Reuse the private planner's byte/marker validation.
 export const { prepareTextBlockPlan } = await import(new URL('./kernel/effects/text-block.js',
   import.meta.resolve('@henryavila/minimalist-installer')));
 
@@ -134,7 +137,7 @@ export const createDriver = ({
         })) };
 
         for (const state of prepared.removals) {
-          registry.get('textBlock').revert({ basePath: projectDir }, state);
+          registry.get('textBlock').revert({ basePath: projectDir, language: config.language }, state);
         }
         for (const { type, args, id: plannedId } of orderedPlan) {
           const effect = registry.get(type);
@@ -199,7 +202,7 @@ export const createDriver = ({
         const manifest = readManifest(projectDir, manifestDir);
         if (manifest == null) return;
 
-        replayReverse(manifest, { basePath: projectDir, manifestDir }, registry);
+        replayReverse(manifest, { basePath: projectDir, manifestDir, language: manifest.language }, registry);
         removeManifest(projectDir, manifestDir);
       } finally {
         locks.release();

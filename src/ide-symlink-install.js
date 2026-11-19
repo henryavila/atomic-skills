@@ -12,9 +12,11 @@
 
 import { lstatSync, realpathSync, statSync } from 'node:fs';
 import { join, dirname, isAbsolute, relative } from 'node:path';
-import { assertLexicalWithinBase } from '@henryavila/minimalist-installer';
+import { assertLexicalWithinBase, readFileNoFollow } from '@henryavila/minimalist-installer';
 import { prepareTextBlockPlan } from './installer-driver.js';
 import { IDE_CONFIG } from './config.js';
+import { msg } from './ui.js';
+import { GLOBAL_INSTRUCTION_PATHS } from './global-instructions.js';
 
 /**
  * Top directory of each IDE tree, relative to the install base.
@@ -332,17 +334,15 @@ function revertJsonMerge(originalRevert, ctx, beforeState) {
 
 // Only global instruction files opt into resolving every directory component
 // and the leaf. Other text blocks retain the engine's strict no-follow rule.
-const instructionAgents = new Map([
-  ['.claude/CLAUDE.md', 'claude-code'], ['.codex/AGENTS.md', 'codex'],
-  ['.config/opencode/AGENTS.md', 'opencode'], ['.gemini/GEMINI.md', 'antigravity'],
-]);
-const instructionPaths = new Set(instructionAgents.keys());
-const isInstructionBlock = (state) => instructionPaths.has(state.path)
-  && state.id === `global-instructions:${instructionAgents.get(state.path)}`;
+// Derived lazily because the provider and resolver share this module boundary.
+const instructionAgents = () => new Map(Object.entries(GLOBAL_INSTRUCTION_PATHS)
+  .filter(([, path]) => path).map(([agent, path]) => [path, agent]));
+const isInstructionBlock = (state) => instructionAgents().has(state.path)
+  && state.id === `global-instructions:${instructionAgents().get(state.path)}`;
 
 export function resolveInstructionPath(basePath, path) {
   assertLexicalWithinBase(basePath, path);
-  if (!instructionPaths.has(path)) return { basePath, path };
+  if (!instructionAgents().has(path)) return { basePath, path };
   let current = basePath;
   let resolvedBase;
   const parts = path.split('/');
@@ -358,7 +358,8 @@ export function resolveInstructionPath(basePath, path) {
         resolvedBase = i < parts.length - 1 ? current : dirname(current);
       }
       if (i < parts.length - 1 ? !st.isDirectory() : !st.isFile()) {
-        throw new Error(`Expected ${i < parts.length - 1 ? 'directory' : 'regular file'} at ${current}`);
+        throw Object.assign(new Error(`Expected ${i < parts.length - 1 ? 'directory' : 'regular file'} at ${current}`),
+          { code: 'GLOBAL_INSTRUCTIONS_REFUSED' });
       }
     }
     return resolvedBase ? { basePath: resolvedBase, path: relative(resolvedBase, current).replace(/\\/g, '/') } : { basePath, path };
@@ -369,8 +370,8 @@ export function resolveInstructionPath(basePath, path) {
 }
 
 export function instructionLocation(basePath, state) {
-  // Old textBlock journals predate link support and refer to the logical
-  // real file. A new link cannot grant ownership of a different destination.
+  // Resolve both the journal and live path at comparison time. Moving the
+  // same file behind a link does not revoke its journaled block ownership.
   const storedBase = state.resolvedBase ?? basePath;
   const storedPath = state.resolvedPath ?? state.path;
   const stored = join(storedBase, storedPath);
@@ -380,9 +381,26 @@ export function instructionLocation(basePath, state) {
     err.message = `${err.message}; journaled file ${stored}`;
     throw err;
   }
-  if (!isAbsolute(storedBase) || join(live.basePath, live.path) !== stored) {
+  let canonicalStored = stored;
+  try { canonicalStored = realpathSync(stored); }
+  catch (err) { if (err.code !== 'ENOENT') throw err; }
+  let livePath = join(live.basePath, live.path);
+  try { livePath = realpathSync(livePath); }
+  catch (err) { if (err.code !== 'ENOENT') throw err; }
+  // A move can remove the old physical path entirely. The exact journaled
+  // block at the live destination still proves ownership; a foreign file does not.
+  const relocated = join(live.basePath, live.path) !== stored;
+  let carriesOwnedBlock = false;
+  if ((canonicalStored !== livePath || relocated) && state.inserted !== undefined) {
+    const bytes = readFileNoFollow(live.basePath, live.path, null);
+    const segment = Buffer.from(state.inserted, 'base64').subarray(Buffer.byteLength(state.prefix ?? ''));
+    const start = bytes.indexOf(segment);
+    carriesOwnedBlock = start >= 0 && (start === 0 || bytes[start - 1] === 10);
+  }
+  if (!isAbsolute(storedBase) || ((canonicalStored !== livePath || relocated) && !carriesOwnedBlock)) {
     const err = new Error(`Destination changed for "${state.path}"; journaled file ${stored}`);
     err.globalInstructionPath = state.path;
+    err.code = 'GLOBAL_INSTRUCTIONS_REFUSED';
     throw err;
   }
   return live;
@@ -429,9 +447,17 @@ function prepareInstructionPlan(entries, states, basePath) {
   }
   for (const state of relocatedStates.filter((state) => !handled.has(state))) {
     const logical = logicalByState.get(state);
-    const loc = instructionLocation(basePath, logical);
-    prepareTextBlockPlan([], [state], loc.basePath);
-    result.removals.push(logical);
+    try {
+      const loc = instructionLocation(basePath, logical);
+      prepareTextBlockPlan([], [state], loc.basePath);
+      result.removals.push(logical);
+    } catch (err) {
+      // The provider already reported this owned destination's I/O refusal.
+      // Keep its ownership while other agents install. Malformed markers still
+      // block preflight with the existing recovery guidance.
+      if (!err.code) throw err;
+      parked.push(logical);
+    }
   }
   return result;
 }
@@ -455,12 +481,15 @@ function wrapTextBlock(registry) {
   };
   effect.revert = (ctx, state) => {
     if (!isInstructionBlock(state)) return revert(ctx, state);
-    try {
-      const loc = instructionLocation(ctx.basePath, state);
-      return revert({ ...ctx, basePath: loc.basePath }, { ...state, path: loc.path });
-    } catch (err) {
-      console.log(`  Global instructions refused: ${state.path} (${err.message}; kept unchanged)`);
+    let loc;
+    try { loc = instructionLocation(ctx.basePath, state); }
+    catch (err) {
+      if (!['GLOBAL_INSTRUCTIONS_REFUSED', 'ENOENT', 'ELOOP', 'ENOTDIR'].includes(err.code)) throw err;
+      console.log(`  ${msg(ctx.language).globalInstructionsRefused(state.path, err.message)}`);
+      return;
     }
+    // I/O failures must propagate: the driver must retain the journal for retry.
+    return revert({ ...ctx, basePath: loc.basePath }, { ...state, path: loc.path });
   };
   effect.ideSymlinkWrapped = true;
 }

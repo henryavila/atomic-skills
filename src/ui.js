@@ -8,6 +8,7 @@ import { IDE_CONFIG, SKILL_NAMESPACE } from './config.js';
 
 export const MESSAGES = {
   pt: {
+    uninstallIncomplete: (reason) => `Desinstalação incompleta (${reason}). O journal foi mantido; corrija o acesso ao arquivo e tente novamente: uninstall --yes.`,
     globalInstructionsPrompt: 'Instalar instruções globais de delegação?',
     globalInstructionsFiles: (paths) => `Arquivos de instruções globais: ${paths || '(nenhum para os agentes selecionados)'}`,
     globalInstructionsRefused: (path, reason) => `Instruções globais recusadas: ${path} (${reason}; mantido sem alterações)`,
@@ -50,6 +51,7 @@ export const MESSAGES = {
     filesInstalled: (n) => `${n} arquivos instalados.`,
   },
   en: {
+    uninstallIncomplete: (reason) => `Uninstall incomplete (${reason}). The journal was retained; restore file access and retry: uninstall --yes.`,
     globalInstructionsPrompt: 'Install global delegation instructions?',
     globalInstructionsFiles: (paths) => `Global instruction files: ${paths || '(none for selected agents)'}`,
     globalInstructionsRefused: (path, reason) => `Global instructions refused: ${path} (${reason}; kept unchanged)`,

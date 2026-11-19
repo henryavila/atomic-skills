@@ -59,8 +59,9 @@ its reversal — that is the gate.
 install-base file domain is now a JOURNAL of reversible effects — `installSkills`
 delegates to `buildInstaller().install()` (`src/installer.js`), and `uninstall`
 calls `buildInstaller({}).uninstall()` which **replays the journal in reverse**
-(`Driver.uninstall` → `replayReverse` + `removeManifest`). No consumer writes
-revert logic; reversibility is a property of each effect. The manifest is
+(`Driver.uninstall` → `replayReverse` + `removeManifest` after successful replay;
+an I/O failure retains the manifest for a later `uninstall --yes`). No consumer
+writes revert logic; reversibility is a property of each effect. The manifest is
 **hybrid**: the journal (`effects[]`) is authoritative for uninstall, and a
 derived legacy `files{}` map + metadata (`version/language/ides`) are
 patched on for the status/compat readers.
@@ -70,7 +71,7 @@ patched on for the status/compat readers.
 | Skill/command `.md`, namespace root, `_assets/` | `reconcileFileSet` → `revert` (deletes only files whose disk hash matches the installed hash — P3) |
 | `version-check.sh` (auto-update hook, executable) | `stageRuntimeArtifacts` → `revert` (removes only paths it created) |
 | `SessionStart` entry in `settings.json` (merge) | `jsonMerge` → `revert` (surgical: subtracts only the delta; deletes the file only if it created it and it emptied) |
-| Opt-in user global delegation instructions (paths: `src/global-instructions.js`) | `textBlock` → symlink wrapper resolves directory/file links to the destination; journal keeps logical paths and destination identity; replay restores/removes only the owned block, deletes a created file only when empty, and refuses repointed links |
+| Opt-in user global delegation instructions (paths: `src/global-instructions.js`) | `textBlock` → symlink wrapper resolves directory/file links to the destination; journal keeps logical paths and destination identity; replay restores/removes only the owned block, deletes a created file only when empty, and refuses changed destinations without the owned block; I/O errors retain the journal for retry |
 | `manifest.json` (the journal) | `removeManifest` (unlink + prune) |
 
 **Orchestrated OUTSIDE the journal** (the journal's blind `replayReverse` cannot

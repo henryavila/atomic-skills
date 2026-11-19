@@ -12,7 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Global instructions now resolve directory and file symlinks and install directly
   at the destination, preserving the links and user bytes on update, opt-out,
   and uninstall. Status recognizes the destination block. Invalid links refuse
-  only that file; repointed links leave both destinations untouched on removal.
+  only that file; repointed links without the owned block leave both destinations
+  untouched on removal. Ownership survives moving the same instruction file behind
+  a link or back into a real directory. Unreadable owned destinations no longer
+  block other agents' installs, and uninstall I/O failures retain the journal with
+  retry guidance. Uninstall refusals use the installation's recorded language.
 
 ## [2.1.0] - 2026-11-18
 
