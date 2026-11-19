@@ -1011,8 +1011,11 @@ def remote_base_rel(project, task_id):
 
 
 def remote_delegate_ref(task_id):
-    ref = "refs/delegate/" + re.sub(r"[^A-Za-z0-9._/-]+", "-", str(task_id)).strip("/")
-    return ref or "refs/delegate/task"
+    name = re.sub(r"[^A-Za-z0-9._/-]+", "-", str(task_id))
+    name = re.sub(r"\.{2,}", ".", name).strip("/.")
+    if name.endswith(".lock"):
+        name += "-ref"
+    return ("refs/delegate/" + name) if name else "refs/delegate/task"
 
 
 def _shell_remote_var(name, value):
@@ -1244,6 +1247,8 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         pass
     bundle = stage / "code.bundle"
     out_path.mkdir(parents=True, exist_ok=True)
+    stdout.write_text("", encoding="utf-8")
+    stderr.write_text("", encoding="utf-8")
     started = now().isoformat(timespec="microseconds")
     remote_out = tempfile.NamedTemporaryFile(prefix="delegate-remote-", suffix=".out", delete=False)
     remote_err = tempfile.NamedTemporaryFile(prefix="delegate-remote-", suffix=".err", delete=False)
@@ -1410,7 +1415,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             fetched_ref = remote_delegate_ref(task_id)
             fetch = subprocess.run(
                 ["git", "-C", cwd, "fetch", "--no-tags", str(local_res / "result.bundle"),
-                 f"refs/heads/{branch}:{fetched_ref}"], capture_output=True, text=True)
+                 f"+refs/heads/{branch}:{fetched_ref}"], capture_output=True, text=True)
             if fetch.returncode != 0:
                 fetch_error = fetch.stderr.strip() or "cannot fetch the result bundle"
             elif subprocess.run(["git", "-C", cwd, "merge-base", "--is-ancestor",
