@@ -1,0 +1,212 @@
+// Mirrors minimalist-installer/src/driver.js (MIT) at upstream commit
+// e37ae7f3d70c96ab3d920522ba739da5fb324a03.
+// tests/installer-driver-sync.test.js guards every deviation from the installed copy.
+// The upstream driver hardcodes textBlock preflight before registry.apply.
+// Keep its transaction/locking protocol, adding only the registry preparePlan
+// hook, retention of refused instruction states, and revert language below. Drop this adapter
+// when upstream exposes those hooks.
+import {
+  readManifest, writeManifest, removeManifest, MANIFEST_DIR,
+  readEffects, recordEffect, replayReverse, stableEffectId, JOURNAL_VERSION,
+  acquireInstallLocks, assertNoIncompleteTransaction,
+} from '@henryavila/minimalist-installer';
+// No public prepareTextBlockPlan export exists at this pin (only the effect
+// factory is exported). Reuse the private planner's byte/marker validation.
+export const { prepareTextBlockPlan } = await import(new URL('./kernel/effects/text-block.js',
+  import.meta.resolve('@henryavila/minimalist-installer')));
+
+// The Driver is identical for every consumer. It runs the configured providers to
+// emit effects, applies each effect, journals its before-state on the manifest,
+// and persists the manifest. Uninstall replays the journal in reverse (the
+// structural uninstall) and removes the manifest — no consumer writes revert logic.
+//
+// Matching prior effects: prefer stable `id` (journal v2); fall back to
+// (type, occurrence order) for v1 manifests.
+export const createDriver = ({
+  registry,
+  providers,
+  manifestDir = MANIFEST_DIR,
+  lockRoot,
+  resourceIdentities,
+} = {}) => {
+  const planEffects = (config, projectDir) => {
+    const planCtx = { basePath: projectDir, manifestDir };
+    return providers.flatMap((provider) => provider.plan(config, planCtx));
+  };
+
+  const resolveExtraIdentities = (projectDir, config) => {
+    if (typeof resourceIdentities === 'function') {
+      return resourceIdentities({ projectDir, config, manifestDir }) ?? [];
+    }
+    return resourceIdentities ?? [];
+  };
+
+  return {
+    install(config, { projectDir }) {
+      assertNoIncompleteTransaction(projectDir, manifestDir);
+
+      const extra = resolveExtraIdentities(projectDir, config);
+      const locks = acquireInstallLocks({ projectDir, extra, lockRoot });
+      try {
+        const priorById = new Map();
+        const priorByType = new Map();
+        const prior = readManifest(projectDir, manifestDir);
+        if (prior) {
+          for (const entry of readEffects(prior)) {
+            const { type, beforeState, id } = entry;
+            if (id != null) {
+              priorById.set(id, beforeState);
+            }
+            if (!priorByType.has(type)) priorByType.set(type, []);
+            priorByType.get(type).push(beforeState);
+          }
+        }
+
+        const planned = planEffects(config, projectDir);
+        const text = planned.filter(({ type }) => type === 'textBlock').map((entry) => ({
+          ...entry,
+          effectId: entry.id ?? stableEffectId('textBlock', entry.args),
+          begin: entry.args.markers?.begin ?? `<!-- BEGIN ${entry.args.id} -->`,
+          end: entry.args.markers?.end ?? `<!-- END ${entry.args.id} -->`,
+        }));
+        const plannedTextIds = new Set(text.map(({ effectId }) => effectId));
+        const states = priorByType.get('textBlock') ?? [];
+        const priorTextIds = new Map(readEffects(prior).filter(({ type }) => type === 'textBlock')
+          .map(({ id, beforeState }) => [beforeState, id ?? stableEffectId('textBlock', beforeState)]));
+        const used = new Set();
+        const claim = (entry, state) => {
+          if (state) {
+            if (used.has(state)) throw new Error(`textBlock marker collision at "${entry.args.path}"`);
+            used.add(state);
+            entry.previous = state;
+          }
+        };
+        // Explicit journal identities reserve predecessors before id fallback.
+        for (const entry of text) {
+          const state = priorById.get(entry.effectId);
+          if (states.includes(state) && state.path === entry.args.path) claim(entry, state);
+        }
+        for (const entry of text.filter(({ previous }) => !previous)) {
+          claim(entry, states.find((state) => !used.has(state)
+            && !plannedTextIds.has(priorTextIds.get(state))
+            && state.path === entry.args.path && state.id === entry.args.id));
+        }
+        const overlap = (a, b) => a.begin === b.begin || a.begin === b.end
+          || a.end === b.begin || a.end === b.end;
+        for (const entry of text) {
+          if (text.some((other) => other !== entry && other.args.path === entry.args.path
+            && (overlap(entry, other) || entry.args.id === other.args.id || entry.effectId === other.effectId))
+            || states.some((state) => entry.previous && state !== entry.previous && state.path === entry.args.path
+              && text.some((other) => other.previous === state) && overlap(entry, state))) {
+            throw new Error(`textBlock marker collision at "${entry.args.path}"`);
+          }
+        }
+        const preparePlan = registry.get('textBlock').preparePlan ?? prepareTextBlockPlan;
+        const prepared = preparePlan(text.map(({ args, previous }) => ({ ...args, previous })), states, projectDir);
+        const textQueue = [...prepared.entries];
+        const orderedPlan = planned.map((entry) => {
+          if (entry.type !== 'textBlock') return entry;
+          const args = textQueue.shift();
+          const original = text.find((item) => item.args.path === args.path && item.args.id === args.id);
+          return { type: 'textBlock', args, id: original.effectId };
+        });
+
+        const cursor = new Map();
+        // Incomplete marker preserves prior effects so a crash before the first
+        // mutation still leaves a recoverable journal. Once the first new effect
+        // applies, the on-disk journal is rebuilt from applied effects only
+        // (durable per-effect flush — F-001). journalMode marks post-U trust.
+        const txId = `${Date.now()}-${process.pid}`;
+        const startedAt = new Date().toISOString();
+        let manifest = {
+          journalVersion: JOURNAL_VERSION,
+          effects: prior ? [...readEffects(prior)] : [],
+          transaction: {
+            id: txId,
+            state: 'incomplete',
+            journalMode: 'per-effect',
+            startedAt,
+            appliedCount: 0,
+          },
+        };
+        writeManifest(projectDir, manifest, manifestDir);
+
+        // Rebuild journal for this install (in memory until first successful apply).
+        manifest = { ...manifest, effects: (prepared.parked ?? []).map((beforeState) => ({
+          type: 'textBlock', id: priorTextIds.get(beforeState), beforeState,
+        })) };
+
+        for (const state of prepared.removals) {
+          registry.get('textBlock').revert({ basePath: projectDir, language: config.language }, state);
+        }
+        for (const { type, args, id: plannedId } of orderedPlan) {
+          const effect = registry.get(type);
+          if (!effect) {
+            throw new Error(`Provider emitted an unregistered effect type "${type}"`);
+          }
+          const id = plannedId ?? stableEffectId(type, args);
+          const occurrence = cursor.get(type) ?? 0;
+          cursor.set(type, occurrence + 1);
+
+          let previous;
+          if (type !== 'textBlock') {
+            previous = priorById.get(id);
+            if (previous === undefined) previous = priorByType.get(type)?.[occurrence];
+          }
+          const applyArgs = type === 'textBlock' ? args
+            : previous === undefined ? args : { ...args, previous };
+
+          const beforeState = effect.apply(applyArgs);
+          manifest = recordEffect(manifest, { type, id, beforeState });
+          // F-001: after each successful apply, flush incomplete journal so
+          // crash/SIGKILL leaves disk ownership matching journaled effects.
+          // Rollback-only recovery is rejected — durability is the primary
+          // mechanism (optional in-process reverse remains a consumer choice).
+          manifest = {
+            ...manifest,
+            transaction: {
+              ...manifest.transaction,
+              state: 'incomplete',
+              journalMode: 'per-effect',
+              appliedCount: readEffects(manifest).length,
+            },
+          };
+          writeManifest(projectDir, manifest, manifestDir);
+        }
+
+        manifest = {
+          ...manifest,
+          transaction: {
+            ...manifest.transaction,
+            state: 'complete',
+            journalMode: 'per-effect',
+            appliedCount: readEffects(manifest).length,
+            completedAt: new Date().toISOString(),
+          },
+        };
+        writeManifest(projectDir, manifest, manifestDir);
+        return manifest;
+      } finally {
+        locks.release();
+      }
+    },
+
+    uninstall({ projectDir }) {
+      assertNoIncompleteTransaction(projectDir, manifestDir);
+      const locks = acquireInstallLocks({
+        projectDir,
+        extra: resolveExtraIdentities(projectDir, {}),
+        lockRoot,
+      });
+      try {
+        const manifest = readManifest(projectDir, manifestDir);
+        if (manifest == null) return;
+
+        replayReverse(manifest, { basePath: projectDir, manifestDir, language: manifest.language }, registry);
+        removeManifest(projectDir, manifestDir);
+      } finally {
+        locks.release();
+      }
+    },
+  };
+};

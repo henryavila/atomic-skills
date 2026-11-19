@@ -42,6 +42,14 @@ Supported files are `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`,
 `~/.config/opencode/AGENTS.md`, and `~/.gemini/GEMINI.md`; other selected agents
 are named as skipped. Content outside the managed block is preserved, and
 uninstall reverses only the owned block through the install journal.
+Directory and instruction-file symlinks are resolved first; the installer writes
+at their real destinations and preserves the links on update and removal.
+Dangling links, loops, and wrong target types refuse only that instruction file.
+Moving the same file behind a link (or back into a real directory) preserves
+ownership. If the live destination changes to a file without the owned block,
+removal refuses the journaled file and leaves both destinations untouched.
+An unreadable owned destination leaves other agents' installs running; uninstall
+I/O failures retain the journal and report how to retry.
 `status` lists only journal-owned files where the block is present.
 A broken owned marker stops installation because the engine cannot retain that
 effect while updating other skills. Restore the missing marker line, or delete
