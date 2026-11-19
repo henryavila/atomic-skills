@@ -4338,7 +4338,8 @@ finally:
   function detachedExecutorFake(pidFile) {
     writeFileSync(fakePaths.opencode, `#!${PYTHON3}
 import pathlib, subprocess, sys, time
-child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"],
+child = subprocess.Popen([sys.executable, "-c",
+                          "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(600)"],
                          start_new_session=True,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 pathlib.Path(${JSON.stringify(pidFile)}).write_text(str(child.pid))
