@@ -77,6 +77,10 @@ if err_text:
     sys.stderr.write(err_text)
     sys.stderr.flush()
 
+ready_file = os.environ.get("FAKE_READY_FILE")
+if ready_file:
+    pathlib.Path(ready_file).write_text("ready\\n")
+
 sleep_s = float(os.environ.get("FAKE_SLEEP", "0"))
 if sleep_s > 0:
     time.sleep(sleep_s)
@@ -129,6 +133,252 @@ function makeFakeBin(dir, names = ['codex', 'agy', 'opencode']) {
     paths[name] = p;
   }
   return { binDir, paths };
+}
+
+const FAKE_REMOTE_RUNNER = `#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const cp = require('child_process');
+const crypto = require('crypto');
+
+const root = process.env.FAKE_REMOTE_ROOT;
+const state = path.join(root, 'state');
+fs.mkdirSync(state, { recursive: true });
+const argvLog = process.env.FAKE_REMOTE_ARGV_LOG;
+if (argvLog) fs.appendFileSync(argvLog, JSON.stringify(process.argv.slice(2)) + '\\n');
+
+const args = process.argv.slice(2);
+let host = 'devbox';
+let cmd = null;
+let dir = null;
+let noSync = false;
+let command = [];
+let operands = [];
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i];
+  if (arg === '--host') { host = args[++i]; continue; }
+  if (!cmd) { cmd = arg; continue; }
+  if (arg === '--') { command = args.slice(i + 1); break; }
+  if (cmd === 'run') {
+    if (arg === '-n' || arg === '--no-sync') noSync = true;
+    else if (arg === '-C') dir = args[++i];
+    else if (arg === '--wait') i++;
+    else if (arg === '--timeout' || arg === '--lock-wait') i++;
+    else if (arg === '-e' || arg === '--priority' || arg === '--tunnel') i++;
+    else if (arg === '--tunnels' || arg === '--no-queue') {}
+  } else if (!arg.startsWith('-')) {
+    operands.push(arg);
+  }
+}
+
+const real = value => {
+  try { return fs.realpathSync(value); } catch { return path.resolve(value); }
+};
+const registryFile = path.join(state, 'projects.json');
+function readRegistry() {
+  try { return JSON.parse(fs.readFileSync(registryFile, 'utf8')); } catch { return {}; }
+}
+function writeRegistry(value) {
+  fs.writeFileSync(registryFile, JSON.stringify(value));
+}
+function git(cwd, list) {
+  try {
+    return cp.execFileSync('git', ['-C', cwd, ...list], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+  } catch { return ''; }
+}
+function projectFor(local) {
+  return git(local, ['rev-parse', '--show-toplevel']) || real(local);
+}
+function copyTree(src, dest, skip) {
+  const stat = fs.lstatSync(src);
+  if (stat.isSymbolicLink()) {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    try { fs.symlinkSync(fs.readlinkSync(src), dest); } catch {}
+    return;
+  }
+  if (stat.isFile()) {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(src, dest);
+    try { fs.chmodSync(dest, stat.mode & 0o777); } catch {}
+    return;
+  }
+  fs.mkdirSync(dest, { recursive: true });
+  for (const name of fs.readdirSync(src)) {
+    if (skip && skip.includes(name)) continue;
+    copyTree(path.join(src, name), path.join(dest, name), skip);
+  }
+}
+function syncProject(local) {
+  const project = projectFor(local);
+  const common = git(project, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
+    || path.join(project, '.git');
+  const key = crypto.createHash('sha256').update(real(project)).digest('hex').slice(0, 16);
+  const remote = path.join(root, 'projects', key);
+  fs.mkdirSync(remote, { recursive: true });
+  for (const name of fs.readdirSync(remote)) {
+    if (name !== '.git') fs.rmSync(path.join(remote, name), { recursive: true, force: true });
+  }
+  copyTree(project, remote, ['.git']);
+  fs.rmSync(path.join(remote, '.git'), { recursive: true, force: true });
+  copyTree(common, path.join(remote, '.git'), []);
+  const registry = readRegistry();
+  registry[real(project)] = { remote, key };
+  writeRegistry(registry);
+  return { project, remote };
+}
+function remoteFor(localTarget) {
+  const target = path.resolve(localTarget);
+  const registry = readRegistry();
+  const roots = Object.keys(registry).sort((a, b) => b.length - a.length);
+  for (const local of roots) {
+    if (target === local || target.startsWith(local + path.sep)) {
+      return {
+        local: target,
+        remote: path.join(registry[local].remote, path.relative(local, target))
+      };
+    }
+  }
+  return null;
+}
+function runRecordFile(id) {
+  return path.join(state, 'runs', id + '.json');
+}
+function finish(id) {
+  fs.rmSync(runRecordFile(id), { force: true });
+}
+function alive(pid) {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+if (cmd === 'sync') {
+  syncProject(operands[0] || process.cwd());
+  process.exit(0);
+}
+if (cmd === 'doctor') {
+  let report;
+  if (process.env.FAKE_REMOTE_DOCTOR_JSON) report = JSON.parse(process.env.FAKE_REMOTE_DOCTOR_JSON);
+  else if (process.env.FAKE_REMOTE_DOCTOR_FILE) {
+    report = JSON.parse(fs.readFileSync(process.env.FAKE_REMOTE_DOCTOR_FILE, 'utf8'));
+  } else {
+    const checks = [
+      { id: 'connection', status: 'ok', detail: 'ssh=' + host },
+      { id: 'remote-state', status: 'ok', detail: path.join(root, 'home', '.local/state/remote-runner') }
+    ];
+    for (const id of ['opencode', 'codex', 'agy']) {
+      checks.push({ id: 'integration-' + id, status: 'ok', detail: '/usr/local/bin/' + id });
+      checks.push({ id: 'integration-' + id + '-auth', status: 'ok', detail: 'signed in' });
+    }
+    report = { host, checks, result: 'ok' };
+  }
+  report.host = report.host || host;
+  process.stdout.write(JSON.stringify(report) + '\\n');
+  process.exit(report.result === 'ok' ? 0 : 65);
+}
+if (cmd === 'runs') {
+  const dirname = path.join(state, 'runs');
+  fs.mkdirSync(dirname, { recursive: true });
+  for (const name of fs.readdirSync(dirname)) {
+    if (!name.endsWith('.json')) continue;
+    const id = name.slice(0, -5);
+    let record;
+    try { record = JSON.parse(fs.readFileSync(path.join(dirname, name), 'utf8')); }
+    catch { continue; }
+    if (alive(record.pid)) process.stdout.write(id + ' alive pgid=' + record.pid + '\\n');
+    else fs.rmSync(path.join(dirname, name), { force: true });
+  }
+  process.exit(0);
+}
+if (cmd === 'kill') {
+  const id = operands[0];
+  const killLog = process.env.FAKE_REMOTE_KILL_LOG;
+  if (killLog) fs.appendFileSync(killLog, id + '\\n');
+  const record = id && runRecordFile(id);
+  if (record && fs.existsSync(record)) {
+    const data = JSON.parse(fs.readFileSync(record, 'utf8'));
+    try { process.kill(-data.pid, 'SIGTERM'); } catch {}
+    setTimeout(() => { try { process.kill(-data.pid, 'SIGKILL'); } catch {} }, 200);
+    fs.rmSync(record, { force: true });
+  }
+  process.exit(0);
+}
+if (cmd === 'pull') {
+  for (const operand of operands) {
+    const mapped = remoteFor(operand);
+    if (!mapped || !fs.existsSync(mapped.remote)) {
+      process.stderr.write('remote-runner: pull path missing\\n');
+      process.exit(70);
+    }
+    copyTree(mapped.remote, mapped.local, []);
+  }
+  process.exit(0);
+}
+if (cmd === 'run') {
+  const local = path.resolve(dir || process.cwd());
+  let entry;
+  if (noSync) {
+    const mapped = remoteFor(local);
+    if (!mapped) {
+      process.stderr.write('remote-runner: dir never synced\\n');
+      process.exit(72);
+    }
+    entry = { remote: mapped.remote, project: local };
+  } else {
+    entry = syncProject(local);
+  }
+  if (process.env.FAKE_REMOTE_BUSY === '1') process.exit(74);
+  const once = process.env.FAKE_REMOTE_BUSY_ONCE_FILE;
+  if (once && !fs.existsSync(once)) {
+    fs.writeFileSync(once, 'busy\\n');
+    process.exit(74);
+  }
+  const id = crypto.randomUUID();
+  const env = {
+    ...process.env,
+    HOME: path.join(root, 'home'),
+    ATOMIC_SKILLS_HOME: path.join(root, 'home', '.atomic-skills'),
+    GIT_AUTHOR_NAME: 'Remote Executor',
+    GIT_AUTHOR_EMAIL: 'executor@example.com',
+    GIT_COMMITTER_NAME: 'Remote Executor',
+    GIT_COMMITTER_EMAIL: 'executor@example.com'
+  };
+  const child = command.length === 1
+    ? cp.spawn('bash', ['-c', command[0]], { cwd: entry.remote, env, detached: true, stdio: 'inherit' })
+    : cp.spawn(command[0], command.slice(1), { cwd: entry.remote, env, detached: true, stdio: 'inherit' });
+  fs.mkdirSync(path.join(state, 'runs'), { recursive: true });
+  fs.writeFileSync(runRecordFile(id), JSON.stringify({ id, pid: child.pid }));
+  const stop = () => {
+    try { process.kill(-child.pid, 'SIGTERM'); } catch {}
+    setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }, 200);
+  };
+  process.on('SIGTERM', stop);
+  process.on('SIGINT', stop);
+  process.on('SIGHUP', stop);
+  child.on('exit', code => { finish(id); process.exit(code === null ? 1 : code); });
+  child.on('error', () => { finish(id); process.exit(70); });
+  return;
+}
+process.stderr.write('remote-runner: unknown command\\n');
+process.exit(64);
+`;
+
+function makeFakeRemoteRunner(dir) {
+  const binDir = join(dir, 'remote-bin');
+  mkdirSync(binDir, { recursive: true });
+  const remoteRoot = join(dir, 'remote-root');
+  mkdirSync(remoteRoot, { recursive: true });
+  const p = join(binDir, 'remote-runner');
+  writeFileSync(p, FAKE_REMOTE_RUNNER);
+  chmodSync(p, 0o755);
+  return {
+    binDir,
+    path: p,
+    root: remoteRoot,
+    home: join(remoteRoot, 'home'),
+    argvLog: join(dir, 'remote.argv.log'),
+    killLog: join(dir, 'remote.kill.log'),
+  };
 }
 
 function runDelegate(args, env = {}, cwd = undefined) {
@@ -4321,4 +4571,327 @@ finally:
     assert.doesNotMatch(skill, /cannot assume which read directories/);
   });
 
+});
+
+describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+  let root;
+  let atomicHome;
+  let emptyHome;
+  let repoDir;
+  let cardPath;
+  let reviewCardPath;
+  let outDir;
+  let remote;
+  let baseEnv;
+
+  beforeEach(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'as-delegate-remote-')));
+    atomicHome = join(root, 'atomic-home');
+    emptyHome = join(root, 'empty-home');
+    repoDir = join(root, 'repo');
+    outDir = join(root, 'out');
+    mkdirSync(atomicHome, { recursive: true });
+    mkdirSync(emptyHome, { recursive: true });
+    mkdirSync(repoDir, { recursive: true });
+    initGitRepo(repoDir);
+
+    const fakes = makeFakeBin(root);
+    remote = makeFakeRemoteRunner(root);
+
+    cardPath = join(root, 'card.md');
+    writeFileSync(cardPath, '# Task REMOTE-1\nImplement feature X with a unique CARD-SENTINEL.\n');
+    reviewCardPath = join(root, 'review-card.md');
+    writeFileSync(
+      reviewCardPath,
+      '# Review REMOTE-1\nReview the diff `git diff {{DIFF_RANGE}}`\nTOTAL major=0 medium=0 minor=0\n',
+    );
+
+    baseEnv = {
+      PATH: `${fakes.binDir}:${process.env.PATH || '/usr/bin:/bin'}`,
+      HOME: emptyHome,
+      ATOMIC_SKILLS_HOME: atomicHome,
+      DELEGATE_PEAK_WINDOWS: '',
+      DELEGATE_REMOTE_RUNNER: remote.path,
+      FAKE_REMOTE_ROOT: remote.root,
+      FAKE_REMOTE_ARGV_LOG: remote.argvLog,
+      FAKE_REMOTE_KILL_LOG: remote.killLog,
+      FAKE_ARGV_FILE: join(root, 'captured.argv.json'),
+      FAKE_STDIN_FILE: join(root, 'captured.stdin.txt'),
+      FAKE_STDOUT: 'Reviewed the diff; no findings.\nTOTAL major=0 medium=0 minor=0\n',
+      FAKE_LAST_MESSAGE: 'Reviewed the diff; no findings.\nTOTAL major=0 medium=0 minor=0\n',
+    };
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function runArgs(extra = []) {
+    return ['run', '--id', 'RMT', '--task', 'remote task', '--role', 'implement',
+      '--profile', 'flash', '--cwd', repoDir, '--card', cardPath,
+      '--out', outDir, '--confirmed', '--host', 'devbox', ...extra];
+  }
+
+  function pipelineArgs(extra = []) {
+    return ['pipeline', '--id', 'PIPE-RMT', '--task', 'remote pipeline', '--role', 'implement',
+      '--cwd', repoDir, '--card', cardPath, '--route', 'flash,codex',
+      '--gate', `touch '${join(root, 'gate-local.txt')}'`, '--review-card', reviewCardPath,
+      '--review-route', 'codex-review,agy-review', '--out', outDir, '--confirmed',
+      '--host', 'devbox', ...extra];
+  }
+
+  function remoteEnv(extra = {}) {
+    return { ...baseEnv, ...extra };
+  }
+
+  function remoteArgvText() {
+    return existsSync(remote.argvLog) ? readFileSync(remote.argvLog, 'utf8') : '';
+  }
+
+  async function waitFor(predicate, timeoutMs, label) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (predicate()) return;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error(`${label} timed out after ${timeoutMs}ms`);
+  }
+
+  function spawnDelegate(args, env = {}) {
+    return spawn(PYTHON3, [DELEGATE_PY, ...args], {
+      env: { ...process.env, ...env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  }
+
+  it('a local run keeps the old argv and record shape without remote fields', () => {
+    const res = runDelegate(['run', '--id', 'LOCAL', '--task', 'local', '--role', 'implement',
+      '--profile', 'flash', '--cwd', repoDir, '--card', cardPath,
+      '--out', outDir, '--confirmed'], {
+      ...baseEnv, DELEGATE_REMOTE_RUNNER: undefined, FAKE_REMOTE_ROOT: undefined,
+      FAKE_REMOTE_ARGV_LOG: undefined, FAKE_REMOTE_KILL_LOG: undefined,
+    });
+    assert.equal(res.status, 0, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.host, undefined);
+    assert.equal(rec.remote_dir, undefined);
+    assert.equal(rec.sync, undefined);
+    assert.equal(rec.send_s, undefined);
+    assert.equal(rec.run_s, undefined);
+    assert.equal(rec.fetch_s, undefined);
+    assert.ok(!remoteArgvText());
+  });
+
+  it('round trip: ships the bundle, runs remotely, fetches commits and keeps the checkout', () => {
+    const base = git(repoDir, 'rev-parse', 'HEAD');
+    const res = runDelegate(runArgs(), remoteEnv({ FAKE_COMMIT_FILE: 'remote-change.txt' }));
+    assert.equal(res.status, 0, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.host, 'devbox');
+    assert.ok(isAbsolute(rec.remote_dir), rec.remote_dir);
+    assert.equal(rec.sync.sent, base);
+    assert.equal(rec.sync.received, git(repoDir, 'rev-parse', 'HEAD'));
+    assert.notEqual(rec.sync.sent, rec.sync.received);
+    assert.equal(rec.failure, 'none');
+    assert.equal(existsSync(join(repoDir, 'remote-change.txt')), true);
+    assert.ok(rec.send_s >= 0 && rec.run_s >= 0 && rec.fetch_s >= 0, JSON.stringify(rec));
+    assert.ok(existsSync(join(rec.remote_dir, 'tree')), 'remote checkout is kept');
+    assert.equal(existsSync(join(rec.remote_dir, 'run')), false, 'per-run directory is removed');
+    assert.ok(rec.access.limits.some(line => /leftover-process cleanup/.test(line)));
+    assert.ok(rec.access.extra_read.every(path => path.startsWith(rec.remote_dir)),
+      JSON.stringify(rec.access.extra_read));
+    assert.equal(JSON.stringify(rec.access).includes('__DELEGATE_REMOTE_BASE__'), false);
+    assert.equal(existsSync(join(atomicHome, 'delegate', 'running')), false);
+    assert.equal(existsSync(join(outDir, 'RMT.out.md')), true);
+    const remoteArgv = remoteArgvText();
+    assert.match(remoteArgv, /"--wait"/);
+    assert.match(remoteArgv, /"-n"/);
+    assert.match(remoteArgv, /"--host","devbox"/);
+  });
+
+  it('refuses a dirty worktree before any remote call', () => {
+    writeFileSync(join(repoDir, 'dirty.txt'), 'not committed\n');
+    const res = runDelegate(runArgs(), remoteEnv());
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'dirty_worktree');
+    assert.equal(rec.host, 'devbox');
+    assert.equal(remoteArgvText(), '');
+  });
+
+  it('refuses a host where the executor is missing or signed out', () => {
+    const doctor = {
+      host: 'devbox', result: 'doctor-failed',
+      checks: [
+        { id: 'connection', status: 'ok', detail: 'ssh=devbox' },
+        { id: 'integration-opencode', status: 'fail', detail: 'missing; run remote-runner provision --apply' },
+        { id: 'integration-opencode-auth', status: 'skip', detail: 'cannot be checked' },
+      ],
+    };
+    const res = runDelegate(runArgs(), remoteEnv({ FAKE_REMOTE_DOCTOR_JSON: JSON.stringify(doctor) }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'remote_not_ready');
+    assert.match(rec.remote_error, /remote-runner provision --apply/);
+    assert.doesNotMatch(remoteArgvText(), /"run"/);
+  });
+
+  it('turns remote-runner exit 74 into slot_timeout with the host', () => {
+    const before = git(repoDir, 'rev-parse', 'HEAD');
+    const res = runDelegate(runArgs(), remoteEnv({ FAKE_REMOTE_BUSY: '1' }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'slot_timeout');
+    assert.equal(rec.host, 'devbox');
+    assert.equal(git(repoDir, 'rev-parse', 'HEAD'), before);
+  });
+
+  it('pipeline falls back to the next profile after a remote busy host', () => {
+    const once = join(root, 'busy-once');
+    const seq = join(root, 'remote-seq');
+    mkdirSync(seq, { recursive: true });
+    writeFileSync(join(seq, 'step_0.json'), JSON.stringify({ FAKE_COMMIT_FILE: 'pipeline-remote.txt' }));
+    const res = runDelegate(pipelineArgs(), remoteEnv({
+      FAKE_REMOTE_BUSY_ONCE_FILE: once,
+      FAKE_SEQ_DIR: seq,
+    }));
+    assert.equal(res.status, 0, res.stderr);
+    const rec = readLogRecords(atomicHome).at(-1);
+    assert.equal(rec.kind, 'pipeline');
+    assert.equal(rec.host, 'devbox');
+    assert.equal(rec.outcome, 'reviewed');
+    assert.equal(rec.attempts[0].failure, 'slot_timeout');
+    assert.equal(rec.attempts[1].failure, 'none');
+    assert.equal(existsSync(join(repoDir, 'pipeline-remote.txt')), true);
+    assert.equal(existsSync(join(root, 'gate-local.txt')), true,
+      'the host gate still runs locally after the fetch');
+  });
+
+  it('fetches a diverged remote branch into refs/delegate/<id> and leaves the local branch untouched', async () => {
+    const ready = join(root, 'ready');
+    const release = join(root, 'release');
+    const child = spawnDelegate(runArgs(), remoteEnv({
+      FAKE_READY_FILE: ready,
+      FAKE_WAIT_FILE: release,
+      FAKE_COMMIT_FILE: 'remote-diverged.txt',
+    }));
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    await waitFor(() => existsSync(ready), 30000, 'remote executor ready');
+    writeFileSync(join(repoDir, 'local-diverged.txt'), 'local commit\n');
+    git(repoDir, 'add', 'local-diverged.txt');
+    git(repoDir, 'commit', '-m', 'local movement');
+    const localHead = git(repoDir, 'rev-parse', 'HEAD');
+    writeFileSync(release, 'go\n');
+    const status = await new Promise(resolve => child.on('exit', resolve));
+    assert.equal(status, 1, stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'diverged');
+    assert.equal(git(repoDir, 'rev-parse', 'HEAD'), localHead);
+    assert.equal(git(repoDir, 'rev-parse', 'refs/delegate/RMT'), rec.sync.received);
+    assert.equal(existsSync(join(repoDir, 'remote-diverged.txt')), false);
+  });
+
+  it('commits uncommitted remote changes with the local runner message and fetches them', () => {
+    const res = runDelegate(runArgs(), remoteEnv({ FAKE_TOUCH_FILE: 'remote-uncommitted.txt' }));
+    assert.equal(res.status, 0, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'none');
+    assert.equal(rec.uncommitted, true);
+    assert.equal(existsSync(join(repoDir, 'remote-uncommitted.txt')), true);
+    assert.equal(git(repoDir, 'log', '-1', '--pretty=%s'),
+      'RMT: remote task (committed by the delegate runner)');
+    assert.notEqual(rec.sync.sent, rec.sync.received);
+  });
+
+  it('fails a remote review that writes in the remote checkout without touching the local branch', () => {
+    const base = git(repoDir, 'rev-parse', 'HEAD');
+    writeFileSync(join(repoDir, 'review-input.txt'), 'review me\n');
+    git(repoDir, 'add', 'review-input.txt');
+    git(repoDir, 'commit', '-m', 'review input');
+    const head = git(repoDir, 'rev-parse', 'HEAD');
+    const res = runDelegate([
+      'run', '--id', 'REV-RMT', '--task', 'remote review', '--role', 'review',
+      '--profile', 'codex-review', '--cwd', repoDir, '--card', reviewCardPath,
+      '--diff-range', `${base}..${head}`, '--out', outDir, '--confirmed',
+      '--host', 'devbox',
+    ], remoteEnv({ FAKE_TOUCH_FILE: 'remote-review-wrote.txt' }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'review_wrote');
+    assert.equal(git(repoDir, 'rev-parse', 'HEAD'), head);
+    assert.equal(existsSync(join(repoDir, 'remote-review-wrote.txt')), false);
+  });
+
+  it('on timeout kills the remote run through remote-runner kill', () => {
+    const res = runDelegate(runArgs(['--timeout', '1']), remoteEnv({ FAKE_SLEEP: '30' }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'timeout');
+    assert.equal(rec.timed_out, true);
+    const killed = readFileSync(remote.killLog, 'utf8').trim();
+    assert.match(killed, /^[0-9a-f-]{36}$/);
+  });
+
+  it('never puts the prompt, diff or attachments in remote-runner argv', () => {
+    const attachment = join(root, 'attachment.md');
+    writeFileSync(attachment, 'ATTACHMENT-SENTINEL-CONTENT\n');
+    const base = git(repoDir, 'rev-parse', 'HEAD');
+    writeFileSync(join(repoDir, 'diff-input.txt'), 'DIFF-SENTINEL-CONTENT\n');
+    git(repoDir, 'add', 'diff-input.txt');
+    git(repoDir, 'commit', '-m', 'diff input');
+    const range = `${base}..HEAD`;
+    const res = runDelegate(runArgs(['--diff-range', range, '--attach', attachment]), remoteEnv());
+    assert.equal(res.status, 0, res.stderr);
+    const argvText = remoteArgvText();
+    for (const sentinel of ['CARD-SENTINEL', 'ATTACHMENT-SENTINEL', 'DIFF-SENTINEL-CONTENT']) {
+      assert.equal(argvText.includes(sentinel), false, sentinel);
+    }
+    assert.match(remoteArgvText(), /--host/);
+    assert.match(remoteArgvText(), /devbox/);
+  });
+
+  it('does not read local credential files', () => {
+    const credential = join(emptyHome, '.codex', 'auth.json');
+    mkdirSync(dirname(credential), { recursive: true });
+    writeFileSync(credential, 'LOCAL-CREDENTIAL-CANARY\n');
+    const res = runDelegate(runArgs(['--profile', 'codex']), remoteEnv());
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(readFileSync(credential, 'utf8'), 'LOCAL-CREDENTIAL-CANARY\n');
+    assert.doesNotMatch(remoteArgvText(), /auth\.json|CREDENTIAL-CANARY/);
+  });
+
+  it('profiles --host shows which executors are ready there', () => {
+    const res = runDelegate(['profiles', '--host', 'devbox'], baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /^flash \| opencode \| .* \| host=devbox ready$/m);
+    assert.match(res.stdout, /^agy \| agy \| .* \| host=devbox ready$/m);
+    assert.equal(res.stdout.trim().split('\n').length, 18);
+  });
+
+  it('profiles --host reports a not-ready executor with the remote fix', () => {
+    const doctor = {
+      host: 'devbox', result: 'doctor-failed',
+      checks: [
+        { id: 'connection', status: 'ok', detail: 'ssh=devbox' },
+        { id: 'integration-opencode', status: 'ok', detail: '/usr/local/bin/opencode' },
+        { id: 'integration-opencode-auth', status: 'warn', detail: 'not signed in; run `remote-runner auth opencode`' },
+      ],
+    };
+    const res = runDelegate(['profiles', '--host', 'devbox'],
+      remoteEnv({ FAKE_REMOTE_DOCTOR_JSON: JSON.stringify(doctor) }));
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /host=devbox not-ready \(not signed in; run `remote-runner auth opencode`\)/);
+  });
+
+  it('remote-clean removes only the requested remote checkout', () => {
+    const res = runDelegate(runArgs(), remoteEnv({ FAKE_COMMIT_FILE: 'cleaned.txt' }));
+    assert.equal(res.status, 0, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.ok(existsSync(join(rec.remote_dir, 'tree')));
+    const clean = runDelegate(['remote-clean', '--host', 'devbox', '--cwd', repoDir, '--id', 'RMT'],
+      remoteEnv());
+    assert.equal(clean.status, 0, clean.stderr);
+    assert.equal(existsSync(rec.remote_dir), false);
+  });
 });
