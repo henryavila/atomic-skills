@@ -19,13 +19,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
 const DELEGATE_PY = join(REPO_ROOT, 'skills/shared/delegate-assets/delegate.py');
 
-const pythonProbe = spawnSync('python3', ['-c', 'import sys; print(sys.executable)'], {
+const pythonProbe = spawnSync(process.env.DELEGATE_TEST_PYTHON || 'python3', ['-c', 'import sys; print(sys.executable)'], {
   encoding: 'utf8',
 });
+if (process.env.DELEGATE_TEST_PYTHON) assert.equal(pythonProbe.status, 0, pythonProbe.stderr || String(pythonProbe.error));
 const hasPython3 = pythonProbe.status === 0;
 const PYTHON3 = hasPython3 ? pythonProbe.stdout.trim() : 'python3';
 
-const FAKE_SCRIPT = `#!/usr/bin/env python3
+const FAKE_SCRIPT = `#!${PYTHON3}
 import json, os, pathlib, subprocess, sys, time
 
 seq_dir = os.environ.get("FAKE_SEQ_DIR")
@@ -205,6 +206,135 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     rmSync(root, { recursive: true, force: true });
   });
 
+  function reviewRange(separator = '...') {
+    const base = git(repoDir, 'rev-parse', 'HEAD');
+    writeFileSync(join(repoDir, 'review-input.md'), 'changed `````` content\n');
+    git(repoDir, 'add', 'review-input.md');
+    git(repoDir, 'commit', '-m', 'review input');
+    return `${base}${separator}HEAD`;
+  }
+  function reviewArgs(extra = [], profile = 'agy-review') {
+    return ['run', '--id', 'D8', '--task', 'review input', '--role', 'review',
+      '--profile', profile, '--cwd', repoDir, '--card', reviewCardPath,
+      '--out', outDir, '--confirmed', ...extra];
+  }
+  for (const profile of ['agy-review', 'codex-review', 'flash-review']) {
+    it(`D8 composes and saves exact input for ${profile}, preserving the card`, () => {
+      const range = reviewRange('..');
+      const original = readFileSync(reviewCardPath, 'utf8');
+      const extra = join(root, 'extra.md');
+      writeFileSync(extra, 'extra card ```````\n');
+      const res = runDelegate(reviewArgs(['--diff-range', range, '--attach', cardPath, '--attach', extra], profile), baseEnv);
+      assert.equal(res.status, 0, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      const prompt = readFileSync(rec.prompt, 'utf8');
+      const diff = execFileSync('git', ['-C', repoDir, 'diff', range], { encoding: 'utf8' });
+      assert.equal(rec.diff_bytes, Buffer.byteLength(diff));
+      assert.deepEqual(rec.attached, ['card.md', 'extra.md']);
+      assert.equal(readFileSync(reviewCardPath, 'utf8'), original);
+      assert.ok(prompt.startsWith(original));
+      assert.match(prompt, /## Attached: card\.md\n/);
+      assert.ok(prompt.indexOf('## Attached: extra.md') > prompt.indexOf('## Attached: card.md'));
+      assert.ok(prompt.indexOf(`## Diff ${range}`) > prompt.indexOf('## Attached: extra.md'));
+      assert.ok(prompt.includes(diff));
+      const diffBlock = prompt.slice(prompt.indexOf(`## Diff ${range}`)).split('\n');
+      assert.ok(diffBlock.some(line => /^`{7,}(diff)?$/.test(line)), 'diff fence must exceed six backticks');
+      assert.match(prompt, /`{8,}\nextra card/);
+      const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
+      assert.equal(profile === 'codex-review' ? readFileSync(stdinFile, 'utf8') :
+        profile === 'agy-review' ? argv[argv.indexOf('-p') + 1] : argv.at(-1), prompt);
+    });
+  }
+  for (const profile of ['agy-review', 'agy']) {
+    it(`D8 refuses ${profile} review without range before launch or run record`, () => {
+      const res = runDelegate(reviewArgs([], profile), baseEnv);
+      assert.equal(res.status, 2, res.stderr);
+      assert.match(res.stderr.trim(), /^delegate: .*--diff-range[^\n]*$/);
+      assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+      assert.throws(() => readLogRecords(atomicHome), { code: 'ENOENT' });
+    });
+  }
+  it('D8 refuses a missing attachment as a usage error', () => {
+    const res = runDelegate(reviewArgs(['--diff-range', reviewRange(), '--attach', join(root, 'missing')]), baseEnv);
+    assert.equal(res.status, 2, res.stderr);
+    assert.match(res.stderr, /attach.*missing/i);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+    assert.throws(() => readLogRecords(atomicHome), { code: 'ENOENT' });
+  });
+  it('D8 refuses a missing pipeline attachment before executing the author', () => {
+    const res = runDelegate(pipelineArgs(['--review-attach', join(root, 'missing')]), baseEnv);
+    assert.equal(res.status, 2, res.stderr);
+    assert.match(res.stderr, /attach.*missing/i);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+    assert.throws(() => readLogRecords(atomicHome), { code: 'ENOENT' });
+  });
+  it('D8 refuses an empty diff and records the failure without launching', () => {
+    const res = runDelegate(reviewArgs(['--diff-range', 'HEAD...HEAD']), baseEnv);
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'empty_diff');
+    assert.equal(rec.diff_bytes, 0);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+  });
+  it('D8 refuses oversized composed UTF-8 input with sizes and no truncation', () => {
+    const range = reviewRange();
+    writeFileSync(cardPath, 'é'.repeat(310000));
+    const res = runDelegate(reviewArgs(['--diff-range', range, '--attach', cardPath]), baseEnv);
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'review_input_too_large');
+    assert.ok(rec.prompt_bytes > 600 * 1024);
+    assert.ok(rec.diff_bytes > 0);
+    assert.equal(rec.attached_bytes, 620000);
+    assert.equal(Buffer.byteLength(readFileSync(rec.prompt, 'utf8')), rec.prompt_bytes);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+  });
+  for (const extraAttach of [false, true]) {
+    it(`D8 pipeline supplies range and author card automatically (extra=${extraAttach})`, () => {
+      const extra = join(root, 'context.md'); writeFileSync(extra, 'additional context');
+      const res = runDelegate(pipelineArgs(['--review-route', 'agy-review',
+        ...(extraAttach ? ['--review-attach', extra] : [])]), steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]));
+      assert.equal(res.status, 0, res.stderr);
+      const recs = readLogRecords(atomicHome);
+      const review = recs.find(r => r.role === 'review');
+      const pipe = recs.at(-1);
+      const prompt = readFileSync(review.prompt, 'utf8');
+      assert.ok(prompt.includes(`## Diff ${pipe.base}...${pipe.head}`));
+      assert.ok(prompt.includes(readFileSync(cardPath, 'utf8')));
+      assert.ok(prompt.includes('diff --git a/feature b/feature'));
+      assert.deepEqual(review.attached, extraAttach ? ['card.md', 'context.md'] : ['card.md']);
+      if (extraAttach) assert.ok(prompt.includes('additional context'));
+    });
+  }
+  for (const stage of ['executor', 'review']) {
+    for (const fallback of [false, true]) {
+      it(`D8 ${stage} slot timeout ${fallback ? 'falls back' : 'exhausts route'}`, () => {
+        const extra = stage === 'executor'
+          ? ['--route', fallback ? 'flash,codex' : 'flash', '--review-route', 'agy-review']
+          : ['--review-route', fallback ? 'codex-review,agy-review' : 'codex-review'];
+        const started = Date.now();
+        const res = runDelegate(pipelineArgs([...extra, '--wait', '0']), {
+          ...steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]),
+          [stage === 'executor' ? 'DELEGATE_MAX_OPENCODE' : 'DELEGATE_MAX_CODEX']: '0',
+        });
+        assert.ok(Date.now() - started < 2000);
+        assert.equal(res.status, fallback ? 0 : 1, res.stderr);
+        const pipe = readLogRecords(atomicHome).at(-1);
+        const timed = pipe.attempts.find(r => r.failure === 'slot_timeout');
+        assert.ok(timed, JSON.stringify(pipe));
+        assert.equal(pipe.outcome, fallback ? 'reviewed' : stage === 'executor' ? 'no_executor' : 'no_reviewer');
+        assert.equal(pipe.attempts.filter(r => r.failure === 'none').length, fallback ? 2 : stage === 'executor' ? 0 : 1);
+      });
+    }
+  }
+  it('D8 standalone slot timeout retains exit 4 and records slot_timeout', () => {
+    const res = runDelegate(reviewArgs(['--wait', '0'], 'codex-review'), { ...baseEnv, DELEGATE_MAX_CODEX: '0' });
+    assert.equal(res.status, 4, res.stderr);
+    assert.match(res.stderr, /slot wait timed out/);
+    assert.equal(readLogRecords(atomicHome)[0].failure, 'slot_timeout');
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+  });
+
   for (const [label, profile, env, failure] of [
     ['agy empty', 'agy-review', { FAKE_STDOUT: '' }, 'empty_output'],
     ['agy whitespace', 'agy-review', { FAKE_STDOUT: ' \n\t' }, 'empty_output'],
@@ -224,11 +354,13 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       const res = runDelegate([
         'run', '--id', 'T-REVIEW-OUTPUT', '--task', label,
         '--role', 'review', '--profile', profile,
+        ...(profile.startsWith('agy') ? ['--diff-range', reviewRange()] : []),
         '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
       ], { ...baseEnv, ...env });
       assert.equal(res.status, failure === 'none' ? 0 : 1, res.stderr);
       const [rec] = readLogRecords(atomicHome);
       assert.equal(rec.failure, failure);
+      assert.ok(rec.duration_s < 60);
       assert.equal(rec.uncommitted, false);
     });
   }
@@ -1022,7 +1154,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         '--id', 'T-AGY-REV',
         '--task', 'agy review task',
         '--role', 'review',
-        '--profile', 'agy-review',
+        '--profile', 'agy-review', '--diff-range', reviewRange(),
         '--cwd', repoDir,
         '--card', cardPath,
         '--out', outDir,
@@ -1034,7 +1166,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     assert.deepEqual(JSON.parse(readFileSync(argvFile, 'utf8')), [
       fakePaths.agy,
       '-p',
-      cardText,
+      readFileSync(readLogRecords(atomicHome).at(-1).prompt, 'utf8'),
       '--model',
       'gemini-4-hydrogen-xhigh',
       '--output-format',
@@ -1369,6 +1501,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
           '--task', label,
           '--role', 'review',
           '--profile', profile,
+          ...(profile.startsWith('agy') ? ['--diff-range', reviewRange()] : []),
           '--cwd', repoDir,
           '--card', cardPath,
           '--out', outDir,
@@ -1425,7 +1558,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
           '--id', 'T-PREC',
           '--task', label,
           '--role', 'review',
-          '--profile', 'agy-review',
+          '--profile', 'agy-review', '--diff-range', reviewRange(),
           '--cwd', repoDir,
           '--card', cardPath,
           '--out', outDir,
@@ -1893,7 +2026,8 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       `expected ${preRunHead}...HEAD in reviewer card, got:\n${revCard}`,
     );
     const revArgv = JSON.parse(readFileSync(join(seqDir, 'argv_1.json'), 'utf8'));
-    assert.ok(revArgv.includes(revCard));
+    const reviewRun = recs.find(r => r.kind === 'run' && r.role === 'review');
+    assert.ok(revArgv.includes(readFileSync(reviewRun.prompt, 'utf8')));
   });
 
   it('pipeline executor changes nothing ends with no_changes', () => {
@@ -2360,7 +2494,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
         '--cwd', repoDir,
         '--card', cardPath,
         '--route', 'flash',
-        '--gate', `python3 ${DELEGATE_PY} pause --reason "mid-gate stop"`,
+        '--gate', `'${PYTHON3}' '${DELEGATE_PY}' pause --reason "mid-gate stop"`,
         '--review-card', reviewCardPath,
         '--review-route', 'codex-review',
         '--out', outDir,
@@ -2758,7 +2892,7 @@ d.wait_for_exit = lambda *args: None
 original = SystemExit(143) if '${phase}' == 'proof' else KeyboardInterrupt()
 injected = False
 sent = []
-def waitid(*args):
+def child_exited(*args):
  global injected
  if '${phase}' == 'proof' and not injected:
   injected = True
@@ -2769,7 +2903,7 @@ def killpg(pid, sig):
   injected = True
   raise original
  sent.append((pid, sig))
-os.waitid = waitid
+d.child_exited = child_exited
 os.killpg = killpg
 os.getpgid = lambda pid: pid
 try:
@@ -2872,7 +3006,7 @@ finally:
       const res = pythonHarness(`
 children = []
 original_popen = subprocess.Popen
-original_waitid = os.waitid
+original_child_exited = d.child_exited
 original_killpg = os.killpg
 def spawn(*args, **kwargs):
  p = original_popen(*args, **kwargs)
@@ -2882,12 +3016,12 @@ d.subprocess.Popen = spawn
 d.wait_for_exit = lambda *args: None
 injected = False
 sent = []
-def waitid(*args):
+def child_exited(*args):
  global injected
  if '${phase}' == 'proof' and not injected:
   injected = True
   raise SystemExit(143)
- return original_waitid(*args)
+ return original_child_exited(*args)
 def killpg(pid, sig):
  global injected
  if '${phase}' == 'signal' and not injected:
@@ -2895,7 +3029,7 @@ def killpg(pid, sig):
   raise KeyboardInterrupt()
  sent.append(sig)
  return original_killpg(pid, sig)
-os.waitid = waitid
+d.child_exited = child_exited
 os.killpg = killpg
 started = time.monotonic()
 try:
@@ -2908,7 +3042,7 @@ try:
  assert not list(d.RUNNING.glob('*.json')), 'slot retained'
  assert time.monotonic()-started < 3, 'cleanup blocked on live executor'
 finally:
- os.waitid = original_waitid
+ d.child_exited = original_child_exited
  os.killpg = original_killpg
  for p in children:
   if p.poll() is None: p.kill()
@@ -3108,7 +3242,7 @@ except SystemExit as exc: assert exc.code == 1
         res = runDelegate(pipelineArgs(['--wait', '0']), {...baseEnv, DELEGATE_MAX_OPENCODE:'0'});
         assert.equal(res.status, mode === 'paused' ? 3 : 1);
       }
-      const reason = mode === 'slot' ? /slot wait timed out.*opencode/ : mode === 'paused' ? /paused/ : /interrupted/;
+      const reason = mode === 'slot' ? /slot_timeout/ : mode === 'paused' ? /paused/ : /interrupted/;
       const rec = readLogRecords(atomicHome).at(-1);
       assert.match(rec.error, reason);
       if (mode !== 'paused') assert.match(rec.attempts[0].failure, reason);
@@ -3291,6 +3425,58 @@ finally:
 `);
     assert.equal(res.status, 0, res.stderr);
   });
+  // Exercise the fallback even on interpreters that expose os.waitid.
+  function withoutWaitid() {
+    const siteDir = join(root, 'no-waitid');
+    mkdirSync(siteDir, { recursive: true });
+    writeFileSync(join(siteDir, 'sitecustomize.py'),
+      'import os\nif hasattr(os, "waitid"): del os.waitid\n');
+    return { PYTHONPATH: [siteDir, process.env.PYTHONPATH].filter(Boolean).join(':') };
+  }
+
+  it('F1 no waitid: normal exit keeps child reserved and refuses a reaped PID', () => {
+    const res = pythonHarness(`
+assert not hasattr(os, 'waitid')
+p = subprocess.Popen([sys.executable, '-c', 'pass'], start_new_session=True)
+try:
+ d.wait_for_exit(p, 3)
+ assert p.returncode is None, 'observer reaped Popen child'
+ assert os.waitpid(p.pid, os.WNOHANG) == (p.pid, 0), 'exit status lost'
+ sent = []
+ os.killpg = lambda *args: sent.append(args)
+ d.stop_process(p)
+ assert not sent, 'signalled a PID after child was externally reaped'
+finally:
+ p.wait()
+`, withoutWaitid());
+    assert.equal(res.status, 0, res.stderr);
+    const pipeline = runDelegate(pipelineArgs(), {
+      ...baseEnv, ...withoutWaitid(),
+      ...steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]),
+    });
+    assert.equal(pipeline.status, 0, pipeline.stderr);
+    assert.equal(readLogRecords(atomicHome).at(-1).outcome, 'reviewed');
+  });
+
+  it('F1 gate preserves caller PATH and environment without sourcing shell startup files', () => {
+    const marker = join(root, 'gate-env.json');
+    const probe = join(root, 'probe.py');
+    writeFileSync(probe, 'import json, os, sys; json.dump(dict(os.environ), open(sys.argv[1], "w"))');
+    const startup = join(root, 'startup.sh');
+    writeFileSync(startup, 'export PATH=/usr/bin:/bin\nexport F1_STARTUP_LOADED=yes\n');
+    writeFileSync(join(emptyHome, '.bash_profile'), readFileSync(startup));
+    const env = { ...baseEnv, ...steps([{ FAKE_COMMIT_FILE: 'feature' }, {}]),
+      BASH_ENV: startup, F1_SENTINEL: 'caller value', F1_STARTUP_LOADED: undefined };
+    const res = runDelegate(pipelineArgs(['--gate', `'${PYTHON3}' '${probe}' '${marker}'`]), env);
+    assert.equal(res.status, 0, res.stderr);
+    const observed = JSON.parse(readFileSync(marker, 'utf8'));
+    assert.equal(observed.PATH, env.PATH);
+    assert.equal(observed.F1_SENTINEL, env.F1_SENTINEL);
+    assert.equal(observed.BASH_ENV, startup);
+    assert.equal(observed.F1_STARTUP_LOADED, undefined);
+    assert.equal(observed.ATOMIC_SKILLS_HOME, atomicHome);
+  });
+
   for (const mode of ['exception', 'signal', 'timeout', 'kill']) {
     it(`D4 R08 R12 cleans real process group after ${mode} with TERM resistant descendant`, () => {
       const res = pythonHarness(`
@@ -3351,7 +3537,7 @@ finally:
   try: os.kill(int(child_file.read_text()), signal.SIGKILL)
   except ProcessLookupError: pass
  if runner is not None and runner.poll() is None: runner.terminate(); runner.wait(timeout=3)
-`);
+`, withoutWaitid());
       assert.equal(res.status, 0, res.stderr || String(res.error));
     });
   }
@@ -3426,7 +3612,7 @@ finally:
     assert.equal(res.status, 0, res.stderr); assert.match(res.stdout, /gate_failed 1/);
   });
   it('D3 R01 report counts classified failures with zero exit', () => {
-    runDelegate(['run', '--id', 'incomplete', '--task', 'incomplete', '--role', 'review', '--profile', 'agy-review', '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed'], { ...baseEnv, FAKE_STDOUT: 'unfinished' });
+    runDelegate(['run', '--id', 'incomplete', '--task', 'incomplete', '--role', 'review', '--profile', 'agy-review', '--diff-range', reviewRange(), '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed'], { ...baseEnv, FAKE_STDOUT: 'unfinished' });
     const res = runDelegate(['report'], baseEnv);
     assert.equal(res.status, 0, res.stderr); assert.match(res.stdout, /failed runs 1/);
   });
@@ -3442,7 +3628,7 @@ finally:
     }
   });
   it('D3 R04 provider_limit takes precedence over review_wrote together', () => {
-    const res = runDelegate(['run', '--id', 'both', '--task', 'both', '--role', 'review', '--profile', 'agy-review', '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed'], { ...baseEnv, FAKE_TOUCH_FILE: 'README.md', FAKE_EXIT: '1', FAKE_STDERR: '429 quota' });
+    const res = runDelegate(['run', '--id', 'both', '--task', 'both', '--role', 'review', '--profile', 'agy-review', '--diff-range', reviewRange(), '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed'], { ...baseEnv, FAKE_TOUCH_FILE: 'README.md', FAKE_EXIT: '1', FAKE_STDERR: '429 quota' });
     assert.equal(res.status, 1);
     const [rec] = readLogRecords(atomicHome);
     assert.equal(rec.dirty_after, true); assert.equal(rec.failure, 'provider_limit');

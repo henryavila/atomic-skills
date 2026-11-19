@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """delegate.py — run an external executor on a task card and keep the audit trail.
 
+Requires Python 3.9 or later on macOS or Linux.
+
 Subcommands:
   run       launch one executor (opencode/DeepSeek, codex, or agy) on a card, headless,
             with a hard timeout; capture output; append a `run` record with measured facts.
@@ -20,7 +22,7 @@ The log is one JSONL file shared by every project and agent on this machine:
   ${ATOMIC_SKILLS_HOME:-~/.atomic-skills}/delegate/runs.jsonl
 Records are append-only. Values are enums, never free text, so the log can be audited.
 """
-import argparse, datetime as dt, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time, tempfile
+import argparse, datetime as dt, errno, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time, tempfile
 from pathlib import Path
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
@@ -46,6 +48,13 @@ MODELS = {
     "agy": ("agy", "gemini-4-hydrogen-high", "gemini"),
     "agy-review": ("agy", "gemini-4-hydrogen-xhigh", "gemini"),
 }
+# Executor capabilities shared by every profile using that CLI.
+EXECUTOR_FLAGS = {
+    "opencode": {"requires_review_diff": False},
+    "codex": {"requires_review_diff": False},
+    "agy": {"requires_review_diff": True},
+}
+MAX_REVIEW_INPUT_BYTES = 600 * 1024
 ALIASES = {
     "deepseek-light": "flash",
 }
@@ -358,12 +367,41 @@ def group_alive(pgid):
         return True
 
 
+def child_exited(pid):
+    """Non-reaping ownership/exit probe; ECHILD means the PID is no longer ours."""
+    if hasattr(os, "waitid"):
+        return os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
+
+    # macOS libc has waitid even on Python 3.9, which does not expose os.waitid
+    # or its constants. Use the same WNOWAIT contract, never waitpid/poll here:
+    # reaping early would release the PID/PGID before we finish signalling it.
+    import ctypes
+    if sys.platform == "darwin":
+        p_pid, options = 1, 0x04 | 0x01 | 0x20  # WEXITED | WNOHANG | WNOWAIT
+    elif sys.platform.startswith("linux"):
+        p_pid, options = 1, 0x04 | 0x01 | 0x01000000
+    else:
+        raise RuntimeError("non-reaping child observation requires macOS or Linux")
+    waitid = ctypes.CDLL(None, use_errno=True).waitid
+    waitid.argtypes = [ctypes.c_int, ctypes.c_uint, ctypes.c_void_p, ctypes.c_int]
+    waitid.restype = ctypes.c_int
+    # siginfo_t is <=128 bytes on these platforms. Overallocate with native long
+    # alignment; only the common first int (si_signo) is needed. The zero-filled
+    # buffer remains zero when WNOHANG finds no exit; an exit reports SIGCHLD.
+    info = (ctypes.c_long * 32)()
+    while waitid(p_pid, pid, ctypes.byref(info), options) != 0:
+        error = ctypes.get_errno()
+        if error == errno.EINTR:
+            continue
+        raise OSError(error, os.strerror(error))
+    return ctypes.c_int.from_buffer(info).value == signal.SIGCHLD
+
+
 def wait_for_exit(process, timeout):
     """Observe exit without reaping: the zombie reserves PID/PGID until cleanup."""
     deadline = time.monotonic() + timeout
     while True:
-        result = os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
-        if result is not None:
+        if child_exited(process.pid):
             return
         if time.monotonic() >= deadline:
             raise subprocess.TimeoutExpired(process.args, timeout)
@@ -374,10 +412,10 @@ def stop_process(process):
     """Signal an unreaped child even if interrupted during ownership proof."""
     try:
         if process.returncode is None and not getattr(process, "_group_stopped", False):
-            owned = True  # Popen owns this unreaped child until waitid says otherwise.
+            owned = True  # Popen owns this unreaped child until the probe says otherwise.
             try:
                 try:
-                    os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+                    child_exited(process.pid)
                 except ChildProcessError:
                     owned = False
             finally:
@@ -461,9 +499,55 @@ def check_model_allowed(role, executor, model):
         sys.exit(2)
 
 
+def usage_error(message):
+    print(f"delegate: {message}", file=sys.stderr)
+    sys.exit(2)
+
+
+def fenced(content):
+    fence = "`" * max(3, 1 + max((len(run) for run in re.findall(r"`+", content)), default=0))
+    return f"{fence}\n{content}" + ("" if content.endswith("\n") else "\n") + f"{fence}\n"
+
+
+def read_attachment(filename):
+    try:
+        return Path(filename).read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        usage_error(f"cannot attach {filename}: {exc}")
+
+
+def compose_prompt(card, attachments, diff_range, cwd):
+    content = Path(card).read_text(encoding="utf-8")
+    card_bytes = len(content.encode("utf-8"))
+    attached, attached_bytes = [], 0
+    for filename in attachments or []:
+        path = Path(filename)
+        attachment = read_attachment(filename)
+        attached.append(path.name)
+        attached_bytes += len(attachment.encode("utf-8"))
+        content += f"\n## Attached: {path.name}\n" + fenced(attachment)
+    diff_bytes = 0
+    failure = None
+    if diff_range:
+        if not re.fullmatch(r"[^.\s-][^\s]*\.{2,3}[^.\s-][^\s]*", diff_range) or diff_range.startswith("-"):
+            usage_error("--diff-range must be <base>...<head> or <base>..<head>")
+        result = subprocess.run(["git", "-C", cwd, "diff", "--no-ext-diff", diff_range, "--"],
+                                capture_output=True)
+        if result.returncode:
+            usage_error("cannot read --diff-range: " + result.stderr.decode("utf-8", errors="replace").strip())
+        diff_bytes = len(result.stdout)
+        diff = result.stdout.decode("utf-8", errors="replace")
+        content += f"\n## Diff {diff_range}\n" + fenced(diff)
+        if not diff_bytes:
+            failure = "empty_diff"
+    sizes = {"diff_bytes": diff_bytes, "attached": attached, "attached_bytes": attached_bytes,
+             "card_bytes": card_bytes, "prompt_bytes": len(content.encode("utf-8"))}
+    return content, sizes, failure
+
+
 def execute_run(task_id, task, role, profile=None, executor=None, model=None, cwd=None,
                 card=None, out=None, project=None, timeout=5400, wait_s=3600, attempt=1,
-                confirmed=False, allow_peak=False):
+                confirmed=False, allow_peak=False, diff_range=None, attachments=None):
     check_paused()
     alias_notice = None
     if profile in ALIASES:
@@ -486,13 +570,31 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         print(alias_notice, file=sys.stderr)
 
     cwd = str(Path(cwd).resolve())
-    card_content = Path(card).read_text()
+    if role == "review" and EXECUTOR_FLAGS.get(executor, {}).get("requires_review_diff") and not diff_range:
+        usage_error(f"{executor} review requires --diff-range; it cannot run git or read outside the worktree")
+    card_content, input_sizes, input_failure = compose_prompt(card, attachments, diff_range, cwd)
+    if input_sizes["prompt_bytes"] > MAX_REVIEW_INPUT_BYTES:
+        input_failure = "review_input_too_large"
     top = git(cwd, "rev-parse", "--show-toplevel") or cwd
     project = project or Path(top).name
     out_path = Path(out or HOME / "delegate" / "out" / project).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
     stdout, stderr = out_path / f"{task_id}.out.md", out_path / f"{task_id}.err"
     last_msg = out_path / f"{task_id}.last.md"
+    prompt = out_path / f"{task_id}.prompt.md"
+    prompt.write_text(card_content, encoding="utf-8")
+    # A refused input or a queue timeout has an audit record, but no child snapshot.
+    pending = {
+        "kind": "run", "id": task_id, "project": project, "task": task, "role": role,
+        "executor": executor, "model": model, "family": family, "attempt": attempt,
+        "user_confirmed": bool(confirmed), "duration_s": 0, "exit_code": None,
+        "timed_out": False, "card": str(Path(card).resolve()), "prompt": str(prompt),
+        "stdout": str(stdout), "stderr": str(stderr), **input_sizes,
+    }
+    if input_failure:
+        pending.update(failure=input_failure, completed=now().isoformat(timespec="microseconds"))
+        append(pending)
+        return pending
     argv = build_argv(executor, model, role, cwd, card_content, last_msg)
     peak = in_peak() and family == "deepseek"
     if peak:
@@ -509,7 +611,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     queued_at = time.monotonic()
     timed_out = False
 
-    si = open(card, "rb") if executor == "codex" else None
+    si = open(prompt, "rb") if executor == "codex" else None
     try:
         with open(stdout, "w") as so, open(stderr, "w") as se:
             while True:
@@ -564,6 +666,12 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                     wait_for_exit(p, 10)
                 except subprocess.TimeoutExpired:
                     pass
+    except SlotTimeoutError as exc:
+        pending.update(failure="slot_timeout", wait_s=round(time.monotonic() - queued_at, 3),
+                       completed=now().isoformat(timespec="microseconds"))
+        append(pending)
+        exc.record = pending
+        raise
     finally:
         # Reap and removal are one locked transition: kill can trust the runner
         # identity while Darwin hides the unreaped zombie's start time.
@@ -605,7 +713,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         "dirty_after": dirty_after,
         "uncommitted": uncommitted,
         "card": str(Path(card).resolve()), "stdout": str(stdout), "stderr": str(stderr),
-        "attempt": attempt,
+        "attempt": attempt, "prompt": str(prompt), **input_sizes,
     }
     if executor == "codex":
         rec["last_message"] = str(last_msg)
@@ -619,7 +727,7 @@ def cmd_run(a):
         executor=a.executor, model=a.model, cwd=a.cwd, card=a.card,
         out=a.out, project=a.project, timeout=a.timeout,
         wait_s=getattr(a, "wait", 3600), attempt=a.attempt,
-        confirmed=a.confirmed, allow_peak=a.allow_peak,
+        confirmed=a.confirmed, allow_peak=a.allow_peak, diff_range=a.diff_range, attachments=a.attach,
     )
     print(json.dumps(rec, ensure_ascii=False, indent=1))
     sys.exit(0 if rec["failure"] == "none" else 1)
@@ -657,6 +765,8 @@ def cmd_pipeline(a):
         check_model_allowed(role, *MODELS[profile][:2])
     for profile in review_route:
         check_model_allowed("review", *MODELS[profile][:2])
+    for filename in a.review_attach:
+        read_attachment(filename)
     # Each invocation and attempt owns its outputs, even when the same ID is reused.
     attempt_root = Path(tempfile.mkdtemp(prefix=f"{task_id}-", dir=out))
     base_commit = git(cwd, "rev-parse", "HEAD")
@@ -676,7 +786,7 @@ def cmd_pipeline(a):
     commit_result = "not_run"
     commit_duration_s = 0
 
-    def run_attempt(profile, run_role, card):
+    def run_attempt(profile, run_role, card, diff_range=None, attachments=None):
         step_out = attempt_root / f"{len(attempts) + 1}-{run_role}-{profile}"
         # Include pending attempts as well: a pause/slot exhaustion/exception has paths.
         rec = {"profile": profile, "role": run_role, "failure": "interrupted", "duration_s": 0,
@@ -691,7 +801,10 @@ def cmd_pipeline(a):
                 timeout=(a.review_timeout if a.review_timeout is not None else a.timeout)
                 if run_role == "review" else a.timeout,
                 wait_s=a.wait, confirmed=True, attempt=len(attempts),
+                diff_range=diff_range, attachments=attachments,
             ))
+        except SlotTimeoutError as exc:
+            rec.update(exc.record)
         except BaseException as exc:
             rec["failure"] = exception_reason(exc)
             for key in ("stdout", "stderr", "last_message"):
@@ -706,7 +819,7 @@ def cmd_pipeline(a):
         for profile in route:
             check_paused()
             executor_rec = run_attempt(profile, role, a.card)
-            if executor_rec["failure"] == "provider_limit":
+            if executor_rec["failure"] in ("provider_limit", "slot_timeout"):
                 continue
             executor_profile = profile
             if executor_rec["failure"] != "none":
@@ -714,7 +827,9 @@ def cmd_pipeline(a):
             break
         else:
             outcome = "no_executor"
-            error = "every executor route hit provider_limit: " + ", ".join(route)
+            error = "every executor route hit provider_limit: " + ", ".join(route) if all(
+                rec["failure"] == "provider_limit" for rec in attempts) else "executor routes exhausted: " + ", ".join(
+                    f"{rec['profile']} ({rec['failure']})" for rec in attempts)
 
         if outcome is None:
             step = "commit"
@@ -744,7 +859,7 @@ def cmd_pipeline(a):
             t0_gate = time.monotonic()
             with open(gate_log, "w") as gf:
                 gate_ran = True
-                gate_process = subprocess.Popen(["bash", "-lc", a.gate], cwd=cwd,
+                gate_process = subprocess.Popen(["bash", "--noprofile", "--norc", "-p", "-c", a.gate], cwd=cwd,
                                                 stdout=gf, stderr=subprocess.STDOUT,
                                                 start_new_session=True)
                 try:
@@ -774,13 +889,15 @@ def cmd_pipeline(a):
                 if MODELS[profile][2] == executor_family:
                     skipped_reviewers.append(profile)
                     continue
-                review_rec = run_attempt(profile, "review", str(review_card_copy))
+                review_rec = run_attempt(profile, "review", str(review_card_copy),
+                                         diff_range=f"{base_commit}...{gated_snapshot[0]}",
+                                         attachments=[a.card, *a.review_attach])
                 # Quota classification retains its precedence, but writes are never safe to retry.
                 if tree_snapshot(cwd) != gated_snapshot:
                     error = "review_wrote: tree changed after gate"
                     outcome = "no_reviewer"
                     break
-                if review_rec["failure"] in ("provider_limit", "empty_output", "incomplete_review"):
+                if review_rec["failure"] in ("provider_limit", "slot_timeout", "empty_output", "incomplete_review"):
                     continue
                 if review_rec["failure"] == "none":
                     reviewer_profile = profile
@@ -1117,6 +1234,8 @@ def main():
     r.add_argument("--role", required=True, choices=ROLES)
     r.add_argument("--profile", choices=sorted([*MODELS, *ALIASES])); r.add_argument("--executor"); r.add_argument("--model")
     r.add_argument("--cwd", required=True); r.add_argument("--card", required=True)
+    r.add_argument("--diff-range")
+    r.add_argument("--attach", action="append", default=[])
     r.add_argument("--out"); r.add_argument("--project"); r.add_argument("--timeout", type=int, default=5400)
     r.add_argument("--wait", type=int, default=3600)
     r.add_argument("--attempt", type=int, default=1)
@@ -1134,6 +1253,7 @@ def main():
     pipe.add_argument("--gate", required=True)
     pipe.add_argument("--review-card", required=True)
     pipe.add_argument("--review-route", required=True)
+    pipe.add_argument("--review-attach", action="append", default=[])
     pipe.add_argument("--timeout", type=int, default=5400)
     pipe.add_argument("--review-timeout", type=int)
     pipe.add_argument("--wait", type=int, default=3600)

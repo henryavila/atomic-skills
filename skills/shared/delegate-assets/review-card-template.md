@@ -2,11 +2,11 @@ You are the reviewer of this card: do the review yourself, do not open the `dele
 
 # Review <ID>: <task title>
 
-You are a reviewer in a clean context. **Do not change any file.** Review the diff `git diff {{DIFF_RANGE}}` in this worktree; read whole files at HEAD when you need context.
+You are a reviewer in a clean context. **Do not change any file.** Review the diff below; read whole files in this worktree when you need context.
 
 Do not write a plan and wait for approval. Run your checks and deliver the full report in this same turn.
 
-The task the author received: `<path to the task card>`. Judge the result against it, not the author's report.
+The runner attaches the diff and the author's card. Refer to “the diff below” and “the attached card” instead of instructing the reviewer to run git or open a path outside the worktree; `agy` cannot do either. Judge the result against the attached card, not the author's report.
 
 Look for, in this order: behaviour that contradicts the card's decision; untested or wrongly tested paths; regressions outside the listed files; violations of the project's rules; leftovers (debug code, dead code, TODOs).
 

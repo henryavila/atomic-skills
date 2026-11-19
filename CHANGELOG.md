@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Delegate runs on Python 3.9 and later on macOS and Linux, using a non-reaping
+  libc fallback when Python lacks `os.waitid`. Host gates preserve the caller's
+  PATH and environment without sourcing shell startup files; runner tests accept
+  `DELEGATE_TEST_PYTHON` for the runner and fake CLIs.
+
+- Delegate reviews receive the diff and author's card inline, with saved prompts,
+  safe fences, input size limits, and required diff ranges for Antigravity.
+  Executor and reviewer routes now fall back when waiting for a slot times out.
+
 - Global instructions now resolve directory and file symlinks and install directly
   at the destination, preserving the links and user bytes on update, opt-out,
   and uninstall. Status recognizes the destination block. Invalid links refuse

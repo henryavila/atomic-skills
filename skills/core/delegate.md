@@ -1,5 +1,7 @@
 This skill is for the orchestrator. An agent holding a task or review card is the executor or reviewer: do the card’s work yourself, without opening this skill, delegating again or asking for confirmation.
 
+The runner requires Python 3.9 or later on macOS or Linux.
+
 Keep the orchestrator for the two things only it should do here — **create** the task card and **validate** the result — and hand every action (implementing, fixing, mechanical edits, scripted checks) to an external executor: OpenCode (`opencode`), Codex (`codex`), or Antigravity (`agy`). Every run is measured and appended to one audit log, so the skill can be judged and improved from data.
 
 If {{ARG_VAR}} was provided, treat it as the task or list of tasks to delegate (ids, a plan file, or a description). If not, ask the user what to delegate.
@@ -48,6 +50,8 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 - The runner finds the CLIs itself: PATH, the usual bin folders, and for OpenCode the `opencode-cli` inside `OpenCode.app` (the desktop app does not add it to PATH). Do not conclude an executor is missing from `which`; run the runner.
 - Always pass a model. `agy` without `--model` can hang on its default; the runner always passes one.
 
+The host gate inherits the caller's environment, including PATH, and runs in `--cwd` using `bash` without login or startup files (`--noprofile --norc -p -c`, which also ignores `BASH_ENV`, imported functions and shell option overrides). The runner adds or removes no environment variables; the shell manages `PWD`, `OLDPWD`, `SHLVL` and `_` as part of running the command.
+
 ## The loop
 
 1. **Batch table and confirmation.** Before launching anything, show one table and wait for an explicit yes:
@@ -61,7 +65,7 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 
 3. **Write the card** — the only code-shaped thing the orchestrator produces. Use `{{ASSETS_PATH}}/card-template.md`; every task card starts with its executor sentence, and every review card starts with the reviewer sentence in `{{ASSETS_PATH}}/review-card-template.md`. State the rule by its **result** ("a visitor never sees X on any route"), not only by a file list; name files with lines, what must not change, how to check, a final grep, and the delivery (commits, no push). Tell the executor to stay inside the worktree, to write a failing test first, and to commit early.
 
-4. **Pipeline (executor, host gate, cross-family review)** — the default way to run the executor, commit, gate and review in one call. Create a filled review card at `<review.md>` from `{{ASSETS_PATH}}/review-card-template.md`: replace the task ID, title and `<path to the task card>` with this task’s values and the absolute path of `<card.md>`. Leave `{{DIFF_RANGE}}` for the runner to fill:
+4. **Pipeline (executor, host gate, cross-family review)** — the default way to run the executor, commit, gate and review in one call. Create a filled review card at `<review.md>` from `{{ASSETS_PATH}}/review-card-template.md`: replace the task ID and title with this task’s values.:
 
    ```bash
    python3 {{ASSETS_PATH}}/delegate.py pipeline --id <ID> --task "<short title>" --role implement \
@@ -71,11 +75,13 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
      --review-route codex-review,agy-review --confirmed
    ```
 
+   The runner attaches the diff and the author's card automatically; `--review-attach <file>` adds context, while standalone `run` accepts `--diff-range <base>...<head>` (or `<base>..<head>`) and repeatable `--attach <file>`. Refer to “the diff below” and “the attached card” in review cards; `agy` cannot run git or read files outside the worktree, so its standalone reviews require `--diff-range`. The runner saves the composed prompt beside the outputs and refuses an empty diff or input above 600 KB without truncation.
+
    The runner executes the task end-to-end:
-   - **Executor step:** Tries profiles in `--route` in order. On `provider_limit` it falls back to the next profile.
+   - **Executor step:** Tries profiles in `--route` in order. On `provider_limit` or `slot_timeout` it falls back to the next profile; an exhausted route ends the pipeline.
    - **Commit step:** If the executor left changes uncommitted, the runner stages everything and commits with message `<ID>: <task> (committed by the delegate runner)` (`auto_committed: true`). If the executor changed nothing (no commits and clean tree), the pipeline ends with outcome `no_changes`.
    - **Gate step:** Runs `--gate` in `<worktree>` via `bash -lc`, capturing output to `<out>/<ID>.gate.log`. Non-zero ends the pipeline with outcome `gate_failed` without running review.
-   - **Review step:** Picks the first profile in `--review-route` whose family differs from the executor family; a review route that names `flash` resolves to `flash-review`, and both are skipped when the executor is Flash. Replaces `{{DIFF_RANGE}}` in the review card with `<base>...HEAD` (from the pre-run commit); retries on `provider_limit`, `empty_output`, or `incomplete_review`.
+   - **Review step:** Picks the first profile in `--review-route` whose family differs from the executor family; a review route that names `flash` resolves to `flash-review`, and both are skipped when the executor is Flash. Replaces `{{DIFF_RANGE}}` in the review card with `<base>...HEAD` (from the pre-run commit); retries on `provider_limit`, `slot_timeout`, `empty_output`, or `incomplete_review`. An exhausted review route ends with `no_reviewer`.
    - **Review cards for signal or process-group code:** forbid probes that signal processes — a Flash review run was killed by its own probe.
    - **Summary:** You are woken once, read `<ID>.summary.md` instead of the full outputs, triage the findings, send a fix card (another `pipeline` with `--role fix`), then `record` the verdict.
 
