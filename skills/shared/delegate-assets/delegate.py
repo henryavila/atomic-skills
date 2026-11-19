@@ -76,7 +76,7 @@ FORBIDDEN_ARGV_FLAGS = (
 ORPHAN_GRACE_S = 2.0
 # Poll interval for the executor's descendant tree; short enough that a child
 # detached right before the executor exits is still seen as a descendant.
-ORPHAN_POLL_S = 0.2
+ORPHAN_POLL_S = 0.5
 # Commands kept in the `orphans.sample` of a run record.
 ORPHAN_SAMPLE = 5
 ORPHAN_SAMPLE_CHARS = 80
@@ -1091,7 +1091,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if role == "review" and EXECUTOR_FLAGS.get(executor, {}).get("requires_review_diff") and not diff_range:
         usage_error(f"{executor} review requires --diff-range; the runner attaches the exact diff")
     card_content, input_sizes, input_failure = compose_prompt(card, attachments, diff_range, cwd)
-    if role == "review" and not diff_range and "{{DIFF_RANGE}}" in card_content:
+    if role == "review" and not diff_range and "{{DIFF_RANGE}}" in Path(card).read_text(encoding="utf-8"):
         usage_error("review card contains {{DIFF_RANGE}} but no --diff-range was given; "
                     "pass --diff-range <base>...<head>")
     size_failure = "review_input_too_large" if role == "review" else "input_too_large"

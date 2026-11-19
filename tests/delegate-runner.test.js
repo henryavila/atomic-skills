@@ -4342,7 +4342,7 @@ child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"],
                          start_new_session=True,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 pathlib.Path(${JSON.stringify(pidFile)}).write_text(str(child.pid))
-time.sleep(1.5)
+time.sleep(2.0)
 sys.exit(0)
 `);
     chmodSync(fakePaths.opencode, 0o755);
