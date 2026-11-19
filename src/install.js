@@ -11,6 +11,7 @@ import {
 } from './config.js';
 import { hashContent } from './hash.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
+import { GLOBAL_INSTRUCTION_PATHS, DELEGATE_MARKERS, globalInstructionBody, installedGlobalInstructionPaths } from './global-instructions.js';
 import { buildInstaller } from './installer.js';
 import { computeSkillsFileSet } from './providers/skills-file-set.js';
 import { migrateLegacyInstall } from './migrate-legacy-install.js';
@@ -951,10 +952,30 @@ export function installSkills(projectDir, options, callbacks = {}) {
     });
   }
 
-  const installer = buildInstaller({
-    language, ides, skillsDir, metaDir, scope, excludeDesiredPaths,
-  });
-  installer.install({ projectDir });
+  const refusedGlobalPaths = [];
+  for (;;) {
+    const installer = buildInstaller({
+      language, ides, skillsDir, metaDir, scope, excludeDesiredPaths,
+      globalInstructions: options.globalInstructions, refusedGlobalPaths,
+    });
+    try {
+      installer.install({ projectDir });
+      break;
+    } catch (err) {
+      // textBlock validates before touching files or the journal. Only a new,
+      // optional foreign block can be omitted safely; retain existing ownership.
+      const path = Object.values(GLOBAL_INSTRUCTION_PATHS).find(path =>
+        path && err.message === `Malformed textBlock markers at "${path}"`);
+      if (!path || refusedGlobalPaths.includes(path)
+        || priorManifest?.effects?.some(e => e.type === 'textBlock' && e.beforeState?.path === path)) throw err;
+      console.log(`  Global instructions refused: ${path} (malformed markers; kept unchanged)`);
+      refusedGlobalPaths.push(path);
+    }
+  }
+  if (scope === 'user' && options.globalInstructions === true) {
+    const skipped = ides.filter(agent => GLOBAL_INSTRUCTION_PATHS[agent] === null);
+    if (skipped.length) console.log(`  Global instructions skipped: ${skipped.join(', ')} (no confirmed file-based global instructions)`);
+  }
 
   // Derive the return value + legacy compat files-map from the journal + the
   // file-set plan. The journal carries the authoritative installed hashes (on an
@@ -1365,7 +1386,7 @@ export async function install(projectDir, options = {}) {
     // keepFiles/savedContent/orphan logic used to do, now a property of the effect.
     const priorIdes = existingManifest?.ides;
     const result = installSkills(basePath, {
-      language, ides, skillsDir, metaDir, scope, forceAdopt,
+      language, ides, skillsDir, metaDir, scope, forceAdopt, globalInstructions: options.globalInstructions,
     });
 
     // Host plugin registry (outside journal): native Grok plugin, outside Codex.
@@ -1480,9 +1501,21 @@ export async function install(projectDir, options = {}) {
   // left incomplete, operators use `install --repair` / `uninstall --force-incomplete`
   // (P0-A). Never process.kill(SIGINT) self.
 
+  let globalInstructions = options.globalInstructions;
+  if (scope === 'user' && globalInstructions === undefined) {
+    const paths = config.ides.map(agent => GLOBAL_INSTRUCTION_PATHS[agent]).filter(Boolean);
+    p.log.message(`${DELEGATE_MARKERS.begin}\n${globalInstructionBody(config.lang)}\n${DELEGATE_MARKERS.end}`);
+    p.log.message(`Global instruction files: ${paths.map(path => join(basePath, path)).join(', ') || '(none for selected agents)'}`);
+    globalInstructions = await p.confirm({
+      message: 'Install global delegation instructions?',
+      initialValue: installedGlobalInstructionPaths(basePath).length > 0,
+    });
+    if (p.isCancel(globalInstructions)) { p.outro(msg(config.lang).cancelled); return; }
+  }
   const priorIdes = existingManifest?.ides;
   const result = installSkills(basePath, {
     language: config.lang,
+    globalInstructions,
     ides: config.ides,
     skillsDir,
     metaDir,

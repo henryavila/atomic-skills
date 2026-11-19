@@ -1,3 +1,5 @@
+You are the executor of this card: do the work yourself, do not open the `delegate` skill, do not delegate, and do not ask for confirmation.
+
 # Task <ID>: <the result, in one sentence>
 
 Base: `<branch>` at `<commit>`. You are already in the right worktree and branch; do not switch branches.

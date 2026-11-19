@@ -3,6 +3,7 @@ import { createSkillsProvider } from './providers/skills-provider.js';
 import { createAutoUpdateRuntimeProvider } from './runtime-layers/auto-update.js';
 import { createStageRuntimeArtifactsEffect } from './runtime-layers/effects/stage-runtime-artifacts.js';
 import { wrapInstallerRegistryForIdeSymlinks } from './ide-symlink-install.js';
+import { createGlobalInstructionsProvider } from './global-instructions.js';
 import { MANIFEST_DIR } from './manifest.js';
 
 /**
@@ -12,6 +13,7 @@ import { MANIFEST_DIR } from './manifest.js';
  *
  *   - reconcileFileSet  — the skills file set (skill bodies + shared assets +
  *                         per-IDE namespace roots), via the SkillsProvider.
+ *   - textBlock — opt-in user global delegation instructions.
  *   - stageRuntimeArtifacts + jsonMerge — the auto-update SessionStart hook
  *                         (executable version-check.sh + the settings.json entry),
  *                         via the auto-update runtime layer.
@@ -42,7 +44,7 @@ import { MANIFEST_DIR } from './manifest.js';
 export function buildInstaller(config) {
   const installer = defineInstaller({
     config: { manifestDir: MANIFEST_DIR, ...config },
-    providers: [createSkillsProvider(), createAutoUpdateRuntimeProvider()],
+    providers: [createSkillsProvider(), createAutoUpdateRuntimeProvider(), createGlobalInstructionsProvider()],
     effects: [createStageRuntimeArtifactsEffect()],
   });
   wrapInstallerRegistryForIdeSymlinks(installer.registry);

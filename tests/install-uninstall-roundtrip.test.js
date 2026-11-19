@@ -656,3 +656,104 @@ describe('install→uninstall round-trip', () => {
     }
   });
 });
+
+
+describe('optional global delegation instructions', () => {
+  async function fixture(fn) {
+    const home = mkdtempSync(join(tmpdir(), 'as-global-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-global-repo-'));
+    try { await withHome(home, () => fn(home, repo)); }
+    finally { rmSync(home, { recursive: true, force: true }); rmSync(repo, { recursive: true, force: true }); }
+  }
+  const begin = '<!-- BEGIN atomic-skills:delegate -->';
+  const end = '<!-- END atomic-skills:delegate -->';
+  const opts = { yes: true, ide: ['codex'], lang: 'en', globalInstructions: true };
+  for (const scenario of ['existing', 'absent', 'outside-edit', 'deleted-block']) {
+    it(`global block roundtrip: ${scenario}`, () => fixture(async (home, repo) => {
+      const file = join(home, '.codex/AGENTS.md');
+      const original = Buffer.from('before\r\n\xff\n\nafter', 'latin1');
+      if (scenario !== 'absent') { mkdirSync(join(home, '.codex'), { recursive: true }); writeFileSync(file, original); }
+      await install(repo, opts);
+      const installed = readFileSync(file, 'utf8');
+      assert.ok(installed.includes(begin));
+      let expected = original;
+      if (scenario === 'outside-edit') { expected = Buffer.concat([Buffer.from('new user text\n'), original]); writeFileSync(file, Buffer.concat([Buffer.from('new user text\n'), readFileSync(file)])); }
+      if (scenario === 'deleted-block') { expected = Buffer.from('user removed block\n'); writeFileSync(file, expected); }
+      await uninstall(repo, { scope: 'user', yes: true });
+      if (scenario === 'absent') assert.equal(existsSync(file), false);
+      else assert.deepEqual(readFileSync(file), expected);
+    }));
+  }
+  it('update keeps and refreshes, explicit opt-out removes through journal', () => fixture(async (home, repo) => {
+    const file = join(home, '.codex/AGENTS.md');
+    await install(repo, { ...opts, lang: 'pt' });
+    assert.match(readFileSync(file, 'utf8'), /## Delegação/);
+    await install(repo, { yes: true, ide: ['codex'], lang: 'ja' });
+    assert.match(readFileSync(file, 'utf8'), /## Delegation/);
+    assert.equal(readFileSync(file, 'utf8').split(begin).length, 2);
+    await install(repo, { ...opts, globalInstructions: false });
+    assert.equal(existsSync(file), false);
+    await uninstall(repo, { scope: 'user', yes: true });
+  }));
+  it('noninteractive default and project flag never write global instructions', () => fixture(async (home, repo) => {
+    await install(repo, { yes: true, ide: ['codex'], lang: 'en' });
+    assert.equal(existsSync(join(home, '.codex/AGENTS.md')), false);
+    await uninstall(repo, { scope: 'user', yes: true });
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    await install(repo, { ...opts, project: true });
+    assert.equal(existsSync(join(home, '.codex/AGENTS.md')), false);
+    assert.equal(existsSync(join(repo, '.codex/AGENTS.md')), false);
+    await uninstall(repo, { scope: 'project', yes: true });
+  }));
+  it('two agents get blocks, unsupported agents are named, malformed foreign block refuses only that file', () => fixture(async (home, repo) => {
+    const lines = []; const log = console.log; console.log = (...args) => lines.push(args.join(' '));
+    try {
+      const file = join(home, '.claude/CLAUDE.md'); mkdirSync(join(home, '.claude'), { recursive: true });
+      const malformed = `${begin}\nforeign unclosed block\n`; writeFileSync(file, malformed);
+      await install(repo, { ...opts, ide: ['claude-code', 'codex', 'cursor'] });
+      assert.equal(readFileSync(file, 'utf8'), malformed);
+      assert.ok(readFileSync(join(home, '.codex/AGENTS.md'), 'utf8').includes(end));
+      assert.ok(lines.some(l => /skip/i.test(l) && l.includes('cursor')));
+      assert.ok(lines.some(l => /refus/i.test(l) && l.includes('.claude/CLAUDE.md')));
+      assert.ok(existsSync(join(home, '.cursor/skills/atomic-skills/fix/SKILL.md')));
+      await uninstall(repo, { scope: 'user', yes: true });
+      rmSync(file);
+      await install(repo, { ...opts, ide: ['claude-code', 'codex'] });
+      for (const rel of ['.claude/CLAUDE.md', '.codex/AGENTS.md']) assert.ok(readFileSync(join(home, rel), 'utf8').includes(begin));
+      await uninstall(repo, { scope: 'user', yes: true });
+    } finally { console.log = log; }
+  }));
+  it('CLI flags cover every supported path, status, adoption and language fallback', () => fixture(async (home, repo) => {
+    const cli = new URL('../bin/cli.js', import.meta.url).pathname;
+    const run = (...args) => execFileSync(process.execPath, [cli, ...args], { cwd: repo, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
+    assert.match(run('status'), /Global instructions: not installed/);
+    const adopted = join(home, '.codex/AGENTS.md');
+    mkdirSync(join(home, '.codex'), { recursive: true });
+    const original = `before\r\n${begin}\r\noriginal foreign body\r\n${end}\r\nafter`;
+    writeFileSync(adopted, original);
+    run('install', '--yes', '--ide', 'claude-code,codex,opencode,antigravity', '--lang', 'ja', '--global-instructions');
+    const paths = ['.claude/CLAUDE.md', '.codex/AGENTS.md', '.config/opencode/AGENTS.md', '.gemini/GEMINI.md'];
+    const output = run('status');
+    for (const path of paths) {
+      assert.match(readFileSync(join(home, path), 'utf8'), /## Delegation/);
+      assert.ok(output.includes(path));
+    }
+    run('install', '--yes', '--ide', 'codex', '--lang', 'pt');
+    // An unattended update never silently drops previously opted-in blocks,
+    // including agents omitted from a later skill selection.
+    for (const path of paths) assert.match(readFileSync(join(home, path), 'utf8'), /## Delegação/);
+    run('install', '--yes', '--ide', 'codex', '--no-global-instructions');
+    assert.equal(readFileSync(adopted, 'utf8'), original);
+    for (const path of paths.filter(p => p !== '.codex/AGENTS.md')) assert.equal(existsSync(join(home, path)), false);
+    run('uninstall', '--yes');
+    assert.equal(readFileSync(adopted, 'utf8'), original);
+  }));
+  it('versioned block bodies stay neutral and contain the executor exception', () => {
+    for (const lang of ['en', 'pt']) {
+      const body = readFileSync(new URL(`../src/global-instructions/${lang}.md`, import.meta.url), 'utf8');
+      assert.doesNotMatch(body, /claude|codex|opencode|antigravity|grok|copilot|cursor|deepseek|gemini|openai|gpt|opus|sonnet|flash/i);
+      assert.match(body, /atomic-skills:delegate/);
+      assert.match(body, lang === 'en' ? /you are the executor/ : /você é o executor/);
+    }
+  });
+});

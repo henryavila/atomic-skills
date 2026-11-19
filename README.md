@@ -30,6 +30,18 @@ npx @henryavila/atomic-skills install
 **Docs:** [https://atomic-skills.henryavila.com/](https://atomic-skills.henryavila.com/)
 [PRODUCT_END]: #
 
+User installs can opt into global delegation instructions with
+`install --global-instructions`. Interactive installs show the exact block and
+files before asking yes/no (default no, or yes when installed).
+`install --yes` alone adds none and refreshes previously installed blocks;
+`install --no-global-instructions` removes them. Project installs ignore these flags.
+Supported files are `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`,
+`~/.config/opencode/AGENTS.md`, and `~/.gemini/GEMINI.md`; other selected agents
+are named as skipped. Content outside the managed block is preserved, and
+uninstall reverses only the owned block through the install journal.
+`status` lists files containing the block. Portuguese installs use Portuguese;
+all other languages use English.
+
 ## Offline / local docs
 
 Build the static product site from a checkout (no network after install):

@@ -9,6 +9,8 @@ try {
     allowPositionals: true,
     options: {
       yes: { type: 'boolean', short: 'y', default: false },
+      'global-instructions': { type: 'boolean' },
+      'no-global-instructions': { type: 'boolean' },
       project: { type: 'boolean', default: false },
       ide: { type: 'string' },
       lang: { type: 'string' },
@@ -32,7 +34,7 @@ if (values.help || !command) {
   ⚛ Atomic Skills — Stop rewriting prompts.
 
   Usage:
-    npx @henryavila/atomic-skills install    [--yes] [--project] [--ide <ids>|detected] [--all-detected] [--lang <code>] [--repair] [--force-adopt]
+    npx @henryavila/atomic-skills install    [--yes] [--project] [--ide <ids>|detected] [--all-detected] [--lang <code>] [--repair] [--force-adopt] [--global-instructions|--no-global-instructions]
     npx @henryavila/atomic-skills detect     [--project] [--json]
     npx @henryavila/atomic-skills status     [--project]
     npx @henryavila/atomic-skills uninstall  [--yes] [--project] [--force-incomplete]
@@ -40,6 +42,8 @@ if (values.help || !command) {
   Options:
     --yes, -y         Non-interactive: (install) accept auto-detected defaults;
                       (uninstall) skip the confirmation prompt
+    --global-instructions Install global delegation instructions (user scope, opt-in)
+    --no-global-instructions Remove previously installed global delegation instructions
     --project         Skip scope picker and install to the current repo's Git root
     --ide <ids>       Comma-separated: claude-code,cursor,antigravity,codex,opencode,github-copilot,grok
                       Use --ide detected or --all-detected to refresh from installed IDEs
@@ -59,6 +63,10 @@ if (values.help || !command) {
     Docs: https://github.com/henryavila/atomic-skills
   `);
 } else if (command === 'install') {
+  if (values['global-instructions'] && values['no-global-instructions']) {
+    console.error('  Error: use either --global-instructions or --no-global-instructions');
+    process.exit(1);
+  }
   if (values.ide && values['all-detected']) {
     console.error('  Error: use either --ide or --all-detected, not both');
     process.exit(1);
@@ -71,6 +79,7 @@ if (values.help || !command) {
   const useDetected = values.ide === 'detected' || values['all-detected'];
   await install(process.cwd(), {
     yes: values.yes,
+    globalInstructions: values['no-global-instructions'] ? false : values['global-instructions'],
     project: values.project,
     ide: values.ide && values.ide !== 'detected' ? values.ide.split(',') : null,
     lang: values.lang,

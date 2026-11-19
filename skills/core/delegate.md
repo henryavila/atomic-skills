@@ -1,3 +1,5 @@
+This skill is for the orchestrator. An agent holding a task or review card is the executor or reviewer: do the card’s work yourself, without opening this skill, delegating again or asking for confirmation.
+
 Keep the orchestrator for the two things only it should do here — **create** the task card and **validate** the result — and hand every action (implementing, fixing, mechanical edits, scripted checks) to an external executor: OpenCode (`opencode`), Codex (`codex`), or Antigravity (`agy`). Every run is measured and appended to one audit log, so the skill can be judged and improved from data.
 
 If {{ARG_VAR}} was provided, treat it as the task or list of tasks to delegate (ids, a plan file, or a description). If not, ask the user what to delegate.
@@ -57,7 +59,7 @@ About to record `gate_host: pass` from the executor's own words? STOP — run th
 
 2. **Isolate.** Commit your own work first. One worktree per task, cut from the integration branch, dependencies installed in it (`skills/shared/worktree-isolation.md`). Two executors never share a worktree.
 
-3. **Write the card** — the only code-shaped thing the orchestrator produces. Use `{{ASSETS_PATH}}/card-template.md`. State the rule by its **result** ("a visitor never sees X on any route"), not only by a file list; name files with lines, what must not change, how to check, a final grep, and the delivery (commits, no push). Tell the executor to stay inside the worktree, to write a failing test first, and to commit early.
+3. **Write the card** — the only code-shaped thing the orchestrator produces. Use `{{ASSETS_PATH}}/card-template.md`; every task card starts with its executor sentence, and every review card starts with the reviewer sentence in `{{ASSETS_PATH}}/review-card-template.md`. State the rule by its **result** ("a visitor never sees X on any route"), not only by a file list; name files with lines, what must not change, how to check, a final grep, and the delivery (commits, no push). Tell the executor to stay inside the worktree, to write a failing test first, and to commit early.
 
 4. **Pipeline (executor, host gate, cross-family review)** — the default way to run the executor, commit, gate and review in one call. Create a filled review card at `<review.md>` from `{{ASSETS_PATH}}/review-card-template.md`: replace the task ID, title and `<path to the task card>` with this task’s values and the absolute path of `<card.md>`. Leave `{{DIFF_RANGE}}` for the runner to fill:
 
