@@ -1374,9 +1374,9 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         fetch_t0 = time.monotonic()
         shutil.rmtree(local_res, ignore_errors=True)
         pull = remote_cli(["pull", "--host", host, str(local_res)], timeout=max(120, timeout + 120))
-        fetch_s = time.monotonic() - fetch_t0
         meta_file = local_res / "meta.txt"
         if not meta_file.is_file():
+            fetch_s = time.monotonic() - fetch_t0
             _cleanup_remote_local(stage, local_res)
             if timed_out:
                 return _remote_record_failure(
@@ -1407,7 +1407,6 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         _copy_result(local_res / "stderr", stderr)
         if executor == "codex":
             _copy_result(local_res / "last.md", last_msg)
-        fetch_t0 = time.monotonic()
         review_wrote = role == "review" and (remote_dirty or received != sent)
         diverged = False
         fetch_error = None
