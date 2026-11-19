@@ -12,3 +12,6 @@
 # (The `project consolidate` driver carries the same union as a fallback for trees
 # where these attributes are not yet active.)
 scripts/emit-consumer-state.js text
+
+src/global-instructions/en.md text eol=lf
+src/global-instructions/pt.md text eol=lf

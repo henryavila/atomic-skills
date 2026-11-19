@@ -1,3 +1,4 @@
+import { installedGlobalInstructionPaths } from './global-instructions.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -56,14 +57,20 @@ export function status(projectDir, options = {}) {
     manifestScope = 'user';
     manifestBase = homeDir;
 
-    if (!manifest && projectDir) {
-      manifest = readManifest(projectDir);
+    const projectManifest = !manifest && projectDir ? readManifest(projectDir) : null;
+    if (projectManifest) {
+      manifest = projectManifest;
       manifestScope = 'project';
       manifestBase = projectDir;
     }
   }
 
   p.intro(pc.bold(pc.cyan('⚛ Atomic Skills — Status')));
+
+  if (manifestScope === 'user') {
+    const paths = installedGlobalInstructionPaths(homeDir);
+    p.log.message(`Global instructions: ${paths.length ? paths.join(', ') : 'not installed'}`);
+  }
 
   if (!manifest) {
     p.log.error(pc.red('Not installed') + ' — no manifest found.');

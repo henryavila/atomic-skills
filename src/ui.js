@@ -8,6 +8,13 @@ import { IDE_CONFIG, SKILL_NAMESPACE } from './config.js';
 
 export const MESSAGES = {
   pt: {
+    globalInstructionsPrompt: 'Instalar instruções globais de delegação?',
+    globalInstructionsFiles: (paths) => `Arquivos de instruções globais: ${paths || '(nenhum para os agentes selecionados)'}`,
+    globalInstructionsRefused: (path, reason) => `Instruções globais recusadas: ${path} (${reason}; mantido sem alterações)`,
+    globalInstructionsSkipped: (agents) => `Instruções globais ignoradas: ${agents} (sem arquivo de instruções globais confirmado)`,
+    globalInstructionsOptOut: (path) => `Instruções globais: ${path} removido manualmente (opt-out); use --global-instructions para reinstalar`,
+    globalInstructionsBlocked: (path, reason) => `Instruções globais recusadas: ${path} (${reason}). O mecanismo impede continuar com este efeito no journal. Restaure a linha de marcador ausente, ou exclua a linha de marcador restante e o texto; depois execute install novamente.`,
+
     installDefaults: 'Instalar com padrões detectados',
     updateDefaults: 'Atualizar com configuração atual',
     customizeLang: 'Mudar idioma de comunicação',
@@ -43,6 +50,13 @@ export const MESSAGES = {
     filesInstalled: (n) => `${n} arquivos instalados.`,
   },
   en: {
+    globalInstructionsPrompt: 'Install global delegation instructions?',
+    globalInstructionsFiles: (paths) => `Global instruction files: ${paths || '(none for selected agents)'}`,
+    globalInstructionsRefused: (path, reason) => `Global instructions refused: ${path} (${reason}; kept unchanged)`,
+    globalInstructionsSkipped: (agents) => `Global instructions skipped: ${agents} (no confirmed file-based global instructions)`,
+    globalInstructionsOptOut: (path) => `Global instructions: ${path} manually deleted (opt-out); use --global-instructions to reinstall`,
+    globalInstructionsBlocked: (path, reason) => `Global instructions refused: ${path} (${reason}). The engine cannot continue with this journaled effect. Restore the missing marker line, or delete the remaining marker line and the text, then run install again.`,
+
     installDefaults: 'Install with detected defaults',
     updateDefaults: 'Update with current configuration',
     customizeLang: 'Change communication language',

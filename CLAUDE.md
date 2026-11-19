@@ -70,6 +70,7 @@ patched on for the status/compat readers.
 | Skill/command `.md`, namespace root, `_assets/` | `reconcileFileSet` → `revert` (deletes only files whose disk hash matches the installed hash — P3) |
 | `version-check.sh` (auto-update hook, executable) | `stageRuntimeArtifacts` → `revert` (removes only paths it created) |
 | `SessionStart` entry in `settings.json` (merge) | `jsonMerge` → `revert` (surgical: subtracts only the delta; deletes the file only if it created it and it emptied) |
+| Opt-in user global delegation instructions (paths: `src/global-instructions.js`) | `textBlock` → journal replay restores/removes only the owned block; deletes a created file only when empty |
 | `manifest.json` (the journal) | `removeManifest` (unlink + prune) |
 
 **Orchestrated OUTSIDE the journal** (the journal's blind `replayReverse` cannot

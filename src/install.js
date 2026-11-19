@@ -11,6 +11,7 @@ import {
 } from './config.js';
 import { hashContent } from './hash.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
+import { GLOBAL_INSTRUCTION_PATHS, DELEGATE_MARKERS, globalInstructionBody, installedGlobalInstructionPaths, globalInstructionState, globalInstructionsDecision } from './global-instructions.js';
 import { buildInstaller } from './installer.js';
 import { computeSkillsFileSet } from './providers/skills-file-set.js';
 import { migrateLegacyInstall } from './migrate-legacy-install.js';
@@ -951,10 +952,45 @@ export function installSkills(projectDir, options, callbacks = {}) {
     });
   }
 
-  const installer = buildInstaller({
-    language, ides, skillsDir, metaDir, scope, excludeDesiredPaths,
-  });
-  installer.install({ projectDir });
+  const refusedGlobalPaths = [];
+  const optedOutGlobalPaths = new Set();
+  for (;;) {
+    const installer = buildInstaller({
+      language, ides, skillsDir, metaDir, scope, excludeDesiredPaths,
+      globalInstructions: options.globalInstructions, refusedGlobalPaths, optedOutGlobalPaths,
+    });
+    try {
+      installer.install({ projectDir });
+      break;
+    } catch (err) {
+      const path = err.globalInstructionPath ?? Object.values(GLOBAL_INSTRUCTION_PATHS).find(path =>
+        path && err.message?.includes(`"${path}"`));
+      if (!path || refusedGlobalPaths.includes(path)) throw err;
+      // The engine validates ALL prior text blocks, even omitted effects. It
+      // cannot park an owned broken/unsafe effect while installing the rest.
+      // Preserve that journal rather than rewriting it to bypass validation.
+      if (priorManifest?.effects?.some(e => e.type === 'textBlock' && e.beforeState?.path === path)) {
+        let reason = err.message;
+        try {
+          const state = globalInstructionState(projectDir, path);
+          if (state !== 'absent' && state !== 'present') reason = state;
+        } catch { /* Keep the original path-safety or I/O reason. */ }
+        const blocked = new Error(msg(language).globalInstructionsBlocked(path, reason));
+        blocked.code = 'GLOBAL_INSTRUCTIONS_BLOCKED';
+        throw blocked;
+      }
+      // A planning refusal precedes mutations. An apply refusal may leave an
+      // incomplete journal; never retry over it or discard ownership records.
+      if (readManifest(projectDir)?.transaction?.state === 'incomplete') throw err;
+      console.log(`  ${msg(language).globalInstructionsRefused(path, err.message)}`);
+      refusedGlobalPaths.push(path);
+    }
+  }
+  for (const path of optedOutGlobalPaths) console.log(`  ${msg(language).globalInstructionsOptOut(path)}`);
+  if (scope === 'user' && options.globalInstructions === true) {
+    const skipped = ides.filter(agent => GLOBAL_INSTRUCTION_PATHS[agent] === null);
+    if (skipped.length) console.log(`  ${msg(language).globalInstructionsSkipped(skipped.join(', '))}`);
+  }
 
   // Derive the return value + legacy compat files-map from the journal + the
   // file-set plan. The journal carries the authoritative installed hashes (on an
@@ -1365,7 +1401,7 @@ export async function install(projectDir, options = {}) {
     // keepFiles/savedContent/orphan logic used to do, now a property of the effect.
     const priorIdes = existingManifest?.ides;
     const result = installSkills(basePath, {
-      language, ides, skillsDir, metaDir, scope, forceAdopt,
+      language, ides, skillsDir, metaDir, scope, forceAdopt, globalInstructions: options.globalInstructions,
     });
 
     // Host plugin registry (outside journal): native Grok plugin, outside Codex.
@@ -1480,9 +1516,24 @@ export async function install(projectDir, options = {}) {
   // left incomplete, operators use `install --repair` / `uninstall --force-incomplete`
   // (P0-A). Never process.kill(SIGINT) self.
 
+  let globalInstructions = options.globalInstructions;
+  if (scope === 'user' && globalInstructions === undefined) {
+    const paths = config.ides.map(agent => GLOBAL_INSTRUCTION_PATHS[agent]).filter(Boolean);
+    p.log.message(`${DELEGATE_MARKERS.begin}\n${globalInstructionBody(config.lang)}\n${DELEGATE_MARKERS.end}`);
+    p.log.message(msg(config.lang).globalInstructionsFiles(paths.map(path => join(basePath, path)).join(', ')));
+    const installedPaths = installedGlobalInstructionPaths(basePath);
+    globalInstructions = await p.confirm({
+      message: msg(config.lang).globalInstructionsPrompt,
+      initialValue: globalInstructionsDecision(installedPaths).enabled,
+    });
+    const decision = globalInstructionsDecision(installedPaths, globalInstructions);
+    if (decision.cancelled) { p.outro(msg(config.lang).cancelled); return; }
+    globalInstructions = decision.enabled;
+  }
   const priorIdes = existingManifest?.ides;
   const result = installSkills(basePath, {
     language: config.lang,
+    globalInstructions,
     ides: config.ides,
     skillsDir,
     metaDir,
