@@ -113,6 +113,24 @@ function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }).trim();
 }
 
+function bundleBlobText(bundlePath) {
+  const dir = mkdtempSync(join(tmpdir(), 'as-bundle-'));
+  try {
+    execFileSync('git', ['init', '-q', dir]);
+    execFileSync('git', ['-C', dir, 'bundle', 'unbundle', bundlePath], { stdio: 'ignore' });
+    const listed = execFileSync('git', ['-C', dir, 'cat-file', '--batch-all-objects',
+      '--batch-check=%(objectname) %(objecttype)'], { encoding: 'utf8' }).trim();
+    let text = '';
+    for (const line of listed.split('\n').filter(Boolean)) {
+      const [oid, type] = line.split(' ');
+      if (type === 'blob') text += execFileSync('git', ['-C', dir, 'cat-file', 'blob', oid], { encoding: 'utf8' });
+    }
+    return text;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function initGitRepo(dir) {
   execFileSync('git', ['init', '-b', 'main', dir], { stdio: 'ignore' });
   git(dir, 'config', 'user.email', 'test@example.com');
@@ -5470,6 +5488,110 @@ except delegate.RemoteError as exc:
     assert.equal(readFileSync(credential, 'utf8'), 'LOCAL-CREDENTIAL-CANARY\n');
     assert.doesNotMatch(remoteArgvText(), /auth\.json|CREDENTIAL-CANARY/);
   });
+
+  it('R12/R13 never syncs the worktree .env into the remote files or the bundle', async () => {
+    writeFileSync(join(repoDir, '.gitignore'), '.env*\n');
+    git(repoDir, 'add', '.gitignore');
+    git(repoDir, 'commit', '-m', 'ignore env files');
+    writeFileSync(join(repoDir, '.env'), 'SYNCED-DIR-CANARY\n');
+    writeFileSync(join(repoDir, '.env.local'), 'SYNCED-DIR-CANARY-LOCAL\n');
+    const credential = join(emptyHome, '.codex', 'auth.json');
+    mkdirSync(dirname(credential), { recursive: true });
+    writeFileSync(credential, 'LOCAL-CREDENTIAL-CANARY\n');
+    const ready = join(root, 'canary-ready');
+    const release = join(root, 'canary-release');
+    const child = spawnDelegate(runArgs(['--profile', 'codex']), remoteEnv({
+      FAKE_READY_FILE: ready,
+      FAKE_WAIT_FILE: release,
+    }));
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    await waitFor(() => existsSync(ready), 30000, 'remote executor ready');
+    const synced = findFiles(remote.root, file => !file.endsWith('/code.bundle'));
+    for (const file of synced) {
+      assert.equal(readFileSync(file, 'utf8').includes('SYNCED-DIR-CANARY'), false, file);
+      assert.equal(readFileSync(file, 'utf8').includes('LOCAL-CREDENTIAL-CANARY'), false, file);
+    }
+    assert.deepEqual(findFiles(remote.root, file => /\/\.env(\.|$)/.test(file)), []);
+    const bundles = findFiles(remote.root, file => file.endsWith('/code.bundle'));
+    assert.equal(bundles.length, 1, bundles.join(','));
+    const bundled = bundleBlobText(bundles[0]);
+    assert.equal(bundled.includes('SYNCED-DIR-CANARY'), false);
+    assert.equal(bundled.includes('LOCAL-CREDENTIAL-CANARY'), false);
+    writeFileSync(release, 'go\n');
+    const status = await new Promise(resolve => child.on('exit', resolve));
+    assert.equal(status, 0, stderr);
+    assert.equal(readFileSync(credential, 'utf8'), 'LOCAL-CREDENTIAL-CANARY\n');
+  });
+
+  for (const profile of ['flash', 'codex', 'agy']) {
+    for (const access of ['policy', 'strict']) {
+      it(`R13 writes the expected remote exec.sh for ${profile} (${access})`, async () => {
+        const ready = join(root, `exec-${profile}-${access}-ready`);
+        const release = join(root, `exec-${profile}-${access}-release`);
+        const args = runArgs(['--profile', profile, ...(access === 'strict' ? ['--access', 'strict'] : [])]);
+        const child = spawnDelegate(args, remoteEnv({
+          FAKE_READY_FILE: ready,
+          FAKE_WAIT_FILE: release,
+        }));
+        let stderr = '';
+        child.stderr.on('data', chunk => { stderr += chunk; });
+        await waitFor(() => existsSync(ready), 30000, 'remote executor ready');
+        const scripts = findFiles(remote.root, file => file.endsWith('/run/exec.sh'));
+        assert.equal(scripts.length, 1, scripts.join(','));
+        const script = readFileSync(scripts[0], 'utf8');
+        assert.match(script, /^set -e$/m);
+        for (const forbidden of ['--auto', '--dangerously-skip-permissions',
+          '--danger-full-access', '--dangerously-bypass-approvals-and-sandbox']) {
+          assert.equal(script.includes(forbidden), false, forbidden);
+        }
+        assert.equal(script.includes('CARD-SENTINEL'), false,
+          'the prompt reaches the executor from its file, not from exec.sh');
+        if (profile === 'flash') {
+          assert.match(script, /exec opencode run --standalone --archived -m opencode-go\/deepseek-v4\.1-flash "\$PROMPT"/);
+          assert.match(script, /PROMPT=\$\(cat "\$R\/run\/prompt\.md"; printf x\)/);
+          assert.match(script, /export OPENCODE_CONFIG_CONTENT=/);
+          if (access === 'strict') {
+            assert.match(script, /"websearch"[^}]*"effect": "deny"/);
+            assert.match(script, /"webfetch"[^}]*"effect": "deny"/);
+            assert.match(script, /"external_directory", "resource": "\*", "effect": "deny"/);
+          } else {
+            assert.match(script, /"webfetch"[^}]*"effect": "allow"/);
+          }
+        } else if (profile === 'codex') {
+          assert.match(script, /exec codex -a never exec --model gpt-6\.1-sol/);
+          assert.match(script, /--sandbox workspace-write/);
+          assert.match(script, /-C "\$R\/tree"/);
+          assert.match(script, /-o "\$R\/run\/last\.md" - < "\$R\/run\/prompt\.md"/);
+          if (access === 'strict') {
+            assert.equal(script.includes('sandbox_workspace_write.network_access'), false);
+            assert.equal(script.includes('--add-dir'), false);
+          } else {
+            assert.match(script, /-c sandbox_workspace_write\.network_access=true/);
+            assert.match(script, /--add-dir "\$R\/tree\/\.git"/);
+          }
+        } else {
+          assert.match(script, /exec agy -p --model gemini-4-hydrogen-high --output-format text/);
+          assert.match(script, /--sandbox --settings/);
+          assert.match(script, /< "\$R\/run\/prompt\.md"/);
+          if (access === 'strict') {
+            assert.equal(script.includes('read_url(*)'), false);
+            assert.match(script, /"allowNonWorkspaceAccess":false/);
+            assert.equal(script.includes('write_file(__DELEGATE_REMOTE_BASE__/tree/.git)'), false);
+          } else {
+            assert.match(script, /read_url\(\*\)/);
+            assert.match(script, /"allowNonWorkspaceAccess":true/);
+            assert.match(script, /write_file\(__DELEGATE_REMOTE_BASE__\/tree\/\.git\)/);
+          }
+          assert.equal(script.includes('--add-dir'), false,
+            'the remote git directory is inside the checkout, so no extra dir is needed');
+        }
+        writeFileSync(release, 'go\n');
+        const status = await new Promise(resolve => child.on('exit', resolve));
+        assert.equal(status, 0, stderr);
+      });
+    }
+  }
 
   it('profiles --host shows which executors are ready there', () => {
     const res = runDelegate(['profiles', '--host', 'devbox'], baseEnv);
