@@ -1486,6 +1486,27 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
                        out_path, card_content, input_sizes, pending, timeout, wait_s, attempt,
                        confirmed, allow_peak, diff_range, attachments, access_mode, host, prompt,
                        stdout, stderr, last_msg):
+    """Run remotely and always leave a record, even for an unhandled error."""
+    try:
+        return _execute_remote_run(
+            task_id, task, role, executor, model, family, profile, cwd, project, out_path,
+            card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed,
+            allow_peak, diff_range, attachments, access_mode, host, prompt, stdout, stderr,
+            last_msg)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as exc:
+        if "completed" in pending:
+            raise
+        return _remote_record_failure(
+            pending, "remote_error", f"remote run failed: {exception_reason(exc)}",
+            host=host)
+
+
+def _execute_remote_run(task_id, task, role, executor, model, family, profile, cwd, project,
+                        out_path, card_content, input_sizes, pending, timeout, wait_s, attempt,
+                        confirmed, allow_peak, diff_range, attachments, access_mode, host, prompt,
+                        stdout, stderr, last_msg):
     """Run the executor on a remote host through the remote-runner CLI.
 
     Code is shipped as a git bundle inside the repository's common git directory
@@ -1688,6 +1709,15 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         return kept
 
     try:
+        # A stop signal ends this run: do not pull or merge its partial result.
+        if orphan_failure:
+            extra = {"remote_work_kept": kept_record()} if kept_record() else {}
+            if kill_result:
+                extra["remote_kill"] = kill_result
+            return _remote_record_failure(
+                pending, orphan_failure, wait_s=round(run_s, 3),
+                send_s=round(send_s, 3), run_s=round(run_s, 3),
+                fetch_s=round(fetch_s, 3), exit_code=remote_code, **extra)
         if local_slot_timeout:
             extra = {"remote_kill": kill_result} if kill_result else {}
             return _remote_record_failure(

@@ -336,6 +336,10 @@ if (cmd === 'pull') {
       process.exit(70);
     }
     copyTree(mapped.remote, mapped.local, []);
+    if (process.env.FAKE_REMOTE_BAD_META === '1') {
+      const meta = path.join(mapped.local, 'meta.txt');
+      if (fs.existsSync(meta)) fs.writeFileSync(meta, 'exit=oops\\n');
+    }
   }
   process.exit(0);
 }
@@ -5347,6 +5351,35 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.ok(rec.access.limits.some(line => /did not confirm a stop \(failed\)/.test(line)),
       JSON.stringify(rec.access.limits));
     assert.match(readFileSync(remote.killLog, 'utf8'), /^[0-9a-f-]{36}$/m);
+  });
+
+  it('R10 after a stop signal skips the pull and still appends a record', async () => {
+    const ready = join(root, 'stop-ready');
+    const child = spawnDelegate(runArgs(), remoteEnv({
+      FAKE_READY_FILE: ready,
+      FAKE_WAIT_FILE: join(root, 'never-released'),
+      FAKE_SLEEP: '30',
+    }));
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    await waitFor(() => existsSync(ready), 30000, 'remote executor ready');
+    child.kill('SIGTERM');
+    const status = await new Promise(resolve => child.on('exit', resolve));
+    assert.notEqual(status, 0, stderr);
+    const records = readLogRecords(atomicHome);
+    assert.equal(records.length, 1);
+    assert.equal(records[0].failure, 'interrupted');
+    const argv = remoteArgvText().trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+    assert.equal(argv.some(entry => entry[0] === 'pull'), false,
+      'no pull after a stop signal');
+  });
+
+  it('R10 records an unexpected remote error instead of losing it', () => {
+    const res = runDelegate(runArgs(), remoteEnv({ FAKE_REMOTE_BAD_META: '1' }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'remote_error');
+    assert.match(rec.remote_error, /remote run failed: .*oops/);
   });
 
   it('a remote review run with empty output is empty_output and exits non-zero', () => {
