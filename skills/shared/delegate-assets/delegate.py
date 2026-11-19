@@ -1530,6 +1530,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
     remote_err.close()
     process = None
     timed_out = False
+    local_slot_timeout = False
     orphan_failure = None
     interrupted_exc = None
     remote_id = None
@@ -1583,9 +1584,12 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         argv = [remote_runner_cmd(), "run", "-n", "--host", host, "-C", cwd,
                 "--wait", str(wait_s), "--timeout", str(max(1, timeout + 30)), "--", snippet]
         run_t0 = time.monotonic()
+        # The queue is bounded by --wait; the executor timeout starts only when
+        # the run reports that it is active (its marker), never while queued.
+        queue_deadline = run_t0 + wait_s + 2
+        deadline = None
         with open(remote_out.name, "w") as so, open(remote_err.name, "w") as se:
             process = subprocess.Popen(argv, stdout=so, stderr=se, start_new_session=True)
-        deadline = time.monotonic() + timeout
         parent_pid = os.getppid()
         next_probe = time.monotonic()
         while True:
@@ -1594,14 +1598,22 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
                 break
             if os.getppid() != parent_pid:
                 raise ParentGone()
-            if time.monotonic() >= deadline:
+            now_s = time.monotonic()
+            if deadline is not None and now_s >= deadline:
                 timed_out = True
                 discover_remote_id()
                 remote_kill(host, remote_id)
                 _terminate_remote_process(process)
                 break
-            if time.monotonic() >= next_probe:
+            if deadline is None and now_s >= queue_deadline:
+                local_slot_timeout = True
                 discover_remote_id()
+                remote_kill(host, remote_id)
+                _terminate_remote_process(process)
+                break
+            if now_s >= next_probe:
+                if discover_remote_id() and deadline is None:
+                    deadline = time.monotonic() + timeout
                 next_probe = time.monotonic() + 0.25
             time.sleep(0.05)
         run_s = time.monotonic() - run_t0
@@ -1648,6 +1660,13 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         return kept
 
     try:
+        if local_slot_timeout:
+            return _remote_record_failure(
+                pending, "slot_timeout",
+                last_line or "no free capacity on the host within --wait", host=host,
+                wait_s=round(run_s, 3), send_s=round(send_s, 3),
+                run_s=round(run_s, 3), fetch_s=round(fetch_s, 3),
+                exit_code=remote_code)
         if remote_code == 74:
             return _remote_record_failure(
                 pending, "slot_timeout", last_line or None, host=host,

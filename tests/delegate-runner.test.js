@@ -366,6 +366,8 @@ if (cmd === 'run') {
     if (child) {
       try { process.kill(-child.pid, 'SIGTERM'); } catch {}
       setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }, 200);
+    } else {
+      process.exit(130);
     }
   };
   process.on('SIGTERM', stop);
@@ -5249,6 +5251,31 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     } finally {
       try { process.kill(-foreign.pid, 'SIGKILL'); } catch {}
     }
+  });
+
+  it('R06 does not count the host queue against the executor timeout', () => {
+    const started = Date.now();
+    const res = runDelegate(runArgs(['--timeout', '2']), remoteEnv({ FAKE_REMOTE_QUEUE_MS: '3000' }));
+    assert.equal(res.status, 0, res.stderr);
+    assert.ok(Date.now() - started < 15000);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'none');
+    assert.equal(rec.timed_out, false);
+    assert.ok(rec.run_s >= 3, `run_s should include the queue: ${rec.run_s}`);
+  });
+
+  it('R06 bounds a host queue by --wait and records slot_timeout', () => {
+    const started = Date.now();
+    const res = runDelegate(runArgs(['--wait', '1', '--timeout', '30']),
+      remoteEnv({ FAKE_REMOTE_QUEUE_MS: '6000' }));
+    assert.equal(res.status, 1, res.stderr);
+    assert.ok(Date.now() - started < 7000, 'the local queue must not outlast --wait by much');
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'slot_timeout');
+    assert.equal(rec.timed_out, false);
+    assert.ok(rec.wait_s >= 1 && rec.wait_s < 6, String(rec.wait_s));
+    assert.throws(() => readFileSync(join(root, 'captured.argv.json')), { code: 'ENOENT' },
+      'the queued executor never starts');
   });
 
   it('a remote review run with empty output is empty_output and exits non-zero', () => {
