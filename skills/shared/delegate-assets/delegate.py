@@ -1704,22 +1704,36 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             _copy_result(local_res / "last.md", last_msg)
         review_wrote = role == "review" and (remote_dirty or received != sent)
         diverged = False
+        diverged_reason = None
+        fetched_ref = None
         fetch_error = None
         if role != "review" and received != sent and not timed_out and not orphan_failure:
             fetched_ref = remote_delegate_ref(task_id)
+            current_branch = git(cwd, "rev-parse", "--abbrev-ref", "HEAD")
             fetch = subprocess.run(
                 ["git", "-C", cwd, "fetch", "--no-tags", str(local_res / "result.bundle"),
                  f"+refs/heads/{branch}:{fetched_ref}"], capture_output=True, text=True)
             if fetch.returncode != 0:
                 fetch_error = fetch.stderr.strip() or "cannot fetch the result bundle"
+            elif current_branch != branch:
+                diverged = True
+                diverged_reason = (f"the worktree moved to {current_branch or 'a detached HEAD'}, "
+                                   f"not {branch}; the result is kept at {fetched_ref}")
             elif subprocess.run(["git", "-C", cwd, "merge-base", "--is-ancestor",
                                  "HEAD", fetched_ref], capture_output=True).returncode != 0:
                 diverged = True
+                diverged_reason = ("the local branch and the remote result diverge; "
+                                   f"the result is kept at {fetched_ref}")
             else:
                 merge = subprocess.run(["git", "-C", cwd, "merge", "--ff-only", fetched_ref],
                                        capture_output=True, text=True)
                 if merge.returncode != 0:
                     diverged = True
+                    detail = (merge.stderr.strip().splitlines() or
+                              ["git refused the fast-forward"])[-1]
+                    diverged_reason = ("a local change overlaps the remote result and the "
+                                       f"fast-forward was refused ({detail}); commit or stash "
+                                       f"it, then merge {fetched_ref}")
                 else:
                     subprocess.run(["git", "-C", cwd, "update-ref", "-d", fetched_ref],
                                    capture_output=True)
@@ -1778,6 +1792,8 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             rec["remote_error"] = fetch_error
         elif commit_error:
             rec["remote_error"] = commit_error
+        elif diverged_reason:
+            rec["remote_error"] = diverged_reason
         if failure != "none":
             kept = kept_record({"ref": fetched_ref} if diverged and fetched_ref else None)
             if kept:

@@ -5052,6 +5052,53 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.equal(git(repoDir, 'rev-parse', 'HEAD'), localHead);
     assert.equal(git(repoDir, 'rev-parse', 'refs/delegate/RMT'), rec.sync.received);
     assert.equal(existsSync(join(repoDir, 'remote-diverged.txt')), false);
+    assert.equal(rec.remote_work_kept.ref, 'refs/delegate/RMT');
+  });
+
+  it('R05 does not fast-forward a different branch checked out meanwhile', async () => {
+    const ready = join(root, 'switch-ready');
+    const release = join(root, 'switch-release');
+    const child = spawnDelegate(runArgs(), remoteEnv({
+      FAKE_READY_FILE: ready,
+      FAKE_WAIT_FILE: release,
+      FAKE_COMMIT_FILE: 'remote-switched.txt',
+    }));
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    await waitFor(() => existsSync(ready), 30000, 'remote executor ready');
+    git(repoDir, 'checkout', '-b', 'switched');
+    writeFileSync(release, 'go\n');
+    const status = await new Promise(resolve => child.on('exit', resolve));
+    assert.equal(status, 1, stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'diverged');
+    assert.match(rec.remote_error, /moved to switched, not main/);
+    assert.equal(git(repoDir, 'rev-parse', '--abbrev-ref', 'HEAD'), 'switched');
+    assert.equal(git(repoDir, 'rev-parse', 'refs/delegate/RMT'), rec.sync.received);
+    assert.equal(existsSync(join(repoDir, 'remote-switched.txt')), false);
+  });
+
+  it('R05 gives a merge refused for overlapping local edits its own reason', async () => {
+    const ready = join(root, 'overlap-ready');
+    const release = join(root, 'overlap-release');
+    const child = spawnDelegate(runArgs(), remoteEnv({
+      FAKE_READY_FILE: ready,
+      FAKE_WAIT_FILE: release,
+      FAKE_COMMIT_FILE: 'README.md',
+    }));
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    await waitFor(() => existsSync(ready), 30000, 'remote executor ready');
+    writeFileSync(join(repoDir, 'README.md'), 'local edit that overlaps\n');
+    writeFileSync(release, 'go\n');
+    const status = await new Promise(resolve => child.on('exit', resolve));
+    assert.equal(status, 1, stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'diverged');
+    assert.match(rec.remote_error, /overlaps the remote result and the fast-forward was refused/);
+    assert.match(rec.remote_error, /merge refs\/delegate\/RMT/);
+    assert.equal(git(repoDir, 'rev-parse', 'refs/delegate/RMT'), rec.sync.received);
+    assert.equal(readFileSync(join(repoDir, 'README.md'), 'utf8'), 'local edit that overlaps\n');
   });
 
   it('R04 reuses a clean checkout that is exactly the commit being sent', () => {
