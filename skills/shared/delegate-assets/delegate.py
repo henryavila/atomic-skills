@@ -55,6 +55,25 @@ EXECUTOR_FLAGS = {
     "agy": {"requires_review_diff": True},
 }
 MAX_REVIEW_INPUT_BYTES = 600 * 1024
+# Linux rejects any single argv element above MAX_ARG_STRLEN (131072 bytes).
+# OpenCode takes the prompt as an argv element (`opencode run --help`:
+# "[<message...>]"; `--file` only attaches a file to that message), so it is
+# capped at this measured limit. Codex (`codex exec --help`: PROMPT "read from
+# stdin" when absent or "-") and Antigravity (print mode reads the prompt from
+# stdin when `-p` has no prompt argument) receive it on stdin instead.
+MAX_ARG_BYTES = 131072
+ARGV_PROMPT_EXECUTORS = {"opencode"}
+# Approval/sandbox bypass flags. The runner never places one in an argv, in any
+# mode; guard_argv enforces that invariant before a child is launched.
+FORBIDDEN_ARGV_FLAGS = (
+    "--auto",
+    "--dangerously-skip-permissions",
+    "--danger-full-access",
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--yolo",
+)
+# TERM grace before an orphaned executor group is killed.
+ORPHAN_GRACE_S = 2.0
 ALIASES = {
     "deepseek-light": "flash",
 }
@@ -72,7 +91,7 @@ GATE = ["pass", "fail", "not_run"]
 DELIVERED = ["yes", "partial", "no"]
 
 DEFAULT_MAX_SLOTS = {
-    "opencode": 2,
+    "opencode": 10,
     "codex": 1,
     "agy": 2,
 }
@@ -126,12 +145,18 @@ def append(rec):
 
 
 def git(cwd, *a):
-    r = subprocess.run(["git", "-C", cwd, *a], capture_output=True, text=True)
+    try:
+        r = subprocess.run(["git", "-C", cwd, *a], capture_output=True, text=True)
+    except OSError:
+        return ""
     return r.stdout.strip() if r.returncode == 0 else ""
 
 
 def git_bytes(cwd, *a):
-    r = subprocess.run(["git", "-C", cwd, *a], capture_output=True)
+    try:
+        r = subprocess.run(["git", "-C", cwd, *a], capture_output=True)
+    except OSError:
+        return b""
     return r.stdout if r.returncode == 0 else b""
 
 
@@ -171,12 +196,290 @@ def find(binary):
              "OpenCode.app; install it or add it to PATH")
 
 
-def build_argv(executor, model, role, cwd, card, last_msg):
+def git_common_dir(cwd):
+    """Absolute common git directory, also for a linked worktree.
+
+    `git rev-parse --git-common-dir` resolves to the main checkout's `.git`
+    directory (`<repo>/.git`) for both a plain checkout and a linked worktree;
+    a linked worktree's own metadata lives under `.git/worktrees/<name>`, which
+    is not this directory. The resolved path is validated before it is trusted
+    or made writable.
+    """
+    common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if not common:
+        common = git(cwd, "rev-parse", "--git-common-dir")
+        if common:
+            common = str((Path(cwd) / common).resolve())
+    if not common:
+        return ""
+    resolved = Path(common).resolve()
+    if not (resolved / "HEAD").is_file() or not (resolved / "objects").is_dir():
+        usage_error(f"git common directory {str(resolved)!r} has no HEAD file and objects directory; "
+                    "refusing to run against it")
+    return str(resolved)
+
+
+def is_within(path, parent):
+    try:
+        Path(path).resolve().relative_to(Path(parent).resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def unique_paths(paths):
+    seen, result = set(), []
+    for raw in paths:
+        if not raw:
+            continue
+        path = str(Path(raw).resolve())
+        if path not in seen:
+            seen.add(path)
+            result.append(path)
+    return result
+
+
+def access_policy(executor, role, cwd, out_path=None, strict=False):
+    """Build the flags and the audit description for one executor and role.
+
+    One policy by role; each branch below quotes the CLI help or config
+    reference line that justifies the flag used. A CLI that cannot express a
+    grant records it under `limits` instead of dropping the sandbox.
+    """
+    review = role == "review"
+    common = git_common_dir(cwd)
+    home_dirs = [HOME / "delegate" / "cards", HOME / "delegate" / "out"]
+    if out_path:
+        home_dirs.append(out_path)
+    extra_read = unique_paths([common, *home_dirs])
+    git_common_limit = ("git write includes the main repository's config, hooks "
+                        "and other worktrees' refs")
+
+    # codex --help: "--add-dir <DIR> Additional directories that should be
+    #   writable alongside the primary workspace"
+    # codex config reference: "sandbox_workspace_write.network_access boolean
+    #   Allow outbound network access inside the workspace-write sandbox."
+    if strict:
+        # Strict removes grants from the default role policy; it never adds a
+        # CLI's factory bypass. Every branch below is therefore a subset of the
+        # same executor and role in the policy branch.
+        argv, env, limits = [], {}, []
+        if executor == "codex":
+            # build_argv keeps the per-role sandbox (workspace-write for
+            # implement, read-only for review). Strict only removes the
+            # workspace-write network switch and the extra writable directory.
+            limits.append("strict: no network and no --add-dir; "
+                          "the codex sandbox mode is unchanged")
+            return {"argv": [], "env": {}, "access": {
+                "mode": "strict", "network": False, "git_write": False,
+                "extra_read": [], "limits": limits}}
+        elif executor == "opencode":
+            # Same role rules as the default, minus web access and every grant
+            # outside the worktree. No approval bypass: the explicit permission
+            # rules and the private server remain in place.
+            rules = [
+                {"action": "external_directory", "resource": "*", "effect": "deny"},
+                {"action": "read", "resource": "*", "effect": "allow"},
+                {"action": "shell", "resource": "*", "effect": "allow"},
+                {"action": "webfetch", "resource": "*", "effect": "deny"},
+                {"action": "websearch", "resource": "*", "effect": "deny"},
+                {"action": "edit", "resource": "*", "effect": "deny"},
+            ]
+            if not review:
+                rules.append({"action": "edit", "resource": "*", "effect": "allow"})
+                for path in ("..", "../*"):
+                    rules.append({"action": "edit", "resource": path, "effect": "deny"})
+                for path in unique_paths([common, *home_dirs]):
+                    if path and not is_within(path, cwd):
+                        rules.append({"action": "edit", "resource": f"{path}/*",
+                                      "effect": "deny"})
+            env["OPENCODE_CONFIG_CONTENT"] = json.dumps({"permissions": rules})
+            limits.append("OpenCode has no sandbox: shell runs with the host user's "
+                          "filesystem and network authority")
+            limits.append("strict: webfetch and websearch are denied and only the "
+                          "worktree is editable; shell can still reach the network "
+                          "and write elsewhere")
+            network = git_write = True
+            if review:
+                limits.append("reviewer can still write through the shell; "
+                              "only the edit tool is denied")
+            else:
+                limits.append("edit tool is limited to the worktree; shell can "
+                              "still write elsewhere")
+            return {"argv": [], "env": env, "access": {
+                "mode": "strict", "network": network, "git_write": git_write,
+                "extra_read": [], "limits": limits}}
+        elif executor == "agy":
+            # Review inputs (cards and outputs) are the only outside-worktree
+            # reads strict keeps; the git common directory and read_url go away.
+            strict_extra = unique_paths(home_dirs) if review else []
+            allow = [f"read_file({cwd})"]
+            allow += [f"read_file({path})" for path in strict_extra if path != cwd]
+            deny = []
+            if review:
+                allow += [f"command({command})" for command in (
+                    "git diff", "git log", "git show", "git status", "git rev-parse")]
+                deny = [f"write_file({path})" for path in unique_paths([cwd, *strict_extra])]
+                limits.append("agy keeps the worktree read-write on its sandbox mount; "
+                              "write_file is denied and review_wrote still checks the tree")
+            else:
+                allow += [f"write_file({cwd})", "command(git)"]
+            limits.append("strict: no read_url, no git common directory and no "
+                          "directory outside the worktree except attached review inputs")
+            settings = {
+                "toolPermission": "proceed-in-sandbox",
+                "allowNonWorkspaceAccess": bool(strict_extra),
+                "permissions": {"allow": allow, "deny": deny},
+            }
+            argv += ["--sandbox", "--settings", json.dumps(settings, separators=(",", ":"))]
+            return {"argv": argv, "env": {}, "access": {
+                "mode": "strict", "network": False, "git_write": False,
+                "extra_read": strict_extra, "limits": limits}}
+        else:
+            sys.exit(f"delegate: unknown executor {executor}")
+
+    argv, env, limits = [], {}, []
+    network = True
+    git_write = not review
+
+    if executor == "codex":
+        if review:
+            # Read-only is the reviewer guarantee. The network switch is
+            # workspace-write only, so network cannot be added without also
+            # allowing writes in the worktree.
+            network = False
+            limits.append("codex read-only sandbox cannot enable network; "
+                          "sandbox_workspace_write.network_access needs --sandbox workspace-write")
+        else:
+            argv += ["-c", "sandbox_workspace_write.network_access=true"]
+            if common:
+                # Codex protects <workspace>/.git as read-only; adding the
+                # common directory is what lets the executor commit.
+                argv += ["--add-dir", common]
+
+    elif executor == "opencode":
+        # opencode run --help: "--auto Auto-approve permissions that are not
+        #   explicitly denied"; the policy does not use it. The installed CLI
+        #   (v2.3.2) reads OPENCODE_CONFIG_CONTENT as a JSON config document;
+        #   V2 uses "permissions" (plural), "shell" (not "bash") and
+        #   {action, resource, effect} rules, documented at
+        #   https://opencode.ai/docs/permissions. path rules are supported.
+        # It has no sandbox or network switch; shell keeps host authority.
+        rules = [
+            {"action": "external_directory", "resource": "*", "effect": "deny"},
+            {"action": "read", "resource": "*", "effect": "allow"},
+            {"action": "shell", "resource": "*", "effect": "allow"},
+            {"action": "webfetch", "resource": "*", "effect": "allow"},
+            {"action": "websearch", "resource": "*", "effect": "allow"},
+            {"action": "edit", "resource": "*", "effect": "deny"},
+        ]
+        # External reads are checked before read/edit; allow only the git
+        # common directory, cards and outputs, never every directory.
+        for path in extra_read:
+            rules.append({"action": "external_directory", "resource": f"{path}/*",
+                          "effect": "allow"})
+        # FileAccess.resolve gives an internal path relative to the location
+        # (e.g. "src/a.py") and an external path as an absolute path. So "*"
+        # covers the worktree, the absolute common path covers a linked
+        # worktree's git directory, and the external_directory grants above
+        # bound the rest. Deny project-parent paths and the read-only outputs.
+        if not review:
+            rules.append({"action": "edit", "resource": "*", "effect": "allow"})
+            if common:
+                rules.append({"action": "edit", "resource": f"{common}/*",
+                              "effect": "allow"})
+            for path in ("..", "../*"):
+                rules.append({"action": "edit", "resource": path, "effect": "deny"})
+            for path in unique_paths(home_dirs):
+                if not is_within(path, cwd):
+                    rules.append({"action": "edit", "resource": f"{path}/*",
+                                  "effect": "deny"})
+        env["OPENCODE_CONFIG_CONTENT"] = json.dumps({"permissions": rules})
+        limits.append("OpenCode has no sandbox: shell runs with the host user's "
+                      "filesystem and network authority")
+        if review:
+            # Reviewers need shell for read-only git and tests, but shell keeps
+            # host write authority even though the edit tool is denied.
+            git_write = True
+            limits.append("reviewer can still write through the shell; "
+                          "only the edit tool is denied")
+        else:
+            limits.append("edit tool is limited to the worktree and git common "
+                          "directory; shell can still write elsewhere")
+
+    elif executor == "agy":
+        # agy --help: "--sandbox Run in a sandbox with terminal restrictions
+        #   enabled"; "--settings Settings for this session only, never saved:
+        #   a JSON object of settings.json keys, inline or as a file path";
+        #   "--add-dir Add a directory to the workspace (repeatable)".
+        # settings.json schema: permissions {allow, ask, deny}, toolPermission,
+        # allowNonWorkspaceAccess. Permission rules use command(<prefix>) for
+        # commands, e.g. "command(git status)".
+        allow = ["read_url(*)", "read_file(" + cwd + ")"]
+        allow += [f"read_file({path})" for path in extra_read if path != cwd]
+        deny = []
+        if review:
+            allow += [f"command({command})" for command in (
+                "git diff", "git log", "git show", "git status", "git rev-parse")]
+            deny = [f"write_file({path})" for path in unique_paths([cwd, common, *home_dirs])]
+            limits.append("agy keeps the worktree read-write on its sandbox mount; "
+                          "write_file is denied and review_wrote still checks the tree")
+        else:
+            allow += [f"write_file({cwd})", "command(git)"]
+            if common:
+                allow.append(f"write_file({common})")
+            if common and not is_within(common, cwd):
+                argv += ["--add-dir", common]
+        settings = {
+            "toolPermission": "proceed-in-sandbox",
+            "allowNonWorkspaceAccess": True,
+            "permissions": {"allow": allow, "deny": deny},
+        }
+        argv += ["--sandbox", "--settings", json.dumps(settings, separators=(",", ":"))]
+
+    else:
+        sys.exit(f"delegate: unknown executor {executor}")
+
+    if git_write and common:
+        limits.append(git_common_limit)
+    return {"argv": argv, "env": env, "access": {
+        "mode": "policy", "network": network, "git_write": git_write,
+        "extra_read": extra_read, "limits": limits}}
+
+
+def guard_argv(argv, executor):
+    """Refuse an approval/sandbox bypass flag; never let one reach a child."""
+    for arg in argv:
+        # Only flag-shaped elements; a card or path may legitimately contain the
+        # text of one of these names.
+        if not str(arg).startswith("-"):
+            continue
+        for flag in FORBIDDEN_ARGV_FLAGS:
+            if flag in str(arg):
+                sys.exit(f"delegate: refusing {executor} argv containing {flag}")
+    return argv
+
+
+def build_argv(executor, model, role, cwd, card, last_msg, policy=None):
+    policy = policy or access_policy(executor, role, cwd)
     if executor == "opencode":
-        return [find("opencode"), "run", "--auto", "--archived", "-m", model, card]
+        # opencode run --help: "--archived Create the session archived";
+        # global "--standalone Run with a private server instead of the
+        # background service". The policy needs its own server so the
+        # OPENCODE_CONFIG_CONTENT permission rules are read; a background
+        # service started earlier would ignore them. The message stays an argv
+        # element: the CLI has no stdin prompt, only "--file File to attach to
+        # the message". The runner never passes an auto-approve flag.
+        return guard_argv(
+            [find("opencode"), "run", "--standalone", "--archived", "-m", model, card],
+            executor)
     if executor == "agy":
-        return [find("agy"), "-p", card, "--model", model, "--output-format", "text",
-                "--dangerously-skip-permissions"]
+        # agy --help: "-p, --print Run a single prompt non-interactively";
+        #   "--output-format Output format for print mode". Print mode reads
+        #   the prompt from stdin when no prompt argument is given; the runner
+        #   writes it there so a composed prompt is not an argv element.
+        argv = [find("agy"), "-p", "--model", model, "--output-format", "text"]
+        return guard_argv(argv + policy["argv"], executor)
     if executor == "codex":
         effort = "high" if role == "review" else "medium"
         sandbox = "read-only" if role == "review" else "workspace-write"
@@ -189,15 +492,8 @@ def build_argv(executor, model, role, cwd, card, last_msg):
             "--ephemeral",
             "-C", cwd,
         ]
-        if role != "review":
-            common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
-            if common:
-                common_path = Path(common).resolve()
-                try:
-                    common_path.relative_to(Path(cwd))
-                except ValueError:
-                    argv += ["--add-dir", str(common_path)]
-        return argv + ["-o", str(last_msg), "-"]
+        argv += policy["argv"]
+        return guard_argv(argv + ["-o", str(last_msg), "-"], executor)
     sys.exit(f"delegate: unknown executor {executor}")
 
 
@@ -397,15 +693,40 @@ def child_exited(pid):
     return ctypes.c_int.from_buffer(info).value == signal.SIGCHLD
 
 
-def wait_for_exit(process, timeout):
-    """Observe exit without reaping: the zombie reserves PID/PGID until cleanup."""
+class ParentGone(Exception):
+    """The runner was reparented: its original parent exited or was killed."""
+
+
+def wait_for_exit(process, timeout, parent_pid=None):
+    """Observe exit without reaping: the zombie reserves PID/PGID until cleanup.
+
+    With parent_pid, also notice the runner losing its original parent (a
+    portable getppid() check, not Linux-only prctl) and stop the child.
+    """
     deadline = time.monotonic() + timeout
     while True:
+        if parent_pid is not None and os.getppid() != parent_pid:
+            raise ParentGone()
         if child_exited(process.pid):
             return
         if time.monotonic() >= deadline:
             raise subprocess.TimeoutExpired(process.args, timeout)
         time.sleep(0.02)
+
+
+def terminate_process(process, grace=ORPHAN_GRACE_S):
+    """TERM the executor's process group, wait briefly, then KILL and reap it."""
+    try:
+        if process.returncode is None:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+    finally:
+        deadline = time.monotonic() + grace
+        while group_alive(process.pid) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        stop_process(process)
 
 
 def stop_process(process):
@@ -510,8 +831,13 @@ def fenced(content):
 
 
 def read_attachment(filename):
+    path = Path(filename)
+    # The basename is interpolated into the prompt outside any fence. A newline
+    # or other control character would inject prompt structure, so refuse it.
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in path.name):
+        usage_error(f"attachment name contains control characters: {str(path)!r}")
     try:
-        return Path(filename).read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
         usage_error(f"cannot attach {filename}: {exc}")
 
@@ -527,6 +853,7 @@ def compose_prompt(card, attachments, diff_range, cwd):
         attached_bytes += len(attachment.encode("utf-8"))
         content += f"\n## Attached: {path.name}\n" + fenced(attachment)
     diff_bytes = 0
+    diff_decoded_replaced = False
     failure = None
     if diff_range:
         if not re.fullmatch(r"[^.\s-][^\s]*\.{2,3}[^.\s-][^\s]*", diff_range) or diff_range.startswith("-"):
@@ -536,18 +863,27 @@ def compose_prompt(card, attachments, diff_range, cwd):
         if result.returncode:
             usage_error("cannot read --diff-range: " + result.stderr.decode("utf-8", errors="replace").strip())
         diff_bytes = len(result.stdout)
-        diff = result.stdout.decode("utf-8", errors="replace")
+        try:
+            diff = result.stdout.decode("utf-8")
+        except UnicodeDecodeError:
+            diff = result.stdout.decode("utf-8", errors="replace")
+            diff_decoded_replaced = True
+        if diff_decoded_replaced:
+            content += ("\n> Note: the diff contains bytes that are not valid UTF-8; "
+                        "they appear as U+FFFD in this prompt.\n")
         content += f"\n## Diff {diff_range}\n" + fenced(diff)
         if not diff_bytes:
             failure = "empty_diff"
-    sizes = {"diff_bytes": diff_bytes, "attached": attached, "attached_bytes": attached_bytes,
+    sizes = {"diff_bytes": diff_bytes, "diff_decoded_replaced": diff_decoded_replaced,
+             "attached": attached, "attached_bytes": attached_bytes,
              "card_bytes": card_bytes, "prompt_bytes": len(content.encode("utf-8"))}
     return content, sizes, failure
 
 
 def execute_run(task_id, task, role, profile=None, executor=None, model=None, cwd=None,
                 card=None, out=None, project=None, timeout=5400, wait_s=3600, attempt=1,
-                confirmed=False, allow_peak=False, diff_range=None, attachments=None):
+                confirmed=False, allow_peak=False, diff_range=None, attachments=None,
+                access_mode="policy"):
     check_paused()
     alias_notice = None
     if profile in ALIASES:
@@ -570,15 +906,22 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         print(alias_notice, file=sys.stderr)
 
     cwd = str(Path(cwd).resolve())
+    parent_pid = os.getppid()
     if role == "review" and EXECUTOR_FLAGS.get(executor, {}).get("requires_review_diff") and not diff_range:
-        usage_error(f"{executor} review requires --diff-range; it cannot run git or read outside the worktree")
+        usage_error(f"{executor} review requires --diff-range; the runner attaches the exact diff")
     card_content, input_sizes, input_failure = compose_prompt(card, attachments, diff_range, cwd)
+    size_failure = "review_input_too_large" if role == "review" else "input_too_large"
     if input_sizes["prompt_bytes"] > MAX_REVIEW_INPUT_BYTES:
-        input_failure = "review_input_too_large"
+        input_failure = size_failure
+    elif executor in ARGV_PROMPT_EXECUTORS and input_sizes["prompt_bytes"] >= MAX_ARG_BYTES:
+        # OpenCode takes the prompt as one argv element and would fail with
+        # E2BIG at or above the kernel limit; it has no stdin prompt.
+        input_failure = size_failure
     top = git(cwd, "rev-parse", "--show-toplevel") or cwd
     project = project or Path(top).name
     out_path = Path(out or HOME / "delegate" / "out" / project).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
+    policy = access_policy(executor, role, cwd, out_path, strict=access_mode == "strict")
     stdout, stderr = out_path / f"{task_id}.out.md", out_path / f"{task_id}.err"
     last_msg = out_path / f"{task_id}.last.md"
     prompt = out_path / f"{task_id}.prompt.md"
@@ -589,13 +932,13 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         "executor": executor, "model": model, "family": family, "attempt": attempt,
         "user_confirmed": bool(confirmed), "duration_s": 0, "exit_code": None,
         "timed_out": False, "card": str(Path(card).resolve()), "prompt": str(prompt),
-        "stdout": str(stdout), "stderr": str(stderr), **input_sizes,
+        "stdout": str(stdout), "stderr": str(stderr), "access": policy["access"], **input_sizes,
     }
     if input_failure:
         pending.update(failure=input_failure, completed=now().isoformat(timespec="microseconds"))
         append(pending)
         return pending
-    argv = build_argv(executor, model, role, cwd, card_content, last_msg)
+    argv = build_argv(executor, model, role, cwd, card_content, last_msg, policy)
     peak = in_peak() and family == "deepseek"
     if peak:
         print("delegate: DeepSeek peak window (UTC); DeepSeek costs double now — proceeding",
@@ -610,12 +953,18 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     slot_file = None
     queued_at = time.monotonic()
     timed_out = False
+    orphan_failure = None
+    interrupted_exc = None
 
-    si = open(prompt, "rb") if executor == "codex" else None
+    # Codex and Antigravity read the prompt from stdin; OpenCode takes it as an
+    # argv element (see ARGV_PROMPT_EXECUTORS).
+    si = open(prompt, "rb") if executor in ("codex", "agy") else None
     try:
         with open(stdout, "w") as so, open(stderr, "w") as se:
             while True:
                 check_paused()
+                if os.getppid() != parent_pid:
+                    raise ParentGone()
                 with SlotLock():
                     active = _get_active_slots(executor)
                     if len(active) < max_slots:
@@ -626,10 +975,12 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                         started = now().isoformat(timespec="microseconds")
                         t0 = time.monotonic()
                         wait_duration_s = t0 - queued_at
+                        child_env = dict(os.environ)
+                        child_env.update(policy["env"])
                         p = subprocess.Popen(
                             argv, cwd=cwd, stdout=so, stderr=se,
                             stdin=si if si is not None else subprocess.DEVNULL,
-                            start_new_session=True,
+                            start_new_session=True, env=child_env,
                         )
                         slot_file = RUNNING / f"{executor}-{task_id}-{p.pid}.json"
                         slot_data = {
@@ -655,7 +1006,16 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 time.sleep(min(5.0, max(0.05, remaining)))
 
             try:
-                wait_for_exit(p, timeout)
+                wait_for_exit(p, timeout, parent_pid=parent_pid)
+            except ParentGone:
+                # The orchestrator's background task (or the parent shell) went
+                # away. TERM the whole group, then KILL after the grace period.
+                orphan_failure = "orphaned"
+                terminate_process(p)
+            except (KeyboardInterrupt, SystemExit) as exc:
+                orphan_failure = "interrupted"
+                interrupted_exc = exc
+                terminate_process(p)
             except subprocess.TimeoutExpired:
                 timed_out = True
                 try:
@@ -666,6 +1026,11 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                     wait_for_exit(p, 10)
                 except subprocess.TimeoutExpired:
                     pass
+    except ParentGone:
+        pending.update(failure="orphaned", wait_s=round(time.monotonic() - queued_at, 3),
+                       completed=now().isoformat(timespec="microseconds"))
+        append(pending)
+        return pending
     except SlotTimeoutError as exc:
         pending.update(failure="slot_timeout", wait_s=round(time.monotonic() - queued_at, 3),
                        completed=now().isoformat(timespec="microseconds"))
@@ -695,7 +1060,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     dirty_after = bool(snap1[1])
     review_wrote = role == "review" and snap1 != snap0
     review_output = (last_msg if executor == "codex" else stdout) if role == "review" else None
-    failure = classify_failure(timed_out, code, stdout, stderr, review_wrote, review_output)
+    failure = orphan_failure or classify_failure(
+        timed_out, code, stdout, stderr, review_wrote, review_output)
     uncommitted = role != "review" and head1 == head0 and snap1 != snap0
     commits = git(cwd, "rev-list", "--count", f"{head0}..{head1}") if head0 and head1 else ""
     files = git(cwd, "diff", "--name-only", f"{head0}..{head1}") if head0 and head1 else ""
@@ -713,11 +1079,15 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         "dirty_after": dirty_after,
         "uncommitted": uncommitted,
         "card": str(Path(card).resolve()), "stdout": str(stdout), "stderr": str(stderr),
-        "attempt": attempt, "prompt": str(prompt), **input_sizes,
+        "attempt": attempt, "prompt": str(prompt), "access": policy["access"], **input_sizes,
     }
     if executor == "codex":
         rec["last_message"] = str(last_msg)
     append(rec)
+    if interrupted_exc is not None:
+        # The record and slot cleanup are complete; keep the runner's normal
+        # signal exit semantics.
+        raise interrupted_exc
     return rec
 
 
@@ -728,6 +1098,7 @@ def cmd_run(a):
         out=a.out, project=a.project, timeout=a.timeout,
         wait_s=getattr(a, "wait", 3600), attempt=a.attempt,
         confirmed=a.confirmed, allow_peak=a.allow_peak, diff_range=a.diff_range, attachments=a.attach,
+        access_mode=a.access,
     )
     print(json.dumps(rec, ensure_ascii=False, indent=1))
     sys.exit(0 if rec["failure"] == "none" else 1)
@@ -802,6 +1173,7 @@ def cmd_pipeline(a):
                 if run_role == "review" else a.timeout,
                 wait_s=a.wait, confirmed=True, attempt=len(attempts),
                 diff_range=diff_range, attachments=attachments,
+                access_mode=a.access,
             ))
         except SlotTimeoutError as exc:
             rec.update(exc.record)
@@ -819,7 +1191,7 @@ def cmd_pipeline(a):
         for profile in route:
             check_paused()
             executor_rec = run_attempt(profile, role, a.card)
-            if executor_rec["failure"] in ("provider_limit", "slot_timeout"):
+            if executor_rec["failure"] in ("provider_limit", "slot_timeout", "input_too_large"):
                 continue
             executor_profile = profile
             if executor_rec["failure"] != "none":
@@ -1119,6 +1491,14 @@ def cmd_kill(a):
         sys.exit(1)
 
 
+def format_access(access):
+    reads = ",".join(access.get("extra_read") or []) or "none"
+    limits = "; ".join(access.get("limits") or []) or "none"
+    return (f"network={'yes' if access.get('network') else 'no'} | "
+            f"git_write={'yes' if access.get('git_write') else 'no'} | "
+            f"extra_read={reads} | limits={limits}")
+
+
 def cmd_profiles(a):
     for name, (executor, model, family) in MODELS.items():
         if executor == "opencode" and model != FLASH_MODEL:
@@ -1128,6 +1508,10 @@ def cmd_profiles(a):
         else:
             status = "found" if find_optional(executor) else "missing"
         print(f"{name} | {executor} | {model} | {family} | {status}")
+        cwd = str(Path.cwd())
+        for label, role in (("implement, fix, mechanical, test", "implement"), ("review", "review")):
+            policy = access_policy(executor, role, cwd)
+            print(f"  {label} | {format_access(policy['access'])}")
 
 
 def cmd_record(a):
@@ -1241,6 +1625,8 @@ def main():
     r.add_argument("--attempt", type=int, default=1)
     r.add_argument("--confirmed", action="store_true", help="the user approved task/role/model/executor for this batch")
     r.add_argument("--allow-peak", action="store_true")
+    r.add_argument("--access", choices=["policy", "strict"], default="policy",
+                   help="policy (default) or strict (no network, nothing outside the worktree)")
     r.set_defaults(f=cmd_run)
 
     pipe = sub.add_parser("pipeline")
@@ -1260,6 +1646,8 @@ def main():
     pipe.add_argument("--out")
     pipe.add_argument("--project")
     pipe.add_argument("--confirmed", action="store_true", required=True)
+    pipe.add_argument("--access", choices=["policy", "strict"], default="policy",
+                      help="policy (default) or strict (no network, nothing outside the worktree)")
     pipe.set_defaults(f=cmd_pipeline)
 
     p_pause = sub.add_parser("pause")
@@ -1296,6 +1684,7 @@ def main():
 
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
+    signal.signal(signal.SIGHUP, interrupted)
     a = ap.parse_args()
     try:
         a.f(a)
