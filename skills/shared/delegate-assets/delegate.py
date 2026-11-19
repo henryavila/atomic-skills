@@ -1447,7 +1447,25 @@ def remote_kill(host, run_id):
         return False
 
 
+def remote_stop(host, run_id):
+    """Stop exactly one run; say whether the stop was confirmed."""
+    if not run_id:
+        return "no_id"
+    return "ok" if remote_kill(host, run_id) else "failed"
+
+
+def _kill_limit(pending, kill_result):
+    if kill_result in ("failed", "no_id"):
+        access = pending.get("access")
+        if isinstance(access, dict):
+            access.setdefault("limits", []).append(
+                f"remote-runner kill did not confirm a stop ({kill_result}); "
+                f"check `remote-runner runs --host {pending.get('host')}` on the host")
+
+
 def _remote_record_failure(pending, failure, detail=None, **extra):
+    if "remote_kill" in extra:
+        _kill_limit(pending, extra["remote_kill"])
     pending.update(failure=failure, completed=now().isoformat(timespec="microseconds"), **extra)
     if detail:
         pending["remote_error"] = detail
@@ -1534,6 +1552,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
     orphan_failure = None
     interrupted_exc = None
     remote_id = None
+    kill_result = None
     run_token = os.urandom(8).hex()
     run_s = send_s = fetch_s = 0.0
 
@@ -1602,13 +1621,13 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             if deadline is not None and now_s >= deadline:
                 timed_out = True
                 discover_remote_id()
-                remote_kill(host, remote_id)
+                kill_result = remote_stop(host, remote_id)
                 _terminate_remote_process(process)
                 break
             if deadline is None and now_s >= queue_deadline:
                 local_slot_timeout = True
                 discover_remote_id()
-                remote_kill(host, remote_id)
+                kill_result = remote_stop(host, remote_id)
                 _terminate_remote_process(process)
                 break
             if now_s >= next_probe:
@@ -1620,14 +1639,14 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
     except ParentGone:
         orphan_failure = "orphaned"
         discover_remote_id()
-        remote_kill(host, remote_id)
+        kill_result = remote_stop(host, remote_id)
         if process is not None:
             _terminate_remote_process(process)
     except (KeyboardInterrupt, SystemExit) as exc:
         orphan_failure = "interrupted"
         interrupted_exc = exc
         discover_remote_id()
-        remote_kill(host, remote_id)
+        kill_result = remote_stop(host, remote_id)
         if process is not None:
             _terminate_remote_process(process)
     except RemoteError as exc:
@@ -1661,12 +1680,13 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
 
     try:
         if local_slot_timeout:
+            extra = {"remote_kill": kill_result} if kill_result else {}
             return _remote_record_failure(
                 pending, "slot_timeout",
                 last_line or "no free capacity on the host within --wait", host=host,
                 wait_s=round(run_s, 3), send_s=round(send_s, 3),
                 run_s=round(run_s, 3), fetch_s=round(fetch_s, 3),
-                exit_code=remote_code)
+                exit_code=remote_code, **extra)
         if remote_code == 74:
             return _remote_record_failure(
                 pending, "slot_timeout", last_line or None, host=host,
@@ -1681,12 +1701,16 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             _cleanup_remote_local(stage, local_res)
             if timed_out:
                 extra = {"remote_work_kept": kept_record()} if kept_record() else {}
+                if kill_result:
+                    extra["remote_kill"] = kill_result
                 return _remote_record_failure(
                     pending, "timeout", wait_s=round(run_s, 3), timed_out=True,
                     send_s=round(send_s, 3), run_s=round(run_s, 3),
                     fetch_s=round(fetch_s, 3), exit_code=remote_code, **extra)
             if orphan_failure:
                 extra = {"remote_work_kept": kept_record()} if kept_record() else {}
+                if kill_result:
+                    extra["remote_kill"] = kill_result
                 return _remote_record_failure(
                     pending, orphan_failure, wait_s=round(run_s, 3),
                     send_s=round(send_s, 3), run_s=round(run_s, 3),
@@ -1788,6 +1812,10 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         access = resolve_remote_access(policy["access"], remote_base)
         access.setdefault("limits", []).append(
             "leftover-process cleanup on the host is only what remote-runner kill guarantees")
+        if kill_result in ("failed", "no_id"):
+            access.setdefault("limits", []).append(
+                f"remote-runner kill did not confirm a stop ({kill_result}); "
+                f"check `remote-runner runs --host {host}` on the host")
         rec = {
             "kind": "run", "id": task_id, "project": project,
             "task": task, "role": role, "executor": executor, "model": model,
@@ -1813,6 +1841,8 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
             rec["remote_error"] = commit_error
         elif diverged_reason:
             rec["remote_error"] = diverged_reason
+        if kill_result:
+            rec["remote_kill"] = kill_result
         if failure != "none":
             kept = kept_record({"ref": fetched_ref} if diverged and fetched_ref else None)
             if kept:

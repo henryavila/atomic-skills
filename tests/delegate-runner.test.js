@@ -5240,6 +5240,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
       assert.equal(res.status, 1, res.stderr);
       const [rec] = readLogRecords(atomicHome);
       assert.equal(rec.failure, 'timeout');
+      assert.equal(rec.remote_kill, 'ok');
       const killed = readFileSync(remote.killLog, 'utf8').trim().split('\n').filter(Boolean);
       assert.equal(killed.length, 1, killed.join(','));
       assert.notEqual(killed[0], foreignId, 'must not kill another task run');
@@ -5273,9 +5274,23 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     const [rec] = readLogRecords(atomicHome);
     assert.equal(rec.failure, 'slot_timeout');
     assert.equal(rec.timed_out, false);
+    assert.equal(rec.remote_kill, 'no_id');
+    assert.ok(rec.access.limits.some(line => /did not confirm a stop \(no_id\)/.test(line)));
     assert.ok(rec.wait_s >= 1 && rec.wait_s < 6, String(rec.wait_s));
     assert.throws(() => readFileSync(join(root, 'captured.argv.json')), { code: 'ENOENT' },
       'the queued executor never starts');
+  });
+
+  it('R07 records a remote kill that failed and adds a limit line', () => {
+    const res = runDelegate(runArgs(['--timeout', '1']),
+      remoteEnv({ FAKE_SLEEP: '30', FAKE_REMOTE_KILL_FAIL: '1' }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'timeout');
+    assert.equal(rec.remote_kill, 'failed');
+    assert.ok(rec.access.limits.some(line => /did not confirm a stop \(failed\)/.test(line)),
+      JSON.stringify(rec.access.limits));
+    assert.match(readFileSync(remote.killLog, 'utf8'), /^[0-9a-f-]{36}$/m);
   });
 
   it('a remote review run with empty output is empty_output and exits non-zero', () => {
