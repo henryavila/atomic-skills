@@ -1127,22 +1127,37 @@ def remote_checks(host):
             if isinstance(check, dict) and check.get("id")}
 
 
+# remote-runner's catalogue ids are not the executor binary names: Antigravity
+# is installed as `agy` but its integration id (and every check id) is
+# `antigravity`.
+REMOTE_INTEGRATION_IDS = {
+    "opencode": "opencode",
+    "codex": "codex",
+    "agy": "antigravity",
+}
+
+
+def remote_integration_id(executor):
+    return REMOTE_INTEGRATION_IDS.get(executor, executor)
+
+
 def remote_ready(checks, host, executor):
     """Return the one-line fix when the executor is unusable on the host."""
+    integration_id = remote_integration_id(executor)
     connection = checks.get("connection")
     if connection and connection.get("status") != "ok":
         return connection.get("detail") or f"host {host} is unreachable"
-    integration = checks.get(f"integration-{executor}")
+    integration = checks.get(f"integration-{integration_id}")
     if not integration:
         return (f"{executor} is not an enabled integration; run remote-runner "
-                f"setup-client --host {host} --integration {executor}")
+                f"setup-client --host {host} --integration {integration_id}")
     if integration.get("status") == "fail":
         return integration.get("detail") or f"{executor} is not installed on {host}"
-    auth = checks.get(f"integration-{executor}-auth")
+    auth = checks.get(f"integration-{integration_id}-auth")
     if auth and auth.get("status") in ("fail", "warn"):
         detail = auth.get("detail") or ""
         if auth.get("status") == "fail" or "not signed in" in detail:
-            return detail or f"{executor} is not signed in; run remote-runner auth {executor}"
+            return detail or f"{executor} is not signed in; run remote-runner auth {integration_id}"
     for check_id, check in checks.items():
         if check.get("status") != "fail":
             continue

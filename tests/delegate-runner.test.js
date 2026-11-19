@@ -266,8 +266,8 @@ if (cmd === 'doctor') {
       { id: 'connection', status: 'ok', detail: 'ssh=' + host },
       { id: 'remote-state', status: 'ok', detail: path.join(root, 'home', '.local/state/remote-runner') }
     ];
-    for (const id of ['opencode', 'codex', 'agy']) {
-      checks.push({ id: 'integration-' + id, status: 'ok', detail: '/usr/local/bin/' + id });
+    for (const [id, binary] of [['opencode', 'opencode'], ['codex', 'codex'], ['antigravity', 'agy']]) {
+      checks.push({ id: 'integration-' + id, status: 'ok', detail: '/usr/local/bin/' + binary });
       checks.push({ id: 'integration-' + id + '-auth', status: 'ok', detail: 'signed in' });
     }
     report = { host, checks, result: 'ok' };
@@ -4857,6 +4857,43 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.equal(rec.failure, 'dirty_worktree');
     assert.equal(rec.host, 'devbox');
     assert.equal(remoteArgvText(), '');
+  });
+
+  it('R01 runs agy against the antigravity integration id', () => {
+    const res = runDelegate(runArgs(['--profile', 'agy']), remoteEnv());
+    assert.equal(res.status, 0, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.executor, 'agy');
+    assert.equal(rec.failure, 'none');
+  });
+
+  it('R01 names the real integration id when agy is unavailable', () => {
+    const doctor = {
+      host: 'devbox', result: 'doctor-failed',
+      checks: [
+        { id: 'connection', status: 'ok', detail: 'ssh=devbox' },
+        { id: 'integration-opencode', status: 'ok', detail: '/usr/local/bin/opencode' },
+        { id: 'integration-antigravity', status: 'fail', detail: 'agy missing; run remote-runner provision --apply' },
+      ],
+    };
+    const res = runDelegate(runArgs(['--profile', 'agy']), remoteEnv({ FAKE_REMOTE_DOCTOR_JSON: JSON.stringify(doctor) }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'remote_not_ready');
+    assert.match(rec.remote_error, /agy missing/);
+    assert.doesNotMatch(remoteArgvText(), /"run"/);
+  });
+
+  it('R01 suggests setup-client with the antigravity id when the check is absent', () => {
+    const doctor = {
+      host: 'devbox', result: 'doctor-failed',
+      checks: [{ id: 'connection', status: 'ok', detail: 'ssh=devbox' }],
+    };
+    const res = runDelegate(runArgs(['--profile', 'agy']), remoteEnv({ FAKE_REMOTE_DOCTOR_JSON: JSON.stringify(doctor) }));
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.match(rec.remote_error, /--integration antigravity/);
+    assert.doesNotMatch(rec.remote_error, /--integration agy/);
   });
 
   it('refuses a host where the executor is missing or signed out', () => {
