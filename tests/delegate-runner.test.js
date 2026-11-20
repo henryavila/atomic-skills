@@ -4231,16 +4231,24 @@ def release():
  while not stdout.exists() and time.time() < deadline: time.sleep(.01)
  assert stdout.exists(), 'runner never opened its wait output'
  queued = time.monotonic()
- while time.monotonic() < queued + 1.1: time.sleep(.01)
+ while time.monotonic() < queued + 4.0: time.sleep(.01)
  subprocess.run(['git', '-C', ${JSON.stringify(repoDir)}, 'commit', '--allow-empty', '-m', 'queued commit'], check=True, stdout=subprocess.DEVNULL)
  slot.unlink()
 thread = threading.Thread(target=release); thread.start()
-rec = d.execute_run('queue', 'queue', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, wait_s=2, confirmed=True)
+rec = d.execute_run('queue', 'queue', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, wait_s=8, confirmed=True)
 thread.join()
-assert rec['duration_s'] < 1, rec
-assert rec['wait_s'] >= 1, rec
+started = d.dt.datetime.fromisoformat(rec['started'])
+completed = d.dt.datetime.fromisoformat(rec['completed'])
+elapsed = (completed - started).total_seconds()
+# duration_s is whole seconds; it must match the wall clock from the launch
+# snapshot to completion (within rounding), whatever the machine speed.
+assert abs(rec['duration_s'] - elapsed) <= 0.6, rec
+# The slot was held for at least 4 s. A duration that counted that wait, or a
+# started taken when the run queued, would be at least that long; the 2 s
+# margin comes from the held slot, not from assuming a fast machine.
+assert rec['wait_s'] >= 3.5, rec
+assert elapsed < rec['wait_s'] - 2, rec
 assert rec['base'] == d.git(${JSON.stringify(repoDir)}, 'rev-parse', 'HEAD')[:10], rec
-assert (d.now() - d.dt.datetime.fromisoformat(rec['started'])).total_seconds() < 1.5, rec
 `, { DELEGATE_MAX_OPENCODE: '1' });
     assert.equal(res.status, 0, res.stderr);
   });
