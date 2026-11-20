@@ -159,7 +159,7 @@ spec.loader.exec_module(d)
         const pipe = readLogRecords(atomicHome).at(-1);
         const timed = pipe.attempts.find(r => r.failure === 'slot_timeout');
         assert.ok(timed, JSON.stringify(pipe));
-        assert.equal(pipe.outcome, fallback ? 'reviewed' : stage === 'executor' ? 'no_executor' : 'no_reviewer');
+        assert.equal(pipe.outcome, fallback ? 'reviewed' : stage === 'executor' ? 'no_executor' : 'review_pending');
         assert.equal(pipe.attempts.filter(r => r.failure === 'none').length, fallback ? 2 : stage === 'executor' ? 0 : 1);
       });
     }

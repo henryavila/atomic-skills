@@ -16,6 +16,8 @@ Subcommands:
   resume    resume runner executions.
   kill      kill running executor process group for a given task id.
   peak      say whether now is inside the DeepSeek peak window.
+  review-pending  list the pipelines whose review could not run for lack of
+            quota or a free slot, or finish one (--id).
   route     print the executor route and the review routes for a role, with the
             profiles that can run now first and the limits still in force.
   profiles  list configured profiles and whether each executor CLI is available.
@@ -32,6 +34,11 @@ HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills")
 LOG = HOME / "delegate" / "runs.jsonl"
 RUNNING = HOME / "delegate" / "running"
 PAUSED = HOME / "delegate" / "PAUSED"
+# One file per pipeline whose review could not run yet: <project>/<id>.json.
+PENDING = HOME / "delegate" / "pending"
+# A review attempt that ended this way says nothing about the work: the reviewer
+# never read it. A route that ends only in these is pending, not failed.
+NO_CAPACITY = ("provider_limit", "slot_timeout")
 
 # DeepSeek peak windows in UTC, Monday-Friday only.
 DEFAULT_PEAK_WINDOWS = "01:00-04:00,06:00-10:00"
@@ -3027,6 +3034,38 @@ def cmd_run(a):
     sys.exit(0 if rec["failure"] == "none" else 1)
 
 
+def review_findings(review_file):
+    """(finding lines, TOTAL line, counts) read from a reviewer's answer."""
+    findings = {"major": 0, "medium": 0, "minor": 0}
+    finding_lines, total_line = [], ""
+    for line in Path(review_file).read_text(errors="replace").splitlines():
+        if re.match(r"^\W*R\d+\s*\|", line):
+            finding_lines.append(line)
+        match = re.search(r"TOTAL\s+major=(\d+)\s+medium=(\d+)\s+minor=(\d+)", line)
+        if match:
+            total_line = line.strip()
+            findings = dict(zip(("major", "medium", "minor"), map(int, match.groups())))
+    return finding_lines, total_line, findings
+
+
+def pending_files(task_id=None, project=None):
+    if not PENDING.is_dir():
+        return []
+    return sorted(p for p in PENDING.glob("*/*.json")
+                  if (task_id is None or p.stem == safe_remote_name(task_id))
+                  and (project is None or p.parent.name == safe_remote_name(project)))
+
+
+def first_reviewer_back(executor_family, review_route, avail):
+    """Text for a pending review: who can review now, or who returns first."""
+    reviewers = [p for p in review_route if MODELS[p][2] != executor_family]
+    if any(usable(p, avail) for p in reviewers):
+        return "a reviewer is usable now"
+    back = sorted((avail[p]["cooling_until"], p) for p in reviewers
+                  if avail[p]["found"] and avail[p]["cooling_until"])
+    return f"first back: {back[0][1]} at {back[0][0]}" if back else "no reviewer CLI was found"
+
+
 def canonical_route(raw):
     route = [ALIASES.get(p.strip(), p.strip()) for p in raw.split(",") if p.strip()]
     for p in route:
@@ -3074,6 +3113,7 @@ def cmd_pipeline(a):
     executor_profile = reviewer_profile = None
     executor_rec = review_rec = None
     auto_committed = False
+    pending_file = None
     executor_error_after_commit = False
     gate_exit = None
     gate_duration_s = 0
@@ -3223,6 +3263,23 @@ def cmd_pipeline(a):
             if outcome is None:
                 outcome = "no_reviewer"
                 tried = [rec for rec in attempts if rec["role"] == "review"]
+                if tried and all(rec["failure"] in NO_CAPACITY for rec in tried):
+                    outcome = "review_pending"
+                    pending_file = PENDING / safe_remote_name(project) / f"{safe_remote_name(task_id)}.json"
+                    pending_file.parent.mkdir(parents=True, exist_ok=True)
+                    pending_file.write_text(json.dumps({
+                        "id": task_id, "task": task, "project": project, "cwd": cwd,
+                        "base": base_commit, "head": gated_snapshot[0],
+                        "executor_profile": executor_profile, "executor_family": executor_family,
+                        "review_route": given[len(given) - len(review_route):],
+                        "review_card": str(review_card_copy),
+                        "attachments": [a.card, *a.review_attach],
+                        "out": str(out), "access": a.access, "host": a.host,
+                        "timeout": a.review_timeout if a.review_timeout is not None else a.timeout,
+                        "idle_timeout": a.idle_timeout, "attempts": len(attempts),
+                        "gate": a.gate, "gate_exit": gate_exit, "auto_committed": auto_committed,
+                        "created": now().isoformat(timespec="seconds"),
+                    }, ensure_ascii=False, indent=1))
                 if not tried:
                     error = "no reviewer outside the executor family"
                 elif all(rec["failure"] == "provider_limit" for rec in tried):
@@ -3242,13 +3299,7 @@ def cmd_pipeline(a):
     review_file = None
     if outcome == "reviewed":
         review_file = review_rec.get("last_message") or review_rec["stdout"]
-        for line in Path(review_file).read_text(errors="replace").splitlines():
-            if re.match(r"^\W*R\d+\s*\|", line):
-                finding_lines.append(line)
-            match = re.search(r"TOTAL\s+major=(\d+)\s+medium=(\d+)\s+minor=(\d+)", line)
-            if match:
-                total_line = line.strip()
-                findings = dict(zip(("major", "medium", "minor"), map(int, match.groups())))
+        finding_lines, total_line, findings = review_findings(review_file)
 
     head = git(cwd, "rev-parse", "HEAD")
     details = attempt_root / "steps.json"
@@ -3263,6 +3314,10 @@ def cmd_pipeline(a):
              (f" | log: {commit_log}" if commit_log.is_file() else "")]
     if error:
         lines.append(f"- stopped at {step}: {error}")
+    if pending_file:
+        lines.append("- review pending: every reviewer was out of quota or had no free slot; the work "
+                     f"passed the gate. Finish with `review-pending --id {task_id} --confirmed` "
+                     f"({first_reviewer_back(executor_family, review_route, availability())}).")
     if reordered:
         lines.append("- tried last (provider limit or missing CLI): " + ", ".join(reordered))
     if executor_error_after_commit:
@@ -3282,7 +3337,7 @@ def cmd_pipeline(a):
         # Preserve both winners, even with a long executor or reviewer quota route.
         decisive = [i for i, rec in enumerate(attempts)
                     if rec is executor_rec or rec is review_rec]
-        prefix = 3 + bool(error) + bool(reordered) + bool(executor_error_after_commit)
+        prefix = 3 + bool(error) + bool(pending_file) + bool(reordered) + bool(executor_error_after_commit)
         keep = set(range(prefix)) | {prefix + i for i in decisive} | {len(lines) - 2, len(lines) - 1}
         for i in reversed(range(prefix, len(lines) - 2)):
             if len(keep) >= 38:
@@ -3312,6 +3367,8 @@ def cmd_pipeline(a):
         "failed_step": step if outcome not in ("reviewed", "no_changes") else None,
         "error": error, "attempts": attempts, "summary": str(summary_file),
     }
+    if pending_file:
+        pipeline_rec["pending"] = str(pending_file)
     if reordered:
         pipeline_rec["reordered"] = reordered
     if executor_error_after_commit:
@@ -3321,6 +3378,127 @@ def cmd_pipeline(a):
     append(pipeline_rec)
     if outcome == "paused":
         print("delegate: paused", file=sys.stderr)
+    sys.exit(0 if outcome == "reviewed" else 3 if outcome == "paused" else 1)
+
+
+def cmd_review_pending(a):
+    if not a.id:
+        files = pending_files(project=a.project)
+        if not files:
+            print("no pending reviews")
+            return
+        avail = availability()
+        for path in files:
+            try:
+                p = json.loads(path.read_text())
+                back = first_reviewer_back(p["executor_family"], p["review_route"], avail)
+                print(f"{p['id']} | {p['project']} | written by {p['executor_profile']} | "
+                      f"since {p['created']} | {back}")
+            except (ValueError, KeyError, OSError):
+                print(f"{path.stem} | {path.parent.name} | unreadable pending file: {path}")
+        return
+    if not a.confirmed:
+        usage_error("--confirmed required")
+    files = pending_files(a.id, a.project)
+    if not files:
+        usage_error(f"no pending review for {a.id}")
+    if len(files) > 1:
+        usage_error(f"{a.id} is pending in several projects; add --project "
+                    + " or ".join(path.parent.name for path in files))
+    pending_file = files[0]
+    p = json.loads(pending_file.read_text())
+    task_id, task, project, cwd = p["id"], p["task"], p["project"], p["cwd"]
+    base, head, executor_family = p["base"], p["head"], p["executor_family"]
+    snapshot = tree_snapshot(cwd)
+    if snapshot[0] != head or snapshot[1]:
+        usage_error(f"the worktree changed since the gate of {task_id} ({cwd}: HEAD "
+                    f"{snapshot[0][:10] or 'unknown'}, gated {head[:10]}, dirty: {bool(snapshot[1])}). "
+                    "Run the gate again and review with `run --role review --diff-range`, "
+                    f"then delete {pending_file}")
+    t0 = time.monotonic()
+    out = Path(p["out"])
+    out.mkdir(parents=True, exist_ok=True)
+    attempt_root = Path(tempfile.mkdtemp(prefix=f"{task_id}-review-", dir=out))
+    route = order_route([r for r in p["review_route"] if MODELS[r][2] != executor_family], availability())
+    attempts, reviewer_profile, review_rec, outcome, error = [], None, None, None, ""
+    try:
+        for profile in route:
+            number = p["attempts"] + len(attempts) + 1
+            rec = {"profile": profile, "role": "review", "failure": "interrupted", "duration_s": 0}
+            attempts.append(rec)
+            try:
+                rec.update(execute_run(
+                    task_id=task_id, task=task, role="review", profile=profile, cwd=cwd,
+                    card=p["review_card"], out=str(attempt_root / f"{number}-review-{profile}"),
+                    project=project, timeout=a.review_timeout or p["timeout"], wait_s=a.wait,
+                    confirmed=True, attempt=number, diff_range=f"{base}...{head}",
+                    attachments=p["attachments"], access_mode=p["access"], host=p["host"],
+                    idle_timeout=p["idle_timeout"]))
+            except SlotTimeoutError as exc:
+                rec.update(exc.record)
+            if tree_snapshot(cwd) != snapshot:
+                error, outcome = "review_wrote: tree changed after gate", "no_reviewer"
+                break
+            if rec["failure"] in (*NO_CAPACITY, "empty_output", "incomplete_review"):
+                continue
+            if rec["failure"] == "none":
+                reviewer_profile, review_rec, outcome = profile, rec, "reviewed"
+            else:
+                error, outcome = rec["failure"], "no_reviewer"
+            break
+    except PausedError:
+        error, outcome = "paused", "paused"
+    if outcome is None:
+        if attempts and all(rec["failure"] in NO_CAPACITY for rec in attempts):
+            outcome = "review_pending"
+        else:
+            outcome = "no_reviewer"
+        error = "reviewer routes exhausted: " + (", ".join(
+            f"{rec['profile']} ({rec['failure']})" for rec in attempts) or "no reviewer outside the executor family")
+
+    finding_lines, total_line, findings = [], "", {"major": 0, "medium": 0, "minor": 0}
+    lines = [f"# Pipeline {task_id}: {task} — {outcome}",
+             f"- committed: {base}..{head}; review finished after a pending review"]
+    if outcome == "reviewed":
+        review_file = review_rec.get("last_message") or review_rec["stdout"]
+        finding_lines, total_line, findings = review_findings(review_file)
+    elif outcome == "review_pending":
+        lines.append(f"- still pending: {first_reviewer_back(executor_family, p['review_route'], availability())}")
+    if error:
+        lines.append(f"- stopped at review: {error}")
+    for rec in attempts:
+        paths = " | ".join(f"{key}: {rec[key]}" for key in ("stdout", "stderr", "last_message")
+                           if rec.get(key) and Path(rec[key]).is_file())
+        lines.append(f"- review: {rec['profile']} | {rec['duration_s']}s | {rec['failure']} | {paths}")
+    lines.append(f"- gate (before the wait): `{p['gate']}` | exit {p['gate_exit']}")
+    lines = [" ".join(str(line).splitlines()) for line in lines]
+    budget = max(0, 59 - len(lines) - 2)
+    lines.extend(finding_lines[:budget])
+    if len(finding_lines) > budget:
+        lines.append(f"- {len(finding_lines) - budget} findings omitted; full review: {review_file}")
+    if total_line:
+        lines.append(total_line)
+    summary_text = "\n".join(lines) + "\n"
+    summary_file = out / f"{task_id}.summary.md"
+    summary_file.write_text(summary_text)
+    print(summary_text, end="")
+    # The file stays while the review can still be finished from it.
+    if outcome == "reviewed" or error.startswith("review_wrote"):
+        pending_file.unlink()
+    rec = {
+        "kind": "pipeline", "id": task_id, "project": project, "outcome": outcome,
+        "resumed_from": "review_pending",
+        "executor_profile": p["executor_profile"], "reviewer_profile": reviewer_profile,
+        "gate_exit": p["gate_exit"], "auto_committed": p["auto_committed"], "findings": findings,
+        "duration_s": round(time.monotonic() - t0), "base": base, "head": head,
+        "failed_step": None if outcome == "reviewed" else "review",
+        "error": error, "attempts": attempts, "summary": str(summary_file),
+    }
+    if pending_file.exists():
+        rec["pending"] = str(pending_file)
+    if p["host"]:
+        rec["host"] = p["host"]
+    append(rec)
     sys.exit(0 if outcome == "reviewed" else 3 if outcome == "paused" else 1)
 
 
@@ -3366,6 +3544,10 @@ def cmd_status(a):
         if lost:
             print(f"warning: the runner of {sid} died; its executor is still working and "
                   f"will leave no result. Stop it with `kill {sid}`, then check the worktree.")
+
+    pending = len(pending_files())
+    if pending:
+        print(f"pending reviews: {pending} (list them with review-pending)")
 
     if LOG.exists():
         limits = {}
@@ -3721,6 +3903,16 @@ def main():
 
     sub.add_parser("report").set_defaults(f=cmd_report)
     sub.add_parser("peak").set_defaults(f=lambda a: print("peak" if in_peak() else "off-peak"))
+    p_pending = sub.add_parser("review-pending")
+    p_pending.add_argument("--id", help="finish the review of this task; without it, list what is pending")
+    p_pending.add_argument("--project")
+    p_pending.add_argument("--confirmed", action="store_true",
+                           help="the review route was approved with the pipeline that left it pending")
+    p_pending.add_argument("--wait", type=duration_arg, default=3600,
+                           help="how long to wait for a free slot, default 60m")
+    p_pending.add_argument("--review-timeout", type=duration_arg, default=None,
+                           help="cap on each review run; default: the pipeline's own")
+    p_pending.set_defaults(f=cmd_review_pending)
     p_route = sub.add_parser("route")
     p_route.add_argument("--role", required=True, choices=sorted(EXECUTOR_ROUTES))
     p_route.add_argument("--open-design", action="store_true",
