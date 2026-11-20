@@ -1,6 +1,7 @@
 # Delegate: availability, `route` and pending reviews
 
-Status: proposal (2026-11-20). Not implemented.
+Status: implemented (2026-11-20) on branch `feat/delegate-route`. The text below is the
+design as built; where the first proposal differed, the built version is what is written.
 
 ## What the log says
 
@@ -40,35 +41,34 @@ Out of scope: an LLM or decision-model judge, memory in cards, a queue daemon.
 
 ## 1. Availability
 
-One function, `availability(executor)`, used by everything below. It returns:
+One function, `availability()`, used by everything below. It returns, per profile:
 
-- `cooling_until`: a UTC time, or none. Set when the newest run of that executor in the
-  log is a `provider_limit`. The time is the reset the provider printed (`status` already
-  finds `try again at …` in the run's stderr); when no reset can be read, it is the limit
-  time plus `DELEGATE_COOLDOWN_<EXECUTOR>` (default 60 minutes). A later run of the same
-  executor that did not end in `provider_limit` clears it.
+- `cooling_until`: a UTC time, or none. A limit belongs to the pair (executor, model),
+  because Antigravity limits each model separately. It is set when the newest
+  `provider_limit` of that pair has no later run that reached the provider. The time is
+  the reset the provider printed: `try again at 5:51 PM` (Codex, local clock, next day
+  when already past), `Resets in 107h24m20s` (Antigravity), `resets 5:10pm
+  (America/Sao_Paulo)` (Claude Code). When no reset can be read, it is the limit time
+  plus `DELEGATE_COOLDOWN_<EXECUTOR>` (default 60 minutes). `reset_source` says which.
 - `slots_free`: `get_max_slots` minus the active slots.
-- `found`: the CLI is on PATH (`find_optional`).
+- `found`: the CLI was found (`find_optional`).
 
-`status` prints its limit lines from this function instead of its own loop.
-
-Open point for the first card: read real `.err` files of Codex and Antigravity limit runs
-and write the reset parser against them. If Antigravity prints no reset time, it uses the
-default cooldown.
+`status` keeps its own limit lines; it only gained the count of pending reviews.
 
 ## 2. `delegate.py route`
 
 ```
-delegate.py route --role implement [--host <name>]
+delegate.py route --role <implement|fix|mechanical|test> [--open-design] [--json]
 ```
 
 Prints, and with `--json` returns:
 
 - the executor route, usable profiles first, cooling ones last with their return time;
 - the review route for each possible executor family, in the same order;
+- one `cooling:` line per limit in force;
 - a warning line when no reviewer outside a family is usable now, with the earliest
-  return time: `flash: no reviewer until 17:51 UTC (codex-review); a pipeline now ends
-  review_pending`.
+  return time: `flash: no reviewer usable now; first back: codex-review at <time>; a
+  pipeline now ends review_pending; claude-review can review with the operator's yes`.
 
 Order among usable profiles is fixed and comes from the skill's current rules (Flash
 first for implement, fix, mechanical and test; the reviewer order per family as written
@@ -88,7 +88,9 @@ runner cannot disagree.
   `slot_timeout`, the outcome is `review_pending` instead of `no_reviewer`. The runner
   writes `~/.atomic-skills/delegate/pending/<project>/<id>.json` with the worktree, base
   and gated commit, review card copy, attachments, review route, executor family and the
-  earliest return time. `no_reviewer` remains for the other causes (a review that wrote,
+  earliest return time. An executor that ends in `error` after committing, with a clean
+  tree, still goes to the gate and the review (`executor_error_after_commit`).
+  `no_reviewer` remains for the other causes (a review that wrote,
   an error, no reviewer outside the family).
 
 ## 4. `delegate.py review-pending`
@@ -128,15 +130,16 @@ review goes to Claude, and the operator confirms it each time.
   2. Afterwards: the pipeline ended `review_pending`; the orchestrator asks the operator
      and runs `review-pending --id <ID> --reviewer claude-review --allow-claude-review`.
 - With the flag, `claude-review` is still the last reviewer tried: a usable Codex or
-  Antigravity reviewer goes first. The record carries `fallback_reviewer: true` and
-  `user_confirmed`, so `report` can show how often Claude reviewed.
-- Access is the review policy of the other CLIs: reads the repository, the git directory,
-  cards and outputs; the read-only git commands; no edit tool. The exact Claude Code flags
-  are written against `claude --help` in the card, and no flag in `FORBIDDEN_ARGV_FLAGS`
-  is used. The `review_wrote` check stays the guarantee.
-- A Claude session limit ends with exit code 0, so `classify_failure`, which looks for a
-  limit only on a non-zero exit, needs the Claude case (see
-  `.ai/memory/reference-cross-model-review-host-picker.md`).
+  Antigravity reviewer goes first. The run and pipeline records carry
+  `fallback_reviewer: true`, and the run record `author_family`.
+- Access is narrower than the other reviewers: `claude --safe-mode -p` with
+  `--tools Read,Grep,Glob --permission-mode dontAsk --no-session-persistence
+  --disable-slash-commands`. No shell, no git command, no network, so the runner puts the
+  diff in the prompt (`requires_review_diff`, as for Antigravity). It runs only on this
+  machine, never on a remote host. `--allow-dangerously-skip-permissions` joined
+  `FORBIDDEN_ARGV_FLAGS`. The `review_wrote` check stays the guarantee.
+- A Claude session limit ends with exit code 0 and the message on stdout, so
+  `classify_failure` has a Claude case that reads stdout.
 
 ## Decision-model hook
 
@@ -160,7 +163,7 @@ All four touch `skills/shared/delegate-assets/delegate.py`, so they run one afte
 
 4. **Claude fallback reviewer.** `claude-review` profile, `--allow-claude-review`,
    `--author-family`, the exit-0 limit case, `--reviewer` on `review-pending`, skill text.
-   Tests: `tests/delegate-runner-access.test.js` and the pending tests.
+   Tests: `tests/delegate-runner-claude.test.js`.
 
 How to know it worked: after a week, pipelines ending without a review that the runner
 cannot finish (`no_reviewer`) drop from 22% to the cases that are real errors, and
