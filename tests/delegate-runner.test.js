@@ -152,6 +152,24 @@ function readLogRecords(atomicHome) {
     .map((line) => JSON.parse(line));
 }
 
+function runDelegateAsync(args, env = {}) {
+  const childEnv = { ...process.env, ...env };
+  for (const [key, value] of Object.entries(childEnv)) {
+    if (value === undefined) delete childEnv[key];
+  }
+  const child = spawn(PYTHON3, [DELEGATE_PY, ...args], {
+    env: childEnv, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const done = new Promise((resolve) => {
+    child.on('close', (status, signal) => resolve({ status, signal, stdout, stderr }));
+  });
+  return { child, done };
+}
+
 describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
   let root;
   let atomicHome;
@@ -213,10 +231,12 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     rmSync(root, { recursive: true, force: true });
   });
 
+  let reviewInputRound = 0;
   function reviewRange(separator = '...') {
     const base = git(repoDir, 'rev-parse', 'HEAD');
-    writeFileSync(join(repoDir, 'review-input.md'), 'changed `````` content\n');
-    git(repoDir, 'add', 'review-input.md');
+    const name = `review-input-${++reviewInputRound}.md`;
+    writeFileSync(join(repoDir, name), 'changed `````` content\n');
+    git(repoDir, 'add', name);
     git(repoDir, 'commit', '-m', 'review input');
     return `${base}${separator}HEAD`;
   }
@@ -239,7 +259,7 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
       assert.equal(rec.diff_bytes, Buffer.byteLength(diff));
       assert.deepEqual(rec.attached, ['card.md', 'extra.md']);
       assert.equal(readFileSync(reviewCardPath, 'utf8'), original);
-      assert.ok(prompt.startsWith(original));
+      assert.ok(prompt.startsWith(original.replaceAll('{{DIFF_RANGE}}', range)));
       assert.match(prompt, /## Attached: card\.md\n/);
       assert.ok(prompt.indexOf('## Attached: extra.md') > prompt.indexOf('## Attached: card.md'));
       assert.ok(prompt.indexOf(`## Diff ${range}`) > prompt.indexOf('## Attached: extra.md'));
@@ -418,7 +438,8 @@ describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : fal
     }
   }
   it('D8 standalone slot timeout retains exit 4 and records slot_timeout', () => {
-    const res = runDelegate(reviewArgs(['--wait', '0'], 'codex-review'), { ...baseEnv, DELEGATE_MAX_CODEX: '0' });
+    const res = runDelegate(reviewArgs(['--diff-range', reviewRange(), '--wait', '0'], 'codex-review'),
+      { ...baseEnv, DELEGATE_MAX_CODEX: '0' });
     assert.equal(res.status, 4, res.stderr);
     assert.match(res.stderr, /slot wait timed out/);
     assert.equal(readLogRecords(atomicHome)[0].failure, 'slot_timeout');
@@ -854,7 +875,7 @@ print(json.dumps({"plain": d.git_common_dir(${JSON.stringify(repoDir)}),
 
   it('D9 a review that writes the tree still fails review_wrote under the policy', () => {
     for (const profile of ['codex-review', 'agy-review', 'flash-review']) {
-      const extra = profile === 'agy-review' ? ['--diff-range', reviewRange()] : [];
+      const extra = ['--diff-range', reviewRange()];
       const res = runDelegate(reviewArgs([...extra], profile), {
         ...baseEnv, FAKE_TOUCH_FILE: `${profile}.txt`, FAKE_STDOUT: 'incomplete',
       });
@@ -968,7 +989,7 @@ print(json.dumps(out))
             'run', '--id', `T-NOBYPASS-${access}-${profile}-${role}`, '--task', 'no bypass',
             '--role', role, '--profile', profile, '--cwd', repoDir,
             '--card', role === 'review' ? reviewCardPath : cardPath,
-            ...(role === 'review' && profile.startsWith('agy') ? ['--diff-range', range] : []),
+            ...(role === 'review' ? ['--diff-range', range] : []),
             '--out', outDir, '--access', access, '--confirmed',
           ], baseEnv);
           assert.equal(res.status, 0, `${access}/${profile}/${role}: ${res.stderr}`);
@@ -988,7 +1009,7 @@ print(json.dumps(out))
     const run = (id, profile, role, extra = [], cwd = repoDir) => {
       const res = runDelegate([
         'run', '--id', id, '--task', 'strict', '--role', role, '--profile', profile,
-        ...(role === 'review' && profile.startsWith('agy') ? ['--diff-range', reviewRange()] : []),
+        ...(role === 'review' ? ['--diff-range', reviewRange()] : []),
         '--cwd', cwd, '--card', role === 'review' ? reviewCardPath : cardPath,
         '--out', outDir, '--access', 'strict', '--confirmed', ...extra,
       ], baseEnv);
@@ -1089,7 +1110,8 @@ print(json.dumps(out))
       '--yolo', 'danger-full-access', '--dangerously-skip-permissions'];
     for (const [profile, role, extra] of [
       ['flash', 'implement', []], ['codex', 'implement', []], ['agy', 'implement', []],
-      ['flash-review', 'review', []], ['codex-review', 'review', []],
+      ['flash-review', 'review', ['--diff-range', reviewRange()]],
+      ['codex-review', 'review', ['--diff-range', reviewRange()]],
       ['agy-review', 'review', ['--diff-range', reviewRange()]],
     ]) {
       const res = runDelegate([
@@ -4209,16 +4231,24 @@ def release():
  while not stdout.exists() and time.time() < deadline: time.sleep(.01)
  assert stdout.exists(), 'runner never opened its wait output'
  queued = time.monotonic()
- while time.monotonic() < queued + 1.1: time.sleep(.01)
+ while time.monotonic() < queued + 4.0: time.sleep(.01)
  subprocess.run(['git', '-C', ${JSON.stringify(repoDir)}, 'commit', '--allow-empty', '-m', 'queued commit'], check=True, stdout=subprocess.DEVNULL)
  slot.unlink()
 thread = threading.Thread(target=release); thread.start()
-rec = d.execute_run('queue', 'queue', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, wait_s=2, confirmed=True)
+rec = d.execute_run('queue', 'queue', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, wait_s=8, confirmed=True)
 thread.join()
-assert rec['duration_s'] < 1, rec
-assert rec['wait_s'] >= 1, rec
+started = d.dt.datetime.fromisoformat(rec['started'])
+completed = d.dt.datetime.fromisoformat(rec['completed'])
+elapsed = (completed - started).total_seconds()
+# duration_s is whole seconds; it must match the wall clock from the launch
+# snapshot to completion (within rounding), whatever the machine speed.
+assert abs(rec['duration_s'] - elapsed) <= 0.6, rec
+# The slot was held for at least 4 s. A duration that counted that wait, or a
+# started taken when the run queued, would be at least that long; the 2 s
+# margin comes from the held slot, not from assuming a fast machine.
+assert rec['wait_s'] >= 3.5, rec
+assert elapsed < rec['wait_s'] - 2, rec
 assert rec['base'] == d.git(${JSON.stringify(repoDir)}, 'rev-parse', 'HEAD')[:10], rec
-assert (d.now() - d.dt.datetime.fromisoformat(rec['started'])).total_seconds() < 1.5, rec
 `, { DELEGATE_MAX_OPENCODE: '1' });
     assert.equal(res.status, 0, res.stderr);
   });
@@ -4319,6 +4349,427 @@ finally:
     }
     assert.doesNotMatch(template, /cannot run git/);
     assert.doesNotMatch(skill, /cannot assume which read directories/);
+  });
+
+  // AS-D10a: the runner leaves no process behind.
+  function pidAlive(pid) {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function detachedExecutorFake(pidFile, releaseFile, heartbeatFile) {
+    writeFileSync(fakePaths.opencode, `#!${PYTHON3}
+import pathlib, subprocess, sys, time
+child_code = """import pathlib, signal, sys, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+h = pathlib.Path(sys.argv[1])
+i = 0
+while True:
+    i += 1
+    h.write_text(str(i))
+    time.sleep(0.05)
+"""
+child = subprocess.Popen([sys.executable, "-c", child_code, ${JSON.stringify(heartbeatFile)}],
+                         start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+pathlib.Path(${JSON.stringify(pidFile)}).write_text(str(child.pid))
+release = pathlib.Path(${JSON.stringify(releaseFile)})
+deadline = time.time() + 60
+while not release.exists() and time.time() < deadline:
+    time.sleep(0.02)
+sys.exit(0 if release.exists() else 1)
+`);
+    chmodSync(fakePaths.opencode, 0o755);
+  }
+
+  async function waitForDetachedPoll(heartbeat) {
+    // The child heartbeat is the observable; 25 beats (at least 1.25 s) mean
+    // the 0.5 s fast poll has run while the child was still attached, so its
+    // new group is remembered before the executor exits.
+    await waitFor(() => {
+      try {
+        return Number(readFileSync(heartbeat, 'utf8')) >= 25;
+      } catch {
+        return false;
+      }
+    }, 20000, 'detached child poll window');
+  }
+
+  function implementArgs(id = 'T-ORPHAN') {
+    return ['run', '--id', id, '--task', 'orphan sweep', '--role', 'implement',
+      '--profile', 'flash', '--cwd', repoDir, '--card', cardPath,
+      '--out', outDir, '--confirmed'];
+  }
+
+  it('AS-D10a kills a detached descendant, counts it, and status warns about it', async () => {
+    const pidFile = join(root, 'detached.pid');
+    const release = join(root, 'detached.release');
+    const heartbeat = join(root, 'detached.heartbeat');
+    detachedExecutorFake(pidFile, release, heartbeat);
+    const run = runDelegateAsync(implementArgs(), baseEnv);
+    let detachedPid = null;
+    try {
+      await waitFor(() => existsSync(pidFile), 20000, 'detached child start');
+      detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      await waitForDetachedPoll(heartbeat);
+      writeFileSync(release, 'go');
+      const res = await run.done;
+      assert.equal(res.status, 0, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'none');
+      assert.ok(rec.orphans, JSON.stringify(rec));
+      assert.equal(rec.orphans.found, 1, JSON.stringify(rec.orphans));
+      assert.equal(rec.orphans.killed, 1, JSON.stringify(rec.orphans));
+      assert.equal(rec.orphans.tracked, true, JSON.stringify(rec.orphans));
+      assert.ok(rec.orphans.polls >= 1, JSON.stringify(rec.orphans));
+      assert.match(rec.orphans.method, /^(subreaper\+poll|poll)$/);
+      assert.equal(rec.orphans.sample.length, 1, JSON.stringify(rec.orphans));
+      assert.equal(typeof rec.orphans.sample[0], 'string');
+      assert.ok(rec.orphans.sample[0].length <= 80, rec.orphans.sample[0]);
+      await waitFor(() => !pidAlive(detachedPid), 20000, 'detached descendant end');
+      const status = runDelegate(['status'], baseEnv);
+      assert.equal(status.status, 0, status.stderr);
+      assert.match(status.stdout, /warning: recent runs left 1 orphan process/);
+    } finally {
+      writeFileSync(release, 'go');
+      if (detachedPid === null && existsSync(pidFile)) {
+        detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      }
+      if (detachedPid) {
+        try { process.kill(detachedPid, 'SIGKILL'); } catch { /* already gone */ }
+      }
+      if (run.child.exitCode === null) {
+        try { run.child.kill('SIGKILL'); } catch { /* already gone */ }
+      }
+    }
+  });
+
+  it('AS-D10a never signals a process the executor did not start', async () => {
+    const decoy = spawn(PYTHON3, ['-c', 'import time; time.sleep(600)'],
+      { detached: true, stdio: 'ignore' });
+    decoy.unref();
+    const pidFile = join(root, 'detached.pid');
+    const release = join(root, 'detached.release');
+    const heartbeat = join(root, 'detached.heartbeat');
+    detachedExecutorFake(pidFile, release, heartbeat);
+    const run = runDelegateAsync(implementArgs('T-NOT-MINE'), baseEnv);
+    let detachedPid = null;
+    try {
+      await waitFor(() => existsSync(pidFile), 20000, 'detached child start');
+      detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      await waitForDetachedPoll(heartbeat);
+      writeFileSync(release, 'go');
+      const res = await run.done;
+      assert.equal(res.status, 0, res.stderr);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.orphans.found, 1, JSON.stringify(rec.orphans));
+      assert.ok(!rec.orphans.sample.some(line => line.includes(String(decoy.pid))),
+        JSON.stringify(rec.orphans.sample));
+      assert.ok(pidAlive(decoy.pid), 'a process outside the executor tree must survive');
+    } finally {
+      writeFileSync(release, 'go');
+      if (detachedPid === null && existsSync(pidFile)) {
+        detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      }
+      if (detachedPid) {
+        try { process.kill(detachedPid, 'SIGKILL'); } catch { /* already gone */ }
+      }
+      try { process.kill(decoy.pid, 'SIGKILL'); } catch { /* already gone */ }
+      if (run.child.exitCode === null) {
+        try { run.child.kill('SIGKILL'); } catch { /* already gone */ }
+      }
+    }
+  });
+
+  it('AS-D10a ends a child detached immediately before the executor exits', () => {
+    const res = pythonHarness(`
+pid_file = pathlib.Path(${JSON.stringify(join(root, 'immediate.pid'))})
+release = pathlib.Path(${JSON.stringify(join(root, 'immediate.release'))})
+child_code = """import signal, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+time.sleep(600)
+"""
+leader_code = """import pathlib, subprocess, sys, time
+child = subprocess.Popen([sys.executable, "-c", %r], start_new_session=True)
+pathlib.Path(%r).write_text(str(child.pid))
+release = pathlib.Path(%r)
+deadline = time.time() + 20
+while not release.exists() and time.time() < deadline:
+    time.sleep(.01)
+""" % (child_code, str(pid_file), str(release))
+leader = subprocess.Popen([sys.executable, "-c", leader_code], start_new_session=True)
+tracker = d.ProcessTracker()
+try:
+ deadline = time.time() + 20
+ while not pid_file.exists() and time.time() < deadline: time.sleep(.01)
+ assert pid_file.exists()
+ tracker.watch(leader.pid)
+ child_pid = int(pid_file.read_text())
+ deadline = time.time() + 20
+ while child_pid not in tracker.seen and time.time() < deadline: time.sleep(.01)
+ assert child_pid in tracker.seen, tracker.seen
+ release.write_text("go")
+ leader.wait(timeout=20)
+ tracker.poll(force=True)
+ result = tracker.sweep()
+ assert result["found"] >= 1, result
+ assert result["killed"] >= 1, result
+ assert result["tracked"] is True, result
+ assert result["polls"] >= 1, result
+ deadline = time.time() + 20
+ while time.time() < deadline:
+  try: os.kill(child_pid, 0)
+  except ProcessLookupError: break
+  time.sleep(.05)
+ else: raise AssertionError("detached child survived the sweep")
+finally:
+ release.write_text("go")
+ if pid_file.exists():
+  try: os.kill(int(pid_file.read_text()), signal.SIGKILL)
+  except ProcessLookupError: pass
+ if leader.poll() is None: leader.kill(); leader.wait()
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('AS-D10a polls immediately for a run shorter than the interval', () => {
+    const res = pythonHarness(`
+pid_file = pathlib.Path(${JSON.stringify(join(root, 'short.pid'))})
+release = pathlib.Path(${JSON.stringify(join(root, 'short.release'))})
+child_code = """import signal, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+time.sleep(600)
+"""
+leader_code = """import pathlib, subprocess, sys, time
+child = subprocess.Popen([sys.executable, "-c", %r], start_new_session=True)
+pathlib.Path(%r).write_text(str(child.pid))
+release = pathlib.Path(%r)
+deadline = time.time() + 20
+while not release.exists() and time.time() < deadline:
+    time.sleep(.01)
+""" % (child_code, str(pid_file), str(release))
+leader = subprocess.Popen([sys.executable, "-c", leader_code], start_new_session=True)
+tracker = d.ProcessTracker(interval=60)
+try:
+ deadline = time.time() + 20
+ while not pid_file.exists() and time.time() < deadline: time.sleep(.01)
+ assert pid_file.exists()
+ child_pid = int(pid_file.read_text())
+ tracker.watch(leader.pid)
+ assert tracker.polls == 1, tracker.polls
+ assert child_pid in tracker.seen, tracker.seen
+ started = time.monotonic()
+ release.write_text("go")
+ leader.wait(timeout=20)
+ assert time.monotonic() - started < 60
+ result = tracker.sweep()
+ assert result["found"] >= 1, result
+ assert result["killed"] >= 1, result
+finally:
+ release.write_text("go")
+ if pid_file.exists():
+  try: os.kill(int(pid_file.read_text()), signal.SIGKILL)
+  except ProcessLookupError: pass
+ if leader.poll() is None: leader.kill(); leader.wait()
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('AS-D10a never signals a remembered pid whose identity changed', () => {
+    const res = pythonHarness(`
+pid_file = pathlib.Path(${JSON.stringify(join(root, 'identity.pid'))})
+child_code = """import signal, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+time.sleep(600)
+"""
+leader_code = """import pathlib, subprocess, sys, time
+child = subprocess.Popen([sys.executable, "-c", %r], start_new_session=True)
+pathlib.Path(%r).write_text(str(child.pid))
+time.sleep(60)
+""" % (child_code, str(pid_file))
+leader = subprocess.Popen([sys.executable, "-c", leader_code], start_new_session=True)
+tracker = d.ProcessTracker()
+try:
+ deadline = time.time() + 20
+ while not pid_file.exists() and time.time() < deadline: time.sleep(.01)
+ assert pid_file.exists()
+ child_pid = int(pid_file.read_text())
+ tracker.watch(leader.pid)
+ deadline = time.time() + 20
+ while child_pid not in tracker.seen and time.time() < deadline: time.sleep(.01)
+ assert child_pid in tracker.seen, tracker.seen
+ original = tracker.seen[child_pid]
+ table = tracker._table()
+ tracker.seen[child_pid] = "forged"
+ tracker._remember(child_pid, table)
+ assert tracker.seen[child_pid] == original, tracker.seen[child_pid]
+ tracker.seen[child_pid] = "forged"
+ tracker.poll = lambda *args, **kwargs: None
+ calls = []
+ original_kill = os.kill
+ def guarded(pid, sig):
+  if pid == child_pid:
+   calls.append((pid, sig))
+   return None
+  return original_kill(pid, sig)
+ os.kill = guarded
+ try:
+  result = tracker.sweep()
+ finally:
+  os.kill = original_kill
+ assert not calls, calls
+ assert result["found"] == 0, result
+ os.kill(child_pid, 0)
+finally:
+ if pid_file.exists():
+  try: os.kill(int(pid_file.read_text()), signal.SIGKILL)
+  except ProcessLookupError: pass
+ if leader.poll() is None: leader.kill(); leader.wait()
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('AS-D10a the timeout path still sweeps a detached child', () => {
+    const pidFile = join(root, 'timeout.pid');
+    writeFileSync(fakePaths.opencode, `#!${PYTHON3}
+import pathlib, subprocess, sys, time
+child = subprocess.Popen([sys.executable, "-c",
+                          "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(600)"],
+                         start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+pathlib.Path(${JSON.stringify(pidFile)}).write_text(str(child.pid))
+time.sleep(60)
+`);
+    chmodSync(fakePaths.opencode, 0o755);
+    let detachedPid = null;
+    try {
+      const res = runDelegate([...implementArgs('T-TIMEOUT'), '--timeout', '1'], baseEnv);
+      assert.notEqual(res.status, 0);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.timed_out, true, JSON.stringify(rec));
+      assert.equal(rec.failure, 'timeout', JSON.stringify(rec));
+      assert.equal(rec.orphans.found, 1, JSON.stringify(rec.orphans));
+      assert.equal(rec.orphans.killed, 1, JSON.stringify(rec.orphans));
+      assert.equal(rec.orphans.tracked, true, JSON.stringify(rec.orphans));
+      detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      assert.equal(pidAlive(detachedPid), false, 'detached child survived the timeout sweep');
+    } finally {
+      if (detachedPid === null && existsSync(pidFile)) {
+        detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      }
+      if (detachedPid) {
+        try { process.kill(detachedPid, 'SIGKILL'); } catch { /* already gone */ }
+      }
+    }
+  });
+
+  it('AS-D10a A1 slot timeout exits non-zero and records slot_timeout, launching nothing', () => {
+    const res = runDelegate([
+      'run', '--id', 'T-SLOT-A1', '--task', 'slot gate', '--role', 'implement',
+      '--profile', 'codex', '--cwd', repoDir, '--card', cardPath,
+      '--out', outDir, '--wait', '0', '--confirmed',
+    ], { ...baseEnv, DELEGATE_MAX_CODEX: '0' });
+    assert.notEqual(res.status, 0);
+    assert.match(res.stderr, /no free codex slot \(slot wait timed out\)/);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'slot_timeout');
+    assert.equal(rec.exit_code, null);
+    assert.equal(rec.orphans.tracked, false, JSON.stringify(rec.orphans));
+    assert.equal(rec.orphans.polls, 0, JSON.stringify(rec.orphans));
+    assert.match(rec.orphans.method, /^(subreaper\+poll|poll)$/);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+  });
+
+  it('AS-D10a A2 a plain review run with empty output is empty_output and exits non-zero', () => {
+    const res = runDelegate(reviewArgs(['--diff-range', reviewRange()], 'agy-review'),
+      { ...baseEnv, FAKE_STDOUT: '' });
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'empty_output');
+    assert.equal(rec.exit_code, 0);
+    assert.equal(readFileSync(rec.stdout, 'utf8'), '');
+  });
+
+  it('AS-D10a A2 refuses a review card with {{DIFF_RANGE}} when no --diff-range is given', () => {
+    const args = (extra = []) => ['run', '--id', 'T-PLACEHOLDER', '--task', 'placeholder',
+      '--role', 'review', '--profile', 'codex-review', '--cwd', repoDir,
+      '--card', reviewCardPath, '--out', outDir, '--confirmed', ...extra];
+    const refused = runDelegate(args(), baseEnv);
+    assert.equal(refused.status, 2, refused.stderr);
+    assert.equal(refused.stderr.trim().split('\n').length, 1, refused.stderr);
+    assert.match(refused.stderr, /^delegate: .*\{\{DIFF_RANGE\}\}.*--diff-range/);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+    assert.throws(() => readLogRecords(atomicHome), { code: 'ENOENT' });
+
+    const accepted = runDelegate(args(['--diff-range', reviewRange()]), baseEnv);
+    assert.equal(accepted.status, 0, accepted.stderr);
+    assert.equal(readLogRecords(atomicHome)[0].failure, 'none');
+  });
+
+  it('AS-D10a standalone --diff-range replaces {{DIFF_RANGE}} in the card', () => {
+    const range = reviewRange();
+    const res = runDelegate(reviewArgs(['--diff-range', range], 'codex-review'), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    const stdin = readFileSync(stdinFile, 'utf8');
+    assert.doesNotMatch(stdin, /\{\{DIFF_RANGE\}\}/);
+    assert.ok(stdin.includes(range), stdin);
+  });
+
+  it('AS-D10a reserves a distinct output stem per concurrent run of one id', () => {
+    const res = pythonHarness(`
+out = pathlib.Path(${JSON.stringify(join(root, 'stems'))})
+out.mkdir(parents=True, exist_ok=True)
+stems, errors = [], []
+def choose():
+ try:
+  stems.append(d.run_output_paths(out, "same-id", 1)[0].name)
+ except Exception as exc:
+  errors.append(repr(exc))
+threads = [threading.Thread(target=choose) for _ in range(8)]
+for thread in threads: thread.start()
+for thread in threads: thread.join()
+assert not errors, errors
+assert len(stems) == 8, stems
+assert len(set(stems)) == 8, stems
+for name in stems:
+ prompt = out / name.replace(".out.md", ".prompt.md")
+ assert prompt.exists(), prompt
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('AS-D10a A4 reusing an id keeps the earlier round output and points each record at its own', () => {
+    const first = runDelegate(implementArgs('T-REUSE'), { ...baseEnv, FAKE_STDOUT: 'first round\n' });
+    assert.equal(first.status, 0, first.stderr);
+    const second = runDelegate(implementArgs('T-REUSE'), { ...baseEnv, FAKE_STDOUT: 'second round\n' });
+    assert.equal(second.status, 0, second.stderr);
+    const [firstRec, secondRec] = readLogRecords(atomicHome);
+    assert.notEqual(secondRec.stdout, firstRec.stdout);
+    assert.notEqual(secondRec.prompt, firstRec.prompt);
+    assert.match(secondRec.stdout, /T-REUSE\.attempt2\.out\.md$/);
+    assert.equal(readFileSync(firstRec.stdout, 'utf8'), 'first round\n');
+    assert.equal(readFileSync(secondRec.stdout, 'utf8'), 'second round\n');
+    assert.match(readFileSync(secondRec.prompt, 'utf8'), /^# Task CARD-1/);
+  });
+
+  it('AS-D10a text: detached processes are ended and host-only gates stay on the host', () => {
+    const skill = readFileSync(join(REPO_ROOT, 'skills/core/delegate.md'), 'utf8');
+    const card = readFileSync(join(REPO_ROOT, 'skills/shared/delegate-assets/card-template.md'), 'utf8');
+    for (const text of [skill, card]) {
+      assert.match(text, /afterEach/);
+      assert.match(text, /`ps`/);
+      assert.match(text, /Xcode|simulator|GUI/);
+    }
+    assert.match(skill, /orphans/);
+    assert.match(skill, /every 0\.5 s for the first 10 s and then every 3 s/);
+    assert.match(skill, /double-forks between two polls/);
+    assert.match(skill, /last 10 runs/);
+    assert.match(skill, /`tracked`, `polls`, and `method`/);
+    assert.match(skill, /codex.*SSH|SSH.*codex/);
   });
 
 });
