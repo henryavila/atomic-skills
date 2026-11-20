@@ -1314,11 +1314,14 @@ mkdir -p "$R"
 state="${{REMOTE_RUNNER_REMOTE_STATE:-$HOME/.local/state/remote-runner}}"
 run_id=""
 if [ -d "$state/runs" ]; then
-  for rec in "$state"/runs/*; do
+  # Newest first: a stale record for a reused pid must never win over the one
+  # remote-runner wrote for this process immediately before starting it.
+  for name in $(ls -1t "$state/runs" 2>/dev/null); do
+    case "$name" in .*|*.env|*.cancel|*.gate|*.owner) continue ;; esac
+    rec="$state/runs/$name"
     [ -f "$rec" ] || continue
-    case "${{rec##*/}}" in .*|*.env|*.cancel|*.gate|*.owner) continue ;; esac
     [ "$(sed -n '1p' "$rec" 2>/dev/null)" = "$$" ] || continue
-    run_id="${{rec##*/}}"
+    run_id="$name"
     break
   done
 fi
