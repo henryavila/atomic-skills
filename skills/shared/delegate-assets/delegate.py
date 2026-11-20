@@ -56,8 +56,9 @@ CLAUDE_MODEL = os.environ.get("DELEGATE_CLAUDE_MODEL") or "claude-sonnet-5-5"
 CLAUDE_REVIEW = "claude-review"
 # Claude Code prints its session limit on stdout and exits 0:
 #   "You've hit your session limit · resets 5:10pm (America/Sao_Paulo)"
-CLAUDE_LIMIT_RE = re.compile(r"hit\s+your\s+(?:session|usage|weekly)\s+limit|session\s+limit\s*\S?\s*resets",
-                             re.IGNORECASE)
+CLAUDE_LIMIT_RE = re.compile(
+    r"hit\s+your\s+(?:session|usage|weekly)\s+limit|session\s+limit\s*\S?\s*resets"
+    r"|insufficient\s+balance|credit\s+balance\s+is\s+too\s+low", re.IGNORECASE)
 RESET_ZONE_RE = re.compile(r"resets(?:\s+at)?\s+(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(([\w/+-]+)\)", re.IGNORECASE)
 
 MODELS = {
@@ -690,8 +691,26 @@ def has_provider_limit(stdout, stderr):
     return False
 
 
+def child_environment(executor, environ, policy_env):
+    """The environment of the executor process.
+
+    A Claude Code session exports its own endpoint and host-auth variables. A
+    `claude` child that inherits them mixes them with the user's settings and
+    fails to authenticate, so they are removed and the child starts as it would
+    from the user's terminal. Outside a session nothing is removed.
+    """
+    env = dict(environ)
+    if executor == "claude" and "CLAUDECODE" in env:
+        keep = {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CONFIG_DIR"}
+        env = {k: v for k, v in env.items()
+               if k in keep or not k.startswith(("CLAUDE", "ANTHROPIC_"))}
+    env.update(policy_env)
+    return env
+
+
 def claude_limit(stdout):
-    """Claude Code reports a session limit on stdout with exit code 0."""
+    """Claude Code reports a session limit on stdout with exit code 0, and an
+    exhausted balance on stdout with exit code 1."""
     try:
         text = stdout.read_text(errors="replace")
     except OSError:
@@ -2943,8 +2962,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                         started = now().isoformat(timespec="microseconds")
                         t0 = time.monotonic()
                         wait_duration_s = t0 - queued_at
-                        child_env = dict(os.environ)
-                        child_env.update(policy["env"])
+                        child_env = child_environment(executor, os.environ, policy["env"])
                         p = subprocess.Popen(
                             argv, cwd=cwd, stdout=so, stderr=se,
                             stdin=si if si is not None else subprocess.DEVNULL,

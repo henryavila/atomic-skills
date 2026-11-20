@@ -139,7 +139,12 @@ review goes to Claude, and the operator confirms it each time.
   machine, never on a remote host. `--allow-dangerously-skip-permissions` joined
   `FORBIDDEN_ARGV_FLAGS`. The `review_wrote` check stays the guarantee.
 - A Claude session limit ends with exit code 0 and the message on stdout, so
-  `classify_failure` has a Claude case that reads stdout.
+  `classify_failure` has a Claude case that reads stdout. An exhausted balance (`402
+  Insufficient balance`, exit code 1) is a limit too.
+- Started from inside a Claude Code session, the child would inherit that session's
+  endpoint and host-auth variables and fail with `Invalid API key`. `child_environment`
+  removes them (keeping `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and
+  `CLAUDE_CONFIG_DIR`), so the child uses the account in the user's own settings.
 
 ## Decision-model hook
 

@@ -223,6 +223,42 @@ print(d.parse_reset("resets 5:10pm (Not/AZone)", at))
       ['2026-11-20T20:10:00+00:00', '2026-11-21T09:00:00+00:00', 'None']);
   });
 
+  it('an exhausted balance is a provider limit, whatever the exit code', () => {
+    const range = commitFeature();
+    for (const text of [
+      'API Error: 402 Insufficient balance. This request is pay-as-you-go.\n',
+      'Credit balance is too low to access the API\n',
+    ]) {
+      const res = runDelegate(reviewArgs(['--diff-range', range, '--allow-claude-review', '--author-family', 'deepseek']),
+        env({ FAKE_STDOUT: text, FAKE_LAST_MESSAGE: text, FAKE_EXIT: '1' }));
+      assert.equal(res.status, 1, res.stderr);
+      assert.equal(readLogRecords(atomicHome).at(-1).failure, 'provider_limit', text);
+    }
+  });
+
+  it('the Claude child does not inherit the variables of the Claude Code session that runs the runner', () => {
+    const parsed = pythonHarness(`
+import json
+env = {"PATH": "/bin", "HOME": "/h", "CLAUDECODE": "1", "CLAUDE_CODE_ENTRYPOINT": "x",
+       "CLAUDE_CODE_SDK_HAS_HOST_AUTH_REFRESH": "1", "CLAUDE_PID": "9", "CLAUDE_EFFORT": "low",
+       "ANTHROPIC_BASE_URL": "https://host", "ANTHROPIC_CUSTOM_HEADERS": "h", "ANTHROPIC_API_KEY": "k",
+       "CLAUDE_CONFIG_DIR": "/cfg"}
+print(json.dumps(d.child_environment("claude", env, {}), sort_keys=True))
+print(json.dumps(d.child_environment("codex", env, {"X": "1"}), sort_keys=True))
+plain = {"PATH": "/bin", "ANTHROPIC_BASE_URL": "https://gateway", "CLAUDE_CONFIG_DIR": "/cfg"}
+print(json.dumps(d.child_environment("claude", plain, {}), sort_keys=True))
+`);
+    assert.equal(parsed.status, 0, parsed.stderr);
+    const [claude, codex, plain] = parsed.stdout.trim().split('\n').map(line => JSON.parse(line));
+    // Inside a session: its variables go, the user's key and config directory stay.
+    assert.deepEqual(claude, { PATH: '/bin', HOME: '/h', ANTHROPIC_API_KEY: 'k', CLAUDE_CONFIG_DIR: '/cfg' });
+    // Other executors keep the whole environment.
+    assert.equal(codex.CLAUDECODE, '1');
+    assert.equal(codex.X, '1');
+    // Outside a session nothing is removed: the gateway is the user's own setting.
+    assert.deepEqual(plain, { PATH: '/bin', ANTHROPIC_BASE_URL: 'https://gateway', CLAUDE_CONFIG_DIR: '/cfg' });
+  });
+
   it('a complete review that mentions a session limit is not a provider limit', () => {
     const range = commitFeature();
     const text = "R01 | minor | a:1 | the code says you've hit your session limit | t | f\nTOTAL major=0 medium=0 minor=1\n";
