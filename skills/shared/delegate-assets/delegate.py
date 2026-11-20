@@ -3059,6 +3059,12 @@ def cmd_pipeline(a):
         check_model_allowed(role, *MODELS[profile][:2])
     for profile in review_route:
         check_model_allowed("review", *MODELS[profile][:2])
+    # Profiles under a provider limit, or whose CLI is missing, are tried last.
+    # Nothing is dropped, so a wrong guess costs one refused run, as before.
+    avail = availability()
+    given = route + review_route
+    route, review_route = order_route(route, avail), order_route(review_route, avail)
+    reordered = [p for p in given if not usable(p, avail)] if route + review_route != given else []
     for filename in a.review_attach:
         read_attachment(filename)
     # Each invocation and attempt owns its outputs, even when the same ID is reused.
@@ -3257,6 +3263,8 @@ def cmd_pipeline(a):
              (f" | log: {commit_log}" if commit_log.is_file() else "")]
     if error:
         lines.append(f"- stopped at {step}: {error}")
+    if reordered:
+        lines.append("- tried last (provider limit or missing CLI): " + ", ".join(reordered))
     if executor_error_after_commit:
         lines.append("- executor exited with an error after committing; the tree was clean, "
                      "so the gate and the review ran. Read its stderr before trusting the result.")
@@ -3274,7 +3282,7 @@ def cmd_pipeline(a):
         # Preserve both winners, even with a long executor or reviewer quota route.
         decisive = [i for i, rec in enumerate(attempts)
                     if rec is executor_rec or rec is review_rec]
-        prefix = 4 if error else 3
+        prefix = 3 + bool(error) + bool(reordered) + bool(executor_error_after_commit)
         keep = set(range(prefix)) | {prefix + i for i in decisive} | {len(lines) - 2, len(lines) - 1}
         for i in reversed(range(prefix, len(lines) - 2)):
             if len(keep) >= 38:
@@ -3304,6 +3312,8 @@ def cmd_pipeline(a):
         "failed_step": step if outcome not in ("reviewed", "no_changes") else None,
         "error": error, "attempts": attempts, "summary": str(summary_file),
     }
+    if reordered:
+        pipeline_rec["reordered"] = reordered
     if executor_error_after_commit:
         pipeline_rec["executor_error_after_commit"] = True
     if a.host:

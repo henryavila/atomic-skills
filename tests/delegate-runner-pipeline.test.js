@@ -332,6 +332,42 @@ spec.loader.exec_module(d)
     }
   });
 
+  it('pipeline tries profiles under a provider limit last and records what it moved', () => {
+    const logDir = join(atomicHome, 'delegate');
+    mkdirSync(logDir, { recursive: true });
+    const errFile = join(root, 'limit.err');
+    writeFileSync(errFile, 'ERROR: usage limit. Resets in 5h0m0s.\n');
+    const completed = new Date(Date.now() - 60000).toISOString().replace('Z', '+00:00');
+    const limit = model => JSON.stringify({ kind: 'run', id: 'OLD', role: 'review', executor: 'codex', model,
+      completed, started: completed, duration_s: 1, failure: 'provider_limit', stderr: errFile });
+    writeFileSync(join(logDir, 'runs.jsonl'), limit('gpt-6.1-sol') + '\n');
+    const env = steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, {}]);
+    const res = runDelegate(pipelineArgs(['--route', 'codex,flash']), { ...env, DELEGATE_CODEX_MODEL: undefined });
+    assert.equal(res.status, 0, res.stderr);
+    const pipeRec = readLogRecords(atomicHome).at(-1);
+    assert.equal(pipeRec.outcome, 'reviewed');
+    assert.equal(pipeRec.executor_profile, 'flash');
+    assert.equal(pipeRec.reviewer_profile, 'agy-review');
+    assert.deepEqual(pipeRec.reordered, ['codex', 'codex-review']);
+    assert.deepEqual(pipeRec.attempts.map(rec => rec.profile), ['flash', 'agy-review']);
+    assert.match(summary(), /tried last \(provider limit or missing CLI\): codex, codex-review/);
+  });
+
+  it('pipeline still tries a profile under a limit when it is the only one left', () => {
+    const logDir = join(atomicHome, 'delegate');
+    mkdirSync(logDir, { recursive: true });
+    const completed = new Date(Date.now() - 60000).toISOString().replace('Z', '+00:00');
+    writeFileSync(join(logDir, 'runs.jsonl'), JSON.stringify({ kind: 'run', id: 'OLD', role: 'review',
+      executor: 'codex', model: 'gpt-6.1-sol', completed, started: completed, duration_s: 1,
+      failure: 'provider_limit' }) + '\n');
+    const env = steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, {}]);
+    const res = runDelegate(pipelineArgs(['--review-route', 'codex-review']), { ...env, DELEGATE_CODEX_MODEL: undefined });
+    assert.equal(res.status, 0, res.stderr);
+    const pipeRec = readLogRecords(atomicHome).at(-1);
+    assert.equal(pipeRec.reviewer_profile, 'codex-review');
+    assert.equal(pipeRec.reordered, undefined);
+  });
+
   it('pipeline every profile out of quota ends with no_executor and no gate run', () => {
     writeFileSync(
       join(seqDir, 'step_0.json'),
