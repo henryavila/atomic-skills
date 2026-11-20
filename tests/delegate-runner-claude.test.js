@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, dirname, resolve, isAbsolute } from 'node:path';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
@@ -120,6 +120,20 @@ describe('delegate.py Claude fallback reviewer', { skip: !hasPython3 ? 'python3 
       '--cwd', repoDir, '--card', cardPath, '--route', 'flash', '--gate', 'true',
       '--review-card', reviewCardPath, '--review-route', 'codex-review,agy-review',
       '--out', outDir, '--confirmed', ...extra];
+  }
+  // The operator must be able to act on the message alone: which machine, which
+  // user, the exact command with its full path, what happens, and how to check.
+  function assertLoginHelp(text) {
+    const cli = join(fakeBin, 'claude').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    assert.match(text, /never an API key, a token or another endpoint/);
+    assert.match(text, new RegExp(`^  Where: a terminal on this machine \\(${hostname().split('.')[0]}\\), as user \\S+`, 'm'));
+    assert.match(text, /not on a remote host, not in WSL/);
+    assert.match(text, new RegExp(`^  Command: ${cli} auth login --claudeai$`, 'm'));
+    assert.match(text, /^  How: it opens the browser/m);
+    assert.match(text, /prints a URL/);
+    assert.match(text, new RegExp(`^  Check: ${cli} --setting-sources "" auth status`, 'm'));
+    assert.match(text, /"loggedIn": true and "authMethod": "claude\.ai"/);
+    assert.match(text, /settings\.json .* not used/);
   }
   function pythonHarness(code) {
     const prelude = `import importlib.util, json
@@ -263,7 +277,40 @@ print(json.dumps(d.child_environment("codex", env, {"X": "1"}), sort_keys=True))
     const rec = readLogRecords(atomicHome).at(-1);
     assert.equal(rec.failure, 'error');
     assert.match(rec.hint, /claude auth login/);
-    assert.match(res.stderr, /claude-review uses the local Claude Code login, never an API key.*claude auth login/);
+    assert.match(res.stderr, /claude-review cannot run: Claude Code refused the local login/);
+    assertLoginHelp(res.stderr);
+  });
+
+  it('refuses before launching when the local login is missing, and says where and how to log in', () => {
+    const range = commitFeature();
+    const out = { FAKE_AUTH_STATUS: '{"loggedIn": false, "authMethod": "none"}' };
+    let res = runDelegate(reviewArgs(['--diff-range', range, '--allow-claude-review', '--author-family', 'deepseek']), env(out));
+    assert.equal(res.status, 2);
+    assert.match(res.stderr, /claude-review cannot run: this machine has no Claude Code login/);
+    assertLoginHelp(res.stderr);
+    res = runDelegate(pipelineArgs(['--review-route', 'codex-review,claude-review', '--allow-claude-review']),
+      steps([], out));
+    assert.equal(res.status, 2);
+    assertLoginHelp(res.stderr);
+    assert.equal(logLength(), 0);
+    assert.equal(git(repoDir, 'rev-list', '--count', 'HEAD'), '2');
+  });
+
+  it('refuses a login that bills an API instead of the subscription', () => {
+    const range = commitFeature();
+    const res = runDelegate(reviewArgs(['--diff-range', range, '--allow-claude-review', '--author-family', 'deepseek']),
+      env({ FAKE_AUTH_STATUS: '{"loggedIn": true, "authMethod": "console"}' }));
+    assert.equal(res.status, 2);
+    assert.match(res.stderr, /claude-review cannot run: the local login is "console", not a claude\.ai subscription/);
+    assertLoginHelp(res.stderr);
+    assert.equal(logLength(), 0);
+  });
+
+  it('an unreadable login state does not block the review', () => {
+    const range = commitFeature();
+    const res = runDelegate(reviewArgs(['--diff-range', range, '--allow-claude-review', '--author-family', 'deepseek']),
+      env({ FAKE_AUTH_STATUS: 'not json' }));
+    assert.equal(res.status, 0, res.stderr);
   });
 
   it('a complete review that mentions a session limit is not a provider limit', () => {
@@ -338,7 +385,12 @@ print(json.dumps(d.child_environment("codex", env, {"X": "1"}), sort_keys=True))
     assert.deepEqual(out.review_routes.deepseek, ['codex-review', 'agy-review']);
     assert.match(out.warnings[0], /claude-review can review with the operator's yes \(--allow-claude-review\)/);
     const profiles = runDelegate(['profiles'], env());
-    assert.match(profiles.stdout, /^claude-review \| claude \| claude-sonnet-5-5 \| anthropic \| found$/m);
+    assert.match(profiles.stdout, /^claude-review \| claude \| claude-sonnet-5-5 \| anthropic \| found \| login=claude\.ai \(max\)$/m);
+    const noLogin = runDelegate(['profiles'], env({ FAKE_AUTH_STATUS: '{"loggedIn": false}' }));
+    assert.equal(noLogin.status, 0);
+    assert.match(noLogin.stdout, /^claude-review \| .* \| found \| login=missing$/m);
+    assertLoginHelp(noLogin.stderr);
+    assert.equal(out.profiles['claude-review'].login, 'claude.ai (max)');
     assert.doesNotMatch(profiles.stdout.split('claude-review |')[1], /implement/);
   });
 });

@@ -24,7 +24,7 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
     atomicHome = join(root, 'atomic-home');
     mkdirSync(join(atomicHome, 'delegate'), { recursive: true });
     mkdirSync(join(root, 'empty-home'), { recursive: true });
-    const fakes = makeFakeBin(root);
+    const fakes = makeFakeBin(root, ['opencode', 'codex', 'agy', 'claude']);
     n = 0;
     baseEnv = {
       PATH: `${fakes.binDir}:${process.env.PATH || '/usr/bin:/bin'}`,

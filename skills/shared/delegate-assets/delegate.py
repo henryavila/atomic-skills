@@ -27,7 +27,7 @@ The log is one JSONL file shared by every project and agent on this machine:
   ${ATOMIC_SKILLS_HOME:-~/.atomic-skills}/delegate/runs.jsonl
 Records are append-only. Values are enums, never free text, so the log can be audited.
 """
-import argparse, datetime as dt, errno, fcntl, hashlib, json, os, re, shlex, shutil, signal, subprocess, sys, time, tempfile
+import argparse, datetime as dt, errno, fcntl, getpass, hashlib, json, os, re, shlex, shutil, signal, socket, subprocess, sys, time, tempfile
 from pathlib import Path
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
@@ -699,8 +699,74 @@ def has_provider_limit(stdout, stderr):
 CLAUDE_LOGIN_RE = re.compile(
     r"failed\s+to\s+authenticate|oauth\s+session\s+expired|not\s+logged\s+in|invalid\s+api\s+key|/login",
     re.IGNORECASE)
-CLAUDE_LOGIN_HINT = ("claude-review uses the local Claude Code login, never an API key: "
-                     "run `claude auth login` in a terminal and try again")
+
+
+def claude_login_help(reason):
+    """Everything the operator needs to fix the login, with nothing to look up:
+    the machine, the user, the exact command, what it does and how to check."""
+    cli = find_optional("claude") or "claude"
+    machine = socket.gethostname().split(".")[0]
+    try:
+        user = getpass.getuser()
+    except Exception:
+        user = "the user who runs the runner"
+    return "\n".join([
+        f"{CLAUDE_REVIEW} cannot run: {reason}.",
+        f"  {CLAUDE_REVIEW} uses the Claude Code login of the machine where the runner runs, "
+        "never an API key, a token or another endpoint.",
+        f"  Where: a terminal on this machine ({machine}), as user {user}; not on a remote host, "
+        "not in WSL, and not inside an agent session.",
+        f"  Command: {cli} auth login --claudeai",
+        "  How: it opens the browser; sign in with the claude.ai account that has the subscription "
+        "and authorize. With no browser (over SSH) it prints a URL: open it on any device and "
+        "paste the code it shows back into the terminal.",
+        f'  Check: {cli} --setting-sources "" auth status   '
+        '(expect "loggedIn": true and "authMethod": "claude.ai")',
+        "  ~/.claude/settings.json is not used by this review and needs no change; then run the "
+        "same delegate command again.",
+    ])
+
+
+def claude_login():
+    """State of the local Claude Code login: (state, detail).
+
+    ok: a claude.ai subscription login; missing: no login; api: a login that
+    bills an API; unknown: the CLI is absent or its answer cannot be read.
+    """
+    cli = find_optional("claude")
+    if not cli:
+        return "unknown", "the claude CLI was not found"
+    try:
+        res = subprocess.run([cli, "--setting-sources", "", "auth", "status"], capture_output=True,
+                             text=True, timeout=30, stdin=subprocess.DEVNULL,
+                             env=child_environment("claude", os.environ, {}))
+        data = json.loads(res.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return "unknown", "the login state could not be read"
+    if not isinstance(data, dict) or "loggedIn" not in data:
+        return "unknown", "the login state could not be read"
+    if not data["loggedIn"]:
+        return "missing", ""
+    method = str(data.get("authMethod") or "unknown")
+    if method != "claude.ai":
+        return "api", method
+    kind = data.get("subscriptionType")
+    return "ok", f"claude.ai ({kind})" if kind else "claude.ai"
+
+
+def claude_login_problem(state, detail):
+    if state == "missing":
+        return "this machine has no Claude Code login, or it expired"
+    if state == "api":
+        return f'the local login is "{detail}", not a claude.ai subscription'
+    return None
+
+
+def check_claude_login():
+    """Refuse before launching when the review could only fail or bill an API."""
+    reason = claude_login_problem(*claude_login())
+    if reason:
+        usage_error(claude_login_help(reason))
 
 
 def child_environment(executor, environ, policy_env):
@@ -1678,6 +1744,13 @@ def cmd_route(a):
     route = order_route(fixed, avail)
     review_routes = {family: order_route(profiles, avail) for family, profiles in REVIEW_ROUTES.items()}
     warnings = [w for w in (review_warning(p, avail) for p in route) if w]
+    if warnings and avail[CLAUDE_REVIEW]["found"]:
+        # Claude is the way out of that warning, so say now whether it can run.
+        state, detail = claude_login()
+        avail[CLAUDE_REVIEW]["login"] = detail if state == "ok" else state
+        reason = claude_login_problem(state, detail)
+        if reason:
+            warnings.append(claude_login_help(reason))
     if a.json:
         print(json.dumps({"role": a.role, "route": route, "review_routes": review_routes,
                           "profiles": avail, "warnings": warnings}, indent=2))
@@ -3136,8 +3209,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         rec["fallback_reviewer"] = True
         rec["author_family"] = author_family
         if rec["failure"] == "error" and claude_login_missing(stdout):
-            rec["hint"] = CLAUDE_LOGIN_HINT
-            print(f"delegate: {CLAUDE_LOGIN_HINT}", file=sys.stderr)
+            rec["hint"] = claude_login_help("Claude Code refused the local login")
+            print(f"delegate: {rec['hint']}", file=sys.stderr)
     if stalled:
         rec["idle_s"] = round(progress.idle_s())
     if checkpoint is not None:
@@ -3153,6 +3226,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
 
 
 def cmd_run(a):
+    if (a.profile == CLAUDE_REVIEW and a.role == "review" and a.allow_claude_review and not a.host
+            and a.author_family not in (None, "anthropic")):
+        check_claude_login()
     rec = execute_run(
         task_id=a.id, task=a.task, role=a.role, profile=a.profile,
         executor=a.executor, model=a.model, cwd=a.cwd, card=a.card,
@@ -3234,6 +3310,8 @@ def cmd_pipeline(a):
         # The author is one of the executors in the route; none of them is Claude.
         check_claude_review(MODELS[profile][0], "review", a.allow_claude_review,
                             MODELS[route[0]][2], a.host)
+    if CLAUDE_REVIEW in review_route:
+        check_claude_login()
     # Profiles under a provider limit, or whose CLI is missing, are tried last.
     # Nothing is dropped, so a wrong guess costs one refused run, as before.
     avail = availability()
@@ -3568,6 +3646,8 @@ def cmd_review_pending(a):
     wanted = [*p["review_route"], *([a.reviewer] if a.reviewer else [])]
     for profile in wanted:
         check_claude_review(MODELS[profile][0], "review", a.allow_claude_review, executor_family, p["host"])
+    if CLAUDE_REVIEW in wanted:
+        check_claude_login()
     route = claude_last(order_route(
         list(dict.fromkeys(r for r in wanted if MODELS[r][2] != executor_family)), availability()))
     attempts, reviewer_profile, review_rec, outcome, error = [], None, None, None, ""
@@ -3828,6 +3908,12 @@ def cmd_profiles(a):
         else:
             status = "found" if find_optional(executor) else "missing"
         remote_state = ""
+        if executor == "claude" and status == "found":
+            state, detail = claude_login()
+            status += f" | login={detail if state == 'ok' else state}"
+            reason = claude_login_problem(state, detail)
+            if reason:
+                print(f"delegate: {claude_login_help(reason)}", file=sys.stderr)
         if host and executor == "claude":
             remote_state = f" | host={host} local only"
         elif host:

@@ -146,7 +146,11 @@ review goes to Claude, and the operator confirms it each time.
   an `apiKeyHelper` or endpoint in one cannot apply. `child_environment` removes every
   `ANTHROPIC_*` and `CLAUDE*` variable except `CLAUDE_CONFIG_DIR`, which also keeps the
   variables of a host Claude Code session out of the child. A missing or expired login
-  ends in `error` with the hint to run `claude auth login`.
+  ends in `error` with the login instruction.
+- The login state is read before launching (`claude --setting-sources "" auth status`):
+  no login, or a login that is not `claude.ai`, is refused with exit 2. The refusal,
+  `profiles` and `route` print one instruction with the machine, the user, the full
+  command, what it does and how to check it, so the operator has nothing to look up.
 
 ## Decision-model hook
 
