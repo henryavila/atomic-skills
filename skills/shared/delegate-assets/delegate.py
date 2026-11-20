@@ -522,11 +522,13 @@ def build_argv(executor, model, role, cwd, card, last_msg, policy=None):
             [find("opencode"), "run", "--standalone", "--archived", "-m", model, card],
             executor)
     if executor == "agy":
-        # agy --help: "-p, --print Run a single prompt non-interactively";
-        #   "--output-format Output format for print mode". Print mode reads
-        #   the prompt from stdin when no prompt argument is given; the runner
-        #   writes it there so a composed prompt is not an argv element.
-        argv = [find("agy"), "-p", "--model", model, "--output-format", "text"]
+        # The runner writes the prompt on stdin, so a composed prompt is not
+        # an argv element. With stdin not a terminal agy runs the prompt once
+        # and prints the answer ("--output-format Output format for print
+        # mode"). No -p: since agy 1.5.13 it takes the next argument as its
+        # prompt ("-p took --model as its prompt") and no longer reads stdin.
+        # Checked on 1.5.12 (macOS) and 1.5.13 (Linux).
+        argv = [find("agy"), "--model", model, "--output-format", "text"]
         return guard_argv(argv + policy["argv"], executor)
     if executor == "codex":
         effort = "high" if role == "review" else "medium"
@@ -1599,7 +1601,7 @@ def remote_exec_script(executor, model, role, policy):
         guard_argv(argv, executor)
         lines.append("exec " + " ".join(shlex.quote(arg) for arg in argv) + ' "$PROMPT"')
     elif executor == "agy":
-        argv = ["agy", "-p", "--model", model, "--output-format", "text"] + policy["argv"]
+        argv = ["agy", "--model", model, "--output-format", "text"] + policy["argv"]
         guard_argv(argv, executor)
         lines.append("exec " + " ".join(shell_arg(arg) for arg in argv) +
                      ' < "$R/run/prompt.md"')

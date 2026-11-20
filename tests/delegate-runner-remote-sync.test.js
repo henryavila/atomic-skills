@@ -560,7 +560,7 @@ except delegate.RemoteError as exc:
             assert.match(script, /--add-dir "\$R\/tree\/\.git"/);
           }
         } else {
-          assert.match(script, /exec agy -p --model gemini-4-hydrogen-high --output-format text/);
+          assert.match(script, /exec agy --model gemini-4-hydrogen-high --output-format text/);
           assert.match(script, /--sandbox --settings/);
           assert.match(script, /< "\$R\/run\/prompt\.md"/);
           if (access === 'strict') {
