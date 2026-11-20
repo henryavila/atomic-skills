@@ -17,7 +17,7 @@ Subcommands:
   kill      kill running executor process group for a given task id.
   peak      say whether now is inside the DeepSeek peak window.
   profiles  list configured profiles and whether each executor CLI is available.
-  remote-clean  remove a remote checkout kept for a fix round (with --host).
+  remote-clean  remove a remote task checkout, its kept copies and run files (with --host).
 
 The log is one JSONL file shared by every project and agent on this machine:
   ${ATOMIC_SKILLS_HOME:-~/.atomic-skills}/delegate/runs.jsonl
@@ -1335,6 +1335,7 @@ kept_head=""
 if [ -d "$tree/.git" ]; then
   kept_head=$(git -C "$tree" rev-parse HEAD 2>/dev/null || true)
   if [ -n "$kept_head" ] && [ "$kept_head" = "$sent" ] && \
+      [ "$(git -C "$tree" symbolic-ref --short -q HEAD)" = "$branch" ] && \
       [ -z "$(git -C "$tree" status --porcelain 2>/dev/null)" ]; then
     reuse=1
   else
@@ -1464,8 +1465,15 @@ def _kill_limit(pending, kill_result):
 
 
 def _remote_record_failure(pending, failure, detail=None, **extra):
-    if "remote_kill" in extra:
-        _kill_limit(pending, extra["remote_kill"])
+    kill_result = extra.get("remote_kill") or pending.pop("_remote_kill", None)
+    if kill_result:
+        extra["remote_kill"] = kill_result
+        _kill_limit(pending, kill_result)
+    work = extra.get("remote_work_kept") or pending.pop("_remote_work", None)
+    if work and failure != "none":
+        extra["remote_work_kept"] = work
+    for key in [key for key in pending if key.startswith("_")]:
+        pending.pop(key)
     pending.update(failure=failure, completed=now().isoformat(timespec="microseconds"), **extra)
     if detail:
         pending["remote_error"] = detail
@@ -1509,10 +1517,10 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
                         stdout, stderr, last_msg):
     """Run the executor on a remote host through the remote-runner CLI.
 
-    Code is shipped as a git bundle inside the repository's common git directory
-    (which the remote runner already copies) and fetched into a per-task
-    checkout. Results return as a git bundle written under the remote worktree
-    and pulled back before a local fast-forward fetch.
+    Code is shipped as a git bundle inside a dedicated staging repository that
+    holds no worktree files and is fetched into a per-task checkout. Results
+    return as a git bundle written in the remote staging directory and pulled
+    back before a local fast-forward fetch.
     """
     snap0 = tree_snapshot(cwd)
     branch = git(cwd, "rev-parse", "--abbrev-ref", "HEAD")
@@ -1653,12 +1661,14 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
                 timed_out = True
                 discover_remote_id()
                 kill_result = remote_stop(host, remote_id)
+                pending["_remote_kill"] = kill_result
                 _terminate_remote_process(process)
                 break
             if deadline is None and now_s >= queue_deadline:
                 local_slot_timeout = True
                 discover_remote_id()
                 kill_result = remote_stop(host, remote_id)
+                pending["_remote_kill"] = kill_result
                 _terminate_remote_process(process)
                 break
             if now_s >= next_probe:
@@ -1671,6 +1681,7 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
         orphan_failure = "orphaned"
         discover_remote_id()
         kill_result = remote_stop(host, remote_id)
+        pending["_remote_kill"] = kill_result
         if process is not None:
             _terminate_remote_process(process)
     except (KeyboardInterrupt, SystemExit) as exc:
@@ -1678,6 +1689,7 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
         interrupted_exc = exc
         discover_remote_id()
         kill_result = remote_stop(host, remote_id)
+        pending["_remote_kill"] = kill_result
         if process is not None:
             _terminate_remote_process(process)
     except RemoteError as exc:
@@ -1699,6 +1711,9 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
         pass
     last_line = (remote_stderr.splitlines() or [""])[-1]
     work_info = remote_work_marker(remote_err.name, run_token)
+    if work_info:
+        pending["_remote_work"] = {"dir": work_info["dir"], "branch": work_info["branch"],
+                                   "head": work_info["head"]}
 
     def kept_record(extra=None):
         if not work_info:
@@ -1712,13 +1727,13 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
     try:
         # A stop signal ends this run: do not pull or merge its partial result.
         if orphan_failure:
-            extra = {"remote_work_kept": kept_record()} if kept_record() else {}
-            if kill_result:
-                extra["remote_kill"] = kill_result
-            return _remote_record_failure(
+            rec = _remote_record_failure(
                 pending, orphan_failure, wait_s=round(run_s, 3),
                 send_s=round(send_s, 3), run_s=round(run_s, 3),
-                fetch_s=round(fetch_s, 3), exit_code=remote_code, **extra)
+                fetch_s=round(fetch_s, 3), exit_code=remote_code)
+            if interrupted_exc is not None:
+                raise interrupted_exc
+            return rec
         if local_slot_timeout:
             extra = {"remote_kill": kill_result} if kill_result else {}
             return _remote_record_failure(
@@ -1821,8 +1836,8 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
                     subprocess.run(["git", "-C", cwd, "update-ref", "-d", fetched_ref],
                                    capture_output=True)
         fetch_s = time.monotonic() - fetch_t0
-        # The pulled result directory lives under the worktree so the runner can
-        # map it; remove it before snapshotting, or it would look like executor dirt.
+        # The pulled result directory lives in the synced staging repository;
+        # remove it before snapshotting, or it would look like executor dirt.
         _cleanup_remote_local(staging)
 
         snap1 = tree_snapshot(cwd)

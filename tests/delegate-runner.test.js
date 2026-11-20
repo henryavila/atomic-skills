@@ -5398,6 +5398,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     const [rec] = readLogRecords(atomicHome);
     assert.equal(rec.failure, 'remote_error');
     assert.match(rec.remote_error, /remote run failed: .*oops/);
+    assert.ok(rec.remote_work_kept, 'the failed run still says where its work is kept');
   });
 
   it('R11 reports a sync timeout as remote_error, not remote_not_ready', () => {
