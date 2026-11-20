@@ -781,7 +781,11 @@ class ProgressWatch:
                 sizes.append(os.stat(path).st_size)
             except OSError:
                 sizes.append(-1)
-        status = git_bytes(self.cwd, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+        # --no-optional-locks: a plain `git status` refreshes the index under
+        # index.lock, and the executor's own `git add` or `git commit` would
+        # then fail now and then with "index.lock exists".
+        status = git_bytes(self.cwd, "--no-optional-locks", "status", "--porcelain=v1", "-z",
+                           "--untracked-files=all")
         touched = []
         for entry in status.split(b"\0")[:400]:
             # Entries are "XY path"; a rename adds a bare path entry. Stat both

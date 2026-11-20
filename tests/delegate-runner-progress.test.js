@@ -120,6 +120,16 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
     assert.equal(rec.checkpoint, undefined);
   });
 
+  it('never makes the executor lose a git command to the progress check', () => {
+    // The check runs every 0.1 s here while the executor adds and commits 60 times.
+    const res = runDelegate(runArgs('GIT', ['--idle-timeout', '0.5']),
+      { ...baseEnv, FAKE_COMMIT_ROUNDS: '60' });
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'none', readFileSync(rec.stderr, 'utf8'));
+    assert.equal(rec.commits, 60);
+    assert.equal(res.status, 0);
+  });
+
   it('counts a change in the working tree as progress', async () => {
     const run = runDelegateAsync(runArgs('TREE', ['--idle-timeout', '2']),
       { ...baseEnv, FAKE_WAIT_FILE: join(root, 'release'), FAKE_WAIT_TIMEOUT: '120' });

@@ -93,6 +93,11 @@ if ticks:
         sys.stderr.flush()
         time.sleep(float(tick_gap))
 
+for round_no in range(int(os.environ.get("FAKE_COMMIT_ROUNDS", "0"))):
+    pathlib.Path("round.txt").write_text(f"round {round_no}\\n")
+    subprocess.run(["git", "add", "round.txt"], check=True)
+    subprocess.run(["git", "commit", "-q", "-m", f"round {round_no}"], check=True)
+
 sleep_s = float(os.environ.get("FAKE_SLEEP", "0"))
 if sleep_s > 0:
     time.sleep(sleep_s)
