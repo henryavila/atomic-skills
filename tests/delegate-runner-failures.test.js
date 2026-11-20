@@ -1022,7 +1022,7 @@ p = subprocess.Popen([sys.executable, {str(child_script)!r}, {str(child_file) + 
 pathlib.Path({str(child_file)!r}).write_text(str(p.pid))
 time.sleep(60)
 """)
-args = [${JSON.stringify(DELEGATE_PY)}, 'run', '--id', 'group', '--task', 'group', '--role', 'implement', '--profile', 'flash', '--cwd', ${JSON.stringify(repoDir)}, '--card', ${JSON.stringify(cardPath)}, '--out', ${JSON.stringify(outDir)}, '--confirmed', '--timeout', '${mode === 'timeout' ? '1' : '60'}']
+args = [${JSON.stringify(DELEGATE_PY)}, 'run', '--id', 'group', '--task', 'group', '--role', 'implement', '--profile', 'flash', '--cwd', ${JSON.stringify(repoDir)}, '--card', ${JSON.stringify(cardPath)}, '--out', ${JSON.stringify(outDir)}, '--confirmed', '--allow-short-timeout', '--timeout', '${mode === 'timeout' ? '1' : '60'}']
 mode = '${mode}'
 if mode == 'exception':
  original_wait = d.wait_for_exit

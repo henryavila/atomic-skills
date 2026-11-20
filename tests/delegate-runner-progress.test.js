@@ -1,0 +1,308 @@
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import { strict as assert } from 'node:assert';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import {
+  hasPython3,
+  git,
+  initGitRepo,
+  makeFakeBin,
+  runDelegate,
+  readLogRecords,
+  runDelegateAsync,
+} from './helpers/delegate-runner-kit.js';
+
+// AS-D11a: a run is stopped for lack of progress, keeps its work in a
+// checkpoint, and can be resumed. Every executor here is a disposable fake CLI.
+describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+  let root;
+  let atomicHome;
+  let repoDir;
+  let cardPath;
+  let reviewCardPath;
+  let outDir;
+  let baseEnv;
+
+  beforeEach(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'as-delegate-progress-')));
+    atomicHome = join(root, 'atomic-home');
+    repoDir = join(root, 'repo');
+    outDir = join(root, 'out');
+    mkdirSync(atomicHome, { recursive: true });
+    mkdirSync(join(root, 'empty-home'), { recursive: true });
+    mkdirSync(repoDir, { recursive: true });
+    initGitRepo(repoDir);
+    const fakes = makeFakeBin(root);
+    cardPath = join(root, 'card.md');
+    writeFileSync(cardPath, '# Task CARD-1\nImplement feature X.\n');
+    reviewCardPath = join(root, 'review-card.md');
+    writeFileSync(reviewCardPath, '# Review CARD-1\nReview the diff.\n');
+    baseEnv = {
+      PATH: `${fakes.binDir}:${process.env.PATH || '/usr/bin:/bin'}`,
+      HOME: join(root, 'empty-home'),
+      ATOMIC_SKILLS_HOME: atomicHome,
+      DELEGATE_PEAK_WINDOWS: '',
+    };
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function runArgs(id, extra = []) {
+    return ['run', '--id', id, '--task', 'progress', '--role', 'implement',
+      '--profile', 'flash', '--cwd', repoDir, '--card', cardPath,
+      '--out', outDir, '--confirmed', ...extra];
+  }
+
+  async function waitFor(check, ms, what) {
+    const deadline = Date.now() + ms;
+    while (Date.now() < deadline) {
+      if (check()) return;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    assert.fail(`timed out waiting for ${what}`);
+  }
+
+  function stalledRun(id = 'STALL') {
+    const res = runDelegate(runArgs(id, ['--idle-timeout', '1']),
+      { ...baseEnv, FAKE_SLEEP: '120', FAKE_EARLY_TOUCH: 'wip.txt', FAKE_STDOUT: 'started the work\n' });
+    const rec = readLogRecords(atomicHome).at(-1);
+    return { res, rec };
+  }
+
+  it('stops a silent executor at the idle limit, long before the time cap, as stalled', () => {
+    const before = Date.now();
+    const { res, rec } = stalledRun();
+    assert.equal(res.status, 1, res.stderr);
+    assert.equal(rec.failure, 'stalled');
+    assert.equal(rec.timed_out, false);
+    assert.ok(rec.idle_s >= 1, JSON.stringify(rec));
+    assert.ok(Date.now() - before < 60000, 'the idle limit, not the 240 minute cap, ended the run');
+  });
+
+  it('keeps the unfinished work of a stopped run in a checkpoint commit and a resume note', () => {
+    const base = git(repoDir, 'rev-parse', 'HEAD');
+    const { rec } = stalledRun();
+    const head = git(repoDir, 'rev-parse', 'HEAD');
+    assert.notEqual(head, base);
+    assert.equal(rec.checkpoint.commit, head);
+    assert.equal(git(repoDir, 'log', '-1', '--format=%s'),
+      'STALL: work in progress (checkpoint by the delegate runner)');
+    assert.equal(git(repoDir, 'status', '--porcelain'), '');
+    assert.equal(git(repoDir, 'show', '--name-only', '--format=', 'HEAD'), 'wip.txt');
+    assert.equal(rec.checkpoint.resume, join(outDir, 'STALL.resume.md'));
+    const note = readFileSync(rec.checkpoint.resume, 'utf8');
+    assert.match(note, /Stopped because: no progress for 1 s/);
+    assert.match(note, /\?\? wip\.txt/);
+    assert.match(note, new RegExp(`${head.slice(0, 10)} STALL: work in progress`));
+    assert.match(note, /started the work/);
+    assert.equal(rec.dirty_after, false);
+    assert.equal(rec.commits, 1);
+  });
+
+  it('does not stop an executor that keeps producing output past the idle limit', () => {
+    const res = runDelegate(runArgs('BUSY', ['--idle-timeout', '2']),
+      { ...baseEnv, FAKE_TICKS: '12:0.3' });
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'none', res.stderr);
+    assert.ok(rec.duration_s >= 3, JSON.stringify(rec));
+    assert.equal(rec.checkpoint, undefined);
+  });
+
+  it('counts a change in the working tree as progress', async () => {
+    const run = runDelegateAsync(runArgs('TREE', ['--idle-timeout', '2']),
+      { ...baseEnv, FAKE_WAIT_FILE: join(root, 'release'), FAKE_WAIT_TIMEOUT: '120' });
+    try {
+      // Silent executor; the only sign of life is a file that keeps changing.
+      for (let round = 0; round < 12; round += 1) {
+        writeFileSync(join(repoDir, 'grows.txt'), 'x'.repeat(round + 1));
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      writeFileSync(join(root, 'release'), 'go');
+      const res = await run.done;
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'none', res.stderr);
+    } finally {
+      writeFileSync(join(root, 'release'), 'go');
+      if (run.child.exitCode === null) {
+        try { run.child.kill('SIGKILL'); } catch { /* already gone */ }
+      }
+    }
+  });
+
+  it('still records timeout at the time cap, with a checkpoint, when the idle limit is off', () => {
+    const res = runDelegate(runArgs('CAP', ['--timeout', '1', '--idle-timeout', '0']),
+      { ...baseEnv, FAKE_SLEEP: '120', FAKE_EARLY_TOUCH: 'wip.txt' });
+    assert.equal(res.status, 1, res.stderr);
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'timeout');
+    assert.equal(rec.timed_out, true);
+    assert.equal(rec.checkpoint.commit, git(repoDir, 'rev-parse', 'HEAD'));
+    assert.match(readFileSync(rec.checkpoint.resume, 'utf8'), /reached its time cap of 1 s/);
+  });
+
+  it('writes the resume note without a commit when the stopped run left a clean tree', () => {
+    const base = git(repoDir, 'rev-parse', 'HEAD');
+    runDelegate(runArgs('CLEAN', ['--idle-timeout', '1']), { ...baseEnv, FAKE_SLEEP: '120' });
+    const [rec] = readLogRecords(atomicHome);
+    assert.equal(rec.failure, 'stalled');
+    assert.equal(rec.checkpoint.commit, null);
+    assert.equal(git(repoDir, 'rev-parse', 'HEAD'), base);
+    assert.match(readFileSync(rec.checkpoint.resume, 'utf8'), /nothing to commit: the working tree was clean/);
+  });
+
+  it('leaves no checkpoint for a run that ends by itself, or for a stopped review', () => {
+    runDelegate(runArgs('DONE'), baseEnv);
+    const base = git(repoDir, 'rev-parse', 'HEAD');
+    writeFileSync(join(repoDir, 'change.txt'), 'x\n');
+    git(repoDir, 'add', 'change.txt');
+    git(repoDir, 'commit', '-m', 'change');
+    runDelegate(['run', '--id', 'REV', '--task', 'review', '--role', 'review', '--profile', 'agy-review',
+      '--cwd', repoDir, '--card', reviewCardPath, '--out', outDir, '--confirmed',
+      '--diff-range', `${base}...HEAD`, '--idle-timeout', '1'], { ...baseEnv, FAKE_SLEEP: '120' });
+    const [done, review] = readLogRecords(atomicHome);
+    assert.equal(done.failure, 'none');
+    assert.equal(done.checkpoint, undefined);
+    assert.equal(review.failure, 'stalled');
+    assert.equal(review.checkpoint, undefined);
+    assert.deepEqual(readdirSync(outDir).filter((name) => name.endsWith('.resume.md')), []);
+  });
+
+  it('resumes from the note: card first, then the resume section, attempt and origin recorded', () => {
+    const { rec: first } = stalledRun();
+    const res = runDelegate(runArgs('STALL', ['--resume']), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    const second = readLogRecords(atomicHome).at(-1);
+    assert.equal(second.failure, 'none');
+    assert.equal(second.attempt, 2);
+    assert.equal(second.resumed_from, first.completed);
+    assert.equal(second.resume_note, first.checkpoint.resume);
+    const prompt = readFileSync(second.prompt, 'utf8');
+    const card = prompt.indexOf('Implement feature X.');
+    const section = prompt.indexOf('## You are resuming an interrupted run');
+    const note = prompt.indexOf('# Resume note for STALL');
+    assert.ok(card >= 0 && section > card && note > section, prompt);
+    assert.match(prompt, /Do not redo work that is already committed/);
+    assert.match(prompt, /STALL: work in progress/);
+    assert.notEqual(second.prompt, first.prompt);
+    assert.equal(second.prompt_bytes, Buffer.byteLength(prompt));
+  });
+
+  it('refuses --resume when the id has no run, or its last run left no checkpoint', () => {
+    const none = runDelegate(runArgs('NEVER', ['--resume']), baseEnv);
+    assert.equal(none.status, 2);
+    assert.match(none.stderr, /no resume note for NEVER: no run of that id is recorded/);
+    assert.equal(existsSync(join(atomicHome, 'delegate', 'runs.jsonl')), false);
+
+    stalledRun();
+    assert.equal(runDelegate(runArgs('STALL', ['--resume']), baseEnv).status, 0);
+    const again = runDelegate(runArgs('STALL', ['--resume']), baseEnv);
+    assert.equal(again.status, 2);
+    assert.match(again.stderr, /no resume note for STALL: its last run ended with failure=none/);
+    assert.equal(readLogRecords(atomicHome).length, 2);
+  });
+
+  it('refuses a time cap below 60 seconds unless it is said to be meant, before anything runs', () => {
+    const strict = { ...baseEnv, DELEGATE_TEST_STRICT_TIME: '1' };
+    const refused = runDelegate(runArgs('SHORT', ['--timeout', '45']), strict);
+    assert.equal(refused.status, 2);
+    assert.match(refused.stderr, /--timeout 45 is 45 seconds/);
+    assert.match(refused.stderr, /--allow-short-timeout/);
+    assert.equal(existsSync(join(atomicHome, 'delegate', 'runs.jsonl')), false);
+
+    const pipe = runDelegate(['pipeline', '--id', 'SHORT', '--task', 't', '--role', 'implement',
+      '--cwd', repoDir, '--card', cardPath, '--route', 'flash', '--gate', 'true',
+      '--review-card', reviewCardPath, '--review-route', 'codex-review', '--out', outDir,
+      '--confirmed', '--review-timeout', '30'], strict);
+    assert.equal(pipe.status, 2);
+    assert.match(pipe.stderr, /--review-timeout 30 is 30 seconds/);
+
+    const meant = runDelegate(runArgs('SHORT', ['--timeout', '45', '--allow-short-timeout']), strict);
+    assert.equal(meant.status, 0, meant.stderr);
+  });
+
+  it('reads time options with a unit and refuses what is not a time', () => {
+    for (const [value, ok] of [['90m', true], ['2h', true], ['300s', true], ['300', true],
+      ['1.5h', true], ['soon', false], ['5d', false], ['-5', false]]) {
+      const res = runDelegate(runArgs(`UNIT-${value}`, ['--timeout', value]),
+        { ...baseEnv, DELEGATE_TEST_STRICT_TIME: '1' });
+      assert.equal(res.status, ok ? 0 : 2, `${value}: ${res.stderr}`);
+      if (!ok) assert.match(res.stderr, /invalid time|expected one argument/);
+    }
+    // One minute as a unit is past the 60 second floor; the same digit bare is not.
+    const strict = { ...baseEnv, DELEGATE_TEST_STRICT_TIME: '1' };
+    assert.equal(runDelegate(runArgs('ONE-M', ['--timeout', '1m']), strict).status, 0);
+    assert.equal(runDelegate(runArgs('ONE', ['--timeout', '1']), strict).status, 2);
+    // The idle limit takes the same units: 1m is far longer than this run.
+    const idle = runDelegate(runArgs('IDLE-M', ['--idle-timeout', '1m']), { ...baseEnv, FAKE_SLEEP: '2' });
+    assert.equal(idle.status, 0, idle.stderr);
+  });
+
+  it('status shows how long each active run has been without progress', async () => {
+    const ready = join(root, 'ready');
+    const release = join(root, 'release');
+    const run = runDelegateAsync(runArgs('WATCH'),
+      { ...baseEnv, FAKE_READY_FILE: ready, FAKE_WAIT_FILE: release, FAKE_WAIT_TIMEOUT: '120' });
+    try {
+      await waitFor(() => existsSync(ready), 20000, 'executor start');
+      const status = runDelegate(['status'], baseEnv);
+      assert.equal(status.status, 0, status.stderr);
+      assert.match(status.stdout, /^WATCH \| repo \| flash \| implement \| \d+m \| idle \d+m$/m);
+      writeFileSync(release, 'go');
+      const res = await run.done;
+      assert.equal(res.status, 0, res.stderr);
+    } finally {
+      writeFileSync(release, 'go');
+      if (run.child.exitCode === null) {
+        try { run.child.kill('SIGKILL'); } catch { /* already gone */ }
+      }
+    }
+  });
+
+  it('checkpoints the work when the runner itself is told to stop', async () => {
+    const ready = join(root, 'ready');
+    const run = runDelegateAsync(runArgs('TERM'),
+      { ...baseEnv, FAKE_EARLY_TOUCH: 'wip.txt', FAKE_READY_FILE: ready, FAKE_SLEEP: '120' });
+    try {
+      await waitFor(() => existsSync(ready) && existsSync(join(repoDir, 'wip.txt')), 20000, 'executor start');
+      run.child.kill('SIGTERM');
+      await run.done;
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'interrupted');
+      assert.equal(rec.checkpoint.commit, git(repoDir, 'rev-parse', 'HEAD'));
+      assert.equal(git(repoDir, 'status', '--porcelain'), '');
+      assert.match(readFileSync(rec.checkpoint.resume, 'utf8'), /the runner received a stop signal/);
+    } finally {
+      if (run.child.exitCode === null) {
+        try { run.child.kill('SIGKILL'); } catch { /* already gone */ }
+      }
+    }
+  });
+
+  it('pipeline passes the idle limit to its executor and stops at the stalled step', () => {
+    const res = runDelegate(['pipeline', '--id', 'PIPE', '--task', 'stall', '--role', 'implement',
+      '--cwd', repoDir, '--card', cardPath, '--route', 'flash', '--gate', 'true',
+      '--review-card', reviewCardPath, '--review-route', 'codex-review', '--out', outDir,
+      '--confirmed', '--idle-timeout', '1'], { ...baseEnv, FAKE_SLEEP: '120', FAKE_EARLY_TOUCH: 'wip.txt' });
+    assert.equal(res.status, 1, res.stderr);
+    const records = readLogRecords(atomicHome);
+    const run = records.find((rec) => rec.kind === 'run');
+    const pipeline = records.find((rec) => rec.kind === 'pipeline');
+    assert.equal(run.failure, 'stalled');
+    assert.equal(run.checkpoint.commit, git(repoDir, 'rev-parse', 'HEAD'));
+    assert.equal(pipeline.outcome, 'executor_failed');
+    assert.equal(pipeline.attempts[0].failure, 'stalled');
+    assert.match(res.stdout, /implement: flash \| \d+s \| stalled/);
+  });
+});

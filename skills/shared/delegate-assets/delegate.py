@@ -97,6 +97,21 @@ ORPHAN_SAMPLE = 5
 ORPHAN_SAMPLE_CHARS = 80
 # Output names that belong to one run round; a repeated id or a later attempt
 # must never overwrite them.
+# Defaults for the two limits of a run, in seconds: the cap on the whole run and
+# the longest stretch without any sign of progress.
+DEFAULT_TIMEOUT_S = 240 * 60
+DEFAULT_IDLE_TIMEOUT_S = 20 * 60
+MIN_TIMEOUT_S = 60
+# How often the runner looks for progress (output size, HEAD, working tree).
+PROGRESS_POLL_S = 10.0
+RESUME_TAIL_LINES = 60
+CHECKPOINT_SUFFIX = "work in progress (checkpoint by the delegate runner)"
+STOP_REASONS = {
+    "stalled": "no progress for {idle} s (the idle limit, --idle-timeout)",
+    "timeout": "the run reached its time cap of {cap} s (--timeout)",
+    "interrupted": "the runner received a stop signal",
+    "orphaned": "the process that started the runner went away",
+}
 RUN_OUTPUT_SUFFIXES = (".out.md", ".err", ".last.md", ".prompt.md")
 ALIASES = {
     "deepseek-light": "flash",
@@ -727,7 +742,89 @@ class ParentGone(Exception):
     """The runner was reparented: its original parent exited or was killed."""
 
 
-def wait_for_exit(process, timeout, parent_pid=None, tracker=None):
+class Stalled(Exception):
+    """The executor showed no progress for the whole idle limit."""
+
+
+def duration_arg(text):
+    """A time option: bare seconds, or a number with s, m or h (300, 300s, 90m, 2h)."""
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*([smh]?)", str(text).strip().lower())
+    if not match:
+        raise argparse.ArgumentTypeError(
+            f"invalid time {text!r}: give seconds, or a number with a unit (300, 300s, 90m, 2h)")
+    value = float(match.group(1)) * {"": 1, "s": 1, "m": 60, "h": 3600}[match.group(2)]
+    return int(value) if value.is_integer() else value
+
+
+class ProgressWatch:
+    """Tell a working executor from a stuck one.
+
+    Progress is any change in: the size of the captured stdout or stderr, the
+    branch HEAD, or the working tree (the `git status` entries and the size and
+    modification time of each listed path). The check runs at a modest interval;
+    `idle_timeout` 0 keeps the bookkeeping for `status` and never stops the run.
+    """
+
+    def __init__(self, cwd, files, idle_timeout, slot_file=None, slot_data=None):
+        self.cwd, self.files, self.idle_timeout = cwd, files, idle_timeout
+        self.slot_file, self.slot_data = slot_file, slot_data
+        self.interval = PROGRESS_POLL_S if idle_timeout <= 0 else min(
+            PROGRESS_POLL_S, max(0.1, idle_timeout / 5))
+        self.last = time.monotonic()
+        self.next_check = self.last
+        self.signature = self._signature()
+
+    def _signature(self):
+        sizes = []
+        for path in self.files:
+            try:
+                sizes.append(os.stat(path).st_size)
+            except OSError:
+                sizes.append(-1)
+        status = git_bytes(self.cwd, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+        touched = []
+        for entry in status.split(b"\0")[:400]:
+            # Entries are "XY path"; a rename adds a bare path entry. Stat both
+            # readings and keep whichever exists.
+            for name in {entry[3:], entry}:
+                if not name:
+                    continue
+                try:
+                    st = os.lstat(os.path.join(os.fsencode(self.cwd), name))
+                except OSError:
+                    continue
+                touched.append((name, st.st_size, st.st_mtime_ns))
+        return (tuple(sizes), git(self.cwd, "rev-parse", "HEAD"), status, tuple(sorted(touched)))
+
+    def idle_s(self):
+        return time.monotonic() - self.last
+
+    def stalled(self):
+        moment = time.monotonic()
+        if moment < self.next_check:
+            return False
+        self.next_check = moment + self.interval
+        signature = self._signature()
+        if signature != self.signature:
+            self.signature, self.last = signature, moment
+            self._publish()
+            return False
+        return self.idle_timeout > 0 and moment - self.last >= self.idle_timeout
+
+    def _publish(self):
+        # `status` reads this to show how long each run has been quiet.
+        if not self.slot_file or self.slot_data is None:
+            return
+        self.slot_data["last_progress"] = now().isoformat(timespec="seconds")
+        try:
+            tmp = self.slot_file.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self.slot_data, ensure_ascii=False))
+            os.replace(tmp, self.slot_file)
+        except OSError:
+            pass
+
+
+def wait_for_exit(process, timeout, parent_pid=None, tracker=None, progress=None):
     """Observe exit without reaping: the zombie reserves PID/PGID until cleanup.
 
     With parent_pid, also notice the runner losing its original parent (a
@@ -752,6 +849,10 @@ def wait_for_exit(process, timeout, parent_pid=None, tracker=None):
             if tracker is not None:
                 tracker.poll(force=True)
             raise subprocess.TimeoutExpired(process.args, timeout)
+        if progress is not None and progress.stalled():
+            if tracker is not None:
+                tracker.poll(force=True)
+            raise Stalled()
         time.sleep(0.02)
 
 
@@ -2199,10 +2300,119 @@ def _cleanup_temp(*paths):
             pass
 
 
+def output_tail(paths, limit=RESUME_TAIL_LINES):
+    """The last non-empty lines of the first capture that has any, with its path."""
+    for path in paths:
+        try:
+            lines = [line for line in Path(path).read_text(errors="replace").splitlines() if line.strip()]
+        except OSError:
+            continue
+        if lines:
+            return path, lines[-limit:]
+    return None, []
+
+
+def write_checkpoint(task_id, cwd, out_path, base, failure, timeout, idle_timeout, captures):
+    """Keep the work of a stopped run: commit a dirty tree and write the resume note.
+
+    Called after the executor's processes are gone. The commit uses the
+    repository's own identity and hooks, like the pipeline's runner commit; a
+    refused commit leaves the files in the tree and is written in the note.
+    """
+    reason = STOP_REASONS[failure].format(idle=idle_timeout, cap=timeout)
+    commits = git(cwd, "log", "--oneline", f"{base}..HEAD") if base else ""
+    status = git(cwd, "status", "--short", "--untracked-files=all")
+    commit, commit_line = None, "nothing to commit: the working tree was clean"
+    if status:
+        message = f"{task_id}: {CHECKPOINT_SUFFIX}"
+        identity = [] if git(cwd, "config", "user.email") else [
+            "-c", "user.name=Delegate Runner", "-c", "user.email=delegate@localhost"]
+        detail = ""
+        for args in (["add", "-A"], [*identity, "commit", "-q", "-m", message]):
+            try:
+                done = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True)
+            except OSError as exc:
+                detail = str(exc)
+                break
+            if done.returncode != 0:
+                detail = " ".join((done.stderr or done.stdout).split())[:300]
+                break
+        if not detail and not git(cwd, "status", "--short", "--untracked-files=all"):
+            commit = git(cwd, "rev-parse", "HEAD")
+            commit_line = f"{commit[:10]} {message}"
+        else:
+            commit_line = ("the checkpoint commit failed, the changes are still in the working tree"
+                           + (f": {detail}" if detail else ""))
+    source, tail = output_tail(captures)
+    note = out_path / f"{task_id}.resume.md"
+    text = "\n".join([
+        f"# Resume note for {task_id}",
+        "",
+        f"- Stopped because: {reason}.",
+        f"- Worktree: {cwd}",
+        f"- Base of the run: {base[:10] if base else 'unknown'}",
+        "",
+        "## Commits made in this run",
+        "",
+        fenced(commits or "(none)"),
+        "## Working tree when it stopped",
+        "",
+        fenced(status or "(clean)"),
+        "## Checkpoint",
+        "",
+        commit_line,
+        "",
+        f"## Last lines of the executor's output ({source})" if source
+        else "## Last lines of the executor's output",
+        "",
+        fenced("\n".join(tail) if tail else "(no output)"),
+    ])
+    note.write_text(text, encoding="utf-8")
+    return {"commit": commit, "resume": str(note)}
+
+
+def find_resume(task_id, project):
+    """The resume note of the last run of this id, or the reason there is none."""
+    last = None
+    if LOG.exists():
+        for line in LOG.read_text().splitlines():
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if (isinstance(rec, dict) and rec.get("kind") == "run" and rec.get("id") == task_id
+                    and rec.get("project") == project):
+                last = rec
+    if last is None:
+        return None, f"no resume note for {task_id}: no run of that id is recorded for project {project}"
+    note = (last.get("checkpoint") or {}).get("resume")
+    if not note:
+        return None, (f"no resume note for {task_id}: its last run ended with "
+                      f"failure={last.get('failure')} and left no checkpoint")
+    try:
+        text = Path(note).read_text(encoding="utf-8")
+    except OSError as exc:
+        return None, f"no resume note for {task_id}: cannot read {note}: {exc}"
+    return {"text": text, "path": note, "completed": last.get("completed"),
+            "attempt": last.get("attempt") or 1}, None
+
+
+RESUME_SECTION = """
+## You are resuming an interrupted run
+
+An earlier run of this same task was stopped before it finished. Its commits are
+on this branch, and anything it had not committed is in the checkpoint commit
+named below. Read those commits first (`git log`, `git show`), then continue from
+where it stopped. Do not redo work that is already committed, and do not revert
+the checkpoint commit: build on it. The note the runner wrote when it stopped:
+
+"""
+
+
 def execute_run(task_id, task, role, profile=None, executor=None, model=None, cwd=None,
-                card=None, out=None, project=None, timeout=5400, wait_s=3600, attempt=1,
+                card=None, out=None, project=None, timeout=DEFAULT_TIMEOUT_S, wait_s=3600, attempt=1,
                 confirmed=False, allow_peak=False, diff_range=None, attachments=None,
-                access_mode="policy", host=None):
+                access_mode="policy", host=None, idle_timeout=DEFAULT_IDLE_TIMEOUT_S, resume=False):
     check_paused()
     alias_notice = None
     if profile in ALIASES:
@@ -2232,6 +2442,18 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if role == "review" and not diff_range and "{{DIFF_RANGE}}" in Path(card).read_text(encoding="utf-8"):
         usage_error("review card contains {{DIFF_RANGE}} but no --diff-range was given; "
                     "pass --diff-range <base>...<head>")
+    top = git(cwd, "rev-parse", "--show-toplevel") or cwd
+    project = project or Path(top).name
+    resumed_from = None
+    if resume:
+        previous, problem = find_resume(task_id, project)
+        if problem:
+            usage_error(problem)
+        card_content += RESUME_SECTION + fenced(previous["text"])
+        input_sizes["prompt_bytes"] = len(card_content.encode("utf-8"))
+        input_sizes["resume_note"] = previous["path"]
+        resumed_from = previous["completed"]
+        attempt = max(attempt, previous["attempt"] + 1)
     size_failure = "review_input_too_large" if role == "review" else "input_too_large"
     if input_sizes["prompt_bytes"] > MAX_REVIEW_INPUT_BYTES:
         input_failure = size_failure
@@ -2239,8 +2461,6 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         # OpenCode takes the prompt as one argv element and would fail with
         # E2BIG at or above the kernel limit; it has no stdin prompt.
         input_failure = size_failure
-    top = git(cwd, "rev-parse", "--show-toplevel") or cwd
-    project = project or Path(top).name
     out_path = Path(out or HOME / "delegate" / "out" / project).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
     policy = access_policy(executor, role, cwd, out_path, strict=access_mode == "strict")
@@ -2258,6 +2478,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         "stdout": str(stdout), "stderr": str(stderr), "access": policy["access"],
         "orphans": orphans, **input_sizes,
     }
+    if resume:
+        pending["resumed_from"] = resumed_from
     if input_failure:
         pending["orphans"] = tracker.sweep()
         pending.update(failure=input_failure, completed=now().isoformat(timespec="microseconds"))
@@ -2287,6 +2509,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     slot_file = None
     queued_at = time.monotonic()
     timed_out = False
+    stalled = False
     orphan_failure = None
     interrupted_exc = None
     exit_seen = False
@@ -2343,8 +2566,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 remaining = deadline - time.time()
                 time.sleep(min(5.0, max(0.05, remaining)))
 
+            progress = ProgressWatch(cwd, (stdout, stderr), idle_timeout, slot_file, slot_data)
             try:
-                wait_for_exit(p, timeout, parent_pid=parent_pid, tracker=tracker)
+                wait_for_exit(p, timeout, parent_pid=parent_pid, tracker=tracker, progress=progress)
                 exit_seen = True
             except ParentGone:
                 # The orchestrator's background task (or the parent shell) went
@@ -2357,8 +2581,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 interrupted_exc = exc
                 tracker.poll(force=True)
                 terminate_process(p)
-            except subprocess.TimeoutExpired:
-                timed_out = True
+            except (subprocess.TimeoutExpired, Stalled) as stop:
+                stalled = isinstance(stop, Stalled)
+                timed_out = not stalled
                 tracker.poll(force=True)
                 try:
                     os.killpg(p.pid, signal.SIGTERM)
@@ -2417,13 +2642,24 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
 
     code = p.returncode
 
+    # A run that was stopped (idle limit, time cap, stop signal, lost parent)
+    # keeps its work: the processes are gone by now, so the tree is stable.
+    stop_failure = orphan_failure or ("stalled" if stalled else "timeout" if timed_out else None)
+    checkpoint = None
+    if stop_failure and role != "review":
+        try:
+            checkpoint = write_checkpoint(task_id, cwd, out_path, head0, stop_failure,
+                                          timeout, idle_timeout, (stdout, stderr))
+        except Exception as exc:  # the record must still be written
+            checkpoint = {"commit": None, "resume": None, "error": str(exc)[:300]}
+
     snap1 = tree_snapshot(cwd)
     head1 = snap1[0]
     dirty_after = bool(snap1[1])
     review_wrote = role == "review" and snap1 != snap0
     review_output = (last_msg if executor == "codex" else stdout) if role == "review" else None
-    failure = orphan_failure or classify_failure(
-        timed_out, code, stdout, stderr, review_wrote, review_output)
+    failure = orphan_failure or ("stalled" if stalled else classify_failure(
+        timed_out, code, stdout, stderr, review_wrote, review_output))
     uncommitted = role != "review" and head1 == head0 and snap1 != snap0
     commits = git(cwd, "rev-list", "--count", f"{head0}..{head1}") if head0 and head1 else ""
     files = git(cwd, "diff", "--name-only", f"{head0}..{head1}") if head0 and head1 else ""
@@ -2446,6 +2682,12 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     }
     if executor == "codex":
         rec["last_message"] = str(last_msg)
+    if stalled:
+        rec["idle_s"] = round(progress.idle_s())
+    if checkpoint is not None:
+        rec["checkpoint"] = checkpoint
+    if resume:
+        rec["resumed_from"] = resumed_from
     append(rec)
     if interrupted_exc is not None:
         # The record and slot cleanup are complete; keep the runner's normal
@@ -2461,7 +2703,7 @@ def cmd_run(a):
         out=a.out, project=a.project, timeout=a.timeout,
         wait_s=getattr(a, "wait", 3600), attempt=a.attempt,
         confirmed=a.confirmed, allow_peak=a.allow_peak, diff_range=a.diff_range, attachments=a.attach,
-        access_mode=a.access, host=a.host,
+        access_mode=a.access, host=a.host, idle_timeout=a.idle_timeout, resume=a.resume,
     )
     print(json.dumps(rec, ensure_ascii=False, indent=1))
     sys.exit(0 if rec["failure"] == "none" else 1)
@@ -2539,7 +2781,7 @@ def cmd_pipeline(a):
                 if run_role == "review" else a.timeout,
                 wait_s=a.wait, confirmed=True, attempt=len(attempts),
                 diff_range=diff_range, attachments=attachments,
-                access_mode=a.access, host=a.host,
+                access_mode=a.access, host=a.host, idle_timeout=a.idle_timeout,
             ))
         except SlotTimeoutError as exc:
             rec.update(exc.record)
@@ -2770,7 +3012,13 @@ def cmd_status(a):
                 mins = max(0, int((now_dt - started_dt).total_seconds() // 60))
             except Exception:
                 pass
-        print(f"{sid} | {project} | {profile} | {role} | {mins}m")
+        idle = ""
+        try:
+            quiet = (now_dt - dt.datetime.fromisoformat(slot.get("last_progress") or started_str)).total_seconds()
+            idle = f" | idle {max(0, int(quiet // 60))}m"
+        except Exception:
+            pass
+        print(f"{sid} | {project} | {profile} | {role} | {mins}m{idle}")
 
     if LOG.exists():
         limits = {}
@@ -3050,9 +3298,18 @@ def main():
     r.add_argument("--cwd", required=True); r.add_argument("--card", required=True)
     r.add_argument("--diff-range")
     r.add_argument("--attach", action="append", default=[])
-    r.add_argument("--out"); r.add_argument("--project"); r.add_argument("--timeout", type=int, default=5400)
-    r.add_argument("--wait", type=int, default=3600)
+    r.add_argument("--out"); r.add_argument("--project"); r.add_argument("--timeout", type=duration_arg, default=DEFAULT_TIMEOUT_S,
+                   help="cap on the whole run, default 240m (seconds, or a number with a unit: 300, 300s, 90m, 2h)")
+    r.add_argument("--idle-timeout", type=duration_arg, default=DEFAULT_IDLE_TIMEOUT_S,
+                   help="stop a local run that shows no progress for this long, default 20m; "
+                        "0 turns the idle limit off (seconds, or a number with a unit: 300, 300s, 90m, 2h)")
+    r.add_argument("--allow-short-timeout", action="store_true",
+                   help="accept a --timeout below 60 seconds")
+    r.add_argument("--wait", type=duration_arg, default=3600,
+                   help="how long to wait for a free slot, default 60m (seconds, or a number with a unit: 300, 300s, 90m, 2h)")
     r.add_argument("--attempt", type=int, default=1)
+    r.add_argument("--resume", action="store_true",
+                   help="continue the last run of this --id from its resume note")
     r.add_argument("--confirmed", action="store_true", help="the user approved task/role/model/executor for this batch")
     r.add_argument("--allow-peak", action="store_true")
     r.add_argument("--access", choices=["policy", "strict"], default="policy",
@@ -3071,9 +3328,17 @@ def main():
     pipe.add_argument("--review-card", required=True)
     pipe.add_argument("--review-route", required=True)
     pipe.add_argument("--review-attach", action="append", default=[])
-    pipe.add_argument("--timeout", type=int, default=5400)
-    pipe.add_argument("--review-timeout", type=int)
-    pipe.add_argument("--wait", type=int, default=3600)
+    pipe.add_argument("--timeout", type=duration_arg, default=DEFAULT_TIMEOUT_S,
+                      help="cap on each executor run and on the gate, default 240m (seconds, or a number with a unit: 300, 300s, 90m, 2h)")
+    pipe.add_argument("--review-timeout", type=duration_arg,
+                      help="cap on each review run, default: --timeout (seconds, or a number with a unit: 300, 300s, 90m, 2h)")
+    pipe.add_argument("--idle-timeout", type=duration_arg, default=DEFAULT_IDLE_TIMEOUT_S,
+                      help="stop a local run that shows no progress for this long, default 20m; "
+                           "0 turns the idle limit off (seconds, or a number with a unit: 300, 300s, 90m, 2h)")
+    pipe.add_argument("--allow-short-timeout", action="store_true",
+                      help="accept a --timeout or --review-timeout below 60 seconds")
+    pipe.add_argument("--wait", type=duration_arg, default=3600,
+                      help="how long to wait for a free slot, default 60m (seconds, or a number with a unit: 300, 300s, 90m, 2h)")
     pipe.add_argument("--out")
     pipe.add_argument("--project")
     pipe.add_argument("--confirmed", action="store_true", required=True)
@@ -3118,8 +3383,8 @@ def main():
     p_clean.add_argument("--id")
     p_clean.add_argument("--cwd", default=".")
     p_clean.add_argument("--project")
-    p_clean.add_argument("--wait", type=int, default=3600)
-    p_clean.add_argument("--timeout", type=int, default=600)
+    p_clean.add_argument("--wait", type=duration_arg, default=3600, help="seconds, or a number with a unit: 300, 300s, 90m, 2h")
+    p_clean.add_argument("--timeout", type=duration_arg, default=600, help="seconds, or a number with a unit: 300, 300s, 90m, 2h")
     p_clean.set_defaults(f=cmd_remote_clean)
 
     def interrupted(signum, frame):
@@ -3129,6 +3394,18 @@ def main():
     signal.signal(signal.SIGINT, interrupted)
     signal.signal(signal.SIGHUP, interrupted)
     a = ap.parse_args()
+    if a.cmd in ("run", "pipeline"):
+        # Whole seconds for the caps (the remote path passes them on a command line).
+        for name in ("timeout", "review_timeout", "wait"):
+            value = getattr(a, name, None)
+            if value is not None:
+                setattr(a, name, int(-(-value // 1)))
+        for name in ("timeout", "review_timeout"):
+            value = getattr(a, name, None)
+            if value is not None and value < MIN_TIMEOUT_S and not a.allow_short_timeout:
+                usage_error(
+                    f"--{name.replace('_', '-')} {value} is {value} seconds: a time without a unit is in "
+                    "seconds (write 90m or 2h for longer); pass --allow-short-timeout if you mean it")
     try:
         a.f(a)
     except (PausedError, SlotTimeoutError) as exc:
