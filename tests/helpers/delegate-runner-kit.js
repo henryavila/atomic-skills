@@ -63,6 +63,15 @@ stdin_file = os.environ.get("FAKE_STDIN_FILE")
 if stdin_file:
     pathlib.Path(stdin_file).write_text(stdin_content)
 
+git_global_file = os.environ.get("FAKE_GIT_GLOBAL_FILE")
+if git_global_file:
+    listed = subprocess.run(["git", "config", "--global", "--list"], capture_output=True, text=True)
+    pathlib.Path(git_global_file).write_text(json.dumps({
+        "env": os.environ.get("GIT_CONFIG_GLOBAL"),
+        "exit": listed.returncode,
+        "list": listed.stdout,
+    }))
+
 out_text = os.environ.get("FAKE_STDOUT", "")
 if out_text:
     sys.stdout.write(out_text)

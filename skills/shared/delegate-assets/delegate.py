@@ -495,6 +495,60 @@ def access_policy(executor, role, cwd, out_path=None, strict=False, common_dir=N
         "extra_read": extra_read, "limits": limits}}
 
 
+AGY_GIT_GLOBAL_LIMIT = ("agy: git reads a runner-made copy of the global git config "
+                        "(GIT_CONFIG_GLOBAL) because the terminal sandbox cannot read "
+                        "the files that config includes")
+
+
+def flatten_git_global(cwd, task_id):
+    """Write the global git config, includes resolved, into the git directory.
+
+    Antigravity's terminal sandbox lets git read ~/.gitconfig but not a file it
+    includes (seen with agy 1.5.13 on macOS: "fatal: unable to access
+    '~/.gitconfig.local': Operation not permitted"). Every git command then
+    fails, the model asks to leave the sandbox, and print mode auto-denies that
+    request and prints nothing. The copy lives in the worktree's git directory:
+    git must already read that place, and it never shows in `git status`.
+
+    Returns the path, or None when the global config includes nothing or the
+    copy cannot be made (the run then starts as before).
+    """
+    def run(*args):
+        return subprocess.run(["git", "-C", cwd, *args], capture_output=True)
+
+    dest = None
+    try:
+        probe = run("config", "--global", "--get-regexp", r"^include(if)?\.")
+        if probe.returncode or not probe.stdout.strip():
+            return None
+        listing = run("config", "--global", "--includes", "--list", "-z")
+        git_dir = run("rev-parse", "--absolute-git-dir")
+        if listing.returncode or git_dir.returncode:
+            return None
+        name = re.sub(r"[^A-Za-z0-9._-]", "_", task_id)
+        dest = Path(os.fsdecode(git_dir.stdout).strip()) / f"delegate-{name}-{os.getpid()}.gitconfig"
+        dest.unlink(missing_ok=True)
+        os.close(os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
+        for entry in listing.stdout.split(b"\0"):
+            if not entry:
+                continue
+            # "key\nvalue"; a key with no value at all is a boolean true.
+            key, has_value, value = entry.partition(b"\n")
+            if re.match(rb"include(if)?\.", key):
+                continue
+            subprocess.run(["git", "config", "--file", str(dest), "--add",
+                            key, value if has_value else b"true"],
+                           capture_output=True, check=True)
+        return dest
+    except (OSError, subprocess.SubprocessError):
+        if dest is not None:
+            try:
+                dest.unlink(missing_ok=True)
+            except OSError:
+                pass
+        return None
+
+
 def guard_argv(argv, executor):
     """Refuse an approval/sandbox bypass flag; never let one reach a child."""
     for arg in argv:
@@ -663,6 +717,49 @@ def slot_owned(slot):
         return False
 
 
+def runner_gone(slot):
+    """True when the runner that owns this slot is no longer running."""
+    runner_start = slot.get("runner_start")
+    return bool(runner_start) and process_identity(slot.get("runner_pid")) != runner_start
+
+
+def record_lost_runner(path, slot):
+    """Log a run whose runner died before it could write its own record.
+
+    A runner that is killed outright (SIGKILL, a crash) cannot end its executor
+    or log anything: the executor works on alone and its slot is all that is
+    left. When that slot is finally cleared, this record is the only trace of
+    the run in the log.
+    """
+    started = slot.get("started")
+    if not started:
+        return
+    try:
+        if LOG.exists() and any(
+                r.get("kind") == "run" and r.get("id") == slot.get("id") and r.get("started") == started
+                for r in map(json.loads, filter(None, LOG.read_text().splitlines()))):
+            return
+    except (OSError, ValueError):
+        pass
+    completed = now()
+    try:
+        duration = max(0, round((completed - dt.datetime.fromisoformat(started)).total_seconds()))
+    except (TypeError, ValueError):
+        duration = 0
+    profile = slot.get("profile")
+    model, family = (MODELS[profile][1:] if profile in MODELS else (None, None))
+    append({
+        "kind": "run", "id": slot.get("id"), "project": slot.get("project"),
+        "role": slot.get("role"), "profile": profile,
+        "executor": path.name.split("-")[0], "model": model, "family": family,
+        "started": started, "completed": completed.isoformat(timespec="microseconds"),
+        "duration_s": duration, "exit_code": None, "timed_out": False,
+        "failure": "runner_lost",
+        "note": "the runner process died before writing a record; the executor kept "
+                "working without it, so check the worktree for commits and changes",
+    })
+
+
 def _clean_stale_slots():
     RUNNING.mkdir(parents=True, exist_ok=True)
     for p in RUNNING.glob("*.tmp"):
@@ -673,6 +770,8 @@ def _clean_stale_slots():
             data = json.loads(p.read_text())
             if not slot_owned(data):
                 p.unlink(missing_ok=True)
+                if runner_gone(data):
+                    record_lost_runner(p, data)
         except Exception:
             p.unlink(missing_ok=True)
 
@@ -2528,7 +2627,13 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     # Codex and Antigravity read the prompt from stdin; OpenCode takes it as an
     # argv element (see ARGV_PROMPT_EXECUTORS).
     si = open(prompt, "rb") if executor in ("codex", "agy") else None
+    git_global = None
     try:
+        if executor == "agy":
+            git_global = flatten_git_global(cwd, task_id)
+            if git_global is not None:
+                policy["env"]["GIT_CONFIG_GLOBAL"] = str(git_global)
+                policy["access"]["limits"].append(AGY_GIT_GLOBAL_LIMIT)
         with open(stdout, "w") as so, open(stderr, "w") as se:
             while True:
                 check_paused()
@@ -2644,6 +2749,11 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
             finally:
                 if si is not None:
                     si.close()
+                if git_global is not None:
+                    try:
+                        git_global.unlink(missing_ok=True)
+                    except OSError:
+                        pass
 
     if pending_return:
         append(pending)
@@ -3029,7 +3139,11 @@ def cmd_status(a):
             idle = f" | idle {max(0, int(quiet // 60))}m"
         except Exception:
             pass
-        print(f"{sid} | {project} | {profile} | {role} | {mins}m{idle}")
+        lost = " | runner gone" if runner_gone(slot) else ""
+        print(f"{sid} | {project} | {profile} | {role} | {mins}m{idle}{lost}")
+        if lost:
+            print(f"warning: the runner of {sid} died; its executor is still working and "
+                  f"will leave no result. Stop it with `kill {sid}`, then check the worktree.")
 
     if LOG.exists():
         limits = {}

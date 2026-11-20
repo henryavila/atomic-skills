@@ -873,6 +873,70 @@ print(json.dumps(out))
     assert.ok(!('last_message' in rec));
   });
 
+  describe('Antigravity and a global git config that includes other files', () => {
+    let seenFile;
+    function writeGlobalWithInclude() {
+      writeFileSync(join(emptyHome, '.gitconfig'),
+        '[include]\n\tpath = ~/.gitconfig.local\n[core]\n\tautocrlf = input\n');
+      writeFileSync(join(emptyHome, '.gitconfig.local'),
+        '[user]\n\tname = Included Name\n[credential "https://example.com"]\n\thelper =\n\thelper = !fake helper\n');
+    }
+    function seen() {
+      return JSON.parse(readFileSync(seenFile, 'utf8'));
+    }
+    beforeEach(() => { seenFile = join(root, 'seen-git-global.json'); });
+
+    it('gives the reviewer a self-contained copy inside the git directory and removes it afterwards', () => {
+      writeGlobalWithInclude();
+      const res = runDelegate(reviewArgs(['--diff-range', reviewRange()]),
+        { ...baseEnv, FAKE_GIT_GLOBAL_FILE: seenFile });
+      assert.equal(res.status, 0, res.stderr);
+      const got = seen();
+      assert.ok(got.env, 'GIT_CONFIG_GLOBAL must be set for agy');
+      assert.equal(dirname(got.env), realpathSync(join(repoDir, '.git')));
+      assert.equal(got.exit, 0);
+      assert.match(got.list, /^user\.name=Included Name$/m);
+      assert.match(got.list, /^core\.autocrlf=input$/m);
+      assert.match(got.list, /^credential\.https:\/\/example\.com\.helper=\n?credential\.https:\/\/example\.com\.helper=!fake helper$/m);
+      assert.doesNotMatch(got.list, /^include/m);
+      assert.equal(existsSync(got.env), false, 'the copy is removed when the run ends');
+      assert.equal(git(repoDir, 'status', '--porcelain'), '');
+      const rec = readLogRecords(atomicHome).at(-1);
+      assert.equal(rec.failure, 'none');
+      assert.ok(rec.access.limits.some((limit) => /GIT_CONFIG_GLOBAL/.test(limit)), JSON.stringify(rec.access));
+    });
+
+    it('uses the per-worktree git directory in a linked worktree and covers implement runs', () => {
+      writeGlobalWithInclude();
+      const wtDir = join(root, 'wt-global');
+      git(repoDir, 'worktree', 'add', '-b', 'feat/global', wtDir);
+      const res = runDelegate(['run', '--id', 'G1', '--task', 'impl', '--role', 'implement',
+        '--profile', 'agy', '--cwd', wtDir, '--card', cardPath, '--out', outDir, '--confirmed'],
+      { ...baseEnv, FAKE_GIT_GLOBAL_FILE: seenFile, FAKE_COMMIT_FILE: 'made.txt' });
+      assert.equal(res.status, 0, res.stderr);
+      const got = seen();
+      assert.equal(dirname(got.env), realpathSync(git(wtDir, 'rev-parse', '--absolute-git-dir')));
+      assert.match(got.list, /^user\.name=Included Name$/m);
+      assert.equal(existsSync(got.env), false);
+      assert.equal(readLogRecords(atomicHome).at(-1).commits, 1);
+    });
+
+    it('leaves git alone when the global config includes nothing, and for other executors', () => {
+      writeFileSync(join(emptyHome, '.gitconfig'), '[core]\n\tautocrlf = input\n');
+      let res = runDelegate(reviewArgs(['--diff-range', reviewRange()]),
+        { ...baseEnv, FAKE_GIT_GLOBAL_FILE: seenFile });
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(seen().env, null);
+      assert.ok(!readLogRecords(atomicHome).at(-1).access.limits.some((l) => /GIT_CONFIG_GLOBAL/.test(l)));
+
+      writeGlobalWithInclude();
+      res = runDelegate(reviewArgs(['--id', 'D8c', '--diff-range', reviewRange()], 'codex-review'),
+        { ...baseEnv, FAKE_GIT_GLOBAL_FILE: seenFile });
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(seen().env, null);
+    });
+  });
+
   it('D9 R06 describes the read-only git commands an Antigravity reviewer can run', () => {
     const skill = readFileSync(join(REPO_ROOT, 'skills/core/delegate.md'), 'utf8');
     const template = readFileSync(
