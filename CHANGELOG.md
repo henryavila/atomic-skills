@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Delegate runs on another machine.** `run --host <name>` and `pipeline --host
+  <name>` send the task branch to a host registered in `remote-runner`, run the
+  executor there, and bring the commits back as a fast-forward of the task
+  branch only. A diverged result is kept under a local ref instead of merged.
+  `profiles --host` shows what is ready on that host, `remote-clean` removes
+  leftover checkouts, and every remote failure still appends a record with the
+  kill result. The runner never reads or copies credentials: each CLI is signed
+  in on the host by its owner.
+- **A run that stops making progress is stopped.** `--idle-timeout` (default 20
+  minutes, `0` turns it off) ends a local run whose output, commits and working
+  tree have not changed, with `failure: "stalled"`; runs on another host do
+  not have it yet. `status` shows how long each run
+  has been idle.
+- **A stopped run keeps its work.** A local non-review run stopped for lack of
+  progress, by the time limit, or by a signal gets a checkpoint commit and a
+  note of where it was; `run --resume` continues from them as the next attempt.
+- Time limits accept `s`, `m` and `h` suffixes.
+
 ### Changed
 
 - **Delegate executor access follows the role.** Implement, fix, mechanical and test
@@ -22,11 +42,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   relying on an approval-bypass mode.
 - **OpenCode concurrency default is 10 slots** (was 2); Codex stays at 1 and
   Antigravity at 2. `DELEGATE_MAX_<EXECUTOR>` still overrides them.
+- **Delegate time limit default is 4 hours** (was 90 minutes), because the idle
+  limit now catches a stuck run. `--timeout` and `--review-timeout` under 60
+  seconds are refused unless `--allow-short-timeout` is passed.
+- Delegate cards cover one subject with at most five requirements, run the
+  tests of the touched area during the work, and end on the same gate CI runs.
 - Delegate card and review templates now require documentation statements to be
   checked against the code, and treat a card's final check as evidence rather
   than a target.
 
 ### Fixed
+
+- Antigravity receives its prompt on stdin without `-p`; `agy` 1.5.13 took the
+  next argument as the prompt.
+- Delegate ends executor descendants that leave the process group, and a stop
+  signal at any point of a run still writes its record.
+- `node_modules` is ignored when it is a link as well as a directory.
 
 - Delegate composed prompts larger than the Linux per-argument limit are refused
   for CLIs that take the prompt as one argument (Codex uses stdin); non-review
