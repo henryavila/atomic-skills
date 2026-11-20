@@ -16,6 +16,10 @@ Subcommands:
   resume    resume runner executions.
   kill      kill running executor process group for a given task id.
   peak      say whether now is inside the DeepSeek peak window.
+  review-pending  list the pipelines whose review could not run for lack of
+            quota or a free slot, or finish one (--id).
+  route     print the executor route and the review routes for a role, with the
+            profiles that can run now first and the limits still in force.
   profiles  list configured profiles and whether each executor CLI is available.
   remote-clean  remove a remote task checkout, its kept copies and run files (with --host).
 
@@ -23,13 +27,18 @@ The log is one JSONL file shared by every project and agent on this machine:
   ${ATOMIC_SKILLS_HOME:-~/.atomic-skills}/delegate/runs.jsonl
 Records are append-only. Values are enums, never free text, so the log can be audited.
 """
-import argparse, datetime as dt, errno, fcntl, hashlib, json, os, re, shlex, shutil, signal, subprocess, sys, time, tempfile
+import argparse, datetime as dt, errno, fcntl, getpass, hashlib, json, os, re, shlex, shutil, signal, socket, subprocess, sys, time, tempfile
 from pathlib import Path
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
 LOG = HOME / "delegate" / "runs.jsonl"
 RUNNING = HOME / "delegate" / "running"
 PAUSED = HOME / "delegate" / "PAUSED"
+# One file per pipeline whose review could not run yet: <project>/<id>.json.
+PENDING = HOME / "delegate" / "pending"
+# A review attempt that ended this way says nothing about the work: the reviewer
+# never read it. A route that ends only in these is pending, not failed.
+NO_CAPACITY = ("provider_limit", "slot_timeout")
 
 # DeepSeek peak windows in UTC, Monday-Friday only.
 DEFAULT_PEAK_WINDOWS = "01:00-04:00,06:00-10:00"
@@ -41,6 +50,17 @@ OPENCODE_MODEL = os.environ.get("DELEGATE_OPENCODE_MODEL") or FLASH_MODEL
 LIMIT_RE = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b", re.IGNORECASE)
 TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=\d+ medium=\d+ minor=\d+[ \t`*]*$")
 
+# The fallback reviewer. It is used only when the operator said yes to it
+# (--allow-claude-review) and never for work written by a Claude model.
+CLAUDE_MODEL = os.environ.get("DELEGATE_CLAUDE_MODEL") or "claude-sonnet-5-5"
+CLAUDE_REVIEW = "claude-review"
+# Claude Code prints its session limit on stdout and exits 0:
+#   "You've hit your session limit · resets 5:10pm (America/Sao_Paulo)"
+CLAUDE_LIMIT_RE = re.compile(
+    r"hit\s+your\s+(?:session|usage|weekly)\s+limit|session\s+limit\s*\S?\s*resets"
+    r"|insufficient\s+balance|credit\s+balance\s+is\s+too\s+low", re.IGNORECASE)
+RESET_ZONE_RE = re.compile(r"resets(?:\s+at)?\s+(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(([\w/+-]+)\)", re.IGNORECASE)
+
 MODELS = {
     "flash": ("opencode", OPENCODE_MODEL, "deepseek"),
     "flash-review": ("opencode", OPENCODE_MODEL, "deepseek"),
@@ -48,12 +68,15 @@ MODELS = {
     "codex-review": ("codex", CODEX_MODEL, "openai"),
     "agy": ("agy", "gemini-4-hydrogen-high", "gemini"),
     "agy-review": ("agy", "gemini-4-hydrogen-xhigh", "gemini"),
+    CLAUDE_REVIEW: ("claude", CLAUDE_MODEL, "anthropic"),
 }
 # Executor capabilities shared by every profile using that CLI.
 EXECUTOR_FLAGS = {
     "opencode": {"requires_review_diff": False},
     "codex": {"requires_review_diff": False},
     "agy": {"requires_review_diff": True},
+    # No shell and no git: the diff has to arrive in the prompt.
+    "claude": {"requires_review_diff": True},
 }
 MAX_REVIEW_INPUT_BYTES = 600 * 1024
 # Remote runs use the separate `remote-runner` CLI (PATH or DELEGATE_REMOTE_RUNNER).
@@ -79,6 +102,7 @@ FORBIDDEN_ARGV_FLAGS = (
     "--danger-full-access",
     "--dangerously-bypass-approvals-and-sandbox",
     "--yolo",
+    "--allow-dangerously-skip-permissions",
 )
 # TERM grace before an orphaned executor group is killed.
 ORPHAN_GRACE_S = 2.0
@@ -127,7 +151,32 @@ REVIEW_PROFILES = {"flash": "flash-review"}
 # showing them, but no new run may be launched with one.
 REMOVED_PROFILES = ("hy4-review", "glm-flash", "kimi")
 REMOVED_PROFILE_MESSAGE = ("delegate: profile {name} was removed; valid profiles: "
-                           "flash, flash-review, codex, codex-review, agy, agy-review")
+                           "flash, flash-review, codex, codex-review, agy, agy-review, claude-review")
+# Fixed routes, the same as the skill's "Routing by role" table. `route` and
+# `pipeline` only reorder them by availability; they never add a profile.
+EXECUTOR_ROUTES = {
+    "mechanical": ["flash", "codex"],
+    "test": ["flash", "codex"],
+    "implement": ["flash", "codex"],
+    "fix": ["flash", "codex"],
+}
+# Implement or fix with open design decisions, concurrency, security or migrations.
+OPEN_DESIGN_ROUTE = ["codex", "agy"]
+# Reviewers by the family that wrote the code; never that family itself.
+REVIEW_ROUTES = {
+    "deepseek": ["codex-review", "agy-review"],
+    "openai": ["flash-review", "agy-review"],
+    "gemini": ["codex-review", "flash-review"],
+}
+# Provider limit messages, as printed by the CLIs (read from real run outputs):
+#   Codex:       "... or try again at 12:28 PM."   (wall-clock time, machine time zone)
+#   Antigravity: "... Resets in 107h24m20s."
+RESET_AT_RE = re.compile(r"try again at (\d{1,2}):(\d{2})\s*([AP]M)", re.IGNORECASE)
+RESET_IN_RE = re.compile(r"Resets in ((?:\d+[hms])+)", re.IGNORECASE)
+# Used when a limit message carries no reset time; DELEGATE_COOLDOWN_<EXECUTOR> changes it.
+DEFAULT_COOLDOWN_S = 60 * 60
+# A later run with one of these results reached the provider, so the limit is over.
+LIMIT_CLEARED_BY = ("none", "review_wrote", "incomplete_review", "timeout", "stalled")
 ROLES = ["implement", "fix", "review", "mechanical", "test"]
 GATE = ["pass", "fail", "not_run"]
 DELIVERED = ["yes", "partial", "no"]
@@ -136,6 +185,7 @@ DEFAULT_MAX_SLOTS = {
     "opencode": 10,
     "codex": 1,
     "agy": 2,
+    "claude": 1,
 }
 
 
@@ -307,6 +357,18 @@ def access_policy(executor, role, cwd, out_path=None, strict=False, common_dir=N
     #   writable alongside the primary workspace"
     # codex config reference: "sandbox_workspace_write.network_access boolean
     #   Allow outbound network access inside the workspace-write sandbox."
+    if executor == "claude":
+        # claude --help: "--tools <tools...> Specify the list of available tools
+        #   from the built-in set"; "--permission-mode <mode>" (choices include
+        #   "dontAsk"). With only the three read tools there is no shell, no
+        #   edit tool and no network to remove, so strict is the same policy.
+        return {"argv": ["--tools", "Read,Grep,Glob", "--permission-mode", "dontAsk"], "env": {}, "access": {
+            "mode": "strict" if strict else "policy", "network": False, "git_write": False,
+            "extra_read": [], "limits": [
+                "claude has only the Read, Grep and Glob tools: no shell, no git command and "
+                "no network; the diff and the cards arrive in the prompt",
+                "claude has no sandbox: what it may read is decided by Claude Code's own "
+                "permission rules, and review_wrote still checks the tree"]}}
     if strict:
         # Strict removes grants from the default role policy; it never adds a
         # CLI's factory bypass. Every branch below is therefore a subset of the
@@ -418,9 +480,15 @@ def access_policy(executor, role, cwd, out_path=None, strict=False, common_dir=N
             {"action": "read", "resource": "*", "effect": "allow"},
             {"action": "shell", "resource": "*", "effect": "allow"},
             {"action": "webfetch", "resource": "*", "effect": "allow"},
-            {"action": "websearch", "resource": "*", "effect": "allow"},
+            # Web Search under "allow" asks for input that a headless run cannot
+            # give; OpenCode v2.3.2 then exits 1 ("Cancelled a request for input
+            # this run cannot answer: Web Search") even when the work is done.
+            # Under "deny" the tool is refused and the run ends with exit 0.
+            {"action": "websearch", "resource": "*", "effect": "deny"},
             {"action": "edit", "resource": "*", "effect": "deny"},
         ]
+        limits.append("websearch is denied: OpenCode's Web Search asks for input a "
+                      "headless run cannot answer; webfetch and the shell keep network access")
         # External reads are checked before read/edit; allow only the git
         # common directory, cards and outputs, never every directory.
         for path in extra_read:
@@ -495,6 +563,60 @@ def access_policy(executor, role, cwd, out_path=None, strict=False, common_dir=N
         "extra_read": extra_read, "limits": limits}}
 
 
+AGY_GIT_GLOBAL_LIMIT = ("agy: git reads a runner-made copy of the global git config "
+                        "(GIT_CONFIG_GLOBAL) because the terminal sandbox cannot read "
+                        "the files that config includes")
+
+
+def flatten_git_global(cwd, task_id):
+    """Write the global git config, includes resolved, into the git directory.
+
+    Antigravity's terminal sandbox lets git read ~/.gitconfig but not a file it
+    includes (seen with agy 1.5.13 on macOS: "fatal: unable to access
+    '~/.gitconfig.local': Operation not permitted"). Every git command then
+    fails, the model asks to leave the sandbox, and print mode auto-denies that
+    request and prints nothing. The copy lives in the worktree's git directory:
+    git must already read that place, and it never shows in `git status`.
+
+    Returns the path, or None when the global config includes nothing or the
+    copy cannot be made (the run then starts as before).
+    """
+    def run(*args):
+        return subprocess.run(["git", "-C", cwd, *args], capture_output=True)
+
+    dest = None
+    try:
+        probe = run("config", "--global", "--get-regexp", r"^include(if)?\.")
+        if probe.returncode or not probe.stdout.strip():
+            return None
+        listing = run("config", "--global", "--includes", "--list", "-z")
+        git_dir = run("rev-parse", "--absolute-git-dir")
+        if listing.returncode or git_dir.returncode:
+            return None
+        name = re.sub(r"[^A-Za-z0-9._-]", "_", task_id)
+        dest = Path(os.fsdecode(git_dir.stdout).strip()) / f"delegate-{name}-{os.getpid()}.gitconfig"
+        dest.unlink(missing_ok=True)
+        os.close(os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
+        for entry in listing.stdout.split(b"\0"):
+            if not entry:
+                continue
+            # "key\nvalue"; a key with no value at all is a boolean true.
+            key, has_value, value = entry.partition(b"\n")
+            if re.match(rb"include(if)?\.", key):
+                continue
+            subprocess.run(["git", "config", "--file", str(dest), "--add",
+                            key, value if has_value else b"true"],
+                           capture_output=True, check=True)
+        return dest
+    except (OSError, subprocess.SubprocessError):
+        if dest is not None:
+            try:
+                dest.unlink(missing_ok=True)
+            except OSError:
+                pass
+        return None
+
+
 def guard_argv(argv, executor):
     """Refuse an approval/sandbox bypass flag; never let one reach a child."""
     for arg in argv:
@@ -521,6 +643,22 @@ def build_argv(executor, model, role, cwd, card, last_msg, policy=None):
         return guard_argv(
             [find("opencode"), "run", "--standalone", "--archived", "-m", model, card],
             executor)
+    if executor == "claude":
+        # The shape proven for external reviews in
+        # skills/shared/codex-bridge-assets/providers/claude/invocation-canonical.txt:
+        # claude --help: "-p, --print Print response and exit"; "--safe-mode
+        #   Start with all customizations (CLAUDE.md, skills, installed plugins,
+        #   hooks, MCP servers, ...) disabled"; "--no-session-persistence";
+        #   "--disable-slash-commands Disable all skills and commands";
+        #   "--effort <level>". The prompt is read from stdin.
+        # "--setting-sources <sources> Comma-separated list of setting sources
+        #   to load (user, project, local)". The empty list loads none, so an
+        #   apiKeyHelper or endpoint in a settings file cannot route the
+        #   review through an API: only the CLI's own login is left.
+        argv = [find("claude"), "--safe-mode", "-p", "--setting-sources", "",
+                "--model", model, "--effort", "high"]
+        return guard_argv(argv + policy["argv"] + [
+            "--no-session-persistence", "--disable-slash-commands", "--output-format", "text"], executor)
     if executor == "agy":
         # The runner writes the prompt on stdin, so a composed prompt is not
         # an argv element. With stdin not a terminal agy runs the prompt once
@@ -558,10 +696,119 @@ def has_provider_limit(stdout, stderr):
     return False
 
 
-def classify_failure(timed_out, code, stdout, stderr, review_wrote, review_output=None):
+CLAUDE_LOGIN_RE = re.compile(
+    r"failed\s+to\s+authenticate|oauth\s+session\s+expired|not\s+logged\s+in|invalid\s+api\s+key|/login",
+    re.IGNORECASE)
+
+
+def claude_login_help(reason):
+    """Everything the operator needs to fix the login, with nothing to look up:
+    the machine, the user, the exact command, what it does and how to check."""
+    cli = find_optional("claude") or "claude"
+    machine = socket.gethostname().split(".")[0]
+    try:
+        user = getpass.getuser()
+    except Exception:
+        user = "the user who runs the runner"
+    return "\n".join([
+        f"{CLAUDE_REVIEW} cannot run: {reason}.",
+        f"  {CLAUDE_REVIEW} uses the Claude Code login of the machine where the runner runs, "
+        "never an API key, a token or another endpoint.",
+        f"  Where: a terminal on this machine ({machine}), as user {user}; not on a remote host, "
+        "not in WSL, and not inside an agent session.",
+        f"  Command: {cli} auth login --claudeai",
+        "  How: it opens the browser; sign in with the claude.ai account that has the subscription "
+        "and authorize. With no browser (over SSH) it prints a URL: open it on any device and "
+        "paste the code it shows back into the terminal.",
+        f'  Check: {cli} --setting-sources "" auth status   '
+        '(expect "loggedIn": true and "authMethod": "claude.ai")',
+        "  ~/.claude/settings.json is not used by this review and needs no change; then run the "
+        "same delegate command again.",
+    ])
+
+
+def claude_login():
+    """State of the local Claude Code login: (state, detail).
+
+    ok: a claude.ai subscription login; missing: no login; api: a login that
+    bills an API; unknown: the CLI is absent or its answer cannot be read.
+    """
+    cli = find_optional("claude")
+    if not cli:
+        return "unknown", "the claude CLI was not found"
+    try:
+        res = subprocess.run([cli, "--setting-sources", "", "auth", "status"], capture_output=True,
+                             text=True, timeout=30, stdin=subprocess.DEVNULL,
+                             env=child_environment("claude", os.environ, {}))
+        data = json.loads(res.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return "unknown", "the login state could not be read"
+    if not isinstance(data, dict) or "loggedIn" not in data:
+        return "unknown", "the login state could not be read"
+    if not data["loggedIn"]:
+        return "missing", ""
+    method = str(data.get("authMethod") or "unknown")
+    if method != "claude.ai":
+        return "api", method
+    kind = data.get("subscriptionType")
+    return "ok", f"claude.ai ({kind})" if kind else "claude.ai"
+
+
+def claude_login_problem(state, detail):
+    if state == "missing":
+        return "this machine has no Claude Code login, or it expired"
+    if state == "api":
+        return f'the local login is "{detail}", not a claude.ai subscription'
+    return None
+
+
+def check_claude_login():
+    """Refuse before launching when the review could only fail or bill an API."""
+    reason = claude_login_problem(*claude_login())
+    if reason:
+        usage_error(claude_login_help(reason))
+
+
+def child_environment(executor, environ, policy_env):
+    """The environment of the executor process.
+
+    The Claude reviewer runs on the CLI's own login and never through an API.
+    Every variable that could carry a key, a token, another endpoint or the
+    state of the Claude Code session the runner was started from is removed.
+    """
+    env = dict(environ)
+    if executor == "claude":
+        env = {k: v for k, v in env.items()
+               if k == "CLAUDE_CONFIG_DIR" or not k.startswith(("CLAUDE", "ANTHROPIC_"))}
+    env.update(policy_env)
+    return env
+
+
+def claude_login_missing(stdout):
+    try:
+        return bool(CLAUDE_LOGIN_RE.search(stdout.read_text(errors="replace")[:2048]))
+    except OSError:
+        return False
+
+
+def claude_limit(stdout):
+    """Claude Code reports a session limit on stdout with exit code 0, and an
+    exhausted balance on stdout with exit code 1."""
+    try:
+        text = stdout.read_text(errors="replace")
+    except OSError:
+        return False
+    # A finished review that quotes the banner is a review, not a limit.
+    return bool(CLAUDE_LIMIT_RE.search(text[:2048])) and not any(
+        TOTAL_RE.match(line) for line in text.splitlines())
+
+
+def classify_failure(timed_out, code, stdout, stderr, review_wrote, review_output=None, executor=None):
     if timed_out:
         return "timeout"
     if code != 0 and has_provider_limit(stdout, stderr):
+        return "provider_limit"
+    if executor == "claude" and claude_limit(stdout):
         return "provider_limit"
     if review_wrote:
         return "review_wrote"
@@ -663,6 +910,49 @@ def slot_owned(slot):
         return False
 
 
+def runner_gone(slot):
+    """True when the runner that owns this slot is no longer running."""
+    runner_start = slot.get("runner_start")
+    return bool(runner_start) and process_identity(slot.get("runner_pid")) != runner_start
+
+
+def record_lost_runner(path, slot):
+    """Log a run whose runner died before it could write its own record.
+
+    A runner that is killed outright (SIGKILL, a crash) cannot end its executor
+    or log anything: the executor works on alone and its slot is all that is
+    left. When that slot is finally cleared, this record is the only trace of
+    the run in the log.
+    """
+    started = slot.get("started")
+    if not started:
+        return
+    try:
+        if LOG.exists() and any(
+                r.get("kind") == "run" and r.get("id") == slot.get("id") and r.get("started") == started
+                for r in map(json.loads, filter(None, LOG.read_text().splitlines()))):
+            return
+    except (OSError, ValueError):
+        pass
+    completed = now()
+    try:
+        duration = max(0, round((completed - dt.datetime.fromisoformat(started)).total_seconds()))
+    except (TypeError, ValueError):
+        duration = 0
+    profile = slot.get("profile")
+    model, family = (MODELS[profile][1:] if profile in MODELS else (None, None))
+    append({
+        "kind": "run", "id": slot.get("id"), "project": slot.get("project"),
+        "role": slot.get("role"), "profile": profile,
+        "executor": path.name.split("-")[0], "model": model, "family": family,
+        "started": started, "completed": completed.isoformat(timespec="microseconds"),
+        "duration_s": duration, "exit_code": None, "timed_out": False,
+        "failure": "runner_lost",
+        "note": "the runner process died before writing a record; the executor kept "
+                "working without it, so check the worktree for commits and changes",
+    })
+
+
 def _clean_stale_slots():
     RUNNING.mkdir(parents=True, exist_ok=True)
     for p in RUNNING.glob("*.tmp"):
@@ -673,6 +963,8 @@ def _clean_stale_slots():
             data = json.loads(p.read_text())
             if not slot_owned(data):
                 p.unlink(missing_ok=True)
+                if runner_gone(data):
+                    record_lost_runner(p, data)
         except Exception:
             p.unlink(missing_ok=True)
 
@@ -1296,6 +1588,190 @@ def run_output_paths(out_path, task_id, attempt, reserve=True):
             Path(f"{base}.last.md"), Path(f"{base}.prompt.md"))
 
 
+def parse_reset(text, limit_time):
+    """The UTC time a provider limit ends, read from the CLI's own message, or None."""
+    found = None
+    for found in RESET_IN_RE.finditer(text):
+        pass
+    if found:
+        seconds = sum(int(n) * {"h": 3600, "m": 60, "s": 1}[unit.lower()]
+                      for n, unit in re.findall(r"(\d+)([hms])", found.group(1), re.IGNORECASE))
+        return limit_time + dt.timedelta(seconds=seconds)
+    zone = None
+    for found in RESET_ZONE_RE.finditer(text):
+        pass
+    if found:
+        try:
+            from zoneinfo import ZoneInfo
+            zone = ZoneInfo(found.group(4))
+        except Exception:
+            return None
+    else:
+        for found in RESET_AT_RE.finditer(text):
+            pass
+    if not found:
+        return None
+    hour, minute, half = int(found.group(1)), int(found.group(2) or 0), found.group(3).upper()
+    if not 1 <= hour <= 12 or minute > 59:
+        return None
+    hour = hour % 12 + (12 if half == "PM" else 0)
+    # The message has a clock time and no date: it is the next time a clock in
+    # that zone (the machine's, when the message names none) shows it, counted
+    # from the moment of the limit.
+    local = limit_time.astimezone(zone)
+    reset = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if reset < local - dt.timedelta(minutes=5):
+        reset += dt.timedelta(days=1)
+    return reset.astimezone(dt.timezone.utc)
+
+
+def cooldown_s(executor):
+    raw = os.environ.get(f"DELEGATE_COOLDOWN_{executor.upper()}")
+    if raw:
+        try:
+            return duration_arg(raw)
+        except argparse.ArgumentTypeError:
+            pass
+    return DEFAULT_COOLDOWN_S
+
+
+def run_end(rec):
+    """When a run record ended, as an aware UTC time, or None."""
+    raw = rec.get("completed") or rec.get("started")
+    if not raw:
+        return None
+    try:
+        end = dt.datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=dt.timezone.utc)
+    if not rec.get("completed"):
+        try:
+            end += dt.timedelta(seconds=rec.get("duration_s") or 0)
+        except TypeError:
+            return None
+    return end.astimezone(dt.timezone.utc)
+
+
+def provider_limits(now_dt=None):
+    """Limits still in force: {(executor, model): {"until", "source", "at"}}.
+
+    A limit belongs to the executor and model of the run that hit it. It holds
+    until the reset the provider printed, or for the default cooldown when the
+    message has none, and ends early when a later run of the same executor and
+    model reached the provider.
+    """
+    now_dt = now_dt or now()
+    latest = {}
+    if LOG.exists():
+        for line in LOG.read_text(errors="replace").splitlines():
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(rec, dict) or rec.get("kind") != "run":
+                continue
+            failure = rec.get("failure")
+            if failure != "provider_limit" and failure not in LIMIT_CLEARED_BY:
+                continue
+            key, end = (rec.get("executor"), rec.get("model")), run_end(rec)
+            if None in key or end is None or end > now_dt:
+                continue
+            if key not in latest or end > latest[key][0]:
+                latest[key] = (end, rec)
+    limits = {}
+    for key, (end, rec) in latest.items():
+        if rec.get("failure") != "provider_limit":
+            continue
+        until = None
+        for name in ("stderr", "stdout"):
+            try:
+                until = parse_reset(Path(rec[name]).read_text(errors="replace")[-4000:], end)
+            except (KeyError, TypeError, OSError):
+                continue
+            if until:
+                break
+        source = "provider" if until else "default"
+        until = until or end + dt.timedelta(seconds=cooldown_s(key[0]))
+        if until > now_dt:
+            limits[key] = {"until": until, "source": source, "at": end}
+    return limits
+
+
+def availability(now_dt=None):
+    """What each profile can do now: CLI found, free slots, and a limit in force."""
+    limits = provider_limits(now_dt)
+    out = {}
+    for name, (executor, model, family) in MODELS.items():
+        limit = limits.get((executor, model))
+        out[name] = {
+            "executor": executor, "model": model, "family": family,
+            "found": bool(find_optional(executor)),
+            "slots_free": max(0, get_max_slots(executor) - len(get_active_slots(executor))),
+            "cooling_until": limit["until"].isoformat(timespec="seconds") if limit else None,
+            "reset_source": limit["source"] if limit else None,
+        }
+    return out
+
+
+def usable(profile, avail):
+    return avail[profile]["found"] and not avail[profile]["cooling_until"]
+
+
+def order_route(route, avail):
+    """Usable profiles first, in their given order; nothing is removed."""
+    ready = [p for p in route if usable(p, avail)]
+    return ready + [p for p in route if p not in ready]
+
+
+def review_warning(profile, avail):
+    """One line when the work of `profile` would have no reviewer now, else None."""
+    reviewers = REVIEW_ROUTES[MODELS[profile][2]]
+    if any(usable(r, avail) for r in reviewers):
+        return None
+    back = sorted((avail[r]["cooling_until"], r) for r in reviewers
+                  if avail[r]["found"] and avail[r]["cooling_until"])
+    first = f"first back: {back[0][1]} at {back[0][0]}" if back else "no reviewer CLI was found"
+    fallback = (f"; {CLAUDE_REVIEW} can review with the operator's yes (--allow-claude-review)"
+                if usable(CLAUDE_REVIEW, avail) else "")
+    return f"{profile}: no reviewer usable now; {first}{fallback}"
+
+
+def cmd_route(a):
+    avail = availability()
+    fixed = OPEN_DESIGN_ROUTE if a.open_design else EXECUTOR_ROUTES[a.role]
+    route = order_route(fixed, avail)
+    review_routes = {family: order_route(profiles, avail) for family, profiles in REVIEW_ROUTES.items()}
+    warnings = [w for w in (review_warning(p, avail) for p in route) if w]
+    if warnings and avail[CLAUDE_REVIEW]["found"]:
+        # Claude is the way out of that warning, so say now whether it can run.
+        state, detail = claude_login()
+        avail[CLAUDE_REVIEW]["login"] = detail if state == "ok" else state
+        reason = claude_login_problem(state, detail)
+        if reason:
+            warnings.append(claude_login_help(reason))
+    if a.json:
+        print(json.dumps({"role": a.role, "route": route, "review_routes": review_routes,
+                          "profiles": avail, "warnings": warnings}, indent=2))
+        return
+    print("route: " + ",".join(route))
+    for profile in route:
+        family = MODELS[profile][2]
+        print(f"review route after {profile} ({family}): " + ",".join(review_routes[family]))
+    groups = {}
+    for name, state in avail.items():
+        if state["cooling_until"]:
+            groups.setdefault((state["cooling_until"], state["reset_source"]), []).append(name)
+    for (until, source), names in sorted(groups.items()):
+        print(f"cooling: {', '.join(names)} until {until} ({source})")
+    missing = sorted({state["executor"] for state in avail.values() if not state["found"]})
+    if missing:
+        print("missing CLI: " + ", ".join(missing))
+    for warning in warnings:
+        print(f"warning: {warning}")
+
+
 class PausedError(Exception):
     pass
 
@@ -1351,6 +1827,30 @@ def check_model_allowed(role, executor, model):
         print(f"delegate: OpenCode runs only {FLASH_MODEL}; use codex or agy for another model",
               file=sys.stderr)
         sys.exit(2)
+
+
+def check_claude_review(executor, role, allowed, author_family, host=None):
+    """The rules of the fallback reviewer, checked before anything is launched."""
+    if executor != "claude":
+        return
+    if role != "review":
+        usage_error(f"{CLAUDE_REVIEW} only reviews; there is no Claude executor profile")
+    if not allowed:
+        usage_error(f"{CLAUDE_REVIEW} needs --allow-claude-review: pass it only after the operator "
+                    "said yes to a Claude review for this task")
+    if not author_family:
+        usage_error(f"{CLAUDE_REVIEW} needs --author-family <family of the model that wrote the code> "
+                    "(deepseek, openai, gemini or anthropic)")
+    if author_family == "anthropic":
+        usage_error("the reviewer is never of the family that wrote the code: "
+                    f"{CLAUDE_REVIEW} cannot review work written by a Claude model")
+    if host:
+        usage_error(f"{CLAUDE_REVIEW} does not run on a remote host; drop --host for this review")
+
+
+def claude_last(route):
+    """The fallback reviewer goes after every other reviewer, wherever it was named."""
+    return [p for p in route if p != CLAUDE_REVIEW] + [p for p in route if p == CLAUDE_REVIEW]
 
 
 def usage_error(message):
@@ -2421,7 +2921,8 @@ the checkpoint commit: build on it. The note the runner wrote when it stopped:
 def execute_run(task_id, task, role, profile=None, executor=None, model=None, cwd=None,
                 card=None, out=None, project=None, timeout=DEFAULT_TIMEOUT_S, wait_s=3600, attempt=1,
                 confirmed=False, allow_peak=False, diff_range=None, attachments=None,
-                access_mode="policy", host=None, idle_timeout=DEFAULT_IDLE_TIMEOUT_S, resume=False):
+                access_mode="policy", host=None, idle_timeout=DEFAULT_IDLE_TIMEOUT_S, resume=False,
+                allow_claude_review=False, author_family=None):
     check_paused()
     alias_notice = None
     if profile in ALIASES:
@@ -2440,6 +2941,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if not executor or not model:
         sys.exit("delegate: give --profile, or both --executor and --model")
     check_model_allowed(role, executor, model)
+    check_claude_review(executor, role, allow_claude_review, author_family, host)
     if alias_notice:
         print(alias_notice, file=sys.stderr)
 
@@ -2527,8 +3029,14 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
 
     # Codex and Antigravity read the prompt from stdin; OpenCode takes it as an
     # argv element (see ARGV_PROMPT_EXECUTORS).
-    si = open(prompt, "rb") if executor in ("codex", "agy") else None
+    si = open(prompt, "rb") if executor in ("codex", "agy", "claude") else None
+    git_global = None
     try:
+        if executor == "agy":
+            git_global = flatten_git_global(cwd, task_id)
+            if git_global is not None:
+                policy["env"]["GIT_CONFIG_GLOBAL"] = str(git_global)
+                policy["access"]["limits"].append(AGY_GIT_GLOBAL_LIMIT)
         with open(stdout, "w") as so, open(stderr, "w") as se:
             while True:
                 check_paused()
@@ -2544,8 +3052,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                         started = now().isoformat(timespec="microseconds")
                         t0 = time.monotonic()
                         wait_duration_s = t0 - queued_at
-                        child_env = dict(os.environ)
-                        child_env.update(policy["env"])
+                        child_env = child_environment(executor, os.environ, policy["env"])
                         p = subprocess.Popen(
                             argv, cwd=cwd, stdout=so, stderr=se,
                             stdin=si if si is not None else subprocess.DEVNULL,
@@ -2644,6 +3151,11 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
             finally:
                 if si is not None:
                     si.close()
+                if git_global is not None:
+                    try:
+                        git_global.unlink(missing_ok=True)
+                    except OSError:
+                        pass
 
     if pending_return:
         append(pending)
@@ -2670,7 +3182,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     review_wrote = role == "review" and snap1 != snap0
     review_output = (last_msg if executor == "codex" else stdout) if role == "review" else None
     failure = orphan_failure or ("stalled" if stalled else classify_failure(
-        timed_out, code, stdout, stderr, review_wrote, review_output))
+        timed_out, code, stdout, stderr, review_wrote, review_output, executor))
     uncommitted = role != "review" and head1 == head0 and snap1 != snap0
     commits = git(cwd, "rev-list", "--count", f"{head0}..{head1}") if head0 and head1 else ""
     files = git(cwd, "diff", "--name-only", f"{head0}..{head1}") if head0 and head1 else ""
@@ -2693,6 +3205,12 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     }
     if executor == "codex":
         rec["last_message"] = str(last_msg)
+    if executor == "claude":
+        rec["fallback_reviewer"] = True
+        rec["author_family"] = author_family
+        if rec["failure"] == "error" and claude_login_missing(stdout):
+            rec["hint"] = claude_login_help("Claude Code refused the local login")
+            print(f"delegate: {rec['hint']}", file=sys.stderr)
     if stalled:
         rec["idle_s"] = round(progress.idle_s())
     if checkpoint is not None:
@@ -2708,6 +3226,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
 
 
 def cmd_run(a):
+    if (a.profile == CLAUDE_REVIEW and a.role == "review" and a.allow_claude_review and not a.host
+            and a.author_family not in (None, "anthropic")):
+        check_claude_login()
     rec = execute_run(
         task_id=a.id, task=a.task, role=a.role, profile=a.profile,
         executor=a.executor, model=a.model, cwd=a.cwd, card=a.card,
@@ -2715,9 +3236,42 @@ def cmd_run(a):
         wait_s=getattr(a, "wait", 3600), attempt=a.attempt,
         confirmed=a.confirmed, allow_peak=a.allow_peak, diff_range=a.diff_range, attachments=a.attach,
         access_mode=a.access, host=a.host, idle_timeout=a.idle_timeout, resume=a.resume,
+        allow_claude_review=a.allow_claude_review, author_family=a.author_family,
     )
     print(json.dumps(rec, ensure_ascii=False, indent=1))
     sys.exit(0 if rec["failure"] == "none" else 1)
+
+
+def review_findings(review_file):
+    """(finding lines, TOTAL line, counts) read from a reviewer's answer."""
+    findings = {"major": 0, "medium": 0, "minor": 0}
+    finding_lines, total_line = [], ""
+    for line in Path(review_file).read_text(errors="replace").splitlines():
+        if re.match(r"^\W*R\d+\s*\|", line):
+            finding_lines.append(line)
+        match = re.search(r"TOTAL\s+major=(\d+)\s+medium=(\d+)\s+minor=(\d+)", line)
+        if match:
+            total_line = line.strip()
+            findings = dict(zip(("major", "medium", "minor"), map(int, match.groups())))
+    return finding_lines, total_line, findings
+
+
+def pending_files(task_id=None, project=None):
+    if not PENDING.is_dir():
+        return []
+    return sorted(p for p in PENDING.glob("*/*.json")
+                  if (task_id is None or p.stem == safe_remote_name(task_id))
+                  and (project is None or p.parent.name == safe_remote_name(project)))
+
+
+def first_reviewer_back(executor_family, review_route, avail):
+    """Text for a pending review: who can review now, or who returns first."""
+    reviewers = [p for p in review_route if MODELS[p][2] != executor_family]
+    if any(usable(p, avail) for p in reviewers):
+        return "a reviewer is usable now"
+    back = sorted((avail[p]["cooling_until"], p) for p in reviewers
+                  if avail[p]["found"] and avail[p]["cooling_until"])
+    return f"first back: {back[0][1]} at {back[0][0]}" if back else "no reviewer CLI was found"
 
 
 def canonical_route(raw):
@@ -2750,8 +3304,22 @@ def cmd_pipeline(a):
         sys.exit(message if message.startswith("delegate:") else f"delegate: {message}")
     for profile in route:
         check_model_allowed(role, *MODELS[profile][:2])
+        check_claude_review(MODELS[profile][0], role, a.allow_claude_review, None)
     for profile in review_route:
         check_model_allowed("review", *MODELS[profile][:2])
+        # The author is one of the executors in the route; none of them is Claude.
+        check_claude_review(MODELS[profile][0], "review", a.allow_claude_review,
+                            MODELS[route[0]][2], a.host)
+    if CLAUDE_REVIEW in review_route:
+        check_claude_login()
+    # Profiles under a provider limit, or whose CLI is missing, are tried last.
+    # Nothing is dropped, so a wrong guess costs one refused run, as before.
+    avail = availability()
+    given = route + review_route
+    route, review_route = order_route(route, avail), claude_last(order_route(review_route, avail))
+    reordered = ([p for p in given if not usable(p, avail) and p != CLAUDE_REVIEW]
+                 if [p for p in route + review_route if p != CLAUDE_REVIEW]
+                 != [p for p in given if p != CLAUDE_REVIEW] else [])
     for filename in a.review_attach:
         read_attachment(filename)
     # Each invocation and attempt owns its outputs, even when the same ID is reused.
@@ -2761,6 +3329,8 @@ def cmd_pipeline(a):
     executor_profile = reviewer_profile = None
     executor_rec = review_rec = None
     auto_committed = False
+    pending_file = None
+    executor_error_after_commit = False
     gate_exit = None
     gate_duration_s = 0
     gate_timed_out = False
@@ -2793,6 +3363,8 @@ def cmd_pipeline(a):
                 wait_s=a.wait, confirmed=True, attempt=len(attempts),
                 diff_range=diff_range, attachments=attachments,
                 access_mode=a.access, host=a.host, idle_timeout=a.idle_timeout,
+                allow_claude_review=a.allow_claude_review,
+                author_family=MODELS[executor_profile][2] if executor_profile else None,
             ))
         except SlotTimeoutError as exc:
             rec.update(exc.record)
@@ -2813,7 +3385,16 @@ def cmd_pipeline(a):
             if executor_rec["failure"] in ("provider_limit", "slot_timeout", "input_too_large"):
                 continue
             executor_profile = profile
-            if executor_rec["failure"] != "none":
+            if executor_rec["failure"] == "error":
+                # An executor CLI can exit non-zero after the work is committed
+                # (a cancelled input request at the very end, for one). With new
+                # commits and a clean tree the gate and the reviewer judge it.
+                snapshot = tree_snapshot(cwd)
+                if snapshot[0] != base_commit and not snapshot[1]:
+                    executor_error_after_commit = True
+                else:
+                    outcome = "executor_failed"
+            elif executor_rec["failure"] != "none":
                 outcome = "executor_failed"
             break
         else:
@@ -2900,6 +3481,23 @@ def cmd_pipeline(a):
             if outcome is None:
                 outcome = "no_reviewer"
                 tried = [rec for rec in attempts if rec["role"] == "review"]
+                if tried and all(rec["failure"] in NO_CAPACITY for rec in tried):
+                    outcome = "review_pending"
+                    pending_file = PENDING / safe_remote_name(project) / f"{safe_remote_name(task_id)}.json"
+                    pending_file.parent.mkdir(parents=True, exist_ok=True)
+                    pending_file.write_text(json.dumps({
+                        "id": task_id, "task": task, "project": project, "cwd": cwd,
+                        "base": base_commit, "head": gated_snapshot[0],
+                        "executor_profile": executor_profile, "executor_family": executor_family,
+                        "review_route": given[len(given) - len(review_route):],
+                        "review_card": str(review_card_copy),
+                        "attachments": [a.card, *a.review_attach],
+                        "out": str(out), "access": a.access, "host": a.host,
+                        "timeout": a.review_timeout if a.review_timeout is not None else a.timeout,
+                        "idle_timeout": a.idle_timeout, "attempts": len(attempts),
+                        "gate": a.gate, "gate_exit": gate_exit, "auto_committed": auto_committed,
+                        "created": now().isoformat(timespec="seconds"),
+                    }, ensure_ascii=False, indent=1))
                 if not tried:
                     error = "no reviewer outside the executor family"
                 elif all(rec["failure"] == "provider_limit" for rec in tried):
@@ -2919,13 +3517,7 @@ def cmd_pipeline(a):
     review_file = None
     if outcome == "reviewed":
         review_file = review_rec.get("last_message") or review_rec["stdout"]
-        for line in Path(review_file).read_text(errors="replace").splitlines():
-            if re.match(r"^\W*R\d+\s*\|", line):
-                finding_lines.append(line)
-            match = re.search(r"TOTAL\s+major=(\d+)\s+medium=(\d+)\s+minor=(\d+)", line)
-            if match:
-                total_line = line.strip()
-                findings = dict(zip(("major", "medium", "minor"), map(int, match.groups())))
+        finding_lines, total_line, findings = review_findings(review_file)
 
     head = git(cwd, "rev-parse", "HEAD")
     details = attempt_root / "steps.json"
@@ -2940,6 +3532,18 @@ def cmd_pipeline(a):
              (f" | log: {commit_log}" if commit_log.is_file() else "")]
     if error:
         lines.append(f"- stopped at {step}: {error}")
+    if pending_file:
+        lines.append("- review pending: every reviewer was out of quota or had no free slot; the work "
+                     f"passed the gate. Finish with `review-pending --id {task_id} --confirmed` "
+                     f"({first_reviewer_back(executor_family, review_route, availability())}).")
+    if reordered:
+        lines.append("- tried last (provider limit or missing CLI): " + ", ".join(reordered))
+    if reviewer_profile == CLAUDE_REVIEW:
+        lines.append(f"- reviewed by the fallback reviewer {CLAUDE_REVIEW} "
+                     f"({MODELS[CLAUDE_REVIEW][1]}), allowed by the operator")
+    if executor_error_after_commit:
+        lines.append("- executor exited with an error after committing; the tree was clean, "
+                     "so the gate and the review ran. Read its stderr before trusting the result.")
     for rec in attempts:
         paths = " | ".join(f"{key}: {rec[key]}" for key in ("stdout", "stderr", "last_message")
                            if rec.get(key) and Path(rec[key]).is_file())
@@ -2954,7 +3558,8 @@ def cmd_pipeline(a):
         # Preserve both winners, even with a long executor or reviewer quota route.
         decisive = [i for i, rec in enumerate(attempts)
                     if rec is executor_rec or rec is review_rec]
-        prefix = 4 if error else 3
+        prefix = (3 + bool(error) + bool(pending_file) + bool(reordered)
+                  + (reviewer_profile == CLAUDE_REVIEW) + bool(executor_error_after_commit))
         keep = set(range(prefix)) | {prefix + i for i in decisive} | {len(lines) - 2, len(lines) - 1}
         for i in reversed(range(prefix, len(lines) - 2)):
             if len(keep) >= 38:
@@ -2984,11 +3589,152 @@ def cmd_pipeline(a):
         "failed_step": step if outcome not in ("reviewed", "no_changes") else None,
         "error": error, "attempts": attempts, "summary": str(summary_file),
     }
+    if pending_file:
+        pipeline_rec["pending"] = str(pending_file)
+    if reviewer_profile == CLAUDE_REVIEW:
+        pipeline_rec["fallback_reviewer"] = True
+    if reordered:
+        pipeline_rec["reordered"] = reordered
+    if executor_error_after_commit:
+        pipeline_rec["executor_error_after_commit"] = True
     if a.host:
         pipeline_rec["host"] = a.host
     append(pipeline_rec)
     if outcome == "paused":
         print("delegate: paused", file=sys.stderr)
+    sys.exit(0 if outcome == "reviewed" else 3 if outcome == "paused" else 1)
+
+
+def cmd_review_pending(a):
+    if not a.id:
+        files = pending_files(project=a.project)
+        if not files:
+            print("no pending reviews")
+            return
+        avail = availability()
+        for path in files:
+            try:
+                p = json.loads(path.read_text())
+                back = first_reviewer_back(p["executor_family"], p["review_route"], avail)
+                print(f"{p['id']} | {p['project']} | written by {p['executor_profile']} | "
+                      f"since {p['created']} | {back}")
+            except (ValueError, KeyError, OSError):
+                print(f"{path.stem} | {path.parent.name} | unreadable pending file: {path}")
+        return
+    if not a.confirmed:
+        usage_error("--confirmed required")
+    files = pending_files(a.id, a.project)
+    if not files:
+        usage_error(f"no pending review for {a.id}")
+    if len(files) > 1:
+        usage_error(f"{a.id} is pending in several projects; add --project "
+                    + " or ".join(path.parent.name for path in files))
+    pending_file = files[0]
+    p = json.loads(pending_file.read_text())
+    task_id, task, project, cwd = p["id"], p["task"], p["project"], p["cwd"]
+    base, head, executor_family = p["base"], p["head"], p["executor_family"]
+    snapshot = tree_snapshot(cwd)
+    if snapshot[0] != head or snapshot[1]:
+        usage_error(f"the worktree changed since the gate of {task_id} ({cwd}: HEAD "
+                    f"{snapshot[0][:10] or 'unknown'}, gated {head[:10]}, dirty: {bool(snapshot[1])}). "
+                    "Run the gate again and review with `run --role review --diff-range`, "
+                    f"then delete {pending_file}")
+    t0 = time.monotonic()
+    out = Path(p["out"])
+    out.mkdir(parents=True, exist_ok=True)
+    attempt_root = Path(tempfile.mkdtemp(prefix=f"{task_id}-review-", dir=out))
+    wanted = [*p["review_route"], *([a.reviewer] if a.reviewer else [])]
+    for profile in wanted:
+        check_claude_review(MODELS[profile][0], "review", a.allow_claude_review, executor_family, p["host"])
+    if CLAUDE_REVIEW in wanted:
+        check_claude_login()
+    route = claude_last(order_route(
+        list(dict.fromkeys(r for r in wanted if MODELS[r][2] != executor_family)), availability()))
+    attempts, reviewer_profile, review_rec, outcome, error = [], None, None, None, ""
+    try:
+        for profile in route:
+            number = p["attempts"] + len(attempts) + 1
+            rec = {"profile": profile, "role": "review", "failure": "interrupted", "duration_s": 0}
+            attempts.append(rec)
+            try:
+                rec.update(execute_run(
+                    task_id=task_id, task=task, role="review", profile=profile, cwd=cwd,
+                    card=p["review_card"], out=str(attempt_root / f"{number}-review-{profile}"),
+                    project=project, timeout=a.review_timeout or p["timeout"], wait_s=a.wait,
+                    confirmed=True, attempt=number, diff_range=f"{base}...{head}",
+                    attachments=p["attachments"], access_mode=p["access"], host=p["host"],
+                    idle_timeout=p["idle_timeout"], allow_claude_review=a.allow_claude_review,
+                    author_family=executor_family))
+            except SlotTimeoutError as exc:
+                rec.update(exc.record)
+            if tree_snapshot(cwd) != snapshot:
+                error, outcome = "review_wrote: tree changed after gate", "no_reviewer"
+                break
+            if rec["failure"] in (*NO_CAPACITY, "empty_output", "incomplete_review"):
+                continue
+            if rec["failure"] == "none":
+                reviewer_profile, review_rec, outcome = profile, rec, "reviewed"
+            else:
+                error, outcome = rec["failure"], "no_reviewer"
+            break
+    except PausedError:
+        error, outcome = "paused", "paused"
+    if outcome is None:
+        if attempts and all(rec["failure"] in NO_CAPACITY for rec in attempts):
+            outcome = "review_pending"
+        else:
+            outcome = "no_reviewer"
+        error = "reviewer routes exhausted: " + (", ".join(
+            f"{rec['profile']} ({rec['failure']})" for rec in attempts) or "no reviewer outside the executor family")
+
+    finding_lines, total_line, findings = [], "", {"major": 0, "medium": 0, "minor": 0}
+    lines = [f"# Pipeline {task_id}: {task} — {outcome}",
+             f"- committed: {base}..{head}; review finished after a pending review"]
+    if outcome == "reviewed":
+        review_file = review_rec.get("last_message") or review_rec["stdout"]
+        finding_lines, total_line, findings = review_findings(review_file)
+    elif outcome == "review_pending":
+        lines.append(f"- still pending: {first_reviewer_back(executor_family, p['review_route'], availability())}")
+    if error:
+        lines.append(f"- stopped at review: {error}")
+    if reviewer_profile == CLAUDE_REVIEW:
+        lines.append(f"- reviewed by the fallback reviewer {CLAUDE_REVIEW} "
+                     f"({MODELS[CLAUDE_REVIEW][1]}), allowed by the operator")
+    for rec in attempts:
+        paths = " | ".join(f"{key}: {rec[key]}" for key in ("stdout", "stderr", "last_message")
+                           if rec.get(key) and Path(rec[key]).is_file())
+        lines.append(f"- review: {rec['profile']} | {rec['duration_s']}s | {rec['failure']} | {paths}")
+    lines.append(f"- gate (before the wait): `{p['gate']}` | exit {p['gate_exit']}")
+    lines = [" ".join(str(line).splitlines()) for line in lines]
+    budget = max(0, 59 - len(lines) - 2)
+    lines.extend(finding_lines[:budget])
+    if len(finding_lines) > budget:
+        lines.append(f"- {len(finding_lines) - budget} findings omitted; full review: {review_file}")
+    if total_line:
+        lines.append(total_line)
+    summary_text = "\n".join(lines) + "\n"
+    summary_file = out / f"{task_id}.summary.md"
+    summary_file.write_text(summary_text)
+    print(summary_text, end="")
+    # The file stays while the review can still be finished from it.
+    if outcome == "reviewed" or error.startswith("review_wrote"):
+        pending_file.unlink()
+    rec = {
+        "kind": "pipeline", "id": task_id, "project": project, "outcome": outcome,
+        "resumed_from": "review_pending",
+        "executor_profile": p["executor_profile"], "reviewer_profile": reviewer_profile,
+        "gate_exit": p["gate_exit"], "auto_committed": p["auto_committed"], "findings": findings,
+        "duration_s": round(time.monotonic() - t0), "base": base, "head": head,
+        "failed_step": None if outcome == "reviewed" else "review",
+        "error": error, "attempts": attempts, "summary": str(summary_file),
+    }
+    if pending_file.exists():
+        rec["pending"] = str(pending_file)
+    if reviewer_profile == CLAUDE_REVIEW:
+        rec["fallback_reviewer"] = True
+    if p["host"]:
+        rec["host"] = p["host"]
+    append(rec)
     sys.exit(0 if outcome == "reviewed" else 3 if outcome == "paused" else 1)
 
 
@@ -3029,7 +3775,15 @@ def cmd_status(a):
             idle = f" | idle {max(0, int(quiet // 60))}m"
         except Exception:
             pass
-        print(f"{sid} | {project} | {profile} | {role} | {mins}m{idle}")
+        lost = " | runner gone" if runner_gone(slot) else ""
+        print(f"{sid} | {project} | {profile} | {role} | {mins}m{idle}{lost}")
+        if lost:
+            print(f"warning: the runner of {sid} died; its executor is still working and "
+                  f"will leave no result. Stop it with `kill {sid}`, then check the worktree.")
+
+    pending = len(pending_files())
+    if pending:
+        print(f"pending reviews: {pending} (list them with review-pending)")
 
     if LOG.exists():
         limits = {}
@@ -3154,7 +3908,15 @@ def cmd_profiles(a):
         else:
             status = "found" if find_optional(executor) else "missing"
         remote_state = ""
-        if host:
+        if executor == "claude" and status == "found":
+            state, detail = claude_login()
+            status += f" | login={detail if state == 'ok' else state}"
+            reason = claude_login_problem(state, detail)
+            if reason:
+                print(f"delegate: {claude_login_help(reason)}", file=sys.stderr)
+        if host and executor == "claude":
+            remote_state = f" | host={host} local only"
+        elif host:
             if host_error:
                 remote_state = f" | host={host} not-ready ({host_error})"
             else:
@@ -3164,6 +3926,8 @@ def cmd_profiles(a):
         print(f"{name} | {executor} | {model} | {family} | {status}{remote_state}")
         cwd = str(Path.cwd())
         for label, role in (("implement, fix, mechanical, test", "implement"), ("review", "review")):
+            if executor == "claude" and role != "review":
+                continue
             policy = access_policy(executor, role, cwd)
             print(f"  {label} | {format_access(policy['access'])}")
 
@@ -3326,6 +4090,10 @@ def main():
     r.add_argument("--access", choices=["policy", "strict"], default="policy",
                    help="policy (default) or strict (no network, nothing outside the worktree)")
     r.add_argument("--host", help="run the executor on this remote-runner host")
+    r.add_argument("--allow-claude-review", action="store_true",
+                   help="the operator said yes to a Claude review for this task (the fallback reviewer)")
+    r.add_argument("--author-family", choices=["deepseek", "openai", "gemini", "anthropic"],
+                   help="family of the model that wrote the code; required for claude-review")
     r.set_defaults(f=cmd_run)
 
     pipe = sub.add_parser("pipeline")
@@ -3356,6 +4124,8 @@ def main():
     pipe.add_argument("--access", choices=["policy", "strict"], default="policy",
                       help="policy (default) or strict (no network, nothing outside the worktree)")
     pipe.add_argument("--host", help="run every executor and reviewer on this remote-runner host")
+    pipe.add_argument("--allow-claude-review", action="store_true",
+                      help="the operator said yes to a Claude review for this task (the fallback reviewer)")
     pipe.set_defaults(f=cmd_pipeline)
 
     p_pause = sub.add_parser("pause")
@@ -3385,6 +4155,27 @@ def main():
 
     sub.add_parser("report").set_defaults(f=cmd_report)
     sub.add_parser("peak").set_defaults(f=lambda a: print("peak" if in_peak() else "off-peak"))
+    p_pending = sub.add_parser("review-pending")
+    p_pending.add_argument("--id", help="finish the review of this task; without it, list what is pending")
+    p_pending.add_argument("--project")
+    p_pending.add_argument("--confirmed", action="store_true",
+                           help="the review route was approved with the pipeline that left it pending")
+    p_pending.add_argument("--wait", type=duration_arg, default=3600,
+                           help="how long to wait for a free slot, default 60m")
+    p_pending.add_argument("--review-timeout", type=duration_arg, default=None,
+                           help="cap on each review run; default: the pipeline's own")
+    p_pending.add_argument("--reviewer", choices=[CLAUDE_REVIEW],
+                           help="add the fallback reviewer to the pending review route")
+    p_pending.add_argument("--allow-claude-review", action="store_true",
+                   help="the operator said yes to a Claude review for this task (the fallback reviewer)")
+    p_pending.set_defaults(f=cmd_review_pending)
+    p_route = sub.add_parser("route")
+    p_route.add_argument("--role", required=True, choices=sorted(EXECUTOR_ROUTES))
+    p_route.add_argument("--open-design", action="store_true",
+                         help="the card leaves a design decision open, or touches concurrency, "
+                              "security or a migration")
+    p_route.add_argument("--json", action="store_true")
+    p_route.set_defaults(f=cmd_route)
     p_profiles = sub.add_parser("profiles")
     p_profiles.add_argument("--host", help="also show which executors are ready on this host")
     p_profiles.set_defaults(f=cmd_profiles)

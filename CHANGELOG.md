@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Antigravity runs no longer end with empty output when the global git config
+  includes another file.** Antigravity's terminal sandbox cannot read a file
+  that `~/.gitconfig` includes, so every git command failed, the model asked to
+  leave the sandbox, and print mode denied that and printed nothing
+  (`empty_output`). A local Antigravity run now gives git a copy of the global
+  config with the includes resolved, for that run only.
+- **A run whose runner was killed is no longer silent.** `status` marks it
+  `runner gone` and tells how to stop the executor, and the log gets a
+  `runner_lost` record when its slot is cleared.
+
 ## [2.2.0] - 2026-11-20
 
 ### Added

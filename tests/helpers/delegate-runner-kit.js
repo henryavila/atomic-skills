@@ -30,6 +30,12 @@ const PYTHON3 = hasPython3 ? pythonProbe.stdout.trim() : 'python3';
 const FAKE_SCRIPT = `#!${PYTHON3}
 import json, os, pathlib, subprocess, sys, time
 
+if sys.argv[-2:] == ["auth", "status"]:
+    # The runner asks the Claude CLI for its login state before a review.
+    print(os.environ.get("FAKE_AUTH_STATUS",
+                         '{"loggedIn": true, "authMethod": "claude.ai", "subscriptionType": "max"}'))
+    sys.exit(0)
+
 seq_dir = os.environ.get("FAKE_SEQ_DIR")
 if seq_dir:
     cnt_p = pathlib.Path(seq_dir) / "count"
@@ -62,6 +68,15 @@ if seq_dir:
 stdin_file = os.environ.get("FAKE_STDIN_FILE")
 if stdin_file:
     pathlib.Path(stdin_file).write_text(stdin_content)
+
+git_global_file = os.environ.get("FAKE_GIT_GLOBAL_FILE")
+if git_global_file:
+    listed = subprocess.run(["git", "config", "--global", "--list"], capture_output=True, text=True)
+    pathlib.Path(git_global_file).write_text(json.dumps({
+        "env": os.environ.get("GIT_CONFIG_GLOBAL"),
+        "exit": listed.returncode,
+        "list": listed.stdout,
+    }))
 
 out_text = os.environ.get("FAKE_STDOUT", "")
 if out_text:

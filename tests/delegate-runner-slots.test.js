@@ -23,6 +23,7 @@ import {
   initGitRepo,
   makeFakeBin,
   runDelegate,
+  runDelegateAsync,
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
@@ -158,7 +159,7 @@ spec.loader.exec_module(d)
         const pipe = readLogRecords(atomicHome).at(-1);
         const timed = pipe.attempts.find(r => r.failure === 'slot_timeout');
         assert.ok(timed, JSON.stringify(pipe));
-        assert.equal(pipe.outcome, fallback ? 'reviewed' : stage === 'executor' ? 'no_executor' : 'no_reviewer');
+        assert.equal(pipe.outcome, fallback ? 'reviewed' : stage === 'executor' ? 'no_executor' : 'review_pending');
         assert.equal(pipe.attempts.filter(r => r.failure === 'none').length, fallback ? 2 : stage === 'executor' ? 0 : 1);
       });
     }
@@ -982,6 +983,50 @@ time.sleep(60)
       try { process.kill(parent.pid, 'SIGKILL'); } catch { /* already gone */ }
     }
   });
+  it('a runner killed outright is flagged by status and leaves a runner_lost record once its executor ends', async () => {
+    const run = runDelegateAsync(['run', '--id', 'LOST', '--task', 'lost runner', '--role', 'implement',
+      '--profile', 'flash', '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed'],
+    { ...baseEnv, FAKE_SLEEP: '60' });
+    const runningDir = join(atomicHome, 'delegate', 'running');
+    const slotNames = () => (existsSync(runningDir)
+      ? readdirSync(runningDir).filter(name => name.endsWith('.json')) : []);
+    let executorPid;
+    try {
+      await waitFor(() => slotNames().length === 1, 20000, 'slot file');
+      executorPid = JSON.parse(readFileSync(join(runningDir, slotNames()[0]), 'utf8')).pid;
+      run.child.kill('SIGKILL');
+      await run.done;
+
+      const status = runDelegate(['status'], baseEnv);
+      assert.equal(status.status, 0, status.stderr);
+      assert.match(status.stdout, /^LOST \|.*\| runner gone$/m);
+      assert.match(status.stdout, /kill LOST/);
+      assert.equal(existsSync(join(atomicHome, 'delegate', 'runs.jsonl')), false,
+        'no record while the executor is still working');
+
+      const killed = runDelegate(['kill', 'LOST'], baseEnv);
+      assert.equal(killed.status, 0, killed.stderr);
+      assert.deepEqual(slotNames(), []);
+      const lost = readLogRecords(atomicHome).filter(r => r.id === 'LOST');
+      assert.equal(lost.length, 1, JSON.stringify(lost));
+      assert.equal(lost[0].kind, 'run');
+      assert.equal(lost[0].failure, 'runner_lost');
+      assert.equal(lost[0].executor, 'opencode');
+      assert.equal(lost[0].role, 'implement');
+      assert.ok(lost[0].started && lost[0].completed);
+
+      runDelegate(['status'], baseEnv);
+      assert.equal(readLogRecords(atomicHome).filter(r => r.id === 'LOST').length, 1);
+      const report = runDelegate(['report'], baseEnv);
+      assert.equal(report.status, 0, report.stderr);
+    } finally {
+      try { run.child.kill('SIGKILL'); } catch { /* already gone */ }
+      if (executorPid) {
+        try { process.kill(-executorPid, 'SIGKILL'); } catch { /* already gone */ }
+      }
+    }
+  });
+
   it('D4 R09 records slot wait separately from launch snapshot and execution duration', () => {
     const res = pythonHarness(`
 d.RUNNING.mkdir(parents=True)

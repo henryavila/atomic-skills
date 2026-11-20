@@ -302,6 +302,72 @@ spec.loader.exec_module(d)
     assert.equal(pipeRec.executor_profile, 'codex');
   });
 
+  it('pipeline goes on to gate and review when the executor exits with an error after committing', () => {
+    const env = steps([
+      { FAKE_COMMIT_FILE: 'feature.txt', FAKE_EXIT: '1', FAKE_STDERR: 'Error: Cancelled a request for input\n' },
+      {},
+    ]);
+    const res = runDelegate(pipelineArgs(), env);
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    const pipeRec = recs.at(-1);
+    assert.equal(recs[0].failure, 'error');
+    assert.equal(pipeRec.outcome, 'reviewed');
+    assert.equal(pipeRec.executor_profile, 'flash');
+    assert.equal(pipeRec.executor_error_after_commit, true);
+    assert.equal(pipeRec.gate_exit, 0);
+    assert.match(summary(), /executor exited with an error after committing/);
+  });
+
+  it('pipeline still ends executor_failed when the errored executor left no commit or a dirty tree', () => {
+    for (const [id, cfg] of [['none', { FAKE_EXIT: '1' }],
+      ['dirty', { FAKE_COMMIT_FILE: 'feature.txt', FAKE_EARLY_TOUCH: 'left.txt', FAKE_EXIT: '1' }]]) {
+      rmSync(seqDir, { recursive: true, force: true });
+      mkdirSync(seqDir, { recursive: true });
+      const res = runDelegate(pipelineArgs(), steps([cfg]));
+      assert.equal(res.status, 1, `${id}: ${res.stderr}`);
+      const pipeRec = readLogRecords(atomicHome).at(-1);
+      assert.equal(pipeRec.outcome, 'executor_failed', id);
+      assert.equal(pipeRec.gate_exit, null, id);
+    }
+  });
+
+  it('pipeline tries profiles under a provider limit last and records what it moved', () => {
+    const logDir = join(atomicHome, 'delegate');
+    mkdirSync(logDir, { recursive: true });
+    const errFile = join(root, 'limit.err');
+    writeFileSync(errFile, 'ERROR: usage limit. Resets in 5h0m0s.\n');
+    const completed = new Date(Date.now() - 60000).toISOString().replace('Z', '+00:00');
+    const limit = model => JSON.stringify({ kind: 'run', id: 'OLD', role: 'review', executor: 'codex', model,
+      completed, started: completed, duration_s: 1, failure: 'provider_limit', stderr: errFile });
+    writeFileSync(join(logDir, 'runs.jsonl'), limit('gpt-6.1-sol') + '\n');
+    const env = steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, {}]);
+    const res = runDelegate(pipelineArgs(['--route', 'codex,flash']), { ...env, DELEGATE_CODEX_MODEL: undefined });
+    assert.equal(res.status, 0, res.stderr);
+    const pipeRec = readLogRecords(atomicHome).at(-1);
+    assert.equal(pipeRec.outcome, 'reviewed');
+    assert.equal(pipeRec.executor_profile, 'flash');
+    assert.equal(pipeRec.reviewer_profile, 'agy-review');
+    assert.deepEqual(pipeRec.reordered, ['codex', 'codex-review']);
+    assert.deepEqual(pipeRec.attempts.map(rec => rec.profile), ['flash', 'agy-review']);
+    assert.match(summary(), /tried last \(provider limit or missing CLI\): codex, codex-review/);
+  });
+
+  it('pipeline still tries a profile under a limit when it is the only one left', () => {
+    const logDir = join(atomicHome, 'delegate');
+    mkdirSync(logDir, { recursive: true });
+    const completed = new Date(Date.now() - 60000).toISOString().replace('Z', '+00:00');
+    writeFileSync(join(logDir, 'runs.jsonl'), JSON.stringify({ kind: 'run', id: 'OLD', role: 'review',
+      executor: 'codex', model: 'gpt-6.1-sol', completed, started: completed, duration_s: 1,
+      failure: 'provider_limit' }) + '\n');
+    const env = steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, {}]);
+    const res = runDelegate(pipelineArgs(['--review-route', 'codex-review']), { ...env, DELEGATE_CODEX_MODEL: undefined });
+    assert.equal(res.status, 0, res.stderr);
+    const pipeRec = readLogRecords(atomicHome).at(-1);
+    assert.equal(pipeRec.reviewer_profile, 'codex-review');
+    assert.equal(pipeRec.reordered, undefined);
+  });
+
   it('pipeline every profile out of quota ends with no_executor and no gate run', () => {
     writeFileSync(
       join(seqDir, 'step_0.json'),

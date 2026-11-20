@@ -413,6 +413,25 @@ except SystemExit as exc:
     assert.ok(rec.access.limits.some(limit => /read-write/.test(limit)));
   });
 
+  it('OpenCode default policy denies websearch and keeps webfetch, and says so in limits', () => {
+    const res = pythonHarness(`
+out = {}
+for role in ('implement', 'review'):
+  out[role] = d.access_policy('opencode', role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)})
+print(json.dumps(out))
+`);
+    assert.equal(res.status, 0, res.stderr);
+    const parsed = JSON.parse(res.stdout.trim().split('\n').at(-1));
+    for (const role of ['implement', 'review']) {
+      const rules = JSON.parse(parsed[role].env.OPENCODE_CONFIG_CONTENT).permissions;
+      const effects = action => rules.filter(rule => rule.action === action).map(rule => rule.effect);
+      assert.deepEqual(effects('websearch'), ['deny'], role);
+      assert.deepEqual(effects('webfetch'), ['allow'], role);
+      assert.equal(parsed[role].access.network, true, role);
+      assert.ok(parsed[role].access.limits.some(limit => /websearch is denied/.test(limit)), role);
+    }
+  });
+
   it('D9 git_common_dir resolves a plain checkout and a linked worktree', () => {
     const wtDir = join(root, 'wt-common');
     git(repoDir, 'worktree', 'add', '-b', 'feat/common', wtDir);
@@ -871,6 +890,70 @@ print(json.dumps(out))
     assert.equal(rec.family, 'deepseek');
     assert.equal(rec.failure, 'none');
     assert.ok(!('last_message' in rec));
+  });
+
+  describe('Antigravity and a global git config that includes other files', () => {
+    let seenFile;
+    function writeGlobalWithInclude() {
+      writeFileSync(join(emptyHome, '.gitconfig'),
+        '[include]\n\tpath = ~/.gitconfig.local\n[core]\n\tautocrlf = input\n');
+      writeFileSync(join(emptyHome, '.gitconfig.local'),
+        '[user]\n\tname = Included Name\n[credential "https://example.com"]\n\thelper =\n\thelper = !fake helper\n');
+    }
+    function seen() {
+      return JSON.parse(readFileSync(seenFile, 'utf8'));
+    }
+    beforeEach(() => { seenFile = join(root, 'seen-git-global.json'); });
+
+    it('gives the reviewer a self-contained copy inside the git directory and removes it afterwards', () => {
+      writeGlobalWithInclude();
+      const res = runDelegate(reviewArgs(['--diff-range', reviewRange()]),
+        { ...baseEnv, FAKE_GIT_GLOBAL_FILE: seenFile });
+      assert.equal(res.status, 0, res.stderr);
+      const got = seen();
+      assert.ok(got.env, 'GIT_CONFIG_GLOBAL must be set for agy');
+      assert.equal(dirname(got.env), realpathSync(join(repoDir, '.git')));
+      assert.equal(got.exit, 0);
+      assert.match(got.list, /^user\.name=Included Name$/m);
+      assert.match(got.list, /^core\.autocrlf=input$/m);
+      assert.match(got.list, /^credential\.https:\/\/example\.com\.helper=\n?credential\.https:\/\/example\.com\.helper=!fake helper$/m);
+      assert.doesNotMatch(got.list, /^include/m);
+      assert.equal(existsSync(got.env), false, 'the copy is removed when the run ends');
+      assert.equal(git(repoDir, 'status', '--porcelain'), '');
+      const rec = readLogRecords(atomicHome).at(-1);
+      assert.equal(rec.failure, 'none');
+      assert.ok(rec.access.limits.some((limit) => /GIT_CONFIG_GLOBAL/.test(limit)), JSON.stringify(rec.access));
+    });
+
+    it('uses the per-worktree git directory in a linked worktree and covers implement runs', () => {
+      writeGlobalWithInclude();
+      const wtDir = join(root, 'wt-global');
+      git(repoDir, 'worktree', 'add', '-b', 'feat/global', wtDir);
+      const res = runDelegate(['run', '--id', 'G1', '--task', 'impl', '--role', 'implement',
+        '--profile', 'agy', '--cwd', wtDir, '--card', cardPath, '--out', outDir, '--confirmed'],
+      { ...baseEnv, FAKE_GIT_GLOBAL_FILE: seenFile, FAKE_COMMIT_FILE: 'made.txt' });
+      assert.equal(res.status, 0, res.stderr);
+      const got = seen();
+      assert.equal(dirname(got.env), realpathSync(git(wtDir, 'rev-parse', '--absolute-git-dir')));
+      assert.match(got.list, /^user\.name=Included Name$/m);
+      assert.equal(existsSync(got.env), false);
+      assert.equal(readLogRecords(atomicHome).at(-1).commits, 1);
+    });
+
+    it('leaves git alone when the global config includes nothing, and for other executors', () => {
+      writeFileSync(join(emptyHome, '.gitconfig'), '[core]\n\tautocrlf = input\n');
+      let res = runDelegate(reviewArgs(['--diff-range', reviewRange()]),
+        { ...baseEnv, FAKE_GIT_GLOBAL_FILE: seenFile });
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(seen().env, null);
+      assert.ok(!readLogRecords(atomicHome).at(-1).access.limits.some((l) => /GIT_CONFIG_GLOBAL/.test(l)));
+
+      writeGlobalWithInclude();
+      res = runDelegate(reviewArgs(['--id', 'D8c', '--diff-range', reviewRange()], 'codex-review'),
+        { ...baseEnv, FAKE_GIT_GLOBAL_FILE: seenFile });
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(seen().env, null);
+    });
   });
 
   it('D9 R06 describes the read-only git commands an Antigravity reviewer can run', () => {
