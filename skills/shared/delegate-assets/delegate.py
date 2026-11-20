@@ -16,6 +16,8 @@ Subcommands:
   resume    resume runner executions.
   kill      kill running executor process group for a given task id.
   peak      say whether now is inside the DeepSeek peak window.
+  route     print the executor route and the review routes for a role, with the
+            profiles that can run now first and the limits still in force.
   profiles  list configured profiles and whether each executor CLI is available.
   remote-clean  remove a remote task checkout, its kept copies and run files (with --host).
 
@@ -128,6 +130,31 @@ REVIEW_PROFILES = {"flash": "flash-review"}
 REMOVED_PROFILES = ("hy4-review", "glm-flash", "kimi")
 REMOVED_PROFILE_MESSAGE = ("delegate: profile {name} was removed; valid profiles: "
                            "flash, flash-review, codex, codex-review, agy, agy-review")
+# Fixed routes, the same as the skill's "Routing by role" table. `route` and
+# `pipeline` only reorder them by availability; they never add a profile.
+EXECUTOR_ROUTES = {
+    "mechanical": ["flash", "codex"],
+    "test": ["flash", "codex"],
+    "implement": ["flash", "codex"],
+    "fix": ["flash", "codex"],
+}
+# Implement or fix with open design decisions, concurrency, security or migrations.
+OPEN_DESIGN_ROUTE = ["codex", "agy"]
+# Reviewers by the family that wrote the code; never that family itself.
+REVIEW_ROUTES = {
+    "deepseek": ["codex-review", "agy-review"],
+    "openai": ["flash-review", "agy-review"],
+    "gemini": ["codex-review", "flash-review"],
+}
+# Provider limit messages, as printed by the CLIs (read from real run outputs):
+#   Codex:       "... or try again at 12:28 PM."   (wall-clock time, machine time zone)
+#   Antigravity: "... Resets in 107h24m20s."
+RESET_AT_RE = re.compile(r"try again at (\d{1,2}):(\d{2})\s*([AP]M)", re.IGNORECASE)
+RESET_IN_RE = re.compile(r"Resets in ((?:\d+[hms])+)", re.IGNORECASE)
+# Used when a limit message carries no reset time; DELEGATE_COOLDOWN_<EXECUTOR> changes it.
+DEFAULT_COOLDOWN_S = 60 * 60
+# A later run with one of these results reached the provider, so the limit is over.
+LIMIT_CLEARED_BY = ("none", "review_wrote", "incomplete_review", "timeout", "stalled")
 ROLES = ["implement", "fix", "review", "mechanical", "test"]
 GATE = ["pass", "fail", "not_run"]
 DELIVERED = ["yes", "partial", "no"]
@@ -1399,6 +1426,170 @@ def run_output_paths(out_path, task_id, attempt, reserve=True):
     base = out_path / stem
     return (Path(f"{base}.out.md"), Path(f"{base}.err"),
             Path(f"{base}.last.md"), Path(f"{base}.prompt.md"))
+
+
+def parse_reset(text, limit_time):
+    """The UTC time a provider limit ends, read from the CLI's own message, or None."""
+    found = None
+    for found in RESET_IN_RE.finditer(text):
+        pass
+    if found:
+        seconds = sum(int(n) * {"h": 3600, "m": 60, "s": 1}[unit.lower()]
+                      for n, unit in re.findall(r"(\d+)([hms])", found.group(1), re.IGNORECASE))
+        return limit_time + dt.timedelta(seconds=seconds)
+    for found in RESET_AT_RE.finditer(text):
+        pass
+    if not found:
+        return None
+    hour, minute, half = int(found.group(1)), int(found.group(2)), found.group(3).upper()
+    if not 1 <= hour <= 12 or minute > 59:
+        return None
+    hour = hour % 12 + (12 if half == "PM" else 0)
+    # The message has a clock time and no date: it is the next time the machine's
+    # clock shows it, counted from the moment of the limit.
+    local = limit_time.astimezone()
+    reset = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if reset < local - dt.timedelta(minutes=5):
+        reset += dt.timedelta(days=1)
+    return reset.astimezone(dt.timezone.utc)
+
+
+def cooldown_s(executor):
+    raw = os.environ.get(f"DELEGATE_COOLDOWN_{executor.upper()}")
+    if raw:
+        try:
+            return duration_arg(raw)
+        except argparse.ArgumentTypeError:
+            pass
+    return DEFAULT_COOLDOWN_S
+
+
+def run_end(rec):
+    """When a run record ended, as an aware UTC time, or None."""
+    raw = rec.get("completed") or rec.get("started")
+    if not raw:
+        return None
+    try:
+        end = dt.datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=dt.timezone.utc)
+    if not rec.get("completed"):
+        try:
+            end += dt.timedelta(seconds=rec.get("duration_s") or 0)
+        except TypeError:
+            return None
+    return end.astimezone(dt.timezone.utc)
+
+
+def provider_limits(now_dt=None):
+    """Limits still in force: {(executor, model): {"until", "source", "at"}}.
+
+    A limit belongs to the executor and model of the run that hit it. It holds
+    until the reset the provider printed, or for the default cooldown when the
+    message has none, and ends early when a later run of the same executor and
+    model reached the provider.
+    """
+    now_dt = now_dt or now()
+    latest = {}
+    if LOG.exists():
+        for line in LOG.read_text(errors="replace").splitlines():
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(rec, dict) or rec.get("kind") != "run":
+                continue
+            failure = rec.get("failure")
+            if failure != "provider_limit" and failure not in LIMIT_CLEARED_BY:
+                continue
+            key, end = (rec.get("executor"), rec.get("model")), run_end(rec)
+            if None in key or end is None or end > now_dt:
+                continue
+            if key not in latest or end > latest[key][0]:
+                latest[key] = (end, rec)
+    limits = {}
+    for key, (end, rec) in latest.items():
+        if rec.get("failure") != "provider_limit":
+            continue
+        until = None
+        for name in ("stderr", "stdout"):
+            try:
+                until = parse_reset(Path(rec[name]).read_text(errors="replace")[-4000:], end)
+            except (KeyError, TypeError, OSError):
+                continue
+            if until:
+                break
+        source = "provider" if until else "default"
+        until = until or end + dt.timedelta(seconds=cooldown_s(key[0]))
+        if until > now_dt:
+            limits[key] = {"until": until, "source": source, "at": end}
+    return limits
+
+
+def availability(now_dt=None):
+    """What each profile can do now: CLI found, free slots, and a limit in force."""
+    limits = provider_limits(now_dt)
+    out = {}
+    for name, (executor, model, family) in MODELS.items():
+        limit = limits.get((executor, model))
+        out[name] = {
+            "executor": executor, "model": model, "family": family,
+            "found": bool(find_optional(executor)),
+            "slots_free": max(0, get_max_slots(executor) - len(get_active_slots(executor))),
+            "cooling_until": limit["until"].isoformat(timespec="seconds") if limit else None,
+            "reset_source": limit["source"] if limit else None,
+        }
+    return out
+
+
+def usable(profile, avail):
+    return avail[profile]["found"] and not avail[profile]["cooling_until"]
+
+
+def order_route(route, avail):
+    """Usable profiles first, in their given order; nothing is removed."""
+    ready = [p for p in route if usable(p, avail)]
+    return ready + [p for p in route if p not in ready]
+
+
+def review_warning(profile, avail):
+    """One line when the work of `profile` would have no reviewer now, else None."""
+    reviewers = REVIEW_ROUTES[MODELS[profile][2]]
+    if any(usable(r, avail) for r in reviewers):
+        return None
+    back = sorted((avail[r]["cooling_until"], r) for r in reviewers
+                  if avail[r]["found"] and avail[r]["cooling_until"])
+    first = f"first back: {back[0][1]} at {back[0][0]}" if back else "no reviewer CLI was found"
+    return f"{profile}: no reviewer usable now; {first}"
+
+
+def cmd_route(a):
+    avail = availability()
+    fixed = OPEN_DESIGN_ROUTE if a.open_design else EXECUTOR_ROUTES[a.role]
+    route = order_route(fixed, avail)
+    review_routes = {family: order_route(profiles, avail) for family, profiles in REVIEW_ROUTES.items()}
+    warnings = [w for w in (review_warning(p, avail) for p in route) if w]
+    if a.json:
+        print(json.dumps({"role": a.role, "route": route, "review_routes": review_routes,
+                          "profiles": avail, "warnings": warnings}, indent=2))
+        return
+    print("route: " + ",".join(route))
+    for profile in route:
+        family = MODELS[profile][2]
+        print(f"review route after {profile} ({family}): " + ",".join(review_routes[family]))
+    groups = {}
+    for name, state in avail.items():
+        if state["cooling_until"]:
+            groups.setdefault((state["cooling_until"], state["reset_source"]), []).append(name)
+    for (until, source), names in sorted(groups.items()):
+        print(f"cooling: {', '.join(names)} until {until} ({source})")
+    missing = sorted({state["executor"] for state in avail.values() if not state["found"]})
+    if missing:
+        print("missing CLI: " + ", ".join(missing))
+    for warning in warnings:
+        print(f"warning: {warning}")
 
 
 class PausedError(Exception):
@@ -3520,6 +3711,13 @@ def main():
 
     sub.add_parser("report").set_defaults(f=cmd_report)
     sub.add_parser("peak").set_defaults(f=lambda a: print("peak" if in_peak() else "off-peak"))
+    p_route = sub.add_parser("route")
+    p_route.add_argument("--role", required=True, choices=sorted(EXECUTOR_ROUTES))
+    p_route.add_argument("--open-design", action="store_true",
+                         help="the card leaves a design decision open, or touches concurrency, "
+                              "security or a migration")
+    p_route.add_argument("--json", action="store_true")
+    p_route.set_defaults(f=cmd_route)
     p_profiles = sub.add_parser("profiles")
     p_profiles.add_argument("--host", help="also show which executors are ready on this host")
     p_profiles.set_defaults(f=cmd_profiles)
