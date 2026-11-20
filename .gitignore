@@ -1,7 +1,7 @@
 *.swp
 *.swo
 *~
-node_modules/
+node_modules
 # Keep bundled demo fixtures tracked. Also keeps install.js from re-adding a
 # /.atomic-skills/ ignore (it skips when '.atomic-skills/' already appears here).
 !/assets/demo-fixtures/.atomic-skills/
