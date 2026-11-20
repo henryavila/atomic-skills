@@ -1377,15 +1377,19 @@ def remote_ready(checks, host, executor):
         return connection.get("detail") or f"host {host} is unreachable"
     integration = checks.get(f"integration-{integration_id}")
     if not integration:
-        return (f"{executor} is not an enabled integration; run remote-runner "
-                f"setup-client --host {host} --integration {integration_id}")
+        return (f"{executor} is not an enabled integration on {host}; add "
+                f"\"{integration_id}\" to that host's \"integrations\" in the remote-runner "
+                f"config, then run remote-runner provision --host {host} --apply")
     if integration.get("status") == "fail":
         return integration.get("detail") or f"{executor} is not installed on {host}"
     auth = checks.get(f"integration-{integration_id}-auth")
     if auth and auth.get("status") in ("fail", "warn"):
         detail = auth.get("detail") or ""
         if auth.get("status") == "fail" or "not signed in" in detail:
-            return detail or f"{executor} is not signed in; run remote-runner auth {integration_id}"
+            fix = f"run remote-runner auth {integration_id} --host {host} --login"
+            if "remote-runner auth" in detail:
+                return detail
+            return f"{detail or executor + ' is not signed in'}; {fix}"
     for check_id, check in checks.items():
         if check.get("status") != "fail":
             continue
@@ -1535,22 +1539,32 @@ trap 'cleanup; exit 143' TERM INT HUP
 trap cleanup EXIT
 rm -rf "$run" "$res"
 mkdir -p "$R"
-# Identify this run exactly: the run record written by remote-runner holds this
-# script's pid on its first line. The marker file (named with a locally
-# generated token) carries the id that `runs` reports; the stderr line lets the
-# local runner read it without ever guessing from a list of new ids.
+# Identify this run exactly. remote-runner writes a record whose first line is
+# the pid of the session leader it started; this script runs below it (under
+# `timeout` and a login shell), so that pid is this script or one of its
+# ancestors. The stderr line lets the local runner read the id without ever
+# guessing from a list of new ids.
 state="${{REMOTE_RUNNER_REMOTE_STATE:-$HOME/.local/state/remote-runner}}"
-run_id=""
-if [ -d "$state/runs" ]; then
+run_id="${{REMOTE_RUNNER_RUN_ID:-}}"
+if [ -z "$run_id" ] && [ -d "$state/runs" ]; then
+  ancestors=" $$ "
+  pid=$$
+  depth=0
+  while [ "$depth" -lt 16 ]; do
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    case "$pid" in ''|0|1|*[!0-9]*) break ;; esac
+    ancestors="$ancestors$pid "
+    depth=$((depth + 1))
+  done
   # Newest first: a stale record for a reused pid must never win over the one
-  # remote-runner wrote for this process immediately before starting it.
+  # remote-runner wrote for this run immediately before starting it.
   for name in $(ls -1t "$state/runs" 2>/dev/null); do
     case "$name" in .*|*.env|*.cancel|*.gate|*.owner) continue ;; esac
     rec="$state/runs/$name"
     [ -f "$rec" ] || continue
-    [ "$(sed -n '1p' "$rec" 2>/dev/null)" = "$$" ] || continue
-    run_id="$name"
-    break
+    leader=$(sed -n '1p' "$rec" 2>/dev/null)
+    case "$leader" in ''|*[!0-9]*) continue ;; esac
+    case "$ancestors" in *" $leader "*) run_id="$name"; break ;; esac
   done
 fi
 if [ -n "$run_id" ]; then
@@ -1569,6 +1583,16 @@ if [ -d "$tree/.git" ]; then
       [ "$(git -C "$tree" symbolic-ref --short -q HEAD)" = "$branch" ] && \
       [ -z "$(git -C "$tree" status --porcelain 2>/dev/null)" ]; then
     reuse=1
+  elif [ -n "$kept_head" ] && \
+      [ "$(git -C "$tree" symbolic-ref --short -q HEAD)" = "$branch" ] && \
+      [ -z "$(git -C "$tree" status --porcelain 2>/dev/null)" ] && \
+      git -C "$tree" fetch -q "$stage/code.bundle" "$sent" 2>/dev/null && \
+      git -C "$tree" merge-base --is-ancestor "$kept_head" "$sent" 2>/dev/null && \
+      git -C "$tree" reset -q --hard "$sent"; then
+    # A clean checkout whose commit is already part of what is being sent
+    # holds nothing unfetched: move it forward in place.
+    reuse=1
+    kept_head=""
   else
     stamp=$(date -u +%Y%m%dT%H%M%SZ)
     kept="$R/kept-$stamp"
@@ -1588,16 +1612,8 @@ cp "$stage/prompt.md" "$run/prompt.md"
 if [ -d "$stage/attachments" ]; then cp -a "$stage/attachments" "$run/attachments"; fi
 if [ -f "$stage/diff.txt" ]; then cp "$stage/diff.txt" "$run/diff.txt"; fi
 cp "$stage/exec.sh" "$run/exec.sh"
-work_dir="$tree"
-work_head="$sent"
-work_source=tree
-if [ -n "$kept" ]; then
-  work_dir="$kept"
-  work_head="$kept_head"
-  work_source=kept
-fi
-printf '__DELEGATE_REMOTE_WORK__\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \
-  "$token" "$work_source" "$work_dir" "$branch" "$work_head" >&2
+printf '__DELEGATE_REMOTE_WORK__\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \
+  "$token" "$tree" "$branch" "$sent" "${{kept:--}}" "${{kept:+$kept_head}}" >&2
 export R
 cd "$tree" || exit 70
 bash "$run/exec.sh" >"$run/stdout" 2>"$run/stderr"
@@ -1619,6 +1635,7 @@ if [ "$received" != "$sent" ]; then
   git -C "$tree" bundle create "$run/result.bundle" "$branch" >/dev/null 2>&1 || true
 fi
 {{
+  printf 'token=%s\\n' "$token"
   printf 'exit=%s\\n' "$code"
   printf 'received=%s\\n' "$received"
   printf 'dirty=%s\\n' "$dirty"
@@ -1663,9 +1680,11 @@ def remote_work_marker(path, token):
     work = None
     for line in text.splitlines():
         parts = line.split("\t")
-        if len(parts) == 6 and parts[0] == REMOTE_WORK_MARKER and parts[1] == token:
-            work = {"source": parts[2], "dir": parts[3], "branch": parts[4],
-                    "head": parts[5]}
+        if len(parts) == 7 and parts[0] == REMOTE_WORK_MARKER and parts[1] == token:
+            work = {"dir": parts[2], "branch": parts[3], "head": parts[4]}
+            if parts[5] != "-":
+                # An earlier checkout that held work never fetched back.
+                work["previous"] = {"dir": parts[5], "head": parts[6]}
     return work
 
 
@@ -1940,17 +1959,18 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
         remote_stderr = Path(remote_err.name).read_text(errors="replace").strip()
     except OSError:
         pass
-    last_line = (remote_stderr.splitlines() or [""])[-1]
+    causes = [line for line in remote_stderr.splitlines()
+              if line.strip() and not line.startswith(("remote-runner: result=", REMOTE_RUN_MARKER,
+                                                       REMOTE_WORK_MARKER))]
+    last_line = (causes or [""])[-1]
     work_info = remote_work_marker(remote_err.name, run_token)
     if work_info:
-        pending["_remote_work"] = {"dir": work_info["dir"], "branch": work_info["branch"],
-                                   "head": work_info["head"]}
+        pending["_remote_work"] = dict(work_info)
 
     def kept_record(extra=None):
         if not work_info:
             return None
-        kept = {"dir": work_info["dir"], "branch": work_info["branch"],
-                "head": work_info["head"]}
+        kept = dict(work_info)
         if extra:
             kept.update(extra)
         return kept
@@ -1982,7 +2002,13 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
         shutil.rmtree(local_res, ignore_errors=True)
         pull = remote_cli(["pull", "--host", host, str(local_res)], timeout=max(120, timeout + 120))
         meta_file = local_res / "meta.txt"
-        if not meta_file.is_file():
+        meta = {}
+        if meta_file.is_file():
+            for line in meta_file.read_text(errors="replace").splitlines():
+                key, sep, value = line.partition("=")
+                if sep:
+                    meta[key] = value
+        if meta.get("token") != run_token:
             fetch_s = time.monotonic() - fetch_t0
             _cleanup_remote_local(staging)
             if timed_out:
@@ -2006,11 +2032,6 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
                 pending, "remote_error", detail or "remote run produced no result",
                 send_s=round(send_s, 3), run_s=round(run_s, 3),
                 fetch_s=round(fetch_s, 3), exit_code=remote_code)
-        meta = {}
-        for line in meta_file.read_text(errors="replace").splitlines():
-            key, sep, value = line.partition("=")
-            if sep:
-                meta[key] = value
         remote_base = meta.get("remote_base") or default_base
         received = meta.get("received") or sent
         remote_exit = int(meta.get("exit") or 0)

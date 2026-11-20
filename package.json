@@ -21,6 +21,7 @@
   ],
   "scripts": {
     "test": "node scripts/run-tests.mjs",
+    "test:delegate": "node --test \"tests/delegate-runner-*.test.js\"",
     "test:hooks": "bash tests/hooks/pre-commit.test.sh",
     "new-skill": "node scripts/new-skill.js",
     "validate-skills": "node scripts/validate-skills.js",
