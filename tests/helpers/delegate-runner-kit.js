@@ -81,6 +81,23 @@ ready_file = os.environ.get("FAKE_READY_FILE")
 if ready_file:
     pathlib.Path(ready_file).write_text("ready\\n")
 
+early_touch = os.environ.get("FAKE_EARLY_TOUCH")
+if early_touch:
+    pathlib.Path(early_touch).write_text("left unfinished by fake\\n")
+
+ticks = os.environ.get("FAKE_TICKS")
+if ticks:
+    tick_count, tick_gap = ticks.split(":")
+    for tick in range(int(tick_count)):
+        sys.stderr.write(f"tick {tick}\\n")
+        sys.stderr.flush()
+        time.sleep(float(tick_gap))
+
+for round_no in range(int(os.environ.get("FAKE_COMMIT_ROUNDS", "0"))):
+    pathlib.Path("round.txt").write_text(f"round {round_no}\\n")
+    subprocess.run(["git", "add", "round.txt"], check=True)
+    subprocess.run(["git", "commit", "-q", "-m", f"round {round_no}"], check=True)
+
 sleep_s = float(os.environ.get("FAKE_SLEEP", "0"))
 if sleep_s > 0:
     time.sleep(sleep_s)
@@ -479,12 +496,21 @@ function makeFakeRemoteRunner(dir) {
   };
 }
 
+// The runner refuses a --timeout below 60 seconds unless it is told the short
+// value is meant. Tests use short limits all the time, so the helpers add the
+// flag; a test of the refusal itself passes DELEGATE_TEST_STRICT_TIME.
+function allowShortTimeout(args, env) {
+  if (env.DELEGATE_TEST_STRICT_TIME || !['run', 'pipeline'].includes(args[0])
+    || args.includes('--allow-short-timeout')) return args;
+  return [...args, '--allow-short-timeout'];
+}
+
 function runDelegate(args, env = {}, cwd = undefined) {
   const childEnv = { ...process.env, ...env };
   for (const [key, value] of Object.entries(childEnv)) {
     if (value === undefined) delete childEnv[key];
   }
-  return spawnSync(PYTHON3, [DELEGATE_PY, ...args], {
+  return spawnSync(PYTHON3, [DELEGATE_PY, ...allowShortTimeout(args, env)], {
     encoding: 'utf8',
     cwd,
     env: childEnv,
@@ -505,7 +531,7 @@ function runDelegateAsync(args, env = {}) {
   for (const [key, value] of Object.entries(childEnv)) {
     if (value === undefined) delete childEnv[key];
   }
-  const child = spawn(PYTHON3, [DELEGATE_PY, ...args], {
+  const child = spawn(PYTHON3, [DELEGATE_PY, ...allowShortTimeout(args, env)], {
     env: childEnv, stdio: ['ignore', 'pipe', 'pipe'],
   });
   let stdout = '';
