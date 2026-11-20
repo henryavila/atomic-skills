@@ -174,7 +174,7 @@ spec.loader.exec_module(d)
     const res = runDelegate(reviewArgs(['--diff-range', range, '--allow-claude-review', '--author-family', 'deepseek']), env());
     assert.equal(res.status, 0, res.stderr);
     const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
-    assert.deepEqual(argv.slice(1), ['--safe-mode', '-p', '--model', 'claude-sonnet-5-5', '--effort', 'high',
+    assert.deepEqual(argv.slice(1), ['--safe-mode', '-p', '--setting-sources', '', '--model', 'claude-sonnet-5-5', '--effort', 'high',
       '--tools', 'Read,Grep,Glob', '--permission-mode', 'dontAsk', '--no-session-persistence',
       '--disable-slash-commands', '--output-format', 'text']);
     for (const flag of FORBIDDEN) assert.equal(argv.includes(flag), false, flag);
@@ -236,27 +236,34 @@ print(d.parse_reset("resets 5:10pm (Not/AZone)", at))
     }
   });
 
-  it('the Claude child does not inherit the variables of the Claude Code session that runs the runner', () => {
+  it('the Claude child gets no API key, endpoint or session variable: only the local login is left', () => {
     const parsed = pythonHarness(`
 import json
 env = {"PATH": "/bin", "HOME": "/h", "CLAUDECODE": "1", "CLAUDE_CODE_ENTRYPOINT": "x",
-       "CLAUDE_CODE_SDK_HAS_HOST_AUTH_REFRESH": "1", "CLAUDE_PID": "9", "CLAUDE_EFFORT": "low",
-       "ANTHROPIC_BASE_URL": "https://host", "ANTHROPIC_CUSTOM_HEADERS": "h", "ANTHROPIC_API_KEY": "k",
-       "CLAUDE_CONFIG_DIR": "/cfg"}
+       "CLAUDE_CODE_USE_BEDROCK": "1", "CLAUDE_CODE_OAUTH_TOKEN": "t",
+       "ANTHROPIC_BASE_URL": "https://gateway", "ANTHROPIC_CUSTOM_HEADERS": "h",
+       "ANTHROPIC_API_KEY": "k", "ANTHROPIC_AUTH_TOKEN": "t", "CLAUDE_CONFIG_DIR": "/cfg"}
 print(json.dumps(d.child_environment("claude", env, {}), sort_keys=True))
 print(json.dumps(d.child_environment("codex", env, {"X": "1"}), sort_keys=True))
-plain = {"PATH": "/bin", "ANTHROPIC_BASE_URL": "https://gateway", "CLAUDE_CONFIG_DIR": "/cfg"}
-print(json.dumps(d.child_environment("claude", plain, {}), sort_keys=True))
 `);
     assert.equal(parsed.status, 0, parsed.stderr);
-    const [claude, codex, plain] = parsed.stdout.trim().split('\n').map(line => JSON.parse(line));
-    // Inside a session: its variables go, the user's key and config directory stay.
-    assert.deepEqual(claude, { PATH: '/bin', HOME: '/h', ANTHROPIC_API_KEY: 'k', CLAUDE_CONFIG_DIR: '/cfg' });
+    const [claude, codex] = parsed.stdout.trim().split('\n').map(line => JSON.parse(line));
+    assert.deepEqual(claude, { PATH: '/bin', HOME: '/h', CLAUDE_CONFIG_DIR: '/cfg' });
     // Other executors keep the whole environment.
-    assert.equal(codex.CLAUDECODE, '1');
+    assert.equal(codex.ANTHROPIC_API_KEY, 'k');
     assert.equal(codex.X, '1');
-    // Outside a session nothing is removed: the gateway is the user's own setting.
-    assert.deepEqual(plain, { PATH: '/bin', ANTHROPIC_BASE_URL: 'https://gateway', CLAUDE_CONFIG_DIR: '/cfg' });
+  });
+
+  it('a Claude that is not logged in fails with the command that fixes it', () => {
+    const range = commitFeature();
+    const text = 'Failed to authenticate: OAuth session expired and could not be refreshed\n';
+    const res = runDelegate(reviewArgs(['--diff-range', range, '--allow-claude-review', '--author-family', 'deepseek']),
+      env({ FAKE_STDOUT: text, FAKE_LAST_MESSAGE: text, FAKE_EXIT: '1' }));
+    assert.equal(res.status, 1);
+    const rec = readLogRecords(atomicHome).at(-1);
+    assert.equal(rec.failure, 'error');
+    assert.match(rec.hint, /claude auth login/);
+    assert.match(res.stderr, /claude-review uses the local Claude Code login, never an API key.*claude auth login/);
   });
 
   it('a complete review that mentions a session limit is not a provider limit', () => {

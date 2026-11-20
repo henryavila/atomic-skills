@@ -141,10 +141,12 @@ review goes to Claude, and the operator confirms it each time.
 - A Claude session limit ends with exit code 0 and the message on stdout, so
   `classify_failure` has a Claude case that reads stdout. An exhausted balance (`402
   Insufficient balance`, exit code 1) is a limit too.
-- Started from inside a Claude Code session, the child would inherit that session's
-  endpoint and host-auth variables and fail with `Invalid API key`. `child_environment`
-  removes them (keeping `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and
-  `CLAUDE_CONFIG_DIR`), so the child uses the account in the user's own settings.
+- Operator decision (2026-11-20): the Claude review runs on the local CLI login and never
+  through an API. The argv has `--setting-sources ""`, so no settings file is loaded and
+  an `apiKeyHelper` or endpoint in one cannot apply. `child_environment` removes every
+  `ANTHROPIC_*` and `CLAUDE*` variable except `CLAUDE_CONFIG_DIR`, which also keeps the
+  variables of a host Claude Code session out of the child. A missing or expired login
+  ends in `error` with the hint to run `claude auth login`.
 
 ## Decision-model hook
 

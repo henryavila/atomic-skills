@@ -651,7 +651,12 @@ def build_argv(executor, model, role, cwd, card, last_msg, policy=None):
         #   hooks, MCP servers, ...) disabled"; "--no-session-persistence";
         #   "--disable-slash-commands Disable all skills and commands";
         #   "--effort <level>". The prompt is read from stdin.
-        argv = [find("claude"), "--safe-mode", "-p", "--model", model, "--effort", "high"]
+        # "--setting-sources <sources> Comma-separated list of setting sources
+        #   to load (user, project, local)". The empty list loads none, so an
+        #   apiKeyHelper or endpoint in a settings file cannot route the
+        #   review through an API: only the CLI's own login is left.
+        argv = [find("claude"), "--safe-mode", "-p", "--setting-sources", "",
+                "--model", model, "--effort", "high"]
         return guard_argv(argv + policy["argv"] + [
             "--no-session-persistence", "--disable-slash-commands", "--output-format", "text"], executor)
     if executor == "agy":
@@ -691,21 +696,33 @@ def has_provider_limit(stdout, stderr):
     return False
 
 
+CLAUDE_LOGIN_RE = re.compile(
+    r"failed\s+to\s+authenticate|oauth\s+session\s+expired|not\s+logged\s+in|invalid\s+api\s+key|/login",
+    re.IGNORECASE)
+CLAUDE_LOGIN_HINT = ("claude-review uses the local Claude Code login, never an API key: "
+                     "run `claude auth login` in a terminal and try again")
+
+
 def child_environment(executor, environ, policy_env):
     """The environment of the executor process.
 
-    A Claude Code session exports its own endpoint and host-auth variables. A
-    `claude` child that inherits them mixes them with the user's settings and
-    fails to authenticate, so they are removed and the child starts as it would
-    from the user's terminal. Outside a session nothing is removed.
+    The Claude reviewer runs on the CLI's own login and never through an API.
+    Every variable that could carry a key, a token, another endpoint or the
+    state of the Claude Code session the runner was started from is removed.
     """
     env = dict(environ)
-    if executor == "claude" and "CLAUDECODE" in env:
-        keep = {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CONFIG_DIR"}
+    if executor == "claude":
         env = {k: v for k, v in env.items()
-               if k in keep or not k.startswith(("CLAUDE", "ANTHROPIC_"))}
+               if k == "CLAUDE_CONFIG_DIR" or not k.startswith(("CLAUDE", "ANTHROPIC_"))}
     env.update(policy_env)
     return env
+
+
+def claude_login_missing(stdout):
+    try:
+        return bool(CLAUDE_LOGIN_RE.search(stdout.read_text(errors="replace")[:2048]))
+    except OSError:
+        return False
 
 
 def claude_limit(stdout):
@@ -3118,6 +3135,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if executor == "claude":
         rec["fallback_reviewer"] = True
         rec["author_family"] = author_family
+        if rec["failure"] == "error" and claude_login_missing(stdout):
+            rec["hint"] = CLAUDE_LOGIN_HINT
+            print(f"delegate: {CLAUDE_LOGIN_HINT}", file=sys.stderr)
     if stalled:
         rec["idle_s"] = round(progress.idle_s())
     if checkpoint is not None:
