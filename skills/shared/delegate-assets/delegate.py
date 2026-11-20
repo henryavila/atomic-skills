@@ -2573,8 +2573,10 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 remaining = deadline - time.time()
                 time.sleep(min(5.0, max(0.05, remaining)))
 
-            progress = ProgressWatch(cwd, (stdout, stderr), idle_timeout, slot_file, slot_data)
             try:
+                # Built inside the try: it runs git, and a stop signal that lands
+                # there must still end the executor and write the record.
+                progress = ProgressWatch(cwd, (stdout, stderr), idle_timeout, slot_file, slot_data)
                 wait_for_exit(p, timeout, parent_pid=parent_pid, tracker=tracker, progress=progress)
                 exit_seen = True
             except ParentGone:

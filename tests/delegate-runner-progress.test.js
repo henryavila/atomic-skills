@@ -1,5 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -13,6 +14,8 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
+  DELEGATE_PY,
+  PYTHON3,
   hasPython3,
   git,
   initGitRepo,
@@ -300,6 +303,33 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
         try { run.child.kill('SIGKILL'); } catch { /* already gone */ }
       }
     }
+  });
+
+  it('still ends the executor and writes the record when a stop signal lands in the first progress read', () => {
+    const script = `
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location('delegate', ${JSON.stringify(DELEGATE_PY)})
+d = importlib.util.module_from_spec(spec); spec.loader.exec_module(d)
+def interrupted(self, *args, **kwargs):
+    raise SystemExit(129)
+d.ProgressWatch.__init__ = interrupted
+try:
+    d.execute_run('SIG', 'signal', 'implement', profile='flash', cwd=${JSON.stringify(repoDir)},
+                  card=${JSON.stringify(cardPath)}, out=${JSON.stringify(outDir)}, confirmed=True)
+except SystemExit as exc:
+    assert exc.code == 129, exc.code
+else:
+    raise AssertionError('the stop was swallowed')
+records = [json.loads(line) for line in d.LOG.read_text().splitlines()]
+assert [r['failure'] for r in records] == ['interrupted'], records
+assert not list(d.RUNNING.glob('*.json')), 'slot survived'
+`;
+    const before = Date.now();
+    const res = spawnSync(PYTHON3, ['-c', script], {
+      encoding: 'utf8', env: { ...process.env, ...baseEnv, FAKE_SLEEP: '120' },
+    });
+    assert.equal(res.status, 0, res.stderr);
+    assert.ok(Date.now() - before < 60000, 'the executor was ended, not waited for');
   });
 
   it('pipeline passes the idle limit to its executor and stops at the stalled step', () => {
