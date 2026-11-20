@@ -25,10 +25,13 @@ type: reference
 - Em área de trabalho ligada, um link `node_modules -> ../../node_modules` não era ignorado por `node_modules/` e entrou num commit com `git add -A`; ao chegar no main substituiu a pasta real. O `.gitignore` agora tem `node_modules` sem barra (PR 63).
 - Os testes usam `--timeout 1`; os ajudantes acrescentam `--allow-short-timeout`. Um teste da recusa passa `DELEGATE_TEST_STRICT_TIME`.
 
+## Teste real no Ultron (20/11)
+
+`run --host ultron` com uma tarefa mínima passou com `flash` (18 s), `codex` (21 s) e `agy` (35 s): commit feito lá e trazido como avanço direto. O Antigravity 1.5.13 (Ultron) passou a tratar o argumento seguinte a `-p` como prompt; o runner agora chama `agy --model … --output-format text` sem `-p` e manda o prompt pela entrada padrão, o que funciona na 1.5.12 (Mac) e na 1.5.13.
+
 ## O que falta
 
-- Teste real `run --host ultron` com um executor autenticado. Em 20/11 o caminho inteiro funcionou (envio, execução, volta do resultado), mas o OpenCode no Ultron respondeu `Model unavailable`: falta o login lá, feito pelo Henry.
-- `profiles --host` mostra `ready` para o OpenCode mesmo sem login, porque o `remote-runner` não consegue conferir essa sessão.
+- `profiles --host` mostra `ready` para OpenCode e Antigravity mesmo sem login, porque o `remote-runner` não consegue conferir essas sessões.
 - Execução remota não tem limite por inatividade nem checkpoint.
 - O `remote-runner` não está publicado no npm; no Mac ele está no PATH por um link em `~/.local/bin/remote-runner`.
-- Nova versão do atomic-skills pela skill `release` depois do teste real.
+- Nova versão do atomic-skills pela skill `release`.

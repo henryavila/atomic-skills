@@ -599,9 +599,11 @@ print(json.dumps(out))
     assert.equal(rec.access.git_write, false);
 
     const agyArgv = run('T-STRICT-AGY', 'agy', 'implement');
-    assert.deepEqual(agyArgv.slice(0, 6), [
-      fakePaths.agy, '-p', '--model', 'gemini-4-hydrogen-high', '--output-format', 'text',
+    assert.deepEqual(agyArgv.slice(0, 5), [
+      fakePaths.agy, '--model', 'gemini-4-hydrogen-high', '--output-format', 'text',
     ]);
+    // agy 1.5.13 takes the next argument as the value of -p; the prompt goes on stdin.
+    assert.ok(!agyArgv.includes('-p') && !agyArgv.includes('--print'), agyArgv.join(' '));
     assert.ok(agyArgv.includes('--sandbox'));
     assert.ok(!agyArgv.includes('--add-dir'));
     assert.ok(!agyArgv.includes('--dangerously-skip-permissions'));
@@ -775,15 +777,15 @@ print(json.dumps(out))
     );
     assert.equal(agyImplRes.status, 0, agyImplRes.stderr);
     const implArgv = JSON.parse(readFileSync(argvFile, 'utf8'));
-    assert.deepEqual(implArgv.slice(0, 6), [
+    assert.ok(!implArgv.includes('-p'), implArgv.join(' '));
+    assert.deepEqual(implArgv.slice(0, 5), [
       fakePaths.agy,
-      '-p',
       '--model',
       'gemini-4-hydrogen-high',
       '--output-format',
       'text',
     ]);
-    assert.deepEqual(implArgv.slice(6, 8), ['--sandbox', '--settings']);
+    assert.deepEqual(implArgv.slice(5, 7), ['--sandbox', '--settings']);
     const implSettings = JSON.parse(implArgv[implArgv.indexOf('--settings') + 1]);
     assert.equal(implSettings.toolPermission, 'proceed-in-sandbox');
     assert.equal(implSettings.allowNonWorkspaceAccess, true);
@@ -810,15 +812,15 @@ print(json.dumps(out))
     );
     assert.equal(agyRevRes.status, 0, agyRevRes.stderr);
     const revArgv = JSON.parse(readFileSync(argvFile, 'utf8'));
-    assert.deepEqual(revArgv.slice(0, 6), [
+    assert.ok(!revArgv.includes('-p'), revArgv.join(' '));
+    assert.deepEqual(revArgv.slice(0, 5), [
       fakePaths.agy,
-      '-p',
       '--model',
       'gemini-4-hydrogen-xhigh',
       '--output-format',
       'text',
     ]);
-    assert.deepEqual(revArgv.slice(6, 8), ['--sandbox', '--settings']);
+    assert.deepEqual(revArgv.slice(5, 7), ['--sandbox', '--settings']);
     const revSettings = JSON.parse(revArgv[revArgv.indexOf('--settings') + 1]);
     assert.ok(!revSettings.permissions.allow.some(rule => rule.startsWith('write_file(')));
     assert.ok(revSettings.permissions.deny.includes(`write_file(${repoDir})`));
