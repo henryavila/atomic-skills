@@ -418,9 +418,15 @@ def access_policy(executor, role, cwd, out_path=None, strict=False, common_dir=N
             {"action": "read", "resource": "*", "effect": "allow"},
             {"action": "shell", "resource": "*", "effect": "allow"},
             {"action": "webfetch", "resource": "*", "effect": "allow"},
-            {"action": "websearch", "resource": "*", "effect": "allow"},
+            # Web Search under "allow" asks for input that a headless run cannot
+            # give; OpenCode v2.3.2 then exits 1 ("Cancelled a request for input
+            # this run cannot answer: Web Search") even when the work is done.
+            # Under "deny" the tool is refused and the run ends with exit 0.
+            {"action": "websearch", "resource": "*", "effect": "deny"},
             {"action": "edit", "resource": "*", "effect": "deny"},
         ]
+        limits.append("websearch is denied: OpenCode's Web Search asks for input a "
+                      "headless run cannot answer; webfetch and the shell keep network access")
         # External reads are checked before read/edit; allow only the git
         # common directory, cards and outputs, never every directory.
         for path in extra_read:
@@ -2871,6 +2877,7 @@ def cmd_pipeline(a):
     executor_profile = reviewer_profile = None
     executor_rec = review_rec = None
     auto_committed = False
+    executor_error_after_commit = False
     gate_exit = None
     gate_duration_s = 0
     gate_timed_out = False
@@ -2923,7 +2930,16 @@ def cmd_pipeline(a):
             if executor_rec["failure"] in ("provider_limit", "slot_timeout", "input_too_large"):
                 continue
             executor_profile = profile
-            if executor_rec["failure"] != "none":
+            if executor_rec["failure"] == "error":
+                # An executor CLI can exit non-zero after the work is committed
+                # (a cancelled input request at the very end, for one). With new
+                # commits and a clean tree the gate and the reviewer judge it.
+                snapshot = tree_snapshot(cwd)
+                if snapshot[0] != base_commit and not snapshot[1]:
+                    executor_error_after_commit = True
+                else:
+                    outcome = "executor_failed"
+            elif executor_rec["failure"] != "none":
                 outcome = "executor_failed"
             break
         else:
@@ -3050,6 +3066,9 @@ def cmd_pipeline(a):
              (f" | log: {commit_log}" if commit_log.is_file() else "")]
     if error:
         lines.append(f"- stopped at {step}: {error}")
+    if executor_error_after_commit:
+        lines.append("- executor exited with an error after committing; the tree was clean, "
+                     "so the gate and the review ran. Read its stderr before trusting the result.")
     for rec in attempts:
         paths = " | ".join(f"{key}: {rec[key]}" for key in ("stdout", "stderr", "last_message")
                            if rec.get(key) and Path(rec[key]).is_file())
@@ -3094,6 +3113,8 @@ def cmd_pipeline(a):
         "failed_step": step if outcome not in ("reviewed", "no_changes") else None,
         "error": error, "attempts": attempts, "summary": str(summary_file),
     }
+    if executor_error_after_commit:
+        pipeline_rec["executor_error_after_commit"] = True
     if a.host:
         pipeline_rec["host"] = a.host
     append(pipeline_rec)

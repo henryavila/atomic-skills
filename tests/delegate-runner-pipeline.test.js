@@ -302,6 +302,36 @@ spec.loader.exec_module(d)
     assert.equal(pipeRec.executor_profile, 'codex');
   });
 
+  it('pipeline goes on to gate and review when the executor exits with an error after committing', () => {
+    const env = steps([
+      { FAKE_COMMIT_FILE: 'feature.txt', FAKE_EXIT: '1', FAKE_STDERR: 'Error: Cancelled a request for input\n' },
+      {},
+    ]);
+    const res = runDelegate(pipelineArgs(), env);
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    const pipeRec = recs.at(-1);
+    assert.equal(recs[0].failure, 'error');
+    assert.equal(pipeRec.outcome, 'reviewed');
+    assert.equal(pipeRec.executor_profile, 'flash');
+    assert.equal(pipeRec.executor_error_after_commit, true);
+    assert.equal(pipeRec.gate_exit, 0);
+    assert.match(summary(), /executor exited with an error after committing/);
+  });
+
+  it('pipeline still ends executor_failed when the errored executor left no commit or a dirty tree', () => {
+    for (const [id, cfg] of [['none', { FAKE_EXIT: '1' }],
+      ['dirty', { FAKE_COMMIT_FILE: 'feature.txt', FAKE_EARLY_TOUCH: 'left.txt', FAKE_EXIT: '1' }]]) {
+      rmSync(seqDir, { recursive: true, force: true });
+      mkdirSync(seqDir, { recursive: true });
+      const res = runDelegate(pipelineArgs(), steps([cfg]));
+      assert.equal(res.status, 1, `${id}: ${res.stderr}`);
+      const pipeRec = readLogRecords(atomicHome).at(-1);
+      assert.equal(pipeRec.outcome, 'executor_failed', id);
+      assert.equal(pipeRec.gate_exit, null, id);
+    }
+  });
+
   it('pipeline every profile out of quota ends with no_executor and no gate run', () => {
     writeFileSync(
       join(seqDir, 'step_0.json'),

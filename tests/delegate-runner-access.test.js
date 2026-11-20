@@ -413,6 +413,25 @@ except SystemExit as exc:
     assert.ok(rec.access.limits.some(limit => /read-write/.test(limit)));
   });
 
+  it('OpenCode default policy denies websearch and keeps webfetch, and says so in limits', () => {
+    const res = pythonHarness(`
+out = {}
+for role in ('implement', 'review'):
+  out[role] = d.access_policy('opencode', role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)})
+print(json.dumps(out))
+`);
+    assert.equal(res.status, 0, res.stderr);
+    const parsed = JSON.parse(res.stdout.trim().split('\n').at(-1));
+    for (const role of ['implement', 'review']) {
+      const rules = JSON.parse(parsed[role].env.OPENCODE_CONFIG_CONTENT).permissions;
+      const effects = action => rules.filter(rule => rule.action === action).map(rule => rule.effect);
+      assert.deepEqual(effects('websearch'), ['deny'], role);
+      assert.deepEqual(effects('webfetch'), ['allow'], role);
+      assert.equal(parsed[role].access.network, true, role);
+      assert.ok(parsed[role].access.limits.some(limit => /websearch is denied/.test(limit)), role);
+    }
+  });
+
   it('D9 git_common_dir resolves a plain checkout and a linked worktree', () => {
     const wtDir = join(root, 'wt-common');
     git(repoDir, 'worktree', 'add', '-b', 'feat/common', wtDir);
