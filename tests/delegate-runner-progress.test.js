@@ -75,7 +75,7 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
   }
 
   function stalledRun(id = 'STALL') {
-    const res = runDelegate(runArgs(id, ['--idle-timeout', '1']),
+    const res = runDelegate(runArgs(id, ['--idle-timeout', '3']),
       { ...baseEnv, FAKE_SLEEP: '120', FAKE_EARLY_TOUCH: 'wip.txt', FAKE_STDOUT: 'started the work\n' });
     const rec = readLogRecords(atomicHome).at(-1);
     return { res, rec };
@@ -87,7 +87,7 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
     assert.equal(res.status, 1, res.stderr);
     assert.equal(rec.failure, 'stalled');
     assert.equal(rec.timed_out, false);
-    assert.ok(rec.idle_s >= 1, JSON.stringify(rec));
+    assert.ok(rec.idle_s >= 3, JSON.stringify(rec));
     assert.ok(Date.now() - before < 60000, 'the idle limit, not the 240 minute cap, ended the run');
   });
 
@@ -103,7 +103,7 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
     assert.equal(git(repoDir, 'show', '--name-only', '--format=', 'HEAD'), 'wip.txt');
     assert.equal(rec.checkpoint.resume, join(outDir, 'STALL.resume.md'));
     const note = readFileSync(rec.checkpoint.resume, 'utf8');
-    assert.match(note, /Stopped because: no progress for 1 s/);
+    assert.match(note, /Stopped because: no progress for 3 s/);
     assert.match(note, /\?\? wip\.txt/);
     assert.match(note, new RegExp(`${head.slice(0, 10)} STALL: work in progress`));
     assert.match(note, /started the work/);
@@ -112,18 +112,18 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
   });
 
   it('does not stop an executor that keeps producing output past the idle limit', () => {
-    const res = runDelegate(runArgs('BUSY', ['--idle-timeout', '2']),
-      { ...baseEnv, FAKE_TICKS: '12:0.3' });
+    const res = runDelegate(runArgs('BUSY', ['--idle-timeout', '4']),
+      { ...baseEnv, FAKE_TICKS: '20:0.3' });
     const [rec] = readLogRecords(atomicHome);
     assert.equal(rec.failure, 'none', res.stderr);
-    assert.ok(rec.duration_s >= 3, JSON.stringify(rec));
+    assert.ok(rec.duration_s >= 5, JSON.stringify(rec));
     assert.equal(rec.checkpoint, undefined);
   });
 
   it('never makes the executor lose a git command to the progress check', () => {
-    // The check runs every 0.1 s here while the executor adds and commits 60 times.
-    const res = runDelegate(runArgs('GIT', ['--idle-timeout', '0.5']),
-      { ...baseEnv, FAKE_COMMIT_ROUNDS: '60' });
+    // The check runs every 0.05 s here while the executor adds and commits 60 times.
+    const res = runDelegate(runArgs('GIT'),
+      { ...baseEnv, FAKE_COMMIT_ROUNDS: '60', DELEGATE_PROGRESS_POLL_S: '0.05' });
     const [rec] = readLogRecords(atomicHome);
     assert.equal(rec.failure, 'none', readFileSync(rec.stderr, 'utf8'));
     assert.equal(rec.commits, 60);
@@ -131,11 +131,13 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
   });
 
   it('counts a change in the working tree as progress', async () => {
-    const run = runDelegateAsync(runArgs('TREE', ['--idle-timeout', '2']),
-      { ...baseEnv, FAKE_WAIT_FILE: join(root, 'release'), FAKE_WAIT_TIMEOUT: '120' });
+    const ready = join(root, 'ready');
+    const run = runDelegateAsync(runArgs('TREE', ['--idle-timeout', '4']),
+      { ...baseEnv, FAKE_READY_FILE: ready, FAKE_WAIT_FILE: join(root, 'release'), FAKE_WAIT_TIMEOUT: '120' });
     try {
+      await waitFor(() => existsSync(ready), 20000, 'executor start');
       // Silent executor; the only sign of life is a file that keeps changing.
-      for (let round = 0; round < 12; round += 1) {
+      for (let round = 0; round < 20; round += 1) {
         writeFileSync(join(repoDir, 'grows.txt'), 'x'.repeat(round + 1));
         await new Promise((r) => setTimeout(r, 300));
       }
@@ -164,7 +166,7 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
 
   it('writes the resume note without a commit when the stopped run left a clean tree', () => {
     const base = git(repoDir, 'rev-parse', 'HEAD');
-    runDelegate(runArgs('CLEAN', ['--idle-timeout', '1']), { ...baseEnv, FAKE_SLEEP: '120' });
+    runDelegate(runArgs('CLEAN', ['--idle-timeout', '3']), { ...baseEnv, FAKE_SLEEP: '120' });
     const [rec] = readLogRecords(atomicHome);
     assert.equal(rec.failure, 'stalled');
     assert.equal(rec.checkpoint.commit, null);
@@ -180,7 +182,7 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
     git(repoDir, 'commit', '-m', 'change');
     runDelegate(['run', '--id', 'REV', '--task', 'review', '--role', 'review', '--profile', 'agy-review',
       '--cwd', repoDir, '--card', reviewCardPath, '--out', outDir, '--confirmed',
-      '--diff-range', `${base}...HEAD`, '--idle-timeout', '1'], { ...baseEnv, FAKE_SLEEP: '120' });
+      '--diff-range', `${base}...HEAD`, '--idle-timeout', '3'], { ...baseEnv, FAKE_SLEEP: '120' });
     const [done, review] = readLogRecords(atomicHome);
     assert.equal(done.failure, 'none');
     assert.equal(done.checkpoint, undefined);
@@ -304,7 +306,7 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
     const res = runDelegate(['pipeline', '--id', 'PIPE', '--task', 'stall', '--role', 'implement',
       '--cwd', repoDir, '--card', cardPath, '--route', 'flash', '--gate', 'true',
       '--review-card', reviewCardPath, '--review-route', 'codex-review', '--out', outDir,
-      '--confirmed', '--idle-timeout', '1'], { ...baseEnv, FAKE_SLEEP: '120', FAKE_EARLY_TOUCH: 'wip.txt' });
+      '--confirmed', '--idle-timeout', '3'], { ...baseEnv, FAKE_SLEEP: '120', FAKE_EARLY_TOUCH: 'wip.txt' });
     assert.equal(res.status, 1, res.stderr);
     const records = readLogRecords(atomicHome);
     const run = records.find((rec) => rec.kind === 'run');

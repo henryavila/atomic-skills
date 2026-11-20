@@ -103,7 +103,10 @@ DEFAULT_TIMEOUT_S = 240 * 60
 DEFAULT_IDLE_TIMEOUT_S = 20 * 60
 MIN_TIMEOUT_S = 60
 # How often the runner looks for progress (output size, HEAD, working tree).
-PROGRESS_POLL_S = 10.0
+try:
+    PROGRESS_POLL_S = min(10.0, max(0.05, float(os.environ.get("DELEGATE_PROGRESS_POLL_S") or 10.0)))
+except ValueError:
+    PROGRESS_POLL_S = 10.0
 RESUME_TAIL_LINES = 60
 CHECKPOINT_SUFFIX = "work in progress (checkpoint by the delegate runner)"
 STOP_REASONS = {
