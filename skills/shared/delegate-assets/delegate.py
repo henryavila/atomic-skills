@@ -1898,6 +1898,8 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
             rec["remote_error"] = diverged_reason
         if kill_result:
             rec["remote_kill"] = kill_result
+        if diverged and fetched_ref:
+            rec["remote_ref"] = fetched_ref
         if failure != "none":
             kept = kept_record({"ref": fetched_ref} if diverged and fetched_ref else None)
             if kept:

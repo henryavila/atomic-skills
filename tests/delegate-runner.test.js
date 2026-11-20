@@ -5077,6 +5077,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.equal(git(repoDir, 'rev-parse', 'refs/delegate/RMT'), rec.sync.received);
     assert.equal(existsSync(join(repoDir, 'remote-diverged.txt')), false);
     assert.equal(rec.remote_work_kept.ref, 'refs/delegate/RMT');
+    assert.equal(rec.remote_ref, 'refs/delegate/RMT');
   });
 
   it('R05 does not fast-forward a different branch checked out meanwhile', async () => {
