@@ -14,9 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   committed `.atomic-skills/marcos.json` map, merge subjects on the integration
   ref, and the delegate runner's `status --json`. Integration comes from merge
   commits, running work from the runner; only milestones, sizes, dependencies
-  and human validation live in the map. `validate`, `add`, `remove`, `list`,
-  `collect`, `watch` and `status` write deterministic panel files, rewriting one
-  only when its bytes changed.
+  and human validation live in the map. Only `collect` and `watch` write the
+  deterministic panel files, rewriting one only when its bytes changed;
+  `validate`, `add`, `remove`, `list` and `status` never write them.
+- **The progress collector cannot hang or be misled.** `match` is now a literal
+  string or a list of literal substrings (case-insensitive, no token boundary),
+  and `idPattern` is an optional compiled regex of at most 64 characters with no
+  groups, alternation or escapes other than `\d`. Refs are validated before git
+  sees them and resolved once per cycle; a bad registry entry gives
+  `registro_invalido`, a failed `git log` or ref gives `git_log_falhou` and keeps
+  the last rows, a duplicate map id gives `id_duplicado`, and an unexpected
+  project error gives `erro_interno` without stopping the others. A card is
+  blocked only by a dep that is not integrated or validated. Fetches are
+  contained (`--` before the branch, no prompts, no gc or maintenance) and
+  `watch` keeps a failure in its alerts until that project's fetch succeeds and
+  stops within two seconds of SIGINT or SIGTERM during a fetch.
 - **Delegate says which machine runs each executor.** Every `run` and
   `pipeline` record gains `machine`: the `--host` name, or the short hostname
   of the local machine. A `--host` run is now listed while it works, in one file
