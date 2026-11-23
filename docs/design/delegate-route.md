@@ -34,8 +34,8 @@ So the design targets reviewer capacity, not model choice.
   when the first one returns.
 - A pipeline whose review cannot run now ends in a state that the runner itself can
   finish later, with one command.
-- No new dependency, no model call, no network. Everything is read from the log and the
-  slot directory.
+- No new dependency and no model call. Availability comes from the log, the slot directory
+  and, for Antigravity, `agy -p /quota` (section 6).
 
 Out of scope: an LLM or decision-model judge, memory in cards, a queue daemon.
 
@@ -85,8 +85,9 @@ runner cannot disagree.
 - Both routes are reordered before the first attempt: usable profiles first, cooling
   profiles last. Nothing is removed, so a wrong cooldown costs at most the few seconds a
   refused run costs today. The pipeline record gains `reordered: [<profiles moved back>]`.
-- When the review route is exhausted and every attempt was `provider_limit` or
-  `slot_timeout`, the outcome is `review_pending` instead of `no_reviewer`. The runner
+- When the review route is exhausted, at least one attempt other than
+  `review_over_model_cap` ran out of capacity and all such attempts were
+  `provider_limit` or `slot_timeout`, the outcome is `review_pending` instead of `no_reviewer`. The runner
   writes `~/.atomic-skills/delegate/pending/<project>/<id>.json` with the worktree, base
   and gated commit, review card copy, attachments, review route, executor family and the
   earliest return time. An executor that ends in `error` after committing, with a clean

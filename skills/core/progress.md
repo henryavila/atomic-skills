@@ -59,7 +59,7 @@ The map lives at `.atomic-skills/marcos.json` in the project's repository. The c
 - `size` is `P`, `M` or `G` and weighs 1, 2 and 4. A non-negative integer `weight` overrides the size; `0` is allowed for a card that counts as work but adds nothing. A card needs one of the two, and a map whose cards all weigh `0` is invalid.
 - `deps` names cards in the same map and must not form a cycle. A card is `blocked` only while one of its deps is neither `integrated` nor `validated`.
 - `match` replaces the card id in the merge-subject test when the branch or squash title says something else. It is a non-empty literal string or a non-empty array of them; a card counts as merged when any value is a case-insensitive substring of a merge subject, with no token boundaries. It is not a regular expression.
-- No map value is a regular expression. The collector learns unknown-id prefixes from the map's own card ids: an id shaped like `AB-12` (one to eight letters, an optional hyphen, then a digit) contributes the prefix exactly as written (`AB-`; `S3` contributes `S`). It then scans each merge subject for one whole token built from those escaped prefixes and digits (`AB-12`, `S3a`, and so on, case-sensitive) and raises `card_desconhecido` only for a token that is in no card. A hyphenated card id matches a merge subject as a whole token case-insensitively, so `app-desktop/d-03` marks `D-03`; an id without a hyphen stays case-sensitive, so prose such as `backup no s3` never marks `S3`. The guard never reads `BCD-1` inside `ABCD-1`, and a map whose card ids teach no prefix produces no `card_desconhecido` alerts.
+- No map value is a regular expression. The collector learns unknown-id prefixes from the map's own card ids: an id shaped like `AB-12` (one to eight letters, an optional hyphen, then a digit) contributes the prefix exactly as written (`AB-`; `S3` contributes `S`). It then scans each merge subject for one whole token built from those escaped prefixes and digits (`AB-12`, `S3a`, and so on, case-sensitive) and raises `card_desconhecido` only for a token that is in no card. A hyphenated card id matches a merge subject as a whole token case-insensitively, so `app-desktop/d-03` marks `D-03`; an id without a hyphen stays case-sensitive, so prose such as `backup no s3` never marks `S3`. A token ends at any character other than a letter, digit, `_` or `-`: `feat/F-01` marks `F-01`, `feat/F-01-login` does not. The guard never reads `BCD-1` inside `ABCD-1`, and a map whose card ids teach no prefix produces no `card_desconhecido` alerts.
 - `done` is optional evidence for integration that left no merge subject (a squash, a cherry-pick). `validated` is optional evidence of human or gate acceptance. Leave them empty when a machine can derive the state, and never invent them.
 - Unknown keys are validation errors. Do not add fields "for later".
 
@@ -69,13 +69,16 @@ The map lives at `.atomic-skills/marcos.json` in the project's repository. The c
 2. Give every planned card a stable id and put it under its milestone. Use the project's own card ids when it has them; sizes come from the plan or from relative effort.
 3. Record `deps` only for real ordering constraints. A dependency that is merely "same milestone" is noise and makes cards falsely `blocked`.
 4. Set `unit` to the noun the project counts (`cartões`, `tarefas`, `itens`) and add a one-line `note` when the number needs context.
-5. Add `match` on the rare card whose merge title does not include its id. Unknown-id alerts need no extra field: the collector derives them from the card ids already in the map.
-6. Validate and commit before registering. The map is only real on the integration ref:
+5. Add `match` when the merge title does not carry the id as a whole token, for example a slugged branch. Unknown-id alerts need no extra field: the collector derives them from the card ids already in the map.
+6. Commit, validate, integrate and validate again before registering. `validate` reads the map from git, and the map is only real on the integration ref:
 
 ```bash
-python3 {{ASSETS_PATH}}/progress.py validate <repo> --ref origin/main
 git -C <repo> add .atomic-skills/marcos.json
 git -C <repo> commit -m "docs(progress): add the milestone map"
+python3 {{ASSETS_PATH}}/progress.py validate <repo> --ref HEAD
+# merge or push that commit to the integration branch, then:
+git -C <repo> fetch origin main
+python3 {{ASSETS_PATH}}/progress.py validate <repo> --ref origin/main
 ```
 
 Use {{BASH_TOOL}} for the commands. A broken map is refused by `add`; `validate` prints every problem with its JSON path and exits 1. `add` also refuses a second project whose map uses the same `id`.
@@ -86,7 +89,7 @@ Use {{BASH_TOOL}} for the commands. A broken map is refused by `add`; `validate`
 2. At the end of the batch, integrate the branch. A merge subject that contains the card id as a whole token (or a literal `match` value) is what marks it `integrated`; do not set `done` as well.
 3. Set `validated` only after the human or gate acceptance actually happened, with enough evidence for a reader to find it.
 4. If a card was squashed or cherry-picked without a merge subject, set `done` to the commit or PR evidence. Never set `done` to "yes" or "done".
-5. Re-run `validate`, commit the map on the integration ref, then read the status. Do not recompute or adjust a percentage by hand.
+5. Commit the map, run `validate --ref HEAD`, integrate it, fetch, validate the integration ref, then read the status. Do not recompute or adjust a percentage by hand.
 
 ## Register and read
 
@@ -123,11 +126,13 @@ python3 {{ASSETS_PATH}}/progress.py panel uninstall
 
 `uninstall` validates the recorded state before changing anything (only the three recorded files and the four expected directories are accepted) and refuses a symlink at the manifest, a plist, the consumer, `data/`, `progress/`, `progress/logs/` or an output file, while the shared roots may be symlinks as described above. It boots both labels out when loaded, deletes the two `<label>.log` files named in the plists, deletes each recorded file only while its hash still matches (a changed file is reported and kept), and removes the four panel output files only when `data/` is in the state's created directories. It then removes the state and the empty directories the install created, reporting any directory it cannot remove and why. Because a failed rollback leaves the state matching the files on disk, `uninstall` finishes that install. It never removes the shared roots `~/.aideck`, `~/.aideck/consumers`, `~/.atomic-skills`, `~/Library` or `~/Library/LaunchAgents`, and does not record them as created. A `launchctl print` that fails for any reason other than exit 113 or `Could not find service` stops the uninstall with the state kept. `status` is read-only and reports whether it is installed, the port and URL, each label's `launchctl print` state and the `projetos.json` modification time; a print failure is printed without a traceback.
 
+Run `panel uninstall` before uninstalling Atomic Skills. If the package is already gone, run `launchctl bootout gui/<uid>/com.atomic-skills.progress.watch` and the same for `.panel`, then delete both plists from `~/Library/LaunchAgents`.
+
 `add` and `remove` regenerate the manifest when the state exists and the file still matches its recorded hash, then update the hash; if you edited the manifest they leave it alone and warn on stderr. An invalid state is also warned about and skipped, so `add` and `remove` still finish their work.
 
 ## Alerts
 
-`status` and `alertas.json` report:
+`alertas.json` reports every type below. Plain `status` prints them too, except `fetch_falhou`. `status --json` carries only alerts tied to a listed project, so a script must read `alertas.json` for registry and delegate failures:
 
 | Type | Meaning |
 |---|---|
@@ -135,7 +140,7 @@ python3 {{ASSETS_PATH}}/progress.py panel uninstall
 | `card_desconhecido` | a merge subject on the ref contains a whole id-shaped token, using a prefix derived from the map's card ids, that is in no card |
 | `marco_desconhecido` | an active or logged run of the project names a milestone not in the map |
 | `registro_invalido` | `projects.json` is unreadable, or one entry is malformed or has an invalid ref; the other entries still work |
-| `git_log_falhou` | `git log` (or resolving the ref) failed; the project keeps its previous `projetos`/`marcos` rows, or lists `feito: 0` when there are none |
+| `git_log_falhou` | `git log` (or resolving the ref) failed; the project keeps its previous `projetos`/`marcos` rows, or lists `feito: 0` when there are none. `status` keeps no rows, so it shows `feito: 0`; read `projetos.json` for the last collected values |
 | `erro_interno` | an unexpected error while computing one project; the other projects still collect |
 | `id_duplicado` | two registered projects use the same map `id`; only the first is listed |
 | `id_mapa_mudou` | the map at the ref now uses an id different from the entry's stored id; run `add <shell-quoted path> --ref <stored ref>` again |
@@ -149,4 +154,4 @@ Fix the map, the registry entry or the run's `--milestone`, then collect again. 
 - It does not write to a registered repository. `collect` only reads; `--fetch` and `watch` run `git -c gc.auto=0 -c maintenance.auto=false fetch --quiet --no-recurse-submodules --no-write-fetch-head origin -- <branch>` for an `origin/<branch>` ref and nothing else. The `--` keeps the branch from being read as an option; the fetch has no terminal prompt, and without `GIT_SSH_COMMAND`, `GIT_SSH` or a configured `core.sshCommand`, uses `ssh -o BatchMode=yes`. It runs in its own process group, so a stop or timeout kills the fetch and its children.
 - It does not choose milestones, sizes or dependencies. That judgement belongs in the plan and the map.
 - It does not accept a card for you. `validated` is human evidence, not a collector decision.
-- It installs no dashboard and no foreground service: on macOS, `panel install` loads the two launchd agents and `panel uninstall` removes them (see above); `watch` itself stays a foreground process.
+- It does not install aiDeck itself: `--aideck` must point at an existing build. On macOS, `panel install` loads the two launchd agents and `panel uninstall` removes them (see above); `watch` run by hand stays a foreground process.
