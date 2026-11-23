@@ -1450,6 +1450,11 @@ def watch_signature():
         signature.append(("log", stat.st_size, stat.st_mtime_ns))
     except OSError:
         signature.append(("log", None, None))
+    try:
+        stat = registry_path().stat()
+        signature.append(("registry", stat.st_size, stat.st_mtime_ns))
+    except OSError:
+        signature.append(("registry", None, None))
     for directory in ("running", "running-remote"):
         base = atomic_home() / "delegate" / directory
         try:
@@ -1516,9 +1521,7 @@ def cmd_watch(args):
                     last_collect = now
                     if fetch_due:
                         last_fetch = now
-                    try:
-                        last_signature = watch_signature()
-                    except Exception:
+                    if signature is not None:
                         last_signature = signature
                 except CollectorStopped:
                     break

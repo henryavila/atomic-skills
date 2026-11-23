@@ -1774,6 +1774,161 @@ print("\\n".join(alert["tipo"] for alert in alertas))
     }
   });
 
+  it('watch recollects when the registry changes during a collection', () => {
+    const script = `
+import importlib.util, json, os, pathlib, sys
+
+progress_path, project = sys.argv[1], sys.argv[2]
+spec = importlib.util.spec_from_file_location("progress", progress_path)
+progress = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(progress)
+
+registry = pathlib.Path(os.environ["ATOMIC_SKILLS_HOME"]) / "progress" / "projects.json"
+registry.parent.mkdir(parents=True, exist_ok=True)
+
+def write_registry(invalid_ref):
+    registry.write_text(json.dumps({
+        "schemaVersion": 1,
+        "projects": [
+            {"path": project, "ref": "main"},
+            {"path": project, "ref": invalid_ref},
+        ],
+    }) + "\\n")
+
+write_registry("bad ref")
+
+real_write = progress.write_panel
+calls = []
+
+def wrapped_write(*args, **kwargs):
+    calls.append(1)
+    if len(calls) == 1:
+        result = real_write(*args, **kwargs)
+        write_registry("bad ref changed")
+        return result
+    raise progress.CollectorStopped()
+
+progress.write_panel = wrapped_write
+progress.time.monotonic = lambda: 1000.0
+
+checks = [0]
+real_signature = progress.watch_signature
+
+def bounded_signature():
+    checks[0] += 1
+    if checks[0] > 30:
+        raise SystemExit("watch never collected again after the registry changed")
+    return real_signature()
+
+progress.watch_signature = bounded_signature
+
+args = progress.argparse.Namespace(
+    out=str(pathlib.Path(project).parent / "out"),
+    fetch=False,
+    delegate=None,
+    interval=0.01,
+    fetch_every=99999,
+)
+try:
+    progress.cmd_watch(args)
+except SystemExit as exc:
+    sys.stderr.write(str(exc) + "\\n")
+    sys.exit(3)
+
+assert len(calls) == 2, "expected two collections, got %d" % len(calls)
+print("ok")
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, project], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
+  it('watch signature sees an edit that only touches an invalid registry entry', () => {
+    const script = `
+import importlib.util, json, os, pathlib, sys
+
+progress_path, project = sys.argv[1], sys.argv[2]
+spec = importlib.util.spec_from_file_location("progress", progress_path)
+progress = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(progress)
+
+registry = pathlib.Path(os.environ["ATOMIC_SKILLS_HOME"]) / "progress" / "projects.json"
+registry.parent.mkdir(parents=True, exist_ok=True)
+
+def write_registry(invalid_ref):
+    registry.write_text(json.dumps({
+        "schemaVersion": 1,
+        "projects": [
+            {"path": project, "ref": "main"},
+            {"path": project, "ref": invalid_ref},
+        ],
+    }) + "\\n")
+
+write_registry("bad ref")
+before = progress.watch_signature()
+write_registry("bad ref changed")
+after = progress.watch_signature()
+assert before != after, "an invalid-entry edit must change the signature"
+print("ok")
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, project], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
+  it('watch keeps looping when the signature computation fails', () => {
+    const script = `
+import importlib.util, pathlib, sys
+
+progress_path, project = sys.argv[1], sys.argv[2]
+spec = importlib.util.spec_from_file_location("progress", progress_path)
+progress = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(progress)
+
+progress.time.monotonic = lambda: 1000.0
+calls = []
+
+def wrapped_write(*args, **kwargs):
+    calls.append(1)
+    if len(calls) >= 3:
+        raise progress.CollectorStopped()
+    return ([], [], [], [], {})
+
+def broken_signature():
+    raise RuntimeError("registry is unreadable")
+
+progress.write_panel = wrapped_write
+progress.watch_signature = broken_signature
+
+args = progress.argparse.Namespace(
+    out=str(pathlib.Path(project).parent / "out"),
+    fetch=False,
+    delegate=None,
+    interval=0.01,
+    fetch_every=99999,
+)
+result = progress.cmd_watch(args)
+assert result == 0, result
+assert len(calls) == 3, "expected three collections, got %d" % len(calls)
+print("ok")
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, project], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
   it('stops within two seconds of SIGINT during a fetch', async () => {
     const bare = join(root, 'origin.git');
     execFileSync('git', ['init', '-q', '--bare', bare], { env: gitEnv() });
