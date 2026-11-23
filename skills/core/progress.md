@@ -26,7 +26,7 @@ For each card, the first matching state wins:
 | `blocked` | a dependency is neither `integrated` nor `validated` |
 | `ready` | anything else |
 
-`feito` is the weight of `integrated` plus `validated` cards; `validado` is the weight of `validated` cards; `total` is every card. A percentage is rounded and reaches 100% only when every card counts. A milestone is `prontos` (integrated/validated card count), `bloqueados` and `rodando`.
+`feito` is the weight of `integrated` plus `validated` cards; `validado` is the weight of `validated` cards; `total` is the weight of every card. A percentage is rounded and reaches 100% only when every card counts. A milestone is `prontos` (integrated/validated card count), `bloqueados` and `rodando`. A zero-weight card still counts in `prontos`, `bloqueados` and `rodando`, and adds nothing to `feito` or `total`.
 
 ## The map
 
@@ -56,7 +56,7 @@ The map lives at `.atomic-skills/marcos.json` in the project's repository. The c
 ```
 
 - `schemaVersion` is `1`. `id`, `title`, `unit` and `milestones` are required; `note` is optional. `id` fields match `[A-Za-z0-9._-]{1,64}` and card ids are unique across the whole map.
-- `size` is `P`, `M` or `G` and weighs 1, 2 and 4. A positive integer `weight` overrides the size. A card needs one of the two.
+- `size` is `P`, `M` or `G` and weighs 1, 2 and 4. A non-negative integer `weight` overrides the size; `0` is allowed for a card that counts as work but adds nothing. A card needs one of the two, and a map whose cards all weigh `0` is invalid.
 - `deps` names cards in the same map and must not form a cycle. A card is `blocked` only while one of its deps is neither `integrated` nor `validated`.
 - `match` replaces the card id in the merge-subject test when the branch or squash title says something else. It is a non-empty literal string or a non-empty array of them; a card counts as merged when any value is a case-insensitive substring of a merge subject, with no token boundaries. It is not a regular expression.
 - No map value is a regular expression. The collector learns unknown-id prefixes from the map's own card ids: an id shaped like `AB-12` (one to eight letters, an optional hyphen, then a digit) contributes the `AB` prefix. It then scans each merge subject for one whole token with any of those prefixes (`AB-12`, `AB12a`, and so on, case-sensitive) and raises `card_desconhecido` only for a token that is in no card. The guard never reads `BCD-1` inside `ABCD-1`, and a map whose card ids teach no prefix produces no `card_desconhecido` alerts.
@@ -98,7 +98,7 @@ python3 {{ASSETS_PATH}}/progress.py status
 python3 {{ASSETS_PATH}}/progress.py status --json
 ```
 
-The registry is `~/.atomic-skills/progress/projects.json` (`$ATOMIC_SKILLS_HOME` when set). `add` validates the map at the ref and refuses a broken one; the ref is typically `origin/main`, the integration branch. It also stores the map's `id`, so a later failed ref still finds that project's previous rows and alerts under the same id; an older entry without a stored id falls back to the folder name. A ref must start with a letter, digit, `.` or `_` and then contain only letters, digits, `.`, `_`, `-` or `/`, so it can never become a git option; an option-like ref is refused by `add`, and a bad entry already in the registry is ignored with a `registro_invalido` alert while the other projects keep working. `add` and `remove` keep such invalid entries unchanged when they save the registry. `status` computes each project's percentage, milestones and alerts live from the current map and refs and keeps no rows of its own; `--json` is for a script or another consumer.
+The registry is `~/.atomic-skills/progress/projects.json` (`$ATOMIC_SKILLS_HOME` when set). `add` validates the map at the ref and refuses a broken one; the ref is typically `origin/main`, the integration branch. It also stores the map's `id`, so a later failed ref still finds that project's previous rows and alerts under the same id; an older entry without a stored id falls back to the folder name. The stored id changes only through `add`: running `add` again on an already registered path updates its ref and stored id, and the duplicate-id check compares it with every other entry's stored id. When a map loads with an id different from the entry's stored id, `status` and `alertas.json` raise `id_mapa_mudou` until you run `add <repo>` again; the collector never rewrites the registry. A ref must start with a letter, digit, `.` or `_` and then contain only letters, digits, `.`, `_`, `-` or `/`, so it can never become a git option; an option-like ref is refused by `add`, and a bad entry already in the registry is ignored with a `registro_invalido` alert while the other projects keep working. `add` and `remove` keep such invalid entries with the same content when they save the registry. `status` computes each project's percentage, milestones and alerts live from the current map and refs and keeps no rows of its own; `--json` is for a script or another consumer.
 
 Collect the panel files on demand or keep them fresh:
 
@@ -107,7 +107,23 @@ python3 {{ASSETS_PATH}}/progress.py collect --fetch --out ~/.aideck/consumers/pa
 python3 {{ASSETS_PATH}}/progress.py watch --out ~/.aideck/consumers/painel/data --interval 2 --fetch-every 120
 ```
 
-Only `collect` and `watch` write the panel files. `collect` writes `projetos.json`, `marcos.json`, `execucoes.json` and `alertas.json`, and rewrites a file only when its bytes changed. `watch` repeats the collection when the telemetry log, the running directories or a project ref change, and at least every 60 seconds so `minutos` advances; it fetches at `--fetch-every` and keeps a project's last fetch failure in every cycle's alerts until a fetch for that project succeeds, dropping it when the project or its `origin/` ref leaves the registry. Active runs come only from `delegate.py status --json`; find it with `--delegate PATH`, `DELEGATE_PY`, beside `progress.py`, or in `../delegate-assets/delegate.py`.
+Only `collect` and `watch` write the panel files. `collect` writes `projetos.json`, `marcos.json`, `execucoes.json` and `alertas.json`, and rewrites a file only when its bytes changed. Each `marcos.json` row also carries the milestone `titulo` and a `legenda` (`<prontos> de <cards> prontos`, then ` · <n> bloqueado` or ` · <n> bloqueados`, then ` · <n> rodando`); rows kept from a previous file after a failure keep their old fields. `watch` repeats the collection when the telemetry log, the running directories or a project ref change, and at least every 60 seconds so `minutos` advances; it fetches at `--fetch-every` and keeps a project's last fetch failure in every cycle's alerts until a fetch for that project succeeds, dropping it when the project or its `origin/` ref leaves the registry. Active runs come only from `delegate.py status --json`; find it with `--delegate PATH`, `DELEGATE_PY`, beside `progress.py`, or in `../delegate-assets/delegate.py`.
+
+## Install the macOS panel service
+
+On macOS, `panel install` writes the panel consumer and loads two launchd agents; `panel uninstall` reverses it, and `panel status` reads the result:
+
+```bash
+python3 {{ASSETS_PATH}}/progress.py panel install --aideck /path/to/aiDeck/dist/cli.js --port 7777
+python3 {{ASSETS_PATH}}/progress.py panel status [--json]
+python3 {{ASSETS_PATH}}/progress.py panel uninstall
+```
+
+`install` requires `--aideck` to be an existing file and finds `node` and `git` on `PATH`; the port is 1024-65535 (default 7777). It creates `~/.aideck/consumers/painel/manifest.yaml` and `data/`, both plists (`com.atomic-skills.progress.watch` and `com.atomic-skills.progress.panel`) under `~/Library/LaunchAgents`, the state `~/.atomic-skills/progress/panel.json` and `~/.atomic-skills/progress/logs/`, then loads each plist with `launchctl bootstrap gui/<uid> <plist>`. The plists keep the panel on `127.0.0.1` (never `--expose`) and carry only `PATH`, plus `ATOMIC_SKILLS_HOME` when set, so no secret is copied. Running the same install again changes nothing and reloads nothing; new arguments boot the old labels out, rewrite and bootstrap. If a step fails midway, install undoes what that run created. A manifest or plist that already exists without a matching hash in the state, a missing `--aideck` file, a missing `node` or an invalid port is refused with exit 1 and no change. Outside macOS, all three commands exit 2 unless `PROGRESS_LAUNCHCTL` is set (tests only).
+
+`uninstall` boots both labels out when loaded, deletes each recorded file only while its hash still matches (a changed file is reported and kept), removes only the four panel output files in `data/`, removes the state and then the empty directories the install created. A failed bootout keeps the state so a retry can finish. It never touches the project registry, other consumers, or `~/.aideck` itself. `status` is read-only and reports whether it is installed, the port and URL, each label's `launchctl print` state and the `projetos.json` modification time.
+
+`add` and `remove` regenerate the manifest when the state exists and the file still matches its recorded hash, then update the hash; if you edited the manifest they leave it alone and warn on stderr.
 
 ## Alerts
 
@@ -122,6 +138,7 @@ Only `collect` and `watch` write the panel files. `collect` writes `projetos.jso
 | `git_log_falhou` | `git log` (or resolving the ref) failed; the project keeps its previous `projetos`/`marcos` rows, or lists `feito: 0` when there are none |
 | `erro_interno` | an unexpected error while computing one project; the other projects still collect |
 | `id_duplicado` | two registered projects use the same map `id`; only the first is listed |
+| `id_mapa_mudou` | the map at the ref now uses an id different from the entry's stored id; run `add <repo>` again |
 | `fetch_falhou` | `--fetch` could not update the ref; `watch` repeats it until a fetch succeeds |
 | `delegate_indisponivel` | `delegate.py status --json` is missing or failed; executions are empty |
 
@@ -129,7 +146,7 @@ Fix the map, the registry entry or the run's `--milestone`, then collect again. 
 
 ## What this skill does not do
 
-- It does not write to a registered repository. `collect` only reads; `--fetch` and `watch` run `git -c gc.auto=0 -c maintenance.auto=false fetch --quiet --no-recurse-submodules --no-write-fetch-head origin -- <branch>` for an `origin/<branch>` ref and nothing else. The `--` keeps the branch from being read as an option; the fetch has no terminal prompt and, without a configured SSH command, uses `ssh -o BatchMode=yes`. It runs in its own process group, so a stop or timeout kills the fetch and its children.
+- It does not write to a registered repository. `collect` only reads; `--fetch` and `watch` run `git -c gc.auto=0 -c maintenance.auto=false fetch --quiet --no-recurse-submodules --no-write-fetch-head origin -- <branch>` for an `origin/<branch>` ref and nothing else. The `--` keeps the branch from being read as an option; the fetch has no terminal prompt, and without `GIT_SSH_COMMAND`, `GIT_SSH` or a configured `core.sshCommand`, uses `ssh -o BatchMode=yes`. It runs in its own process group, so a stop or timeout kills the fetch and its children.
 - It does not choose milestones, sizes or dependencies. That judgement belongs in the plan and the map.
 - It does not accept a card for you. `validated` is human evidence, not a collector decision.
-- It does not install a service or a dashboard. `watch` is a foreground process; the panel consumes the files.
+- It installs no dashboard and no foreground service: on macOS, `panel install` loads the two launchd agents and `panel uninstall` removes them (see above); `watch` itself stays a foreground process.

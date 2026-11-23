@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prefixes, so `ABCD-1` never yields `BCD-1` and a map with no prefix produces
   no `card_desconhecido` alert. Refs are validated before git sees them and
   resolved once per cycle; a bad registry entry gives `registro_invalido` and
-  `add`/`remove` preserve it unchanged, a failed `git log` or ref gives
+  `add`/`remove` keep it with the same content, a failed `git log` or ref gives
   `git_log_falhou` and keeps the last rows under the map id stored at `add` (or
   the folder name for an older entry), a duplicate map id gives `id_duplicado`,
   and an unexpected project error gives `erro_interno` without stopping the
@@ -37,6 +37,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   leaves no child behind; it keeps a failure in its alerts until that project's
   fetch succeeds and drops it when the project or its `origin/` ref leaves the
   registry.
+- **Progress maps accept zero-weight cards and panel rows carry titles.** An
+  explicit `weight` may be `0` (a non-negative integer, not a bool); a map whose
+  cards all weigh `0` is invalid. A zero-weight card still counts in `prontos`,
+  `bloqueados` and `rodando` and adds nothing to `feito` or `total`. Every
+  `marcos.json` row gains `titulo` (the milestone title) and `legenda` (`<n> de
+  <cards> prontos`, then the blocked count with the singular `bloqueado`, then
+  the running count); rows kept after a failure are left as they were.
+- **A renamed map id is visible and recoverable.** The collector stays read-only
+  on the registry: when the map loads with an id different from the entry's
+  stored id it raises `id_mapa_mudou` and tells you to run `add <repo>` again.
+  Running `add` on an already registered path updates its ref and stored id, and
+  the duplicate-id check ignores that entry and compares each other entry's
+  stored id. The stored id changes only through `add`.
+- **The macOS panel service installs and removes reversibly.** `progress.py
+  panel install --aideck <cli.js> [--port 7777]` writes the panel consumer
+  manifest, its `data/` directory, two `launchd` plists, the state
+  `~/.atomic-skills/progress/panel.json` and `logs/`, then bootstraps both
+  labels; the plists keep the panel on `127.0.0.1` and carry only `PATH` (plus
+  `ATOMIC_SKILLS_HOME`) so no secret is copied. `panel uninstall` boots the
+  labels out, deletes only recorded files whose hash still matches, removes the
+  four panel output files and the empty directories it created, and keeps its
+  state on a failed bootout. `panel status [--json]` is read-only. A manifest or
+  plist that is not recorded by the state, a missing `--aideck` file, a missing
+  `node` or an invalid port is refused without changes; outside macOS the
+  commands exit 2 unless `PROGRESS_LAUNCHCTL` is set. `add` and `remove`
+  regenerate the manifest only while it still matches its recorded hash.
 - **Delegate says which machine runs each executor.** Every `run` and
   `pipeline` record gains `machine`: the `--host` name, or the short hostname
   of the local machine. A `--host` run is now listed while it works, in one file
@@ -51,6 +77,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recorded as `milestone` on the run, pipeline, retry and review records and
   kept through `review-pending`. Slots, remote active files and each entry of
   `status --json` carry both fields.
+
+### Fixed
+
+- **A fetch stop no longer over-signals or leaks a permission error.** The
+  collector skips the final `SIGKILL` when its wait already saw the process
+  group gone, and catches `OSError` around every `killpg`, so a stop cannot fail
+  with `PermissionError`. It also leaves `GIT_SSH` and a configured
+  `core.sshCommand` alone, like `GIT_SSH_COMMAND`, instead of overriding them
+  with `ssh -o BatchMode=yes`.
 
 ## [2.3.0] - 2026-11-23
 
