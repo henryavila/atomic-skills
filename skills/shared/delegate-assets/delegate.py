@@ -15,7 +15,7 @@ Subcommands:
   pause     pause all runner executions across the machine.
   resume    resume runner executions.
   kill      kill running executor process group for a given task id.
-  peak      say whether now is inside the DeepSeek peak window.
+  peak      say whether now is inside the OpenCode Go peak window.
   profiles  list configured profiles and whether each executor CLI is available.
   remote-clean  remove a remote task checkout, its kept copies and run files (with --host).
 
@@ -31,7 +31,9 @@ LOG = HOME / "delegate" / "runs.jsonl"
 RUNNING = HOME / "delegate" / "running"
 PAUSED = HOME / "delegate" / "PAUSED"
 
-# DeepSeek peak windows in UTC, Monday-Friday only.
+# OpenCode Go peak windows in UTC, Monday-Friday only, end minute excluded.
+# They are OpenCode Go's own schedule, not DeepSeek's: base price is the low one
+# and peak costs double.
 DEFAULT_PEAK_WINDOWS = "01:00-04:00,06:00-10:00"
 CODEX_MODEL = os.environ.get("DELEGATE_CODEX_MODEL") or "gpt-6.1-sol"
 # OpenCode runs one model. The variable can only pin it to the same value; any
@@ -173,9 +175,9 @@ def in_peak(t=None):
     hhmm = utc_t.strftime("%H:%M")
     for start, end in windows:
         if start <= end:
-            if start <= hhmm <= end:
+            if start <= hhmm < end:
                 return True
-        elif hhmm >= start or hhmm <= end:
+        elif hhmm >= start or hhmm < end:
             return True
     return False
 
@@ -1908,7 +1910,7 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
 
     peak = in_peak() and family == "deepseek"
     if peak:
-        print("delegate: DeepSeek peak window (UTC); DeepSeek costs double now — proceeding",
+        print("delegate: OpenCode Go peak window (UTC); DeepSeek on OpenCode Go costs double now — proceeding",
               file=sys.stderr)
     if executor == "codex":
         last_msg.unlink(missing_ok=True)
@@ -2506,7 +2508,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     argv = build_argv(executor, model, role, cwd, card_content, last_msg, policy)
     peak = in_peak() and family == "deepseek"
     if peak:
-        print("delegate: DeepSeek peak window (UTC); DeepSeek costs double now — proceeding",
+        print("delegate: OpenCode Go peak window (UTC); DeepSeek on OpenCode Go costs double now — proceeding",
               file=sys.stderr)
     if executor == "codex":
         last_msg.unlink(missing_ok=True)
