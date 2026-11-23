@@ -1,7 +1,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -297,6 +298,17 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
 
   function lastRecord() { return readLogRecords(atomicHome).at(-1); }
 
+  function pythonHarness(code, args = [], env = baseEnv) {
+    const prelude = `import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location('delegate', ${JSON.stringify(DELEGATE_PY)})
+d = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(d)
+`;
+    return spawnSync(PYTHON3, ['-B', '-c', prelude + code, ...args], {
+      env: { ...process.env, ...env }, encoding: 'utf8', timeout: 60000,
+    });
+  }
+
   it('records the repository as owner/name from https, ssh and scp-like origins', () => {
     const cases = [
       ['https://github.com/acme/widgets.git', 'acme/widgets'],
@@ -354,6 +366,74 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
     }
   });
 
+  it('reads no owner/name out of any file: origin and falls back to the repository folder', () => {
+    const urls = ['file:/srv/git/acme/widgets', 'file:/srv/git/acme/widgets.git', 'file:///srv/git/acme/widgets.git',
+      'file://localhost/srv/git/acme/widgets', 'file:acme/widgets', 'FILE:/srv/git/acme/widgets',
+      'File:///srv/git/acme/widgets'];
+    const parsed = pythonHarness(`print(json.dumps([d.repo_from_url(u) for u in json.loads(sys.argv[1])]))`,
+      [JSON.stringify(urls)]);
+    assert.equal(parsed.status, 0, parsed.stderr);
+    assert.deepEqual(JSON.parse(parsed.stdout), urls.map(() => null));
+    // Set in the config file: git does not need the URL to be reachable.
+    git(repoDir, 'config', 'remote.origin.url', 'file:/srv/git/acme/widgets');
+    const res = runDelegate(runArgs('FILE-URL'), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(lastRecord().repo, 'repo');
+    assert.doesNotMatch(readFileSync(join(atomicHome, 'delegate', 'runs.jsonl'), 'utf8'), /acme|srv\/git/);
+  });
+
+  it('finds the common directory and the same repository with a git that has no --path-format', () => {
+    // git before 2.31 does not know `rev-parse --path-format`: like every
+    // option it does not know, it prints it back and exits 0.
+    const realGit = execFileSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    const oldBin = join(root, 'old-git-bin');
+    mkdirSync(oldBin);
+    writeFileSync(join(oldBin, 'git'), `#!/bin/sh
+real=${JSON.stringify(realGit)}
+case " $* " in
+  *" rev-parse "*"--path-format="*)
+    for arg in "$@"; do
+      case "$arg" in
+        --path-format=*) printf '%s\\n' "$arg" ;;
+      esac
+    done
+    for arg in "$@"; do
+      shift
+      case "$arg" in
+        --path-format=*) ;;
+        *) set -- "$@" "$arg" ;;
+      esac
+    done
+    exec "$real" "$@" ;;
+esac
+exec "$real" "$@"
+`);
+    chmodSync(join(oldBin, 'git'), 0o755);
+    const env = { ...baseEnv, PATH: `${oldBin}:${baseEnv.PATH}` };
+    const linked = join(root, 'wt-old-git');
+    git(repoDir, 'worktree', 'add', '-q', '-b', 'old-git', linked);
+    mkdirSync(join(linked, 'sub'));
+
+    // The fake behaves like the old git it stands for.
+    const echoed = spawnSync('git', ['-C', linked, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { env: { ...process.env, ...env }, encoding: 'utf8' });
+    assert.equal(echoed.status, 0, echoed.stderr);
+    assert.equal(echoed.stdout.split('\n')[0], '--path-format=absolute');
+
+    const found = pythonHarness(
+      `print(json.dumps([[d.git_common_dir(c), d.repo_identity(c)] for c in sys.argv[1:]]))`,
+      [repoDir, linked, join(linked, 'sub')], env);
+    assert.equal(found.status, 0, found.stderr);
+    const common = join(repoDir, '.git');
+    assert.deepEqual(JSON.parse(found.stdout), [[common, 'repo'], [common, 'repo'], [common, 'repo']]);
+
+    for (const [id, cwd] of [['OLD-MAIN', repoDir], ['OLD-LINKED', linked]]) {
+      const res = runDelegate(runArgs(id, ['--cwd', cwd]), env);
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(lastRecord().repo, 'repo', id);
+    }
+  });
+
   it('records a null repository outside a git repository', () => {
     const plain = join(root, 'plain');
     mkdirSync(plain);
@@ -408,9 +488,12 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
       { ...baseEnv, FAKE_READY_FILE: ready, FAKE_WAIT_FILE: release, FAKE_WAIT_TIMEOUT: '120' });
     try {
       await waitFor(() => existsSync(ready), 20000, 'executor start');
+      // The runner publishes the slot after it starts the executor, so the
+      // ready file can be there first: wait for the slot itself.
       const slotDir = join(atomicHome, 'delegate', 'running');
-      const [slotName] = readdirSync(slotDir).filter(name => name.endsWith('.json'));
-      const slot = JSON.parse(readFileSync(join(slotDir, slotName), 'utf8'));
+      const slotNames = () => (existsSync(slotDir) ? readdirSync(slotDir).filter(name => name.endsWith('.json')) : []);
+      await waitFor(() => slotNames().length === 1, 20000, 'the slot file');
+      const slot = JSON.parse(readFileSync(join(slotDir, slotNames()[0]), 'utf8'));
       assert.equal(slot.repo, 'acme/widgets');
       assert.equal(slot.milestone, 'M3');
       const json = runDelegate(['status', '--json'], baseEnv);

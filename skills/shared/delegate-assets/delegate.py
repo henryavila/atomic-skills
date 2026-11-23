@@ -265,12 +265,15 @@ def repo_from_url(url):
     Reads `scheme://[user[:password]@]host[:port]/owner/name[.git]` and the
     scp-like `[user@]host:owner/name[.git]`. Only the last two path segments
     are returned, so the host and any credentials in the URL are never part of
-    the answer. A local path or a `file:` URL names no owner and gives None.
+    the answer. A local path or a `file:` URL in any form (`file:/path`,
+    `file:path`, `file://host/path`, any case) names no owner and gives None.
     """
     url = (url or "").strip()
+    if url[:5].lower() == "file:":
+        return None
     with_scheme = re.fullmatch(r"([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)([^?#]*).*", url, re.S)
     if with_scheme:
-        if with_scheme.group(1).lower() == "file" or not with_scheme.group(2):
+        if not with_scheme.group(2):
             return None
         path = with_scheme.group(3)
     else:
@@ -291,6 +294,21 @@ def repo_from_url(url):
     return f"{owner}/{name}"
 
 
+def common_dir_path(cwd):
+    """Absolute path of the common git directory of `cwd`; "" outside git.
+
+    Asks for the plain `--git-common-dir`, which git prints relative to `cwd`
+    or absolute, and resolves it here. `rev-parse --path-format=absolute` is
+    not used: a git older than 2.31 does not know that option and, as with any
+    option it does not know, prints it back and exits 0, so its answer would
+    be read as part of the path.
+    """
+    common = git(cwd, "rev-parse", "--git-common-dir")
+    if not common or "\n" in common:
+        return ""
+    return str((Path(cwd) / common).resolve())
+
+
 def repo_identity(cwd):
     """Stable name of the repository `cwd` belongs to; None outside git.
 
@@ -301,12 +319,9 @@ def repo_identity(cwd):
     """
     try:
         cwd = str(cwd)
-        common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        common = common_dir_path(cwd)
         if not common:
-            common = git(cwd, "rev-parse", "--git-common-dir")
-            if not common:
-                return None
-            common = str(Path(cwd) / common)
+            return None
         named = repo_from_url(git(cwd, "remote", "get-url", "origin"))
         if named:
             return named
@@ -398,14 +413,10 @@ def git_common_dir(cwd):
     is not this directory. The resolved path is validated before it is trusted
     or made writable.
     """
-    common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    if not common:
-        common = git(cwd, "rev-parse", "--git-common-dir")
-        if common:
-            common = str((Path(cwd) / common).resolve())
+    common = common_dir_path(cwd)
     if not common:
         return ""
-    resolved = Path(common).resolve()
+    resolved = Path(common)
     if not (resolved / "HEAD").is_file() or not (resolved / "objects").is_dir():
         usage_error(f"git common directory {str(resolved)!r} has no HEAD file and objects directory; "
                     "refusing to run against it")
