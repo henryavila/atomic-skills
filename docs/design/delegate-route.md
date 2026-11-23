@@ -44,8 +44,9 @@ Out of scope: an LLM or decision-model judge, memory in cards, a queue daemon.
 One function, `availability()`, used by everything below. It returns, per profile:
 
 - `cooling_until`: a UTC time, or none. A limit belongs to the pair (executor, model),
-  because Antigravity limits each model separately. It is set when the newest
-  `provider_limit` of that pair has no later run that reached the provider. The time is
+  except on Antigravity, where it belongs to the model's quota group (section 6). It is
+  set when the newest `provider_limit` of that key has no later run that reached the
+  provider. The time is
   the reset the provider printed: `try again at 5:51 PM` (Codex, local clock, next day
   when already past), `Resets in 107h24m20s` (Antigravity), `resets 5:10pm
   (America/Sao_Paulo)` (Claude Code). When no reset can be read, it is the limit time
@@ -179,3 +180,31 @@ All four touch `skills/shared/delegate-assets/delegate.py`, so they run one afte
 How to know it worked: after a week, pipelines ending without a review that the runner
 cannot finish (`no_reviewer`) drop from 22% to the cases that are real errors, and
 `review_pending` entries are closed by `review-pending` without a hand-written `run`.
+
+## 6. Antigravity quota groups
+
+Measured on 2026-11-23 with `agy -p /quota --output-format json` (agy 1.5.15). The command
+makes no model call and reports three independent groups:
+
+| Group (`pool`) | Models | Limits |
+|---|---|---|
+| `gemini` | Gemini 4 Hydrogen, Gemini 4 Neon, Gemini 3.8 Flash, Orchestrator (Neon) | weekly and 5-hour |
+| `claude-gpt` | Claude Opus 5.5, Claude Sonnet 5.5, GPT-OSS 120B | weekly and 5-hour |
+| `argon` | Gemini 4 Argon | weekly |
+
+- A limit on one model cools its whole group and no other. A model the runner cannot place
+  in a group keeps a limit of its own.
+- `availability()` asks `/quota` on each call. What it reports for a group replaces the log
+  for that group, in both directions. A disabled bucket is ignored, and a bucket at zero
+  whose reset is already past counts as refreshed. If the command fails or its output cannot
+  be read, the log decides, as before.
+- New profiles: `agy-argon`, `agy-argon-review`, `agy-sonnet-review` and `agy-opus-review`.
+  The Argon and Sonnet reviewers enter the fixed routes ahead of `agy-review`, whose group is
+  the one that runs out. Argon is the third executor of the closed-card routes and the second
+  of the open-design route.
+- Claude on Antigravity counts as family `anthropic`. It only reviews, because the
+  orchestrator is usually Claude and does not hand implementation to its own family. A
+  review needs the author family and is refused for code a Claude model wrote.
+- Opus is in no fixed route. It is named for a small item, and a prompt above 40 KB ends as
+  `review_over_model_cap` without launching. The pipeline then tries the next reviewer. That
+  refusal does not stop a review from ending `review_pending` when the others are out of quota.

@@ -67,11 +67,11 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
 
   it('with no log every profile is usable and the routes are the fixed ones', () => {
     const out = route();
-    assert.deepEqual(out.route, ['flash', 'codex']);
+    assert.deepEqual(out.route, ['flash', 'codex', 'agy-argon']);
     assert.deepEqual(out.review_routes, {
-      deepseek: ['codex-review', 'agy-review'],
-      openai: ['flash-review', 'agy-review'],
-      gemini: ['codex-review', 'flash-review'],
+      deepseek: ['codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review'],
+      openai: ['flash-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review'],
+      gemini: ['codex-review', 'flash-review', 'agy-sonnet-review'],
     });
     assert.deepEqual(out.warnings, []);
     for (const name of ['flash', 'flash-review', 'codex', 'codex-review', 'agy', 'agy-review']) {
@@ -82,9 +82,9 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
   });
 
   it('--open-design and the mechanical role use their own fixed routes', () => {
-    assert.deepEqual(route(['--open-design']).route, ['codex', 'agy']);
+    assert.deepEqual(route(['--open-design']).route, ['codex', 'agy-argon', 'agy']);
     const res = runDelegate(['route', '--role', 'mechanical', '--json'], baseEnv);
-    assert.deepEqual(JSON.parse(res.stdout).route, ['flash', 'codex']);
+    assert.deepEqual(JSON.parse(res.stdout).route, ['flash', 'codex', 'agy-argon']);
     const review = runDelegate(['route', '--role', 'review'], baseEnv);
     assert.notEqual(review.status, 0);
   });
@@ -96,9 +96,9 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
     assert.equal(out.profiles['codex-review'].cooling_until, '2026-11-20T17:51:00+00:00');
     assert.equal(out.profiles.codex.cooling_until, '2026-11-20T17:51:00+00:00');
     assert.equal(out.profiles.codex.reset_source, 'provider');
-    assert.deepEqual(out.route, ['flash', 'codex']);
-    assert.deepEqual(out.review_routes.deepseek, ['agy-review', 'codex-review']);
-    assert.deepEqual(out.review_routes.gemini, ['flash-review', 'codex-review']);
+    assert.deepEqual(out.route, ['flash', 'agy-argon', 'codex']);
+    assert.deepEqual(out.review_routes.deepseek, ['agy-sonnet-review', 'agy-argon-review', 'agy-review', 'codex-review']);
+    assert.deepEqual(out.review_routes.gemini, ['flash-review', 'agy-sonnet-review', 'codex-review']);
     assert.deepEqual(out.warnings, []);
   });
 
@@ -112,13 +112,14 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
     assert.equal(utc.profiles.codex.cooling_until, '2026-11-21T12:28:00+00:00');
   });
 
-  it('reads the Antigravity "Resets in" duration and keys the limit by model', () => {
+  it('reads the Antigravity "Resets in" duration and keys the limit by quota group', () => {
     writeLog([run('agy', AGY_REVIEW, '2026-11-20T14:00:00+00:00', 'provider_limit',
       'error: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 107h24m20s.\n')]);
     const out = route();
     assert.equal(out.profiles['agy-review'].cooling_until, '2026-11-25T01:24:20+00:00');
-    assert.equal(out.profiles.agy.cooling_until, null);
-    assert.deepEqual(out.review_routes.openai, ['flash-review', 'agy-review']);
+    assert.equal(out.profiles.agy.cooling_until, '2026-11-25T01:24:20+00:00');
+    assert.equal(out.profiles['agy-argon-review'].cooling_until, null);
+    assert.deepEqual(out.review_routes.openai, ['flash-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review']);
   });
 
   it('falls back to the default cooldown, which the environment can change', () => {
@@ -158,14 +159,16 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
     writeLog([
       run('codex', CODEX, '2026-11-20T14:00:00+00:00', 'provider_limit', 'try again at 5:51 PM.'),
       run('agy', AGY_REVIEW, '2026-11-20T14:10:00+00:00', 'provider_limit', 'Resets in 100h0m0s.'),
+      run('agy', 'claude-sonnet-5-5-medium', '2026-11-20T14:10:00+00:00', 'provider_limit', 'Resets in 100h0m0s.'),
+      run('agy', 'gemini-4-argon-high', '2026-11-20T14:10:00+00:00', 'provider_limit', 'Resets in 100h0m0s.'),
     ]);
     const out = route();
     assert.equal(out.warnings.length, 1);
     assert.match(out.warnings[0], /^flash: no reviewer usable now; first back: codex-review at 2026-11-20T17:51:00\+00:00/);
     const text = runDelegate(['route', '--role', 'implement'], baseEnv);
     assert.equal(text.status, 0, text.stderr);
-    assert.match(text.stdout, /^route: flash,codex$/m);
-    assert.match(text.stdout, /^review route after flash \(deepseek\): codex-review,agy-review$/m);
+    assert.match(text.stdout, /^route: flash,codex,agy-argon$/m);
+    assert.match(text.stdout, /^review route after flash \(deepseek\): codex-review,agy-sonnet-review,agy-argon-review,agy-review$/m);
     assert.match(text.stdout, /^cooling: codex, codex-review until 2026-11-20T17:51:00\+00:00 \(provider\)$/m);
     assert.match(text.stdout, /^warning: flash: no reviewer usable now/m);
   });
@@ -174,8 +177,8 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
     const fakes = makeFakeBin(join(root, 'partial'), ['opencode', 'agy']);
     const out = route([], { PATH: `${fakes.binDir}:/usr/bin:/bin` });
     assert.equal(out.profiles.codex.found, false);
-    assert.deepEqual(out.review_routes.deepseek, ['agy-review', 'codex-review']);
-    assert.deepEqual(out.route, ['flash', 'codex']);
+    assert.deepEqual(out.review_routes.deepseek, ['agy-sonnet-review', 'agy-argon-review', 'agy-review', 'codex-review']);
+    assert.deepEqual(out.route, ['flash', 'agy-argon', 'codex']);
   });
 
   it('ignores broken log lines and unknown models', () => {

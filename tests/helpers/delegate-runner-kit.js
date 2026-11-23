@@ -36,6 +36,14 @@ if sys.argv[-2:] == ["auth", "status"]:
                          '{"loggedIn": true, "authMethod": "claude.ai", "subscriptionType": "max"}'))
     sys.exit(0)
 
+if sys.argv[1:3] == ["-p", "/quota"]:
+    # The runner reads Antigravity's quota groups; this is not a model run.
+    quota = os.environ.get("FAKE_AGY_QUOTA")
+    if quota is None:
+        sys.exit(1)
+    print(quota)
+    sys.exit(int(os.environ.get("FAKE_AGY_QUOTA_EXIT", "0")))
+
 seq_dir = os.environ.get("FAKE_SEQ_DIR")
 if seq_dir:
     cnt_p = pathlib.Path(seq_dir) / "count"
@@ -112,6 +120,14 @@ for round_no in range(int(os.environ.get("FAKE_COMMIT_ROUNDS", "0"))):
     pathlib.Path("round.txt").write_text(f"round {round_no}\\n")
     subprocess.run(["git", "add", "round.txt"], check=True)
     subprocess.run(["git", "commit", "-q", "-m", f"round {round_no}"], check=True)
+
+log_ticks = os.environ.get("FAKE_LOG_TICKS")
+if log_ticks and "--log-file" in sys.argv:
+    log_path = sys.argv[sys.argv.index("--log-file") + 1]
+    for _ in range(int(log_ticks)):
+        with open(log_path, "a") as log_file:
+            log_file.write("tick\\n")
+        time.sleep(1)
 
 sleep_s = float(os.environ.get("FAKE_SLEEP", "0"))
 if sleep_s > 0:

@@ -291,7 +291,7 @@ spec.loader.exec_module(d)
     }
   });
 
-  it('profiles lists exactly the seven supported profiles in order and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
+  it('profiles lists exactly the eleven supported profiles in order and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
     const partialDir = join(root, 'partial');
     const { binDir: partialBin } = makeFakeBin(partialDir, ['opencode', 'agy']);
     const res = runDelegate(['profiles'], {
@@ -303,7 +303,7 @@ spec.loader.exec_module(d)
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 20);
+    assert.equal(lines.length, 30);
     assert.deepEqual(lines.filter((line) => !line.startsWith('  ')), [
       'flash | opencode | opencode-go/deepseek-v4.1-flash | deepseek | found',
       'flash-review | opencode | opencode-go/deepseek-v4.1-flash | deepseek | found',
@@ -311,9 +311,13 @@ spec.loader.exec_module(d)
       'codex-review | codex | gpt-6.1-sol | openai | missing',
       'agy | agy | gemini-4-hydrogen-high | gemini | found',
       'agy-review | agy | gemini-4-hydrogen-xhigh | gemini | found',
+      'agy-argon | agy | gemini-4-argon-high | gemini | found',
+      'agy-argon-review | agy | gemini-4-argon-high | gemini | found',
+      'agy-sonnet-review | agy | claude-sonnet-5-5-medium | anthropic | found',
+      'agy-opus-review | agy | claude-opus-5-5-medium | anthropic | found',
       'claude-review | claude | claude-sonnet-5-5 | anthropic | missing',
     ]);
-    assert.equal(lines.filter((line) => line.startsWith('  ')).length, 13);
+    assert.equal(lines.filter((line) => line.startsWith('  ')).length, 19);
     assert.match(res.stdout, /network=yes \| git_write=yes/);
     assert.match(res.stdout, /network=yes \| git_write=no/);
     assert.match(res.stdout, /limits=/);
@@ -328,7 +332,7 @@ spec.loader.exec_module(d)
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 20);
+    assert.equal(lines.length, 30);
     assert.ok(
       lines.includes('flash | opencode | opencode-go/deepseek-v4.1-flash | deepseek | refused'),
       res.stdout,
@@ -358,7 +362,7 @@ spec.loader.exec_module(d)
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 20);
+    assert.equal(lines.length, 30);
     assert.ok(lines.includes('codex | codex | gpt-6.1-sol | openai | found'));
     assert.ok(lines.includes('codex-review | codex | gpt-6.1-sol | openai | found'));
   });
