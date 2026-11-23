@@ -45,6 +45,7 @@ The map lives at `.atomic-skills/marcos.json` in the project's repository. The c
       "id": "fundacao",
       "title": "Fundação",
       "cards": [
+        {"id": "F-00", "size": "P", "done": "merged in 1a2b3c4"},
         {"id": "F-01", "size": "M", "deps": ["F-00"]},
         {"id": "F-02", "size": "G", "match": "feature two", "weight": 5},
         {"id": "F-03", "weight": 3, "done": "squashed in 4f2a1c9"},
