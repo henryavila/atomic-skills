@@ -803,5 +803,52 @@
       "/atomic-skills:parallel-dispatch",
       "/atomic-skills:prompt"
     ]
+  },
+  {
+    "id": "/atomic-skills:quality-gate",
+    "icon": "🚧",
+    "oneLiner": "One gate, debt that only goes down, strong confirmed from outside",
+    "facets": [
+      "quality",
+      "enforcement",
+      "ci",
+      "core"
+    ],
+    "summary": "Give a repository a quality regime that agents cannot talk their way around: every rule declared, enforced by one gate, followed with zero debt, and confirmed by auditors with no context of the work.",
+    "pros": [
+      "You want to know which quality rules are enforced and which are only configured",
+      "A repository needs a gate that agents and CI both obey, on any stack",
+      "Legacy debt must stop growing today and be paid over time",
+      "The debt reached zero and you want it confirmed from outside"
+    ],
+    "cons": [
+      "Reviewing one change (use review-code)",
+      "Fixing one bug (use fix)",
+      "Paying the debt itself (use delegate or parallel-dispatch; this skill only measures and blocks)"
+    ],
+    "examples": [
+      "/atomic-skills:quality-gate audit",
+      "/atomic-skills:quality-gate install",
+      "/atomic-skills:quality-gate reaudit"
+    ],
+    "fields": [
+      {
+        "name": "mode",
+        "kind": "positional",
+        "required": false,
+        "description": "audit (read-only matrix), install (set the regime up) or reaudit (blind confirmation). If omitted: audit when the repository has no qa/stacks.tsv, otherwise the skill asks."
+      }
+    ],
+    "deps": [
+      "git",
+      "python3"
+    ],
+    "refs": [
+      "/atomic-skills:audit-delivery",
+      "/atomic-skills:review-code",
+      "/atomic-skills:delegate",
+      "/atomic-skills:parallel-dispatch",
+      "/atomic-skills:fix"
+    ]
   }
 ]
