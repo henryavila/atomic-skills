@@ -191,11 +191,17 @@ def git(cwd, *args, timeout=30):
 
 
 def repo_from_url(url):
-    """`owner/name` of a remote URL, or None (same rules as delegate.py)."""
+    """`owner/name` of a remote URL, or None (same rules as delegate.py).
+
+    A local path or a `file:` URL in any form (`file:/path`, `file:path`,
+    `file://host/path`, any case) names no owner and gives None.
+    """
     url = (url or "").strip()
+    if url[:5].lower() == "file:":
+        return None
     with_scheme = re.fullmatch(r"([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)([^?#]*).*", url, re.S)
     if with_scheme:
-        if with_scheme.group(1).lower() == "file" or not with_scheme.group(2):
+        if not with_scheme.group(2):
             return None
         path = with_scheme.group(3)
     else:
@@ -215,16 +221,28 @@ def repo_from_url(url):
     return "%s/%s" % (owner, name)
 
 
+def common_dir_path(cwd):
+    """Absolute path of the common git directory of `cwd`; "" outside git.
+
+    Asks for the plain `--git-common-dir`, which git prints relative to `cwd`
+    or absolute, and resolves it here. It never asks git for an absolute path:
+    a git older than 2.31 does not know that option and, as with any option it
+    does not know, prints it back and exits 0, so its answer would be read as
+    part of the path.
+    """
+    common = git(cwd, "rev-parse", "--git-common-dir")
+    if not common or "\n" in common:
+        return ""
+    return str((Path(cwd) / common).resolve())
+
+
 def repo_identity(cwd):
     """Stable name of the repository `cwd` belongs to; None outside git."""
     try:
         cwd = str(cwd)
-        common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        common = common_dir_path(cwd)
         if not common:
-            common = git(cwd, "rev-parse", "--git-common-dir")
-            if not common:
-                return None
-            common = str(Path(cwd) / common)
+            return None
         named = repo_from_url(git(cwd, "remote", "get-url", "origin"))
         if named:
             return named
