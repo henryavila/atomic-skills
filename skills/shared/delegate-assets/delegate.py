@@ -243,10 +243,95 @@ def local_machine():
     return socket.gethostname().split(".")[0]
 
 
+# What the command in this process works for: the repository of its --cwd and
+# the --milestone it was given. Set once by `run`, `pipeline` and
+# `review-pending`, before anything is launched or logged.
+ATTRIBUTION = {"repo": None, "milestone": None}
+
+MILESTONE_RE = re.compile(r"[A-Za-z0-9._-]{1,64}")
+REPO_PART_RE = re.compile(r"[A-Za-z0-9._-]+")
+
+
+def milestone_arg(text):
+    if not MILESTONE_RE.fullmatch(text):
+        raise argparse.ArgumentTypeError(
+            "invalid milestone id: use 1 to 64 letters, digits, dots, underscores or hyphens")
+    return text
+
+
+def repo_from_url(url):
+    """`owner/name` of a remote URL, or None when it has no such shape.
+
+    Reads `scheme://[user[:password]@]host[:port]/owner/name[.git]` and the
+    scp-like `[user@]host:owner/name[.git]`. Only the last two path segments
+    are returned, so the host and any credentials in the URL are never part of
+    the answer. A local path or a `file:` URL names no owner and gives None.
+    """
+    url = (url or "").strip()
+    with_scheme = re.fullmatch(r"([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)([^?#]*).*", url, re.S)
+    if with_scheme:
+        if with_scheme.group(1).lower() == "file" or not with_scheme.group(2):
+            return None
+        path = with_scheme.group(3)
+    else:
+        # scp-like: a host before the first colon, and no slash before it.
+        scp = re.fullmatch(r"(?:[^@/:]+@)?([^@/:]+):(.+)", url, re.S)
+        if not scp or len(scp.group(1)) < 2:  # one letter is a Windows drive
+            return None
+        path = scp.group(2)
+    parts = [part for part in path.split("/") if part]
+    if len(parts) < 2:
+        return None
+    owner, name = parts[-2], parts[-1]
+    if name.endswith(".git"):
+        name = name[:-4]
+    for part in (owner, name):
+        if not REPO_PART_RE.fullmatch(part) or part in (".", ".."):
+            return None
+    return f"{owner}/{name}"
+
+
+def repo_identity(cwd):
+    """Stable name of the repository `cwd` belongs to; None outside git.
+
+    The same from the main checkout and from every linked worktree: `owner/name`
+    of the origin remote, else the name of the directory that holds the main
+    repository (found through the git common directory, never the worktree's
+    own folder). It never raises: a run must not fail because of it.
+    """
+    try:
+        cwd = str(cwd)
+        common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        if not common:
+            common = git(cwd, "rev-parse", "--git-common-dir")
+            if not common:
+                return None
+            common = str(Path(cwd) / common)
+        named = repo_from_url(git(cwd, "remote", "get-url", "origin"))
+        if named:
+            return named
+        common_path = Path(common).resolve()
+        if common_path.name == ".git":
+            name = common_path.parent.name
+        else:  # a bare repository, or the git directory of a submodule
+            name = common_path.name[:-4] if common_path.name.endswith(".git") else common_path.name
+        return name or None
+    except Exception:
+        return None
+
+
+def set_attribution(cwd, milestone):
+    ATTRIBUTION.update(repo=repo_identity(cwd), milestone=milestone)
+
+
 def append(rec):
-    # Every run says where its executor ran: the --host name, or this machine.
-    if rec.get("kind") in ("run", "pipeline") and not rec.get("machine"):
-        rec["machine"] = rec.get("host") or local_machine()
+    if rec.get("kind") in ("run", "pipeline"):
+        # Every run says where its executor ran: the --host name, or this machine.
+        if not rec.get("machine"):
+            rec["machine"] = rec.get("host") or local_machine()
+        # And what it worked for; a record that names its own keeps them.
+        for key, value in ATTRIBUTION.items():
+            rec.setdefault(key, value)
     LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG, "a") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -988,6 +1073,8 @@ def record_lost_runner(path, slot, remote=False):
         rec["active_token"] = token
     if machine:
         rec["machine"] = machine
+    # The lost run's own, never those of the command that found it.
+    rec.update(repo=slot.get("repo"), milestone=slot.get("milestone"))
     append({key: value for key, value in rec.items() if key != "host" or value})
 
 
@@ -1094,7 +1181,8 @@ def new_remote_active(executor, task_id, project, profile, role, host, limit_s):
     started = now()
     data = {
         "id": task_id, "project": project, "profile": profile, "role": role,
-        "machine": host, "started": started.isoformat(timespec="microseconds"),
+        "machine": host, **ATTRIBUTION,
+        "started": started.isoformat(timespec="microseconds"),
         "runner_pid": os.getpid(), "runner_start": process_identity(os.getpid()),
         "token": token,
         "expires": (started + dt.timedelta(seconds=limit_s)).isoformat(timespec="seconds"),
@@ -3257,6 +3345,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                             "profile": profile,
                             "role": role,
                             "machine": local_machine(),
+                            **ATTRIBUTION,
                             "pid": p.pid,
                             "pgid": p.pid,
                             "started": started,
@@ -3421,6 +3510,7 @@ def cmd_run(a):
     if (a.profile == CLAUDE_REVIEW and a.role == "review" and a.allow_claude_review and not a.host
             and a.author_family not in (None, "anthropic")):
         check_claude_login()
+    set_attribution(a.cwd, a.milestone)
     rec = execute_run(
         task_id=a.id, task=a.task, role=a.role, profile=a.profile,
         executor=a.executor, model=a.model, cwd=a.cwd, card=a.card,
@@ -3482,6 +3572,7 @@ def cmd_pipeline(a):
     t0_pipeline = time.monotonic()
     task_id, task, role = a.id, a.task, a.role
     cwd = str(Path(a.cwd).resolve())
+    set_attribution(cwd, a.milestone)
     top = git(cwd, "rev-parse", "--show-toplevel") or cwd
     project = a.project or Path(top).name
     out = Path(a.out or HOME / "delegate" / "out" / project).resolve()
@@ -3679,6 +3770,7 @@ def cmd_pipeline(a):
                     pending_file.parent.mkdir(parents=True, exist_ok=True)
                     pending_file.write_text(json.dumps({
                         "id": task_id, "task": task, "project": project, "cwd": cwd,
+                        "milestone": a.milestone,
                         "base": base_commit, "head": gated_snapshot[0],
                         "executor_profile": executor_profile, "executor_family": executor_family,
                         "review_route": given[len(given) - len(review_route):],
@@ -3825,6 +3917,8 @@ def cmd_review_pending(a):
     p = json.loads(pending_file.read_text())
     task_id, task, project, cwd = p["id"], p["task"], p["project"], p["cwd"]
     base, head, executor_family = p["base"], p["head"], p["executor_family"]
+    # The review belongs to the milestone the pipeline was started for.
+    set_attribution(cwd, p.get("milestone"))
     snapshot = tree_snapshot(cwd)
     if snapshot[0] != head or snapshot[1]:
         usage_error(f"the worktree changed since the gate of {task_id} ({cwd}: HEAD "
@@ -3957,7 +4051,8 @@ def active_runs():
                 "id": slot.get("id", ""), "project": slot.get("project", ""),
                 "profile": slot.get("profile", ""), "role": slot.get("role", ""),
                 # A slot from a runner that wrote no machine is a local one.
-                "machine": slot.get("machine") or local_machine(), "remote": remote,
+                "machine": slot.get("machine") or local_machine(),
+                "repo": slot.get("repo"), "milestone": slot.get("milestone"), "remote": remote,
                 "started": started, "age_s": seconds_since(started) or 0,
                 # Progress is watched on this machine only.
                 "idle_s": None if remote else seconds_since(slot.get("last_progress") or started),
@@ -4297,6 +4392,8 @@ def main():
     r.add_argument("--access", choices=["policy", "strict"], default="policy",
                    help="policy (default) or strict (no network, nothing outside the worktree)")
     r.add_argument("--host", help="run the executor on this remote-runner host")
+    r.add_argument("--milestone", type=milestone_arg,
+                   help="id of the project milestone this run works for, recorded as `milestone`")
     r.add_argument("--allow-claude-review", action="store_true",
                    help="the operator said yes to a Claude review for this task (the fallback reviewer)")
     r.add_argument("--author-family", choices=["deepseek", "openai", "gemini", "anthropic"],
@@ -4331,6 +4428,9 @@ def main():
     pipe.add_argument("--access", choices=["policy", "strict"], default="policy",
                       help="policy (default) or strict (no network, nothing outside the worktree)")
     pipe.add_argument("--host", help="run every executor and reviewer on this remote-runner host")
+    pipe.add_argument("--milestone", type=milestone_arg,
+                      help="id of the project milestone this pipeline works for, recorded as "
+                           "`milestone` on its record and on every run it launches")
     pipe.add_argument("--allow-claude-review", action="store_true",
                       help="the operator said yes to a Claude review for this task (the fallback reviewer)")
     pipe.set_defaults(f=cmd_pipeline)

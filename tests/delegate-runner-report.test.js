@@ -614,11 +614,12 @@ spec.loader.exec_module(d)
       }));
       writeFileSync(join(delegateDir, 'running', `codex-T-NEW-${bg.pid}.json`), JSON.stringify({
         id: 'T-NEW', project: 'test-proj', profile: 'codex', role: 'implement', machine: 'this-mac',
-        pid: bg.pid, pgid: bg.pid, process_start: identity, started: '2026-11-18T10:01:00+00:00',
+        repo: 'acme/widgets', milestone: 'M2', pid: bg.pid, pgid: bg.pid, process_start: identity, started: '2026-11-18T10:01:00+00:00',
         last_progress: '2026-11-18T10:04:00+00:00',
       }));
       writeFileSync(join(delegateDir, 'running-remote', `opencode-T-FAR-${bg.pid}.json`), JSON.stringify({
         id: 'T-FAR', project: 'far-proj', profile: 'flash', role: 'review', machine: 'ultron',
+        repo: 'far-repo', milestone: null,
         started: '2026-11-18T10:02:00+00:00', runner_pid: bg.pid, runner_start: identity,
       }));
       const env = { ...baseEnv, DELEGATE_NOW: '2026-11-18T10:05:00Z', DELEGATE_MAX_OPENCODE: '1' };
@@ -637,12 +638,13 @@ spec.loader.exec_module(d)
       assert.deepEqual(JSON.parse(json.stdout), {
         paused: false,
         active: [
+          // A slot from a runner that knew neither field has both as null.
           { id: 'T-OLD', project: 'test-proj', profile: 'flash', role: 'implement', machine,
-            remote: false, started: '2026-11-18T10:00:00+00:00', age_s: 300, idle_s: 300, runner_gone: false },
+            repo: null, milestone: null, remote: false, started: '2026-11-18T10:00:00+00:00', age_s: 300, idle_s: 300, runner_gone: false },
           { id: 'T-NEW', project: 'test-proj', profile: 'codex', role: 'implement', machine: 'this-mac',
-            remote: false, started: '2026-11-18T10:01:00+00:00', age_s: 240, idle_s: 60, runner_gone: false },
+            repo: 'acme/widgets', milestone: 'M2', remote: false, started: '2026-11-18T10:01:00+00:00', age_s: 240, idle_s: 60, runner_gone: false },
           { id: 'T-FAR', project: 'far-proj', profile: 'flash', role: 'review', machine: 'ultron',
-            remote: true, started: '2026-11-18T10:02:00+00:00', age_s: 180, idle_s: null, runner_gone: false },
+            repo: 'far-repo', milestone: null, remote: true, started: '2026-11-18T10:02:00+00:00', age_s: 180, idle_s: null, runner_gone: false },
         ],
       });
 
@@ -672,6 +674,7 @@ spec.loader.exec_module(d)
     const gone = spawnSync('true');
     writeFileSync(join(delegateDir, 'running-remote', `opencode-T-DEAD-${gone.pid}.json`), JSON.stringify({
       id: 'T-DEAD', project: 'far-proj', profile: 'flash', role: 'implement', machine: 'ultron',
+      repo: 'far-owner/far-repo', milestone: 'M9',
       started: '2026-11-18T10:02:00+00:00', runner_pid: gone.pid, runner_start: 'darwin:1:1',
     }));
     writeFileSync(join(delegateDir, 'running-remote', 'opencode-T-BROKEN-1.json'), '{not json');
@@ -685,6 +688,9 @@ spec.loader.exec_module(d)
     assert.equal(records[0].id, 'T-DEAD');
     assert.equal(records[0].failure, 'runner_lost');
     assert.equal(records[0].machine, 'ultron');
+    // The lost run keeps its own repository and milestone, not those of the reader.
+    assert.equal(records[0].repo, 'far-owner/far-repo');
+    assert.equal(records[0].milestone, 'M9');
     assert.equal(records[0].model, 'opencode-go/deepseek-v4.1-flash');
   });
 

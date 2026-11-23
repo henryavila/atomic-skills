@@ -437,6 +437,51 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.deepEqual(remoteActiveLeftovers(), []);
   });
 
+  it('a remote run records its repository and milestone, and its active file carries them', async () => {
+    git(repoDir, 'remote', 'add', 'origin', 'ssh://git@github.com/acme/widgets.git');
+    const ready = join(root, 'ready');
+    const release = join(root, 'release');
+    const run = runDelegateAsync(runArgs(['--milestone', 'M6']), remoteEnv({
+      FAKE_READY_FILE: ready, FAKE_WAIT_FILE: release, FAKE_WAIT_TIMEOUT: '120',
+    }));
+    try {
+      await waitFor(() => existsSync(ready), 60000, 'remote executor start');
+      const files = remoteActive();
+      assert.equal(files.length, 1, files.join(','));
+      const active = JSON.parse(readFileSync(files[0], 'utf8'));
+      assert.equal(active.repo, 'acme/widgets');
+      assert.equal(active.milestone, 'M6');
+      const status = runDelegate(['status', '--json'], remoteEnv());
+      assert.equal(status.status, 0, status.stderr);
+      const [listed] = JSON.parse(status.stdout).active;
+      assert.equal(listed.remote, true);
+      assert.equal(listed.repo, 'acme/widgets');
+      assert.equal(listed.milestone, 'M6');
+      writeFileSync(release, 'go');
+      const res = await run.done;
+      assert.equal(res.status, 0, res.stderr);
+      const rec = readLogRecords(atomicHome).at(-1);
+      assert.equal(rec.host, 'devbox');
+      assert.equal(rec.repo, 'acme/widgets');
+      assert.equal(rec.milestone, 'M6');
+      assert.equal(JSON.parse(res.stdout).milestone, 'M6');
+      // The wire protocol is the one it was: nothing new reaches remote-runner.
+      assert.doesNotMatch(remoteArgvText(), /M6|acme/);
+    } finally {
+      endRemoteRun(run, release);
+    }
+  });
+
+  it('a remote run refused before it is sent still records its repository and milestone', () => {
+    writeFileSync(join(repoDir, 'dirty.txt'), 'x\n');
+    const res = runDelegate(runArgs(['--milestone', 'M6']), remoteEnv());
+    assert.equal(res.status, 1, res.stderr);
+    const rec = readLogRecords(atomicHome).at(-1);
+    assert.equal(rec.failure, 'dirty_worktree');
+    assert.equal(rec.repo, 'repo');
+    assert.equal(rec.milestone, 'M6');
+  });
+
   it('records the host as the machine of every record of a remote pipeline', () => {
     // The fake executor changes nothing, so the pipeline ends at no_changes.
     runDelegate(pipelineArgs(), remoteEnv());
@@ -482,7 +527,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
       assert.deepEqual(
         { ...listed[0], age_s: typeof listed[0].age_s },
         { id: 'RMT', project: 'repo', profile: 'flash', role: 'implement', machine: 'devbox',
-          remote: true, started: active.started, age_s: 'number', idle_s: null, runner_gone: false });
+          repo: 'repo', milestone: null, remote: true, started: active.started, age_s: 'number', idle_s: null, runner_gone: false });
 
       // The only OpenCode slot of this machine is still free.
       const otherRepo = join(root, 'other');
