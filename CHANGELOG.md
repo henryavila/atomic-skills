@@ -112,6 +112,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`watch` never loses a change made during a collection.** It takes its
+  signature before collecting, so a registry, telemetry-log, running-directory
+  or ref change made while a collection runs triggers one more collection
+  instead of waiting for the 60-second pass. The registry file is part of the
+  signature, so even an edit that only touches an invalid entry is noticed, and
+  a signature that cannot be computed keeps the previous one without stopping
+  the loop. A failed panel rollback prints both the original install error and
+  the bootout error, and also names each label that was loaded before the run
+  and is now down with the command to load it.
 - **A fetch stop no longer over-signals or leaks a permission error.** The
   collector skips the final `SIGKILL` when its wait already saw the process
   group gone, and catches `OSError` around every `killpg`, so a stop cannot fail
