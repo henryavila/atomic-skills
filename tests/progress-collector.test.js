@@ -816,6 +816,29 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
     assert.equal(partial.resumo, 'sem peso · 1 de 2 prontos');
   });
 
+  it('gives an empty milestone zero percent and sem cartões', () => {
+    writeMap(project, baseMap({
+      id: 'empty-mile',
+      title: 'Empty milestone',
+      milestones: [
+        { id: 'empty', title: 'Vazio', cards: [] },
+        { id: 'weighted', title: 'Com peso', cards: [validCard('P-1')] },
+      ],
+    }));
+    register(project);
+    const [, marcos] = collect();
+    const empty = marcos.find((row) => row.marco === 'empty');
+    assert.ok(empty, JSON.stringify(marcos));
+    assert.equal(empty.total, 0);
+    assert.equal(empty.feito, 0);
+    assert.equal(empty.pct, 0);
+    assert.equal(empty.resumo, 'sem cartões');
+    assert.equal(empty.legenda, '0 de 0 prontos');
+    assert.equal(empty.prontos, 0);
+    assert.equal(empty.bloqueados, 0);
+    assert.equal(empty.rodando, 0);
+  });
+
   it('lists active local and remote runs with the panel fields', () => {
     writeMap(project, baseMap({ note: 'a legenda' }));
     git(project, 'remote', 'add', 'origin', 'git@github.com:acme/app.git');

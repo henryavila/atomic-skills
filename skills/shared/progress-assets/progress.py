@@ -686,8 +686,12 @@ def milestone_rows(view, states):
                 rodando += 1
         if total == 0:
             cards = len(milestone["cards"])
-            percentage = 100 if prontos == cards else 0
-            resumo = "sem peso · %d de %d prontos" % (prontos, cards)
+            if cards == 0:
+                percentage = 0
+                resumo = "sem cartões"
+            else:
+                percentage = 100 if prontos == cards else 0
+                resumo = "sem peso · %d de %d prontos" % (prontos, cards)
         else:
             percentage = pct(done, total)
             resumo = summary(done, total, view.unit, percentage)
@@ -1779,7 +1783,12 @@ def validate_panel_state(state):
 
 
 def panel_symlink_refusal():
-    candidates = [panel_home(), panel_data_dir()]
+    candidates = [
+        panel_home(),
+        panel_data_dir(),
+        panel_progress_dir(),
+        panel_logs_dir(),
+    ]
     candidates.extend(
         panel_data_dir() / ("%s.json" % name) for name in PANEL_OUTPUT_NAMES
     )
@@ -1989,6 +1998,8 @@ def refresh_manifest():
     """Regenerate the panel manifest after `add`/`remove`, when still ours."""
     try:
         state = load_panel_state()
+        if state is not None:
+            validate_panel_state(state)
     except PanelError as exc:
         print("progress: %s" % exc, file=sys.stderr)
         return
@@ -2118,6 +2129,22 @@ def cmd_panel_install(args):
             print("progress panel: %s" % exc, file=sys.stderr)
             return 1
 
+    prior_files = {}
+    prior_state = None
+    try:
+        for path in desired:
+            if Path(path).is_file():
+                prior_files[path] = Path(path).read_bytes()
+        if panel_state_path().is_file():
+            prior_state = panel_state_path().read_bytes()
+    except OSError as exc:
+        print(
+            "progress panel: cannot read the previous panel files; "
+            "nothing was stopped: %s" % exc,
+            file=sys.stderr,
+        )
+        return 1
+
     down_old = []
     try:
         if state is not None:
@@ -2136,14 +2163,6 @@ def cmd_panel_install(args):
                 file=sys.stderr,
             )
         return 1
-
-    prior_files = {}
-    for path in desired:
-        if Path(path).is_file():
-            prior_files[path] = Path(path).read_bytes()
-    prior_state = None
-    if panel_state_path().is_file():
-        prior_state = panel_state_path().read_bytes()
 
     created_dirs = []
     bootstrapped = []
@@ -2175,11 +2194,57 @@ def cmd_panel_install(args):
             panel_bootstrap(plist)
             bootstrapped.append(label)
     except Exception as exc:
+        rolled_back = set()
+        rollback_error = None
         for label in reversed(bootstrapped):
             try:
                 panel_bootout(label)
-            except PanelError:
-                pass
+            except PanelError as bootout_exc:
+                rollback_error = bootout_exc
+                break
+            rolled_back.add(label)
+        if rollback_error is not None:
+            previous_dirs = []
+            if state is not None and isinstance(state.get("createdDirs"), list):
+                previous_dirs = [str(item) for item in state["createdDirs"]]
+            try:
+                files_now = {}
+                for path in desired:
+                    item = Path(path)
+                    if item.is_file() and not item.is_symlink():
+                        files_now[path] = sha256_file(item)
+                save_panel_state({
+                    "schemaVersion": PANEL_SCHEMA_VERSION,
+                    "port": port,
+                    "aideck": str(aideck),
+                    "files": files_now,
+                    "createdDirs": sorted(set(previous_dirs + created_dirs)),
+                })
+            except (OSError, PanelError, ValueError) as state_exc:
+                print(
+                    "progress panel: cannot write the panel state: %s"
+                    % state_exc,
+                    file=sys.stderr,
+                )
+            print(
+                "progress panel: install failed: %s" % rollback_error,
+                file=sys.stderr,
+            )
+            for label in bootstrapped:
+                if label in rolled_back:
+                    continue
+                print(
+                    "progress panel: %s is still loaded; run "
+                    "launchctl bootout gui/%d/%s"
+                    % (label, os.getuid(), label),
+                    file=sys.stderr,
+                )
+            print(
+                "progress panel: the panel files were kept; "
+                "run `panel uninstall` afterwards",
+                file=sys.stderr,
+            )
+            return 1
         for path, data in prior_files.items():
             try:
                 write_atomic(path, data)

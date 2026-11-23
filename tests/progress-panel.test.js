@@ -2,12 +2,14 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync, execFileSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -179,6 +181,9 @@ case "$1" in
     ;;
   print)
     label=\${2##*/}
+    if [ -n "$FAKE_LAUNCHCTL_CHMOD_ON_PRINT" ]; then
+      chmod 000 "$FAKE_LAUNCHCTL_CHMOD_ON_PRINT"
+    fi
     if [ -n "$FAKE_LAUNCHCTL_FAIL_PRINT" ] && [ "$FAKE_LAUNCHCTL_FAIL_PRINT" = "$label" ]; then
       echo "print failed $label" >&2
       exit 1
@@ -763,6 +768,198 @@ assert str(real) not in parts, module.panel_path()
     assert.ok(existsSync(join(launchctlState, panelLabel)));
   });
 
+  it('stops a failed rollback on a first install and lets uninstall finish later', () => {
+    mkdirSync(join(home, '.aideck/consumers'), { recursive: true });
+    mkdirSync(join(home, 'Library/LaunchAgents'), { recursive: true });
+    const before = snapshotTree(home);
+    const res = install([], {
+      env: {
+        FAKE_LAUNCHCTL_FAIL_BOOTSTRAP: panelLabel,
+        FAKE_LAUNCHCTL_FAIL_BOOTOUT: watchLabel,
+      },
+    });
+    assert.equal(res.status, 1, `${res.stdout}\n${res.stderr}`);
+    assert.match(res.stderr, /install failed/);
+    assert.match(
+      res.stderr,
+      new RegExp(`launchctl bootout gui/\\d+/${watchLabel}`),
+    );
+    assert.match(res.stderr, /panel uninstall/);
+    assert.doesNotMatch(res.stderr, /Traceback/);
+
+    for (const path of [manifestPath(), watchPlist(), panelPlist()]) {
+      assert.ok(existsSync(path), `${path} should be kept for uninstall`);
+    }
+    const state = JSON.parse(readFileSync(statePath(), 'utf8'));
+    assert.equal(state.port, 7777);
+    for (const [path, digest] of Object.entries(state.files)) {
+      assert.equal(sha256(readFileSync(path)), digest, path);
+    }
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(!existsSync(join(launchctlState, panelLabel)));
+
+    const calls = launchLines();
+    assert.equal(
+      calls.filter((line) => line.startsWith('bootstrap ')).length,
+      2,
+      calls.join('\n'),
+    );
+
+    const cleanup = run(['panel', 'uninstall']);
+    assert.equal(cleanup.status, 0, `${cleanup.stdout}\n${cleanup.stderr}`);
+    assert.deepEqual(snapshotTree(home), before);
+  });
+
+  it('stops a failed rollback on a reinstall and uninstall finishes later', () => {
+    mkdirSync(join(home, '.aideck/consumers'), { recursive: true });
+    mkdirSync(join(home, 'Library/LaunchAgents'), { recursive: true });
+    const beforeFirst = snapshotTree(home);
+    let res = install();
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    unlinkSync(join(launchctlState, watchLabel));
+    writeFileSync(launchctlLog, '');
+
+    res = install(['--port', '8123'], {
+      env: {
+        FAKE_LAUNCHCTL_FAIL_BOOTSTRAP: panelLabel,
+        FAKE_LAUNCHCTL_FAIL_BOOTOUT: watchLabel,
+      },
+    });
+    assert.equal(res.status, 1, `${res.stdout}\n${res.stderr}`);
+    assert.match(res.stderr, /install failed/);
+    assert.match(
+      res.stderr,
+      new RegExp(`launchctl bootout gui/\\d+/${watchLabel}`),
+    );
+    assert.match(res.stderr, /panel uninstall/);
+    assert.doesNotMatch(res.stderr, /Traceback/);
+
+    const state = JSON.parse(readFileSync(statePath(), 'utf8'));
+    assert.equal(state.port, 8123);
+    assert.deepEqual(plist(panelPlist()).ProgramArguments.slice(2), [
+      'serve', '--port=8123',
+    ]);
+    for (const [path, digest] of Object.entries(state.files)) {
+      assert.equal(sha256(readFileSync(path)), digest, path);
+    }
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(!existsSync(join(launchctlState, panelLabel)));
+
+    const calls = launchLines();
+    assert.equal(
+      calls.filter((line) => line.startsWith('bootstrap ')).length,
+      2,
+      calls.join('\n'),
+    );
+
+    const cleanup = run(['panel', 'uninstall']);
+    assert.equal(cleanup.status, 0, `${cleanup.stdout}\n${cleanup.stderr}`);
+    assert.deepEqual(snapshotTree(home), beforeFirst);
+  });
+
+  it('restores only the labels that were loaded before a failed reinstall', () => {
+    install();
+    unlinkSync(join(launchctlState, panelLabel));
+    writeFileSync(launchctlLog, '');
+    const stateBefore = readFileSync(statePath(), 'utf8');
+
+    const res = install(['--port', '8123'], {
+      env: { FAKE_LAUNCHCTL_FAIL_BOOTSTRAP: panelLabel },
+    });
+    assert.equal(res.status, 1, `${res.stdout}\n${res.stderr}`);
+    assert.match(res.stderr, /install failed/);
+    assert.equal(readFileSync(statePath(), 'utf8'), stateBefore);
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(!existsSync(join(launchctlState, panelLabel)));
+
+    const calls = launchLines();
+    const bootstraps = calls.filter((line) => line.startsWith('bootstrap '));
+    assert.equal(
+      bootstraps.filter((line) => line.endsWith(`/${panelLabel}.plist`)).length,
+      1,
+      calls.join('\n'),
+    );
+    assert.equal(
+      bootstraps.filter((line) => line.endsWith(`/${watchLabel}.plist`)).length,
+      2,
+      calls.join('\n'),
+    );
+    const cleanup = run(['panel', 'uninstall']);
+    assert.equal(cleanup.status, 0, `${cleanup.stdout}\n${cleanup.stderr}`);
+  });
+
+  it('reads the prior files before booting anything out', () => {
+    install();
+    const manifestBefore = readFileSync(manifestPath());
+    const watchBefore = readFileSync(watchPlist());
+    const panelBefore = readFileSync(panelPlist());
+    const stateBefore = readFileSync(statePath(), 'utf8');
+    const callsBefore = launchLines().length;
+
+    const res = install(['--port', '8123'], {
+      env: { FAKE_LAUNCHCTL_CHMOD_ON_PRINT: manifestPath() },
+    });
+    chmodSync(manifestPath(), 0o644);
+    assert.equal(res.status, 1, `${res.stdout}\n${res.stderr}`);
+    assert.match(res.stderr, /cannot read/);
+    assert.doesNotMatch(res.stderr, /Traceback/);
+    assert.deepEqual(readFileSync(manifestPath()), manifestBefore);
+    assert.deepEqual(readFileSync(watchPlist()), watchBefore);
+    assert.deepEqual(readFileSync(panelPlist()), panelBefore);
+    assert.equal(readFileSync(statePath(), 'utf8'), stateBefore);
+    assert.equal(
+      launchLines().slice(callsBefore)
+        .filter((line) => line.startsWith('bootout ')).length,
+      0,
+    );
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
+
+    const cleanup = run(['panel', 'uninstall']);
+    assert.equal(cleanup.status, 0, `${cleanup.stdout}\n${cleanup.stderr}`);
+  });
+
+  it('stops a reinstall when launchctl print fails and changes nothing', () => {
+    // Identical reinstall: the same-arguments check reads both labels.
+    install();
+    let before = snapshotTree(home);
+    let stateBefore = readFileSync(statePath(), 'utf8');
+    let callsBefore = launchLines().length;
+    let res = install([], { env: { FAKE_LAUNCHCTL_FAIL_PRINT: watchLabel } });
+    assert.equal(res.status, 1, `${res.stdout}\n${res.stderr}`);
+    assert.match(res.stderr, /launchctl print failed/);
+    assert.doesNotMatch(res.stderr, /Traceback/);
+    assert.deepEqual(snapshotTree(home), before);
+    assert.equal(readFileSync(statePath(), 'utf8'), stateBefore);
+    assert.ok(
+      launchLines().slice(callsBefore)
+        .every((line) => line.startsWith('print ')),
+    );
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
+
+    // Different arguments: the scan of loaded labels reads both labels.
+    before = snapshotTree(home);
+    stateBefore = readFileSync(statePath(), 'utf8');
+    callsBefore = launchLines().length;
+    res = install(['--port', '8123'], {
+      env: { FAKE_LAUNCHCTL_FAIL_PRINT: watchLabel },
+    });
+    assert.equal(res.status, 1, `${res.stdout}\n${res.stderr}`);
+    assert.match(res.stderr, /launchctl print failed/);
+    assert.doesNotMatch(res.stderr, /Traceback/);
+    assert.deepEqual(snapshotTree(home), before);
+    assert.equal(readFileSync(statePath(), 'utf8'), stateBefore);
+    assert.equal(
+      launchLines().slice(callsBefore)
+        .filter((line) => line.startsWith('bootout ')
+          || line.startsWith('bootstrap ')).length,
+      0,
+    );
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
+  });
+
   it('refuses a reinstall when the manifest was edited and leaves launchctl alone', () => {
     install();
     writeFileSync(manifestPath(), 'user: edited\n');
@@ -878,7 +1075,7 @@ assert str(real) not in parts, module.panel_path()
     }
   });
 
-  it('refuses a symlink at the manifest, a plist, the consumer, data or an output file', () => {
+  it('refuses a symlink at the manifest, a plist, the consumer, data, progress, logs or an output file', () => {
     install();
     const target = join(root, 'target');
     writeFileSync(target, 'outside\n');
@@ -888,6 +1085,8 @@ assert str(real) not in parts, module.panel_path()
       panelPlist(),
       join(home, '.aideck/consumers/painel'),
       dataDir(),
+      join(atomicHome, 'progress'),
+      join(atomicHome, 'progress/logs'),
       ...['projetos', 'marcos', 'execucoes', 'alertas']
         .map((name) => join(dataDir(), `${name}.json`)),
     ];
@@ -908,6 +1107,32 @@ assert str(real) not in parts, module.panel_path()
       install();
     }
     rmSync(target);
+    const res = run(['panel', 'uninstall']);
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
+  it('refuses to uninstall through a symlinked progress directory or logs and keeps the state', () => {
+    install();
+    const progressDir = join(atomicHome, 'progress');
+    const logsDir = join(progressDir, 'logs');
+    for (const [name, item] of [
+      ['progress', progressDir],
+      ['logs', logsDir],
+    ]) {
+      const target = join(root, `outside-${name}`);
+      renameSync(item, target);
+      symlinkSync(target, item);
+      const callsBefore = launchLines().length;
+      const res = run(['panel', 'uninstall']);
+      assert.equal(res.status, 1, `${res.stdout}\n${res.stderr}`);
+      assert.match(res.stderr, /symlink/);
+      assert.ok(existsSync(statePath()), 'the state must be kept');
+      assert.equal(launchLines().length, callsBefore, 'no bootout on a symlink');
+      assert.ok(existsSync(join(launchctlState, watchLabel)));
+      assert.ok(existsSync(join(launchctlState, panelLabel)));
+      unlinkSync(item);
+      renameSync(target, item);
+    }
     const res = run(['panel', 'uninstall']);
     assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
   });
@@ -1084,6 +1309,33 @@ assert str(real) not in parts, module.panel_path()
     assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
     assert.equal(readFileSync(manifestPath(), 'utf8'), 'user: edited\n');
     assert.match(res.stderr, /edited|editado/i);
+  });
+
+  it('keeps add and remove working when the panel state is invalid', () => {
+    writeMap(project, baseMap());
+    for (const bad of [[manifestPath()], 'not-an-object']) {
+      install();
+      const original = JSON.parse(readFileSync(statePath(), 'utf8'));
+      const state = JSON.parse(JSON.stringify(original));
+      state.files = bad;
+      writeFileSync(statePath(), JSON.stringify(state, null, 2) + '\n');
+
+      let res = run(['add', project, '--ref', 'main']);
+      assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+      assert.match(res.stdout, /added:/);
+      assert.match(res.stderr, /panel\.json/);
+      assert.doesNotMatch(res.stderr, /Traceback/);
+
+      res = run(['remove', project]);
+      assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+      assert.match(res.stdout, /removed:/);
+      assert.match(res.stderr, /panel\.json/);
+      assert.doesNotMatch(res.stderr, /Traceback/);
+
+      writeFileSync(statePath(), JSON.stringify(original, null, 2) + '\n');
+      res = run(['panel', 'uninstall']);
+      assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    }
   });
 
   it('does not crash refresh_manifest when rendering raises ValueError', () => {
