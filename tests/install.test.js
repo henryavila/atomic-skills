@@ -90,7 +90,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 86); // single IDE: core + shared assets + auto-update
+    assert.strictEqual(result.files.length, 88); // single IDE: core + shared assets + auto-update
   });
 
   it('creates markdown files for antigravity skills under .agent/skills', () => {
@@ -211,7 +211,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
     assert.ok(existsSync(join(tempDir, '.claude/atomic-skills/_assets/connect.md')));
-    assert.strictEqual(result.files.length, 86); // core + shared assets + auto-update hook
+    assert.strictEqual(result.files.length, 88); // core + shared assets + auto-update hook
     assert.ok(result.files.some((f) => f.source === 'core/init-memory'));
     assert.ok(result.files.some((f) => f.source === '_assets/memory-assets/connect.md'));
   });
@@ -278,7 +278,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.agent/skills/atomic-skills-fix/SKILL.md')));
-    assert.strictEqual(result.files.length, 171); // 2 IDEs + shared assets; antigravity has no namespace-root SKILL.md
+    assert.strictEqual(result.files.length, 175); // 2 IDEs + shared assets; antigravity has no namespace-root SKILL.md
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -354,7 +354,7 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    assert.strictEqual(result.files.length, 86);
+    assert.strictEqual(result.files.length, 88);
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
