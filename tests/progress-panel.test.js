@@ -782,6 +782,10 @@ assert str(real) not in parts, module.panel_path()
     assert.match(res.stderr, /install failed/);
     assert.match(
       res.stderr,
+      new RegExp(`install failed: [^\\n]*${panelLabel}[^\\n]*; then bootout failed: [^\\n]*${watchLabel}`),
+    );
+    assert.match(
+      res.stderr,
       new RegExp(`launchctl bootout gui/\\d+/${watchLabel}`),
     );
     assert.match(res.stderr, /panel uninstall/);
@@ -829,7 +833,15 @@ assert str(real) not in parts, module.panel_path()
     assert.match(res.stderr, /install failed/);
     assert.match(
       res.stderr,
+      new RegExp(`install failed: [^\\n]*${panelLabel}[^\\n]*; then bootout failed: [^\\n]*${watchLabel}`),
+    );
+    assert.match(
+      res.stderr,
       new RegExp(`launchctl bootout gui/\\d+/${watchLabel}`),
+    );
+    assert.match(
+      res.stderr,
+      new RegExp(`${panelLabel} is down; run launchctl bootstrap gui/\\d+ .*panel\\.plist`),
     );
     assert.match(res.stderr, /panel uninstall/);
     assert.doesNotMatch(res.stderr, /Traceback/);
@@ -1109,6 +1121,39 @@ assert str(real) not in parts, module.panel_path()
     rmSync(target);
     const res = run(['panel', 'uninstall']);
     assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
+  it('installs, reinstalls and uninstalls through a symlinked shared root', () => {
+    const target = join(root, 'aideck-target');
+    const link = join(home, '.aideck');
+    renameSync(link, target);
+    symlinkSync(target, link);
+
+    let res = install();
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.ok(existsSync(join(target, 'consumers/painel/manifest.yaml')));
+
+    res = install();
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+
+    res = run(['panel', 'uninstall']);
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.deepEqual(
+      [...snapshotTree(target)].filter(([, kind]) => kind !== 'dir'),
+      [],
+      'the target must keep no file from this feature',
+    );
+    assert.ok(existsSync(link), 'the shared symlink must remain');
+    assert.ok(existsSync(target), 'the symlink target must remain');
+    res = install();
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    res = run(['panel', 'uninstall']);
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.deepEqual(
+      [...snapshotTree(target)].filter(([, kind]) => kind !== 'dir'),
+      [],
+      'the target must keep no file from this feature',
+    );
   });
 
   it('refuses to uninstall through a symlinked progress directory or logs and keeps the state', () => {

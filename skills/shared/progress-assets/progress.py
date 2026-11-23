@@ -2230,7 +2230,8 @@ def cmd_panel_install(args):
                     file=sys.stderr,
                 )
             print(
-                "progress panel: install failed: %s" % rollback_error,
+                "progress panel: install failed: %s; then bootout failed: %s"
+                % (exc, rollback_error),
                 file=sys.stderr,
             )
             for label in bootstrapped:
@@ -2240,6 +2241,17 @@ def cmd_panel_install(args):
                     "progress panel: %s is still loaded; run "
                     "launchctl bootout gui/%d/%s"
                     % (label, os.getuid(), label),
+                    file=sys.stderr,
+                )
+            for label in loaded_before:
+                try:
+                    if panel_label_loaded(label):
+                        continue
+                except PanelError:
+                    continue
+                print(
+                    "progress panel: %s is down; run %s"
+                    % (label, panel_bootstrap_command(label)),
                     file=sys.stderr,
                 )
             print(
