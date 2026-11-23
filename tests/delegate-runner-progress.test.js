@@ -1,7 +1,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -12,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, hostname } from 'node:os';
 import {
   DELEGATE_PY,
   PYTHON3,
@@ -273,7 +274,239 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
       await waitFor(() => existsSync(ready), 20000, 'executor start');
       const status = runDelegate(['status'], baseEnv);
       assert.equal(status.status, 0, status.stderr);
-      assert.match(status.stdout, /^WATCH \| repo \| flash \| implement \| \d+m \| idle \d+m$/m);
+      const machine = hostname().split('.')[0];
+      const line = status.stdout.split('\n').find(text => text.startsWith('WATCH |'));
+      assert.ok(line, status.stdout);
+      const cells = line.split(' | ');
+      assert.deepEqual(cells.slice(0, 5), ['WATCH', 'repo', 'flash', 'implement', machine]);
+      assert.match(cells.slice(5).join(' | '), /^\d+m \| idle \d+m$/);
+      const slotDir = join(atomicHome, 'delegate', 'running');
+      const [slotName] = readdirSync(slotDir).filter(name => name.endsWith('.json'));
+      assert.equal(JSON.parse(readFileSync(join(slotDir, slotName), 'utf8')).machine, machine);
+      writeFileSync(release, 'go');
+      const res = await run.done;
+      assert.equal(res.status, 0, res.stderr);
+    } finally {
+      writeFileSync(release, 'go');
+      if (run.child.exitCode === null) {
+        try { run.child.kill('SIGKILL'); } catch { /* already gone */ }
+      }
+    }
+  });
+
+  // --- which repository and milestone a run belongs to ---
+
+  function lastRecord() { return readLogRecords(atomicHome).at(-1); }
+
+  function pythonHarness(code, args = [], env = baseEnv) {
+    const prelude = `import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location('delegate', ${JSON.stringify(DELEGATE_PY)})
+d = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(d)
+`;
+    return spawnSync(PYTHON3, ['-B', '-c', prelude + code, ...args], {
+      env: { ...process.env, ...env }, encoding: 'utf8', timeout: 60000,
+    });
+  }
+
+  it('records the repository as owner/name from https, ssh and scp-like origins', () => {
+    const cases = [
+      ['https://github.com/acme/widgets.git', 'acme/widgets'],
+      ['https://github.com/acme/widgets', 'acme/widgets'],
+      ['https://github.com/acme/widgets/', 'acme/widgets'],
+      ['ssh://git@github.com/acme/widgets.git', 'acme/widgets'],
+      ['ssh://git@git.example.com:2222/acme/widgets', 'acme/widgets'],
+      ['git@github.com:acme/widgets.git', 'acme/widgets'],
+      ['git@github.com:acme/widgets', 'acme/widgets'],
+    ];
+    git(repoDir, 'remote', 'add', 'origin', cases[0][0]);
+    cases.forEach(([url, repo], index) => {
+      git(repoDir, 'remote', 'set-url', 'origin', url);
+      const res = runDelegate(runArgs(`REPO-${index}`), baseEnv);
+      assert.equal(res.status, 0, `${url}: ${res.stderr}`);
+      assert.equal(lastRecord().repo, repo, url);
+      assert.equal(JSON.parse(res.stdout).repo, repo, url);
+      // The project name is derived as before.
+      assert.equal(lastRecord().project, 'repo');
+    });
+  });
+
+  it('never records the credentials or the host of the origin URL', () => {
+    git(repoDir, 'remote', 'add', 'origin', 'https://deploy-user:s3cr3t-T0KEN@git.example.com/acme/widgets.git');
+    const res = runDelegate(runArgs('CRED', ['--milestone', 'M1']), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(lastRecord().repo, 'acme/widgets');
+    const log = readFileSync(join(atomicHome, 'delegate', 'runs.jsonl'), 'utf8');
+    for (const text of [log, res.stdout, res.stderr]) {
+      assert.doesNotMatch(text, /s3cr3t-T0KEN|deploy-user|git\.example\.com/);
+    }
+  });
+
+  it('records the same repository from a linked worktree, with and without an origin', () => {
+    const linked = join(root, 'wt-feature');
+    git(repoDir, 'worktree', 'add', '-q', '-b', 'feature', linked);
+    // No origin: the folder of the main repository, never the worktree's.
+    let res = runDelegate(runArgs('WT-MAIN'), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(lastRecord().repo, 'repo');
+    res = runDelegate(runArgs('WT-LINKED', ['--cwd', linked]), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(lastRecord().repo, 'repo');
+    assert.equal(lastRecord().project, 'wt-feature');
+    // An origin that cannot be read as owner/name falls back the same way.
+    git(repoDir, 'remote', 'add', 'origin', join(root, 'somewhere', 'bare.git'));
+    res = runDelegate(runArgs('WT-LOCAL-ORIGIN', ['--cwd', linked]), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(lastRecord().repo, 'repo');
+    git(repoDir, 'remote', 'set-url', 'origin', 'git@github.com:acme/widgets.git');
+    for (const [id, cwd] of [['WT-O-MAIN', repoDir], ['WT-O-LINKED', linked]]) {
+      res = runDelegate(runArgs(id, ['--cwd', cwd]), baseEnv);
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(lastRecord().repo, 'acme/widgets', id);
+    }
+  });
+
+  it('reads no owner/name out of any file: origin and falls back to the repository folder', () => {
+    const urls = ['file:/srv/git/acme/widgets', 'file:/srv/git/acme/widgets.git', 'file:///srv/git/acme/widgets.git',
+      'file://localhost/srv/git/acme/widgets', 'file:acme/widgets', 'FILE:/srv/git/acme/widgets',
+      'File:///srv/git/acme/widgets'];
+    const parsed = pythonHarness(`print(json.dumps([d.repo_from_url(u) for u in json.loads(sys.argv[1])]))`,
+      [JSON.stringify(urls)]);
+    assert.equal(parsed.status, 0, parsed.stderr);
+    assert.deepEqual(JSON.parse(parsed.stdout), urls.map(() => null));
+    // Set in the config file: git does not need the URL to be reachable.
+    git(repoDir, 'config', 'remote.origin.url', 'file:/srv/git/acme/widgets');
+    const res = runDelegate(runArgs('FILE-URL'), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(lastRecord().repo, 'repo');
+    assert.doesNotMatch(readFileSync(join(atomicHome, 'delegate', 'runs.jsonl'), 'utf8'), /acme|srv\/git/);
+  });
+
+  it('finds the common directory and the same repository with a git that has no --path-format', () => {
+    // git before 2.31 does not know `rev-parse --path-format`: like every
+    // option it does not know, it prints it back and exits 0.
+    const realGit = execFileSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    const oldBin = join(root, 'old-git-bin');
+    mkdirSync(oldBin);
+    writeFileSync(join(oldBin, 'git'), `#!/bin/sh
+real=${JSON.stringify(realGit)}
+case " $* " in
+  *" rev-parse "*"--path-format="*)
+    for arg in "$@"; do
+      case "$arg" in
+        --path-format=*) printf '%s\\n' "$arg" ;;
+      esac
+    done
+    for arg in "$@"; do
+      shift
+      case "$arg" in
+        --path-format=*) ;;
+        *) set -- "$@" "$arg" ;;
+      esac
+    done
+    exec "$real" "$@" ;;
+esac
+exec "$real" "$@"
+`);
+    chmodSync(join(oldBin, 'git'), 0o755);
+    const env = { ...baseEnv, PATH: `${oldBin}:${baseEnv.PATH}` };
+    const linked = join(root, 'wt-old-git');
+    git(repoDir, 'worktree', 'add', '-q', '-b', 'old-git', linked);
+    mkdirSync(join(linked, 'sub'));
+
+    // The fake behaves like the old git it stands for.
+    const echoed = spawnSync('git', ['-C', linked, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { env: { ...process.env, ...env }, encoding: 'utf8' });
+    assert.equal(echoed.status, 0, echoed.stderr);
+    assert.equal(echoed.stdout.split('\n')[0], '--path-format=absolute');
+
+    const found = pythonHarness(
+      `print(json.dumps([[d.git_common_dir(c), d.repo_identity(c)] for c in sys.argv[1:]]))`,
+      [repoDir, linked, join(linked, 'sub')], env);
+    assert.equal(found.status, 0, found.stderr);
+    const common = join(repoDir, '.git');
+    assert.deepEqual(JSON.parse(found.stdout), [[common, 'repo'], [common, 'repo'], [common, 'repo']]);
+
+    for (const [id, cwd] of [['OLD-MAIN', repoDir], ['OLD-LINKED', linked]]) {
+      const res = runDelegate(runArgs(id, ['--cwd', cwd]), env);
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(lastRecord().repo, 'repo', id);
+    }
+  });
+
+  it('records a null repository outside a git repository', () => {
+    const plain = join(root, 'plain');
+    mkdirSync(plain);
+    const res = runDelegate(runArgs('NO-GIT', ['--cwd', plain]), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    const rec = lastRecord();
+    assert.equal(rec.id, 'NO-GIT');
+    assert.equal(rec.repo, null);
+    assert.equal(rec.milestone, null);
+  });
+
+  it('records --milestone on a run, null without it, also on a record written before launch', () => {
+    let res = runDelegate(runArgs('MS', ['--milestone', 'M2.1_alpha-3']), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(lastRecord().milestone, 'M2.1_alpha-3');
+    assert.equal(JSON.parse(res.stdout).milestone, 'M2.1_alpha-3');
+    res = runDelegate(runArgs('NO-MS'), baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(lastRecord().milestone, null);
+    // A review of an empty diff is refused before any executor starts.
+    const argvFile = join(root, 'argv.json');
+    res = runDelegate(['run', '--id', 'EARLY', '--task', 'early', '--role', 'review', '--profile', 'codex-review',
+      '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed', '--diff-range', 'HEAD...HEAD',
+      '--milestone', 'M7'], { ...baseEnv, FAKE_ARGV_FILE: argvFile });
+    assert.equal(res.status, 1, res.stderr);
+    assert.equal(lastRecord().failure, 'empty_diff');
+    assert.equal(lastRecord().milestone, 'M7');
+    assert.equal(lastRecord().repo, 'repo');
+    assert.equal(existsSync(argvFile), false);
+  });
+
+  it('refuses an invalid --milestone with exit 2, before anything is launched or logged', () => {
+    const argvFile = join(root, 'argv.json');
+    const bad = ['', 'has space', 'a/b', 'é', 'x'.repeat(65), 'semi;colon', 'line\nbreak'];
+    for (const value of bad) {
+      const res = runDelegate(runArgs('BAD-MS', [`--milestone=${value}`]), { ...baseEnv, FAKE_ARGV_FILE: argvFile });
+      assert.equal(res.status, 2, `${JSON.stringify(value)}: ${res.stderr}`);
+      assert.match(res.stderr, /milestone/);
+    }
+    assert.equal(existsSync(join(atomicHome, 'delegate', 'runs.jsonl')), false);
+    assert.equal(existsSync(argvFile), false);
+    assert.equal(existsSync(outDir), false);
+    const ok = runDelegate(runArgs('LONG-MS', ['--milestone', 'x'.repeat(64)]), baseEnv);
+    assert.equal(ok.status, 0, ok.stderr);
+  });
+
+  it('the slot and status --json carry the repository and the milestone of an active run', async () => {
+    git(repoDir, 'remote', 'add', 'origin', 'git@github.com:acme/widgets.git');
+    const ready = join(root, 'ready');
+    const release = join(root, 'release');
+    const run = runDelegateAsync(runArgs('WHERE', ['--milestone', 'M3']),
+      { ...baseEnv, FAKE_READY_FILE: ready, FAKE_WAIT_FILE: release, FAKE_WAIT_TIMEOUT: '120' });
+    try {
+      await waitFor(() => existsSync(ready), 20000, 'executor start');
+      // The runner publishes the slot after it starts the executor, so the
+      // ready file can be there first: wait for the slot itself.
+      const slotDir = join(atomicHome, 'delegate', 'running');
+      const slotNames = () => (existsSync(slotDir) ? readdirSync(slotDir).filter(name => name.endsWith('.json')) : []);
+      await waitFor(() => slotNames().length === 1, 20000, 'the slot file');
+      const slot = JSON.parse(readFileSync(join(slotDir, slotNames()[0]), 'utf8'));
+      assert.equal(slot.repo, 'acme/widgets');
+      assert.equal(slot.milestone, 'M3');
+      const json = runDelegate(['status', '--json'], baseEnv);
+      assert.equal(json.status, 0, json.stderr);
+      const [active] = JSON.parse(json.stdout).active;
+      assert.equal(active.id, 'WHERE');
+      assert.equal(active.repo, 'acme/widgets');
+      assert.equal(active.milestone, 'M3');
+      // The plain listing is the one it always was.
+      const plain = runDelegate(['status'], baseEnv);
+      const line = plain.stdout.split('\n').find(text => text.startsWith('WHERE |'));
+      assert.match(line, /^WHERE \| repo \| flash \| implement \| [^|]+ \| \d+m \| idle \d+m$/);
+      assert.doesNotMatch(plain.stdout, /acme|M3/);
       writeFileSync(release, 'go');
       const res = await run.done;
       assert.equal(res.status, 0, res.stderr);
