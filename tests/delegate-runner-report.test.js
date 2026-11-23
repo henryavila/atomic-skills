@@ -688,6 +688,81 @@ spec.loader.exec_module(d)
     assert.equal(records[0].model, 'opencode-go/deepseek-v4.1-flash');
   });
 
+  it('R01 publishes a remote active file under the remote lock, under a name no other run can have', () => {
+    const res = pythonHarness(`
+original = pathlib.Path.write_text
+probe = "import fcntl,sys; f=open(sys.argv[1], 'w'); fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)"
+seen = []
+def checked(path, content, *args, **kwargs):
+ if path.parent == d.RUNNING_REMOTE:
+  assert path.suffix == '.tmp', 'published directly to JSON: %s' % path
+  lock = subprocess.run([sys.executable, '-c', probe, str(d.RUNNING_REMOTE / '.lock')], capture_output=True)
+  assert lock.returncode != 0, 'the active file was published without the remote lock'
+  seen.append(path)
+ return original(path, content, *args, **kwargs)
+pathlib.Path.write_text = checked
+first = d.new_remote_active('opencode', 'T', 'proj', 'flash', 'implement', 'ultron', 600)
+second = d.new_remote_active('opencode', 'T', 'proj', 'flash', 'implement', 'ultron', 600)
+assert first[0] != second[0], 'two runs of one id in one runner share a file name'
+assert first[1]['token'] and first[1]['token'] != second[1]['token'], (first[1], second[1])
+assert d.publish_remote_active(*first) and d.publish_remote_active(*second)
+assert len(seen) == 2, seen
+# A cleaner that runs now keeps both: their runner (this process) is alive.
+assert sorted(path for path, _ in d.get_active_remote()) == sorted([first[0], second[0]])
+assert not list(d.RUNNING_REMOTE.glob('*.tmp'))
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('R05 a stop signal while the remote active file is being removed still removes it', () => {
+    const res = pythonHarness(`
+path, data = d.new_remote_active('opencode', 'T', 'proj', 'flash', 'implement', 'ultron', 600)
+assert d.publish_remote_active(path, data) and path.exists()
+def stopped(self):
+ raise SystemExit(143)
+d.RemoteActiveLock.__enter__ = stopped
+try:
+ d.remove_remote_active(path)
+except SystemExit as exc:
+ assert exc.code == 143, exc.code
+else:
+ raise AssertionError('the stop signal was swallowed')
+assert not path.exists(), 'the active file outlived its run'
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('R03 keeps a remote active file with no runner identity while its runner pid lives and its limit holds', () => {
+    const delegateDir = join(atomicHome, 'delegate');
+    const dir = join(delegateDir, 'running-remote');
+    mkdirSync(dir, { recursive: true });
+    const bg = spawn('sleep', ['30'], { detached: true, stdio: 'ignore' });
+    const gone = spawnSync('true');
+    const entry = (id, pid, expires) => writeFileSync(join(dir, `opencode-${id}-x.json`), JSON.stringify({
+      id, project: 'far-proj', profile: 'flash', role: 'implement', machine: 'ultron',
+      started: '2026-11-18T10:00:00+00:00', runner_pid: pid, runner_start: null, token: `tok-${id}`, expires,
+    }));
+    try {
+      entry('T-LIVE', bg.pid, '2026-11-18T12:00:00+00:00');
+      entry('T-DEADPID', gone.pid, '2026-11-18T12:00:00+00:00');
+      entry('T-EXPIRED', bg.pid, '2026-11-18T10:30:00+00:00');
+      const env = { ...baseEnv, DELEGATE_NOW: '2026-11-18T11:00:00Z' };
+      const json = runDelegate(['status', '--json'], env);
+      assert.equal(json.status, 0, json.stderr);
+      assert.deepEqual(JSON.parse(json.stdout).active.map(run => run.id), ['T-LIVE']);
+      assert.deepEqual(readdirSync(dir).filter(name => name.endsWith('.json')), ['opencode-T-LIVE-x.json']);
+      assert.deepEqual(readLogRecords(atomicHome).map(r => [r.id, r.failure]).sort(),
+        [['T-DEADPID', 'runner_lost'], ['T-EXPIRED', 'runner_lost']]);
+
+      // Past its own limit it ends too, so it cannot stay forever.
+      const later = runDelegate(['status', '--json'], { ...baseEnv, DELEGATE_NOW: '2026-11-18T12:00:01Z' });
+      assert.deepEqual(JSON.parse(later.stdout).active, []);
+      assert.equal(readLogRecords(atomicHome).length, 3);
+    } finally {
+      try { process.kill(-bg.pid, 'SIGKILL'); } catch { /* already gone */ }
+    }
+  });
+
   it('status shows try again at 12:44 PM text after a recorded limit failure', () => {
     const logDir = join(atomicHome, 'delegate');
     mkdirSync(logDir, { recursive: true });

@@ -36,6 +36,9 @@ RUNNING = HOME / "delegate" / "running"
 # One file per active --host run, for `status` and the progress panel. These are
 # not slots: nothing here counts against a local limit or is ever signalled.
 RUNNING_REMOTE = HOME / "delegate" / "running-remote"
+# An active file that names no runner identity and no limit of its own ends
+# this long after it was written.
+REMOTE_ACTIVE_FALLBACK_S = 24 * 3600
 PAUSED = HOME / "delegate" / "PAUSED"
 # One file per pipeline whose review could not run yet: <project>/<id>.json.
 PENDING = HOME / "delegate" / "pending"
@@ -941,9 +944,18 @@ def record_lost_runner(path, slot, remote=False):
     started = slot.get("started")
     if not started:
         return
+    token = slot.get("token") if remote else None
+    if token:
+        # The record of a --host run carries the token of its active file, so
+        # this is exact: its `started` is later than the file's and proves nothing.
+        def same_run(r):
+            return r.get("active_token") == token
+    else:
+        def same_run(r):
+            return r.get("id") == slot.get("id") and r.get("started") == started
     try:
         if LOG.exists() and any(
-                r.get("kind") == "run" and r.get("id") == slot.get("id") and r.get("started") == started
+                r.get("kind") == "run" and same_run(r)
                 for r in map(json.loads, filter(None, LOG.read_text().splitlines()))):
             return
     except (OSError, ValueError):
@@ -972,6 +984,8 @@ def record_lost_runner(path, slot, remote=False):
         rec["note"] = ("the runner process died before writing a record; the work may still be "
                        f"running on {host}, and nothing was fetched back: check "
                        f"`remote-runner runs --host {host}` and the task's checkout there")
+    if token:
+        rec["active_token"] = token
     if machine:
         rec["machine"] = machine
     append({key: value for key, value in rec.items() if key != "host" or value})
@@ -997,19 +1011,44 @@ def _clean_stale_slots():
         pass  # the remote list is for display; it never blocks a local slot
 
 
+def remote_active_state(path, data):
+    """Say whether an active file is `live`, `lost` (its runner is gone) or `invalid`."""
+    if not isinstance(data, dict) or not isinstance(data.get("runner_pid"), int):
+        return "invalid"  # nothing names a runner; this runner never writes one
+    if data.get("runner_start"):
+        return "lost" if runner_gone(data) else "live"
+    # No kernel identity was recorded, so a live pid may be the runner or a
+    # reuse of its number: that proves nothing either way. A dead pid does,
+    # and so does the run's own limit, which no runner outlives.
+    if not is_pid_alive(data["runner_pid"]):
+        return "lost"
+    try:
+        expires = dt.datetime.fromisoformat(data["expires"])
+    except (KeyError, TypeError, ValueError):
+        try:
+            expires = dt.datetime.fromtimestamp(path.stat().st_mtime + REMOTE_ACTIVE_FALLBACK_S,
+                                                dt.timezone.utc)
+        except OSError:
+            return "live"
+    try:
+        return "lost" if now() > expires else "live"
+    except TypeError:  # a time without a zone
+        return "lost"
+
+
 def _clean_stale_remote():
     """Drop the active file of a --host run whose runner is gone.
 
-    The runner removes its own file under the same lock before it exits, so a
-    file seen here with a dead runner is one its runner could not remove.
+    A runner publishes and removes its own file under the same lock, so what
+    is read here cannot change before it is judged and unlinked, and a
+    temporary file seen here belongs to no writer still at work.
     """
     if not RUNNING_REMOTE.is_dir():
         return
     with RemoteActiveLock():
         for p in RUNNING_REMOTE.glob("*.tmp"):
             try:
-                if time.time() - p.stat().st_mtime > 60:
-                    p.unlink(missing_ok=True)
+                p.unlink(missing_ok=True)
             except OSError:
                 pass
         for p in list(RUNNING_REMOTE.glob("*.json")):
@@ -1019,10 +1058,11 @@ def _clean_stale_remote():
                 continue
             except (OSError, ValueError):
                 data = None
-            if isinstance(data, dict) and data.get("runner_start") and not runner_gone(data):
+            state = remote_active_state(p, data)
+            if state == "live":
                 continue
             p.unlink(missing_ok=True)
-            if isinstance(data, dict) and data.get("runner_start"):
+            if state == "lost":
                 record_lost_runner(p, data, remote=True)
 
 
@@ -1042,37 +1082,56 @@ def get_active_remote():
     return active
 
 
-def write_remote_active(executor, task_id, project, profile, role, host):
-    """Publish that this runner drives a run on `host`; None when it cannot."""
+def new_remote_active(executor, task_id, project, profile, role, host, limit_s):
+    """Path and content of the active file of one --host run; writes nothing.
+
+    The token makes the name this run's alone and is copied into its record
+    (`active_token`), which is how a leftover file is matched to a finished run.
+    `limit_s` bounds the whole run; it only decides when the file ends if the
+    runner's identity could not be read.
+    """
+    token = os.urandom(8).hex()
+    started = now()
     data = {
         "id": task_id, "project": project, "profile": profile, "role": role,
-        "machine": host, "started": now().isoformat(timespec="microseconds"),
+        "machine": host, "started": started.isoformat(timespec="microseconds"),
         "runner_pid": os.getpid(), "runner_start": process_identity(os.getpid()),
+        "token": token,
+        "expires": (started + dt.timedelta(seconds=limit_s)).isoformat(timespec="seconds"),
     }
+    return RUNNING_REMOTE / f"{executor}-{task_id}-{token}.json", data
+
+
+def publish_remote_active(path, data):
+    """Write the active file atomically, under the lock every cleaner takes."""
     try:
-        RUNNING_REMOTE.mkdir(parents=True, exist_ok=True)
-        path = RUNNING_REMOTE / f"{executor}-{task_id}-{os.getpid()}.json"
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False))
-        os.replace(tmp, path)
-        return path
+        with RemoteActiveLock():
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, ensure_ascii=False))
+            os.replace(tmp, path)
+        return True
     except OSError:
-        return None
+        return False  # the list is for display; the run goes on without it
 
 
 def remove_remote_active(path):
-    if path is None:
-        return
+    def drop():
+        for target in (path, path.with_suffix(".tmp")):
+            try:
+                target.unlink(missing_ok=True)
+            except OSError:
+                pass
+
     try:
         # Under the lock a reader never sees this file after its runner exited.
         with RemoteActiveLock():
-            path.unlink(missing_ok=True)
-            path.with_suffix(".tmp").unlink(missing_ok=True)
+            drop()
     except OSError:
-        try:
-            path.unlink(missing_ok=True)
-        except OSError:
-            pass
+        drop()
+    except BaseException:
+        # A stop signal landed here: the file must go all the same.
+        drop()
+        raise
 
 
 def _get_active_slots(executor=None):
@@ -2476,9 +2535,13 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
     The run is listed in RUNNING_REMOTE from here until this function returns
     or raises, whatever the path. It takes no local slot.
     """
-    active_file = None
+    # Checks, sync and pull are each bounded by the timeout plus two minutes.
+    active_file, active = new_remote_active(
+        executor, task_id, project, profile, role, host,
+        limit_s=wait_s + 3 * (timeout + 120) + 600)
+    pending["active_token"] = active["token"]
     try:
-        active_file = write_remote_active(executor, task_id, project, profile, role, host)
+        publish_remote_active(active_file, active)
         try:
             return _execute_remote_run(
                 task_id, task, role, executor, model, family, profile, cwd, project, out_path,
@@ -2878,6 +2941,8 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
             "send_s": round(send_s, 3), "run_s": round(run_s, 3),
             "fetch_s": round(fetch_s, 3), **input_sizes,
         }
+        if pending.get("active_token"):
+            rec["active_token"] = pending["active_token"]
         if fetch_error:
             rec["remote_error"] = fetch_error
         elif commit_error:

@@ -464,6 +464,9 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
       assert.equal(active.machine, 'devbox');
       assert.equal(active.runner_pid, run.child.pid);
       assert.ok(active.runner_start, JSON.stringify(active));
+      assert.match(active.token, /^[0-9a-f]{16,}$/);
+      assert.ok(files[0].endsWith(`/opencode-RMT-${active.token}.json`), files[0]);
+      assert.ok(Date.parse(active.expires) > Date.parse(active.started), JSON.stringify(active));
       assert.ok(!Number.isNaN(Date.parse(active.started)), JSON.stringify(active));
       assert.deepEqual(localSlots(), [], 'a remote run never has a local slot');
       assert.equal(existsSync(join(atomicHome, 'delegate', 'running')), false,
@@ -506,6 +509,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
       const rec = readLogRecords(atomicHome).find(r => r.id === 'RMT');
       assert.equal(rec.failure, 'none');
       assert.equal(rec.machine, 'devbox');
+      assert.equal(rec.active_token, active.token);
     } finally {
       endRemoteRun(run, release);
     }
@@ -580,5 +584,41 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     } finally {
       endRemoteRun(run, release);
     }
+  });
+
+  it('R02 a run that wrote its record never gets a runner_lost record from a leftover active file', () => {
+    const res = runDelegate(runArgs(), remoteEnv());
+    assert.equal(res.status, 0, res.stderr);
+    const [done] = readLogRecords(atomicHome);
+    assert.equal(done.failure, 'none');
+    assert.ok(done.active_token, JSON.stringify(done));
+    const failed = runDelegate(runArgs(), remoteEnv({ FAKE_REMOTE_BUSY: '1' }));
+    assert.equal(failed.status, 1, failed.stderr);
+    const busy = readLogRecords(atomicHome)[1];
+    assert.equal(busy.failure, 'slot_timeout');
+    assert.ok(busy.active_token && busy.active_token !== done.active_token, JSON.stringify(busy));
+
+    // Both runners died after their record and before they removed the file.
+    const dir = join(atomicHome, 'delegate', 'running-remote');
+    const gone = spawnSync('true');
+    const leftover = token => writeFileSync(join(dir, `opencode-RMT-${token}.json`), JSON.stringify({
+      id: 'RMT', project: 'repo', profile: 'flash', role: 'implement', machine: 'devbox',
+      started: '2026-11-18T10:00:00.000000+00:00', token,
+      runner_pid: gone.pid, runner_start: 'darwin:1:1',
+    }));
+    leftover(done.active_token);
+    leftover(busy.active_token);
+    const status = runDelegate(['status'], remoteEnv());
+    assert.equal(status.status, 0, status.stderr);
+    assert.deepEqual(remoteActiveLeftovers(), []);
+    assert.deepEqual(readLogRecords(atomicHome).map(r => r.failure), ['none', 'slot_timeout']);
+
+    // A later run of the same id that really lost its runner is still logged.
+    leftover('feedfacefeedface');
+    runDelegate(['status'], remoteEnv());
+    runDelegate(['status'], remoteEnv());
+    const records = readLogRecords(atomicHome);
+    assert.deepEqual(records.map(r => r.failure), ['none', 'slot_timeout', 'runner_lost']);
+    assert.equal(records[2].active_token, 'feedfacefeedface');
   });
 });
