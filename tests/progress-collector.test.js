@@ -115,7 +115,6 @@ function baseMap(overrides = {}) {
     id: 'app',
     title: 'App do Culto',
     unit: 'cartões',
-    idPattern: '[A-Z]{1,3}-\\d+[a-z]?',
     milestones: [
       {
         id: 'fundacao',
@@ -241,8 +240,7 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
       ['missing title', { title: undefined }, '$.title'],
       ['missing unit', { unit: undefined }, '$.unit'],
       ['non-string note', { note: 4 }, '$.note'],
-      ['non-string idPattern', { idPattern: 4 }, '$.idPattern'],
-      ['bad idPattern', { idPattern: '[' }, '$.idPattern'],
+      ['idPattern is no longer a key', { idPattern: '[A-Z]+-[0-9]+' }, '$.idPattern'],
       ['missing milestones', { milestones: undefined }, '$.milestones'],
       ['non-array milestones', { milestones: {} }, '$.milestones'],
     ];
@@ -466,7 +464,7 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
         validCard('A-10'),
         validCard('QA-1'),
         validCard('A-1-b'),
-      ], { idPattern: undefined }),
+      ]),
     );
     mergeSubject(project, 'Merge A-10', 'feat-a10');
     mergeSubject(project, 'Merge QA-1', 'feat-qa1');
@@ -489,7 +487,7 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
         validCard('C-1', { deps: ['D-1'] }),
         validCard('C-2', { deps: ['C-1'] }),
         validCard('C-3', { deps: ['D-2'] }),
-      ], { idPattern: undefined }),
+      ]),
     );
     mergeSubject(project, 'Merge D-1', 'feat-d1');
     register(project);
@@ -521,7 +519,7 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
         validCard('M-1', { match: 'feat/web-07a-' }),
         validCard('M-2', { match: ['alpha', 'BETA'] }),
         validCard('M-3', { match: 'case' }),
-      ], { idPattern: undefined }),
+      ]),
     );
     mergeSubject(project, 'Merge prefixfeat/web-07a-suffix', 'feat-web');
     mergeSubject(project, 'Merge ALPHA and beta', 'feat-alpha');
@@ -534,40 +532,57 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
     assert.equal(byCard.get('m-m-3'), 100, 'a match has no token boundary');
   });
 
-  it('restricts idPattern and guards its tokens as whole ids', () => {
-    writeMap(project, baseMap({ idPattern: '[A-Z]{1,3}-\\d+[a-z]?' }));
-    assert.equal(run(['validate', project, '--ref', 'main']).status, 0);
-
-    for (const idPattern of [
-      '[A-Z]+(-\\d+)',
-      '(A)',
-      'A|B',
-      '\\w+',
-      'x'.repeat(65),
-      '[A-Z]*',
-    ]) {
-      writeMap(project, baseMap({ idPattern }));
-      const res = run(['validate', project, '--ref', 'main']);
-      assert.equal(res.status, 1, `${JSON.stringify(idPattern)} should fail`);
-      assert.match(res.stdout + res.stderr, /\$\.idPattern/);
-    }
-
+  it('derives unknown-id prefixes from the map cards and guards whole tokens', () => {
     writeMap(
       project,
       baseMap({
         id: 'tokens',
-        idPattern: '[A-Z]{1,3}-\\d+[a-z]?',
-        milestones: [{ id: 'm', title: 'M', cards: [validCard('AB-1')] }],
+        milestones: [{
+          id: 'm',
+          title: 'M',
+          cards: [validCard('AB-1'), validCard('QA-1'), validCard('A-1-b')],
+        }],
       }),
     );
-    mergeSubject(project, 'Merge AB-1 ABCD-1 ZZZ-9', 'feat-tokens');
+    mergeSubject(project, 'Merge AB-1 AB-9 QA-2 A-10 ABCD-1 ZZZ-9 ab-9', 'feat-tokens');
     register(project);
     const [, , , alertas] = collect();
     const unknown = alertas.filter((a) => a.tipo === 'card_desconhecido');
-    const text = unknown.map((a) => a.detalhe).join('\n');
-    assert.equal(unknown.length, 1, JSON.stringify(unknown));
-    assert.match(text, /ZZZ-9/);
-    assert.doesNotMatch(text, /\bBCD-1\b/, 'a known-looking suffix inside ABCD-1 is not a token');
+    const tokens = unknown.map((a) => a.detalhe.split(' aparece')[0]).sort();
+    assert.deepEqual(tokens, ['A-10', 'AB-9', 'QA-2'], JSON.stringify(unknown));
+    assert.ok(!tokens.includes('AB-1'), 'a known card id is not an alert');
+    assert.ok(!tokens.includes('BCD-1'), 'a suffix inside ABCD-1 is not a token');
+    assert.ok(!tokens.includes('ZZZ-9'), 'a prefix no card derives is not scanned');
+    assert.ok(!tokens.includes('ab-9'), 'the derived token is case-sensitive');
+
+    writeMap(project, baseMap({
+      id: 'no-prefix',
+      milestones: [{ id: 'm', title: 'M', cards: [validCard('X')] }],
+    }), 'no prefix');
+    const [, , , noPrefix] = collect();
+    assert.equal(noPrefix.filter((a) => a.tipo === 'card_desconhecido').length, 0);
+  });
+
+  it('scans a 100 KB merge subject in under two seconds', () => {
+    const subject = `Merge ${'feat/web-07a- xxxxxxxxxx AB-9 '.repeat(4000)}`;
+    assert.ok(subject.length >= 100 * 1024, `${subject.length} bytes`);
+    writeMap(
+      project,
+      oneMilestonePerCard([
+        validCard('AB-1'),
+        validCard('CD-2', { match: 'never-matches' }),
+      ]),
+    );
+    mergeSubject(project, subject, 'feat-big');
+    register(project);
+    const started = Date.now();
+    const [, , , alertas] = collect();
+    const elapsed = Date.now() - started;
+    assert.ok(elapsed < 2000, `collect took ${elapsed}ms`);
+    assert.ok(
+      alertas.some((a) => a.tipo === 'card_desconhecido' && /AB-9/.test(a.detalhe)),
+      JSON.stringify(alertas),
+    );
   });
 
   it('uses a card match expression in place of its id, case-insensitively', () => {
@@ -576,7 +591,7 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
       oneMilestonePerCard([
         validCard('F-01', { match: 'feature one' }),
         validCard('F-02', { match: 'Feature Two' }),
-      ], { idPattern: undefined }),
+      ]),
     );
     mergeSubject(project, 'merge FEATURE ONE', 'feat-one');
     register(project);
@@ -592,7 +607,7 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
       oneMilestonePerCard([
         validCard('E-1', { done: '' }),
         validCard('E-2', { validated: '   ', done: '' }),
-      ], { idPattern: undefined }),
+      ]),
     );
     register(project);
     const [projetos, marcos] = collect();
@@ -602,14 +617,13 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
   });
 
   it('collects from the committed map, not the working-tree copy', () => {
-    writeMap(project, oneMilestonePerCard([validCard('W-1')], { idPattern: undefined }));
+    writeMap(project, oneMilestonePerCard([validCard('W-1')]));
     register(project);
     // Leave an uncommitted copy that would mark the card done and rename the project.
     writeFileSync(join(project, '.atomic-skills/marcos.json'), JSON.stringify(
       oneMilestonePerCard([validCard('W-1', { done: 'merged' })], {
         id: 'working-tree',
         title: 'Working tree',
-        idPattern: undefined,
       }),
     ));
     const [projetos, , , alertas] = collect();
@@ -770,13 +784,13 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
 
   it('alerts on an unknown card token in a merge subject', () => {
     writeMap(project, baseMap());
-    mergeSubject(project, 'Merge branch feature ZZZ-9', 'feat-zzz');
+    mergeSubject(project, 'Merge branch feature F-9', 'feat-f9');
     register(project);
     const [, , , alertas] = collect();
     const alert = alertas.find((a) => a.tipo === 'card_desconhecido');
     assert.ok(alert, JSON.stringify(alertas));
     assert.equal(alert.projeto, 'app');
-    assert.match(alert.detalhe, /ZZZ-9/);
+    assert.match(alert.detalhe, /F-9/);
   });
 
   it('alerts on active and logged runs of an unknown milestone but not on null', () => {
@@ -968,6 +982,48 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
     assert.equal(refsAfter, refsBefore);
   });
 
+  it('runs the fetch without a prompt and with a non-interactive ssh', () => {
+    const bare = join(root, 'origin.git');
+    execFileSync('git', ['init', '-q', '--bare', bare], { env: gitEnv() });
+    git(project, 'remote', 'add', 'origin', bare);
+    writeMap(project, baseMap());
+    git(project, 'push', '-q', 'origin', 'main');
+    git(project, 'fetch', '-q', 'origin');
+    register(project, 'origin/main');
+
+    const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    const falsePath = execFileSync('which', ['false'], { encoding: 'utf8' }).trim();
+    const shim = join(root, 'git-fetch-env');
+    mkdirSync(shim, { recursive: true });
+    const envFile = join(root, 'fetch-env.txt');
+    writeFileSync(
+      join(shim, 'git'),
+      `#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = "fetch" ]; then
+    printf '%s\\n' "$GIT_ASKPASS" "$SSH_ASKPASS" "$SSH_ASKPASS_REQUIRE" "$GIT_SSH_COMMAND" > ${JSON.stringify(envFile)}
+    exit 0
+  fi
+done
+exec ${JSON.stringify(realGit)} "$@"
+`,
+      { mode: 0o755 },
+    );
+
+    const res = run(['collect', '--out', outDir, '--delegate', delegate, '--fetch'], {
+      env: { PATH: `${shim}:${env.PATH}` },
+    });
+    assert.equal(res.status, 0, res.stderr);
+    const alertas = readJson(join(outDir, 'alertas.json'));
+    assert.equal(alertas.filter((a) => a.tipo === 'fetch_falhou').length, 0);
+    assert.deepEqual(readFileSync(envFile, 'utf8').trim().split('\n'), [
+      falsePath,
+      falsePath,
+      'never',
+      'ssh -o BatchMode=yes',
+    ]);
+  });
+
   it('refuses an option-like ref and never fetches an option-like branch', () => {
     writeMap(project, baseMap());
     let res = run(['add', project, '--ref=-main']);
@@ -1007,7 +1063,7 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
       oneMilestonePerCard([
         validCard('G-1', { done: 'merged' }),
         validCard('G-2'),
-      ], { idPattern: undefined }),
+      ]),
     );
     register(project);
     const [beforeProjetos, beforeMarcos] = collect();
@@ -1053,10 +1109,27 @@ exec ${JSON.stringify(realGit)} "$@"
     assert.ok(readJson(join(freshOut, 'alertas.json'))
       .some((a) => a.tipo === 'git_log_falhou'));
 
-    writeRegistry(atomicHome, [{ path: project, ref: 'does-not-exist' }]);
+    const registryPath = join(atomicHome, 'progress', 'projects.json');
+    const registry = readJson(registryPath);
+    assert.equal(registry.projects[0].id, 'app');
+    registry.projects[0].ref = 'does-not-exist';
+    writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n');
     const unresolvable = collect();
-    assert.equal(unresolvable[0][0].feito, 0);
-    assert.ok(unresolvable[3].some((a) => a.tipo === 'git_log_falhou'));
+    assert.equal(unresolvable[0].length, 1);
+    assert.equal(unresolvable[0][0].id, 'app');
+    assert.equal(unresolvable[0][0].feito, 1);
+    const unresolvableAlert = unresolvable[3].find((a) => a.tipo === 'git_log_falhou');
+    assert.ok(unresolvableAlert, JSON.stringify(unresolvable[3]));
+    assert.equal(unresolvableAlert.projeto, 'app');
+
+    writeRegistry(atomicHome, [{ path: project, ref: 'does-not-exist' }]);
+    const legacy = collect();
+    assert.equal(legacy[0].length, 1);
+    assert.equal(legacy[0][0].id, project.split('/').pop());
+    assert.equal(legacy[0][0].feito, 0);
+    const legacyAlert = legacy[3].find((a) => a.tipo === 'git_log_falhou');
+    assert.ok(legacyAlert, JSON.stringify(legacy[3]));
+    assert.equal(legacyAlert.projeto, project.split('/').pop());
   });
 
   // --------------------------------------------------------------- registry
@@ -1095,6 +1168,44 @@ assert any(a["tipo"] == "erro_interno" and a["projeto"] == "one" for a in alerta
     assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
   });
 
+  it('appends no partial project rows when milestone rows fail', () => {
+    const other = join(root, 'other-partial');
+    mkdirSync(other, { recursive: true });
+    initGitRepo(other);
+    writeMap(project, baseMap({ id: 'one' }));
+    writeMap(other, baseMap({ id: 'two' }));
+    register(project);
+    register(other);
+    const script = `
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+def explode(view, states):
+    if view.id == "one":
+        raise RuntimeError("milestone boom")
+    return [{
+        "projeto": view.id, "marco": "x", "feito": 0, "total": 0, "pct": 0,
+        "resumo": "", "prontos": 0, "bloqueados": 0, "rodando": 0,
+    }]
+module.milestone_rows = explode
+projetos, marcos, execucoes, alertas, carried = module.build_panel(delegate_path=sys.argv[2])
+assert [row["id"] for row in projetos] == ["one", "two"], projetos
+assert sum(1 for row in projetos if row["id"] == "one") == 1, projetos
+assert projetos[0]["feito"] == 0, projetos
+assert projetos[1]["total"] == 1, projetos
+assert [row["projeto"] for row in marcos] == ["two"], marcos
+assert any(a["tipo"] == "erro_interno" and a["projeto"] == "one" for a in alertas), alertas
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, delegate], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
   it('adds, lists and removes projects and refuses a broken map', () => {
     writeMap(project, baseMap());
     register(project, 'main');
@@ -1120,6 +1231,70 @@ assert any(a["tipo"] == "erro_interno" and a["projeto"] == "one" for a in alerta
     res = run(['remove', project]);
     assert.equal(res.status, 0);
     assert.deepEqual(JSON.parse(readFileSync(registryPath, 'utf8')).projects, []);
+  });
+
+  it('preserves invalid registry entries when adding and removing', () => {
+    const invalid = { path: join(root, 'gone'), ref: '-bad' };
+    writeMap(project, baseMap());
+    writeRegistry(atomicHome, [{ path: project, ref: 'main' }, invalid]);
+    const registryPath = join(atomicHome, 'progress', 'projects.json');
+
+    const other = join(root, 'other-legacy');
+    mkdirSync(other, { recursive: true });
+    initGitRepo(other);
+    writeMap(other, baseMap({ id: 'legacy-other' }));
+    let res = run(['add', other, '--ref', 'main']);
+    assert.equal(res.status, 0, res.stderr);
+    let saved = readJson(registryPath);
+    assert.equal(saved.projects.length, 3);
+    assert.deepEqual(saved.projects.find((entry) => entry.ref === '-bad'), invalid);
+
+    res = run(['remove', project]);
+    assert.equal(res.status, 0, res.stderr);
+    saved = readJson(registryPath);
+    assert.equal(saved.projects.length, 2);
+    assert.deepEqual(saved.projects.find((entry) => entry.ref === '-bad'), invalid);
+  });
+
+  it('drops a carried fetch failure when its project or ref leaves the registry', () => {
+    writeMap(project, baseMap());
+    register(project, 'main');
+    git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+    const registryPath = join(atomicHome, 'progress', 'projects.json');
+    const registry = readJson(registryPath);
+    registry.projects[0].ref = 'origin/main';
+    writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n');
+
+    const script = `
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+projetos, marcos, execucoes, alertas, carried = module.build_panel(
+    carried_failures={sys.argv[3]: "boom"}, delegate_path=sys.argv[2])
+print("\\n".join(alert["tipo"] for alert in alertas))
+`;
+    const build = (failedPath) => {
+      const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, delegate, failedPath], {
+        encoding: 'utf8',
+        env,
+        cwd: root,
+        timeout: 30000,
+      });
+      assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+      return res.stdout;
+    };
+
+    assert.match(build(project), /fetch_falhou/, 'a registered origin ref keeps the failure');
+    assert.doesNotMatch(build(join(root, 'gone')), /fetch_falhou/, 'an unregistered path drops it');
+
+    const changed = readJson(registryPath);
+    changed.projects[0].ref = 'main';
+    writeFileSync(registryPath, JSON.stringify(changed, null, 2) + '\n');
+    assert.doesNotMatch(build(project), /fetch_falhou/, 'a ref without origin/ drops it');
+
+    writeRegistry(atomicHome, []);
+    assert.doesNotMatch(build(project), /fetch_falhou/, 'an emptied registry drops it');
   });
 
   it('refuses a duplicate map id and alerts on one that reached the registry', () => {
@@ -1215,7 +1390,7 @@ assert any(a["tipo"] == "erro_interno" and a["projeto"] == "one" for a in alerta
   });
 
   it('watch survives a bad registry and recollects when the ref changes', async () => {
-    writeMap(project, oneMilestonePerCard([validCard('W-1')], { idPattern: undefined }));
+    writeMap(project, oneMilestonePerCard([validCard('W-1')]));
     register(project);
     const registryPath = join(atomicHome, 'progress', 'projects.json');
     const child = spawn(
@@ -1237,7 +1412,7 @@ assert any(a["tipo"] == "erro_interno" and a["projeto"] == "one" for a in alerta
 
       writeMap(
         project,
-        oneMilestonePerCard([validCard('W-1', { done: 'merged' })], { idPattern: undefined }),
+        oneMilestonePerCard([validCard('W-1', { done: 'merged' })]),
         'mark done',
       );
       await waitFor(() => readJson(projetosPath)[0].feito === 1, 10000);
@@ -1261,12 +1436,15 @@ assert any(a["tipo"] == "erro_interno" and a["projeto"] == "one" for a in alerta
 
     const realUploadPack = execFileSync('sh', ['-c', 'command -v git-upload-pack'], { encoding: 'utf8' }).trim();
     const marker = join(root, 'upload-pack.pid');
+    const sleeperMarker = join(root, 'upload-pack-sleep.pid');
     const uploadPack = join(root, 'slow-upload-pack');
     writeFileSync(
       uploadPack,
       `#!/bin/sh
 echo $$ > "${marker}"
-sleep 5
+sleep 5 &
+echo $! > "${sleeperMarker}"
+wait $!
 exec ${JSON.stringify(realUploadPack)} "$@"
 `,
       { mode: 0o755 },
@@ -1294,12 +1472,17 @@ exec ${JSON.stringify(realUploadPack)} "$@"
       assert.ok(elapsed < 2000, `watch took ${elapsed}ms to stop during a fetch`);
     } finally {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-      try {
-        const pid = Number(readFileSync(marker, 'utf8').trim());
-        if (pid) process.kill(pid, 'SIGKILL');
-      } catch (error) {
-        // the upload-pack already exited
-      }
+    }
+    for (const file of [marker, sleeperMarker]) {
+      const pid = Number(readFileSync(file, 'utf8').trim());
+      await waitFor(() => {
+        try {
+          process.kill(pid, 0);
+          return false;
+        } catch (error) {
+          return error.code === 'ESRCH';
+        }
+      }, 2000);
     }
   });
 

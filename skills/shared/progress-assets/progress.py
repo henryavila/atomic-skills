@@ -13,6 +13,7 @@ import json
 import math
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -24,12 +25,11 @@ from pathlib import Path
 SCHEMA_VERSION = 1
 SIZE_WEIGHTS = {"P": 1, "M": 2, "G": 4}
 ID_RE = re.compile(r"[A-Za-z0-9._-]{1,64}\Z")
-TOP_KEYS = {"schemaVersion", "id", "title", "unit", "note", "idPattern", "milestones"}
+TOP_KEYS = {"schemaVersion", "id", "title", "unit", "note", "milestones"}
 MILESTONE_KEYS = {"id", "title", "cards"}
 CARD_KEYS = {"id", "size", "deps", "match", "weight", "done", "validated"}
 OUTPUT_NAMES = ("projetos", "marcos", "execucoes", "alertas")
 REF_RE = re.compile(r"[A-Za-z0-9._][A-Za-z0-9._/-]*\Z")
-ID_PATTERN_MAX = 64
 DEFAULT_UNIT = "itens"
 
 
@@ -102,12 +102,18 @@ def valid_ref(ref):
 def load_registry():
     path = registry_path()
     if not path.exists():
-        return {"schemaVersion": SCHEMA_VERSION, "projects": [], "alerts": []}
+        return {
+            "schemaVersion": SCHEMA_VERSION,
+            "projects": [],
+            "alerts": [],
+            "invalid": [],
+        }
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or not isinstance(data.get("projects"), list):
         raise ValueError("registry is not an object with a projects array")
     projects = []
     alerts = []
+    invalid = []
     for index, item in enumerate(data["projects"]):
         path_value = item.get("path") if isinstance(item, dict) else None
         ref = item.get("ref") if isinstance(item, dict) else None
@@ -118,6 +124,7 @@ def load_registry():
                 "tipo": "registro_invalido",
                 "detalhe": "projects[%d]: path ausente ou inválido" % index,
             })
+            invalid.append((index, item))
             continue
         if not valid_ref(ref):
             alerts.append({
@@ -125,15 +132,28 @@ def load_registry():
                 "tipo": "registro_invalido",
                 "detalhe": "projects[%d]: ref inválida %r" % (index, ref),
             })
+            invalid.append((index, item))
             continue
-        projects.append({"path": path_value, "ref": ref})
-    return {"schemaVersion": SCHEMA_VERSION, "projects": projects, "alerts": alerts}
+        entry = {"path": path_value, "ref": ref}
+        stored_id = item.get("id")
+        if isinstance(stored_id, str) and ID_RE.fullmatch(stored_id):
+            entry["id"] = stored_id
+        projects.append(entry)
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "projects": projects,
+        "alerts": alerts,
+        "invalid": invalid,
+    }
 
 
-def save_registry(projects):
+def save_registry(projects, invalid=()):
+    entries = list(projects)
+    for index, item in sorted(invalid, key=lambda pair: pair[0]):
+        entries.insert(min(index, len(entries)), item)
     write_atomic(
         registry_path(),
-        encode_json({"schemaVersion": SCHEMA_VERSION, "projects": projects}),
+        encode_json({"schemaVersion": SCHEMA_VERSION, "projects": entries}),
     )
 
 
@@ -304,29 +324,6 @@ def validate_map(data):
     if "note" in data and not isinstance(data["note"], str):
         issue("$.note", "must be a string")
 
-    id_pattern = data.get("idPattern")
-    if "idPattern" in data:
-        if not isinstance(id_pattern, str):
-            issue("$.idPattern", "must be a string")
-        else:
-            if not id_pattern:
-                issue("$.idPattern", "must be a non-empty string")
-            if len(id_pattern) > ID_PATTERN_MAX:
-                issue("$.idPattern", "must be at most %d characters" % ID_PATTERN_MAX)
-            if any(char in id_pattern for char in "()|"):
-                issue("$.idPattern", "must not contain (, ) or |")
-            for escape in re.finditer(r"\\(.)?", id_pattern):
-                if escape.group(1) != "d":
-                    issue("$.idPattern", "the only allowed escape is \\d")
-                    break
-            try:
-                compiled = re.compile(id_pattern)
-            except re.error as exc:
-                issue("$.idPattern", "invalid regular expression: %s" % exc)
-            else:
-                if compiled.search(""):
-                    issue("$.idPattern", "must not match the empty string")
-
     milestones = data.get("milestones")
     if "milestones" not in data:
         issue("$.milestones", "required")
@@ -491,12 +488,15 @@ def validate_map(data):
 # --------------------------------------------------------------------------
 
 class ProjectView:
-    def __init__(self, path, ref):
+    def __init__(self, path, ref, stored_id=None):
         self.path = path
         self.ref = ref
         self.data = None
         self.issues = []
-        self.id = Path(path).name
+        if isinstance(stored_id, str) and ID_RE.fullmatch(stored_id):
+            self.id = stored_id
+        else:
+            self.id = Path(path).name
         self.title = Path(path).name
         self.unit = DEFAULT_UNIT
         self.note = ""
@@ -509,8 +509,8 @@ class ProjectView:
         return not self.issues
 
 
-def load_project(path, ref, sha=None):
-    view = ProjectView(path, ref)
+def load_project(path, ref, sha=None, stored_id=None):
+    view = ProjectView(path, ref, stored_id=stored_id)
     raw, error = read_map(path, sha or ref, display=ref)
     if error:
         view.issues = ["$: %s" % error]
@@ -610,17 +610,13 @@ def card_states(view, active_runs, subjects):
 
     deps = {card["id"]: card.get("deps") or [] for card in view.cards}
     states = dict(base)
-    changed = True
-    while changed:
-        changed = False
-        for card in view.cards:
-            card_id = card["id"]
-            if states[card_id] != "ready":
-                continue
-            if any(states.get(dep) not in ("integrated", "validated")
-                   for dep in deps[card_id]):
-                states[card_id] = "blocked"
-                changed = True
+    for card in view.cards:
+        card_id = card["id"]
+        if states[card_id] != "ready":
+            continue
+        if any(states.get(dep) not in ("integrated", "validated")
+               for dep in deps[card_id]):
+            states[card_id] = "blocked"
     return states
 
 
@@ -685,14 +681,26 @@ def project_row(view, states):
     }
 
 
+def card_id_prefixes(cards):
+    """The letters of every card id shaped like `AB-12`, longest first."""
+    prefixes = set()
+    for card in cards:
+        card_id = card.get("id")
+        if not isinstance(card_id, str):
+            continue
+        match = re.match(r"([A-Za-z]{1,8})-?\d", card_id)
+        if match:
+            prefixes.add(match.group(1))
+    return sorted(prefixes, key=lambda value: (-len(value), value))
+
+
 def unknown_card_alerts(view, subjects):
-    pattern = view.data.get("idPattern") if isinstance(view.data, dict) else None
-    if not isinstance(pattern, str):
+    prefixes = card_id_prefixes(view.cards)
+    if not prefixes:
         return []
-    try:
-        token = token_regex(pattern)
-    except re.error:
-        return []
+    token = token_regex(
+        "(?:%s)-?\\d{1,5}[a-z]?" % "|".join(re.escape(prefix) for prefix in prefixes)
+    )
     known = {card["id"] for card in view.cards}
     seen = set()
     alerts = []
@@ -825,6 +833,31 @@ def minutes(age_s):
 # Collection
 # --------------------------------------------------------------------------
 
+def stop_fetch_group(proc):
+    """Terminate the process group this fetch created, then kill it."""
+    pgid = proc.pid
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    deadline = time.monotonic() + 1
+    while time.monotonic() < deadline:
+        proc.poll()
+        try:
+            os.killpg(pgid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.05)
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    try:
+        proc.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        pass
+
+
 def run_fetch(repo, branch, stop_event=None, timeout=30):
     """Run a contained fetch; return (ok, detail, stopped)."""
     if stop_event is not None and stop_event.is_set():
@@ -837,6 +870,13 @@ def run_fetch(repo, branch, stop_event=None, timeout=30):
     ]
     env = dict(os.environ)
     env["GIT_TERMINAL_PROMPT"] = "0"
+    false_path = shutil.which("false")
+    if false_path:
+        env["GIT_ASKPASS"] = false_path
+        env["SSH_ASKPASS"] = false_path
+    env["SSH_ASKPASS_REQUIRE"] = "never"
+    if not env.get("GIT_SSH_COMMAND") and not git(repo, "config", "--get", "core.sshCommand"):
+        env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"
     start = time.monotonic()
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as errors:
         try:
@@ -846,21 +886,16 @@ def run_fetch(repo, branch, stop_event=None, timeout=30):
                 stdout=subprocess.DEVNULL,
                 stderr=errors,
                 env=env,
+                start_new_session=True,
             )
         except OSError as exc:
             return False, "git fetch falhou em %s: %s" % (repo, exc), False
         while proc.poll() is None:
             if stop_event is not None and stop_event.is_set():
-                proc.terminate()
-                try:
-                    proc.wait(timeout=1)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait()
+                stop_fetch_group(proc)
                 return False, "git fetch interrompido em %s" % repo, True
             if time.monotonic() - start >= timeout:
-                proc.kill()
-                proc.wait()
+                stop_fetch_group(proc)
                 return False, "git fetch excedeu %d segundos em %s" % (timeout, repo), False
             time.sleep(0.05)
         errors.seek(0)
@@ -954,6 +989,15 @@ def build_panel(fetch=False, delegate_path=None, out_dir=None,
 
     projects = registry["projects"]
     alerts = list(registry.get("alerts", []))
+    origin_paths = {
+        resolve_project(project["path"]) for project in projects
+        if isinstance(project.get("ref"), str)
+        and project["ref"].startswith("origin/")
+    }
+    carried = {
+        path: detail for path, detail in carried.items()
+        if resolve_project(path) in origin_paths
+    }
     if fetch:
         failures, attempted = fetch_projects(projects, stop_event=stop_event)
         carried = {path: detail for path, detail in carried.items()
@@ -967,7 +1011,7 @@ def build_panel(fetch=False, delegate_path=None, out_dir=None,
 
     loaded = []
     for project in projects:
-        view = ProjectView(project["path"], project["ref"])
+        view = ProjectView(project["path"], project["ref"], project.get("id"))
         try:
             sha, error = resolve_ref(project["path"], project["ref"])
             if sha is None:
@@ -978,7 +1022,9 @@ def build_panel(fetch=False, delegate_path=None, out_dir=None,
                     "log_error": error or "cannot resolve %s" % project["ref"],
                 })
                 continue
-            view = load_project(project["path"], project["ref"], sha=sha)
+            view = load_project(
+                project["path"], project["ref"], sha=sha, stored_id=project.get("id")
+            )
             loaded.append({
                 "project": project,
                 "view": view,
@@ -1100,10 +1146,14 @@ def build_panel(fetch=False, delegate_path=None, out_dir=None,
                 })
                 continue
             states = card_states(view, active_runs, subjects)
-            projetos.append(project_row(view, states))
-            marcos.extend(milestone_rows(view, states))
-            alerts.extend(unknown_card_alerts(view, subjects))
-            alerts.extend(unknown_milestone_alerts(view, active_runs, logged_runs))
+            row = project_row(view, states)
+            rows = milestone_rows(view, states)
+            card_alerts = unknown_card_alerts(view, subjects)
+            milestone_alerts = unknown_milestone_alerts(view, active_runs, logged_runs)
+            projetos.append(row)
+            marcos.extend(rows)
+            alerts.extend(card_alerts)
+            alerts.extend(milestone_alerts)
         except Exception as exc:  # one project never stops the others
             alerts.append({
                 "projeto": view.id,
@@ -1189,24 +1239,28 @@ def cmd_add(args):
         print("progress: cannot read the registry: %s" % exc, file=sys.stderr)
         return 1
     projects = registry["projects"]
+    invalid = registry.get("invalid", [])
     for project in projects:
         if resolve_project(project["path"]) == repo:
             project["path"] = repo
             project["ref"] = args.ref
-            save_registry(projects)
+            project["id"] = data["id"]
+            save_registry(projects, invalid)
             print("added: %s (%s)" % (repo, args.ref))
             return 0
     new_id = data["id"]
     for project in projects:
         existing = load_project(project["path"], project["ref"])
-        if existing.data is not None and existing.id == new_id:
+        if project.get("id") == new_id or (
+            existing.data is not None and existing.id == new_id
+        ):
             print(
                 "progress: the map id %r already belongs to %s" % (new_id, project["path"]),
                 file=sys.stderr,
             )
             return 1
-    projects.append({"path": repo, "ref": args.ref})
-    save_registry(projects)
+    projects.append({"path": repo, "ref": args.ref, "id": new_id})
+    save_registry(projects, invalid)
     print("added: %s (%s)" % (repo, args.ref))
     return 0
 
@@ -1225,7 +1279,7 @@ def cmd_remove(args):
     if len(remaining) == len(registry["projects"]):
         print("not registered: %s" % repo, file=sys.stderr)
         return 1
-    save_registry(remaining)
+    save_registry(remaining, registry.get("invalid", []))
     print("removed: %s" % repo)
     return 0
 
