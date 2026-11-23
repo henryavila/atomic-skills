@@ -11,6 +11,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -155,6 +156,11 @@ case "$1" in
       echo "bootstrap refused $label" >&2
       exit 1
     fi
+    if [ -n "$FAKE_LAUNCHCTL_FAIL_BOOTSTRAP_ONCE" ] && [ "$FAKE_LAUNCHCTL_FAIL_BOOTSTRAP_ONCE" = "$label" ] && [ ! -f "$FAKE_LAUNCHCTL_LOG.once" ]; then
+      : > "$FAKE_LAUNCHCTL_LOG.once"
+      echo "bootstrap refused once $label" >&2
+      exit 1
+    fi
     : > "$FAKE_LAUNCHCTL_STATE/$label"
     exit 0
     ;;
@@ -168,17 +174,21 @@ case "$1" in
       rm -f "$FAKE_LAUNCHCTL_STATE/$label"
       exit 0
     fi
-    echo "not loaded $label" >&2
-    exit 1
+    echo "Could not find service $label" >&2
+    exit 113
     ;;
   print)
     label=\${2##*/}
+    if [ -n "$FAKE_LAUNCHCTL_FAIL_PRINT" ] && [ "$FAKE_LAUNCHCTL_FAIL_PRINT" = "$label" ]; then
+      echo "print failed $label" >&2
+      exit 1
+    fi
     if [ -f "$FAKE_LAUNCHCTL_STATE/$label" ]; then
       echo "loaded $label"
       exit 0
     fi
-    echo "not loaded $label" >&2
-    exit 1
+    echo "Could not find service $label" >&2
+    exit 113
     ;;
   *)
     echo "unsupported: $*" >&2
@@ -354,6 +364,7 @@ esac
     assert.equal(zero.bloqueados, 1);
     assert.equal(zero.rodando, 1);
     assert.equal(zero.legenda, '1 de 4 prontos · 1 bloqueado · 1 rodando');
+    assert.equal(zero.resumo, 'sem peso · 1 de 4 prontos');
     assert.equal(projetos[0].total, 1);
     assert.equal(projetos[0].feito, 0);
     assert.equal(projetos[0].pct, 0);
@@ -399,6 +410,51 @@ exec ${JSON.stringify(realGit)} "$@"
     assert.equal(res.status, 0, res.stderr);
     const kept = JSON.parse(readFileSync(join(out, 'marcos.json'), 'utf8'));
     assert.deepEqual(kept, marcos);
+  });
+
+  it('builds PATH from the unresolved executable directory', () => {
+    const script = `
+import importlib.util, pathlib, sys
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+root = pathlib.Path(sys.argv[2])
+real = root / "real"
+real.mkdir()
+link = root / "link"
+link.symlink_to(real, target_is_directory=True)
+node = link / "node"
+node.write_text("")
+module.sys.executable = str(link / "python")
+module.shutil.which = lambda name: str(node) if name == "node" else None
+parts = module.panel_path().split(":")
+assert str(link) in parts, module.panel_path()
+assert str(real) not in parts, module.panel_path()
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, root], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
+  it('makes the delegate path absolute and omits a missing one', () => {
+    const relative = 'relative-delegate.py';
+    writeFileSync(join(root, relative), 'print("delegate")\n');
+    let res = install([], { env: { DELEGATE_PY: relative } });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    let args = plist(watchPlist()).ProgramArguments;
+    assert.deepEqual(args.slice(-2), ['--delegate', join(root, relative)]);
+    assert.ok(!args.includes(relative), args.join(' '));
+
+    res = run(['panel', 'uninstall']);
+    assert.equal(res.status, 0, res.stderr);
+    res = install([], { env: { DELEGATE_PY: join(root, 'missing-delegate.py') } });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    args = plist(watchPlist()).ProgramArguments;
+    assert.ok(!args.includes('--delegate'), args.join(' '));
   });
 
   // ---------------------------------------------------------------- install
@@ -447,6 +503,15 @@ exec ${JSON.stringify(realGit)} "$@"
     for (const [path, digest] of Object.entries(state.files)) {
       assert.equal(sha256(readFileSync(path)), digest, path);
     }
+    const allowedDirs = [
+      join(home, '.aideck/consumers/painel'),
+      dataDir(),
+      join(atomicHome, 'progress'),
+      join(atomicHome, 'progress/logs'),
+    ];
+    for (const dir of state.createdDirs) {
+      assert.ok(allowedDirs.includes(dir), `unexpected createdDir ${dir}`);
+    }
 
     const bootstraps = launchLines().filter((line) => line.startsWith('bootstrap '));
     assert.equal(bootstraps.length, 2, launchLines().join('\n'));
@@ -488,6 +553,8 @@ exec ${JSON.stringify(realGit)} "$@"
   });
 
   it('returns the temp HOME to its exact prior state after install and uninstall', () => {
+    mkdirSync(join(home, '.aideck/consumers'), { recursive: true });
+    mkdirSync(join(home, 'Library/LaunchAgents'), { recursive: true });
     const before = snapshotTree(home);
     let res = install();
     assert.equal(res.status, 0, res.stderr);
@@ -539,6 +606,7 @@ exec ${JSON.stringify(realGit)} "$@"
     assert.deepEqual(snapshotTree(home), guarded);
     rmSync(watchPlist());
 
+    assert.deepEqual(launchLines(), [], 'a refusal must not call launchctl');
     assert.ok(!existsSync(statePath()));
   });
 
@@ -552,10 +620,41 @@ exec ${JSON.stringify(realGit)} "$@"
     assert.equal(res.status, 0, res.stderr);
     assert.deepEqual(snapshotTree(home), before);
     assert.equal(readFileSync(statePath(), 'utf8'), stateBefore);
-    assert.equal(launchLines().length, callsBefore);
+    const callsAfter = launchLines().slice(callsBefore);
+    assert.ok(
+      callsAfter.every((line) => line.startsWith('print ')),
+      callsAfter.join('\n'),
+    );
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
+  });
+
+  it('bootstraps only a label that is down on an identical reinstall', () => {
+    install();
+    unlinkSync(join(launchctlState, watchLabel));
+    const before = snapshotTree(home);
+    const callsBefore = launchLines().length;
+
+    const res = install();
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.deepEqual(snapshotTree(home), before);
+    const callsAfter = launchLines().slice(callsBefore);
+    assert.equal(
+      callsAfter.filter((line) => line.startsWith('bootstrap ')).length,
+      1,
+      callsAfter.join('\n'),
+    );
+    assert.match(
+      callsAfter.find((line) => line.startsWith('bootstrap ')),
+      /com\.atomic-skills\.progress\.watch\.plist$/,
+    );
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
   });
 
   it('rolls back every created file and directory when the second bootstrap fails', () => {
+    mkdirSync(join(home, '.aideck/consumers'), { recursive: true });
+    mkdirSync(join(home, 'Library/LaunchAgents'), { recursive: true });
     const before = snapshotTree(home);
     const res = install([], {
       env: { FAKE_LAUNCHCTL_FAIL_BOOTSTRAP: panelLabel },
@@ -567,9 +666,303 @@ exec ${JSON.stringify(realGit)} "$@"
     assert.ok(!existsSync(watchPlist()));
     const lines = launchLines();
     assert.ok(lines.some((line) => line.startsWith('bootout ')), lines.join('\n'));
+    assert.deepEqual(readdirSync(launchctlState), []);
+  });
+
+  it('reinstalls with different arguments, booting the old labels out', () => {
+    install();
+    const callsBefore = launchLines().length;
+    const oldState = JSON.parse(readFileSync(statePath(), 'utf8'));
+
+    const res = install(['--port', '8123']);
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+
+    const state = JSON.parse(readFileSync(statePath(), 'utf8'));
+    assert.equal(state.port, 8123);
+    assert.equal(state.files[manifestPath()], sha256(readFileSync(manifestPath())));
+    assert.equal(state.files[watchPlist()], sha256(readFileSync(watchPlist())));
+    assert.equal(state.files[panelPlist()], sha256(readFileSync(panelPlist())));
+    assert.notEqual(state.files[panelPlist()], oldState.files[panelPlist()]);
+    assert.deepEqual(plist(panelPlist()).ProgramArguments.slice(2), ['serve', '--port=8123']);
+
+    const callsAfter = launchLines().slice(callsBefore);
+    assert.equal(
+      callsAfter.filter((line) => line.startsWith('bootout ')).length,
+      2,
+      callsAfter.join('\n'),
+    );
+    assert.equal(
+      callsAfter.filter((line) => line.startsWith('bootstrap ')).length,
+      2,
+      callsAfter.join('\n'),
+    );
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
+  });
+
+  it('restores the old service after a failed reinstall with different arguments', () => {
+    install();
+    const manifestBefore = readFileSync(manifestPath());
+    const watchBefore = readFileSync(watchPlist());
+    const panelBefore = readFileSync(panelPlist());
+    const stateBefore = readFileSync(statePath(), 'utf8');
+    const callsBefore = launchLines().length;
+
+    const res = install(['--port', '8123'], {
+      env: { FAKE_LAUNCHCTL_FAIL_BOOTSTRAP_ONCE: panelLabel },
+    });
+    assert.equal(res.status, 1, res.stdout);
+    assert.match(res.stderr, /install failed/);
+    assert.deepEqual(readFileSync(manifestPath()), manifestBefore);
+    assert.deepEqual(readFileSync(watchPlist()), watchBefore);
+    assert.deepEqual(readFileSync(panelPlist()), panelBefore);
+    assert.equal(readFileSync(statePath(), 'utf8'), stateBefore);
+    assert.equal(JSON.parse(stateBefore).port, 7777);
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
+
+    const callsAfter = launchLines().slice(callsBefore);
+    assert.ok(
+      callsAfter.some((line) => line.startsWith('bootout ')
+        && line.endsWith(`/${watchLabel}`)),
+      callsAfter.join('\n'),
+    );
+    assert.equal(
+      callsAfter.filter((line) => line.startsWith('bootstrap ')).length,
+      4,
+      callsAfter.join('\n'),
+    );
+  });
+
+  it('names the labels still down when the restored service cannot be bootstrapped', () => {
+    install();
+    const res = install(['--port', '8123'], {
+      env: { FAKE_LAUNCHCTL_FAIL_BOOTSTRAP: panelLabel },
+    });
+    assert.equal(res.status, 1, res.stdout);
+    assert.match(res.stderr, /install failed/);
+    assert.match(res.stderr, new RegExp(`${panelLabel} down`));
+    assert.match(res.stderr, /launchctl bootstrap gui\/\d+ .*panel\.plist/);
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(!existsSync(join(launchctlState, panelLabel)));
+  });
+
+  it('names the label left down when a reinstall bootout partly succeeds', () => {
+    install();
+    const stateBefore = readFileSync(statePath(), 'utf8');
+    const manifestBefore = readFileSync(manifestPath());
+    const res = install(['--port', '8123'], {
+      env: { FAKE_LAUNCHCTL_FAIL_BOOTOUT: panelLabel },
+    });
+    assert.equal(res.status, 1, res.stdout);
+    assert.match(res.stderr, new RegExp(`${watchLabel} is down`));
+    assert.match(res.stderr, /launchctl bootstrap gui\/\d+ .*watch\.plist/);
+    assert.equal(readFileSync(statePath(), 'utf8'), stateBefore);
+    assert.deepEqual(readFileSync(manifestPath()), manifestBefore);
+    assert.ok(!existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
+  });
+
+  it('refuses a reinstall when the manifest was edited and leaves launchctl alone', () => {
+    install();
+    writeFileSync(manifestPath(), 'user: edited\n');
+    const before = snapshotTree(home);
+    const callsBefore = launchLines().length;
+
+    const res = install();
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /already exists|edited|same content|does not record/);
+    assert.deepEqual(snapshotTree(home), before);
+    assert.equal(launchLines().length, callsBefore);
   });
 
   // -------------------------------------------------------------- uninstall
+
+  it('removes the two log files and reports a directory it cannot remove', () => {
+    install();
+    mkdirSync(join(atomicHome, 'progress/logs'), { recursive: true });
+    writeFileSync(join(atomicHome, 'progress/logs', `${watchLabel}.log`), 'watch log\n');
+    writeFileSync(join(atomicHome, 'progress/logs', `${panelLabel}.log`), 'panel log\n');
+
+    const res = run(['panel', 'uninstall']);
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.ok(!existsSync(join(atomicHome, 'progress/logs', `${watchLabel}.log`)));
+    assert.ok(!existsSync(join(atomicHome, 'progress/logs', `${panelLabel}.log`)));
+    assert.ok(!existsSync(join(atomicHome, 'progress/logs')));
+
+    install();
+    writeFileSync(join(dataDir(), 'user-file.txt'), 'keep me\n');
+    const second = run(['panel', 'uninstall']);
+    assert.equal(second.status, 0, `${second.stdout}\n${second.stderr}`);
+    assert.match(second.stderr, /left .*data/);
+    assert.match(second.stderr, /not empty|directory/i);
+    assert.ok(existsSync(join(dataDir(), 'user-file.txt')));
+  });
+
+  it('removes only the empty shared roots when it created none of them', () => {
+    rmSync(join(home, '.aideck'), { recursive: true, force: true });
+    rmSync(atomicHome, { recursive: true, force: true });
+    rmSync(join(home, 'Library'), { recursive: true, force: true });
+    assert.ok(!existsSync(join(home, '.aideck')));
+    assert.ok(!existsSync(atomicHome));
+    assert.ok(!existsSync(join(home, 'Library')));
+
+    let res = install();
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    res = run(['panel', 'uninstall']);
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+
+    assert.ok(existsSync(join(home, '.aideck')));
+    assert.ok(existsSync(join(home, '.aideck/consumers')));
+    assert.ok(existsSync(atomicHome));
+    assert.ok(existsSync(join(home, 'Library/LaunchAgents')));
+    for (const path of [
+      join(home, '.aideck/consumers/painel'),
+      join(atomicHome, 'progress'),
+      join(home, 'Library/LaunchAgents', `${watchLabel}.plist`),
+    ]) {
+      assert.ok(!existsSync(path), path);
+    }
+    assert.deepEqual(readdirSync(join(home, '.aideck/consumers')), []);
+    assert.deepEqual(readdirSync(atomicHome), []);
+    assert.deepEqual(readdirSync(join(home, 'Library/LaunchAgents')), []);
+  });
+
+  it('keeps the four data files when data/ was not created by install', () => {
+    mkdirSync(dataDir(), { recursive: true });
+    writeFileSync(join(dataDir(), 'projetos.json'), 'user data\n');
+    const res = install();
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /projetos\.json.*already exists/);
+    assert.equal(readFileSync(join(dataDir(), 'projetos.json'), 'utf8'), 'user data\n');
+    assert.ok(!existsSync(statePath()));
+
+    rmSync(join(dataDir(), 'projetos.json'));
+    const created = install();
+    assert.equal(created.status, 0, `${created.stdout}\n${created.stderr}`);
+    const state = JSON.parse(readFileSync(statePath(), 'utf8'));
+    state.createdDirs = state.createdDirs.filter((item) => item !== dataDir());
+    writeFileSync(statePath(), JSON.stringify(state, null, 2) + '\n');
+    writeFileSync(join(dataDir(), 'projetos.json'), '[]\n');
+    const removed = run(['panel', 'uninstall']);
+    assert.equal(removed.status, 0, `${removed.stdout}\n${removed.stderr}`);
+    assert.equal(readFileSync(join(dataDir(), 'projetos.json'), 'utf8'), '[]\n');
+    assert.ok(existsSync(dataDir()));
+  });
+
+  it('refuses a tampered state before booting anything out', () => {
+    const cases = [
+      (state) => { state.files[join(root, 'evil')] = 'x'; },
+      (state) => { state.createdDirs = state.createdDirs.join(','); },
+      (state) => { state.createdDirs.push(7); },
+      (state) => { state.createdDirs.push(join(root, 'evil')); },
+    ];
+    for (const tamper of cases) {
+      install();
+      const original = JSON.parse(readFileSync(statePath(), 'utf8'));
+      const state = JSON.parse(JSON.stringify(original));
+      tamper(state);
+      writeFileSync(statePath(), JSON.stringify(state, null, 2) + '\n');
+      const stateBefore = readFileSync(statePath(), 'utf8');
+      const callsBefore = launchLines().length;
+      const res = run(['panel', 'uninstall']);
+      assert.equal(res.status, 1, `${res.stdout}\n${res.stderr}`);
+      assert.match(res.stderr, /panel\.json/);
+      assert.equal(readFileSync(statePath(), 'utf8'), stateBefore);
+      assert.equal(launchLines().length, callsBefore, 'no bootout on a tampered state');
+      assert.ok(existsSync(join(launchctlState, watchLabel)));
+      assert.ok(existsSync(join(launchctlState, panelLabel)));
+      writeFileSync(statePath(), JSON.stringify(original, null, 2) + '\n');
+      const cleanup = run(['panel', 'uninstall']);
+      assert.equal(cleanup.status, 0, `${cleanup.stdout}\n${cleanup.stderr}`);
+    }
+  });
+
+  it('refuses a symlink at the manifest, a plist, the consumer, data or an output file', () => {
+    install();
+    const target = join(root, 'target');
+    writeFileSync(target, 'outside\n');
+    const cases = [
+      manifestPath(),
+      watchPlist(),
+      panelPlist(),
+      join(home, '.aideck/consumers/painel'),
+      dataDir(),
+      ...['projetos', 'marcos', 'execucoes', 'alertas']
+        .map((name) => join(dataDir(), `${name}.json`)),
+    ];
+    for (const link of cases) {
+      const res = run(['panel', 'uninstall']);
+      assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+      rmSync(link, { recursive: true, force: true });
+      mkdirSync(join(link, '..'), { recursive: true });
+      symlinkSync(target, link);
+      const before = readFileSync(target, 'utf8');
+      const callsBefore = launchLines().length;
+      const refused = install();
+      assert.equal(refused.status, 1, `${refused.stdout}\n${refused.stderr}`);
+      assert.match(refused.stderr, /symlink/);
+      assert.equal(readFileSync(target, 'utf8'), before);
+      assert.equal(launchLines().length, callsBefore);
+      rmSync(link, { force: true });
+      install();
+    }
+    rmSync(target);
+    const res = run(['panel', 'uninstall']);
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
+  it('keeps the state and names the label that is down when the second bootout fails', () => {
+    install();
+    const res = run(['panel', 'uninstall'], {
+      env: { FAKE_LAUNCHCTL_FAIL_BOOTOUT: panelLabel },
+    });
+    assert.equal(res.status, 1);
+    assert.ok(existsSync(statePath()));
+    assert.ok(!existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
+    assert.match(res.stderr, new RegExp(`${watchLabel} is down`));
+  });
+
+  it('stops uninstall when launchctl print fails and keeps the state', () => {
+    install();
+    const callsBefore = launchLines().length;
+    const res = run(['panel', 'uninstall'], {
+      env: { FAKE_LAUNCHCTL_FAIL_PRINT: watchLabel },
+    });
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /launchctl print failed/);
+    assert.ok(existsSync(statePath()));
+    assert.ok(existsSync(manifestPath()));
+    assert.ok(existsSync(watchPlist()));
+    assert.ok(existsSync(panelPlist()));
+    assert.ok(existsSync(join(launchctlState, watchLabel)));
+    assert.ok(existsSync(join(launchctlState, panelLabel)));
+    assert.equal(
+      launchLines().slice(callsBefore).filter((line) => line.startsWith('bootout ')).length,
+      0,
+    );
+  });
+
+  it('prints a launchctl print failure from status without a traceback', () => {
+    install();
+    const res = run(['panel', 'status'], {
+      env: { FAKE_LAUNCHCTL_FAIL_PRINT: watchLabel },
+    });
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /launchctl print failed/);
+    assert.doesNotMatch(res.stderr, /Traceback/);
+  });
+
+  it('refuses a first install when a label is already loaded', () => {
+    writeFileSync(join(launchctlState, watchLabel), '');
+    const before = snapshotTree(home);
+    const res = install();
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /already loaded/);
+    assert.deepEqual(snapshotTree(home), before);
+    assert.ok(!existsSync(statePath()));
+  });
 
   it('keeps a user-edited manifest on uninstall and still removes the state', () => {
     install();
@@ -614,11 +1007,16 @@ exec ${JSON.stringify(realGit)} "$@"
 
     res = run(['panel', 'uninstall']);
     assert.equal(res.status, 0, res.stderr);
+    assert.ok(!existsSync(join(dataDir(), 'projetos.json')));
+    for (const name of ['projetos', 'marcos', 'execucoes', 'alertas']) {
+      assert.ok(!existsSync(join(dataDir(), `${name}.json`)), name);
+    }
     res = run(['panel', 'status', '--json']);
     status = JSON.parse(res.stdout);
     assert.equal(status.installed, false);
     assert.equal(status.port, null);
     assert.equal(status.url, null);
+    assert.equal(status.projetos.mtime, null);
   });
 
   it('prints that nothing is installed on a second uninstall', () => {
@@ -629,8 +1027,8 @@ exec ${JSON.stringify(realGit)} "$@"
 
   // ------------------------------------------------------- manifest refresh
 
-  it('quotes a map title with quotes and a colon into valid YAML', () => {
-    const title = 'Painel: "aspas" & \'mais\'';
+  it('quotes a map title with quotes, a colon, a hash, a newline and non-ASCII into valid YAML', () => {
+    const title = 'Painel: "aspas" & \'mais\' # linha\nnão ascii — ação';
     writeMap(project, baseMap({ id: 'quoted', title, unit: 'cartões' }));
     register(project);
     const res = install();
@@ -643,6 +1041,24 @@ exec ${JSON.stringify(realGit)} "$@"
       ref: 'marcos',
       filter: { projeto: 'quoted' },
     });
+  });
+
+  it('escapes DEL, C1, U+2028/9 and lone surrogates but keeps other non-ASCII', () => {
+    const title = 'linha\u007f\u0085\u2028\u2029 não \ud800';
+    writeMap(project, baseMap({ id: 'escaped', title }));
+    register(project);
+    const res = install();
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+
+    const raw = readFileSync(manifestPath(), 'utf8');
+    assert.match(raw, /\\u007f/);
+    assert.match(raw, /\\u0085/);
+    assert.match(raw, /\\u2028/);
+    assert.match(raw, /\\u2029/);
+    assert.match(raw, /\\ud800/);
+    assert.match(raw, /não/);
+    assert.doesNotMatch(raw, /[\x7f]/);
+    assert.doesNotMatch(raw, /[\u0080-\u009f]/);
   });
 
   it('regenerates the manifest on add and remove and leaves an edited one alone', () => {
@@ -668,6 +1084,30 @@ exec ${JSON.stringify(realGit)} "$@"
     assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
     assert.equal(readFileSync(manifestPath(), 'utf8'), 'user: edited\n');
     assert.match(res.stderr, /edited|editado/i);
+  });
+
+  it('does not crash refresh_manifest when rendering raises ValueError', () => {
+    install();
+    const script = `
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+def explode():
+    raise ValueError("cannot render")
+module.render_manifest = explode
+module.refresh_manifest()
+print("ok")
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.match(res.stderr, /cannot regenerate the panel manifest/);
+    assert.match(res.stdout, /ok/);
   });
 
   it('exits 2 when launchd is unavailable and PROGRESS_LAUNCHCTL is unset', {

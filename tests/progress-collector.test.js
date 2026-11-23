@@ -478,6 +478,60 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
     assert.equal(byCard.get('m-a-1-b'), 100);
   });
 
+  it('matches a hyphenated card id case-insensitively and keeps a bare id case-sensitive', () => {
+    writeMap(
+      project,
+      oneMilestonePerCard([
+        validCard('D-03'),
+        validCard('S3'),
+      ]),
+    );
+    mergeSubject(project, 'Merge app-desktop/d-03: x', 'feat-d03');
+    mergeSubject(project, 'Merge backup no s3', 'feat-s3');
+    register(project);
+    const [, marcos, , alertas] = collect();
+    const byCard = new Map(marcos.map((m) => [m.marco, m.pct]));
+    assert.equal(byCard.get('m-d-03'), 100, 'a hyphenated id ignores case');
+    assert.equal(byCard.get('m-s3'), 0, 'a bare id stays case-sensitive');
+    assert.equal(alertas.filter((a) => a.tipo === 'card_desconhecido').length, 0);
+  });
+
+  it('builds unknown-id tokens from the prefix separator the map teaches', () => {
+    writeMap(
+      project,
+      baseMap({
+        id: 'prefixes',
+        milestones: [{
+          id: 'm',
+          title: 'M',
+          cards: [
+            validCard('A-01'),
+            validCard('D-01b'),
+            validCard('P-01'),
+          ],
+        }],
+      }),
+    );
+    mergeSubject(project, 'merge: rodada 3 dos cartões, lote A2', 'feat-a2');
+    mergeSubject(project, 'merge: D-01b P5, com_sufixo', 'feat-d01b');
+    register(project);
+    let [, , , alertas] = collect();
+    assert.equal(
+      alertas.filter((a) => a.tipo === 'card_desconhecido').length,
+      0,
+      JSON.stringify(alertas),
+    );
+
+    mergeSubject(project, 'merge: D-99', 'feat-d99');
+    [, , , alertas] = collect();
+    const unknown = alertas.filter((a) => a.tipo === 'card_desconhecido');
+    assert.deepEqual(
+      unknown.map((a) => a.detalhe.split(' aparece')[0]),
+      ['D-99'],
+      JSON.stringify(unknown),
+    );
+  });
+
   it('unblocks a card whose dependency is integrated', () => {
     writeMap(
       project,
@@ -723,6 +777,44 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
   });
 
   // ------------------------------------------------------- runs and alerts
+
+  it('gives a zero-weight milestone 100% only when every card is ready-counted', () => {
+    writeMap(project, baseMap({
+      id: 'zero-all',
+      title: 'Zero all',
+      milestones: [
+        {
+          id: 'done',
+          title: 'Done',
+          cards: [
+            { id: 'Z-1', weight: 0, done: 'merged' },
+            { id: 'Z-2', weight: 0, validated: 'gate' },
+          ],
+        },
+        {
+          id: 'partial',
+          title: 'Partial',
+          cards: [
+            { id: 'Y-1', weight: 0, done: 'merged' },
+            { id: 'Y-2', weight: 0 },
+          ],
+        },
+        {
+          id: 'weighted',
+          title: 'Weighted',
+          cards: [validCard('P-1')],
+        },
+      ],
+    }));
+    register(project);
+    const [, marcos] = collect();
+    const done = marcos.find((row) => row.marco === 'done');
+    const partial = marcos.find((row) => row.marco === 'partial');
+    assert.equal(done.pct, 100);
+    assert.equal(done.resumo, 'sem peso · 2 de 2 prontos');
+    assert.equal(partial.pct, 0);
+    assert.equal(partial.resumo, 'sem peso · 1 de 2 prontos');
+  });
 
   it('lists active local and remote runs with the panel fields', () => {
     writeMap(project, baseMap({ note: 'a legenda' }));
@@ -1052,10 +1144,10 @@ def denied(pid, sig):
     calls.append(sig)
     raise PermissionError("denied")
 module.os.killpg = denied
-ticks = iter([0, 2, 2, 2])
+ticks = iter([0, 0.5, 0.5, 0.5, 0.5, 0.5, 2])
 module.time.monotonic = lambda: next(ticks, 2)
 module.stop_fetch_group(Proc())
-assert calls == [signal.SIGTERM, signal.SIGKILL], calls
+assert calls == [signal.SIGTERM, 0, signal.SIGKILL], calls
 `;
     const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY], {
       encoding: 'utf8',
@@ -1224,6 +1316,44 @@ exec ${JSON.stringify(realGit)} "$@"
     const legacyAlert = legacy[3].find((a) => a.tipo === 'git_log_falhou');
     assert.ok(legacyAlert, JSON.stringify(legacy[3]));
     assert.equal(legacyAlert.projeto, project.split('/').pop());
+  });
+
+  it('fills titulo and legenda on rows kept from an older panel file', () => {
+    writeMap(project, oneMilestonePerCard([validCard('K-1', { done: 'merged' })]));
+    register(project);
+    collect();
+    const marcosPath = join(outDir, 'marcos.json');
+    const rows = readJson(marcosPath);
+    for (const row of rows) {
+      delete row.titulo;
+      delete row.legenda;
+    }
+    writeFileSync(marcosPath, JSON.stringify(rows, null, 2) + '\n');
+
+    const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    const shim = join(root, 'git-shim-kept');
+    mkdirSync(shim, { recursive: true });
+    writeFileSync(
+      join(shim, 'git'),
+      `#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = "log" ]; then
+    echo "shim: git log refused" >&2
+    exit 128
+  fi
+done
+exec ${JSON.stringify(realGit)} "$@"
+`,
+      { mode: 0o755 },
+    );
+    const res = run(['collect', '--out', outDir, '--delegate', delegate], {
+      env: { PATH: `${shim}:${env.PATH}` },
+    });
+    assert.equal(res.status, 0, res.stderr);
+    const kept = readJson(marcosPath);
+    assert.equal(kept.length, 1);
+    assert.equal(kept[0].titulo, kept[0].marco);
+    assert.equal(kept[0].legenda, '');
   });
 
   // --------------------------------------------------------------- registry
@@ -1428,12 +1558,18 @@ print("\\n".join(alert["tipo"] for alert in alertas))
       title: 'New map',
     }), 'rename map');
     let [, , , alertas] = collect();
-    assert.equal(projetos[0].id, 'old-id', 'the collector stays read-only on the registry');
+    const stored = readJson(join(atomicHome, 'progress', 'projects.json'));
+    assert.equal(stored.projects[0].id, 'old-id', 'the collector stays read-only on the registry');
+    const written = readJson(join(outDir, 'projetos.json'));
+    assert.equal(written[0].id, 'old-id', 'the collector stays read-only on the panel files');
     const alert = alertas.find((a) => a.tipo === 'id_mapa_mudou');
     assert.ok(alert, JSON.stringify(alertas));
     assert.equal(alert.projeto, 'old-id');
-    assert.match(alert.detalhe, /add .* de novo/);
-    assert.match(alert.detalhe, /new-id/);
+    assert.equal(
+      alert.detalhe,
+      `o id do mapa mudou de old-id para new-id; rode add ${project} --ref main de novo`,
+    );
+    assert.match(alert.detalhe, /add .* --ref main de novo/);
 
     register(project);
     [projetos, , , alertas] = collect();
@@ -1449,7 +1585,46 @@ print("\\n".join(alert["tipo"] for alert in alertas))
     const [kept, , , keptAlerts] = collect();
     assert.equal(kept[0].id, 'new-id');
     assert.equal(kept[0].feito, 0);
-    assert.ok(keptAlerts.some((a) => a.tipo === 'git_log_falhou' && a.projeto === 'new-id'));
+    assert.ok(kept[0].total > 0, JSON.stringify(kept));
+    const keptAlert = keptAlerts.find((a) => a.tipo === 'git_log_falhou' && a.projeto === 'new-id');
+    assert.ok(keptAlert, JSON.stringify(keptAlerts));
+    assert.match(keptAlert.detalhe, /mantidas as linhas anteriores/);
+  });
+
+  it('shell-quotes the stored path in the id_mapa_mudou command', () => {
+    const spaced = join(root, 'projeto com espaço');
+    mkdirSync(spaced, { recursive: true });
+    initGitRepo(spaced);
+    // A map id cannot contain a space, so only the path carries one.
+    writeMap(spaced, oneMilestonePerCard([validCard('Q-1')], {
+      id: 'old-spaced',
+      title: 'Old spaced',
+    }), 'valid id');
+    register(spaced);
+    collect();
+    writeMap(spaced, oneMilestonePerCard([validCard('Q-1')], {
+      id: 'new-spaced',
+      title: 'New spaced',
+    }), 'rename');
+    const [, , , alertas] = collect();
+    const alert = alertas.find((a) => a.tipo === 'id_mapa_mudou');
+    assert.ok(alert, JSON.stringify(alertas));
+    assert.match(alert.detalhe, new RegExp(`add '${spaced}' --ref main de novo`));
+  });
+
+  it('refuses a duplicate live map id from an entry with no stored id', () => {
+    writeMap(project, baseMap({ id: 'same' }));
+    writeRegistry(atomicHome, [{ path: project, ref: 'main' }]);
+    const other = join(root, 'other-live');
+    mkdirSync(other, { recursive: true });
+    initGitRepo(other);
+    writeMap(other, baseMap({ id: 'same' }));
+    const res = run(['add', other, '--ref', 'main']);
+    assert.equal(res.status, 1, res.stdout + res.stderr);
+    assert.match(res.stderr, /same/);
+    assert.match(res.stderr, new RegExp(project.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    const registry = readJson(join(atomicHome, 'progress', 'projects.json'));
+    assert.equal(registry.projects.length, 1);
   });
 
   it('refuses a duplicate stored id but still updates the same entry', () => {
