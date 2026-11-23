@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-11-23
+
 ### Fixed
 
 - **The peak window now ends on the exact minute.** A run started at 04:00 or
@@ -390,6 +392,7 @@ before the paid codex pass, and so codex sees a CLEANED artifact without
 anchoring on local findings (reverse order would let self-preference bias
 contaminate the cross-model invariant).
 
-[Unreleased]: https://github.com/henryavila/atomic-skills/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/henryavila/atomic-skills/compare/v2.2.1...HEAD
+[2.2.1]: https://github.com/henryavila/atomic-skills/releases/tag/v2.2.1
 [2.2.0]: https://github.com/henryavila/atomic-skills/releases/tag/v2.2.0
 [2.1.0]: https://github.com/henryavila/atomic-skills/releases/tag/v2.1.0
