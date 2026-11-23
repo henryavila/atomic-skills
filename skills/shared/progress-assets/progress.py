@@ -2094,8 +2094,9 @@ def cmd_panel_install(args):
             item = panel_data_dir() / ("%s.json" % name)
             if os.path.lexists(item):
                 print(
-                    "progress panel: %s already exists; refusing to install"
-                    % item,
+                    "progress panel: %s already exists and was not created by "
+                    "panel install; move it away and run install again "
+                    "(the watch service recreates it)" % item,
                     file=sys.stderr,
                 )
                 return 1

@@ -638,6 +638,41 @@ assert str(real) not in parts, module.panel_path()
     assert.ok(!existsSync(statePath()));
   });
 
+  it('refuses a first install when a manual collect wrote the data files', () => {
+    const collected = run(['collect', '--out', dataDir(), '--delegate', delegate]);
+    assert.equal(collected.status, 0, `${collected.stdout}\n${collected.stderr}`);
+    const outputs = ['projetos', 'marcos', 'execucoes', 'alertas']
+      .map((name) => join(dataDir(), `${name}.json`));
+    for (const path of outputs) {
+      assert.ok(existsSync(path), path);
+    }
+    const before = snapshotTree(home);
+    const callsBefore = launchLines().length;
+
+    const refused = install();
+    assert.equal(refused.status, 1, `${refused.stdout}\n${refused.stderr}`);
+    assert.match(
+      refused.stderr,
+      new RegExp(
+        `${escapeRegExp(outputs[0])} already exists and was not created by panel install; `
+        + 'move it away and run install again \\(the watch service recreates it\\)',
+      ),
+    );
+    assert.doesNotMatch(refused.stderr, /Traceback/);
+    assert.deepEqual(snapshotTree(home), before);
+    assert.equal(launchLines().length, callsBefore, 'a refusal must not call launchctl');
+    for (const path of outputs) {
+      assert.ok(existsSync(path), `${path} should be left alone`);
+    }
+
+    for (const path of outputs) {
+      rmSync(path);
+    }
+    const created = install();
+    assert.equal(created.status, 0, `${created.stdout}\n${created.stderr}`);
+    assert.ok(existsSync(statePath()));
+  });
+
   it('does nothing and loads nothing on an identical reinstall', () => {
     install();
     const before = snapshotTree(home);
@@ -1067,7 +1102,10 @@ assert str(real) not in parts, module.panel_path()
     writeFileSync(join(dataDir(), 'projetos.json'), 'user data\n');
     const res = install();
     assert.equal(res.status, 1);
-    assert.match(res.stderr, /projetos\.json.*already exists/);
+    assert.match(
+      res.stderr,
+      /projetos\.json already exists and was not created by panel install/,
+    );
     assert.equal(readFileSync(join(dataDir(), 'projetos.json'), 'utf8'), 'user data\n');
     assert.ok(!existsSync(statePath()));
 
