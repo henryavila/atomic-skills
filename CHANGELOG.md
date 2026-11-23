@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Delegate says which machine runs each executor.** Every `run` and
+  `pipeline` record gains `machine`: the `--host` name, or the short hostname
+  of the local machine. A `--host` run is now listed while it works, in one file
+  under `~/.atomic-skills/delegate/running-remote/` that takes no local slot,
+  and `status` shows the machine of every active run. `status --json` prints the
+  active runs, local and remote, for a panel or a script.
+
 ## [2.3.0] - 2026-11-23
 
 ### Added
