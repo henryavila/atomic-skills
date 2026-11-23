@@ -971,3 +971,41 @@ core:
     dependencies: [git, python3]
     schema_version: '0.2'
     iron_law: 'NO PERCENTAGE WITHOUT A COMMITTED MAP AND GIT EVIDENCE.'
+  quality-gate:
+    name: quality-gate
+    title: 'Quality Gate — One Gate, a Debt Ratchet, and Strong Confirmed From Outside'
+    description: 'Audit, install and close a code-quality regime in any repository: a matrix of nine dimensions per stack, one gate script called by every hook and by CI, and a per-item debt ratchet that only goes down. The skill sets objectives and layers; the agent picks the tools for each stack. Use to find out what is really enforced, to set the regime up, or to confirm it with a blind re-audit.'
+    purpose: 'Give a repository a quality regime that agents cannot talk their way around: every rule declared, enforced by one gate, followed with zero debt, and confirmed by auditors with no context of the work.'
+    when_to_use:
+      - 'You want to know which quality rules are enforced and which are only configured'
+      - 'A repository needs a gate that agents and CI both obey, on any stack'
+      - 'Legacy debt must stop growing today and be paid over time'
+      - 'The debt reached zero and you want it confirmed from outside'
+    when_not_to_use:
+      - 'Reviewing one change (use review-code)'
+      - 'Fixing one bug (use fix)'
+      - 'Paying the debt itself (use delegate or parallel-dispatch; this skill only measures and blocks)'
+    examples:
+      - command: '/atomic-skills:quality-gate audit'
+        description: 'Read-only: tool inventory and the stack by dimension matrix, with evidence'
+      - command: '/atomic-skills:quality-gate install'
+        description: 'Agree on ceilings, write the gate script, copy the ratchet, freeze the debt, wire the layers'
+      - command: '/atomic-skills:quality-gate reaudit'
+        description: 'Check that every cell is strong, then repeat the first audit with auditors that saw none of the work'
+    related: [audit-delivery, review-code, delegate, parallel-dispatch, fix]
+    tags: [quality, enforcement, ci, core]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
+    requires_args: false
+    mutates_repo: true
+    one_liner: 'One gate, debt that only goes down, strong confirmed from outside'
+    emoji: '🚧'
+    version_added: '2.4.0'
+    argument_hint: '[audit|install|reaudit]'
+    args:
+      - name: mode
+        kind: positional
+        required: false
+        description: 'audit (read-only matrix), install (set the regime up) or reaudit (blind confirmation). If omitted: audit when the repository has no qa/stacks.tsv, otherwise the skill asks.'
+    dependencies: [git, python3]
+    schema_version: '0.2'
+    iron_law: 'A DIMENSION IS STRONG ONLY WHEN IT IS DECLARED, ENFORCED, FOLLOWED AND CONFIRMED FROM OUTSIDE.'
