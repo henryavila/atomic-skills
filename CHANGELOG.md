@@ -7,8 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Delegate shows who can work before a batch.** `route --role <role>` prints
+  the executor and review routes with the profiles that can run now first, each
+  provider limit still in force and when it ends, and a warning when the work
+  would have no usable reviewer.
+- **A review with no quota can be finished later.** A pipeline whose reviewers
+  are all out of quota or slots now ends `review_pending` instead of
+  `no_reviewer`. `review-pending` lists those pipelines and, with `--id`, runs
+  the same review over the range that already passed the gate.
+- **Claude can be the fallback reviewer when the operator allows it.**
+  `claude-review` runs only with a yes for that task, on the local Claude Code
+  login and never through an API. It checks the login first and says where and
+  how to sign in, and an exhausted balance counts as a provider limit.
+
+### Changed
+
+- **Pipelines try profiles under a provider limit last.** Both routes are
+  reordered by availability before the first attempt. Nothing is dropped, and
+  the summary and the record name what was moved.
+
 ### Fixed
 
+- **The OpenCode Go peak window fix from 2.2.1 is included** for anyone upgrading
+  directly from 2.2.0.
+- **An OpenCode run no longer stops on a Web Search prompt.** A headless run
+  could not answer it and exited with the work already committed, so the default
+  policy now denies web search. A pipeline whose executor errors after leaving
+  new commits and a clean tree now goes on to the gate and the review.
 - **Antigravity runs no longer end with empty output when the global git config
   includes another file.** Antigravity's terminal sandbox cannot read a file
   that `~/.gitconfig` includes, so every git command failed, the model asked to
