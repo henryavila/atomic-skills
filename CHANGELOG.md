@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Progress without hand-marked tasks.** The new `progress` skill and its
+  `progress.py` collector derive project and milestone percentages from a
+  committed `.atomic-skills/marcos.json` map, merge subjects on the integration
+  ref, and the delegate runner's `status --json`. Integration comes from merge
+  commits, running work from the runner; only milestones, sizes, dependencies
+  and human validation live in the map. `validate`, `add`, `remove`, `list`,
+  `collect`, `watch` and `status` write deterministic panel files, rewriting one
+  only when its bytes changed.
 - **Delegate says which machine runs each executor.** Every `run` and
   `pipeline` record gains `machine`: the `--host` name, or the short hostname
   of the local machine. A `--host` run is now listed while it works, in one file

@@ -803,5 +803,48 @@
       "/atomic-skills:parallel-dispatch",
       "/atomic-skills:prompt"
     ]
+  },
+  {
+    "id": "/atomic-skills:progress",
+    "icon": "📊",
+    "oneLiner": "Derive project percentages from a committed map, merges and delegate runs",
+    "facets": [
+      "progress",
+      "portfolio",
+      "telemetry",
+      "core"
+    ],
+    "summary": "Derive deterministic milestone and project percentages from a committed map, git merge history and delegate runs, and publish panel data that never depends on a hand-typed count.",
+    "pros": [
+      "You need the percentage or milestone breakdown of one project or the whole portfolio",
+      "A project has a plan and belongs in the macro panel, so its map must be created or refreshed",
+      "You want a deterministic feed for a dashboard instead of manually updated status prose"
+    ],
+    "cons": [
+      "You are deciding what to build or writing the plan (use brainstorm or prompt)",
+      "A one-off question about a single commit or file",
+      "The project has no integration ref where a committed map can live"
+    ],
+    "examples": [
+      "/atomic-skills:progress create the map for ./app-do-culto from its plan",
+      "/atomic-skills:progress read the status of every registered project"
+    ],
+    "fields": [
+      {
+        "name": "scope",
+        "kind": "positional",
+        "required": false,
+        "description": "A repository path, a milestone id, or a card list to map or read. If omitted, the skill asks."
+      }
+    ],
+    "deps": [
+      "git",
+      "python3"
+    ],
+    "refs": [
+      "/atomic-skills:delegate",
+      "/atomic-skills:audit-delivery",
+      "/atomic-skills:verify-claim"
+    ]
   }
 ]
