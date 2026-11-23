@@ -20,11 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The progress collector cannot hang or be misled.** `match` is a literal
   string or a list of literal substrings (case-insensitive, no token boundary),
   and no map value is a regular expression: the collector derives its
-  unknown-id prefixes from the map's own card ids (`AB-12` teaches `AB`) and
-  scans with one case-sensitive whole-token pattern built from those escaped
-  prefixes, so `ABCD-1` never yields `BCD-1` and a map with no prefix produces
-  no `card_desconhecido` alert. Refs are validated before git sees them and
-  resolved once per cycle; a bad registry entry gives `registro_invalido` and
+  unknown-id prefixes from the map's own card ids (`AB-12` teaches `AB-`,
+  `S3` teaches `S`) and scans with one case-sensitive whole-token pattern built
+  from those escaped prefixes, so `ABCD-1` never yields `BCD-1` and a map with
+  no prefix produces no `card_desconhecido` alert. A hyphenated card id matches
+  a merge subject as a whole token case-insensitively (`app-desktop/d-03`
+  marks `D-03`), while an id without a hyphen stays case-sensitive (`backup no
+  s3` never marks `S3`). Refs are validated before git sees them and resolved
+  once per cycle; a bad registry entry gives `registro_invalido` and
   `add`/`remove` keep it with the same content, a failed `git log` or ref gives
   `git_log_falhou` and keeps the last rows under the map id stored at `add` (or
   the folder name for an older entry), a duplicate map id gives `id_duplicado`,
@@ -40,29 +43,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Progress maps accept zero-weight cards and panel rows carry titles.** An
   explicit `weight` may be `0` (a non-negative integer, not a bool); a map whose
   cards all weigh `0` is invalid. A zero-weight card still counts in `prontos`,
-  `bloqueados` and `rodando` and adds nothing to `feito` or `total`. Every
-  `marcos.json` row gains `titulo` (the milestone title) and `legenda` (`<n> de
-  <cards> prontos`, then the blocked count with the singular `bloqueado`, then
-  the running count); rows kept after a failure are left as they were.
+  `bloqueados` and `rodando` and adds nothing to `feito` or `total`; a project
+  reaches 100% when every weighted card counts, so a zero-weight card can still
+  be pending. A milestone whose cards all weigh `0` reports `pct` 100 when every
+  card is ready-counted and `0` otherwise, with `resumo` `sem peso · <prontos>
+  de <cards> prontos`. Every `marcos.json` row gains `titulo` (the milestone
+  title) and `legenda` (`<n> de <cards> prontos`, then the blocked count with
+  the singular `bloqueado`, then the running count); a row kept after a failure
+  keeps its old fields, with a missing `titulo` filled from `marco` and a
+  missing `legenda` filled with an empty string.
 - **A renamed map id is visible and recoverable.** The collector stays read-only
   on the registry: when the map loads with an id different from the entry's
-  stored id it raises `id_mapa_mudou` and tells you to run `add <repo>` again.
-  Running `add` on an already registered path updates its ref and stored id, and
-  the duplicate-id check ignores that entry and compares each other entry's
-  stored id. The stored id changes only through `add`.
+  stored id it raises `id_mapa_mudou` and tells you to run `add <shell-quoted
+  path> --ref <stored ref>` again. Running `add` on an already registered path
+  updates its ref and stored id, and the duplicate-id check ignores that entry
+  and compares each other entry's stored id, or the id its live map loads when
+  the entry has no stored id. The stored id changes only through `add`.
 - **The macOS panel service installs and removes reversibly.** `progress.py
   panel install --aideck <cli.js> [--port 7777]` writes the panel consumer
   manifest, its `data/` directory, two `launchd` plists, the state
   `~/.atomic-skills/progress/panel.json` and `logs/`, then bootstraps both
   labels; the plists keep the panel on `127.0.0.1` and carry only `PATH` (plus
-  `ATOMIC_SKILLS_HOME`) so no secret is copied. `panel uninstall` boots the
-  labels out, deletes only recorded files whose hash still matches, removes the
-  four panel output files and the empty directories it created, and keeps its
-  state on a failed bootout. `panel status [--json]` is read-only. A manifest or
-  plist that is not recorded by the state, a missing `--aideck` file, a missing
+  `ATOMIC_SKILLS_HOME`) so no secret is copied. The manifest follows the maps'
+  live titles, units and ids, and its quoted values escape DEL, C1 controls,
+  U+2028/9 and lone surrogates so YAML cannot misread them. `panel uninstall`
+  validates the recorded paths first, boots the labels out, deletes the two
+  plists' named log files, removes only recorded files whose hash still matches,
+  removes the four panel output files only when it created `data/`, and reports
+  any directory it cannot remove. It never removes or records the shared roots
+  `~/.aideck`, `~/.aideck/consumers`, `~/.atomic-skills`, `~/Library` or
+  `~/Library/LaunchAgents`. An identical reinstall checks each label and
+  bootstraps only one that is down; new arguments reload both, and a failed
+  reinstall restores the old files and state and bootstraps again the labels
+  that were loaded before it, naming any label still down with the command to
+  load it. `launchctl print` counts as not loaded only on exit 113 or `Could not
+  find service`; any other failure keeps the state. A manifest or plist that is
+  not recorded by the state, a symlink at the manifest, a plist, the consumer,
+  `data/` or an output file, a pre-existing output file on a first install, a
+  label already loaded on a first install, a missing `--aideck` file, a missing
   `node` or an invalid port is refused without changes; outside macOS the
-  commands exit 2 unless `PROGRESS_LAUNCHCTL` is set. `add` and `remove`
-  regenerate the manifest only while it still matches its recorded hash.
+  commands exit 2 unless `PROGRESS_LAUNCHCTL` is set.
+  `add` and `remove` regenerate the manifest only while it still matches its
+  recorded hash.
 - **Delegate says which machine runs each executor.** Every `run` and
   `pipeline` record gains `machine`: the `--host` name, or the short hostname
   of the local machine. A `--host` run is now listed while it works, in one file
