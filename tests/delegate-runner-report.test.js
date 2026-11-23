@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, dirname, resolve, isAbsolute } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, hostname } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   DELEGATE_PY,
@@ -596,6 +596,95 @@ spec.loader.exec_module(d)
     assert.match(activeRes.stdout, /T-RUNNING/);
     assert.match(activeRes.stdout, /test-proj/);
     assert.match(activeRes.stdout, /flash/);
+  });
+
+  it('status and status --json list local and remote runs with their machine', () => {
+    const delegateDir = join(atomicHome, 'delegate');
+    mkdirSync(join(delegateDir, 'running'), { recursive: true });
+    mkdirSync(join(delegateDir, 'running-remote'), { recursive: true });
+    const machine = hostname().split('.')[0];
+    const bg = spawn('sleep', ['30'], { detached: true, stdio: 'ignore' });
+    try {
+      const identity = pythonHarness(`print(d.process_identity(${bg.pid}))`).stdout.trim();
+      assert.match(identity, /^(darwin|linux):/);
+      // A slot written by a runner that knew no machine field.
+      writeFileSync(join(delegateDir, 'running', `opencode-T-OLD-${bg.pid}.json`), JSON.stringify({
+        id: 'T-OLD', project: 'test-proj', profile: 'flash', role: 'implement',
+        pid: bg.pid, pgid: bg.pid, process_start: identity, started: '2026-11-18T10:00:00+00:00',
+      }));
+      writeFileSync(join(delegateDir, 'running', `codex-T-NEW-${bg.pid}.json`), JSON.stringify({
+        id: 'T-NEW', project: 'test-proj', profile: 'codex', role: 'implement', machine: 'this-mac',
+        pid: bg.pid, pgid: bg.pid, process_start: identity, started: '2026-11-18T10:01:00+00:00',
+        last_progress: '2026-11-18T10:04:00+00:00',
+      }));
+      writeFileSync(join(delegateDir, 'running-remote', `opencode-T-FAR-${bg.pid}.json`), JSON.stringify({
+        id: 'T-FAR', project: 'far-proj', profile: 'flash', role: 'review', machine: 'ultron',
+        started: '2026-11-18T10:02:00+00:00', runner_pid: bg.pid, runner_start: identity,
+      }));
+      const env = { ...baseEnv, DELEGATE_NOW: '2026-11-18T10:05:00Z', DELEGATE_MAX_OPENCODE: '1' };
+
+      const plain = runDelegate(['status'], env);
+      assert.equal(plain.status, 0, plain.stderr);
+      assert.deepEqual(plain.stdout.trim().split('\n'), [
+        'active',
+        `T-OLD | test-proj | flash | implement | ${machine} | 5m | idle 5m`,
+        'T-NEW | test-proj | codex | implement | this-mac | 4m | idle 1m',
+        'T-FAR | far-proj | flash | review | ultron | 3m | remote',
+      ]);
+
+      const json = runDelegate(['status', '--json'], env);
+      assert.equal(json.status, 0, json.stderr);
+      assert.deepEqual(JSON.parse(json.stdout), {
+        paused: false,
+        active: [
+          { id: 'T-OLD', project: 'test-proj', profile: 'flash', role: 'implement', machine,
+            remote: false, started: '2026-11-18T10:00:00+00:00', age_s: 300, idle_s: 300, runner_gone: false },
+          { id: 'T-NEW', project: 'test-proj', profile: 'codex', role: 'implement', machine: 'this-mac',
+            remote: false, started: '2026-11-18T10:01:00+00:00', age_s: 240, idle_s: 60, runner_gone: false },
+          { id: 'T-FAR', project: 'far-proj', profile: 'flash', role: 'review', machine: 'ultron',
+            remote: true, started: '2026-11-18T10:02:00+00:00', age_s: 180, idle_s: null, runner_gone: false },
+        ],
+      });
+
+      // The remote file is no slot: the one OpenCode slot is taken by T-OLD
+      // alone, and reading the active runs twice changed nothing on disk.
+      const slots = pythonHarness(
+        'print(len(d.get_active_slots("opencode")), len(d.get_active_slots()))', env);
+      assert.equal(slots.stdout.trim(), '1 2', slots.stderr);
+      assert.equal(readdirSync(join(delegateDir, 'running-remote')).length, 1);
+      assert.equal(existsSync(join(delegateDir, 'runs.jsonl')), false);
+    } finally {
+      try { process.kill(-bg.pid, 'SIGKILL'); } catch { /* already gone */ }
+    }
+  });
+
+  it('status --json says paused and lists nothing on an idle machine', () => {
+    runDelegate(['pause'], baseEnv);
+    const json = runDelegate(['status', '--json'], baseEnv);
+    assert.equal(json.status, 0, json.stderr);
+    assert.deepEqual(JSON.parse(json.stdout), { paused: true, active: [] });
+  });
+
+  it('drops a remote active file that names no live runner without logging it twice', () => {
+    const delegateDir = join(atomicHome, 'delegate');
+    mkdirSync(join(delegateDir, 'running-remote'), { recursive: true });
+    const gone = spawnSync('true');
+    writeFileSync(join(delegateDir, 'running-remote', `opencode-T-DEAD-${gone.pid}.json`), JSON.stringify({
+      id: 'T-DEAD', project: 'far-proj', profile: 'flash', role: 'implement', machine: 'ultron',
+      started: '2026-11-18T10:02:00+00:00', runner_pid: gone.pid, runner_start: 'darwin:1:1',
+    }));
+    writeFileSync(join(delegateDir, 'running-remote', 'opencode-T-BROKEN-1.json'), '{not json');
+    const json = runDelegate(['status', '--json'], baseEnv);
+    assert.equal(json.status, 0, json.stderr);
+    assert.deepEqual(JSON.parse(json.stdout).active, []);
+    assert.deepEqual(readdirSync(join(delegateDir, 'running-remote')), []);
+    runDelegate(['status'], baseEnv);
+    const records = readLogRecords(atomicHome);
+    assert.equal(records.length, 1, JSON.stringify(records));
+    assert.equal(records[0].id, 'T-DEAD');
+    assert.equal(records[0].failure, 'runner_lost');
+    assert.equal(records[0].machine, 'ultron');
+    assert.equal(records[0].model, 'opencode-go/deepseek-v4.1-flash');
   });
 
   it('status shows try again at 12:44 PM text after a recorded limit failure', () => {

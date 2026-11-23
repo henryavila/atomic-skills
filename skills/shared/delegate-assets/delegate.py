@@ -33,6 +33,9 @@ from pathlib import Path
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
 LOG = HOME / "delegate" / "runs.jsonl"
 RUNNING = HOME / "delegate" / "running"
+# One file per active --host run, for `status` and the progress panel. These are
+# not slots: nothing here counts against a local limit or is ever signalled.
+RUNNING_REMOTE = HOME / "delegate" / "running-remote"
 PAUSED = HOME / "delegate" / "PAUSED"
 # One file per pipeline whose review could not run yet: <project>/<id>.json.
 PENDING = HOME / "delegate" / "pending"
@@ -232,7 +235,15 @@ def in_peak(t=None):
     return False
 
 
+def local_machine():
+    """Short name of the machine this runner is on."""
+    return socket.gethostname().split(".")[0]
+
+
 def append(rec):
+    # Every run says where its executor ran: the --host name, or this machine.
+    if rec.get("kind") in ("run", "pipeline") and not rec.get("machine"):
+        rec["machine"] = rec.get("host") or local_machine()
     LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG, "a") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -918,13 +929,14 @@ def runner_gone(slot):
     return bool(runner_start) and process_identity(slot.get("runner_pid")) != runner_start
 
 
-def record_lost_runner(path, slot):
+def record_lost_runner(path, slot, remote=False):
     """Log a run whose runner died before it could write its own record.
 
     A runner that is killed outright (SIGKILL, a crash) cannot end its executor
     or log anything: the executor works on alone and its slot is all that is
     left. When that slot is finally cleared, this record is the only trace of
-    the run in the log.
+    the run in the log. For a --host run the trace is its active file, and the
+    work is on the host, out of this machine's reach.
     """
     started = slot.get("started")
     if not started:
@@ -943,7 +955,7 @@ def record_lost_runner(path, slot):
         duration = 0
     profile = slot.get("profile")
     model, family = (MODELS[profile][1:] if profile in MODELS else (None, None))
-    append({
+    rec = {
         "kind": "run", "id": slot.get("id"), "project": slot.get("project"),
         "role": slot.get("role"), "profile": profile,
         "executor": path.name.split("-")[0], "model": model, "family": family,
@@ -952,7 +964,17 @@ def record_lost_runner(path, slot):
         "failure": "runner_lost",
         "note": "the runner process died before writing a record; the executor kept "
                 "working without it, so check the worktree for commits and changes",
-    })
+    }
+    machine = slot.get("machine")
+    if remote:
+        host = machine or "the host"
+        rec["host"] = machine
+        rec["note"] = ("the runner process died before writing a record; the work may still be "
+                       f"running on {host}, and nothing was fetched back: check "
+                       f"`remote-runner runs --host {host}` and the task's checkout there")
+    if machine:
+        rec["machine"] = machine
+    append({key: value for key, value in rec.items() if key != "host" or value})
 
 
 def _clean_stale_slots():
@@ -969,6 +991,87 @@ def _clean_stale_slots():
                     record_lost_runner(p, data)
         except Exception:
             p.unlink(missing_ok=True)
+    try:
+        _clean_stale_remote()
+    except Exception:
+        pass  # the remote list is for display; it never blocks a local slot
+
+
+def _clean_stale_remote():
+    """Drop the active file of a --host run whose runner is gone. Call under SlotLock.
+
+    The runner removes its own file under the same lock before it exits, so a
+    file seen here with a dead runner is one its runner could not remove.
+    """
+    if not RUNNING_REMOTE.is_dir():
+        return
+    for p in RUNNING_REMOTE.glob("*.tmp"):
+        try:
+            if time.time() - p.stat().st_mtime > 60:
+                p.unlink(missing_ok=True)
+        except OSError:
+            pass
+    for p in list(RUNNING_REMOTE.glob("*.json")):
+        try:
+            data = json.loads(p.read_text())
+        except FileNotFoundError:
+            continue
+        except (OSError, ValueError):
+            data = None
+        if isinstance(data, dict) and data.get("runner_start") and not runner_gone(data):
+            continue
+        p.unlink(missing_ok=True)
+        if isinstance(data, dict) and data.get("runner_start"):
+            record_lost_runner(p, data, remote=True)
+
+
+def get_active_remote():
+    """Active --host runs started from this machine, as (path, data) pairs."""
+    active = []
+    with SlotLock():
+        _clean_stale_remote()
+        if RUNNING_REMOTE.is_dir():
+            for p in list(RUNNING_REMOTE.glob("*.json")):
+                try:
+                    data = json.loads(p.read_text())
+                except (OSError, ValueError):
+                    continue
+                if isinstance(data, dict):
+                    active.append((p, data))
+    return active
+
+
+def write_remote_active(executor, task_id, project, profile, role, host):
+    """Publish that this runner drives a run on `host`; None when it cannot."""
+    data = {
+        "id": task_id, "project": project, "profile": profile, "role": role,
+        "machine": host, "started": now().isoformat(timespec="microseconds"),
+        "runner_pid": os.getpid(), "runner_start": process_identity(os.getpid()),
+    }
+    try:
+        RUNNING_REMOTE.mkdir(parents=True, exist_ok=True)
+        path = RUNNING_REMOTE / f"{executor}-{task_id}-{os.getpid()}.json"
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False))
+        os.replace(tmp, path)
+        return path
+    except OSError:
+        return None
+
+
+def remove_remote_active(path):
+    if path is None:
+        return
+    try:
+        # Under the lock a reader never sees this file after its runner exited.
+        with SlotLock():
+            path.unlink(missing_ok=True)
+            path.with_suffix(".tmp").unlink(missing_ok=True)
+    except OSError:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _get_active_slots(executor=None):
@@ -2356,21 +2459,30 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
                        out_path, card_content, input_sizes, pending, timeout, wait_s, attempt,
                        confirmed, allow_peak, diff_range, attachments, access_mode, host, prompt,
                        stdout, stderr, last_msg):
-    """Run remotely and always leave a record, even for an unhandled error."""
+    """Run remotely and always leave a record, even for an unhandled error.
+
+    The run is listed in RUNNING_REMOTE from here until this function returns
+    or raises, whatever the path. It takes no local slot.
+    """
+    active_file = None
     try:
-        return _execute_remote_run(
-            task_id, task, role, executor, model, family, profile, cwd, project, out_path,
-            card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed,
-            allow_peak, diff_range, attachments, access_mode, host, prompt, stdout, stderr,
-            last_msg)
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except BaseException as exc:
-        if "completed" in pending:
+        active_file = write_remote_active(executor, task_id, project, profile, role, host)
+        try:
+            return _execute_remote_run(
+                task_id, task, role, executor, model, family, profile, cwd, project, out_path,
+                card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed,
+                allow_peak, diff_range, attachments, access_mode, host, prompt, stdout, stderr,
+                last_msg)
+        except (KeyboardInterrupt, SystemExit):
             raise
-        return _remote_record_failure(
-            pending, "remote_error", f"remote run failed: {exception_reason(exc)}",
-            host=host)
+        except BaseException as exc:
+            if "completed" in pending:
+                raise
+            return _remote_record_failure(
+                pending, "remote_error", f"remote run failed: {exception_reason(exc)}",
+                host=host)
+    finally:
+        remove_remote_active(active_file)
 
 
 def _execute_remote_run(task_id, task, role, executor, model, family, profile, cwd, project,
@@ -2989,7 +3101,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         "user_confirmed": bool(confirmed), "duration_s": 0, "exit_code": None,
         "timed_out": False, "card": str(Path(card).resolve()), "prompt": str(prompt),
         "stdout": str(stdout), "stderr": str(stderr), "access": policy["access"],
-        "orphans": orphans, **input_sizes,
+        "orphans": orphans, **input_sizes, "machine": host or local_machine(),
     }
     if resume:
         pending["resumed_from"] = resumed_from
@@ -3067,6 +3179,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                             "project": project,
                             "profile": profile,
                             "role": role,
+                            "machine": local_machine(),
                             "pid": p.pid,
                             "pgid": p.pid,
                             "started": started,
@@ -3749,36 +3862,51 @@ def cmd_resume(a):
     PAUSED.unlink(missing_ok=True)
 
 
+def active_runs():
+    """Every active run this machine knows, local slots first, for `status`."""
+    now_dt = now()
+
+    def seconds_since(text):
+        try:
+            return max(0, int((now_dt - dt.datetime.fromisoformat(text)).total_seconds()))
+        except (TypeError, ValueError):
+            return None
+
+    runs = []
+    for remote, found in ((False, get_active_slots()), (True, get_active_remote())):
+        for _, slot in sorted(found, key=lambda item: str(item[1].get("started", ""))):
+            started = slot.get("started", "")
+            runs.append({
+                "id": slot.get("id", ""), "project": slot.get("project", ""),
+                "profile": slot.get("profile", ""), "role": slot.get("role", ""),
+                # A slot from a runner that wrote no machine is a local one.
+                "machine": slot.get("machine") or local_machine(), "remote": remote,
+                "started": started, "age_s": seconds_since(started) or 0,
+                # Progress is watched on this machine only.
+                "idle_s": None if remote else seconds_since(slot.get("last_progress") or started),
+                "runner_gone": not remote and runner_gone(slot),
+            })
+    return runs
+
+
 def cmd_status(a):
+    runs = active_runs()
+    if getattr(a, "json", False):
+        print(json.dumps({"paused": PAUSED.exists(), "active": runs}, ensure_ascii=False, indent=1))
+        return
     if PAUSED.exists():
         print("paused")
     else:
         print("active")
 
-    active = get_active_slots()
-    active.sort(key=lambda item: item[1].get("started", ""))
     now_dt = now()
-    for _, slot in active:
-        sid = slot.get("id", "")
-        project = slot.get("project", "")
-        profile = slot.get("profile", "")
-        role = slot.get("role", "")
-        started_str = slot.get("started", "")
-        mins = 0
-        if started_str:
-            try:
-                started_dt = dt.datetime.fromisoformat(started_str)
-                mins = max(0, int((now_dt - started_dt).total_seconds() // 60))
-            except Exception:
-                pass
-        idle = ""
-        try:
-            quiet = (now_dt - dt.datetime.fromisoformat(slot.get("last_progress") or started_str)).total_seconds()
-            idle = f" | idle {max(0, int(quiet // 60))}m"
-        except Exception:
-            pass
-        lost = " | runner gone" if runner_gone(slot) else ""
-        print(f"{sid} | {project} | {profile} | {role} | {mins}m{idle}{lost}")
+    for run in runs:
+        sid = run["id"]
+        idle = "" if run["idle_s"] is None else f" | idle {run['idle_s'] // 60}m"
+        where = " | remote" if run["remote"] else ""
+        lost = " | runner gone" if run["runner_gone"] else ""
+        print(f"{sid} | {run['project']} | {run['profile']} | {run['role']} | {run['machine']} | "
+              f"{run['age_s'] // 60}m{idle}{where}{lost}")
         if lost:
             print(f"warning: the runner of {sid} died; its executor is still working and "
                   f"will leave no result. Stop it with `kill {sid}`, then check the worktree.")
@@ -4138,6 +4266,8 @@ def main():
     p_resume.set_defaults(f=cmd_resume)
 
     p_status = sub.add_parser("status")
+    p_status.add_argument("--json", action="store_true",
+                          help="print the active runs, local and --host, as JSON and nothing else")
     p_status.set_defaults(f=cmd_status)
 
     p_kill = sub.add_parser("kill")

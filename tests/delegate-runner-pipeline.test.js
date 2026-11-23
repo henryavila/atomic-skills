@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, dirname, resolve, isAbsolute } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, hostname } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
@@ -400,6 +400,7 @@ spec.loader.exec_module(d)
     assert.throws(() => readFileSync(join(repoDir, 'should_not_run.txt')), { code: 'ENOENT' });
     const recs = readLogRecords(atomicHome);
     const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    for (const rec of recs) assert.equal(rec.machine, hostname().split('.')[0], JSON.stringify(rec));
     assert.ok(pipeRec);
     assert.equal(pipeRec.outcome, 'no_executor');
   });

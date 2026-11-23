@@ -12,7 +12,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, hostname } from 'node:os';
 import {
   DELEGATE_PY,
   PYTHON3,
@@ -273,7 +273,15 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
       await waitFor(() => existsSync(ready), 20000, 'executor start');
       const status = runDelegate(['status'], baseEnv);
       assert.equal(status.status, 0, status.stderr);
-      assert.match(status.stdout, /^WATCH \| repo \| flash \| implement \| \d+m \| idle \d+m$/m);
+      const machine = hostname().split('.')[0];
+      const line = status.stdout.split('\n').find(text => text.startsWith('WATCH |'));
+      assert.ok(line, status.stdout);
+      const cells = line.split(' | ');
+      assert.deepEqual(cells.slice(0, 5), ['WATCH', 'repo', 'flash', 'implement', machine]);
+      assert.match(cells.slice(5).join(' | '), /^\d+m \| idle \d+m$/);
+      const slotDir = join(atomicHome, 'delegate', 'running');
+      const [slotName] = readdirSync(slotDir).filter(name => name.endsWith('.json'));
+      assert.equal(JSON.parse(readFileSync(join(slotDir, slotName), 'utf8')).machine, machine);
       writeFileSync(release, 'go');
       const res = await run.done;
       assert.equal(res.status, 0, res.stderr);
