@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   under `~/.atomic-skills/delegate/running-remote/` that takes no local slot,
   and `status` shows the machine of every active run. `status --json` prints the
   active runs, local and remote, for a panel or a script.
+- **Delegate says which repository and milestone each run belongs to.** Every
+  `run` and `pipeline` record gains `repo`: `owner/name` from the origin remote
+  (never the host or credentials), or the folder name of the main repository
+  when there is no usable origin, the same from every linked worktree; `null`
+  outside git. `run` and `pipeline` take an optional `--milestone <id>`,
+  recorded as `milestone` on the run, pipeline, retry and review records and
+  kept through `review-pending`. Slots, remote active files and each entry of
+  `status --json` carry both fields.
 
 ## [2.3.0] - 2026-11-23
 
