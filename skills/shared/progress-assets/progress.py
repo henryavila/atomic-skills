@@ -1947,9 +1947,19 @@ def panel_watch_arguments():
     return arguments
 
 
+def panel_client_dir(aideck):
+    return Path(aideck).parent / "client"
+
+
 def panel_service_arguments(aideck, port):
     node = shutil.which("node")
-    return [node, str(aideck), "serve", "--port=%d" % port]
+    return [
+        node,
+        str(aideck),
+        "serve",
+        "--port=%d" % port,
+        "--static-dir=%s" % panel_client_dir(aideck),
+    ]
 
 
 def panel_desired_files(aideck, port):
@@ -2054,6 +2064,14 @@ def cmd_panel_install(args):
         pass
     if not aideck.is_file():
         print("progress panel: --aideck is not a file: %s" % aideck, file=sys.stderr)
+        return 1
+    client_index = panel_client_dir(aideck) / "index.html"
+    if not client_index.is_file():
+        print(
+            "progress panel: %s is not a file; build the aiDeck with npm run build"
+            % client_index,
+            file=sys.stderr,
+        )
         return 1
     if shutil.which("node") is None:
         print("progress panel: node was not found on PATH", file=sys.stderr)

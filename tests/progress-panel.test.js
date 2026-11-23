@@ -17,7 +17,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parse as parseYaml } from 'yaml';
 
@@ -81,6 +81,10 @@ function sha256(data) {
   return createHash('sha256').update(data).digest('hex');
 }
 
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function snapshotTree(root) {
   const out = new Map();
   (function walk(dir) {
@@ -106,6 +110,7 @@ describe('progress panel', { skip: false }, () => {
   let delegate;
   let delegateStatus;
   let aideck;
+  let clientDir;
   let launchctl;
   let launchctlLog;
   let launchctlState;
@@ -142,6 +147,9 @@ else:
 
     aideck = join(root, 'cli.js');
     writeFileSync(aideck, '#!/usr/bin/env node\n', { mode: 0o755 });
+    clientDir = join(root, 'client');
+    mkdirSync(clientDir, { recursive: true });
+    writeFileSync(join(clientDir, 'index.html'), '<!doctype html><title>panel</title>\n');
 
     launchctlLog = join(root, 'launchctl.log');
     launchctlState = join(root, 'launchctl-state');
@@ -552,7 +560,9 @@ assert str(real) not in parts, module.panel_path()
     assert.deepEqual(args.slice(9), ['--delegate', delegate]);
 
     assert.equal(panel.ProgramArguments[1], realpathSync(aideck));
-    assert.deepEqual(panel.ProgramArguments.slice(2), ['serve', '--port=7777']);
+    assert.deepEqual(panel.ProgramArguments.slice(2), [
+      'serve', '--port=7777', `--static-dir=${join(dirname(realpathSync(aideck)), 'client')}`,
+    ]);
     assert.ok(!panel.ProgramArguments.includes('--expose'));
     assert.ok(!watch.ProgramArguments.includes('--expose'));
   });
@@ -611,6 +621,19 @@ assert str(real) not in parts, module.panel_path()
     assert.deepEqual(snapshotTree(home), guarded);
     rmSync(watchPlist());
 
+    assert.deepEqual(launchLines(), [], 'a refusal must not call launchctl');
+    assert.ok(!existsSync(statePath()));
+  });
+
+  it('refuses an install when the aiDeck has no built client', () => {
+    rmSync(clientDir, { recursive: true, force: true });
+    const before = snapshotTree(home);
+    const res = install();
+    assert.equal(res.status, 1, `${res.stdout}\n${res.stderr}`);
+    assert.match(res.stderr, new RegExp(escapeRegExp(join(clientDir, 'index.html'))));
+    assert.match(res.stderr, /npm run build/);
+    assert.doesNotMatch(res.stderr, /Traceback/);
+    assert.deepEqual(snapshotTree(home), before);
     assert.deepEqual(launchLines(), [], 'a refusal must not call launchctl');
     assert.ok(!existsSync(statePath()));
   });
@@ -688,7 +711,9 @@ assert str(real) not in parts, module.panel_path()
     assert.equal(state.files[watchPlist()], sha256(readFileSync(watchPlist())));
     assert.equal(state.files[panelPlist()], sha256(readFileSync(panelPlist())));
     assert.notEqual(state.files[panelPlist()], oldState.files[panelPlist()]);
-    assert.deepEqual(plist(panelPlist()).ProgramArguments.slice(2), ['serve', '--port=8123']);
+    assert.deepEqual(plist(panelPlist()).ProgramArguments.slice(2), [
+      'serve', '--port=8123', `--static-dir=${clientDir}`,
+    ]);
 
     const callsAfter = launchLines().slice(callsBefore);
     assert.equal(
@@ -849,7 +874,7 @@ assert str(real) not in parts, module.panel_path()
     const state = JSON.parse(readFileSync(statePath(), 'utf8'));
     assert.equal(state.port, 8123);
     assert.deepEqual(plist(panelPlist()).ProgramArguments.slice(2), [
-      'serve', '--port=8123',
+      'serve', '--port=8123', `--static-dir=${clientDir}`,
     ]);
     for (const [path, digest] of Object.entries(state.files)) {
       assert.equal(sha256(readFileSync(path)), digest, path);
