@@ -152,6 +152,7 @@ spec.loader.exec_module(d)
     );
     assert.equal(flashRes.status, 0, flashRes.stderr);
     assert.match(flashRes.stderr, /double/i);
+    assert.match(flashRes.stderr, /OpenCode Go peak/);
 
     const flashAllowPeakRes = runDelegate(
       [
@@ -174,7 +175,7 @@ spec.loader.exec_module(d)
       [
         'run',
         '--id', 'T-PEAK-CODEX',
-        '--task', 'codex during deepseek peak',
+        '--task', 'codex during OpenCode Go peak',
         '--role', 'mechanical',
         '--profile', 'codex',
         '--cwd', repoDir,
@@ -204,6 +205,59 @@ spec.loader.exec_module(d)
       const env = { ...baseEnv, DELEGATE_NOW: instant };
       env.DELEGATE_PEAK_WINDOWS = undefined;
       const res = runDelegate(['peak'], env);
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(res.stdout.trim(), expected, `instant ${instant}`);
+    }
+  });
+
+  it('default peak windows include the start minute and exclude the end minute', () => {
+    const cases = [
+      ['2026-11-18T00:59:00Z', 'off-peak'], // Tuesday 21:59 GMT-3
+      ['2026-11-18T01:00:00Z', 'peak'],     // Tuesday 22:00 GMT-3
+      ['2026-11-18T03:59:59Z', 'peak'],     // Wednesday 00:59:59 GMT-3
+      ['2026-11-18T04:00:00Z', 'off-peak'], // Wednesday 01:00 GMT-3
+      ['2026-11-18T05:59:00Z', 'off-peak'], // Wednesday 02:59 GMT-3
+      ['2026-11-18T06:00:00Z', 'peak'],     // Wednesday 03:00 GMT-3
+      ['2026-11-18T09:59:59Z', 'peak'],     // Wednesday 06:59:59 GMT-3
+      ['2026-11-18T10:00:00Z', 'off-peak'], // Wednesday 07:00 GMT-3
+    ];
+    for (const [instant, expected] of cases) {
+      const env = { ...baseEnv, DELEGATE_NOW: instant };
+      env.DELEGATE_PEAK_WINDOWS = undefined;
+      const res = runDelegate(['peak'], env);
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(res.stdout.trim(), expected, `instant ${instant}`);
+    }
+  });
+
+  it('the cheap weekend runs from Friday 22:00 to Sunday 22:00 GMT-3', () => {
+    const cases = [
+      ['2026-11-21T00:59:00Z', 'off-peak'], // Friday 21:59 GMT-3
+      ['2026-11-21T01:00:00Z', 'off-peak'], // Friday 22:00 GMT-3
+      ['2026-11-22T12:00:00Z', 'off-peak'], // Sunday 09:00 GMT-3
+      ['2026-11-23T00:59:00Z', 'off-peak'], // Sunday 21:59 GMT-3
+      ['2026-11-23T01:00:00Z', 'peak'],     // Sunday 22:00 GMT-3
+    ];
+    for (const [instant, expected] of cases) {
+      const env = { ...baseEnv, DELEGATE_NOW: instant };
+      env.DELEGATE_PEAK_WINDOWS = undefined;
+      const res = runDelegate(['peak'], env);
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(res.stdout.trim(), expected, `instant ${instant}`);
+    }
+  });
+
+  it('a midnight-crossing window also excludes its end minute', () => {
+    const cases = [
+      ['2026-11-18T00:59:00Z', 'peak'],
+      ['2026-11-18T01:00:00Z', 'off-peak'],
+    ];
+    for (const [instant, expected] of cases) {
+      const res = runDelegate(['peak'], {
+        ...baseEnv,
+        DELEGATE_PEAK_WINDOWS: '23:00-01:00',
+        DELEGATE_NOW: instant,
+      });
       assert.equal(res.status, 0, res.stderr);
       assert.equal(res.stdout.trim(), expected, `instant ${instant}`);
     }
