@@ -9,9 +9,11 @@ Python 3.9+, standard library only.
 """
 
 import argparse
+import hashlib
 import json
 import math
 import os
+import plistlib
 import re
 import shutil
 import signal
@@ -155,11 +157,6 @@ def save_registry(projects, invalid=()):
         registry_path(),
         encode_json({"schemaVersion": SCHEMA_VERSION, "projects": entries}),
     )
-
-
-def refresh_manifest():
-    """Regenerate the panel manifest after add/remove when it is installed."""
-    return
 
 
 # --------------------------------------------------------------------------
@@ -1502,6 +1499,628 @@ def cmd_watch(args):
 
 
 # --------------------------------------------------------------------------
+# macOS panel service
+# --------------------------------------------------------------------------
+
+PANEL_WATCH_LABEL = "com.atomic-skills.progress.watch"
+PANEL_SERVICE_LABEL = "com.atomic-skills.progress.panel"
+PANEL_SCHEMA_VERSION = 1
+DEFAULT_PANEL_PORT = 7777
+PANEL_OUTPUT_NAMES = OUTPUT_NAMES
+
+
+class PanelError(Exception):
+    """A panel install/uninstall step failed."""
+
+
+def panel_home():
+    return Path.home() / ".aideck" / "consumers" / "painel"
+
+
+def panel_manifest_path():
+    return panel_home() / "manifest.yaml"
+
+
+def panel_data_dir():
+    return panel_home() / "data"
+
+
+def panel_progress_dir():
+    return atomic_home() / "progress"
+
+
+def panel_state_path():
+    return panel_progress_dir() / "panel.json"
+
+
+def panel_logs_dir():
+    return panel_progress_dir() / "logs"
+
+
+def panel_launch_agents_dir():
+    return Path.home() / "Library" / "LaunchAgents"
+
+
+def panel_plist_path(label):
+    return panel_launch_agents_dir() / ("%s.plist" % label)
+
+
+def panel_launchctl():
+    return os.environ.get("PROGRESS_LAUNCHCTL") or "launchctl"
+
+
+def panel_platform_error():
+    if sys.platform == "darwin" or os.environ.get("PROGRESS_LAUNCHCTL"):
+        return None
+    return (
+        "progress panel: launchd is only available on macOS; "
+        "set PROGRESS_LAUNCHCTL to a launchctl path when testing"
+    )
+
+
+def run_launchctl(args, timeout=15):
+    command = [panel_launchctl(), *args]
+    try:
+        return subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding="utf-8",
+            errors="replace",
+            stdin=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise PanelError("cannot run %s: %s" % (command[0], exc))
+
+
+def panel_label_loaded(label):
+    result = run_launchctl(["print", "gui/%d/%s" % (os.getuid(), label)])
+    return result.returncode == 0
+
+
+def panel_bootstrap(plist):
+    result = run_launchctl(["bootstrap", "gui/%d" % os.getuid(), str(plist)])
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise PanelError(
+            "launchctl bootstrap failed for %s%s"
+            % (plist, ": " + detail if detail else "")
+        )
+
+
+def panel_bootout(label):
+    if not panel_label_loaded(label):
+        return False
+    result = run_launchctl(["bootout", "gui/%d/%s" % (os.getuid(), label)])
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise PanelError(
+            "launchctl bootout failed for %s%s"
+            % (label, ": " + detail if detail else "")
+        )
+    return True
+
+
+def sha256_bytes(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def sha256_file(path):
+    return sha256_bytes(Path(path).read_bytes())
+
+
+def load_panel_state():
+    path = panel_state_path()
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise PanelError("cannot read %s: %s" % (path, exc))
+    if not isinstance(data, dict):
+        raise PanelError("%s is not a JSON object" % path)
+    return data
+
+
+def save_panel_state(state):
+    write_atomic(panel_state_path(), encode_json(state))
+
+
+def _absolute(path):
+    return str(Path(path).expanduser().absolute())
+
+
+def _protected_dir(path):
+    value = _absolute(path)
+    return value in {
+        _absolute(Path.home()),
+        _absolute(Path.home() / ".aideck"),
+        _absolute(atomic_home()),
+    }
+
+
+def ensure_panel_dir(path, created_dirs):
+    path = Path(path)
+    if path.exists():
+        if not path.is_dir():
+            raise PanelError("%s exists and is not a directory" % path)
+        return
+    missing = []
+    probe = path
+    while not probe.exists():
+        missing.append(probe)
+        parent = probe.parent
+        if parent == probe:
+            break
+        probe = parent
+    path.mkdir(parents=True, exist_ok=True)
+    for created in reversed(missing):
+        if not _protected_dir(created):
+            created_dirs.append(_absolute(created))
+
+
+def remove_panel_dirs(created_dirs):
+    for value in sorted(
+        set(created_dirs or []),
+        key=lambda item: len(Path(item).parts),
+        reverse=True,
+    ):
+        try:
+            Path(value).rmdir()
+        except OSError:
+            pass
+
+
+def panel_views():
+    try:
+        projects = load_registry()["projects"]
+    except (OSError, ValueError):
+        return []
+    views = []
+    for project in projects:
+        view = load_project(
+            project["path"], project["ref"], stored_id=project.get("id")
+        )
+        if view.valid and view.data is not None:
+            views.append(view)
+    return views
+
+
+def render_manifest():
+    lines = [
+        "schemaVersion: '0.1'",
+        "id: painel",
+        "mcpNamespace: painel",
+        "title: 'Painel de projetos'",
+        "locale: pt-BR",
+        "icon: 'mdi:view-dashboard'",
+        "dataSources:",
+        "  - { id: projetos, path: data/projetos.json, format: json }",
+        "  - { id: marcos, path: data/marcos.json, format: json }",
+        "  - { id: execucoes, path: data/execucoes.json, format: json }",
+        "  - { id: alertas, path: data/alertas.json, format: json }",
+        "pages:",
+        "  - slug: panorama",
+        "    title: Panorama",
+        "    icon: 'mdi:view-dashboard'",
+        "    default: true",
+        "    layout: sections",
+        "    sections:",
+        "      - title: Projetos",
+        "        columns: 12",
+        "        widgets:",
+        "          - widget: progress-bar",
+        "            colSpan: 12",
+        "            source: { ref: projetos }",
+        "            config: { title: 'Progresso por projeto', labelField: nome, valueField: feito, maxField: total, valueTextField: resumo, captionField: legenda, unit: projetos, footer: false }",
+        "      - title: Agora",
+        "        columns: 12",
+        "        widgets:",
+        "          - widget: table",
+        "            colSpan: 12",
+        "            source: { ref: execucoes }",
+        "            config: { title: 'Executores ativos', columns: [projeto, marco, tarefa, papel, executor, equipamento, minutos] }",
+        "      - title: Alertas",
+        "        columns: 12",
+        "        widgets:",
+        "          - widget: table",
+        "            colSpan: 12",
+        "            source: { ref: alertas }",
+        "            config: { title: 'Alertas', columns: [projeto, tipo, detalhe] }",
+    ]
+    for view in panel_views():
+        lines.extend([
+            "      - title: %s" % json.dumps(view.title, ensure_ascii=False),
+            "        columns: 12",
+            "        widgets:",
+            "          - widget: progress-bar",
+            "            colSpan: 12",
+            "            source: { ref: marcos, filter: { projeto: %s } }"
+            % json.dumps(view.id, ensure_ascii=False),
+            "            config: { title: 'Marcos', labelField: titulo, valueField: feito, maxField: total, valueTextField: resumo, captionField: legenda, unit: %s, footer: false }"
+            % json.dumps(view.unit, ensure_ascii=False),
+        ])
+    return "\n".join(lines) + "\n"
+
+
+def panel_path():
+    directories = []
+    for executable in (sys.executable, shutil.which("node"), shutil.which("git")):
+        if executable:
+            directory = str(Path(executable).resolve().parent)
+            if directory not in directories:
+                directories.append(directory)
+    for directory in ("/usr/bin", "/bin"):
+        if directory not in directories:
+            directories.append(directory)
+    return ":".join(directories)
+
+
+def render_plist(label, program_arguments, progress_dir, logs_dir):
+    environment = {"PATH": panel_path()}
+    if os.environ.get("ATOMIC_SKILLS_HOME"):
+        environment["ATOMIC_SKILLS_HOME"] = os.environ["ATOMIC_SKILLS_HOME"]
+    value = {
+        "Label": label,
+        "ProgramArguments": program_arguments,
+        "RunAtLoad": True,
+        "KeepAlive": True,
+        "ThrottleInterval": 30,
+        "WorkingDirectory": str(progress_dir),
+        "StandardOutPath": str(Path(logs_dir) / ("%s.log" % label)),
+        "StandardErrorPath": str(Path(logs_dir) / ("%s.log" % label)),
+        "EnvironmentVariables": environment,
+    }
+    return plistlib.dumps(value, fmt=plistlib.FMT_XML, sort_keys=True)
+
+
+def panel_watch_arguments():
+    python = sys.executable or "python3"
+    arguments = [
+        python,
+        str(Path(__file__).resolve()),
+        "watch",
+        "--out",
+        str(panel_data_dir()),
+        "--interval",
+        "2",
+        "--fetch-every",
+        "120",
+    ]
+    delegate = find_delegate()
+    if delegate:
+        arguments.extend(["--delegate", delegate])
+    return arguments
+
+
+def panel_service_arguments(aideck, port):
+    node = shutil.which("node")
+    return [node, str(aideck), "serve", "--port=%d" % port]
+
+
+def panel_desired_files(aideck, port):
+    manifest = panel_manifest_path()
+    watch_plist = panel_plist_path(PANEL_WATCH_LABEL)
+    service_plist = panel_plist_path(PANEL_SERVICE_LABEL)
+    desired = {
+        str(manifest): render_manifest().encode("utf-8"),
+        str(watch_plist): render_plist(
+            PANEL_WATCH_LABEL,
+            panel_watch_arguments(),
+            panel_progress_dir(),
+            panel_logs_dir(),
+        ),
+        str(service_plist): render_plist(
+            PANEL_SERVICE_LABEL,
+            panel_service_arguments(aideck, port),
+            panel_progress_dir(),
+            panel_logs_dir(),
+        ),
+    }
+    return desired, [watch_plist, service_plist]
+
+
+def panel_refusal(existing, state):
+    """Return a message when an existing file is not ours, else None."""
+    recorded = {}
+    if isinstance(state, dict) and isinstance(state.get("files"), dict):
+        recorded = state["files"]
+    for path in existing:
+        item = Path(path)
+        if not item.exists():
+            continue
+        try:
+            current = sha256_file(item)
+        except OSError as exc:
+            return "%s exists and cannot be hashed: %s" % (item, exc)
+        if recorded.get(str(path)) != current:
+            return (
+                "%s already exists and the panel state does not record it "
+                "with the same content" % item
+            )
+    return None
+
+
+def refresh_manifest():
+    """Regenerate the panel manifest after `add`/`remove`, when still ours."""
+    try:
+        state = load_panel_state()
+    except PanelError as exc:
+        print("progress: %s" % exc, file=sys.stderr)
+        return
+    if state is None:
+        return
+    path = panel_manifest_path()
+    recorded = (state.get("files") or {}).get(str(path))
+    try:
+        if not path.is_file():
+            return
+        current = sha256_file(path)
+    except OSError:
+        return
+    if recorded != current:
+        print(
+            "progress: %s foi editado; o manifesto não será regenerado" % path,
+            file=sys.stderr,
+        )
+        return
+    try:
+        data = render_manifest().encode("utf-8")
+        new_hash = sha256_bytes(data)
+        if new_hash != current:
+            write_atomic(path, data)
+        files = dict(state.get("files") or {})
+        files[str(path)] = new_hash
+        state["files"] = files
+        save_panel_state(state)
+    except (OSError, PanelError) as exc:
+        print("progress: cannot regenerate the panel manifest: %s" % exc, file=sys.stderr)
+
+
+def cmd_panel_install(args):
+    problem = panel_platform_error()
+    if problem:
+        print(problem, file=sys.stderr)
+        return 2
+    try:
+        port = int(args.port)
+    except (TypeError, ValueError):
+        port = None
+    if port is None or isinstance(port, bool) or not 1024 <= port <= 65535:
+        print("progress panel: invalid port %r (use 1024-65535)" % args.port, file=sys.stderr)
+        return 1
+    aideck = Path(args.aideck).expanduser()
+    try:
+        aideck = aideck.resolve()
+    except OSError:
+        pass
+    if not aideck.is_file():
+        print("progress panel: --aideck is not a file: %s" % aideck, file=sys.stderr)
+        return 1
+    if shutil.which("node") is None:
+        print("progress panel: node was not found on PATH", file=sys.stderr)
+        return 1
+    try:
+        state = load_panel_state()
+    except PanelError as exc:
+        print("progress panel: %s" % exc, file=sys.stderr)
+        return 1
+
+    desired, plists = panel_desired_files(aideck, port)
+    refusal = panel_refusal(desired, state)
+    if refusal:
+        print("progress panel: %s" % refusal, file=sys.stderr)
+        return 1
+    hashes = {path: sha256_bytes(data) for path, data in desired.items()}
+
+    if state is not None:
+        same_files = state.get("files") == hashes and all(
+            Path(path).is_file() and sha256_file(path) == digest
+            for path, digest in hashes.items()
+        )
+        same_args = state.get("port") == port and state.get("aideck") == str(aideck)
+        if same_args and same_files:
+            print("panel already installed on port %d" % port)
+            return 0
+
+    progress_dir = panel_progress_dir()
+    logs_dir = panel_logs_dir()
+    manifest = panel_manifest_path()
+    data_dir = panel_data_dir()
+    watch_plist, service_plist = plists
+
+    try:
+        if state is not None:
+            for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL):
+                panel_bootout(label)
+    except PanelError as exc:
+        print("progress panel: %s" % exc, file=sys.stderr)
+        return 1
+
+    prior_files = {}
+    for path in desired:
+        if Path(path).is_file():
+            prior_files[path] = Path(path).read_bytes()
+    prior_state = None
+    if panel_state_path().is_file():
+        prior_state = panel_state_path().read_bytes()
+
+    created_dirs = []
+    bootstrapped = []
+    try:
+        for directory in (
+            progress_dir,
+            logs_dir,
+            panel_home(),
+            data_dir,
+            panel_launch_agents_dir(),
+        ):
+            ensure_panel_dir(directory, created_dirs)
+        for path, data in desired.items():
+            write_atomic(path, data)
+        previous_dirs = []
+        if state is not None and isinstance(state.get("createdDirs"), list):
+            previous_dirs = [str(item) for item in state["createdDirs"]]
+        save_panel_state({
+            "schemaVersion": PANEL_SCHEMA_VERSION,
+            "port": port,
+            "aideck": str(aideck),
+            "files": hashes,
+            "createdDirs": sorted(set(previous_dirs + created_dirs)),
+        })
+        for label, plist in (
+            (PANEL_WATCH_LABEL, watch_plist),
+            (PANEL_SERVICE_LABEL, service_plist),
+        ):
+            panel_bootstrap(plist)
+            bootstrapped.append(label)
+    except Exception as exc:
+        for label in reversed(bootstrapped):
+            try:
+                panel_bootout(label)
+            except PanelError:
+                pass
+        for path, data in prior_files.items():
+            try:
+                write_atomic(path, data)
+            except OSError:
+                pass
+        for path in desired:
+            if path not in prior_files:
+                try:
+                    Path(path).unlink()
+                except OSError:
+                    pass
+        try:
+            if prior_state is None:
+                panel_state_path().unlink()
+            else:
+                write_atomic(panel_state_path(), prior_state)
+        except OSError:
+            pass
+        remove_panel_dirs(created_dirs)
+        print("progress panel: install failed: %s" % exc, file=sys.stderr)
+        return 1
+
+    print("panel installed on http://127.0.0.1:%d" % port)
+    return 0
+
+
+def cmd_panel_uninstall(args):
+    problem = panel_platform_error()
+    if problem:
+        print(problem, file=sys.stderr)
+        return 2
+    try:
+        state = load_panel_state()
+    except PanelError as exc:
+        print("progress panel: %s" % exc, file=sys.stderr)
+        return 1
+    if state is None:
+        print("panel: nothing is installed")
+        return 0
+
+    try:
+        for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL):
+            panel_bootout(label)
+    except PanelError as exc:
+        print("progress panel: %s" % exc, file=sys.stderr)
+        return 1
+
+    failed = False
+    files = state.get("files") if isinstance(state.get("files"), dict) else {}
+    for path, digest in files.items():
+        item = Path(path)
+        if not item.exists():
+            continue
+        try:
+            current = sha256_file(item)
+        except OSError as exc:
+            print("progress panel: kept %s: %s" % (item, exc), file=sys.stderr)
+            failed = True
+            continue
+        if current != digest:
+            print(
+                "progress panel: kept %s (its content changed)" % item,
+                file=sys.stderr,
+            )
+            continue
+        try:
+            item.unlink()
+        except OSError as exc:
+            print("progress panel: cannot remove %s: %s" % (item, exc), file=sys.stderr)
+            failed = True
+
+    for name in PANEL_OUTPUT_NAMES:
+        try:
+            (panel_data_dir() / ("%s.json" % name)).unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            print("progress panel: cannot remove %s: %s" % (name, exc), file=sys.stderr)
+            failed = True
+
+    if failed:
+        print("progress panel: uninstall incomplete; the state was kept", file=sys.stderr)
+        return 1
+
+    try:
+        panel_state_path().unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        print("progress panel: cannot remove %s: %s" % (panel_state_path(), exc), file=sys.stderr)
+        return 1
+    remove_panel_dirs(state.get("createdDirs"))
+    print("panel uninstalled")
+    return 0
+
+
+def cmd_panel_status(args):
+    problem = panel_platform_error()
+    if problem:
+        print(problem, file=sys.stderr)
+        return 2
+    try:
+        state = load_panel_state()
+    except PanelError as exc:
+        print("progress panel: %s" % exc, file=sys.stderr)
+        return 1
+    port = state.get("port") if isinstance(state, dict) else None
+    url = "http://127.0.0.1:%s" % port if port else None
+    labels = {
+        label: {"loaded": panel_label_loaded(label)}
+        for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL)
+    }
+    projetos = panel_data_dir() / "projetos.json"
+    try:
+        mtime = time.strftime(
+            "%Y-%m-%dT%H:%M:%S", time.localtime(projetos.stat().st_mtime)
+        )
+    except OSError:
+        mtime = None
+    result = {
+        "installed": bool(state),
+        "port": port,
+        "url": url,
+        "labels": labels,
+        "projetos": {"path": str(projetos), "mtime": mtime},
+    }
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+    print("panel: %s" % ("installed" if state else "not installed"))
+    if port:
+        print("port: %s" % port)
+        print("url: %s" % url)
+    for label, value in labels.items():
+        print("%s: %s" % (label, "loaded" if value["loaded"] else "not loaded"))
+    print("projetos.json: %s" % (mtime or "missing"))
+    return 0
+
+
+# --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
 
@@ -1538,6 +2157,18 @@ def build_parser():
     watch.add_argument("--fetch-every", type=float, default=120.0, dest="fetch_every")
     watch.add_argument("--delegate")
     watch.set_defaults(func=cmd_watch)
+
+    panel = sub.add_parser("panel", help="install or inspect the macOS panel service")
+    panel_sub = panel.add_subparsers(dest="panel_command", required=True)
+    panel_install = panel_sub.add_parser("install", help="install and load the service")
+    panel_install.add_argument("--aideck", required=True)
+    panel_install.add_argument("--port", default=str(DEFAULT_PANEL_PORT))
+    panel_install.set_defaults(func=cmd_panel_install)
+    panel_uninstall = panel_sub.add_parser("uninstall", help="unload and remove the service")
+    panel_uninstall.set_defaults(func=cmd_panel_uninstall)
+    panel_status = panel_sub.add_parser("status", help="print the panel service state")
+    panel_status.add_argument("--json", action="store_true")
+    panel_status.set_defaults(func=cmd_panel_status)
 
     status = sub.add_parser("status", help="print each project's progress")
     status.add_argument("--json", action="store_true")
