@@ -17,18 +17,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and human validation live in the map. Only `collect` and `watch` write the
   deterministic panel files, rewriting one only when its bytes changed;
   `validate`, `add`, `remove`, `list` and `status` never write them.
-- **The progress collector cannot hang or be misled.** `match` is now a literal
+- **The progress collector cannot hang or be misled.** `match` is a literal
   string or a list of literal substrings (case-insensitive, no token boundary),
-  and `idPattern` is an optional compiled regex of at most 64 characters with no
-  groups, alternation or escapes other than `\d`. Refs are validated before git
-  sees them and resolved once per cycle; a bad registry entry gives
-  `registro_invalido`, a failed `git log` or ref gives `git_log_falhou` and keeps
-  the last rows, a duplicate map id gives `id_duplicado`, and an unexpected
-  project error gives `erro_interno` without stopping the others. A card is
-  blocked only by a dep that is not integrated or validated. Fetches are
-  contained (`--` before the branch, no prompts, no gc or maintenance) and
-  `watch` keeps a failure in its alerts until that project's fetch succeeds and
-  stops within two seconds of SIGINT or SIGTERM during a fetch.
+  and no map value is a regular expression: the collector derives its
+  unknown-id prefixes from the map's own card ids (`AB-12` teaches `AB`) and
+  scans with one case-sensitive whole-token pattern built from those escaped
+  prefixes, so `ABCD-1` never yields `BCD-1` and a map with no prefix produces
+  no `card_desconhecido` alert. Refs are validated before git sees them and
+  resolved once per cycle; a bad registry entry gives `registro_invalido` and
+  `add`/`remove` preserve it unchanged, a failed `git log` or ref gives
+  `git_log_falhou` and keeps the last rows under the map id stored at `add` (or
+  the folder name for an older entry), a duplicate map id gives `id_duplicado`,
+  and an unexpected project error gives `erro_interno` without stopping the
+  others or leaving a partial project row. A card is blocked only by a dep that
+  is not integrated or validated, and `status` computes live without keeping
+  rows. Fetches are contained (`--` before the branch, no prompts, BatchMode SSH
+  when unconfigured, no gc or maintenance) and run in their own process group,
+  so `watch` stops within two seconds of SIGINT or SIGTERM during a fetch and
+  leaves no child behind; it keeps a failure in its alerts until that project's
+  fetch succeeds and drops it when the project or its `origin/` ref leaves the
+  registry.
 - **Delegate says which machine runs each executor.** Every `run` and
   `pipeline` record gains `machine`: the `--host` name, or the short hostname
   of the local machine. A `--host` run is now listed while it works, in one file
