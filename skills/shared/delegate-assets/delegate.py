@@ -76,8 +76,32 @@ MODELS = {
     "codex-review": ("codex", CODEX_MODEL, "openai"),
     "agy": ("agy", "gemini-4-hydrogen-high", "gemini"),
     "agy-review": ("agy", "gemini-4-hydrogen-xhigh", "gemini"),
+    # Antigravity's two other quota groups. Claude models there only review: the
+    # orchestrator is usually Claude and never hands implementation to its family.
+    "agy-argon": ("agy", "gemini-4-argon-high", "gemini"),
+    "agy-argon-review": ("agy", "gemini-4-argon-high", "gemini"),
+    "agy-sonnet-review": ("agy", "claude-sonnet-5-5-medium", "anthropic"),
+    "agy-opus-review": ("agy", "claude-opus-5-5-medium", "anthropic"),
     CLAUDE_REVIEW: ("claude", CLAUDE_MODEL, "anthropic"),
 }
+# Antigravity's independent quota groups, as `agy -p /quota` lists them. Models of
+# a group share its limits; a model outside this list keeps a limit of its own.
+AGY_POOLS = ("gemini", "claude-gpt", "argon")
+AGY_POOL_PREFIXES = (
+    ("gemini-4-argon-", "argon"),
+    ("claude-", "claude-gpt"),
+    ("gpt-oss-", "claude-gpt"),
+    ("gemini-4-neon-", "gemini"),
+    ("gemini-4-hydrogen-", "gemini"),
+    ("gemini-3.8-flash-", "gemini"),
+    ("gemini-pro-orchestrator-neon", "gemini"),
+)
+# Bucket ids in the same output; the Argon prefix has to be tried before Gemini's.
+AGY_BUCKET_POOLS = (("gemini-argon-", "argon"), ("3p-", "claude-gpt"), ("gemini-", "gemini"))
+AGY_QUOTA_TIMEOUT_S = 15
+# Opus is for validating small items: above this prompt size it is not launched.
+AGY_OPUS_MAX_INPUT_BYTES = 40 * 1024
+OVER_MODEL_CAP = "review_over_model_cap"
 # Executor capabilities shared by every profile using that CLI.
 EXECUTOR_FLAGS = {
     "opencode": {"requires_review_diff": False},
@@ -159,27 +183,34 @@ REVIEW_PROFILES = {"flash": "flash-review"}
 # showing them, but no new run may be launched with one.
 REMOVED_PROFILES = ("hy4-review", "glm-flash", "kimi")
 REMOVED_PROFILE_MESSAGE = ("delegate: profile {name} was removed; valid profiles: "
-                           "flash, flash-review, codex, codex-review, agy, agy-review, claude-review")
+                           "flash, flash-review, codex, codex-review, agy, agy-review, agy-argon, "
+                           "agy-argon-review, agy-sonnet-review, agy-opus-review, claude-review")
 # Fixed routes, the same as the skill's "Routing by role" table. `route` and
 # `pipeline` only reorder them by availability; they never add a profile.
 EXECUTOR_ROUTES = {
-    "mechanical": ["flash", "codex"],
-    "test": ["flash", "codex"],
-    "implement": ["flash", "codex"],
-    "fix": ["flash", "codex"],
+    "mechanical": ["flash", "codex", "agy-argon"],
+    "test": ["flash", "codex", "agy-argon"],
+    "implement": ["flash", "codex", "agy-argon"],
+    "fix": ["flash", "codex", "agy-argon"],
 }
 # Implement or fix with open design decisions, concurrency, security or migrations.
-OPEN_DESIGN_ROUTE = ["codex", "agy"]
-# Reviewers by the family that wrote the code; never that family itself.
+OPEN_DESIGN_ROUTE = ["codex", "agy-argon", "agy"]
+# Reviewers by the family that wrote the code; never that family itself. Opus is
+# in no fixed route: it is named for a small item, with the operator's yes.
 REVIEW_ROUTES = {
-    "deepseek": ["codex-review", "agy-review"],
-    "openai": ["flash-review", "agy-review"],
-    "gemini": ["codex-review", "flash-review"],
+    "deepseek": ["codex-review", "agy-sonnet-review", "agy-argon-review", "agy-review"],
+    "openai": ["flash-review", "agy-sonnet-review", "agy-argon-review", "agy-review"],
+    "gemini": ["codex-review", "flash-review", "agy-sonnet-review"],
 }
 # Provider limit messages, as printed by the CLIs (read from real run outputs):
 #   Codex:       "... or try again at 12:28 PM."   (wall-clock time, machine time zone)
+#   Codex:       "... or try again at Nov 25th, 2026 7:44 AM."   (same, with a date)
 #   Antigravity: "... Resets in 107h24m20s."
 RESET_AT_RE = re.compile(r"try again at (\d{1,2}):(\d{2})\s*([AP]M)", re.IGNORECASE)
+RESET_AT_DATE_RE = re.compile(
+    r"try again at ([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4}),?\s+(\d{1,2}):(\d{2})\s*([AP]M)",
+    re.IGNORECASE)
+MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
 RESET_IN_RE = re.compile(r"Resets in ((?:\d+[hms])+)", re.IGNORECASE)
 # Used when a limit message carries no reset time; DELEGATE_COOLDOWN_<EXECUTOR> changes it.
 DEFAULT_COOLDOWN_S = 60 * 60
@@ -1320,8 +1351,9 @@ def duration_arg(text):
 class ProgressWatch:
     """Tell a working executor from a stuck one.
 
-    Progress is any change in: the size of the captured stdout or stderr, the
-    branch HEAD, or the working tree (the `git status` entries and the size and
+    Progress is any change in: the size of the captured stdout or stderr (and of
+    Antigravity's own log, since it prints only at the end of a turn), the branch
+    HEAD, or the working tree (the `git status` entries and the size and
     modification time of each listed path). The check runs at a modest interval;
     `idle_timeout` 0 keeps the bookkeeping for `status` and never stops the run.
     """
@@ -1861,6 +1893,21 @@ def parse_reset(text, limit_time):
         seconds = sum(int(n) * {"h": 3600, "m": 60, "s": 1}[unit.lower()]
                       for n, unit in re.findall(r"(\d+)([hms])", found.group(1), re.IGNORECASE))
         return limit_time + dt.timedelta(seconds=seconds)
+    for found in RESET_AT_DATE_RE.finditer(text):
+        pass
+    if found:
+        month = found.group(1)[:3].lower()
+        hour, minute = int(found.group(4)), int(found.group(5))
+        if month not in MONTHS or not 1 <= hour <= 12 or minute > 59:
+            return None
+        hour = hour % 12 + (12 if found.group(6).upper() == "PM" else 0)
+        try:
+            # A naive time read as the machine's own zone, as the CLI prints it.
+            local = dt.datetime(int(found.group(3)), MONTHS.index(month) + 1, int(found.group(2)),
+                                hour, minute).astimezone()
+        except (ValueError, OverflowError, OSError):
+            return None
+        return local.astimezone(dt.timezone.utc)
     zone = None
     for found in RESET_ZONE_RE.finditer(text):
         pass
@@ -1918,13 +1965,86 @@ def run_end(rec):
     return end.astimezone(dt.timezone.utc)
 
 
-def provider_limits(now_dt=None):
-    """Limits still in force: {(executor, model): {"until", "source", "at"}}.
+def agy_pool(model):
+    """The Antigravity quota group of a model, or None for a model outside them."""
+    for prefix, pool in AGY_POOL_PREFIXES:
+        if model.startswith(prefix):
+            return pool
+    return None
 
-    A limit belongs to the executor and model of the run that hit it. It holds
-    until the reset the provider printed, or for the default cooldown when the
-    message has none, and ends early when a later run of the same executor and
-    model reached the provider.
+
+def limit_key(executor, model):
+    """What a provider limit belongs to: the quota group on Antigravity, else the model."""
+    if executor == "agy":
+        return (executor, agy_pool(model) or model)
+    return (executor, model)
+
+
+def agy_claude_model(executor, model):
+    return executor == "agy" and str(model).startswith("claude-")
+
+
+def parse_utc(raw):
+    """An ISO time as aware UTC, or None."""
+    if not isinstance(raw, str):
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(raw[:-1] + "+00:00" if raw.endswith("Z") else raw)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed.astimezone(dt.timezone.utc)
+
+
+def agy_quota(now_dt=None):
+    """Antigravity's own quota per group: {pool: {"remaining", "until"}}, or {}.
+
+    `/quota` is answered by the CLI without a model call, so it spends no quota.
+    Any failure returns {} and the caller keeps what the run log says.
+    """
+    exe = find_optional("agy")
+    if not exe:
+        return {}
+    now_dt = now_dt or now()
+    try:
+        done = subprocess.run([exe, "-p", "/quota", "--output-format", "json"],
+                              stdin=subprocess.DEVNULL, capture_output=True, text=True, errors="replace",
+                              cwd=tempfile.gettempdir(), timeout=AGY_QUOTA_TIMEOUT_S)
+        if done.returncode != 0:
+            return {}
+        pools = {}
+        for group in json.loads(done.stdout)["command"]["data"]["groups"]:
+            for bucket in group.get("buckets") or []:
+                bucket_id = str(bucket.get("id") or "")
+                pool = next((p for prefix, p in AGY_BUCKET_POOLS if bucket_id.startswith(prefix)), None)
+                fraction = bucket.get("remaining_fraction")
+                if (pool is None or bucket.get("disabled") or isinstance(fraction, bool)
+                        or not isinstance(fraction, (int, float))):
+                    continue
+                state = pools.setdefault(pool, {"remaining": 1.0, "until": None})
+                if fraction <= 0:
+                    reset = parse_utc(bucket.get("reset_time"))
+                    if reset is None:
+                        reset = now_dt + dt.timedelta(seconds=cooldown_s("agy"))
+                    # A reset already past means the bucket has refreshed.
+                    if reset <= now_dt:
+                        continue
+                    if state["until"] is None or reset > state["until"]:
+                        state["until"] = reset
+                state["remaining"] = min(state["remaining"], float(fraction))
+        return pools
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError):
+        return {}
+
+
+def provider_limits(now_dt=None):
+    """Limits still in force: {limit_key: {"until", "source", "at"}}.
+
+    A limit belongs to the executor and model of the run that hit it, or to the
+    model's quota group on Antigravity. It holds until the reset the provider
+    printed, or for the default cooldown when the message has none, and ends
+    early when a later run under the same key reached the provider.
     """
     now_dt = now_dt or now()
     latest = {}
@@ -1939,9 +2059,10 @@ def provider_limits(now_dt=None):
             failure = rec.get("failure")
             if failure != "provider_limit" and failure not in LIMIT_CLEARED_BY:
                 continue
-            key, end = (rec.get("executor"), rec.get("model")), run_end(rec)
-            if None in key or end is None or end > now_dt:
+            executor, model, end = rec.get("executor"), rec.get("model"), run_end(rec)
+            if executor is None or model is None or end is None or end > now_dt:
                 continue
+            key = limit_key(executor, str(model))
             if key not in latest or end > latest[key][0]:
                 latest[key] = (end, rec)
     limits = {}
@@ -1965,18 +2086,38 @@ def provider_limits(now_dt=None):
 
 def availability(now_dt=None):
     """What each profile can do now: CLI found, free slots, and a limit in force."""
+    now_dt = now_dt or now()
     limits = provider_limits(now_dt)
+    quota = agy_quota(now_dt)
     out = {}
     for name, (executor, model, family) in MODELS.items():
-        limit = limits.get((executor, model))
+        pool = agy_pool(model) if executor == "agy" else None
+        live = quota.get(pool)
+        limit = limits.get(limit_key(executor, model))
+        if live is not None:
+            # What Antigravity reports now replaces what the log inferred.
+            limit = {"until": live["until"], "source": "quota"} if live["until"] else None
         out[name] = {
-            "executor": executor, "model": model, "family": family,
+            "executor": executor, "model": model, "family": family, "pool": pool,
             "found": bool(find_optional(executor)),
             "slots_free": max(0, get_max_slots(executor) - len(get_active_slots(executor))),
             "cooling_until": limit["until"].isoformat(timespec="seconds") if limit else None,
             "reset_source": limit["source"] if limit else None,
+            "quota_remaining": live["remaining"] if live is not None else None,
         }
     return out
+
+
+def quota_summary(avail):
+    """Antigravity's groups in the CLI's order: {pool: {"remaining", "until"}}."""
+    pools = {}
+    for state in avail.values():
+        if state["quota_remaining"] is not None:
+            pools[state["pool"]] = {
+                "remaining": state["quota_remaining"],
+                "until": state["cooling_until"] if state["reset_source"] == "quota" else None,
+            }
+    return {pool: pools[pool] for pool in AGY_POOLS if pool in pools}
 
 
 def usable(profile, avail):
@@ -2015,11 +2156,16 @@ def cmd_route(a):
         reason = claude_login_problem(state, detail)
         if reason:
             warnings.append(claude_login_help(reason))
+    quota = quota_summary(avail)
     if a.json:
         print(json.dumps({"role": a.role, "route": route, "review_routes": review_routes,
-                          "profiles": avail, "warnings": warnings}, indent=2))
+                          "profiles": avail, "quota": quota, "warnings": warnings}, indent=2))
         return
     print("route: " + ",".join(route))
+    if quota:
+        print("agy quota: " + ", ".join(
+            f"{pool} {state['remaining'] * 100:.0f}%" + (f" until {state['until']}" if state["until"] else "")
+            for pool, state in quota.items()))
     for profile in route:
         family = MODELS[profile][2]
         print(f"review route after {profile} ({family}): " + ",".join(review_routes[family]))
@@ -2121,6 +2267,20 @@ def check_claude_review(executor, role, allowed, author_family, host=None):
                     f"{CLAUDE_REVIEW} cannot review work written by a Claude model")
     if host:
         usage_error(f"{CLAUDE_REVIEW} does not run on a remote host; drop --host for this review")
+
+
+def check_agy_claude(executor, model, role, author_family):
+    """A Claude model on Antigravity only reviews, and never a Claude model's code."""
+    if not agy_claude_model(executor, model):
+        return
+    if role != "review":
+        usage_error(f"Claude models on Antigravity only review; {model} cannot take the role {role}")
+    if not author_family:
+        usage_error(f"{model} on Antigravity needs --author-family <family of the model that wrote "
+                    "the code> (deepseek, openai, gemini or anthropic)")
+    if author_family == "anthropic":
+        usage_error("the reviewer is never of the family that wrote the code: "
+                    f"{model} cannot review work written by a Claude model")
 
 
 def claude_last(route):
@@ -3227,11 +3387,12 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if profile:
         executor, model, family = MODELS[profile]
     else:
-        family = None
+        family = "anthropic" if agy_claude_model(executor, model) else None
     if not executor or not model:
         sys.exit("delegate: give --profile, or both --executor and --model")
     check_model_allowed(role, executor, model)
     check_claude_review(executor, role, allow_claude_review, author_family, host)
+    check_agy_claude(executor, model, role, author_family)
     if alias_notice:
         print(alias_notice, file=sys.stderr)
 
@@ -3262,6 +3423,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         # OpenCode takes the prompt as one argv element and would fail with
         # E2BIG at or above the kernel limit; it has no stdin prompt.
         input_failure = size_failure
+    elif (not input_failure and role == "review" and executor == "agy"
+          and str(model).startswith("claude-opus") and input_sizes["prompt_bytes"] > AGY_OPUS_MAX_INPUT_BYTES):
+        input_failure = OVER_MODEL_CAP
     out_path = Path(out or HOME / "delegate" / "out" / project).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
     policy = access_policy(executor, role, cwd, out_path, strict=access_mode == "strict")
@@ -3296,6 +3460,14 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
             diff_range=diff_range, attachments=attachments, access_mode=access_mode,
             host=host, prompt=prompt, stdout=stdout, stderr=stderr, last_msg=last_msg)
     argv = build_argv(executor, model, role, cwd, card_content, last_msg, policy)
+    progress_files = (stdout, stderr)
+    agy_log = None
+    if executor == "agy":
+        # In text mode agy prints nothing until the turn ends, so a long review
+        # changes no output and no file; its log is what shows it is working.
+        agy_log = stderr.with_suffix(".agy.log")
+        argv += ["--log-file", str(agy_log)]
+        progress_files += (agy_log,)
     peak = in_peak() and family == "deepseek"
     if peak:
         print("delegate: OpenCode Go peak window (UTC); DeepSeek on OpenCode Go costs double now — proceeding",
@@ -3377,7 +3549,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
             try:
                 # Built inside the try: it runs git, and a stop signal that lands
                 # there must still end the executor and write the record.
-                progress = ProgressWatch(cwd, (stdout, stderr), idle_timeout, slot_file, slot_data)
+                progress = ProgressWatch(cwd, progress_files, idle_timeout, slot_file, slot_data)
                 wait_for_exit(p, timeout, parent_pid=parent_pid, tracker=tracker, progress=progress)
                 exit_seen = True
             except ParentGone:
@@ -3497,6 +3669,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     }
     if executor == "codex":
         rec["last_message"] = str(last_msg)
+    if agy_log is not None:
+        rec["agy_log"] = str(agy_log)
     if executor == "claude":
         rec["fallback_reviewer"] = True
         rec["author_family"] = author_family
@@ -3599,11 +3773,13 @@ def cmd_pipeline(a):
     for profile in route:
         check_model_allowed(role, *MODELS[profile][:2])
         check_claude_review(MODELS[profile][0], role, a.allow_claude_review, None)
+        check_agy_claude(*MODELS[profile][:2], role, None)
     for profile in review_route:
         check_model_allowed("review", *MODELS[profile][:2])
         # The author is one of the executors in the route; none of them is Claude.
         check_claude_review(MODELS[profile][0], "review", a.allow_claude_review,
                             MODELS[route[0]][2], a.host)
+        check_agy_claude(*MODELS[profile][:2], "review", MODELS[route[0]][2])
     if CLAUDE_REVIEW in review_route:
         check_claude_login()
     # Profiles under a provider limit, or whose CLI is missing, are tried last.
@@ -3763,7 +3939,8 @@ def cmd_pipeline(a):
                     error = "review_wrote: tree changed after gate"
                     outcome = "no_reviewer"
                     break
-                if review_rec["failure"] in ("provider_limit", "slot_timeout", "empty_output", "incomplete_review"):
+                if review_rec["failure"] in ("provider_limit", "slot_timeout", "empty_output",
+                                             "incomplete_review", OVER_MODEL_CAP):
                     continue
                 if review_rec["failure"] == "none":
                     reviewer_profile = profile
@@ -3775,7 +3952,9 @@ def cmd_pipeline(a):
             if outcome is None:
                 outcome = "no_reviewer"
                 tried = [rec for rec in attempts if rec["role"] == "review"]
-                if tried and all(rec["failure"] in NO_CAPACITY for rec in tried):
+                # A reviewer refused for size will refuse again: it does not decide this.
+                waiting = [rec for rec in tried if rec["failure"] != OVER_MODEL_CAP]
+                if waiting and all(rec["failure"] in NO_CAPACITY for rec in waiting):
                     outcome = "review_pending"
                     pending_file = PENDING / safe_remote_name(project) / f"{safe_remote_name(task_id)}.json"
                     pending_file.parent.mkdir(parents=True, exist_ok=True)
@@ -3967,7 +4146,7 @@ def cmd_review_pending(a):
             if tree_snapshot(cwd) != snapshot:
                 error, outcome = "review_wrote: tree changed after gate", "no_reviewer"
                 break
-            if rec["failure"] in (*NO_CAPACITY, "empty_output", "incomplete_review"):
+            if rec["failure"] in (*NO_CAPACITY, "empty_output", "incomplete_review", OVER_MODEL_CAP):
                 continue
             if rec["failure"] == "none":
                 reviewer_profile, review_rec, outcome = profile, rec, "reviewed"
@@ -3977,7 +4156,8 @@ def cmd_review_pending(a):
     except PausedError:
         error, outcome = "paused", "paused"
     if outcome is None:
-        if attempts and all(rec["failure"] in NO_CAPACITY for rec in attempts):
+        waiting = [rec for rec in attempts if rec["failure"] != OVER_MODEL_CAP]
+        if waiting and all(rec["failure"] in NO_CAPACITY for rec in waiting):
             outcome = "review_pending"
         else:
             outcome = "no_reviewer"
@@ -4239,7 +4419,7 @@ def cmd_profiles(a):
         print(f"{name} | {executor} | {model} | {family} | {status}{remote_state}")
         cwd = str(Path.cwd())
         for label, role in (("implement, fix, mechanical, test", "implement"), ("review", "review")):
-            if executor == "claude" and role != "review":
+            if (executor == "claude" or agy_claude_model(executor, model)) and role != "review":
                 continue
             policy = access_policy(executor, role, cwd)
             print(f"  {label} | {format_access(policy['access'])}")

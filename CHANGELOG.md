@@ -123,6 +123,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   copied into the repository and records debt per item, keyed by path and
   symbol. It fails on a new item, a worse item, a raised ceiling or a debt
   file that grew against the base branch, and carries debt across code moves.
+- **Delegate uses all three Antigravity quotas.** New profiles run on the Argon
+  quota (`agy-argon`, `agy-argon-review`) and on the Claude and GPT quota
+  (`agy-sonnet-review`, and `agy-opus-review` for small items). Sonnet and Argon
+  join the default review routes ahead of the Gemini reviewer, and Argon becomes
+  a fallback executor. Claude models there only review, and never review code a
+  Claude model wrote.
+- **`route` shows the real Antigravity quota.** It reads `agy /quota`, which
+  spends no model quota, and prints what remains in each group and when an
+  exhausted group returns.
 
 ### Fixed
 
@@ -141,6 +150,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `PermissionError`. It also leaves `GIT_SSH` and a configured
   `core.sshCommand` alone, like `GIT_SSH_COMMAND`, instead of overriding them
   with `ssh -o BatchMode=yes`.
+- **An Antigravity limit now applies to its whole quota group.** The runner
+  treated each model as having its own limit, so it could send work to another
+  model of a group that had already run out.
+- **A long Antigravity review is no longer stopped as idle.** Antigravity prints
+  only when a turn ends, so a working review looked stuck after 20 minutes. The
+  runner now also watches the log of that run for progress.
+- **Codex resets with a full date are read correctly.** A message such as
+  `try again at Nov 25th, 2026 7:44 AM` used to fall back to a 60-minute
+  cooldown, so Codex returned to the routes days too early.
 
 ## [2.3.0] - 2026-11-23
 

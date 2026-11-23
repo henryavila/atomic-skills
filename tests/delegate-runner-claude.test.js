@@ -379,10 +379,11 @@ print(json.dumps(d.child_environment("codex", env, {"X": "1"}), sort_keys=True))
     const limit = (executor, model) => JSON.stringify({ kind: 'run', id: 'OLD', role: 'review', executor, model,
       completed, started: completed, duration_s: 1, failure: 'provider_limit' });
     writeFileSync(join(logDir, 'runs.jsonl'),
-      limit('codex', 'gpt-6.1-sol') + '\n' + limit('agy', 'gemini-4-hydrogen-xhigh') + '\n');
+      [limit('codex', 'gpt-6.1-sol'), limit('agy', 'gemini-4-hydrogen-xhigh'),
+        limit('agy', 'claude-sonnet-5-5-medium'), limit('agy', 'gemini-4-argon-high')].join('\n') + '\n');
     const out = JSON.parse(runDelegate(['route', '--role', 'implement', '--json'], env()).stdout);
     assert.equal(out.profiles['claude-review'].found, true);
-    assert.deepEqual(out.review_routes.deepseek, ['codex-review', 'agy-review']);
+    assert.deepEqual(out.review_routes.deepseek, ['codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review']);
     assert.match(out.warnings[0], /claude-review can review with the operator's yes \(--allow-claude-review\)/);
     const profiles = runDelegate(['profiles'], env());
     assert.match(profiles.stdout, /^claude-review \| claude \| claude-sonnet-5-5 \| anthropic \| found \| login=claude\.ai \(max\)$/m);
