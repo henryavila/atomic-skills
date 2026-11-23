@@ -114,6 +114,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recorded as `milestone` on the run, pipeline, retry and review records and
   kept through `review-pending`. Slots, remote active files and each entry of
   `status --json` carry both fields.
+- **New skill `quality-gate`.** It audits what a repository really enforces
+  (nine dimensions per stack, each tool classified as blocking, warning or
+  idle), installs one gate script called by every hook and by CI, and closes
+  with a re-audit by auditors that saw none of the work. The skill sets the
+  objectives and the layers; the agent picks the tools for each stack.
+- **A debt ratchet ships with it.** `ratchet.py` (Python standard library) is
+  copied into the repository and records debt per item, keyed by path and
+  symbol. It fails on a new item, a worse item, a raised ceiling or a debt
+  file that grew against the base branch, and carries debt across code moves.
 
 ### Fixed
 
@@ -132,15 +141,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `PermissionError`. It also leaves `GIT_SSH` and a configured
   `core.sshCommand` alone, like `GIT_SSH_COMMAND`, instead of overriding them
   with `ssh -o BatchMode=yes`.
-- **New skill `quality-gate`.** It audits what a repository really enforces
-  (nine dimensions per stack, each tool classified as blocking, warning or
-  idle), installs one gate script called by every hook and by CI, and closes
-  with a re-audit by auditors that saw none of the work. The skill sets the
-  objectives and the layers; the agent picks the tools for each stack.
-- **A debt ratchet ships with it.** `ratchet.py` (Python standard library) is
-  copied into the repository and records debt per item, keyed by path and
-  symbol. It fails on a new item, a worse item, a raised ceiling or a debt
-  file that grew against the base branch, and carries debt across code moves.
 
 ## [2.3.0] - 2026-11-23
 
