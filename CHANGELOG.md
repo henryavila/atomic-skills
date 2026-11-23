@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A run whose runner was killed is no longer silent.** `status` marks it
   `runner gone` and tells how to stop the executor, and the log gets a
   `runner_lost` record when its slot is cleared.
+- **The peak window now ends on the exact minute.** A run started at 04:00 or
+  10:00 UTC (01:00 or 07:00 GMT-3) on a weekday was warned and logged as peak
+  although the base price had already returned.
+- **The peak schedule is now named after OpenCode Go.** The skill and the
+  runner's warning called it DeepSeek's, but it is OpenCode Go's own schedule.
+  The skill now also gives the hours in GMT-3.
 
 ## [2.2.0] - 2026-11-20
 
