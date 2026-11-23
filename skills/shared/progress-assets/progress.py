@@ -28,8 +28,13 @@ TOP_KEYS = {"schemaVersion", "id", "title", "unit", "note", "idPattern", "milest
 MILESTONE_KEYS = {"id", "title", "cards"}
 CARD_KEYS = {"id", "size", "deps", "match", "weight", "done", "validated"}
 OUTPUT_NAMES = ("projetos", "marcos", "execucoes", "alertas")
-REF_RE = re.compile(r"[A-Za-z0-9._/-]+")
+REF_RE = re.compile(r"[A-Za-z0-9._][A-Za-z0-9._/-]*\Z")
+ID_PATTERN_MAX = 64
 DEFAULT_UNIT = "itens"
+
+
+class CollectorStopped(Exception):
+    """The watcher was signalled while a fetch was running."""
 
 
 # --------------------------------------------------------------------------
@@ -89,22 +94,40 @@ def write_json_if_changed(path, value):
     return True
 
 
+def valid_ref(ref):
+    """A ref that can never be read as a git option."""
+    return isinstance(ref, str) and bool(REF_RE.fullmatch(ref))
+
+
 def load_registry():
     path = registry_path()
     if not path.exists():
-        return {"schemaVersion": SCHEMA_VERSION, "projects": []}
+        return {"schemaVersion": SCHEMA_VERSION, "projects": [], "alerts": []}
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or not isinstance(data.get("projects"), list):
         raise ValueError("registry is not an object with a projects array")
     projects = []
-    for item in data["projects"]:
-        if not isinstance(item, dict):
+    alerts = []
+    for index, item in enumerate(data["projects"]):
+        path_value = item.get("path") if isinstance(item, dict) else None
+        ref = item.get("ref") if isinstance(item, dict) else None
+        name = Path(path_value).name if isinstance(path_value, str) and path_value else ""
+        if not isinstance(path_value, str) or not path_value:
+            alerts.append({
+                "projeto": name,
+                "tipo": "registro_invalido",
+                "detalhe": "projects[%d]: path ausente ou inválido" % index,
+            })
             continue
-        path_value = item.get("path")
-        ref = item.get("ref")
-        if isinstance(path_value, str) and path_value and isinstance(ref, str) and ref:
-            projects.append({"path": path_value, "ref": ref})
-    return {"schemaVersion": SCHEMA_VERSION, "projects": projects}
+        if not valid_ref(ref):
+            alerts.append({
+                "projeto": name,
+                "tipo": "registro_invalido",
+                "detalhe": "projects[%d]: ref inválida %r" % (index, ref),
+            })
+            continue
+        projects.append({"path": path_value, "ref": ref})
+    return {"schemaVersion": SCHEMA_VERSION, "projects": projects, "alerts": alerts}
 
 
 def save_registry(projects):
@@ -121,7 +144,7 @@ def save_registry(projects):
 REPO_PART_RE = re.compile(r"[A-Za-z0-9._-]+\Z")
 
 
-def run_cmd(args, timeout=30):
+def run_cmd(args, timeout=30, env=None):
     return subprocess.run(
         args,
         capture_output=True,
@@ -129,6 +152,8 @@ def run_cmd(args, timeout=30):
         timeout=timeout,
         encoding="utf-8",
         errors="replace",
+        stdin=subprocess.DEVNULL,
+        env=env,
     )
 
 
@@ -190,17 +215,38 @@ def repo_identity(cwd):
         return None
 
 
-def merge_subjects(repo, ref):
+def resolve_ref(repo, ref):
+    """Resolve `ref` to a commit SHA once; return (sha, error)."""
     try:
-        result = run_cmd(["git", "-C", str(repo), "log", "--merges", "--format=%s", ref])
-    except (OSError, subprocess.SubprocessError):
-        return []
+        result = run_cmd([
+            "git", "-C", str(repo), "rev-parse", "--verify", "--quiet",
+            "--end-of-options", "%s^{commit}" % ref,
+        ])
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, "cannot resolve %s: %s" % (ref, exc)
+    sha = (result.stdout or "").strip()
+    if result.returncode != 0 or not sha:
+        detail = (result.stderr or "").strip().splitlines()
+        return None, "cannot resolve %s%s" % (
+            ref,
+            ": " + detail[-1] if detail else "",
+        )
+    return sha, None
+
+
+def merge_subjects(repo, sha):
+    """Return (subjects, error); the caller keeps previous rows on error."""
+    try:
+        result = run_cmd(["git", "-C", str(repo), "log", "--merges", "--format=%s", sha])
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, "git log failed: %s" % exc
     if result.returncode != 0:
-        return []
-    return [line for line in result.stdout.splitlines() if line.strip()]
+        detail = (result.stderr or "").strip().splitlines()
+        return None, "git log failed%s" % (": " + detail[-1] if detail else "")
+    return [line for line in result.stdout.splitlines() if line.strip()], None
 
 
-def read_map(repo, ref):
+def read_map(repo, ref, display=None):
     """Return (raw_text, error). Always reads through `git show`, never disk."""
     try:
         result = run_cmd(
@@ -211,7 +257,7 @@ def read_map(repo, ref):
     if result.returncode != 0:
         detail = (result.stderr or "").strip().splitlines()
         return None, "cannot read .atomic-skills/marcos.json at %s%s" % (
-            ref,
+            display or ref,
             ": " + detail[-1] if detail else "",
         )
     return result.stdout, None
@@ -250,10 +296,8 @@ def validate_map(data):
     for key in ("id", "title", "unit"):
         if key not in data:
             issue("$.%s" % key, "required")
-        elif key != "unit" and not _nonempty_str(data[key]):
+        elif not _nonempty_str(data[key]):
             issue("$.%s" % key, "must be a non-empty string")
-        elif key == "unit" and not _nonempty_str(data[key]):
-            issue("$.unit", "must be a non-empty string")
         elif key == "id" and not ID_RE.fullmatch(data[key]):
             issue("$.id", "must match [A-Za-z0-9._-]{1,64}")
 
@@ -265,10 +309,23 @@ def validate_map(data):
         if not isinstance(id_pattern, str):
             issue("$.idPattern", "must be a string")
         else:
+            if not id_pattern:
+                issue("$.idPattern", "must be a non-empty string")
+            if len(id_pattern) > ID_PATTERN_MAX:
+                issue("$.idPattern", "must be at most %d characters" % ID_PATTERN_MAX)
+            if any(char in id_pattern for char in "()|"):
+                issue("$.idPattern", "must not contain (, ) or |")
+            for escape in re.finditer(r"\\(.)?", id_pattern):
+                if escape.group(1) != "d":
+                    issue("$.idPattern", "the only allowed escape is \\d")
+                    break
             try:
-                re.compile(id_pattern)
+                compiled = re.compile(id_pattern)
             except re.error as exc:
                 issue("$.idPattern", "invalid regular expression: %s" % exc)
+            else:
+                if compiled.search(""):
+                    issue("$.idPattern", "must not match the empty string")
 
     milestones = data.get("milestones")
     if "milestones" not in data:
@@ -339,13 +396,21 @@ def validate_map(data):
                 issue("%s.weight" % card_base, "must be a positive integer")
 
             if "match" in card:
-                if not isinstance(card["match"], str):
-                    issue("%s.match" % card_base, "must be a string")
-                else:
-                    try:
-                        re.compile(card["match"])
-                    except re.error as exc:
-                        issue("%s.match" % card_base, "invalid regular expression: %s" % exc)
+                match = card["match"]
+                if isinstance(match, list):
+                    if not match:
+                        issue("%s.match" % card_base, "must not be an empty array")
+                    for match_index, value in enumerate(match):
+                        if not _nonempty_str(value):
+                            issue(
+                                "%s.match[%d]" % (card_base, match_index),
+                                "must be a non-empty string",
+                            )
+                elif not _nonempty_str(match):
+                    issue(
+                        "%s.match" % card_base,
+                        "must be a non-empty string or a non-empty array of them",
+                    )
             for key in ("done", "validated"):
                 if key in card and not isinstance(card[key], str):
                     issue("%s.%s" % (card_base, key), "must be a string")
@@ -444,14 +509,9 @@ class ProjectView:
         return not self.issues
 
 
-def fallback_id(path):
-    name = Path(path).name
-    return name if ID_RE.fullmatch(name) else "projeto"
-
-
-def load_project(path, ref):
+def load_project(path, ref, sha=None):
     view = ProjectView(path, ref)
-    raw, error = read_map(path, ref)
+    raw, error = read_map(path, sha or ref, display=ref)
     if error:
         view.issues = ["$: %s" % error]
         return view
@@ -522,15 +582,18 @@ def run_touches_card(run, card_id, expected_repo):
     return bool(token_regex(re.escape(card_id)).search(task_id))
 
 
-def card_states(view, active_runs):
-    subjects = merge_subjects(view.path, view.ref)
-    regexes = {}
-    for card in view.cards:
-        if "match" in card:
-            regexes[card["id"]] = token_regex(card["match"], case_insensitive=True)
-        else:
-            regexes[card["id"]] = token_regex(re.escape(card["id"]))
+def card_matches(card, subject):
+    """A `match` is a literal substring; a card id is a whole token."""
+    if "match" in card:
+        values = card["match"]
+        if isinstance(values, str):
+            values = [values]
+        lowered = subject.lower()
+        return any(value.lower() in lowered for value in values)
+    return bool(token_regex(re.escape(card["id"])).search(subject))
 
+
+def card_states(view, active_runs, subjects):
     base = {}
     for card in view.cards:
         card_id = card["id"]
@@ -538,7 +601,7 @@ def card_states(view, active_runs):
             base[card_id] = "validated"
         elif has_evidence(card.get("done")):
             base[card_id] = "integrated"
-        elif any(regexes[card_id].search(subject) for subject in subjects):
+        elif any(card_matches(card, subject) for subject in subjects):
             base[card_id] = "integrated"
         elif any(run_touches_card(run, card_id, view.repo) for run in active_runs):
             base[card_id] = "running"
@@ -546,16 +609,19 @@ def card_states(view, active_runs):
             base[card_id] = "ready"
 
     deps = {card["id"]: card.get("deps") or [] for card in view.cards}
-    states = {}
-    for card in view.cards:
-        card_id = card["id"]
-        state = base[card_id]
-        if state == "ready":
-            if any(deps[card_id] and other not in ("integrated", "validated")
-                   for other in deps[card_id]):
-                state = "blocked"
-        states[card_id] = state
-    return states, subjects
+    states = dict(base)
+    changed = True
+    while changed:
+        changed = False
+        for card in view.cards:
+            card_id = card["id"]
+            if states[card_id] != "ready":
+                continue
+            if any(states.get(dep) not in ("integrated", "validated")
+                   for dep in deps[card_id]):
+                states[card_id] = "blocked"
+                changed = True
+    return states
 
 
 def milestone_rows(view, states):
@@ -624,7 +690,7 @@ def unknown_card_alerts(view, subjects):
     if not isinstance(pattern, str):
         return []
     try:
-        token = re.compile(pattern)
+        token = token_regex(pattern)
     except re.error:
         return []
     known = {card["id"] for card in view.cards}
@@ -633,7 +699,7 @@ def unknown_card_alerts(view, subjects):
     for subject in subjects:
         for match in token.finditer(subject):
             found = match.group(0)
-            if found in known or found in seen:
+            if not found or found in known or found in seen:
                 continue
             seen.add(found)
             alerts.append({
@@ -759,88 +825,190 @@ def minutes(age_s):
 # Collection
 # --------------------------------------------------------------------------
 
-def fetch_projects(projects):
-    """Fetch `origin/<branch>` refs; return failure details with their path."""
-    failures = []
+def run_fetch(repo, branch, stop_event=None, timeout=30):
+    """Run a contained fetch; return (ok, detail, stopped)."""
+    if stop_event is not None and stop_event.is_set():
+        return False, "", True
+    args = [
+        "git", "-C", str(repo),
+        "-c", "gc.auto=0", "-c", "maintenance.auto=false",
+        "fetch", "--quiet", "--no-recurse-submodules", "--no-write-fetch-head",
+        "origin", "--", branch,
+    ]
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    start = time.monotonic()
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as errors:
+        try:
+            proc = subprocess.Popen(
+                args,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=errors,
+                env=env,
+            )
+        except OSError as exc:
+            return False, "git fetch falhou em %s: %s" % (repo, exc), False
+        while proc.poll() is None:
+            if stop_event is not None and stop_event.is_set():
+                proc.terminate()
+                try:
+                    proc.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+                return False, "git fetch interrompido em %s" % repo, True
+            if time.monotonic() - start >= timeout:
+                proc.kill()
+                proc.wait()
+                return False, "git fetch excedeu %d segundos em %s" % (timeout, repo), False
+            time.sleep(0.05)
+        errors.seek(0)
+        detail = (errors.read() or "").strip().splitlines()
+    if proc.returncode != 0:
+        return False, "git fetch falhou em %s%s" % (
+            repo,
+            ": " + detail[-1] if detail else "",
+        ), False
+    return True, "", False
+
+
+def fetch_projects(projects, stop_event=None):
+    """Fetch `origin/<branch>` refs; return ({path: detail}, attempted paths)."""
+    failures = {}
+    attempted = set()
     for project in projects:
-        path = project["path"]
+        path = resolve_project(project["path"])
         ref = project["ref"]
-        if not ref.startswith("origin/"):
+        if not isinstance(ref, str) or not ref.startswith("origin/"):
             continue
         branch = ref[len("origin/"):]
+        attempted.add(path)
         if not branch or not REF_RE.fullmatch(branch):
+            failures[path] = "branch inválida em %s: %r" % (path, branch)
             continue
-        try:
-            result = run_cmd(
-                ["git", "-C", path, "fetch", "--quiet", "origin", branch], timeout=30
-            )
-        except subprocess.TimeoutExpired:
-            failures.append({
-                "path": path,
-                "detalhe": "git fetch excedeu 30 segundos em %s" % path,
-            })
-            continue
-        except (OSError, subprocess.SubprocessError) as exc:
-            failures.append({
-                "path": path,
-                "detalhe": "git fetch falhou em %s: %s" % (path, exc),
-            })
-            continue
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout or "").strip().splitlines()
-            failures.append({
-                "path": path,
-                "detalhe": "git fetch falhou em %s%s" % (
-                    path,
-                    ": " + detail[-1] if detail else "",
-                ),
-            })
-    return failures
+        ok, detail, stopped = run_fetch(project["path"], branch, stop_event)
+        if stopped:
+            raise CollectorStopped()
+        if not ok:
+            failures[path] = detail
+    return failures, attempted
 
 
-def build_panel(fetch=False, delegate_path=None):
-    """Return (projetos, marcos, execucoes, alertas)."""
+def empty_project_row(view):
+    return {
+        "id": view.id,
+        "nome": view.title,
+        "feito": 0,
+        "total": 0,
+        "pct": 0,
+        "validado": 0,
+        "validadoPct": 0,
+        "resumo": summary(0, 0, view.unit, 0),
+        "legenda": view.note,
+    }
+
+
+def previous_rows(out_dir, project_id):
+    """Rows of `project_id` from the last panel, or None when there is none."""
+    if not out_dir:
+        return None
+    out = Path(out_dir).expanduser()
     try:
-        projects = load_registry()["projects"]
+        projetos = json.loads((out / "projetos.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(projetos, list):
+        return None
+    row = next(
+        (item for item in projetos
+         if isinstance(item, dict) and item.get("id") == project_id),
+        None,
+    )
+    if row is None:
+        return None
+    try:
+        marcos = json.loads((out / "marcos.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        marcos = []
+    if not isinstance(marcos, list):
+        marcos = []
+    return row, [
+        item for item in marcos
+        if isinstance(item, dict) and item.get("projeto") == project_id
+    ]
+
+
+def build_panel(fetch=False, delegate_path=None, out_dir=None,
+                carried_failures=None, stop_event=None):
+    """Return (projetos, marcos, execucoes, alertas, fetch failures)."""
+    carried = dict(carried_failures or {})
+    try:
+        registry = load_registry()
     except (OSError, ValueError) as exc:
         return [], [], [], [{
             "projeto": "",
             "tipo": "registro_invalido",
             "detalhe": "projects.json inválido: %s" % exc,
-        }]
+        }], carried
 
-    fetch_failures = fetch_projects(projects) if fetch else []
-    alerts = []
+    projects = registry["projects"]
+    alerts = list(registry.get("alerts", []))
+    if fetch:
+        failures, attempted = fetch_projects(projects, stop_event=stop_event)
+        carried = {path: detail for path, detail in carried.items()
+                   if path not in attempted}
+        carried.update(failures)
+
     active_runs, delegate_alert = load_active_runs(delegate_path)
     if delegate_alert:
         alerts.append(delegate_alert)
-
-    views = [load_project(project["path"], project["ref"]) for project in projects]
     logged_runs = read_logged_runs()
 
-    path_to_id = {
-        resolve_project(project["path"]): view.id
-        for project, view in zip(projects, views)
-    }
-    for failure in fetch_failures:
-        alerts.append({
-            "projeto": path_to_id.get(resolve_project(failure["path"]), Path(failure["path"]).name),
-            "tipo": "fetch_falhou",
-            "detalhe": failure["detalhe"],
-        })
-
-    for view in views:
-        if not view.valid:
-            alerts.append({
-                "projeto": view.id,
-                "tipo": "mapa_invalido",
-                "detalhe": "; ".join(view.issues),
+    loaded = []
+    for project in projects:
+        view = ProjectView(project["path"], project["ref"])
+        try:
+            sha, error = resolve_ref(project["path"], project["ref"])
+            if sha is None:
+                loaded.append({
+                    "project": project,
+                    "view": view,
+                    "sha": None,
+                    "log_error": error or "cannot resolve %s" % project["ref"],
+                })
+                continue
+            view = load_project(project["path"], project["ref"], sha=sha)
+            loaded.append({
+                "project": project,
+                "view": view,
+                "sha": sha,
+                "log_error": None,
+            })
+        except Exception as exc:  # one project never stops the others
+            loaded.append({
+                "project": project,
+                "view": view,
+                "sha": None,
+                "internal": exc,
             })
 
+    path_to_id = {
+        resolve_project(item["project"]["path"]): item["view"].id
+        for item in loaded
+    }
+    for path, detail in carried.items():
+        alerts.append({
+            "projeto": path_to_id.get(resolve_project(path), Path(path).name),
+            "tipo": "fetch_falhou",
+            "detalhe": detail,
+        })
+
     by_repo = {}
-    for view in views:
+    for item in loaded:
+        view = item["view"]
         if view.repo:
-            by_repo[view.repo] = view.id
+            by_repo.setdefault(view.repo, view.id)
 
     execucoes = []
     for run in active_runs:
@@ -863,36 +1031,106 @@ def build_panel(fetch=False, delegate_path=None):
 
     projetos = []
     marcos = []
-    for view in views:
-        if not view.valid:
-            projetos.append({
-                "id": view.id,
-                "nome": view.title,
-                "feito": 0,
-                "total": 0,
-                "pct": 0,
-                "validado": 0,
-                "validadoPct": 0,
-                "resumo": summary(0, 0, view.unit, 0),
-                "legenda": view.note,
+    seen_ids = set()
+
+    def keep_previous(view):
+        prior = previous_rows(out_dir, view.id)
+        if prior is None:
+            projetos.append(empty_project_row(view))
+            return False
+        row, rows = prior
+        projetos.append(row)
+        marcos.extend(rows)
+        return True
+
+    def log_failure_detail(error, view):
+        kept = keep_previous(view)
+        if kept:
+            return "%s; mantidas as linhas anteriores de %s" % (error, view.id)
+        return "%s; sem linhas anteriores, %s fica com feito: 0" % (error, view.id)
+
+    for item in loaded:
+        view = item["view"]
+        if view.id in seen_ids:
+            alerts.append({
+                "projeto": view.id,
+                "tipo": "id_duplicado",
+                "detalhe": "o id %s já pertence a outro projeto; %s não foi listado" % (
+                    view.id, item["project"]["path"],
+                ),
             })
             continue
-        states, subjects = card_states(view, active_runs)
-        projetos.append(project_row(view, states))
-        marcos.extend(milestone_rows(view, states))
-        alerts.extend(unknown_card_alerts(view, subjects))
-        alerts.extend(unknown_milestone_alerts(view, active_runs, logged_runs))
+        seen_ids.add(view.id)
 
-    return projetos, marcos, execucoes, alerts
+        if "internal" in item:
+            alerts.append({
+                "projeto": view.id,
+                "tipo": "erro_interno",
+                "detalhe": "erro ao calcular %s: %s" % (
+                    item["project"]["path"], item["internal"],
+                ),
+            })
+            projetos.append(empty_project_row(view))
+            continue
+
+        if item["log_error"] is not None:
+            alerts.append({
+                "projeto": view.id,
+                "tipo": "git_log_falhou",
+                "detalhe": log_failure_detail(item["log_error"], view),
+            })
+            continue
+
+        if not view.valid:
+            alerts.append({
+                "projeto": view.id,
+                "tipo": "mapa_invalido",
+                "detalhe": "; ".join(view.issues),
+            })
+            projetos.append(empty_project_row(view))
+            continue
+
+        try:
+            subjects, log_error = merge_subjects(view.path, item["sha"])
+            if log_error is not None:
+                alerts.append({
+                    "projeto": view.id,
+                    "tipo": "git_log_falhou",
+                    "detalhe": log_failure_detail(log_error, view),
+                })
+                continue
+            states = card_states(view, active_runs, subjects)
+            projetos.append(project_row(view, states))
+            marcos.extend(milestone_rows(view, states))
+            alerts.extend(unknown_card_alerts(view, subjects))
+            alerts.extend(unknown_milestone_alerts(view, active_runs, logged_runs))
+        except Exception as exc:  # one project never stops the others
+            alerts.append({
+                "projeto": view.id,
+                "tipo": "erro_interno",
+                "detalhe": "erro ao calcular %s: %s" % (
+                    item["project"]["path"], exc,
+                ),
+            })
+            projetos.append(empty_project_row(view))
+
+    return projetos, marcos, execucoes, alerts, carried
 
 
-def write_panel(out_dir, fetch=False, delegate_path=None):
-    projetos, marcos, execucoes, alertas = build_panel(fetch, delegate_path)
+def write_panel(out_dir, fetch=False, delegate_path=None,
+                carried_failures=None, stop_event=None):
+    projetos, marcos, execucoes, alertas, carried = build_panel(
+        fetch,
+        delegate_path,
+        out_dir=out_dir,
+        carried_failures=carried_failures,
+        stop_event=stop_event,
+    )
     out = Path(out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     for name, value in zip(OUTPUT_NAMES, (projetos, marcos, execucoes, alertas)):
         write_json_if_changed(out / ("%s.json" % name), value)
-    return projetos, marcos, execucoes, alertas
+    return projetos, marcos, execucoes, alertas, carried
 
 
 # --------------------------------------------------------------------------
@@ -905,6 +1143,9 @@ def resolve_project(path):
 
 def cmd_validate(args):
     repo = resolve_project(args.repo)
+    if not valid_ref(args.ref):
+        print("$: invalid ref %r" % args.ref, file=sys.stderr)
+        return 1
     raw, error = read_map(repo, args.ref)
     if error:
         print("$: %s" % error, file=sys.stderr)
@@ -925,6 +1166,9 @@ def cmd_validate(args):
 
 def cmd_add(args):
     repo = resolve_project(args.repo)
+    if not valid_ref(args.ref):
+        print("$: invalid ref %r" % args.ref, file=sys.stderr)
+        return 1
     raw, error = read_map(repo, args.ref)
     if error:
         print("$: %s" % error, file=sys.stderr)
@@ -949,9 +1193,19 @@ def cmd_add(args):
         if resolve_project(project["path"]) == repo:
             project["path"] = repo
             project["ref"] = args.ref
-            break
-    else:
-        projects.append({"path": repo, "ref": args.ref})
+            save_registry(projects)
+            print("added: %s (%s)" % (repo, args.ref))
+            return 0
+    new_id = data["id"]
+    for project in projects:
+        existing = load_project(project["path"], project["ref"])
+        if existing.data is not None and existing.id == new_id:
+            print(
+                "progress: the map id %r already belongs to %s" % (new_id, project["path"]),
+                file=sys.stderr,
+            )
+            return 1
+    projects.append({"path": repo, "ref": args.ref})
     save_registry(projects)
     print("added: %s (%s)" % (repo, args.ref))
     return 0
@@ -996,7 +1250,7 @@ def cmd_collect(args):
 
 
 def cmd_status(args):
-    projetos, marcos, _, alertas = build_panel(False, args.delegate)
+    projetos, marcos, _, alertas, _ = build_panel(False, args.delegate)
     rows = []
     for project in projetos:
         project_alerts = [a for a in alertas if a.get("projeto") == project["id"]]
@@ -1049,7 +1303,8 @@ def watch_signature():
         projects = []
     refs = []
     for project in projects:
-        refs.append((project["path"], project["ref"], git(project["path"], "rev-parse", project["ref"]) or ""))
+        sha, _ = resolve_ref(project["path"], project["ref"])
+        refs.append((project["path"], project["ref"], sha or ""))
     signature.append(("refs", tuple(refs)))
     return tuple(signature)
 
@@ -1073,6 +1328,7 @@ def cmd_watch(args):
     last_collect = 0.0
     last_fetch = now  # the first fetch happens after one period
     last_signature = None
+    carried = {}
     try:
         while not stop.is_set():
             now = time.monotonic()
@@ -1090,7 +1346,13 @@ def cmd_watch(args):
             )
             if due:
                 try:
-                    write_panel(args.out, fetch=fetch_due, delegate_path=args.delegate)
+                    _, _, _, _, carried = write_panel(
+                        args.out,
+                        fetch=fetch_due,
+                        delegate_path=args.delegate,
+                        carried_failures=carried,
+                        stop_event=stop,
+                    )
                     last_collect = now
                     if fetch_due:
                         last_fetch = now
@@ -1098,6 +1360,8 @@ def cmd_watch(args):
                         last_signature = watch_signature()
                     except Exception:
                         last_signature = signature
+                except CollectorStopped:
+                    break
                 except Exception as exc:
                     print("progress: collect failed: %s" % exc, file=sys.stderr)
             stop.wait(interval)
