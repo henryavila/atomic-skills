@@ -33,6 +33,12 @@ from pathlib import Path
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
 LOG = HOME / "delegate" / "runs.jsonl"
 RUNNING = HOME / "delegate" / "running"
+# One file per active --host run, for `status` and the progress panel. These are
+# not slots: nothing here counts against a local limit or is ever signalled.
+RUNNING_REMOTE = HOME / "delegate" / "running-remote"
+# An active file that names no runner identity and no limit of its own ends
+# this long after it was written.
+REMOTE_ACTIVE_FALLBACK_S = 24 * 3600
 PAUSED = HOME / "delegate" / "PAUSED"
 # One file per pipeline whose review could not run yet: <project>/<id>.json.
 PENDING = HOME / "delegate" / "pending"
@@ -263,7 +269,115 @@ def in_peak(t=None):
     return False
 
 
+def local_machine():
+    """Short name of the machine this runner is on."""
+    return socket.gethostname().split(".")[0]
+
+
+# What the command in this process works for: the repository of its --cwd and
+# the --milestone it was given. Set once by `run`, `pipeline` and
+# `review-pending`, before anything is launched or logged.
+ATTRIBUTION = {"repo": None, "milestone": None}
+
+MILESTONE_RE = re.compile(r"[A-Za-z0-9._-]{1,64}")
+REPO_PART_RE = re.compile(r"[A-Za-z0-9._-]+")
+
+
+def milestone_arg(text):
+    if not MILESTONE_RE.fullmatch(text):
+        raise argparse.ArgumentTypeError(
+            "invalid milestone id: use 1 to 64 letters, digits, dots, underscores or hyphens")
+    return text
+
+
+def repo_from_url(url):
+    """`owner/name` of a remote URL, or None when it has no such shape.
+
+    Reads `scheme://[user[:password]@]host[:port]/owner/name[.git]` and the
+    scp-like `[user@]host:owner/name[.git]`. Only the last two path segments
+    are returned, so the host and any credentials in the URL are never part of
+    the answer. A local path or a `file:` URL in any form (`file:/path`,
+    `file:path`, `file://host/path`, any case) names no owner and gives None.
+    """
+    url = (url or "").strip()
+    if url[:5].lower() == "file:":
+        return None
+    with_scheme = re.fullmatch(r"([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)([^?#]*).*", url, re.S)
+    if with_scheme:
+        if not with_scheme.group(2):
+            return None
+        path = with_scheme.group(3)
+    else:
+        # scp-like: a host before the first colon, and no slash before it.
+        scp = re.fullmatch(r"(?:[^@/:]+@)?([^@/:]+):(.+)", url, re.S)
+        if not scp or len(scp.group(1)) < 2:  # one letter is a Windows drive
+            return None
+        path = scp.group(2)
+    parts = [part for part in path.split("/") if part]
+    if len(parts) < 2:
+        return None
+    owner, name = parts[-2], parts[-1]
+    if name.endswith(".git"):
+        name = name[:-4]
+    for part in (owner, name):
+        if not REPO_PART_RE.fullmatch(part) or part in (".", ".."):
+            return None
+    return f"{owner}/{name}"
+
+
+def common_dir_path(cwd):
+    """Absolute path of the common git directory of `cwd`; "" outside git.
+
+    Asks for the plain `--git-common-dir`, which git prints relative to `cwd`
+    or absolute, and resolves it here. `rev-parse --path-format=absolute` is
+    not used: a git older than 2.31 does not know that option and, as with any
+    option it does not know, prints it back and exits 0, so its answer would
+    be read as part of the path.
+    """
+    common = git(cwd, "rev-parse", "--git-common-dir")
+    if not common or "\n" in common:
+        return ""
+    return str((Path(cwd) / common).resolve())
+
+
+def repo_identity(cwd):
+    """Stable name of the repository `cwd` belongs to; None outside git.
+
+    The same from the main checkout and from every linked worktree: `owner/name`
+    of the origin remote, else the name of the directory that holds the main
+    repository (found through the git common directory, never the worktree's
+    own folder). It never raises: a run must not fail because of it.
+    """
+    try:
+        cwd = str(cwd)
+        common = common_dir_path(cwd)
+        if not common:
+            return None
+        named = repo_from_url(git(cwd, "remote", "get-url", "origin"))
+        if named:
+            return named
+        common_path = Path(common).resolve()
+        if common_path.name == ".git":
+            name = common_path.parent.name
+        else:  # a bare repository, or the git directory of a submodule
+            name = common_path.name[:-4] if common_path.name.endswith(".git") else common_path.name
+        return name or None
+    except Exception:
+        return None
+
+
+def set_attribution(cwd, milestone):
+    ATTRIBUTION.update(repo=repo_identity(cwd), milestone=milestone)
+
+
 def append(rec):
+    if rec.get("kind") in ("run", "pipeline"):
+        # Every run says where its executor ran: the --host name, or this machine.
+        if not rec.get("machine"):
+            rec["machine"] = rec.get("host") or local_machine()
+        # And what it worked for; a record that names its own keeps them.
+        for key, value in ATTRIBUTION.items():
+            rec.setdefault(key, value)
     LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG, "a") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -330,14 +444,10 @@ def git_common_dir(cwd):
     is not this directory. The resolved path is validated before it is trusted
     or made writable.
     """
-    common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    if not common:
-        common = git(cwd, "rev-parse", "--git-common-dir")
-        if common:
-            common = str((Path(cwd) / common).resolve())
+    common = common_dir_path(cwd)
     if not common:
         return ""
-    resolved = Path(common).resolve()
+    resolved = Path(common)
     if not (resolved / "HEAD").is_file() or not (resolved / "objects").is_dir():
         usage_error(f"git common directory {str(resolved)!r} has no HEAD file and objects directory; "
                     "refusing to run against it")
@@ -949,20 +1059,30 @@ def runner_gone(slot):
     return bool(runner_start) and process_identity(slot.get("runner_pid")) != runner_start
 
 
-def record_lost_runner(path, slot):
+def record_lost_runner(path, slot, remote=False):
     """Log a run whose runner died before it could write its own record.
 
     A runner that is killed outright (SIGKILL, a crash) cannot end its executor
     or log anything: the executor works on alone and its slot is all that is
     left. When that slot is finally cleared, this record is the only trace of
-    the run in the log.
+    the run in the log. For a --host run the trace is its active file, and the
+    work is on the host, out of this machine's reach.
     """
     started = slot.get("started")
     if not started:
         return
+    token = slot.get("token") if remote else None
+    if token:
+        # The record of a --host run carries the token of its active file, so
+        # this is exact: its `started` is later than the file's and proves nothing.
+        def same_run(r):
+            return r.get("active_token") == token
+    else:
+        def same_run(r):
+            return r.get("id") == slot.get("id") and r.get("started") == started
     try:
         if LOG.exists() and any(
-                r.get("kind") == "run" and r.get("id") == slot.get("id") and r.get("started") == started
+                r.get("kind") == "run" and same_run(r)
                 for r in map(json.loads, filter(None, LOG.read_text().splitlines()))):
             return
     except (OSError, ValueError):
@@ -974,7 +1094,7 @@ def record_lost_runner(path, slot):
         duration = 0
     profile = slot.get("profile")
     model, family = (MODELS[profile][1:] if profile in MODELS else (None, None))
-    append({
+    rec = {
         "kind": "run", "id": slot.get("id"), "project": slot.get("project"),
         "role": slot.get("role"), "profile": profile,
         "executor": path.name.split("-")[0], "model": model, "family": family,
@@ -983,7 +1103,21 @@ def record_lost_runner(path, slot):
         "failure": "runner_lost",
         "note": "the runner process died before writing a record; the executor kept "
                 "working without it, so check the worktree for commits and changes",
-    })
+    }
+    machine = slot.get("machine")
+    if remote:
+        host = machine or "the host"
+        rec["host"] = machine
+        rec["note"] = ("the runner process died before writing a record; the work may still be "
+                       f"running on {host}, and nothing was fetched back: check "
+                       f"`remote-runner runs --host {host}` and the task's checkout there")
+    if token:
+        rec["active_token"] = token
+    if machine:
+        rec["machine"] = machine
+    # The lost run's own, never those of the command that found it.
+    rec.update(repo=slot.get("repo"), milestone=slot.get("milestone"))
+    append({key: value for key, value in rec.items() if key != "host" or value})
 
 
 def _clean_stale_slots():
@@ -1000,6 +1134,134 @@ def _clean_stale_slots():
                     record_lost_runner(p, data)
         except Exception:
             p.unlink(missing_ok=True)
+    try:
+        _clean_stale_remote()
+    except Exception:
+        pass  # the remote list is for display; it never blocks a local slot
+
+
+def remote_active_state(path, data):
+    """Say whether an active file is `live`, `lost` (its runner is gone) or `invalid`."""
+    if not isinstance(data, dict) or not isinstance(data.get("runner_pid"), int):
+        return "invalid"  # nothing names a runner; this runner never writes one
+    if data.get("runner_start"):
+        return "lost" if runner_gone(data) else "live"
+    # No kernel identity was recorded, so a live pid may be the runner or a
+    # reuse of its number: that proves nothing either way. A dead pid does,
+    # and so does the run's own limit, which no runner outlives.
+    if not is_pid_alive(data["runner_pid"]):
+        return "lost"
+    try:
+        expires = dt.datetime.fromisoformat(data["expires"])
+    except (KeyError, TypeError, ValueError):
+        try:
+            expires = dt.datetime.fromtimestamp(path.stat().st_mtime + REMOTE_ACTIVE_FALLBACK_S,
+                                                dt.timezone.utc)
+        except OSError:
+            return "live"
+    try:
+        return "lost" if now() > expires else "live"
+    except TypeError:  # a time without a zone
+        return "lost"
+
+
+def _clean_stale_remote():
+    """Drop the active file of a --host run whose runner is gone.
+
+    A runner publishes and removes its own file under the same lock, so what
+    is read here cannot change before it is judged and unlinked, and a
+    temporary file seen here belongs to no writer still at work.
+    """
+    if not RUNNING_REMOTE.is_dir():
+        return
+    with RemoteActiveLock():
+        for p in RUNNING_REMOTE.glob("*.tmp"):
+            try:
+                p.unlink(missing_ok=True)
+            except OSError:
+                pass
+        for p in list(RUNNING_REMOTE.glob("*.json")):
+            try:
+                data = json.loads(p.read_text())
+            except FileNotFoundError:
+                continue
+            except (OSError, ValueError):
+                data = None
+            state = remote_active_state(p, data)
+            if state == "live":
+                continue
+            p.unlink(missing_ok=True)
+            if state == "lost":
+                record_lost_runner(p, data, remote=True)
+
+
+def get_active_remote():
+    """Active --host runs started from this machine, as (path, data) pairs."""
+    active = []
+    if not RUNNING_REMOTE.is_dir():
+        return active
+    _clean_stale_remote()
+    for p in list(RUNNING_REMOTE.glob("*.json")):
+        try:
+            data = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            active.append((p, data))
+    return active
+
+
+def new_remote_active(executor, task_id, project, profile, role, host, limit_s):
+    """Path and content of the active file of one --host run; writes nothing.
+
+    The token makes the name this run's alone and is copied into its record
+    (`active_token`), which is how a leftover file is matched to a finished run.
+    `limit_s` bounds the whole run; it only decides when the file ends if the
+    runner's identity could not be read.
+    """
+    token = os.urandom(8).hex()
+    started = now()
+    data = {
+        "id": task_id, "project": project, "profile": profile, "role": role,
+        "machine": host, **ATTRIBUTION,
+        "started": started.isoformat(timespec="microseconds"),
+        "runner_pid": os.getpid(), "runner_start": process_identity(os.getpid()),
+        "token": token,
+        "expires": (started + dt.timedelta(seconds=limit_s)).isoformat(timespec="seconds"),
+    }
+    return RUNNING_REMOTE / f"{executor}-{task_id}-{token}.json", data
+
+
+def publish_remote_active(path, data):
+    """Write the active file atomically, under the lock every cleaner takes."""
+    try:
+        with RemoteActiveLock():
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, ensure_ascii=False))
+            os.replace(tmp, path)
+        return True
+    except OSError:
+        return False  # the list is for display; the run goes on without it
+
+
+def remove_remote_active(path):
+    def drop():
+        for target in (path, path.with_suffix(".tmp")):
+            try:
+                target.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    try:
+        # Under the lock a reader never sees this file after its runner exited.
+        with RemoteActiveLock():
+            drop()
+    except OSError:
+        drop()
+    except BaseException:
+        # A stop signal landed here: the file must go all the same.
+        drop()
+        raise
 
 
 def _get_active_slots(executor=None):
@@ -1946,9 +2208,13 @@ def is_paused():
 
 
 class SlotLock:
+    def directory(self):
+        return RUNNING
+
     def __enter__(self):
-        RUNNING.mkdir(parents=True, exist_ok=True)
-        self.lock_path = RUNNING / ".lock"
+        directory = self.directory()
+        directory.mkdir(parents=True, exist_ok=True)
+        self.lock_path = directory / ".lock"
         self.f = open(self.lock_path, "w")
         fcntl.flock(self.f, fcntl.LOCK_EX)
         return self
@@ -1959,6 +2225,13 @@ class SlotLock:
             self.f.close()
         except Exception:
             pass
+
+
+class RemoteActiveLock(SlotLock):
+    """Guards RUNNING_REMOTE alone, so a --host run never touches RUNNING."""
+
+    def directory(self):
+        return RUNNING_REMOTE
 
 
 def check_model_allowed(role, executor, model):
@@ -2516,21 +2789,34 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
                        out_path, card_content, input_sizes, pending, timeout, wait_s, attempt,
                        confirmed, allow_peak, diff_range, attachments, access_mode, host, prompt,
                        stdout, stderr, last_msg):
-    """Run remotely and always leave a record, even for an unhandled error."""
+    """Run remotely and always leave a record, even for an unhandled error.
+
+    The run is listed in RUNNING_REMOTE from here until this function returns
+    or raises, whatever the path. It takes no local slot.
+    """
+    # Checks, sync and pull are each bounded by the timeout plus two minutes.
+    active_file, active = new_remote_active(
+        executor, task_id, project, profile, role, host,
+        limit_s=wait_s + 3 * (timeout + 120) + 600)
+    pending["active_token"] = active["token"]
     try:
-        return _execute_remote_run(
-            task_id, task, role, executor, model, family, profile, cwd, project, out_path,
-            card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed,
-            allow_peak, diff_range, attachments, access_mode, host, prompt, stdout, stderr,
-            last_msg)
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except BaseException as exc:
-        if "completed" in pending:
+        publish_remote_active(active_file, active)
+        try:
+            return _execute_remote_run(
+                task_id, task, role, executor, model, family, profile, cwd, project, out_path,
+                card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed,
+                allow_peak, diff_range, attachments, access_mode, host, prompt, stdout, stderr,
+                last_msg)
+        except (KeyboardInterrupt, SystemExit):
             raise
-        return _remote_record_failure(
-            pending, "remote_error", f"remote run failed: {exception_reason(exc)}",
-            host=host)
+        except BaseException as exc:
+            if "completed" in pending:
+                raise
+            return _remote_record_failure(
+                pending, "remote_error", f"remote run failed: {exception_reason(exc)}",
+                host=host)
+    finally:
+        remove_remote_active(active_file)
 
 
 def _execute_remote_run(task_id, task, role, executor, model, family, profile, cwd, project,
@@ -2914,6 +3200,8 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
             "send_s": round(send_s, 3), "run_s": round(run_s, 3),
             "fetch_s": round(fetch_s, 3), **input_sizes,
         }
+        if pending.get("active_token"):
+            rec["active_token"] = pending["active_token"]
         if fetch_error:
             rec["remote_error"] = fetch_error
         elif commit_error:
@@ -3153,7 +3441,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         "user_confirmed": bool(confirmed), "duration_s": 0, "exit_code": None,
         "timed_out": False, "card": str(Path(card).resolve()), "prompt": str(prompt),
         "stdout": str(stdout), "stderr": str(stderr), "access": policy["access"],
-        "orphans": orphans, **input_sizes,
+        "orphans": orphans, **input_sizes, "machine": host or local_machine(),
     }
     if resume:
         pending["resumed_from"] = resumed_from
@@ -3239,6 +3527,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                             "project": project,
                             "profile": profile,
                             "role": role,
+                            "machine": local_machine(),
+                            **ATTRIBUTION,
                             "pid": p.pid,
                             "pgid": p.pid,
                             "started": started,
@@ -3405,6 +3695,7 @@ def cmd_run(a):
     if (a.profile == CLAUDE_REVIEW and a.role == "review" and a.allow_claude_review and not a.host
             and a.author_family not in (None, "anthropic")):
         check_claude_login()
+    set_attribution(a.cwd, a.milestone)
     rec = execute_run(
         task_id=a.id, task=a.task, role=a.role, profile=a.profile,
         executor=a.executor, model=a.model, cwd=a.cwd, card=a.card,
@@ -3466,6 +3757,7 @@ def cmd_pipeline(a):
     t0_pipeline = time.monotonic()
     task_id, task, role = a.id, a.task, a.role
     cwd = str(Path(a.cwd).resolve())
+    set_attribution(cwd, a.milestone)
     top = git(cwd, "rev-parse", "--show-toplevel") or cwd
     project = a.project or Path(top).name
     out = Path(a.out or HOME / "delegate" / "out" / project).resolve()
@@ -3668,6 +3960,7 @@ def cmd_pipeline(a):
                     pending_file.parent.mkdir(parents=True, exist_ok=True)
                     pending_file.write_text(json.dumps({
                         "id": task_id, "task": task, "project": project, "cwd": cwd,
+                        "milestone": a.milestone,
                         "base": base_commit, "head": gated_snapshot[0],
                         "executor_profile": executor_profile, "executor_family": executor_family,
                         "review_route": given[len(given) - len(review_route):],
@@ -3814,6 +4107,8 @@ def cmd_review_pending(a):
     p = json.loads(pending_file.read_text())
     task_id, task, project, cwd = p["id"], p["task"], p["project"], p["cwd"]
     base, head, executor_family = p["base"], p["head"], p["executor_family"]
+    # The review belongs to the milestone the pipeline was started for.
+    set_attribution(cwd, p.get("milestone"))
     snapshot = tree_snapshot(cwd)
     if snapshot[0] != head or snapshot[1]:
         usage_error(f"the worktree changed since the gate of {task_id} ({cwd}: HEAD "
@@ -3929,36 +4224,52 @@ def cmd_resume(a):
     PAUSED.unlink(missing_ok=True)
 
 
+def active_runs():
+    """Every active run this machine knows, local slots first, for `status`."""
+    now_dt = now()
+
+    def seconds_since(text):
+        try:
+            return max(0, int((now_dt - dt.datetime.fromisoformat(text)).total_seconds()))
+        except (TypeError, ValueError):
+            return None
+
+    runs = []
+    for remote, found in ((False, get_active_slots()), (True, get_active_remote())):
+        for _, slot in sorted(found, key=lambda item: str(item[1].get("started", ""))):
+            started = slot.get("started", "")
+            runs.append({
+                "id": slot.get("id", ""), "project": slot.get("project", ""),
+                "profile": slot.get("profile", ""), "role": slot.get("role", ""),
+                # A slot from a runner that wrote no machine is a local one.
+                "machine": slot.get("machine") or local_machine(),
+                "repo": slot.get("repo"), "milestone": slot.get("milestone"), "remote": remote,
+                "started": started, "age_s": seconds_since(started) or 0,
+                # Progress is watched on this machine only.
+                "idle_s": None if remote else seconds_since(slot.get("last_progress") or started),
+                "runner_gone": not remote and runner_gone(slot),
+            })
+    return runs
+
+
 def cmd_status(a):
+    runs = active_runs()
+    if getattr(a, "json", False):
+        print(json.dumps({"paused": PAUSED.exists(), "active": runs}, ensure_ascii=False, indent=1))
+        return
     if PAUSED.exists():
         print("paused")
     else:
         print("active")
 
-    active = get_active_slots()
-    active.sort(key=lambda item: item[1].get("started", ""))
     now_dt = now()
-    for _, slot in active:
-        sid = slot.get("id", "")
-        project = slot.get("project", "")
-        profile = slot.get("profile", "")
-        role = slot.get("role", "")
-        started_str = slot.get("started", "")
-        mins = 0
-        if started_str:
-            try:
-                started_dt = dt.datetime.fromisoformat(started_str)
-                mins = max(0, int((now_dt - started_dt).total_seconds() // 60))
-            except Exception:
-                pass
-        idle = ""
-        try:
-            quiet = (now_dt - dt.datetime.fromisoformat(slot.get("last_progress") or started_str)).total_seconds()
-            idle = f" | idle {max(0, int(quiet // 60))}m"
-        except Exception:
-            pass
-        lost = " | runner gone" if runner_gone(slot) else ""
-        print(f"{sid} | {project} | {profile} | {role} | {mins}m{idle}{lost}")
+    for run in runs:
+        sid = run["id"]
+        idle = "" if run["idle_s"] is None else f" | idle {run['idle_s'] // 60}m"
+        where = " | remote" if run["remote"] else ""
+        lost = " | runner gone" if run["runner_gone"] else ""
+        print(f"{sid} | {run['project']} | {run['profile']} | {run['role']} | {run['machine']} | "
+              f"{run['age_s'] // 60}m{idle}{where}{lost}")
         if lost:
             print(f"warning: the runner of {sid} died; its executor is still working and "
                   f"will leave no result. Stop it with `kill {sid}`, then check the worktree.")
@@ -4272,6 +4583,8 @@ def main():
     r.add_argument("--access", choices=["policy", "strict"], default="policy",
                    help="policy (default) or strict (no network, nothing outside the worktree)")
     r.add_argument("--host", help="run the executor on this remote-runner host")
+    r.add_argument("--milestone", type=milestone_arg,
+                   help="id of the project milestone this run works for, recorded as `milestone`")
     r.add_argument("--allow-claude-review", action="store_true",
                    help="the operator said yes to a Claude review for this task (the fallback reviewer)")
     r.add_argument("--author-family", choices=["deepseek", "openai", "gemini", "anthropic"],
@@ -4306,6 +4619,9 @@ def main():
     pipe.add_argument("--access", choices=["policy", "strict"], default="policy",
                       help="policy (default) or strict (no network, nothing outside the worktree)")
     pipe.add_argument("--host", help="run every executor and reviewer on this remote-runner host")
+    pipe.add_argument("--milestone", type=milestone_arg,
+                      help="id of the project milestone this pipeline works for, recorded as "
+                           "`milestone` on its record and on every run it launches")
     pipe.add_argument("--allow-claude-review", action="store_true",
                       help="the operator said yes to a Claude review for this task (the fallback reviewer)")
     pipe.set_defaults(f=cmd_pipeline)
@@ -4318,6 +4634,8 @@ def main():
     p_resume.set_defaults(f=cmd_resume)
 
     p_status = sub.add_parser("status")
+    p_status.add_argument("--json", action="store_true",
+                          help="print the active runs, local and --host, as JSON and nothing else")
     p_status.set_defaults(f=cmd_status)
 
     p_kill = sub.add_parser("kill")

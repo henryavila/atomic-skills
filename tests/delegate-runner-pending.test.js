@@ -203,6 +203,64 @@ describe('delegate.py pending reviews', { skip: !hasPython3 ? 'python3 not on PA
     assert.ok(existsSync(pendingFile()));
   });
 
+  it('a pipeline records its milestone and repository on every run and on its own record', () => {
+    git(repoDir, 'remote', 'add', 'origin', 'https://github.com/acme/widgets.git');
+    const res = runDelegate(pipelineArgs(['--milestone', 'M4']),
+      steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, LIMIT, OK]));
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    assert.deepEqual(recs.map(r => [r.kind, r.role || null]),
+      [['run', 'implement'], ['run', 'review'], ['run', 'review'], ['pipeline', null]]);
+    for (const rec of recs) {
+      assert.equal(rec.milestone, 'M4', JSON.stringify(rec));
+      assert.equal(rec.repo, 'acme/widgets', JSON.stringify(rec));
+    }
+    const plain = runDelegate(pipelineArgs(['--id', 'P2']), steps([{ FAKE_COMMIT_FILE: 'more.txt' }, OK]));
+    assert.equal(plain.status, 0, plain.stderr);
+    for (const rec of readLogRecords(atomicHome).slice(recs.length)) {
+      assert.equal(rec.milestone, null, JSON.stringify(rec));
+      assert.equal(rec.repo, 'acme/widgets', JSON.stringify(rec));
+    }
+  });
+
+  it('a pipeline refuses an invalid --milestone with exit 2 and launches and logs nothing', () => {
+    const res = runDelegate(pipelineArgs(['--milestone', 'not valid']), steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, OK]));
+    assert.equal(res.status, 2, res.stderr);
+    assert.match(res.stderr, /milestone/);
+    assert.equal(existsSync(join(atomicHome, 'delegate', 'runs.jsonl')), false);
+    assert.equal(existsSync(join(seqDir, 'count')), false);
+    assert.equal(existsSync(outDir), false);
+  });
+
+  it('review-pending keeps the milestone of the pending task', () => {
+    const left = runDelegate(pipelineArgs(['--milestone', 'M5']),
+      steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, LIMIT, LIMIT]));
+    assert.equal(left.status, 1, left.stderr);
+    assert.equal(JSON.parse(readFileSync(pendingFile(), 'utf8')).milestone, 'M5');
+    const before = readLogRecords(atomicHome).length;
+    const res = runDelegate(['review-pending', '--id', 'P1', '--confirmed'], steps([LIMIT, OK]));
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome).slice(before);
+    assert.deepEqual(recs.map(r => r.kind), ['run', 'run', 'pipeline']);
+    for (const rec of recs) {
+      assert.equal(rec.milestone, 'M5', JSON.stringify(rec));
+      assert.equal(rec.repo, 'repo', JSON.stringify(rec));
+    }
+  });
+
+  it('review-pending of a task left by a runner that knew no milestone records null', () => {
+    leavePending();
+    const pending = JSON.parse(readFileSync(pendingFile(), 'utf8'));
+    delete pending.milestone;
+    writeFileSync(pendingFile(), JSON.stringify(pending));
+    const before = readLogRecords(atomicHome).length;
+    const res = runDelegate(['review-pending', '--id', 'P1', '--confirmed'], steps([OK]));
+    assert.equal(res.status, 0, res.stderr);
+    for (const rec of readLogRecords(atomicHome).slice(before)) {
+      assert.equal(rec.milestone, null, JSON.stringify(rec));
+    }
+  });
+
   it('review-pending needs --confirmed and a known id', () => {
     leavePending();
     let res = runDelegate(['review-pending', '--id', 'P1'], baseEnv);

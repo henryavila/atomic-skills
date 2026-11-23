@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, dirname, resolve, isAbsolute } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, hostname } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   hasPython3,
@@ -23,6 +23,7 @@ import {
   makeFakeRemoteRunner,
   runDelegate,
   readLogRecords,
+  runDelegateAsync,
 } from './helpers/delegate-runner-kit.js';
 
 describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
@@ -377,4 +378,292 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     assert.throws(() => readLogRecords(atomicHome), { code: 'ENOENT' });
   });
 
+  // --- the machine of a run, and the active file of a --host run ---
+
+  const localMachine = hostname().split('.')[0];
+
+  function remoteActive() {
+    const dir = join(atomicHome, 'delegate', 'running-remote');
+    return existsSync(dir) ? readdirSync(dir).filter(name => name.endsWith('.json')).map(name => join(dir, name)) : [];
+  }
+
+  function remoteActiveLeftovers() {
+    const dir = join(atomicHome, 'delegate', 'running-remote');
+    return existsSync(dir) ? readdirSync(dir).filter(name => name !== '.lock') : [];
+  }
+
+  function localSlots() {
+    const dir = join(atomicHome, 'delegate', 'running');
+    return existsSync(dir) ? readdirSync(dir).filter(name => name.endsWith('.json')) : [];
+  }
+
+  async function waitFor(predicate, timeoutMs, label) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (predicate()) return;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error(`${label} timed out after ${timeoutMs}ms`);
+  }
+
+  // Ends what a test of an active remote run started: the fake host's process
+  // groups (from its own run records) and the local runner.
+  function endRemoteRun(run, release) {
+    writeFileSync(release, 'go');
+    const runsDir = join(remote.home, '.local/state/remote-runner/runs');
+    let names = [];
+    try { names = readdirSync(runsDir); } catch { /* never started */ }
+    for (const name of names) {
+      const pid = Number(readFileSync(join(runsDir, name), 'utf8').split('\n')[0]);
+      if (pid > 1) {
+        try { process.kill(-pid, 'SIGKILL'); } catch { /* already gone */ }
+      }
+    }
+    if (run.child.exitCode === null && run.child.signalCode === null) {
+      try { run.child.kill('SIGKILL'); } catch { /* already gone */ }
+    }
+  }
+
+  it('records the host as the machine of a remote run and the local hostname of a local one', () => {
+    const res = runDelegate(runArgs(), remoteEnv());
+    assert.equal(res.status, 0, res.stderr);
+    const local = runDelegate(['run', '--id', 'LOCAL', '--task', 'local task', '--role', 'implement',
+      '--profile', 'flash', '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed'], remoteEnv());
+    assert.equal(local.status, 0, local.stderr);
+    const records = readLogRecords(atomicHome);
+    assert.equal(records.find(r => r.id === 'RMT').machine, 'devbox');
+    assert.equal(records.find(r => r.id === 'LOCAL').machine, localMachine);
+    assert.equal(JSON.parse(res.stdout).machine, 'devbox');
+    assert.deepEqual(remoteActiveLeftovers(), []);
+  });
+
+  it('a remote run records its repository and milestone, and its active file carries them', async () => {
+    git(repoDir, 'remote', 'add', 'origin', 'ssh://git@github.com/acme/widgets.git');
+    const ready = join(root, 'ready');
+    const release = join(root, 'release');
+    const run = runDelegateAsync(runArgs(['--milestone', 'M6']), remoteEnv({
+      FAKE_READY_FILE: ready, FAKE_WAIT_FILE: release, FAKE_WAIT_TIMEOUT: '120',
+    }));
+    try {
+      await waitFor(() => existsSync(ready), 60000, 'remote executor start');
+      const files = remoteActive();
+      assert.equal(files.length, 1, files.join(','));
+      const active = JSON.parse(readFileSync(files[0], 'utf8'));
+      assert.equal(active.repo, 'acme/widgets');
+      assert.equal(active.milestone, 'M6');
+      const status = runDelegate(['status', '--json'], remoteEnv());
+      assert.equal(status.status, 0, status.stderr);
+      const [listed] = JSON.parse(status.stdout).active;
+      assert.equal(listed.remote, true);
+      assert.equal(listed.repo, 'acme/widgets');
+      assert.equal(listed.milestone, 'M6');
+      writeFileSync(release, 'go');
+      const res = await run.done;
+      assert.equal(res.status, 0, res.stderr);
+      const rec = readLogRecords(atomicHome).at(-1);
+      assert.equal(rec.host, 'devbox');
+      assert.equal(rec.repo, 'acme/widgets');
+      assert.equal(rec.milestone, 'M6');
+      assert.equal(JSON.parse(res.stdout).milestone, 'M6');
+      // The wire protocol is the one it was: nothing new reaches remote-runner.
+      assert.doesNotMatch(remoteArgvText(), /M6|acme/);
+    } finally {
+      endRemoteRun(run, release);
+    }
+  });
+
+  it('a remote run refused before it is sent still records its repository and milestone', () => {
+    writeFileSync(join(repoDir, 'dirty.txt'), 'x\n');
+    const res = runDelegate(runArgs(['--milestone', 'M6']), remoteEnv());
+    assert.equal(res.status, 1, res.stderr);
+    const rec = readLogRecords(atomicHome).at(-1);
+    assert.equal(rec.failure, 'dirty_worktree');
+    assert.equal(rec.repo, 'repo');
+    assert.equal(rec.milestone, 'M6');
+  });
+
+  it('records the host as the machine of every record of a remote pipeline', () => {
+    // The fake executor changes nothing, so the pipeline ends at no_changes.
+    runDelegate(pipelineArgs(), remoteEnv());
+    const records = readLogRecords(atomicHome);
+    assert.deepEqual(records.map(r => r.kind), ['run', 'pipeline'], JSON.stringify(records));
+    for (const rec of records) assert.equal(rec.machine, 'devbox', JSON.stringify(rec));
+    assert.deepEqual(remoteActiveLeftovers(), []);
+  });
+
+  it('a --host run is visible in running-remote while it works, takes no local slot and is gone after success', async () => {
+    const ready = join(root, 'ready');
+    const release = join(root, 'release');
+    const run = runDelegateAsync(runArgs(), remoteEnv({
+      FAKE_READY_FILE: ready, FAKE_WAIT_FILE: release, FAKE_WAIT_TIMEOUT: '120', DELEGATE_MAX_OPENCODE: '1',
+    }));
+    try {
+      await waitFor(() => existsSync(ready), 60000, 'remote executor start');
+      const files = remoteActive();
+      assert.equal(files.length, 1, files.join(','));
+      const active = JSON.parse(readFileSync(files[0], 'utf8'));
+      assert.equal(active.id, 'RMT');
+      assert.equal(active.project, 'repo');
+      assert.equal(active.profile, 'flash');
+      assert.equal(active.role, 'implement');
+      assert.equal(active.machine, 'devbox');
+      assert.equal(active.runner_pid, run.child.pid);
+      assert.ok(active.runner_start, JSON.stringify(active));
+      assert.match(active.token, /^[0-9a-f]{16,}$/);
+      assert.ok(files[0].endsWith(`/opencode-RMT-${active.token}.json`), files[0]);
+      assert.ok(Date.parse(active.expires) > Date.parse(active.started), JSON.stringify(active));
+      assert.ok(!Number.isNaN(Date.parse(active.started)), JSON.stringify(active));
+      assert.deepEqual(localSlots(), [], 'a remote run never has a local slot');
+      assert.equal(existsSync(join(atomicHome, 'delegate', 'running')), false,
+        'a remote run does not even create the slot directory');
+
+      const status = runDelegate(['status'], remoteEnv());
+      assert.equal(status.status, 0, status.stderr);
+      assert.match(status.stdout, /^RMT \| repo \| flash \| implement \| devbox \| \d+m \| remote$/m);
+      const json = runDelegate(['status', '--json'], remoteEnv());
+      assert.equal(json.status, 0, json.stderr);
+      const listed = JSON.parse(json.stdout).active;
+      assert.equal(listed.length, 1, json.stdout);
+      assert.deepEqual(
+        { ...listed[0], age_s: typeof listed[0].age_s },
+        { id: 'RMT', project: 'repo', profile: 'flash', role: 'implement', machine: 'devbox',
+          repo: 'repo', milestone: null, remote: true, started: active.started, age_s: 'number', idle_s: null, runner_gone: false });
+
+      // The only OpenCode slot of this machine is still free.
+      const otherRepo = join(root, 'other');
+      mkdirSync(otherRepo);
+      initGitRepo(otherRepo);
+      const local = runDelegate(['run', '--id', 'LOCAL', '--task', 'local task', '--role', 'implement',
+        '--profile', 'flash', '--cwd', otherRepo, '--card', cardPath, '--out', join(root, 'out-local'),
+        '--confirmed', '--wait', '1'], remoteEnv({ DELEGATE_MAX_OPENCODE: '1' }));
+      assert.equal(local.status, 0, local.stderr + local.stdout);
+      assert.equal(readLogRecords(atomicHome).find(r => r.id === 'LOCAL').failure, 'none');
+
+      // kill knows local slots only: it refuses, signals nothing, and the run goes on.
+      const killed = runDelegate(['kill', 'RMT'], remoteEnv());
+      assert.equal(killed.status, 1);
+      assert.match(killed.stderr, /no running slot for RMT/);
+      assert.equal(run.child.exitCode, null);
+      assert.equal(remoteActive().length, 1);
+      assert.equal(existsSync(remote.killLog), false, 'kill must not reach the host either');
+
+      writeFileSync(release, 'go');
+      const res = await run.done;
+      assert.equal(res.status, 0, res.stderr);
+      assert.deepEqual(remoteActiveLeftovers(), []);
+      const rec = readLogRecords(atomicHome).find(r => r.id === 'RMT');
+      assert.equal(rec.failure, 'none');
+      assert.equal(rec.machine, 'devbox');
+      assert.equal(rec.active_token, active.token);
+    } finally {
+      endRemoteRun(run, release);
+    }
+  });
+
+  it('removes the active file of a --host run that fails, on the host or before it starts', () => {
+    const failed = runDelegate(runArgs(), remoteEnv({ FAKE_EXIT: '1' }));
+    assert.equal(failed.status, 1, failed.stderr);
+    assert.deepEqual(remoteActiveLeftovers(), []);
+    const busy = runDelegate(runArgs(), remoteEnv({ FAKE_REMOTE_BUSY: '1' }));
+    assert.equal(busy.status, 1, busy.stderr);
+    assert.deepEqual(remoteActiveLeftovers(), []);
+    const timedOut = runDelegate(runArgs(['--timeout', '1']), remoteEnv({ FAKE_SLEEP: '30' }));
+    assert.equal(timedOut.status, 1, timedOut.stderr);
+    assert.deepEqual(remoteActiveLeftovers(), []);
+    const records = readLogRecords(atomicHome);
+    assert.deepEqual(records.map(r => r.failure), ['error', 'slot_timeout', 'timeout']);
+    for (const rec of records) assert.equal(rec.machine, 'devbox', JSON.stringify(rec));
+  });
+
+  it('removes the active file of a --host run stopped by a signal', async () => {
+    const ready = join(root, 'ready');
+    const release = join(root, 'release');
+    const run = runDelegateAsync(runArgs(), remoteEnv({
+      FAKE_READY_FILE: ready, FAKE_WAIT_FILE: release, FAKE_WAIT_TIMEOUT: '120',
+    }));
+    try {
+      await waitFor(() => existsSync(ready), 60000, 'remote executor start');
+      assert.equal(remoteActive().length, 1);
+      run.child.kill('SIGTERM');
+      await run.done;
+      assert.deepEqual(remoteActiveLeftovers(), []);
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.failure, 'interrupted');
+      assert.equal(rec.machine, 'devbox');
+    } finally {
+      endRemoteRun(run, release);
+    }
+  });
+
+  it('clears the active file of a --host run whose runner died and logs runner_lost once', async () => {
+    const ready = join(root, 'ready');
+    const release = join(root, 'release');
+    const run = runDelegateAsync(runArgs(), remoteEnv({
+      FAKE_READY_FILE: ready, FAKE_WAIT_FILE: release, FAKE_WAIT_TIMEOUT: '120',
+    }));
+    try {
+      await waitFor(() => existsSync(ready), 60000, 'remote executor start');
+      run.child.kill('SIGKILL');
+      await run.done;
+      assert.equal(remoteActive().length, 1, 'a killed runner cannot remove its file');
+      assert.equal(existsSync(join(atomicHome, 'delegate', 'runs.jsonl')), false);
+
+      const status = runDelegate(['status'], remoteEnv());
+      assert.equal(status.status, 0, status.stderr);
+      assert.doesNotMatch(status.stdout, /^RMT \|/m);
+      assert.deepEqual(remoteActiveLeftovers(), []);
+      const lost = readLogRecords(atomicHome);
+      assert.equal(lost.length, 1, JSON.stringify(lost));
+      assert.equal(lost[0].kind, 'run');
+      assert.equal(lost[0].id, 'RMT');
+      assert.equal(lost[0].failure, 'runner_lost');
+      assert.equal(lost[0].machine, 'devbox');
+      assert.equal(lost[0].host, 'devbox');
+      assert.equal(lost[0].executor, 'opencode');
+      assert.match(lost[0].note, /may still be running on devbox/);
+
+      runDelegate(['status'], remoteEnv());
+      runDelegate(['status', '--json'], remoteEnv());
+      assert.equal(readLogRecords(atomicHome).length, 1);
+      assert.equal(existsSync(remote.killLog), false, 'clearing the file must not stop anything on the host');
+    } finally {
+      endRemoteRun(run, release);
+    }
+  });
+
+  it('R02 a run that wrote its record never gets a runner_lost record from a leftover active file', () => {
+    const res = runDelegate(runArgs(), remoteEnv());
+    assert.equal(res.status, 0, res.stderr);
+    const [done] = readLogRecords(atomicHome);
+    assert.equal(done.failure, 'none');
+    assert.ok(done.active_token, JSON.stringify(done));
+    const failed = runDelegate(runArgs(), remoteEnv({ FAKE_REMOTE_BUSY: '1' }));
+    assert.equal(failed.status, 1, failed.stderr);
+    const busy = readLogRecords(atomicHome)[1];
+    assert.equal(busy.failure, 'slot_timeout');
+    assert.ok(busy.active_token && busy.active_token !== done.active_token, JSON.stringify(busy));
+
+    // Both runners died after their record and before they removed the file.
+    const dir = join(atomicHome, 'delegate', 'running-remote');
+    const gone = spawnSync('true');
+    const leftover = token => writeFileSync(join(dir, `opencode-RMT-${token}.json`), JSON.stringify({
+      id: 'RMT', project: 'repo', profile: 'flash', role: 'implement', machine: 'devbox',
+      started: '2026-11-18T10:00:00.000000+00:00', token,
+      runner_pid: gone.pid, runner_start: 'darwin:1:1',
+    }));
+    leftover(done.active_token);
+    leftover(busy.active_token);
+    const status = runDelegate(['status'], remoteEnv());
+    assert.equal(status.status, 0, status.stderr);
+    assert.deepEqual(remoteActiveLeftovers(), []);
+    assert.deepEqual(readLogRecords(atomicHome).map(r => r.failure), ['none', 'slot_timeout']);
+
+    // A later run of the same id that really lost its runner is still logged.
+    leftover('feedfacefeedface');
+    runDelegate(['status'], remoteEnv());
+    runDelegate(['status'], remoteEnv());
+    const records = readLogRecords(atomicHome);
+    assert.deepEqual(records.map(r => r.failure), ['none', 'slot_timeout', 'runner_lost']);
+    assert.equal(records[2].active_token, 'feedfacefeedface');
+  });
 });

@@ -127,6 +127,6 @@ describe('countSkills', () => {
 
   it('counts core skills only', () => {
     const result = countSkills(metaDir);
-    assert.strictEqual(result, '16 core');
+    assert.strictEqual(result, '18 core');
   });
 });

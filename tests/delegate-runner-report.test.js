@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, dirname, resolve, isAbsolute } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, hostname } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   DELEGATE_PY,
@@ -600,6 +600,177 @@ spec.loader.exec_module(d)
     assert.match(activeRes.stdout, /T-RUNNING/);
     assert.match(activeRes.stdout, /test-proj/);
     assert.match(activeRes.stdout, /flash/);
+  });
+
+  it('status and status --json list local and remote runs with their machine', () => {
+    const delegateDir = join(atomicHome, 'delegate');
+    mkdirSync(join(delegateDir, 'running'), { recursive: true });
+    mkdirSync(join(delegateDir, 'running-remote'), { recursive: true });
+    const machine = hostname().split('.')[0];
+    const bg = spawn('sleep', ['30'], { detached: true, stdio: 'ignore' });
+    try {
+      const identity = pythonHarness(`print(d.process_identity(${bg.pid}))`).stdout.trim();
+      assert.match(identity, /^(darwin|linux):/);
+      // A slot written by a runner that knew no machine field.
+      writeFileSync(join(delegateDir, 'running', `opencode-T-OLD-${bg.pid}.json`), JSON.stringify({
+        id: 'T-OLD', project: 'test-proj', profile: 'flash', role: 'implement',
+        pid: bg.pid, pgid: bg.pid, process_start: identity, started: '2026-11-18T10:00:00+00:00',
+      }));
+      writeFileSync(join(delegateDir, 'running', `codex-T-NEW-${bg.pid}.json`), JSON.stringify({
+        id: 'T-NEW', project: 'test-proj', profile: 'codex', role: 'implement', machine: 'this-mac',
+        repo: 'acme/widgets', milestone: 'M2', pid: bg.pid, pgid: bg.pid, process_start: identity, started: '2026-11-18T10:01:00+00:00',
+        last_progress: '2026-11-18T10:04:00+00:00',
+      }));
+      writeFileSync(join(delegateDir, 'running-remote', `opencode-T-FAR-${bg.pid}.json`), JSON.stringify({
+        id: 'T-FAR', project: 'far-proj', profile: 'flash', role: 'review', machine: 'ultron',
+        repo: 'far-repo', milestone: null,
+        started: '2026-11-18T10:02:00+00:00', runner_pid: bg.pid, runner_start: identity,
+      }));
+      const env = { ...baseEnv, DELEGATE_NOW: '2026-11-18T10:05:00Z', DELEGATE_MAX_OPENCODE: '1' };
+
+      const plain = runDelegate(['status'], env);
+      assert.equal(plain.status, 0, plain.stderr);
+      assert.deepEqual(plain.stdout.trim().split('\n'), [
+        'active',
+        `T-OLD | test-proj | flash | implement | ${machine} | 5m | idle 5m`,
+        'T-NEW | test-proj | codex | implement | this-mac | 4m | idle 1m',
+        'T-FAR | far-proj | flash | review | ultron | 3m | remote',
+      ]);
+
+      const json = runDelegate(['status', '--json'], env);
+      assert.equal(json.status, 0, json.stderr);
+      assert.deepEqual(JSON.parse(json.stdout), {
+        paused: false,
+        active: [
+          // A slot from a runner that knew neither field has both as null.
+          { id: 'T-OLD', project: 'test-proj', profile: 'flash', role: 'implement', machine,
+            repo: null, milestone: null, remote: false, started: '2026-11-18T10:00:00+00:00', age_s: 300, idle_s: 300, runner_gone: false },
+          { id: 'T-NEW', project: 'test-proj', profile: 'codex', role: 'implement', machine: 'this-mac',
+            repo: 'acme/widgets', milestone: 'M2', remote: false, started: '2026-11-18T10:01:00+00:00', age_s: 240, idle_s: 60, runner_gone: false },
+          { id: 'T-FAR', project: 'far-proj', profile: 'flash', role: 'review', machine: 'ultron',
+            repo: 'far-repo', milestone: null, remote: true, started: '2026-11-18T10:02:00+00:00', age_s: 180, idle_s: null, runner_gone: false },
+        ],
+      });
+
+      // The remote file is no slot: the one OpenCode slot is taken by T-OLD
+      // alone, and reading the active runs twice changed nothing on disk.
+      const slots = pythonHarness(
+        'print(len(d.get_active_slots("opencode")), len(d.get_active_slots()))', env);
+      assert.equal(slots.stdout.trim(), '1 2', slots.stderr);
+      assert.deepEqual(readdirSync(join(delegateDir, 'running-remote')).filter(name => name.endsWith('.json')),
+        [`opencode-T-FAR-${bg.pid}.json`]);
+      assert.equal(existsSync(join(delegateDir, 'runs.jsonl')), false);
+    } finally {
+      try { process.kill(-bg.pid, 'SIGKILL'); } catch { /* already gone */ }
+    }
+  });
+
+  it('status --json says paused and lists nothing on an idle machine', () => {
+    runDelegate(['pause'], baseEnv);
+    const json = runDelegate(['status', '--json'], baseEnv);
+    assert.equal(json.status, 0, json.stderr);
+    assert.deepEqual(JSON.parse(json.stdout), { paused: true, active: [] });
+  });
+
+  it('drops a remote active file that names no live runner without logging it twice', () => {
+    const delegateDir = join(atomicHome, 'delegate');
+    mkdirSync(join(delegateDir, 'running-remote'), { recursive: true });
+    const gone = spawnSync('true');
+    writeFileSync(join(delegateDir, 'running-remote', `opencode-T-DEAD-${gone.pid}.json`), JSON.stringify({
+      id: 'T-DEAD', project: 'far-proj', profile: 'flash', role: 'implement', machine: 'ultron',
+      repo: 'far-owner/far-repo', milestone: 'M9',
+      started: '2026-11-18T10:02:00+00:00', runner_pid: gone.pid, runner_start: 'darwin:1:1',
+    }));
+    writeFileSync(join(delegateDir, 'running-remote', 'opencode-T-BROKEN-1.json'), '{not json');
+    const json = runDelegate(['status', '--json'], baseEnv);
+    assert.equal(json.status, 0, json.stderr);
+    assert.deepEqual(JSON.parse(json.stdout).active, []);
+    assert.deepEqual(readdirSync(join(delegateDir, 'running-remote')).filter(name => name !== '.lock'), []);
+    runDelegate(['status'], baseEnv);
+    const records = readLogRecords(atomicHome);
+    assert.equal(records.length, 1, JSON.stringify(records));
+    assert.equal(records[0].id, 'T-DEAD');
+    assert.equal(records[0].failure, 'runner_lost');
+    assert.equal(records[0].machine, 'ultron');
+    // The lost run keeps its own repository and milestone, not those of the reader.
+    assert.equal(records[0].repo, 'far-owner/far-repo');
+    assert.equal(records[0].milestone, 'M9');
+    assert.equal(records[0].model, 'opencode-go/deepseek-v4.1-flash');
+  });
+
+  it('R01 publishes a remote active file under the remote lock, under a name no other run can have', () => {
+    const res = pythonHarness(`
+original = pathlib.Path.write_text
+probe = "import fcntl,sys; f=open(sys.argv[1], 'w'); fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)"
+seen = []
+def checked(path, content, *args, **kwargs):
+ if path.parent == d.RUNNING_REMOTE:
+  assert path.suffix == '.tmp', 'published directly to JSON: %s' % path
+  lock = subprocess.run([sys.executable, '-c', probe, str(d.RUNNING_REMOTE / '.lock')], capture_output=True)
+  assert lock.returncode != 0, 'the active file was published without the remote lock'
+  seen.append(path)
+ return original(path, content, *args, **kwargs)
+pathlib.Path.write_text = checked
+first = d.new_remote_active('opencode', 'T', 'proj', 'flash', 'implement', 'ultron', 600)
+second = d.new_remote_active('opencode', 'T', 'proj', 'flash', 'implement', 'ultron', 600)
+assert first[0] != second[0], 'two runs of one id in one runner share a file name'
+assert first[1]['token'] and first[1]['token'] != second[1]['token'], (first[1], second[1])
+assert d.publish_remote_active(*first) and d.publish_remote_active(*second)
+assert len(seen) == 2, seen
+# A cleaner that runs now keeps both: their runner (this process) is alive.
+assert sorted(path for path, _ in d.get_active_remote()) == sorted([first[0], second[0]])
+assert not list(d.RUNNING_REMOTE.glob('*.tmp'))
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('R05 a stop signal while the remote active file is being removed still removes it', () => {
+    const res = pythonHarness(`
+path, data = d.new_remote_active('opencode', 'T', 'proj', 'flash', 'implement', 'ultron', 600)
+assert d.publish_remote_active(path, data) and path.exists()
+def stopped(self):
+ raise SystemExit(143)
+d.RemoteActiveLock.__enter__ = stopped
+try:
+ d.remove_remote_active(path)
+except SystemExit as exc:
+ assert exc.code == 143, exc.code
+else:
+ raise AssertionError('the stop signal was swallowed')
+assert not path.exists(), 'the active file outlived its run'
+`);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('R03 keeps a remote active file with no runner identity while its runner pid lives and its limit holds', () => {
+    const delegateDir = join(atomicHome, 'delegate');
+    const dir = join(delegateDir, 'running-remote');
+    mkdirSync(dir, { recursive: true });
+    const bg = spawn('sleep', ['30'], { detached: true, stdio: 'ignore' });
+    const gone = spawnSync('true');
+    const entry = (id, pid, expires) => writeFileSync(join(dir, `opencode-${id}-x.json`), JSON.stringify({
+      id, project: 'far-proj', profile: 'flash', role: 'implement', machine: 'ultron',
+      started: '2026-11-18T10:00:00+00:00', runner_pid: pid, runner_start: null, token: `tok-${id}`, expires,
+    }));
+    try {
+      entry('T-LIVE', bg.pid, '2026-11-18T12:00:00+00:00');
+      entry('T-DEADPID', gone.pid, '2026-11-18T12:00:00+00:00');
+      entry('T-EXPIRED', bg.pid, '2026-11-18T10:30:00+00:00');
+      const env = { ...baseEnv, DELEGATE_NOW: '2026-11-18T11:00:00Z' };
+      const json = runDelegate(['status', '--json'], env);
+      assert.equal(json.status, 0, json.stderr);
+      assert.deepEqual(JSON.parse(json.stdout).active.map(run => run.id), ['T-LIVE']);
+      assert.deepEqual(readdirSync(dir).filter(name => name.endsWith('.json')), ['opencode-T-LIVE-x.json']);
+      assert.deepEqual(readLogRecords(atomicHome).map(r => [r.id, r.failure]).sort(),
+        [['T-DEADPID', 'runner_lost'], ['T-EXPIRED', 'runner_lost']]);
+
+      // Past its own limit it ends too, so it cannot stay forever.
+      const later = runDelegate(['status', '--json'], { ...baseEnv, DELEGATE_NOW: '2026-11-18T12:00:01Z' });
+      assert.deepEqual(JSON.parse(later.stdout).active, []);
+      assert.equal(readLogRecords(atomicHome).length, 3);
+    } finally {
+      try { process.kill(-bg.pid, 'SIGKILL'); } catch { /* already gone */ }
+    }
   });
 
   it('status shows try again at 12:44 PM text after a recorded limit failure', () => {

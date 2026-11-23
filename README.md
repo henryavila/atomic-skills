@@ -118,6 +118,8 @@ Compact index (name · one-liner · Iron Law).
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Consolidate scattered memory into .ai/memory/ and wire it to the IDE | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
 | 📦 | [`audit-delivery`](docs/skills/audit-delivery.md) | Intent-vs-delivered system audit with residual hunt and reaudit gate | `NO DELIVERY CLAIM WITHOUT INTENT MATRIX + RESIDUAL HUNT + REAUDIT.` |
 | 🤝 | [`delegate`](docs/skills/delegate.md) | The orchestrator writes the card and judges; cheap executors do the work | `THE ORCHESTRATOR CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.` |
+| 📊 | [`progress`](docs/skills/progress.md) | Derive project percentages from a committed map, merges and delegate runs | `NO PERCENTAGE WITHOUT A COMMITTED MAP AND GIT EVIDENCE.` |
+| 🚧 | [`quality-gate`](docs/skills/quality-gate.md) | One gate, debt that only goes down, strong confirmed from outside | `A DIMENSION IS STRONG ONLY WHEN IT IS DECLARED, ENFORCED, FOLLOWED AND CONFIRMED FROM OUTSIDE.` |
 [SKILLS_TABLE_END]: #
 
 [SKILL_DETAILS_START]: #

@@ -934,3 +934,78 @@ core:
     dependencies: [git, python3]
     schema_version: '0.2'
     iron_law: 'THE ORCHESTRATOR CREATES AND VALIDATES; EXECUTORS ACT; NOTHING RUNS BEFORE THE USER CONFIRMS THE MODEL.'
+
+  progress:
+    name: progress
+    title: 'Progress — One Derived Percentage per Project'
+    description: 'Turn each project''s committed milestone map, merge history and delegate telemetry into a macro progress view without anyone marking tasks done. The collector derives integrated work from merge subjects and running work from the delegate runner; only milestones, sizes, dependencies and human validation live in the map. Use when the operator needs portfolio status, a panel feed, or a reliable percentage for one project.'
+    purpose: 'Derive deterministic milestone and project percentages from a committed map, git merge history and delegate runs, and publish panel data that never depends on a hand-typed count.'
+    when_to_use:
+      - 'You need the percentage or milestone breakdown of one project or the whole portfolio'
+      - 'A project has a plan and belongs in the macro panel, so its map must be created or refreshed'
+      - 'You want a deterministic feed for a dashboard instead of manually updated status prose'
+    when_not_to_use:
+      - 'You are deciding what to build or writing the plan (use brainstorm or prompt)'
+      - 'A one-off question about a single commit or file'
+      - 'The project has no integration ref where a committed map can live'
+    examples:
+      - command: '/atomic-skills:progress create the map for ./app-do-culto from its plan'
+        description: 'Derive milestones and cards, validate them, and register the project'
+      - command: '/atomic-skills:progress read the status of every registered project'
+        description: 'Run the collector and quote its percentages, milestones and alerts'
+    related: [delegate, audit-delivery, verify-claim]
+    tags: [progress, portfolio, telemetry, core]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
+    requires_args: false
+    mutates_repo: true
+    network_required: true
+    one_liner: 'Derive project percentages from a committed map, merges and delegate runs'
+    emoji: '📊'
+    version_added: '2.4.0'
+    argument_hint: '[project or milestone]'
+    args:
+      - name: scope
+        kind: positional
+        required: false
+        description: 'A repository path, a milestone id, or a card list to map or read. If omitted, the skill asks.'
+    dependencies: [git, python3]
+    schema_version: '0.2'
+    iron_law: 'NO PERCENTAGE WITHOUT A COMMITTED MAP AND GIT EVIDENCE.'
+  quality-gate:
+    name: quality-gate
+    title: 'Quality Gate — One Gate, a Debt Ratchet, and Strong Confirmed From Outside'
+    description: 'Audit, install and close a code-quality regime in any repository: a matrix of nine dimensions per stack, one gate script called by every hook and by CI, and a per-item debt ratchet that only goes down. The skill sets objectives and layers; the agent picks the tools for each stack. Use to find out what is really enforced, to set the regime up, or to confirm it with a blind re-audit.'
+    purpose: 'Give a repository a quality regime that agents cannot talk their way around: every rule declared, enforced by one gate, followed with zero debt, and confirmed by auditors with no context of the work.'
+    when_to_use:
+      - 'You want to know which quality rules are enforced and which are only configured'
+      - 'A repository needs a gate that agents and CI both obey, on any stack'
+      - 'Legacy debt must stop growing today and be paid over time'
+      - 'The debt reached zero and you want it confirmed from outside'
+    when_not_to_use:
+      - 'Reviewing one change (use review-code)'
+      - 'Fixing one bug (use fix)'
+      - 'Paying the debt itself (use delegate or parallel-dispatch; this skill only measures and blocks)'
+    examples:
+      - command: '/atomic-skills:quality-gate audit'
+        description: 'Read-only: tool inventory and the stack by dimension matrix, with evidence'
+      - command: '/atomic-skills:quality-gate install'
+        description: 'Agree on ceilings, write the gate script, copy the ratchet, freeze the debt, wire the layers'
+      - command: '/atomic-skills:quality-gate reaudit'
+        description: 'Check that every cell is strong, then repeat the first audit with auditors that saw none of the work'
+    related: [audit-delivery, review-code, delegate, parallel-dispatch, fix]
+    tags: [quality, enforcement, ci, core]
+    ide_compatibility: [claude-code, antigravity, cursor, codex]
+    requires_args: false
+    mutates_repo: true
+    one_liner: 'One gate, debt that only goes down, strong confirmed from outside'
+    emoji: '🚧'
+    version_added: '2.4.0'
+    argument_hint: '[audit|install|reaudit]'
+    args:
+      - name: mode
+        kind: positional
+        required: false
+        description: 'audit (read-only matrix), install (set the regime up) or reaudit (blind confirmation). If omitted: audit when the repository has no qa/stacks.tsv, otherwise the skill asks.'
+    dependencies: [git, python3]
+    schema_version: '0.2'
+    iron_law: 'A DIMENSION IS STRONG ONLY WHEN IT IS DECLARED, ENFORCED, FOLLOWED AND CONFIRMED FROM OUTSIDE.'
