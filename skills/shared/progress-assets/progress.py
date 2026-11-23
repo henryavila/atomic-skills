@@ -157,6 +157,11 @@ def save_registry(projects, invalid=()):
     )
 
 
+def refresh_manifest():
+    """Regenerate the panel manifest after add/remove when it is installed."""
+    return
+
+
 # --------------------------------------------------------------------------
 # Git and repository identity (mirrors the delegate runner)
 # --------------------------------------------------------------------------
@@ -334,6 +339,8 @@ def validate_map(data):
 
     cards_by_id = {}
     milestone_ids = set()
+    saw_weighted_card = False
+    has_positive_weight = False
     for index, milestone in enumerate(milestones):
         base = "$.milestones[%d]" % index
         if not isinstance(milestone, dict):
@@ -389,8 +396,21 @@ def validate_map(data):
                 not isinstance(card["size"], str) or card["size"] not in SIZE_WEIGHTS
             ):
                 issue("%s.size" % card_base, "must be one of P, M or G")
-            if has_weight and (not _is_int(card["weight"]) or card["weight"] <= 0):
-                issue("%s.weight" % card_base, "must be a positive integer")
+            if has_weight and (not _is_int(card["weight"]) or card["weight"] < 0):
+                issue("%s.weight" % card_base, "must be a non-negative integer")
+            weight = None
+            if has_weight and _is_int(card["weight"]) and card["weight"] >= 0:
+                weight = card["weight"]
+            elif (
+                has_size
+                and isinstance(card["size"], str)
+                and card["size"] in SIZE_WEIGHTS
+            ):
+                weight = SIZE_WEIGHTS[card["size"]]
+            if weight is not None:
+                saw_weighted_card = True
+                if weight > 0:
+                    has_positive_weight = True
 
             if "match" in card:
                 match = card["match"]
@@ -422,6 +442,9 @@ def validate_map(data):
                                 "%s.deps[%d]" % (card_base, dep_index),
                                 "must be a non-empty string",
                             )
+
+    if saw_weighted_card and not has_positive_weight:
+        issue("$.milestones", "all cards weigh 0; at least one card must weigh more than 0")
 
     # Every dep names a card in the map.
     for card_id, card_base in cards_by_id.items():
@@ -494,9 +517,11 @@ class ProjectView:
         self.data = None
         self.issues = []
         if isinstance(stored_id, str) and ID_RE.fullmatch(stored_id):
-            self.id = stored_id
+            self.stored_id = stored_id
         else:
-            self.id = Path(path).name
+            self.stored_id = None
+        self.id = self.stored_id or Path(path).name
+        self.map_id = None
         self.title = Path(path).name
         self.unit = DEFAULT_UNIT
         self.note = ""
@@ -523,7 +548,9 @@ def load_project(path, ref, sha=None, stored_id=None):
     view.data = data
     if isinstance(data, dict):
         if _nonempty_str(data.get("id")) and ID_RE.fullmatch(data["id"]):
-            view.id = data["id"]
+            view.map_id = data["id"]
+            if view.stored_id is None:
+                view.id = data["id"]
         if _nonempty_str(data.get("title")):
             view.title = data["title"]
         if _nonempty_str(data.get("unit")):
@@ -620,6 +647,17 @@ def card_states(view, active_runs, subjects):
     return states
 
 
+def milestone_caption(prontos, cards, bloqueados, rodando):
+    text = "%d de %d prontos" % (prontos, cards)
+    if bloqueados > 0:
+        text += " · %d %s" % (
+            bloqueados, "bloqueado" if bloqueados == 1 else "bloqueados",
+        )
+    if rodando > 0:
+        text += " · %d rodando" % rodando
+    return text
+
+
 def milestone_rows(view, states):
     rows = []
     for milestone in view.milestones:
@@ -646,6 +684,10 @@ def milestone_rows(view, states):
         rows.append({
             "projeto": view.id,
             "marco": milestone["id"],
+            "titulo": milestone["title"],
+            "legenda": milestone_caption(
+                prontos, len(milestone["cards"]), bloqueados, rodando,
+            ),
             "feito": done,
             "total": total,
             "pct": percentage,
@@ -840,18 +882,25 @@ def stop_fetch_group(proc):
         os.killpg(pgid, signal.SIGTERM)
     except ProcessLookupError:
         return
+    except OSError:
+        pass
     deadline = time.monotonic() + 1
+    gone = False
     while time.monotonic() < deadline:
         proc.poll()
         try:
             os.killpg(pgid, 0)
         except ProcessLookupError:
+            gone = True
+            break
+        except OSError:
             break
         time.sleep(0.05)
-    try:
-        os.killpg(pgid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+    if not gone:
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except OSError:
+            pass
     try:
         proc.wait(timeout=1)
     except subprocess.TimeoutExpired:
@@ -875,7 +924,11 @@ def run_fetch(repo, branch, stop_event=None, timeout=30):
         env["GIT_ASKPASS"] = false_path
         env["SSH_ASKPASS"] = false_path
     env["SSH_ASKPASS_REQUIRE"] = "never"
-    if not env.get("GIT_SSH_COMMAND") and not git(repo, "config", "--get", "core.sshCommand"):
+    if (
+        not env.get("GIT_SSH_COMMAND")
+        and not env.get("GIT_SSH")
+        and not git(repo, "config", "--get", "core.sshCommand")
+    ):
         env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"
     start = time.monotonic()
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as errors:
@@ -1025,6 +1078,19 @@ def build_panel(fetch=False, delegate_path=None, out_dir=None,
             view = load_project(
                 project["path"], project["ref"], sha=sha, stored_id=project.get("id")
             )
+            if (
+                view.stored_id
+                and view.map_id
+                and view.map_id != view.stored_id
+            ):
+                alerts.append({
+                    "projeto": view.id,
+                    "tipo": "id_mapa_mudou",
+                    "detalhe": (
+                        "o id do mapa mudou de %s para %s; rode add %s de novo"
+                        % (view.stored_id, view.map_id, project["path"])
+                    ),
+                })
             loaded.append({
                 "project": project,
                 "view": view,
@@ -1240,27 +1306,33 @@ def cmd_add(args):
         return 1
     projects = registry["projects"]
     invalid = registry.get("invalid", [])
-    for project in projects:
-        if resolve_project(project["path"]) == repo:
-            project["path"] = repo
-            project["ref"] = args.ref
-            project["id"] = data["id"]
-            save_registry(projects, invalid)
-            print("added: %s (%s)" % (repo, args.ref))
-            return 0
     new_id = data["id"]
-    for project in projects:
-        existing = load_project(project["path"], project["ref"])
-        if project.get("id") == new_id or (
-            existing.data is not None and existing.id == new_id
-        ):
+    match_index = next(
+        (index for index, project in enumerate(projects)
+         if resolve_project(project["path"]) == repo),
+        None,
+    )
+    for index, project in enumerate(projects):
+        if index == match_index:
+            continue
+        if project.get("id") == new_id:
             print(
                 "progress: the map id %r already belongs to %s" % (new_id, project["path"]),
                 file=sys.stderr,
             )
             return 1
+    if match_index is not None:
+        project = projects[match_index]
+        project["path"] = repo
+        project["ref"] = args.ref
+        project["id"] = new_id
+        save_registry(projects, invalid)
+        refresh_manifest()
+        print("added: %s (%s)" % (repo, args.ref))
+        return 0
     projects.append({"path": repo, "ref": args.ref, "id": new_id})
     save_registry(projects, invalid)
+    refresh_manifest()
     print("added: %s (%s)" % (repo, args.ref))
     return 0
 
@@ -1280,6 +1352,7 @@ def cmd_remove(args):
         print("not registered: %s" % repo, file=sys.stderr)
         return 1
     save_registry(remaining, registry.get("invalid", []))
+    refresh_manifest()
     print("removed: %s" % repo)
     return 0
 

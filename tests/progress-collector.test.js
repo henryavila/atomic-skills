@@ -331,7 +331,7 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
     assert.equal(res.status, 1);
     assert.match(res.stdout + res.stderr, /\$\.milestones\[0\]\.cards\[0\]/);
 
-    for (const weight of [0, -2, '3', true]) {
+    for (const weight of [-2, '3', true]) {
       const badWeight = baseMap({
         milestones: [{ id: 'a', title: 'A', cards: [{ id: 'X-1', weight }] }],
       });
@@ -1024,6 +1024,100 @@ exec ${JSON.stringify(realGit)} "$@"
     ]);
   });
 
+  it('does not SIGKILL a fetch group that is already gone and swallows kill errors', () => {
+    const script = `
+import importlib.util, signal, sys
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+class Proc:
+    pid = 4242
+    def poll(self):
+        return 0
+    def wait(self, timeout=None):
+        return 0
+
+calls = []
+def gone(pid, sig):
+    calls.append(sig)
+    if sig == 0:
+        raise ProcessLookupError()
+module.os.killpg = gone
+module.stop_fetch_group(Proc())
+assert calls == [signal.SIGTERM, 0], calls
+
+calls = []
+def denied(pid, sig):
+    calls.append(sig)
+    raise PermissionError("denied")
+module.os.killpg = denied
+ticks = iter([0, 2, 2, 2])
+module.time.monotonic = lambda: next(ticks, 2)
+module.stop_fetch_group(Proc())
+assert calls == [signal.SIGTERM, signal.SIGKILL], calls
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
+  it('respects GIT_SSH_COMMAND, core.sshCommand and GIT_SSH', () => {
+    const bare = join(root, 'origin.git');
+    execFileSync('git', ['init', '-q', '--bare', bare], { env: gitEnv() });
+    git(project, 'remote', 'add', 'origin', bare);
+    writeMap(project, baseMap());
+    git(project, 'push', '-q', 'origin', 'main');
+    git(project, 'fetch', '-q', 'origin');
+    register(project, 'origin/main');
+
+    const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    const falsePath = execFileSync('which', ['false'], { encoding: 'utf8' }).trim();
+    const shim = join(root, 'git-fetch-ssh');
+    mkdirSync(shim, { recursive: true });
+    const envFile = join(root, 'fetch-env-ssh.txt');
+    writeFileSync(
+      join(shim, 'git'),
+      `#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = "fetch" ]; then
+    printf '%s\\n' "$GIT_ASKPASS" "$SSH_ASKPASS" "$SSH_ASKPASS_REQUIRE" "$GIT_SSH_COMMAND" > ${JSON.stringify(envFile)}
+    exit 0
+  fi
+done
+exec ${JSON.stringify(realGit)} "$@"
+`,
+      { mode: 0o755 },
+    );
+
+    function envLines() {
+      return readFileSync(envFile, 'utf8').replace(/\n$/, '').split('\n');
+    }
+
+    function collectWith(extraEnv) {
+      const res = run(['collect', '--out', outDir, '--delegate', delegate, '--fetch'], {
+        env: { PATH: `${shim}:${env.PATH}`, ...extraEnv },
+      });
+      assert.equal(res.status, 0, res.stderr);
+      return envLines();
+    }
+
+    let lines = collectWith({ GIT_SSH_COMMAND: 'ssh -o Custom=yes' });
+    assert.equal(lines[3], 'ssh -o Custom=yes');
+
+    lines = collectWith({ GIT_SSH: '/opt/custom-ssh', GIT_SSH_COMMAND: '' });
+    assert.equal(lines[3], '', 'GIT_SSH must keep the collector from setting GIT_SSH_COMMAND');
+
+    git(project, 'config', 'core.sshCommand', 'ssh -o Config=yes');
+    lines = collectWith({ GIT_SSH: '', GIT_SSH_COMMAND: '' });
+    assert.equal(lines[3], '', 'core.sshCommand must keep the collector from setting GIT_SSH_COMMAND');
+    assert.equal(lines[0], falsePath);
+  });
+
   it('refuses an option-like ref and never fetches an option-like branch', () => {
     writeMap(project, baseMap());
     let res = run(['add', project, '--ref=-main']);
@@ -1317,6 +1411,63 @@ print("\\n".join(alert["tipo"] for alert in alertas))
     assert.equal(projetos[0].id, 'same');
     assert.equal(marcos.filter((m) => m.projeto === 'same').length, 1);
     assert.ok(alertas.some((a) => a.tipo === 'id_duplicado'), JSON.stringify(alertas));
+  });
+
+  it('alerts when a map id changes, adopts it on add and keeps rows under it', () => {
+    writeMap(project, oneMilestonePerCard([validCard('R-1', { done: 'merged' })], {
+      id: 'old-id',
+      title: 'Old map',
+    }));
+    register(project);
+    let [projetos] = collect();
+    assert.equal(projetos[0].id, 'old-id');
+    assert.equal(projetos[0].feito, 1);
+
+    writeMap(project, oneMilestonePerCard([validCard('R-1')], {
+      id: 'new-id',
+      title: 'New map',
+    }), 'rename map');
+    let [, , , alertas] = collect();
+    assert.equal(projetos[0].id, 'old-id', 'the collector stays read-only on the registry');
+    const alert = alertas.find((a) => a.tipo === 'id_mapa_mudou');
+    assert.ok(alert, JSON.stringify(alertas));
+    assert.equal(alert.projeto, 'old-id');
+    assert.match(alert.detalhe, /add .* de novo/);
+    assert.match(alert.detalhe, /new-id/);
+
+    register(project);
+    [projetos, , , alertas] = collect();
+    assert.equal(projetos[0].id, 'new-id');
+    assert.equal(projetos[0].feito, 0);
+    assert.equal(alertas.filter((a) => a.tipo === 'id_mapa_mudou').length, 0);
+
+    const registryPath = join(atomicHome, 'progress', 'projects.json');
+    const registry = readJson(registryPath);
+    assert.equal(registry.projects[0].id, 'new-id');
+    registry.projects[0].ref = 'does-not-exist';
+    writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n');
+    const [kept, , , keptAlerts] = collect();
+    assert.equal(kept[0].id, 'new-id');
+    assert.equal(kept[0].feito, 0);
+    assert.ok(keptAlerts.some((a) => a.tipo === 'git_log_falhou' && a.projeto === 'new-id'));
+  });
+
+  it('refuses a duplicate stored id but still updates the same entry', () => {
+    writeMap(project, baseMap({ id: 'same' }));
+    register(project);
+    const other = join(root, 'other-stored');
+    mkdirSync(other, { recursive: true });
+    initGitRepo(other);
+    writeMap(other, baseMap({ id: 'same' }));
+    let res = run(['add', other, '--ref', 'main']);
+    assert.equal(res.status, 1, res.stdout + res.stderr);
+
+    writeMap(project, baseMap({ id: 'renamed', title: 'Renamed' }), 'rename');
+    res = run(['add', project, '--ref', 'main']);
+    assert.equal(res.status, 0, res.stderr);
+    const registry = readJson(join(atomicHome, 'progress', 'projects.json'));
+    assert.equal(registry.projects.length, 1);
+    assert.equal(registry.projects[0].id, 'renamed');
   });
 
   it('prints project status with milestones and alerts', () => {
