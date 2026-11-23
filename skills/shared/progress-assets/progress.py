@@ -658,7 +658,7 @@ def read_logged_runs():
                 record = json.loads(line)
             except ValueError:
                 continue
-            if isinstance(record, dict) and record.get("kind") == "run":
+            if isinstance(record, dict) and record.get("kind") in ("run", "pipeline"):
                 runs.append(record)
     except OSError:
         return []

@@ -676,16 +676,18 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
         { kind: 'run', id: 'T-3', repo: 'acme/app', milestone: 'ghost-logged' },
         { kind: 'run', id: 'T-4', repo: 'acme/app', milestone: null },
         { kind: 'run', id: 'T-5', repo: 'acme/app', milestone: 'fundacao' },
+        { kind: 'pipeline', id: 'P-1', repo: 'acme/app', milestone: 'ghost-pipeline' },
         { kind: 'verdict', id: 'T-6', repo: 'acme/app', milestone: 'not-a-run' },
       ].map((r) => JSON.stringify(r)).join('\n') + '\n',
     );
     register(project);
     const [, , , alertas] = collect();
     const unknown = alertas.filter((a) => a.tipo === 'marco_desconhecido');
-    assert.equal(unknown.length, 2, JSON.stringify(alertas));
+    assert.equal(unknown.length, 3, JSON.stringify(alertas));
     const text = unknown.map((a) => a.detalhe).join('\n');
     assert.match(text, /ghost-active/);
     assert.match(text, /ghost-logged/);
+    assert.match(text, /ghost-pipeline/);
   });
 
   it('lists a broken map with its error without affecting another project', () => {
