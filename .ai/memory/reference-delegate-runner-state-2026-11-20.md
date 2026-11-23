@@ -13,7 +13,7 @@ type: reference
 - **Bateria dividida por área**: `tests/delegate-runner-*.test.js` com ajudantes em `tests/helpers/delegate-runner-kit.js`; `npm run test:delegate` leva cerca de 65 s.
 - **Regras de cartão** na skill e no modelo: um assunto por cartão (até cinco requisitos), testes da área durante o trabalho, verificação equivalente ao CI antes do push.
 
-- **Máquina de cada execução** (23/11): todo registro `run`/`pipeline` tem `machine` (nome do `--host` ou hostname curto local, preenchido em `append`). Execução `--host` fica listada em `delegate/running-remote/<executor>-<id>-<pid do runner>.json` enquanto roda; não é slot, não conta em `DELEGATE_MAX_*` e o `kill` nunca a lê. O runner remove o arquivo sob o `SlotLock` (assim um leitor nunca vê arquivo de runner que saiu bem); runner morto → arquivo limpo na próxima leitura com um registro `runner_lost`. `status` mostra a máquina (coluna depois do papel) e `status --json` lista as execuções ativas para o painel.
+- **Máquina de cada execução** (23/11): todo registro `run`/`pipeline` tem `machine` (nome do `--host` ou hostname curto local, preenchido em `append`). Execução `--host` fica listada em `delegate/running-remote/<executor>-<id>-<pid do runner>.json` enquanto roda; não é slot, não conta em `DELEGATE_MAX_*` e o `kill` nunca a lê. O runner remove o arquivo sob um lock próprio (`running-remote/.lock`, nunca o `SlotLock`: um teste exige que execução `--host` nem crie `running/`), assim um leitor nunca vê arquivo de runner que saiu bem; runner morto → arquivo limpo na próxima leitura com um registro `runner_lost`. `status` mostra a máquina (coluna depois do papel) e `status --json` lista as execuções ativas para o painel.
 
 ## Como verificar
 

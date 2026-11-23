@@ -651,7 +651,8 @@ spec.loader.exec_module(d)
       const slots = pythonHarness(
         'print(len(d.get_active_slots("opencode")), len(d.get_active_slots()))', env);
       assert.equal(slots.stdout.trim(), '1 2', slots.stderr);
-      assert.equal(readdirSync(join(delegateDir, 'running-remote')).length, 1);
+      assert.deepEqual(readdirSync(join(delegateDir, 'running-remote')).filter(name => name.endsWith('.json')),
+        [`opencode-T-FAR-${bg.pid}.json`]);
       assert.equal(existsSync(join(delegateDir, 'runs.jsonl')), false);
     } finally {
       try { process.kill(-bg.pid, 'SIGKILL'); } catch { /* already gone */ }
@@ -677,7 +678,7 @@ spec.loader.exec_module(d)
     const json = runDelegate(['status', '--json'], baseEnv);
     assert.equal(json.status, 0, json.stderr);
     assert.deepEqual(JSON.parse(json.stdout).active, []);
-    assert.deepEqual(readdirSync(join(delegateDir, 'running-remote')), []);
+    assert.deepEqual(readdirSync(join(delegateDir, 'running-remote')).filter(name => name !== '.lock'), []);
     runDelegate(['status'], baseEnv);
     const records = readLogRecords(atomicHome);
     assert.equal(records.length, 1, JSON.stringify(records));

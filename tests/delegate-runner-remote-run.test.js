@@ -389,7 +389,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
 
   function remoteActiveLeftovers() {
     const dir = join(atomicHome, 'delegate', 'running-remote');
-    return existsSync(dir) ? readdirSync(dir) : [];
+    return existsSync(dir) ? readdirSync(dir).filter(name => name !== '.lock') : [];
   }
 
   function localSlots() {
@@ -466,6 +466,8 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
       assert.ok(active.runner_start, JSON.stringify(active));
       assert.ok(!Number.isNaN(Date.parse(active.started)), JSON.stringify(active));
       assert.deepEqual(localSlots(), [], 'a remote run never has a local slot');
+      assert.equal(existsSync(join(atomicHome, 'delegate', 'running')), false,
+        'a remote run does not even create the slot directory');
 
       const status = runDelegate(['status'], remoteEnv());
       assert.equal(status.status, 0, status.stderr);

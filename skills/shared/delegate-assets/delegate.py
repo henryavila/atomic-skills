@@ -998,46 +998,47 @@ def _clean_stale_slots():
 
 
 def _clean_stale_remote():
-    """Drop the active file of a --host run whose runner is gone. Call under SlotLock.
+    """Drop the active file of a --host run whose runner is gone.
 
     The runner removes its own file under the same lock before it exits, so a
     file seen here with a dead runner is one its runner could not remove.
     """
     if not RUNNING_REMOTE.is_dir():
         return
-    for p in RUNNING_REMOTE.glob("*.tmp"):
-        try:
-            if time.time() - p.stat().st_mtime > 60:
-                p.unlink(missing_ok=True)
-        except OSError:
-            pass
-    for p in list(RUNNING_REMOTE.glob("*.json")):
-        try:
-            data = json.loads(p.read_text())
-        except FileNotFoundError:
-            continue
-        except (OSError, ValueError):
-            data = None
-        if isinstance(data, dict) and data.get("runner_start") and not runner_gone(data):
-            continue
-        p.unlink(missing_ok=True)
-        if isinstance(data, dict) and data.get("runner_start"):
-            record_lost_runner(p, data, remote=True)
+    with RemoteActiveLock():
+        for p in RUNNING_REMOTE.glob("*.tmp"):
+            try:
+                if time.time() - p.stat().st_mtime > 60:
+                    p.unlink(missing_ok=True)
+            except OSError:
+                pass
+        for p in list(RUNNING_REMOTE.glob("*.json")):
+            try:
+                data = json.loads(p.read_text())
+            except FileNotFoundError:
+                continue
+            except (OSError, ValueError):
+                data = None
+            if isinstance(data, dict) and data.get("runner_start") and not runner_gone(data):
+                continue
+            p.unlink(missing_ok=True)
+            if isinstance(data, dict) and data.get("runner_start"):
+                record_lost_runner(p, data, remote=True)
 
 
 def get_active_remote():
     """Active --host runs started from this machine, as (path, data) pairs."""
     active = []
-    with SlotLock():
-        _clean_stale_remote()
-        if RUNNING_REMOTE.is_dir():
-            for p in list(RUNNING_REMOTE.glob("*.json")):
-                try:
-                    data = json.loads(p.read_text())
-                except (OSError, ValueError):
-                    continue
-                if isinstance(data, dict):
-                    active.append((p, data))
+    if not RUNNING_REMOTE.is_dir():
+        return active
+    _clean_stale_remote()
+    for p in list(RUNNING_REMOTE.glob("*.json")):
+        try:
+            data = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            active.append((p, data))
     return active
 
 
@@ -1064,7 +1065,7 @@ def remove_remote_active(path):
         return
     try:
         # Under the lock a reader never sees this file after its runner exited.
-        with SlotLock():
+        with RemoteActiveLock():
             path.unlink(missing_ok=True)
             path.with_suffix(".tmp").unlink(missing_ok=True)
     except OSError:
@@ -1903,9 +1904,13 @@ def is_paused():
 
 
 class SlotLock:
+    def directory(self):
+        return RUNNING
+
     def __enter__(self):
-        RUNNING.mkdir(parents=True, exist_ok=True)
-        self.lock_path = RUNNING / ".lock"
+        directory = self.directory()
+        directory.mkdir(parents=True, exist_ok=True)
+        self.lock_path = directory / ".lock"
         self.f = open(self.lock_path, "w")
         fcntl.flock(self.f, fcntl.LOCK_EX)
         return self
@@ -1916,6 +1921,13 @@ class SlotLock:
             self.f.close()
         except Exception:
             pass
+
+
+class RemoteActiveLock(SlotLock):
+    """Guards RUNNING_REMOTE alone, so a --host run never touches RUNNING."""
+
+    def directory(self):
+        return RUNNING_REMOTE
 
 
 def check_model_allowed(role, executor, model):
