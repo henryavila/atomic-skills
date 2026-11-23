@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A run whose runner was killed is no longer silent.** `status` marks it
   `runner gone` and tells how to stop the executor, and the log gets a
   `runner_lost` record when its slot is cleared.
+
+## [2.2.1] - 2026-11-23
+
+### Fixed
+
 - **The peak window now ends on the exact minute.** A run started at 04:00 or
   10:00 UTC (01:00 or 07:00 GMT-3) on a weekday was warned and logged as peak
   although the base price had already returned.
