@@ -65,7 +65,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   manifest, its `data/` directory, two `launchd` plists, the state
   `~/.atomic-skills/progress/panel.json` and `logs/`, then bootstraps both
   labels; the plists keep the panel on `127.0.0.1` and carry only `PATH` (plus
-  `ATOMIC_SKILLS_HOME`) so no secret is copied. The manifest follows the maps'
+  `ATOMIC_SKILLS_HOME`) so no secret is copied. `--aideck` must be a built
+  aiDeck: the service passes `--static-dir=<directory of cli.js>/client` so the
+  panel serves its page as well as its API, and install exits 1 before changing
+  anything when `client/index.html` is missing beside `cli.js`. The manifest
+  follows the maps'
   live titles, units and ids, and its quoted values escape DEL, C1 controls,
   U+2028/9 and lone surrogates so YAML cannot misread them. `panel uninstall`
   validates the recorded paths first and refuses a symlink at the manifest, a
@@ -90,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   manifest or plist that is not recorded by the state, a symlink at the
   manifest, a plist, the consumer, `data/`, `progress/`, `progress/logs/` or an
   output file, a pre-existing output file on a first install, a label already
-  loaded on a first install, a missing `--aideck` file, a missing `node` or an
+  loaded on a first install, a missing `--aideck` file, an `--aideck` without
+  `client/index.html`, a missing `node` or an
   invalid port is refused without changes; outside macOS the commands exit 2
   unless `PROGRESS_LAUNCHCTL` is set. `add` and `remove` regenerate the manifest
   only while it still matches its recorded hash and warn about an invalid state
