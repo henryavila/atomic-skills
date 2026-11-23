@@ -47,7 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reaches 100% when every weighted card counts, so a zero-weight card can still
   be pending. A milestone whose cards all weigh `0` reports `pct` 100 when every
   card is ready-counted and `0` otherwise, with `resumo` `sem peso · <prontos>
-  de <cards> prontos`. Every `marcos.json` row gains `titulo` (the milestone
+  de <cards> prontos`; a milestone with no cards reports `pct` 0 and `resumo`
+  `sem cartões`. Every `marcos.json` row gains `titulo` (the milestone
   title) and `legenda` (`<n> de <cards> prontos`, then the blocked count with
   the singular `bloqueado`, then the running count); a row kept after a failure
   keeps its old fields, with a missing `titulo` filled from `marco` and a
@@ -67,24 +68,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ATOMIC_SKILLS_HOME`) so no secret is copied. The manifest follows the maps'
   live titles, units and ids, and its quoted values escape DEL, C1 controls,
   U+2028/9 and lone surrogates so YAML cannot misread them. `panel uninstall`
-  validates the recorded paths first, boots the labels out, deletes the two
-  plists' named log files, removes only recorded files whose hash still matches,
-  removes the four panel output files only when it created `data/`, and reports
-  any directory it cannot remove. It never removes or records the shared roots
-  `~/.aideck`, `~/.aideck/consumers`, `~/.atomic-skills`, `~/Library` or
-  `~/Library/LaunchAgents`. An identical reinstall checks each label and
-  bootstraps only one that is down; new arguments reload both, and a failed
-  reinstall restores the old files and state and bootstraps again the labels
-  that were loaded before it, naming any label still down with the command to
-  load it. `launchctl print` counts as not loaded only on exit 113 or `Could not
-  find service`; any other failure keeps the state. A manifest or plist that is
-  not recorded by the state, a symlink at the manifest, a plist, the consumer,
-  `data/` or an output file, a pre-existing output file on a first install, a
-  label already loaded on a first install, a missing `--aideck` file, a missing
-  `node` or an invalid port is refused without changes; outside macOS the
-  commands exit 2 unless `PROGRESS_LAUNCHCTL` is set.
-  `add` and `remove` regenerate the manifest only while it still matches its
-  recorded hash.
+  validates the recorded paths first and refuses a symlink at the manifest, a
+  plist, the consumer, `data/`, `progress/`, `progress/logs/` or an output file,
+  while the shared roots `~/.aideck`, `~/.aideck/consumers`,
+  `~/.atomic-skills` and `~/Library/LaunchAgents` may themselves be symlinks;
+  it then boots the labels out, deletes the two plists' named log files, removes
+  only recorded files whose hash still matches, removes the four panel output
+  files only when it created `data/`, and reports any directory it cannot
+  remove. It never removes or records the shared roots, including `~/Library`.
+  An identical reinstall checks each label and bootstraps only one that is
+  down; new arguments reload both. Before stopping anything, install reads the
+  files and state it would restore, so an unreadable one exits 1 with the old
+  service still running. A failed reinstall restores the old files and state
+  and bootstraps again the labels that were loaded before it, naming any label
+  still down with the command to load it; if booting out a label this run
+  bootstrapped fails, the rollback stops instead, leaves the files on disk,
+  writes a state that matches them, names each label still loaded with its
+  `launchctl bootout gui/<uid>/<label>` command, points to `panel uninstall` to
+  finish the job and exits 1. `launchctl print` counts as not loaded only on
+  exit 113 or `Could not find service`; any other failure keeps the state. A
+  manifest or plist that is not recorded by the state, a symlink at the
+  manifest, a plist, the consumer, `data/`, `progress/`, `progress/logs/` or an
+  output file, a pre-existing output file on a first install, a label already
+  loaded on a first install, a missing `--aideck` file, a missing `node` or an
+  invalid port is refused without changes; outside macOS the commands exit 2
+  unless `PROGRESS_LAUNCHCTL` is set. `add` and `remove` regenerate the manifest
+  only while it still matches its recorded hash and warn about an invalid state
+  instead of failing.
 - **Delegate says which machine runs each executor.** Every `run` and
   `pipeline` record gains `machine`: the `--host` name, or the short hostname
   of the local machine. A `--host` run is now listed while it works, in one file
