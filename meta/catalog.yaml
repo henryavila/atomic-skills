@@ -968,7 +968,7 @@ core:
         kind: positional
         required: false
         description: 'A repository path, a milestone id, or a card list to map or read. If omitted, the skill asks.'
-    dependencies: [git, python3]
+    dependencies: [git, python3, node]
     schema_version: '0.2'
     iron_law: 'NO PERCENTAGE WITHOUT A COMMITTED MAP AND GIT EVIDENCE.'
   quality-gate:

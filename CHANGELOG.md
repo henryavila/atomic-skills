@@ -129,13 +129,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   join the default review routes ahead of the Gemini reviewer, and Argon becomes
   a fallback executor. Claude models there only review, and never review code a
   Claude model wrote.
-- **`route` shows the real Antigravity quota.** It reads `agy /quota`, which
+- **`route` shows the real Antigravity quota.** It reads `agy -p /quota`, which
   spends no model quota, and prints what remains in each group and when an
   exhausted group returns.
-
-### Fixed
-
-- **`watch` never loses a change made during a collection.** It takes its
+- **`watch` catches a change made during a collection.** It takes its
   signature before collecting, so a registry, telemetry-log, running-directory
   or ref change made while a collection runs triggers one more collection
   instead of waiting for the 60-second pass. The registry file is part of the
@@ -144,12 +141,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the loop. A failed panel rollback prints both the original install error and
   the bootout error, and also names each label that was loaded before the run
   and is now down with the command to load it.
-- **A fetch stop no longer over-signals or leaks a permission error.** The
+- **A fetch stop does not over-signal or leak a permission error.** The
   collector skips the final `SIGKILL` when its wait already saw the process
   group gone, and catches `OSError` around every `killpg`, so a stop cannot fail
   with `PermissionError`. It also leaves `GIT_SSH` and a configured
   `core.sshCommand` alone, like `GIT_SSH_COMMAND`, instead of overriding them
   with `ssh -o BatchMode=yes`.
+
+### Fixed
+
+- **Delegate works with git older than 2.31.** The runner no longer reads an
+  echoed `--path-format=absolute` as part of the git directory path.
 - **An Antigravity limit now applies to its whole quota group.** The runner
   treated each model as having its own limit, so it could send work to another
   model of a group that had already run out.

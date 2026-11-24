@@ -1266,6 +1266,99 @@ exec ${JSON.stringify(realGit)} "$@"
     assert.match(alert.detalhe, /ref inválida/);
   });
 
+  it('names a repository exactly as the delegate runner does', () => {
+    const delegatePy = join(REPO_ROOT, 'skills/shared/delegate-assets/delegate.py');
+    const script = `
+import importlib.util, sys
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+progress = load("progress_under_test", sys.argv[1])
+delegate = load("delegate_under_test", sys.argv[2])
+
+urls = [
+    "git@github.com:acme/app.git",
+    "https://github.com/acme/app.git",
+    "ssh://git@host/acme/app.git",
+    "file:/srv/git/acme/app.git",
+    "file:srv/acme/app.git",
+    "file://host/srv/acme/app.git",
+    "FILE:/srv/acme/app.git",
+    "/srv/git/acme/app.git",
+    "../acme/app.git",
+    "",
+]
+failed = []
+for url in urls:
+    expected = delegate.repo_from_url(url)
+    actual = progress.repo_from_url(url)
+    if actual != expected:
+        failed.append("%r: progress %r, delegate %r" % (url, actual, expected))
+if failed:
+    sys.stderr.write("\\n".join(failed) + "\\n")
+    sys.exit(1)
+print("ok")
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, delegatePy], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+  });
+
+  it('reads the common git directory with a git older than 2.31', () => {
+    assert.equal(git(project, 'remote'), '', 'the test repository must have no origin');
+    const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    const shim = join(root, 'git-old');
+    mkdirSync(shim, { recursive: true });
+    writeFileSync(
+      join(shim, 'git'),
+      `#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = "--path-format=absolute" ]; then
+    printf '%s\\n' "$arg"
+    exit 0
+  fi
+done
+exec ${JSON.stringify(realGit)} "$@"
+`,
+      { mode: 0o755 },
+    );
+
+    const script = `
+import importlib.util, sys
+
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+progress = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(progress)
+print(progress.repo_identity(sys.argv[2]) or "")
+`;
+    function identity(extraEnv) {
+      const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, project], {
+        encoding: 'utf8',
+        env: { ...env, ...extraEnv },
+        cwd: root,
+        timeout: 30000,
+      });
+      assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+      return res.stdout.trim();
+    }
+
+    const real = identity({});
+    assert.equal(real, 'project');
+    assert.equal(
+      identity({ PATH: `${shim}:${env.PATH}` }),
+      real,
+      'an old git must not turn its unknown option into the repository name',
+    );
+  });
+
   it('keeps the previous rows and alerts when git log fails', () => {
     writeMap(
       project,

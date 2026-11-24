@@ -34,7 +34,7 @@ Derive deterministic milestone and project percentages from a committed map, git
 
 ## Metadata
 
-**Dependencies:** `git`, `python3`
+**Dependencies:** `git`, `python3`, `node`
 
 **Related:** `delegate`, `audit-delivery`, `verify-claim`
 

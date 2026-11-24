@@ -14,6 +14,11 @@ import { installedGlobalInstructionPaths, globalInstructionBody, globalInstructi
 import { msg } from '../src/ui.js';
 import { uninstall } from '../src/uninstall.js';
 import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir.js';
+import { quietTestStdout } from './helpers/quiet-test-stdout.js';
+
+// install() and uninstall() print strings to stdout in this process; the
+// reporter's stdout carries Buffer events, so keep the two apart.
+quietTestStdout();
 
 // `new URL(...).pathname` yields `/D:/a/...` on Windows, which Node then tries
 // to resolve as `C:\D:\a\...`. fileURLToPath gives the platform path.

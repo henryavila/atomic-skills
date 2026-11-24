@@ -3586,6 +3586,11 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         pending_return = True
         pending_error = exc
         exc.record = pending
+    except (KeyboardInterrupt, SystemExit) as exc:
+        if p is None:
+            raise
+        orphan_failure = "interrupted"
+        interrupted_exc = exc
     finally:
         # Reap and removal are one locked transition: kill can trust the runner
         # identity while Darwin hides the unreaped zombie's start time.

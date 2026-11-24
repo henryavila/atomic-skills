@@ -839,7 +839,8 @@
     ],
     "deps": [
       "git",
-      "python3"
+      "python3",
+      "node"
     ],
     "refs": [
       "/atomic-skills:delegate",

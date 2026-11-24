@@ -35,8 +35,9 @@ Grades below strong: `adequate` (mostly followed, not enforced), `weak`
 Seams between stacks get their own column: a versioned contract checked in CI,
 types of each consumer checked against it, and one copy of each shared rule.
 
-A dimension with no measurer in a stack shows as `no measurer` in `status`. It
-is not strong, and it is not hidden.
+A dimension listed with an empty metric shows as `no measurer` in `status`. It
+is not strong. A dimension missing from `dimensions.tsv` is not reported, so
+`status` cannot see it: keep all nine listed.
 
 ## Layers
 
@@ -65,7 +66,7 @@ start with `#` are ignored.
 |---|---|---|
 | `stacks.tsv` | stack, language, roots, generated, tests, group | roots are comma separated paths from the repository root; `group` joins stacks frozen together |
 | `ceilings.tsv` | metric, ceiling, applies_to | `applies_to` is a comma separated list of languages |
-| `dimensions.tsv` | dimension, metric | one line per metric that counts for the dimension |
+| `dimensions.tsv` | dimension, metric | list all nine dimensions; one line per metric, and one line with an empty metric for a dimension with no measurer |
 | `exceptions.tsv` | stack, metric, key, limit, reason | the item may reach `limit`; at most 10 per stack |
 | `moves.tsv` | metric, from, to, value | written by `move`; do not edit by hand |
 | `debt/<stack>.<metric>.tsv` | key, value | no header, sorted by key; written by `freeze`, `lower` and `move` |

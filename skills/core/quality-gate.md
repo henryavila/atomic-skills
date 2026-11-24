@@ -7,7 +7,7 @@ If {{ARG_VAR}} was provided, treat it as the mode (`audit` | `install` |
 `reaudit`). If omitted: with no `qa/stacks.tsv` in the repository start with
 **audit**; otherwise ask which mode with {{ASK_USER_QUESTION_TOOL}}.
 
-Read `skills/shared/quality-gate-assets/quality-gate-standard.md` before any
+{{READ_TOOL}} `skills/shared/quality-gate-assets/quality-gate-standard.md` before any
 mode. It holds the nine dimensions, the layers, the measurer contract and the
 ratchet commands. This body holds only the order of work and the gates.
 
@@ -77,7 +77,7 @@ a memory or a chat do not count as declared.
 ### 3. Copy the engine and write the tables
 
 ```sh
-mkdir -p qa && cmp -s {{ASSETS_PATH}}/ratchet.py qa/ratchet.py || diff -u qa/ratchet.py {{ASSETS_PATH}}/ratchet.py
+mkdir -p qa && if [ -e qa/ratchet.py ]; then diff -u qa/ratchet.py {{ASSETS_PATH}}/ratchet.py; else echo "new file: qa/ratchet.py"; fi
 ```
 
 Show the difference, then copy after the yes. The engine lives in the
