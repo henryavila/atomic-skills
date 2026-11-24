@@ -132,6 +132,27 @@ spec.loader.exec_module(d)
     }
   }
 
+  // The writer creates the pid file before it writes the digits, so existence
+  // is not enough: wait for a complete number, and read it as tolerantly when
+  // cleaning up a test that failed early.
+  function readPidFile(pidFile) {
+    try {
+      const text = readFileSync(pidFile, 'utf8').trim();
+      return /^\d+$/.test(text) ? Number(text) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function waitForPidFile(pidFile, what) {
+    let pid = null;
+    await waitFor(() => {
+      pid = readPidFile(pidFile);
+      return pid !== null;
+    }, 20000, what);
+    return pid;
+  }
+
   function detachedExecutorFake(pidFile, releaseFile, heartbeatFile) {
     writeFileSync(fakePaths.opencode, `#!${PYTHON3}
 import pathlib, subprocess, sys, time
@@ -184,8 +205,7 @@ sys.exit(0 if release.exists() else 1)
     const run = runDelegateAsync(implementArgs(), baseEnv);
     let detachedPid = null;
     try {
-      await waitFor(() => existsSync(pidFile), 20000, 'detached child start');
-      detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      detachedPid = await waitForPidFile(pidFile, 'detached child start');
       await waitForDetachedPoll(heartbeat);
       writeFileSync(release, 'go');
       const res = await run.done;
@@ -207,8 +227,8 @@ sys.exit(0 if release.exists() else 1)
       assert.match(status.stdout, /warning: recent runs left 1 orphan process/);
     } finally {
       writeFileSync(release, 'go');
-      if (detachedPid === null && existsSync(pidFile)) {
-        detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      if (detachedPid === null) {
+        detachedPid = readPidFile(pidFile);
       }
       if (detachedPid) {
         try { process.kill(detachedPid, 'SIGKILL'); } catch { /* already gone */ }
@@ -230,8 +250,7 @@ sys.exit(0 if release.exists() else 1)
     const run = runDelegateAsync(implementArgs('T-NOT-MINE'), baseEnv);
     let detachedPid = null;
     try {
-      await waitFor(() => existsSync(pidFile), 20000, 'detached child start');
-      detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      detachedPid = await waitForPidFile(pidFile, 'detached child start');
       await waitForDetachedPoll(heartbeat);
       writeFileSync(release, 'go');
       const res = await run.done;
@@ -243,8 +262,8 @@ sys.exit(0 if release.exists() else 1)
       assert.ok(pidAlive(decoy.pid), 'a process outside the executor tree must survive');
     } finally {
       writeFileSync(release, 'go');
-      if (detachedPid === null && existsSync(pidFile)) {
-        detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      if (detachedPid === null) {
+        detachedPid = readPidFile(pidFile);
       }
       if (detachedPid) {
         try { process.kill(detachedPid, 'SIGKILL'); } catch { /* already gone */ }
@@ -278,8 +297,15 @@ try:
  deadline = time.time() + 20
  while not pid_file.exists() and time.time() < deadline: time.sleep(.01)
  assert pid_file.exists()
+ deadline = time.time() + 20
+ while True:
+  text = pid_file.read_text().strip() if pid_file.exists() else ""
+  if text.isdigit():
+   break
+  assert time.time() < deadline, "the pid file stayed unreadable"
+  time.sleep(.01)
  tracker.watch(leader.pid)
- child_pid = int(pid_file.read_text())
+ child_pid = int(text)
  deadline = time.time() + 20
  while child_pid not in tracker.seen and time.time() < deadline: time.sleep(.01)
  assert child_pid in tracker.seen, tracker.seen
@@ -300,8 +326,10 @@ try:
 finally:
  release.write_text("go")
  if pid_file.exists():
-  try: os.kill(int(pid_file.read_text()), signal.SIGKILL)
-  except ProcessLookupError: pass
+  text = pid_file.read_text().strip()
+  if text.isdigit():
+   try: os.kill(int(text), signal.SIGKILL)
+   except ProcessLookupError: pass
  if leader.poll() is None: leader.kill(); leader.wait()
 `);
     assert.equal(res.status, 0, res.stderr);
@@ -329,7 +357,14 @@ try:
  deadline = time.time() + 20
  while not pid_file.exists() and time.time() < deadline: time.sleep(.01)
  assert pid_file.exists()
- child_pid = int(pid_file.read_text())
+ deadline = time.time() + 20
+ while True:
+  text = pid_file.read_text().strip() if pid_file.exists() else ""
+  if text.isdigit():
+   break
+  assert time.time() < deadline, "the pid file stayed unreadable"
+  time.sleep(.01)
+ child_pid = int(text)
  tracker.watch(leader.pid)
  assert tracker.polls == 1, tracker.polls
  assert child_pid in tracker.seen, tracker.seen
@@ -343,8 +378,10 @@ try:
 finally:
  release.write_text("go")
  if pid_file.exists():
-  try: os.kill(int(pid_file.read_text()), signal.SIGKILL)
-  except ProcessLookupError: pass
+  text = pid_file.read_text().strip()
+  if text.isdigit():
+   try: os.kill(int(text), signal.SIGKILL)
+   except ProcessLookupError: pass
  if leader.poll() is None: leader.kill(); leader.wait()
 `);
     assert.equal(res.status, 0, res.stderr);
@@ -368,7 +405,14 @@ try:
  deadline = time.time() + 20
  while not pid_file.exists() and time.time() < deadline: time.sleep(.01)
  assert pid_file.exists()
- child_pid = int(pid_file.read_text())
+ deadline = time.time() + 20
+ while True:
+  text = pid_file.read_text().strip() if pid_file.exists() else ""
+  if text.isdigit():
+   break
+  assert time.time() < deadline, "the pid file stayed unreadable"
+  time.sleep(.01)
+ child_pid = int(text)
  tracker.watch(leader.pid)
  deadline = time.time() + 20
  while child_pid not in tracker.seen and time.time() < deadline: time.sleep(.01)
@@ -397,8 +441,10 @@ try:
  os.kill(child_pid, 0)
 finally:
  if pid_file.exists():
-  try: os.kill(int(pid_file.read_text()), signal.SIGKILL)
-  except ProcessLookupError: pass
+  text = pid_file.read_text().strip()
+  if text.isdigit():
+   try: os.kill(int(text), signal.SIGKILL)
+   except ProcessLookupError: pass
  if leader.poll() is None: leader.kill(); leader.wait()
 `);
     assert.equal(res.status, 0, res.stderr);
@@ -429,8 +475,8 @@ time.sleep(60)
       detachedPid = Number(readFileSync(pidFile, 'utf8'));
       assert.equal(pidAlive(detachedPid), false, 'detached child survived the timeout sweep');
     } finally {
-      if (detachedPid === null && existsSync(pidFile)) {
-        detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      if (detachedPid === null) {
+        detachedPid = readPidFile(pidFile);
       }
       if (detachedPid) {
         try { process.kill(detachedPid, 'SIGKILL'); } catch { /* already gone */ }
