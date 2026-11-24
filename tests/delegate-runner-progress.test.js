@@ -565,6 +565,43 @@ assert not list(d.RUNNING.glob('*.json')), 'slot survived'
     assert.ok(Date.now() - before < 60000, 'the executor was ended, not waited for');
   });
 
+  it('writes the record when a stop signal lands right after the executor starts', () => {
+    const res = pythonHarness(`
+import os, pathlib
+real_replace = d.os.replace
+pids = []
+def interrupted_replace(src, dst):
+    target = pathlib.Path(dst)
+    if target.parent == d.RUNNING and target.suffix == '.json':
+        d.os.replace = real_replace
+        pids.append(json.loads(pathlib.Path(src).read_text())['pid'])
+        raise SystemExit(143)
+    return real_replace(src, dst)
+d.os.replace = interrupted_replace
+try:
+    d.execute_run('EARLY-SIG', 'signal', 'implement', profile='flash',
+                  cwd=${JSON.stringify(repoDir)}, card=${JSON.stringify(cardPath)},
+                  out=${JSON.stringify(outDir)}, confirmed=True)
+except SystemExit as exc:
+    assert exc.code == 143, exc.code
+else:
+    raise AssertionError('the stop was swallowed')
+records = [json.loads(line) for line in d.LOG.read_text().splitlines()]
+assert len(records) == 1, records
+assert records[0]['failure'] == 'interrupted', records
+assert not list(d.RUNNING.glob('*.json')), 'slot survived'
+assert not list(d.RUNNING.glob('*.tmp')), 'slot temp survived'
+assert pids, 'the executor never started'
+try:
+    os.kill(pids[0], 0)
+except ProcessLookupError:
+    pass
+else:
+    raise AssertionError('the executor survived')
+`, [], { ...baseEnv, FAKE_SLEEP: '120' });
+    assert.equal(res.status, 0, res.stderr);
+  });
+
   it('pipeline passes the idle limit to its executor and stops at the stalled step', () => {
     const res = runDelegate(['pipeline', '--id', 'PIPE', '--task', 'stall', '--role', 'implement',
       '--cwd', repoDir, '--card', cardPath, '--route', 'flash', '--gate', 'true',
