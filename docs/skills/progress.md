@@ -40,4 +40,4 @@ Derive deterministic milestone and project percentages from a committed map, git
 
 **Tags:** `progress`, `portfolio`, `telemetry`, `core`
 
-**Version added:** `2.4.0`
+**Version added:** `2.3.1`
