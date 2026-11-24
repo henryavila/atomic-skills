@@ -9,208 +9,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.3.1] - 2026-11-24
 
+This release ships what was meant for 2.3.0 but missed its npm build.
+
 ### Added
 
-- **Progress without hand-marked tasks.** The new `progress` skill and its
-  `progress.py` collector derive project and milestone percentages from a
-  committed `.atomic-skills/marcos.json` map, merge subjects on the integration
-  ref, and the delegate runner's `status --json`. Integration comes from merge
-  commits, running work from the runner; only milestones, sizes, dependencies
-  and human validation live in the map. Only `collect` and `watch` write the
-  deterministic panel files, rewriting one only when its bytes changed;
-  `validate`, `add`, `remove`, `list` and `status` never write them.
-- **The progress collector cannot hang or be misled.** `match` is a literal
-  string or a list of literal substrings (case-insensitive, no token boundary),
-  and no map value is a regular expression: the collector derives its
-  unknown-id prefixes from the map's own card ids (`AB-12` teaches `AB-`,
-  `S3` teaches `S`) and scans with one case-sensitive whole-token pattern built
-  from those escaped prefixes, so `ABCD-1` never yields `BCD-1` and a map with
-  no prefix produces no `card_desconhecido` alert. A hyphenated card id matches
-  a merge subject as a whole token case-insensitively (`app-desktop/d-03`
-  marks `D-03`), while an id without a hyphen stays case-sensitive (`backup no
-  s3` never marks `S3`). Refs are validated before git sees them and resolved
-  once per cycle; a bad registry entry gives `registro_invalido` and
-  `add`/`remove` keep it with the same content, a failed `git log` or ref gives
-  `git_log_falhou` and keeps the last rows under the map id stored at `add` (or
-  the folder name for an older entry), a duplicate map id gives `id_duplicado`,
-  and an unexpected project error gives `erro_interno` without stopping the
-  others or leaving a partial project row. A card is blocked only by a dep that
-  is not integrated or validated, and `status` computes live without keeping
-  rows. Fetches are contained (`--` before the branch, no prompts, BatchMode SSH
-  when unconfigured, no gc or maintenance) and run in their own process group,
-  so `watch` stops within two seconds of SIGINT or SIGTERM during a fetch and
-  leaves no child behind; it keeps a failure in its alerts until that project's
-  fetch succeeds and drops it when the project or its `origin/` ref leaves the
-  registry.
-- **Progress maps accept zero-weight cards and panel rows carry titles.** An
-  explicit `weight` may be `0` (a non-negative integer, not a bool); a map whose
-  cards all weigh `0` is invalid. A zero-weight card still counts in `prontos`,
-  `bloqueados` and `rodando` and adds nothing to `feito` or `total`; a project
-  reaches 100% when every weighted card counts, so a zero-weight card can still
-  be pending. A milestone whose cards all weigh `0` reports `pct` 100 when every
-  card is ready-counted and `0` otherwise, with `resumo` `sem peso · <prontos>
-  de <cards> prontos`; a milestone with no cards reports `pct` 0 and `resumo`
-  `sem cartões`. Every `marcos.json` row gains `titulo` (the milestone
-  title) and `legenda` (`<n> de <cards> prontos`, then the blocked count with
-  the singular `bloqueado`, then the running count); a row kept after a failure
-  keeps its old fields, with a missing `titulo` filled from `marco` and a
-  missing `legenda` filled with an empty string.
-- **A renamed map id is visible and recoverable.** The collector stays read-only
-  on the registry: when the map loads with an id different from the entry's
-  stored id it raises `id_mapa_mudou` and tells you to run `add <shell-quoted
-  path> --ref <stored ref>` again. Running `add` on an already registered path
-  updates its ref and stored id, and the duplicate-id check ignores that entry
-  and compares each other entry's stored id, or the id its live map loads when
-  the entry has no stored id. The stored id changes only through `add`.
-- **The macOS panel service installs and removes reversibly.** `progress.py
-  panel install --aideck <cli.js> [--port 7777]` writes the panel consumer
-  manifest, its `data/` directory, two `launchd` plists, the state
-  `~/.atomic-skills/progress/panel.json` and `logs/`, then bootstraps both
-  labels; the plists keep the panel on `127.0.0.1` and carry only `PATH` (plus
-  `ATOMIC_SKILLS_HOME`) so no secret is copied. `--aideck` must be a built
-  aiDeck: the service passes `--static-dir=<directory of cli.js>/client` so the
-  panel serves its page as well as its API, and install exits 1 before changing
-  anything when `client/index.html` is missing beside `cli.js`. The manifest
-  follows the maps'
-  live titles, units and ids, and its quoted values escape DEL, C1 controls,
-  U+2028/9 and lone surrogates so YAML cannot misread them. `panel uninstall`
-  validates the recorded paths first and refuses a symlink at the manifest, a
-  plist, the consumer, `data/`, `progress/`, `progress/logs/` or an output file,
-  while the shared roots `~/.aideck`, `~/.aideck/consumers`,
-  `~/.atomic-skills` and `~/Library/LaunchAgents` may themselves be symlinks;
-  it then boots the labels out, deletes the two plists' named log files, removes
-  only recorded files whose hash still matches, removes the four panel output
-  files only when it created `data/`, and reports any directory it cannot
-  remove. It never removes or records the shared roots, including `~/Library`.
-  An identical reinstall checks each label and bootstraps only one that is
-  down; new arguments reload both. Before stopping anything, install reads the
-  files and state it would restore, so an unreadable one exits 1 with the old
-  service still running. A failed reinstall restores the old files and state
-  and bootstraps again the labels that were loaded before it, naming any label
-  still down with the command to load it; if booting out a label this run
-  bootstrapped fails, the rollback stops instead, leaves the files on disk,
-  writes a state that matches them, names each label still loaded with its
-  `launchctl bootout gui/<uid>/<label>` command, points to `panel uninstall` to
-  finish the job and exits 1. `launchctl print` counts as not loaded only on
-  exit 113 or `Could not find service`; any other failure keeps the state. A
-  manifest or plist that is not recorded by the state, a symlink at the
-  manifest, a plist, the consumer, `data/`, `progress/`, `progress/logs/` or an
-  output file, a pre-existing output file on a first install, a label already
-  loaded on a first install, a missing `--aideck` file, an `--aideck` without
-  `client/index.html`, a missing `node` or an
-  invalid port is refused without changes; outside macOS the commands exit 2
-  unless `PROGRESS_LAUNCHCTL` is set. `add` and `remove` regenerate the manifest
-  only while it still matches its recorded hash and warn about an invalid state
-  instead of failing.
-- **Delegate says which machine runs each executor.** Every `run` and
-  `pipeline` record gains `machine`: the `--host` name, or the short hostname
-  of the local machine. A `--host` run is now listed while it works, in one file
-  under `~/.atomic-skills/delegate/running-remote/` that takes no local slot,
-  and `status` shows the machine of every active run. `status --json` prints the
-  active runs, local and remote, for a panel or a script.
-- **Delegate says which repository and milestone each run belongs to.** Every
-  `run` and `pipeline` record gains `repo`: `owner/name` from the origin remote
-  (never the host or credentials), or the folder name of the main repository
-  when there is no usable origin, the same from every linked worktree; `null`
-  outside git. `run` and `pipeline` take an optional `--milestone <id>`,
-  recorded as `milestone` on the run, pipeline, retry and review records and
-  kept through `review-pending`. Slots, remote active files and each entry of
-  `status --json` carry both fields.
-- **New skill `quality-gate`.** It audits what a repository really enforces
-  (nine dimensions per stack, each tool classified as blocking, warning or
-  idle), installs one gate script called by every hook and by CI, and closes
-  with a re-audit by auditors that saw none of the work. The skill sets the
-  objectives and the layers; the agent picks the tools for each stack.
-- **A debt ratchet ships with it.** `ratchet.py` (Python standard library) is
-  copied into the repository and records debt per item, keyed by path and
-  symbol. It fails on a new item, a worse item, a raised ceiling or a debt
-  file that grew against the base branch, and carries debt across code moves.
+- **New `progress` skill.** Shows how far each project is, by milestone and in
+  percent, from what was merged and what the delegate runner is working on. On
+  macOS it can also keep a local web panel up to date (via aiDeck).
+- **New `quality-gate` skill.** Audits what a repository really enforces,
+  installs one gate for hooks and CI, and adds a debt ratchet that blocks new
+  debt without asking you to clean up the old first.
+- **Delegate shows where each run happens.** `status` lists the machine,
+  repository and milestone of every active run, including runs on another host.
+  `status --json` gives the same to scripts.
 - **Delegate uses all three Antigravity quotas.** New profiles run on the Argon
-  quota (`agy-argon`, `agy-argon-review`) and on the Claude and GPT quota
-  (`agy-sonnet-review`, and `agy-opus-review` for small items). Sonnet and Argon
-  join the default review routes ahead of the Gemini reviewer, and Argon becomes
-  a fallback executor. Claude models there only review, and never review code a
-  Claude model wrote.
-- **`route` shows the real Antigravity quota.** It reads `agy -p /quota`, which
-  spends no model quota, and prints what remains in each group and when an
-  exhausted group returns.
-- **`watch` catches a change made during a collection.** It takes its
-  signature before collecting, so a registry, telemetry-log, running-directory
-  or ref change made while a collection runs triggers one more collection
-  instead of waiting for the 60-second pass. The registry file is part of the
-  signature, so even an edit that only touches an invalid entry is noticed, and
-  a signature that cannot be computed keeps the previous one without stopping
-  the loop. A failed panel rollback prints both the original install error and
-  the bootout error, and also names each label that was loaded before the run
-  and is now down with the command to load it.
-- **A fetch stop does not over-signal or leak a permission error.** The
-  collector skips the final `SIGKILL` when its wait already saw the process
-  group gone, and catches `OSError` around every `killpg`, so a stop cannot fail
-  with `PermissionError`. It also leaves `GIT_SSH` and a configured
-  `core.sshCommand` alone, like `GIT_SSH_COMMAND`, instead of overriding them
-  with `ssh -o BatchMode=yes`.
+  and Claude/GPT quotas, and `route` shows what is left in each.
 
 ### Fixed
 
-- **A stop signal right after the executor starts keeps the run record.** The
-  runner used to end the executor without appending a record when the signal
-  landed before its first progress read.
-- **Delegate works with git older than 2.31.** The runner no longer reads an
-  echoed `--path-format=absolute` as part of the git directory path.
-- **An Antigravity limit now applies to its whole quota group.** The runner
-  treated each model as having its own limit, so it could send work to another
-  model of a group that had already run out.
-- **A long Antigravity review is no longer stopped as idle.** Antigravity prints
-  only when a turn ends, so a working review looked stuck after 20 minutes. The
-  runner now also watches the log of that run for progress.
-- **Codex resets with a full date are read correctly.** A message such as
-  `try again at Nov 25th, 2026 7:44 AM` used to fall back to a 60-minute
-  cooldown, so Codex returned to the routes days too early.
+- Delegate works with git older than 2.31.
+- An Antigravity limit now covers every model in the same quota group.
+- Long Antigravity reviews are no longer stopped as idle.
+- Codex reset times that include a date are read correctly.
+- A stop signal right after an executor starts no longer loses the run record.
 
 ## [2.3.0] - 2026-11-23
 
 ### Added
 
-- **Delegate shows who can work before a batch.** `route --role <role>` prints
-  the executor and review routes with the profiles that can run now first, each
-  provider limit still in force and when it ends, and a warning when the work
-  would have no usable reviewer.
-- **A review with no quota can be finished later.** A pipeline whose reviewers
-  are all out of quota or slots now ends `review_pending` instead of
-  `no_reviewer`. `review-pending` lists those pipelines and, with `--id`, runs
-  the same review over the range that already passed the gate.
-- **Claude can be the fallback reviewer when the operator allows it.**
-  `claude-review` runs only with a yes for that task, on the local Claude Code
-  login and never through an API. It checks the login first and says where and
-  how to sign in, and an exhausted balance counts as a provider limit.
+- **`route` shows who can work now.** Before a batch, it lists the available
+  executors and reviewers, the ones under a provider limit, and when they come
+  back.
+- **Reviews can wait for quota.** When every reviewer is out of quota, the
+  pipeline ends as `review_pending`, and `review-pending` runs the review later.
+- **Claude as a last-resort reviewer.** Only with your yes for that task, and
+  only on your local Claude Code login.
 
 ### Changed
 
-- **Pipelines try profiles under a provider limit last.** Both routes are
-  reordered by availability before the first attempt. Nothing is dropped, and
-  the summary and the record name what was moved.
+- **Pipelines try executors under a provider limit last.**
 
 ### Fixed
 
-- **An OpenCode run no longer stops on a Web Search prompt.** A headless run
-  could not answer it and exited with the work already committed, so the default
-  policy now denies web search. A pipeline whose executor errors after leaving
-  new commits and a clean tree now goes on to the gate and the review.
-- **Antigravity runs no longer end with empty output when the global git config
-  includes another file.** Antigravity's terminal sandbox cannot read a file
-  that `~/.gitconfig` includes, so every git command failed, the model asked to
-  leave the sandbox, and print mode denied that and printed nothing
-  (`empty_output`). A local Antigravity run now gives git a copy of the global
-  config with the includes resolved, for that run only.
-- **A run whose runner was killed is no longer silent.** `status` marks it
-  `runner gone` and tells how to stop the executor, and the log gets a
-  `runner_lost` record when its slot is cleared.
-- **The peak window now ends on the exact minute.** A run started at 04:00 or
-  10:00 UTC (01:00 or 07:00 GMT-3) on a weekday was warned and logged as peak
-  although the base price had already returned.
-- **The peak schedule is now named after OpenCode Go.** The skill and the
-  runner's warning called it DeepSeek's, but it is OpenCode Go's own schedule.
-  The skill now also gives the hours in GMT-3.
+- OpenCode runs no longer stop on a web search prompt, and a run that fails
+  after committing its work still goes to review.
+- Antigravity runs no longer fail when your git config includes another file.
+- `status` now shows runs whose runner was killed.
+- OpenCode Go peak hours end on the exact minute and are shown in GMT-3 too.
 
 ## [2.2.0] - 2026-11-20
 
