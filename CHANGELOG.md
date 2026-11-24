@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-23
+
 ### Added
 
 - **Progress without hand-marked tasks.** The new `progress` skill and its
@@ -147,25 +149,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `PermissionError`. It also leaves `GIT_SSH` and a configured
   `core.sshCommand` alone, like `GIT_SSH_COMMAND`, instead of overriding them
   with `ssh -o BatchMode=yes`.
-
-### Fixed
-
-- **Delegate works with git older than 2.31.** The runner no longer reads an
-  echoed `--path-format=absolute` as part of the git directory path.
-- **An Antigravity limit now applies to its whole quota group.** The runner
-  treated each model as having its own limit, so it could send work to another
-  model of a group that had already run out.
-- **A long Antigravity review is no longer stopped as idle.** Antigravity prints
-  only when a turn ends, so a working review looked stuck after 20 minutes. The
-  runner now also watches the log of that run for progress.
-- **Codex resets with a full date are read correctly.** A message such as
-  `try again at Nov 25th, 2026 7:44 AM` used to fall back to a 60-minute
-  cooldown, so Codex returned to the routes days too early.
-
-## [2.3.0] - 2026-11-23
-
-### Added
-
 - **Delegate shows who can work before a batch.** `route --role <role>` prints
   the executor and review routes with the profiles that can run now first, each
   provider limit still in force and when it ends, and a warning when the work
@@ -187,8 +170,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **The OpenCode Go peak window fix from 2.2.1 is included** for anyone upgrading
-  directly from 2.2.0.
+- **Delegate works with git older than 2.31.** The runner no longer reads an
+  echoed `--path-format=absolute` as part of the git directory path.
+- **An Antigravity limit now applies to its whole quota group.** The runner
+  treated each model as having its own limit, so it could send work to another
+  model of a group that had already run out.
+- **A long Antigravity review is no longer stopped as idle.** Antigravity prints
+  only when a turn ends, so a working review looked stuck after 20 minutes. The
+  runner now also watches the log of that run for progress.
+- **Codex resets with a full date are read correctly.** A message such as
+  `try again at Nov 25th, 2026 7:44 AM` used to fall back to a 60-minute
+  cooldown, so Codex returned to the routes days too early.
+- **A stop signal right after the executor starts keeps the run record.** The
+  runner used to end the executor without appending a record when the signal
+  landed before its first progress read.
 - **An OpenCode run no longer stops on a Web Search prompt.** A headless run
   could not answer it and exited with the work already committed, so the default
   policy now denies web search. A pipeline whose executor errors after leaving
@@ -202,11 +197,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A run whose runner was killed is no longer silent.** `status` marks it
   `runner gone` and tells how to stop the executor, and the log gets a
   `runner_lost` record when its slot is cleared.
-
-## [2.2.1] - 2026-11-23
-
-### Fixed
-
 - **The peak window now ends on the exact minute.** A run started at 04:00 or
   10:00 UTC (01:00 or 07:00 GMT-3) on a weekday was warned and logged as peak
   although the base price had already returned.

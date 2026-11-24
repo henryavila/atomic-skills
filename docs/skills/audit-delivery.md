@@ -58,4 +58,4 @@ Prove product intent was delivered end-to-end across code and ops surfaces, with
 
 **Tags:** `review`, `quality`, `delivery`, `adversarial`, `core`
 
-**Version added:** `2.4.0`
+**Version added:** `2.0.0`
