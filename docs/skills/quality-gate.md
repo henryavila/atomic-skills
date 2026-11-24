@@ -42,4 +42,4 @@ Give a repository a quality regime that agents cannot talk their way around: eve
 
 **Tags:** `quality`, `enforcement`, `ci`, `core`
 
-**Version added:** `2.3.0`
+**Version added:** `2.3.1`

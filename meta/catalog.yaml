@@ -961,7 +961,7 @@ core:
     network_required: true
     one_liner: 'Derive project percentages from a committed map, merges and delegate runs'
     emoji: '📊'
-    version_added: '2.3.0'
+    version_added: '2.3.1'
     argument_hint: '[project or milestone]'
     args:
       - name: scope
@@ -999,7 +999,7 @@ core:
     mutates_repo: true
     one_liner: 'One gate, debt that only goes down, strong confirmed from outside'
     emoji: '🚧'
-    version_added: '2.3.0'
+    version_added: '2.3.1'
     argument_hint: '[audit|install|reaudit]'
     args:
       - name: mode
