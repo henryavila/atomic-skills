@@ -3,7 +3,6 @@ import { strict as assert } from 'node:assert';
 import { spawnSync, execFileSync, spawn } from 'node:child_process';
 import {
   chmodSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -295,15 +294,13 @@ leader = subprocess.Popen([sys.executable, "-c", leader_code], start_new_session
 tracker = d.ProcessTracker()
 try:
  deadline = time.time() + 20
- while not pid_file.exists() and time.time() < deadline: time.sleep(.01)
- assert pid_file.exists()
- deadline = time.time() + 20
  while True:
   text = pid_file.read_text().strip() if pid_file.exists() else ""
   if text.isdigit():
    break
   assert time.time() < deadline, "the pid file stayed unreadable"
   time.sleep(.01)
+ assert text.isdigit(), text
  tracker.watch(leader.pid)
  child_pid = int(text)
  deadline = time.time() + 20
@@ -355,15 +352,13 @@ leader = subprocess.Popen([sys.executable, "-c", leader_code], start_new_session
 tracker = d.ProcessTracker(interval=60)
 try:
  deadline = time.time() + 20
- while not pid_file.exists() and time.time() < deadline: time.sleep(.01)
- assert pid_file.exists()
- deadline = time.time() + 20
  while True:
   text = pid_file.read_text().strip() if pid_file.exists() else ""
   if text.isdigit():
    break
   assert time.time() < deadline, "the pid file stayed unreadable"
   time.sleep(.01)
+ assert text.isdigit(), text
  child_pid = int(text)
  tracker.watch(leader.pid)
  assert tracker.polls == 1, tracker.polls
@@ -403,15 +398,13 @@ leader = subprocess.Popen([sys.executable, "-c", leader_code], start_new_session
 tracker = d.ProcessTracker()
 try:
  deadline = time.time() + 20
- while not pid_file.exists() and time.time() < deadline: time.sleep(.01)
- assert pid_file.exists()
- deadline = time.time() + 20
  while True:
   text = pid_file.read_text().strip() if pid_file.exists() else ""
   if text.isdigit():
    break
   assert time.time() < deadline, "the pid file stayed unreadable"
   time.sleep(.01)
+ assert text.isdigit(), text
  child_pid = int(text)
  tracker.watch(leader.pid)
  deadline = time.time() + 20
@@ -472,7 +465,8 @@ time.sleep(60)
       assert.equal(rec.orphans.found, 1, JSON.stringify(rec.orphans));
       assert.equal(rec.orphans.killed, 1, JSON.stringify(rec.orphans));
       assert.equal(rec.orphans.tracked, true, JSON.stringify(rec.orphans));
-      detachedPid = Number(readFileSync(pidFile, 'utf8'));
+      detachedPid = readPidFile(pidFile);
+      assert.notEqual(detachedPid, null);
       assert.equal(pidAlive(detachedPid), false, 'detached child survived the timeout sweep');
     } finally {
       if (detachedPid === null) {

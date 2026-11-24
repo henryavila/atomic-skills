@@ -25,28 +25,41 @@ describe('quietTestStdout', () => {
     const source = `
 import { quietTestStdout } from ${JSON.stringify(HELPER)};
 const received = [];
+let callbacks = 0;
+let secondArgCallback = false;
+let bufferCallback = false;
+let bufferCallbackIntact = false;
+const bufCallback = () => { callbacks += 1; bufferCallback = true; };
 const saved = process.stdout.write.bind(process.stdout);
 process.stdout.write = (chunk, encoding, callback) => {
   received.push(Buffer.isBuffer(chunk) ? 'buffer' : typeof chunk);
+  if (Buffer.isBuffer(chunk)) bufferCallbackIntact = encoding === bufCallback;
   if (typeof encoding === 'function') encoding();
   else if (typeof callback === 'function') callback();
   return true;
 };
 quietTestStdout();
 const afterFirst = process.stdout.write;
-let callbacks = 0;
 const stringResult = process.stdout.write('printed by the code under test\\n', () => { callbacks += 1; });
-const bufferResult = process.stdout.write(Buffer.from([0x41, 0x42]));
+const secondArgResult = process.stdout.write('printed with a second-argument callback\\n', () => { callbacks += 1; secondArgCallback = true; });
+const bufferResult = process.stdout.write(Buffer.from([0x41, 0x42]), bufCallback);
 quietTestStdout();
 const wrappedOnce = process.stdout.write === afterFirst;
-saved(JSON.stringify({ received, callbacks, stringResult, bufferResult, wrappedOnce }) + '\\n');
+await new Promise((resolve) => setTimeout(resolve, 20));
+if (!secondArgCallback) throw new Error('a second-argument callback did not run');
+if (!bufferCallbackIntact || !bufferCallback) throw new Error('the buffer callback was not passed through intact');
+saved(JSON.stringify({ received, callbacks, secondArgCallback, bufferCallback, bufferCallbackIntact, stringResult, secondArgResult, bufferResult, wrappedOnce }) + '\\n');
 `;
     const res = runChild(source, envFor('child-v8'));
     assert.equal(res.status, 0, res.stderr);
     assert.deepEqual(JSON.parse(res.stdout), {
       received: ['buffer'],
-      callbacks: 1,
+      callbacks: 3,
+      secondArgCallback: true,
+      bufferCallback: true,
+      bufferCallbackIntact: true,
       stringResult: true,
+      secondArgResult: true,
       bufferResult: true,
       wrappedOnce: true,
     });

@@ -12,7 +12,7 @@ export function quietTestStdout() {
   process.stdout.write = function write(chunk, encoding, callback) {
     if (typeof chunk === 'string') {
       if (typeof encoding === 'function') callback = encoding;
-      if (typeof callback === 'function') callback();
+      if (typeof callback === 'function') process.nextTick(callback);
       return true;
     }
     return original.call(process.stdout, chunk, encoding, callback);
