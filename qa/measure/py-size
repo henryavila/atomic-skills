@@ -77,7 +77,7 @@ def read_ceilings(root):
                 continue
             fields = line.split("\t")
             metric = fields[0]
-            if metric in METRICS + ["file-lines"]:
+            if metric in METRICS:
                 try:
                     ceilings[metric] = int(fields[1])
                 except (IndexError, ValueError):
