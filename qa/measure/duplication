@@ -1,0 +1,178 @@
+#!/usr/bin/env node
+/**
+ * Duplicated lines, stacks `js` and `py`, metric `duplication`.
+ *
+ * Contract (see the comment block at the top of scripts/qa.sh):
+ *   --describe  prints mode/changed/covers lines; exit 0
+ *   (nothing)   measures production code only
+ *   stdout      one line per item above its ceiling, nothing else
+ *   exit 0      measured (even with items); 3 tool not installed
+ *
+ * jscpd writes a JSON report to a temporary folder outside the repository.
+ * Its per-source `duplicatedLines` is the value: a file that takes part in a
+ * clone is one item, keyed by the file, never by the clone location.
+ */
+
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import {
+  existsSync, mkdtempSync, readFileSync, rmSync, statSync,
+} from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
+
+const METRIC = 'duplication';
+const RUNS = [
+  { stack: 'js', format: 'javascript', roots: ['src', 'scripts', 'bin'] },
+  { stack: 'py', format: 'python', roots: ['skills/shared'] },
+];
+
+const DESCRIBE = [
+  'mode\tfast',
+  'changed\tno',
+  ...RUNS.map((run) => `covers\t${run.stack}\t${METRIC}`),
+].join('\n');
+
+function fail(message) {
+  process.stderr.write(`duplication: ${message}\n`);
+  process.exit(1);
+}
+
+function toolMissing(message) {
+  process.stderr.write(`duplication: ${message}\n`);
+  process.exit(3);
+}
+
+function repositoryRoot() {
+  if (process.env.QA_ROOT) return resolve(process.env.QA_ROOT);
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch {
+    fail('not inside a git repository and QA_ROOT is not set');
+  }
+}
+
+function readCeiling(root) {
+  const path = join(root, 'qa', 'ceilings.tsv');
+  let body;
+  try {
+    body = readFileSync(path, 'utf8');
+  } catch {
+    fail(`cannot read ${path}`);
+  }
+  for (const [number, line] of body.split(/\r?\n/).entries()) {
+    if (!line.trim() || line.startsWith('#') || number === 0) continue;
+    const [metric, ceiling] = line.split('\t');
+    if (metric !== METRIC) continue;
+    const value = Number(ceiling);
+    if (!Number.isFinite(value)) fail(`${path}:${number + 1}: not a number: ${ceiling}`);
+    return value;
+  }
+  return fail(`${path}: no ceiling for ${METRIC}`);
+}
+
+function relativeKey(root, file) {
+  const absolute = isAbsolute(file) ? file : resolve(root, file);
+  return relative(root, absolute).split(sep).join('/');
+}
+
+function loadJscpd() {
+  try {
+    const require = createRequire(import.meta.url);
+    const main = require.resolve('jscpd');
+    const bin = resolve(dirname(main), '..', 'bin', 'jscpd');
+    statSync(bin);
+    return bin;
+  } catch (error) {
+    return toolMissing(`jscpd is not installed: ${error.message}`);
+  }
+}
+
+function existingDirectories(root, names) {
+  return names.filter((name) => {
+    try {
+      return statSync(join(root, name)).isDirectory();
+    } catch {
+      return false;
+    }
+  });
+}
+
+function runReport(root, jscpd, run, output) {
+  const paths = existingDirectories(root, run.roots);
+  if (paths.length === 0) return null;
+  const result = spawnSync(
+    process.execPath,
+    [
+      jscpd,
+      '--min-lines', '8',
+      '--min-tokens', '70',
+      '--reporters', 'json',
+      '--output', output,
+      '--format', run.format,
+      '--silent',
+      ...paths,
+    ],
+    { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+  );
+  if (result.error) fail(`cannot run jscpd: ${result.error.message}`);
+  if (result.status !== 0) {
+    fail(`jscpd exited ${result.status}: ${result.stderr.trim() || result.stdout.trim()}`);
+  }
+  const report = join(output, 'jscpd-report.json');
+  if (!existsSync(report)) return null;
+  try {
+    return JSON.parse(readFileSync(report, 'utf8'));
+  } catch (error) {
+    fail(`cannot read the jscpd report: ${error.message}`);
+  }
+}
+
+function inRoots(key, roots) {
+  return roots.some((root) => key.startsWith(`${root}/`));
+}
+
+function measure(root) {
+  const ceiling = readCeiling(root);
+  const jscpd = loadJscpd();
+  const temporary = mkdtempSync(join(tmpdir(), 'qa-duplication-'));
+  const items = [];
+  try {
+    for (const run of RUNS) {
+      const output = join(temporary, run.stack);
+      const report = runReport(root, jscpd, run, output);
+      if (!report) continue;
+      const sources = report.statistics
+        && report.statistics.formats
+        && report.statistics.formats[run.format]
+        && report.statistics.formats[run.format].sources;
+      if (!sources) continue;
+
+      for (const [file, stat] of Object.entries(sources)) {
+        if (!stat || !(stat.clones > 0) || !(stat.duplicatedLines > 0)) continue;
+        const key = relativeKey(root, file);
+        if (!inRoots(key, run.roots)) continue;
+        const value = stat.duplicatedLines;
+        if (value > ceiling) items.push([run.stack, METRIC, `${key}::*`, value]);
+      }
+    }
+    return items;
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+function print(items) {
+  const lines = items.map((item) => item.join('\t')).sort();
+  if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === '--describe') {
+  process.stdout.write(`${DESCRIBE}\n`);
+} else if (args.length > 0) {
+  process.stderr.write('usage: duplication [--describe]\n');
+  process.exit(1);
+} else {
+  print(measure(repositoryRoot()));
+}
