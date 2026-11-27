@@ -10,6 +10,21 @@ function runGit(cwd, args) {
   }).trim();
 }
 
+/**
+ * Realpath where a missing path returns null (the expected failure), and every
+ * other I/O failure surfaces instead of silently skipping a directory guard.
+ * @param {string} path
+ * @returns {string | null}
+ */
+function realpathOrNull(path) {
+  try {
+    return realpathSync(path);
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+    return null;
+  }
+}
+
 export function resolveProjectScopeTarget(projectDir) {
   let cwd;
   try {
@@ -40,7 +55,10 @@ export function resolveProjectScopeTarget(projectDir) {
   let isBare = 'false';
   try {
     isBare = runGit(cwd, ['rev-parse', '--is-bare-repository']);
-  } catch {}
+  } catch {
+    // Best-effort probe: --is-inside-work-tree already succeeded, so an
+    // unreadable bare flag safely means "not bare" for this guard.
+  }
 
   if (isBare === 'true') {
     return { ok: false, reason: 'Project scope is not supported in a bare Git repository.' };
@@ -58,10 +76,7 @@ export function resolveProjectScopeTarget(projectDir) {
     return { ok: false, reason: 'Refusing to install project scope at the filesystem root.' };
   }
 
-  let homeRoot = null;
-  try {
-    homeRoot = realpathSync(homedir());
-  } catch {}
+  const homeRoot = realpathOrNull(homedir());
 
   if (homeRoot && (root === homeRoot || (process.platform === 'win32' && root.toLowerCase() === homeRoot.toLowerCase()))) {
     return { ok: false, reason: 'Refusing to install project scope at your home directory.' };

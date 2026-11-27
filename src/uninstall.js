@@ -323,7 +323,7 @@ export async function uninstall(projectDir, options = {}) {
   const stateDir = join(basePath, MANIFEST_DIR);
   try {
     if (existsSync(stateDir) && readdirSync(stateDir).length === 0) rmdirSync(stateDir);
-  } catch {}
+  } catch { /* Best-effort prune after the journal was already removed. */ }
 
   console.log(`  ✓ ${msg.filesRemoved(removed)}`);
   console.log(`  ✓ ${msg.manifestRemoved}`);

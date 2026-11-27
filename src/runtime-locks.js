@@ -20,6 +20,19 @@ import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
+/**
+ * Remove a runtime-state file, tolerating only ENOENT (a concurrent remover).
+ * Any other failure means stale state is still on disk and must surface.
+ * @param {string} filePath
+ */
+export function unlinkIfExists(filePath) {
+  try {
+    unlinkSync(filePath);
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+}
+
 function resourceIdentity(kind, canonicalTarget) {
   return `v1\0${kind}\0${canonicalTarget}`;
 }
