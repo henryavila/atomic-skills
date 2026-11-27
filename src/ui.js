@@ -178,16 +178,13 @@ export function printConfig(config, conflictCount = 0) {
 }
 
 /**
- * Per-IDE summary + "Next steps" on first install.
- * @param {object} result          - { files: [{path, hash, source}] }
- * @param {string[]} ides          - installed IDE IDs
- * @param {string} lang
- * @param {boolean} isFirstInstall
+ * Counts installed skills and assets per IDE from the reconciliation result.
+ * @param {object} result - { files: [{path, hash, source}] }
+ * @param {string[]} ides - installed IDE IDs
+ * @returns {Object<string, {skills: number, assets: number}>}
  */
-export function showPostInstall(result, ides, lang, isFirstInstall) {
-  const m = msg(lang);
-
-  // Count skills (not files) per IDE
+function countFilesByIDE(result, ides) {
+  /** @type {Record<string, {skills: number, assets: number}>} */
   const byIDE = {};
   for (const id of ides) {
     byIDE[id] = { skills: 0, assets: 0 };
@@ -202,6 +199,21 @@ export function showPostInstall(result, ides, lang, isFirstInstall) {
       }
     }
   }
+  return byIDE;
+}
+
+/**
+ * Per-IDE summary + "Next steps" on first install.
+ * @param {object} result          - { files: [{path, hash, source}] }
+ * @param {string[]} ides          - installed IDE IDs
+ * @param {string} lang
+ * @param {boolean} isFirstInstall
+ */
+export function showPostInstall(result, ides, lang, isFirstInstall) {
+  const m = msg(lang);
+
+  // Count skills (not files) per IDE
+  const byIDE = countFilesByIDE(result, ides);
 
   for (const id of ides) {
     const cfg = IDE_CONFIG[id];
@@ -240,20 +252,7 @@ export function showPostInstall(result, ides, lang, isFirstInstall) {
 export function showNonInteractiveResult(result, ides, lang) {
   const m = msg(lang);
 
-  const byIDE = {};
-  for (const id of ides) {
-    byIDE[id] = { skills: 0, assets: 0 };
-  }
-  for (const f of result.files) {
-    const isSkill = f.source.startsWith('core/');
-    for (const id of ides) {
-      const cfg = IDE_CONFIG[id];
-      if (cfg && f.path.startsWith(cfg.dir + '/')) {
-        if (isSkill) byIDE[id].skills++;
-        else byIDE[id].assets++;
-      }
-    }
-  }
+  const byIDE = countFilesByIDE(result, ides);
 
   for (const id of ides) {
     const cfg = IDE_CONFIG[id];
