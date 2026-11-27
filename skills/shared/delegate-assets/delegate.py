@@ -113,10 +113,10 @@ EXECUTOR_FLAGS = {
 MAX_REVIEW_INPUT_BYTES = 600 * 1024
 # Remote runs use the separate `remote-runner` CLI (PATH or DELEGATE_REMOTE_RUNNER).
 # The per-task checkout lives under the remote user's home by default. Policy paths
-# are built against a placeholder that the shipped shell wrapper expands from $HOME.
+# are placeholders the shipped wrapper expands; the root is never opened directly.
 REMOTE_BASE_DEFAULT = "~/.atomic-skills/delegate/remote"
-REMOTE_POLICY_ROOT = "/tmp/__DELEGATE_REMOTE_BASE__"
-REMOTE_TOKEN = "__DELEGATE_REMOTE_BASE__"
+REMOTE_POLICY_ROOT = "/__DELEGATE_REMOTE_BASE__"
+REMOTE_BASE_PLACEHOLDER = "__DELEGATE_REMOTE_BASE__"
 REMOTE_RESULT_PREFIX = ".delegate-remote-"
 # Linux rejects any single argv element above MAX_ARG_STRLEN (131072 bytes).
 # OpenCode takes the prompt as an argv element (`opencode run --help`:
@@ -362,7 +362,7 @@ def repo_identity(cwd):
         else:  # a bare repository, or the git directory of a submodule
             name = common_path.name[:-4] if common_path.name.endswith(".git") else common_path.name
         return name or None
-    except Exception:
+    except (OSError, RuntimeError):
         return None
 
 
@@ -851,7 +851,7 @@ def claude_login_help(reason):
     machine = socket.gethostname().split(".")[0]
     try:
         user = getpass.getuser()
-    except Exception:
+    except (OSError, KeyError):
         user = "the user who runs the runner"
     return "\n".join([
         f"{CLAUDE_REVIEW} cannot run: {reason}.",
@@ -1132,11 +1132,11 @@ def _clean_stale_slots():
                 p.unlink(missing_ok=True)
                 if runner_gone(data):
                     record_lost_runner(p, data)
-        except Exception:
+        except (OSError, ValueError, TypeError, AttributeError):
             p.unlink(missing_ok=True)
     try:
         _clean_stale_remote()
-    except Exception:
+    except OSError:
         pass  # the remote list is for display; it never blocks a local slot
 
 
@@ -1273,7 +1273,7 @@ def _get_active_slots(executor=None):
             ex = p.name.split("-")[0]
             if executor is None or ex == executor:
                 active.append((p, data))
-        except Exception:
+        except (OSError, ValueError):
             continue
     return active
 
@@ -1556,7 +1556,7 @@ class ProcessTracker:
             if libc.prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) == 0:
                 self._subreaper = True
                 self.method = "subreaper+poll"
-        except Exception:
+        except (ImportError, OSError, AttributeError):
             # No prctl in this libc or sandbox: polling is still safe.
             return
 
@@ -1569,7 +1569,7 @@ class ProcessTracker:
             libc = ctypes.CDLL(None, use_errno=True)
             previous = 0 if self._previous_subreaper is None else self._previous_subreaper
             libc.prctl(PR_SET_CHILD_SUBREAPER, previous, 0, 0, 0)
-        except Exception:
+        except (ImportError, OSError, AttributeError):
             return
 
     @staticmethod
@@ -1915,7 +1915,7 @@ def parse_reset(text, limit_time):
         try:
             from zoneinfo import ZoneInfo
             zone = ZoneInfo(found.group(4))
-        except Exception:
+        except (ImportError, KeyError, OSError, ValueError, TypeError):
             return None
     else:
         for found in RESET_AT_RE.finditer(text):
@@ -2223,7 +2223,7 @@ class SlotLock:
         try:
             fcntl.flock(self.f, fcntl.LOCK_UN)
             self.f.close()
-        except Exception:
+        except (OSError, ValueError):
             pass
 
 
@@ -2447,10 +2447,10 @@ def remote_ready(checks, host, executor):
 
 def remoteify(value):
     if isinstance(value, str):
-        # Path.resolve() on macOS turns /tmp into /private/tmp; replace either.
+        # The resolved form guards a root reached through a symlink.
         resolved = str(Path(REMOTE_POLICY_ROOT).resolve())
-        return value.replace(resolved, REMOTE_TOKEN).replace(
-            REMOTE_POLICY_ROOT, REMOTE_TOKEN)
+        return value.replace(resolved, REMOTE_BASE_PLACEHOLDER).replace(
+            REMOTE_POLICY_ROOT, REMOTE_BASE_PLACEHOLDER)
     if isinstance(value, list):
         return [remoteify(item) for item in value]
     if isinstance(value, dict):
@@ -2473,7 +2473,7 @@ def remote_access_policy(executor, role, strict=False):
 def resolve_remote_access(access, remote_base):
     if not remote_base:
         return remoteify(access)
-    text = json.dumps(access, ensure_ascii=False).replace(REMOTE_TOKEN, remote_base)
+    text = json.dumps(access, ensure_ascii=False).replace(REMOTE_BASE_PLACEHOLDER, remote_base)
     return json.loads(text)
 
 
@@ -2502,7 +2502,7 @@ def remote_delegate_ref(task_id):
 
 def _shell_remote_var(name, value):
     return (f"{name}={shlex.quote(value)}\n"
-            f"{name}=\"${{{name}//{REMOTE_TOKEN}/$R}}\"\n")
+            f"{name}=\"${{{name}//{REMOTE_BASE_PLACEHOLDER}/$R}}\"\n")
 
 
 def remote_exec_script(executor, model, role, policy):
@@ -2516,10 +2516,10 @@ def remote_exec_script(executor, model, role, policy):
     variables = []
 
     def shell_arg(value):
-        if REMOTE_TOKEN not in value:
+        if REMOTE_BASE_PLACEHOLDER not in value:
             return shlex.quote(value)
-        if value.startswith(REMOTE_TOKEN):
-            suffix = value[len(REMOTE_TOKEN):]
+        if value.startswith(REMOTE_BASE_PLACEHOLDER):
+            suffix = value[len(REMOTE_BASE_PLACEHOLDER):]
             return '"$R' + suffix + '"'
         name = f"DELEGATE_ARG_{len(variables)}"
         variables.append(_shell_remote_var(name, value))
@@ -2546,8 +2546,8 @@ def remote_exec_script(executor, model, role, policy):
         argv = [
             "codex", "-a", "never", "exec", "--model", model,
             "-c", f"model_reasoning_effort={effort}", "--sandbox", sandbox,
-            "--skip-git-repo-check", "--ephemeral", "-C", REMOTE_TOKEN + "/tree",
-        ] + policy["argv"] + ["-o", REMOTE_TOKEN + "/run/last.md", "-"]
+            "--skip-git-repo-check", "--ephemeral", "-C", REMOTE_BASE_PLACEHOLDER + "/tree",
+        ] + policy["argv"] + ["-o", REMOTE_BASE_PLACEHOLDER + "/run/last.md", "-"]
         guard_argv(argv, executor)
         lines.append("exec " + " ".join(shell_arg(arg) for arg in argv) +
                      ' < "$R/run/prompt.md"')
@@ -4289,7 +4289,7 @@ def cmd_status(a):
         for line in LOG.read_text().splitlines():
             try:
                 r = json.loads(line)
-            except Exception:
+            except (TypeError, ValueError):
                 continue
             if r.get("kind") != "run":
                 continue
@@ -4309,7 +4309,7 @@ def cmd_status(a):
                     if 0 <= age <= 6 * 3600:
                         if ex not in limits or s_dt > limits[ex][0]:
                             limits[ex] = (s_dt, r.get("stderr"))
-                except Exception:
+                except (OverflowError, TypeError, ValueError):
                     continue
 
         for ex in sorted(limits.keys()):
@@ -4321,7 +4321,7 @@ def cmd_status(a):
                     m = re.search(r"(try again at [^\n\r.]+)", stderr_content, re.IGNORECASE)
                     if m:
                         reset_text = m.group(1).strip()
-                except Exception:
+                except (OSError, TypeError, ValueError):
                     pass
             if reset_text:
                 print(f"{ex}: provider_limit ({reset_text})")
