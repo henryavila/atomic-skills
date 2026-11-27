@@ -147,6 +147,7 @@ export function summarizeVerification(report) {
  * @returns {Record<string, string[]>} state → paths
  */
 export function decisionsByState(report) {
+  /** @type {Record<string, string[]>} */
   const out = {};
   for (const f of report.files || []) {
     if (!out[f.state]) out[f.state] = [];

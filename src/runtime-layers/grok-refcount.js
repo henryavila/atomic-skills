@@ -74,7 +74,7 @@ export function baseHasGrokResidual(basePath, manifest) {
  *
  * @param {object} opts
  * @param {string} opts.basePath - install that is leaving / shrinking away from grok
- * @param {() => string[]} [opts.listInstallBases]
+ * @param {() => string[]} opts.listInstallBases
  * @param {(dir: string) => object | null} [opts.readManifestFor]
  * @returns {boolean}
  */

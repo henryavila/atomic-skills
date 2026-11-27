@@ -42,6 +42,7 @@ export function status(projectDir, options = {}) {
   const homeDir = homedir();
   const doVerify = options.verify !== false;
   let manifest;
+  /** @type {'user'|'project'} */
   let manifestScope;
   let manifestBase;
 
