@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, chmodSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -69,6 +69,34 @@ describe('qa/measure/js-size', () => {
   it('prints nothing for a clean tree', () => {
     plant({ 'src/ok.js': 'export function ok(value) {\n  return value;\n}\n' });
     expectLines(run(), []);
+  });
+
+  it('exits non-zero with a message when a directory cannot be read', () => {
+    plant({ 'src/locked/x.js': 'export const x = 1;\n' });
+    const locked = join(root, 'src/locked');
+    chmodSync(locked, 0o000);
+    try {
+      const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+      let readable = true;
+      try {
+        readdirSync(locked);
+      } catch {
+        readable = false;
+      }
+      // Root ignores permissions and some platforms ignore chmod for the
+      // owner, so this case cannot be exercised there.
+      if (isRoot || readable) {
+        assert.ok(isRoot || readable, 'chmod did not make the directory unreadable');
+        return;
+      }
+
+      const result = run();
+      assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+      assert.notEqual(result.status, 3, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /locked/);
+    } finally {
+      chmodSync(locked, 0o755);
+    }
   });
 
   it('measures complexity', () => {

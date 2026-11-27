@@ -92,8 +92,8 @@ function walk(directory, found) {
   let entries;
   try {
     entries = readdirSync(directory, { withFileTypes: true });
-  } catch {
-    return;
+  } catch (error) {
+    throw new Error(`cannot read ${directory}: ${error.message}`);
   }
   for (const entry of entries) {
     const path = join(directory, entry.name);
@@ -108,7 +108,17 @@ function walk(directory, found) {
 
 function repositoryFiles(root) {
   const found = [];
-  for (const name of ROOTS) walk(join(root, name), found);
+  for (const name of ROOTS) {
+    const directory = join(root, name);
+    let stats;
+    try {
+      stats = statSync(directory);
+    } catch (error) {
+      if (error.code === 'ENOENT') continue;
+      throw new Error(`cannot read ${directory}: ${error.message}`);
+    }
+    if (stats.isDirectory()) walk(directory, found);
+  }
   return found;
 }
 
