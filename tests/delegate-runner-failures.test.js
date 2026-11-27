@@ -308,11 +308,60 @@ spec.loader.exec_module(d)
       ], baseEnv);
       assert.equal(res.status, 2, res.stderr);
       assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
-      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash; use codex or agy for another model/);
+      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash and opencode-go\/muse-spark-1\.3-contributor; use codex or agy for another model/);
       assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
       assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
     });
   }
+
+  // Muse Spark is the second OpenCode model: the executor during DeepSeek peak
+  // hours and a reviewer of DeepSeek work.
+  for (const [label, args, expectedRole] of [
+    ['--role implement --profile muse', ['--role', 'implement', '--profile', 'muse'], 'implement'],
+    ['--role review --profile muse', ['--role', 'review', '--profile', 'muse'], 'review'],
+    ['--role review --profile muse-review', ['--role', 'review', '--profile', 'muse-review'], 'review'],
+  ]) {
+    it(`run ${label} launches OpenCode with the Muse Spark model`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-MUSE', '--task', label,
+        ...args,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], baseEnv);
+      assert.equal(res.status, 0, res.stderr);
+      const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
+      assert.equal(argv[argv.indexOf('-m') + 1], 'opencode-go/muse-spark-1.3-contributor');
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.role, expectedRole);
+      assert.equal(rec.executor, 'opencode');
+      assert.equal(rec.model, 'opencode-go/muse-spark-1.3-contributor');
+      assert.equal(rec.family, 'meta');
+      assert.equal(rec.failure, 'none');
+    });
+  }
+
+  for (const profile of ['flash', 'muse']) {
+    it(`DELEGATE_OPENCODE_MODEL cannot point ${profile} at Muse Spark`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-ENV-MUSE', '--task', 'environment model override',
+        '--role', 'implement', '--profile', profile,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: 'opencode-go/muse-spark-1.3-contributor' });
+      assert.equal(res.status, 2, res.stderr);
+      assert.match(res.stderr, /OpenCode runs only/);
+      assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+      assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
+    });
+  }
+
+  it('run with raw opencode kimi-k3 is refused before launch', () => {
+    const res = runDelegate([
+      'run', '--id', 'T-REFUSED-KIMI', '--task', 'refused',
+      '--role', 'implement', '--executor', 'opencode', '--model', 'opencode-go/kimi-k3',
+      '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+    ], baseEnv);
+    assert.equal(res.status, 2, res.stderr);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+  });
 
   for (const role of ['implement', 'review']) {
     it(`DELEGATE_OPENCODE_MODEL cannot select another OpenCode model for ${role}`, () => {
@@ -323,7 +372,7 @@ spec.loader.exec_module(d)
       ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: 'opencode-go/hy4' });
       assert.equal(res.status, 2, res.stderr);
       assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
-      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash; use codex or agy/);
+      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash and opencode-go\/muse-spark-1\.3-contributor; use codex or agy/);
       assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
       assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
     });

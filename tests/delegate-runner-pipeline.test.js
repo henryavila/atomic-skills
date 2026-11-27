@@ -571,8 +571,10 @@ spec.loader.exec_module(d)
   for (const [label, route, reviewRoute, expectedReviewer] of [
     ['a flash executor', 'flash', 'flash-review,codex-review', 'codex-review'],
     ['a flash executor through the alias', 'deepseek-light', 'flash-review,agy-review', 'agy-review'],
+    ['a muse executor and muse-review', 'muse', 'muse-review,codex-review', 'codex-review'],
+    ['a muse executor and a review route that names muse', 'muse', 'muse,agy-review', 'agy-review'],
   ]) {
-    it(`pipeline with ${label} never selects flash-review`, () => {
+    it(`pipeline with ${label} never selects a reviewer of the executor family`, () => {
       writeFileSync(
         join(seqDir, 'step_0.json'),
         JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
@@ -611,6 +613,36 @@ spec.loader.exec_module(d)
       assert.equal(pipeRec.outcome, 'reviewed');
     });
   }
+
+  it('pipeline reviews flash work with muse-review when the review route starts with it', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+    );
+    const reviewOutput = 'Reviewed.\nTOTAL major=0 medium=0 minor=0\n';
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+    const res = runDelegate(
+      [
+        'pipeline', '--id', 'T-PIPE-MUSE-REVIEW', '--task', 'muse reviews flash',
+        '--role', 'implement', '--cwd', repoDir, '--card', cardPath,
+        '--route', 'flash', '--gate', 'true', '--review-card', reviewCardPath,
+        '--review-route', 'muse,codex-review', '--out', outDir, '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    const revRecs = recs.filter((r) => r.role === 'review');
+    assert.equal(revRecs.length, 1);
+    assert.equal(revRecs[0].family, 'meta');
+    assert.equal(revRecs[0].model, 'opencode-go/muse-spark-1.3-contributor');
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.equal(pipeRec.reviewer_profile, 'muse-review');
+    assert.equal(pipeRec.outcome, 'reviewed');
+  });
 
   // AS-D6 default reviewer routes when the executor is another family.
   for (const [label, route, reviewRoute, expectedReviewer, expectedExecutor] of [

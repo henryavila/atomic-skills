@@ -46,14 +46,19 @@ PENDING = HOME / "delegate" / "pending"
 # never read it. A route that ends only in these is pending, not failed.
 NO_CAPACITY = ("provider_limit", "slot_timeout")
 
-# OpenCode Go peak windows in UTC, Monday-Friday only, end minute excluded.
-# They are OpenCode Go's own schedule, not DeepSeek's: base price is the low one
-# and peak costs double.
+# DeepSeek's published peak windows in UTC, Monday-Friday only, end minute
+# excluded; OpenCode Go follows them. Base price is the low one and peak costs
+# double. DeepSeek also bills Chinese public holidays as off-peak; the runner
+# does not know them and treats such a day as a normal weekday.
 DEFAULT_PEAK_WINDOWS = "01:00-04:00,06:00-10:00"
 CODEX_MODEL = os.environ.get("DELEGATE_CODEX_MODEL") or "gpt-6.1-sol"
-# OpenCode runs one model. The variable can only pin it to the same value; any
-# other value is refused by check_model_allowed before anything is launched.
+# OpenCode runs two models: Flash, and Muse Spark as the executor during peak
+# hours and a reviewer of Flash work. The variable can only pin Flash to its own
+# value; any other value is refused by check_model_allowed before anything is
+# launched. Nothing overrides the Muse model.
 FLASH_MODEL = "opencode-go/deepseek-v4.1-flash"
+MUSE_MODEL = "opencode-go/muse-spark-1.3-contributor"
+OPENCODE_MODELS = (FLASH_MODEL, MUSE_MODEL)
 OPENCODE_MODEL = os.environ.get("DELEGATE_OPENCODE_MODEL") or FLASH_MODEL
 LIMIT_RE = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b", re.IGNORECASE)
 TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=\d+ medium=\d+ minor=\d+[ \t`*]*$")
@@ -72,6 +77,8 @@ RESET_ZONE_RE = re.compile(r"resets(?:\s+at)?\s+(\d{1,2})(?::(\d{2}))?\s*([ap]m)
 MODELS = {
     "flash": ("opencode", OPENCODE_MODEL, "deepseek"),
     "flash-review": ("opencode", OPENCODE_MODEL, "deepseek"),
+    "muse": ("opencode", MUSE_MODEL, "meta"),
+    "muse-review": ("opencode", MUSE_MODEL, "meta"),
     "codex": ("codex", CODEX_MODEL, "openai"),
     "codex-review": ("codex", CODEX_MODEL, "openai"),
     "agy": ("agy", "gemini-4-hydrogen-high", "gemini"),
@@ -175,16 +182,18 @@ RUN_OUTPUT_SUFFIXES = (".out.md", ".err", ".last.md", ".prompt.md")
 ALIASES = {
     "deepseek-light": "flash",
 }
-# A reviewer route that names `flash` means `flash-review`: the only rule for a
+# A reviewer route that names `flash` means `flash-review`, and `muse` means
+# `muse-review`: the only rule for a
 # reviewer is that it is not of the family that wrote the code.
-REVIEW_PROFILES = {"flash": "flash-review"}
-# Removed on 2026-11-18: OpenCode runs a single model (Flash). Old log lines may
+REVIEW_PROFILES = {"flash": "flash-review", "muse": "muse-review"}
+# Removed on 2026-11-18, when OpenCode ran a single model (Flash). Old log lines may
 # still name these profiles, their models and their families; readers must keep
 # showing them, but no new run may be launched with one.
 REMOVED_PROFILES = ("hy4-review", "glm-flash", "kimi")
 REMOVED_PROFILE_MESSAGE = ("delegate: profile {name} was removed; valid profiles: "
                            "flash, flash-review, codex, codex-review, agy, agy-review, agy-argon, "
-                           "agy-argon-review, agy-sonnet-review, agy-opus-review, claude-review")
+                           "agy-argon-review, agy-sonnet-review, agy-opus-review, claude-review, "
+                           "muse, muse-review")
 # Fixed routes, the same as the skill's "Routing by role" table. `route` and
 # `pipeline` only reorder them by availability; they never add a profile.
 EXECUTOR_ROUTES = {
@@ -195,10 +204,15 @@ EXECUTOR_ROUTES = {
 }
 # Implement or fix with open design decisions, concurrency, security or migrations.
 OPEN_DESIGN_ROUTE = ["codex", "agy-argon", "agy"]
+# Goes in front of an EXECUTOR_ROUTES route while in_peak() is true: DeepSeek
+# costs double then.
+PEAK_EXECUTOR = "muse"
 # Reviewers by the family that wrote the code; never that family itself. Opus is
 # in no fixed route: it is named for a small item, with the operator's yes.
 REVIEW_ROUTES = {
-    "deepseek": ["codex-review", "agy-sonnet-review", "agy-argon-review", "agy-review"],
+    "deepseek": ["muse-review", "codex-review", "agy-sonnet-review", "agy-argon-review", "agy-review"],
+    # Muse writes code during peak hours, when a Flash review costs double.
+    "meta": ["codex-review", "agy-sonnet-review", "agy-argon-review", "agy-review", "flash-review"],
     "openai": ["flash-review", "agy-sonnet-review", "agy-argon-review", "agy-review"],
     "gemini": ["codex-review", "flash-review", "agy-sonnet-review"],
 }
@@ -2143,10 +2157,18 @@ def review_warning(profile, avail):
     return f"{profile}: no reviewer usable now; {first}{fallback}"
 
 
+def executor_route(role, open_design=False):
+    """The fixed route for a role; Muse goes first while DeepSeek is in peak hours."""
+    if open_design:
+        return list(OPEN_DESIGN_ROUTE)
+    fixed = list(EXECUTOR_ROUTES[role])
+    return [PEAK_EXECUTOR] + fixed if in_peak() else fixed
+
+
 def cmd_route(a):
     avail = availability()
-    fixed = OPEN_DESIGN_ROUTE if a.open_design else EXECUTOR_ROUTES[a.role]
-    route = order_route(fixed, avail)
+    peak = in_peak()
+    route = order_route(executor_route(a.role, a.open_design), avail)
     review_routes = {family: order_route(profiles, avail) for family, profiles in REVIEW_ROUTES.items()}
     warnings = [w for w in (review_warning(p, avail) for p in route) if w]
     if warnings and avail[CLAUDE_REVIEW]["found"]:
@@ -2158,10 +2180,12 @@ def cmd_route(a):
             warnings.append(claude_login_help(reason))
     quota = quota_summary(avail)
     if a.json:
-        print(json.dumps({"role": a.role, "route": route, "review_routes": review_routes,
+        print(json.dumps({"role": a.role, "route": route, "peak": peak, "review_routes": review_routes,
                           "profiles": avail, "quota": quota, "warnings": warnings}, indent=2))
         return
     print("route: " + ",".join(route))
+    if route[0] == PEAK_EXECUTOR:
+        print(f"peak: {PEAK_EXECUTOR} first (DeepSeek peak hours)")
     if quota:
         print("agy quota: " + ", ".join(
             f"{pool} {state['remaining'] * 100:.0f}%" + (f" until {state['until']}" if state["until"] else "")
@@ -2237,15 +2261,18 @@ class RemoteActiveLock(SlotLock):
 def check_model_allowed(role, executor, model):
     """The one check for the OpenCode rule.
 
-    OpenCode runs DeepSeek Flash only. The reviewer rule lives in the pipeline
-    family check, not here: Flash reviews another family's work. Called after
+    OpenCode runs DeepSeek Flash and Muse Spark only, and DELEGATE_OPENCODE_MODEL
+    may name nothing but Flash: while it names another model, Muse included, no
+    OpenCode run is launched. The reviewer rule lives in the pipeline family
+    check, not here: each of the two reviews another family's work. Called after
     every alias, profile, flag and environment override is resolved, and before
     anything is launched or any slot is taken.
     """
     if executor != "opencode":
         return
-    if model != FLASH_MODEL:
-        print(f"delegate: OpenCode runs only {FLASH_MODEL}; use codex or agy for another model",
+    if model not in OPENCODE_MODELS or OPENCODE_MODEL != FLASH_MODEL:
+        print(f"delegate: OpenCode runs only {FLASH_MODEL} and {MUSE_MODEL}; "
+              "use codex or agy for another model",
               file=sys.stderr)
         sys.exit(2)
 
@@ -4399,10 +4426,11 @@ def cmd_profiles(a):
         except RemoteError as exc:
             host_error = exc.detail
     for name, (executor, model, family) in MODELS.items():
-        if executor == "opencode" and model != FLASH_MODEL:
-            # `run` refuses the same override; show Flash and mark the entries
-            # refused instead of advertising a model that will never launch.
-            model, status = FLASH_MODEL, "refused"
+        if executor == "opencode" and OPENCODE_MODEL != FLASH_MODEL:
+            # `run` refuses every OpenCode profile under that override; show the
+            # model each profile is meant to run and mark the entries refused
+            # instead of advertising a model that will never launch.
+            model, status = (MUSE_MODEL if family == "meta" else FLASH_MODEL), "refused"
         else:
             status = "found" if find_optional(executor) else "missing"
         remote_state = ""
@@ -4592,7 +4620,7 @@ def main():
                    help="id of the project milestone this run works for, recorded as `milestone`")
     r.add_argument("--allow-claude-review", action="store_true",
                    help="the operator said yes to a Claude review for this task (the fallback reviewer)")
-    r.add_argument("--author-family", choices=["deepseek", "openai", "gemini", "anthropic"],
+    r.add_argument("--author-family", choices=["deepseek", "openai", "gemini", "anthropic", "meta"],
                    help="family of the model that wrote the code; required for claude-review")
     r.set_defaults(f=cmd_run)
 
