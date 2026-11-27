@@ -388,6 +388,12 @@ describe('delegate.py fix round and pipeline verdict', { skip: !hasPython3 ? 'py
       assert.match(skill, /The verdict is recorded by the pipeline/);
       assert.match(read('skills/shared/delegate-assets/card-template.md'), /about 300 lines at most/);
     });
+
+    it('keeps the reviewer inside its working directory and has it run the card\'s tests', () => {
+      const template = read('skills/shared/delegate-assets/review-card-template.md');
+      assert.match(template, /Stay inside the working directory you were given: do not list or read other worktrees or parent folders/);
+      assert.match(template, /change of behaviour, run the tests the author's card names before you answer/);
+    });
   });
 
   describe('a finished pending review', () => {
