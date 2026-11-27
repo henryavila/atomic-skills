@@ -216,6 +216,28 @@ function shellSuppressionTexts(source) {
   return texts;
 }
 
+/**
+ * A ShellCheck directive is one suppression, whatever whitespace separates
+ * `#`, `shellcheck` and the directive list. ShellCheck 0.11.0 accepts two
+ * spaces and a tab there; a literal `shellcheck disable` needle misses both.
+ * Removing the whole directive before matching the other patterns keeps
+ * `source=x disable=SC2086` on one line at one item.
+ */
+const SHELLCHECK_DIRECTIVE = /#\s*shellcheck[ \t]+\S[^\r\n]*/;
+
+function countShellSuppressions(texts) {
+  let total = 0;
+  for (const text of texts) {
+    if (SHELLCHECK_DIRECTIVE.test(text)) {
+      total += 1;
+      total += countOccurrences([text.replace(SHELLCHECK_DIRECTIVE, '')], SUPPRESSIONS);
+    } else {
+      total += countOccurrences([text], SUPPRESSIONS);
+    }
+  }
+  return total;
+}
+
 const PYTHON_COMMENTS = String.raw`
 import json
 import sys
@@ -339,7 +361,9 @@ function measure(root, files) {
     else if (stack === 'py') comments = python[join(root, key)] || [];
     else comments = shellSuppressionTexts(source);
     const values = {
-      suppressions: countOccurrences(comments, SUPPRESSIONS),
+      suppressions: stack === 'sh'
+        ? countShellSuppressions(comments)
+        : countOccurrences(comments, SUPPRESSIONS),
       secrets: countSecrets(source),
     };
     for (const metric of METRICS) {

@@ -25,6 +25,9 @@ const sups = {
   ruff: 'ruff' + ': no' + 'qa',
   shellcheckSource: 'shell' + 'check source=' + 'lib.sh',
   shellcheckShell: 'shell' + 'check shell=' + 'bash',
+  shellcheckSpaced: 'shell' + 'check  disable=SC2086',
+  shellcheckTabbed: 'shell' + 'check\tdisable=SC2086',
+  shellcheckSourceAndDisable: 'shell' + 'check source=lib.sh disable=SC2086',
   tsNoCheck: '@ts-' + 'nocheck',
   tsIgnore: '@ts-' + 'ignore',
 };
@@ -226,6 +229,19 @@ describe('qa/measure/hygiene', () => {
       ]);
     });
   }
+
+  it('counts a shellcheck directive whatever whitespace separates its parts', () => {
+    plant({
+      '.husky/two-spaces': `# ${sups.shellcheckSpaced}\n`,
+      '.husky/tab': `# ${sups.shellcheckTabbed}\n`,
+      '.husky/source-and-disable': `# ${sups.shellcheckSourceAndDisable}\n`,
+    });
+    expectLines(run(), [
+      'sh\tsuppressions\t.husky/source-and-disable::*\t1',
+      'sh\tsuppressions\t.husky/tab::*\t1',
+      'sh\tsuppressions\t.husky/two-spaces::*\t1',
+    ]);
+  });
 
   it('parses CommonJS with a top-level return before reading comments', () => {
     plant({
