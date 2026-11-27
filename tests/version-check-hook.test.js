@@ -12,7 +12,7 @@ import {
   chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { setTimeout as pause } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -69,7 +69,7 @@ function makeFixture(options = {}) {
     ATOMIC_SKILLS_NO_UPDATE_CHECK: options.optOut ? '1' : '',
     ATOMIC_SKILLS_UPDATE_CHECK_TTL: options.ttl === undefined ? '' : String(options.ttl),
     FAKE_NPM_ANSWER: npmAnswer,
-    PATH: `${bin}:${process.env.PATH}`,
+    PATH: `${bin}${delimiter}${process.env.PATH ?? ''}`,
   };
 
   return { root, home, project, stateDir, cacheFile, env };
