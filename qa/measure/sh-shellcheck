@@ -10,9 +10,12 @@ Contract (see the comment block at the top of scripts/qa.sh):
   exit 0       measured (even with items); 3 tool not installed
 
 Shell source is every ``*.sh`` under the ``sh`` roots plus every file in
-``.husky/``. The tool is the binary of the ``shellcheck`` npm package in the
-real repository's ``node_modules``, even when QA_ROOT points elsewhere. ``-x``
-is off, so sourced files are not followed.
+``.husky/``. The tool is ``shellcheck`` in ``qa/.venv`` next to this measurer's
+repository, never one found on PATH; ``QA_VENV`` overrides that directory.
+``-x`` is off, so sourced files are not followed.
+
+The converter (``--convert <report.json>``) is the test seam: it turns a
+recorded shellcheck report into measure lines without running the tool.
 """
 
 import json
@@ -52,18 +55,22 @@ def repository_root():
     return output.decode("utf-8").strip()
 
 
-def shellcheck_binary():
-    override = os.environ.get("QA_SHELLCHECK")
-    if override:
-        path = os.path.abspath(override)
-    else:
-        repository = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-        path = os.path.join(repository, "node_modules", "shellcheck", "bin", "shellcheck")
+def venv_directory():
+    if os.environ.get("QA_VENV"):
+        return os.path.abspath(os.environ["QA_VENV"])
+    repository = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+    return os.path.join(repository, "qa", ".venv")
+
+
+def find_tool(name):
+    path = os.path.join(venv_directory(), "bin", name)
     if os.path.isfile(path) and os.access(path, os.X_OK):
         return path
-    tool_missing("shellcheck is not installed at %s — run npm ci" % path)
+    tool_missing(
+        "%s is not installed in %s — run scripts/qa.sh setup" % (name, venv_directory())
+    )
 
 
 def read_ceiling(root):
@@ -186,12 +193,26 @@ def main():
     if args == ["--describe"]:
         sys.stdout.write(DESCRIBE + "\n")
         return
+    if len(args) == 2 and args[0] == "--convert":
+        root = repository_root()
+        ceiling = read_ceiling(root)
+        try:
+            with open(args[1], encoding="utf-8") as handle:
+                payload = handle.read()
+        except OSError as error:
+            fail("cannot read %s: %s" % (args[1], error))
+        items = []
+        convert(root, payload, ceiling, items)
+        print_items(items)
+        return
     if len(args) > 0 and args[0] != "--files":
-        sys.stderr.write("usage: sh-shellcheck [--describe | --files <path>...]\n")
+        sys.stderr.write(
+            "usage: sh-shellcheck [--describe | --convert <report> | --files <path>...]\n"
+        )
         sys.exit(1)
 
     root = repository_root()
-    binary = shellcheck_binary()
+    tool = find_tool("shellcheck")
     ceiling = read_ceiling(root)
     if len(args) == 0:
         keys = repository_files(root)
@@ -201,7 +222,7 @@ def main():
         return
 
     result = subprocess.run(
-        [binary, "--norc", "-f", "json"] + keys,
+        [tool, "--norc", "-f", "json"] + keys,
         cwd=root,
         capture_output=True,
         text=True,
