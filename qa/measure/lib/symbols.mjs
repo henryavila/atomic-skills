@@ -39,6 +39,9 @@ function assignedName(node, parent) {
   if (parent.type === 'VariableDeclarator' && parent.init === node && parent.id.type === 'Identifier') {
     return parent.id.name;
   }
+  if (parent.type === 'Property' && parent.key === node) {
+    return keyName(parent.key, parent.computed);
+  }
   if (parent.type === 'Property' && parent.value === node) {
     return keyName(parent.key, parent.computed);
   }
@@ -106,19 +109,10 @@ export function collectFunctions(ast) {
         full = context.fnSymbol ? `${context.fnSymbol}>${base}` : base;
       }
       const symbol = unique(full);
-      const ownsReport = Boolean((method || assigned) && parent);
       entries.push({
         symbol,
         start: { line: node.loc.start.line, column: node.loc.start.column },
         end: { line: node.loc.end.line, column: node.loc.end.column },
-        // ESLint reports a named function at the head of its class member or
-        // property, which can start before the function value.
-        reportStart: ownsReport
-          ? { line: parent.loc.start.line, column: parent.loc.start.column }
-          : undefined,
-        reportEnd: ownsReport
-          ? { line: parent.loc.end.line, column: parent.loc.end.column }
-          : undefined,
       });
       next = { fnSymbol: symbol, classSymbol: null };
     }
@@ -145,28 +139,35 @@ function compare(left, right) {
 }
 
 /**
- * The innermost function whose reported range holds the rule's position. ESLint
- * may report at the function head, at a class member or at a property key, so
- * the range covers the whole function and its owning member.
+ * The innermost function whose own range holds the rule's reported range.
+ *
+ * ESLint may report at the function head, at a class member or at a property
+ * key, which can start before the function value. The reported range ends at
+ * the function it describes, so matching either end keeps a computed key
+ * function apart from the function used as its value: the key's report ends at
+ * the key, the value's report ends at the value.
  */
 export function functionAtStart(entries, message) {
-  const position = { line: message.line, column: message.column - 1 }; // ESLint columns are 1-based.
+  const start = { line: message.line, column: message.column - 1 }; // ESLint columns are 1-based.
+  const end = message.endLine && message.endColumn
+    ? { line: message.endLine, column: message.endColumn - 1 }
+    : start;
+
+  const holds = (entry, position) =>
+    compare(entry.start, position) <= 0 && compare(position, entry.end) <= 0;
+
   let best = null;
   for (const entry of entries) {
-    const start = entry.reportStart || entry.start;
-    const end = entry.reportEnd || entry.end;
-    if (compare(start, position) > 0 || compare(position, end) > 0) continue;
+    if (!holds(entry, start) && !holds(entry, end)) continue;
     if (!best) {
       best = entry;
       continue;
     }
-    const bestStart = best.reportStart || best.start;
-    const order = compare(start, bestStart);
+    const order = compare(entry.start, best.start);
     if (order > 0) {
       best = entry;
-    } else if (order === 0) {
-      const bestEnd = best.reportEnd || best.end;
-      if (compare(end, bestEnd) < 0) best = entry;
+    } else if (order === 0 && compare(entry.end, best.end) < 0) {
+      best = entry;
     }
   }
   return best;
@@ -178,11 +179,10 @@ export function enclosingFunction(entries, message) {
   let best = null;
   let bestStart = null;
   for (const entry of entries) {
-    const start = entry.reportStart || entry.start;
-    if (compare(start, position) <= 0 && compare(position, entry.end) <= 0) {
-      if (!best || compare(start, bestStart) > 0) {
+    if (compare(entry.start, position) <= 0 && compare(position, entry.end) <= 0) {
+      if (!best || compare(entry.start, bestStart) > 0) {
         best = entry;
-        bestStart = start;
+        bestStart = entry.start;
       }
     }
   }

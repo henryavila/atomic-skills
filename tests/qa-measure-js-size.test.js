@@ -186,6 +186,32 @@ describe('qa/measure/js-size', () => {
     ]);
   });
 
+  it('keeps a computed key function and its value function apart', () => {
+    plant({
+      'src/computed-pair.js': [
+        'const o = {[(a, b, c, d, e, f) => a]: (a, b, c, d, e, f, g) => a};',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), [
+      'js\tparams\tsrc/computed-pair.js::<computed>\t6',
+      'js\tparams\tsrc/computed-pair.js::<computed>#2\t7',
+    ]);
+  });
+
+  it('numbers functions used as computed keys in source order', () => {
+    plant({
+      'src/computed-keys.js': [
+        'const o = {[(a, b, c, d, e, f) => a]: 1, [(a, b, c, d, e, f, g) => a]: 2};',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), [
+      'js\tparams\tsrc/computed-keys.js::<computed>\t6',
+      'js\tparams\tsrc/computed-keys.js::<computed>#2\t7',
+    ]);
+  });
+
   it('names named expressions, private methods, accessors and static methods', () => {
     const branches = Array.from({ length: 15 }, (_, i) => `    if (n === ${i}) return ${i};`).join('\n');
     plant({
