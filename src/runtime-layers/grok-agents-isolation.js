@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { SKILL_NAMESPACE } from '../config.js';
 import { wantsGrokPluginHost } from './grok-plugin-host.js';
 import { readManifest } from '../manifest.js';
-import { listKnownInstallBases, normalizeInstallBase } from './install-bases.js';
+import { normalizeInstallBase } from './install-base.js';
 
 /**
  * Hide non-Grok Atomic Skills trees from Grok's skill scanner.
@@ -247,7 +247,7 @@ export function applyGrokAgentsIsolation(opts = {}) {
  * @param {string} opts.basePath - install being uninstalled
  * @param {string[]} [opts.ides] - ides of that install (from manifest)
  * @param {string} [opts.home]
- * @param {() => string[]} [opts.listInstallBases] - inject for tests
+ * @param {() => string[]} opts.listInstallBases - surviving install bases
  * @returns {{ status: 'removed' | 'kept' | 'absent' | 'skipped', detail?: string }}
  */
 export function revertGrokAgentsIsolation(opts) {
@@ -255,8 +255,12 @@ export function revertGrokAgentsIsolation(opts) {
     basePath,
     ides,
     home = process.env.HOME || homedir(),
-    listInstallBases = () => listKnownInstallBases(home),
+    listInstallBases,
   } = opts;
+
+  if (typeof listInstallBases !== 'function') {
+    throw new Error('revertGrokAgentsIsolation: listInstallBases is required');
+  }
 
   if (ides !== undefined && !wantsGrokPluginHost(ides)) {
     return { status: 'skipped', detail: 'grok not in ides' };
