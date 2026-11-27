@@ -119,6 +119,84 @@ describe('qa/measure/py-security', () => {
     ]);
   });
 
+  it('fails the converter when bandit reports a scan error', () => {
+    plant({
+      'report.json': JSON.stringify({
+        results: [],
+        errors: [{ filename: './sample/security.py', reason: 'exception while scanning file' }],
+      }),
+    });
+    const result = run(['--convert', join(root, 'report.json')]);
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /error/i);
+    assert.match(result.stderr, /exception while scanning file/);
+  });
+
+  it('fails when bandit reports a scan error on exit 0', () => {
+    const venv = fakeBanditWith({
+      stdout: JSON.stringify({
+        results: [],
+        errors: [{ filename: './skills/shared/a.py', reason: 'exception while scanning file' }],
+      }),
+      code: 0,
+    });
+    plant({ 'skills/shared/a.py': 'def fake():\n    return 1\n' });
+    const result = run([], { QA_VENV: venv });
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /error/i);
+    assert.match(result.stderr, /exception while scanning file/);
+  });
+
+  it('fails when bandit writes an internal analyzer error to stderr', () => {
+    const venv = fakeBanditWith({
+      stdout: JSON.stringify({ results: [], errors: [] }),
+      stderr: '[manager]\tERROR\tException occurred when executing tests.\n',
+      code: 0,
+    });
+    plant({ 'skills/shared/a.py': 'def fake():\n    return 1\n' });
+    const result = run([], { QA_VENV: venv });
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /exception occurred/i);
+  });
+
+  it('passes --ignore-nosec so suppression comments do not hide findings', () => {
+    const venv = fakeBanditWith({
+      requireFlag: '--ignore-nosec',
+      stdout: JSON.stringify({
+        results: [{
+          filename: 'skills/shared/a.py',
+          line_number: 2,
+          issue_severity: 'MEDIUM',
+        }],
+        errors: [],
+      }),
+      code: 1,
+    });
+    plant({ 'skills/shared/a.py': 'import pickle\npickle.loads(data)  # nosec B301\n' });
+    expectLines(run([], { QA_VENV: venv }), [
+      'py\tstatic-security\tskills/shared/a.py::<module>\t1',
+    ]);
+  });
+
+  function fakeBanditWith({ stdout = '', stderr = '', code = 0, requireFlag = null }) {
+    const bin = join(root, 'fakevenv/bin');
+    mkdirSync(bin, { recursive: true });
+    const script = [
+      '#!/usr/bin/env python3',
+      'import sys',
+      requireFlag
+        ? `if ${JSON.stringify(requireFlag)} not in sys.argv:\n    sys.exit(0)`
+        : '',
+      `sys.stdout.write(${JSON.stringify(stdout)})`,
+      `sys.stderr.write(${JSON.stringify(stderr)})`,
+      `sys.exit(${code})`,
+      '',
+    ].join('\n');
+    writeFileSync(join(bin, 'bandit'), script);
+    chmodSync(join(bin, 'bandit'), 0o755);
+    return join(root, 'fakevenv');
+  }
+
   it('exits 3 when bandit is not in the venv', () => {
     const empty = join(root, 'emptyvenv');
     mkdirSync(empty, { recursive: true });

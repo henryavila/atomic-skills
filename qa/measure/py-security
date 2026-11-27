@@ -20,6 +20,7 @@ recorded bandit report into measure lines without running the tool.
 import ast
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -165,11 +166,27 @@ def read_source(root, key):
         fail("%s: cannot read: %s" % (key, error))
 
 
+def check_errors(report):
+    errors = report.get("errors") or []
+    if not isinstance(errors, list):
+        errors = [errors]
+    if errors:
+        details = "; ".join(
+            "%s: %s" % (item.get("filename", "?"), item.get("reason", "?"))
+            if isinstance(item, dict)
+            else str(item)
+            for item in errors
+        )
+        fail("bandit reported scan errors that make the measurement incomplete: %s" % details)
+
+
 def convert(root, payload, ceiling, items):
     try:
         report = json.loads(payload)
     except ValueError as error:
         fail("cannot read the bandit report: %s" % error)
+
+    check_errors(report)
 
     sources = {}
     counts = {}
@@ -205,13 +222,15 @@ def measure(root, keys, ceiling, items, tool):
     if not keys:
         return
     result = subprocess.run(
-        [tool, "-q", "-f", "json"] + keys,
+        [tool, "-q", "--ignore-nosec", "-f", "json"] + keys,
         cwd=root,
         capture_output=True,
         text=True,
     )
     if result.returncode not in (0, 1):
         fail("bandit exited %d: %s" % (result.returncode, result.stderr.strip()))
+    if re.search(r"\bERROR\b", result.stderr):
+        fail("bandit reported an internal error: %s" % result.stderr.strip())
     convert(root, result.stdout, ceiling, items)
 
 
