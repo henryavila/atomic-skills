@@ -41,6 +41,9 @@ import { MANIFEST_DIR } from './manifest.js';
  * @param {string} config.skillsDir - path to the skills/ source tree
  * @param {string} config.metaDir - path to the meta/ dir holding catalog.yaml
  * @param {''|'user'|'project'} config.scope - install scope (drives ASSETS_PATH)
+ * @param {string} [config.manifestDir]
+ * @param {string} [config.lockRoot]
+ * @param {Function | object[]} [config.resourceIdentities]
  * @returns {{ install: Function, uninstall: Function, registry: object }}
  */
 export function buildInstaller(config) {

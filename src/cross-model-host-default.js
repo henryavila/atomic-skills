@@ -25,6 +25,7 @@ export const HOST_EXTERNAL_DEFAULT = Object.freeze({
 /** Fixed order for multi-provider legs (external-both). */
 export const EXTERNAL_PROVIDER_ORDER = Object.freeze(/** @type {const} */ (['codex', 'grok', 'claude', 'agy']));
 
+/** @type {Set<string>} */
 const EXTERNAL_PROVIDERS = new Set(EXTERNAL_PROVIDER_ORDER);
 
 /** Modes accepted by resolveReviewRoute — unknown values abort (no silent local). */
@@ -116,7 +117,7 @@ export function isSameFamilyExternal(hostFamily, provider) {
 /**
  * Family-different external legs in fixed order for external-both.
  * @param {HostFamily | string} hostFamily
- * @returns {Array<'codex' | 'grok' | 'claude'>}
+ * @returns {Array<'codex' | 'grok' | 'claude' | 'agy'>}
  */
 export function externalBothLegs(hostFamily) {
   return EXTERNAL_PROVIDER_ORDER.filter((p) => !isSameFamilyExternal(hostFamily, p));
@@ -139,7 +140,7 @@ export function acceptsSameFamilyAsLocal(opts = {}) {
  *
  * @param {ReviewMode | string} mode
  * @param {HostFamily | string} hostFamily
- * @returns {'codex' | 'grok' | 'claude' | null}
+ * @returns {'codex' | 'grok' | 'claude' | 'agy' | null}
  */
 export function externalProviderForMode(mode, hostFamily) {
   const m = String(mode || '').toLowerCase();
@@ -163,6 +164,7 @@ export function externalProviderForMode(mode, hostFamily) {
  * @property {boolean} [sameFamilyRemap]
  * @property {boolean} [includesLocal] - true for both* modes that run local first
  * @property {'codex' | 'grok' | 'claude' | 'agy' | null} [externalProvider] - external leg if any
+ * @property {Array<'codex' | 'grok' | 'claude' | 'agy'>} [externalProviders] - all external legs (external-both)
  * @property {'codex' | 'grok' | 'claude' | 'agy'} [crossFamilyAlternative]
  * @property {string} [message]
  * @property {HostFamily} hostFamily
@@ -179,7 +181,7 @@ export function externalProviderForMode(mode, hostFamily) {
  * @param {ReviewMode | string} input.mode
  * @param {boolean} [input.interactive] - TTY / ask_user available
  * @param {boolean} [input.acceptSameFamilyAsLocal]
- * @param {'confirm' | 'decline' | 'offer-cross-family' | null} [input.sameFamilyDecision]
+ * @param {'confirm' | 'decline' | 'offer-cross-family' | null | ''} [input.sameFamilyDecision]
  *        Required after a confirm-same-family pause when re-entering the helper.
  * @returns {RouteResult}
  */
