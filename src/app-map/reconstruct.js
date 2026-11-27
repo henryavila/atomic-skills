@@ -3,6 +3,7 @@ import { basename, join } from 'node:path';
 
 import { scanCode } from './code-scan.js';
 import { diverge } from './diverge.js';
+import { groupByKey } from './group-by-key.js';
 import { buildCatalog, emitCatalog, reRunDelta } from './persist.js';
 import { recallSources } from './sources.js';
 
@@ -31,16 +32,6 @@ function sourceLabel(source) {
 
 function uniqueSorted(items) {
   return [...new Set(items.filter((item) => item !== null && item !== undefined))].sort();
-}
-
-function groupByKey(items, keyOf) {
-  const map = new Map();
-  for (const item of items) {
-    const key = keyOf(item);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(item);
-  }
-  return map;
 }
 
 function evidenceForPage(page, docCandidates) {

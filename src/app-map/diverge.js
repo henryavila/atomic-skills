@@ -1,4 +1,5 @@
 import { deriveRegime } from './code-scan.js';
+import { groupByKey } from './group-by-key.js';
 
 /**
  * Justaposição e cômputo do delta. Junta candidatos de doc (T-001) + páginas de
@@ -84,16 +85,6 @@ function buildPage(key, docCandidates, codePage) {
     fields,
     possibleAliasOf: [],
   };
-}
-
-function groupByKey(items, keyOf) {
-  const map = new Map();
-  for (const item of items) {
-    const key = keyOf(item);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(item);
-  }
-  return map;
 }
 
 // Reclassifica pares (artefact-only ⟷ code-only) que são near-miss como
