@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import {
   chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs';
@@ -12,22 +13,28 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MEASURER = join(REPO_ROOT, 'qa/measure/js-types');
 const CEILINGS = join(REPO_ROOT, 'qa/ceilings.tsv');
 const TSCONFIG = join(REPO_ROOT, 'qa/measure/lib/tsconfig.json');
+const TYPESCRIPT = createRequire(import.meta.url).resolve('typescript');
 
-function fakeTypescriptApp(script) {
+/**
+ * A measurer copy that resolves the real TypeScript module but an empty
+ * `@types` directory, so the compiler reports a diagnostic with no file.
+ */
+function isolatedTypescriptApp() {
   const app = mkdtempSync(join(tmpdir(), 'qa-js-types-app-'));
   mkdirSync(join(app, 'qa/measure/lib'), { recursive: true });
   copyFileSync(MEASURER, join(app, 'qa/measure/js-types'));
   copyFileSync(TSCONFIG, join(app, 'qa/measure/lib/tsconfig.json'));
   const packageDir = join(app, 'node_modules/typescript');
-  mkdirSync(join(packageDir, 'bin'), { recursive: true });
+  mkdirSync(packageDir, { recursive: true });
   mkdirSync(join(app, 'node_modules/@types'), { recursive: true });
   writeFileSync(
     join(packageDir, 'package.json'),
-    JSON.stringify({ name: 'typescript', version: '0.0.0', bin: { tsc: 'bin/tsc' } }),
+    JSON.stringify({ name: 'typescript', version: '0.0.0', main: 'index.js' }),
   );
-  const bin = join(packageDir, 'bin/tsc');
-  writeFileSync(bin, script);
-  chmodSync(bin, 0o755);
+  writeFileSync(
+    join(packageDir, 'index.js'),
+    `module.exports = require(${JSON.stringify(TYPESCRIPT)});\n`,
+  );
   return app;
 }
 
@@ -96,89 +103,26 @@ describe('qa/measure/js-types', () => {
     expectLines(run(), ['js\ttype-errors\tsrc/bad.js::*\t2']);
   });
 
-  it('accepts an indented continuation of a located diagnostic', () => {
+  it('counts a real chained diagnostic once', () => {
     plant({
       'package.json': '{"type":"module"}\n',
-      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
+      'src/callback.js': "/** @type {{run: (n: number) => string}} */\nconst o = { run(n) { return n; } };\nexport {o};\n",
     });
-    const target = join(root, 'src/bad.js');
-    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
-    const app = fakeTypescriptApp([
-      `process.stdout.write(${JSON.stringify(`${diagnostic}\n  The types are not related.\n`)});`,
-      'process.exit(2);',
-      '',
-    ].join('\n'));
-    try {
-      expectLines(run([], { measurer: join(app, 'qa/measure/js-types') }), [
-        'js\ttype-errors\tsrc/bad.js::*\t1',
-      ]);
-    } finally {
-      rmSync(app, { recursive: true, force: true });
-    }
+    expectLines(run(), ['js\ttype-errors\tsrc/callback.js::*\t1']);
   });
 
-  it('fails on an indented global compiler error after a located diagnostic', () => {
+  it('fails on a diagnostic without a file', () => {
     plant({
       'package.json': '{"type":"module"}\n',
-      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
+      'src/ok.js': 'export const ok = 1;\n',
     });
-    const target = join(root, 'src/bad.js');
-    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
-    const app = fakeTypescriptApp([
-      `process.stdout.write(${JSON.stringify(`${diagnostic}\n  error TS6053: File missing.js not found.\n`)});`,
-      'process.exit(2);',
-      '',
-    ].join('\n'));
+    const app = isolatedTypescriptApp();
     try {
       const result = run([], { measurer: join(app, 'qa/measure/js-types') });
-      assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
-      assert.notEqual(result.status, 3, `${result.stdout}\n${result.stderr}`);
-      assert.match(result.stderr, /TS6053/);
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /global error TS2688/);
+      assert.match(result.stderr, /type definition file for 'node'/);
       assert.equal(result.stdout, '');
-    } finally {
-      rmSync(app, { recursive: true, force: true });
-    }
-  });
-
-  it('fails on an indented line it cannot attribute to a diagnostic', () => {
-    plant({
-      'package.json': '{"type":"module"}\n',
-      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
-    });
-    const target = join(root, 'src/bad.js');
-    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
-    const app = fakeTypescriptApp([
-      `process.stdout.write(${JSON.stringify(`${diagnostic}\n  compiler failed unexpectedly\n`)});`,
-      'process.exit(2);',
-      '',
-    ].join('\n'));
-    try {
-      const result = run([], { measurer: join(app, 'qa/measure/js-types') });
-      assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
-      assert.notEqual(result.status, 3, `${result.stdout}\n${result.stderr}`);
-      assert.match(result.stderr, /compiler failed unexpectedly/);
-      assert.equal(result.stdout, '');
-    } finally {
-      rmSync(app, { recursive: true, force: true });
-    }
-  });
-
-  it('counts a real multi-line diagnostic once', () => {
-    plant({
-      'package.json': '{"type":"module"}\n',
-      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
-    });
-    const target = join(root, 'src/bad.js');
-    const diagnostic = `${target}(1,1): error TS2322: Type 'string' is not assignable to type 'number'.`;
-    const app = fakeTypescriptApp([
-      `process.stdout.write(${JSON.stringify(`${diagnostic}\n  Type 'string' is not assignable to type 'number'.\n    The expected type comes from property 'value'.\n`)});`,
-      'process.exit(2);',
-      '',
-    ].join('\n'));
-    try {
-      expectLines(run([], { measurer: join(app, 'qa/measure/js-types') }), [
-        'js\ttype-errors\tsrc/bad.js::*\t1',
-      ]);
     } finally {
       rmSync(app, { recursive: true, force: true });
     }
@@ -202,51 +146,6 @@ describe('qa/measure/js-types', () => {
     }
   });
 
-  it('fails when the compiler writes to stderr after a diagnostic', () => {
-    plant({
-      'package.json': '{"type":"module"}\n',
-      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
-    });
-    const target = join(root, 'src/bad.js');
-    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
-    const app = fakeTypescriptApp([
-      `process.stdout.write(${JSON.stringify(`${diagnostic}\n`)});`,
-      "process.stderr.write('fatal compiler failure\\n');",
-      'process.exit(1);',
-      '',
-    ].join('\n'));
-    try {
-      const result = run([], { measurer: join(app, 'qa/measure/js-types') });
-      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
-      assert.match(result.stderr, /fatal compiler failure/);
-      assert.equal(result.stdout, '');
-    } finally {
-      rmSync(app, { recursive: true, force: true });
-    }
-  });
-
-  it('fails on a global compiler error after a located diagnostic', () => {
-    plant({
-      'package.json': '{"type":"module"}\n',
-      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
-    });
-    const target = join(root, 'src/bad.js');
-    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
-    const app = fakeTypescriptApp([
-      `process.stdout.write(${JSON.stringify(`${diagnostic}\nerror TS6053: File 'missing.js' not found.\n`)});`,
-      'process.exit(2);',
-      '',
-    ].join('\n'));
-    try {
-      const result = run([], { measurer: join(app, 'qa/measure/js-types') });
-      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
-      assert.match(result.stderr, /TS6053/);
-      assert.equal(result.stdout, '');
-    } finally {
-      rmSync(app, { recursive: true, force: true });
-    }
-  });
-
   it('fails before running the compiler when a source file cannot be read', () => {
     plant({
       'package.json': '{"type":"module"}\n',
@@ -254,7 +153,6 @@ describe('qa/measure/js-types', () => {
     });
     const locked = join(root, 'src/locked.js');
     chmodSync(locked, 0o000);
-    const app = fakeTypescriptApp('process.exit(0);\n');
     try {
       let readable = true;
       try {
@@ -263,37 +161,13 @@ describe('qa/measure/js-types', () => {
         readable = false;
       }
       if (!readable) {
-        const result = run([], { measurer: join(app, 'qa/measure/js-types') });
+        const result = run();
         assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
         assert.match(result.stderr, /cannot read.*locked\.js/);
         assert.equal(result.stdout, '');
       }
     } finally {
       chmodSync(locked, 0o644);
-      rmSync(app, { recursive: true, force: true });
-    }
-  });
-
-  it('fails when the compiler crashes after printing a diagnostic', () => {
-    plant({
-      'package.json': '{"type":"module"}\n',
-      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
-    });
-    const target = join(root, 'src/bad.js');
-    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
-    const app = fakeTypescriptApp([
-      `process.stdout.write(${JSON.stringify(`${diagnostic}\n`)});`,
-      "process.stderr.write('fatal compiler failure\\n');",
-      'process.exit(42);',
-      '',
-    ].join('\n'));
-    try {
-      const result = run([], { measurer: join(app, 'qa/measure/js-types') });
-      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
-      assert.match(result.stderr, /42/);
-      assert.equal(result.stdout, '');
-    } finally {
-      rmSync(app, { recursive: true, force: true });
     }
   });
 });

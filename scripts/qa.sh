@@ -277,6 +277,11 @@ run_phase() {
 }
 
 run_check() {
+  # In changed mode the measures cover only the changed files, so a recorded
+  # item outside that set looks lowerable when it is merely unmeasured.
+  # `lower` would delete it; never show that advice on a partial measurement.
+  hide_can_lower=${1:-0}
+
   : >"$TMP/check.stacks"
   : >"$TMP/check.metrics"
   : >"$TMP/check.measures"
@@ -296,8 +301,14 @@ run_check() {
       args[${#args[@]}]="$metric"
     done <"$TMP/check.metrics"
 
-    "${args[@]}"
-    code=$?
+    if [ "$hide_can_lower" -eq 1 ]; then
+      "${args[@]}" >"$TMP/check.out"
+      code=$?
+      grep -v '^can lower:' "$TMP/check.out" || true
+    else
+      "${args[@]}"
+      code=$?
+    fi
     case "$code" in
       0) ;;
       1) failed=1 ;;
@@ -488,7 +499,7 @@ do_changed() {
     echo "qa: no fast changed-aware measurer covers the changed files"
     return 0
   fi
-  run_check
+  run_check 1
 }
 
 do_measure() {

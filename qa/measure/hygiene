@@ -11,8 +11,8 @@
  *   exit 0      measured (even with items); 3 tool not installed
  *
  * Suppressions are counted in comments for JavaScript (espree) and Python
- * (tokenize). In shell files every line that carries a directive after a `#`
- * is counted, whether or not a tokenizer would call it a comment: a directive
+ * (tokenize). In shell files every segment that starts at a `#` is counted on
+ * its own, whether or not a tokenizer would call it a comment: a directive
  * inside a string or a here-document is still a suppression a person can see.
  * Secrets are counted wherever they appear, because a real credential in a
  * string is still a credential.
@@ -202,18 +202,46 @@ function collect(root, stacks) {
 }
 
 /**
- * Shell suppression texts: every line that has a `#`, from that `#` to the end
- * of the line. A tokenizer cannot be the judge here, because a real directive
- * can sit after an escaped hash, inside a multi-line quote, or after an
- * arithmetic command substitution; counting it anyway reports more, never less.
+ * Shell suppression texts: every segment of every line that starts at a `#`
+ * and runs to the next `#` or the end of the line. A tokenizer cannot be the
+ * judge here, because a real directive can sit after an escaped hash, inside a
+ * multi-line quote, or after an arithmetic command substitution; counting it
+ * anyway reports more, never less. Cutting at every `#` keeps a second marker
+ * on the same line from hiding behind the first one.
  */
 function shellSuppressionTexts(source) {
   const texts = [];
   for (const line of source.split(/\r?\n/)) {
-    const hash = line.indexOf('#');
-    if (hash !== -1) texts.push(line.slice(hash));
+    const parts = line.split('#');
+    for (let index = 1; index < parts.length; index += 1) {
+      texts.push(`#${parts[index]}`);
+    }
   }
   return texts;
+}
+
+/**
+ * A ShellCheck directive is one suppression, whatever whitespace separates
+ * `#`, `shellcheck` and the directive list. ShellCheck 0.11.0 accepts two
+ * spaces and a tab there; a literal `shellcheck disable` needle misses both.
+ * Only a directive that disables checks or overrides `source=` / `shell=`
+ * counts: `enable=` alone is not a suppression. A marker is judged as a whole
+ * segment, so two directives on one line are two suppressions and one
+ * directive with a repeated token is still one.
+ */
+const SHELLCHECK_DIRECTIVE = /^#[ \t]*shellcheck[ \t]+\S/;
+const SHELLCHECK_SUPPRESSION = /[ \t](?:disable|source|shell)=/;
+
+function countShellSuppressions(texts) {
+  let total = 0;
+  for (const text of texts) {
+    if (SHELLCHECK_DIRECTIVE.test(text)) {
+      if (SHELLCHECK_SUPPRESSION.test(text)) total += 1;
+    } else {
+      total += countOccurrences([text], SUPPRESSIONS);
+    }
+  }
+  return total;
 }
 
 const PYTHON_COMMENTS = String.raw`
@@ -339,7 +367,9 @@ function measure(root, files) {
     else if (stack === 'py') comments = python[join(root, key)] || [];
     else comments = shellSuppressionTexts(source);
     const values = {
-      suppressions: countOccurrences(comments, SUPPRESSIONS),
+      suppressions: stack === 'sh'
+        ? countShellSuppressions(comments)
+        : countOccurrences(comments, SUPPRESSIONS),
       secrets: countSecrets(source),
     };
     for (const metric of METRICS) {

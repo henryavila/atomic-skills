@@ -8,21 +8,19 @@
  *   stdout      one line per item above its ceiling, nothing else
  *   exit 0      measured (even with items); 3 tool not installed
  *
- * The compiler options live in qa/measure/lib/tsconfig.json. They are copied
- * into a temporary project that lists the measured files as absolute paths,
- * so the same measurer works on QA_ROOT trees without writing inside them.
- * The temporary project points `typeRoots` at this repository's @types, which
- * is how a QA_ROOT tree resolves node builtins without its own node_modules.
+ * The compiler options live in qa/measure/lib/tsconfig.json. They are handed
+ * to the TypeScript Node API (`ts.createProgram`), with the measured files as
+ * absolute paths, so the same measurer works on QA_ROOT trees without writing
+ * inside them. `typeRoots` points at this repository's @types, which is how a
+ * QA_ROOT tree resolves node builtins without its own node_modules. Counting
+ * diagnostics as structured objects keeps a chained message at one item and
+ * makes a diagnostic without a file a hard failure.
  */
 
-import { spawnSync } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import {
-  mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync,
-} from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const STACK = 'js';
@@ -110,13 +108,13 @@ function sources(root) {
   return found.sort();
 }
 
-function toolPaths() {
-  let tsc;
+function loadTypeScript() {
+  let typescript;
   let types;
   try {
     const require = createRequire(import.meta.url);
+    typescript = require('typescript');
     const packagePath = require.resolve('typescript/package.json');
-    tsc = join(dirname(packagePath), 'bin', 'tsc');
     types = resolve(dirname(packagePath), '..', '@types');
   } catch (error) {
     return toolMissing(`typescript is not installed: ${error.message}`);
@@ -126,23 +124,29 @@ function toolPaths() {
   } catch {
     return toolMissing(`@types is not installed: ${types}`);
   }
-  return { tsc, types };
+  return { typescript, types };
 }
 
-function effectiveConfig(sourcesList, types) {
+function compilerOptions(ts, types, root) {
   let base;
   try {
     base = JSON.parse(readFileSync(CONFIG, 'utf8'));
   } catch (error) {
     fail(`cannot read ${CONFIG}: ${error.message}`);
   }
-  return {
-    compilerOptions: {
-      ...(base.compilerOptions || {}),
-      typeRoots: [types],
-    },
-    files: sourcesList,
-  };
+  const converted = ts.convertCompilerOptionsFromJson(
+    { ...(base.compilerOptions || {}), typeRoots: [types] },
+    root,
+  );
+  if (converted.errors.length > 0) {
+    // A rejected option is a diagnostic with no file: the program cannot be
+    // built as configured, so reporting nothing would be a smaller result.
+    const first = converted.errors[0];
+    fail(
+      `cannot apply compiler options: ${ts.flattenDiagnosticMessageText(first.messageText, '\n')}`,
+    );
+  }
+  return converted.options;
 }
 
 function errorKey(root, file) {
@@ -156,7 +160,7 @@ function measure(root) {
   const items = [];
   if (files.length === 0) return items;
 
-  const { tsc, types } = toolPaths();
+  const { typescript: ts, types } = loadTypeScript();
   for (const file of files) {
     try {
       readFileSync(file);
@@ -165,64 +169,30 @@ function measure(root) {
     }
   }
 
-  const temporary = mkdtempSync(join(tmpdir(), 'qa-js-types-'));
+  const options = compilerOptions(ts, types, root);
+  let diagnostics;
   try {
-    const config = join(temporary, 'tsconfig.json');
-    writeFileSync(config, `${JSON.stringify(effectiveConfig(files, types), null, 2)}\n`);
-
-    const result = spawnSync(
-      process.execPath,
-      [tsc, '-p', config, '--pretty', 'false'],
-      { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-    );
-    if (result.error) fail(`cannot run tsc: ${result.error.message}`);
-    if (result.signal) fail(`tsc was terminated by ${result.signal}`);
-    // 0 is success; 1 and 2 are diagnostics with outputs skipped or generated.
-    if (result.status !== 0 && result.status !== 1 && result.status !== 2) {
-      fail(`tsc exited ${result.status}: ${result.stderr.trim() || result.stdout.trim()}`);
-    }
-    if (result.stderr.trim()) {
-      fail(`tsc wrote to stderr: ${result.stderr.trim()}`);
-    }
-
-    const counts = new Map();
-    const located = /^(.*)\(\d+,\d+\): error TS\d+:/;
-    const global = /^\s*(?:.*?:\s*)?error TS\d+:/;
-    // TypeScript's multi-line messages are sentences indented by two spaces
-    // per level; each starts with a capital or a quoted/type token. A log line
-    // that starts lowercase cannot be attributed to the diagnostic.
-    const continuation = /^ {2,}(?:[A-Z]|['"`([{])/;
-    let seen = 0;
-    let inMessage = false;
-    for (const line of result.stdout.split(/\r?\n/)) {
-      if (!line.trim()) {
-        inMessage = false;
-        continue;
-      }
-      const match = line.match(located);
-      if (match) {
-        seen += 1;
-        inMessage = true;
-        const key = errorKey(root, match[1]);
-        if (key.startsWith('..') || isAbsolute(key) || !isProductionKey(key)) continue;
-        counts.set(key, (counts.get(key) || 0) + 1);
-        continue;
-      }
-      if (global.test(line)) fail(`tsc reported a global error: ${line}`);
-      if (inMessage && continuation.test(line)) continue;
-      fail(`tsc printed output that cannot be attributed to a diagnostic: ${line}`);
-    }
-    if (seen === 0 && result.status !== 0) {
-      fail(`tsc exited ${result.status}: ${result.stderr.trim() || result.stdout.trim()}`);
-    }
-
-    for (const [key, value] of counts) {
-      if (value > ceiling) items.push([STACK, METRIC, `${key}::*`, value]);
-    }
-    return items;
-  } finally {
-    rmSync(temporary, { recursive: true, force: true });
+    const program = ts.createProgram(files, options);
+    diagnostics = ts.getPreEmitDiagnostics(program);
+  } catch (error) {
+    fail(`typescript failed: ${error.message}`);
   }
+
+  const counts = new Map();
+  for (const diagnostic of diagnostics) {
+    if (!diagnostic.file) {
+      const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+      fail(`typescript reported a global error TS${diagnostic.code}: ${message}`);
+    }
+    const key = errorKey(root, diagnostic.file.fileName);
+    if (key.startsWith('..') || isAbsolute(key) || !isProductionKey(key)) continue;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+
+  for (const [key, value] of counts) {
+    if (value > ceiling) items.push([STACK, METRIC, `${key}::*`, value]);
+  }
+  return items;
 }
 
 function print(items) {

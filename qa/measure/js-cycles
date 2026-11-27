@@ -88,12 +88,12 @@ function loadMadge() {
   }
 }
 
-function loadEspree() {
+function loadWalker() {
   try {
     const require = createRequire(import.meta.url);
-    return require('espree');
+    return require('node-source-walk');
   } catch (error) {
-    return toolMissing(`espree is not installed: ${error.message}`);
+    return toolMissing(`node-source-walk is not installed: ${error.message}`);
   }
 }
 
@@ -116,29 +116,15 @@ function sourceFiles(directory, found) {
 }
 
 /**
- * Parse the way the dependency tool does: module grammar first, then script
- * grammar without a top-level return. A CommonJS file with a top-level return
- * passes a general parse but makes madge report no dependencies, so its edges
- * cannot be trusted.
+ * Parse exactly the way madge's dependency extraction does: precinct reads a
+ * `.js`/`.mjs` file through its Walker with the Walker's default options
+ * (module grammar, Babel plugins, `allowHashBang`). A looser script-mode
+ * fallback accepts files that precinct silently turns into "no dependencies",
+ * which drops their edges and can hide a cycle. Validate with the same parser,
+ * same options, and fail on a file it rejects.
  */
-function parseForDependencies(espree, source) {
-  try {
-    return espree.parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
-  } catch (moduleError) {
-    try {
-      return espree.parse(source, { ecmaVersion: 'latest', sourceType: 'script' });
-    } catch (scriptError) {
-      const error = new Error(
-        `${moduleError.message} (as a module); ${scriptError.message} (as a script)`,
-      );
-      error.moduleError = moduleError;
-      error.scriptError = scriptError;
-      throw error;
-    }
-  }
-}
-
-function validateSources(root, roots, espree) {
+function validateSources(root, roots, Walker) {
+  const walker = new Walker();
   const files = [];
   for (const name of roots) sourceFiles(join(root, name), files);
   for (const file of files) {
@@ -150,7 +136,7 @@ function validateSources(root, roots, espree) {
       fail(`cannot read ${key}: ${error.message}`);
     }
     try {
-      parseForDependencies(espree, source);
+      walker.parse(source);
     } catch (error) {
       fail(`${key}: cannot parse for dependency extraction: ${error.message}`);
     }
@@ -187,8 +173,8 @@ async function measure(root) {
   const roots = existingRoots(root);
   if (roots.length === 0) return [];
 
-  const espree = loadEspree();
-  validateSources(root, roots, espree);
+  const Walker = loadWalker();
+  validateSources(root, roots, Walker);
 
   const madge = loadMadge();
   // The explicit config keeps every rc file and `madge_*` environment variable
