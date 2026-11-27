@@ -175,7 +175,12 @@ def convert(root, payload, ceiling, items):
     sources = {}
     for result in report:
         if result.get("code") != "C901":
-            continue
+            key = normalize(root, result.get("filename", ""))
+            row = result.get("location", {}).get("row")
+            fail(
+                "%s:%s: ruff reported %s, so the measurement is incomplete: %s"
+                % (key, row, result.get("code"), result.get("message"))
+            )
         key = normalize(root, result.get("filename", ""))
         if key not in sources:
             source = read_source(root, key)
@@ -207,6 +212,9 @@ def print_items(items):
 def measure(root, keys, ceiling, items, tool):
     if not keys:
         return
+    for key in sorted(keys):
+        if not os.path.isfile(os.path.join(root, key)):
+            fail("%s: selected input is not a file — fix the --files list" % key)
     cache = tempfile.mkdtemp(prefix="qa-ruff-")
     try:
         result = subprocess.run(
@@ -218,6 +226,7 @@ def measure(root, keys, ceiling, items, tool):
                 "--output-format",
                 "json",
                 "--isolated",
+                "--ignore-noqa",
                 "--config",
                 "lint.mccabe.max-complexity = %d" % ceiling,
                 "--cache-dir",
@@ -232,6 +241,8 @@ def measure(root, keys, ceiling, items, tool):
         shutil.rmtree(cache, ignore_errors=True)
     if result.returncode not in (0, 1):
         fail("ruff exited %d: %s" % (result.returncode, result.stderr.strip()))
+    if result.stderr.strip():
+        fail("ruff could not lint every selected file: %s" % result.stderr.strip())
     convert(root, result.stdout, ceiling, items)
 
 

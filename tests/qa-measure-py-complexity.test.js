@@ -69,6 +69,25 @@ describe('qa/measure/py-complexity', () => {
     return join(root, 'fakevenv');
   }
 
+  function fakeRuffWith({ stdout = '', stderr = '', code = 0, requireFlag = null }) {
+    const bin = join(root, 'fakevenv/bin');
+    mkdirSync(bin, { recursive: true });
+    const script = [
+      '#!/usr/bin/env python3',
+      'import sys',
+      requireFlag
+        ? `if ${JSON.stringify(requireFlag)} not in sys.argv:\n    sys.exit(0)`
+        : '',
+      `sys.stdout.write(${JSON.stringify(stdout)})`,
+      `sys.stderr.write(${JSON.stringify(stderr)})`,
+      `sys.exit(${code})`,
+      '',
+    ].join('\n');
+    writeFileSync(join(bin, 'ruff'), script);
+    chmodSync(join(bin, 'ruff'), 0o755);
+    return join(root, 'fakevenv');
+  }
+
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'qa-py-complexity-'));
   });
@@ -120,6 +139,66 @@ describe('qa/measure/py-complexity', () => {
     ]);
     expectLines(run(['--files', 'skills/shared/a.py'], { QA_VENV: venv }), [
       'py\tcomplexity\tskills/shared/a.py::fake\t16',
+    ]);
+  });
+
+  it('fails on a diagnostic that is not a C901 finding', () => {
+    plant({
+      'report.json': JSON.stringify([{
+        code: null,
+        filename: 'sample/complex.py',
+        location: { row: 1, column: 7 },
+        message: 'SyntaxError: Expected a parameter or the end of the parameter list',
+      }]),
+    });
+    const result = run(['--convert', join(root, 'report.json')]);
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /incomplete/i);
+    assert.match(result.stderr, /SyntaxError/);
+  });
+
+  it('fails when ruff warns that it could not lint a file', () => {
+    const venv = fakeRuffWith({
+      stdout: '[]',
+      stderr: 'warning: Failed to lint skills/shared/a.py: No such file or directory (os error 2)\n',
+      code: 0,
+    });
+    plant({ 'skills/shared/a.py': 'def fake():\n    return 1\n' });
+    const result = run([], { QA_VENV: venv });
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /could not lint/i);
+    assert.match(result.stderr, /Failed to lint/);
+  });
+
+  it('fails when a selected file does not exist', () => {
+    const venv = fakeRuff();
+    plant({});
+    const result = run(['--files', 'skills/shared/missing.py'], { QA_VENV: venv });
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /skills\/shared\/missing\.py/);
+    assert.match(result.stderr, /not a file/i);
+  });
+
+  it('passes --ignore-noqa so noqa comments do not hide complexity', () => {
+    const venv = fakeRuffWith({
+      requireFlag: '--ignore-noqa',
+      stdout: JSON.stringify([{
+        code: 'C901',
+        filename: 'skills/shared/a.py',
+        location: { row: 1, column: 1 },
+        message: '`complex` is too complex (16 > 15)',
+      }]),
+      code: 1,
+    });
+    plant({
+      'skills/shared/a.py': [
+        'def complex(value):  # noqa: C901',
+        '    return value',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run([], { QA_VENV: venv }), [
+      'py\tcomplexity\tskills/shared/a.py::complex\t16',
     ]);
   });
 
