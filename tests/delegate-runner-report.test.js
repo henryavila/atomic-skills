@@ -17,7 +17,6 @@ import { tmpdir, hostname } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   FAKE_SCRIPT,
   git,
@@ -27,7 +26,7 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py runner', () => {
   let root;
   let atomicHome;
   let emptyHome;

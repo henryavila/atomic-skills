@@ -16,7 +16,6 @@ import { join, dirname, resolve, isAbsolute } from 'node:path';
 import { tmpdir, hostname } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
-  hasPython3,
   git,
   initGitRepo,
   makeFakeBin,
@@ -26,7 +25,7 @@ import {
   runDelegateAsync,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py remote host', () => {
   let root;
   let atomicHome;
   let emptyHome;

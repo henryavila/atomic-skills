@@ -13,9 +13,6 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const QA_SH = join(REPO_ROOT, 'scripts/qa.sh');
 const RATCHET_PY = join(REPO_ROOT, 'qa/ratchet.py');
 
-const probe = spawnSync('python3', ['-c', 'import sys'], { encoding: 'utf8' });
-const hasPython3 = probe.status === 0;
-
 const STACKS = [
   'stack\tlanguage\troots\tgenerated\ttests\tgroup',
   'js\tjavascript\tsrc,scripts,bin\t-\ttests\t-',
@@ -37,7 +34,7 @@ function measureLine(stack, metric, key, value) {
   return `printf '${stack}\\t${metric}\\t${key}\\t${value}\\n'`;
 }
 
-describe('scripts/qa.sh', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('scripts/qa.sh', () => {
   let tmp;
   let repo;
   let fakeDir;

@@ -21,7 +21,6 @@ const REPO_ROOT = realpathSync(new URL('..', import.meta.url).pathname);
 const PROGRESS_PY = join(REPO_ROOT, 'skills/shared/progress-assets/progress.py');
 
 const PYTHON3 = process.env.PROGRESS_TEST_PYTHON || 'python3';
-const hasPython3 = spawnSync(PYTHON3, ['-c', 'import sys'], { encoding: 'utf8' }).status === 0;
 
 function gitEnv(extra = {}) {
   return {
@@ -141,7 +140,7 @@ function oneMilestonePerCard(cards, extra = {}) {
   });
 }
 
-describe('progress collector', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('progress collector', () => {
   let root;
   let home;
   let atomicHome;

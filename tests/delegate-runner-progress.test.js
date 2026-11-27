@@ -17,7 +17,6 @@ import { tmpdir, hostname } from 'node:os';
 import {
   DELEGATE_PY,
   PYTHON3,
-  hasPython3,
   git,
   initGitRepo,
   makeFakeBin,
@@ -28,7 +27,7 @@ import {
 
 // AS-D11a: a run is stopped for lack of progress, keeps its work in a
 // checkpoint, and can be resumed. Every executor here is a disposable fake CLI.
-describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py progress limit and resume', () => {
   let root;
   let atomicHome;
   let repoDir;
