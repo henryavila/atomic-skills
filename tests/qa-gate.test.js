@@ -253,6 +253,17 @@ ${body}
     assert.match(result.stderr, /qa\/stacks\.tsv/);
   });
 
+  it('exits 2 when qa/stacks.tsv cannot be read', () => {
+    const awk = join(binDir, 'awk');
+    writeFileSync(awk, '#!/bin/sh\nexit 2\n');
+    chmodSync(awk, 0o755);
+    writeMeasurer('fake', { changed: 'yes' });
+
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa\/stacks\.tsv/);
+  });
+
   it('changed checks the quality tables even when nothing is staged', () => {
     writeFile('qa/stacks.tsv', [
       'stack\tlanguage\troots\tgenerated\ttests\tgroup',

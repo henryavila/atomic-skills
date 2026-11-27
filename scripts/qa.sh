@@ -103,7 +103,7 @@ require_tables() {
     fi
   done
 
-  bad=$(awk -F'\t' '
+  if ! bad=$(awk -F'\t' '
     NR == 1 { next }
     /^[ \t]*(#|$)/ { next }
     {
@@ -116,7 +116,9 @@ require_tables() {
       print NR
       exit
     }
-  ' qa/stacks.tsv)
+  ' qa/stacks.tsv); then
+    die "qa/stacks.tsv: cannot be read — fix the table"
+  fi
   if [ -n "$bad" ]; then
     die "qa/stacks.tsv:$bad: a stack row needs at least one root — fix the table"
   fi
