@@ -25,6 +25,11 @@ const CATALOG_MD = 'app-map.md';
 // top-level é o roll-up (hash dos evidenceHashes ordenados). 0.3 reshapeou o
 // conflict para witnesses[] (o produtor emite via conflictForField); o
 // evidenceHash por-página segue requerido (porta de direção única, de 0.2 em diante).
+/**
+ * @param {object} [options]
+ * @param {any[]} [options.pages]
+ * @param {string} [options.projectId]
+ */
 export function buildCatalog({ pages = [], projectId } = {}) {
   const catalogPages = pages.map((page) => {
     const { evidence, ...rest } = page;
@@ -91,6 +96,13 @@ function mirrorMarkdown(catalog) {
 // Grava o catálogo + espelho .md. A validação emit-time é o GATE universal
 // (funciona para app externo, fora do alcance do validate-state): malformado ⇒
 // aborta sem gravar nada.
+/**
+ * @param {object} catalog
+ * @param {object} [options]
+ * @param {string} [options.dir]
+ * @param {Function} [options.writeFile]
+ * @param {Function} [options.mkdir]
+ */
 export function emitCatalog(catalog, { dir, writeFile = writeFileSync, mkdir = mkdirSync } = {}) {
   // Valida ANTES de qualquer efeito colateral: malformado aborta sem criar dir.
   assertValidAppMap(catalog);

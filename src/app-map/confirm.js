@@ -46,6 +46,13 @@ function applyResolution(page, item, answer, { resolvedBy, now }) {
   return { deferred, blind: answer.blind === true };
 }
 
+/**
+ * @param {{pages: any[], delta: any[]}} input
+ * @param {object} [options]
+ * @param {Function} [options.ask]
+ * @param {string} [options.resolvedBy]
+ * @param {string} [options.now]
+ */
 export function confirmDivergences({ pages, delta }, { ask, resolvedBy = 'operator', now } = {}) {
   const resolvedAt = now ?? new Date().toISOString();
   const pageById = new Map(pages.map((p) => [p.id, p]));

@@ -3,6 +3,7 @@ import { basename, join } from 'node:path';
 
 import { scanCode } from './code-scan.js';
 import { diverge } from './diverge.js';
+import { groupByKey } from './group-by-key.js';
 import { buildCatalog, emitCatalog, reRunDelta } from './persist.js';
 import { recallSources } from './sources.js';
 
@@ -31,16 +32,6 @@ function sourceLabel(source) {
 
 function uniqueSorted(items) {
   return [...new Set(items.filter((item) => item !== null && item !== undefined))].sort();
-}
-
-function groupByKey(items, keyOf) {
-  const map = new Map();
-  for (const item of items) {
-    const key = keyOf(item);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(item);
-  }
-  return map;
 }
 
 function evidenceForPage(page, docCandidates) {
@@ -161,6 +152,11 @@ function toPageFact(page) {
   };
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.appRoot]
+ * @param {string} [options.projectId]
+ */
 export function resolveTarget({ appRoot, projectId } = {}) {
   if (!appRoot) throw new Error('appRoot is required');
   const resolvedProjectId = projectId ?? basename(appRoot);
@@ -169,6 +165,13 @@ export function resolveTarget({ appRoot, projectId } = {}) {
   return { appRoot, projectId: resolvedProjectId, catalogDir, jsonPath };
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.appRoot]
+ * @param {string} [options.projectId]
+ * @param {Function} [options.readFile]
+ * @param {Function} [options.exists]
+ */
 export function computeReconstruction({
   appRoot,
   projectId,
@@ -212,6 +215,12 @@ export function computeReconstruction({
   };
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.appRoot]
+ * @param {string} [options.projectId]
+ * @param {any[]} [options.pages]
+ */
 export function persistReconstruction({ appRoot, projectId, pages = [] } = {}) {
   const target = resolveTarget({ appRoot, projectId });
   if (pages.length === 0) throw new Error('Cannot persist an empty app-map catalog');
