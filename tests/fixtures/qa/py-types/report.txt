@@ -1,0 +1,3 @@
+sample/typed.py:6: error: Name "unknown_name" is not defined  [name-defined]
+sample/typed.py:6: error: Name "other_missing" is not defined  [name-defined]
+sample/typed.py:10: error: Incompatible return value type (got "int", expected "str")  [return-value]

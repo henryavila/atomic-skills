@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""ShellCheck findings for the shell sources, counted per file.
+
+Contract (see the comment block at the top of scripts/qa.sh):
+
+  --describe   mode/changed/covers lines; exit 0
+  (nothing)    run shellcheck over the shell sources of the repository
+  --files F..  measure only the listed files, paths from the repository root
+  stdout       one line per item above its ceiling, nothing else
+  exit 0       measured (even with items); 3 tool not installed
+
+Shell source is every ``*.sh`` under the ``sh`` roots plus every file in
+``.husky/``. The tool is the binary of the ``shellcheck`` npm package in the
+real repository's ``node_modules``, even when QA_ROOT points elsewhere. ``-x``
+is off, so sourced files are not followed.
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+STACK = "sh"
+METRIC = "static-security"
+DESCRIBE = "mode\tfast\nchanged\tyes\ncovers\tsh\tstatic-security"
+SKIP_DIRECTORIES = {"__pycache__", "node_modules", ".git"}
+
+
+def fail(message):
+    sys.stderr.write("sh-shellcheck: %s\n" % message)
+    sys.exit(1)
+
+
+def tool_missing(message):
+    sys.stderr.write("sh-shellcheck: %s\n" % message)
+    sys.exit(3)
+
+
+def repository_root():
+    if os.environ.get("QA_ROOT"):
+        return os.path.abspath(os.environ["QA_ROOT"])
+    try:
+        output = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"], stderr=subprocess.DEVNULL
+        )
+    except (OSError, subprocess.CalledProcessError):
+        fail("not inside a git repository and QA_ROOT is not set")
+    return output.decode("utf-8").strip()
+
+
+def shellcheck_binary():
+    override = os.environ.get("QA_SHELLCHECK")
+    if override:
+        path = os.path.abspath(override)
+    else:
+        repository = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        path = os.path.join(repository, "node_modules", "shellcheck", "bin", "shellcheck")
+    if os.path.isfile(path) and os.access(path, os.X_OK):
+        return path
+    tool_missing("shellcheck is not installed at %s — run npm ci" % path)
+
+
+def read_ceiling(root):
+    path = os.path.join(root, "qa", "ceilings.tsv")
+    try:
+        handle = open(path, encoding="utf-8")
+    except OSError:
+        fail("cannot read %s" % path)
+    with handle:
+        for number, line in enumerate(handle, 1):
+            line = line.rstrip("\n").rstrip("\r")
+            if number == 1 or not line.strip() or line.startswith("#"):
+                continue
+            fields = line.split("\t")
+            if fields[0] == METRIC:
+                try:
+                    return int(fields[1])
+                except (IndexError, ValueError):
+                    fail("%s:%d: not a number: %s" % (path, number, fields[1:]))
+    fail("%s: no ceiling for %s" % (path, METRIC))
+
+
+def read_roots(root):
+    path = os.path.join(root, "qa", "stacks.tsv")
+    try:
+        handle = open(path, encoding="utf-8")
+    except OSError:
+        fail("cannot read %s" % path)
+    with handle:
+        for number, line in enumerate(handle, 1):
+            line = line.rstrip("\n").rstrip("\r")
+            if number == 1 or not line.strip() or line.startswith("#"):
+                continue
+            fields = line.split("\t")
+            if fields[0] != STACK:
+                continue
+            raw = fields[2] if len(fields) > 2 else ""
+            return [part.strip().rstrip("/") for part in raw.split(",") if part.strip() not in ("", "-")]
+    fail("%s: no %s row" % (path, STACK))
+
+
+def relative_key(root, path):
+    return os.path.relpath(path, root).replace(os.sep, "/")
+
+
+def walk(root, relative_dir, everything, found):
+    directory = os.path.join(root, relative_dir)
+    if not os.path.isdir(directory):
+        return
+    for name in sorted(os.listdir(directory)):
+        path = os.path.join(directory, name)
+        if os.path.isdir(path):
+            if name in SKIP_DIRECTORIES:
+                continue
+            walk(root, os.path.join(relative_dir, name), everything, found)
+        elif os.path.isfile(path) and (everything or name.endswith(".sh")):
+            found.add(relative_key(root, path))
+
+
+def repository_files(root):
+    found = set()
+    for base in read_roots(root):
+        walk(root, base, base == ".husky", found)
+    walk(root, ".husky", True, found)
+    return sorted(found)
+
+
+def listed_files(root, files, roots):
+    found = set()
+    for item in files:
+        key = os.path.normpath(item).replace(os.sep, "/")
+        if key.startswith("..") or os.path.isabs(key):
+            continue
+        if key == ".husky" or key.startswith(".husky/"):
+            found.add(key)
+        elif key.endswith(".sh") and any(
+            key == base or key.startswith(base + "/") for base in roots
+        ):
+            found.add(key)
+    return sorted(found)
+
+
+def normalize(root, filename):
+    if os.path.isabs(filename):
+        path = os.path.relpath(os.path.realpath(filename), os.path.realpath(root))
+    else:
+        path = filename
+    return os.path.normpath(path).replace(os.sep, "/")
+
+
+def convert(root, payload, ceiling, items):
+    try:
+        report = json.loads(payload)
+    except ValueError as error:
+        fail("cannot read the shellcheck report: %s" % error)
+    counts = {}
+    for finding in report:
+        key = normalize(root, finding.get("file", ""))
+        code = finding.get("code")
+        if isinstance(code, int) and 1000 <= code < 1090:
+            fail(
+                "%s:%s: shellcheck could not parse the file (SC%s): %s"
+                % (key, finding.get("line", "?"), code, finding.get("message", ""))
+            )
+        counts[key] = counts.get(key, 0) + 1
+    for key in sorted(counts):
+        if counts[key] > ceiling:
+            items.append([STACK, METRIC, "%s::*" % key, counts[key]])
+
+
+def print_items(items):
+    lines = ["\t".join(str(field) for field in item) for item in items]
+    lines.sort()
+    if lines:
+        sys.stdout.write("\n".join(lines) + "\n")
+
+
+def main():
+    args = sys.argv[1:]
+    if args == ["--describe"]:
+        sys.stdout.write(DESCRIBE + "\n")
+        return
+    if len(args) > 0 and args[0] != "--files":
+        sys.stderr.write("usage: sh-shellcheck [--describe | --files <path>...]\n")
+        sys.exit(1)
+
+    root = repository_root()
+    binary = shellcheck_binary()
+    ceiling = read_ceiling(root)
+    if len(args) == 0:
+        keys = repository_files(root)
+    else:
+        keys = listed_files(root, args[1:], read_roots(root))
+    if not keys:
+        return
+
+    result = subprocess.run(
+        [binary, "--norc", "-f", "json"] + keys,
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode not in (0, 1):
+        fail("shellcheck exited %d: %s" % (result.returncode, result.stderr.strip()))
+    items = []
+    convert(root, result.stdout, ceiling, items)
+    print_items(items)
+
+
+if __name__ == "__main__":
+    main()

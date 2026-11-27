@@ -1,0 +1,323 @@
+#!/usr/bin/env python3
+"""Python size, parameters, silent error handlers, and shell file size.
+
+Contract (see the comment block at the top of scripts/qa.sh):
+
+  --describe   mode/changed/covers lines; exit 0
+  (nothing)    measure the python and shell sources of the repository
+  --files F..  measure only the listed files, paths from the repository root
+  stdout       one line per item above its ceiling, nothing else
+  exit 0       measured (even with items)
+
+The repository root comes from QA_ROOT, or from ``git rev-parse
+--show-toplevel`` when it is not set. Ceilings and roots come from
+``qa/ceilings.tsv`` and ``qa/stacks.tsv``; none is hard-coded.
+
+Python source is every ``*.py`` under the ``py`` roots. Shell source is every
+``*.sh`` under the ``sh`` roots plus every file in ``.husky/``.
+"""
+
+import ast
+import os
+import subprocess
+import sys
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+import pysymbols
+
+STACK_PY = "py"
+STACK_SH = "sh"
+METRICS = ["function-lines", "params", "file-lines", "silent-errors"]
+
+DESCRIBE = "\n".join(
+    [
+        "mode\tfast",
+        "changed\tyes",
+        "covers\tpy\tfunction-lines",
+        "covers\tpy\tparams",
+        "covers\tpy\tfile-lines",
+        "covers\tpy\tsilent-errors",
+        "covers\tsh\tfile-lines",
+    ]
+)
+
+SKIP_DIRECTORIES = {"__pycache__", "node_modules", ".git"}
+
+
+def fail(message):
+    sys.stderr.write("py-size: %s\n" % message)
+    sys.exit(1)
+
+
+def repository_root():
+    if os.environ.get("QA_ROOT"):
+        return os.path.abspath(os.environ["QA_ROOT"])
+    try:
+        output = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"], stderr=subprocess.DEVNULL
+        )
+    except (OSError, subprocess.CalledProcessError):
+        fail("not inside a git repository and QA_ROOT is not set")
+    return output.decode("utf-8").strip()
+
+
+def read_ceilings(root):
+    path = os.path.join(root, "qa", "ceilings.tsv")
+    try:
+        handle = open(path, encoding="utf-8")
+    except OSError:
+        fail("cannot read %s" % path)
+    ceilings = {}
+    with handle:
+        for number, line in enumerate(handle, 1):
+            line = line.rstrip("\n").rstrip("\r")
+            if number == 1 or not line.strip() or line.startswith("#"):
+                continue
+            fields = line.split("\t")
+            metric = fields[0]
+            if metric in METRICS:
+                try:
+                    ceilings[metric] = int(fields[1])
+                except (IndexError, ValueError):
+                    fail("%s:%d: not a number: %s" % (path, number, fields[1:]))
+    for metric in METRICS:
+        if metric not in ceilings:
+            fail("%s: no ceiling for %s" % (path, metric))
+    return ceilings
+
+
+def read_roots(root, stack):
+    path = os.path.join(root, "qa", "stacks.tsv")
+    try:
+        handle = open(path, encoding="utf-8")
+    except OSError:
+        fail("cannot read %s" % path)
+    with handle:
+        for number, line in enumerate(handle, 1):
+            line = line.rstrip("\n").rstrip("\r")
+            if number == 1 or not line.strip() or line.startswith("#"):
+                continue
+            fields = line.split("\t")
+            if fields[0] != stack:
+                continue
+            raw = fields[2] if len(fields) > 2 else ""
+            return [part.strip().rstrip("/") for part in raw.split(",") if part.strip() not in ("", "-")]
+    fail("%s: no %s row" % (path, stack))
+
+
+def relative_key(root, path):
+    return os.path.relpath(path, root).replace(os.sep, "/")
+
+
+def walk(root, relative_dir, accept, found):
+    directory = os.path.join(root, relative_dir)
+    if not os.path.isdir(directory):
+        return
+    for name in sorted(os.listdir(directory)):
+        path = os.path.join(directory, name)
+        if os.path.isdir(path):
+            if name in SKIP_DIRECTORIES:
+                continue
+            walk(root, os.path.join(relative_dir, name), accept, found)
+        elif os.path.isfile(path) and accept(path):
+            found.add(relative_key(root, path))
+
+
+def source_files(root):
+    python = set()
+    for base in read_roots(root, STACK_PY):
+        walk(root, base, lambda path: path.endswith(".py"), python)
+
+    shell = set()
+    for base in read_roots(root, STACK_SH):
+        if base == ".husky":
+            walk(root, base, lambda path: True, shell)
+        else:
+            walk(root, base, lambda path: path.endswith(".sh"), shell)
+    # Every file in .husky/ is shell source, whether or not it ends in .sh.
+    walk(root, ".husky", lambda path: True, shell)
+    return python, shell
+
+
+def is_python(key, python_roots):
+    return key.endswith(".py") and any(key == base or key.startswith(base + "/") for base in python_roots)
+
+
+def is_shell(key, shell_roots):
+    if key == ".husky" or key.startswith(".husky/"):
+        return True
+    return key.endswith(".sh") and any(
+        key == base or key.startswith(base + "/") for base in shell_roots
+    )
+
+
+def listed_files(root, files, python_roots, shell_roots):
+    python = set()
+    shell = set()
+    for item in files:
+        key = os.path.normpath(item).replace(os.sep, "/")
+        if key.startswith("..") or os.path.isabs(key):
+            continue
+        if is_python(key, python_roots):
+            python.add(key)
+        elif is_shell(key, shell_roots):
+            shell.add(key)
+    return python, shell
+
+
+def read_source(root, key):
+    path = os.path.join(root, key)
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+    except OSError as error:
+        fail("%s: cannot read: %s" % (key, error))
+
+
+def parse(source, key):
+    try:
+        return ast.parse(source, filename=key)
+    except SyntaxError as error:
+        fail("%s: cannot parse: %s" % (key, error))
+
+
+def physical_lines(source):
+    if source == "":
+        return 0
+    count = source.count("\n")
+    if not source.endswith("\n"):
+        count += 1
+    return count
+
+
+def is_broad(handler):
+    def broad_name(node):
+        if isinstance(node, ast.Name):
+            return node.id in ("Exception", "BaseException")
+        if isinstance(node, ast.Attribute):
+            return node.attr in ("Exception", "BaseException")
+        return False
+
+    node = handler.type
+    if node is None:
+        return True
+    if isinstance(node, ast.Tuple):
+        return any(broad_name(element) for element in node.elts)
+    return broad_name(node)
+
+
+def scan_definition(node, name, state):
+    """Scan expressions evaluated while defining a scope, skipping its body."""
+    for field, value in ast.iter_fields(node):
+        if field in ("body", "name", "type_comment"):
+            continue
+        if isinstance(value, ast.AST):
+            scan_handler(value, name, state)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, ast.AST):
+                    scan_handler(item, name, state)
+
+
+def scan_handler(node, name, state):
+    """Mark a use or a re-raise in the handler body, not in a nested scope."""
+    if isinstance(node, pysymbols.FUNCTION_TYPES):
+        scan_definition(node, name, state)
+        return
+    if isinstance(node, ast.Lambda):
+        scan_definition(node, name, state)
+        return
+    if name and isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id == name:
+        state["uses"] = True
+    if isinstance(node, ast.Raise):
+        if node.exc is None:
+            state["raises"] = True
+        elif name and isinstance(node.exc, ast.Name) and node.exc.id == name:
+            state["raises"] = True
+    for child in ast.iter_child_nodes(node):
+        scan_handler(child, name, state)
+
+
+def is_silent(handler):
+    if not is_broad(handler):
+        return False
+    state = {"uses": False, "raises": False}
+    for statement in handler.body:
+        scan_handler(statement, handler.name, state)
+    return not state["uses"] and not state["raises"]
+
+
+def measure_python(root, keys, ceilings, items):
+    for key in sorted(keys):
+        source = read_source(root, key)
+        tree = parse(source, key)
+        entries = pysymbols.collect_functions(tree)
+        source_lines = source.splitlines()
+        comments = pysymbols.comment_only_lines(source)
+
+        for entry in entries:
+            length = pysymbols.function_lines(source_lines, entry["node"], comments)
+            if length > ceilings["function-lines"]:
+                items.append([STACK_PY, "function-lines", "%s::%s" % (key, entry["symbol"]), length])
+            count = pysymbols.parameter_count(entry["node"])
+            if count > ceilings["params"]:
+                items.append([STACK_PY, "params", "%s::%s" % (key, entry["symbol"]), count])
+
+        silent = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler) or not is_silent(node):
+                continue
+            symbol = pysymbols.symbol_at_line(entries, node.lineno)
+            silent[symbol] = silent.get(symbol, 0) + 1
+        for symbol, count in silent.items():
+            if count > ceilings["silent-errors"]:
+                items.append([STACK_PY, "silent-errors", "%s::%s" % (key, symbol), count])
+
+        lines = physical_lines(source)
+        if lines > ceilings["file-lines"]:
+            items.append([STACK_PY, "file-lines", "%s::*" % key, lines])
+
+
+def measure_shell(root, keys, ceilings, items):
+    for key in sorted(keys):
+        lines = physical_lines(read_source(root, key))
+        if lines > ceilings["file-lines"]:
+            items.append([STACK_SH, "file-lines", "%s::*" % key, lines])
+
+
+def print_items(items):
+    lines = ["\t".join(str(field) for field in item) for item in items]
+    lines.sort()
+    if lines:
+        sys.stdout.write("\n".join(lines) + "\n")
+
+
+def main():
+    args = sys.argv[1:]
+    if args == ["--describe"]:
+        sys.stdout.write(DESCRIBE + "\n")
+        return
+    if len(args) > 0 and args[0] != "--files":
+        sys.stderr.write("usage: py-size [--describe | --files <path>...]\n")
+        sys.exit(1)
+
+    root = repository_root()
+    ceilings = read_ceilings(root)
+    python_roots = read_roots(root, STACK_PY)
+    shell_roots = read_roots(root, STACK_SH)
+
+    if len(args) == 0:
+        python, shell = source_files(root)
+    else:
+        python, shell = listed_files(root, args[1:], python_roots, shell_roots)
+
+    items = []
+    measure_python(root, python, ceilings, items)
+    measure_shell(root, shell, ceilings, items)
+    print_items(items)
+
+
+if __name__ == "__main__":
+    main()
