@@ -28,6 +28,11 @@ const sups = {
   shellcheckSpaced: 'shell' + 'check  disable=SC2086',
   shellcheckTabbed: 'shell' + 'check\tdisable=SC2086',
   shellcheckSourceAndDisable: 'shell' + 'check source=lib.sh disable=SC2086',
+  shellcheckSourceAndDisableAndNoqa: 'shell' + 'check source=lib.sh disable=SC2086 # ' + 'no' + 'qa',
+  shellcheckDisableAndNoqa: 'shell' + 'check disable=SC2086 # ' + 'no' + 'qa',
+  shellcheckDisableAndEslint: 'shell' + 'check disable=SC2086 # ' + 'eslint' + '-disable-next-line',
+  shellcheckEnableAll: 'shell' + 'check ' + 'enable=all',
+  shellcheckEnableCheck: 'shell' + 'check ' + 'enable=check-unassigned-uppercase',
   tsNoCheck: '@ts-' + 'nocheck',
   tsIgnore: '@ts-' + 'ignore',
 };
@@ -240,6 +245,30 @@ describe('qa/measure/hygiene', () => {
       'sh\tsuppressions\t.husky/source-and-disable::*\t1',
       'sh\tsuppressions\t.husky/tab::*\t1',
       'sh\tsuppressions\t.husky/two-spaces::*\t1',
+    ]);
+  });
+
+  it('counts independent suppressions next to a shellcheck disable directive', () => {
+    plant({
+      '.husky/disable-and-noqa': `# ${sups.shellcheckDisableAndNoqa}\n`,
+      '.husky/disable-and-eslint': `# ${sups.shellcheckDisableAndEslint}\n`,
+      '.husky/source-disable-and-noqa': `# ${sups.shellcheckSourceAndDisableAndNoqa}\n`,
+    });
+    expectLines(run(), [
+      'sh\tsuppressions\t.husky/disable-and-eslint::*\t2',
+      'sh\tsuppressions\t.husky/disable-and-noqa::*\t2',
+      'sh\tsuppressions\t.husky/source-disable-and-noqa::*\t2',
+    ]);
+  });
+
+  it('does not count shellcheck directives that do not disable a check', () => {
+    plant({
+      '.husky/enable-all': `# ${sups.shellcheckEnableAll}\n`,
+      '.husky/enable-check': `# ${sups.shellcheckEnableCheck}\n`,
+      '.husky/enable-and-noqa': `# ${sups.shellcheckEnableAll} # ${sups.noqa}\n`,
+    });
+    expectLines(run(), [
+      'sh\tsuppressions\t.husky/enable-and-noqa::*\t1',
     ]);
   });
 

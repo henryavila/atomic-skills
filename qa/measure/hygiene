@@ -220,17 +220,28 @@ function shellSuppressionTexts(source) {
  * A ShellCheck directive is one suppression, whatever whitespace separates
  * `#`, `shellcheck` and the directive list. ShellCheck 0.11.0 accepts two
  * spaces and a tab there; a literal `shellcheck disable` needle misses both.
- * Removing the whole directive before matching the other patterns keeps
- * `source=x disable=SC2086` on one line at one item.
+ * Only a directive that disables checks or overrides `source=` / `shell=`
+ * counts: `enable=` alone is not a suppression. The other patterns are
+ * matched against the whole text, so an independent suppression next to the
+ * directive still counts.
  */
-const SHELLCHECK_DIRECTIVE = /#\s*shellcheck[ \t]+\S[^\r\n]*/;
+const SHELLCHECK_DIRECTIVE = /#[ \t]*shellcheck(?:[ \t]+[^\s#]+)*/;
+const SHELLCHECK_SUPPRESSION = /[ \t](?:disable|source|shell)=/;
+const NON_SHELLCHECK_SUPPRESSIONS = SUPPRESSIONS.filter(
+  (needle) => !needle.startsWith('shellcheck '),
+);
+
+function isShellcheckSuppression(text) {
+  const directive = SHELLCHECK_DIRECTIVE.exec(text);
+  return directive !== null && SHELLCHECK_SUPPRESSION.test(directive[0]);
+}
 
 function countShellSuppressions(texts) {
   let total = 0;
   for (const text of texts) {
-    if (SHELLCHECK_DIRECTIVE.test(text)) {
+    if (isShellcheckSuppression(text)) {
       total += 1;
-      total += countOccurrences([text.replace(SHELLCHECK_DIRECTIVE, '')], SUPPRESSIONS);
+      total += countOccurrences([text], NON_SHELLCHECK_SUPPRESSIONS);
     } else {
       total += countOccurrences([text], SUPPRESSIONS);
     }
