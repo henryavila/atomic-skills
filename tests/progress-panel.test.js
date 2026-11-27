@@ -1471,7 +1471,7 @@ print("ok")
   });
 
   it('exits 2 when launchd is unavailable and PROGRESS_LAUNCHCTL is unset', {
-    skip: process.platform === 'darwin' ? 'would reach the real launchd on macOS' : false,
+    skip: process.platform === 'darwin' ? 'would reach the real launchd on macOS (@henryavila 2026-11-27; runs on Linux, where launchd is absent)' : false,
   }, () => {
     const without = { ...env };
     delete without.PROGRESS_LAUNCHCTL;
