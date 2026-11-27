@@ -291,7 +291,7 @@ spec.loader.exec_module(d)
     }
   });
 
-  it('profiles lists exactly the eleven supported profiles in order and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
+  it('profiles lists exactly the thirteen supported profiles in order and marks executors absent from PATH as missing when DELEGATE_NO_FALLBACK_PATHS=1', () => {
     const partialDir = join(root, 'partial');
     const { binDir: partialBin } = makeFakeBin(partialDir, ['opencode', 'agy']);
     const res = runDelegate(['profiles'], {
@@ -303,10 +303,12 @@ spec.loader.exec_module(d)
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 30);
+    assert.equal(lines.length, 36);
     assert.deepEqual(lines.filter((line) => !line.startsWith('  ')), [
       'flash | opencode | opencode-go/deepseek-v4.1-flash | deepseek | found',
       'flash-review | opencode | opencode-go/deepseek-v4.1-flash | deepseek | found',
+      'muse | opencode | opencode-go/muse-spark-1.3-contributor | meta | found | WARNING: trains on request data (Meta)',
+      'muse-review | opencode | opencode-go/muse-spark-1.3-contributor | meta | found | WARNING: trains on request data (Meta)',
       'codex | codex | gpt-6.1-sol | openai | missing',
       'codex-review | codex | gpt-6.1-sol | openai | missing',
       'agy | agy | gemini-4-hydrogen-high | gemini | found',
@@ -317,10 +319,19 @@ spec.loader.exec_module(d)
       'agy-opus-review | agy | claude-opus-5-5-medium | anthropic | found',
       'claude-review | claude | claude-sonnet-5-5 | anthropic | missing',
     ]);
-    assert.equal(lines.filter((line) => line.startsWith('  ')).length, 19);
+    assert.equal(lines.filter((line) => line.startsWith('  ')).length, 23);
     assert.match(res.stdout, /network=yes \| git_write=yes/);
     assert.match(res.stdout, /network=yes \| git_write=no/);
     assert.match(res.stdout, /limits=/);
+  });
+
+  it('profiles warns on the line of each profile whose provider trains on request data, and only there', () => {
+    const res = runDelegate(['profiles'], { ...baseEnv, DELEGATE_NO_FALLBACK_PATHS: '1' });
+    assert.equal(res.status, 0, res.stderr);
+    const lines = res.stdout.trim().split('\n').filter((line) => !line.startsWith('  '));
+    const warned = lines.filter((line) => line.includes('WARNING'));
+    assert.deepEqual(warned.map((line) => line.split(' | ')[0]), ['muse', 'muse-review']);
+    for (const line of warned) assert.match(line, / \| WARNING: trains on request data \(Meta\)$/);
   });
 
   it('profiles shows the Flash model and marks OpenCode entries refused when DELEGATE_OPENCODE_MODEL names another model', () => {
@@ -332,7 +343,7 @@ spec.loader.exec_module(d)
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 30);
+    assert.equal(lines.length, 36);
     assert.ok(
       lines.includes('flash | opencode | opencode-go/deepseek-v4.1-flash | deepseek | refused'),
       res.stdout,
@@ -341,6 +352,8 @@ spec.loader.exec_module(d)
       lines.includes('flash-review | opencode | opencode-go/deepseek-v4.1-flash | deepseek | refused'),
       res.stdout,
     );
+    assert.ok(lines.includes('muse | opencode | opencode-go/muse-spark-1.3-contributor | meta | found | WARNING: trains on request data (Meta)'), res.stdout);
+    assert.ok(lines.includes('muse-review | opencode | opencode-go/muse-spark-1.3-contributor | meta | found | WARNING: trains on request data (Meta)'), res.stdout);
     assert.doesNotMatch(res.stdout, /hy4/);
   });
 
@@ -362,7 +375,7 @@ spec.loader.exec_module(d)
 
     assert.equal(res.status, 0, res.stderr);
     const lines = res.stdout.trim().split('\n');
-    assert.equal(lines.length, 30);
+    assert.equal(lines.length, 36);
     assert.ok(lines.includes('codex | codex | gpt-6.1-sol | openai | found'));
     assert.ok(lines.includes('codex-review | codex | gpt-6.1-sol | openai | found'));
   });

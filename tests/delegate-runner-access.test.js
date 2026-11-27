@@ -858,7 +858,9 @@ print(json.dumps(out))
   });
 
   it('--profile flash-review --role review builds the OpenCode argv with the Flash model', () => {
-    const cardText = readFileSync(cardPath, 'utf8');
+    const rubric = readFileSync(join(REPO_ROOT, 'skills/shared/delegate-assets/severity-rubric.md'), 'utf8');
+    // Every review prompt ends with the severity rubric.
+    const cardText = readFileSync(cardPath, 'utf8') + '\n' + rubric;
     const res = runDelegate(
       [
         'run',
