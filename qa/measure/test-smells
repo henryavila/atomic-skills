@@ -231,12 +231,18 @@ function owned(value, strict = false) {
   return false;
 }
 
-function insideSkipCall(ancestors) {
-  return ancestors.some(
-    (node) => node.type === 'CallExpression'
-      && node.callee
-      && node.callee.type === 'MemberExpression'
-      && keyName(node.callee.property, node.callee.computed) === 'skip',
+function optionOfSkipCall(ancestors) {
+  const object = ancestors[ancestors.length - 1];
+  const call = ancestors[ancestors.length - 2];
+  return Boolean(
+    object
+    && object.type === 'ObjectExpression'
+    && call
+    && call.type === 'CallExpression'
+    && call.callee
+    && call.callee.type === 'MemberExpression'
+    && keyName(call.callee.property, call.callee.computed) === 'skip'
+    && call.arguments.includes(object),
   );
 }
 
@@ -326,7 +332,7 @@ function smells(source, file, espree) {
     if (
       node.type === 'Property'
       && keyName(node.key, node.computed) === 'skip'
-      && !insideSkipCall(ancestors)
+      && !optionOfSkipCall(ancestors)
     ) {
       const value = node.value;
       const disabled = value && value.type === 'Literal' && value.value === false;

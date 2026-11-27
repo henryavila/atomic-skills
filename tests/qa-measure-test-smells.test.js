@@ -124,6 +124,16 @@ describe('qa/measure/test-smells', () => {
     expectLines(run(), ['js\tunowned-skips\ttests/conditional-skips.test.js::*\t2']);
   });
 
+  it('reports an unowned skip nested inside an owned skip call', () => {
+    plant({
+      'tests/nested-skips.test.js': [
+        "test.skip('@alice 2026-01-01 outer', (() => { test('inner', {skip: true}, () => {}); return () => {}; })());",
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), ['js\tunowned-skips\ttests/nested-skips.test.js::*\t1']);
+  });
+
   it('requires ownership on every conditional skip branch', () => {
     plant({
       'tests/conditional.test.js': [
