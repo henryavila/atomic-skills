@@ -51,7 +51,11 @@ function isPidAlive(pid) {
   }
 }
 
-function localAcquireLocks(identities, { lockRoot, timeoutMs = 60_000, pollMs = 25 } = {}) {
+/**
+ * @param {string[]} identities
+ * @param {{ lockRoot: string, timeoutMs?: number, pollMs?: number }} options
+ */
+function localAcquireLocks(identities, { lockRoot, timeoutMs = 60_000, pollMs = 25 }) {
   const unique = [...new Set(identities.filter(Boolean))];
   unique.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   mkdirSync(lockRoot, { recursive: true });
@@ -108,9 +112,10 @@ function localAcquireLocks(identities, { lockRoot, timeoutMs = 60_000, pollMs = 
           }
           if (Date.now() - started > timeoutMs) {
             release();
-            const e = new Error(`Timeout acquiring lock for ${identity}`);
-            e.code = 'LOCK_TIMEOUT';
-            throw e;
+            throw Object.assign(
+              new Error(`Timeout acquiring lock for ${identity}`),
+              { code: 'LOCK_TIMEOUT' },
+            );
           }
           const waitBuf = new Int32Array(new SharedArrayBuffer(4));
           Atomics.wait(waitBuf, 0, 0, pollMs);

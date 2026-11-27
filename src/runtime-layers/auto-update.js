@@ -98,7 +98,7 @@ export function isShellQuotedVersionCheckCommand(command) {
  *
  * @param {unknown} sessionStart
  * @param {string|null} desiredCommand raw absolute path, or null to drop all AS
- * @returns {{ starts: unknown[], removed: number }}
+ * @returns {{ starts: unknown, removed: number }}
  */
 export function reconcileSessionStartVersionCheck(sessionStart, desiredCommand) {
   if (!Array.isArray(sessionStart)) return { starts: sessionStart, removed: 0 };
@@ -200,7 +200,7 @@ export function reconcileAutoUpdateSessionStartSurfaces(basePath, opts = {}) {
  *
  * @param {string} basePath
  * @param {object} config
- * @param {string} config.skillsDir
+ * @param {string} [config.skillsDir]
  * @param {string[]} [config.ides]
  * @returns {{ claudeCommand: string|null, grokCommand: string|null, destAbs: string }}
  */
@@ -291,6 +291,7 @@ export function createAutoUpdateRuntimeProvider() {
       const destRel = VERSION_CHECK_REL;
       const destAbs = join(basePath, destRel);
 
+      /** @type {Array<{ id?: string, type: string, args: Record<string, unknown> }>} */
       const effects = [
         {
           type: 'stageRuntimeArtifacts',
