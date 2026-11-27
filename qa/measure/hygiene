@@ -16,11 +16,12 @@
  * credential in a string is still a credential.
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { SECRETS, SUPPRESSIONS } from './lib/hygiene-patterns.mjs';
+import { parseJavaScript } from './lib/js-source.mjs';
 
 const METRICS = ['suppressions', 'secrets'];
 const STACKS = ['js', 'py', 'sh'];
@@ -113,12 +114,13 @@ function included(stack, key, name) {
   return false;
 }
 
-function walk(directory, found) {
+function walk(directory, found, optional = false) {
   let entries;
   try {
     entries = readdirSync(directory, { withFileTypes: true });
-  } catch {
-    return;
+  } catch (error) {
+    if (optional && error.code === 'ENOENT') return;
+    fail(`cannot read ${directory}: ${error.message}`);
   }
   for (const entry of entries) {
     const path = join(directory, entry.name);
@@ -136,7 +138,7 @@ function collect(root, stacks) {
   for (const entry of stacks) {
     for (const name of entry.roots) {
       const found = [];
-      walk(join(root, name), found);
+      walk(join(root, name), found, true);
       for (const file of found) {
         const key = relativeKey(root, file);
         if (generated(key, entry.generated)) continue;
@@ -148,36 +150,146 @@ function collect(root, stacks) {
   return files;
 }
 
-function unquotedHash(line) {
+/**
+ * Find shell comments while keeping quoting state across lines. Single and
+ * double quotes, ANSI-C `$'...'` quoting, backticks and here-documents are
+ * tracked, so a `#` inside a multiline string or a here-document body is data,
+ * not a suppression directive.
+ */
+function shellComments(source) {
+  const comments = [];
+  const heredocs = [];
   let quote = null;
   let escaped = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (quote) {
-      if (character === '\\') escaped = true;
-      else if (character === quote) quote = null;
-      continue;
-    }
-    if (character === "'" || character === '"') {
-      quote = character;
-      continue;
-    }
-    if (character === '#') return index;
-  }
-  return -1;
-}
 
-function hashComments(source) {
-  const comments = [];
   for (const line of source.split(/\r?\n/)) {
-    const index = unquotedHash(line);
-    if (index >= 0) comments.push(line.slice(index + 1));
+    if (heredocs.length > 0) {
+      const heredoc = heredocs[0];
+      const candidate = heredoc.stripTabs ? line.replace(/^\t+/, '') : line;
+      if (candidate === heredoc.delimiter) heredocs.shift();
+      continue;
+    }
+
+    let commentIndex = -1;
+    for (let index = 0; index < line.length; index += 1) {
+      const character = line[index];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (quote) {
+        if (quote === "'") {
+          if (character === "'") quote = null;
+        } else if (character === '\\') {
+          escaped = true;
+        } else if (character === quote || (quote === '$' && character === "'")) {
+          quote = null;
+        }
+        continue;
+      }
+      if (character === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (character === "'" || character === '"' || character === '`') {
+        quote = character;
+        continue;
+      }
+      if (character === '$' && line[index + 1] === "'") {
+        quote = '$';
+        index += 1;
+        continue;
+      }
+      if (character === '#') {
+        commentIndex = index;
+        break;
+      }
+      if (character === '<' && line[index + 1] === '<' && line[index + 2] !== '<') {
+        let cursor = index + 2;
+        let stripTabs = false;
+        if (line[cursor] === '-') {
+          stripTabs = true;
+          cursor += 1;
+        }
+        while (line[cursor] === ' ' || line[cursor] === '\t') cursor += 1;
+        let delimiter = '';
+        let delimiterQuote = null;
+        for (; cursor < line.length; cursor += 1) {
+          const part = line[cursor];
+          if (delimiterQuote) {
+            if (part === delimiterQuote) {
+              delimiterQuote = null;
+            } else if (part === '\\' && delimiterQuote === '"') {
+              cursor += 1;
+              delimiter += line[cursor] || '';
+            } else {
+              delimiter += part;
+            }
+            continue;
+          }
+          if (part === "'" || part === '"') {
+            delimiterQuote = part;
+            continue;
+          }
+          if (part === '\\') {
+            cursor += 1;
+            delimiter += line[cursor] || '';
+            continue;
+          }
+          if (/\s/.test(part) || ';|&()<>'.includes(part)) break;
+          delimiter += part;
+        }
+        if (delimiter) heredocs.push({ delimiter, stripTabs });
+        index = Math.max(index, cursor - 1);
+      }
+    }
+    if (commentIndex >= 0) comments.push(line.slice(commentIndex + 1));
+    escaped = false;
   }
   return comments;
+}
+
+const PYTHON_COMMENTS = String.raw`
+import json
+import sys
+import tokenize
+
+result = {}
+for path in sys.argv[1:]:
+    try:
+        with tokenize.open(path) as source:
+            result[path] = [
+                token.string
+                for token in tokenize.generate_tokens(source.readline)
+                if token.type == tokenize.COMMENT
+            ]
+    except (OSError, SyntaxError, tokenize.TokenError, UnicodeDecodeError) as error:
+        print(f"{path}: {error}", file=sys.stderr)
+        sys.exit(1)
+json.dump(result, sys.stdout)
+`;
+
+function pythonComments(root, keys) {
+  const paths = keys.map((key) => join(root, key));
+  const result = spawnSync('python3', ['-c', PYTHON_COMMENTS, ...paths], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.error) {
+    if (result.error.code === 'ENOENT') toolMissing('python3 is not installed');
+    fail(`cannot run python3 to read comments: ${result.error.message}`);
+  }
+  if (result.signal) fail(`python3 was terminated by ${result.signal}`);
+  if (result.status !== 0) {
+    fail(`python3 could not tokenize comments: ${result.stderr.trim() || result.stdout.trim()}`);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch (error) {
+    fail(`python3 printed invalid comment data: ${error.message}`);
+  }
+  return parsed;
 }
 
 function loadEspree() {
@@ -189,28 +301,37 @@ function loadEspree() {
   }
 }
 
-function jsComments(espree, source) {
+function jsComments(espree, source, file) {
+  let ast;
   try {
-    const ast = espree.parse(source, {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
-      comment: true,
-    });
-    return (ast.comments || []).map((comment) => comment.value);
-  } catch {
-    return hashComments(source);
+    ast = parseJavaScript(espree, source, { comment: true });
+  } catch (error) {
+    fail(`${file}: cannot parse as a module or a script: ${error.message}`);
   }
+  return (ast.comments || []).map((comment) => comment.value);
 }
 
+/**
+ * Count directive occurrences without counting one directive twice when two
+ * patterns overlap (for example `noqa` and `ruff: noqa`).
+ */
 function countOccurrences(texts, needles) {
   let total = 0;
   for (const text of texts) {
+    const ranges = [];
     for (const needle of needles) {
       let index = text.indexOf(needle);
       while (index !== -1) {
-        total += 1;
+        ranges.push([index, index + needle.length]);
         index = text.indexOf(needle, index + needle.length);
       }
+    }
+    ranges.sort((left, right) => left[0] - right[0]);
+    let cursor = -1;
+    for (const [start, end] of ranges) {
+      if (start < cursor) continue;
+      total += 1;
+      cursor = end;
     }
   }
   return total;
@@ -236,10 +357,15 @@ function measure(root, files) {
   if (known.size === 0) return [];
 
   const espree = loadEspree();
+  const pythonKeys = [...known].filter(([, stack]) => stack === 'py').map(([key]) => key);
+  const python = pythonKeys.length > 0 ? pythonComments(root, pythonKeys) : {};
   const items = [];
   for (const [key, stack] of known) {
     const source = readFileSync(join(root, key), 'utf8');
-    const comments = stack === 'js' ? jsComments(espree, source) : hashComments(source);
+    let comments;
+    if (stack === 'js') comments = jsComments(espree, source, key);
+    else if (stack === 'py') comments = python[join(root, key)] || [];
+    else comments = shellComments(source);
     const values = {
       suppressions: countOccurrences(comments, SUPPRESSIONS),
       secrets: countSecrets(source),

@@ -19,6 +19,13 @@ export const SUPPRESSIONS = [
   'pylint: disable',
   'fmt: off',
   'shellcheck disable',
+  'shellcheck source=',
+  'shellcheck shell=',
+  'jscpd:ignore-start',
+  'jscpd:ignore-end',
+  'mypy: ignore-errors',
+  'mypy:',
+  'ruff: noqa',
 ];
 
 export const SECRETS = [
@@ -28,5 +35,5 @@ export const SECRETS = [
   /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
   /\bnpm_[A-Za-z0-9]{20,}\b/g,
   /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
-  /(?:^|[^\w$])([A-Za-z_$][\w$.-]*(?:secret|token|password|api_key)[\w$.-]*|(?:secret|token|password|api_key)[\w$.-]*)\s*[:=]\s*(['"`])([^'"`\r\n]{20,})\2/gim,
+  /(?:^|[^\w$])([A-Za-z_$][\w$.-]*(?:secret|token|password|api_key)[\w$.-]*|(?:secret|token|password|api_key)[\w$.-]*)\s*[:=]\s*(['"`])((?:\\.|(?!\2)[^\\\r\n]){20,})\2/gim,
 ];

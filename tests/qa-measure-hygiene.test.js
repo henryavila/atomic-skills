@@ -1,7 +1,9 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +18,15 @@ const sups = {
   eslint: 'eslint' + '-disable',
   noqa: 'no' + 'qa',
   shellcheck: 'shell' + 'check disable',
+  jscpdStart: 'jscpd' + ':ignore-start',
+  jscpdEnd: 'jscpd' + ':ignore-end',
+  mypyIgnore: 'mypy' + ': ignore-errors',
+  mypyConfig: 'mypy' + ': disable-error-code=import',
+  ruff: 'ruff' + ': no' + 'qa',
+  shellcheckSource: 'shell' + 'check source=' + 'lib.sh',
+  shellcheckShell: 'shell' + 'check shell=' + 'bash',
+  tsNoCheck: '@ts-' + 'nocheck',
+  tsIgnore: '@ts-' + 'ignore',
 };
 
 function awsKey() {
@@ -129,5 +140,115 @@ describe('qa/measure/hygiene', () => {
     expectLines(run(['--files', 'src/a.js', 'docs/ignored.js']), [
       'js\tsuppressions\tsrc/a.js::*\t1',
     ]);
+  });
+
+  it('counts TypeScript suppression comments as suppressions', () => {
+    plant({
+      'src/types.js': `// ${sups.tsNoCheck}\n// ${sups.tsIgnore}\nexport const value = 1;\n`,
+    });
+    expectLines(run(), ['js\tsuppressions\tsrc/types.js::*\t2']);
+  });
+
+  const directives = [
+    {
+      name: 'jscpd ignore-start',
+      path: 'src/ignore-start.js',
+      body: `// ${sups.jscpdStart}\nconst value = 1;\n`,
+      stack: 'js',
+    },
+    {
+      name: 'jscpd ignore-end',
+      path: 'src/ignore-end.js',
+      body: `// ${sups.jscpdEnd}\nconst value = 1;\n`,
+      stack: 'js',
+    },
+    {
+      name: 'mypy ignore-errors',
+      path: 'skills/shared/mypy-ignore.py',
+      body: `# ${sups.mypyIgnore}\nvalue = 1\n`,
+      stack: 'py',
+    },
+    {
+      name: 'mypy inline configuration',
+      path: 'skills/shared/mypy-config.py',
+      body: `# ${sups.mypyConfig}\nvalue = 1\n`,
+      stack: 'py',
+    },
+    {
+      name: 'ruff noqa',
+      path: 'skills/shared/ruff.py',
+      body: `# ${sups.ruff}\nvalue = 1\n`,
+      stack: 'py',
+    },
+    {
+      name: 'shellcheck source override',
+      path: '.husky/source-override',
+      body: `# ${sups.shellcheckSource}\nwith space\n`,
+      stack: 'sh',
+    },
+    {
+      name: 'shellcheck shell override',
+      path: '.husky/shell-override',
+      body: `# ${sups.shellcheckShell}\nwith space\n`,
+      stack: 'sh',
+    },
+  ];
+
+  for (const directive of directives) {
+    it(`counts a ${directive.name} directive`, () => {
+      plant({ [directive.path]: directive.body });
+      expectLines(run(), [
+        `${directive.stack}\tsuppressions\t${directive.path}::*\t1`,
+      ]);
+    });
+  }
+
+  it('keeps shell quoting state across lines', () => {
+    plant({
+      '.husky/multiline': [
+        'value="first line',
+        `second line" # ${sups.shellcheck}=SC2086`,
+        'echo "$value"',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), ['sh\tsuppressions\t.husky/multiline::*\t1']);
+  });
+
+  it('does not count comments inside python triple-quoted strings', () => {
+    plant({
+      'skills/shared/text.py': [
+        'text = """',
+        `# ${sups.noqa}`,
+        '"""',
+        'value = 1',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), []);
+  });
+
+  it('finds a quoted secret containing another quote character', () => {
+    plant({
+      'src/mixed.js': `const password = '${'a'.repeat(10)}"${'b'.repeat(10)}';\n`,
+    });
+    expectLines(run(), ['js\tsecrets\tsrc/mixed.js::*\t1']);
+  });
+
+  it('fails when a measured subtree cannot be read', () => {
+    plant({
+      'src/ok.js': 'export const ok = 1;\n',
+      'src/locked/hidden.js': 'export const hidden = 1;\n',
+    });
+    const locked = join(root, 'src/locked');
+    chmodSync(locked, 0o000);
+    try {
+      const result = run();
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /locked/);
+      assert.equal(result.stdout, '');
+    } finally {
+      chmodSync(locked, 0o755);
+    }
   });
 });
