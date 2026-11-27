@@ -1008,8 +1008,25 @@ def claude_limit(stdout):
     except OSError:
         return False
     # A finished review that quotes the banner is a review, not a limit.
-    return bool(CLAUDE_LIMIT_RE.search(text[:2048])) and not any(
-        TOTAL_RE.match(line) for line in text.splitlines())
+    return bool(CLAUDE_LIMIT_RE.search(text[:2048])) and not review_complete(text)
+
+
+def review_complete(text):
+    """A review answer is complete when it has its closing line: `FINDINGS <n>`
+    (severity-rubric.md) or, in the old format, `TOTAL major=… medium=… minor=…`."""
+    return any(FINDINGS_RE.match(line) or TOTAL_RE.match(line) for line in text.splitlines())
+
+
+def review_severity_fields(review_output):
+    """What a finished review run records: who chose the severities, the counts
+    the runner computed, each finding with its answers, and whether the
+    reviewer's own closing number agreed with its lines."""
+    review = parse_review(Path(review_output).read_text(errors="replace"))
+    fields = {"severity_source": review["severity_source"], "severity_counts": review["counts"],
+              "findings": review["findings"], "findings_mismatch": review["findings_mismatch"]}
+    if review["findings_mismatch"]:
+        fields["findings_claimed"] = review["findings_claimed"]
+    return fields
 
 
 def classify_failure(timed_out, code, stdout, stderr, review_wrote, review_output=None, executor=None):
@@ -1030,7 +1047,7 @@ def classify_failure(timed_out, code, stdout, stderr, review_wrote, review_outpu
             review_text = ""
         if not review_text.strip():
             return "empty_output"
-        if not any(TOTAL_RE.match(line) for line in review_text.splitlines()):
+        if not review_complete(review_text):
             return "incomplete_review"
     return "none"
 
@@ -2403,6 +2420,26 @@ def read_attachment(filename):
         usage_error(f"cannot attach {filename}: {exc}")
 
 
+def severity_rubric_path():
+    """severity-rubric.md beside this file, in the repository and in an install."""
+    return Path(__file__).resolve().parent / "severity-rubric.md"
+
+
+def read_severity_rubric():
+    """The rubric every review prompt ends with; a review is refused without it."""
+    path = severity_rubric_path()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        usage_error(f"the severity rubric is missing: {path}; a review needs it beside "
+                    "delegate.py (reinstall atomic-skills)")
+    except (OSError, UnicodeError) as exc:
+        usage_error(f"cannot read the severity rubric {path}: {exc}")
+    if not text.strip():
+        usage_error(f"the severity rubric is empty: {path}")
+    return text if text.endswith("\n") else text + "\n"
+
+
 def compose_prompt(card, attachments, diff_range, cwd):
     content = Path(card).read_text(encoding="utf-8")
     if diff_range:
@@ -3247,6 +3284,9 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
         head1 = snap1[0]
         dirty_after = bool(snap1[1])
         uncommitted = bool(remote_dirty and role != "review")
+        review_output = None
+        if role == "review":
+            review_output = last_msg if executor == "codex" else stdout
         if orphan_failure:
             failure = orphan_failure
         elif timed_out:
@@ -3260,9 +3300,6 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
         elif commit_failed:
             failure = "remote_error"
         else:
-            review_output = None
-            if role == "review":
-                review_output = last_msg if executor == "codex" else stdout
             failure = classify_failure(False, remote_exit, stdout, stderr,
                                        review_wrote, review_output)
         commits = git(cwd, "rev-list", "--count", f"{sent}..{head1}") if sent and head1 else ""
@@ -3311,6 +3348,8 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
                 rec["remote_work_kept"] = kept
         if executor == "codex":
             rec["last_message"] = str(last_msg)
+        if role == "review" and failure == "none":
+            rec.update(review_severity_fields(review_output))
         append(rec)
         if interrupted_exc is not None:
             raise interrupted_exc
@@ -3489,6 +3528,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     check_agy_claude(executor, model, role, author_family)
     if alias_notice:
         print(alias_notice, file=sys.stderr)
+    rubric = read_severity_rubric() if role == "review" else None
 
     cwd = str(Path(cwd).resolve())
     parent_pid = os.getppid()
@@ -3498,6 +3538,10 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if role == "review" and not diff_range and "{{DIFF_RANGE}}" in Path(card).read_text(encoding="utf-8"):
         usage_error("review card contains {{DIFF_RANGE}} but no --diff-range was given; "
                     "pass --diff-range <base>...<head>")
+    if rubric:
+        # The reviewer answers the rubric's questions; the runner computes the severity.
+        card_content += "\n" + rubric
+        input_sizes["prompt_bytes"] = len(card_content.encode("utf-8"))
     top = git(cwd, "rev-parse", "--show-toplevel") or cwd
     project = project or Path(top).name
     resumed_from = None
@@ -3768,6 +3812,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     }
     if executor == "codex":
         rec["last_message"] = str(last_msg)
+    if role == "review" and failure == "none":
+        rec.update(review_severity_fields(review_output))
     if agy_log is not None:
         rec["agy_log"] = str(agy_log)
     if executor == "claude":
@@ -3809,17 +3855,42 @@ def cmd_run(a):
 
 
 def review_findings(review_file):
-    """(finding lines, TOTAL line, counts) read from a reviewer's answer."""
-    findings = {"major": 0, "medium": 0, "minor": 0}
-    finding_lines, total_line = [], ""
-    for line in Path(review_file).read_text(errors="replace").splitlines():
-        if re.match(r"^\W*R\d+\s*\|", line):
-            finding_lines.append(line)
-        match = re.search(r"TOTAL\s+major=(\d+)\s+medium=(\d+)\s+minor=(\d+)", line)
-        if match:
-            total_line = line.strip()
-            findings = dict(zip(("major", "medium", "minor"), map(int, match.groups())))
-    return finding_lines, total_line, findings
+    """The runner's reading of a reviewer's answer file (see parse_review)."""
+    return parse_review(Path(review_file).read_text(errors="replace"))
+
+
+def review_summary(review, review_file, lines):
+    """Append a review to the summary `lines`: how the severities were found,
+    the unclassified and mismatch notes, the finding lines (at most 59 summary
+    lines in all) and last the TOTAL line the runner computed, which is the
+    one every later step reads."""
+    if review["severity_source"] == "reviewer":
+        lines.append("- severity: chosen by the reviewer (old review format), counted from its finding lines")
+    else:
+        lines.append("- severity: computed by the runner from the answers to severity-rubric.md")
+    unclassified = review["counts"]["unclassified"]
+    if unclassified:
+        lines.append(f"- unclassified findings: {unclassified}, counted as medium (an answer outside "
+                     f"the rubric's words, or missing); full review: {review_file}")
+    if review["findings_mismatch"]:
+        claimed = review["findings_claimed"]
+        said = (f"FINDINGS {claimed}" if isinstance(claimed, int) else
+                "major={major} medium={medium} minor={minor}".format(**claimed))
+        lines.append(f"- findings mismatch: the reviewer wrote {said}, its {len(review['findings'])} "
+                     f"finding lines give the TOTAL below; full review: {review_file}")
+    finding_lines = review["summary_lines"]
+    budget = max(0, 59 - len(lines) - 2)  # TOTAL and explicit overflow link
+    lines.extend(finding_lines[:budget])
+    if len(finding_lines) > budget:
+        lines.append(f"- {len(finding_lines) - budget} findings omitted; full review: {review_file}")
+    lines.append(review["total_line"])
+
+
+def review_pipeline_fields(review):
+    """The computed counts a pipeline record carries for a finished review."""
+    return {"severity_source": review["severity_source"],
+            "findings_unclassified": review["counts"]["unclassified"],
+            "findings_mismatch": review["findings_mismatch"]}
 
 
 def compute_severity(answers, table=None):
@@ -4053,6 +4124,8 @@ def cmd_pipeline(a):
         check_agy_claude(*MODELS[profile][:2], "review", MODELS[route[0]][2])
     if CLAUDE_REVIEW in review_route:
         check_claude_login()
+    # The review needs the rubric: refuse now rather than after the executor ran.
+    read_severity_rubric()
     # Profiles under a provider limit, or whose CLI is missing, are tried last.
     # Nothing is dropped, so a wrong guess costs one refused run, as before.
     avail = availability()
@@ -4258,11 +4331,12 @@ def cmd_pipeline(a):
             "no_reviewer" if step == "review" else "gate_failed" if step == "gate" else "executor_failed")
 
     findings = {"major": 0, "medium": 0, "minor": 0}
-    finding_lines, total_line = [], ""
-    review_file = None
+    review = review_file = None
     if outcome == "reviewed":
         review_file = review_rec.get("last_message") or review_rec["stdout"]
-        finding_lines, total_line, findings = review_findings(review_file)
+        review = review_findings(review_file)
+        # Every decision after the review reads these counts, computed from the lines.
+        findings = {key: review["counts"][key] for key in COUNTED}
 
     head = git(cwd, "rev-parse", "HEAD")
     details = attempt_root / "steps.json"
@@ -4314,13 +4388,8 @@ def cmd_pipeline(a):
         lines.append(f"- additional steps omitted; full step outputs: {details}")
     if gate_ran and (gate_exit != 0 or gate_timed_out) and gate_log.is_file():
         lines += ["Gate log tail:"] + gate_log.read_text(errors="replace").splitlines()[-15:]
-    if finding_lines or total_line:
-        budget = max(0, 59 - len(lines) - 2)  # TOTAL and explicit overflow link
-        lines.extend(finding_lines[:budget])
-        if len(finding_lines) > budget:
-            lines.append(f"- {len(finding_lines) - budget} findings omitted; full review: {review_file}")
-        if total_line:
-            lines.append(total_line)
+    if review:
+        review_summary(review, review_file, lines)
     summary_text = "\n".join(lines) + "\n"
     summary_file = out / f"{task_id}.summary.md"
     summary_file.write_text(summary_text)
@@ -4334,6 +4403,8 @@ def cmd_pipeline(a):
         "failed_step": step if outcome not in ("reviewed", "no_changes") else None,
         "error": error, "attempts": attempts, "summary": str(summary_file),
     }
+    if review:
+        pipeline_rec.update(review_pipeline_fields(review))
     if pending_file:
         pipeline_rec["pending"] = str(pending_file)
     if reviewer_profile == CLAUDE_REVIEW:
@@ -4368,6 +4439,7 @@ def cmd_review_pending(a):
         return
     if not a.confirmed:
         usage_error("--confirmed required")
+    read_severity_rubric()
     files = pending_files(a.id, a.project)
     if not files:
         usage_error(f"no pending review for {a.id}")
@@ -4435,12 +4507,13 @@ def cmd_review_pending(a):
         error = "reviewer routes exhausted: " + (", ".join(
             f"{rec['profile']} ({rec['failure']})" for rec in attempts) or "no reviewer outside the executor family")
 
-    finding_lines, total_line, findings = [], "", {"major": 0, "medium": 0, "minor": 0}
+    review, findings = None, {"major": 0, "medium": 0, "minor": 0}
     lines = [f"# Pipeline {task_id}: {task} — {outcome}",
              f"- committed: {base}..{head}; review finished after a pending review"]
     if outcome == "reviewed":
         review_file = review_rec.get("last_message") or review_rec["stdout"]
-        finding_lines, total_line, findings = review_findings(review_file)
+        review = review_findings(review_file)
+        findings = {key: review["counts"][key] for key in COUNTED}
     elif outcome == "review_pending":
         lines.append(f"- still pending: {first_reviewer_back(executor_family, p['review_route'], availability())}")
     if error:
@@ -4454,12 +4527,8 @@ def cmd_review_pending(a):
         lines.append(f"- review: {rec['profile']} | {rec['duration_s']}s | {rec['failure']} | {paths}")
     lines.append(f"- gate (before the wait): `{p['gate']}` | exit {p['gate_exit']}")
     lines = [" ".join(str(line).splitlines()) for line in lines]
-    budget = max(0, 59 - len(lines) - 2)
-    lines.extend(finding_lines[:budget])
-    if len(finding_lines) > budget:
-        lines.append(f"- {len(finding_lines) - budget} findings omitted; full review: {review_file}")
-    if total_line:
-        lines.append(total_line)
+    if review:
+        review_summary(review, review_file, lines)
     summary_text = "\n".join(lines) + "\n"
     summary_file = out / f"{task_id}.summary.md"
     summary_file.write_text(summary_text)
@@ -4476,6 +4545,8 @@ def cmd_review_pending(a):
         "failed_step": None if outcome == "reviewed" else "review",
         "error": error, "attempts": attempts, "summary": str(summary_file),
     }
+    if review:
+        rec.update(review_pipeline_fields(review))
     if pending_file.exists():
         rec["pending"] = str(pending_file)
     if reviewer_profile == CLAUDE_REVIEW:
