@@ -183,11 +183,11 @@ describe('qa/measure/js-types', () => {
   it('fails before running the compiler when a source file cannot be read', () => {
     plant({
       'package.json': '{"type":"module"}\n',
-      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
       'src/locked.js': 'export const locked = 1;\n',
     });
     const locked = join(root, 'src/locked.js');
     chmodSync(locked, 0o000);
+    const app = fakeTypescriptApp('process.exit(0);\n');
     try {
       let readable = true;
       try {
@@ -196,13 +196,14 @@ describe('qa/measure/js-types', () => {
         readable = false;
       }
       if (!readable) {
-        const result = run();
+        const result = run([], { measurer: join(app, 'qa/measure/js-types') });
         assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
-        assert.match(result.stderr, /locked\.js/);
+        assert.match(result.stderr, /cannot read.*locked\.js/);
         assert.equal(result.stdout, '');
       }
     } finally {
       chmodSync(locked, 0o644);
+      rmSync(app, { recursive: true, force: true });
     }
   });
 
