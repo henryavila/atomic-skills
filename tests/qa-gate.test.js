@@ -369,6 +369,50 @@ ${body}
     assert.match(result.stdout, /not frozen/);
   });
 
+  it('exits non-zero and removes its temporary folder when terminated', async () => {
+    writeMeasurer('slow', {
+      body: 'printf \'%s\\n\' "$$" > "$QA_FAKE_DIR/slow.pid"\nsleep 2',
+    });
+    const gateTmp = join(tmp, 'gate-tmp');
+    mkdirSync(gateTmp);
+    const child = spawn('/bin/bash', [join(repo, 'scripts/qa.sh'), 'fast'], {
+      cwd: repo,
+      env: {
+        ...process.env,
+        QA_FAKE_DIR: fakeDir,
+        PATH: `${binDir}:${process.env.PATH}`,
+        TMPDIR: gateTmp,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let measurerPid = null;
+    try {
+      const pidFile = join(fakeDir, 'slow.pid');
+      const deadline = Date.now() + 5000;
+      while (!existsSync(pidFile) && Date.now() < deadline) {
+        await new Promise((done) => setTimeout(done, 20));
+      }
+      assert.ok(existsSync(pidFile), 'the slow measurer did not start');
+      measurerPid = Number(readFileSync(pidFile, 'utf8').trim());
+
+      child.kill('SIGTERM');
+      const result = await new Promise((done) => {
+        child.on('exit', (code, signal) => done({ code, signal }));
+      });
+      assert.ok(result.code !== 0, `expected a non-zero exit, got ${JSON.stringify(result)}`);
+      assert.deepEqual(readdirSync(gateTmp), []);
+    } finally {
+      if (measurerPid) {
+        try {
+          process.kill(measurerPid, 'SIGTERM');
+        } catch {
+          // The measurer already exited.
+        }
+      }
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    }
+  });
+
   it('exits 2 on an unknown mode', () => {
     const result = run(['nonsense']);
     assert.equal(result.status, 2, both(result));

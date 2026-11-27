@@ -60,7 +60,10 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/qa.XXXXXX") || {
   echo "qa: cannot create a temporary directory — check TMPDIR" >&2
   exit 2
 }
-trap 'rm -rf "$TMP"' EXIT HUP INT TERM
+trap 'rm -rf "$TMP"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 usage() {
   cat >&2 <<'USAGE'
