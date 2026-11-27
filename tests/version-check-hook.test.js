@@ -9,7 +9,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-  chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync,
+  chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -106,6 +106,19 @@ async function waitForFile(file, timeoutMs) {
   return existsSync(file);
 }
 
+async function waitForCache(file, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      return JSON.parse(readFileSync(file, 'utf8'));
+    } catch {
+      // The background fetch writes the file just after creating it.
+    }
+    await pause(20);
+  }
+  return null;
+}
+
 function contextOf(result) {
   const parsed = JSON.parse(result.stdout);
   return parsed.hookSpecificOutput.additionalContext;
@@ -195,6 +208,19 @@ describe('version-check.sh SessionStart hook (PAY-1)', {
       assert.equal(result.stdout, '');
       const written = await waitForFile(fixture.cacheFile, 3000);
       assert.equal(written, false, 'a hostile npm answer must not be cached');
+    });
+  });
+
+  it('caches a valid npm view answer as JSON', async () => {
+    await withFixture({ npmAnswer: '2.0.0' }, async (fixture) => {
+      const result = runHook(fixture);
+
+      assert.equal(result.status, 0);
+      assert.equal(result.stdout, '');
+      const cache = await waitForCache(fixture.cacheFile, 3000);
+      assert.ok(cache, 'the background fetch must write the cache');
+      assert.equal(cache.latest_version, '2.0.0');
+      assert.match(String(cache.last_check), /^[0-9]{1,12}$/);
     });
   });
 
