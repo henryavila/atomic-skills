@@ -253,7 +253,9 @@ run_measurer() {
   if [ -n "$bad" ]; then
     die "$measurer: output line $bad is not covered by --describe — fix the measurer"
   fi
-  cat "$out" >>"$TMP/measures"
+  # A measurer may end its last row without a newline. Normalise every output
+  # to terminated lines before appending, so two measurers never join a row.
+  awk '{ print }' "$out" >>"$TMP/measures"
 }
 
 run_phase() {

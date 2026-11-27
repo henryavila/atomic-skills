@@ -479,6 +479,34 @@ ${body}
     assert.match(result.stdout, /^js\tcomplexity\tsrc\/x\.js::f\t20$/m);
   });
 
+  it('keeps rows apart when a measurer omits the final newline', () => {
+    debt('js', 'complexity', 'src/known.js::f\t10\n');
+    writeMeasurer('one', {
+      covers: [['js', 'complexity'], ['js', 'file-lines']],
+      body: "printf 'js\\tcomplexity\\tsrc/a.js::f\\t20'",
+    });
+    writeMeasurer('two', {
+      covers: [['js', 'file-lines']],
+      body: "printf 'js\\tfile-lines\\tsrc/b.js::*\\t900\\n'",
+    });
+
+    const measured = run(['measure']);
+    assert.equal(measured.status, 0, both(measured));
+    assert.deepEqual(measured.stdout.trim().split('\n').sort(), [
+      'js\tcomplexity\tsrc/a.js::f\t20',
+      'js\tfile-lines\tsrc/b.js::*\t900',
+    ]);
+
+    const byMetric = run(['measure', '--metric', 'file-lines']);
+    assert.equal(byMetric.status, 0, both(byMetric));
+    assert.deepEqual(byMetric.stdout.trim().split('\n'), ['js\tfile-lines\tsrc/b.js::*\t900']);
+
+    const fast = run(['fast']);
+    assert.equal(fast.status, 1, both(fast));
+    assert.match(fast.stdout, /src\/a\.js::f/);
+    assert.match(fast.stdout, /src\/b\.js::\*/);
+  });
+
   it('measure filters by metric', () => {
     writeMeasurer('one', { covers: [['js', 'complexity']], body: measureLine('js', 'complexity', 'src/a.js::f', 20) });
     writeMeasurer('two', { covers: [['js', 'file-lines']], body: measureLine('js', 'file-lines', 'src/b.js::*', 900) });
