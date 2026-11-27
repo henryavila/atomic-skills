@@ -352,3 +352,38 @@ Under the standard's definitions, "declared" is no for every row (no `docs/quali
 - **Whether GitHub blocks merges in practice.** Only the protection and rulesets endpoints were queried. Organisation-level or required-workflow settings are not visible there.
 - **The test suite in its real location.** Running it there creates a branch and a worktree, which the read-only rule forbids. It was run from a copy with `/tmp/` redirected, inside an exported tree that symlinks `node_modules` from `/Volumes/External/code/atomic-skills` (the audited worktree has none).
 - **Shell inside workflow `run:` blocks** (e.g. `publish.yml:32-47`). It is outside the stack's declared roots; actionlint was not run.
+
+## Install — 2026-11-27
+
+The gate (`scripts/qa.sh`), the engine (`qa/ratchet.py`) and twelve measurers are installed. Debt frozen per stack on `qa/freeze-js`, `qa/freeze-py`, `qa/freeze-sh`: 188 items in `js`, 53 in `py`, 1 in `sh` (242 lines in `qa/debt/`). Layers wired: commit (`changed --staged`), push (`fast`), pull request CI (`full` plus `ratchet.py diff`).
+
+Not frozen: `uncovered-pct` (no measurer yet; it will be measured in CI). No measurer: the layers dimension in every stack; modularity in `py`; modularity, errors, duplication, testability and typing in `sh`.
+
+Known measurer limits, from the last review round (card QG-FIX5 pending): a ShellCheck directive written with a tab or two spaces before `disable` is not counted; a CommonJS file with script-only syntax (`with`, legacy octal) loses its import edges without a failure; capitalised free text after a TypeScript diagnostic is accepted as its continuation. In `changed` mode the gate prints `can lower` for debt in files it did not measure; `lower` must only be run with whole-repository measures.
+
+### Proof (step 9), run in a throwaway worktree
+
+```text
+### 1. new violation
+FAIL	js.complexity	src/planted.js::planted	new	21	-
+qa: quality check failed — fix the code or see "When the gate is red" in docs/quality.md
+exit=1
+exit=1
+### 2. recorded item made worse
+FAIL	js.file-lines	src/install.js::*	worse	1553	1552
+qa: quality check failed — fix the code or see "When the gate is red" in docs/quality.md
+exit=1
+### 3. paid item, then lower
+       1
+can lower: 1 item (run `lower` with the same measures and scope)
+lowered: qa/debt/py.secrets.tsv (1 -> 0 lines)
+exit=0
+       0
+ M qa/debt/py.secrets.tsv
+ M skills/shared/delegate-assets/delegate.py
+### 4. hand-added debt line
+FAIL	js.complexity	src/config.js::made-up	new debt line	99
+exit=1
+```
+
+`ratchet.py status` exits 1: no cell with debt is strong yet.
