@@ -1,0 +1,146 @@
+#!/usr/bin/env node
+/**
+ * Vulnerable dependencies, stack `js`, metric `vulnerable-deps`.
+ *
+ * Contract (see the comment block at the top of scripts/qa.sh):
+ *   --describe  prints mode/changed/covers lines; exit 0
+ *   (nothing)   runs `npm audit --json --package-lock-only`
+ *   stdout      one line per item above its ceiling, nothing else
+ *   exit 0      measured (even with items); 3 tool not installed or audit
+ *               could not reach the registry (network failure)
+ *
+ * One item per package whose advisory list has an advisory of severity high
+ * or critical; the value is the number of such advisories for that package.
+ */
+
+import { execFileSync, spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
+const STACK = 'js';
+const METRIC = 'vulnerable-deps';
+const SEVERITIES = new Set(['high', 'critical']);
+const KEY = 'package-lock.json';
+
+const DESCRIBE = [
+  'mode\tfast',
+  'changed\tno',
+  `covers\t${STACK}\t${METRIC}`,
+].join('\n');
+
+function failed(message) {
+  process.stderr.write(`js-deps: ${message}\n`);
+  process.exit(1);
+}
+
+function toolMissing(message) {
+  process.stderr.write(`js-deps: ${message}\n`);
+  process.exit(3);
+}
+
+function repositoryRoot() {
+  if (process.env.QA_ROOT) return resolve(process.env.QA_ROOT);
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch {
+    failed('not inside a git repository and QA_ROOT is not set');
+  }
+}
+
+function readCeiling(root) {
+  const path = join(root, 'qa', 'ceilings.tsv');
+  let body;
+  try {
+    body = readFileSync(path, 'utf8');
+  } catch {
+    failed(`cannot read ${path}`);
+  }
+  for (const [number, line] of body.split(/\r?\n/).entries()) {
+    if (!line.trim() || line.startsWith('#') || number === 0) continue;
+    const [metric, ceiling] = line.split('\t');
+    if (metric !== METRIC) continue;
+    const value = Number(ceiling);
+    if (!Number.isFinite(value)) failed(`${path}:${number + 1}: not a number: ${ceiling}`);
+    return value;
+  }
+  return failed(`${path}: no ceiling for ${METRIC}`);
+}
+
+function audit(root) {
+  const result = spawnSync('npm', ['audit', '--json', '--package-lock-only'], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.error) {
+    if (result.error.code === 'ENOENT') toolMissing('npm is not installed');
+    failed(`cannot run npm audit: ${result.error.message}`);
+  }
+  if (result.signal) failed(`npm audit was terminated by ${result.signal}`);
+
+  // npm audit exits 1 when it found advisories. Any other status means the
+  // run did not finish, so its output cannot be treated as a measurement.
+  const detail = result.stderr.trim() || result.stdout.trim() || 'no output';
+  if (result.status !== 0 && result.status !== 1) {
+    failed(`npm audit exited ${result.status}: ${detail}`);
+  }
+
+  let report;
+  try {
+    report = JSON.parse(result.stdout);
+  } catch {
+    if (result.status === 1) {
+      toolMissing(`npm audit failed (network or registry): ${detail}`);
+    }
+    failed(`npm audit printed invalid JSON: ${detail}`);
+  }
+
+  if (report && report.error) {
+    const message = report.error.summary || report.error.detail || report.error.code || 'unknown error';
+    toolMissing(`npm audit failed (network or registry): ${message}`);
+  }
+  const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (
+    !record(report)
+    || !Number.isInteger(report.auditReportVersion)
+    || !record(report.vulnerabilities)
+    || !record(report.metadata)
+  ) {
+    failed('npm audit printed an incomplete report (expected auditReportVersion, vulnerabilities and metadata)');
+  }
+  return report;
+}
+
+function advisories(vulnerability) {
+  if (!vulnerability || !Array.isArray(vulnerability.via)) return 0;
+  return vulnerability.via.filter(
+    (entry) => entry && typeof entry === 'object' && SEVERITIES.has(entry.severity),
+  ).length;
+}
+
+function measure(root) {
+  const ceiling = readCeiling(root);
+  const report = audit(root);
+  const found = report.vulnerabilities || {};
+  const items = [];
+  for (const [name, vulnerability] of Object.entries(found)) {
+    const value = advisories(vulnerability);
+    if (value > ceiling) items.push([STACK, METRIC, `${KEY}::${name}`, value]);
+  }
+  return items;
+}
+
+function print(items) {
+  const lines = items.map((item) => item.join('\t')).sort();
+  if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === '--describe') {
+  process.stdout.write(`${DESCRIBE}\n`);
+} else if (args.length > 0) {
+  process.stderr.write('usage: js-deps [--describe]\n');
+  process.exit(1);
+} else {
+  print(measure(repositoryRoot()));
+}

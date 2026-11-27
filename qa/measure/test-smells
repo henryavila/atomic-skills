@@ -1,0 +1,351 @@
+#!/usr/bin/env node
+/**
+ * Test smells, stack `js`, metrics `fixed-sleeps` and `unowned-skips`.
+ *
+ * Contract (see the comment block at the top of scripts/qa.sh):
+ *   --describe  prints mode/changed/covers lines; exit 0
+ *   (nothing)   measures tests/ and test/, *.test.js, minus the fixtures
+ *   --files F.. measures only the listed files, paths from the repository root
+ *   stdout      one line per item above its ceiling, nothing else
+ *   exit 0      measured (even with items); 3 tool not installed
+ *
+ * The files are parsed with espree, the parser ESLint ships, so a string that
+ * looks like a smell is not a smell. The repository root comes from QA_ROOT,
+ * or from git when it is not set. Ceilings come from qa/ceilings.tsv.
+ */
+
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+
+const STACK = 'js';
+const METRICS = ['fixed-sleeps', 'unowned-skips'];
+const ROOTS = ['tests', 'test'];
+const SUFFIX = '.test.js';
+const EXCLUDED = 'test/app-map/fixtures/';
+const WAIT_HELPERS = new Set(['sleep', 'delay', 'wait']);
+const OWNER = /@[A-Za-z0-9_.-]+\s+\d{4}-\d{2}-\d{2}/;
+
+const DESCRIBE = [
+  'mode\tfast',
+  'changed\tyes',
+  ...METRICS.map((metric) => `covers\t${STACK}\t${metric}`),
+].join('\n');
+
+function fail(message) {
+  process.stderr.write(`test-smells: ${message}\n`);
+  process.exit(1);
+}
+
+function toolMissing(message) {
+  process.stderr.write(`test-smells: ${message}\n`);
+  process.exit(3);
+}
+
+function repositoryRoot() {
+  if (process.env.QA_ROOT) return resolve(process.env.QA_ROOT);
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch {
+    fail('not inside a git repository and QA_ROOT is not set');
+  }
+}
+
+function readCeilings(root) {
+  const path = join(root, 'qa', 'ceilings.tsv');
+  let body;
+  try {
+    body = readFileSync(path, 'utf8');
+  } catch {
+    fail(`cannot read ${path}`);
+  }
+  const ceilings = {};
+  for (const [number, line] of body.split(/\r?\n/).entries()) {
+    if (!line.trim() || line.startsWith('#') || number === 0) continue;
+    const [metric, ceiling] = line.split('\t');
+    if (!METRICS.includes(metric)) continue;
+    const value = Number(ceiling);
+    if (!Number.isFinite(value)) fail(`${path}:${number + 1}: not a number: ${ceiling}`);
+    ceilings[metric] = value;
+  }
+  for (const metric of METRICS) {
+    if (!(metric in ceilings)) fail(`${path}: no ceiling for ${metric}`);
+  }
+  return ceilings;
+}
+
+function relativeKey(root, file) {
+  return relative(root, file).split(sep).join('/');
+}
+
+function isTestKey(key) {
+  return ROOTS.some((root) => key.startsWith(`${root}/`))
+    && key.endsWith(SUFFIX)
+    && !key.startsWith(EXCLUDED);
+}
+
+function walk(directory, found, optional = false) {
+  let entries;
+  try {
+    entries = readdirSync(directory, { withFileTypes: true });
+  } catch (error) {
+    if (optional && error.code === 'ENOENT') return;
+    fail(`cannot read ${directory}: ${error.message}`);
+  }
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === '.git') continue;
+      walk(path, found);
+    } else if (entry.isFile() && entry.name.endsWith(SUFFIX)) {
+      found.push(path);
+    }
+  }
+}
+
+function repositoryFiles(root) {
+  const found = [];
+  for (const name of ROOTS) walk(join(root, name), found, true);
+  return found;
+}
+
+function listedFiles(root, files) {
+  const found = [];
+  for (const file of files) {
+    const absolute = resolve(root, file);
+    const key = relativeKey(root, absolute);
+    if (key.startsWith('..') || isAbsolute(key) || !isTestKey(key)) continue;
+    try {
+      if (statSync(absolute).isFile()) found.push(absolute);
+    } catch {
+      // The gate drops files that no longer exist; ignore a stale path.
+    }
+  }
+  return found;
+}
+
+function loadEspree() {
+  try {
+    const require = createRequire(import.meta.url);
+    return require('espree');
+  } catch (error) {
+    return toolMissing(`espree is not installed: ${error.message}`);
+  }
+}
+
+function parse(espree, source, file) {
+  try {
+    return espree.parse(source, {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      loc: true,
+      range: true,
+    });
+  } catch (error) {
+    return fail(`${file}: cannot parse: ${error.message}`);
+  }
+}
+
+function keyName(node, computed = false) {
+  if (!node) return null;
+  if (!computed && node.type === 'Identifier') return node.name;
+  if (node.type === 'Literal' && typeof node.value === 'string') return node.value;
+  return null;
+}
+
+function numericValue(node) {
+  if (!node) return null;
+  if (node.type === 'Literal' && typeof node.value === 'number') return node.value;
+  if (
+    node.type === 'UnaryExpression'
+    && (node.operator === '-' || node.operator === '+')
+    && node.argument
+    && node.argument.type === 'Literal'
+    && typeof node.argument.value === 'number'
+  ) {
+    return node.argument.value;
+  }
+  return null;
+}
+
+function functionName(node, ancestors) {
+  if (node.id && node.id.type === 'Identifier') return node.id.name;
+  const parent = ancestors[ancestors.length - 1];
+  if (!parent) return null;
+  if (parent.type === 'VariableDeclarator' && parent.id.type === 'Identifier') {
+    return parent.id.name;
+  }
+  if (parent.type === 'AssignmentExpression' && parent.left.type === 'Identifier') {
+    return parent.left.name;
+  }
+  if (parent.type === 'Property' || parent.type === 'MethodDefinition') {
+    return keyName(parent.key, parent.computed);
+  }
+  return null;
+}
+
+function insideNewPromise(ancestors) {
+  return ancestors.some(
+    (node) => node.type === 'NewExpression'
+      && node.callee
+      && node.callee.type === 'Identifier'
+      && node.callee.name === 'Promise',
+  );
+}
+
+function awaitedThroughHelper(ancestors) {
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const node = ancestors[index];
+    if (!['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(node.type)) {
+      continue;
+    }
+    const name = functionName(node, ancestors.slice(0, index));
+    if (name && WAIT_HELPERS.has(name)) return true;
+  }
+  return false;
+}
+
+function disabled(value) {
+  return Boolean(value && value.type === 'Literal' && value.value === false);
+}
+
+function owned(value) {
+  if (!value) return false;
+  if (value.type === 'Literal' && typeof value.value === 'string') return OWNER.test(value.value);
+  if (value.type === 'TemplateLiteral') {
+    return OWNER.test(value.quasis.map((quasi) => quasi.value.cooked || '').join(''));
+  }
+  if (value.type === 'ConditionalExpression') {
+    // Every branch that enables skipping needs an owner, not just one of them.
+    return (disabled(value.consequent) || owned(value.consequent))
+      && (disabled(value.alternate) || owned(value.alternate));
+  }
+  return false;
+}
+
+function skipCallOwned(node) {
+  for (const argument of node.arguments) {
+    if (!argument) continue;
+    if (argument.type === 'Literal' && typeof argument.value === 'string' && OWNER.test(argument.value)) {
+      return true;
+    }
+    if (argument.type === 'TemplateLiteral' && owned(argument)) return true;
+    if (argument.type === 'ObjectExpression') {
+      for (const property of argument.properties) {
+        if (!property || property.type !== 'Property' || keyName(property.key, property.computed) !== 'skip') {
+          continue;
+        }
+        if (owned(property.value)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function walkAst(node, ancestors, visit) {
+  if (!node || typeof node !== 'object') return;
+  if (typeof node.type === 'string') visit(node, ancestors);
+  const next = typeof node.type === 'string' ? [...ancestors, node] : ancestors;
+  for (const key of Object.keys(node)) {
+    const value = node[key];
+    if (Array.isArray(value)) {
+      for (const child of value) walkAst(child, next, visit);
+    } else if (value && typeof value === 'object' && typeof value.type === 'string') {
+      walkAst(value, next, visit);
+    }
+  }
+}
+
+function smells(source, file, espree) {
+  const ast = parse(espree, source, file);
+  const counts = { 'fixed-sleeps': 0, 'unowned-skips': 0 };
+
+  walkAst(ast, [], (node, ancestors) => {
+    if (node.type === 'CallExpression') {
+      const callee = node.callee;
+      if (!callee) return;
+
+      if (callee.type === 'Identifier' && callee.name === 'setTimeout') {
+        const waits = node.arguments.length >= 2
+          && node.arguments[0]
+          && numericValue(node.arguments[1]) !== null;
+        if (waits && (insideNewPromise(ancestors) || awaitedThroughHelper(ancestors))) {
+          counts['fixed-sleeps'] += 1;
+        }
+      }
+
+      if (
+        callee.type === 'Identifier'
+        && (callee.name === 'sleep' || callee.name === 'delay')
+        && node.arguments.length > 0
+        && numericValue(node.arguments[0]) !== null
+      ) {
+        counts['fixed-sleeps'] += 1;
+      }
+
+      if (
+        callee.type === 'MemberExpression'
+        && callee.object
+        && callee.object.type === 'Identifier'
+        && callee.object.name === 'Atomics'
+        && keyName(callee.property, callee.computed) === 'wait'
+      ) {
+        counts['fixed-sleeps'] += 1;
+      }
+
+      if (
+        callee.type === 'MemberExpression'
+        && keyName(callee.property, callee.computed) === 'skip'
+        && !skipCallOwned(node)
+      ) {
+        counts['unowned-skips'] += 1;
+      }
+    }
+
+    if (node.type === 'Property' && keyName(node.key, node.computed) === 'skip') {
+      const value = node.value;
+      const disabled = value && value.type === 'Literal' && value.value === false;
+      if (!disabled && !owned(value)) counts['unowned-skips'] += 1;
+    }
+  });
+
+  return counts;
+}
+
+function measure(root, files) {
+  const ceilings = readCeilings(root);
+  const sources = files === null ? repositoryFiles(root) : files;
+  const items = [];
+  if (sources.length === 0) return items;
+
+  const espree = loadEspree();
+  for (const file of sources) {
+    const key = relativeKey(root, file);
+    if (!isTestKey(key)) continue;
+    const counts = smells(readFileSync(file, 'utf8'), key, espree);
+    for (const metric of METRICS) {
+      const value = counts[metric];
+      if (value > ceilings[metric]) items.push([STACK, metric, `${key}::*`, value]);
+    }
+  }
+  return items;
+}
+
+function print(items) {
+  const lines = items.map((item) => item.join('\t')).sort();
+  if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === '--describe') {
+  process.stdout.write(`${DESCRIBE}\n`);
+} else if (args.length > 0 && args[0] === '--files') {
+  const root = repositoryRoot();
+  print(measure(root, listedFiles(root, args.slice(1))));
+} else if (args.length > 0) {
+  process.stderr.write('usage: test-smells [--describe | --files <path>...]\n');
+  process.exit(1);
+} else {
+  print(measure(repositoryRoot(), null));
+}

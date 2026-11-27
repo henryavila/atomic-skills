@@ -1,0 +1,260 @@
+#!/usr/bin/env node
+/**
+ * Duplicated lines, stacks `js` and `py`, metric `duplication`.
+ *
+ * Contract (see the comment block at the top of scripts/qa.sh):
+ *   --describe  prints mode/changed/covers lines; exit 0
+ *   (nothing)   measures production code only
+ *   stdout      one line per item above its ceiling, nothing else
+ *   exit 0      measured (even with items); 3 tool not installed
+ *
+ * jscpd writes a JSON report to a temporary folder outside the repository.
+ * Its per-source `duplicatedLines` is the value: a file that takes part in a
+ * clone is one item, keyed by the file, never by the clone location.
+ */
+
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import {
+  mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync,
+} from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
+
+const METRIC = 'duplication';
+const RUNS = [
+  { stack: 'js', format: 'javascript', roots: ['src', 'scripts', 'bin'] },
+  { stack: 'py', format: 'python', roots: ['skills/shared'] },
+];
+
+// Large enough that no repository file can be skipped for its size. The
+// measurer must never report less just because a file is big.
+const MAX_LINES = '1000000000';
+const MAX_SIZE = '1gb';
+
+const DESCRIBE = [
+  'mode\tfast',
+  'changed\tno',
+  ...RUNS.map((run) => `covers\t${run.stack}\t${METRIC}`),
+].join('\n');
+
+function fail(message) {
+  process.stderr.write(`duplication: ${message}\n`);
+  process.exit(1);
+}
+
+function toolMissing(message) {
+  process.stderr.write(`duplication: ${message}\n`);
+  process.exit(3);
+}
+
+function repositoryRoot() {
+  if (process.env.QA_ROOT) return resolve(process.env.QA_ROOT);
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch {
+    fail('not inside a git repository and QA_ROOT is not set');
+  }
+}
+
+function readCeiling(root) {
+  const path = join(root, 'qa', 'ceilings.tsv');
+  let body;
+  try {
+    body = readFileSync(path, 'utf8');
+  } catch {
+    fail(`cannot read ${path}`);
+  }
+  for (const [number, line] of body.split(/\r?\n/).entries()) {
+    if (!line.trim() || line.startsWith('#') || number === 0) continue;
+    const [metric, ceiling] = line.split('\t');
+    if (metric !== METRIC) continue;
+    const value = Number(ceiling);
+    if (!Number.isFinite(value)) fail(`${path}:${number + 1}: not a number: ${ceiling}`);
+    return value;
+  }
+  return fail(`${path}: no ceiling for ${METRIC}`);
+}
+
+function relativeKey(root, file) {
+  const absolute = isAbsolute(file) ? file : resolve(root, file);
+  return relative(root, absolute).split(sep).join('/');
+}
+
+function loadJscpd() {
+  try {
+    const require = createRequire(import.meta.url);
+    const main = require.resolve('jscpd');
+    const bin = resolve(dirname(main), '..', 'bin', 'jscpd');
+    statSync(bin);
+    return bin;
+  } catch (error) {
+    return toolMissing(`jscpd is not installed: ${error.message}`);
+  }
+}
+
+function existingDirectories(root, names) {
+  return names.filter((name) => {
+    const path = join(root, name);
+    try {
+      return statSync(path).isDirectory();
+    } catch (error) {
+      if (error.code === 'ENOENT') return false;
+      fail(`cannot inspect ${path}: ${error.message}`);
+    }
+  });
+}
+
+const EXTENSIONS = {
+  javascript: ['.js', '.mjs', '.cjs', '.jsx', '.es', '.es6'],
+  python: ['.py', '.pyx', '.pxd', '.pxi'],
+};
+
+function hasMeasurableSource(paths, format) {
+  const extensions = EXTENSIONS[format] || [];
+  let found = false;
+  const walk = (directory) => {
+    let entries;
+    try {
+      entries = readdirSync(directory, { withFileTypes: true });
+    } catch (error) {
+      fail(`cannot read ${directory}: ${error.message}`);
+    }
+    for (const entry of entries) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules' || entry.name === '.git') continue;
+        walk(path);
+      } else if (entry.isFile() && extensions.some((extension) => entry.name.endsWith(extension))) {
+        let source;
+        try {
+          source = readFileSync(path, 'utf8');
+        } catch (error) {
+          fail(`cannot read ${path}: ${error.message}`);
+        }
+        if (source.split(/\r?\n/).length >= 8) found = true;
+      }
+    }
+  };
+  for (const path of paths) walk(path);
+  return found;
+}
+
+function readReport(path, paths, format) {
+  let body;
+  try {
+    body = readFileSync(path, 'utf8');
+  } catch (error) {
+    // jscpd writes no report when every file is shorter than --min-lines.
+    // That is a complete measurement of nothing; every other missing report
+    // means jscpd stopped before producing its result.
+    if (!hasMeasurableSource(paths, format)) return null;
+    fail(`jscpd did not write a report at ${path}: ${error.message}`);
+  }
+  let report;
+  try {
+    report = JSON.parse(body);
+  } catch (error) {
+    fail(`cannot read the jscpd report at ${path}: ${error.message}`);
+  }
+  if (!report || typeof report !== 'object' || Array.isArray(report)) {
+    fail(`the jscpd report at ${path} is not an object`);
+  }
+  return report;
+}
+
+function reportSources(report, format) {
+  const formats = report.statistics && report.statistics.formats;
+  if (!formats || typeof formats !== 'object') {
+    fail('the jscpd report has no statistics.formats');
+  }
+  const stats = formats[format];
+  if (!stats || typeof stats !== 'object') {
+    fail(`the jscpd report has no statistics for ${format}`);
+  }
+  const sources = stats.sources;
+  if (!sources || typeof sources !== 'object' || Array.isArray(sources)) {
+    fail(`the jscpd report has no source list for ${format}`);
+  }
+  return sources;
+}
+
+function runReport(root, jscpd, run, output, work) {
+  const paths = existingDirectories(root, run.roots).map((name) => join(root, name));
+  if (paths.length === 0) return null;
+
+  // Run jscpd from an empty working directory with an empty config file. That
+  // keeps `.jscpd.json` and `package.json#jscpd` from the measured tree out of
+  // the measurement; the explicit options below override jscpd's defaults.
+  const config = join(work, 'jscpd.json');
+  writeFileSync(config, '{}\n');
+  const result = spawnSync(
+    process.execPath,
+    [
+      jscpd,
+      '--config', config,
+      '--min-lines', '8',
+      '--min-tokens', '70',
+      '--max-lines', MAX_LINES,
+      '--max-size', MAX_SIZE,
+      '--reporters', 'json',
+      '--output', output,
+      '--format', run.format,
+      '--silent',
+      ...paths,
+    ],
+    { cwd: work, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+  );
+  if (result.error) fail(`cannot run jscpd: ${result.error.message}`);
+  if (result.status !== 0) {
+    fail(`jscpd exited ${result.status}: ${result.stderr.trim() || result.stdout.trim()}`);
+  }
+  return readReport(join(output, 'jscpd-report.json'), paths, run.format);
+}
+
+function inRoots(key, roots) {
+  return roots.some((root) => key.startsWith(`${root}/`));
+}
+
+function measure(root) {
+  const ceiling = readCeiling(root);
+  const jscpd = loadJscpd();
+  const temporary = mkdtempSync(join(tmpdir(), 'qa-duplication-'));
+  const work = join(temporary, 'work');
+  mkdirSync(work);
+  const items = [];
+  try {
+    for (const run of RUNS) {
+      const output = join(temporary, run.stack);
+      const report = runReport(root, jscpd, run, output, work);
+      if (!report) continue;
+      const sources = reportSources(report, run.format);
+
+      for (const [file, stat] of Object.entries(sources)) {
+        if (!stat || !(stat.clones > 0) || !(stat.duplicatedLines > 0)) continue;
+        const key = relativeKey(root, file);
+        if (!inRoots(key, run.roots)) continue;
+        const value = stat.duplicatedLines;
+        if (value > ceiling) items.push([run.stack, METRIC, `${key}::*`, value]);
+      }
+    }
+    return items;
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+function print(items) {
+  const lines = items.map((item) => item.join('\t')).sort();
+  if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === '--describe') {
+  process.stdout.write(`${DESCRIBE}\n`);
+} else if (args.length > 0) {
+  process.stderr.write('usage: duplication [--describe]\n');
+  process.exit(1);
+} else {
+  print(measure(repositoryRoot()));
+}
