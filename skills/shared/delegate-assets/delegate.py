@@ -2442,7 +2442,14 @@ def read_severity_rubric():
     return text if text.endswith("\n") else text + "\n"
 
 
-def compose_prompt(card, attachments, diff_range, cwd):
+def diff_exclude_arg(text):
+    """A pathspec for --diff-exclude: not empty and on one line."""
+    if not text.strip() or any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
+        raise argparse.ArgumentTypeError("a pathspec on one line, such as package-lock.json or 'dist/*'")
+    return text
+
+
+def compose_prompt(card, attachments, diff_range, cwd, diff_exclude=None):
     content = Path(card).read_text(encoding="utf-8")
     if diff_range:
         # Standalone runs get the same placeholder substitution as pipeline.
@@ -2461,7 +2468,9 @@ def compose_prompt(card, attachments, diff_range, cwd):
     if diff_range:
         if not re.fullmatch(r"[^.\s-][^\s]*\.{2,3}[^.\s-][^\s]*", diff_range) or diff_range.startswith("-"):
             usage_error("--diff-range must be <base>...<head> or <base>..<head>")
-        result = subprocess.run(["git", "-C", cwd, "diff", "--no-ext-diff", diff_range, "--"],
+        # The whole tree (":/"), less each excluded pathspec, read from cwd.
+        pathspecs = [":/", *(f":(exclude){p}" for p in diff_exclude)] if diff_exclude else []
+        result = subprocess.run(["git", "-C", cwd, "diff", "--no-ext-diff", diff_range, "--", *pathspecs],
                                 capture_output=True)
         if result.returncode:
             usage_error("cannot read --diff-range: " + result.stderr.decode("utf-8", errors="replace").strip())
@@ -2474,12 +2483,15 @@ def compose_prompt(card, attachments, diff_range, cwd):
         if diff_decoded_replaced:
             content += ("\n> Note: the diff contains bytes that are not valid UTF-8; "
                         "they appear as U+FFFD in this prompt.\n")
-        content += f"\n## Diff {diff_range}\n" + fenced(diff)
+        left_out = f" (left out: {', '.join(diff_exclude)})" if diff_exclude else ""
+        content += f"\n## Diff {diff_range}{left_out}\n" + fenced(diff)
         if not diff_bytes:
             failure = "empty_diff"
     sizes = {"diff_bytes": diff_bytes, "diff_decoded_replaced": diff_decoded_replaced,
              "attached": attached, "attached_bytes": attached_bytes,
              "card_bytes": card_bytes, "prompt_bytes": len(content.encode("utf-8"))}
+    if diff_range and diff_exclude:
+        sizes["diff_excluded"] = list(diff_exclude)
     return content, sizes, failure
 
 
@@ -3506,7 +3518,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
                 card=None, out=None, project=None, timeout=DEFAULT_TIMEOUT_S, wait_s=3600, attempt=1,
                 confirmed=False, allow_peak=False, diff_range=None, attachments=None,
                 access_mode="policy", host=None, idle_timeout=DEFAULT_IDLE_TIMEOUT_S, resume=False,
-                allow_claude_review=False, author_family=None):
+                allow_claude_review=False, author_family=None, diff_exclude=None):
     check_paused()
     alias_notice = None
     if profile in ALIASES:
@@ -3536,7 +3548,7 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     parent_pid = os.getppid()
     if role == "review" and EXECUTOR_FLAGS.get(executor, {}).get("requires_review_diff") and not diff_range:
         usage_error(f"{executor} review requires --diff-range; the runner attaches the exact diff")
-    card_content, input_sizes, input_failure = compose_prompt(card, attachments, diff_range, cwd)
+    card_content, input_sizes, input_failure = compose_prompt(card, attachments, diff_range, cwd, diff_exclude)
     if role == "review" and not diff_range and "{{DIFF_RANGE}}" in Path(card).read_text(encoding="utf-8"):
         usage_error("review card contains {{DIFF_RANGE}} but no --diff-range was given; "
                     "pass --diff-range <base>...<head>")
@@ -3557,12 +3569,13 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         resumed_from = previous["completed"]
         attempt = max(attempt, previous["attempt"] + 1)
     size_failure = "review_input_too_large" if role == "review" else "input_too_large"
+    too_large = None
     if input_sizes["prompt_bytes"] > MAX_REVIEW_INPUT_BYTES:
-        input_failure = size_failure
+        input_failure, too_large = size_failure, f"the {MAX_REVIEW_INPUT_BYTES} bytes a review input may have"
     elif executor in ARGV_PROMPT_EXECUTORS and input_sizes["prompt_bytes"] >= MAX_ARG_BYTES:
         # OpenCode takes the prompt as one argv element and would fail with
         # E2BIG at or above the kernel limit; it has no stdin prompt.
-        input_failure = size_failure
+        input_failure, too_large = size_failure, f"the {MAX_ARG_BYTES} bytes OpenCode takes"
     elif (not input_failure and role == "review" and executor == "agy"
           and str(model).startswith("claude-opus") and input_sizes["prompt_bytes"] > AGY_OPUS_MAX_INPUT_BYTES):
         input_failure = OVER_MODEL_CAP
@@ -3588,6 +3601,11 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if input_failure:
         pending["orphans"] = tracker.sweep()
         pending.update(failure=input_failure, completed=now().isoformat(timespec="microseconds"))
+        if input_failure == "review_input_too_large":
+            pending["hint"] = (f"the review prompt is {input_sizes['prompt_bytes']} bytes, above {too_large}; "
+                               "leave lockfiles and generated files out of the review diff with "
+                               "--diff-exclude <pathspec> (repeatable)")
+            print(f"delegate: {pending['hint']}", file=sys.stderr)
         append(pending)
         return pending
     if host:
@@ -3851,6 +3869,7 @@ def cmd_run(a):
         confirmed=a.confirmed, allow_peak=a.allow_peak, diff_range=a.diff_range, attachments=a.attach,
         access_mode=a.access, host=a.host, idle_timeout=a.idle_timeout, resume=a.resume,
         allow_claude_review=a.allow_claude_review, author_family=a.author_family,
+        diff_exclude=a.diff_exclude,
     )
     print(json.dumps(rec, ensure_ascii=False, indent=1))
     sys.exit(0 if rec["failure"] == "none" else 1)
@@ -4645,6 +4664,7 @@ def cmd_pipeline(a):
                 diff_range=diff_range, attachments=attachments,
                 access_mode=a.access, host=a.host, idle_timeout=a.idle_timeout,
                 allow_claude_review=a.allow_claude_review, author_family=author_family,
+                diff_exclude=a.diff_exclude if run_role == "review" else None,
             ))
         except SlotTimeoutError as exc:
             rec.update(exc.record)
@@ -4741,7 +4761,7 @@ def cmd_pipeline(a):
                     reviewer_profile = profile
                     outcome = "reviewed"
                 else:
-                    error = review_rec["failure"]
+                    error = review_rec["failure"] + (f": {review_rec['hint']}" if review_rec.get("hint") else "")
                     outcome = "no_reviewer"
                 break
             if outcome is None:
@@ -4767,6 +4787,7 @@ def cmd_pipeline(a):
                         "gate": a.gate, "gate_exit": gate_exit, "auto_committed": auto_committed,
                         # What the one fix round needs when the finished review has a major.
                         "card": a.card, "route": route, "executor_timeout": a.timeout,
+                        "diff_exclude": a.diff_exclude,
                         "created": now().isoformat(timespec="seconds"),
                     }, ensure_ascii=False, indent=1))
                 if not tried:
@@ -4887,6 +4908,8 @@ def cmd_pipeline(a):
                                 for m in c["open_majors"]])
     if c["deviation"]:
         pipeline_rec["deviation"] = c["deviation"]
+    if a.diff_exclude:
+        pipeline_rec["diff_excluded"] = a.diff_exclude
     if pending_file:
         pipeline_rec["pending"] = str(pending_file)
     if reviewer_profile == CLAUDE_REVIEW:
@@ -4972,7 +4995,8 @@ def cmd_review_pending(a):
                 wait_s=a.wait, confirmed=True, attempt=number, diff_range=diff_range,
                 attachments=attachments, access_mode=p["access"], host=p["host"],
                 idle_timeout=p["idle_timeout"], allow_claude_review=a.allow_claude_review,
-                author_family=author_family or executor_family))
+                author_family=author_family or executor_family,
+                diff_exclude=p.get("diff_exclude") if role == "review" else None))
         except SlotTimeoutError as exc:
             rec.update(exc.record)
         return rec
@@ -4988,7 +5012,8 @@ def cmd_review_pending(a):
             if rec["failure"] == "none":
                 reviewer_profile, review_rec, outcome = profile, rec, "reviewed"
             else:
-                error, outcome = rec["failure"], "no_reviewer"
+                error = rec["failure"] + (f": {rec['hint']}" if rec.get("hint") else "")
+                outcome = "no_reviewer"
             break
     except PausedError:
         error, outcome = "paused", "paused"
@@ -5072,6 +5097,8 @@ def cmd_review_pending(a):
                                 for m in c["open_majors"]])
     if c["deviation"]:
         rec["deviation"] = c["deviation"]
+    if p.get("diff_exclude"):
+        rec["diff_excluded"] = p["diff_exclude"]
     if pending_file.exists():
         rec["pending"] = str(pending_file)
     if reviewer_profile == CLAUDE_REVIEW:
@@ -5435,6 +5462,9 @@ def main():
     r.add_argument("--profile", choices=sorted([*MODELS, *ALIASES])); r.add_argument("--executor"); r.add_argument("--model")
     r.add_argument("--cwd", required=True); r.add_argument("--card", required=True)
     r.add_argument("--diff-range")
+    r.add_argument("--diff-exclude", action="append", default=[], type=diff_exclude_arg, metavar="PATHSPEC",
+                   help="leave this git pathspec out of the review diff (repeatable), "
+                        "e.g. package-lock.json or 'dist/*'")
     r.add_argument("--attach", action="append", default=[])
     r.add_argument("--out"); r.add_argument("--project"); r.add_argument("--timeout", type=duration_arg, default=DEFAULT_TIMEOUT_S,
                    help="cap on the whole run, default 240m (seconds, or a number with a unit: 300, 300s, 90m, 2h)")
@@ -5472,6 +5502,8 @@ def main():
     pipe.add_argument("--review-card", required=True)
     pipe.add_argument("--review-route", required=True)
     pipe.add_argument("--review-attach", action="append", default=[])
+    pipe.add_argument("--diff-exclude", action="append", default=[], type=diff_exclude_arg, metavar="PATHSPEC",
+                      help="leave this git pathspec out of every review diff of the pipeline (repeatable)")
     pipe.add_argument("--timeout", type=duration_arg, default=DEFAULT_TIMEOUT_S,
                       help="cap on each executor run and on the gate, default 240m (seconds, or a number with a unit: 300, 300s, 90m, 2h)")
     pipe.add_argument("--review-timeout", type=duration_arg,
