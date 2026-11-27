@@ -397,4 +397,38 @@ ${body}
     assert.match(result.stdout, /src\/a\.js::f/);
     assert.doesNotMatch(result.stdout, /src\/b\.js::\*/);
   });
+
+  it('measure filters every row a measurer prints', () => {
+    writeFile('qa/stacks.tsv', [
+      'stack\tlanguage\troots\tgenerated\ttests\tgroup',
+      'js\tjavascript\tsrc,scripts,bin\t-\ttests\t-',
+      'py\tpython\tpy\t-\ttests\t-',
+      '',
+    ].join('\n'));
+    writeFile('qa/ceilings.tsv', [
+      'metric\tceiling\tapplies_to',
+      'complexity\t15\tjavascript,python',
+      'file-lines\t800\tjavascript,python',
+      '',
+    ].join('\n'));
+    writeMeasurer('multi', {
+      covers: [['js', 'complexity'], ['js', 'file-lines'], ['py', 'complexity']],
+      body: [
+        measureLine('js', 'complexity', 'src/a.js::f', 20),
+        measureLine('js', 'file-lines', 'src/a.js::*', 900),
+        measureLine('py', 'complexity', 'py/a.py::f', 20),
+      ].join('\n'),
+    });
+
+    const byMetric = run(['measure', '--metric', 'complexity']);
+    assert.equal(byMetric.status, 0, both(byMetric));
+    assert.deepEqual(byMetric.stdout.trim().split('\n').sort(), [
+      'js\tcomplexity\tsrc/a.js::f\t20',
+      'py\tcomplexity\tpy/a.py::f\t20',
+    ]);
+
+    const byStack = run(['measure', '--stack', 'py']);
+    assert.equal(byStack.status, 0, both(byStack));
+    assert.deepEqual(byStack.stdout.trim().split('\n'), ['py\tcomplexity\tpy/a.py::f\t20']);
+  });
 });

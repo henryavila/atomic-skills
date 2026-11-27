@@ -296,7 +296,7 @@ do_full() {
 }
 
 filter_has() {
-  value=$1
+  local value=$1
   shift
   if [ "$#" -eq 0 ]; then
     return 0
@@ -489,7 +489,13 @@ do_measure() {
     fi
     index=$((index + 1))
   done
-  cat "$TMP/measures"
+
+  while IFS=$'\t' read -r stack metric key value; do
+    [ -n "${value:-}" ] || continue
+    metric_selected "$metric" || continue
+    stack_selected "$stack" || continue
+    printf '%s\t%s\t%s\t%s\n' "$stack" "$metric" "$key" "$value"
+  done <"$TMP/measures"
   return 0
 }
 
