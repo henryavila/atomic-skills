@@ -211,6 +211,28 @@ ${body}
     assert.match(result.stderr, /fake/);
   });
 
+  it('exits 2 when a measurer prints a row for a stack it does not cover', () => {
+    writeMeasurer('fake', {
+      covers: [['js', 'complexity']],
+      body: measureLine('jss', 'complexity', 'src/a.js::f', 10),
+    });
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /fake/);
+    assert.match(result.stderr, /jss/);
+  });
+
+  it('exits 2 when a measurer prints a row for a metric it does not cover', () => {
+    writeMeasurer('fake', {
+      covers: [['js', 'complexity']],
+      body: measureLine('js', 'file-lines', 'src/a.js::*', 900),
+    });
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /fake/);
+    assert.match(result.stderr, /file-lines/);
+  });
+
   it('exits 2 naming a missing quality table', () => {
     rmSync(join(repo, 'qa/dimensions.tsv'));
     writeMeasurer('fake');

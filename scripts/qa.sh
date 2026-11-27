@@ -211,7 +211,8 @@ collect_covers() {
 MEASURE_INDEX=0
 run_measurer() {
   measurer=$1
-  shift
+  covers_index=$2
+  shift 2
   out="$TMP/out.$MEASURE_INDEX"
   err="$TMP/err.$MEASURE_INDEX"
   MEASURE_INDEX=$((MEASURE_INDEX + 1))
@@ -230,6 +231,26 @@ run_measurer() {
   if [ -n "$bad" ]; then
     die "$measurer: output is not four tab-separated fields at line $bad — fix the measurer"
   fi
+
+  # A row outside the measurer's own --describe coverage is malformed, not a
+  # row to drop: filtering it would hide the mistake.
+  bad=$(awk -F'\t' -v covers="$TMP/covers.$covers_index" '
+    BEGIN {
+      while ((getline line < covers) > 0) {
+        split(line, fields, "\t")
+        if (fields[1] != "" && fields[2] != "") covered[fields[1] "\t" fields[2]] = 1
+      }
+    }
+    {
+      if (!(($1 "\t" $2) in covered)) {
+        print NR ": " $0
+        exit
+      }
+    }
+  ' "$out")
+  if [ -n "$bad" ]; then
+    die "$measurer: output line $bad is not covered by --describe — fix the measurer"
+  fi
   cat "$out" >>"$TMP/measures"
 }
 
@@ -243,7 +264,7 @@ run_phase() {
   if [ "${#MEASURERS[@]}" -gt 0 ]; then
     for measurer in "${MEASURERS[@]}"; do
       if [ "${MODE[$index]}" = "$wanted" ]; then
-        run_measurer "$measurer"
+        run_measurer "$measurer" "$index"
         collect_covers "$index"
       fi
       index=$((index + 1))
@@ -452,7 +473,7 @@ do_changed() {
   if [ "${#MEASURERS[@]}" -gt 0 ]; then
     for measurer in "${MEASURERS[@]}"; do
       if [ "${MODE[$index]}" = "fast" ] && [ "${CHANGED[$index]}" = "yes" ] && covers_touch_files "$index"; then
-        run_measurer "$measurer" --files "${files[@]}"
+        run_measurer "$measurer" "$index" --files "${files[@]}"
         collect_covers "$index"
       fi
       index=$((index + 1))
@@ -504,7 +525,7 @@ do_measure() {
   if [ "${#MEASURERS[@]}" -gt 0 ]; then
     for measurer in "${MEASURERS[@]}"; do
       if measure_matches "$index"; then
-        run_measurer "$measurer"
+        run_measurer "$measurer" "$index"
       fi
       index=$((index + 1))
     done
