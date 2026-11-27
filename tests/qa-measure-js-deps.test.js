@@ -133,4 +133,37 @@ describe('qa/measure/js-deps', () => {
     assert.match(result.stderr, /network unavailable|npm audit/);
     assert.equal(result.stdout, '');
   });
+
+  it('fails when npm audit exits with an unexpected status', () => {
+    fakeNpm('#!/bin/sh\necho "{}"\necho "fatal audit failure" >&2\nexit 42\n');
+    const result = run();
+    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /42|fatal audit failure/);
+    assert.equal(result.stdout, '');
+  });
+
+  it('fails when npm audit is terminated by a signal', () => {
+    fakeNpm('#!/bin/sh\nkill -TERM $$\n');
+    const result = run();
+    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /terminated|signal/i);
+    assert.equal(result.stdout, '');
+  });
+
+  it('fails when npm audit prints an incomplete report', () => {
+    fakeNpm('#!/bin/sh\ncat "$AUDIT_REPORT"\nexit 0\n');
+    setAudit({});
+    const result = run();
+    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /incomplete|auditReportVersion|vulnerabilities/i);
+    assert.equal(result.stdout, '');
+  });
+
+  it('fails when npm audit succeeds without JSON', () => {
+    fakeNpm('#!/bin/sh\necho "not json"\nexit 0\n');
+    const result = run();
+    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /JSON|json/i);
+    assert.equal(result.stdout, '');
+  });
 });

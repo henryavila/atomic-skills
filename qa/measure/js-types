@@ -167,6 +167,11 @@ function measure(root) {
       { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
     );
     if (result.error) fail(`cannot run tsc: ${result.error.message}`);
+    if (result.signal) fail(`tsc was terminated by ${result.signal}`);
+    // 0 is success, 1 and 2 are diagnostics with outputs skipped or generated.
+    if (result.status !== 0 && result.status !== 1 && result.status !== 2) {
+      fail(`tsc exited ${result.status}: ${result.stderr.trim() || result.stdout.trim()}`);
+    }
 
     const output = `${result.stdout}\n${result.stderr}`;
     const counts = new Map();

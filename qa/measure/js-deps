@@ -76,20 +76,39 @@ function audit(root) {
     if (result.error.code === 'ENOENT') toolMissing('npm is not installed');
     failed(`cannot run npm audit: ${result.error.message}`);
   }
+  if (result.signal) failed(`npm audit was terminated by ${result.signal}`);
+
+  // npm audit exits 1 when it found advisories. Any other status means the
+  // run did not finish, so its output cannot be treated as a measurement.
+  const detail = result.stderr.trim() || result.stdout.trim() || 'no output';
+  if (result.status !== 0 && result.status !== 1) {
+    failed(`npm audit exited ${result.status}: ${detail}`);
+  }
 
   let report;
   try {
     report = JSON.parse(result.stdout);
   } catch {
-    const detail = result.stderr.trim() || result.stdout.trim() || `exit ${result.status}`;
-    toolMissing(`npm audit failed (network or registry): ${detail}`);
+    if (result.status === 1) {
+      toolMissing(`npm audit failed (network or registry): ${detail}`);
+    }
+    failed(`npm audit printed invalid JSON: ${detail}`);
   }
 
   if (report && report.error) {
-    const detail = report.error.summary || report.error.detail || report.error.code || 'unknown error';
-    toolMissing(`npm audit failed (network or registry): ${detail}`);
+    const message = report.error.summary || report.error.detail || report.error.code || 'unknown error';
+    toolMissing(`npm audit failed (network or registry): ${message}`);
   }
-  return report || {};
+  const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (
+    !record(report)
+    || !Number.isInteger(report.auditReportVersion)
+    || !record(report.vulnerabilities)
+    || !record(report.metadata)
+  ) {
+    failed('npm audit printed an incomplete report (expected auditReportVersion, vulnerabilities and metadata)');
+  }
+  return report;
 }
 
 function advisories(vulnerability) {
