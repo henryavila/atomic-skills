@@ -7,7 +7,8 @@
 #   2. accept a commit whose generated docs are fresh;
 #   3. skip the docs check when no catalog input is staged;
 #   4. honour HUSKY=0;
-#   5. leave the index and the working tree exactly as it found them.
+#   5. leave the index and the working tree exactly as it found them;
+#   6. not stage an unstaged hand-written edit to a generated output.
 set -euo pipefail
 
 REPO_ROOT="$(pwd)"
@@ -236,6 +237,56 @@ if (
   ok
 else
   no "Test 5 failed"
+fi
+rm -f "$log"
+rm -rf "$tmp"
+
+# ─── Test 6: fresh staged outputs + unstaged hand-written README edit ───
+run "unstaged hand-written README edit → hook accepts and leaves the edit unstaged"
+tmp=$(mk_tmp_repo)
+log=$(mktemp -t precommit-readme-edit-XXXXXX)
+if (
+  cd "$tmp"
+  sed -i.bak "s/Diagnose root cause → write test → fix → verify/README EDIT DRIFT/" meta/catalog.yaml
+  rm meta/catalog.yaml.bak
+  npm run generate-docs >"$log" 2>&1
+  git add -A
+  # A hand-written edit outside the generated markers must survive the hook
+  # unstaged: a hook that runs `git add README.md` would sweep it into the
+  # commit alongside the freshly generated outputs.
+  printf '\nHand-written note for the commit hook test.\n' >>README.md
+  staged_before=$(git diff --cached -- README.md)
+  unstaged_before=$(git diff -- README.md)
+  if [[ -z "$unstaged_before" ]]; then
+    echo "  setup did not leave an unstaged README edit"
+    exit 1
+  fi
+  before=$(snapshot "$tmp")
+  if ! sh "$HOOK" >>"$log" 2>&1; then
+    echo "  hook rejected fresh generated docs with an unstaged README edit"
+    cat "$log"
+    exit 1
+  fi
+  staged_after=$(git diff --cached -- README.md)
+  unstaged_after=$(git diff -- README.md)
+  if [[ "$staged_before" != "$staged_after" ]]; then
+    echo "  hook changed the staged README"
+    exit 1
+  fi
+  if [[ "$unstaged_before" != "$unstaged_after" ]]; then
+    echo "  hook changed the unstaged README edit"
+    exit 1
+  fi
+  after=$(snapshot "$tmp")
+  if [[ "$before" != "$after" ]]; then
+    echo "  hook changed the index or working tree"
+    diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") || true
+    exit 1
+  fi
+); then
+  ok
+else
+  no "Test 6 failed"
 fi
 rm -f "$log"
 rm -rf "$tmp"
