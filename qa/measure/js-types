@@ -187,27 +187,30 @@ function measure(root) {
 
     const counts = new Map();
     const located = /^(.*)\(\d+,\d+\): error TS\d+:/;
-    const global = /^(?:.*:\s*)?error TS\d+:/;
+    const global = /^\s*(?:.*?:\s*)?error TS\d+:/;
+    // TypeScript's multi-line messages are sentences indented by two spaces
+    // per level; each starts with a capital or a quoted/type token. A log line
+    // that starts lowercase cannot be attributed to the diagnostic.
+    const continuation = /^ {2,}(?:[A-Z]|['"`([{])/;
     let seen = 0;
-    let continuation = false;
+    let inMessage = false;
     for (const line of result.stdout.split(/\r?\n/)) {
       if (!line.trim()) {
-        continuation = false;
+        inMessage = false;
         continue;
       }
       const match = line.match(located);
       if (match) {
         seen += 1;
-        continuation = true;
+        inMessage = true;
         const key = errorKey(root, match[1]);
         if (key.startsWith('..') || isAbsolute(key) || !isProductionKey(key)) continue;
         counts.set(key, (counts.get(key) || 0) + 1);
         continue;
       }
       if (global.test(line)) fail(`tsc reported a global error: ${line}`);
-      // A diagnostic message can wrap onto indented continuation lines.
-      if (continuation && /^\s/.test(line)) continue;
-      fail(`tsc printed unexpected output: ${line}`);
+      if (inMessage && continuation.test(line)) continue;
+      fail(`tsc printed output that cannot be attributed to a diagnostic: ${line}`);
     }
     if (seen === 0 && result.status !== 0) {
       fail(`tsc exited ${result.status}: ${result.stderr.trim() || result.stdout.trim()}`);

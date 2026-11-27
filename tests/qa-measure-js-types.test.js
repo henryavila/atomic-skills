@@ -117,6 +117,73 @@ describe('qa/measure/js-types', () => {
     }
   });
 
+  it('fails on an indented global compiler error after a located diagnostic', () => {
+    plant({
+      'package.json': '{"type":"module"}\n',
+      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
+    });
+    const target = join(root, 'src/bad.js');
+    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
+    const app = fakeTypescriptApp([
+      `process.stdout.write(${JSON.stringify(`${diagnostic}\n  error TS6053: File missing.js not found.\n`)});`,
+      'process.exit(2);',
+      '',
+    ].join('\n'));
+    try {
+      const result = run([], { measurer: join(app, 'qa/measure/js-types') });
+      assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+      assert.notEqual(result.status, 3, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /TS6053/);
+      assert.equal(result.stdout, '');
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+
+  it('fails on an indented line it cannot attribute to a diagnostic', () => {
+    plant({
+      'package.json': '{"type":"module"}\n',
+      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
+    });
+    const target = join(root, 'src/bad.js');
+    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
+    const app = fakeTypescriptApp([
+      `process.stdout.write(${JSON.stringify(`${diagnostic}\n  compiler failed unexpectedly\n`)});`,
+      'process.exit(2);',
+      '',
+    ].join('\n'));
+    try {
+      const result = run([], { measurer: join(app, 'qa/measure/js-types') });
+      assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+      assert.notEqual(result.status, 3, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /compiler failed unexpectedly/);
+      assert.equal(result.stdout, '');
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+
+  it('counts a real multi-line diagnostic once', () => {
+    plant({
+      'package.json': '{"type":"module"}\n',
+      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
+    });
+    const target = join(root, 'src/bad.js');
+    const diagnostic = `${target}(1,1): error TS2322: Type 'string' is not assignable to type 'number'.`;
+    const app = fakeTypescriptApp([
+      `process.stdout.write(${JSON.stringify(`${diagnostic}\n  Type 'string' is not assignable to type 'number'.\n    The expected type comes from property 'value'.\n`)});`,
+      'process.exit(2);',
+      '',
+    ].join('\n'));
+    try {
+      expectLines(run([], { measurer: join(app, 'qa/measure/js-types') }), [
+        'js\ttype-errors\tsrc/bad.js::*\t1',
+      ]);
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+
   it('fails when a measured subtree cannot be read', () => {
     plant({
       'package.json': '{"type":"module"}\n',
