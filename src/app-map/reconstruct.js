@@ -161,6 +161,11 @@ function toPageFact(page) {
   };
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.appRoot]
+ * @param {string} [options.projectId]
+ */
 export function resolveTarget({ appRoot, projectId } = {}) {
   if (!appRoot) throw new Error('appRoot is required');
   const resolvedProjectId = projectId ?? basename(appRoot);
@@ -169,6 +174,13 @@ export function resolveTarget({ appRoot, projectId } = {}) {
   return { appRoot, projectId: resolvedProjectId, catalogDir, jsonPath };
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.appRoot]
+ * @param {string} [options.projectId]
+ * @param {Function} [options.readFile]
+ * @param {Function} [options.exists]
+ */
 export function computeReconstruction({
   appRoot,
   projectId,
@@ -212,6 +224,12 @@ export function computeReconstruction({
   };
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.appRoot]
+ * @param {string} [options.projectId]
+ * @param {any[]} [options.pages]
+ */
 export function persistReconstruction({ appRoot, projectId, pages = [] } = {}) {
   const target = resolveTarget({ appRoot, projectId });
   if (pages.length === 0) throw new Error('Cannot persist an empty app-map catalog');

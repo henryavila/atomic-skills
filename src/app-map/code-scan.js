@@ -95,6 +95,12 @@ function walkCodeFiles(root, extensions, ignoreDirs) {
   return files.sort();
 }
 
+/**
+ * @param {object} [options]
+ * @param {string|string[]} [options.roots]
+ * @param {string[]} [options.extensions]
+ * @param {Set<string>|string[]} [options.ignoreDirs]
+ */
 export function scanCode({
   roots,
   extensions = DEFAULT_CODE_EXTENSIONS,
