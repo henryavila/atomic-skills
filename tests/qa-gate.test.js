@@ -413,6 +413,13 @@ ${body}
     }
   });
 
+  it('exits 2 when there is no eligible measurer', () => {
+    writeFile('qa/measure/_helper', '#!/bin/sh\nexit 0\n', 0o755);
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa: no measurer found in qa\/measure/);
+  });
+
   it('exits 2 on an unknown mode', () => {
     const result = run(['nonsense']);
     assert.equal(result.status, 2, both(result));

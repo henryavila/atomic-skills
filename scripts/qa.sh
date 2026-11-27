@@ -136,44 +136,52 @@ discover() {
   done
 }
 
+require_measurers() {
+  if [ "${#MEASURERS[@]}" -eq 0 ]; then
+    die "no measurer found in qa/measure"
+  fi
+}
+
 describe_all() {
   MODE=()
   CHANGED=()
   index=0
-  for measurer in "${MEASURERS[@]}"; do
-    desc="$TMP/describe.$index"
-    err="$TMP/describe.$index.err"
-    if "$measurer" --describe >"$desc" 2>"$err"; then
-      :
-    else
-      code=$?
-      if [ "$code" -eq 3 ]; then
-        tool_missing "$measurer"
+  if [ "${#MEASURERS[@]}" -gt 0 ]; then
+    for measurer in "${MEASURERS[@]}"; do
+      desc="$TMP/describe.$index"
+      err="$TMP/describe.$index.err"
+      if "$measurer" --describe >"$desc" 2>"$err"; then
+        :
+      else
+        code=$?
+        if [ "$code" -eq 3 ]; then
+          tool_missing "$measurer"
+        fi
+        show "$err"
+        die "$measurer: --describe failed (exit $code) — fix the measurer"
       fi
-      show "$err"
-      die "$measurer: --describe failed (exit $code) — fix the measurer"
-    fi
 
-    if ! awk -F'\t' '
-      $1 == "mode" && NF == 2 && ($2 == "fast" || $2 == "full") { next }
-      $1 == "changed" && NF == 2 && ($2 == "yes" || $2 == "no") { next }
-      $1 == "covers" && NF == 3 && length($2) > 0 && length($3) > 0 { next }
-      { exit 1 }
-    ' "$desc"; then
-      die "$measurer: malformed --describe — fix the measurer (it prints mode, changed and covers lines)"
-    fi
+      if ! awk -F'\t' '
+        $1 == "mode" && NF == 2 && ($2 == "fast" || $2 == "full") { next }
+        $1 == "changed" && NF == 2 && ($2 == "yes" || $2 == "no") { next }
+        $1 == "covers" && NF == 3 && length($2) > 0 && length($3) > 0 { next }
+        { exit 1 }
+      ' "$desc"; then
+        die "$measurer: malformed --describe — fix the measurer (it prints mode, changed and covers lines)"
+      fi
 
-    mode_count=$(awk -F'\t' '$1 == "mode"' "$desc" | wc -l | tr -d ' ')
-    changed_count=$(awk -F'\t' '$1 == "changed"' "$desc" | wc -l | tr -d ' ')
-    if [ "$mode_count" -ne 1 ] || [ "$changed_count" -ne 1 ]; then
-      die "$measurer: --describe needs exactly one mode line and one changed line — fix the measurer"
-    fi
+      mode_count=$(awk -F'\t' '$1 == "mode"' "$desc" | wc -l | tr -d ' ')
+      changed_count=$(awk -F'\t' '$1 == "changed"' "$desc" | wc -l | tr -d ' ')
+      if [ "$mode_count" -ne 1 ] || [ "$changed_count" -ne 1 ]; then
+        die "$measurer: --describe needs exactly one mode line and one changed line — fix the measurer"
+      fi
 
-    MODE[index]=$(awk -F'\t' '$1 == "mode" { print $2; exit }' "$desc")
-    CHANGED[index]=$(awk -F'\t' '$1 == "changed" { print $2; exit }' "$desc")
-    awk -F'\t' '$1 == "covers" { print $2 "\t" $3 }' "$desc" >"$TMP/covers.$index"
-    index=$((index + 1))
-  done
+      MODE[index]=$(awk -F'\t' '$1 == "mode" { print $2; exit }' "$desc")
+      CHANGED[index]=$(awk -F'\t' '$1 == "changed" { print $2; exit }' "$desc")
+      awk -F'\t' '$1 == "covers" { print $2 "\t" $3 }' "$desc" >"$TMP/covers.$index"
+      index=$((index + 1))
+    done
+  fi
 }
 
 add_unique() {
@@ -232,13 +240,15 @@ run_phase() {
   : >"$TMP/stacks"
   : >"$TMP/pairs"
   index=0
-  for measurer in "${MEASURERS[@]}"; do
-    if [ "${MODE[$index]}" = "$wanted" ]; then
-      run_measurer "$measurer"
-      collect_covers "$index"
-    fi
-    index=$((index + 1))
-  done
+  if [ "${#MEASURERS[@]}" -gt 0 ]; then
+    for measurer in "${MEASURERS[@]}"; do
+      if [ "${MODE[$index]}" = "$wanted" ]; then
+        run_measurer "$measurer"
+        collect_covers "$index"
+      fi
+      index=$((index + 1))
+    done
+  fi
 }
 
 run_check() {
@@ -280,6 +290,7 @@ run_check() {
 do_fast() {
   require_tables
   discover
+  require_measurers
   describe_all
   run_phase fast
   run_check
@@ -404,6 +415,8 @@ changed_args() {
 do_changed() {
   require_tables
   changed_args "$@"
+  discover
+  require_measurers
   if [ ! -s "$TMP/files" ]; then
     echo "qa: no changed files to measure"
     return 0
@@ -424,7 +437,6 @@ do_changed() {
     ' qa/stacks.tsv >>"$TMP/roots"
   fi
 
-  discover
   describe_all
   : >"$TMP/measures"
   : >"$TMP/metrics"
@@ -437,13 +449,15 @@ do_changed() {
   done <"$TMP/files"
 
   index=0
-  for measurer in "${MEASURERS[@]}"; do
-    if [ "${MODE[$index]}" = "fast" ] && [ "${CHANGED[$index]}" = "yes" ] && covers_touch_files "$index"; then
-      run_measurer "$measurer" --files "${files[@]}"
-      collect_covers "$index"
-    fi
-    index=$((index + 1))
-  done
+  if [ "${#MEASURERS[@]}" -gt 0 ]; then
+    for measurer in "${MEASURERS[@]}"; do
+      if [ "${MODE[$index]}" = "fast" ] && [ "${CHANGED[$index]}" = "yes" ] && covers_touch_files "$index"; then
+        run_measurer "$measurer" --files "${files[@]}"
+        collect_covers "$index"
+      fi
+      index=$((index + 1))
+    done
+  fi
 
   if [ ! -s "$TMP/metrics" ]; then
     echo "qa: no fast changed-aware measurer covers the changed files"
@@ -479,6 +493,7 @@ do_measure() {
 
   require_tables
   discover
+  require_measurers
   describe_all
   : >"$TMP/measures"
   : >"$TMP/metrics"
@@ -486,12 +501,14 @@ do_measure() {
   : >"$TMP/pairs"
 
   index=0
-  for measurer in "${MEASURERS[@]}"; do
-    if measure_matches "$index"; then
-      run_measurer "$measurer"
-    fi
-    index=$((index + 1))
-  done
+  if [ "${#MEASURERS[@]}" -gt 0 ]; then
+    for measurer in "${MEASURERS[@]}"; do
+      if measure_matches "$index"; then
+        run_measurer "$measurer"
+      fi
+      index=$((index + 1))
+    done
+  fi
 
   while IFS=$'\t' read -r stack metric key value; do
     [ -n "${value:-}" ] || continue
