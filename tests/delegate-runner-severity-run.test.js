@@ -219,6 +219,13 @@ describe('delegate.py severity in runs and pipelines', { skip: !hasPython3 ? 'py
       assert.equal(lastRun().severity_source, undefined);
     });
 
+    it('records FINDINGS above 0 with no readable finding line as an incomplete review', () => {
+      const res = runDelegate(reviewArgs(), review('Checked src/a.js; two problems.\nFINDINGS 2\n'));
+      assert.equal(res.status, 1, res.stderr);
+      assert.equal(lastRun().failure, 'incomplete_review');
+      assert.equal(lastRun().severity_source, undefined);
+    });
+
     it('accepts an old-format review, counts its lines and records severity_source reviewer', () => {
       const res = runDelegate(reviewArgs(), review(OLD_WRONG_TOTAL));
       assert.equal(res.status, 0, res.stderr);
@@ -287,6 +294,18 @@ print(json.dumps([d.claude_limit(pathlib.Path(p)) for p in sys.argv[1:]]))`, fin
       assert.match(text, /^- severity: chosen by the reviewer/m);
       assert.deepEqual(text.split('\n').filter((line) => line.includes('TOTAL major=')),
         ['TOTAL major=0 medium=1 minor=0']);
+    });
+
+    it('moves to the next reviewer when a review says FINDINGS 2 and has no finding line', () => {
+      const res = runDelegate(pipelineArgs(), steps([{ FAKE_COMMIT_FILE: 'feature.txt' },
+        reviewStep('Checked src/a.js; two problems.\nFINDINGS 2\n'), reviewStep(CLEAN)]));
+      assert.equal(res.status, 0, res.stderr);
+      const reviews = readLogRecords(atomicHome).filter((r) => r.kind === 'run' && r.role === 'review');
+      assert.deepEqual(reviews.map((r) => r.failure), ['incomplete_review', 'none']);
+      const pipeRec = readLogRecords(atomicHome).at(-1);
+      assert.equal(pipeRec.outcome, 'reviewed');
+      assert.equal(pipeRec.reviewer_profile, 'agy-review');
+      assert.deepEqual(pipeRec.findings, { major: 0, medium: 0, minor: 0 });
     });
 
     it('decides a finished pending review on the computed counts too', () => {

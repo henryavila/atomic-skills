@@ -67,7 +67,9 @@ LIMIT_RE = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b",
 TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=(\d+) medium=(\d+) minor=(\d+)[ \t`*]*$")
 # The last line of a review in the format of severity-rubric.md.
 FINDINGS_RE = re.compile(r"^[ \t`*]*FINDINGS (\d+)[ \t`*]*$")
-FINDING_LINE_RE = re.compile(r"^\W*([FR]\d+)\s*\|(.*)$")
+# A finding line, with leading markdown decoration tolerated as TOTAL_RE does:
+# `F01 |`, `- F01 |`, `**F01** |`, `` `F01` | ``.
+FINDING_LINE_RE = re.compile(r"^\W*([FR]\d+)[\s`*_]*\|(.*)$")
 FINDING_ID_RE = re.compile(r"[FR]\d+")
 
 # severity-rubric.md, the file every review prompt ends with, as data. The
@@ -1013,9 +1015,8 @@ def claude_limit(stdout):
 
 
 def review_complete(text):
-    """A review answer is complete when it has its closing line: `FINDINGS <n>`
-    (severity-rubric.md) or, in the old format, `TOTAL major=… medium=… minor=…`."""
-    return any(FINDINGS_RE.match(line) or TOTAL_RE.match(line) for line in text.splitlines())
+    """A review answer is complete when it has its closing line (see parse_review)."""
+    return parse_review(text)["complete"]
 
 
 def review_severity_fields(review_output):
@@ -4078,8 +4079,9 @@ def parse_review(text):
     severity_source "computed". An old-format answer (`R01 | major | …` and a
     TOTAL line) keeps the reviewer's labels: severity_source "reviewer". Either
     way the counts come from the finding lines, never from a number the
-    reviewer wrote: FINDINGS <n> or TOTAL only says the answer is complete,
-    and findings_mismatch says when it disagrees with the lines. A finding
+    reviewer wrote: FINDINGS <n> or TOTAL only says the answer is complete
+    (FINDINGS above 0 needs at least one finding line), and findings_mismatch
+    says when it disagrees with the lines. A finding
     that cannot be classified is "unclassified" and counted as medium.
     """
     lines = text.splitlines()
@@ -4121,9 +4123,13 @@ def parse_review(text):
         mismatch = claimed != {key: counts[key] for key in COUNTED}
     else:
         claimed, mismatch = None, False
+    # The last FINDINGS line decides, a TOTAL line only for the old format.
+    # FINDINGS above 0 with no finding line the runner can read is not a clean
+    # review: it is incomplete, like an answer without its closing line.
+    complete = (marks[-1] == 0 or bool(rows)) if marks else bool(totals)
     review = {
         "severity_source": "computed" if computed else "reviewer",
-        "complete": bool(marks or totals),
+        "complete": complete,
         "findings": findings, "counts": counts, "findings_mismatch": mismatch,
         "summary_lines": summary,
         "total_line": "TOTAL major={major} medium={medium} minor={minor}".format(**counts),

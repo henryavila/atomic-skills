@@ -380,6 +380,32 @@ describe('delegate severity rubric', { skip: !hasPython3 ? 'python3 not on PATH'
       assert.equal(review.total_line, 'TOTAL major=0 medium=0 minor=0');
     });
 
+    it('does not take FINDINGS above 0 with no readable finding line as complete, even beside a TOTAL', () => {
+      assert.equal(parseReview('Checked src/a.js.\nFINDINGS 2\n').complete, false);
+      assert.equal(parseReview('Checked src/a.js.\n**F01** major issue in a.js\nFINDINGS 1\n').complete, false);
+      assert.equal(parseReview('Checked src/a.js.\nFINDINGS 2\nTOTAL major=0 medium=0 minor=0\n').complete, false);
+    });
+
+    it('reads finding lines with leading markdown decoration', () => {
+      const review = parseReview([
+        line('**F01**'),
+        line('- F02', { kind: 'style', reach: '-' }),
+        line('`F03`', { kind: 'test-gap', reach: '-' }),
+        line('- **F04**', { dup: 'F01', kind: 'doc-loose', reach: '-' }),
+        'FINDINGS 4',
+      ].join('\n'));
+      assert.equal(review.complete, true);
+      assert.equal(review.findings_mismatch, false);
+      assert.deepEqual(review.findings.map((f) => [f.id, f.location, f.severity]), [
+        ['F01', 'src/a.js:12', 'major'], ['F02', 'src/a.js:12', 'minor'],
+        ['F03', 'src/a.js:12', 'medium'], ['F04', 'src/a.js:12', 'merged'],
+      ]);
+      const old = parseReview('**R01** | major | a.js:1 | bug | ran it | fix\n`R02` | minor | b.js:2 | nit | read | rename\n'
+        + 'TOTAL major=1 medium=0 minor=1\n');
+      assert.deepEqual(old.findings.map((f) => [f.id, f.severity]), [['R01', 'major'], ['R02', 'minor']]);
+      assert.equal(old.findings_mismatch, false);
+    });
+
     it('does not take an answer without FINDINGS or TOTAL as complete', () => {
       assert.equal(parseReview('Read src/a.js; nothing wrong.\n').complete, false);
       assert.equal(parseReview(`${line('F01')}\n`).complete, false);
