@@ -2,11 +2,14 @@
  * Function symbols for qa/measure/js-size.
  *
  * A symbol is the qualified name of a function in its file:
- *   - `Class.method` for a method;
+ *   - `Class.method` for a method, `Class.#private` for a private method;
+ *   - `Class.get x` and `Class.set x` for accessors;
  *   - `outer>inner` for a function nested in a function;
- *   - the variable or property name when a function expression or arrow is
- *     assigned to one;
+ *   - the variable, property or function expression name when a function
+ *     expression or arrow has one;
  *   - `<anonymous>` under the enclosing symbol when it has no name;
+ *   - `<computed>` for a computed property key that is not a string or number
+ *     literal;
  *   - `#2`, `#3` after a symbol that already appeared in the same file,
  *     in source order.
  *
@@ -57,7 +60,11 @@ function assignedName(node, parent) {
 function methodName(node, parent) {
   if (!parent) return null;
   if ((parent.type === 'MethodDefinition' || parent.type === 'PropertyDefinition') && parent.value === node) {
-    return keyName(parent.key, parent.computed) || '<anonymous>';
+    const name = keyName(parent.key, parent.computed) || '<anonymous>';
+    if (parent.type === 'MethodDefinition' && (parent.kind === 'get' || parent.kind === 'set')) {
+      return `${parent.kind} ${name}`;
+    }
+    return name;
   }
   return null;
 }
@@ -94,7 +101,7 @@ export function collectFunctions(ast) {
       if (method) {
         full = context.classSymbol ? `${context.classSymbol}.${method}` : method;
       } else {
-        const declared = node.type === 'FunctionDeclaration' && node.id ? node.id.name : null;
+        const declared = node.id ? node.id.name : null;
         const base = assigned || declared || '<anonymous>';
         full = context.fnSymbol ? `${context.fnSymbol}>${base}` : base;
       }

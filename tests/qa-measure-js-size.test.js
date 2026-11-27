@@ -186,6 +186,41 @@ describe('qa/measure/js-size', () => {
     ]);
   });
 
+  it('names named expressions, private methods, accessors and static methods', () => {
+    const branches = Array.from({ length: 15 }, (_, i) => `    if (n === ${i}) return ${i};`).join('\n');
+    plant({
+      'src/members.js': [
+        '(function named(a, b, c, d, e, f) {',
+        '  return a;',
+        '})();',
+        'class C {',
+        '  #m(a, b, c, d, e, f) {',
+        '    return a;',
+        '  }',
+        '  get value() {',
+        '    const n = 0;',
+        branches,
+        '    return -1;',
+        '  }',
+        '  set value(n) {',
+        branches,
+        '  }',
+        '  static stat(a, b, c, d, e, f) {',
+        '    return a;',
+        '  }',
+        '}',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), [
+      'js\tparams\tsrc/members.js::named\t6',
+      'js\tparams\tsrc/members.js::C.#m\t6',
+      'js\tcomplexity\tsrc/members.js::C.get value\t16',
+      'js\tcomplexity\tsrc/members.js::C.set value\t16',
+      'js\tparams\tsrc/members.js::C.stat\t6',
+    ]);
+  });
+
   it('names functions by class, nesting, assignment and duplicate', () => {
     const body = [
       'class Widget {',
