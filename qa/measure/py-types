@@ -58,7 +58,9 @@ def repository_root():
 def venv_directory():
     if os.environ.get("QA_VENV"):
         return os.path.abspath(os.environ["QA_VENV"])
-    repository = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    repository = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
     return os.path.join(repository, "qa", ".venv")
 
 
