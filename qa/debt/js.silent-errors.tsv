@@ -1,8 +1,0 @@
-src/detect.js::detectLanguage	1
-src/install.js::findLegacyOrphans	1
-src/install.js::removeLegacyOrphans	1
-src/install.js::removeRuntimeArtifacts	2
-src/install.js::unregisterAndMaybeReclaimRuntimeUnlocked	1
-src/install.js::unregisterInstall><anonymous>	1
-src/scope.js::resolveProjectScopeTarget	2
-src/uninstall.js::uninstall	1

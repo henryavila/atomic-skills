@@ -48,7 +48,7 @@ src/install.js::materializeRegistryOwners	17
 src/install.js::materializeRegistryOwners><anonymous>	17
 src/install.js::readInstallsRegistry	19
 src/install.js::syncGrokPluginHostAfterInstall	43
-src/install.js::unregisterAndMaybeReclaimRuntimeUnlocked	19
+src/install.js::unregisterAndMaybeReclaimRuntimeUnlocked	18
 src/installer-driver.js::createDriver>install	26
 src/provider-limit-failure.js::classifyProviderLimitFailure	20
 src/recovery-cli.js::classifyJournalTrust	23
@@ -67,7 +67,7 @@ src/runtime-layers/grok-plugin-host.js::resolveGrokBinary	16
 src/runtime-layers/grok-refcount.js::releaseGrokOutsideJournal	21
 src/runtime-observe.js::observeRuntimeRegistry	34
 src/runtime-observe.js::parseInstallsRegistry	19
-src/scope.js::resolveProjectScopeTarget	18
+src/scope.js::resolveProjectScopeTarget	17
 src/status-verify.js::classifyFileState	19
 src/status-verify.js::verifyInstall	24
 src/status.js::status	51

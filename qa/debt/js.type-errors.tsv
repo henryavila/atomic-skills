@@ -24,7 +24,7 @@ src/resolve-review-model.js::*	7
 src/review-provider-field.js::*	1
 src/runtime-layers/auto-update-drop-revert.js::*	1
 src/runtime-layers/auto-update.js::*	4
-src/runtime-layers/grok-refcount.js::*	5
+src/runtime-layers/grok-refcount.js::*	1
 src/runtime-locks.js::*	3
 src/status-verify.js::*	1
 src/status.js::*	2
