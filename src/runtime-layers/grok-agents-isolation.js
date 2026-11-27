@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { SKILL_NAMESPACE } from '../config.js';
 import { wantsGrokPluginHost } from './grok-plugin-host.js';
 import { readManifest } from '../manifest.js';
-import { listKnownInstallBases, normalizeInstallBase } from './grok-refcount.js';
+import { listKnownInstallBases, normalizeInstallBase } from './install-bases.js';
 
 /**
  * Hide non-Grok Atomic Skills trees from Grok's skill scanner.
