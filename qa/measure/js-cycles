@@ -20,7 +20,6 @@ import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { parseJavaScript } from './lib/js-source.mjs';
 
 const STACK = 'js';
 const METRIC = 'import-cycles';
@@ -116,6 +115,29 @@ function sourceFiles(directory, found) {
   }
 }
 
+/**
+ * Parse the way the dependency tool does: module grammar first, then script
+ * grammar without a top-level return. A CommonJS file with a top-level return
+ * passes a general parse but makes madge report no dependencies, so its edges
+ * cannot be trusted.
+ */
+function parseForDependencies(espree, source) {
+  try {
+    return espree.parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
+  } catch (moduleError) {
+    try {
+      return espree.parse(source, { ecmaVersion: 'latest', sourceType: 'script' });
+    } catch (scriptError) {
+      const error = new Error(
+        `${moduleError.message} (as a module); ${scriptError.message} (as a script)`,
+      );
+      error.moduleError = moduleError;
+      error.scriptError = scriptError;
+      throw error;
+    }
+  }
+}
+
 function validateSources(root, roots, espree) {
   const files = [];
   for (const name of roots) sourceFiles(join(root, name), files);
@@ -128,9 +150,9 @@ function validateSources(root, roots, espree) {
       fail(`cannot read ${key}: ${error.message}`);
     }
     try {
-      parseJavaScript(espree, source);
+      parseForDependencies(espree, source);
     } catch (error) {
-      fail(`${key}: cannot parse: ${error.message}`);
+      fail(`${key}: cannot parse for dependency extraction: ${error.message}`);
     }
   }
 }

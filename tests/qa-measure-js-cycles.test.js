@@ -108,6 +108,26 @@ describe('qa/measure/js-cycles', () => {
     assert.equal(result.stdout, '');
   });
 
+  it('fails when a CommonJS file cannot be read for dependencies', () => {
+    plant({
+      'src/a.js': "const b = require('./b.js');\nreturn;\nmodule.exports = { b };\n",
+      'src/b.js': "const a = require('./a.js');\nmodule.exports = { a };\n",
+    });
+    const result = run();
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.notEqual(result.status, 3, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /src\/a\.js/);
+    assert.equal(result.stdout, '');
+  });
+
+  it('measures a CommonJS cycle when no file has a top-level return', () => {
+    plant({
+      'src/a.js': "const b = require('./b.js');\nmodule.exports = { b };\n",
+      'src/b.js': "const a = require('./a.js');\nmodule.exports = { a };\n",
+    });
+    expectLines(run(), ['js\timport-cycles\tsrc/a.js::cycle>src/b.js\t1']);
+  });
+
   it('fails when a measured root cannot be inspected', () => {
     plant({ 'src/placeholder.js': 'export const placeholder = 1;\n' });
     const hidden = join(root, 'hidden-parent');
