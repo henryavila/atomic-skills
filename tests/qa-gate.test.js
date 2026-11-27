@@ -211,6 +211,50 @@ ${body}
     assert.match(result.stderr, /fake/);
   });
 
+  it('exits 2 naming a missing quality table', () => {
+    rmSync(join(repo, 'qa/dimensions.tsv'));
+    writeMeasurer('fake');
+    const result = run(['measure']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa\/dimensions\.tsv/);
+  });
+
+  it('exits 2 when a stack row has no root', () => {
+    writeFile('qa/stacks.tsv', [
+      'stack\tlanguage\troots\tgenerated\ttests\tgroup',
+      'js\tjavascript\t-\t-\ttests\t-',
+      '',
+    ].join('\n'));
+    writeMeasurer('fake');
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa\/stacks\.tsv/);
+  });
+
+  it('changed checks the quality tables even when nothing is staged', () => {
+    writeFile('qa/stacks.tsv', [
+      'stack\tlanguage\troots\tgenerated\ttests\tgroup',
+      'js\tjavascript\t\t-\ttests\t-',
+      '',
+    ].join('\n'));
+    writeMeasurer('fake', { changed: 'yes' });
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa\/stacks\.tsv/);
+  });
+
+  it('strong exits 2 when ratchet status exits 2', () => {
+    const npm = join(binDir, 'npm');
+    writeFileSync(npm, '#!/bin/sh\nexit 0\n');
+    chmodSync(npm, 0o755);
+    writeFile('qa/debt/js.weird.tsv', 'src/a.js::f\tnot-a-number\n');
+    writeMeasurer('fake');
+
+    const result = run(['strong']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /ratchet/);
+  });
+
   it('changed --staged runs only changed yes measurers with the staged files', () => {
     writeMeasurer('yes', {
       changed: 'yes',

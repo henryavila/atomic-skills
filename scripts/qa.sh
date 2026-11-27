@@ -93,6 +93,32 @@ show() {
   return 0
 }
 
+require_tables() {
+  for table in qa/stacks.tsv qa/ceilings.tsv qa/dimensions.tsv; do
+    if [ ! -f "$table" ]; then
+      die "$table is missing — add the quality table"
+    fi
+  done
+
+  bad=$(awk -F'\t' '
+    NR == 1 { next }
+    /^[ \t]*(#|$)/ { next }
+    {
+      count = split($3, roots, ",")
+      for (i = 1; i <= count; i++) {
+        root = roots[i]
+        gsub(/^[ \t]+|[ \t]+$/, "", root)
+        if (root != "" && root != "-") next
+      }
+      print NR
+      exit
+    }
+  ' qa/stacks.tsv)
+  if [ -n "$bad" ]; then
+    die "qa/stacks.tsv:$bad: a stack row needs at least one root — fix the table"
+  fi
+}
+
 discover() {
   MEASURERS=()
   [ -d qa/measure ] || return 0
@@ -249,6 +275,7 @@ run_check() {
 }
 
 do_fast() {
+  require_tables
   discover
   describe_all
   run_phase fast
@@ -372,6 +399,7 @@ changed_args() {
 }
 
 do_changed() {
+  require_tables
   changed_args "$@"
   if [ ! -s "$TMP/files" ]; then
     echo "qa: no changed files to measure"
@@ -446,6 +474,7 @@ do_measure() {
     esac
   done
 
+  require_tables
   discover
   describe_all
   : >"$TMP/measures"
@@ -499,11 +528,14 @@ case "$command" in
     do_full || exit $?
     python3 -I qa/ratchet.py status
     code=$?
-    if [ "$code" -ne 0 ]; then
-      echo 'qa: status is not strong — fix the listed gaps or see "When the gate is red" in docs/quality.md' >&2
-      exit 1
+    if [ "$code" -eq 0 ]; then
+      exit 0
     fi
-    exit 0
+    if [ "$code" -eq 2 ]; then
+      exit 2
+    fi
+    echo 'qa: status is not strong — fix the listed gaps or see "When the gate is red" in docs/quality.md' >&2
+    exit 1
     ;;
   measure)
     FILTER_METRICS=()
