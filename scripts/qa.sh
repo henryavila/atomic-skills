@@ -167,6 +167,7 @@ collect_covers() {
     [ -n "${metric:-}" ] || continue
     add_metric "$metric"
     add_stack "$stack"
+    printf '%s\t%s\n' "$stack" "$metric" >>"$TMP/pairs"
   done <"$TMP/covers.$index"
 }
 
@@ -200,6 +201,7 @@ run_phase() {
   : >"$TMP/measures"
   : >"$TMP/metrics"
   : >"$TMP/stacks"
+  : >"$TMP/pairs"
   index=0
   for measurer in "${MEASURERS[@]}"; do
     if [ "${MODE[$index]}" = "$wanted" ]; then
@@ -211,45 +213,52 @@ run_phase() {
 }
 
 run_check() {
-  with_stacks=$1
-  if [ ! -s "$TMP/metrics" ]; then
-    return 0
-  fi
+  : >"$TMP/check.stacks"
+  : >"$TMP/check.metrics"
+  : >"$TMP/check.measures"
+  awk -F'\t' 'NF >= 2 && length($1) > 0 { print $1 }' "$TMP/pairs" |
+    sort -u >"$TMP/check.stacks"
 
-  args=(python3 -I qa/ratchet.py check --measures "$TMP/measures" --metric)
-  while IFS= read -r metric; do
-    args[${#args[@]}]="$metric"
-  done <"$TMP/metrics"
-  if [ "$with_stacks" = "yes" ] && [ -s "$TMP/stacks" ]; then
-    args[${#args[@]}]="--stack"
-    while IFS= read -r stack; do
-      args[${#args[@]}]="$stack"
-    done <"$TMP/stacks"
-  fi
+  failed=0
+  while IFS= read -r stack; do
+    [ -n "$stack" ] || continue
+    awk -F'\t' -v stack="$stack" 'NF >= 2 && $1 == stack { print $2 }' "$TMP/pairs" |
+      sort -u >"$TMP/check.metrics"
+    [ -s "$TMP/check.metrics" ] || continue
+    awk -F'\t' -v stack="$stack" '$1 == stack' "$TMP/measures" >"$TMP/check.measures"
 
-  "${args[@]}"
-  code=$?
-  if [ "$code" -eq 0 ]; then
-    return 0
-  fi
-  if [ "$code" -eq 1 ]; then
+    args=(python3 -I qa/ratchet.py check --measures "$TMP/check.measures" --stack "$stack" --metric)
+    while IFS= read -r metric; do
+      args[${#args[@]}]="$metric"
+    done <"$TMP/check.metrics"
+
+    "${args[@]}"
+    code=$?
+    case "$code" in
+      0) ;;
+      1) failed=1 ;;
+      *) die "ratchet check exited $code — fix qa/ tables or the measurer output" ;;
+    esac
+  done <"$TMP/check.stacks"
+
+  if [ "$failed" -eq 1 ]; then
     echo 'qa: quality check failed — fix the code or see "When the gate is red" in docs/quality.md' >&2
     return 1
   fi
-  die "ratchet check exited $code — fix qa/ tables or the measurer output"
+  return 0
 }
 
 do_fast() {
   discover
   describe_all
   run_phase fast
-  run_check no
+  run_check
 }
 
 do_full() {
   do_fast || return $?
   run_phase full
-  run_check no || return 1
+  run_check || return 1
   npm test
   code=$?
   if [ "$code" -ne 0 ]; then
@@ -389,6 +398,7 @@ do_changed() {
   : >"$TMP/measures"
   : >"$TMP/metrics"
   : >"$TMP/stacks"
+  : >"$TMP/pairs"
 
   files=()
   while IFS= read -r file; do
@@ -408,7 +418,7 @@ do_changed() {
     echo "qa: no fast changed-aware measurer covers the changed files"
     return 0
   fi
-  run_check yes
+  run_check
 }
 
 do_measure() {
@@ -441,6 +451,7 @@ do_measure() {
   : >"$TMP/measures"
   : >"$TMP/metrics"
   : >"$TMP/stacks"
+  : >"$TMP/pairs"
 
   index=0
   for measurer in "${MEASURERS[@]}"; do

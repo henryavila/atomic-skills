@@ -1,8 +1,9 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import {
-  chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
+  chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -79,7 +80,7 @@ ${body}
   }
 
   function run(args, extraEnv = {}) {
-    return spawnSync('bash', [join(repo, 'scripts/qa.sh'), ...args], {
+    return spawnSync('/bin/bash', [join(repo, 'scripts/qa.sh'), ...args], {
       cwd: repo,
       encoding: 'utf8',
       env: {
@@ -152,6 +153,40 @@ ${body}
     const result = run(['fast']);
     assert.equal(result.status, 1, both(result));
     assert.match(result.stdout, /worse/);
+  });
+
+  it('checks each stack only over the metrics a measurer covered for it', () => {
+    writeFile('qa/stacks.tsv', [
+      'stack\tlanguage\troots\tgenerated\ttests\tgroup',
+      'js\tjavascript\tsrc,scripts,bin\t-\ttests\t-',
+      'py\tpython\tpy\t-\ttests\t-',
+      '',
+    ].join('\n'));
+    writeFile('qa/ceilings.tsv', [
+      'metric\tceiling\tapplies_to',
+      'complexity\t15\tjavascript,python',
+      'file-lines\t800\tjavascript,python',
+      '',
+    ].join('\n'));
+    writeMeasurer('js', {
+      covers: [['js', 'complexity']],
+      body: [
+        measureLine('js', 'complexity', 'src/known.js::f', 10),
+        measureLine('js', 'complexity', 'src/new.js::g', 20),
+      ].join('\n'),
+    });
+    writeMeasurer('py', {
+      covers: [['py', 'file-lines']],
+      body: 'exit 0',
+    });
+    debt('js', 'complexity', 'src/known.js::f\t10\n');
+    debt('py', 'complexity', 'py/old.py::unmeasured\t10\n');
+
+    const result = run(['fast']);
+    assert.equal(result.status, 1, both(result));
+    assert.match(result.stdout, /src\/new\.js::g/);
+    assert.doesNotMatch(both(result), /can lower/);
+    assert.doesNotMatch(both(result), /py\.complexity/);
   });
 
   it('exits 2 when a measurer reports its tool is missing', () => {
