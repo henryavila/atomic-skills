@@ -362,7 +362,7 @@ def repo_identity(cwd):
         else:  # a bare repository, or the git directory of a submodule
             name = common_path.name[:-4] if common_path.name.endswith(".git") else common_path.name
         return name or None
-    except (OSError, RuntimeError):
+    except (OSError, RuntimeError, UnicodeError, ValueError):
         return None
 
 
@@ -981,7 +981,7 @@ def get_max_slots(executor):
 
 
 def is_pid_alive(pid):
-    if not pid or pid <= 0:
+    if not isinstance(pid, int) or not 0 < pid <= 2 ** 31 - 1:  # pid_t is a C int
         return False
     try:
         os.kill(pid, 0)
@@ -996,7 +996,7 @@ def is_pid_alive(pid):
 
 def process_identity(pid):
     """Kernel start time, independent of the runner's wall clock."""
-    if not isinstance(pid, int) or pid <= 0:
+    if not isinstance(pid, int) or not 0 < pid <= 2 ** 31 - 1:  # pid_t is a C int
         return None
     try:
         if sys.platform == "darwin":
@@ -1132,11 +1132,11 @@ def _clean_stale_slots():
                 p.unlink(missing_ok=True)
                 if runner_gone(data):
                     record_lost_runner(p, data)
-        except (OSError, ValueError, TypeError, AttributeError):
+        except (OSError, ValueError, TypeError, AttributeError, OverflowError):
             p.unlink(missing_ok=True)
     try:
         _clean_stale_remote()
-    except OSError:
+    except (OSError, ValueError, TypeError, AttributeError, OverflowError):
         pass  # the remote list is for display; it never blocks a local slot
 
 

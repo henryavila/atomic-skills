@@ -252,7 +252,7 @@ def repo_identity(cwd):
         else:
             name = common_path.name[:-4] if common_path.name.endswith(".git") else common_path.name
         return name or None
-    except (OSError, RuntimeError):
+    except (OSError, RuntimeError, UnicodeError, ValueError):
         return None
 
 
