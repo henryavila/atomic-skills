@@ -106,8 +106,8 @@ function existingDirectories(root, names) {
 }
 
 const EXTENSIONS = {
-  javascript: ['.js', '.mjs', '.cjs'],
-  python: ['.py'],
+  javascript: ['.js', '.mjs', '.cjs', '.jsx', '.es', '.es6'],
+  python: ['.py', '.pyx', '.pxd', '.pxi'],
 };
 
 function hasMeasurableSource(paths, format) {
