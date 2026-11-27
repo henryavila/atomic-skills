@@ -286,7 +286,9 @@ spec.loader.exec_module(d)
         '--archived',
         '-m',
         'opencode-go/deepseek-v4.1-flash',
-        readFileSync(cardPath, 'utf8'),
+        // Every review prompt ends with the severity rubric.
+        readFileSync(cardPath, 'utf8') + '\n'
+          + readFileSync(join(REPO_ROOT, 'skills/shared/delegate-assets/severity-rubric.md'), 'utf8'),
       ]);
       const [rec] = readLogRecords(atomicHome);
       assert.equal(rec.role, 'review');
