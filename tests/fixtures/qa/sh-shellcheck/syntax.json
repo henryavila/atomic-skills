@@ -1,0 +1,46 @@
+[
+    {
+        "file": "tests/hooks/syntax.sh",
+        "line": 2,
+        "endLine": 2,
+        "column": 1,
+        "endColumn": 1,
+        "level": "info",
+        "code": 1009,
+        "message": "The mentioned syntax error was in this if expression.",
+        "fix": null
+    },
+    {
+        "file": "tests/hooks/syntax.sh",
+        "line": 2,
+        "endLine": 2,
+        "column": 4,
+        "endColumn": 4,
+        "level": "error",
+        "code": 1073,
+        "message": "Couldn't parse this test expression. Fix to allow more checks.",
+        "fix": null
+    },
+    {
+        "file": "tests/hooks/syntax.sh",
+        "line": 2,
+        "endLine": 2,
+        "column": 5,
+        "endColumn": 5,
+        "level": "error",
+        "code": 1080,
+        "message": "You need \\ before line feeds to break lines in [ ].",
+        "fix": null
+    },
+    {
+        "file": "tests/hooks/syntax.sh",
+        "line": 3,
+        "endLine": 3,
+        "column": 1,
+        "endColumn": 1,
+        "level": "error",
+        "code": 1072,
+        "message": " Fix any mentioned problems and try again.",
+        "fix": null
+    }
+]
