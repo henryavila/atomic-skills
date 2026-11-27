@@ -210,6 +210,13 @@ spec.loader.exec_module(d)
       join(seqDir, 'step_1.json'),
       JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
     );
+    // The major opens the one fix round: a fix commit and the follow-up review.
+    writeFileSync(join(seqDir, 'step_2.json'), JSON.stringify({ FAKE_COMMIT_FILE: 'fix.txt' }));
+    const followUp = 'MAJOR R01 fixed | feature.txt:1 now does it\nFINDINGS 0\n';
+    writeFileSync(
+      join(seqDir, 'step_3.json'),
+      JSON.stringify({ FAKE_STDOUT: followUp, FAKE_LAST_MESSAGE: followUp }),
+    );
 
     const res = runDelegate(
       [
@@ -236,24 +243,29 @@ spec.loader.exec_module(d)
     assert.ok(summaryLines.length < 60, `summary lines: ${summaryLines.length} >= 60`);
     assert.match(summaryText, /R01\s*\|\s*major/);
     assert.match(summaryText, /R02\s*\|\s*medium/);
-    assert.match(summaryText, /TOTAL major=1 medium=1 minor=0/);
+    assert.match(summaryText, /^- first review: TOTAL major=1 medium=1 minor=0$/m);
+    assert.equal(summaryText.trimEnd().split('\n').at(-1), 'TOTAL major=0 medium=1 minor=0');
     assert.equal(res.stdout.trim(), summaryText.trim());
 
     const recs = readLogRecords(atomicHome);
-    assert.equal(recs.length, 3);
-    const [execRec, revRec, pipeRec] = recs;
+    assert.equal(recs.length, 6);
+    const [execRec, revRec, fixRec, followRec, verdictRec, pipeRec] = recs;
     assert.equal(execRec.kind, 'run');
     assert.equal(execRec.role, 'implement');
     assert.equal(revRec.kind, 'run');
     assert.equal(revRec.role, 'review');
+    assert.equal(fixRec.role, 'fix');
+    assert.equal(followRec.role, 'review');
+    assert.equal(verdictRec.kind, 'verdict');
     assert.equal(pipeRec.kind, 'pipeline');
     assert.equal(pipeRec.id, 'T-PIPE-HAPPY');
-    assert.equal(pipeRec.outcome, 'reviewed');
+    assert.equal(pipeRec.outcome, 'fixed');
     assert.equal(pipeRec.executor_profile, 'flash');
     assert.equal(pipeRec.reviewer_profile, 'codex-review');
     assert.equal(pipeRec.gate_exit, 0);
     assert.equal(pipeRec.auto_committed, false);
-    assert.deepEqual(pipeRec.findings, { major: 1, medium: 1, minor: 0 });
+    assert.deepEqual(pipeRec.first_findings, { major: 1, medium: 1, minor: 0 });
+    assert.deepEqual(pipeRec.findings, { major: 0, medium: 1, minor: 0 });
     assert.ok(typeof pipeRec.duration_s === 'number');
   });
 
@@ -292,11 +304,12 @@ spec.loader.exec_module(d)
 
     assert.equal(res.status, 0, res.stderr);
     const recs = readLogRecords(atomicHome);
-    assert.equal(recs.length, 4);
+    assert.equal(recs.length, 5);
     assert.equal(recs[0].failure, 'provider_limit');
     assert.equal(recs[1].failure, 'none');
     assert.equal(recs[1].executor, 'codex');
-    const pipeRec = recs[3];
+    assert.equal(recs[3].kind, 'verdict');
+    const pipeRec = recs[4];
     assert.equal(pipeRec.kind, 'pipeline');
     assert.equal(pipeRec.outcome, 'reviewed');
     assert.equal(pipeRec.executor_profile, 'codex');

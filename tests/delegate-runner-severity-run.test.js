@@ -41,6 +41,8 @@ const NEW_REVIEW = [
   'FINDINGS 6',
 ].join('\n') + '\n';
 const OLD_WRONG_TOTAL = 'R01 | medium | a.js:3 | issue | saw | fix\nTOTAL major=3 medium=0 minor=0\n';
+// The follow-up review after the one fix round of NEW_REVIEW's only major.
+const FIXED_F02 = 'MAJOR F02 fixed | README.md:4 says --every now\nFINDINGS 0\n';
 
 describe('delegate.py severity in runs and pipelines', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
   let root;
@@ -257,11 +259,17 @@ print(json.dumps([d.claude_limit(pathlib.Path(p)) for p in sys.argv[1:]]))`, fin
 
   describe('the pipeline decides on the computed counts', () => {
     it('counts majors from the answers, never from the words of a finding', () => {
-      const res = runDelegate(pipelineArgs(), steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, reviewStep(NEW_REVIEW)]));
+      const res = runDelegate(pipelineArgs(), steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, reviewStep(NEW_REVIEW),
+        { FAKE_COMMIT_FILE: 'fix.txt' }, reviewStep(FIXED_F02)]));
       assert.equal(res.status, 0, res.stderr);
       const pipeRec = readLogRecords(atomicHome).at(-1);
-      assert.equal(pipeRec.outcome, 'reviewed');
-      assert.deepEqual(pipeRec.findings, { major: 1, medium: 2, minor: 1 });
+      // Only F02 is a computed major: it alone opens the fix round.
+      assert.equal(pipeRec.outcome, 'fixed');
+      assert.deepEqual(pipeRec.first_findings, { major: 1, medium: 2, minor: 1 });
+      assert.deepEqual(pipeRec.findings, { major: 0, medium: 2, minor: 1 });
+      const fixPrompt = readFileSync(readLogRecords(atomicHome).find((r) => r.role === 'fix').prompt, 'utf8');
+      assert.match(fixPrompt, /major \| F02 \| README\.md:4 /);
+      assert.doesNotMatch(fixPrompt, /a major problem in naming/);
       assert.equal(pipeRec.severity_source, 'computed');
       assert.equal(pipeRec.findings_unclassified, 1);
       assert.equal(pipeRec.findings_mismatch, false);
@@ -274,8 +282,8 @@ print(json.dumps([d.claude_limit(pathlib.Path(p)) for p in sys.argv[1:]]))`, fin
       assert.match(text, /^unclassified \| F06 \| src\/d\.js:7 \| /m);
       assert.match(text, /^- unclassified findings: 1, counted as medium/m);
       assert.deepEqual(text.split('\n').filter((line) => line.includes('TOTAL major=')),
-        ['TOTAL major=1 medium=2 minor=1']);
-      assert.equal(text.trimEnd().split('\n').at(-1), 'TOTAL major=1 medium=2 minor=1');
+        ['- first review: TOTAL major=1 medium=2 minor=1', 'TOTAL major=0 medium=2 minor=1']);
+      assert.equal(text.trimEnd().split('\n').at(-1), 'TOTAL major=0 medium=2 minor=1');
       assert.equal(res.stdout.trim(), text.trim());
     });
 
@@ -312,15 +320,17 @@ print(json.dumps([d.claude_limit(pathlib.Path(p)) for p in sys.argv[1:]]))`, fin
       const LIMIT = { FAKE_EXIT: '1', FAKE_STDERR: 'ERROR: usage limit reached. Resets in 2h0m0s.\n' };
       let res = runDelegate(pipelineArgs(), steps([{ FAKE_COMMIT_FILE: 'feature.txt' }, LIMIT, LIMIT]));
       assert.equal(res.status, 1, res.stderr);
-      res = runDelegate(['review-pending', '--id', 'P1', '--confirmed'], steps([reviewStep(NEW_REVIEW)]));
+      res = runDelegate(['review-pending', '--id', 'P1', '--confirmed'], steps([reviewStep(NEW_REVIEW),
+        { FAKE_COMMIT_FILE: 'fix.txt' }, reviewStep(FIXED_F02)]));
       assert.equal(res.status, 0, res.stderr);
       const pipeRec = readLogRecords(atomicHome).at(-1);
       assert.equal(pipeRec.resumed_from, 'review_pending');
-      assert.deepEqual(pipeRec.findings, { major: 1, medium: 2, minor: 1 });
+      assert.deepEqual(pipeRec.first_findings, { major: 1, medium: 2, minor: 1 });
+      assert.deepEqual(pipeRec.findings, { major: 0, medium: 2, minor: 1 });
       assert.equal(pipeRec.severity_source, 'computed');
       assert.match(summary(), /^major \| F02 \| README\.md:4 \| /m);
       assert.deepEqual(summary().split('\n').filter((line) => line.includes('TOTAL major=')),
-        ['TOTAL major=1 medium=2 minor=1']);
+        ['- first review: TOTAL major=1 medium=2 minor=1', 'TOTAL major=0 medium=2 minor=1']);
     });
   });
 });
