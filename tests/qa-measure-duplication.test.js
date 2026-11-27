@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import {
-  chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync,
+  chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -165,6 +165,25 @@ describe('qa/measure/duplication', () => {
       'js\tduplication\tsrc/a.js::*\t11',
       'js\tduplication\tsrc/b.js::*\t11',
     ]);
+  });
+
+  it('fails when a measured root cannot be inspected', () => {
+    plant({ 'src/placeholder.js': 'export const placeholder = 1;\n' });
+    const hidden = join(root, 'hidden-parent');
+    mkdirSync(join(hidden, 'src'), { recursive: true });
+    writeFileSync(join(hidden, 'src/a.js'), cloneBody());
+    writeFileSync(join(hidden, 'src/b.js'), cloneBody());
+    chmodSync(hidden, 0o000);
+    rmSync(join(root, 'src'), { recursive: true, force: true });
+    symlinkSync(join(hidden, 'src'), join(root, 'src'));
+    try {
+      const result = run();
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /src|cannot inspect/i);
+      assert.equal(result.stdout, '');
+    } finally {
+      chmodSync(hidden, 0o755);
+    }
   });
 
   it('fails when jscpd runs without writing a report', () => {

@@ -96,6 +96,24 @@ describe('qa/measure/js-types', () => {
     expectLines(run(), ['js\ttype-errors\tsrc/bad.js::*\t2']);
   });
 
+  it('fails when a measured subtree cannot be read', () => {
+    plant({
+      'package.json': '{"type":"module"}\n',
+      'src/ok.js': 'export const ok = 1;\n',
+      'src/locked/hidden.js': 'export const hidden = 1;\n',
+    });
+    const locked = join(root, 'src/locked');
+    chmodSync(locked, 0o000);
+    try {
+      const result = run();
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /locked/);
+      assert.equal(result.stdout, '');
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  });
+
   it('fails when the compiler crashes after printing a diagnostic', () => {
     plant({
       'package.json': '{"type":"module"}\n',

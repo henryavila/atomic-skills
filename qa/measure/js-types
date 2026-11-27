@@ -85,12 +85,13 @@ function isProductionKey(key) {
     && ROOTS.some((root) => key.startsWith(`${root}/`));
 }
 
-function walk(directory, found) {
+function walk(directory, found, optional = false) {
   let entries;
   try {
     entries = readdirSync(directory, { withFileTypes: true });
-  } catch {
-    return;
+  } catch (error) {
+    if (optional && error.code === 'ENOENT') return;
+    fail(`cannot read ${directory}: ${error.message}`);
   }
   for (const entry of entries) {
     const path = join(directory, entry.name);
@@ -105,7 +106,7 @@ function walk(directory, found) {
 
 function sources(root) {
   const found = [];
-  for (const name of ROOTS) walk(join(root, name), found);
+  for (const name of ROOTS) walk(join(root, name), found, true);
   return found.sort();
 }
 

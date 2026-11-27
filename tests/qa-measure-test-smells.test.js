@@ -1,7 +1,9 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -96,6 +98,23 @@ describe('qa/measure/test-smells', () => {
       ].join('\n'),
     });
     expectLines(run(), ['js\tunowned-skips\ttests/skips.test.js::*\t2']);
+  });
+
+  it('fails when a measured subtree cannot be read', () => {
+    plant({
+      'tests/clean.test.js': "test('ok', () => {});\n",
+      'tests/locked/hidden.test.js': "test('hidden', () => {});\n",
+    });
+    const locked = join(root, 'tests/locked');
+    chmodSync(locked, 0o000);
+    try {
+      const result = run();
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /locked/);
+      assert.equal(result.stdout, '');
+    } finally {
+      chmodSync(locked, 0o755);
+    }
   });
 
   it('limits --files to the listed test files', () => {
