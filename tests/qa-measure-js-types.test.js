@@ -96,6 +96,27 @@ describe('qa/measure/js-types', () => {
     expectLines(run(), ['js\ttype-errors\tsrc/bad.js::*\t2']);
   });
 
+  it('accepts an indented continuation of a located diagnostic', () => {
+    plant({
+      'package.json': '{"type":"module"}\n',
+      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
+    });
+    const target = join(root, 'src/bad.js');
+    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
+    const app = fakeTypescriptApp([
+      `process.stdout.write(${JSON.stringify(`${diagnostic}\n  The types are not related.\n`)});`,
+      'process.exit(2);',
+      '',
+    ].join('\n'));
+    try {
+      expectLines(run([], { measurer: join(app, 'qa/measure/js-types') }), [
+        'js\ttype-errors\tsrc/bad.js::*\t1',
+      ]);
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+
   it('fails when a measured subtree cannot be read', () => {
     plant({
       'package.json': '{"type":"module"}\n',
