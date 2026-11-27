@@ -256,6 +256,29 @@ describe('qa/measure/hygiene', () => {
     expectLines(run(), ['sh\tsuppressions\t.husky/multiline::*\t1']);
   });
 
+  it('counts a shellcheck directive the tokenizer misses in a command substitution', () => {
+    plant({
+      '.husky/arithmetic-command': [
+        'x=$(( $( # shellcheck disable=SC2086',
+        'printf 1',
+        ') << 2 ))',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), ['sh\tsuppressions\t.husky/arithmetic-command::*\t1']);
+  });
+
+  it('counts a shellcheck directive after an escaped hash and an unclosed quote', () => {
+    plant({
+      '.husky/escaped-hash': [
+        'echo foo\\ #bar "first line',
+        `second line" # ${sups.shellcheck}=SC2086`,
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), ['sh\tsuppressions\t.husky/escaped-hash::*\t1']);
+  });
+
   it('does not start a shell comment inside a word', () => {
     plant({
       '.husky/params': [
@@ -280,6 +303,18 @@ describe('qa/measure/hygiene', () => {
       ].join('\n'),
     });
     expectLines(run(), ['sh\tsuppressions\t.husky/arithmetic::*\t2']);
+  });
+
+  it('measures only shell sources inside .husky', () => {
+    plant({
+      '.husky/pre-commit': `# ${sups.shellcheck}=SC2086\n`,
+      '.husky/nested/data.json': `# ${sups.shellcheck}=SC2086\n`,
+      '.husky/nested/x.sh': `# ${sups.shellcheck}=SC2086\n`,
+    });
+    expectLines(run(), [
+      'sh\tsuppressions\t.husky/nested/x.sh::*\t1',
+      'sh\tsuppressions\t.husky/pre-commit::*\t1',
+    ]);
   });
 
   it('does not count comments inside python triple-quoted strings', () => {

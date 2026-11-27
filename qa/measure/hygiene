@@ -10,10 +10,12 @@
  *   stdout      one line per item above its ceiling, nothing else
  *   exit 0      measured (even with items); 3 tool not installed
  *
- * Suppressions are counted in comments only: espree is the source of comments
- * for JavaScript, and a small quote-aware scan finds the `#` comment for Python
- * and shell. Secrets are counted wherever they appear, because a real
- * credential in a string is still a credential.
+ * Suppressions are counted in comments for JavaScript (espree) and Python
+ * (tokenize). In shell files every line that carries a directive after a `#`
+ * is counted, whether or not a tokenizer would call it a comment: a directive
+ * inside a string or a here-document is still a suppression a person can see.
+ * Secrets are counted wherever they appear, because a real credential in a
+ * string is still a credential.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -22,6 +24,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { SECRETS, SUPPRESSIONS } from './lib/hygiene-patterns.mjs';
 import { parseJavaScript } from './lib/js-source.mjs';
+import { isShellSource } from './lib/shellfiles.mjs';
 
 const METRICS = ['suppressions', 'secrets'];
 const STACKS = ['js', 'py', 'sh'];
@@ -136,10 +139,10 @@ function trackedShellFiles(root, roots) {
   }
 }
 
-function included(stack, key, name) {
+function included(stack, key, name, shellRoots) {
   if (stack === 'js') return name.endsWith('.js') || name.endsWith('.mjs');
   if (stack === 'py') return name.endsWith('.py');
-  if (stack === 'sh') return name.endsWith('.sh') || key.startsWith('.husky/');
+  if (stack === 'sh') return isShellSource(key, shellRoots);
   return false;
 }
 
@@ -176,7 +179,7 @@ function collect(root, stacks) {
       if (entry.stack === 'sh' && trackedShell) {
         for (const key of trackedShell) {
           if (generatedHusky(key)) continue;
-          if (!included(entry.stack, key, key)) continue;
+          if (!included(entry.stack, key, key, shellRoots)) continue;
           if (!(key === name || key.startsWith(`${name}/`) || key.startsWith('.husky/'))) continue;
           if (generated(key, entry.generated)) continue;
           if (!files.has(key)) files.set(key, entry.stack);
@@ -190,7 +193,7 @@ function collect(root, stacks) {
         const key = relativeKey(root, file);
         if (entry.stack === 'sh' && generatedHusky(key)) continue;
         if (generated(key, entry.generated)) continue;
-        if (!included(entry.stack, key, file)) continue;
+        if (!included(entry.stack, key, file, shellRoots)) continue;
         if (!files.has(key)) files.set(key, entry.stack);
       }
     }
@@ -199,122 +202,18 @@ function collect(root, stacks) {
 }
 
 /**
- * Find shell comments while keeping quoting state across lines. Single and
- * double quotes, ANSI-C `$'...'` quoting, backticks and here-documents are
- * tracked, so a `#` inside a multiline string or a here-document body is data,
- * not a suppression directive.
+ * Shell suppression texts: every line that has a `#`, from that `#` to the end
+ * of the line. A tokenizer cannot be the judge here, because a real directive
+ * can sit after an escaped hash, inside a multi-line quote, or after an
+ * arithmetic command substitution; counting it anyway reports more, never less.
  */
-function shellComments(source) {
-  const comments = [];
-  const heredocs = [];
-  let quote = null;
-  let escaped = false;
-  let arithmetic = 0;
-
+function shellSuppressionTexts(source) {
+  const texts = [];
   for (const line of source.split(/\r?\n/)) {
-    if (heredocs.length > 0) {
-      const heredoc = heredocs[0];
-      const candidate = heredoc.stripTabs ? line.replace(/^\t+/, '') : line;
-      if (candidate === heredoc.delimiter) heredocs.shift();
-      continue;
-    }
-
-    let commentIndex = -1;
-    for (let index = 0; index < line.length; index += 1) {
-      const character = line[index];
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (arithmetic > 0) {
-        if (character === '(') arithmetic += 1;
-        else if (character === ')') arithmetic -= 1;
-        continue;
-      }
-      if (quote) {
-        if (quote === "'") {
-          if (character === "'") quote = null;
-        } else if (character === '\\') {
-          escaped = true;
-        } else if (character === quote || (quote === '$' && character === "'")) {
-          quote = null;
-        }
-        continue;
-      }
-      if (character === '\\') {
-        escaped = true;
-        continue;
-      }
-      if (character === "'" || character === '"' || character === '`') {
-        quote = character;
-        continue;
-      }
-      if (character === '$' && line[index + 1] === "'") {
-        quote = '$';
-        index += 1;
-        continue;
-      }
-      if (character === '(' && line[index + 1] === '(') {
-        // $((...)) and ((...)) are arithmetic, where << is a shift.
-        arithmetic = 2;
-        index += 1;
-        continue;
-      }
-      if (
-        character === '#'
-        && (index === 0 || /\s/.test(line[index - 1]) || ';|&()'.includes(line[index - 1]))
-      ) {
-        commentIndex = index;
-        break;
-      }
-      if (
-        character === '<'
-        && line[index + 1] === '<'
-        && line[index + 2] !== '<'
-        && line[index + 2] !== '='
-      ) {
-        let cursor = index + 2;
-        let stripTabs = false;
-        if (line[cursor] === '-') {
-          stripTabs = true;
-          cursor += 1;
-        }
-        while (line[cursor] === ' ' || line[cursor] === '\t') cursor += 1;
-        let delimiter = '';
-        let delimiterQuote = null;
-        for (; cursor < line.length; cursor += 1) {
-          const part = line[cursor];
-          if (delimiterQuote) {
-            if (part === delimiterQuote) {
-              delimiterQuote = null;
-            } else if (part === '\\' && delimiterQuote === '"') {
-              cursor += 1;
-              delimiter += line[cursor] || '';
-            } else {
-              delimiter += part;
-            }
-            continue;
-          }
-          if (part === "'" || part === '"') {
-            delimiterQuote = part;
-            continue;
-          }
-          if (part === '\\') {
-            cursor += 1;
-            delimiter += line[cursor] || '';
-            continue;
-          }
-          if (/\s/.test(part) || ';|&()<>'.includes(part)) break;
-          delimiter += part;
-        }
-        if (delimiter) heredocs.push({ delimiter, stripTabs });
-        index = Math.max(index, cursor - 1);
-      }
-    }
-    if (commentIndex >= 0) comments.push(line.slice(commentIndex + 1));
-    escaped = false;
+    const hash = line.indexOf('#');
+    if (hash !== -1) texts.push(line.slice(hash));
   }
-  return comments;
+  return texts;
 }
 
 const PYTHON_COMMENTS = String.raw`
@@ -438,7 +337,7 @@ function measure(root, files) {
     let comments;
     if (stack === 'js') comments = jsComments(espree, source, key);
     else if (stack === 'py') comments = python[join(root, key)] || [];
-    else comments = shellComments(source);
+    else comments = shellSuppressionTexts(source);
     const values = {
       suppressions: countOccurrences(comments, SUPPRESSIONS),
       secrets: countSecrets(source),
