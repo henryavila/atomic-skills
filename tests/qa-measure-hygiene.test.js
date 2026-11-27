@@ -232,6 +232,32 @@ describe('qa/measure/hygiene', () => {
     expectLines(run(), ['sh\tsuppressions\t.husky/multiline::*\t1']);
   });
 
+  it('does not start a shell comment inside a word', () => {
+    plant({
+      '.husky/params': [
+        'echo $# "first line',
+        `second line" # ${sups.shellcheck}=SC2086`,
+        'echo ${value#prefix}',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), ['sh\tsuppressions\t.husky/params::*\t1']);
+  });
+
+  it('does not treat arithmetic shifts as here-documents', () => {
+    plant({
+      '.husky/arithmetic': [
+        'x=$((1 << 2))',
+        `# ${sups.shellcheck}=SC2086`,
+        '(( x <<= 1 ))',
+        `# ${sups.shellcheck}=SC2086`,
+        'echo "$x"',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), ['sh\tsuppressions\t.husky/arithmetic::*\t2']);
+  });
+
   it('does not count comments inside python triple-quoted strings', () => {
     plant({
       'skills/shared/text.py': [

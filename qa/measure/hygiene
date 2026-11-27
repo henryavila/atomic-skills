@@ -161,6 +161,7 @@ function shellComments(source) {
   const heredocs = [];
   let quote = null;
   let escaped = false;
+  let arithmetic = 0;
 
   for (const line of source.split(/\r?\n/)) {
     if (heredocs.length > 0) {
@@ -175,6 +176,11 @@ function shellComments(source) {
       const character = line[index];
       if (escaped) {
         escaped = false;
+        continue;
+      }
+      if (arithmetic > 0) {
+        if (character === '(') arithmetic += 1;
+        else if (character === ')') arithmetic -= 1;
         continue;
       }
       if (quote) {
@@ -200,11 +206,25 @@ function shellComments(source) {
         index += 1;
         continue;
       }
-      if (character === '#') {
+      if (character === '(' && line[index + 1] === '(') {
+        // $((...)) and ((...)) are arithmetic, where << is a shift.
+        arithmetic = 2;
+        index += 1;
+        continue;
+      }
+      if (
+        character === '#'
+        && (index === 0 || /\s/.test(line[index - 1]) || ';|&()'.includes(line[index - 1]))
+      ) {
         commentIndex = index;
         break;
       }
-      if (character === '<' && line[index + 1] === '<' && line[index + 2] !== '<') {
+      if (
+        character === '<'
+        && line[index + 1] === '<'
+        && line[index + 2] !== '<'
+        && line[index + 2] !== '='
+      ) {
         let cursor = index + 2;
         let stripTabs = false;
         if (line[cursor] === '-') {
