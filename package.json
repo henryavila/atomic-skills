@@ -72,7 +72,6 @@
     "husky": "^9.1.7",
     "jscpd": "4.0.5",
     "madge": "8.0.0",
-    "shellcheck": "3.1.0",
     "typescript": "5.9.3"
   },
   "engines": {
