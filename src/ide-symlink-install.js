@@ -16,7 +16,7 @@ import { assertLexicalWithinBase, readFileNoFollow } from '@henryavila/minimalis
 import { prepareTextBlockPlan } from './installer-driver.js';
 import { IDE_CONFIG } from './config.js';
 import { msg } from './ui.js';
-import { GLOBAL_INSTRUCTION_PATHS } from './global-instructions.js';
+import { GLOBAL_INSTRUCTION_PATHS } from './global-instruction-paths.js';
 
 /**
  * Top directory of each IDE tree, relative to the install base.

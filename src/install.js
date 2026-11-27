@@ -41,7 +41,7 @@ import {
   reconcileAutoUpdateSessionStartSurfaces,
   resolveDesiredAutoUpdateCommands,
 } from './runtime-layers/auto-update.js';
-import { withSharedRuntimeLocks } from './runtime-locks.js';
+import { unlinkIfExists, withSharedRuntimeLocks } from './runtime-locks.js';
 import { verifyInstall, decisionsByState } from './status-verify.js';
 import {
   getIncompleteInfo,
@@ -396,7 +396,7 @@ export function unregisterInstall(basePath) {
     const prior = readInstallsRegistry(p);
     const next = prior.list.filter((b) => !sameInstallBase(b, basePath));
     if (next.length === 0) {
-      try { unlinkSync(p); } catch {}
+      unlinkIfExists(p);
       return 0;
     }
     writeInstallsRegistryAtomic(p, next, prior, { liveBasePath: null });
@@ -449,7 +449,7 @@ function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
   const departing = (prior.owners || []).find((o) => sameInstallBase(o.basePath, basePath));
   const next = prior.list.filter((b) => !sameInstallBase(b, basePath));
   if (next.length === 0) {
-    try { unlinkSync(p); } catch {}
+    unlinkIfExists(p);
     removeRuntimeArtifacts();
     return 0;
   }
@@ -647,9 +647,9 @@ export function removeRuntimeArtifacts() {
     join(root, 'package-root'),
   ]) {
     if (!existsSync(file)) continue;
-    try { unlinkSync(file); } catch {}
+    try { unlinkSync(file); } catch { /* Best-effort reclaim: never abort an uninstall. */ }
     const parent = dirname(file);
-    try { if (readdirSync(parent).length === 0) rmdirSync(parent); } catch {}
+    try { if (readdirSync(parent).length === 0) rmdirSync(parent); } catch { /* Best-effort prune: parent may be co-owned. */ }
   }
 
   for (const dir of [join(root, 'dashboard'), join(root, 'aideck-consumer')]) {
@@ -800,7 +800,7 @@ export function findLegacyOrphans(basePath, knownCurrentNames = new Set()) {
             }
           }
         }
-      } catch {}
+      } catch (err) { if (err.code !== 'ENOENT') throw err; }
     }
   }
   return found;
@@ -843,7 +843,7 @@ export function removeLegacyOrphans(basePath, orphans) {
   for (const nsRoot of nsRootsSeen) {
     try {
       if (readdirSync(nsRoot).length === 0) rmdirSync(nsRoot);
-    } catch {}
+    } catch { /* Best-effort prune; a sibling or race may keep the root. */ }
   }
 }
 

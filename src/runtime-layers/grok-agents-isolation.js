@@ -4,7 +4,8 @@ import { homedir } from 'node:os';
 import { SKILL_NAMESPACE } from '../config.js';
 import { wantsGrokPluginHost } from './grok-plugin-host.js';
 import { readManifest } from '../manifest.js';
-import { listKnownInstallBases, normalizeInstallBase } from './grok-refcount.js';
+import { normalizeInstallBase } from './install-base.js';
+import { listKnownInstallBases } from './install-bases.js';
 
 /**
  * Hide non-Grok Atomic Skills trees from Grok's skill scanner.
@@ -247,7 +248,7 @@ export function applyGrokAgentsIsolation(opts = {}) {
  * @param {string} opts.basePath - install being uninstalled
  * @param {string[]} [opts.ides] - ides of that install (from manifest)
  * @param {string} [opts.home]
- * @param {() => string[]} [opts.listInstallBases] - inject for tests
+ * @param {() => string[]} [opts.listInstallBases] - surviving install bases (defaults to the registry scan)
  * @returns {{ status: 'removed' | 'kept' | 'absent' | 'skipped', detail?: string }}
  */
 export function revertGrokAgentsIsolation(opts) {

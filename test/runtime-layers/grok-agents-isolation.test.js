@@ -18,6 +18,7 @@ import {
   resolveGrokUserConfigPath,
 } from '../../src/runtime-layers/grok-agents-isolation.js';
 import { writeManifest } from '../../src/manifest.js';
+import { isolateHomedir } from '../../tests/helpers/isolate-homedir.js';
 
 function withTmp(fn) {
   const dir = mkdtempSync(join(tmpdir(), 'grok-agents-iso-'));
@@ -190,5 +191,51 @@ test('revertGrokAgentsIsolation keeps ignore when another install still has grok
     assert.equal(result.status, 'kept');
     const body = readFileSync(resolveGrokUserConfigPath({ home }), 'utf8');
     assert.ok(skillsIgnoreContainsAll(body));
+  });
+});
+
+test('revertGrokAgentsIsolation without listInstallBases skips when grok is not selected', () => {
+  withTmp((home) => {
+    const result = revertGrokAgentsIsolation({
+      basePath: home,
+      ides: ['codex'],
+      home,
+    });
+    assert.equal(result.status, 'skipped');
+  });
+});
+
+test('revertGrokAgentsIsolation without a callback uses the shared registry scan', () => {
+  withTmp((home) => {
+    const restoreHome = isolateHomedir(home);
+    try {
+      applyGrokAgentsIsolation({ ides: ['grok'], home });
+      const project = join(home, 'proj');
+      mkdirSync(join(project, '.atomic-skills'), { recursive: true });
+      writeManifest(project, {
+        effects: [],
+        version: '2.0.0',
+        language: 'en',
+        ides: ['grok'],
+        files: {},
+      });
+      mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+      writeFileSync(
+        join(home, '.atomic-skills', 'installs.json'),
+        `${JSON.stringify({ schemaVersion: '1', owners: [{ basePath: project }] }, null, 2)}\n`,
+      );
+
+      const result = revertGrokAgentsIsolation({
+        basePath: home,
+        ides: ['grok'],
+        home,
+      });
+      assert.equal(result.status, 'kept');
+      assert.match(result.detail, /proj/);
+      const body = readFileSync(resolveGrokUserConfigPath({ home }), 'utf8');
+      assert.ok(skillsIgnoreContainsAll(body));
+    } finally {
+      restoreHome();
+    }
   });
 });

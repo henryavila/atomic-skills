@@ -622,6 +622,15 @@ describe('findLegacyOrphans + removeLegacyOrphans', () => {
     assert.deepEqual(orphans, []);
   });
 
+  it('surfaces a scan failure that is not a missing path', () => {
+    fsMkdirSync(pjoin(tmp, '.gemini'), { recursive: true });
+    fsWriteFileSync(pjoin(tmp, '.gemini/skills'), 'not a directory');
+    assert.throws(
+      () => findLegacyOrphans(tmp, new Set(['fix'])),
+      (err) => err.code === 'ENOTDIR',
+    );
+  });
+
   it('finds files under <legacyRoot>/atomic-skills/', () => {
     writeSkill('.claude/skills/atomic-skills/fix/SKILL.md', 'fix');
     writeSkill('.claude/skills/atomic-skills/hunt/SKILL.md', 'hunt');
