@@ -132,7 +132,13 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
       { ...baseEnv, DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00', DELEGATE_NOW: '2026-11-27T08:00:00Z' });
     const lines = text.stdout.split('\n');
     assert.equal(lines[0], 'route: flash,codex,agy-argon,muse');
-    assert.equal(lines[1], 'peak: muse is not usable now and goes after the usable profiles (DeepSeek peak hours)');
+    assert.equal(lines[1], 'peak: muse is not usable now (DeepSeek peak hours)');
+    const missing = runDelegate(['route', '--role', 'implement'], { ...baseEnv, PATH: '/usr/bin:/bin',
+      DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00', DELEGATE_NOW: '2026-11-27T08:00:00Z' });
+    assert.match(missing.stdout, /^peak: muse is not usable now \(DeepSeek peak hours\)$/m);
+    const open = runDelegate(['route', '--role', 'implement', '--open-design'],
+      { ...baseEnv, DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00', DELEGATE_NOW: '2026-11-27T08:00:00Z' });
+    assert.doesNotMatch(open.stdout, /^peak:/m);
   });
 
   it('--open-design and the mechanical role use their own fixed routes', () => {

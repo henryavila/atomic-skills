@@ -59,6 +59,8 @@ CODEX_MODEL = os.environ.get("DELEGATE_CODEX_MODEL") or "gpt-6.1-sol"
 FLASH_MODEL = "opencode-go/deepseek-v4.1-flash"
 MUSE_MODEL = "opencode-go/muse-spark-1.3-contributor"
 OPENCODE_MODELS = (FLASH_MODEL, MUSE_MODEL)
+# The family of an OpenCode model, whatever profile or override named it.
+OPENCODE_FAMILIES = {FLASH_MODEL: "deepseek", MUSE_MODEL: "meta"}
 OPENCODE_MODEL = os.environ.get("DELEGATE_OPENCODE_MODEL") or FLASH_MODEL
 LIMIT_RE = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b", re.IGNORECASE)
 TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=\d+ medium=\d+ minor=\d+[ \t`*]*$")
@@ -2187,10 +2189,9 @@ def cmd_route(a):
                           "profiles": avail, "quota": quota, "warnings": warnings}, indent=2))
         return
     print("route: " + ",".join(route))
-    if route[0] == PEAK_EXECUTOR:
-        print(f"peak: {PEAK_EXECUTOR} first (DeepSeek peak hours)")
-    elif PEAK_EXECUTOR in route:
-        print(f"peak: {PEAK_EXECUTOR} is not usable now and goes after the usable profiles (DeepSeek peak hours)")
+    if peak and not a.open_design:
+        print(f"peak: {PEAK_EXECUTOR} first (DeepSeek peak hours)" if usable(PEAK_EXECUTOR, avail)
+              else f"peak: {PEAK_EXECUTOR} is not usable now (DeepSeek peak hours)")
     if quota:
         print("agy quota: " + ", ".join(
             f"{pool} {state['remaining'] * 100:.0f}%" + (f" until {state['until']}" if state["until"] else "")
@@ -2286,7 +2287,9 @@ def check_review_family(role, executor, model, family, author_family):
     """A standalone review names the author's family; it is never the reviewer's own."""
     if role != "review" or not author_family:
         return
-    if family is None:
+    if executor == "opencode":
+        family = OPENCODE_FAMILIES.get(model, family)
+    elif family is None:
         family = next((f for e, m, f in MODELS.values() if e == executor and m == model), None)
     if family == author_family:
         usage_error("the reviewer is never of the family that wrote the code: "

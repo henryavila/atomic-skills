@@ -387,6 +387,22 @@ spec.loader.exec_module(d)
     });
   }
 
+  for (const [label, model, family] of [
+    ['raw Muse of meta work', 'opencode-go/muse-spark-1.3-contributor', 'meta'],
+    ['raw Flash of deepseek work', 'opencode-go/deepseek-v4.1-flash', 'deepseek'],
+  ]) {
+    it(`run --role review refuses ${label} under a Muse DELEGATE_OPENCODE_MODEL`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-SAME-FAMILY-ENV', '--task', label, '--role', 'review',
+        '--executor', 'opencode', '--model', model, '--author-family', family,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: 'opencode-go/muse-spark-1.3-contributor' });
+      assert.equal(res.status, 2, res.stderr);
+      assert.match(res.stderr, /the reviewer is never of the family that wrote the code/);
+      assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+    });
+  }
+
   it('run --role review --profile muse-review accepts deepseek work', () => {
     const res = runDelegate([
       'run', '--id', 'T-MUSE-DEEPSEEK', '--task', 'muse reviews deepseek', '--role', 'review',
