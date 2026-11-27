@@ -116,21 +116,7 @@ export function missingDesignGateFields(gate) {
   }
   const missing = [];
   if (gate.schemaVersion !== SCHEMA_VERSION) missing.push('schemaVersion');
-  if (gate.interviewAccepted !== true) missing.push('interviewAccepted');
-  if (!isDebateGateComplete(gate.debateGate)) missing.push('debateGate');
-  if (
-    typeof gate.researchDigest !== 'string' ||
-    gate.researchDigest.trim().length === 0
-  ) {
-    missing.push('researchDigest');
-  }
-  if (
-    typeof gate.criticVerdict !== 'string' ||
-    gate.criticVerdict.trim().length === 0
-  ) {
-    missing.push('criticVerdict');
-  }
-  if (gate.userApproved !== true) missing.push('userApproved');
+  addIncompleteProcessFields(gate, missing);
   if (gate.status !== DESIGN_STATUS.READY) missing.push('status');
   return missing;
 }
@@ -256,8 +242,17 @@ function isDebateGateComplete(debateGate) {
   return debateGate.invoked === true && debateGate.readyForValidation === true;
 }
 
-function processFieldsMissing(gate) {
-  const missing = [];
+/**
+ * Append every incomplete process field to `missing`, in report order.
+ * Both completeness queries share it: `missingDesignGateFields` adds the
+ * schema and status checks around it, `processFieldsMissing` asks for the
+ * process fields alone.
+ *
+ * @param {object} gate
+ * @param {string[]} missing
+ * @returns {string[]} the same array, for the caller's convenience
+ */
+function addIncompleteProcessFields(gate, missing) {
   if (gate.interviewAccepted !== true) missing.push('interviewAccepted');
   if (!isDebateGateComplete(gate.debateGate)) missing.push('debateGate');
   if (
@@ -274,6 +269,10 @@ function processFieldsMissing(gate) {
   }
   if (gate.userApproved !== true) missing.push('userApproved');
   return missing;
+}
+
+function processFieldsMissing(gate) {
+  return addIncompleteProcessFields(gate, []);
 }
 
 function writeGate(path, gate) {
