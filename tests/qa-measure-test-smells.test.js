@@ -112,6 +112,18 @@ describe('qa/measure/test-smells', () => {
     expectLines(run(), ['js\tunowned-skips\ttests/false-skips.test.js::*\t3']);
   });
 
+  it('rejects conditional false branches as ownership in skip calls', () => {
+    plant({
+      'tests/conditional-skips.test.js': [
+        "test.skip('x', { skip: flag ? false : false }, () => {});",
+        "test.skip('x', { skip: flag ? '@alice 2026-01-01 reason' : false }, () => {});",
+        "test.skip('x', { skip: '@alice 2026-01-01 reason' }, () => {});",
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), ['js\tunowned-skips\ttests/conditional-skips.test.js::*\t2']);
+  });
+
   it('requires ownership on every conditional skip branch', () => {
     plant({
       'tests/conditional.test.js': [

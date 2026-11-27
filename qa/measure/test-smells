@@ -210,13 +210,18 @@ function disabled(value) {
   return Boolean(value && value.type === 'Literal' && value.value === false);
 }
 
-function owned(value) {
+function owned(value, strict = false) {
   if (!value) return false;
   if (value.type === 'Literal' && typeof value.value === 'string') return OWNER.test(value.value);
   if (value.type === 'TemplateLiteral') {
     return OWNER.test(value.quasis.map((quasi) => quasi.value.cooked || '').join(''));
   }
   if (value.type === 'ConditionalExpression') {
+    if (strict) {
+      // A .skip(...) call skips unconditionally, so a false branch is still a
+      // skip reason and must carry an owner like the other branches.
+      return owned(value.consequent, true) && owned(value.alternate, true);
+    }
     // Every branch that enables skipping needs an owner, not just one of them.
     return (disabled(value.consequent) || owned(value.consequent))
       && (disabled(value.alternate) || owned(value.alternate));
@@ -224,23 +229,36 @@ function owned(value) {
   return false;
 }
 
+function insideSkipCall(ancestors) {
+  return ancestors.some(
+    (node) => node.type === 'CallExpression'
+      && node.callee
+      && node.callee.type === 'MemberExpression'
+      && keyName(node.callee.property, node.callee.computed) === 'skip',
+  );
+}
+
 function skipCallOwned(node) {
+  let hasSkipProperty = false;
+  let everySkipOwned = true;
+  let anyReasonOwned = false;
   for (const argument of node.arguments) {
     if (!argument) continue;
     if (argument.type === 'Literal' && typeof argument.value === 'string' && OWNER.test(argument.value)) {
-      return true;
+      anyReasonOwned = true;
     }
-    if (argument.type === 'TemplateLiteral' && owned(argument)) return true;
+    if (argument.type === 'TemplateLiteral' && owned(argument)) anyReasonOwned = true;
     if (argument.type === 'ObjectExpression') {
       for (const property of argument.properties) {
         if (!property || property.type !== 'Property' || keyName(property.key, property.computed) !== 'skip') {
           continue;
         }
-        if (owned(property.value)) return true;
+        hasSkipProperty = true;
+        if (!owned(property.value, true)) everySkipOwned = false;
       }
     }
   }
-  return false;
+  return hasSkipProperty ? everySkipOwned : anyReasonOwned;
 }
 
 function walkAst(node, ancestors, visit) {
@@ -303,7 +321,11 @@ function smells(source, file, espree) {
       }
     }
 
-    if (node.type === 'Property' && keyName(node.key, node.computed) === 'skip') {
+    if (
+      node.type === 'Property'
+      && keyName(node.key, node.computed) === 'skip'
+      && !insideSkipCall(ancestors)
+    ) {
       const value = node.value;
       const disabled = value && value.type === 'Literal' && value.value === false;
       if (!disabled && !owned(value)) counts['unowned-skips'] += 1;
