@@ -20,10 +20,14 @@ import os
 import subprocess
 import sys
 
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+import shellfiles
+
 STACK = "sh"
 METRIC = "static-security"
 DESCRIBE = "mode\tfast\nchanged\tyes\ncovers\tsh\tstatic-security"
-SKIP_DIRECTORIES = {"__pycache__", "node_modules", ".git"}
 
 
 def fail(message):
@@ -105,25 +109,25 @@ def relative_key(root, path):
     return os.path.relpath(path, root).replace(os.sep, "/")
 
 
-def walk(root, relative_dir, everything, found):
-    directory = os.path.join(root, relative_dir)
-    if not os.path.isdir(directory):
-        return
-    for name in sorted(os.listdir(directory)):
-        path = os.path.join(directory, name)
-        if os.path.isdir(path):
-            if name in SKIP_DIRECTORIES:
-                continue
-            walk(root, os.path.join(relative_dir, name), everything, found)
-        elif os.path.isfile(path) and (everything or name.endswith(".sh")):
-            found.add(relative_key(root, path))
-
-
 def repository_files(root):
+    roots = read_roots(root)
     found = set()
-    for base in read_roots(root):
-        walk(root, base, base == ".husky", found)
-    walk(root, ".husky", True, found)
+    tracked = shellfiles.tracked(root, roots)
+    if tracked is not None:
+        for key in tracked:
+            if shellfiles.generated(key):
+                continue
+            if key.startswith(".husky/"):
+                found.add(key)
+            elif key.endswith(".sh") and any(
+                key == base or key.startswith(base + "/") for base in roots
+            ):
+                found.add(key)
+        return sorted(found)
+
+    for base in roots:
+        shellfiles.walk(root, base, base == ".husky", found)
+    shellfiles.walk(root, ".husky", True, found)
     return sorted(found)
 
 
@@ -131,7 +135,7 @@ def listed_files(root, files, roots):
     found = set()
     for item in files:
         key = os.path.normpath(item).replace(os.sep, "/")
-        if key.startswith("..") or os.path.isabs(key):
+        if key.startswith("..") or os.path.isabs(key) or shellfiles.generated(key):
             continue
         if key == ".husky" or key.startswith(".husky/"):
             found.add(key)

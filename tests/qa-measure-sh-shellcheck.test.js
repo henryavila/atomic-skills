@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -77,15 +77,44 @@ describe('qa/measure/sh-shellcheck', () => {
     plant({
       'tests/hooks/a.sh': bad,
       'tests/hooks/b.sh': bad,
-      '.husky/_/hook': bad,
+      '.husky/pre-commit': bad,
     });
     expectLines(run(), [
-      'sh\tstatic-security\t.husky/_/hook::*\t1',
+      'sh\tstatic-security\t.husky/pre-commit::*\t1',
       'sh\tstatic-security\ttests/hooks/a.sh::*\t1',
       'sh\tstatic-security\ttests/hooks/b.sh::*\t1',
     ]);
     expectLines(run(['--files', 'tests/hooks/b.sh']), [
       'sh\tstatic-security\ttests/hooks/b.sh::*\t1',
+    ]);
+  });
+
+  it('ignores the husky-generated .husky/_ directory', () => {
+    plant({
+      '.husky/_/hook': bad,
+      '.husky/pre-commit': bad,
+    });
+    expectLines(run(), [
+      'sh\tstatic-security\t.husky/pre-commit::*\t1',
+    ]);
+    expectLines(run(['--files', '.husky/_/hook']), []);
+  });
+
+  it('measures only tracked shell files in a git tree', () => {
+    plant({ 'tests/hooks/tracked.sh': bad });
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'qa@example.test'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'QA Test'], { cwd: root });
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'base'], { cwd: root });
+
+    plant({
+      'tests/hooks/untracked.sh': bad,
+      '.husky/_/hook': bad,
+      '.husky/pre-commit': bad,
+    });
+    expectLines(run(), [
+      'sh\tstatic-security\ttests/hooks/tracked.sh::*\t1',
     ]);
   });
 

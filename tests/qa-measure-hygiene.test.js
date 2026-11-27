@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs';
@@ -99,6 +99,30 @@ describe('qa/measure/hygiene', () => {
       'test/app-map/fixtures/x.js': `// ${sups.eslint}-next-line\nexport const x = 1;\n`,
     });
     expectLines(run(), []);
+  });
+
+  it('ignores the husky-generated .husky/_ directory', () => {
+    plant({
+      '.husky/_/hook': `# ${sups.shellcheck}=SC2086\n`,
+      '.husky/pre-commit': `# ${sups.shellcheck}=SC2086\n`,
+    });
+    expectLines(run(), ['sh\tsuppressions\t.husky/pre-commit::*\t1']);
+  });
+
+  it('measures only tracked shell files in a git tree', () => {
+    plant({ '.husky/pre-commit': `# ${sups.shellcheck}=SC2086\n` });
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'qa@example.test'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'QA Test'], { cwd: root });
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'base'], { cwd: root });
+
+    plant({
+      '.husky/_/hook': `# ${sups.shellcheck}=SC2086\n`,
+      '.husky/untracked': `# ${sups.shellcheck}=SC2086\n`,
+      'tests/hooks/untracked.sh': `# ${sups.shellcheck}=SC2086\n`,
+    });
+    expectLines(run(), ['sh\tsuppressions\t.husky/pre-commit::*\t1']);
   });
 
   it('measures suppression comments in every stack', () => {

@@ -107,6 +107,35 @@ function generated(key, prefixes) {
   return prefixes.some((prefix) => key.startsWith(`${prefix.replace(/\/+$/, '')}/`));
 }
 
+function generatedHusky(key) {
+  return key === '.husky/_' || key.startsWith('.husky/_/');
+}
+
+function gitWorkTree(root) {
+  try {
+    const output = execFileSync('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return output.trim() === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function trackedShellFiles(root, roots) {
+  try {
+    const output = execFileSync(
+      'git',
+      ['-C', root, 'ls-files', '-z', '--', '.husky', ...roots],
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    );
+    return output.split('\0').filter(Boolean);
+  } catch (error) {
+    fail(`cannot list tracked shell files: ${error.message}`);
+  }
+}
+
 function included(stack, key, name) {
   if (stack === 'js') return name.endsWith('.js') || name.endsWith('.mjs');
   if (stack === 'py') return name.endsWith('.py');
@@ -135,12 +164,31 @@ function walk(directory, found, optional = false) {
 
 function collect(root, stacks) {
   const files = new Map();
+  const shellRoots = [...new Set(
+    stacks.filter((entry) => entry.stack === 'sh').flatMap((entry) => entry.roots),
+  )];
+  const trackedShell = shellRoots.length > 0 && gitWorkTree(root)
+    ? trackedShellFiles(root, shellRoots)
+    : null;
+
   for (const entry of stacks) {
     for (const name of entry.roots) {
+      if (entry.stack === 'sh' && trackedShell) {
+        for (const key of trackedShell) {
+          if (generatedHusky(key)) continue;
+          if (!included(entry.stack, key, key)) continue;
+          if (!(key === name || key.startsWith(`${name}/`) || key.startsWith('.husky/'))) continue;
+          if (generated(key, entry.generated)) continue;
+          if (!files.has(key)) files.set(key, entry.stack);
+        }
+        continue;
+      }
+
       const found = [];
       walk(join(root, name), found, true);
       for (const file of found) {
         const key = relativeKey(root, file);
+        if (entry.stack === 'sh' && generatedHusky(key)) continue;
         if (generated(key, entry.generated)) continue;
         if (!included(entry.stack, key, file)) continue;
         if (!files.has(key)) files.set(key, entry.stack);

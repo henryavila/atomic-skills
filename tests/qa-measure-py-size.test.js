@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -250,14 +250,43 @@ describe('qa/measure/py-size', () => {
     plant({
       'tests/hooks/big.sh': manyLines(801),
       'skills/shared/auto-update-hook/big.sh': manyLines(801),
-      '.husky/_/hook': manyLines(801),
+      '.husky/pre-commit': manyLines(801),
       'scripts/outside.sh': manyLines(801),
     });
     expectLines(run(), [
-      'sh\tfile-lines\t.husky/_/hook::*\t801',
+      'sh\tfile-lines\t.husky/pre-commit::*\t801',
       'sh\tfile-lines\tskills/shared/auto-update-hook/big.sh::*\t801',
       'sh\tfile-lines\ttests/hooks/big.sh::*\t801',
     ]);
-    expectLines(run(['--files', '.husky/_/hook']), ['sh\tfile-lines\t.husky/_/hook::*\t801']);
+    expectLines(run(['--files', '.husky/pre-commit']), [
+      'sh\tfile-lines\t.husky/pre-commit::*\t801',
+    ]);
+  });
+
+  it('ignores the husky-generated .husky/_ directory', () => {
+    plant({
+      '.husky/_/hook': manyLines(801),
+      '.husky/pre-commit': manyLines(801),
+    });
+    expectLines(run(), ['sh\tfile-lines\t.husky/pre-commit::*\t801']);
+    expectLines(run(['--files', '.husky/_/hook']), []);
+  });
+
+  it('measures only tracked shell files in a git tree', () => {
+    plant({ 'tests/hooks/tracked.sh': manyLines(801) });
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'qa@example.test'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'QA Test'], { cwd: root });
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'base'], { cwd: root });
+
+    plant({
+      'tests/hooks/untracked.sh': manyLines(801),
+      '.husky/_/hook': manyLines(801),
+      '.husky/pre-commit': manyLines(801),
+    });
+    expectLines(run(), [
+      'sh\tfile-lines\ttests/hooks/tracked.sh::*\t801',
+    ]);
   });
 });
