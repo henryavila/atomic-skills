@@ -1,200 +1,246 @@
 #!/usr/bin/env bash
-# Tests for .husky/pre-commit (T9 — codex F-001 follow-up)
-# Verifies:
-#   1. Staging a catalog input regenerates docs and auto-stages outputs
-#   2. F-001 guard: if outputs have unstaged changes, hook ABORTS (exit 1)
-#   3. Staging an unrelated file is a no-op
+# Tests for .husky/pre-commit.
+#
+# The hook only checks; it never regenerates, stages or commits. It must:
+#   1. refuse a commit whose staged catalog input left generated docs stale,
+#      naming `npm run generate-docs` as the next step;
+#   2. accept a commit whose generated docs are fresh;
+#   3. skip the docs check when no catalog input is staged;
+#   4. honour HUSKY=0;
+#   5. leave the index and the working tree exactly as it found them.
 set -euo pipefail
 
 REPO_ROOT="$(pwd)"
 HOOK="$REPO_ROOT/.husky/pre-commit"
-PASS=0; FAIL=0
+PASS=0
+FAIL=0
 
 run() { echo "TEST: $1"; }
-ok()  { PASS=$((PASS+1)); echo "  PASS"; }
-no()  { FAIL=$((FAIL+1)); echo "  FAIL: $1"; }
+ok() { PASS=$((PASS + 1)); echo "  PASS"; }
+no() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
+
+# Index + working tree snapshot used to prove the hook is side-effect free.
+snapshot() {
+  local dir=$1
+  (
+    cd "$dir"
+    git status --porcelain
+    git diff --cached --stat
+  )
+}
 
 # Each test runs in a tmpdir copy of the repo so we don't mutate real state.
 # We copy only what the hook needs: .husky/, .git/ (init fresh), package.json,
-# scripts/, meta/, skills/, README.md, and src/config.js.
+# scripts/, meta/, skills/, src/, site/, docs/, qa/ (without the Python venv),
+# README.md and CHANGELOG.md. node_modules is symlinked (large; read-only).
 mk_tmp_repo() {
-  local tmp
+  local tmp d entry
   tmp=$(mktemp -d -t pre-commit-test-XXXXXX)
+  for d in .husky scripts meta skills src bin site docs package.json \
+    package-lock.json README.md CHANGELOG.md .gitignore; do
+    if [[ -e "$REPO_ROOT/$d" ]]; then
+      cp -R "$REPO_ROOT/$d" "$tmp/"
+    fi
+  done
+  mkdir -p "$tmp/qa"
+  for entry in "$REPO_ROOT"/qa/*; do
+    cp -R "$entry" "$tmp/qa/"
+  done
+  ln -s "$REPO_ROOT/node_modules" "$tmp/node_modules"
   (
     cd "$tmp"
     git init -q
     git config user.email "test@local"
     git config user.name "Test"
     git config commit.gpgsign false
-  )
-  # Copy the essentials. node_modules is symlinked (large; read-only).
-  for d in .husky scripts meta skills src bin site package.json package-lock.json README.md CHANGELOG.md; do
-    if [[ -e "$REPO_ROOT/$d" ]]; then
-      cp -R "$REPO_ROOT/$d" "$tmp/"
-    fi
-  done
-  ln -s "$REPO_ROOT/node_modules" "$tmp/node_modules"
-  (
-    cd "$tmp"
-    git add -A >/dev/null
-    git commit -qm "baseline" || true
+    git config core.hooksPath .husky
+    git add -A
+    # Bypass the hook for the baseline commit: the test copy has no venv, and
+    # the point of the tests is the hook invocation, not the baseline.
+    HUSKY=0 git commit -qm "baseline"
   )
   echo "$tmp"
 }
 
-# ─── Test 1: catalog input change triggers regen + auto-stage ───
-run "stage meta/catalog.yaml → hook regenerates + auto-stages README"
+# ─── Test 1: stale docs + staged catalog input → hook refuses ───
+run "stage catalog input leaving docs stale → hook refuses and names generate-docs"
 tmp=$(mk_tmp_repo)
-(
+log=$(mktemp -t precommit-stale-XXXXXX)
+if (
   cd "$tmp"
-  # Mutate a one_liner to force a measurable regen
-  sed -i.bak "s/Diagnose root cause → write test → fix → verify/TEST DRIFT/" meta/catalog.yaml
+  sed -i.bak "s/Diagnose root cause → write test → fix → verify/STALE DOCS DRIFT/" meta/catalog.yaml
   rm meta/catalog.yaml.bak
   git add meta/catalog.yaml
-  # Capture pre-hook README content
-  README_BEFORE=$(grep "fix.*Diagnose root cause\|fix.*TEST DRIFT" README.md | head -1 || true)
-  # Run the hook
-  if sh .husky/pre-commit >/tmp/hook-out-1.log 2>&1; then
-    # After hook: README should be regenerated with TEST DRIFT
-    if grep -q "TEST DRIFT" README.md; then
-      # Staged files should include README.md
-      if git diff --cached --name-only | grep -q "^README.md$"; then
-        echo "  ok"
-        exit 0
-      else
-        echo "  README.md not auto-staged"
-        exit 1
-      fi
-    else
-      echo "  README not regenerated. Hook log:"
-      cat /tmp/hook-out-1.log
-      exit 1
-    fi
-  else
-    echo "  hook exited non-zero (expected success). Log:"
-    cat /tmp/hook-out-1.log
+  before=$(snapshot "$tmp")
+  if sh "$HOOK" >"$log" 2>&1; then
+    echo "  hook accepted stale generated docs"
+    cat "$log"
     exit 1
   fi
-) && ok || no "Test 1 failed"
+  if ! grep -q "npm run generate-docs" "$log"; then
+    echo "  refusal does not name 'npm run generate-docs'. Got:"
+    cat "$log"
+    exit 1
+  fi
+  if grep -q "STALE DOCS DRIFT" README.md; then
+    echo "  hook rewrote README.md instead of only checking"
+    exit 1
+  fi
+  after=$(snapshot "$tmp")
+  if [[ "$before" != "$after" ]]; then
+    echo "  hook changed the index or working tree"
+    diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") || true
+    exit 1
+  fi
+); then
+  ok
+else
+  no "Test 1 failed"
+fi
+rm -f "$log"
 rm -rf "$tmp"
 
-# ─── Test 2: F-001 guard fires on unstaged README edit ───
-run "stage catalog input WITH unstaged README → hook aborts with exit 1"
+# ─── Test 2: fresh generated docs + staged catalog input → hook accepts ───
+run "stage catalog input with fresh docs → hook accepts and changes nothing"
 tmp=$(mk_tmp_repo)
-(
+log=$(mktemp -t precommit-fresh-XXXXXX)
+if (
   cd "$tmp"
-  # Unstaged README edit
-  echo "" >> README.md
-  # Staged catalog input
-  echo "# noop comment" >> meta/catalog.yaml
-  git add meta/catalog.yaml
-  # Run the hook — expect exit 1
-  if sh .husky/pre-commit >/tmp/hook-out-2.log 2>&1; then
-    echo "  hook returned 0 but should have aborted. Log:"
-    cat /tmp/hook-out-2.log
+  sed -i.bak "s/Diagnose root cause → write test → fix → verify/FRESH DOCS DRIFT/" meta/catalog.yaml
+  rm meta/catalog.yaml.bak
+  npm run generate-docs >"$log" 2>&1
+  git add -A
+  before=$(snapshot "$tmp")
+  if ! sh "$HOOK" >>"$log" 2>&1; then
+    echo "  hook rejected fresh generated docs"
+    cat "$log"
     exit 1
   fi
-  # Verify the abort message
-  if grep -q "aborting: regenerator outputs have unstaged changes" /tmp/hook-out-2.log; then
-    exit 0
-  else
-    echo "  expected F-001 guard message. Got:"
-    cat /tmp/hook-out-2.log
+  after=$(snapshot "$tmp")
+  if [[ "$before" != "$after" ]]; then
+    echo "  hook changed the index or working tree"
+    diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") || true
     exit 1
   fi
-) && ok || no "Test 2 failed"
+); then
+  ok
+else
+  no "Test 2 failed"
+fi
+rm -f "$log"
 rm -rf "$tmp"
 
-# ─── Test 3: unrelated file change is no-op (no regen, no validate) ───
-run "stage unrelated file → hook is no-op (no regen logs)"
+# ─── Test 3: no catalog input staged → no docs check ───
+run "stage an unrelated file → hook skips the docs check"
 tmp=$(mk_tmp_repo)
-(
+log=$(mktemp -t precommit-unrelated-XXXXXX)
+if (
   cd "$tmp"
-  mkdir -p docs
-  echo "unrelated doc" > docs/random.md
+  # Make the generated docs stale in the worktree, but do not stage the cause.
+  sed -i.bak "s/Diagnose root cause → write test → fix → verify/UNSTAGED DRIFT/" meta/catalog.yaml
+  rm meta/catalog.yaml.bak
+  echo "unrelated doc" >docs/random.md
   git add docs/random.md
-  if sh .husky/pre-commit >/tmp/hook-out-3.log 2>&1; then
-    # No regen line should appear
-    if grep -q "regenerating docs" /tmp/hook-out-3.log; then
-      echo "  hook regenerated despite no catalog change. Log:"
-      cat /tmp/hook-out-3.log
-      exit 1
-    fi
-    # No validate-catalog should run either (no COUPLED_REGEX match)
-    if grep -q "validate-catalog" /tmp/hook-out-3.log; then
-      echo "  hook ran validate-catalog on unrelated change. Log:"
-      cat /tmp/hook-out-3.log
-      exit 1
-    fi
-    exit 0
-  else
-    echo "  hook failed on unrelated file. Log:"
-    cat /tmp/hook-out-3.log
+  before=$(snapshot "$tmp")
+  if ! sh "$HOOK" >"$log" 2>&1; then
+    echo "  hook rejected an unrelated change"
+    cat "$log"
     exit 1
   fi
-) && ok || no "Test 3 failed"
+  if grep -q "check-docs" "$log"; then
+    echo "  hook ran the docs check without a staged catalog input. Log:"
+    cat "$log"
+    exit 1
+  fi
+  after=$(snapshot "$tmp")
+  if [[ "$before" != "$after" ]]; then
+    echo "  hook changed the index or working tree"
+    diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") || true
+    exit 1
+  fi
+); then
+  ok
+else
+  no "Test 3 failed"
+fi
+rm -f "$log"
 rm -rf "$tmp"
 
-# ─── Test 4: worktree commit triggers regen via real git commit ───
-run "git commit in worktree with catalog input → hook regenerates README"
-BRANCH="pre-commit-test-wt-$$"
-git branch "$BRANCH" HEAD 2>/dev/null
-WDIR=$(mktemp -d -t wt-hook-XXXXXX)
-git worktree add "$WDIR" "$BRANCH" -q 2>/dev/null
-(
-  cd "$WDIR"
-  ln -s "$REPO_ROOT/node_modules" "$WDIR/node_modules" 2>/dev/null || true
-  git config user.email "test@local"
-  git config user.name "Test"
-  git config commit.gpgsign false
-  sed -i.bak "s/Diagnose root cause → write test → fix → verify/WORKTREE DRIFT/" meta/catalog.yaml
-  rm meta/catalog.yaml.bak
-  git add meta/catalog.yaml
-  if git commit -m "test: worktree hook" >/tmp/hook-out-4.log 2>&1; then
-    if grep -q "WORKTREE DRIFT" README.md; then
-      if git diff-tree --no-commit-id --name-only -r HEAD | grep -q "^README.md$"; then
-        exit 0
-      else
-        echo "  README.md not in commit"
-        exit 1
-      fi
-    else
-      echo "  README not regenerated in worktree. Log:"
-      cat /tmp/hook-out-4.log
-      exit 1
-    fi
-  else
-    echo "  commit failed. Log:"
-    cat /tmp/hook-out-4.log
-    exit 1
-  fi
-) && ok || no "Test 4 failed (worktree)"
-git worktree remove "$WDIR" --force 2>/dev/null || true
-git branch -D "$BRANCH" 2>/dev/null || true
-
-# ─── Test 5: HUSKY=0 disables hook ───
-run "HUSKY=0 skips hook (no regen even with catalog input staged)"
+# ─── Test 4: HUSKY=0 escapes the hook ───
+run "HUSKY=0 skips the hook even with a stale catalog input staged"
 tmp=$(mk_tmp_repo)
-(
+log=$(mktemp -t precommit-husky0-XXXXXX)
+if (
   cd "$tmp"
   sed -i.bak "s/Diagnose root cause → write test → fix → verify/HUSKY0 DRIFT/" meta/catalog.yaml
   rm meta/catalog.yaml.bak
   git add meta/catalog.yaml
-  if HUSKY=0 sh .husky/pre-commit >/tmp/hook-out-5.log 2>&1; then
-    if grep -q "HUSKY0 DRIFT" README.md; then
-      echo "  README was regenerated despite HUSKY=0"
-      exit 1
-    fi
-    exit 0
-  else
-    echo "  hook exited non-zero with HUSKY=0. Log:"
-    cat /tmp/hook-out-5.log
+  before=$(snapshot "$tmp")
+  if ! HUSKY=0 sh "$HOOK" >"$log" 2>&1; then
+    echo "  hook exited non-zero with HUSKY=0"
+    cat "$log"
     exit 1
   fi
-) && ok || no "Test 5 failed"
+  if grep -q "check-docs" "$log"; then
+    echo "  hook ran the docs check despite HUSKY=0. Log:"
+    cat "$log"
+    exit 1
+  fi
+  after=$(snapshot "$tmp")
+  if [[ "$before" != "$after" ]]; then
+    echo "  hook changed the index or working tree"
+    diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") || true
+    exit 1
+  fi
+); then
+  ok
+else
+  no "Test 4 failed"
+fi
+rm -f "$log"
+rm -rf "$tmp"
+
+# ─── Test 5: a real git commit is refused on stale docs ───
+run "git commit with stale generated docs → commit refused, HEAD unchanged"
+tmp=$(mk_tmp_repo)
+log=$(mktemp -t precommit-commit-XXXXXX)
+if (
+  cd "$tmp"
+  sed -i.bak "s/Diagnose root cause → write test → fix → verify/COMMIT DRIFT/" meta/catalog.yaml
+  rm meta/catalog.yaml.bak
+  git add meta/catalog.yaml
+  before=$(snapshot "$tmp")
+  head_before=$(git rev-parse HEAD)
+  if git commit -m "test: stale docs" >"$log" 2>&1; then
+    echo "  git commit accepted stale generated docs"
+    cat "$log"
+    exit 1
+  fi
+  if ! grep -q "npm run generate-docs" "$log"; then
+    echo "  refusal does not name 'npm run generate-docs'. Got:"
+    cat "$log"
+    exit 1
+  fi
+  head_after=$(git rev-parse HEAD)
+  if [[ "$head_before" != "$head_after" ]]; then
+    echo "  HEAD moved despite the refusal"
+    exit 1
+  fi
+  after=$(snapshot "$tmp")
+  if [[ "$before" != "$after" ]]; then
+    echo "  refused commit changed the index or working tree"
+    diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") || true
+    exit 1
+  fi
+); then
+  ok
+else
+  no "Test 5 failed"
+fi
+rm -f "$log"
 rm -rf "$tmp"
 
 # ─── Summary ───
 echo ""
 echo "pre-commit.test.sh: $PASS passed, $FAIL failed"
-exit $FAIL
+exit "$FAIL"
