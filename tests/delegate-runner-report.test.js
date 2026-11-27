@@ -343,8 +343,8 @@ spec.loader.exec_module(d)
       lines.includes('flash-review | opencode | opencode-go/deepseek-v4.1-flash | deepseek | refused'),
       res.stdout,
     );
-    assert.ok(lines.includes('muse | opencode | opencode-go/muse-spark-1.3-contributor | meta | refused'), res.stdout);
-    assert.ok(lines.includes('muse-review | opencode | opencode-go/muse-spark-1.3-contributor | meta | refused'), res.stdout);
+    assert.ok(lines.includes('muse | opencode | opencode-go/muse-spark-1.3-contributor | meta | found'), res.stdout);
+    assert.ok(lines.includes('muse-review | opencode | opencode-go/muse-spark-1.3-contributor | meta | found'), res.stdout);
     assert.doesNotMatch(res.stdout, /hy4/);
   });
 

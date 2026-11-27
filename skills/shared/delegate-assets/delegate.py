@@ -54,8 +54,8 @@ DEFAULT_PEAK_WINDOWS = "01:00-04:00,06:00-10:00"
 CODEX_MODEL = os.environ.get("DELEGATE_CODEX_MODEL") or "gpt-6.1-sol"
 # OpenCode runs two models: Flash, and Muse Spark as the executor during peak
 # hours and a reviewer of Flash work. The variable can only pin Flash to its own
-# value; any other value is refused by check_model_allowed before anything is
-# launched. Nothing overrides the Muse model.
+# value; with any other value check_model_allowed refuses the Flash profiles
+# before anything is launched. Nothing overrides the Muse model.
 FLASH_MODEL = "opencode-go/deepseek-v4.1-flash"
 MUSE_MODEL = "opencode-go/muse-spark-1.3-contributor"
 OPENCODE_MODELS = (FLASH_MODEL, MUSE_MODEL)
@@ -186,6 +186,9 @@ ALIASES = {
 # `muse-review`: the only rule for a
 # reviewer is that it is not of the family that wrote the code.
 REVIEW_PROFILES = {"flash": "flash-review", "muse": "muse-review"}
+FLASH_PROFILES = ("flash", "flash-review")
+FAMILIES = ["deepseek", "meta", "openai", "gemini", "anthropic"]
+FAMILIES_TEXT = ", ".join(FAMILIES[:-1]) + " or " + FAMILIES[-1]
 # Removed on 2026-11-18, when OpenCode ran a single model (Flash). Old log lines may
 # still name these profiles, their models and their families; readers must keep
 # showing them, but no new run may be launched with one.
@@ -2186,6 +2189,8 @@ def cmd_route(a):
     print("route: " + ",".join(route))
     if route[0] == PEAK_EXECUTOR:
         print(f"peak: {PEAK_EXECUTOR} first (DeepSeek peak hours)")
+    elif PEAK_EXECUTOR in route:
+        print(f"peak: {PEAK_EXECUTOR} is not usable now and goes after the usable profiles (DeepSeek peak hours)")
     if quota:
         print("agy quota: " + ", ".join(
             f"{pool} {state['remaining'] * 100:.0f}%" + (f" until {state['until']}" if state["until"] else "")
@@ -2258,23 +2263,34 @@ class RemoteActiveLock(SlotLock):
         return RUNNING_REMOTE
 
 
-def check_model_allowed(role, executor, model):
+def check_model_allowed(role, executor, model, profile=None):
     """The one check for the OpenCode rule.
 
     OpenCode runs DeepSeek Flash and Muse Spark only, and DELEGATE_OPENCODE_MODEL
-    may name nothing but Flash: while it names another model, Muse included, no
-    OpenCode run is launched. The reviewer rule lives in the pipeline family
-    check, not here: each of the two reviews another family's work. Called after
-    every alias, profile, flag and environment override is resolved, and before
-    anything is launched or any slot is taken.
+    may name nothing but Flash: a Flash profile it points at another model, Muse
+    included, is refused, while the Muse profiles keep their fixed model. The
+    reviewer rule lives in check_review_family and in the pipeline family check,
+    not here. Called after every alias, profile, flag and environment override
+    is resolved, and before anything is launched or any slot is taken.
     """
     if executor != "opencode":
         return
-    if model not in OPENCODE_MODELS or OPENCODE_MODEL != FLASH_MODEL:
+    if model not in OPENCODE_MODELS or (profile in FLASH_PROFILES and model != FLASH_MODEL):
         print(f"delegate: OpenCode runs only {FLASH_MODEL} and {MUSE_MODEL}; "
               "use codex or agy for another model",
               file=sys.stderr)
         sys.exit(2)
+
+
+def check_review_family(role, executor, model, family, author_family):
+    """A standalone review names the author's family; it is never the reviewer's own."""
+    if role != "review" or not author_family:
+        return
+    if family is None:
+        family = next((f for e, m, f in MODELS.values() if e == executor and m == model), None)
+    if family == author_family:
+        usage_error("the reviewer is never of the family that wrote the code: "
+                    f"{model} is {family} and cannot review {author_family} work")
 
 
 def check_claude_review(executor, role, allowed, author_family, host=None):
@@ -2288,7 +2304,7 @@ def check_claude_review(executor, role, allowed, author_family, host=None):
                     "said yes to a Claude review for this task")
     if not author_family:
         usage_error(f"{CLAUDE_REVIEW} needs --author-family <family of the model that wrote the code> "
-                    "(deepseek, openai, gemini or anthropic)")
+                    f"({FAMILIES_TEXT})")
     if author_family == "anthropic":
         usage_error("the reviewer is never of the family that wrote the code: "
                     f"{CLAUDE_REVIEW} cannot review work written by a Claude model")
@@ -2304,7 +2320,7 @@ def check_agy_claude(executor, model, role, author_family):
         usage_error(f"Claude models on Antigravity only review; {model} cannot take the role {role}")
     if not author_family:
         usage_error(f"{model} on Antigravity needs --author-family <family of the model that wrote "
-                    "the code> (deepseek, openai, gemini or anthropic)")
+                    f"the code> ({FAMILIES_TEXT})")
     if author_family == "anthropic":
         usage_error("the reviewer is never of the family that wrote the code: "
                     f"{model} cannot review work written by a Claude model")
@@ -3417,8 +3433,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         family = "anthropic" if agy_claude_model(executor, model) else None
     if not executor or not model:
         sys.exit("delegate: give --profile, or both --executor and --model")
-    check_model_allowed(role, executor, model)
+    check_model_allowed(role, executor, model, profile)
     check_claude_review(executor, role, allow_claude_review, author_family, host)
+    check_review_family(role, executor, model, family, author_family)
     check_agy_claude(executor, model, role, author_family)
     if alias_notice:
         print(alias_notice, file=sys.stderr)
@@ -3803,11 +3820,11 @@ def cmd_pipeline(a):
         message = str(exc)
         sys.exit(message if message.startswith("delegate:") else f"delegate: {message}")
     for profile in route:
-        check_model_allowed(role, *MODELS[profile][:2])
+        check_model_allowed(role, *MODELS[profile][:2], profile)
         check_claude_review(MODELS[profile][0], role, a.allow_claude_review, None)
         check_agy_claude(*MODELS[profile][:2], role, None)
     for profile in review_route:
-        check_model_allowed("review", *MODELS[profile][:2])
+        check_model_allowed("review", *MODELS[profile][:2], profile)
         # The author is one of the executors in the route; none of them is Claude.
         check_claude_review(MODELS[profile][0], "review", a.allow_claude_review,
                             MODELS[route[0]][2], a.host)
@@ -4426,11 +4443,10 @@ def cmd_profiles(a):
         except RemoteError as exc:
             host_error = exc.detail
     for name, (executor, model, family) in MODELS.items():
-        if executor == "opencode" and OPENCODE_MODEL != FLASH_MODEL:
-            # `run` refuses every OpenCode profile under that override; show the
-            # model each profile is meant to run and mark the entries refused
-            # instead of advertising a model that will never launch.
-            model, status = (MUSE_MODEL if family == "meta" else FLASH_MODEL), "refused"
+        if name in FLASH_PROFILES and model != FLASH_MODEL:
+            # `run` refuses the same override; show Flash and mark the entries
+            # refused instead of advertising a model that will never launch.
+            model, status = FLASH_MODEL, "refused"
         else:
             status = "found" if find_optional(executor) else "missing"
         remote_state = ""
@@ -4620,7 +4636,7 @@ def main():
                    help="id of the project milestone this run works for, recorded as `milestone`")
     r.add_argument("--allow-claude-review", action="store_true",
                    help="the operator said yes to a Claude review for this task (the fallback reviewer)")
-    r.add_argument("--author-family", choices=["deepseek", "openai", "gemini", "anthropic", "meta"],
+    r.add_argument("--author-family", choices=FAMILIES,
                    help="family of the model that wrote the code; required for claude-review")
     r.set_defaults(f=cmd_run)
 

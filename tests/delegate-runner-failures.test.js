@@ -339,11 +339,11 @@ spec.loader.exec_module(d)
     });
   }
 
-  for (const profile of ['flash', 'muse']) {
+  for (const profile of ['flash', 'flash-review']) {
     it(`DELEGATE_OPENCODE_MODEL cannot point ${profile} at Muse Spark`, () => {
       const res = runDelegate([
         'run', '--id', 'T-ENV-MUSE', '--task', 'environment model override',
-        '--role', 'implement', '--profile', profile,
+        '--role', profile === 'flash' ? 'implement' : 'review', '--profile', profile,
         '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
       ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: 'opencode-go/muse-spark-1.3-contributor' });
       assert.equal(res.status, 2, res.stderr);
@@ -352,6 +352,49 @@ spec.loader.exec_module(d)
       assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
     });
   }
+
+  for (const override of ['opencode-go/muse-spark-1.3-contributor', 'opencode-go/hy4']) {
+    it(`DELEGATE_OPENCODE_MODEL=${override} leaves the muse profile on its own model`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-ENV-MUSE-OK', '--task', 'environment model override',
+        '--role', 'implement', '--profile', 'muse',
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: override });
+      assert.equal(res.status, 0, res.stderr);
+      const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
+      assert.equal(argv[argv.indexOf('-m') + 1], 'opencode-go/muse-spark-1.3-contributor');
+    });
+  }
+
+  // The reviewer is never of the family that wrote the code, in a standalone run too.
+  for (const [label, args] of [
+    ['muse-review of meta work', ['--profile', 'muse-review', '--author-family', 'meta']],
+    ['muse of meta work', ['--profile', 'muse', '--author-family', 'meta']],
+    ['flash-review of deepseek work', ['--profile', 'flash-review', '--author-family', 'deepseek']],
+    ['raw opencode Muse of meta work',
+      ['--executor', 'opencode', '--model', 'opencode-go/muse-spark-1.3-contributor', '--author-family', 'meta']],
+    ['codex-review of openai work', ['--profile', 'codex-review', '--author-family', 'openai']],
+  ]) {
+    it(`run --role review refuses ${label} before launch`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-SAME-FAMILY', '--task', label, '--role', 'review', ...args,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], baseEnv);
+      assert.equal(res.status, 2, res.stderr);
+      assert.match(res.stderr, /the reviewer is never of the family that wrote the code/);
+      assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+      assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
+    });
+  }
+
+  it('run --role review --profile muse-review accepts deepseek work', () => {
+    const res = runDelegate([
+      'run', '--id', 'T-MUSE-DEEPSEEK', '--task', 'muse reviews deepseek', '--role', 'review',
+      '--profile', 'muse-review', '--author-family', 'deepseek',
+      '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+    ], baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+  });
 
   it('run with raw opencode kimi-k3 is refused before launch', () => {
     const res = runDelegate([
