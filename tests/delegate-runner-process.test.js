@@ -238,6 +238,63 @@ sys.exit(0 if release.exists() else 1)
     }
   });
 
+  it('best-effort platform, login and slot cleanup drop only their own failures', () => {
+    const res = pythonHarness(`
+import ctypes
+
+def broken(*args, **kwargs):
+    raise OSError('no such platform call')
+
+ctypes.CDLL = broken
+d.sys.platform = 'linux'
+tracker = d.ProcessTracker()
+print('tracker', tracker.method)
+tracker._subreaper = True
+tracker._restore_subreaper()
+print('restored')
+d.getpass.getuser = broken
+text = d.claude_login_help('no login')
+print('help', 'Command:' in text)
+lock = d.SlotLock()
+lock.f = open(d.os.devnull, 'w')
+lock.f.close()
+lock.__exit__(None, None, None)
+print('unlocked')
+running = d.RUNNING
+running.mkdir(parents=True, exist_ok=True)
+broken_json = running / 'opencode-BROKEN.json'
+broken_json.write_text('{not json')
+list_json = running / 'opencode-LIST.json'
+list_json.write_text('[]')
+d._clean_stale_slots()
+print('cleaned', broken_json.exists(), list_json.exists())
+`);
+    assert.equal(res.status, 0, res.stderr);
+    assert.deepEqual(res.stdout.trim().split('\n'), [
+      'tracker poll', 'restored', 'help True', 'unlocked', 'cleaned False False',
+    ]);
+  });
+
+  it('status skips a malformed log line and an unreadable limit detail', () => {
+    const log = join(atomicHome, 'delegate', 'runs.jsonl');
+    mkdirSync(dirname(log), { recursive: true });
+    const nowIso = new Date().toISOString().replace('Z', '+00:00');
+    const good = {
+      kind: 'run', id: 'LIMIT-2', profile: 'flash', role: 'implement', executor: 'codex',
+      started: nowIso, completed: nowIso,
+      failure: 'provider_limit', stderr: join(root, 'missing-stderr.txt'),
+    };
+    writeFileSync(log, [
+      'not json',
+      JSON.stringify({ ...good, id: 'LIMIT-1', completed: 'not-a-date' }),
+      JSON.stringify(good),
+    ].join('\n') + '\n');
+    const res = runDelegate(['status'], baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /codex: provider_limit/);
+    assert.doesNotMatch(res.stdout, /LIMIT-1/);
+  });
+
   it('AS-D10a never signals a process the executor did not start', async () => {
     const decoy = spawn(PYTHON3, ['-c', 'import time; time.sleep(600)'],
       { detached: true, stdio: 'ignore' });
