@@ -372,6 +372,24 @@ describe('delegate.py fix round and pipeline verdict', { skip: !hasPython3 ? 'py
     });
   });
 
+  describe('the skill text and templates', () => {
+    const read = (path) => readFileSync(join(REPO_ROOT, path), 'utf8');
+
+    it('states one review, one fix round at most, and no loop', () => {
+      const skill = read('skills/core/delegate.md');
+      assert.doesNotMatch(skill, /two fix rounds|three rounds|Stop at \w+ rounds/);
+      assert.match(skill, /One review per task and at most one fix round, run by the pipeline/);
+      assert.match(skill, /Only a computed `major` opens it/);
+      assert.match(skill, /recorded and shown to the user, never looped/);
+      assert.match(skill, /one cleanup card at the end of the batch/);
+      assert.match(skill, /about 300 lines at most/);
+      assert.match(skill, /approves the whole batch at once[^.]*: do not stop to ask between steps or rounds/);
+      assert.match(skill, /background command and wait for it to end: do not poll `status`/);
+      assert.match(skill, /The verdict is recorded by the pipeline/);
+      assert.match(read('skills/shared/delegate-assets/card-template.md'), /about 300 lines at most/);
+    });
+  });
+
   describe('a finished pending review', () => {
     it('opens the same one fix round for a computed major', () => {
       const LIMIT = { FAKE_EXIT: '1', FAKE_STDERR: 'ERROR: usage limit reached. Resets in 2h0m0s.\n' };
