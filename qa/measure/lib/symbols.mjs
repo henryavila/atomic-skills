@@ -39,7 +39,12 @@ function assignedName(node, parent) {
   if (parent.type === 'VariableDeclarator' && parent.init === node && parent.id.type === 'Identifier') {
     return parent.id.name;
   }
-  if (parent.type === 'Property' && parent.key === node) {
+  if (
+    (parent.type === 'Property'
+      || parent.type === 'MethodDefinition'
+      || parent.type === 'PropertyDefinition')
+    && parent.key === node
+  ) {
     return keyName(parent.key, parent.computed);
   }
   if (parent.type === 'Property' && parent.value === node) {
@@ -109,10 +114,22 @@ export function collectFunctions(ast) {
         full = context.fnSymbol ? `${context.fnSymbol}>${base}` : base;
       }
       const symbol = unique(full);
+      // max-lines-per-function reports the member for an embedded method, so
+      // keep the node whose range that rule reports separately from the
+      // function's own range.
+      const embedded = parent && (
+        (parent.type === 'MethodDefinition' && parent.value === node)
+        || (parent.type === 'Property'
+          && parent.value === node
+          && (parent.method === true || parent.kind === 'get' || parent.kind === 'set'))
+      );
+      const reported = embedded ? parent : node;
       entries.push({
         symbol,
         start: { line: node.loc.start.line, column: node.loc.start.column },
         end: { line: node.loc.end.line, column: node.loc.end.column },
+        reportStart: { line: reported.loc.start.line, column: reported.loc.start.column },
+        reportEnd: { line: reported.loc.end.line, column: reported.loc.end.column },
       });
       next = { fnSymbol: symbol, classSymbol: null };
     }
@@ -139,13 +156,19 @@ function compare(left, right) {
 }
 
 /**
- * The innermost function whose own range holds the rule's reported range.
+ * The function a rule reports.
  *
- * ESLint may report at the function head, at a class member or at a property
- * key, which can start before the function value. The reported range ends at
- * the function it describes, so matching either end keeps a computed key
- * function apart from the function used as its value: the key's report ends at
- * the key, the value's report ends at the value.
+ * A whole-node report (`max-lines-per-function`) covers the function node
+ * exactly, or the member for an embedded method. Match that range as a whole
+ * so a nested function that ends where its parent ends cannot take the
+ * report; a full report for the inner function has its own start, so the two
+ * stay apart.
+ *
+ * A head report (`complexity`, `max-params`) starts at the function head, the
+ * member or the property key, and ends at the opening parenthesis or arrow.
+ * Such a report has no exact node range, so it is matched by start, then by
+ * the opening parenthesis the function node starts at, then as the innermost
+ * function containing the whole reported head.
  */
 export function functionAtStart(entries, message) {
   const start = { line: message.line, column: message.column - 1 }; // ESLint columns are 1-based.
@@ -153,20 +176,39 @@ export function functionAtStart(entries, message) {
     ? { line: message.endLine, column: message.endColumn - 1 }
     : start;
 
+  const same = (left, right) => compare(left, right) === 0;
+
+  for (const entry of entries) {
+    if (entry.reportStart && same(entry.reportStart, start) && same(entry.reportEnd, end)) {
+      return entry;
+    }
+  }
+
+  const atStart = entries.filter((entry) => same(entry.start, start));
+  if (atStart.length > 0) {
+    return atStart.reduce(
+      (best, entry) => (compare(entry.end, best.end) < 0 ? entry : best),
+    );
+  }
+
+  const atOpening = entries.filter((entry) => same(entry.start, end));
+  if (atOpening.length > 0) {
+    return atOpening.reduce(
+      (best, entry) => (compare(entry.end, best.end) < 0 ? entry : best),
+    );
+  }
+
   const holds = (entry, position) =>
     compare(entry.start, position) <= 0 && compare(position, entry.end) <= 0;
 
   let best = null;
   for (const entry of entries) {
-    if (!holds(entry, start) && !holds(entry, end)) continue;
-    if (!best) {
-      best = entry;
-      continue;
-    }
-    const order = compare(entry.start, best.start);
-    if (order > 0) {
-      best = entry;
-    } else if (order === 0 && compare(entry.end, best.end) < 0) {
+    if (!holds(entry, start) || !holds(entry, end)) continue;
+    if (
+      !best
+      || compare(entry.start, best.start) > 0
+      || (same(entry.start, best.start) && compare(entry.end, best.end) < 0)
+    ) {
       best = entry;
     }
   }

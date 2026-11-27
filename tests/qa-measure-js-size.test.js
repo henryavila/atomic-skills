@@ -111,6 +111,17 @@ describe('qa/measure/js-size', () => {
     expectLines(run(), ['js\tfunction-lines\tsrc/long.js::longOne\t81']);
   });
 
+  it('keeps nested expression-body arrow functions apart', () => {
+    const body = Array.from({ length: 79 }, (_, i) => `    const value${i} = ${i};`).join('\n');
+    plant({
+      'src/nested.js': `export const outer = () =>\n  () => {\n${body}\n  };\n`,
+    });
+    expectLines(run(), [
+      'js\tfunction-lines\tsrc/nested.js::outer\t82',
+      'js\tfunction-lines\tsrc/nested.js::outer><anonymous>\t81',
+    ]);
+  });
+
   it('measures parameters', () => {
     plant({ 'src/params.js': 'export function many(a, b, c, d, e, f) {\n  return a;\n}\n' });
     expectLines(run(), ['js\tparams\tsrc/params.js::many\t6']);
@@ -166,6 +177,20 @@ describe('qa/measure/js-size', () => {
     expectLines(run(), [
       'js\tsilent-errors\tsrc/errors.js::bad\t2',
       'js\tsilent-errors\tsrc/errors.js::<module>\t1',
+    ]);
+  });
+
+  it('names a function used as a computed class key', () => {
+    plant({
+      'src/computed-class.js': [
+        'class Method { [(a, b, c, d, e, f) => a]() { return 1; } }',
+        'class Field { [(a, b, c, d, e, f) => a] = 1; }',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), [
+      'js\tparams\tsrc/computed-class.js::<computed>\t6',
+      'js\tparams\tsrc/computed-class.js::<computed>#2\t6',
     ]);
   });
 
