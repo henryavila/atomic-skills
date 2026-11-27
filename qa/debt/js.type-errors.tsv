@@ -1,4 +1,3 @@
-scripts/app-map-reconstruct.js::*	2
 scripts/generate-readme.js::*	1
 scripts/lib/render-site.js::*	13
 scripts/list-review-models.js::*	8
@@ -7,12 +6,6 @@ scripts/release/release.js::*	1
 scripts/run-host-probes.js::*	1
 scripts/verify-findings-manifest.js::*	3
 scripts/verify-installed-runtime.js::*	8
-src/app-map/code-scan.js::*	1
-src/app-map/confirm.js::*	2
-src/app-map/persist.js::*	2
-src/app-map/reconstruct.js::*	11
-src/app-map/sources.js::*	1
-src/app-map/validate.js::*	1
 src/cross-model-host-default.js::*	7
 src/external-both-merge.js::*	1
 src/ide-symlink-install.js::*	6
@@ -22,11 +15,5 @@ src/installer.js::*	4
 src/recovery-cli.js::*	4
 src/resolve-review-model.js::*	7
 src/review-provider-field.js::*	1
-src/runtime-layers/auto-update-drop-revert.js::*	1
-src/runtime-layers/auto-update.js::*	4
-src/runtime-layers/grok-refcount.js::*	1
-src/runtime-locks.js::*	3
-src/status-verify.js::*	1
-src/status.js::*	2
 src/ui.js::*	4
 src/uninstall.js::*	2

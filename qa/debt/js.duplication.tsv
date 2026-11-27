@@ -1,7 +1,5 @@
 scripts/design-gates.js::*	32
 scripts/lib/render-readme.js::*	20
-src/app-map/diverge.js::*	13
-src/app-map/reconstruct.js::*	13
 src/install.js::*	39
 src/ui.js::*	36
 src/uninstall.js::*	15
