@@ -218,7 +218,7 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
     const text = runDelegate(['route', '--role', 'implement'], baseEnv);
     assert.equal(text.status, 0, text.stderr);
     assert.match(text.stdout, /^route: flash,codex,agy-argon$/m);
-    assert.match(text.stdout, /^review route after flash \(deepseek\): codex-review,agy-sonnet-review,agy-argon-review,agy-review,muse-review$/m);
+    assert.match(text.stdout, /^review route after flash \(deepseek\): muse-review,codex-review,agy-sonnet-review,agy-argon-review,agy-review$/m);
     assert.match(text.stdout, /^cooling: codex, codex-review until 2026-11-20T17:51:00\+00:00 \(provider\)$/m);
     assert.match(text.stdout, /^warning: flash: no reviewer usable now/m);
   });
