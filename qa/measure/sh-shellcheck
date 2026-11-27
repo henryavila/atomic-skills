@@ -158,6 +158,12 @@ def convert(root, payload, ceiling, items):
     counts = {}
     for finding in report:
         key = normalize(root, finding.get("file", ""))
+        code = finding.get("code")
+        if isinstance(code, int) and 1000 <= code <= 1099:
+            fail(
+                "%s:%s: shellcheck could not parse the file (SC%s): %s"
+                % (key, finding.get("line", "?"), code, finding.get("message", ""))
+            )
         counts[key] = counts.get(key, 0) + 1
     for key in sorted(counts):
         if counts[key] > ceiling:
@@ -191,7 +197,7 @@ def main():
         return
 
     result = subprocess.run(
-        [binary, "-f", "json"] + keys,
+        [binary, "--norc", "-f", "json"] + keys,
         cwd=root,
         capture_output=True,
         text=True,

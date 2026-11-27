@@ -89,6 +89,22 @@ describe('qa/measure/sh-shellcheck', () => {
     ]);
   });
 
+  it('ignores a repository .shellcheckrc that disables checks', () => {
+    plant({
+      '.shellcheckrc': 'disable=all\n',
+      'tests/hooks/bad.sh': bad,
+    });
+    expectLines(run(), ['sh\tstatic-security\ttests/hooks/bad.sh::*\t1']);
+  });
+
+  it('fails when shellcheck cannot parse a file', () => {
+    plant({ 'tests/hooks/syntax.sh': '#!/bin/sh\nif [\n' });
+    const result = run();
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /could not parse/i);
+    assert.match(result.stderr, /tests\/hooks\/syntax\.sh/);
+  });
+
   it('exits 3 when the shellcheck binary is missing', () => {
     plant();
     const result = run([], { QA_SHELLCHECK: join(root, 'missing/shellcheck') });
