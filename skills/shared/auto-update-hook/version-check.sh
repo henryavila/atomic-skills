@@ -10,6 +10,14 @@ set -uo pipefail
 
 DIGITS_PATTERN='^[0-9]{1,12}$'
 VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
+# Bash command substitution strips trailing newlines, so a value like
+# "1.0.0\n" would pass a check run after extraction. jq matches the value
+# exactly as stored (\z is the absolute end of the string) and prints
+# nothing when it does not match.
+JSON_VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?\z'
+JSON_DIGITS_PATTERN='^[0-9]{1,12}\z'
+# npm view ends its answer with one newline; anything else is untrusted.
+JSON_NPM_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?\n?\z'
 DEFAULT_TTL=86400
 
 is_digits() {
@@ -54,7 +62,9 @@ NOW=$((10#$NOW))
 # Installed version (from manifest); anything but a strict version is absent.
 installed=""
 if command -v jq >/dev/null 2>&1; then
-  installed=$(jq -r '.version // empty' "$MANIFEST" 2>/dev/null || true)
+  installed=$(jq -r --arg re "$JSON_VERSION_PATTERN" '
+    select(type == "object") | .version
+    | select(type == "string") | select(test($re))' "$MANIFEST" 2>/dev/null || true)
 fi
 is_version "$installed" || exit 0
 
@@ -62,8 +72,13 @@ is_version "$installed" || exit 0
 latest=""
 last_check=0
 if [[ -f "$CACHE_FILE" ]] && command -v jq >/dev/null 2>&1; then
-  cached_latest=$(jq -r '.latest_version // empty' "$CACHE_FILE" 2>/dev/null || true)
-  cached_last_check=$(jq -r '.last_check // 0' "$CACHE_FILE" 2>/dev/null || true)
+  cached_latest=$(jq -r --arg re "$JSON_VERSION_PATTERN" '
+    select(type == "object") | .latest_version
+    | select(type == "string") | select(test($re))' "$CACHE_FILE" 2>/dev/null || true)
+  cached_last_check=$(jq -r --arg re "$JSON_DIGITS_PATTERN" '
+    select(type == "object") | .last_check
+    | select(type == "number" or (type == "string" and test($re)))' \
+    "$CACHE_FILE" 2>/dev/null || true)
   if is_version "$cached_latest"; then
     latest=$cached_latest
   fi
@@ -78,7 +93,9 @@ age=$(( NOW - last_check ))
 if [[ $age -ge $TTL_SECONDS ]]; then
   (
     if command -v npm >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-      new_latest=$(npm view @henryavila/atomic-skills version 2>/dev/null || true)
+      new_latest=$(npm view @henryavila/atomic-skills version 2>/dev/null \
+        | jq -R -s -r --arg re "$JSON_NPM_PATTERN" 'select(test($re))' \
+          2>/dev/null || true)
       if is_version "$new_latest"; then
         jq -n --arg latest "$new_latest" --argjson now "$NOW" \
           '{latest_version: $latest, last_check: $now}' > "$CACHE_FILE" 2>/dev/null || true
