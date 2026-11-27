@@ -63,6 +63,9 @@ OPENCODE_MODELS = (FLASH_MODEL, MUSE_MODEL)
 OPENCODE_FAMILIES = {FLASH_MODEL: "deepseek", MUSE_MODEL: "meta"}
 OPENCODE_MODEL = os.environ.get("DELEGATE_OPENCODE_MODEL") or FLASH_MODEL
 LIMIT_RE = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b", re.IGNORECASE)
+# Antigravity's stderr line when print mode denied a tool it could not ask about.
+AGY_DENIED_RE = re.compile(r"required the \W*([\w-]+)\W* permission that headless mode cannot prompt for"
+                           r".{0,40}?auto-denied")
 # The last line of an old-format review, where the reviewer chose each severity.
 TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=(\d+) medium=(\d+) minor=(\d+)[ \t`*]*$")
 # The last line of a review in the format of severity-rubric.md.
@@ -1031,6 +1034,18 @@ def review_severity_fields(review_output):
     return fields
 
 
+def agy_denied_permission(stderr):
+    """The permission an Antigravity print-mode run had auto-denied, read from
+    its stderr line ("a tool required the "command" permission that headless
+    mode cannot prompt for, so it was auto-denied"); None when there is none."""
+    try:
+        text = Path(stderr).read_text(errors="replace")
+    except OSError:
+        return None
+    match = AGY_DENIED_RE.search(text)
+    return match.group(1) if match else None
+
+
 def classify_failure(timed_out, code, stdout, stderr, review_wrote, review_output=None, executor=None):
     if timed_out:
         return "timeout"
@@ -1048,6 +1063,10 @@ def classify_failure(timed_out, code, stdout, stderr, review_wrote, review_outpu
         except FileNotFoundError:
             review_text = ""
         if not review_text.strip():
+            # Antigravity in print mode denies a tool it cannot ask about and
+            # loses the whole answer: that is the cause, not an empty review.
+            if executor == "agy" and agy_denied_permission(stderr):
+                return "permission_denied"
             return "empty_output"
         if not review_complete(review_text):
             return "incomplete_review"
@@ -3315,7 +3334,7 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
             failure = "remote_error"
         else:
             failure = classify_failure(False, remote_exit, stdout, stderr,
-                                       review_wrote, review_output)
+                                       review_wrote, review_output, executor)
         commits = git(cwd, "rev-list", "--count", f"{sent}..{head1}") if sent and head1 else ""
         files = git(cwd, "diff", "--name-only", f"{sent}..{head1}") if sent and head1 else ""
         access = resolve_remote_access(policy["access"], remote_base)
@@ -3346,6 +3365,8 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
         }
         if pending.get("active_token"):
             rec["active_token"] = pending["active_token"]
+        if failure == "permission_denied":
+            rec["denied_permission"] = agy_denied_permission(stderr)
         if fetch_error:
             rec["remote_error"] = fetch_error
         elif commit_error:
@@ -3836,6 +3857,8 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         rec.update(review_severity_fields(review_output))
     if agy_log is not None:
         rec["agy_log"] = str(agy_log)
+    if failure == "permission_denied":
+        rec["denied_permission"] = agy_denied_permission(stderr)
     if executor == "claude":
         rec["fallback_reviewer"] = True
         rec["author_family"] = author_family
@@ -4195,7 +4218,8 @@ REVIEWER_SENTENCE = ("You are the reviewer of this card: do the review yourself,
                      "`delegate` skill, do not delegate, and do not ask for confirmation.")
 # A review attempt that ended this way never gave a usable answer: the next
 # reviewer of the route takes the review.
-REVIEW_RETRY = ("provider_limit", "slot_timeout", "empty_output", "incomplete_review", OVER_MODEL_CAP)
+REVIEW_RETRY = ("provider_limit", "slot_timeout", "empty_output", "permission_denied",
+                "incomplete_review", OVER_MODEL_CAP)
 # A follow-up review answers each major of the first review on one line:
 # `MAJOR F01 fixed | what shows it` or `MAJOR F01 open | what is still wrong`.
 MAJOR_VERDICT_RE = re.compile(

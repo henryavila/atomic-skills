@@ -27,6 +27,11 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
+// What Antigravity prints on stderr when print mode denied a tool it could not ask about.
+const AGY_DENIED = 'jetski: no output produced — a tool required the "command" permission that headless mode '
+  + 'cannot prompt for, so it was auto-denied. Add an allow-rule under permissions.allow in settings.json '
+  + '(e.g. command(<target>)).\n';
+
 describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
   let root;
   let atomicHome;
@@ -244,6 +249,9 @@ spec.loader.exec_module(d)
     ['codex text with empty stdout', 'codex-review', { FAKE_STDOUT: '' }, 'none'],
     ['error before empty', 'agy-review', { FAKE_EXIT: '1', FAKE_STDOUT: '' }, 'error'],
     ['write before empty', 'agy-review', { FAKE_TOUCH_FILE: 'README.md', FAKE_STDOUT: '' }, 'review_wrote'],
+    ['agy empty after an auto-denied permission', 'agy-review', { FAKE_STDOUT: '', FAKE_STDERR: AGY_DENIED }, 'permission_denied'],
+    ['agy text despite an auto-denied permission', 'agy-review', { FAKE_STDERR: AGY_DENIED }, 'none'],
+    ['codex empty with the agy permission line', 'codex-review', { FAKE_LAST_MESSAGE: undefined, FAKE_STDERR: AGY_DENIED }, 'empty_output'],
   ]) {
     it(`review ${label} records ${failure}`, () => {
       if (label === 'codex stale last message') {
@@ -261,8 +269,18 @@ spec.loader.exec_module(d)
       assert.equal(rec.failure, failure);
       assert.ok(rec.duration_s < 60);
       assert.equal(rec.uncommitted, false);
+      if (failure === 'permission_denied') assert.equal(rec.denied_permission, 'command');
     });
   }
+  it('a pipeline moves to the next reviewer after an Antigravity permission_denied', () => {
+    const res = runDelegate(pipelineArgs(['--review-route', 'agy-review,codex-review']), steps([
+      { FAKE_COMMIT_FILE: 'feature' }, { FAKE_STDOUT: '', FAKE_STDERR: AGY_DENIED }, {}]));
+    assert.equal(res.status, 0, res.stderr);
+    const records = readLogRecords(atomicHome);
+    assert.deepEqual(records.filter(r => r.role === 'review').map(r => [r.executor, r.failure]),
+      [['agy', 'permission_denied'], ['codex', 'none']]);
+    assert.equal(records.at(-1).outcome, 'reviewed');
+  });
 
   // AS-D6: Flash is a reviewer. `--role review --profile flash` (and its alias)
   // resolves to `flash-review`; a raw OpenCode Flash review also runs.
