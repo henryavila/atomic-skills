@@ -206,6 +206,10 @@ function awaitedThroughHelper(ancestors) {
   return false;
 }
 
+function disabled(value) {
+  return Boolean(value && value.type === 'Literal' && value.value === false);
+}
+
 function owned(value) {
   if (!value) return false;
   if (value.type === 'Literal' && typeof value.value === 'string') return OWNER.test(value.value);
@@ -213,7 +217,9 @@ function owned(value) {
     return OWNER.test(value.quasis.map((quasi) => quasi.value.cooked || '').join(''));
   }
   if (value.type === 'ConditionalExpression') {
-    return owned(value.consequent) || owned(value.alternate);
+    // Every branch that enables skipping needs an owner, not just one of them.
+    return (disabled(value.consequent) || owned(value.consequent))
+      && (disabled(value.alternate) || owned(value.alternate));
   }
   return false;
 }
@@ -221,7 +227,6 @@ function owned(value) {
 function skipCallOwned(node) {
   for (const argument of node.arguments) {
     if (!argument) continue;
-    if (argument.type === 'Literal' && argument.value === false) return true;
     if (argument.type === 'Literal' && typeof argument.value === 'string' && OWNER.test(argument.value)) {
       return true;
     }
@@ -231,7 +236,6 @@ function skipCallOwned(node) {
         if (!property || property.type !== 'Property' || keyName(property.key, property.computed) !== 'skip') {
           continue;
         }
-        if (property.value.type === 'Literal' && property.value.value === false) return true;
         if (owned(property.value)) return true;
       }
     }

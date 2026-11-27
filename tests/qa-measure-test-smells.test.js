@@ -100,6 +100,30 @@ describe('qa/measure/test-smells', () => {
     expectLines(run(), ['js\tunowned-skips\ttests/skips.test.js::*\t2']);
   });
 
+  it('measures skip calls even when an argument is false', () => {
+    plant({
+      'tests/false-skips.test.js': [
+        'test.skip(false, () => {});',
+        "test.skip('x', { skip: false }, () => {});",
+        't.skip(false);',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), ['js\tunowned-skips\ttests/false-skips.test.js::*\t3']);
+  });
+
+  it('requires ownership on every conditional skip branch', () => {
+    plant({
+      'tests/conditional.test.js': [
+        "test('mixed', { skip: flag ? '@alice 2026-01-01 blocked' : 'no reason' }, () => {});",
+        "test('owned', { skip: flag ? '@alice 2026-01-01 a' : '@bob 2026-02-02 b' }, () => {});",
+        "test('disabled', { skip: flag ? '@alice 2026-01-01 a' : false }, () => {});",
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), ['js\tunowned-skips\ttests/conditional.test.js::*\t1']);
+  });
+
   it('fails when a measured subtree cannot be read', () => {
     plant({
       'tests/clean.test.js': "test('ok', () => {});\n",
