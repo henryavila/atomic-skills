@@ -1,7 +1,9 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -270,6 +272,60 @@ describe('qa/measure/py-size', () => {
     });
     expectLines(run(), ['sh\tfile-lines\t.husky/pre-commit::*\t801']);
     expectLines(run(['--files', '.husky/_/hook']), []);
+  });
+
+  it('measures only shell sources inside .husky', () => {
+    plant({
+      '.husky/pre-commit': manyLines(801),
+      '.husky/nested/data.json': manyLines(801),
+      '.husky/nested/x.sh': manyLines(801),
+    });
+    expectLines(run(), [
+      'sh\tfile-lines\t.husky/nested/x.sh::*\t801',
+      'sh\tfile-lines\t.husky/pre-commit::*\t801',
+    ]);
+  });
+
+  it('fails when a shell subtree cannot be inspected', (t) => {
+    if (typeof process.getuid === 'function' && process.getuid() === 0) {
+      return t.skip('@qa 2026-11-27 root can read an unreadable directory');
+    }
+    plant({ 'tests/hooks/ok.sh': '#!/bin/sh\n' });
+    const locked = join(root, 'tests');
+    chmodSync(locked, 0o000);
+    try {
+      const result = run();
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /tests/);
+      assert.equal(result.stdout, '');
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  });
+
+  it('does not measure untracked shell files passed through --files in a git tree', () => {
+    plant({
+      'tests/hooks/tracked.sh': manyLines(801),
+      '.gitignore': 'tests/hooks/ignored.sh\n',
+    });
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'qa@example.test'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'QA Test'], { cwd: root });
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'base'], { cwd: root });
+
+    plant({
+      'tests/hooks/untracked.sh': manyLines(801),
+      'tests/hooks/ignored.sh': manyLines(801),
+    });
+    expectLines(run([
+      '--files',
+      'tests/hooks/tracked.sh',
+      'tests/hooks/untracked.sh',
+      'tests/hooks/ignored.sh',
+    ]), [
+      'sh\tfile-lines\ttests/hooks/tracked.sh::*\t801',
+    ]);
   });
 
   it('measures only tracked shell files in a git tree', () => {

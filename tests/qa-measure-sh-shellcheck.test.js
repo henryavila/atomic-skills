@@ -188,6 +188,46 @@ describe('qa/measure/sh-shellcheck', () => {
     expectLines(run(['--files', '.husky/_/hook'], env), []);
   });
 
+  it('lints only shell sources inside .husky', () => {
+    const env = fakeShellcheck();
+    plant({
+      '.husky/pre-commit': bad,
+      '.husky/nested/data.json': bad,
+      '.husky/nested/x.sh': bad,
+    });
+    const result = run([], env);
+    expectLines(result, [
+      'sh\tstatic-security\t.husky/pre-commit::*\t1',
+    ]);
+    assert.deepEqual(passedFiles(result), ['.husky/nested/x.sh', '.husky/pre-commit']);
+  });
+
+  it('does not lint untracked shell files passed through --files in a git tree', () => {
+    const env = fakeShellcheck();
+    plant({
+      'tests/hooks/bad.sh': bad,
+      '.gitignore': 'tests/hooks/ignored.sh\n',
+    });
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'qa@example.test'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'QA Test'], { cwd: root });
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'base'], { cwd: root });
+
+    plant({
+      'tests/hooks/untracked.sh': bad,
+      'tests/hooks/ignored.sh': bad,
+    });
+    const result = run([
+      '--files',
+      'tests/hooks/bad.sh',
+      'tests/hooks/untracked.sh',
+      'tests/hooks/ignored.sh',
+    ], env);
+    expectLines(result, ['sh\tstatic-security\ttests/hooks/bad.sh::*\t1']);
+    assert.deepEqual(passedFiles(result), ['tests/hooks/bad.sh']);
+  });
+
   it('measures only tracked shell files in a git tree', () => {
     const env = fakeShellcheck();
     plant({ 'tests/hooks/bad.sh': bad });

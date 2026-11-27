@@ -9,10 +9,11 @@ Contract (see the comment block at the top of scripts/qa.sh):
   stdout       one line per item above its ceiling, nothing else
   exit 0       measured (even with items); 3 tool not installed
 
-Shell source is every ``*.sh`` under the ``sh`` roots plus every file in
-``.husky/``. The tool is ``shellcheck`` in ``qa/.venv`` next to this measurer's
-repository, never one found on PATH; ``QA_VENV`` overrides that directory.
-``-x`` is off, so sourced files are not followed.
+Shell source is the shared rule in ``lib/shellfiles.py``: every ``*.sh`` under
+the ``sh`` roots plus every file directly inside ``.husky/``, never anything
+under ``.husky/_/``. The tool is ``shellcheck`` in ``qa/.venv`` next to this
+measurer's repository, never one found on PATH; ``QA_VENV`` overrides that
+directory. ``-x`` is off, so sourced files are not followed.
 
 The converter (``--convert <report.json>``) is the test seam: it turns a
 recorded shellcheck report into measure lines without running the tool.
@@ -122,34 +123,28 @@ def repository_files(root):
     tracked = shellfiles.tracked(root, roots)
     if tracked is not None:
         for key in tracked:
-            if shellfiles.generated(key):
-                continue
-            if key.startswith(".husky/"):
-                found.add(key)
-            elif key.endswith(".sh") and any(
-                key == base or key.startswith(base + "/") for base in roots
-            ):
+            if shellfiles.is_shell_source(key, roots):
                 found.add(key)
         return sorted(found)
 
-    for base in roots:
-        shellfiles.walk(root, base, base == ".husky", found)
-    shellfiles.walk(root, ".husky", True, found)
-    return sorted(found)
+    for base in sorted(set(roots) | {".husky"}):
+        shellfiles.walk(root, base, True, found)
+    return sorted(key for key in found if shellfiles.is_shell_source(key, roots))
 
 
 def listed_files(root, files, roots):
+    tracked = shellfiles.tracked(root, roots)
+    allowed = None if tracked is None else set(tracked)
     found = set()
     for item in files:
         key = os.path.normpath(item).replace(os.sep, "/")
-        if key.startswith("..") or os.path.isabs(key) or shellfiles.generated(key):
+        if key.startswith("..") or os.path.isabs(key):
             continue
-        if key == ".husky" or key.startswith(".husky/"):
-            found.add(key)
-        elif key.endswith(".sh") and any(
-            key == base or key.startswith(base + "/") for base in roots
-        ):
-            found.add(key)
+        if not shellfiles.is_shell_source(key, roots):
+            continue
+        if allowed is not None and key not in allowed:
+            continue
+        found.add(key)
     return sorted(found)
 
 

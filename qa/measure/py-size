@@ -13,8 +13,10 @@ The repository root comes from QA_ROOT, or from ``git rev-parse
 --show-toplevel`` when it is not set. Ceilings and roots come from
 ``qa/ceilings.tsv`` and ``qa/stacks.tsv``; none is hard-coded.
 
-Python source is every ``*.py`` under the ``py`` roots. Shell source is every
-``*.sh`` under the ``sh`` roots plus every file in ``.husky/``.
+Python source is every ``*.py`` under the ``py`` roots. Shell source is the
+shared rule in ``lib/shellfiles.py``: every ``*.sh`` under the ``sh`` roots
+plus every file directly inside ``.husky/``, never anything under
+``.husky/_/``. In a git work tree only tracked shell files are measured.
 """
 
 import ast
@@ -136,19 +138,13 @@ def source_files(root):
     tracked = shellfiles.tracked(root, shell_roots)
     if tracked is not None:
         for key in tracked:
-            if shellfiles.generated(key):
-                continue
-            if is_shell(key, shell_roots):
+            if shellfiles.is_shell_source(key, shell_roots):
                 shell.add(key)
         return python, shell
 
-    for base in shell_roots:
-        if base == ".husky":
-            shellfiles.walk(root, base, True, shell)
-        else:
-            shellfiles.walk(root, base, False, shell)
-    # Every file in .husky/ is shell source, whether or not it ends in .sh.
-    shellfiles.walk(root, ".husky", True, shell)
+    for base in sorted(set(shell_roots) | {".husky"}):
+        shellfiles.walk(root, base, True, shell)
+    shell = {key for key in shell if shellfiles.is_shell_source(key, shell_roots)}
     return python, shell
 
 
@@ -156,25 +152,20 @@ def is_python(key, python_roots):
     return key.endswith(".py") and any(key == base or key.startswith(base + "/") for base in python_roots)
 
 
-def is_shell(key, shell_roots):
-    if key == ".husky" or key.startswith(".husky/"):
-        return True
-    return key.endswith(".sh") and any(
-        key == base or key.startswith(base + "/") for base in shell_roots
-    )
-
-
 def listed_files(root, files, python_roots, shell_roots):
     python = set()
     shell = set()
+    tracked = shellfiles.tracked(root, shell_roots)
+    allowed = None if tracked is None else set(tracked)
     for item in files:
         key = os.path.normpath(item).replace(os.sep, "/")
-        if key.startswith("..") or os.path.isabs(key) or shellfiles.generated(key):
+        if key.startswith("..") or os.path.isabs(key):
             continue
         if is_python(key, python_roots):
             python.add(key)
-        elif is_shell(key, shell_roots):
-            shell.add(key)
+        elif shellfiles.is_shell_source(key, shell_roots):
+            if allowed is None or key in allowed:
+                shell.add(key)
     return python, shell
 
 
