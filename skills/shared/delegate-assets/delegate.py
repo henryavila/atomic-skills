@@ -61,6 +61,9 @@ MUSE_MODEL = "opencode-go/muse-spark-1.3-contributor"
 OPENCODE_MODELS = (FLASH_MODEL, MUSE_MODEL)
 # The family of an OpenCode model, whatever profile or override named it.
 OPENCODE_FAMILIES = {FLASH_MODEL: "deepseek", MUSE_MODEL: "meta"}
+# Models whose provider trains on request data, and who: Muse answers only
+# while the OpenCode console allows paid endpoints that train on it.
+TRAINS_ON_REQUESTS = {MUSE_MODEL: "Meta"}
 OPENCODE_MODEL = os.environ.get("DELEGATE_OPENCODE_MODEL") or FLASH_MODEL
 LIMIT_RE = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b", re.IGNORECASE)
 # Antigravity's stderr line when print mode denied a tool it could not ask about.
@@ -5337,7 +5340,9 @@ def cmd_profiles(a):
                 fix = remote_ready(checks, host, executor)
                 ready = "ready" if fix is None else f"not-ready ({fix})"
                 remote_state = f" | host={host} {ready}"
-        print(f"{name} | {executor} | {model} | {family} | {status}{remote_state}")
+        trains = (f" | WARNING: trains on request data ({TRAINS_ON_REQUESTS[model]})"
+                  if model in TRAINS_ON_REQUESTS else "")
+        print(f"{name} | {executor} | {model} | {family} | {status}{trains}{remote_state}")
         cwd = str(Path.cwd())
         for label, role in (("implement, fix, mechanical, test", "implement"), ("review", "review")):
             if (executor == "claude" or agy_claude_model(executor, model)) and role != "review":
