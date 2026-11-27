@@ -16,11 +16,18 @@
 const FUNCTION_TYPES = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
 const CLASS_TYPES = new Set(['ClassDeclaration', 'ClassExpression']);
 
-function keyName(key) {
-  if (!key) return null;
-  if (key.type === 'Identifier') return key.name;
-  if (key.type === 'Literal') return String(key.value);
+function literalName(key) {
+  if (!key || key.type !== 'Literal') return null;
+  if (typeof key.value === 'string' || typeof key.value === 'number') return String(key.value);
   return null;
+}
+
+function keyName(key, computed = false) {
+  if (!key) return null;
+  if (computed) return literalName(key) ?? '<computed>';
+  if (key.type === 'Identifier') return key.name;
+  if (key.type === 'PrivateIdentifier') return `#${key.name}`;
+  return literalName(key);
 }
 
 /** The name a function expression or arrow takes from its parent. */
@@ -29,11 +36,11 @@ function assignedName(node, parent) {
   if (parent.type === 'VariableDeclarator' && parent.init === node && parent.id.type === 'Identifier') {
     return parent.id.name;
   }
-  if (parent.type === 'Property' && parent.value === node && !parent.computed) {
-    return keyName(parent.key);
+  if (parent.type === 'Property' && parent.value === node) {
+    return keyName(parent.key, parent.computed);
   }
-  if (parent.type === 'PropertyDefinition' && parent.value === node && !parent.computed) {
-    return keyName(parent.key);
+  if (parent.type === 'PropertyDefinition' && parent.value === node) {
+    return keyName(parent.key, parent.computed);
   }
   if (parent.type === 'AssignmentExpression' && parent.right === node) {
     if (parent.left.type === 'Identifier') return parent.left.name;
@@ -50,7 +57,7 @@ function assignedName(node, parent) {
 function methodName(node, parent) {
   if (!parent) return null;
   if ((parent.type === 'MethodDefinition' || parent.type === 'PropertyDefinition') && parent.value === node) {
-    return parent.computed ? '<anonymous>' : keyName(parent.key) || '<anonymous>';
+    return keyName(parent.key, parent.computed) || '<anonymous>';
   }
   return null;
 }
@@ -92,14 +99,18 @@ export function collectFunctions(ast) {
         full = context.fnSymbol ? `${context.fnSymbol}>${base}` : base;
       }
       const symbol = unique(full);
+      const ownsReport = Boolean((method || assigned) && parent);
       entries.push({
         symbol,
         start: { line: node.loc.start.line, column: node.loc.start.column },
         end: { line: node.loc.end.line, column: node.loc.end.column },
-        // ESLint reports a named function at its head (the class member or the
-        // property key), which can start before the function value.
-        reportStart: (method || assigned) && parent
+        // ESLint reports a named function at the head of its class member or
+        // property, which can start before the function value.
+        reportStart: ownsReport
           ? { line: parent.loc.start.line, column: parent.loc.start.column }
+          : undefined,
+        reportEnd: ownsReport
+          ? { line: parent.loc.end.line, column: parent.loc.end.column }
           : undefined,
       });
       next = { fnSymbol: symbol, classSymbol: null };
@@ -126,16 +137,32 @@ function compare(left, right) {
   return left.line - right.line || left.column - right.column;
 }
 
-/** The function whose start is exactly the rule's reported position. */
+/**
+ * The innermost function whose reported range holds the rule's position. ESLint
+ * may report at the function head, at a class member or at a property key, so
+ * the range covers the whole function and its owning member.
+ */
 export function functionAtStart(entries, message) {
-  const line = message.line;
-  const column = message.column - 1; // ESLint columns are 1-based; espree loc is 0-based.
-  return (
-    entries.find((entry) => {
-      const start = entry.reportStart || entry.start;
-      return start.line === line && start.column === column;
-    }) || null
-  );
+  const position = { line: message.line, column: message.column - 1 }; // ESLint columns are 1-based.
+  let best = null;
+  for (const entry of entries) {
+    const start = entry.reportStart || entry.start;
+    const end = entry.reportEnd || entry.end;
+    if (compare(start, position) > 0 || compare(position, end) > 0) continue;
+    if (!best) {
+      best = entry;
+      continue;
+    }
+    const bestStart = best.reportStart || best.start;
+    const order = compare(start, bestStart);
+    if (order > 0) {
+      best = entry;
+    } else if (order === 0) {
+      const bestEnd = best.reportEnd || best.end;
+      if (compare(end, bestEnd) < 0) best = entry;
+    }
+  }
+  return best;
 }
 
 /** The innermost function that contains a position, or null for module code. */

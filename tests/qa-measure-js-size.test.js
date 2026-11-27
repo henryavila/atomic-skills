@@ -169,6 +169,23 @@ describe('qa/measure/js-size', () => {
     ]);
   });
 
+  it('names a function assigned to a computed property', () => {
+    plant({
+      'src/computed.js': [
+        'const stringKey = {["foo"]: (a, b, c, d, e, f) => a};',
+        'const numberKey = {[1]: (a, b, c, d, e, f) => a};',
+        'const name = "bar";',
+        'const dynamicKey = {[name]: (a, b, c, d, e, f) => a};',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), [
+      'js\tparams\tsrc/computed.js::foo\t6',
+      'js\tparams\tsrc/computed.js::1\t6',
+      'js\tparams\tsrc/computed.js::<computed>\t6',
+    ]);
+  });
+
   it('names functions by class, nesting, assignment and duplicate', () => {
     const body = [
       'class Widget {',
