@@ -238,6 +238,254 @@ sys.exit(0 if release.exists() else 1)
     }
   });
 
+  it('best-effort platform, login and slot cleanup drop only their own failures', () => {
+    const res = pythonHarness(`
+import ctypes
+
+def broken(*args, **kwargs):
+    raise OSError('no such platform call')
+
+ctypes.CDLL = broken
+d.sys.platform = 'linux'
+tracker = d.ProcessTracker()
+print('tracker', tracker.method)
+tracker._subreaper = True
+tracker._restore_subreaper()
+print('restored')
+d.getpass.getuser = broken
+text = d.claude_login_help('no login')
+print('help', 'Command:' in text)
+lock = d.SlotLock()
+lock.f = open(d.os.devnull, 'w')
+lock.f.close()
+lock.__exit__(None, None, None)
+print('unlocked')
+running = d.RUNNING
+running.mkdir(parents=True, exist_ok=True)
+broken_json = running / 'opencode-BROKEN.json'
+broken_json.write_text('{not json')
+list_json = running / 'opencode-LIST.json'
+list_json.write_text('[]')
+d._clean_stale_slots()
+print('cleaned', broken_json.exists(), list_json.exists())
+`);
+    assert.equal(res.status, 0, res.stderr);
+    assert.deepEqual(res.stdout.trim().split('\n'), [
+      'tracker poll', 'restored', 'help True', 'unlocked', 'cleaned False False',
+    ]);
+  });
+
+  it('slot cleanup absorbs a pid the kernel cannot name and a lost run with an unhashable profile', () => {
+    const res = pythonHarness(`
+running = d.RUNNING
+running.mkdir(parents=True, exist_ok=True)
+huge = running / 'opencode-HUGE.json'
+huge.write_text(d.json.dumps({
+    'id': 'HUGE', 'pid': 2 ** 100, 'pgid': 2 ** 100,
+    'runner_pid': 2 ** 100, 'runner_start': 'darwin:1:2',
+    'started': '2026-01-01T00:00:00+00:00', 'profile': 'flash',
+}))
+remote = d.RUNNING_REMOTE
+remote.mkdir(parents=True, exist_ok=True)
+bad_profile = remote / 'codex-BAD-t.json'
+bad_profile.write_text(d.json.dumps({
+    'id': 'BAD', 'profile': [], 'runner_pid': d.os.getpid(),
+    'runner_start': 'not-this-process',
+    'started': '2026-01-01T00:00:00+00:00',
+    'expires': '2026-01-01T00:00:00+00:00', 'token': 't',
+}))
+d._clean_stale_slots()
+print('cleaned', huge.exists(), bad_profile.exists())
+`);
+    assert.equal(res.status, 0, res.stderr);
+    assert.deepEqual(res.stdout.trim().split('\n'), ['cleaned False False']);
+  });
+
+  it('repo_identity keeps its None fallback on malformed and undecodable git output', () => {
+    git(repoDir, 'remote', 'add', 'origin', 'https://example.com/owner/name.git');
+    const res = pythonHarness(`
+import os
+
+real_git = d.git
+d.git = lambda *args, **kwargs: 'a\\u0000b'
+print(d.repo_identity(${JSON.stringify(repoDir)}))
+d.git = real_git
+
+os.environb[b'GIT_CONFIG_COUNT'] = b'1'
+os.environb[b'GIT_CONFIG_KEY_0'] = b'url.https://b\\xffd.example/owner/.insteadOf'
+os.environb[b'GIT_CONFIG_VALUE_0'] = b'https://example.com/owner/'
+print(d.repo_identity(${JSON.stringify(repoDir)}))
+print(d.repo_identity(${JSON.stringify(repoDir + '/missing')}))
+`);
+    assert.equal(res.status, 0, res.stderr);
+    assert.deepEqual(res.stdout.trim().split('\n'), ['None', 'None', 'None']);
+  });
+
+  it('each narrowed error handler propagates a failure outside its expected set', () => {
+    const res = pythonHarness(`
+import ctypes, types
+
+def injected(*args, **kwargs):
+    raise RuntimeError('injected')
+
+def injected_attribute(*args, **kwargs):
+    raise AttributeError('injected')
+
+def check(label, exception, call):
+    try:
+        call()
+    except exception:
+        print(label, 'propagated')
+    except BaseException as exc:
+        print(label, 'wrong', type(exc).__name__)
+    else:
+        print(label, 'swallowed')
+
+real = d.git
+d.git = injected_attribute
+check('repo_identity', AttributeError, lambda: d.repo_identity(d.os.getcwd()))
+d.git = real
+
+real = d.getpass.getuser
+d.getpass.getuser = injected
+check('claude_login_help', RuntimeError, lambda: d.claude_login_help('no login'))
+d.getpass.getuser = real
+
+running = d.RUNNING
+running.mkdir(parents=True, exist_ok=True)
+slot = running / 'opencode-PROP.json'
+slot.write_text('{}')
+real = d.slot_owned
+d.slot_owned = injected
+check('slot_cleanup_local', RuntimeError, d._clean_stale_slots)
+d.slot_owned = real
+
+real = d._clean_stale_remote
+d._clean_stale_remote = injected
+check('slot_cleanup_remote', RuntimeError, d._clean_stale_slots)
+d._clean_stale_remote = real
+
+real_clean = d._clean_stale_slots
+d._clean_stale_slots = lambda: None
+active = running / 'opencode-ACTIVE.json'
+active.write_text('{}')
+real_loads = d.json.loads
+d.json.loads = injected
+check('active_slots', RuntimeError, d._get_active_slots)
+d.json.loads = real_loads
+d._clean_stale_slots = real_clean
+
+real = ctypes.CDLL
+ctypes.CDLL = injected
+platform = d.sys.platform
+d.sys.platform = 'linux'
+check('tracker_enable', RuntimeError, d.ProcessTracker)
+d.sys.platform = platform
+ctypes.CDLL = real
+
+tracker = object.__new__(d.ProcessTracker)
+tracker._subreaper = True
+tracker._previous_subreaper = 0
+ctypes.CDLL = injected
+check('tracker_restore', RuntimeError, tracker._restore_subreaper)
+ctypes.CDLL = real
+
+zone = types.ModuleType('zoneinfo')
+class BrokenZone:
+    def __init__(self, key):
+        raise RuntimeError('injected')
+zone.ZoneInfo = BrokenZone
+saved = d.sys.modules.get('zoneinfo')
+d.sys.modules['zoneinfo'] = zone
+check('parse_reset', RuntimeError,
+      lambda: d.parse_reset('resets at 5:00 pm (America/New_York)', d.now()))
+if saved is None:
+    del d.sys.modules['zoneinfo']
+else:
+    d.sys.modules['zoneinfo'] = saved
+
+class BrokenLock:
+    def fileno(self):
+        raise RuntimeError('injected')
+
+lock = d.SlotLock()
+lock.f = BrokenLock()
+check('slot_lock', RuntimeError, lambda: lock.__exit__(None, None, None))
+
+log = d.LOG
+log.parent.mkdir(parents=True, exist_ok=True)
+log.write_text('{"kind": "run"}\\n')
+real_active = d.active_runs
+d.active_runs = lambda: []
+real_loads = d.json.loads
+d.json.loads = injected
+check('status_log', RuntimeError, lambda: d.cmd_status(types.SimpleNamespace(json=False)))
+d.json.loads = real_loads
+
+real_dt = d.dt
+class BrokenDateTime(real_dt.datetime):
+    @classmethod
+    def fromisoformat(cls, value):
+        raise RuntimeError('injected')
+
+fake_dt = types.SimpleNamespace(datetime=BrokenDateTime, timedelta=real_dt.timedelta,
+                                timezone=real_dt.timezone)
+log.write_text(d.json.dumps({
+    'kind': 'run', 'id': 'L', 'executor': 'codex', 'failure': 'provider_limit',
+    'completed': '2026-01-01T00:00:00+00:00',
+}) + '\\n')
+d.dt = fake_dt
+check('status_limit', RuntimeError, lambda: d.cmd_status(types.SimpleNamespace(json=False)))
+d.dt = real_dt
+
+log.write_text(d.json.dumps({
+    'kind': 'run', 'id': 'L2', 'executor': 'codex', 'failure': 'provider_limit',
+    'completed': d.now().isoformat(), 'stderr': '/nonexistent/stderr.txt',
+}) + '\\n')
+class BrokenPath:
+    def __init__(self, value):
+        self.value = value
+
+    def read_text(self, *args, **kwargs):
+        raise RuntimeError('injected')
+
+real_path = d.Path
+d.Path = BrokenPath
+check('status_stderr', RuntimeError, lambda: d.cmd_status(types.SimpleNamespace(json=False)))
+d.Path = real_path
+d.active_runs = real_active
+`);
+    assert.equal(res.status, 0, res.stderr);
+    const labels = [
+      'repo_identity', 'claude_login_help', 'slot_cleanup_local', 'slot_cleanup_remote',
+      'active_slots', 'tracker_enable', 'tracker_restore', 'parse_reset', 'slot_lock',
+      'status_log', 'status_limit', 'status_stderr',
+    ];
+    const lines = res.stdout.trim().split('\n')
+      .filter(line => labels.some(label => line.startsWith(`${label} `)));
+    assert.deepEqual(lines, labels.map(label => `${label} propagated`), res.stdout);
+  });
+
+  it('status skips a malformed log line and an unreadable limit detail', () => {
+    const log = join(atomicHome, 'delegate', 'runs.jsonl');
+    mkdirSync(dirname(log), { recursive: true });
+    const nowIso = new Date().toISOString().replace('Z', '+00:00');
+    const good = {
+      kind: 'run', id: 'LIMIT-2', profile: 'flash', role: 'implement', executor: 'codex',
+      started: nowIso, completed: nowIso,
+      failure: 'provider_limit', stderr: join(root, 'missing-stderr.txt'),
+    };
+    writeFileSync(log, [
+      'not json',
+      JSON.stringify({ ...good, id: 'LIMIT-1', completed: 'not-a-date' }),
+      JSON.stringify(good),
+    ].join('\n') + '\n');
+    const res = runDelegate(['status'], baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /codex: provider_limit/);
+    assert.doesNotMatch(res.stdout, /LIMIT-1/);
+  });
+
   it('AS-D10a never signals a process the executor did not start', async () => {
     const decoy = spawn(PYTHON3, ['-c', 'import time; time.sleep(600)'],
       { detached: true, stdio: 'ignore' });

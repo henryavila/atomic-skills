@@ -1359,6 +1359,60 @@ print(progress.repo_identity(sys.argv[2]) or "")
     );
   });
 
+  it('repo_identity stays None outside a repository', () => {
+    const plain = join(root, 'not-a-repo');
+    mkdirSync(plain);
+    const script = `
+import importlib.util, sys
+
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+progress = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(progress)
+print(progress.repo_identity(sys.argv[2]))
+print(progress.repo_identity(sys.argv[2] + "/missing"))
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, plain], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.deepEqual(res.stdout.trim().split('\n'), ['None', 'None']);
+  });
+
+  it('repo_identity absorbs a malformed git path and propagates an unexpected failure', () => {
+    const script = `
+import importlib.util, sys
+
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+progress = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(progress)
+
+progress.git = lambda *args, **kwargs: 'a\\u0000b'
+print(progress.repo_identity(sys.argv[2]))
+
+def injected(*args, **kwargs):
+    raise AttributeError('injected')
+
+progress.git = injected
+try:
+    progress.repo_identity(sys.argv[2])
+except AttributeError:
+    print('propagated')
+else:
+    print('swallowed')
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, project], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.deepEqual(res.stdout.trim().split('\n'), ['None', 'propagated']);
+  });
+
   it('keeps the previous rows and alerts when git log fails', () => {
     writeMap(
       project,
