@@ -431,6 +431,17 @@ export function renderReadme({ catalogData, readme, skillsDir, pkgVersion: _pkgV
 /**
  * Convenience: read catalog and README from a project root, return the
  * rendered README.
+ *
+ * `catalogPath`, `readmePath`, `skillsDir` and `pkgPath` are optional: each
+ * falls back to the conventional location under `projectRoot`.
+ *
+ * @param {{
+ *   projectRoot: string,
+ *   catalogPath?: string,
+ *   readmePath?: string,
+ *   skillsDir?: string,
+ *   pkgPath?: string,
+ * }} options
  */
 export function renderReadmeFromPaths({ projectRoot, catalogPath, readmePath, skillsDir, pkgPath }) {
   const yamlPath = catalogPath || join(projectRoot, 'meta', 'catalog.yaml');
