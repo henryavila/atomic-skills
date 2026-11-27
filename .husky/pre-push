@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+[ "${HUSKY-}" = "0" ] && exit 0
+bash scripts/qa.sh fast

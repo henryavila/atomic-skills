@@ -10,13 +10,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18'
           cache: 'npm'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - run: npm ci
       - run: node -p "process.version"
-      - run: npm test
+      - run: bash scripts/qa.sh setup
+      - run: bash scripts/qa.sh full
+      - name: Debt may only go down
+        if: github.event_name == 'pull_request' && hashFiles('qa/ratchet.py') != ''
+        run: |
+          if git cat-file -e "origin/${{ github.base_ref }}:qa/ratchet.py" 2>/dev/null; then
+            base="$(mktemp -d)" && git archive "origin/${{ github.base_ref }}" qa | tar -x -C "$base"
+            python3 -I qa/ratchet.py diff --base "$base/qa" --branch "${{ github.head_ref }}"
+          fi
       - run: npm run validate-catalog
 
   # Windows must execute the installer contract, not only path.win32 helpers.

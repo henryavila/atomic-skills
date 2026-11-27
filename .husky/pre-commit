@@ -46,3 +46,5 @@ fi
 if echo "$STAGED" | grep -qE "$COUPLED_REGEX"; then
   npm run validate-catalog
 fi
+
+bash scripts/qa.sh changed --staged
