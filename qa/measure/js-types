@@ -157,6 +157,14 @@ function measure(root) {
   if (files.length === 0) return items;
 
   const { tsc, types } = toolPaths();
+  for (const file of files) {
+    try {
+      readFileSync(file);
+    } catch (error) {
+      fail(`cannot read ${relativeKey(root, file)}: ${error.message}`);
+    }
+  }
+
   const temporary = mkdtempSync(join(tmpdir(), 'qa-js-types-'));
   try {
     const config = join(temporary, 'tsconfig.json');
@@ -169,21 +177,30 @@ function measure(root) {
     );
     if (result.error) fail(`cannot run tsc: ${result.error.message}`);
     if (result.signal) fail(`tsc was terminated by ${result.signal}`);
-    // 0 is success, 1 and 2 are diagnostics with outputs skipped or generated.
+    // 0 is success; 1 and 2 are diagnostics with outputs skipped or generated.
     if (result.status !== 0 && result.status !== 1 && result.status !== 2) {
       fail(`tsc exited ${result.status}: ${result.stderr.trim() || result.stdout.trim()}`);
     }
+    if (result.stderr.trim()) {
+      fail(`tsc wrote to stderr: ${result.stderr.trim()}`);
+    }
 
-    const output = `${result.stdout}\n${result.stderr}`;
     const counts = new Map();
+    const located = /^(.*)\(\d+,\d+\): error TS\d+:/;
+    const global = /^(?:.*:\s*)?error TS\d+:/;
     let seen = 0;
-    for (const line of output.split(/\r?\n/)) {
-      const match = line.match(/^(.*)\(\d+,\d+\): error TS\d+:/);
-      if (!match) continue;
-      seen += 1;
-      const key = errorKey(root, match[1]);
-      if (key.startsWith('..') || isAbsolute(key) || !isProductionKey(key)) continue;
-      counts.set(key, (counts.get(key) || 0) + 1);
+    for (const line of result.stdout.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      const match = line.match(located);
+      if (match) {
+        seen += 1;
+        const key = errorKey(root, match[1]);
+        if (key.startsWith('..') || isAbsolute(key) || !isProductionKey(key)) continue;
+        counts.set(key, (counts.get(key) || 0) + 1);
+        continue;
+      }
+      if (global.test(line)) fail(`tsc reported a global error: ${line}`);
+      fail(`tsc printed unexpected output: ${line}`);
     }
     if (seen === 0 && result.status !== 0) {
       fail(`tsc exited ${result.status}: ${result.stderr.trim() || result.stdout.trim()}`);

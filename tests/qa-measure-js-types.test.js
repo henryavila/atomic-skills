@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import {
-  chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync,
+  chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -111,6 +111,77 @@ describe('qa/measure/js-types', () => {
       assert.equal(result.stdout, '');
     } finally {
       chmodSync(locked, 0o755);
+    }
+  });
+
+  it('fails when the compiler writes to stderr after a diagnostic', () => {
+    plant({
+      'package.json': '{"type":"module"}\n',
+      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
+    });
+    const target = join(root, 'src/bad.js');
+    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
+    const app = fakeTypescriptApp([
+      `process.stdout.write(${JSON.stringify(`${diagnostic}\n`)});`,
+      "process.stderr.write('fatal compiler failure\\n');",
+      'process.exit(1);',
+      '',
+    ].join('\n'));
+    try {
+      const result = run([], { measurer: join(app, 'qa/measure/js-types') });
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /fatal compiler failure/);
+      assert.equal(result.stdout, '');
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+
+  it('fails on a global compiler error after a located diagnostic', () => {
+    plant({
+      'package.json': '{"type":"module"}\n',
+      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
+    });
+    const target = join(root, 'src/bad.js');
+    const diagnostic = `${target}(1,1): error TS2322: mocked type error`;
+    const app = fakeTypescriptApp([
+      `process.stdout.write(${JSON.stringify(`${diagnostic}\nerror TS6053: File 'missing.js' not found.\n`)});`,
+      'process.exit(2);',
+      '',
+    ].join('\n'));
+    try {
+      const result = run([], { measurer: join(app, 'qa/measure/js-types') });
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /TS6053/);
+      assert.equal(result.stdout, '');
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+
+  it('fails before running the compiler when a source file cannot be read', () => {
+    plant({
+      'package.json': '{"type":"module"}\n',
+      'src/bad.js': "/** @type {number} */\nexport const bad = 'not a number';\n",
+      'src/locked.js': 'export const locked = 1;\n',
+    });
+    const locked = join(root, 'src/locked.js');
+    chmodSync(locked, 0o000);
+    try {
+      let readable = true;
+      try {
+        readFileSync(locked);
+      } catch {
+        readable = false;
+      }
+      if (!readable) {
+        const result = run();
+        assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+        assert.match(result.stderr, /locked\.js/);
+        assert.equal(result.stdout, '');
+      }
+    } finally {
+      chmodSync(locked, 0o644);
     }
   });
 
