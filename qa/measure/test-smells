@@ -118,8 +118,10 @@ function listedFiles(root, files) {
     if (key.startsWith('..') || isAbsolute(key) || !isTestKey(key)) continue;
     try {
       if (statSync(absolute).isFile()) found.push(absolute);
-    } catch {
-      // The gate drops files that no longer exist; ignore a stale path.
+    } catch (error) {
+      // The gate drops files that no longer exist; other errors are failures.
+      if (error.code === 'ENOENT') continue;
+      fail(`cannot inspect ${key}: ${error.message}`);
     }
   }
   return found;
@@ -345,7 +347,13 @@ function measure(root, files) {
   for (const file of sources) {
     const key = relativeKey(root, file);
     if (!isTestKey(key)) continue;
-    const counts = smells(readFileSync(file, 'utf8'), key, espree);
+    let source;
+    try {
+      source = readFileSync(file, 'utf8');
+    } catch (error) {
+      fail(`cannot read ${key}: ${error.message}`);
+    }
+    const counts = smells(source, key, espree);
     for (const metric of METRICS) {
       const value = counts[metric];
       if (value > ceilings[metric]) items.push([STACK, metric, `${key}::*`, value]);

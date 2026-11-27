@@ -381,7 +381,12 @@ function measure(root, files) {
   const python = pythonKeys.length > 0 ? pythonComments(root, pythonKeys) : {};
   const items = [];
   for (const [key, stack] of known) {
-    const source = readFileSync(join(root, key), 'utf8');
+    let source;
+    try {
+      source = readFileSync(join(root, key), 'utf8');
+    } catch (error) {
+      fail(`cannot read ${key}: ${error.message}`);
+    }
     let comments;
     if (stack === 'js') comments = jsComments(espree, source, key);
     else if (stack === 'py') comments = python[join(root, key)] || [];

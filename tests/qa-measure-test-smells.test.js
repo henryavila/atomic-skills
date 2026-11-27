@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import {
-  chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync,
+  chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -150,6 +150,42 @@ describe('qa/measure/test-smells', () => {
       assert.equal(result.stdout, '');
     } finally {
       chmodSync(locked, 0o755);
+    }
+  });
+
+  it('fails when a listed test file cannot be inspected', () => {
+    plant({ 'tests/locked/hidden.test.js': "test('hidden', () => {});\n" });
+    const locked = join(root, 'tests/locked');
+    chmodSync(locked, 0o000);
+    try {
+      const result = run(['--files', 'tests/locked/hidden.test.js']);
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /test-smells:.*locked/);
+      assert.equal(result.stdout, '');
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  });
+
+  it('fails when a listed test file cannot be read', () => {
+    plant({ 'tests/locked.test.js': "test('hidden', () => {});\n" });
+    const locked = join(root, 'tests/locked.test.js');
+    chmodSync(locked, 0o000);
+    try {
+      let readable = true;
+      try {
+        readFileSync(locked);
+      } catch {
+        readable = false;
+      }
+      if (!readable) {
+        const result = run(['--files', 'tests/locked.test.js']);
+        assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+        assert.match(result.stderr, /test-smells:.*cannot read.*locked/);
+        assert.equal(result.stdout, '');
+      }
+    } finally {
+      chmodSync(locked, 0o644);
     }
   });
 
