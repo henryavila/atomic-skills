@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync,
   writeFileSync,
@@ -445,7 +446,7 @@ ${body}
       const pidFile = join(fakeDir, 'slow.pid');
       const deadline = Date.now() + 5000;
       while (!existsSync(pidFile) && Date.now() < deadline) {
-        await new Promise((done) => setTimeout(done, 20));
+        await pause(20);
       }
       assert.ok(existsSync(pidFile), 'the slow measurer did not start');
       measurerPid = Number(readFileSync(pidFile, 'utf8').trim());

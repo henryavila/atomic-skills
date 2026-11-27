@@ -4,6 +4,7 @@
  */
 import { describe, it, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync,
 } from 'node:fs';
@@ -90,9 +91,19 @@ try {
     const failures = results.filter((r) => r.status === 'rejected');
     assert.equal(failures.length, 0, failures.map((f) => f.reason?.message || f.reason).join('\n'));
 
-    // Re-read after a brief settle (last fsync/write visibility).
-    await new Promise((r) => setTimeout(r, 20));
-    const list = JSON.parse(readFileSync(registry, 'utf8'));
+    // Read once every writer's last fsync is visible (all children exited).
+    const deadline = Date.now() + 2000;
+    let list = [];
+    while (Date.now() < deadline) {
+      try {
+        list = JSON.parse(readFileSync(registry, 'utf8'));
+      } catch {
+        // The registry may not be readable in the instant it is replaced.
+        list = [];
+      }
+      if (list.length >= 30) break;
+      await pause(10);
+    }
     const set = new Set(list);
     assert.equal(set.size, 30, `expected 30 unique entries, got ${set.size}: ${JSON.stringify([...set].sort())}`);
     assert.equal(list.length, 30, `expected 30 entries, got ${list.length}: ${JSON.stringify(list)}`);

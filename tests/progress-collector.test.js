@@ -1,6 +1,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawn, spawnSync, execFileSync } from 'node:child_process';
+import { once } from 'node:events';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   existsSync,
   mkdirSync,
@@ -90,7 +92,7 @@ async function waitFor(check, timeout = 15000, step = 50) {
     } catch (error) {
       last = error;
     }
-    await new Promise((resolve) => setTimeout(resolve, step));
+    await pause(step);
   }
   throw new Error(`condition not met within ${timeout}ms${last ? `: ${last.message}` : ''}`);
 }
@@ -2109,14 +2111,16 @@ exec ${JSON.stringify(realUploadPack)} "$@"
     try {
       await waitFor(() => existsSync(marker), 15000);
       const started = Date.now();
+      const exited = once(child, 'exit', { signal: AbortSignal.timeout(3000) });
       child.kill('SIGINT');
-      const code = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('watch did not exit after SIGINT')), 3000);
-        child.once('exit', (exitCode, signal) => {
-          clearTimeout(timer);
-          resolve(exitCode ?? signal);
-        });
-      });
+      let code;
+      try {
+        const [exitCode, exitSignal] = await exited;
+        code = exitCode ?? exitSignal;
+      } catch (error) {
+        if (error.name === 'AbortError') throw new Error('watch did not exit after SIGINT');
+        throw error;
+      }
       const elapsed = Date.now() - started;
       assert.equal(code, 0);
       assert.ok(elapsed < 2000, `watch took ${elapsed}ms to stop during a fetch`);
@@ -2147,7 +2151,7 @@ exec ${JSON.stringify(realUploadPack)} "$@"
     try {
       const deadline = Date.now() + 15000;
       while (Date.now() < deadline && !existsSync(join(outDir, 'projetos.json'))) {
-        await new Promise((r) => setTimeout(r, 50));
+        await pause(50);
       }
       assert.ok(existsSync(join(outDir, 'projetos.json')), 'watch did not collect');
       child.kill('SIGTERM');
