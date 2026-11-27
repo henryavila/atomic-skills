@@ -472,6 +472,13 @@ ${body}
     assert.match(result.stdout, /^js\tcomplexity\tsrc\/x\.js::f\t20$/m);
   });
 
+  it('measure prints a final row without a trailing newline', () => {
+    writeMeasurer('fake', { body: "printf 'js\\tcomplexity\\tsrc/x.js::f\\t20'" });
+    const result = run(['measure']);
+    assert.equal(result.status, 0, both(result));
+    assert.match(result.stdout, /^js\tcomplexity\tsrc\/x\.js::f\t20$/m);
+  });
+
   it('measure filters by metric', () => {
     writeMeasurer('one', { covers: [['js', 'complexity']], body: measureLine('js', 'complexity', 'src/a.js::f', 20) });
     writeMeasurer('two', { covers: [['js', 'file-lines']], body: measureLine('js', 'file-lines', 'src/b.js::*', 900) });

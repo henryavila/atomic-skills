@@ -533,7 +533,7 @@ do_measure() {
     done
   fi
 
-  while IFS=$'\t' read -r stack metric key value; do
+  while IFS=$'\t' read -r stack metric key value || [ -n "${stack:-}" ]; do
     [ -n "${value:-}" ] || continue
     metric_selected "$metric" || continue
     stack_selected "$stack" || continue
