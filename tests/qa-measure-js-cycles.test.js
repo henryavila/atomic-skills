@@ -73,4 +73,42 @@ describe('qa/measure/js-cycles', () => {
     });
     expectLines(run(), ['js\timport-cycles\tsrc/a.js::cycle>src/z.js\t1']);
   });
+
+  it('ignores hostile madge configuration in the measured tree', () => {
+    plant({
+      'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
+      'src/b.js': "import { a } from './a.js';\nexport const b = a;\n",
+      '.madgerc': JSON.stringify({ excludeRegExp: ['.*'] }),
+      'package.json': JSON.stringify({ madge: { excludeRegExp: ['.*'] } }),
+    });
+    expectLines(run(), ['js\timport-cycles\tsrc/a.js::cycle>src/b.js\t1']);
+  });
+
+  it('fails when a measured source does not parse', () => {
+    plant({
+      'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
+      'src/b.js': "import { a } from './a.js';\nexport const b = a;\n",
+      'src/broken.js': 'export const broken = ;\n',
+    });
+    const result = run();
+    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /src\/broken\.js/);
+    assert.equal(result.stdout, '');
+  });
+
+  it('measures a self-import as a cycle', () => {
+    plant({
+      'src/self.js': "import './self.js';\nexport const value = 1;\n",
+    });
+    expectLines(run(), ['js\timport-cycles\tsrc/self.js::cycle>\t1']);
+  });
+
+  it('resolves cycles against the measured base directory', () => {
+    plant({
+      'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
+      'src/b.js': "import { a } from './a.js';\nexport const b = a;\n",
+      'a.js': 'export const unrelated = 1;\n',
+    });
+    expectLines(run(), ['js\timport-cycles\tsrc/a.js::cycle>src/b.js\t1']);
+  });
 });

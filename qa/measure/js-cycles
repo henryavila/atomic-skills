@@ -16,8 +16,12 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import {
+  existsSync, mkdtempSync, readFileSync, readdirSync, rmSync,
+} from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
+import { parseJavaScript } from './lib/js-source.mjs';
 
 const STACK = 'js';
 const METRIC = 'import-cycles';
@@ -87,22 +91,62 @@ function loadMadge() {
   }
 }
 
-function resolveCycleFile(root, file, roots) {
-  const direct = resolve(root, file);
-  if (existsSync(direct)) return direct;
-  for (const name of roots) {
-    const candidate = resolve(root, name, file);
-    if (existsSync(candidate)) return candidate;
+function loadEspree() {
+  try {
+    const require = createRequire(import.meta.url);
+    return require('espree');
+  } catch (error) {
+    return toolMissing(`espree is not installed: ${error.message}`);
   }
-  return direct;
 }
 
-function cycleKey(root, cycle, roots) {
+function sourceFiles(directory, found) {
+  let entries;
+  try {
+    entries = readdirSync(directory, { withFileTypes: true });
+  } catch (error) {
+    fail(`cannot read ${directory}: ${error.message}`);
+  }
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === '.git') continue;
+      sourceFiles(path, found);
+    } else if (entry.isFile() && EXTENSIONS.some((extension) => entry.name.endsWith(extension))) {
+      found.push(path);
+    }
+  }
+}
+
+function validateSources(root, roots, espree) {
+  const files = [];
+  for (const name of roots) sourceFiles(join(root, name), files);
+  for (const file of files) {
+    const key = relativeKey(root, file);
+    let source;
+    try {
+      source = readFileSync(file, 'utf8');
+    } catch (error) {
+      fail(`cannot read ${key}: ${error.message}`);
+    }
+    try {
+      parseJavaScript(espree, source);
+    } catch (error) {
+      fail(`${key}: cannot parse: ${error.message}`);
+    }
+  }
+}
+
+function resolveCycleFile(root, file) {
+  return isAbsolute(file) ? file : resolve(root, file);
+}
+
+function cycleKey(root, cycle) {
   const files = [...new Set(cycle)]
-    .map((file) => relativeKey(root, resolveCycleFile(root, file, roots)))
+    .map((file) => relativeKey(root, resolveCycleFile(root, file)))
     .filter(isProductionKey)
     .sort();
-  if (files.length < 2) return null;
+  if (files.length < 1) return null;
   return `${files[0]}::cycle>${files.slice(1).join(',')}`;
 }
 
@@ -110,36 +154,57 @@ function measure(root) {
   const ceiling = readCeiling(root);
   const roots = ROOTS.filter((name) => existsSync(join(root, name)));
   if (roots.length === 0) return [];
+
+  const espree = loadEspree();
+  validateSources(root, roots, espree);
+
   const madge = loadMadge();
-  const result = spawnSync(
-    process.execPath,
-    [madge, '--circular', '--json', '--extensions', 'js,mjs', '--no-spinner', ...roots],
-    { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-  );
-  if (result.error) fail(`cannot run madge: ${result.error.message}`);
-  if (result.status !== 0 && result.status !== 1) {
-    fail(`madge exited ${result.status}: ${result.stderr.trim()}`);
-  }
-
-  let cycles;
-  try {
-    cycles = JSON.parse(result.stdout);
-  } catch {
-    fail(`madge did not print a JSON cycle list: ${result.stderr.trim() || result.stdout.trim()}`);
-  }
-  if (!Array.isArray(cycles)) fail('madge did not print an array of cycles');
-
+  const work = mkdtempSync(join(tmpdir(), 'qa-js-cycles-'));
   const items = [];
-  const seen = new Set();
-  for (const cycle of cycles) {
-    if (!Array.isArray(cycle)) fail('madge printed a cycle that is not an array');
-    const key = cycleKey(root, cycle, roots);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    const value = 1;
-    if (value > ceiling) items.push([STACK, METRIC, key, value]);
+  try {
+    // Run madge outside the measured tree so `.madgerc` and
+    // `package.json#madge` cannot exclude files. The explicit base directory
+    // is what madge's JSON paths are relative to.
+    const result = spawnSync(
+      process.execPath,
+      [
+        madge,
+        '--circular',
+        '--json',
+        '--extensions', 'js,mjs',
+        '--no-spinner',
+        '--basedir', root,
+        ...roots.map((name) => join(root, name)),
+      ],
+      { cwd: work, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    );
+    if (result.error) fail(`cannot run madge: ${result.error.message}`);
+    if (result.signal) fail(`madge was terminated by ${result.signal}`);
+    if (result.status !== 0 && result.status !== 1) {
+      fail(`madge exited ${result.status}: ${result.stderr.trim()}`);
+    }
+
+    let cycles;
+    try {
+      cycles = JSON.parse(result.stdout);
+    } catch {
+      fail(`madge did not print a JSON cycle list: ${result.stderr.trim() || result.stdout.trim()}`);
+    }
+    if (!Array.isArray(cycles)) fail('madge did not print an array of cycles');
+
+    const seen = new Set();
+    for (const cycle of cycles) {
+      if (!Array.isArray(cycle)) fail('madge printed a cycle that is not an array');
+      const key = cycleKey(root, cycle);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const value = 1;
+      if (value > ceiling) items.push([STACK, METRIC, key, value]);
+    }
+    return items;
+  } finally {
+    rmSync(work, { recursive: true, force: true });
   }
-  return items;
 }
 
 function print(items) {
