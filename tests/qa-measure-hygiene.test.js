@@ -203,6 +203,23 @@ describe('qa/measure/hygiene', () => {
     });
   }
 
+  it('parses CommonJS with a top-level return before reading comments', () => {
+    plant({
+      'src/commonjs.js': `// ${sups.eslint}-next-line\nreturn 1;\n`,
+    });
+    expectLines(run(), ['js\tsuppressions\tsrc/commonjs.js::*\t1']);
+  });
+
+  it('fails when JavaScript comments cannot be parsed', () => {
+    plant({
+      'src/broken.js': `// ${sups.eslint}-next-line\nconst broken = ;\n`,
+    });
+    const result = run();
+    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /src\/broken\.js/);
+    assert.equal(result.stdout, '');
+  });
+
   it('keeps shell quoting state across lines', () => {
     plant({
       '.husky/multiline': [
