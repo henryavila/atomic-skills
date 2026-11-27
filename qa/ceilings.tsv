@@ -1,0 +1,16 @@
+metric	ceiling	applies_to
+import-cycles	0	javascript
+complexity	15	javascript,python
+function-lines	80	javascript,python
+file-lines	800	javascript,python,shell
+params	5	javascript,python
+type-errors	0	javascript,python
+silent-errors	0	javascript,python
+duplication	0	javascript,python
+uncovered-pct	20	javascript,python
+fixed-sleeps	0	javascript
+unowned-skips	0	javascript
+suppressions	0	javascript,python,shell
+vulnerable-deps	0	javascript
+secrets	0	javascript,python,shell
+static-security	0	python,shell

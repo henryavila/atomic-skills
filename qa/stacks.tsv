@@ -1,0 +1,4 @@
+stack	language	roots	generated	tests	group
+js	javascript	src,scripts,bin,tests,test	test/app-map/fixtures	tests,test	-
+py	python	skills/shared	-	tests	-
+sh	shell	.husky,skills/shared/auto-update-hook,tests/hooks	-	tests/hooks	-

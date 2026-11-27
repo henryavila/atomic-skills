@@ -1,0 +1,17 @@
+dimension	metric
+modularity	import-cycles
+size	complexity
+size	function-lines
+size	file-lines
+size	params
+layers	
+typing	type-errors
+errors	silent-errors
+duplication	duplication
+testability	uncovered-pct
+test-quality	fixed-sleeps
+test-quality	unowned-skips
+test-quality	suppressions
+security	vulnerable-deps
+security	secrets
+security	static-security
