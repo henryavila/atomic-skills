@@ -28,9 +28,18 @@ const sups = {
   shellcheckSpaced: 'shell' + 'check  disable=SC2086',
   shellcheckTabbed: 'shell' + 'check\tdisable=SC2086',
   shellcheckSourceAndDisable: 'shell' + 'check source=lib.sh disable=SC2086',
+  shellcheckSourceExactAndDisable: 'shell' + 'check source=x disable=SC2086',
   shellcheckSourceAndDisableAndNoqa: 'shell' + 'check source=lib.sh disable=SC2086 # ' + 'no' + 'qa',
   shellcheckDisableAndNoqa: 'shell' + 'check disable=SC2086 # ' + 'no' + 'qa',
   shellcheckDisableAndEslint: 'shell' + 'check disable=SC2086 # ' + 'eslint' + '-disable-next-line',
+  shellcheckEnableThenSpacedDisable: 'shell' + 'check ' + 'enable=all # '
+    + 'shell' + 'check  disable=SC2086',
+  shellcheckEnableThenTabbedDisable: 'shell' + 'check ' + 'enable=all # '
+    + 'shell' + 'check\tdisable=SC2086',
+  shellcheckDisableTwice: 'shell' + 'check disable=SC1090 # '
+    + 'shell' + 'check disable=SC2086',
+  shellcheckRepeatedDisable: 'shell' + 'check disable=SC2086 disable=SC1090',
+  shellcheckAfterHashInString: 'echo "a' + '#' + 'b" ' + '#' + ' shell' + 'check disable=SC2086',
   shellcheckEnableAll: 'shell' + 'check ' + 'enable=all',
   shellcheckEnableCheck: 'shell' + 'check ' + 'enable=check-unassigned-uppercase',
   tsNoCheck: '@ts-' + 'nocheck',
@@ -258,6 +267,25 @@ describe('qa/measure/hygiene', () => {
       'sh\tsuppressions\t.husky/disable-and-eslint::*\t2',
       'sh\tsuppressions\t.husky/disable-and-noqa::*\t2',
       'sh\tsuppressions\t.husky/source-disable-and-noqa::*\t2',
+    ]);
+  });
+
+  it('counts every shellcheck marker on a shell line, not only the first', () => {
+    plant({
+      '.husky/enable-then-spaced-disable': `# ${sups.shellcheckEnableThenSpacedDisable}\n`,
+      '.husky/enable-then-tabbed-disable': `# ${sups.shellcheckEnableThenTabbedDisable}\n`,
+      '.husky/disable-twice': `# ${sups.shellcheckDisableTwice}\n`,
+      '.husky/repeated-disable-token': `# ${sups.shellcheckRepeatedDisable}\n`,
+      '.husky/source-exact-and-disable': `# ${sups.shellcheckSourceExactAndDisable}\n`,
+      '.husky/hash-in-string': `${sups.shellcheckAfterHashInString}\n`,
+    });
+    expectLines(run(), [
+      'sh\tsuppressions\t.husky/disable-twice::*\t2',
+      'sh\tsuppressions\t.husky/enable-then-spaced-disable::*\t1',
+      'sh\tsuppressions\t.husky/enable-then-tabbed-disable::*\t1',
+      'sh\tsuppressions\t.husky/hash-in-string::*\t1',
+      'sh\tsuppressions\t.husky/repeated-disable-token::*\t1',
+      'sh\tsuppressions\t.husky/source-exact-and-disable::*\t1',
     ]);
   });
 
