@@ -195,6 +195,38 @@ ${body}
     assert.equal(existsSync(join(fakeDir, 'no.ran')), false);
   });
 
+  it('changed --staged skips a measurer when no changed file is under its roots', () => {
+    writeMeasurer('yes', {
+      changed: 'yes',
+      body: ': > "$QA_FAKE_DIR/yes.ran"',
+    });
+    writeFile('docs/readme.md', 'not production code\n');
+    git(['add', 'docs/readme.md']);
+
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 0, both(result));
+    assert.match(both(result), /no fast changed-aware measurer/);
+    assert.equal(existsSync(join(fakeDir, 'yes.ran')), false);
+  });
+
+  it('changed --base compares against the merge-base of HEAD and the ref', () => {
+    writeMeasurer('yes', {
+      changed: 'yes',
+      body: 'printf \'%s\\n\' "$@" > "$QA_FAKE_DIR/yes.args"',
+    });
+    writeFile('src/base.js', 'export const base = 1;\n');
+    git(['add', 'src/base.js']);
+    git(['commit', '-qm', 'add base']);
+    writeFile('src/base.js', 'export const base = 2;\n');
+    git(['add', 'src/base.js']);
+    git(['commit', '-qm', 'change base']);
+
+    const result = run(['changed', '--base', 'HEAD~1']);
+    assert.equal(result.status, 0, both(result));
+    const args = readFileSync(join(fakeDir, 'yes.args'), 'utf8').trim().split('\n');
+    assert.deepEqual(args, ['--files', 'src/base.js']);
+  });
+
   it('changed --staged passes with a message when nothing is staged', () => {
     writeMeasurer('yes', {
       changed: 'yes',
@@ -227,6 +259,24 @@ ${body}
     const result = run(['full']);
     assert.equal(result.status, 0, both(result));
     assert.equal(existsSync(join(fakeDir, 'npm.ran')), true);
+  });
+
+  it('runs full-mode measurers in full but not in fast', () => {
+    const npm = join(binDir, 'npm');
+    writeFileSync(npm, '#!/bin/sh\nexit 0\n');
+    chmodSync(npm, 0o755);
+    writeMeasurer('full', {
+      mode: 'full',
+      body: ': > "$QA_FAKE_DIR/full.ran"',
+    });
+
+    const fast = run(['fast']);
+    assert.equal(fast.status, 0, both(fast));
+    assert.equal(existsSync(join(fakeDir, 'full.ran')), false);
+
+    const full = run(['full']);
+    assert.equal(full.status, 0, both(full));
+    assert.equal(existsSync(join(fakeDir, 'full.ran')), true);
   });
 
   it('strong exits 1 when status is not strong', () => {
