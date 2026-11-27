@@ -106,7 +106,7 @@ function existingDirectories(root, names) {
 }
 
 const EXTENSIONS = {
-  javascript: ['.js', '.mjs', '.cjs', '.jsx', '.es', '.es6'],
+  javascript: ['.js', '.mjs', '.cjs', '.es', '.es6'],
   python: ['.py', '.pyx', '.pxd', '.pxi'],
 };
 
@@ -170,6 +170,10 @@ function reportSources(report, format) {
   }
   const stats = formats[format];
   if (!stats || typeof stats !== 'object') {
+    // Files with no tokens produce a report with no format entry. When jscpd
+    // saw no sources at all, that is a complete measurement of nothing.
+    const total = report.statistics.total;
+    if (total && typeof total === 'object' && total.sources === 0) return {};
     fail(`the jscpd report has no statistics for ${format}`);
   }
   const sources = stats.sources;

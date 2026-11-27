@@ -126,6 +126,19 @@ describe('qa/measure/duplication', () => {
     ]);
   });
 
+  it('ignores a jsx file that jscpd does not measure as javascript', () => {
+    plant({ 'src/only.jsx': cloneBody() });
+    expectLines(run(), []);
+  });
+
+  it('measures a tree of blank source files as empty', () => {
+    plant({
+      'src/blank.js': '\n'.repeat(9),
+      'skills/shared/blank.py': '\n'.repeat(9),
+    });
+    expectLines(run(), []);
+  });
+
   it('measures files larger than the default line limit', () => {
     plant({
       'src/a.js': largeCloneBody('a', 1001, 40),
