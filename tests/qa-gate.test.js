@@ -307,6 +307,31 @@ ${body}
     assert.equal(existsSync(join(fakeDir, 'no.ran')), false);
   });
 
+  it('changed --staged hides can lower when the measures cover only staged files', () => {
+    debt('js', 'complexity', 'src/known.js::f\t10\nsrc/staged.js::g\t20\n');
+    writeMeasurer('fake', {
+      changed: 'yes',
+      body: measureLine('js', 'complexity', 'src/staged.js::g', 20),
+    });
+    writeFile('src/staged.js', 'export const staged = 1;\n');
+    git(['add', 'src/staged.js']);
+
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 0, both(result));
+    assert.doesNotMatch(both(result), /can lower/);
+  });
+
+  it('fast still prints can lower when an item is paid', () => {
+    debt('js', 'complexity', 'src/known.js::f\t10\nsrc/staged.js::g\t20\n');
+    writeMeasurer('fake', {
+      body: measureLine('js', 'complexity', 'src/staged.js::g', 20),
+    });
+
+    const result = run(['fast']);
+    assert.equal(result.status, 0, both(result));
+    assert.match(both(result), /can lower/);
+  });
+
   it('changed --staged skips a measurer when no changed file is under its roots', () => {
     writeMeasurer('yes', {
       changed: 'yes',
