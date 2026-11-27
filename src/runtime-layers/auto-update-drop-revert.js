@@ -310,11 +310,10 @@ export function revertDroppedAutoUpdateEffects(projectDir, config, opts = {}) {
       });
 
       if (opts.injectFailAfterN != null && successCount >= opts.injectFailAfterN) {
-        const err = new Error(
-          `auto-update drop-revert injectFailAfterN=${opts.injectFailAfterN}`,
+        throw Object.assign(
+          new Error(`auto-update drop-revert injectFailAfterN=${opts.injectFailAfterN}`),
+          { code: 'AUTO_UPDATE_DROP_INJECTED_FAIL' },
         );
-        err.code = 'AUTO_UPDATE_DROP_INJECTED_FAIL';
-        throw err;
       }
     }
 
