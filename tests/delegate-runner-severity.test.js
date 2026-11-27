@@ -296,14 +296,54 @@ describe('delegate severity rubric', { skip: !hasPython3 ? 'python3 not on PATH'
       assert.deepEqual(review.findings.map((f) => f.severity), ['unclassified', 'unclassified', 'major']);
     });
 
-    it('takes dup only as the id of another finding of the same review', () => {
+    it('merges a dup only into an existing finding that is not merged itself', () => {
+      const review = parseReview([
+        line('F01'),
+        line('F02', { dup: 'F01', kind: 'doc-loose', reach: '-' }),
+        line('F03', { dup: 'F02', kind: 'style', reach: '-' }),
+        line('F04', { dup: 'F05', kind: 'test-gap', reach: '-' }),
+        line('F05', { origin: 'base' }),
+        'FINDINGS 5',
+      ].join('\n'));
+      // F03 points to F02, which is merged: F03 is classified by its other answers.
+      // F05 is pre-existing, not merged, so F04 merges into it.
+      assert.deepEqual(review.findings.map((f) => f.severity), ['major', 'merged', 'minor', 'merged', 'pre-existing']);
+      assert.match(review.findings[2].dup_not_merged, /merged/);
+      assert.equal(review.findings[1].dup_not_merged, undefined);
+      assert.deepEqual(review.counts, { ...ZERO, major: 1, minor: 1, merged: 2, pre_existing: 1 });
+    });
+
+    it('merges nothing for a dup that names itself, names no finding, or goes round in a circle', () => {
       const review = parseReview([
         line('F01', { dup: 'F01' }),
-        line('F02', { dup: 'F09' }),
-        line('F03', { dup: 'F02' }),
-        'FINDINGS 3',
+        line('F02', { dup: 'F09', kind: 'style', reach: '-' }),
+        line('F03', { dup: 'F04' }),
+        line('F04', { dup: 'F03', kind: 'test-gap', reach: '-' }),
+        line('F05', { dup: 'F06', kind: 'data', reach: 'none' }),
+        line('F06', { dup: 'F07', kind: 'doc-loose', reach: '-' }),
+        line('F07', { dup: 'F05', kind: 'test-void', reach: '-' }),
+        line('F08', { dup: 'F03', kind: 'upkeep', reach: '-' }),
+        'FINDINGS 8',
       ].join('\n'));
-      assert.deepEqual(review.findings.map((f) => f.severity), ['unclassified', 'unclassified', 'merged']);
+      // Each is classified by its other answers; F08 points to F03, which exists
+      // and is not merged, so F08 is merged.
+      assert.deepEqual(review.findings.map((f) => f.severity),
+        ['major', 'minor', 'major', 'medium', 'medium', 'minor', 'major', 'merged']);
+      assert.deepEqual(review.findings.map((f) => f.answers.dup),
+        ['F01', 'F09', 'F04', 'F03', 'F06', 'F07', 'F05', 'F03'], 'the answers are recorded as given');
+      assert.match(review.findings[0].dup_not_merged, /itself/);
+      assert.match(review.findings[1].dup_not_merged, /no such finding/);
+      for (const i of [2, 3, 4, 5, 6]) assert.match(review.findings[i].dup_not_merged, /circular/);
+      assert.equal(review.findings[7].dup_not_merged, undefined);
+      assert.ok(review.summary_lines[1].startsWith('minor | F02 | src/a.js:12 | dup=F09 (not merged: no such finding) kind=style'),
+        review.summary_lines[1]);
+      assert.deepEqual(review.counts, { ...ZERO, major: 3, medium: 2, minor: 2, merged: 1 });
+    });
+
+    it('makes a dup that is neither none nor a finding id unclassified', () => {
+      const review = parseReview(`${line('F01', { dup: 'maybe' })}\nFINDINGS 1\n`);
+      assert.equal(review.findings[0].severity, 'unclassified');
+      assert.match(review.findings[0].problems.join(' '), /dup=maybe/);
     });
 
     it('reads an empty card quote as none, and a quote with a pipe as one quote', () => {

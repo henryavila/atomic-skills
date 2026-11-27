@@ -68,6 +68,7 @@ TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=(\d+) medium=(\d+) minor=(\d+)[ \t`
 # The last line of a review in the format of severity-rubric.md.
 FINDINGS_RE = re.compile(r"^[ \t`*]*FINDINGS (\d+)[ \t`*]*$")
 FINDING_LINE_RE = re.compile(r"^\W*([FR]\d+)\s*\|(.*)$")
+FINDING_ID_RE = re.compile(r"[FR]\d+")
 
 # severity-rubric.md, the file every review prompt ends with, as data. The
 # reviewer never writes a severity: it answers six questions per finding and
@@ -3913,11 +3914,11 @@ def compute_severity(answers, table=None):
     return None
 
 
-def answer_problems(fid, answers, ids):
-    """Why the answers of finding `fid` cannot be classified: a missing answer,
-    a word outside the rubric's list (compared exactly, never guessed), a dup
-    that is not the id of another finding in `ids`, or a reach that does not
-    fit the kind."""
+def answer_problems(answers):
+    """Why a finding's answers cannot be classified: a missing answer, a word
+    outside the rubric's list (compared exactly, never guessed), a dup that is
+    neither "none" nor a finding id, or a reach that does not fit the kind.
+    Whether a dup merges is decided over the whole answer (classify_findings)."""
     words = SEVERITY_RUBRIC["answers"]
     problems = []
     for key, allowed in words.items():
@@ -3926,7 +3927,7 @@ def answer_problems(fid, answers, ids):
             continue
         value = answers[key]
         if key == "dup":
-            ok = value == "none" or (value != fid and value in ids)
+            ok = value == "none" or bool(FINDING_ID_RE.fullmatch(value))
         elif key == "card":
             ok = value == "none" or (value.lower() != "none" and any(ch.isalnum() for ch in value))
         else:
@@ -3951,19 +3952,24 @@ def card_answer(value):
     return "none" if value in ("", "none") else value
 
 
-def answers_summary(answers):
+def answers_summary(answers, dup_not_merged=None):
     """The answers of a finding in the summary: the ones that are not the
     default, then kind, reach and proof."""
     bits = []
     for key, default in (("origin", "diff"), ("dup", "none"), ("card", "none")):
         if key in answers and answers[key] != default:
-            bits.append(f'card="{answers[key]}"' if key == "card" else f"{key}={answers[key]}")
+            if key == "card":
+                bits.append(f'card="{answers[key]}"')
+            elif key == "dup" and dup_not_merged:
+                bits.append(f"dup={answers[key]} (not merged: {dup_not_merged})")
+            else:
+                bits.append(f"{key}={answers[key]}")
     bits += [f"{key}={answers[key]}" for key in ("kind", "reach", "proof") if key in answers]
     return " ".join(bits)
 
 
-def computed_finding(fid, parts, ids):
-    """(record, summary line) of a finding line in the rubric's format:
+def read_answers(parts):
+    """(file:line, answers, what is wrong) of a finding line in the rubric's format:
     `F01 | file:line | origin=… | dup=… | card=… | kind=… | reach=… | proof=… | what | proof`."""
     i, location = 0, ""
     if parts and not ANSWER_RE.match(parts[0]):
@@ -3984,18 +3990,73 @@ def computed_finding(fid, parts, ids):
                 i += 1
             value = card_answer(value)
         answers[key] = value
-    what = parts[i] if i < len(parts) else ""
-    problems = answer_problems(fid, answers, ids)
-    severity = None if problems else compute_severity(answers)
-    if severity is None and not problems:
-        problems = ["no row of the table matches these answers"]
-    finding = {"id": fid, "location": location, "answers": answers,
-               "severity": severity or "unclassified"}
-    fields = [finding["severity"], fid, location, answers_summary(answers)]
-    if problems:
-        finding["problems"] = problems
-        fields.append("; ".join(problems))
-    return finding, " | ".join(fields + [what])
+    return location, answers, parts[i] if i < len(parts) else ""
+
+
+def classify_findings(findings):
+    """Set "severity" (and "problems", "dup_not_merged") on each finding of a
+    rubric-format answer, each a dict with "id" and "answers".
+
+    A dup merges a finding only into another finding of the same answer that
+    is not merged itself. A dup that names the finding itself, names no
+    finding of the answer, goes round in a circle (F01 -> F02 -> F01) or
+    points to a merged finding merges nothing: that finding is classified by
+    its other answers, and its answers are kept as given."""
+    first = {}
+    for i, finding in enumerate(findings):
+        first.setdefault(finding["id"], i)
+
+    def target(i):
+        dup = findings[i]["answers"].get("dup", "none")
+        return dup if dup != "none" and FINDING_ID_RE.fullmatch(dup) else None
+
+    def circular(i):
+        seen, dup = set(), target(i)
+        while dup in first and dup not in seen:
+            if dup == findings[i]["id"]:
+                return True
+            seen.add(dup)
+            dup = target(first[dup])
+        return False
+
+    def classify(i):
+        finding = findings[i]
+        if "severity" in finding:
+            return finding["severity"]
+        finding["severity"] = "unclassified"  # never merged into while it is being decided
+        answers, problems, dup = finding["answers"], answer_problems(finding["answers"]), target(i)
+        if not problems and dup is not None:
+            reason = None
+            if dup == finding["id"]:
+                reason = "names itself"
+            elif dup not in first:
+                reason = "no such finding"
+            elif circular(i):
+                reason = "circular"
+            elif classify(first[dup]) == "merged":
+                reason = f"{dup} is merged itself"
+            if reason:
+                answers = dict(answers, dup="none")
+                finding["dup_not_merged"] = reason
+        severity = None if problems else compute_severity(answers)
+        if severity is None and not problems:
+            problems = ["no row of the table matches these answers"]
+        if problems:
+            finding["problems"] = problems
+        finding["severity"] = severity or "unclassified"
+        return finding["severity"]
+
+    for i in range(len(findings)):
+        classify(i)
+
+
+def computed_summary(finding, what):
+    """The summary line of a classified finding: its severity first."""
+    fields = [finding["severity"], finding["id"], finding["location"],
+              answers_summary(finding["answers"], finding.get("dup_not_merged"))]
+    if finding.get("problems"):
+        fields.append("; ".join(finding["problems"]))
+    return " | ".join(fields + [what])
 
 
 def reviewer_finding(fid, parts, line):
@@ -4033,18 +4094,25 @@ def parse_review(text):
     marks = [int(m.group(1)) for m in map(FINDINGS_RE.match, lines) if m]
     totals = [dict(zip(COUNTED, map(int, m.groups()))) for m in map(TOTAL_RE.match, lines) if m]
     computed = bool(marks) or any(ANSWER_RE.match(part) for _, parts, _ in rows for part in parts)
-    ids = [fid for fid, _, _ in rows]
-    counts = dict.fromkeys(("major", "medium", "minor", "pre_existing", "merged", "unclassified"), 0)
     findings, summary = [], []
-    for fid, parts, line in rows:
-        finding, summary_line = (computed_finding(fid, parts, ids) if computed
-                                 else reviewer_finding(fid, parts, line))
-        severity = finding["severity"]
-        counts[severity.replace("-", "_")] += 1
-        if severity == "unclassified":
+    if computed:
+        texts = []
+        for fid, parts, _ in rows:
+            location, answers, what = read_answers(parts)
+            findings.append({"id": fid, "location": location, "answers": answers})
+            texts.append(what)
+        classify_findings(findings)
+        summary = [computed_summary(finding, what) for finding, what in zip(findings, texts)]
+    else:
+        for fid, parts, line in rows:
+            finding, summary_line = reviewer_finding(fid, parts, line)
+            findings.append(finding)
+            summary.append(summary_line)
+    counts = dict.fromkeys(("major", "medium", "minor", "pre_existing", "merged", "unclassified"), 0)
+    for finding in findings:
+        counts[finding["severity"].replace("-", "_")] += 1
+        if finding["severity"] == "unclassified":
             counts["medium"] += 1
-        findings.append(finding)
-        summary.append(summary_line)
     if marks:
         claimed = marks[-1]
         mismatch = claimed != len(findings)

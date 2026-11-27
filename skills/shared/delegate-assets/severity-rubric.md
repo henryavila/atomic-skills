@@ -26,6 +26,11 @@ Give the id of another finding when this one has the same root cause: fixing
 that one fixes this one. A documentation line that only describes the wrong
 behaviour another finding already reports is a `dup` of it. Otherwise `none`.
 
+A `dup` merges this finding only into a finding of the same answer that is not
+merged itself. A `dup` that names this finding, names an id that is not in the
+answer, or goes round in a circle (`F01` → `F02` → `F01`) merges nothing: each
+of those findings is classified by its other answers.
+
 ### 3. `card` — `none` or a quote
 
 Quote, in at most 15 words copied from the task card the author received, the
