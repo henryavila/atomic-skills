@@ -135,9 +135,9 @@ const PRIMARY_IDE_IDS = [
 /**
  * Calls p.intro() once with version info.
  * @param {object} config  - parsed config (not used directly, kept for extension)
- * @param {object} opts
- * @param {boolean} opts.isUpdate
- * @param {string}  opts.pkgVersion
+ * @param {object} [opts]
+ * @param {boolean} [opts.isUpdate]
+ * @param {string}  [opts.pkgVersion]
  */
 export function showIntro(config, { isUpdate, pkgVersion } = {}) {
   let label;
@@ -284,9 +284,9 @@ export function showNonInteractiveResult(result, ides, lang) {
 /**
  * Main action select: Install/Update, customize lang/ides, view conflicts, quit.
  * @param {string} lang
- * @param {object} opts
- * @param {boolean} opts.isUpdate
- * @param {boolean} opts.hasConflicts
+ * @param {object} [opts]
+ * @param {boolean} [opts.isUpdate]
+ * @param {boolean} [opts.hasConflicts]
  * @returns {Promise<string>} 'install'|'customize-lang'|'customize-ides'|'view-conflicts'|'quit'
  */
 export async function promptAction(lang, { isUpdate = false, hasConflicts = false } = {}) {
@@ -408,14 +408,15 @@ export async function promptLanguageSelection(lang) {
  * Select install scope. Project scope is only offered when the current
  * directory resolves to a valid, writable Git worktree root.
  * @param {string} lang
- * @param {object} opts
- * @param {{ok: boolean, path?: string, reason?: string}} opts.projectTarget
- * @param {'user'|'project'} opts.initialScope
+ * @param {object} [opts]
+ * @param {{ok: boolean, path?: string, reason?: string}} [opts.projectTarget]
+ * @param {'user'|'project'} [opts.initialScope]
  * @returns {Promise<'user'|'project'>}
  */
 export async function promptInstallScope(lang, opts = {}) {
   const m = msg(lang);
   const projectTarget = opts.projectTarget || { ok: false, reason: 'No project target resolved.' };
+  /** @type {Array<{ value: 'user', label: string, hint?: string } | { value: 'project', label: string, hint?: string }>} */
   const options = [
     { value: 'user', label: m.scopeUserInstall, hint: '~/' },
   ];
@@ -438,7 +439,7 @@ export async function promptInstallScope(lang, opts = {}) {
     process.exit(0);
   }
 
-  return result;
+  return /** @type {'user' | 'project'} */ (result);
 }
 
 // ---------------------------------------------------------------------------
