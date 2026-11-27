@@ -144,6 +144,51 @@ describe('qa/measure/py-size', () => {
     ]);
   });
 
+  it('counts exception names used when defining a nested function', () => {
+    const body = [
+      'def decorator(value):',
+      '    return lambda function: function',
+      '',
+      'def uses_default():',
+      '    try:',
+      '        first()',
+      '    except Exception as error:',
+      '        def log(value=error):',
+      '            return value',
+      '        log()',
+      '',
+      'def uses_decorator():',
+      '    try:',
+      '        second()',
+      '    except Exception as error:',
+      '        @decorator(error)',
+      '        def nested():',
+      '            return 1',
+      '        nested()',
+      '',
+      'def uses_annotation():',
+      '    try:',
+      '        third()',
+      '    except Exception as error:',
+      '        def nested(value: error):',
+      '            return value',
+      '        return nested',
+      '',
+      'def silent_in_body_only():',
+      '    try:',
+      '        fourth()',
+      '    except Exception as error:',
+      '        def nested():',
+      '            return error',
+      '        nested()',
+      '',
+    ].join('\n');
+    plant({ 'skills/shared/definitions.py': body });
+    expectLines(run(), [
+      'py\tsilent-errors\tskills/shared/definitions.py::silent_in_body_only\t1',
+    ]);
+  });
+
   it('names functions by class, nesting and duplicate', () => {
     const body = [
       'class Widget:',

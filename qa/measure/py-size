@@ -208,9 +208,26 @@ def is_broad(handler):
     return broad_name(node)
 
 
+def scan_definition(node, name, state):
+    """Scan expressions evaluated while defining a scope, skipping its body."""
+    for field, value in ast.iter_fields(node):
+        if field in ("body", "name", "type_comment"):
+            continue
+        if isinstance(value, ast.AST):
+            scan_handler(value, name, state)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, ast.AST):
+                    scan_handler(item, name, state)
+
+
 def scan_handler(node, name, state):
     """Mark a use or a re-raise in the handler body, not in a nested scope."""
-    if isinstance(node, pysymbols.SCOPE_TYPES):
+    if isinstance(node, pysymbols.FUNCTION_TYPES):
+        scan_definition(node, name, state)
+        return
+    if isinstance(node, ast.Lambda):
+        scan_definition(node, name, state)
         return
     if name and isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id == name:
         state["uses"] = True
