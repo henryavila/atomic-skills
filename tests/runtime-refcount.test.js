@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import {
   registerInstall, unregisterInstall, installRuntimeArtifacts, removeRuntimeArtifacts,
 } from '../src/install.js';
+import { unlinkIfExists } from '../src/runtime-locks.js';
 import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir.js';
 
 function withHome(fakeHome, fn) {
@@ -61,6 +62,19 @@ describe('cross-install runtime refcount (F-003)', () => {
       withHome(home, () => {
         assert.equal(unregisterInstall(home), 0);
       });
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('registry cleanup ignores a missing file but surfaces a real unlink failure', () => {
+    const home = mkdtempSync(join(tmpdir(), 'as-refcount-'));
+    try {
+      assert.doesNotThrow(() => unlinkIfExists(join(home, 'missing.json')));
+      assert.throws(
+        () => unlinkIfExists(home),
+        (err) => err.code !== 'ENOENT',
+      );
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
