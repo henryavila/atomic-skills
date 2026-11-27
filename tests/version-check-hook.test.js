@@ -97,6 +97,11 @@ function writeCache(fixture, cache) {
   writeFileSync(fixture.cacheFile, JSON.stringify(cache));
 }
 
+function writeRawState(fixture, name, raw) {
+  mkdirSync(fixture.stateDir, { recursive: true });
+  writeFileSync(join(fixture.stateDir, name), raw);
+}
+
 async function waitForFile(file, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -197,6 +202,96 @@ describe('version-check.sh SessionStart hook (PAY-1)', {
           assert.equal(result.stdout, '');
         });
     }
+  });
+
+  it('rejects a manifest version whose JSON value ends with a newline', async () => {
+    await withFixture({ manifest: false }, (fixture) => {
+      writeRawState(fixture, 'manifest.json', '{"version":"1.0.0\\n"}');
+      writeRawState(fixture, 'version-cache.json',
+        `{"latest_version":"2.0.0","last_check":"${now()}"}`);
+
+      const result = runHook(fixture);
+
+      assert.equal(result.status, 0);
+      assert.equal(result.stdout, '',
+        'the value jq prints must be validated before bash strips the newline');
+    });
+  });
+
+  it('rejects a manifest version whose JSON value contains a NUL byte', async () => {
+    await withFixture({ manifest: false }, (fixture) => {
+      writeRawState(fixture, 'manifest.json', '{"version":"1.0.0\\u0000"}');
+      writeRawState(fixture, 'version-cache.json',
+        `{"latest_version":"2.0.0","last_check":"${now()}"}`);
+
+      const result = runHook(fixture);
+
+      assert.equal(result.status, 0);
+      assert.equal(result.stdout, '');
+    });
+  });
+
+  it('rejects a cached latest_version whose JSON value ends with a newline', async () => {
+    await withFixture({ manifest: false }, (fixture) => {
+      writeRawState(fixture, 'manifest.json', '{"version":"1.0.0"}');
+      writeRawState(fixture, 'version-cache.json',
+        `{"latest_version":"2.0.0\\n","last_check":"${now()}"}`);
+
+      const result = runHook(fixture);
+
+      assert.equal(result.status, 0);
+      assert.equal(result.stdout, '',
+        'a cache value is validated as stored, not after newline stripping');
+    });
+  });
+
+  it('rejects a cached latest_version whose JSON value contains a NUL byte', async () => {
+    await withFixture({ manifest: false }, (fixture) => {
+      writeRawState(fixture, 'manifest.json', '{"version":"1.0.0"}');
+      writeRawState(fixture, 'version-cache.json',
+        `{"latest_version":"2.0.0\\u0000","last_check":"${now()}"}`);
+
+      const result = runHook(fixture);
+
+      assert.equal(result.status, 0);
+      assert.equal(result.stdout, '');
+    });
+  });
+
+  it('does not trust a cached last_check whose JSON value ends with a newline', async () => {
+    await withFixture({ manifest: false, ttl: '1', npmAnswer: '2.0.0' }, async (fixture) => {
+      writeRawState(fixture, 'manifest.json', '{"version":"1.0.0"}');
+      writeRawState(fixture, 'version-cache.json',
+        `{"latest_version":"2.0.0","last_check":"${now()}\\n"}`);
+
+      const result = runHook(fixture);
+
+      assert.equal(result.status, 0);
+      const deadline = Date.now() + 3000;
+      let cache = null;
+      while (Date.now() < deadline) {
+        cache = await waitForCache(fixture.cacheFile, 500);
+        if (cache && /^[0-9]{1,12}$/.test(String(cache.last_check))) break;
+        await pause(20);
+      }
+      assert.ok(cache, 'a rejected last_check must be replaced by a fresh fetch');
+      assert.match(String(cache.last_check), /^[0-9]{1,12}$/,
+        'the rejected last_check must not survive as the cached timestamp');
+      assert.equal(String(cache.last_check).includes('\n'), false);
+    });
+  });
+
+  it('never caches an npm view answer that carries a NUL byte', async () => {
+    await withFixture({ manifest: false, npmAnswer: '2.0.0\0' }, async (fixture) => {
+      writeRawState(fixture, 'manifest.json', '{"version":"1.0.0"}');
+
+      const result = runHook(fixture);
+
+      assert.equal(result.status, 0);
+      assert.equal(result.stdout, '');
+      const written = await waitForFile(fixture.cacheFile, 3000);
+      assert.equal(written, false, 'a NUL byte must not be stripped into a valid version');
+    });
   });
 
   it('writes nothing when npm view answers with hostile text', async () => {
