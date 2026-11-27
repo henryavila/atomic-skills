@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `delegate`: Muse Spark implements during DeepSeek peak hours and is the first reviewer of Flash work.
+
 ## [2.3.1] - 2026-11-24
 
 This release ships what was meant for 2.3.0 but missed its npm build.

@@ -15,7 +15,7 @@ Subcommands:
   pause     pause all runner executions across the machine.
   resume    resume runner executions.
   kill      kill running executor process group for a given task id.
-  peak      say whether now is inside the OpenCode Go peak window.
+  peak      say whether now is inside the DeepSeek peak window.
   review-pending  list the pipelines whose review could not run for lack of
             quota or a free slot, or finish one (--id).
   route     print the executor route and the review routes for a role, with the
