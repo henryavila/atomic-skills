@@ -25,7 +25,7 @@ metadata:
 - `npm run validate-skills` — hard-fails if catalog still has top-level `modules` or `module_meta`.
 - `validateReadmeMentions()` — greps `\batomic-skills:([a-z][a-z0-9-]*)\b` over README; fails on unknown skill names. Catches drift in static prose the marker generator can't see.
 - **Field caps:** `one_liner` must be **10–80 chars** (validate-skills rejects otherwise). `replaceBetween` (render-readme.js) replaces ONLY content between the 4 marker pairs, so hand-written sections outside them are preserved and safe to edit directly — `check-docs` won't flag them.
-- **Husky pre-commit auto-regenerates** when any input is staged (`meta/catalog.yaml`, `skills/en/**`, `src/config.js`, `package.json`, renderer code) and re-stages `README.md` + `src/dashboard/data/skills.generated.ts` so the commit is atomic. Manual edits to static sections survive.
+- **Husky pre-commit only checks.** When a catalog input is staged (`meta/catalog.yaml`, skill bodies, `src/config.js`, `package.json`, generator code) it runs `npm run check-docs` and refuses the commit on drift, telling the committer to run `npm run generate-docs`, stage the changed files and commit again. It never rewrites, stages or commits, so the index is left exactly as the committer built it. Manual edits to static sections survive.
 - GitHub Actions runs `validate-catalog` (validate only, no regen — CI is downstream of the hook).
 
 ## When NOT to add a marker
