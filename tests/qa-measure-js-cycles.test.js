@@ -1,7 +1,9 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -23,11 +25,11 @@ describe('qa/measure/js-cycles', () => {
     }
   }
 
-  function run(args = []) {
+  function run(args = [], env = {}) {
     return spawnSync(process.execPath, [MEASURER, ...args], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
-      env: { ...process.env, QA_ROOT: root },
+      env: { ...process.env, QA_ROOT: root, ...env },
     });
   }
 
@@ -84,6 +86,16 @@ describe('qa/measure/js-cycles', () => {
     expectLines(run(), ['js\timport-cycles\tsrc/a.js::cycle>src/b.js\t1']);
   });
 
+  it('ignores madge_* environment variables', () => {
+    plant({
+      'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
+      'src/b.js': "import { a } from './a.js';\nexport const b = a;\n",
+    });
+    expectLines(run([], { madge_excludeRegExp: '.*' }), [
+      'js\timport-cycles\tsrc/a.js::cycle>src/b.js\t1',
+    ]);
+  });
+
   it('fails when a measured source does not parse', () => {
     plant({
       'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
@@ -94,6 +106,25 @@ describe('qa/measure/js-cycles', () => {
     assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
     assert.match(result.stderr, /src\/broken\.js/);
     assert.equal(result.stdout, '');
+  });
+
+  it('fails when a measured root cannot be inspected', () => {
+    plant({ 'src/placeholder.js': 'export const placeholder = 1;\n' });
+    const hidden = join(root, 'hidden-parent');
+    mkdirSync(join(hidden, 'src'), { recursive: true });
+    writeFileSync(join(hidden, 'src/a.js'), "import { b } from './b.js';\nexport const a = b;\n");
+    writeFileSync(join(hidden, 'src/b.js'), "import { a } from './a.js';\nexport const b = a;\n");
+    chmodSync(hidden, 0o000);
+    rmSync(join(root, 'src'), { recursive: true, force: true });
+    symlinkSync(join(hidden, 'src'), join(root, 'src'));
+    try {
+      const result = run();
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /src|cannot inspect/i);
+      assert.equal(result.stdout, '');
+    } finally {
+      chmodSync(hidden, 0o755);
+    }
   });
 
   it('measures a self-import as a cycle', () => {
