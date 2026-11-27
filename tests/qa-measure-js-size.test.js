@@ -88,6 +88,26 @@ describe('qa/measure/js-size', () => {
     expectLines(run(), ['js\tparams\tsrc/params.js::many\t6']);
   });
 
+  it('ignores inline eslint configuration in the measured code', () => {
+    plant({
+      'src/inline.js': [
+        '/* eslint max-params: ["error", 99] */',
+        'export function raised(a, b, c, d, e, f) {',
+        '  return a;',
+        '}',
+        '// eslint-disable-next-line max-params',
+        'export function disabled(a, b, c, d, e, f) {',
+        '  return a;',
+        '}',
+        '',
+      ].join('\n'),
+    });
+    expectLines(run(), [
+      'js\tparams\tsrc/inline.js::disabled\t6',
+      'js\tparams\tsrc/inline.js::raised\t6',
+    ]);
+  });
+
   it('measures file lines', () => {
     const body = Array.from({ length: 801 }, (_, i) => `const value${i} = ${i};`).join('\n');
     plant({ 'src/big.js': `${body}\n` });

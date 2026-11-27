@@ -186,7 +186,11 @@ async function measure(root, files) {
   const eslint = new ESLint({
     cwd: root,
     overrideConfigFile: true,
-    overrideConfig: createConfig(ceilings),
+    overrideConfig: {
+      ...createConfig(ceilings),
+      linterOptions: { reportUnusedDisableDirectives: 'off' },
+    },
+    allowInlineConfig: false,
     errorOnUnmatchedPattern: false,
     warnIgnored: false,
   });
