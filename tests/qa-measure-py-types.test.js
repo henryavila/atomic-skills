@@ -62,6 +62,32 @@ describe('qa/measure/py-types', () => {
     return join(root, 'fakevenv');
   }
 
+  function fakeMypyRequiringIsolatedConfig() {
+    const bin = join(root, 'fakevenv/bin');
+    mkdirSync(bin, { recursive: true });
+    const script = [
+      '#!/usr/bin/env python3',
+      'import os, sys',
+      'args = sys.argv[1:]',
+      'root = os.path.realpath(os.environ["QA_ROOT"])',
+      'if "--config-file" not in args:',
+      '    sys.exit(0)',
+      'config = os.path.realpath(args[args.index("--config-file") + 1])',
+      'empty = os.path.isfile(config) and os.path.getsize(config) == 0',
+      'outside = os.path.commonpath([root, config]) != root',
+      'if not empty or not outside:',
+      '    sys.exit(0)',
+      "files = [item for item in args if item.endswith('.py')]",
+      'for path in files:',
+      '    sys.stdout.write(os.path.join(os.getcwd(), path) + ":1: error: fake error  [misc]\\n")',
+      'sys.exit(1 if files else 0)',
+      '',
+    ].join('\n');
+    writeFileSync(join(bin, 'mypy'), script);
+    chmodSync(join(bin, 'mypy'), 0o755);
+    return join(root, 'fakevenv');
+  }
+
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'qa-py-types-'));
   });
@@ -101,6 +127,17 @@ describe('qa/measure/py-types', () => {
     expectLines(run([], { QA_VENV: venv }), [
       'py\ttype-errors\tskills/shared/a.py::*\t1',
       'py\ttype-errors\tskills/shared/b.py::*\t1',
+    ]);
+  });
+
+  it('passes an empty config file outside the repository', () => {
+    const venv = fakeMypyRequiringIsolatedConfig();
+    plant({
+      'mypy.ini': '[mypy]\nignore_errors = True\n',
+      'skills/shared/a.py': 'def a() -> int:\n    return "x"\n',
+    });
+    expectLines(run([], { QA_VENV: venv }), [
+      'py\ttype-errors\tskills/shared/a.py::*\t1',
     ]);
   });
 

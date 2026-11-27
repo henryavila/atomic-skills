@@ -167,12 +167,17 @@ def measure(root, keys, ceiling, items, tool):
     if not keys:
         return
     cache = tempfile.mkdtemp(prefix="qa-mypy-")
-    output = []
+    config = os.path.join(cache, "mypy.ini")
     try:
+        with open(config, "w", encoding="utf-8"):
+            pass
+        output = []
         for key in keys:
             result = subprocess.run(
                 [
                     tool,
+                    "--config-file",
+                    config,
                     "--check-untyped-defs",
                     "--ignore-missing-imports",
                     "--no-error-summary",
