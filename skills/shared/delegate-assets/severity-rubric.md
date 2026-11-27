@@ -28,12 +28,13 @@ behaviour another finding already reports is a `dup` of it. Otherwise `none`.
 
 ### 3. `card` — `none` or a quote
 
-Quote, in at most 15 words copied from the card, the requirement that is not
-delivered. Use it only when the card states the requirement: a numbered item, a
-rule under "What does not change", a case the card names, a line of "How to
-check". A requirement you infer from the goal of the card is `none`. A file
-touched outside the card's list counts only when the card says "only" or
-"do not" about it.
+Quote, in at most 15 words copied from the task card the author received, the
+requirement that is not delivered. Only these count: a numbered item of what
+the task must change, a rule under "What does not change", a line of "How to
+check". These never count, answer `none`: a requirement you infer from the
+goal or the title; a reviewer's checklist ("look for", "verify", "check
+that"); a card you were not given. A file touched outside the card's list
+counts only when the card says "only" or "do not" about it.
 
 ### 4. `kind` — the first of these that applies
 
@@ -54,27 +55,29 @@ today is `upkeep`. A test whose name promises more than it asserts is
 `test-void` only when you show a change to the product code that should break
 it and does not; without that it is `test-gap`.
 
-### 5. `reach` — `normal`, `rare`, `error`, `none` or `-`
+### 5. `reach` — `none`, `edge`, `normal` or `-`
 
-Only for `access`, `data` and `behaviour`. Every other `kind` takes `-`.
+Only for `access`, `data` and `behaviour`. Every other `kind` takes `-`. Ask
+these in order and stop at the first yes.
 
-- `normal`: it happens with input or a sequence that a user, a caller or the
-  gate produces in ordinary use, or in a case the card names.
-- `rare`: it needs unusual input, a race, an exact sequence of steps, or the
-  failure of something else first.
-- `error`: it happens only while the code is already handling an error (a wrong
-  message, a missed cleanup after a failure).
-- `none`: nothing calls or reads the defective code today, or it is reached
-  only through configuration the team writes itself.
+1. Does nothing call or read the defective code today, or is it reached only
+   through a file the team itself writes (configuration, a fixture)? → `none`
+2. Does it need any of these: input no ordinary user or caller sends, two
+   things happening at the same moment, an exact sequence of three or more
+   steps, or something else failing first (including: it happens only while
+   an error is already being handled)? → `edge`
+3. Otherwise → `normal`
 
-### 6. `proof` — `ran`, `traced` or `none`
+What the card says about the case does not change this answer.
 
-- `ran`: you ran a command and you quote the command and the result that shows
-  the defect.
-- `traced`: you did not run it, and you give the path step by step, with a
-  `file:line` for each step.
-- `none`: anything else, including "may", "could", "probably" and "I did not
-  confirm".
+### 6. `proof` — `shown` or `none`
+
+- `shown`: the finding states what was observed when something was run (the
+  input and the result), or it names the `file:line` where the defect is and
+  says what that code does.
+- `none`: the finding says "may", "could", "probably", "I did not confirm" or
+  "not tested" about the defect itself, or it names no line and no observed
+  result.
 
 ## How the severity is computed
 
@@ -86,10 +89,10 @@ The runner applies the first row that matches.
 | `dup` is another finding | merged into it, not counted |
 | `proof=none` and the row below gives `major` | `medium` |
 | `card` is a quote | `major` |
-| `access` or `data`, `reach` is `normal`, `rare` or `error` | `major` |
+| `access` or `data`, `reach=normal` or `reach=edge` | `major` |
 | `access` or `data`, `reach=none` | `medium` |
 | `behaviour`, `reach=normal` | `major` |
-| `behaviour`, `reach=rare` or `reach=error` | `medium` |
+| `behaviour`, `reach=edge` | `medium` |
 | `behaviour`, `reach=none` | `minor` |
 | `test-void` | `major` |
 | `doc-false` | `major` |
@@ -104,7 +107,7 @@ have do not change an answer.
 One line per finding, fields separated by ` | `, in this order:
 
 ```text
-F01 | <file>:<line> | origin=diff | dup=none | card=none | kind=behaviour | reach=normal | proof=ran | <what is wrong, one sentence> | <proof: the command and its result, or the trace>
+F01 | <file>:<line> | origin=diff | dup=none | card=none | kind=behaviour | reach=normal | proof=shown | <what is wrong, one sentence> | <proof: what was run and the result, or what the code at that line does>
 ```
 
 Do not write `major`, `medium` or `minor` anywhere. End with the line

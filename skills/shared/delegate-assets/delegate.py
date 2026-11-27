@@ -63,7 +63,54 @@ OPENCODE_MODELS = (FLASH_MODEL, MUSE_MODEL)
 OPENCODE_FAMILIES = {FLASH_MODEL: "deepseek", MUSE_MODEL: "meta"}
 OPENCODE_MODEL = os.environ.get("DELEGATE_OPENCODE_MODEL") or FLASH_MODEL
 LIMIT_RE = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b", re.IGNORECASE)
-TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=\d+ medium=\d+ minor=\d+[ \t`*]*$")
+# The last line of an old-format review, where the reviewer chose each severity.
+TOTAL_RE = re.compile(r"^[ \t`*]*TOTAL major=(\d+) medium=(\d+) minor=(\d+)[ \t`*]*$")
+# The last line of a review in the format of severity-rubric.md.
+FINDINGS_RE = re.compile(r"^[ \t`*]*FINDINGS (\d+)[ \t`*]*$")
+FINDING_LINE_RE = re.compile(r"^\W*([FR]\d+)\s*\|(.*)$")
+
+# severity-rubric.md, the file every review prompt ends with, as data. The
+# reviewer never writes a severity: it answers six questions per finding and
+# compute_severity applies this table. The document and this structure must
+# say the same thing; tests/delegate-runner-severity.test.js reads the document
+# and compares. To tune the rubric, change both.
+ANOTHER_FINDING = "another finding"  # dup: the id of another finding of the review
+A_QUOTE = "a quote"                  # card: a quote of the requirement not delivered
+SEVERITY_RUBRIC = {
+    # The allowed words of each answer, in the order the reviewer gives them.
+    "answers": {
+        "origin": ("diff", "base"),
+        "dup": ("none", ANOTHER_FINDING),
+        "card": ("none", A_QUOTE),
+        "kind": ("access", "data", "behaviour", "test-void", "test-gap",
+                 "doc-false", "doc-loose", "upkeep", "style"),
+        "reach": ("none", "edge", "normal", "-"),
+        "proof": ("shown", "none"),
+    },
+    # Only these kinds answer reach; every other kind answers "-".
+    "reach_kinds": ("access", "data", "behaviour"),
+    # The first row whose answers all match gives the result. The row with
+    # "lowers" applies the rows below it and replaces that result when it is
+    # the "lowers" value.
+    "table": (
+        {"when": {"origin": ("base",)}, "result": "pre-existing"},
+        {"when": {"dup": (ANOTHER_FINDING,)}, "result": "merged"},
+        {"when": {"proof": ("none",)}, "lowers": "major", "result": "medium"},
+        {"when": {"card": (A_QUOTE,)}, "result": "major"},
+        {"when": {"kind": ("access", "data"), "reach": ("normal", "edge")}, "result": "major"},
+        {"when": {"kind": ("access", "data"), "reach": ("none",)}, "result": "medium"},
+        {"when": {"kind": ("behaviour",), "reach": ("normal",)}, "result": "major"},
+        {"when": {"kind": ("behaviour",), "reach": ("edge",)}, "result": "medium"},
+        {"when": {"kind": ("behaviour",), "reach": ("none",)}, "result": "minor"},
+        {"when": {"kind": ("test-void",)}, "result": "major"},
+        {"when": {"kind": ("doc-false",)}, "result": "major"},
+        {"when": {"kind": ("test-gap", "upkeep")}, "result": "medium"},
+        {"when": {"kind": ("doc-loose", "style")}, "result": "minor"},
+    ),
+}
+COUNTED = ("major", "medium", "minor")
+ANSWER_RE = re.compile(r"^(" + "|".join(SEVERITY_RUBRIC["answers"]) + r")\s*=(.*)$", re.S)
+QUOTE_MARKS = {'"': '"', "'": "'", "“": "”", "‘": "’", "«": "»", "`": "`"}
 
 # The fallback reviewer. It is used only when the operator said yes to it
 # (--allow-claude-review) and never for work written by a Claude model.
@@ -3773,6 +3820,178 @@ def review_findings(review_file):
             total_line = line.strip()
             findings = dict(zip(("major", "medium", "minor"), map(int, match.groups())))
     return finding_lines, total_line, findings
+
+
+def compute_severity(answers, table=None):
+    """The class of one finding from its six answers, by the first matching
+    row of SEVERITY_RUBRIC["table"]: major, medium, minor, pre-existing or
+    merged; None when no row matches. The answers are not checked here
+    (answer_problems does that): dup and card match as "another finding" and
+    "a quote" for any value other than "none"."""
+    table = SEVERITY_RUBRIC["table"] if table is None else table
+    seen = dict(answers)
+    for key, any_value in (("dup", ANOTHER_FINDING), ("card", A_QUOTE)):
+        if key in seen and seen[key] != "none":
+            seen[key] = any_value
+    for i, row in enumerate(table):
+        if all(seen.get(key) in values for key, values in row["when"].items()):
+            if "lowers" in row:
+                below = compute_severity(answers, table[i + 1:])
+                return row["result"] if below == row["lowers"] else below
+            return row["result"]
+    return None
+
+
+def answer_problems(fid, answers, ids):
+    """Why the answers of finding `fid` cannot be classified: a missing answer,
+    a word outside the rubric's list (compared exactly, never guessed), a dup
+    that is not the id of another finding in `ids`, or a reach that does not
+    fit the kind."""
+    words = SEVERITY_RUBRIC["answers"]
+    problems = []
+    for key, allowed in words.items():
+        if key not in answers:
+            problems.append(f"{key} is missing")
+            continue
+        value = answers[key]
+        if key == "dup":
+            ok = value == "none" or (value != fid and value in ids)
+        elif key == "card":
+            ok = value == "none" or (value.lower() != "none" and any(ch.isalnum() for ch in value))
+        else:
+            ok = value in allowed
+        if not ok:
+            problems.append(f"{key}={value} is not an allowed answer")
+    kind, reach = answers.get("kind"), answers.get("reach")
+    if kind in words["kind"] and reach in words["reach"]:
+        if kind in SEVERITY_RUBRIC["reach_kinds"] and reach == "-":
+            problems.append(f"kind={kind} needs reach " + ", ".join(w for w in words["reach"] if w != "-"))
+        elif kind not in SEVERITY_RUBRIC["reach_kinds"] and reach != "-":
+            problems.append(f"kind={kind} takes reach=-")
+    return problems
+
+
+def card_answer(value):
+    """A card answer without its quote marks; an empty quote is "none"."""
+    value = value.strip()
+    closer = QUOTE_MARKS.get(value[:1])
+    if closer and len(value) > 1 and value.endswith(closer):
+        value = value[1:-1].strip()
+    return "none" if value in ("", "none") else value
+
+
+def answers_summary(answers):
+    """The answers of a finding in the summary: the ones that are not the
+    default, then kind, reach and proof."""
+    bits = []
+    for key, default in (("origin", "diff"), ("dup", "none"), ("card", "none")):
+        if key in answers and answers[key] != default:
+            bits.append(f'card="{answers[key]}"' if key == "card" else f"{key}={answers[key]}")
+    bits += [f"{key}={answers[key]}" for key in ("kind", "reach", "proof") if key in answers]
+    return " ".join(bits)
+
+
+def computed_finding(fid, parts, ids):
+    """(record, summary line) of a finding line in the rubric's format:
+    `F01 | file:line | origin=… | dup=… | card=… | kind=… | reach=… | proof=… | what | proof`."""
+    i, location = 0, ""
+    if parts and not ANSWER_RE.match(parts[0]):
+        location, i = parts[0], 1
+    answers = {}
+    while i < len(parts):
+        match = ANSWER_RE.match(parts[i])
+        if not match or match.group(1) in answers:
+            break
+        key, value = match.group(1), match.group(2).strip()
+        i += 1
+        if key == "card":
+            # A quote may hold a "|": it runs to its closing mark.
+            closer = QUOTE_MARKS.get(value[:1])
+            while (closer and not (len(value) > 1 and value.endswith(closer))
+                   and i < len(parts) and not ANSWER_RE.match(parts[i])):
+                value += " | " + parts[i]
+                i += 1
+            value = card_answer(value)
+        answers[key] = value
+    what = parts[i] if i < len(parts) else ""
+    problems = answer_problems(fid, answers, ids)
+    severity = None if problems else compute_severity(answers)
+    if severity is None and not problems:
+        problems = ["no row of the table matches these answers"]
+    finding = {"id": fid, "location": location, "answers": answers,
+               "severity": severity or "unclassified"}
+    fields = [finding["severity"], fid, location, answers_summary(answers)]
+    if problems:
+        finding["problems"] = problems
+        fields.append("; ".join(problems))
+    return finding, " | ".join(fields + [what])
+
+
+def reviewer_finding(fid, parts, line):
+    """(record, summary line) of an old-format line, `R01 | major | file:line | …`,
+    whose severity the reviewer chose. The line is shown as written."""
+    label = parts[0] if parts else ""
+    severity = label.lower() if label.lower() in COUNTED else "unclassified"
+    finding = {"id": fid, "location": parts[1] if len(parts) > 1 else "", "severity": severity}
+    if severity == "unclassified":
+        finding["problems"] = [f"severity {label or '(empty)'} is not major, medium or minor"]
+    return finding, line
+
+
+def parse_review(text):
+    """The runner's reading of a reviewer's answer.
+
+    An answer in the format of severity-rubric.md (a FINDINGS line, or finding
+    lines that carry answers) has each severity computed from the answers:
+    severity_source "computed". An old-format answer (`R01 | major | …` and a
+    TOTAL line) keeps the reviewer's labels: severity_source "reviewer". Either
+    way the counts come from the finding lines, never from a number the
+    reviewer wrote: FINDINGS <n> or TOTAL only says the answer is complete,
+    and findings_mismatch says when it disagrees with the lines. A finding
+    that cannot be classified is "unclassified" and counted as medium.
+    """
+    lines = text.splitlines()
+    rows = []
+    for line in lines:
+        match = FINDING_LINE_RE.match(line)
+        if match:
+            parts = [part.strip() for part in match.group(2).split("|")]
+            while parts and not parts[-1]:
+                parts.pop()
+            rows.append((match.group(1), parts, line))
+    marks = [int(m.group(1)) for m in map(FINDINGS_RE.match, lines) if m]
+    totals = [dict(zip(COUNTED, map(int, m.groups()))) for m in map(TOTAL_RE.match, lines) if m]
+    computed = bool(marks) or any(ANSWER_RE.match(part) for _, parts, _ in rows for part in parts)
+    ids = [fid for fid, _, _ in rows]
+    counts = dict.fromkeys(("major", "medium", "minor", "pre_existing", "merged", "unclassified"), 0)
+    findings, summary = [], []
+    for fid, parts, line in rows:
+        finding, summary_line = (computed_finding(fid, parts, ids) if computed
+                                 else reviewer_finding(fid, parts, line))
+        severity = finding["severity"]
+        counts[severity.replace("-", "_")] += 1
+        if severity == "unclassified":
+            counts["medium"] += 1
+        findings.append(finding)
+        summary.append(summary_line)
+    if marks:
+        claimed = marks[-1]
+        mismatch = claimed != len(findings)
+    elif totals:
+        claimed = totals[-1]
+        mismatch = claimed != {key: counts[key] for key in COUNTED}
+    else:
+        claimed, mismatch = None, False
+    review = {
+        "severity_source": "computed" if computed else "reviewer",
+        "complete": bool(marks or totals),
+        "findings": findings, "counts": counts, "findings_mismatch": mismatch,
+        "summary_lines": summary,
+        "total_line": "TOTAL major={major} medium={medium} minor={minor}".format(**counts),
+    }
+    if mismatch:
+        review["findings_claimed"] = claimed
+    return review
 
 
 def pending_files(task_id=None, project=None):
