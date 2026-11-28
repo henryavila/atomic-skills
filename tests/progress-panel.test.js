@@ -268,6 +268,28 @@ esac
     ));
   }
 
+  function plistBytes(value) {
+    return execFileSync(
+      PYTHON3,
+      [
+        '-c',
+        'import json, plistlib, sys; '
+        + 'sys.stdout.buffer.write(plistlib.dumps(json.loads(sys.argv[1]), '
+        + 'fmt=plistlib.FMT_XML, sort_keys=True))',
+        JSON.stringify(value),
+      ],
+      { encoding: 'utf8', env },
+    );
+  }
+
+  function expectedPanelPath(nodeDir) {
+    const parts = [];
+    for (const part of [dirname(PY_EXEC), nodeDir, '/usr/bin', '/bin']) {
+      if (!parts.includes(part)) parts.push(part);
+    }
+    return parts.join(':');
+  }
+
   const manifestPath = () => join(home, '.aideck/consumers/painel/manifest.yaml');
   const dataDir = () => join(home, '.aideck/consumers/painel/data');
   const statePath = () => join(atomicHome, 'progress/panel.json');
@@ -530,6 +552,131 @@ assert str(real) not in parts, module.panel_path()
     assert.equal(bootstraps.length, 2, launchLines().join('\n'));
     assert.match(bootstraps[0], /com\.atomic-skills\.progress\.watch\.plist$/);
     assert.match(bootstraps[1], /com\.atomic-skills\.progress\.panel\.plist$/);
+  });
+
+  it('pins the manifest, the plists and the state written by install byte for byte', () => {
+    writeMap(project, baseMap({ id: 'pinned', title: 'Pinned', unit: 'cartões' }));
+    register(project);
+    const bin = join(root, 'pinned-bin');
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, 'node'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    mkdirSync(join(home, '.aideck/consumers'), { recursive: true });
+    mkdirSync(join(home, 'Library/LaunchAgents'), { recursive: true });
+    const before = snapshotTree(home);
+
+    const res = install([], { env: { PATH: `${bin}:/usr/bin:/bin` } });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.equal(res.stdout, 'panel installed on http://127.0.0.1:7777\n');
+    assert.equal(res.stderr, '');
+
+    const manifest = `schemaVersion: '0.1'
+id: painel
+mcpNamespace: painel
+title: 'Painel de projetos'
+locale: pt-BR
+icon: 'mdi:view-dashboard'
+dataSources:
+  - { id: projetos, path: data/projetos.json, format: json }
+  - { id: marcos, path: data/marcos.json, format: json }
+  - { id: execucoes, path: data/execucoes.json, format: json }
+  - { id: alertas, path: data/alertas.json, format: json }
+pages:
+  - slug: panorama
+    title: Panorama
+    icon: 'mdi:view-dashboard'
+    default: true
+    layout: sections
+    sections:
+      - title: Projetos
+        columns: 12
+        widgets:
+          - widget: progress-bar
+            colSpan: 12
+            source: { ref: projetos }
+            config: { title: 'Progresso por projeto', labelField: nome, valueField: feito, maxField: total, valueTextField: resumo, captionField: legenda, unit: projetos, footer: false }
+      - title: Agora
+        columns: 12
+        widgets:
+          - widget: table
+            colSpan: 12
+            source: { ref: execucoes }
+            config: { title: 'Executores ativos', columns: [projeto, marco, tarefa, papel, executor, equipamento, minutos] }
+      - title: Alertas
+        columns: 12
+        widgets:
+          - widget: table
+            colSpan: 12
+            source: { ref: alertas }
+            config: { title: 'Alertas', columns: [projeto, tipo, detalhe] }
+      - title: "Pinned"
+        columns: 12
+        widgets:
+          - widget: progress-bar
+            colSpan: 12
+            source: { ref: marcos, filter: { projeto: "pinned" } }
+            config: { title: 'Marcos', labelField: titulo, valueField: feito, maxField: total, valueTextField: resumo, captionField: legenda, unit: "cartões", footer: false }
+`;
+    const environment = {
+      ATOMIC_SKILLS_HOME: atomicHome,
+      PATH: expectedPanelPath(bin),
+    };
+    const watch = plistBytes({
+      EnvironmentVariables: environment,
+      KeepAlive: true,
+      Label: watchLabel,
+      ProgramArguments: [
+        PY_EXEC, PROGRESS_PY,
+        'watch', '--out', dataDir(), '--interval', '2', '--fetch-every', '120',
+        '--delegate', delegate,
+      ],
+      RunAtLoad: true,
+      StandardErrorPath: join(atomicHome, 'progress/logs', `${watchLabel}.log`),
+      StandardOutPath: join(atomicHome, 'progress/logs', `${watchLabel}.log`),
+      ThrottleInterval: 30,
+      WorkingDirectory: join(atomicHome, 'progress'),
+    });
+    const panel = plistBytes({
+      EnvironmentVariables: environment,
+      KeepAlive: true,
+      Label: panelLabel,
+      ProgramArguments: [
+        join(bin, 'node'),
+        realpathSync(aideck),
+        'serve', '--port=7777', `--static-dir=${clientDir}`,
+      ],
+      RunAtLoad: true,
+      StandardErrorPath: join(atomicHome, 'progress/logs', `${panelLabel}.log`),
+      StandardOutPath: join(atomicHome, 'progress/logs', `${panelLabel}.log`),
+      ThrottleInterval: 30,
+      WorkingDirectory: join(atomicHome, 'progress'),
+    });
+
+    assert.equal(readFileSync(manifestPath(), 'utf8'), manifest);
+    assert.equal(readFileSync(watchPlist(), 'utf8'), watch);
+    assert.equal(readFileSync(panelPlist(), 'utf8'), panel);
+
+    const expectedState = `${JSON.stringify({
+      schemaVersion: 1,
+      port: 7777,
+      aideck: realpathSync(aideck),
+      files: {
+        [manifestPath()]: sha256(manifest),
+        [watchPlist()]: sha256(watch),
+        [panelPlist()]: sha256(panel),
+      },
+      createdDirs: [
+        join(home, '.aideck/consumers/painel'),
+        dataDir(),
+        join(atomicHome, 'progress/logs'),
+      ].sort(),
+    }, null, 2)}\n`;
+    assert.equal(readFileSync(statePath(), 'utf8'), expectedState);
+
+    const uninstall = run(['panel', 'uninstall']);
+    assert.equal(uninstall.status, 0, `${uninstall.stdout}\n${uninstall.stderr}`);
+    assert.equal(uninstall.stdout, 'panel uninstalled\n');
+    assert.equal(uninstall.stderr, '');
+    assert.deepEqual(snapshotTree(home), before);
   });
 
   it('writes only PATH and ATOMIC_SKILLS_HOME and never --expose', () => {
@@ -1471,7 +1618,7 @@ print("ok")
   });
 
   it('exits 2 when launchd is unavailable and PROGRESS_LAUNCHCTL is unset', {
-    skip: process.platform === 'darwin' ? 'would reach the real launchd on macOS' : false,
+    skip: process.platform === 'darwin' ? 'would reach the real launchd on macOS (@henryavila 2026-11-27; runs on Linux, where launchd is absent)' : false,
   }, () => {
     const without = { ...env };
     delete without.PROGRESS_LAUNCHCTL;

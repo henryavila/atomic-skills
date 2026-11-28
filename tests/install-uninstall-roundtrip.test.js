@@ -759,7 +759,7 @@ describe('optional global delegation instructions', () => {
         if (scenario === 'file') {
           mkdirSync(link, { recursive: true });
           try { symlinkSync(realFile, join(home, logical)); }
-          catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+          catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges (@henryavila 2026-11-27; runs when Windows Developer Mode or an elevated shell allows symlinks)'); return; } throw err; }
         } else {
           mkdirSync(join(link, '..'), { recursive: true });
           symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
@@ -809,7 +809,7 @@ describe('optional global delegation instructions', () => {
       } else {
         await rename(file, target);
         try { symlinkSync(target, file); }
-        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges (@henryavila 2026-11-27; runs when Windows Developer Mode or an elevated shell allows symlinks)'); return; } throw err; }
       }
       assert.deepEqual(installedGlobalInstructionPaths(home), ['.codex/AGENTS.md']);
       const status = execFileSync(process.execPath, [CLI, 'status'], { cwd: repo, encoding: 'utf8', env: process.env });
@@ -830,7 +830,7 @@ describe('optional global delegation instructions', () => {
       assert.equal(existsSync(join(home, '.atomic-skills/manifest.json')), false);
     }));
   }
-  it('R1-R02 owned unreadable destination parks ownership and installs every other agent', { skip: process.platform === 'win32' }, () => fixture(async (home, repo) => {
+  it('R1-R02 owned unreadable destination parks ownership and installs every other agent', { skip: process.platform === 'win32' ? 'chmod 0 is not enforced on Windows (@henryavila 2026-11-27; runs on POSIX filesystems)' : false }, () => fixture(async (home, repo) => {
     await install(repo, opts);
     const file = join(home, '.codex/AGENTS.md');
     const before = readFileSync(file);
@@ -904,7 +904,7 @@ describe('optional global delegation instructions', () => {
       if (kind === 'wrong-type') mkdirSync(file);
       else {
         try { symlinkSync(kind === 'changed' ? next : kind === 'loop' ? file : join(home, 'missing'), file); }
-        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges (@henryavila 2026-11-27; runs when Windows Developer Mode or an elevated shell allows symlinks)'); return; } throw err; }
       }
       const manifestFile = join(home, '.atomic-skills/manifest.json');
       const owned = JSON.parse(readFileSync(manifestFile)).effects.find(e => e.type === 'textBlock');
@@ -934,7 +934,7 @@ describe('optional global delegation instructions', () => {
       const linkTo = (dir) => symlinkSync(kind === 'file' ? join(dir, 'AGENTS.md') : dir, link,
         kind === 'file' ? undefined : process.platform === 'win32' ? 'junction' : 'dir');
       try { linkTo(old); }
-      catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+      catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges (@henryavila 2026-11-27; runs when Windows Developer Mode or an elevated shell allows symlinks)'); return; } throw err; }
       await install(repo, opts);
       const oldBytes = readFileSync(join(old, 'AGENTS.md'));
       const originalState = JSON.parse(readFileSync(join(home, '.atomic-skills/manifest.json'), 'utf8'))
@@ -959,7 +959,7 @@ describe('optional global delegation instructions', () => {
     }));
   }
   for (const kind of ['dangling-root', 'loop-root', 'dangling', 'loop', 'wrong-directory-target', 'wrong-file-target', 'directory', 'unreadable', 'malformed']) {
-    it(`R01 refuses ${kind} but CLI installs skills with exit 0`, { skip: kind === 'unreadable' && process.platform === 'win32' }, (t) => fixture(async (home, repo) => {
+    it(`R01 refuses ${kind} but CLI installs skills with exit 0`, { skip: kind === 'unreadable' && process.platform === 'win32' ? 'unreadable files are not enforced on Windows (@henryavila 2026-11-27; runs on POSIX filesystems)' : false }, (t) => fixture(async (home, repo) => {
       const file = join(home, '.codex/AGENTS.md');
       const target = join(home, 'dotfiles');
       mkdirSync(target);
@@ -972,11 +972,11 @@ describe('optional global delegation instructions', () => {
       } else if (['dangling', 'loop', 'wrong-file-target'].includes(kind)) {
         try { symlinkSync(kind === 'dangling' ? join(target, 'missing') : kind === 'loop' ? file : target, file,
           kind === 'wrong-file-target' && process.platform === 'win32' ? 'junction' : undefined); }
-        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges (@henryavila 2026-11-27; runs when Windows Developer Mode or an elevated shell allows symlinks)'); return; } throw err; }
       } else if (kind === 'wrong-directory-target') {
         rmSync(join(home, '.codex'), { recursive: true });
         try { symlinkSync(join(target, 'AGENTS.md'), join(home, '.codex')); }
-        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges'); return; } throw err; }
+        catch (err) { if (process.platform === 'win32' && err.code === 'EPERM') { t.skip('file symlink requires privileges (@henryavila 2026-11-27; runs when Windows Developer Mode or an elevated shell allows symlinks)'); return; } throw err; }
       } else if (kind === 'directory') mkdirSync(file);
       else { writeFileSync(file, kind === 'malformed' ? `${begin}\nbroken\n` : 'private\n'); if (kind === 'unreadable') chmodSync(file, 0); }
       try {
@@ -1043,7 +1043,7 @@ describe('optional global delegation instructions', () => {
     assert.equal(attrs.split('eol: lf').length - 1, 2);
   });
   for (const kind of ['directory', 'unreadable']) {
-    it(`R06 status treats owned ${kind} as not installed`, { skip: kind === 'unreadable' && process.platform === 'win32' }, () => fixture(async (home, repo) => {
+    it(`R06 status treats owned ${kind} as not installed`, { skip: kind === 'unreadable' && process.platform === 'win32' ? 'unreadable files are not enforced on Windows (@henryavila 2026-11-27; runs on POSIX filesystems)' : false }, () => fixture(async (home, repo) => {
       await install(repo, opts);
       const file = join(home, '.codex/AGENTS.md');
       if (kind === 'directory') { rmSync(file); mkdirSync(file); }

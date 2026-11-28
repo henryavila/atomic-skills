@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   initGitRepo,
@@ -27,7 +26,7 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py runner', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -210,6 +209,13 @@ spec.loader.exec_module(d)
       join(seqDir, 'step_1.json'),
       JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
     );
+    // The major opens the one fix round: a fix commit and the follow-up review.
+    writeFileSync(join(seqDir, 'step_2.json'), JSON.stringify({ FAKE_COMMIT_FILE: 'fix.txt' }));
+    const followUp = 'MAJOR R01 fixed | feature.txt:1 now does it\nFINDINGS 0\n';
+    writeFileSync(
+      join(seqDir, 'step_3.json'),
+      JSON.stringify({ FAKE_STDOUT: followUp, FAKE_LAST_MESSAGE: followUp }),
+    );
 
     const res = runDelegate(
       [
@@ -236,24 +242,29 @@ spec.loader.exec_module(d)
     assert.ok(summaryLines.length < 60, `summary lines: ${summaryLines.length} >= 60`);
     assert.match(summaryText, /R01\s*\|\s*major/);
     assert.match(summaryText, /R02\s*\|\s*medium/);
-    assert.match(summaryText, /TOTAL major=1 medium=1 minor=0/);
+    assert.match(summaryText, /^- first review: TOTAL major=1 medium=1 minor=0$/m);
+    assert.equal(summaryText.trimEnd().split('\n').at(-1), 'TOTAL major=0 medium=1 minor=0');
     assert.equal(res.stdout.trim(), summaryText.trim());
 
     const recs = readLogRecords(atomicHome);
-    assert.equal(recs.length, 3);
-    const [execRec, revRec, pipeRec] = recs;
+    assert.equal(recs.length, 6);
+    const [execRec, revRec, fixRec, followRec, verdictRec, pipeRec] = recs;
     assert.equal(execRec.kind, 'run');
     assert.equal(execRec.role, 'implement');
     assert.equal(revRec.kind, 'run');
     assert.equal(revRec.role, 'review');
+    assert.equal(fixRec.role, 'fix');
+    assert.equal(followRec.role, 'review');
+    assert.equal(verdictRec.kind, 'verdict');
     assert.equal(pipeRec.kind, 'pipeline');
     assert.equal(pipeRec.id, 'T-PIPE-HAPPY');
-    assert.equal(pipeRec.outcome, 'reviewed');
+    assert.equal(pipeRec.outcome, 'fixed');
     assert.equal(pipeRec.executor_profile, 'flash');
     assert.equal(pipeRec.reviewer_profile, 'codex-review');
     assert.equal(pipeRec.gate_exit, 0);
     assert.equal(pipeRec.auto_committed, false);
-    assert.deepEqual(pipeRec.findings, { major: 1, medium: 1, minor: 0 });
+    assert.deepEqual(pipeRec.first_findings, { major: 1, medium: 1, minor: 0 });
+    assert.deepEqual(pipeRec.findings, { major: 0, medium: 1, minor: 0 });
     assert.ok(typeof pipeRec.duration_s === 'number');
   });
 
@@ -292,11 +303,12 @@ spec.loader.exec_module(d)
 
     assert.equal(res.status, 0, res.stderr);
     const recs = readLogRecords(atomicHome);
-    assert.equal(recs.length, 4);
+    assert.equal(recs.length, 5);
     assert.equal(recs[0].failure, 'provider_limit');
     assert.equal(recs[1].failure, 'none');
     assert.equal(recs[1].executor, 'codex');
-    const pipeRec = recs[3];
+    assert.equal(recs[3].kind, 'verdict');
+    const pipeRec = recs[4];
     assert.equal(pipeRec.kind, 'pipeline');
     assert.equal(pipeRec.outcome, 'reviewed');
     assert.equal(pipeRec.executor_profile, 'codex');
@@ -571,8 +583,10 @@ spec.loader.exec_module(d)
   for (const [label, route, reviewRoute, expectedReviewer] of [
     ['a flash executor', 'flash', 'flash-review,codex-review', 'codex-review'],
     ['a flash executor through the alias', 'deepseek-light', 'flash-review,agy-review', 'agy-review'],
+    ['a muse executor and muse-review', 'muse', 'muse-review,codex-review', 'codex-review'],
+    ['a muse executor and a review route that names muse', 'muse', 'muse,agy-review', 'agy-review'],
   ]) {
-    it(`pipeline with ${label} never selects flash-review`, () => {
+    it(`pipeline with ${label} never selects a reviewer of the executor family`, () => {
       writeFileSync(
         join(seqDir, 'step_0.json'),
         JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
@@ -611,6 +625,36 @@ spec.loader.exec_module(d)
       assert.equal(pipeRec.outcome, 'reviewed');
     });
   }
+
+  it('pipeline reviews flash work with muse-review when the review route starts with it', () => {
+    writeFileSync(
+      join(seqDir, 'step_0.json'),
+      JSON.stringify({ FAKE_COMMIT_FILE: 'feat.txt', FAKE_EXIT: '0' }),
+    );
+    const reviewOutput = 'Reviewed.\nTOTAL major=0 medium=0 minor=0\n';
+    writeFileSync(
+      join(seqDir, 'step_1.json'),
+      JSON.stringify({ FAKE_STDOUT: reviewOutput, FAKE_LAST_MESSAGE: reviewOutput }),
+    );
+    const res = runDelegate(
+      [
+        'pipeline', '--id', 'T-PIPE-MUSE-REVIEW', '--task', 'muse reviews flash',
+        '--role', 'implement', '--cwd', repoDir, '--card', cardPath,
+        '--route', 'flash', '--gate', 'true', '--review-card', reviewCardPath,
+        '--review-route', 'muse,codex-review', '--out', outDir, '--confirmed',
+      ],
+      { ...baseEnv, FAKE_SEQ_DIR: seqDir },
+    );
+    assert.equal(res.status, 0, res.stderr);
+    const recs = readLogRecords(atomicHome);
+    const revRecs = recs.filter((r) => r.role === 'review');
+    assert.equal(revRecs.length, 1);
+    assert.equal(revRecs[0].family, 'meta');
+    assert.equal(revRecs[0].model, 'opencode-go/muse-spark-1.3-contributor');
+    const pipeRec = recs.find((r) => r.kind === 'pipeline');
+    assert.equal(pipeRec.reviewer_profile, 'muse-review');
+    assert.equal(pipeRec.outcome, 'reviewed');
+  });
 
   // AS-D6 default reviewer routes when the executor is another family.
   for (const [label, route, reviewRoute, expectedReviewer, expectedExecutor] of [

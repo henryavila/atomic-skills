@@ -31,7 +31,7 @@ describe('upstream pack integration', () => {
     {
       skip: upstreamWorktreeAvailable
         ? false
-        : `upstream worktree missing (${upstreamWorktree})`,
+        : `upstream worktree missing (${upstreamWorktree}) (@henryavila 2026-11-27; runs when that worktree is checked out next to this repository)`,
     },
     () => {
       assert.ok(existsSync(RECEIPT_PATH));

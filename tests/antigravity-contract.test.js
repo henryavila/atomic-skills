@@ -161,7 +161,7 @@ describe('Antigravity + Codex dual selection', () => {
 describe('Antigravity live CLI probe (optional)', () => {
   it('checks live agy binary and model listing if available', (t) => {
     if (!agyAvailable()) {
-      t.skip('agy CLI not on PATH — live probe skipped; unit contracts above still apply');
+      t.skip('agy CLI not on PATH — live probe skipped; unit contracts above still apply (@henryavila 2026-11-27; runs when agy is installed)');
       return;
     }
     const r = spawnSync('agy', ['--version'], { encoding: 'utf8', timeout: 5000 });

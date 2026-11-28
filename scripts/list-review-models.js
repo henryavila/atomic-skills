@@ -255,12 +255,13 @@ function discoverLive(provider) {
 }
 
 /**
- * @param {Provider} provider
+ * @param {'codex'|'grok'|'claude'|'agy'|'antigravity'} provider
  * @param {string} [catalogPath]
  * @returns {{ models: import('../src/resolve-review-model.js').ReviewModel[], error: string | null }}
  */
 function fetchModels(provider, catalogPath) {
-  return catalogPath ? fetchFromFile(provider, catalogPath) : discoverLive(provider);
+  const target = provider === 'antigravity' ? 'agy' : provider;
+  return catalogPath ? fetchFromFile(target, catalogPath) : discoverLive(target);
 }
 
 /**

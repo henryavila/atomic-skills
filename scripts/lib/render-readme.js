@@ -380,6 +380,26 @@ function replaceBetween(text, startMarker, endMarker, replacement) {
 }
 
 /**
+ * Resolve one skill's Iron Law: the catalog copy first (product SSOT / design
+ * D2), the `## Iron Law` section of its body as the fallback. `bodyPath` is
+ * returned only when the body had to be read, so a caller that rejects a
+ * missing law can name the file it looked at.
+ *
+ * @param {{ key: string, entry: { iron_law?: unknown } | null | undefined }} skill
+ * @param {string} skillsDir
+ * @returns {{ law: string | null, bodyPath?: string }}
+ */
+function ironLawFor(skill, skillsDir) {
+  const catalogLaw =
+    typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim().length > 0
+      ? skill.entry.iron_law.trim()
+      : null;
+  if (catalogLaw) return { law: catalogLaw };
+  const bodyPath = bodyPathForSkill(skill, skillsDir);
+  return { law: extractIronLaw(bodyPath), bodyPath };
+}
+
+/**
  * Pure renderer: takes a parsed catalog + current README content + a function
  * to read body files, returns the new README content.
  *
@@ -393,16 +413,7 @@ export function renderReadme({ catalogData, readme, skillsDir, pkgVersion: _pkgV
   const ironLaws = new Map();
   for (const skill of skills) {
     // Prefer catalog iron_law (product SSOT / design D2); fall back to body extract.
-    const catalogLaw =
-      typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim().length > 0
-        ? skill.entry.iron_law.trim()
-        : null;
-    if (catalogLaw) {
-      ironLaws.set(skill.key, catalogLaw);
-      continue;
-    }
-    const bodyPath = bodyPathForSkill(skill, skillsDir);
-    const law = extractIronLaw(bodyPath);
+    const { law, bodyPath } = ironLawFor(skill, skillsDir);
     if (!law) {
       throw new Error(
         `skill body missing canonical \`## Iron Law\` section: ${bodyPath}`
@@ -431,6 +442,17 @@ export function renderReadme({ catalogData, readme, skillsDir, pkgVersion: _pkgV
 /**
  * Convenience: read catalog and README from a project root, return the
  * rendered README.
+ *
+ * `catalogPath`, `readmePath`, `skillsDir` and `pkgPath` are optional: each
+ * falls back to the conventional location under `projectRoot`.
+ *
+ * @param {{
+ *   projectRoot: string,
+ *   catalogPath?: string,
+ *   readmePath?: string,
+ *   skillsDir?: string,
+ *   pkgPath?: string,
+ * }} options
  */
 export function renderReadmeFromPaths({ projectRoot, catalogPath, readmePath, skillsDir, pkgPath }) {
   const yamlPath = catalogPath || join(projectRoot, 'meta', 'catalog.yaml');
@@ -457,16 +479,7 @@ export function buildSkillDocs({ catalogData, skillsDir }) {
   const skills = collectSkills(catalogData);
   const ironLaws = new Map();
   for (const skill of skills) {
-    const catalogLaw =
-      typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim().length > 0
-        ? skill.entry.iron_law.trim()
-        : null;
-    if (catalogLaw) {
-      ironLaws.set(skill.key, catalogLaw);
-      continue;
-    }
-    const bodyPath = bodyPathForSkill(skill, skillsDir);
-    const law = extractIronLaw(bodyPath);
+    const { law } = ironLawFor(skill, skillsDir);
     if (law) ironLaws.set(skill.key, law);
   }
   return renderSkillDocs(skills, ironLaws);

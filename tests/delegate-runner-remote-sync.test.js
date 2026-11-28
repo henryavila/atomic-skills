@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync, execFileSync, spawn } from 'node:child_process';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   chmodSync,
   existsSync,
@@ -17,7 +18,6 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   bundleBlobText,
@@ -28,7 +28,7 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py remote host', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -114,7 +114,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (predicate()) return;
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await pause(50);
     }
     throw new Error(`${label} timed out after ${timeoutMs}ms`);
   }
@@ -614,7 +614,8 @@ except delegate.RemoteError as exc:
     assert.equal(res.status, 0, res.stderr);
     assert.match(res.stdout, /^flash \| opencode \| .* \| host=devbox ready$/m);
     assert.match(res.stdout, /^agy \| agy \| .* \| host=devbox ready$/m);
-    assert.equal(res.stdout.trim().split('\n').length, 30);
+    assert.equal(res.stdout.trim().split('\n').length, 36);
+    assert.match(res.stdout, /^muse \| opencode \| .* \| host=devbox ready$/m);
   });
 
   it('profiles --host reports a not-ready executor with the remote fix', () => {

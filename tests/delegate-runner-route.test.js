@@ -4,7 +4,6 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
-  hasPython3,
   makeFakeBin,
   runDelegate,
 } from './helpers/delegate-runner-kit.js';
@@ -13,7 +12,7 @@ const FLASH = 'opencode-go/deepseek-v4.1-flash';
 const CODEX = 'gpt-6.1-sol';
 const AGY_REVIEW = 'gemini-4-hydrogen-xhigh';
 
-describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py route and availability', () => {
   let root;
   let atomicHome;
   let baseEnv;
@@ -69,16 +68,76 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
     const out = route();
     assert.deepEqual(out.route, ['flash', 'codex', 'agy-argon']);
     assert.deepEqual(out.review_routes, {
-      deepseek: ['codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review'],
+      deepseek: ['muse-review', 'codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review'],
+      meta: ['codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review', 'flash-review'],
       openai: ['flash-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review'],
       gemini: ['codex-review', 'flash-review', 'agy-sonnet-review'],
     });
     assert.deepEqual(out.warnings, []);
-    for (const name of ['flash', 'flash-review', 'codex', 'codex-review', 'agy', 'agy-review']) {
+    assert.equal(out.peak, false);
+    for (const name of ['flash', 'flash-review', 'muse', 'muse-review', 'codex', 'codex-review', 'agy', 'agy-review']) {
       assert.equal(out.profiles[name].found, true, name);
       assert.equal(out.profiles[name].cooling_until, null, name);
     }
     assert.equal(out.profiles.codex.slots_free, 1);
+  });
+
+  it('off-peak the executor route has no muse and the JSON says so', () => {
+    const out = route([], { DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00', DELEGATE_NOW: '2026-11-27T12:00:00Z' });
+    assert.deepEqual(out.route, ['flash', 'codex', 'agy-argon']);
+    assert.equal(out.peak, false);
+  });
+
+  it('in DeepSeek peak hours muse goes first, on weekdays only and never for open design', () => {
+    const peakEnv = { DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00', DELEGATE_NOW: '2026-11-27T08:00:00Z' };
+    const friday = route([], peakEnv);
+    assert.deepEqual(friday.route, ['muse', 'flash', 'codex', 'agy-argon']);
+    assert.equal(friday.peak, true);
+    assert.deepEqual(route(['--open-design'], peakEnv).route, ['codex', 'agy-argon', 'agy']);
+    for (const role of ['mechanical', 'test', 'fix']) {
+      const res = runDelegate(['route', '--role', role, '--json'], { ...baseEnv, ...peakEnv });
+      assert.deepEqual(JSON.parse(res.stdout).route, ['muse', 'flash', 'codex', 'agy-argon'], role);
+    }
+    const saturday = route([], { ...peakEnv, DELEGATE_NOW: '2026-11-28T08:00:00Z' });
+    assert.deepEqual(saturday.route, ['flash', 'codex', 'agy-argon']);
+    assert.equal(saturday.peak, false);
+    // Sunday 22:00 in GMT-3 is Monday 01:00 UTC: the first peak of the week.
+    assert.equal(route([], { ...peakEnv, DELEGATE_NOW: '2026-11-30T01:00:00Z' }).peak, true);
+    // Friday 07:00 in GMT-3 is 10:00 UTC: the last peak of the week has ended.
+    assert.equal(route([], { ...peakEnv, DELEGATE_NOW: '2026-11-27T10:00:00Z' }).peak, false);
+  });
+
+  it('the plain output names the peak route only while in peak', () => {
+    const peakEnv = { ...baseEnv, DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00' };
+    const inPeak = runDelegate(['route', '--role', 'implement'], { ...peakEnv, DELEGATE_NOW: '2026-11-27T08:00:00Z' });
+    assert.equal(inPeak.status, 0, inPeak.stderr);
+    const lines = inPeak.stdout.split('\n');
+    assert.equal(lines[0], 'route: muse,flash,codex,agy-argon');
+    assert.equal(lines[1], 'peak: muse first (DeepSeek peak hours)');
+    assert.match(inPeak.stdout, /^review route after muse \(meta\): codex-review,agy-sonnet-review,agy-argon-review,agy-review,flash-review$/m);
+    const offPeak = runDelegate(['route', '--role', 'implement'], { ...peakEnv, DELEGATE_NOW: '2026-11-27T12:00:00Z' });
+    assert.doesNotMatch(offPeak.stdout, /muse first|after muse/);
+    assert.match(offPeak.stdout, /^review route after flash \(deepseek\): muse-review,codex-review,/m);
+  });
+
+  it('a muse under a provider limit goes last in the peak route and in the deepseek review route', () => {
+    writeLog([run('opencode', 'opencode-go/muse-spark-1.3-contributor', '2026-11-27T07:30:00+00:00', 'provider_limit', 'rate limit')]);
+    const out = route([], { DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00', DELEGATE_NOW: '2026-11-27T08:00:00Z' });
+    assert.deepEqual(out.route, ['flash', 'codex', 'agy-argon', 'muse']);
+    assert.equal(out.review_routes.deepseek[0], 'codex-review');
+    assert.equal(out.review_routes.deepseek.at(-1), 'muse-review');
+    assert.equal(out.profiles.flash.cooling_until, null);
+    const text = runDelegate(['route', '--role', 'implement'],
+      { ...baseEnv, DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00', DELEGATE_NOW: '2026-11-27T08:00:00Z' });
+    const lines = text.stdout.split('\n');
+    assert.equal(lines[0], 'route: flash,codex,agy-argon,muse');
+    assert.equal(lines[1], 'peak: muse is not usable now (DeepSeek peak hours)');
+    const missing = runDelegate(['route', '--role', 'implement'], { ...baseEnv, PATH: '/usr/bin:/bin',
+      DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00', DELEGATE_NOW: '2026-11-27T08:00:00Z' });
+    assert.match(missing.stdout, /^peak: muse is not usable now \(DeepSeek peak hours\)$/m);
+    const open = runDelegate(['route', '--role', 'implement', '--open-design'],
+      { ...baseEnv, DELEGATE_PEAK_WINDOWS: '01:00-04:00,06:00-10:00', DELEGATE_NOW: '2026-11-27T08:00:00Z' });
+    assert.doesNotMatch(open.stdout, /^peak:/m);
   });
 
   it('--open-design and the mechanical role use their own fixed routes', () => {
@@ -97,7 +156,7 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
     assert.equal(out.profiles.codex.cooling_until, '2026-11-20T17:51:00+00:00');
     assert.equal(out.profiles.codex.reset_source, 'provider');
     assert.deepEqual(out.route, ['flash', 'agy-argon', 'codex']);
-    assert.deepEqual(out.review_routes.deepseek, ['agy-sonnet-review', 'agy-argon-review', 'agy-review', 'codex-review']);
+    assert.deepEqual(out.review_routes.deepseek, ['muse-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review', 'codex-review']);
     assert.deepEqual(out.review_routes.gemini, ['flash-review', 'agy-sonnet-review', 'codex-review']);
     assert.deepEqual(out.warnings, []);
   });
@@ -161,14 +220,15 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
       run('agy', AGY_REVIEW, '2026-11-20T14:10:00+00:00', 'provider_limit', 'Resets in 100h0m0s.'),
       run('agy', 'claude-sonnet-5-5-medium', '2026-11-20T14:10:00+00:00', 'provider_limit', 'Resets in 100h0m0s.'),
       run('agy', 'gemini-4-argon-high', '2026-11-20T14:10:00+00:00', 'provider_limit', 'Resets in 100h0m0s.'),
+      run('opencode', 'opencode-go/muse-spark-1.3-contributor', '2026-11-20T14:50:00+00:00', 'provider_limit', 'rate limit'),
     ]);
     const out = route();
     assert.equal(out.warnings.length, 1);
-    assert.match(out.warnings[0], /^flash: no reviewer usable now; first back: codex-review at 2026-11-20T17:51:00\+00:00/);
+    assert.match(out.warnings[0], /^flash: no reviewer usable now; first back: muse-review at 2026-11-20T15:50:00\+00:00/);
     const text = runDelegate(['route', '--role', 'implement'], baseEnv);
     assert.equal(text.status, 0, text.stderr);
     assert.match(text.stdout, /^route: flash,codex,agy-argon$/m);
-    assert.match(text.stdout, /^review route after flash \(deepseek\): codex-review,agy-sonnet-review,agy-argon-review,agy-review$/m);
+    assert.match(text.stdout, /^review route after flash \(deepseek\): muse-review,codex-review,agy-sonnet-review,agy-argon-review,agy-review$/m);
     assert.match(text.stdout, /^cooling: codex, codex-review until 2026-11-20T17:51:00\+00:00 \(provider\)$/m);
     assert.match(text.stdout, /^warning: flash: no reviewer usable now/m);
   });
@@ -177,7 +237,7 @@ describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 no
     const fakes = makeFakeBin(join(root, 'partial'), ['opencode', 'agy']);
     const out = route([], { PATH: `${fakes.binDir}:/usr/bin:/bin` });
     assert.equal(out.profiles.codex.found, false);
-    assert.deepEqual(out.review_routes.deepseek, ['agy-sonnet-review', 'agy-argon-review', 'agy-review', 'codex-review']);
+    assert.deepEqual(out.review_routes.deepseek, ['muse-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review', 'codex-review']);
     assert.deepEqual(out.route, ['flash', 'agy-argon', 'codex']);
   });
 
