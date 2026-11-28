@@ -27,6 +27,104 @@ export const PACKAGE_ROOT_REL = join('.atomic-skills', 'package-root');
  */
 
 /**
+ * @typedef {{
+ *   format: 'absent'|'legacy'|'versioned'|'corrupt',
+ *   owners: RuntimeOwner[],
+ *   corruption: string|null,
+ *   schemaVersion: string|null,
+ * }} RegistryParse
+ */
+
+/**
+ * @typedef {{
+ *   format: string,
+ *   owners: RuntimeOwner[],
+ *   ghosts: string[],
+ *   corruption: string|null,
+ *   schemaVersion: string|null,
+ *   selectedOwner: RuntimeOwner|null,
+ *   packageRootOnDisk: string|null,
+ *   runtimeMismatch: string|null,
+ *   writes: 0,
+ * }} RuntimeObservation
+ */
+
+/** @returns {RegistryParse} */
+function absentRegistry() {
+  return { format: 'absent', owners: [], corruption: null, schemaVersion: null };
+}
+
+/**
+ * @param {string} corruption
+ * @param {string|null} schemaVersion
+ * @returns {RegistryParse}
+ */
+function corruptRegistry(corruption, schemaVersion) {
+  return { format: 'corrupt', owners: [], corruption, schemaVersion };
+}
+
+/** @returns {RegistryParse} */
+function parseLegacyRegistry(entries) {
+  if (!entries.every((x) => typeof x === 'string')) {
+    return corruptRegistry('legacy registry entries must be strings', null);
+  }
+  return {
+    format: 'legacy',
+    owners: entries.map((basePath) => ({
+      basePath,
+      packageRoot: null,
+      version: null,
+      fingerprint: null,
+      electable: false,
+    })),
+    corruption: null,
+    schemaVersion: null,
+  };
+}
+
+/** @returns {RuntimeOwner|null} */
+function toVersionedOwner(entry) {
+  if (!entry || typeof entry !== 'object' || typeof entry.basePath !== 'string') {
+    return null;
+  }
+  const packageRoot = entry.packageRoot ?? null;
+  const electable = entry.electable === false
+    ? false
+    : Boolean(packageRoot);
+  return {
+    basePath: entry.basePath,
+    packageRoot,
+    version: entry.version ?? null,
+    fingerprint: entry.fingerprint ?? null,
+    electable,
+  };
+}
+
+/** @returns {RegistryParse} */
+function parseVersionedRegistry(parsed) {
+  const schemaVersion = parsed.schemaVersion != null
+    ? String(parsed.schemaVersion)
+    : null;
+  if (!Array.isArray(parsed.owners)) {
+    return corruptRegistry('versioned registry missing owners[]', schemaVersion);
+  }
+  const owners = [];
+  for (const [i, entry] of parsed.owners.entries()) {
+    const owner = toVersionedOwner(entry);
+    if (!owner) {
+      return corruptRegistry(`owners[${i}] missing basePath`, schemaVersion);
+    }
+    owners.push(owner);
+  }
+  return {
+    format: 'versioned',
+    owners,
+    corruption: null,
+    schemaVersion: schemaVersion || '1',
+  };
+}
+
+/**
  * Parse registry content without mutating disk.
  * @param {string|null|undefined} raw
  * @returns {{
@@ -37,93 +135,18 @@ export const PACKAGE_ROOT_REL = join('.atomic-skills', 'package-root');
  * }}
  */
 export function parseInstallsRegistry(raw) {
-  if (raw == null || raw === '') {
-    return { format: 'absent', owners: [], corruption: null, schemaVersion: null };
-  }
+  if (raw == null || raw === '') return absentRegistry();
+
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    return {
-      format: 'corrupt',
-      owners: [],
-      corruption: `invalid JSON: ${err.message}`,
-      schemaVersion: null,
-    };
+    return corruptRegistry(`invalid JSON: ${err.message}`, null);
   }
 
-  if (Array.isArray(parsed)) {
-    // legacy: list of basePath strings
-    if (!parsed.every((x) => typeof x === 'string')) {
-      return {
-        format: 'corrupt',
-        owners: [],
-        corruption: 'legacy registry entries must be strings',
-        schemaVersion: null,
-      };
-    }
-    return {
-      format: 'legacy',
-      owners: parsed.map((basePath) => ({
-        basePath,
-        packageRoot: null,
-        version: null,
-        fingerprint: null,
-        electable: false,
-      })),
-      corruption: null,
-      schemaVersion: null,
-    };
-  }
-
-  if (parsed && typeof parsed === 'object') {
-    const schemaVersion = parsed.schemaVersion != null
-      ? String(parsed.schemaVersion)
-      : null;
-    if (!Array.isArray(parsed.owners)) {
-      return {
-        format: 'corrupt',
-        owners: [],
-        corruption: 'versioned registry missing owners[]',
-        schemaVersion,
-      };
-    }
-    const owners = [];
-    for (const [i, o] of parsed.owners.entries()) {
-      if (!o || typeof o !== 'object' || typeof o.basePath !== 'string') {
-        return {
-          format: 'corrupt',
-          owners: [],
-          corruption: `owners[${i}] missing basePath`,
-          schemaVersion,
-        };
-      }
-      const packageRoot = o.packageRoot ?? null;
-      const electable = o.electable === false
-        ? false
-        : Boolean(packageRoot);
-      owners.push({
-        basePath: o.basePath,
-        packageRoot,
-        version: o.version ?? null,
-        fingerprint: o.fingerprint ?? null,
-        electable,
-      });
-    }
-    return {
-      format: 'versioned',
-      owners,
-      corruption: null,
-      schemaVersion: schemaVersion || '1',
-    };
-  }
-
-  return {
-    format: 'corrupt',
-    owners: [],
-    corruption: 'registry root must be array or object',
-    schemaVersion: null,
-  };
+  if (Array.isArray(parsed)) return parseLegacyRegistry(parsed);
+  if (parsed && typeof parsed === 'object') return parseVersionedRegistry(parsed);
+  return corruptRegistry('registry root must be array or object', null);
 }
 
 /**
@@ -185,6 +208,82 @@ export function findGhostOwners(owners, io = {}) {
   return ghosts;
 }
 
+function readRegistryText(registryPath, injectedRaw) {
+  if (injectedRaw !== undefined) return { raw: injectedRaw, error: null };
+  if (!existsSync(registryPath)) return { raw: null, error: null };
+  try {
+    return { raw: readFileSync(registryPath, 'utf8'), error: null };
+  } catch (err) {
+    return { raw: null, error: err.message };
+  }
+}
+
+function resolvePackageRootOnDisk(packageRootPath, opts) {
+  if (!packageRootFileIsUnset(opts)) return opts.packageRootFile;
+  if (!existsSync(packageRootPath)) return null;
+  try {
+    return readFileSync(packageRootPath, 'utf8').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {{ format: string, corruption: string|null, schemaVersion: string|null }} parsed
+ * @param {string|null} packageRootOnDisk
+ * @returns {RuntimeObservation}
+ */
+function corruptObservation(parsed, packageRootOnDisk) {
+  return {
+    format: parsed.format,
+    owners: [],
+    ghosts: [],
+    corruption: parsed.corruption,
+    schemaVersion: parsed.schemaVersion,
+    selectedOwner: null,
+    packageRootOnDisk,
+    runtimeMismatch: null,
+    writes: 0,
+  };
+}
+
+function packageRootExists(packageRootOnDisk, opts) {
+  const existsFn = opts.existsFn || existsSync;
+  return existsFn(packageRootOnDisk);
+}
+
+function selectedOwnerMismatch(packageRootOnDisk, selectedOwner) {
+  if (!packageRootOnDisk || !selectedOwner?.packageRoot) return null;
+  if (packageRootOnDisk === selectedOwner.packageRoot) return null;
+  return `package-root (${packageRootOnDisk}) != selected owner packageRoot (${selectedOwner.packageRoot})`;
+}
+
+function processPackageMismatch(packageRootOnDisk, selectedOwner, opts) {
+  if (!opts.packageRoot || !packageRootOnDisk) return null;
+  if (packageRootOnDisk === opts.packageRoot) return null;
+  if (!selectedOwner?.packageRoot) return null;
+  if (selectedOwner.packageRoot === packageRootOnDisk) return null;
+  return `package-root points at ${packageRootOnDisk}; process package is ${opts.packageRoot}`;
+}
+
+function missingPackageRootMismatch(packageRootOnDisk, selectedOwner) {
+  if (packageRootOnDisk || !selectedOwner?.packageRoot) return null;
+  return 'package-root missing while selected owner declares packageRoot';
+}
+
+function missingPathMismatch(packageRootOnDisk, opts) {
+  if (!packageRootOnDisk) return null;
+  if (packageRootExists(packageRootOnDisk, opts)) return null;
+  return `package-root path does not exist: ${packageRootOnDisk}`;
+}
+
+function computeRuntimeMismatch(packageRootOnDisk, selectedOwner, opts) {
+  return selectedOwnerMismatch(packageRootOnDisk, selectedOwner)
+    || processPackageMismatch(packageRootOnDisk, selectedOwner, opts)
+    || missingPackageRootMismatch(packageRootOnDisk, selectedOwner)
+    || missingPathMismatch(packageRootOnDisk, opts);
+}
+
 /**
  * Observe shared runtime registry + package-root (read-only).
  *
@@ -195,75 +294,25 @@ export function findGhostOwners(owners, io = {}) {
  * @param {string|null} [opts.packageRootFile] - inject package-root file contents
  * @param {(p: string) => boolean} [opts.existsFn]
  * @param {(p: string) => object|null} [opts.readManifestFn]
- * @returns {{
- *   format: string,
- *   owners: RuntimeOwner[],
- *   ghosts: string[],
- *   corruption: string|null,
- *   schemaVersion: string|null,
- *   selectedOwner: RuntimeOwner|null,
- *   packageRootOnDisk: string|null,
- *   runtimeMismatch: string|null,
- *   writes: 0,
- * }}
+ * @returns {RuntimeObservation}
  */
 export function observeRuntimeRegistry(opts = {}) {
   const home = opts.homeDir || homedir();
   const registryPath = join(home, REGISTRY_REL);
   const packageRootPath = join(home, PACKAGE_ROOT_REL);
 
-  let raw = opts.registryRaw;
-  if (raw === undefined) {
-    if (existsSync(registryPath)) {
-      try {
-        raw = readFileSync(registryPath, 'utf8');
-      } catch (err) {
-        raw = null;
-        return {
-          format: 'corrupt',
-          owners: [],
-          ghosts: [],
-          corruption: `unreadable registry: ${err.message}`,
-          schemaVersion: null,
-          selectedOwner: null,
-          packageRootOnDisk: null,
-          runtimeMismatch: null,
-          writes: 0,
-        };
-      }
-    } else {
-      raw = null;
-    }
+  const registry = readRegistryText(registryPath, opts.registryRaw);
+  if (registry.error) {
+    return corruptObservation({
+      format: 'corrupt',
+      corruption: `unreadable registry: ${registry.error}`,
+      schemaVersion: null,
+    }, null);
   }
 
-  const parsed = parseInstallsRegistry(raw);
-
-  let packageRootOnDisk = opts.packageRootFile;
-  if (packageRootFileIsUnset(opts)) {
-    if (existsSync(packageRootPath)) {
-      try {
-        packageRootOnDisk = readFileSync(packageRootPath, 'utf8').trim() || null;
-      } catch {
-        packageRootOnDisk = null;
-      }
-    } else {
-      packageRootOnDisk = null;
-    }
-  }
-
-  if (parsed.corruption) {
-    return {
-      format: parsed.format,
-      owners: [],
-      ghosts: [],
-      corruption: parsed.corruption,
-      schemaVersion: parsed.schemaVersion,
-      selectedOwner: null,
-      packageRootOnDisk,
-      runtimeMismatch: null,
-      writes: 0,
-    };
-  }
+  const parsed = parseInstallsRegistry(registry.raw);
+  const packageRootOnDisk = resolvePackageRootOnDisk(packageRootPath, opts);
+  if (parsed.corruption) return corruptObservation(parsed, packageRootOnDisk);
 
   const ghosts = findGhostOwners(parsed.owners, {
     existsFn: opts.existsFn,
@@ -275,32 +324,7 @@ export function observeRuntimeRegistry(opts = {}) {
     ghosts,
   });
 
-  let runtimeMismatch = null;
-  if (packageRootOnDisk && selectedOwner?.packageRoot) {
-    if (packageRootOnDisk !== selectedOwner.packageRoot) {
-      runtimeMismatch = `package-root (${packageRootOnDisk}) != selected owner packageRoot (${selectedOwner.packageRoot})`;
-    }
-  }
-  if (!runtimeMismatch && opts.packageRoot && packageRootOnDisk) {
-    if (packageRootOnDisk !== opts.packageRoot && selectedOwner?.packageRoot
-      && selectedOwner.packageRoot !== packageRootOnDisk) {
-      runtimeMismatch = `package-root points at ${packageRootOnDisk}; process package is ${opts.packageRoot}`;
-    }
-  }
-  // Explicit mismatch when package-root is missing but owners claim a packageRoot
-  if (!runtimeMismatch && !packageRootOnDisk && selectedOwner?.packageRoot) {
-    runtimeMismatch = 'package-root missing while selected owner declares packageRoot';
-  }
-  // package-root points at nonexistent path
-  if (!runtimeMismatch && packageRootOnDisk && opts.existsFn) {
-    if (!opts.existsFn(packageRootOnDisk)) {
-      runtimeMismatch = `package-root path does not exist: ${packageRootOnDisk}`;
-    }
-  } else if (!runtimeMismatch && packageRootOnDisk && !opts.existsFn) {
-    if (!existsSync(packageRootOnDisk)) {
-      runtimeMismatch = `package-root path does not exist: ${packageRootOnDisk}`;
-    }
-  }
+  const runtimeMismatch = computeRuntimeMismatch(packageRootOnDisk, selectedOwner, opts);
 
   return {
     format: parsed.format,
