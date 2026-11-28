@@ -387,3 +387,38 @@ exit=1
 ```
 
 `ratchet.py status` exits 1: no cell with debt is strong yet.
+
+## Debt payment — 2026-11-28
+
+Debt went from 202 items (after the first wave, 242 at freeze) to **1** in the
+original metrics. Every change was written by an external executor (DeepSeek
+V4.1 Flash; Codex for the coverage measurer), passed the host gate and one
+review by another model family (Muse Spark, Codex or Gemini Argon). Verdicts are
+in `~/.atomic-skills/delegate/runs.jsonl` under the ids `PAY-5` … `PAY-16C`,
+`PAY-8A-M` … `PAY-8C-M` and `QG-COV`.
+
+- `main` (2.4.0, with PR 76) was merged in first. Its new code in `delegate.py`
+  and four new test suites were above the ceilings; those items were paid too.
+- Left as debt: `py.file-lines` of `progress.py` (2554), a script shipped and run
+  as one file.
+- New exception: `py.file-lines` of `delegate.py`, limit 6686, in
+  `qa/exceptions.tsv`. It was 4725 at freeze and 5651 after `main`; splitting its
+  long functions adds lines. Splitting the file into modules is the owner's
+  decision.
+- New measurer `qa/measure/coverage` (`uncovered-pct`, full mode, CI). Its first
+  run froze 22 items (20 js, 2 py). Known limit: a JS script that tests run only
+  as a child `node` process, and `skills/shared/quality-gate-assets/ratchet.py`
+  (tests run its copy `qa/ratchet.py`), show as 100% uncovered.
+- Caught in review and fixed: a refactor that deleted a foreign staged tree
+  created after the ownership check, and a driver test weakened to fragment
+  searches (PAY-16B). Rejected by the orchestrator: a commit that deleted
+  docstrings and packed lines to dodge `file-lines` (PAY-11A, reverted).
+- Medium and minor left recorded: `src/install.js:327` (versioned registry read
+  drops top-level keys other than `owners` from the returned raw object, no
+  current caller reads them; PAY-12B) and a duplicated JSDoc block in
+  `src/adopt-preexisting-desired.js` (PAY-16A).
+
+`ratchet.py status` still exits 1, so `reaudit` cannot run yet. Cells not strong:
+`py size` (debt 1), `js|py testability` (coverage debt), and cells with no
+measurer: `layers` (js, py), `modularity` (py), and `duplication`, `errors`,
+`layers`, `modularity`, `testability`, `typing` for `sh`.
