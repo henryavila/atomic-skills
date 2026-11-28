@@ -168,7 +168,7 @@ class Root:
 
 def read_measures(paths, root):
     """(stack, metric) -> {key: value}, from files or `-` for stdin."""
-    measured = defaultdict(dict)
+    measured: dict[tuple[str, str], dict[str, float]] = defaultdict(dict)
     for path in paths:
         if path == "-":
             lines = sys.stdin.read().splitlines()
@@ -215,7 +215,7 @@ def plural(count):
 def check_exceptions(root, maximum, stacks=None):
     """More exceptions than the limit in a stack, or one without a reason."""
     failures = []
-    per_stack = defaultdict(int)
+    per_stack: dict[str, int] = defaultdict(int)
     for stack, metric, key, _limit, reason in root.exceptions():
         if stacks is not None and stack not in stacks:
             continue
@@ -252,13 +252,13 @@ def lower_pair(measured, debt):
 
 def cmd_check(root, args):
     measured = read_measures(args.measures, root)
-    limits = defaultdict(dict)
+    limits: dict[tuple[str, str], dict[str, float]] = defaultdict(dict)
     for stack, metric, key, limit, _reason in root.exceptions():
         limits[(stack, metric)][key] = limit
     pairs = scope(root, args)
     stacks = {stack for stack, _metric in pairs} | set(args.stack or [])
     lines = check_exceptions(root, args.max_exceptions, stacks)
-    unfrozen = defaultdict(int)
+    unfrozen: dict[str, int] = defaultdict(int)
     lowerable = 0
     for stack, metric in pairs:
         items = measured.get((stack, metric), {})
@@ -318,7 +318,7 @@ def all_debt(root):
 
 def by_metric(debt):
     """metric -> {key: value} across every stack."""
-    merged = defaultdict(dict)
+    merged: dict[str, dict[str, float]] = defaultdict(dict)
     for (_stack, metric), items in debt.items():
         merged[metric].update(items)
     return merged
@@ -343,7 +343,9 @@ def judge_moves(moves, base_debt, head_debt, allowed):
     The last set holds every destination a failure already covers, so the
     line-by-line pass does not report it twice.
     """
-    approved, failures, covered = {}, [], set()
+    approved: dict[tuple[str, str], float] = {}
+    failures: list[tuple[str, str, str]] = []
+    covered: set[tuple[str, str]] = set()
     if not allowed:
         return approved, failures, covered
     base, head = by_metric(base_debt), by_metric(head_debt)
@@ -489,7 +491,7 @@ def cmd_move(root, args):
             raise UsageError(f"stack {stack} is not frozen; freeze it before moving debt into it")
         placed.append((stack, key, value))
 
-    files = defaultdict(dict)
+    files: dict[str, dict[str, float]] = defaultdict(dict)
     files[origin_stack] = read_debt(root.debt_path(origin_stack, metric))
     del files[origin_stack][args.origin]
     for stack, key, value in placed:
