@@ -212,12 +212,11 @@ def repo_from_url(url):
     parts = [part for part in path.split("/") if part]
     if len(parts) < 2:
         return None
-    owner, name = parts[-2], parts[-1]
-    if name.endswith(".git"):
-        name = name[:-4]
-    for part in (owner, name):
-        if not REPO_PART_RE.fullmatch(part) or part in (".", ".."):
-            return None
+    owner = parts[-2]
+    name = parts[-1][:-4] if parts[-1].endswith(".git") else parts[-1]
+    if not all(REPO_PART_RE.fullmatch(part) and part not in (".", "..")
+               for part in (owner, name)):
+        return None
     return "%s/%s" % (owner, name)
 
 
@@ -316,210 +315,222 @@ def _nonempty_str(value):
     return isinstance(value, str) and value.strip() != ""
 
 
-def validate_map(data):
-    """Return every problem as `"<json path>: <message>"` (empty when valid)."""
-    issues = []
-    if not isinstance(data, dict):
-        return ["$: the map must be a JSON object"]
+class _MapValidator:
+    """Collect a map's problems in the order they are reported."""
 
-    def issue(path, message):
-        issues.append("%s: %s" % (path, message))
+    def __init__(self):
+        self.issues: list[str] = []
+        self.cards_by_id: dict[str, str] = {}
+        self.milestone_ids: set[str] = set()
+        self.saw_weighted_card = False
+        self.has_positive_weight = False
 
-    for key in data:
-        if key not in TOP_KEYS:
-            issue("$.%s" % key, "unknown key")
+    def issue(self, path, message):
+        self.issues.append("%s: %s" % (path, message))
 
-    if "schemaVersion" not in data:
-        issue("$.schemaVersion", "required")
-    elif not _is_int(data["schemaVersion"]) or data["schemaVersion"] != SCHEMA_VERSION:
-        issue("$.schemaVersion", "must be the integer %d" % SCHEMA_VERSION)
+    def validate(self, data):
+        if not isinstance(data, dict):
+            return ["$: the map must be a JSON object"]
+        self.check_top_level(data)
+        milestones = data.get("milestones")
+        if "milestones" not in data:
+            self.issue("$.milestones", "required")
+            return self.issues
+        if not isinstance(milestones, list):
+            self.issue("$.milestones", "must be an array")
+            return self.issues
+        self.check_milestones(milestones)
+        if self.saw_weighted_card and not self.has_positive_weight:
+            self.issue("$.milestones",
+                       "all cards weigh 0; at least one card must weigh more than 0")
+        self.check_dependencies(milestones)
+        self.check_cycles(milestones)
+        return self.issues
 
-    for key in ("id", "title", "unit"):
-        if key not in data:
-            issue("$.%s" % key, "required")
-        elif not _nonempty_str(data[key]):
-            issue("$.%s" % key, "must be a non-empty string")
-        elif key == "id" and not ID_RE.fullmatch(data[key]):
-            issue("$.id", "must match [A-Za-z0-9._-]{1,64}")
+    def check_top_level(self, data):
+        for key in data:
+            if key not in TOP_KEYS:
+                self.issue("$.%s" % key, "unknown key")
+        if "schemaVersion" not in data:
+            self.issue("$.schemaVersion", "required")
+        elif not _is_int(data["schemaVersion"]) or data["schemaVersion"] != SCHEMA_VERSION:
+            self.issue("$.schemaVersion", "must be the integer %d" % SCHEMA_VERSION)
+        for key in ("id", "title", "unit"):
+            if key not in data:
+                self.issue("$.%s" % key, "required")
+            elif not _nonempty_str(data[key]):
+                self.issue("$.%s" % key, "must be a non-empty string")
+            elif key == "id" and not ID_RE.fullmatch(data[key]):
+                self.issue("$.id", "must match [A-Za-z0-9._-]{1,64}")
+        if "note" in data and not isinstance(data["note"], str):
+            self.issue("$.note", "must be a string")
 
-    if "note" in data and not isinstance(data["note"], str):
-        issue("$.note", "must be a string")
-
-    milestones = data.get("milestones")
-    if "milestones" not in data:
-        issue("$.milestones", "required")
-        return issues
-    if not isinstance(milestones, list):
-        issue("$.milestones", "must be an array")
-        return issues
-
-    cards_by_id = {}
-    milestone_ids = set()
-    saw_weighted_card = False
-    has_positive_weight = False
-    for index, milestone in enumerate(milestones):
-        base = "$.milestones[%d]" % index
-        if not isinstance(milestone, dict):
-            issue(base, "must be an object")
-            continue
-        for key in milestone:
-            if key not in MILESTONE_KEYS:
-                issue("%s.%s" % (base, key), "unknown key")
-        for key in ("id", "title"):
-            if key not in milestone:
-                issue("%s.%s" % (base, key), "required")
-            elif not _nonempty_str(milestone[key]):
-                issue("%s.%s" % (base, key), "must be a non-empty string")
-            elif key == "id":
-                if not ID_RE.fullmatch(milestone[key]):
-                    issue("%s.id" % base, "must match [A-Za-z0-9._-]{1,64}")
-                elif milestone[key] in milestone_ids:
-                    issue("%s.id" % base, "duplicate milestone id %r" % milestone[key])
-                else:
-                    milestone_ids.add(milestone[key])
-        cards = milestone.get("cards")
-        if "cards" not in milestone:
-            issue("%s.cards" % base, "required")
-            continue
-        if not isinstance(cards, list):
-            issue("%s.cards" % base, "must be an array")
-            continue
-        for card_index, card in enumerate(cards):
-            card_base = "%s.cards[%d]" % (base, card_index)
-            if not isinstance(card, dict):
-                issue(card_base, "must be an object")
+    def check_milestones(self, milestones):
+        for index, milestone in enumerate(milestones):
+            base = "$.milestones[%d]" % index
+            if not isinstance(milestone, dict):
+                self.issue(base, "must be an object")
                 continue
-            for key in card:
-                if key not in CARD_KEYS:
-                    issue("%s.%s" % (card_base, key), "unknown key")
-            card_id = card.get("id")
-            if "id" not in card:
-                issue("%s.id" % card_base, "required")
-            elif not _nonempty_str(card_id):
-                issue("%s.id" % card_base, "must be a non-empty string")
-            elif not ID_RE.fullmatch(card_id):
-                issue("%s.id" % card_base, "must match [A-Za-z0-9._-]{1,64}")
-            elif card_id in cards_by_id:
-                issue("%s.id" % card_base, "duplicate card id %r" % card_id)
-            else:
-                cards_by_id[card_id] = card_base
-
-            has_size = "size" in card
-            has_weight = "weight" in card
-            if not has_size and not has_weight:
-                issue(card_base, "card needs a size or a weight")
-            if has_size and (
-                not isinstance(card["size"], str) or card["size"] not in SIZE_WEIGHTS
-            ):
-                issue("%s.size" % card_base, "must be one of P, M or G")
-            if has_weight and (not _is_int(card["weight"]) or card["weight"] < 0):
-                issue("%s.weight" % card_base, "must be a non-negative integer")
-            weight = None
-            if has_weight and _is_int(card["weight"]) and card["weight"] >= 0:
-                weight = card["weight"]
-            elif (
-                has_size
-                and isinstance(card["size"], str)
-                and card["size"] in SIZE_WEIGHTS
-            ):
-                weight = SIZE_WEIGHTS[card["size"]]
-            if weight is not None:
-                saw_weighted_card = True
-                if weight > 0:
-                    has_positive_weight = True
-
-            if "match" in card:
-                match = card["match"]
-                if isinstance(match, list):
-                    if not match:
-                        issue("%s.match" % card_base, "must not be an empty array")
-                    for match_index, value in enumerate(match):
-                        if not _nonempty_str(value):
-                            issue(
-                                "%s.match[%d]" % (card_base, match_index),
-                                "must be a non-empty string",
-                            )
-                elif not _nonempty_str(match):
-                    issue(
-                        "%s.match" % card_base,
-                        "must be a non-empty string or a non-empty array of them",
-                    )
-            for key in ("done", "validated"):
-                if key in card and not isinstance(card[key], str):
-                    issue("%s.%s" % (card_base, key), "must be a string")
-            if "deps" in card:
-                deps = card["deps"]
-                if not isinstance(deps, list):
-                    issue("%s.deps" % card_base, "must be an array")
+            for key in milestone:
+                if key not in MILESTONE_KEYS:
+                    self.issue("%s.%s" % (base, key), "unknown key")
+            for key in ("id", "title"):
+                if key not in milestone:
+                    self.issue("%s.%s" % (base, key), "required")
+                elif not _nonempty_str(milestone[key]):
+                    self.issue("%s.%s" % (base, key), "must be a non-empty string")
+                elif key == "id":
+                    self.check_milestone_id(milestone[key], base)
+            cards = milestone.get("cards")
+            if "cards" not in milestone:
+                self.issue("%s.cards" % base, "required")
+                continue
+            if not isinstance(cards, list):
+                self.issue("%s.cards" % base, "must be an array")
+                continue
+            for card_index, card in enumerate(cards):
+                card_base = "%s.cards[%d]" % (base, card_index)
+                if not isinstance(card, dict):
+                    self.issue(card_base, "must be an object")
                 else:
-                    for dep_index, dep in enumerate(deps):
-                        if not isinstance(dep, str) or not dep:
-                            issue(
-                                "%s.deps[%d]" % (card_base, dep_index),
-                                "must be a non-empty string",
-                            )
+                    self.check_card(card, card_base)
 
-    if saw_weighted_card and not has_positive_weight:
-        issue("$.milestones", "all cards weigh 0; at least one card must weigh more than 0")
+    def check_milestone_id(self, value, base):
+        if not ID_RE.fullmatch(value):
+            self.issue("%s.id" % base, "must match [A-Za-z0-9._-]{1,64}")
+        elif value in self.milestone_ids:
+            self.issue("%s.id" % base, "duplicate milestone id %r" % value)
+        else:
+            self.milestone_ids.add(value)
 
-    # Every dep names a card in the map.
-    for card_id, card_base in cards_by_id.items():
-        card = None
+    def check_card(self, card, card_base):
+        for key in card:
+            if key not in CARD_KEYS:
+                self.issue("%s.%s" % (card_base, key), "unknown key")
+        self.check_card_id(card, card_base)
+        self.check_card_weight(card, card_base)
+        if "match" in card:
+            self.check_card_match(card["match"], card_base)
+        for key in ("done", "validated"):
+            if key in card and not isinstance(card[key], str):
+                self.issue("%s.%s" % (card_base, key), "must be a string")
+        if "deps" in card:
+            deps = card["deps"]
+            if not isinstance(deps, list):
+                self.issue("%s.deps" % card_base, "must be an array")
+            else:
+                for dep_index, dep in enumerate(deps):
+                    if not isinstance(dep, str) or not dep:
+                        self.issue("%s.deps[%d]" % (card_base, dep_index),
+                                   "must be a non-empty string")
+
+    def check_card_id(self, card, card_base):
+        if "id" not in card:
+            self.issue("%s.id" % card_base, "required")
+            return
+        card_id = card["id"]
+        if not _nonempty_str(card_id):
+            self.issue("%s.id" % card_base, "must be a non-empty string")
+        elif not ID_RE.fullmatch(card_id):
+            self.issue("%s.id" % card_base, "must match [A-Za-z0-9._-]{1,64}")
+        elif card_id in self.cards_by_id:
+            self.issue("%s.id" % card_base, "duplicate card id %r" % card_id)
+        else:
+            self.cards_by_id[card_id] = card_base
+
+    def check_card_weight(self, card, card_base):
+        has_size = "size" in card
+        has_weight = "weight" in card
+        if not has_size and not has_weight:
+            self.issue(card_base, "card needs a size or a weight")
+        if has_size and (
+            not isinstance(card["size"], str) or card["size"] not in SIZE_WEIGHTS
+        ):
+            self.issue("%s.size" % card_base, "must be one of P, M or G")
+        if has_weight and (not _is_int(card["weight"]) or card["weight"] < 0):
+            self.issue("%s.weight" % card_base, "must be a non-negative integer")
+        weight = None
+        if has_weight and _is_int(card["weight"]) and card["weight"] >= 0:
+            weight = card["weight"]
+        elif has_size and isinstance(card["size"], str) and card["size"] in SIZE_WEIGHTS:
+            weight = SIZE_WEIGHTS[card["size"]]
+        if weight is not None:
+            self.saw_weighted_card = True
+            if weight > 0:
+                self.has_positive_weight = True
+
+    def check_card_match(self, match, card_base):
+        if isinstance(match, list):
+            if not match:
+                self.issue("%s.match" % card_base, "must not be an empty array")
+            for match_index, value in enumerate(match):
+                if not _nonempty_str(value):
+                    self.issue("%s.match[%d]" % (card_base, match_index),
+                               "must be a non-empty string")
+        elif not _nonempty_str(match):
+            self.issue("%s.match" % card_base,
+                       "must be a non-empty string or a non-empty array of them")
+
+    def check_dependencies(self, milestones):
+        for card_id, card_base in self.cards_by_id.items():
+            card = None
+            for milestone in milestones:
+                if not isinstance(milestone, dict):
+                    continue
+                for candidate in milestone.get("cards") or []:
+                    if isinstance(candidate, dict) and candidate.get("id") == card_id:
+                        card = candidate
+                        break
+            deps = card.get("deps") if isinstance(card, dict) else None
+            if not isinstance(deps, list):
+                continue
+            for dep in deps:
+                if isinstance(dep, str) and dep not in self.cards_by_id:
+                    self.issue("%s.deps" % card_base,
+                               "unknown dependency %r" % dep)
+
+    def check_cycles(self, milestones):
+        graph: dict[str, list[str]] = {}
+        for card_id in self.cards_by_id:
+            graph[card_id] = []
         for milestone in milestones:
             if not isinstance(milestone, dict):
                 continue
-            for candidate in milestone.get("cards") or []:
-                if isinstance(candidate, dict) and candidate.get("id") == card_id:
-                    card = candidate
-                    break
-        deps = card.get("deps") if isinstance(card, dict) else None
-        if not isinstance(deps, list):
-            continue
-        for dep in deps:
-            if isinstance(dep, str) and dep not in cards_by_id:
-                issue("%s.deps" % card_base, "unknown dependency %r" % dep)
+            for card in milestone.get("cards") or []:
+                if not isinstance(card, dict) or not isinstance(card.get("id"), str):
+                    continue
+                deps = card.get("deps")
+                if isinstance(deps, list):
+                    graph[card["id"]] = [d for d in deps
+                                         if isinstance(d, str) and d in graph]
+        state: dict[str, int] = {}
+        stack: list[str] = []
+        reported: set[tuple[str, ...]] = set()
 
-    # No dependency cycle.
-    graph = {}
-    for card_id in cards_by_id:
-        graph[card_id] = []
-    for milestone in milestones:
-        if not isinstance(milestone, dict):
-            continue
-        for card in milestone.get("cards") or []:
-            if not isinstance(card, dict) or not isinstance(card.get("id"), str):
-                continue
-            deps = card.get("deps")
-            if isinstance(deps, list):
-                graph[card["id"]] = [d for d in deps if isinstance(d, str) and d in graph]
+        def visit(node):
+            state[node] = 1
+            stack.append(node)
+            for dep in graph.get(node, []):
+                if state.get(dep) == 1:
+                    cycle = stack[stack.index(dep):] + [dep]
+                    key = tuple(sorted(set(cycle)))
+                    if key not in reported:
+                        reported.add(key)
+                        self.issue("%s.deps" % self.cards_by_id[node],
+                                   "dependency cycle: %s" % " -> ".join(cycle))
+                elif state.get(dep, 0) == 0:
+                    visit(dep)
+            stack.pop()
+            state[node] = 2
 
-    state = {}
-    stack = []
-    reported = set()
+        for card_id in graph:
+            if state.get(card_id, 0) == 0:
+                visit(card_id)
 
-    def visit(node):
-        state[node] = 1
-        stack.append(node)
-        for dep in graph.get(node, []):
-            if state.get(dep) == 1:
-                cycle = stack[stack.index(dep):] + [dep]
-                key = tuple(sorted(set(cycle)))
-                if key not in reported:
-                    reported.add(key)
-                    issue(
-                        "%s.deps" % cards_by_id[node],
-                        "dependency cycle: %s" % " -> ".join(cycle),
-                    )
-            elif state.get(dep, 0) == 0:
-                visit(dep)
-        stack.pop()
-        state[node] = 2
 
-    for card_id in graph:
-        if state.get(card_id, 0) == 0:
-            visit(card_id)
-
-    return issues
+def validate_map(data):
+    """Return every problem as `"<json path>: <message>"` (empty when valid)."""
+    return _MapValidator().validate(data)
 
 
 # --------------------------------------------------------------------------
@@ -532,10 +543,8 @@ class ProjectView:
         self.ref = ref
         self.data = None
         self.issues = []
-        if isinstance(stored_id, str) and ID_RE.fullmatch(stored_id):
-            self.stored_id = stored_id
-        else:
-            self.stored_id = None
+        self.stored_id = (stored_id if isinstance(stored_id, str)
+                          and ID_RE.fullmatch(stored_id) else None)
         self.id = self.stored_id or Path(path).name
         self.map_id = None
         self.title = Path(path).name
@@ -1131,7 +1140,7 @@ def panel_carried_alerts(carried, loaded):
 
 
 def panel_execucoes(active_runs, loaded):
-    by_repo = {}
+    by_repo: dict[str, str] = {}
     for item in loaded:
         if item["view"].repo:
             by_repo.setdefault(item["view"].repo, item["view"].id)
@@ -1264,47 +1273,35 @@ def resolve_project(path):
     return str(Path(path).expanduser().resolve())
 
 
-def cmd_validate(args):
+def _load_valid_map(args):
+    """Resolve the repository and return its validated map or one error text."""
     repo = resolve_project(args.repo)
     if not valid_ref(args.ref):
-        print("$: invalid ref %r" % args.ref, file=sys.stderr)
-        return 1
+        return repo, None, "$: invalid ref %r" % args.ref
     raw, error = read_map(repo, args.ref)
     if error:
-        print("$: %s" % error, file=sys.stderr)
-        return 1
+        return repo, None, "$: %s" % error
     try:
         data = json.loads(raw)
     except ValueError as exc:
-        print("$: invalid JSON in .atomic-skills/marcos.json: %s" % exc, file=sys.stderr)
-        return 1
+        return repo, None, "$: invalid JSON in .atomic-skills/marcos.json: %s" % exc
     issues = validate_map(data)
-    if issues:
-        for issue in issues:
-            print(issue, file=sys.stderr)
+    return repo, data, "\n".join(issues) if issues else None
+
+
+def cmd_validate(args):
+    repo, _, error = _load_valid_map(args)
+    if error:
+        print(error, file=sys.stderr)
         return 1
     print("ok: %s (%s)" % (repo, args.ref))
     return 0
 
 
 def cmd_add(args):
-    repo = resolve_project(args.repo)
-    if not valid_ref(args.ref):
-        print("$: invalid ref %r" % args.ref, file=sys.stderr)
-        return 1
-    raw, error = read_map(repo, args.ref)
+    repo, data, error = _load_valid_map(args)
     if error:
-        print("$: %s" % error, file=sys.stderr)
-        return 1
-    try:
-        data = json.loads(raw)
-    except ValueError as exc:
-        print("$: invalid JSON in .atomic-skills/marcos.json: %s" % exc, file=sys.stderr)
-        return 1
-    issues = validate_map(data)
-    if issues:
-        for issue in issues:
-            print(issue, file=sys.stderr)
+        print(error, file=sys.stderr)
         return 1
     try:
         registry = load_registry()
@@ -1425,7 +1422,7 @@ def cmd_status(args):
 
 
 def watch_signature():
-    signature = []
+    signature: list[object] = []
     log = telemetry_log()
     try:
         stat = log.stat()
@@ -1475,7 +1472,7 @@ def cmd_watch(args):
     last_collect = 0.0
     last_fetch = now  # the first fetch happens after one period
     last_signature = None
-    carried = {}
+    carried: dict[str, str] = {}
     try:
         while not stop.is_set():
             now = time.monotonic()
@@ -2125,7 +2122,7 @@ def panel_read_prior(plan):
 
 
 def panel_stop_old(plan):
-    down_old = []
+    down_old: list[str] = []
     if plan["state"] is None:
         return down_old, None
     try:
