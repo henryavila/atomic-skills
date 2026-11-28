@@ -27,7 +27,7 @@ The log is one JSONL file shared by every project and agent on this machine:
   ${ATOMIC_SKILLS_HOME:-~/.atomic-skills}/delegate/runs.jsonl
 Records are append-only. Values are enums, never free text, so the log can be audited.
 """
-import argparse, datetime as dt, errno, fcntl, getpass, hashlib, json, os, re, shlex, shutil, signal, socket, subprocess, sys, time, tempfile
+import argparse, dataclasses, datetime as dt, errno, fcntl, getpass, hashlib, json, os, re, shlex, shutil, signal, socket, subprocess, sys, time, tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -4515,6 +4515,60 @@ def read_answers(parts):
     return location, answers, parts[i] if i < len(parts) else ""
 
 
+def finding_dup_target(findings, i):
+    """The finding id this finding's dup points to, or None."""
+    dup = findings[i]["answers"].get("dup", "none")
+    return dup if dup != "none" and FINDING_ID_RE.fullmatch(dup) else None
+
+
+def finding_dup_circular(findings, first, i):
+    """Whether this finding's dup chain goes round and names it again."""
+    seen, dup = set(), finding_dup_target(findings, i)
+    while dup in first and dup not in seen:
+        if dup == findings[i]["id"]:
+            return True
+        seen.add(dup)
+        dup = finding_dup_target(findings, first[dup])
+    return False
+
+
+def finding_dup_reason(findings, first, i):
+    """Why this finding's dup merges nothing, or None when it does merge."""
+    dup = finding_dup_target(findings, i)
+    if dup is None:
+        return None
+    if dup == findings[i]["id"]:
+        return "names itself"
+    if dup not in first:
+        return "no such finding"
+    if finding_dup_circular(findings, first, i):
+        return "circular"
+    if classify_finding(findings, first, first[dup]) == "merged":
+        return f"{dup} is merged itself"
+    return None
+
+
+def classify_finding(findings, first, i):
+    """Set the severity and problems of one finding, and return the severity."""
+    finding = findings[i]
+    if "severity" in finding:
+        return finding["severity"]
+    finding["severity"] = "unclassified"  # never merged into while it is being decided
+    answers, problems, dup = finding["answers"], answer_problems(finding["answers"]), finding_dup_target(findings, i)
+    if not problems and dup is not None:
+        reason = finding_dup_reason(findings, first, i)
+        if reason:
+            answers = dict(answers, dup="none")
+            finding["dup_not_merged"] = reason
+    severity = None if problems else compute_severity(answers)
+    if severity is None and not problems:
+        problems = ["no row of the table matches these answers"]
+    if problems:
+        finding["problems"] = problems
+    finding["severity"] = severity or "unclassified"
+    return finding["severity"]
+
+
 def classify_findings(findings):
     """Set "severity" (and "problems", "dup_not_merged") on each finding of a
     rubric-format answer, each a dict with "id" and "answers".
@@ -4527,49 +4581,8 @@ def classify_findings(findings):
     first = {}
     for i, finding in enumerate(findings):
         first.setdefault(finding["id"], i)
-
-    def target(i):
-        dup = findings[i]["answers"].get("dup", "none")
-        return dup if dup != "none" and FINDING_ID_RE.fullmatch(dup) else None
-
-    def circular(i):
-        seen, dup = set(), target(i)
-        while dup in first and dup not in seen:
-            if dup == findings[i]["id"]:
-                return True
-            seen.add(dup)
-            dup = target(first[dup])
-        return False
-
-    def classify(i):
-        finding = findings[i]
-        if "severity" in finding:
-            return finding["severity"]
-        finding["severity"] = "unclassified"  # never merged into while it is being decided
-        answers, problems, dup = finding["answers"], answer_problems(finding["answers"]), target(i)
-        if not problems and dup is not None:
-            reason = None
-            if dup == finding["id"]:
-                reason = "names itself"
-            elif dup not in first:
-                reason = "no such finding"
-            elif circular(i):
-                reason = "circular"
-            elif classify(first[dup]) == "merged":
-                reason = f"{dup} is merged itself"
-            if reason:
-                answers = dict(answers, dup="none")
-                finding["dup_not_merged"] = reason
-        severity = None if problems else compute_severity(answers)
-        if severity is None and not problems:
-            problems = ["no row of the table matches these answers"]
-        if problems:
-            finding["problems"] = problems
-        finding["severity"] = severity or "unclassified"
-        return finding["severity"]
-
     for i in range(len(findings)):
-        classify(i)
+        classify_finding(findings, first, i)
 
 
 def computed_summary(finding, what):
@@ -4817,6 +4830,17 @@ def major_verdicts(text, ids):
     return found
 
 
+@dataclasses.dataclass
+class StepRequest:
+    """One run a pipeline step asks for: the arguments `run_step` receives."""
+    profile: str
+    role: str
+    card: str
+    diff_range: object = None
+    attachments: object = None
+    author_family: object = None
+
+
 def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, route, executor_profile,
               gate, gate_timeout, review_route, first, first_reviewer):
     """The one fix round of a pipeline, opened by a computed major and never
@@ -4825,7 +4849,7 @@ def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, rou
     what it left, the host gate runs again, and one follow-up review reads only
     the fix commits. Nothing follows it, whatever that review says. `fix` is
     filled in as the round goes, so a stop signal still leaves what was done.
-    `run_step(profile, role, card, diff_range, attachments, author_family)`
+    `run_step(StepRequest(profile, role, card, diff_range, attachments, author_family))`
     launches one run of the pipeline."""
     majors = [{"id": f["id"], "location": f["location"], "line": line}
               for f, line in zip(first["findings"], first["summary_lines"]) if f["severity"] == "major"]
@@ -4836,7 +4860,7 @@ def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, rou
     tried = []
     for profile in dict.fromkeys([executor_profile, *route]):
         check_paused()
-        rec = run_step(profile, "fix", str(fix_card), attachments=[card] if card else [])
+        rec = run_step(StepRequest(profile, "fix", str(fix_card), attachments=[card] if card else []))
         tried.append(rec)
         if rec["failure"] in ("provider_limit", "slot_timeout", "input_too_large"):
             continue
@@ -4894,8 +4918,8 @@ def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, rou
     tried = []
     for profile in reviewers:
         check_paused()
-        rec = run_step(profile, "review", str(followup), diff_range=f"{fix['base']}...{gated[0]}",
-                       attachments=[], author_family=fix_family)
+        rec = run_step(StepRequest(profile, "review", str(followup), diff_range=f"{fix['base']}...{gated[0]}",
+                                   attachments=[], author_family=fix_family))
         tried.append(rec)
         if tree_snapshot(cwd) != gated:
             fix.update(state="not_reviewed", error="review_wrote: tree changed after the fix gate")
@@ -5059,9 +5083,21 @@ def fix_record(fix):
     return {key: value for key, value in rec.items() if value is not None}
 
 
-def pipeline_verdict(task_id, c, gate_host, reviewer, fix, host):
+@dataclasses.dataclass
+class VerdictInput:
+    """The facts a pipeline verdict records, grouped to keep the call short."""
+    task_id: str
+    c: dict
+    gate_host: str
+    reviewer: object
+    fix: object
+    host: object
+
+
+def pipeline_verdict(v):
     """The verdict record a pipeline writes when it ends: what `record` writes,
     with the gate as the runner observed it and the counts it computed."""
+    task_id, c, gate_host, reviewer, fix, host = v.task_id, v.c, v.gate_host, v.reviewer, v.fix, v.host
     final = c["final"]
     delivered = ("yes" if final == "clean" or (final == "delivered_with_findings" and not c["open_majors"])
                  else "partial" if final in ("delivered_with_findings", "not_reviewed") else "no")
@@ -5079,25 +5115,60 @@ def pipeline_verdict(task_id, c, gate_host, reviewer, fix, host):
     return rec
 
 
-def cmd_pipeline(a):
-    if not a.confirmed:
-        sys.exit("delegate: --confirmed required")
-    t0_pipeline = time.monotonic()
-    task_id, task, role = a.id, a.task, a.role
-    cwd = str(Path(a.cwd).resolve())
-    set_attribution(cwd, a.milestone)
-    top = git(cwd, "rev-parse", "--show-toplevel") or cwd
-    project = a.project or Path(top).name
-    out = Path(a.out or HOME / "delegate" / "out" / project).resolve()
-    out.mkdir(parents=True, exist_ok=True)
-    # Refuse before creating outputs, taking a slot or launching anything: every
-    # profile in both routes goes through the same check as a standalone run.
+@dataclasses.dataclass
+class PipelineState:
+    """The state of one `pipeline` invocation, as its steps fill it in."""
+    a: object
+    task_id: str
+    task: str
+    role: str
+    cwd: str
+    project: str
+    out: Path
+    attempt_root: Path
+    base_commit: str
+    route: list
+    review_route: list
+    given: list
+    reordered: list
+    t0: float
+    gate_log: Path
+    commit_log: Path
+    attempts: list = dataclasses.field(default_factory=list)
+    outcome: object = None
+    error: str = ""
+    step: str = "executor"
+    executor_profile: object = None
+    reviewer_profile: object = None
+    executor_rec: object = None
+    review_rec: object = None
+    auto_committed: bool = False
+    pending_file: object = None
+    executor_error_after_commit: bool = False
+    gate_exit: object = None
+    gate_duration_s: int = 0
+    gate_timed_out: bool = False
+    gate_ran: bool = False
+    commit_result: str = "not_run"
+    commit_duration_s: int = 0
+    review: object = None
+    review_file: object = None
+    fix: object = None
+
+
+def pipeline_route_pair(a):
+    """The route and the review route as the operator wrote them."""
     try:
         route, review_route = canonical_route(a.route), canonical_route(a.review_route)
         review_route = [REVIEW_PROFILES.get(p, p) for p in review_route]
     except ValueError as exc:
         message = str(exc)
         sys.exit(message if message.startswith("delegate:") else f"delegate: {message}")
+    return route, review_route
+
+
+def check_pipeline_routes(a, role, route, review_route):
+    """Refuse a profile in either route before outputs, slots or runs."""
     for profile in route:
         check_model_allowed(role, *MODELS[profile][:2], profile)
         check_claude_review(MODELS[profile][0], role, a.allow_claude_review, None)
@@ -5110,8 +5181,10 @@ def cmd_pipeline(a):
         check_agy_claude(*MODELS[profile][:2], "review", MODELS[route[0]][2])
     if CLAUDE_REVIEW in review_route:
         check_claude_login()
-    # The review needs the rubric: refuse now rather than after the executor ran.
-    read_severity_rubric()
+
+
+def order_pipeline_routes(route, review_route):
+    """The two routes with the profiles that can run now first."""
     # Profiles under a provider limit, or whose CLI is missing, are tried last.
     # Nothing is dropped, so a wrong guess costs one refused run, as before.
     avail = availability()
@@ -5120,336 +5193,462 @@ def cmd_pipeline(a):
     reordered = ([p for p in given if not usable(p, avail) and p != CLAUDE_REVIEW]
                  if [p for p in route + review_route if p != CLAUDE_REVIEW]
                  != [p for p in given if p != CLAUDE_REVIEW] else [])
+    return route, review_route, given, reordered
+
+
+def build_pipeline_state(a):
+    """Validate the pipeline and create the outputs each attempt will own."""
+    if not a.confirmed:
+        sys.exit("delegate: --confirmed required")
+    t0 = time.monotonic()
+    task_id, task, role = a.id, a.task, a.role
+    cwd = str(Path(a.cwd).resolve())
+    set_attribution(cwd, a.milestone)
+    top = git(cwd, "rev-parse", "--show-toplevel") or cwd
+    project = a.project or Path(top).name
+    out = Path(a.out or HOME / "delegate" / "out" / project).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    route, review_route = pipeline_route_pair(a)
+    check_pipeline_routes(a, role, route, review_route)
+    # The review needs the rubric: refuse now rather than after the executor ran.
+    read_severity_rubric()
+    route, review_route, given, reordered = order_pipeline_routes(route, review_route)
     for filename in a.review_attach:
         read_attachment(filename)
     # Each invocation and attempt owns its outputs, even when the same ID is reused.
     attempt_root = Path(tempfile.mkdtemp(prefix=f"{task_id}-", dir=out))
     base_commit = git(cwd, "rev-parse", "HEAD")
-    outcome = None
-    executor_profile = reviewer_profile = None
-    executor_rec = review_rec = None
-    auto_committed = False
-    pending_file = None
-    executor_error_after_commit = False
-    gate_exit = None
-    gate_duration_s = 0
-    gate_timed_out = False
-    gate_ran = False
-    gate_log = out / f"{task_id}.gate.log"
-    commit_log = attempt_root / "commit.log"
-    attempts = []
-    step = "executor"
-    error = ""
-    commit_result = "not_run"
-    commit_duration_s = 0
+    return PipelineState(a=a, task_id=task_id, task=task, role=role, cwd=cwd, project=project,
+                         out=out, attempt_root=attempt_root, base_commit=base_commit,
+                         route=route, review_route=review_route, given=given, reordered=reordered,
+                         t0=t0, gate_log=out / f"{task_id}.gate.log",
+                         commit_log=attempt_root / "commit.log")
 
-    def run_attempt(profile, run_role, card, diff_range=None, attachments=None, author_family=None):
-        attempt_number = len(attempts) + 1
-        if author_family is None and executor_profile:
-            author_family = MODELS[executor_profile][2]
-        step_out = attempt_root / f"{attempt_number}-{run_role}-{profile}"
-        default_stdout, default_stderr, _, _ = run_output_paths(
-            step_out, task_id, attempt_number, reserve=False)
-        # Include pending attempts as well: a pause/slot exhaustion/exception has paths.
-        rec = {"profile": profile, "role": run_role, "failure": "interrupted", "duration_s": 0,
-               "stdout": str(default_stdout),
-               "stderr": str(default_stderr)}
-        attempts.append(rec)
-        started = time.monotonic()
-        try:
-            rec.update(execute_run(
-                task_id=task_id, task=task, role=run_role, profile=profile,
-                cwd=cwd, card=card, out=str(step_out), project=project,
-                timeout=(a.review_timeout if a.review_timeout is not None else a.timeout)
-                if run_role == "review" else a.timeout,
-                wait_s=a.wait, confirmed=True, attempt=len(attempts),
-                diff_range=diff_range, attachments=attachments,
-                access_mode=a.access, host=a.host, idle_timeout=a.idle_timeout,
-                allow_claude_review=a.allow_claude_review, author_family=author_family,
-                diff_exclude=a.diff_exclude if run_role == "review" else None,
-            ))
-        except SlotTimeoutError as exc:
-            rec.update(exc.record)
-        except BaseException as exc:
-            rec["failure"] = exception_reason(exc)
-            for key in ("stdout", "stderr", "last_message"):
-                if key in rec and not Path(rec[key]).is_file():
-                    rec[key] = None
-            rec["duration_s"] = round(time.monotonic() - started)
-            raise
-        return rec
 
+def pipeline_attempt(st, request):
+    """Run one attempt of the pipeline and return its record."""
+    profile, run_role, card = request.profile, request.role, request.card
+    author_family = request.author_family
+    attempt_number = len(st.attempts) + 1
+    if author_family is None and st.executor_profile:
+        author_family = MODELS[st.executor_profile][2]
+    step_out = st.attempt_root / f"{attempt_number}-{run_role}-{profile}"
+    default_stdout, default_stderr, _, _ = run_output_paths(
+        step_out, st.task_id, attempt_number, reserve=False)
+    # Include pending attempts as well: a pause/slot exhaustion/exception has paths.
+    rec = {"profile": profile, "role": run_role, "failure": "interrupted", "duration_s": 0,
+           "stdout": str(default_stdout),
+           "stderr": str(default_stderr)}
+    st.attempts.append(rec)
+    started = time.monotonic()
     try:
+        rec.update(execute_run(
+            task_id=st.task_id, task=st.task, role=run_role, profile=profile,
+            cwd=st.cwd, card=card, out=str(step_out), project=st.project,
+            timeout=(st.a.review_timeout if st.a.review_timeout is not None else st.a.timeout)
+            if run_role == "review" else st.a.timeout,
+            wait_s=st.a.wait, confirmed=True, attempt=len(st.attempts),
+            diff_range=request.diff_range, attachments=request.attachments,
+            access_mode=st.a.access, host=st.a.host, idle_timeout=st.a.idle_timeout,
+            allow_claude_review=st.a.allow_claude_review, author_family=author_family,
+            diff_exclude=st.a.diff_exclude if run_role == "review" else None,
+        ))
+    except SlotTimeoutError as exc:
+        rec.update(exc.record)
+    except BaseException as exc:
+        rec["failure"] = exception_reason(exc)
+        for key in ("stdout", "stderr", "last_message"):
+            if key in rec and not Path(rec[key]).is_file():
+                rec[key] = None
+        rec["duration_s"] = round(time.monotonic() - started)
+        raise
+    return rec
+
+
+def executor_exhausted_error(attempts, route):
+    """Why no executor ran, from the attempts of the executor route."""
+    if all(rec["failure"] == "provider_limit" for rec in attempts):
+        return "every executor route hit provider_limit: " + ", ".join(route)
+    return "executor routes exhausted: " + ", ".join(
+        f"{rec['profile']} ({rec['failure']})" for rec in attempts)
+
+
+def run_pipeline_executor(st):
+    """Try the executor route until one runs; record why none did."""
+    check_paused()
+    for profile in st.route:
         check_paused()
-        for profile in route:
-            check_paused()
-            executor_rec = run_attempt(profile, role, a.card)
-            if executor_rec["failure"] in ("provider_limit", "slot_timeout", "input_too_large"):
-                continue
-            executor_profile = profile
-            if executor_rec["failure"] == "error":
-                # An executor CLI can exit non-zero after the work is committed
-                # (a cancelled input request at the very end, for one). With new
-                # commits and a clean tree the gate and the reviewer judge it.
-                snapshot = tree_snapshot(cwd)
-                if snapshot[0] != base_commit and not snapshot[1]:
-                    executor_error_after_commit = True
-                else:
-                    outcome = "executor_failed"
-            elif executor_rec["failure"] != "none":
-                outcome = "executor_failed"
+        st.executor_rec = pipeline_attempt(st, StepRequest(profile, st.role, st.a.card))
+        if st.executor_rec["failure"] in ("provider_limit", "slot_timeout", "input_too_large"):
+            continue
+        st.executor_profile = profile
+        if st.executor_rec["failure"] == "error":
+            # An executor CLI can exit non-zero after the work is committed
+            # (a cancelled input request at the very end, for one). With new
+            # commits and a clean tree the gate and the reviewer judge it.
+            snapshot = tree_snapshot(st.cwd)
+            if snapshot[0] != st.base_commit and not snapshot[1]:
+                st.executor_error_after_commit = True
+            else:
+                st.outcome = "executor_failed"
+        elif st.executor_rec["failure"] != "none":
+            st.outcome = "executor_failed"
+        break
+    else:
+        st.outcome = "no_executor"
+        st.error = executor_exhausted_error(st.attempts, st.route)
+
+
+def run_pipeline_commit(st):
+    """Commit what the executor left, and refuse a run that changed nothing."""
+    st.step = "commit"
+    check_paused()
+    commit_t0 = time.monotonic()
+    st.commit_result = "executor_committed"
+    if st.executor_rec.get("dirty_after"):
+        st.commit_result = "failed"
+        runner_commit(st.cwd, f"{st.task_id}: {st.task} (committed by the delegate runner)", st.commit_log)
+        st.auto_committed = True
+        st.commit_result = "auto_committed"
+    current = tree_snapshot(st.cwd)
+    if current[0] == st.base_commit and not current[1]:
+        st.commit_result = "no_changes"
+        st.outcome = "no_changes"
+    st.commit_duration_s = round(time.monotonic() - commit_t0)
+
+
+def run_pipeline_gate(st):
+    """Run the host gate and record what it saw."""
+    st.step = "gate"
+    check_paused()
+    gate_state = {}
+    try:
+        run_gate(st.a.gate, st.cwd, st.a.timeout, st.gate_log, gate_state)
+    finally:
+        st.gate_ran, st.gate_exit = gate_state.get("ran", False), gate_state.get("exit")
+        st.gate_timed_out = gate_state.get("timed_out", False)
+        st.gate_duration_s = gate_state.get("duration_s", 0)
+    if st.gate_timed_out:
+        st.error = "gate timed out"
+    if st.gate_exit != 0:
+        st.outcome = "gate_failed"
+
+
+def pipeline_pending_file(st, review_card_copy, gated_head, executor_family):
+    """Write the file `review-pending` reads to finish this review later."""
+    pending_file = PENDING / safe_remote_name(st.project) / f"{safe_remote_name(st.task_id)}.json"
+    pending_file.parent.mkdir(parents=True, exist_ok=True)
+    pending_file.write_text(json.dumps({
+        "id": st.task_id, "task": st.task, "project": st.project, "cwd": st.cwd,
+        "milestone": st.a.milestone,
+        "base": st.base_commit, "head": gated_head,
+        "executor_profile": st.executor_profile, "executor_family": executor_family,
+        "review_route": st.given[len(st.given) - len(st.review_route):],
+        "review_card": str(review_card_copy),
+        "attachments": [st.a.card, *st.a.review_attach],
+        "out": str(st.out), "access": st.a.access, "host": st.a.host,
+        "timeout": st.a.review_timeout if st.a.review_timeout is not None else st.a.timeout,
+        "idle_timeout": st.a.idle_timeout, "attempts": len(st.attempts),
+        "gate": st.a.gate, "gate_exit": st.gate_exit, "auto_committed": st.auto_committed,
+        # What the one fix round needs when the finished review has a major.
+        "card": st.a.card, "route": st.route, "executor_timeout": st.a.timeout,
+        "diff_exclude": st.a.diff_exclude,
+        "created": now().isoformat(timespec="seconds"),
+    }, ensure_ascii=False, indent=1))
+    return pending_file
+
+
+def review_exhausted_error(tried, skipped):
+    """Why no reviewer read the work, from the attempts of the review route."""
+    if not tried:
+        error = "no reviewer outside the executor family"
+    elif all(rec["failure"] == "provider_limit" for rec in tried):
+        error = "every reviewer route hit provider_limit: " + ", ".join(rec["profile"] for rec in tried)
+    else:
+        error = "reviewer routes exhausted: " + ", ".join(
+            f"{rec['profile']} ({rec['failure']})" for rec in tried)
+    if skipped:
+        error += "; skipped executor family: " + ", ".join(skipped)
+    return error
+
+
+def run_pipeline_review(st):
+    """Try the review route until one reviewer reads the work; leave it pending."""
+    st.step = "review"
+    check_paused()
+    gated_snapshot = tree_snapshot(st.cwd)
+    review_card_copy = st.attempt_root / "review-card.md"
+    review_card_copy.write_text(Path(st.a.review_card).read_text().replace(
+        "{{DIFF_RANGE}}", f"{st.base_commit}...HEAD"))
+    executor_family = MODELS[st.executor_profile][2]
+    skipped_reviewers = []
+    for profile in st.review_route:
+        check_paused()
+        if MODELS[profile][2] == executor_family:
+            skipped_reviewers.append(profile)
+            continue
+        st.review_rec = pipeline_attempt(st, StepRequest(
+            profile, "review", str(review_card_copy),
+            diff_range=f"{st.base_commit}...{gated_snapshot[0]}",
+            attachments=[st.a.card, *st.a.review_attach]))
+        # Quota classification retains its precedence, but writes are never safe to retry.
+        if tree_snapshot(st.cwd) != gated_snapshot:
+            st.error = "review_wrote: tree changed after gate"
+            st.outcome = "no_reviewer"
             break
+        if st.review_rec["failure"] in REVIEW_RETRY:
+            continue
+        if st.review_rec["failure"] == "none":
+            st.reviewer_profile = profile
+            st.outcome = "reviewed"
         else:
-            outcome = "no_executor"
-            error = "every executor route hit provider_limit: " + ", ".join(route) if all(
-                rec["failure"] == "provider_limit" for rec in attempts) else "executor routes exhausted: " + ", ".join(
-                    f"{rec['profile']} ({rec['failure']})" for rec in attempts)
+            st.error = st.review_rec["failure"] + (
+                f": {st.review_rec['hint']}" if st.review_rec.get("hint") else "")
+            st.outcome = "no_reviewer"
+        break
+    if st.outcome is not None:
+        return
+    st.outcome = "no_reviewer"
+    tried = [rec for rec in st.attempts if rec["role"] == "review"]
+    # A reviewer refused for size will refuse again: it does not decide this.
+    waiting = [rec for rec in tried if rec["failure"] != OVER_MODEL_CAP]
+    if waiting and all(rec["failure"] in NO_CAPACITY for rec in waiting):
+        st.outcome = "review_pending"
+        st.pending_file = pipeline_pending_file(st, review_card_copy, gated_snapshot[0], executor_family)
+    st.error = review_exhausted_error(tried, skipped_reviewers)
 
-        if outcome is None:
-            step = "commit"
-            check_paused()
-            commit_t0 = time.monotonic()
-            commit_result = "executor_committed"
-            if executor_rec.get("dirty_after"):
-                commit_result = "failed"
-                runner_commit(cwd, f"{task_id}: {task} (committed by the delegate runner)", commit_log)
-                auto_committed = True
-                commit_result = "auto_committed"
-            current = tree_snapshot(cwd)
-            if current[0] == base_commit and not current[1]:
-                commit_result = "no_changes"
-                outcome = "no_changes"
-            commit_duration_s = round(time.monotonic() - commit_t0)
 
-        if outcome is None:
-            step = "gate"
-            check_paused()
-            gate_state = {}
-            try:
-                run_gate(a.gate, cwd, a.timeout, gate_log, gate_state)
-            finally:
-                gate_ran, gate_exit = gate_state.get("ran", False), gate_state.get("exit")
-                gate_timed_out = gate_state.get("timed_out", False)
-                gate_duration_s = gate_state.get("duration_s", 0)
-            if gate_timed_out:
-                error = "gate timed out"
-            if gate_exit != 0:
-                outcome = "gate_failed"
-
-        if outcome is None:
-            step = "review"
-            check_paused()
-            gated_snapshot = tree_snapshot(cwd)
-            review_card_copy = attempt_root / "review-card.md"
-            review_card_copy.write_text(Path(a.review_card).read_text().replace("{{DIFF_RANGE}}", f"{base_commit}...HEAD"))
-            executor_family = MODELS[executor_profile][2]
-            skipped_reviewers = []
-            for profile in review_route:
-                check_paused()
-                if MODELS[profile][2] == executor_family:
-                    skipped_reviewers.append(profile)
-                    continue
-                review_rec = run_attempt(profile, "review", str(review_card_copy),
-                                         diff_range=f"{base_commit}...{gated_snapshot[0]}",
-                                         attachments=[a.card, *a.review_attach])
-                # Quota classification retains its precedence, but writes are never safe to retry.
-                if tree_snapshot(cwd) != gated_snapshot:
-                    error = "review_wrote: tree changed after gate"
-                    outcome = "no_reviewer"
-                    break
-                if review_rec["failure"] in REVIEW_RETRY:
-                    continue
-                if review_rec["failure"] == "none":
-                    reviewer_profile = profile
-                    outcome = "reviewed"
-                else:
-                    error = review_rec["failure"] + (f": {review_rec['hint']}" if review_rec.get("hint") else "")
-                    outcome = "no_reviewer"
-                break
-            if outcome is None:
-                outcome = "no_reviewer"
-                tried = [rec for rec in attempts if rec["role"] == "review"]
-                # A reviewer refused for size will refuse again: it does not decide this.
-                waiting = [rec for rec in tried if rec["failure"] != OVER_MODEL_CAP]
-                if waiting and all(rec["failure"] in NO_CAPACITY for rec in waiting):
-                    outcome = "review_pending"
-                    pending_file = PENDING / safe_remote_name(project) / f"{safe_remote_name(task_id)}.json"
-                    pending_file.parent.mkdir(parents=True, exist_ok=True)
-                    pending_file.write_text(json.dumps({
-                        "id": task_id, "task": task, "project": project, "cwd": cwd,
-                        "milestone": a.milestone,
-                        "base": base_commit, "head": gated_snapshot[0],
-                        "executor_profile": executor_profile, "executor_family": executor_family,
-                        "review_route": given[len(given) - len(review_route):],
-                        "review_card": str(review_card_copy),
-                        "attachments": [a.card, *a.review_attach],
-                        "out": str(out), "access": a.access, "host": a.host,
-                        "timeout": a.review_timeout if a.review_timeout is not None else a.timeout,
-                        "idle_timeout": a.idle_timeout, "attempts": len(attempts),
-                        "gate": a.gate, "gate_exit": gate_exit, "auto_committed": auto_committed,
-                        # What the one fix round needs when the finished review has a major.
-                        "card": a.card, "route": route, "executor_timeout": a.timeout,
-                        "diff_exclude": a.diff_exclude,
-                        "created": now().isoformat(timespec="seconds"),
-                    }, ensure_ascii=False, indent=1))
-                if not tried:
-                    error = "no reviewer outside the executor family"
-                elif all(rec["failure"] == "provider_limit" for rec in tried):
-                    error = "every reviewer route hit provider_limit: " + ", ".join(rec["profile"] for rec in tried)
-                else:
-                    error = "reviewer routes exhausted: " + ", ".join(
-                        f"{rec['profile']} ({rec['failure']})" for rec in tried)
-                if skipped_reviewers:
-                    error += "; skipped executor family: " + ", ".join(skipped_reviewers)
+def pipeline_fix_round(st):
+    """Read the finished review and run the one fix round when it has a major."""
+    if st.outcome != "reviewed":
+        return
+    st.review_file = st.review_rec.get("last_message") or st.review_rec["stdout"]
+    st.review = review_findings(st.review_file)
+    # Every decision after the review reads the counts computed from the
+    # lines: only a computed major opens the one fix round.
+    if not st.review["counts"]["major"]:
+        return
+    st.fix = {}
+    try:
+        fix_round(st.fix, lambda request: pipeline_attempt(st, request),
+                  task_id=st.task_id, task=st.task, cwd=st.cwd, out=st.out,
+                  attempt_root=st.attempt_root, card=st.a.card, route=st.route,
+                  executor_profile=st.executor_profile, gate=st.a.gate,
+                  gate_timeout=st.a.timeout, review_route=st.review_route,
+                  first=st.review, first_reviewer=st.reviewer_profile)
     except (Exception, SystemExit, KeyboardInterrupt) as exc:
-        error = exception_reason(exc)
-        outcome = "paused" if isinstance(exc, PausedError) else (
-            "no_reviewer" if step == "review" else "gate_failed" if step == "gate" else "executor_failed")
+        st.fix.update(state="paused" if isinstance(exc, PausedError) else "stopped",
+                      error=exception_reason(exc))
 
-    review = review_file = fix = None
-    if outcome == "reviewed":
-        review_file = review_rec.get("last_message") or review_rec["stdout"]
-        review = review_findings(review_file)
-        # Every decision after the review reads the counts computed from the
-        # lines: only a computed major opens the one fix round.
-        if review["counts"]["major"]:
-            fix = {}
-            try:
-                fix_round(fix, run_attempt, task_id=task_id, task=task, cwd=cwd, out=out,
-                          attempt_root=attempt_root, card=a.card, route=route,
-                          executor_profile=executor_profile, gate=a.gate, gate_timeout=a.timeout,
-                          review_route=review_route, first=review, first_reviewer=reviewer_profile)
-            except (Exception, SystemExit, KeyboardInterrupt) as exc:
-                fix.update(state="paused" if isinstance(exc, PausedError) else "stopped",
-                           error=exception_reason(exc))
-    c = conclude(outcome, review, fix)
-    outcome, findings = c["outcome"], c["counts"]
 
-    head = git(cwd, "rev-parse", "HEAD")
-    details = attempt_root / "steps.json"
-    details.write_text(json.dumps(attempts, ensure_ascii=False, indent=2))
-    # Bound all free text to one physical line, then reserve room for findings and tail.
-    def one_line(value):
-        return " ".join(str(value).splitlines())
-
-    lines = [f"# Pipeline {task_id}: {task} — {outcome}", *final_lines(c, fix),
-             f"- committed: {base_commit}..{head}; dirty: {bool(tree_snapshot(cwd)[1])}",
-             f"- commit: {commit_result} | {commit_duration_s}s" +
-             (f" | log: {commit_log}" if commit_log.is_file() else "")]
-    head_count = len(lines)
-    if error:
-        lines.append(f"- stopped at {step}: {error}")
-    if pending_file:
-        lines.append("- review pending: every reviewer was out of quota or had no free slot; the work "
-                     f"passed the gate. Finish with `review-pending --id {task_id} --confirmed` "
-                     f"({first_reviewer_back(executor_family, review_route, availability())}).")
-    if reordered:
-        lines.append("- tried last (provider limit or missing CLI): " + ", ".join(reordered))
-    if reviewer_profile == CLAUDE_REVIEW:
-        lines.append(f"- reviewed by the fallback reviewer {CLAUDE_REVIEW} "
-                     f"({MODELS[CLAUDE_REVIEW][1]}), allowed by the operator")
-    if executor_error_after_commit:
-        lines.append("- executor exited with an error after committing; the tree was clean, "
-                     "so the gate and the review ran. Read its stderr before trusting the result.")
+def pipeline_attempt_lines(attempts):
+    """One summary line per attempt, with the output files it left."""
+    lines = []
     for rec in attempts:
         paths = " | ".join(f"{key}: {rec[key]}" for key in ("stdout", "stderr", "last_message")
                            if rec.get(key) and Path(rec[key]).is_file())
         lines.append(f"- {rec['role']}: {rec['profile']} | {rec['duration_s']}s | {rec['failure']} | {paths}")
-    gate_result = f"timed out (exit {gate_exit})" if gate_timed_out else f"exit {gate_exit}" if gate_ran else "not run"
-    lines.append(f"- gate: `{a.gate}` | {gate_result} | {gate_duration_s}s" +
-                 (f" | log: {gate_log}" if gate_ran and gate_log.is_file() else ""))
-    fix_lines = fix_step_lines(fix, a.gate)
+    return lines
+
+
+def pipeline_gate_line(st):
+    """The summary line of the host gate."""
+    gate_result = (f"timed out (exit {st.gate_exit})" if st.gate_timed_out
+                   else f"exit {st.gate_exit}" if st.gate_ran else "not run")
+    return (f"- gate: `{st.a.gate}` | {gate_result} | {st.gate_duration_s}s" +
+            (f" | log: {st.gate_log}" if st.gate_ran and st.gate_log.is_file() else ""))
+
+
+def trim_pipeline_lines(st, lines, head_count, fix_lines):
+    """Cap a long summary; the complete manifest is in its steps file."""
+    # Very long routes still have a complete machine-readable attempt manifest.
+    if len(lines) <= 39:
+        return lines
+    # Preserve both winners, even with a long executor or reviewer quota route.
+    decisive = [i for i, rec in enumerate(st.attempts)
+                if rec is st.executor_rec or rec is st.review_rec]
+    prefix = (head_count + bool(st.error) + bool(st.pending_file) + bool(st.reordered)
+              + (st.reviewer_profile == CLAUDE_REVIEW) + bool(st.executor_error_after_commit))
+    tail = 2 + len(fix_lines)
+    keep = set(range(prefix)) | {prefix + i for i in decisive} | set(range(len(lines) - tail, len(lines)))
+    for i in reversed(range(prefix, len(lines) - tail)):
+        if len(keep) >= 38:
+            break
+        keep.add(i)
+    lines = [line for i, line in enumerate(lines) if i in keep]
+    lines.append("- additional steps omitted; full step outputs: "
+                 f"{st.attempt_root / 'steps.json'}")
+    return lines
+
+
+def pipeline_summary(st, c, head):
+    """Print and write the pipeline summary; return its path."""
+    details = st.attempt_root / "steps.json"
+    details.write_text(json.dumps(st.attempts, ensure_ascii=False, indent=2))
+    outcome = c["outcome"]
+    lines = [f"# Pipeline {st.task_id}: {st.task} — {outcome}", *final_lines(c, st.fix),
+             f"- committed: {st.base_commit}..{head}; dirty: {bool(tree_snapshot(st.cwd)[1])}",
+             f"- commit: {st.commit_result} | {st.commit_duration_s}s" +
+             (f" | log: {st.commit_log}" if st.commit_log.is_file() else "")]
+    head_count = len(lines)
+    if st.error:
+        lines.append(f"- stopped at {st.step}: {st.error}")
+    if st.pending_file:
+        lines.append("- review pending: every reviewer was out of quota or had no free slot; the work "
+                     f"passed the gate. Finish with `review-pending --id {st.task_id} --confirmed` "
+                     f"({first_reviewer_back(MODELS[st.executor_profile][2], st.review_route, availability())}).")
+    if st.reordered:
+        lines.append("- tried last (provider limit or missing CLI): " + ", ".join(st.reordered))
+    if st.reviewer_profile == CLAUDE_REVIEW:
+        lines.append(f"- reviewed by the fallback reviewer {CLAUDE_REVIEW} "
+                     f"({MODELS[CLAUDE_REVIEW][1]}), allowed by the operator")
+    if st.executor_error_after_commit:
+        lines.append("- executor exited with an error after committing; the tree was clean, "
+                     "so the gate and the review ran. Read its stderr before trusting the result.")
+    lines += pipeline_attempt_lines(st.attempts)
+    lines.append(pipeline_gate_line(st))
+    fix_lines = fix_step_lines(st.fix, st.a.gate)
     lines += fix_lines
     lines.append(f"- full step outputs: {details}")
-    lines = [one_line(line) for line in lines]
-    # Very long routes still have a complete machine-readable attempt manifest.
-    if len(lines) > 39:
-        # Preserve both winners, even with a long executor or reviewer quota route.
-        decisive = [i for i, rec in enumerate(attempts)
-                    if rec is executor_rec or rec is review_rec]
-        prefix = (head_count + bool(error) + bool(pending_file) + bool(reordered)
-                  + (reviewer_profile == CLAUDE_REVIEW) + bool(executor_error_after_commit))
-        tail = 2 + len(fix_lines)
-        keep = set(range(prefix)) | {prefix + i for i in decisive} | set(range(len(lines) - tail, len(lines)))
-        for i in reversed(range(prefix, len(lines) - tail)):
-            if len(keep) >= 38:
-                break
-            keep.add(i)
-        lines = [line for i, line in enumerate(lines) if i in keep]
-        lines.append(f"- additional steps omitted; full step outputs: {details}")
-    if gate_ran and (gate_exit != 0 or gate_timed_out) and gate_log.is_file():
-        lines += ["Gate log tail:"] + gate_log.read_text(errors="replace").splitlines()[-15:]
-    fix_gate = (fix or {}).get("gate") or {}
+    lines = [" ".join(str(line).splitlines()) for line in lines]
+    lines = trim_pipeline_lines(st, lines, head_count, fix_lines)
+    if st.gate_ran and (st.gate_exit != 0 or st.gate_timed_out) and st.gate_log.is_file():
+        lines += ["Gate log tail:"] + st.gate_log.read_text(errors="replace").splitlines()[-15:]
+    fix_gate = (st.fix or {}).get("gate") or {}
     if observed_gate(fix_gate) == "fail" and Path(fix_gate["log"]).is_file():
         lines += ["Gate log tail (after the fix):"] + Path(fix_gate["log"]).read_text(
             errors="replace").splitlines()[-15:]
-    reviews_summary(review, review_file, fix, c, lines)
+    reviews_summary(st.review, st.review_file, st.fix, c, lines)
     summary_text = "\n".join(lines) + "\n"
-    summary_file = out / f"{task_id}.summary.md"
+    summary_file = st.out / f"{st.task_id}.summary.md"
     summary_file.write_text(summary_text)
     print(summary_text, end="")
-    if fix:
-        failed_step = None if fix.get("state") == "reviewed" else "fix_" + fix.get("stage", "executor")
+    return summary_file
+
+
+def pipeline_record(st, c, head, summary_file):
+    """The pipeline record of a finished run."""
+    outcome, findings = c["outcome"], c["counts"]
+    if st.fix:
+        failed_step = None if st.fix.get("state") == "reviewed" else "fix_" + st.fix.get("stage", "executor")
     else:
-        failed_step = step if outcome not in ("reviewed", "no_changes") else None
-    pipeline_rec = {
-        "kind": "pipeline", "id": task_id, "project": project, "outcome": outcome, "final": c["final"],
-        "executor_profile": executor_profile, "reviewer_profile": reviewer_profile,
-        "gate_exit": gate_exit, "gate_timed_out": gate_timed_out, "gate_duration_s": gate_duration_s,
-        "auto_committed": auto_committed, "findings": findings, "review_rounds": c["rounds"],
-        "duration_s": round(time.monotonic() - t0_pipeline), "base": base_commit, "head": head,
+        failed_step = st.step if outcome not in ("reviewed", "no_changes") else None
+    rec = {
+        "kind": "pipeline", "id": st.task_id, "project": st.project, "outcome": outcome,
+        "final": c["final"], "executor_profile": st.executor_profile,
+        "reviewer_profile": st.reviewer_profile,
+        "gate_exit": st.gate_exit, "gate_timed_out": st.gate_timed_out,
+        "gate_duration_s": st.gate_duration_s,
+        "auto_committed": st.auto_committed, "findings": findings, "review_rounds": c["rounds"],
+        "duration_s": round(time.monotonic() - st.t0), "base": st.base_commit, "head": head,
         "failed_step": failed_step,
-        "error": error, "attempts": attempts, "summary": str(summary_file),
+        "error": st.error, "attempts": st.attempts, "summary": str(summary_file),
     }
-    if review:
-        pipeline_rec.update(review_pipeline_fields(review))
-    if fix:
-        pipeline_rec.update(first_findings={key: review["counts"][key] for key in COUNTED},
-                            fix_round=fix_record(fix), open_majors=[
-                                {key: m[key] for key in ("id", "location", "status", "said")}
+    if st.review:
+        rec.update(review_pipeline_fields(st.review))
+    if st.fix:
+        rec.update(first_findings={key: st.review["counts"][key] for key in COUNTED},
+                   fix_round=fix_record(st.fix),
+                   open_majors=[{key: m[key] for key in ("id", "location", "status", "said")}
                                 for m in c["open_majors"]])
     if c["deviation"]:
-        pipeline_rec["deviation"] = c["deviation"]
-    if a.diff_exclude:
-        pipeline_rec["diff_excluded"] = a.diff_exclude
-    if pending_file:
-        pipeline_rec["pending"] = str(pending_file)
-    if reviewer_profile == CLAUDE_REVIEW:
-        pipeline_rec["fallback_reviewer"] = True
-    if reordered:
-        pipeline_rec["reordered"] = reordered
-    if executor_error_after_commit:
-        pipeline_rec["executor_error_after_commit"] = True
-    if a.host:
-        pipeline_rec["host"] = a.host
+        rec["deviation"] = c["deviation"]
+    if st.a.diff_exclude:
+        rec["diff_excluded"] = st.a.diff_exclude
+    if st.pending_file:
+        rec["pending"] = str(st.pending_file)
+    if st.reviewer_profile == CLAUDE_REVIEW:
+        rec["fallback_reviewer"] = True
+    if st.reordered:
+        rec["reordered"] = st.reordered
+    if st.executor_error_after_commit:
+        rec["executor_error_after_commit"] = True
+    if st.a.host:
+        rec["host"] = st.a.host
+    return rec
+
+
+def cmd_pipeline(a):
+    st = build_pipeline_state(a)
+    try:
+        run_pipeline_executor(st)
+        if st.outcome is None:
+            run_pipeline_commit(st)
+        if st.outcome is None:
+            run_pipeline_gate(st)
+        if st.outcome is None:
+            run_pipeline_review(st)
+    except (Exception, SystemExit, KeyboardInterrupt) as exc:
+        st.error = exception_reason(exc)
+        st.outcome = "paused" if isinstance(exc, PausedError) else (
+            "no_reviewer" if st.step == "review" else "gate_failed" if st.step == "gate" else "executor_failed")
+    pipeline_fix_round(st)
+    c = conclude(st.outcome, st.review, st.fix)
+    head = git(st.cwd, "rev-parse", "HEAD")
+    summary_file = pipeline_summary(st, c, head)
+    record = pipeline_record(st, c, head, summary_file)
     # The verdict goes first, so the pipeline record stays the last line of the
     # run. A pending review has no verdict yet: review-pending writes it.
-    if outcome != "review_pending":
-        seen = fix_gate or {"ran": gate_ran, "exit": gate_exit, "timed_out": gate_timed_out}
-        append(pipeline_verdict(task_id, c, observed_gate(seen), reviewer_profile, fix, a.host))
-    append(pipeline_rec)
-    if outcome == "paused":
+    if c["outcome"] != "review_pending":
+        fix_gate = (st.fix or {}).get("gate") or {}
+        seen = fix_gate or {"ran": st.gate_ran, "exit": st.gate_exit, "timed_out": st.gate_timed_out}
+        append(pipeline_verdict(VerdictInput(st.task_id, c, observed_gate(seen), st.reviewer_profile,
+                                             st.fix, st.a.host)))
+    append(record)
+    if c["outcome"] == "paused":
         print("delegate: paused", file=sys.stderr)
     # An open major after the fix round is never a success.
-    sys.exit(0 if outcome in ("reviewed", "fixed") else 3 if outcome == "paused" else 1)
+    sys.exit(0 if c["outcome"] in ("reviewed", "fixed") else 3 if c["outcome"] == "paused" else 1)
 
 
-def cmd_review_pending(a):
-    if not a.id:
-        files = pending_files(project=a.project)
-        if not files:
-            print("no pending reviews")
-            return
-        avail = availability()
-        for path in files:
-            try:
-                p = json.loads(path.read_text())
-                back = first_reviewer_back(p["executor_family"], p["review_route"], avail)
-                print(f"{p['id']} | {p['project']} | written by {p['executor_profile']} | "
-                      f"since {p['created']} | {back}")
-            except (ValueError, KeyError, OSError):
-                print(f"{path.stem} | {path.parent.name} | unreadable pending file: {path}")
+@dataclasses.dataclass
+class PendingReview:
+    """The state of one `review-pending --id` run, as it goes."""
+    a: object
+    pending_file: Path
+    p: dict
+    task_id: str
+    task: str
+    project: str
+    cwd: str
+    out: Path
+    attempt_root: Path
+    snapshot: object
+    base: str
+    head: str
+    executor_family: str
+    executor_timeout: int
+    t0: float
+    route: list = dataclasses.field(default_factory=list)
+    attempts: list = dataclasses.field(default_factory=list)
+    reviewer_profile: object = None
+    review_rec: object = None
+    outcome: object = None
+    error: str = ""
+    review: object = None
+    review_file: object = None
+    fix: object = None
+
+
+def list_pending_reviews(a):
+    """The `review-pending` listing, one line per pending review."""
+    files = pending_files(project=a.project)
+    if not files:
+        print("no pending reviews")
         return
+    avail = availability()
+    for path in files:
+        try:
+            p = json.loads(path.read_text())
+            back = first_reviewer_back(p["executor_family"], p["review_route"], avail)
+            print(f"{p['id']} | {p['project']} | written by {p['executor_profile']} | "
+                  f"since {p['created']} | {back}")
+        except (ValueError, KeyError, OSError):
+            print(f"{path.stem} | {path.parent.name} | unreadable pending file: {path}")
+
+
+def load_pending_review(a):
+    """Read and validate the pending file `--id` names; exit on a usage error."""
     if not a.confirmed:
         usage_error("--confirmed required")
     read_severity_rubric()
@@ -5460,7 +5659,11 @@ def cmd_review_pending(a):
         usage_error(f"{a.id} is pending in several projects; add --project "
                     + " or ".join(path.parent.name for path in files))
     pending_file = files[0]
-    p = json.loads(pending_file.read_text())
+    return pending_file, json.loads(pending_file.read_text())
+
+
+def pending_context(a, pending_file, p):
+    """The review state, after refusing a worktree that moved since the gate."""
     task_id, task, project, cwd = p["id"], p["task"], p["project"], p["cwd"]
     base, head, executor_family = p["base"], p["head"], p["executor_family"]
     # The review belongs to the milestone the pipeline was started for.
@@ -5475,143 +5678,191 @@ def cmd_review_pending(a):
     out = Path(p["out"])
     out.mkdir(parents=True, exist_ok=True)
     attempt_root = Path(tempfile.mkdtemp(prefix=f"{task_id}-review-", dir=out))
-    wanted = [*p["review_route"], *([a.reviewer] if a.reviewer else [])]
+    return PendingReview(a=a, pending_file=pending_file, p=p, task_id=task_id, task=task,
+                         project=project, cwd=cwd, out=out, attempt_root=attempt_root,
+                         snapshot=snapshot, base=base, head=head, executor_family=executor_family,
+                         executor_timeout=p.get("executor_timeout", DEFAULT_TIMEOUT_S), t0=t0)
+
+
+def pending_route(a, ctx):
+    """The reviewers of this pending review, checked and ordered by availability."""
+    wanted = [*ctx.p["review_route"], *([a.reviewer] if a.reviewer else [])]
     for profile in wanted:
-        check_claude_review(MODELS[profile][0], "review", a.allow_claude_review, executor_family, p["host"])
+        check_claude_review(MODELS[profile][0], "review", a.allow_claude_review,
+                            ctx.executor_family, ctx.p["host"])
     if CLAUDE_REVIEW in wanted:
         check_claude_login()
-    route = claude_last(order_route(
-        list(dict.fromkeys(r for r in wanted if MODELS[r][2] != executor_family)), availability()))
-    attempts, reviewer_profile, review_rec, outcome, error = [], None, None, None, ""
-    executor_timeout = p.get("executor_timeout", DEFAULT_TIMEOUT_S)
+    return claude_last(order_route(
+        list(dict.fromkeys(r for r in wanted if MODELS[r][2] != ctx.executor_family)), availability()))
 
-    def run_step(profile, role, card, diff_range=None, attachments=None, author_family=None):
-        number = p["attempts"] + len(attempts) + 1
-        rec = {"profile": profile, "role": role, "failure": "interrupted", "duration_s": 0}
-        attempts.append(rec)
-        try:
-            rec.update(execute_run(
-                task_id=task_id, task=task, role=role, profile=profile, cwd=cwd,
-                card=card, out=str(attempt_root / f"{number}-{role}-{profile}"), project=project,
-                timeout=(a.review_timeout or p["timeout"]) if role == "review" else executor_timeout,
-                wait_s=a.wait, confirmed=True, attempt=number, diff_range=diff_range,
-                attachments=attachments, access_mode=p["access"], host=p["host"],
-                idle_timeout=p["idle_timeout"], allow_claude_review=a.allow_claude_review,
-                author_family=author_family or executor_family,
-                diff_exclude=p.get("diff_exclude") if role == "review" else None))
-        except SlotTimeoutError as exc:
-            rec.update(exc.record)
-        return rec
 
+def pending_run_step(ctx, request):
+    """Run one step of a pending review and return its record."""
+    profile, role, card = request.profile, request.role, request.card
+    number = ctx.p["attempts"] + len(ctx.attempts) + 1
+    rec = {"profile": profile, "role": role, "failure": "interrupted", "duration_s": 0}
+    ctx.attempts.append(rec)
     try:
-        for profile in route:
-            rec = run_step(profile, "review", p["review_card"], f"{base}...{head}", p["attachments"])
-            if tree_snapshot(cwd) != snapshot:
-                error, outcome = "review_wrote: tree changed after gate", "no_reviewer"
+        rec.update(execute_run(
+            task_id=ctx.task_id, task=ctx.task, role=role, profile=profile, cwd=ctx.cwd,
+            card=card, out=str(ctx.attempt_root / f"{number}-{role}-{profile}"), project=ctx.project,
+            timeout=(ctx.a.review_timeout or ctx.p["timeout"]) if role == "review" else ctx.executor_timeout,
+            wait_s=ctx.a.wait, confirmed=True, attempt=number, diff_range=request.diff_range,
+            attachments=request.attachments, access_mode=ctx.p["access"], host=ctx.p["host"],
+            idle_timeout=ctx.p["idle_timeout"], allow_claude_review=ctx.a.allow_claude_review,
+            author_family=request.author_family or ctx.executor_family,
+            diff_exclude=ctx.p.get("diff_exclude") if role == "review" else None))
+    except SlotTimeoutError as exc:
+        rec.update(exc.record)
+    return rec
+
+
+def run_pending_route(ctx):
+    """Try the ordered reviewers until one reads the work or the route ends."""
+    try:
+        for profile in ctx.route:
+            rec = pending_run_step(ctx, StepRequest(profile, "review", ctx.p["review_card"],
+                                                    f"{ctx.base}...{ctx.head}", ctx.p["attachments"]))
+            if tree_snapshot(ctx.cwd) != ctx.snapshot:
+                ctx.error, ctx.outcome = "review_wrote: tree changed after gate", "no_reviewer"
                 break
             if rec["failure"] in REVIEW_RETRY:
                 continue
             if rec["failure"] == "none":
-                reviewer_profile, review_rec, outcome = profile, rec, "reviewed"
+                ctx.reviewer_profile, ctx.review_rec, ctx.outcome = profile, rec, "reviewed"
             else:
-                error = rec["failure"] + (f": {rec['hint']}" if rec.get("hint") else "")
-                outcome = "no_reviewer"
+                ctx.error = rec["failure"] + (f": {rec['hint']}" if rec.get("hint") else "")
+                ctx.outcome = "no_reviewer"
             break
     except PausedError:
-        error, outcome = "paused", "paused"
-    if outcome is None:
-        waiting = [rec for rec in attempts if rec["failure"] != OVER_MODEL_CAP]
+        ctx.error, ctx.outcome = "paused", "paused"
+    if ctx.outcome is None:
+        waiting = [rec for rec in ctx.attempts if rec["failure"] != OVER_MODEL_CAP]
         if waiting and all(rec["failure"] in NO_CAPACITY for rec in waiting):
-            outcome = "review_pending"
+            ctx.outcome = "review_pending"
         else:
-            outcome = "no_reviewer"
-        error = "reviewer routes exhausted: " + (", ".join(
-            f"{rec['profile']} ({rec['failure']})" for rec in attempts) or "no reviewer outside the executor family")
+            ctx.outcome = "no_reviewer"
+        ctx.error = "reviewer routes exhausted: " + (", ".join(
+            f"{rec['profile']} ({rec['failure']})" for rec in ctx.attempts)
+            or "no reviewer outside the executor family")
 
-    review = review_file = fix = None
-    if outcome == "reviewed":
-        # The review is done: the file goes before a fix round starts.
-        pending_file.unlink()
-        review_file = review_rec.get("last_message") or review_rec["stdout"]
-        review = review_findings(review_file)
-        if review["counts"]["major"]:
-            card = p.get("card") or next(iter(p["attachments"]), None)
-            fix = {}
-            try:
-                fix_round(fix, run_step, task_id=task_id, task=task, cwd=cwd, out=out,
-                          attempt_root=attempt_root, card=card,
-                          route=p.get("route") or [p["executor_profile"]],
-                          executor_profile=p["executor_profile"], gate=p["gate"],
-                          gate_timeout=executor_timeout, review_route=route, first=review,
-                          first_reviewer=reviewer_profile)
-            except (Exception, SystemExit, KeyboardInterrupt) as exc:
-                fix.update(state="paused" if isinstance(exc, PausedError) else "stopped",
-                           error=exception_reason(exc))
-    c = conclude(outcome, review, fix)
-    outcome, findings = c["outcome"], c["counts"]
-    lines = [f"# Pipeline {task_id}: {task} — {outcome}", *final_lines(c, fix),
-             f"- committed: {base}..{head}; review finished after a pending review"]
+
+def pending_fix(ctx):
+    """Read the finished review, then run the one fix round if it has a major."""
+    if ctx.outcome != "reviewed":
+        return
+    # The review is done: the file goes before a fix round starts.
+    ctx.pending_file.unlink()
+    ctx.review_file = ctx.review_rec.get("last_message") or ctx.review_rec["stdout"]
+    ctx.review = review_findings(ctx.review_file)
+    if not ctx.review["counts"]["major"]:
+        return
+    card = ctx.p.get("card") or next(iter(ctx.p["attachments"]), None)
+    ctx.fix = {}
+    try:
+        fix_round(ctx.fix, lambda request: pending_run_step(ctx, request),
+                  task_id=ctx.task_id, task=ctx.task, cwd=ctx.cwd, out=ctx.out,
+                  attempt_root=ctx.attempt_root, card=card,
+                  route=ctx.p.get("route") or [ctx.p["executor_profile"]],
+                  executor_profile=ctx.p["executor_profile"], gate=ctx.p["gate"],
+                  gate_timeout=ctx.executor_timeout, review_route=ctx.route, first=ctx.review,
+                  first_reviewer=ctx.reviewer_profile)
+    except (Exception, SystemExit, KeyboardInterrupt) as exc:
+        ctx.fix.update(state="paused" if isinstance(exc, PausedError) else "stopped",
+                       error=exception_reason(exc))
+
+
+def pending_summary(ctx, c):
+    """Print and write the summary of a finished pending review; return its path."""
+    outcome = c["outcome"]
+    lines = [f"# Pipeline {ctx.task_id}: {ctx.task} — {outcome}", *final_lines(c, ctx.fix),
+             f"- committed: {ctx.base}..{ctx.head}; review finished after a pending review"]
     if outcome == "review_pending":
-        lines.append(f"- still pending: {first_reviewer_back(executor_family, p['review_route'], availability())}")
-    if error:
-        lines.append(f"- stopped at review: {error}")
-    if reviewer_profile == CLAUDE_REVIEW:
+        lines.append(f"- still pending: {first_reviewer_back(ctx.executor_family, ctx.p['review_route'], availability())}")
+    if ctx.error:
+        lines.append(f"- stopped at review: {ctx.error}")
+    if ctx.reviewer_profile == CLAUDE_REVIEW:
         lines.append(f"- reviewed by the fallback reviewer {CLAUDE_REVIEW} "
                      f"({MODELS[CLAUDE_REVIEW][1]}), allowed by the operator")
-    for rec in attempts:
+    for rec in ctx.attempts:
         paths = " | ".join(f"{key}: {rec[key]}" for key in ("stdout", "stderr", "last_message")
                            if rec.get(key) and Path(rec[key]).is_file())
         lines.append(f"- {rec['role']}: {rec['profile']} | {rec['duration_s']}s | {rec['failure']} | {paths}")
-    lines.append(f"- gate (before the wait): `{p['gate']}` | exit {p['gate_exit']}")
-    lines += fix_step_lines(fix, p["gate"])
+    lines.append(f"- gate (before the wait): `{ctx.p['gate']}` | exit {ctx.p['gate_exit']}")
+    lines += fix_step_lines(ctx.fix, ctx.p["gate"])
     lines = [" ".join(str(line).splitlines()) for line in lines]
-    fix_gate = (fix or {}).get("gate") or {}
+    fix_gate = (ctx.fix or {}).get("gate") or {}
     if observed_gate(fix_gate) == "fail" and Path(fix_gate["log"]).is_file():
         lines += ["Gate log tail (after the fix):"] + Path(fix_gate["log"]).read_text(
             errors="replace").splitlines()[-15:]
-    reviews_summary(review, review_file, fix, c, lines)
+    reviews_summary(ctx.review, ctx.review_file, ctx.fix, c, lines)
     summary_text = "\n".join(lines) + "\n"
-    summary_file = out / f"{task_id}.summary.md"
+    summary_file = ctx.out / f"{ctx.task_id}.summary.md"
     summary_file.write_text(summary_text)
     print(summary_text, end="")
-    # The file stays while the review can still be finished from it.
-    if error.startswith("review_wrote"):
-        pending_file.unlink(missing_ok=True)
-    if fix:
-        failed_step = None if fix.get("state") == "reviewed" else "fix_" + fix.get("stage", "executor")
+    return summary_file
+
+
+def pending_record(ctx, c, summary_file):
+    """The pipeline record of a finished pending review."""
+    outcome, findings = c["outcome"], c["counts"]
+    if ctx.fix:
+        failed_step = None if ctx.fix.get("state") == "reviewed" else "fix_" + ctx.fix.get("stage", "executor")
     else:
         failed_step = None if outcome == "reviewed" else "review"
     rec = {
-        "kind": "pipeline", "id": task_id, "project": project, "outcome": outcome, "final": c["final"],
-        "resumed_from": "review_pending",
-        "executor_profile": p["executor_profile"], "reviewer_profile": reviewer_profile,
-        "gate_exit": p["gate_exit"], "auto_committed": p["auto_committed"], "findings": findings,
+        "kind": "pipeline", "id": ctx.task_id, "project": ctx.project, "outcome": outcome,
+        "final": c["final"], "resumed_from": "review_pending",
+        "executor_profile": ctx.p["executor_profile"], "reviewer_profile": ctx.reviewer_profile,
+        "gate_exit": ctx.p["gate_exit"], "auto_committed": ctx.p["auto_committed"], "findings": findings,
         "review_rounds": c["rounds"],
-        "duration_s": round(time.monotonic() - t0), "base": base, "head": git(cwd, "rev-parse", "HEAD") or head,
+        "duration_s": round(time.monotonic() - ctx.t0), "base": ctx.base,
+        "head": git(ctx.cwd, "rev-parse", "HEAD") or ctx.head,
         "failed_step": failed_step,
-        "error": error, "attempts": attempts, "summary": str(summary_file),
+        "error": ctx.error, "attempts": ctx.attempts, "summary": str(summary_file),
     }
-    if review:
-        rec.update(review_pipeline_fields(review))
-    if fix:
-        rec.update(first_findings={key: review["counts"][key] for key in COUNTED}, fix_round=fix_record(fix),
+    if ctx.review:
+        rec.update(review_pipeline_fields(ctx.review))
+    if ctx.fix:
+        rec.update(first_findings={key: ctx.review["counts"][key] for key in COUNTED},
+                   fix_round=fix_record(ctx.fix),
                    open_majors=[{key: m[key] for key in ("id", "location", "status", "said")}
                                 for m in c["open_majors"]])
     if c["deviation"]:
         rec["deviation"] = c["deviation"]
-    if p.get("diff_exclude"):
-        rec["diff_excluded"] = p["diff_exclude"]
-    if pending_file.exists():
-        rec["pending"] = str(pending_file)
-    if reviewer_profile == CLAUDE_REVIEW:
+    if ctx.p.get("diff_exclude"):
+        rec["diff_excluded"] = ctx.p["diff_exclude"]
+    if ctx.pending_file.exists():
+        rec["pending"] = str(ctx.pending_file)
+    if ctx.reviewer_profile == CLAUDE_REVIEW:
         rec["fallback_reviewer"] = True
-    if p["host"]:
-        rec["host"] = p["host"]
-    if outcome != "review_pending":
+    if ctx.p["host"]:
+        rec["host"] = ctx.p["host"]
+    return rec
+
+
+def cmd_review_pending(a):
+    if not a.id:
+        list_pending_reviews(a)
+        return
+    pending_file, p = load_pending_review(a)
+    ctx = pending_context(a, pending_file, p)
+    ctx.route = pending_route(a, ctx)
+    run_pending_route(ctx)
+    pending_fix(ctx)
+    c = conclude(ctx.outcome, ctx.review, ctx.fix)
+    summary_file = pending_summary(ctx, c)
+    # The file stays while the review can still be finished from it.
+    if ctx.error.startswith("review_wrote"):
+        pending_file.unlink(missing_ok=True)
+    rec = pending_record(ctx, c, summary_file)
+    if c["outcome"] != "review_pending":
+        fix_gate = (ctx.fix or {}).get("gate") or {}
         seen = fix_gate or {"ran": True, "exit": p["gate_exit"], "timed_out": False}
-        append(pipeline_verdict(task_id, c, observed_gate(seen), reviewer_profile, fix, p["host"]))
+        append(pipeline_verdict(VerdictInput(ctx.task_id, c, observed_gate(seen), ctx.reviewer_profile,
+                                             ctx.fix, p["host"])))
     append(rec)
-    sys.exit(0 if outcome in ("reviewed", "fixed") else 3 if outcome == "paused" else 1)
+    sys.exit(0 if c["outcome"] in ("reviewed", "fixed") else 3 if c["outcome"] == "paused" else 1)
 
 
 def cmd_pause(a):
@@ -5651,6 +5902,95 @@ def active_runs():
     return runs
 
 
+def print_run_status(run):
+    """One active run as `status` prints it, with a warning if its runner died."""
+    sid = run["id"]
+    idle = "" if run["idle_s"] is None else f" | idle {run['idle_s'] // 60}m"
+    where = " | remote" if run["remote"] else ""
+    lost = " | runner gone" if run["runner_gone"] else ""
+    print(f"{sid} | {run['project']} | {run['profile']} | {run['role']} | {run['machine']} | "
+          f"{run['age_s'] // 60}m{idle}{where}{lost}")
+    if lost:
+        print(f"warning: the runner of {sid} died; its executor is still working and "
+              f"will leave no result. Stop it with `kill {sid}`, then check the worktree.")
+
+
+def read_run_records():
+    """Every `run` record of the log, oldest first; unreadable lines are skipped."""
+    records = []
+    if not LOG.exists():
+        return records
+    for line in LOG.read_text().splitlines():
+        try:
+            r = json.loads(line)
+        except (TypeError, ValueError):
+            continue
+        if r.get("kind") == "run":
+            records.append(r)
+    return records
+
+
+def provider_limit_state(record, now_dt):
+    """(executor, reset time, stderr path) of a recent provider_limit run, or None."""
+    if record.get("failure") != "provider_limit":
+        return None
+    ex = record.get("executor")
+    started_str = record.get("completed") or record.get("started")
+    if not ex or not started_str:
+        return None
+    try:
+        s_dt = dt.datetime.fromisoformat(started_str)
+        if s_dt.tzinfo is None:
+            s_dt = s_dt.replace(tzinfo=dt.timezone.utc)
+        if not record.get("completed"):
+            s_dt += dt.timedelta(seconds=record.get("duration_s", 0))
+        age = (now_dt - s_dt).total_seconds()
+    except (OverflowError, TypeError, ValueError):
+        return None
+    if not 0 <= age <= 6 * 3600:
+        return None
+    return ex, s_dt, record.get("stderr")
+
+
+def collect_provider_limits(records, now_dt):
+    """The latest recent provider_limit of each executor, as `status` shows it."""
+    limits = {}
+    for record in records:
+        state = provider_limit_state(record, now_dt)
+        if state and (state[0] not in limits or state[1] > limits[state[0]][0]):
+            limits[state[0]] = (state[1], state[2])
+    return limits
+
+
+def print_provider_limits(limits):
+    """The provider limits still in force and their reset time, when known."""
+    for ex in sorted(limits.keys()):
+        s_dt, stderr_path = limits[ex]
+        reset_text = ""
+        if stderr_path:
+            try:
+                stderr_content = Path(stderr_path).read_text(errors="replace")
+                m = re.search(r"(try again at [^\n\r.]+)", stderr_content, re.IGNORECASE)
+                if m:
+                    reset_text = m.group(1).strip()
+            except (OSError, TypeError, ValueError):
+                pass
+        if reset_text:
+            print(f"{ex}: provider_limit ({reset_text})")
+        else:
+            print(f"{ex}: provider_limit at {s_dt.strftime('%H:%M:%S UTC')}")
+
+
+def print_orphan_warning(records):
+    """Warn when the last runs left orphan processes behind."""
+    recent = records[-10:]
+    found = sum((r.get("orphans") or {}).get("found") or 0 for r in recent)
+    if found:
+        killed = sum((r.get("orphans") or {}).get("killed") or 0 for r in recent)
+        print(f"warning: recent runs left {found} orphan process(es) ({killed} killed); "
+              "see the `orphans` field of the run records")
+
+
 def cmd_status(a):
     runs = active_runs()
     if getattr(a, "json", False):
@@ -5663,71 +6003,16 @@ def cmd_status(a):
 
     now_dt = now()
     for run in runs:
-        sid = run["id"]
-        idle = "" if run["idle_s"] is None else f" | idle {run['idle_s'] // 60}m"
-        where = " | remote" if run["remote"] else ""
-        lost = " | runner gone" if run["runner_gone"] else ""
-        print(f"{sid} | {run['project']} | {run['profile']} | {run['role']} | {run['machine']} | "
-              f"{run['age_s'] // 60}m{idle}{where}{lost}")
-        if lost:
-            print(f"warning: the runner of {sid} died; its executor is still working and "
-                  f"will leave no result. Stop it with `kill {sid}`, then check the worktree.")
+        print_run_status(run)
 
     pending = len(pending_files())
     if pending:
         print(f"pending reviews: {pending} (list them with review-pending)")
 
     if LOG.exists():
-        limits = {}
-        recent_runs = []
-        for line in LOG.read_text().splitlines():
-            try:
-                r = json.loads(line)
-            except (TypeError, ValueError):
-                continue
-            if r.get("kind") != "run":
-                continue
-            recent_runs.append(r)
-            if r.get("failure") == "provider_limit":
-                ex = r.get("executor")
-                started_str = r.get("completed") or r.get("started")
-                if not ex or not started_str:
-                    continue
-                try:
-                    s_dt = dt.datetime.fromisoformat(started_str)
-                    if s_dt.tzinfo is None:
-                        s_dt = s_dt.replace(tzinfo=dt.timezone.utc)
-                    if not r.get("completed"):
-                        s_dt += dt.timedelta(seconds=r.get("duration_s", 0))
-                    age = (now_dt - s_dt).total_seconds()
-                    if 0 <= age <= 6 * 3600:
-                        if ex not in limits or s_dt > limits[ex][0]:
-                            limits[ex] = (s_dt, r.get("stderr"))
-                except (OverflowError, TypeError, ValueError):
-                    continue
-
-        for ex in sorted(limits.keys()):
-            s_dt, stderr_path = limits[ex]
-            reset_text = ""
-            if stderr_path:
-                try:
-                    stderr_content = Path(stderr_path).read_text(errors="replace")
-                    m = re.search(r"(try again at [^\n\r.]+)", stderr_content, re.IGNORECASE)
-                    if m:
-                        reset_text = m.group(1).strip()
-                except (OSError, TypeError, ValueError):
-                    pass
-            if reset_text:
-                print(f"{ex}: provider_limit ({reset_text})")
-            else:
-                print(f"{ex}: provider_limit at {s_dt.strftime('%H:%M:%S UTC')}")
-
-        recent = recent_runs[-10:]
-        found = sum((r.get("orphans") or {}).get("found") or 0 for r in recent)
-        if found:
-            killed = sum((r.get("orphans") or {}).get("killed") or 0 for r in recent)
-            print(f"warning: recent runs left {found} orphan process(es) ({killed} killed); "
-                  "see the `orphans` field of the run records")
+        records = read_run_records()
+        print_provider_limits(collect_provider_limits(records, now_dt))
+        print_orphan_warning(records)
 
 
 def cmd_kill(a):
@@ -5944,7 +6229,8 @@ def removed_profile_asked(argv):
     return None
 
 
-def main():
+def reject_removed_profile():
+    """Refuse a profile that was removed from the runner before argparse runs."""
     removed = removed_profile_asked(sys.argv[1:])
     if removed:
         print(REMOVED_PROFILE_MESSAGE.format(name=removed), file=sys.stderr)
@@ -5957,9 +6243,9 @@ def main():
             print("delegate: profile deepseek-pro was removed (poor cost/benefit); use --profile flash",
                   file=sys.stderr)
             sys.exit(2)
-    ap = argparse.ArgumentParser(prog="delegate.py")
-    sub = ap.add_subparsers(dest="cmd", required=True)
 
+
+def add_run_parser(sub):
     r = sub.add_parser("run")
     r.add_argument("--id", required=True); r.add_argument("--task", required=True)
     r.add_argument("--role", required=True, choices=ROLES)
@@ -5995,6 +6281,8 @@ def main():
                    help="family of the model that wrote the code; required for claude-review")
     r.set_defaults(f=cmd_run)
 
+
+def add_pipeline_parser(sub):
     pipe = sub.add_parser("pipeline")
     pipe.add_argument("--id", required=True)
     pipe.add_argument("--task", required=True)
@@ -6032,22 +6320,32 @@ def main():
                       help="the operator said yes to a Claude review for this task (the fallback reviewer)")
     pipe.set_defaults(f=cmd_pipeline)
 
+
+def add_pause_parser(sub):
     p_pause = sub.add_parser("pause")
     p_pause.add_argument("--reason")
     p_pause.set_defaults(f=cmd_pause)
 
+
+def add_resume_parser(sub):
     p_resume = sub.add_parser("resume")
     p_resume.set_defaults(f=cmd_resume)
 
+
+def add_status_parser(sub):
     p_status = sub.add_parser("status")
     p_status.add_argument("--json", action="store_true",
                           help="print the active runs, local and --host, as JSON and nothing else")
     p_status.set_defaults(f=cmd_status)
 
+
+def add_kill_parser(sub):
     p_kill = sub.add_parser("kill")
     p_kill.add_argument("id")
     p_kill.set_defaults(f=cmd_kill)
 
+
+def add_record_parser(sub):
     v = sub.add_parser("record")
     v.add_argument("--id", required=True)
     v.add_argument("--gate-host", required=True, choices=GATE)
@@ -6059,8 +6357,16 @@ def main():
     v.add_argument("--deviation"); v.add_argument("--note")
     v.set_defaults(f=cmd_record)
 
+
+def add_report_parser(sub):
     sub.add_parser("report").set_defaults(f=cmd_report)
+
+
+def add_peak_parser(sub):
     sub.add_parser("peak").set_defaults(f=lambda a: print("peak" if in_peak() else "off-peak"))
+
+
+def add_review_pending_parser(sub):
     p_pending = sub.add_parser("review-pending")
     p_pending.add_argument("--id", help="finish the review of this task; without it, list what is pending")
     p_pending.add_argument("--project")
@@ -6075,6 +6381,9 @@ def main():
     p_pending.add_argument("--allow-claude-review", action="store_true",
                    help="the operator said yes to a Claude review for this task (the fallback reviewer)")
     p_pending.set_defaults(f=cmd_review_pending)
+
+
+def add_route_parser(sub):
     p_route = sub.add_parser("route")
     p_route.add_argument("--role", required=True, choices=sorted(EXECUTOR_ROUTES))
     p_route.add_argument("--open-design", action="store_true",
@@ -6082,10 +6391,15 @@ def main():
                               "security or a migration")
     p_route.add_argument("--json", action="store_true")
     p_route.set_defaults(f=cmd_route)
+
+
+def add_profiles_parser(sub):
     p_profiles = sub.add_parser("profiles")
     p_profiles.add_argument("--host", help="also show which executors are ready on this host")
     p_profiles.set_defaults(f=cmd_profiles)
 
+
+def add_remote_clean_parser(sub):
     p_clean = sub.add_parser("remote-clean")
     p_clean.add_argument("--host", required=True)
     p_clean.add_argument("--id")
@@ -6095,25 +6409,53 @@ def main():
     p_clean.add_argument("--timeout", type=duration_arg, default=600, help="seconds, or a number with a unit: 300, 300s, 90m, 2h")
     p_clean.set_defaults(f=cmd_remote_clean)
 
+
+def install_signal_handlers():
     def interrupted(signum, frame):
         raise SystemExit(128 + signum)
 
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     signal.signal(signal.SIGHUP, interrupted)
+
+
+def normalize_timeout_args(a):
+    """Round the caps to whole seconds and refuse one below the minimum."""
+    if a.cmd not in ("run", "pipeline"):
+        return
+    # Whole seconds for the caps (the remote path passes them on a command line).
+    for name in ("timeout", "review_timeout", "wait"):
+        value = getattr(a, name, None)
+        if value is not None:
+            setattr(a, name, int(-(-value // 1)))
+    for name in ("timeout", "review_timeout"):
+        value = getattr(a, name, None)
+        if value is not None and value < MIN_TIMEOUT_S and not a.allow_short_timeout:
+            usage_error(
+                f"--{name.replace('_', '-')} {value} is {value} seconds: a time without a unit is in "
+                "seconds (write 90m or 2h for longer); pass --allow-short-timeout if you mean it")
+
+
+def main():
+    reject_removed_profile()
+    ap = argparse.ArgumentParser(prog="delegate.py")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    add_run_parser(sub)
+    add_pipeline_parser(sub)
+    add_pause_parser(sub)
+    add_resume_parser(sub)
+    add_status_parser(sub)
+    add_kill_parser(sub)
+    add_record_parser(sub)
+    add_report_parser(sub)
+    add_peak_parser(sub)
+    add_review_pending_parser(sub)
+    add_route_parser(sub)
+    add_profiles_parser(sub)
+    add_remote_clean_parser(sub)
+    install_signal_handlers()
     a = ap.parse_args()
-    if a.cmd in ("run", "pipeline"):
-        # Whole seconds for the caps (the remote path passes them on a command line).
-        for name in ("timeout", "review_timeout", "wait"):
-            value = getattr(a, name, None)
-            if value is not None:
-                setattr(a, name, int(-(-value // 1)))
-        for name in ("timeout", "review_timeout"):
-            value = getattr(a, name, None)
-            if value is not None and value < MIN_TIMEOUT_S and not a.allow_short_timeout:
-                usage_error(
-                    f"--{name.replace('_', '-')} {value} is {value} seconds: a time without a unit is in "
-                    "seconds (write 90m or 2h for longer); pass --allow-short-timeout if you mean it")
+    normalize_timeout_args(a)
     try:
         a.f(a)
     except (PausedError, SlotTimeoutError) as exc:
