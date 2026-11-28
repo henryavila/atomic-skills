@@ -52,6 +52,15 @@ const HOST_CLI = {
   grok: { bin: 'grok', versionArgs: ['--version'] },
 };
 
+/** Expected help-surface wording per host that has an operational probe. */
+const OPERATIONAL_PROBE = {
+  antigravity: /usage|antigravity|agy/i,
+  'claude-code': /usage|claude/i,
+  codex: /usage|codex/i,
+  grok: /usage|grok/i,
+  opencode: /usage|opencode/i,
+};
+
 function parseArgs(argv) {
   const out = {
     manifest: join(ROOT, 'meta/host-qualification.json'),
@@ -128,7 +137,13 @@ function probeLayout(hostId) {
     return { ok: false, skillPath: skillRel, error: String(err.message || err) };
   } finally {
     try {
-      buildInstaller({}).uninstall({ projectDir });
+      buildInstaller({
+        language: 'en',
+        ides: [hostId],
+        skillsDir: SKILLS_DIR,
+        metaDir: META_DIR,
+        scope: 'project',
+      }).uninstall({ projectDir });
     } catch {
       /* best-effort cleanup */
     }
@@ -150,63 +165,29 @@ function probeLayout(hostId) {
  */
 function probeOperational(host, cli) {
   if (!cli.present) {
-    return {
-      ok: false,
-      discovery: false,
-      load: false,
-      invoke: false,
-      error: `operational host ${host.id} requires CLI present; reclassify to layout-only before candidate`,
-    };
+    return failedOperationalProbe(
+      `operational host ${host.id} requires CLI present; reclassify to layout-only before candidate`,
+    );
   }
   // Host-specific operational probes. Only run when tier is operational.
   const spec = HOST_CLI[host.id];
   if (!spec) {
-    return {
-      ok: false,
-      discovery: false,
-      load: false,
-      invoke: false,
-      error: `no operational probe implementation for ${host.id}`,
-    };
+    return failedOperationalProbe(`no operational probe implementation for ${host.id}`);
+  }
+  const expectedOutput = OPERATIONAL_PROBE[host.id];
+  if (!expectedOutput) {
+    return failedOperationalProbe(`operational probe not defined for ${host.id}`);
   }
 
   // discovery: binary answers --version
   const discovery = true;
   // load: list/help surface available (best-effort, host-specific)
-  let load = false;
-  let invoke = false;
-  let detail = '';
-
-  if (host.id === 'antigravity') {
-    const help = spawnSync(spec.bin, ['--help'], { encoding: 'utf8', timeout: 15_000 });
-    load = help.status === 0 || /usage|antigravity|agy/i.test(`${help.stdout}${help.stderr}`);
-    detail = (help.stdout || help.stderr || '').slice(0, 200);
-    invoke = load;
-  } else if (host.id === 'claude-code') {
-    const help = spawnSync(spec.bin, ['--help'], { encoding: 'utf8', timeout: 15_000 });
-    load = help.status === 0 || /usage|claude/i.test(`${help.stdout}${help.stderr}`);
-    invoke = load;
-  } else if (host.id === 'codex') {
-    const help = spawnSync(spec.bin, ['--help'], { encoding: 'utf8', timeout: 15_000 });
-    load = help.status === 0 || /usage|codex/i.test(`${help.stdout}${help.stderr}`);
-    invoke = load;
-  } else if (host.id === 'grok') {
-    const help = spawnSync(spec.bin, ['--help'], { encoding: 'utf8', timeout: 15_000 });
-    load = help.status === 0 || /usage|grok/i.test(`${help.stdout}${help.stderr}`);
-    invoke = load;
-  } else if (host.id === 'opencode') {
-    const help = spawnSync(spec.bin, ['--help'], { encoding: 'utf8', timeout: 15_000 });
-    load = help.status === 0 || /usage|opencode/i.test(`${help.stdout}${help.stderr}`);
-    invoke = load;
-  } else {
-    return {
-      ok: false,
-      discovery: false,
-      load: false,
-      invoke: false,
-      error: `operational probe not defined for ${host.id}`,
-    };
-  }
+  const help = spawnSync(spec.bin, ['--help'], { encoding: 'utf8', timeout: 15_000 });
+  const load = help.status === 0 || expectedOutput.test(`${help.stdout}${help.stderr}`);
+  const detail = host.id === 'antigravity'
+    ? (help.stdout || help.stderr || '').slice(0, 200)
+    : '';
+  const invoke = load;
 
   const ok = discovery && load && invoke;
   return {
@@ -218,6 +199,10 @@ function probeOperational(host, cli) {
     detail,
     error: ok ? undefined : `discovery/load/invoke incomplete for ${host.id}`,
   };
+}
+
+function failedOperationalProbe(error) {
+  return { ok: false, discovery: false, load: false, invoke: false, error };
 }
 
 /**
@@ -304,41 +289,45 @@ export function runHostProbes(options = {}) {
 }
 
 export function checkReceiptAgainstManifest(receipt, doc) {
-  const errors = [];
   if (!receipt || typeof receipt !== 'object') {
     return { ok: false, errors: ['receipt must be an object'] };
   }
+  const errors = [];
   const byId = new Map((receipt.hosts || []).map((h) => [h.id, h]));
   for (const host of doc.hosts || []) {
-    const entry = byId.get(host.id);
-    if (!entry) {
-      errors.push(`receipt missing host ${host.id}`);
-      continue;
-    }
-    if (entry.supportTier !== host.supportTier) {
-      errors.push(
-        `${host.id}: receipt tier ${entry.supportTier} != manifest ${host.supportTier}`,
-      );
-    }
-    if (host.supportTier === 'layout-only') {
-      if (entry.supportDeclared === true) {
-        errors.push(`${host.id}: layout-only receipt must not claim supportDeclared`);
-      }
-      if (entry.operational && entry.operational.skipped !== true && entry.operational.discovery) {
-        // Allow recording CLI presence, but not operational pass without tier.
-        if (entry.supportTier !== 'operational' && entry.operational.ok && entry.operational.invoke) {
-          // Only fail if receipt claims operational success while tier is layout-only
-          // without skipped flag — already covered if skipped is required.
-        }
-      }
-    }
-    if (host.supportTier === 'operational') {
-      if (!entry.operational?.discovery || !entry.operational?.load || !entry.operational?.invoke) {
-        errors.push(`${host.id}: operational receipt missing discovery/load/invoke`);
-      }
-    }
+    checkReceiptHost(host, byId.get(host.id), errors);
   }
   return { ok: errors.length === 0, errors };
+}
+
+function checkReceiptHost(host, entry, errors) {
+  if (!entry) {
+    errors.push(`receipt missing host ${host.id}`);
+    return;
+  }
+  if (entry.supportTier !== host.supportTier) {
+    errors.push(
+      `${host.id}: receipt tier ${entry.supportTier} != manifest ${host.supportTier}`,
+    );
+  }
+  if (host.supportTier === 'layout-only') {
+    checkLayoutOnlyReceipt(host, entry, errors);
+  }
+  if (host.supportTier === 'operational') {
+    checkOperationalReceipt(host, entry, errors);
+  }
+}
+
+function checkLayoutOnlyReceipt(host, entry, errors) {
+  if (entry.supportDeclared === true) {
+    errors.push(`${host.id}: layout-only receipt must not claim supportDeclared`);
+  }
+}
+
+function checkOperationalReceipt(host, entry, errors) {
+  if (!entry.operational?.discovery || !entry.operational?.load || !entry.operational?.invoke) {
+    errors.push(`${host.id}: operational receipt missing discovery/load/invoke`);
+  }
 }
 
 const isMain = process.argv[1]

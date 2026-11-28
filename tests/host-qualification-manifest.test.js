@@ -126,3 +126,124 @@ describe('host-qualification manifest (F2/T-001)', () => {
     assert.ok(schema.properties?.hosts || schema.$defs || schema.definitions);
   });
 });
+
+describe('validateHostQualification error table', () => {
+  const layoutHost = {
+    id: 'codex',
+    supportTier: 'layout-only',
+    supportDeclared: false,
+    justification: 'not operational yet',
+  };
+
+  const CASES = [
+    { name: 'non-object root', doc: null, errors: ['root must be an object'] },
+    { name: 'array root', doc: [], errors: ['root must be an object'] },
+    {
+      name: 'wrong schemaVersion',
+      doc: { schemaVersion: '2', hosts: [] },
+      errors: ['schemaVersion must be "1" (got "2")'],
+    },
+    {
+      name: 'hosts not an array',
+      doc: { schemaVersion: '1', hosts: {} },
+      errors: ['hosts must be an array'],
+    },
+    {
+      name: 'non-object host',
+      doc: { schemaVersion: '1', hosts: [null] },
+      errors: ['hosts[0]: entry must be an object'],
+    },
+    {
+      name: 'host without id',
+      doc: { schemaVersion: '1', hosts: [{}] },
+      errors: ['hosts[0]: id is required'],
+    },
+    {
+      name: 'duplicate host id',
+      doc: { schemaVersion: '1', hosts: [layoutHost, { ...layoutHost }] },
+      errors: ['hosts[1]: duplicate host id "codex"'],
+    },
+    {
+      name: 'unknown support tier',
+      doc: { schemaVersion: '1', hosts: [{ ...layoutHost, supportTier: 'beta' }] },
+      errors: ['hosts[0] (codex): unknown supportTier "beta" (expected operational|layout-only)'],
+    },
+    {
+      name: 'operational without adapter',
+      doc: {
+        schemaVersion: '1',
+        hosts: [{ id: 'codex', supportTier: 'operational', supportDeclared: true }],
+      },
+      errors: ['hosts[0] (codex): operational requires adapter object'],
+    },
+    {
+      name: 'operational adapter fields in order',
+      doc: {
+        schemaVersion: '1',
+        hosts: [{
+          id: 'codex',
+          supportTier: 'operational',
+          supportDeclared: true,
+          adapter: { id: '', version: '1' },
+        }],
+      },
+      errors: [
+        'hosts[0] (codex): operational adapter missing id',
+        'hosts[0] (codex): operational adapter missing discovery',
+        'hosts[0] (codex): operational adapter missing load',
+        'hosts[0] (codex): operational adapter missing invoke',
+      ],
+    },
+    {
+      name: 'operational with supportDeclared false',
+      doc: {
+        schemaVersion: '1',
+        hosts: [{
+          id: 'codex',
+          supportTier: 'operational',
+          supportDeclared: false,
+          adapter: { id: 'a', version: '1', discovery: 'd', load: 'l', invoke: 'i' },
+        }],
+      },
+      errors: ['hosts[0] (codex): operational must not set supportDeclared:false'],
+    },
+    {
+      name: 'valid layout-only host',
+      doc: { schemaVersion: '1', hosts: [layoutHost] },
+      errors: [],
+    },
+    {
+      name: 'layout-only claiming support',
+      doc: { schemaVersion: '1', hosts: [{ ...layoutHost, supportDeclared: true }] },
+      errors: ['hosts[0] (codex): layout-only requires supportDeclared:false (no operational support claim)'],
+    },
+    {
+      name: 'layout-only with short justification',
+      doc: {
+        schemaVersion: '1',
+        hosts: [{ ...layoutHost, justification: 'short' }],
+      },
+      errors: ['hosts[0] (codex): layout-only requires justification (min 8 chars)'],
+    },
+    {
+      name: 'public id coverage',
+      doc: {
+        schemaVersion: '1',
+        hosts: [layoutHost, { ...layoutHost, id: 'extra' }],
+      },
+      opts: { publicIdeIds: ['codex', 'missing'] },
+      errors: [
+        'missing host for PUBLIC_IDE_ID "missing"',
+        'unknown host id "extra" (not in PUBLIC_IDE_IDS)',
+      ],
+    },
+  ];
+
+  for (const testCase of CASES) {
+    it(testCase.name, () => {
+      const report = validateHostQualification(testCase.doc, testCase.opts || {});
+      assert.equal(report.ok, testCase.errors.length === 0);
+      assert.deepEqual(report.errors, testCase.errors);
+    });
+  }
+});
