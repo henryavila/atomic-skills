@@ -71,11 +71,11 @@ def prerequisites(root):
 
 def startup(temp, package, root, files):
     config = temp / "coveragerc"
-    config.write_text("[run]\nparallel = true\ndata_file = " + str(temp / ".coverage")
+    config.write_text("[run]\nparallel = true\nsigterm = true\ndata_file = " + str(temp / ".coverage")
                       + "\ninclude =\n" + "".join("    " + str(root / key) + "\n" for key in files))
     (temp / "sitecustomize.py").write_text(
         "import sys\nsys.path.insert(0, " + repr(package) + ")\n"
-        "import coverage\ncoverage.process_startup()\n")
+        + (HERE / "lib/coverage_startup.py").read_text())
     env = dict(os.environ)
     env.update(COVERAGE_PROCESS_START=str(config), COVERAGE_FILE=str(temp / ".coverage"),
                PYTHONDONTWRITEBYTECODE="1",
@@ -138,15 +138,24 @@ cov.combine(strict=False)
 cov.load()
 result = {}
 for key in json.loads(sys.argv[3]):
-    _, statements, _, missing, _ = cov.analysis2(str(Path(sys.argv[2]) / key))
+    path = str(Path(sys.argv[2]) / key)
+    if not cov.get_data().lines(path):
+        print("coverage: no Python coverage data: " + key, file=sys.stderr)
+    _, statements, _, missing, _ = cov.analysis2(path)
     result[key] = [len(missing), len(statements)]
 print(json.dumps(result))
 """
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     # Report generation must not start measuring itself in an enclosing run.
     env.pop("COVERAGE_PROCESS_START", None)
-    return json.loads(command([str(python), "-B", "-c", code, str(config), str(root),
-                               json.dumps(files)], cwd=temp, env=env))
+    # COVERAGE_FILE overrides config.data_file. Nested fixture reports must not
+    # combine (and delete) the enclosing full-suite run's parallel data files.
+    env.pop("COVERAGE_FILE", None)
+    report = subprocess.run([str(python), "-B", "-c", code, str(config), str(root),
+                             json.dumps(files)], cwd=temp, env=env, text=True,
+                            capture_output=True, check=True)
+    sys.stderr.write(report.stderr)
+    return json.loads(report.stdout)
 
 
 def interrupted(signum, _frame):
