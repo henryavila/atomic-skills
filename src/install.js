@@ -25,16 +25,8 @@ import {
   showPostInstall, showNonInteractiveResult, msg,
 } from './ui.js';
 import { DEFAULT_MEMORY_PATH } from './providers/skills-file-set.js';
-import {
-  registerGrokPluginHost,
-  wantsGrokPluginHost,
-} from './runtime-layers/grok-plugin-host.js';
-import { applyGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation.js';
-import {
-  releaseGrokOutsideJournal,
-  scanKnownInstallBases,
-  sameInstallBase,
-} from './runtime-layers/grok-refcount.js';
+import { releaseGrokOutsideJournal, scanKnownInstallBases, sameInstallBase } from './runtime-layers/grok-refcount.js';
+import { syncGrokPluginHostAfterInstall } from './grok-host-sync.js';
 // P0-B / F-002 consumer fallback — DELETE import when engine drop-revert is pinned.
 import { revertDroppedAutoUpdateEffects } from './runtime-layers/auto-update-drop-revert.js';
 import {
@@ -213,55 +205,108 @@ export function buildLiveOwnerRecord(basePath) {
  */
 export function materializeRegistryOwners(basePaths, prior, opts = {}) {
   const liveBasePath = opts.liveBasePath ?? null;
+  const priorByBase = indexPriorOwnersByBase(prior);
+  return basePaths.map(
+    (basePath) => materializeRegistryOwner(basePath, priorByBase, liveBasePath),
+  );
+}
+
+/**
+ * Index prior owner records by basePath for both registry shapes
+ * (versioned `{ owners: [...] }` and legacy `string[]`).
+ *
+ * @param {{ format: string, raw: unknown }} prior
+ * @returns {Map<string, object>}
+ */
+function indexPriorOwnersByBase(prior) {
   const priorByBase = new Map();
-  if (prior?.format === 'versioned' && prior.raw && Array.isArray(prior.raw.owners)) {
-    for (const o of prior.raw.owners) {
-      if (o && typeof o === 'object' && typeof o.basePath === 'string') {
-        priorByBase.set(o.basePath, o);
-      } else if (typeof o === 'string') {
-        priorByBase.set(o, { basePath: o });
-      }
-    }
-  } else if (prior?.format === 'legacy-array' && Array.isArray(prior.raw)) {
-    for (const b of prior.raw) {
-      if (typeof b === 'string') priorByBase.set(b, { basePath: b });
+  const raw = prior?.raw;
+  if (prior?.format === 'versioned' && raw && typeof raw === 'object'
+    && 'owners' in raw && Array.isArray(raw.owners)) {
+    for (const owner of raw.owners) addPriorOwner(priorByBase, owner);
+  } else if (prior?.format === 'legacy-array' && Array.isArray(raw)) {
+    for (const entry of raw) {
+      if (typeof entry === 'string') priorByBase.set(entry, { basePath: entry });
     }
   }
+  return priorByBase;
+}
 
-  return basePaths.map((basePath) => {
-    if (liveBasePath != null && sameInstallBase(basePath, liveBasePath)) {
-      return buildLiveOwnerRecord(basePath);
-    }
-    const prev = priorByBase.get(basePath)
-      || [...priorByBase.entries()].find(([k]) => sameInstallBase(k, basePath))?.[1];
-    if (prev && typeof prev === 'object' && prev.packageRoot && prev.version && prev.electable !== false) {
-      return {
-        basePath,
-        packageRoot: prev.packageRoot,
-        version: prev.version,
-        fingerprint: prev.fingerprint || ownerFingerprint(prev.packageRoot, prev.version),
-        electable: prev.electable !== false,
-      };
-    }
-    // Legacy / incomplete: discover or non-electable — never invent packageRoot.
-    if (prev && typeof prev === 'object' && prev.electable === false) {
-      return {
-        basePath,
-        packageRoot: prev.packageRoot ?? null,
-        version: prev.version ?? null,
-        fingerprint: prev.fingerprint ?? null,
-        electable: false,
-      };
-    }
-    const discovered = discoverPackageIdentity(basePath);
+/**
+ * @param {Map<string, object>} priorByBase
+ * @param {unknown} owner
+ */
+function addPriorOwner(priorByBase, owner) {
+  if (owner && typeof owner === 'object' && 'basePath' in owner
+    && typeof owner.basePath === 'string') {
+    priorByBase.set(owner.basePath, owner);
+  } else if (typeof owner === 'string') {
+    priorByBase.set(owner, { basePath: owner });
+  }
+}
+
+/**
+ * One owner record: live writer, known prior record, or a discovery for a
+ * legacy/incomplete base. Never invents packageRoot.
+ *
+ * @param {string} basePath
+ * @param {Map<string, object>} priorByBase
+ * @param {string|null} liveBasePath
+ * @returns {object}
+ */
+function materializeRegistryOwner(basePath, priorByBase, liveBasePath) {
+  if (liveBasePath != null && sameInstallBase(basePath, liveBasePath)) {
+    return buildLiveOwnerRecord(basePath);
+  }
+  const prev = findPriorOwner(priorByBase, basePath);
+  const known = electablePriorOwner(basePath, prev) || nonElectablePriorOwner(basePath, prev);
+  if (known) return known;
+  const discovered = discoverPackageIdentity(basePath);
+  return {
+    basePath,
+    packageRoot: discovered.packageRoot,
+    version: discovered.version,
+    fingerprint: discovered.fingerprint,
+    electable: discovered.electable,
+  };
+}
+
+/**
+ * @param {Map<string, object>} priorByBase
+ * @param {string} basePath
+ * @returns {object|undefined}
+ */
+function findPriorOwner(priorByBase, basePath) {
+  return priorByBase.get(basePath)
+    || [...priorByBase.entries()].find(([key]) => sameInstallBase(key, basePath))?.[1];
+}
+
+/** Keep a prior owner's package identity when it is electable. */
+function electablePriorOwner(basePath, prev) {
+  if (prev && typeof prev === 'object' && prev.packageRoot && prev.version && prev.electable !== false) {
     return {
       basePath,
-      packageRoot: discovered.packageRoot,
-      version: discovered.version,
-      fingerprint: discovered.fingerprint,
-      electable: discovered.electable,
+      packageRoot: prev.packageRoot,
+      version: prev.version,
+      fingerprint: prev.fingerprint || ownerFingerprint(prev.packageRoot, prev.version),
+      electable: prev.electable !== false,
     };
-  });
+  }
+  return null;
+}
+
+/** Keep a prior owner's explicit non-electable record (legacy/incomplete). */
+function nonElectablePriorOwner(basePath, prev) {
+  if (prev && typeof prev === 'object' && prev.electable === false) {
+    return {
+      basePath,
+      packageRoot: prev.packageRoot ?? null,
+      version: prev.version ?? null,
+      fingerprint: prev.fingerprint ?? null,
+      electable: false,
+    };
+  }
+  return null;
 }
 
 /**
@@ -276,55 +321,113 @@ export function readInstallsRegistry(filePath = installsRegistryPath()) {
   if (!existsSync(filePath)) {
     return { format: 'empty', list: [], raw: null, owners: [] };
   }
-  let rawText;
+  const v = parseRegistryJson(readRegistryText(filePath));
+  if (Array.isArray(v)) return legacyRegistryFromArray(v);
+  if (v && typeof v === 'object' && 'owners' in v && Array.isArray(v.owners)) {
+    return versionedRegistryFromObject({ owners: v.owners });
+  }
+  throw unknownRegistryFormatError();
+}
+
+/**
+ * Read the registry text, mapping an I/O failure to a coded error.
+ * @param {string} filePath
+ * @returns {string}
+ */
+function readRegistryText(filePath) {
   try {
-    rawText = readFileSync(filePath, 'utf8');
+    return readFileSync(filePath, 'utf8');
   } catch (err) {
+    /** @type {Error & { code?: string }} */
     const e = new Error(`installs registry unreadable: ${err.message}`);
     e.code = 'REGISTRY_IO';
     throw e;
   }
-  let v;
+}
+
+/**
+ * Parse the registry JSON, mapping a syntax failure to a coded error.
+ * @param {string} rawText
+ * @returns {unknown}
+ */
+function parseRegistryJson(rawText) {
   try {
-    v = JSON.parse(rawText);
+    return JSON.parse(rawText);
   } catch (err) {
+    /** @type {Error & { code?: string }} */
     const e = new Error(`installs registry corrupt JSON: ${err.message}`);
     e.code = 'REGISTRY_CORRUPT';
     throw e;
   }
-  if (Array.isArray(v)) {
-    const list = v.filter((x) => typeof x === 'string' && x.length > 0);
-    const owners = list.map((basePath) => ({
-      basePath, packageRoot: null, version: null, fingerprint: null, electable: false,
-    }));
-    return { format: 'legacy-array', list, raw: v, owners };
-  }
-  if (v && typeof v === 'object' && Array.isArray(v.owners)) {
-    const owners = [];
-    const list = [];
-    for (const o of v.owners) {
-      const basePath = typeof o === 'string' ? o : o?.basePath;
-      if (typeof basePath !== 'string' || !basePath) continue;
-      list.push(basePath);
-      if (typeof o === 'string') {
-        owners.push({
-          basePath, packageRoot: null, version: null, fingerprint: null, electable: false,
-        });
-      } else {
-        owners.push({
-          basePath,
-          packageRoot: o.packageRoot ?? null,
-          version: o.version ?? null,
-          fingerprint: o.fingerprint ?? null,
-          electable: o.electable !== false && Boolean(o.packageRoot),
-        });
-      }
-    }
-    return { format: 'versioned', list, raw: v, owners };
-  }
+}
+
+/** @returns {Error & { code?: string }} */
+function unknownRegistryFormatError() {
+  /** @type {Error & { code?: string }} */
   const e = new Error('installs registry unknown format');
   e.code = 'REGISTRY_UNKNOWN';
-  throw e;
+  return e;
+}
+
+/**
+ * Shape a non-electable owner record (legacy string / missing metadata).
+ * @param {string} basePath
+ * @returns {object}
+ */
+function nonElectableOwnerRecord(basePath) {
+  return {
+    basePath, packageRoot: null, version: null, fingerprint: null, electable: false,
+  };
+}
+
+/**
+ * Legacy shape: `string[]` of basePaths.
+ * @param {unknown[]} raw
+ * @returns {{ format: 'legacy-array', list: string[], raw: unknown[], owners: object[] }}
+ */
+function legacyRegistryFromArray(raw) {
+  const list = /** @type {string[]} */ (
+    raw.filter((x) => typeof x === 'string' && x.length > 0)
+  );
+  const owners = list.map((basePath) => nonElectableOwnerRecord(basePath));
+  return { format: 'legacy-array', list, raw, owners };
+}
+
+/**
+ * One versioned owner entry, or null when it has no usable basePath.
+ * @param {unknown} entry
+ * @returns {object|null}
+ */
+function versionedOwnerFromEntry(entry) {
+  if (typeof entry === 'string') return entry ? nonElectableOwnerRecord(entry) : null;
+  /** @type {{ basePath?: unknown, packageRoot?: unknown, version?: unknown, fingerprint?: unknown, electable?: unknown }} */
+  const o = entry;
+  const basePath = o?.basePath;
+  if (typeof basePath !== 'string' || !basePath) return null;
+  return {
+    basePath,
+    packageRoot: o.packageRoot ?? null,
+    version: o.version ?? null,
+    fingerprint: o.fingerprint ?? null,
+    electable: o.electable !== false && Boolean(o.packageRoot),
+  };
+}
+
+/**
+ * Versioned shape: `{ owners: [...] }`.
+ * @param {{ owners: unknown[] }} v
+ * @returns {{ format: 'versioned', list: string[], raw: unknown, owners: object[] }}
+ */
+function versionedRegistryFromObject(v) {
+  const owners = [];
+  const list = [];
+  for (const entry of v.owners) {
+    const owner = versionedOwnerFromEntry(entry);
+    if (!owner) continue;
+    list.push(owner.basePath);
+    owners.push(owner);
+  }
+  return { format: 'versioned', list, raw: v, owners };
 }
 
 /**
@@ -457,21 +560,60 @@ function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
 
   // Re-read materialised remaining owners after migration write.
   const after = readInstallsRegistry(p);
-  const remainingOwners = after.owners || [];
-  const electable = remainingOwners.filter(
-    (o) => o.electable !== false && o.packageRoot,
-  );
+  const electable = selectSurvivingElectableOwners(after.owners);
+  restagePackageRootIfNeeded(departing, electable);
 
-  let packageRootOnDisk = null;
-  const packageRootFile = join(homedir(), '.atomic-skills', 'package-root');
-  if (existsSync(packageRootFile)) {
-    try {
-      packageRootOnDisk = readFileSync(packageRootFile, 'utf8').trim() || null;
-    } catch {
-      packageRootOnDisk = null;
-    }
+  return next.length;
+}
+
+/**
+ * Surviving owners that can provide a packageRoot for restaging.
+ * @param {object[]|undefined} owners
+ * @returns {object[]}
+ */
+function selectSurvivingElectableOwners(owners) {
+  return (owners || []).filter((owner) => owner.electable !== false && owner.packageRoot);
+}
+
+/**
+ * Re-point ~/.atomic-skills/package-root at the last electable survivor when
+ * the departing writer owned the active root, or when the active root is no
+ * longer electable while survivors remain.
+ *
+ * @param {object|undefined} departing
+ * @param {object[]} electable
+ */
+function restagePackageRootIfNeeded(departing, electable) {
+  const packageRootOnDisk = readStagedPackageRoot();
+  if (!shouldRestagePackageRoot(departing, electable, packageRootOnDisk)) return;
+  const survivor = electable[electable.length - 1];
+  if (survivor?.packageRoot) {
+    restagePackageRootFrom(survivor.packageRoot);
   }
+}
 
+/**
+ * Read the currently staged package-root pointer, or null when absent/unreadable.
+ * @returns {string|null}
+ */
+function readStagedPackageRoot() {
+  const packageRootFile = join(homedir(), '.atomic-skills', 'package-root');
+  if (!existsSync(packageRootFile)) return null;
+  try {
+    return readFileSync(packageRootFile, 'utf8').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Decide whether a departing owner requires re-electing package-root.
+ * @param {object|undefined} departing
+ * @param {object[]} electable
+ * @param {string|null} packageRootOnDisk
+ * @returns {boolean}
+ */
+function shouldRestagePackageRoot(departing, electable, packageRootOnDisk) {
   const departingRoot = departing?.packageRoot || null;
   const lastWriterOfActiveRoot = Boolean(
     departingRoot
@@ -479,21 +621,9 @@ function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
     && departingRoot === packageRootOnDisk
     && !electable.some((o) => o.packageRoot === departingRoot),
   );
-  // Also restage when package-root points at a non-surviving root or is empty
-  // while electable survivors remain.
   const activeRootStillElectable = packageRootOnDisk
     && electable.some((o) => o.packageRoot === packageRootOnDisk);
-
-  if (lastWriterOfActiveRoot || (electable.length > 0 && !activeRootStillElectable)) {
-    // Dynamic import avoided: selectRuntimeOwner is pure and already used by observe.
-    // Inline last-electable election (skip non-electable / null packageRoot).
-    const survivor = electable[electable.length - 1];
-    if (survivor?.packageRoot) {
-      restagePackageRootFrom(survivor.packageRoot);
-    }
-  }
-
-  return next.length;
+  return Boolean(lastWriterOfActiveRoot || (electable.length > 0 && !activeRootStillElectable));
 }
 
 /**
@@ -1060,145 +1190,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
   };
 }
 
-/**
- * After the journal materialises `.grok/plugins/atomic-skills/` (or shrinks it away):
- *  1. When `ides` still include grok — register the package with the Grok host
- *     (`grok plugin install --trust`) and apply foreign-skills isolation — fail-open.
- *  2. When prior ides included grok and next do not (IDE shrink, F-003 / P0-C) —
- *     release host registration + isolation only if this install is the last
- *     remaining grok owner (same multi-owner scan as isolation refcount). If
- *     another install still wants grok, keep host + isolation (restage from
- *     survivor package when possible).
- *
- * @param {string} basePath
- * @param {string[]} ides - next ides after this install
- * @param {string} [language]
- * @param {object} [opts]
- * @param {string[]} [opts.priorIdes] - ides from existing manifest before rewrite
- * @param {string} [opts.home]
- * @param {() => string[]} [opts.listInstallBases]
- * @param {import('./runtime-layers/grok-plugin-host.js').HostRunner} [opts.run]
- * @param {() => string | null} [opts.resolveBin]
- * @param {NodeJS.ProcessEnv} [opts.env]
- */
-export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en', opts = {}) {
-  const isPt = language === 'pt';
-  const {
-    priorIdes,
-    home = process.env.HOME || homedir(),
-    // C-local-F1: do NOT default to listKnownInstallBases (throws REGISTRY_UNTRUSTED).
-    // When omitted, releaseGrokOutsideJournal uses scanKnownInstallBases fail-closed
-    // skip (same as releaseGrokAndUnregisterRuntime) so journal commit is not
-    // stranded mid-error after a successful Driver install.
-    listInstallBases,
-    run,
-    resolveBin,
-    env,
-  } = opts;
-
-  // F-003: shrink away from grok — multi-owner-safe outside-journal cleanup.
-  if (!wantsGrokPluginHost(ides)) {
-    if (priorIdes !== undefined && wantsGrokPluginHost(priorIdes)) {
-      const releaseOpts = {
-        basePath,
-        home,
-      };
-      // Only pass an explicit scan callback when the caller supplied one.
-      // Default path relies on releaseGrokOutsideJournal's untrusted skip.
-      if (typeof listInstallBases === 'function') {
-        releaseOpts.listInstallBases = listInstallBases;
-      }
-      if (run) releaseOpts.run = run;
-      if (resolveBin) releaseOpts.resolveBin = resolveBin;
-      if (env) releaseOpts.env = env;
-      let released;
-      try {
-        released = releaseGrokOutsideJournal(releaseOpts);
-      } catch (err) {
-        // Fail-closed: corrupt/untrusted registry must never throw after journal
-        // commit (C-local-F1). Map to the same skipped shape as scan path.
-        if (err?.code === 'REGISTRY_UNTRUSTED' || err?.code === 'REGISTRY_CORRUPT'
-          || err?.code === 'REGISTRY_UNKNOWN' || err?.code === 'REGISTRY_IO') {
-          released = {
-            lastOwner: false,
-            host: { status: 'skipped', detail: 'registry-untrusted' },
-            isolation: { status: 'skipped', detail: 'registry-untrusted' },
-          };
-        } else {
-          throw err;
-        }
-      }
-      logGrokRelease(released, isPt);
-    }
-    return;
-  }
-
-  const regOpts = { basePath, ides };
-  if (run) regOpts.run = run;
-  if (resolveBin) regOpts.resolveBin = resolveBin;
-  if (env) regOpts.env = env;
-  const result = registerGrokPluginHost(regOpts);
-  if (result.status === 'registered') {
-    console.log(
-      `  ${pc.dim(isPt ? 'Grok plugin host: registrado (nativo).' : 'Grok plugin host: registered (native).')}`,
-    );
-  } else if (result.status === 'updated') {
-    // uninstall+install refreshed ~/.grok/installed-plugins/ snapshot (argument-hint, etc.)
-    console.log(
-      `  ${pc.dim(isPt ? 'Grok plugin host: snapshot recarregado (uninstall+install).' : 'Grok plugin host: snapshot reloaded (uninstall+install).')}`,
-    );
-  } else if (result.status === 'already') {
-    console.log(
-      `  ${pc.yellow(isPt ? `Grok plugin host: já instalado, recarga incompleta (${result.detail || 'sem detalhe'}).` : `Grok plugin host: already installed, reload incomplete (${result.detail || 'no detail'}).`)}`,
-    );
-  } else if (result.status === 'skipped') {
-    console.log(
-      `  ${pc.dim(isPt ? `Grok plugin host: omitido (${result.detail || 'skip'}).` : `Grok plugin host: skipped (${result.detail || 'skip'}).`)}`,
-    );
-  } else {
-    // failed — package on disk still valid for filesystem discovery
-    console.log(
-      `  ${pc.yellow(isPt ? `Grok plugin host: falhou (${result.detail || 'erro'}); package em .grok/plugins/ permanece.` : `Grok plugin host: failed (${result.detail || 'error'}); .grok/plugins/ package remains.`)}`,
-    );
-  }
-
-  // Isolation always targets user ~/.grok/config.toml (foreign vendor skill roots).
-  const iso = applyGrokAgentsIsolation({ ides, home });
-  if (iso.status === 'applied') {
-    console.log(
-      `  ${pc.dim(isPt ? 'Grok: isolado de skills estrangeiras (agents/cursor/claude atomic-skills).' : 'Grok: isolated from foreign atomic-skills trees (agents/cursor/claude).')}`,
-    );
-  } else if (iso.status === 'already') {
-    console.log(
-      `  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills já presente.' : 'Grok: foreign-skills isolation already present.')}`,
-    );
-  }
-}
-
-/**
- * @param {{ lastOwner: boolean, host: { status: string, detail?: string }, isolation: { status: string, detail?: string } }} released
- * @param {boolean} isPt
- */
-function logGrokRelease(released, isPt) {
-  const { host, isolation } = released;
-  if (host.status === 'unregistered') {
-    console.log(`  ${pc.dim(isPt ? 'Grok plugin host: desregistrado (último owner).' : 'Grok plugin host: unregistered (last owner).')}`);
-  } else if (host.status === 'absent') {
-    console.log(`  ${pc.dim(isPt ? 'Grok plugin host: já ausente.' : 'Grok plugin host: already absent.')}`);
-  } else if (host.status === 'kept') {
-    console.log(`  ${pc.dim(isPt ? 'Grok plugin host: mantido (outra install com grok).' : 'Grok plugin host: kept (another grok install remains).')}`);
-  } else if (host.status === 'skipped') {
-    console.log(`  ${pc.dim(isPt ? `Grok plugin host: omitido (${host.detail || 'skip'}).` : `Grok plugin host: skipped (${host.detail || 'skip'}).`)}`);
-  } else if (host.status === 'failed') {
-    console.log(`  ${pc.yellow(isPt ? `Grok plugin host: falha (${host.detail || 'erro'}).` : `Grok plugin host: failed (${host.detail || 'error'}).`)}`);
-  }
-
-  if (isolation.status === 'removed') {
-    console.log(`  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills removido.' : 'Grok: foreign-skills isolation removed.')}`);
-  } else if (isolation.status === 'kept') {
-    console.log(`  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills mantido (outra install com grok).' : 'Grok: foreign-skills isolation kept (another grok install remains).')}`);
-  }
-}
+export { syncGrokPluginHostAfterInstall };
 
 export function getPackageVersion() {
   const pkg = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'));
