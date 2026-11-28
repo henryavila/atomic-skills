@@ -155,7 +155,6 @@ export function validateFindingsManifest(manifest, opts = {}) {
 
 /**
  * Validate one findings entry in the order the manifest reader reports it.
- * @param {unknown} f
  * @param {number} index
  * @param {{ errors: string[], seen: Set<string>, actualIds: string[], candidateSha?: string }} context
  */
@@ -236,6 +235,12 @@ function validateFindingVerifier(f, prefix, id, errors) {
   }
 }
 
+/**
+ * @param {object} f
+ * @param {string} prefix
+ * @param {string} id
+ * @param {{ errors: string[], candidateSha?: string }} context
+ */
 function validateFindingProvenance(f, prefix, id, { errors, candidateSha }) {
   if (typeof f.candidateSha !== 'string' || !/^[0-9a-f]{7,40}$/i.test(f.candidateSha)) {
     errors.push(`${prefix} (${id}): candidateSha must be a git sha`);
