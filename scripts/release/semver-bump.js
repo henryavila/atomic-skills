@@ -103,15 +103,7 @@ export function bumpVersion(current, kind) {
   throw new Error(`unknown bump kind: ${kind}`);
 }
 
-export function classifyBump({
-  current,
-  commits = [],
-  unreleased = emptyUnreleased(),
-}) {
-  const v = parseVersion(current);
-  const parsed = commits.map(parseCommit);
-  const reasons = [];
-
+function bumpSignals(parsed, unreleased) {
   const feat = parsed.filter((c) => c.type === 'feat');
   const fix = parsed.filter((c) => c.type === 'fix' || c.type === 'perf');
   const breakingCommits = parsed.filter((c) => c.breaking);
@@ -120,33 +112,62 @@ export function classifyBump({
   const hasRemoved = unreleased.removed.length > 0;
   const hasFixed = unreleased.fixed.length > 0 || unreleased.security.length > 0;
   const breaking = breakingCommits.length > 0 || hasRemoved;
+  return {
+    feat,
+    fix,
+    breakingCommits,
+    hasAdded,
+    hasChanged,
+    hasRemoved,
+    hasFixed,
+    breaking,
+    featureSignal: feat.length > 0 || hasAdded || hasChanged || breaking,
+  };
+}
 
-  if (breaking) {
+function bumpReasons(signals, unreleased) {
+  const reasons = [];
+  if (signals.breaking) {
     reasons.push(
-      breakingCommits[0]
-        ? `breaking commit: ${breakingCommits[0].raw}`
+      signals.breakingCommits[0]
+        ? `breaking commit: ${signals.breakingCommits[0].raw}`
         : `changelog Removed: ${unreleased.removed[0]}`,
     );
   }
-  if (feat[0]) reasons.push(`feat: ${feat[0].raw}`);
-  if (hasAdded) reasons.push(`changelog Added: ${unreleased.added[0]}`);
-  if (hasChanged) {
+  if (signals.feat[0]) reasons.push(`feat: ${signals.feat[0].raw}`);
+  if (signals.hasAdded) reasons.push(`changelog Added: ${unreleased.added[0]}`);
+  if (signals.hasChanged) {
     reasons.push(
       `changelog ${unreleased.changed.length ? 'Changed' : 'Deprecated'}: ${
         unreleased.changed[0] || unreleased.deprecated[0]
       }`,
     );
   }
-  if (fix[0]) reasons.push(`fix: ${fix[0].raw}`);
-  if (hasFixed) reasons.push(`changelog Fixed: ${unreleased.fixed[0] || unreleased.security[0]}`);
+  if (signals.fix[0]) reasons.push(`fix: ${signals.fix[0].raw}`);
+  if (signals.hasFixed) {
+    reasons.push(`changelog Fixed: ${unreleased.fixed[0] || unreleased.security[0]}`);
+  }
+  return reasons;
+}
 
-  let kind = 'none';
-  if (breaking) kind = v.major === 0 ? 'minor' : 'major';
-  else if (feat.length || hasAdded || hasChanged) kind = 'minor';
-  else if (fix.length || hasFixed) kind = 'patch';
+function baseKind(v, signals) {
+  if (signals.breaking) return v.major === 0 ? 'minor' : 'major';
+  if (signals.feat.length || signals.hasAdded || signals.hasChanged) return 'minor';
+  if (signals.fix.length || signals.hasFixed) return 'patch';
+  return 'none';
+}
 
-  const featureSignal = feat.length > 0 || hasAdded || hasChanged || breaking;
-  if (kind === 'patch' && featureSignal) {
+export function classifyBump({
+  current,
+  commits = [],
+  unreleased = emptyUnreleased(),
+}) {
+  const v = parseVersion(current);
+  const parsed = commits.map(parseCommit);
+  const signals = bumpSignals(parsed, unreleased);
+  const reasons = bumpReasons(signals, unreleased);
+  let kind = baseKind(v, signals);
+  if (kind === 'patch' && signals.featureSignal) {
     kind = 'minor';
     reasons.unshift('gate: feature signal forbids patch');
   }
@@ -155,12 +176,12 @@ export function classifyBump({
     current: v.raw,
     kind,
     next: bumpVersion(v.raw, kind),
-    breaking,
+    breaking: signals.breaking,
     reasons,
     signals: {
-      feat: feat.map((c) => c.raw),
-      fix: fix.map((c) => c.raw),
-      breaking: breakingCommits.map((c) => c.raw),
+      feat: signals.feat.map((c) => c.raw),
+      fix: signals.fix.map((c) => c.raw),
+      breaking: signals.breakingCommits.map((c) => c.raw),
       added: unreleased.added,
       changed: unreleased.changed,
       removed: unreleased.removed,
