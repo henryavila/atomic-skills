@@ -50,76 +50,89 @@ export function validateHostQualification(doc, opts = {}) {
 
   const seen = new Set();
   for (const [i, host] of doc.hosts.entries()) {
-    const prefix = `hosts[${i}]`;
-    if (!host || typeof host !== 'object') {
-      errors.push(`${prefix}: entry must be an object`);
-      continue;
-    }
-    if (typeof host.id !== 'string' || host.id.length === 0) {
-      errors.push(`${prefix}: id is required`);
-      continue;
-    }
-    if (seen.has(host.id)) {
-      errors.push(`${prefix}: duplicate host id "${host.id}"`);
-    }
-    seen.add(host.id);
-
-    if (!SUPPORTED_TIERS.has(host.supportTier)) {
-      errors.push(
-        `${prefix} (${host.id}): unknown supportTier ${JSON.stringify(host.supportTier)} (expected operational|layout-only)`,
-      );
-      continue;
-    }
-
-    if (host.supportTier === 'operational') {
-      const adapter = host.adapter;
-      if (!adapter || typeof adapter !== 'object') {
-        errors.push(`${prefix} (${host.id}): operational requires adapter object`);
-      } else {
-        for (const field of ['id', 'version', 'discovery', 'load', 'invoke']) {
-          if (typeof adapter[field] !== 'string' || adapter[field].trim() === '') {
-            errors.push(
-              `${prefix} (${host.id}): operational adapter missing ${field}`,
-            );
-          }
-        }
-      }
-      if (host.supportDeclared === false) {
-        errors.push(
-          `${prefix} (${host.id}): operational must not set supportDeclared:false`,
-        );
-      }
-    }
-
-    if (host.supportTier === 'layout-only') {
-      if (host.supportDeclared !== false) {
-        errors.push(
-          `${prefix} (${host.id}): layout-only requires supportDeclared:false (no operational support claim)`,
-        );
-      }
-      if (typeof host.justification !== 'string' || host.justification.trim().length < 8) {
-        errors.push(
-          `${prefix} (${host.id}): layout-only requires justification (min 8 chars)`,
-        );
-      }
-    }
+    validateHostEntry(host, i, seen, errors);
   }
 
-  const publicIdeIds = opts.publicIdeIds;
-  if (Array.isArray(publicIdeIds)) {
-    for (const id of publicIdeIds) {
-      if (!seen.has(id)) {
-        errors.push(`missing host for PUBLIC_IDE_ID "${id}"`);
-      }
-    }
-    for (const id of seen) {
-      if (!publicIdeIds.includes(id)) {
-        errors.push(`unknown host id "${id}" (not in PUBLIC_IDE_IDS)`);
-      }
-    }
-  }
+  reportPublicIdeCoverage(opts.publicIdeIds, seen, errors);
 
   return { ok: errors.length === 0, errors };
+}
+
+function validateHostEntry(host, index, seen, errors) {
+  const prefix = `hosts[${index}]`;
+  if (!host || typeof host !== 'object') {
+    errors.push(`${prefix}: entry must be an object`);
+    return;
+  }
+  if (typeof host.id !== 'string' || host.id.length === 0) {
+    errors.push(`${prefix}: id is required`);
+    return;
+  }
+  if (seen.has(host.id)) {
+    errors.push(`${prefix}: duplicate host id "${host.id}"`);
+  }
+  seen.add(host.id);
+
+  if (!SUPPORTED_TIERS.has(host.supportTier)) {
+    errors.push(
+      `${prefix} (${host.id}): unknown supportTier ${JSON.stringify(host.supportTier)} (expected operational|layout-only)`,
+    );
+    return;
+  }
+
+  if (host.supportTier === 'operational') {
+    validateOperationalHost(host, prefix, errors);
+  }
+  if (host.supportTier === 'layout-only') {
+    validateLayoutOnlyHost(host, prefix, errors);
+  }
+}
+
+function validateOperationalHost(host, prefix, errors) {
+  const adapter = host.adapter;
+  if (!adapter || typeof adapter !== 'object') {
+    errors.push(`${prefix} (${host.id}): operational requires adapter object`);
+  } else {
+    for (const field of ['id', 'version', 'discovery', 'load', 'invoke']) {
+      if (typeof adapter[field] !== 'string' || adapter[field].trim() === '') {
+        errors.push(
+          `${prefix} (${host.id}): operational adapter missing ${field}`,
+        );
+      }
+    }
+  }
+  if (host.supportDeclared === false) {
+    errors.push(
+      `${prefix} (${host.id}): operational must not set supportDeclared:false`,
+    );
+  }
+}
+
+function validateLayoutOnlyHost(host, prefix, errors) {
+  if (host.supportDeclared !== false) {
+    errors.push(
+      `${prefix} (${host.id}): layout-only requires supportDeclared:false (no operational support claim)`,
+    );
+  }
+  if (typeof host.justification !== 'string' || host.justification.trim().length < 8) {
+    errors.push(
+      `${prefix} (${host.id}): layout-only requires justification (min 8 chars)`,
+    );
+  }
+}
+
+function reportPublicIdeCoverage(publicIdeIds, seen, errors) {
+  if (!Array.isArray(publicIdeIds)) return;
+  for (const id of publicIdeIds) {
+    if (!seen.has(id)) {
+      errors.push(`missing host for PUBLIC_IDE_ID "${id}"`);
+    }
+  }
+  for (const id of seen) {
+    if (!publicIdeIds.includes(id)) {
+      errors.push(`unknown host id "${id}" (not in PUBLIC_IDE_IDS)`);
+    }
+  }
 }
 
 function parseArgs(argv) {
