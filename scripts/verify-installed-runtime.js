@@ -75,6 +75,7 @@ export function buildDesiredSet(manifest, scope) {
   const ides = Array.isArray(manifest.ides) && manifest.ides.length > 0
     ? manifest.ides
     : PUBLIC_IDE_IDS;
+  /** @type {Array<{ path: string, content: string, source?: string }>} */
   const files = computeSkillsFileSet({
     language,
     ides,

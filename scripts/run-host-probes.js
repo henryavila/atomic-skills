@@ -128,7 +128,13 @@ function probeLayout(hostId) {
     return { ok: false, skillPath: skillRel, error: String(err.message || err) };
   } finally {
     try {
-      buildInstaller({}).uninstall({ projectDir });
+      buildInstaller({
+        language: 'en',
+        ides: [hostId],
+        skillsDir: SKILLS_DIR,
+        metaDir: META_DIR,
+        scope: 'project',
+      }).uninstall({ projectDir });
     } catch {
       /* best-effort cleanup */
     }
