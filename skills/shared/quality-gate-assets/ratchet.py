@@ -374,16 +374,17 @@ def judge_moves(moves, base_debt, head_debt, allowed):
     return approved, failures, covered
 
 
-def new_file_accepted(base, head, stack, metric, branch, freeze_prefix):
+def new_file_accepted(base, head, stack, metric, freeze_name):
     """A debt file absent from the base is the first freeze of its stack, or a
-    metric that starts to apply to the language of a stack already frozen."""
+    metric that starts to apply to the language of a stack already frozen.
+
+    `freeze_name` is the part of the branch after the freeze prefix, or None
+    when the branch may not freeze a stack.
+    """
     if stack not in head.stacks:
         return False
     if not base.frozen(stack):
-        if not branch.startswith(freeze_prefix):
-            return False
-        name = branch[len(freeze_prefix):]
-        return name in (stack, head.stacks[stack]["group"])
+        return freeze_name is not None and freeze_name in (stack, head.stacks[stack]["group"])
     language = head.stacks[stack]["language"]
     before = base.ceilings.get(metric, {"languages": set()})["languages"]
     after = head.ceilings.get(metric, {"languages": set()})["languages"]
@@ -408,6 +409,7 @@ def cmd_diff(root, args):
         if raised:
             lines.append(f"FAIL\t{metric}\t-\tceiling raised\t{new['ceiling']}\t{old['ceiling']}")
 
+    freeze_name = args.branch[len(args.freeze_prefix):] if args.branch.startswith(args.freeze_prefix) else None
     allowed = args.branch.startswith(args.move_prefix)
     added = new_moves(base.moves(), root.moves())
     approved, move_failures, covered = judge_moves(added, base_debt, head_debt, allowed)
@@ -422,7 +424,7 @@ def cmd_diff(root, args):
     for (stack, metric), items in sorted(head_debt.items()):
         label = f"{stack}.{metric}"
         if (stack, metric) not in base_debt:
-            if new_file_accepted(base, root, stack, metric, args.branch, args.freeze_prefix):
+            if new_file_accepted(base, root, stack, metric, freeze_name):
                 continue
             if not items:
                 lines.append(f"FAIL\t{label}\t-\tnew debt file")
