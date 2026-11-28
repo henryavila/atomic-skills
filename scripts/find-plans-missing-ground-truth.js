@@ -106,6 +106,64 @@ function collectPlanFile(filePath, meta, report) {
   }
 }
 
+function isDirectory(path) {
+  return existsSync(path) && statSync(path).isDirectory();
+}
+
+/**
+ * Collect one explicit file or a directory's own plan.md.
+ * @returns {boolean} true when the target was handled and needs no tree scan
+ */
+function collectExplicitTarget(targetPath, report) {
+  if (!existsSync(targetPath)) return false;
+  const targetStat = statSync(targetPath);
+  if (targetStat.isFile()) {
+    collectPlanFile(targetPath, inferPlanMeta(targetPath), report);
+    return true;
+  }
+  if (targetStat.isDirectory()) {
+    const scopedPlanFile = join(targetPath, 'plan.md');
+    if (existsSync(scopedPlanFile) && statSync(scopedPlanFile).isFile()) {
+      collectPlanFile(scopedPlanFile, inferPlanMeta(scopedPlanFile), report);
+      return true;
+    }
+  }
+  return false;
+}
+
+function collectProjectPlan(projPath, projId, planSlug, report) {
+  const planDir = join(projPath, planSlug);
+  if (!statSync(planDir).isDirectory()) return;
+  const planFile = join(planDir, 'plan.md');
+  if (!existsSync(planFile) || !statSync(planFile).isFile()) return;
+  collectPlanFile(planFile, { projectId: projId, planSlug, planFile: 'plan.md' }, report);
+}
+
+function collectProjectPlans(root, report) {
+  const projectsDir = join(root, 'projects');
+  if (!isDirectory(projectsDir)) return;
+  for (const projId of readdirSync(projectsDir)) {
+    const projPath = join(projectsDir, projId);
+    if (!statSync(projPath).isDirectory()) continue;
+    for (const planSlug of readdirSync(projPath)) {
+      collectProjectPlan(projPath, projId, planSlug, report);
+    }
+  }
+}
+
+function collectFlatPlans(root, report) {
+  const flatDir = join(root, 'plans');
+  if (!isDirectory(flatDir)) return;
+  for (const entry of readdirSync(flatDir)) {
+    if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+    collectPlanFile(
+      join(flatDir, entry),
+      { projectId: '(flat)', planSlug: 'plans', planFile: entry },
+      report,
+    );
+  }
+}
+
 /**
  * Collect [{ projectId, planSlug, planFile, reason, path?, fingerprint? }] for
  * plans lacking a valid/fresh ground-truth receipt.
@@ -114,51 +172,14 @@ export function findPlansMissingGroundTruth(target = process.cwd()) {
   const targetPath = resolve(target);
   const report = [];
 
-  if (existsSync(targetPath)) {
-    const targetStat = statSync(targetPath);
-    if (targetStat.isFile()) {
-      collectPlanFile(targetPath, inferPlanMeta(targetPath), report);
-      return report;
-    }
-    if (targetStat.isDirectory()) {
-      const scopedPlanFile = join(targetPath, 'plan.md');
-      if (existsSync(scopedPlanFile) && statSync(scopedPlanFile).isFile()) {
-        collectPlanFile(scopedPlanFile, inferPlanMeta(scopedPlanFile), report);
-        return report;
-      }
-    }
-  }
+  if (collectExplicitTarget(targetPath, report)) return report;
 
   const root = existsSync(join(targetPath, '.atomic-skills'))
     ? join(targetPath, '.atomic-skills')
     : targetPath;
 
-  const projectsDir = join(root, 'projects');
-  if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
-    for (const projId of readdirSync(projectsDir)) {
-      const projPath = join(projectsDir, projId);
-      if (!statSync(projPath).isDirectory()) continue;
-      for (const planSlug of readdirSync(projPath)) {
-        const planDir = join(projPath, planSlug);
-        if (!statSync(planDir).isDirectory()) continue;
-        const planFile = join(planDir, 'plan.md');
-        if (!existsSync(planFile) || !statSync(planFile).isFile()) continue;
-        collectPlanFile(planFile, { projectId: projId, planSlug, planFile: 'plan.md' }, report);
-      }
-    }
-  }
-
-  const flatDir = join(root, 'plans');
-  if (existsSync(flatDir) && statSync(flatDir).isDirectory()) {
-    for (const entry of readdirSync(flatDir)) {
-      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-      collectPlanFile(
-        join(flatDir, entry),
-        { projectId: '(flat)', planSlug: 'plans', planFile: entry },
-        report,
-      );
-    }
-  }
+  collectProjectPlans(root, report);
+  collectFlatPlans(root, report);
 
   return report;
 }
