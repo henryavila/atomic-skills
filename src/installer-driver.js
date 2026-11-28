@@ -37,9 +37,9 @@ export const { prepareTextBlockPlan } = await import(new URL('./kernel/effects/t
  */
 
 /**
- * @param {DriverOptions} [options]
+ * Index prior journal before-states by stable id and by type occurrence.
+ * @param {object | null | undefined} prior
  */
-/** Index prior journal before-states by stable id and by type occurrence. */
 function indexPriorEffects(prior) {
   const priorById = new Map();
   const priorByType = new Map();
@@ -198,6 +198,9 @@ function applyJournaledEffect({
   return flushIncompleteManifest(recorded, projectDir, manifestDir);
 }
 
+/**
+ * @param {DriverOptions} [options]
+ */
 export const createDriver = ({
   registry,
   providers,

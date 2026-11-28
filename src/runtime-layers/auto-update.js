@@ -95,9 +95,10 @@ export function isShellQuotedVersionCheckCommand(command) {
  */
 function reconcileSessionStartHook(hook, desiredCommand, state) {
   if (!hook || typeof hook !== 'object' || Array.isArray(hook)) return { hook, removed: 0 };
-  if (!isAtomicSkillsVersionCheckCommand(hook.command)) return { hook, removed: 0 };
+  const candidate = /** @type {{ command?: unknown }} */ (hook);
+  if (!isAtomicSkillsVersionCheckCommand(candidate.command)) return { hook, removed: 0 };
   // AS-owned version-check: keep only exact desired form, once.
-  if (desiredCommand != null && hook.command === desiredCommand && !state.keptDesired) {
+  if (desiredCommand != null && candidate.command === desiredCommand && !state.keptDesired) {
     state.keptDesired = true;
     return { hook, removed: 0 };
   }
@@ -115,7 +116,7 @@ function reconcileSessionStartEntry(entry, desiredCommand, state) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
     return { entry, keep: true, removed: 0 };
   }
-  const hooks = entry.hooks;
+  const hooks = /** @type {{ hooks?: unknown }} */ (entry).hooks;
   if (!Array.isArray(hooks)) return { entry, keep: true, removed: 0 };
 
   const kept = [];

@@ -463,6 +463,7 @@ function carriesOwnedBlock(live, state) {
  * @returns {Error & { globalInstructionPath?: string, code?: string }}
  */
 function destinationChangedError(state, stored) {
+  /** @type {Error & { globalInstructionPath?: string, code?: string }} */
   const err = new Error(`Destination changed for "${state.path}"; journaled file ${stored}`);
   err.globalInstructionPath = state.path;
   err.code = 'GLOBAL_INSTRUCTIONS_REFUSED';
