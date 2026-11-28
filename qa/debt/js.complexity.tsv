@@ -72,5 +72,4 @@ src/status-verify.js::classifyFileState	19
 src/status-verify.js::verifyInstall	24
 src/status.js::status	51
 src/status.js::status><anonymous>#2	17
-src/ui.js::showNonInteractiveResult	16
 src/uninstall.js::uninstall	75
