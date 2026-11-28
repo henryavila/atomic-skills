@@ -28,7 +28,9 @@ The log is one JSONL file shared by every project and agent on this machine:
 Records are append-only. Values are enums, never free text, so the log can be audited.
 """
 import argparse, datetime as dt, errno, fcntl, getpass, hashlib, json, os, re, shlex, shutil, signal, socket, subprocess, sys, time, tempfile
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
 LOG = HOME / "delegate" / "runs.jsonl"
@@ -2736,26 +2738,38 @@ def remote_exec_script(executor, model, role, policy):
     return "\n".join(variables + lines) + "\n"
 
 
-def remote_driver_script(task_id, task, role, branch, sent, project, digest, token):
+@dataclass
+class RemoteDriverScript:
+    """The inputs of one remote-run driver script, named so the caller cannot swap them."""
+    task_id: str
+    task: str
+    role: str
+    branch: str
+    sent: str
+    project: str
+    digest: str
+    token: str
+
+
+def _driver_header(driver):
+    """Set every shell variable and the failure traps the rest of the driver uses."""
     q = shlex.quote
-    project_dir = safe_remote_name(project)
-    task_dir = remote_task_dir(task_id)
-    message = q(f"{task_id}: {task} (committed by the delegate runner)")
-    review = role == "review"
+    project_dir = safe_remote_name(driver.project)
+    task_dir = remote_task_dir(driver.task_id)
     return f"""#!/bin/bash
 set -u
-id={q(task_id)}
-branch={q(branch)}
-sent={q(sent)}
-role={q(role)}
-msg={message}
-token={q(token)}
+id={q(driver.task_id)}
+branch={q(driver.branch)}
+sent={q(driver.sent)}
+role={q(driver.role)}
+msg={q(f"{driver.task_id}: {driver.task} (committed by the delegate runner)")}
+token={q(driver.token)}
 common=$(git rev-parse --path-format=absolute --git-common-dir)
-stage="$common/delegate/{digest}"
+stage="$common/delegate/{driver.digest}"
 R="$HOME/.atomic-skills/delegate/remote/{project_dir}/{task_dir}"
 tree="$R/tree"
 run="$R/run"
-res="$PWD/{REMOTE_RESULT_PREFIX}{digest}"
+res="$PWD/{REMOTE_RESULT_PREFIX}{driver.digest}"
 cleanup() {{
   [ -n "${{run:-}}" ] && rm -rf "$run"
   [ -n "${{stage:-}}" ] && rm -rf "$stage"
@@ -2764,7 +2778,14 @@ trap 'cleanup; exit 143' TERM INT HUP
 trap cleanup EXIT
 rm -rf "$run" "$res"
 mkdir -p "$R"
-# Identify this run exactly. remote-runner writes a record whose first line is
+"""
+
+
+def _driver_run_id(driver):
+    """Find and announce the remote-runner run id this script belongs to."""
+    q = shlex.quote
+    token = driver.token
+    return f"""# Identify this run exactly. remote-runner writes a record whose first line is
 # the pid of the session leader it started; this script runs below it (under
 # `timeout` and a login shell), so that pid is this script or one of its
 # ancestors. The stderr line lets the local runner read the id without ever
@@ -2796,7 +2817,13 @@ if [ -n "$run_id" ]; then
   printf '%s alive pgid=%s\\n' "$run_id" "$$" > "$R/.delegate-run-$token"
   printf '__DELEGATE_REMOTE_RUN__ %s %s\\n' "$token" "$run_id" >&2
 fi
-# Reuse only a checkout that is exactly the commit being sent and clean.
+"""
+
+
+def _driver_checkout(driver):
+    """Reuse or create the checkout and publish the run directory the executor reads."""
+    token = driver.token
+    return f"""# Reuse only a checkout that is exactly the commit being sent and clean.
 # Anything else is remote work that never reached the local branch: keep it
 # under a timestamped name instead of deleting it.
 reuse=0
@@ -2839,7 +2866,14 @@ if [ -f "$stage/diff.txt" ]; then cp "$stage/diff.txt" "$run/diff.txt"; fi
 cp "$stage/exec.sh" "$run/exec.sh"
 printf '__DELEGATE_REMOTE_WORK__\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \
   "$token" "$tree" "$branch" "$sent" "${{kept:--}}" "${{kept:+$kept_head}}" >&2
-export R
+"""
+
+
+def _driver_execute(driver):
+    """Run the executor, commit its work on an implement run, and collect the result."""
+    q = shlex.quote
+    review = driver.role == "review"
+    return f"""export R
 cd "$tree" || exit 70
 bash "$run/exec.sh" >"$run/stdout" 2>"$run/stderr"
 code=$?
@@ -2875,6 +2909,16 @@ for f in last.md result.bundle commit.log; do
 done
 exit 0
 """
+
+
+def remote_driver_script(driver):
+    """The shell script that runs one executor inside the remote checkout."""
+    return "".join([
+        _driver_header(driver),
+        _driver_run_id(driver),
+        _driver_checkout(driver),
+        _driver_execute(driver),
+    ])
 
 
 REMOTE_RUN_MARKER = "__DELEGATE_REMOTE_RUN__"
@@ -3100,8 +3144,8 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
         exec_script = remote_exec_script(executor, model, role, policy)
         (stage / "exec.sh").write_text(exec_script, encoding="utf-8")
         (stage / "remote-run.sh").write_text(
-            remote_driver_script(task_id, task, role, branch, sent, project, digest,
-                                 run_token),
+            remote_driver_script(RemoteDriverScript(
+                task_id, task, role, branch, sent, project, digest, run_token)),
             encoding="utf-8")
         if attachments:
             attach_dir = stage / "attachments"
@@ -3455,13 +3499,29 @@ def output_tail(paths, limit=RESUME_TAIL_LINES):
     return None, []
 
 
-def write_checkpoint(task_id, cwd, out_path, base, failure, timeout, idle_timeout, captures):
+@dataclass
+class CheckpointSpec:
+    """Everything a stopped local run keeps: where it ran, why, and its output."""
+    task_id: str
+    cwd: str
+    out_path: Path
+    base: Optional[str]
+    failure: str
+    timeout: float
+    idle_timeout: float
+    captures: tuple
+
+
+def write_checkpoint(spec):
     """Keep the work of a stopped run: commit a dirty tree and write the resume note.
 
     Called after the executor's processes are gone. The commit uses the
     repository's own identity and hooks, like the pipeline's runner commit; a
     refused commit leaves the files in the tree and is written in the note.
     """
+    task_id, cwd, out_path, base = spec.task_id, spec.cwd, spec.out_path, spec.base
+    failure, timeout, idle_timeout = spec.failure, spec.timeout, spec.idle_timeout
+    captures = spec.captures
     reason = STOP_REASONS[failure].format(idle=idle_timeout, cap=timeout)
     commits = git(cwd, "log", "--oneline", f"{base}..HEAD") if base else ""
     status = git(cwd, "status", "--short", "--untracked-files=all")
@@ -3836,8 +3896,9 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     checkpoint = None
     if stop_failure and role != "review":
         try:
-            checkpoint = write_checkpoint(task_id, cwd, out_path, head0, stop_failure,
-                                          timeout, idle_timeout, (stdout, stderr))
+            checkpoint = write_checkpoint(CheckpointSpec(
+                task_id, cwd, out_path, head0, stop_failure, timeout, idle_timeout,
+                (stdout, stderr)))
         except Exception as exc:  # the record must still be written
             checkpoint = {"commit": None, "resume": None, "error": str(exc)[:300]}
 
