@@ -161,6 +161,61 @@ function isJsonFile(p) {
   }
 }
 
+function printHelp() {
+  console.log(`usage:
+  find-missing-design-process.js <design-gates.json>
+  find-missing-design-process.js <state-root> <projectId> <slug>
+  find-missing-design-process.js --lane adopt|ad-hoc|single-task [...]
+  find-missing-design-process.js --creation-gate <creation-gates.json> <design-gates.json>`);
+  process.exit(0);
+}
+
+/** Explicit --lane wins; otherwise an adopt creation-gate exempts the run. */
+function resolveLane(args) {
+  const creationExempt = args.creationGate
+    ? exemptKindFromCreationGate(resolve(args.creationGate))
+    : null;
+  return args.lane || creationExempt;
+}
+
+/** Turn positionals into a loadDesignProcessGate target, or exit 2. */
+function resolveTarget(positionals) {
+  if (positionals.length === 1 && isJsonFile(resolve(positionals[0]))) {
+    return { gatePath: resolve(positionals[0]) };
+  }
+  if (positionals.length >= 3) {
+    return { stateRoot: resolve(positionals[0]), projectId: positionals[1], slug: positionals[2] };
+  }
+  if (positionals.length === 1) {
+    // Treat as explicit gate path even if missing (report missing-receipt).
+    return { gatePath: resolve(positionals[0]) };
+  }
+  console.error(
+    'usage: find-missing-design-process.js <design-gates.json> | <state-root> <projectId> <slug>',
+  );
+  process.exit(2);
+}
+
+function reportReady(path) {
+  console.log(
+    `find-missing-design-process: design process ready${path ? ` (${path})` : ''} ✓`,
+  );
+  process.exit(0);
+}
+
+function reportBlocked(result, path) {
+  console.error(
+    `find-missing-design-process: ${result.reason}${path ? ` at ${path}` : ''}`,
+  );
+  if (result.missing?.length) {
+    console.error(`  missing: ${result.missing.join(', ')}`);
+  }
+  console.error(
+    'HARD-BLOCK: multi-phase DESIGN requires design-gates status ready (Interview, digest, debate, critic, userApproved). Run brainstorm B0–B5 or pass --lane for R-ORCH-03 exempts.',
+  );
+  process.exit(1);
+}
+
 function main(argv) {
   let args;
   try {
@@ -170,20 +225,9 @@ function main(argv) {
     process.exit(2);
   }
 
-  if (args.help) {
-    console.log(`usage:
-  find-missing-design-process.js <design-gates.json>
-  find-missing-design-process.js <state-root> <projectId> <slug>
-  find-missing-design-process.js --lane adopt|ad-hoc|single-task [...]
-  find-missing-design-process.js --creation-gate <creation-gates.json> <design-gates.json>`);
-    process.exit(0);
-  }
+  if (args.help) printHelp();
 
-  const creationExempt = args.creationGate
-    ? exemptKindFromCreationGate(resolve(args.creationGate))
-    : null;
-  const lane = args.lane || creationExempt;
-
+  const lane = resolveLane(args);
   if (isExemptLane(lane)) {
     console.log(
       `find-missing-design-process: exempt lane '${lane}' (R-ORCH-03) — design process receipt not required ✓`,
@@ -191,41 +235,13 @@ function main(argv) {
     process.exit(0);
   }
 
-  const pos = args.positionals;
-  let target;
-  if (pos.length === 1 && isJsonFile(resolve(pos[0]))) {
-    target = { gatePath: resolve(pos[0]) };
-  } else if (pos.length >= 3) {
-    target = { stateRoot: resolve(pos[0]), projectId: pos[1], slug: pos[2] };
-  } else if (pos.length === 1) {
-    // Treat as explicit gate path even if missing (report missing-receipt).
-    target = { gatePath: resolve(pos[0]) };
-  } else {
-    console.error(
-      'usage: find-missing-design-process.js <design-gates.json> | <state-root> <projectId> <slug>',
-    );
-    process.exit(2);
-  }
+  const target = resolveTarget(args.positionals);
 
   try {
     const { gate, path } = loadDesignProcessGate(target);
     const result = evaluateDesignProcess(gate, { path, lane });
-    if (result.ok) {
-      console.log(
-        `find-missing-design-process: design process ready${path ? ` (${path})` : ''} ✓`,
-      );
-      process.exit(0);
-    }
-    console.error(
-      `find-missing-design-process: ${result.reason}${path ? ` at ${path}` : ''}`,
-    );
-    if (result.missing?.length) {
-      console.error(`  missing: ${result.missing.join(', ')}`);
-    }
-    console.error(
-      'HARD-BLOCK: multi-phase DESIGN requires design-gates status ready (Interview, digest, debate, critic, userApproved). Run brainstorm B0–B5 or pass --lane for R-ORCH-03 exempts.',
-    );
-    process.exit(1);
+    if (result.ok) reportReady(path);
+    reportBlocked(result, path);
   } catch (err) {
     console.error(err.message || err);
     process.exit(2);
