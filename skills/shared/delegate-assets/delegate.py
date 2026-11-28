@@ -30,7 +30,7 @@ Records are append-only. Values are enums, never free text, so the log can be au
 import argparse, dataclasses, datetime as dt, errno, fcntl, getpass, hashlib, json, os, re, shlex, shutil, signal, socket, subprocess, sys, time, tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TypedDict
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
 LOG = HOME / "delegate" / "runs.jsonl"
@@ -87,7 +87,23 @@ FINDING_ID_RE = re.compile(r"[FR]\d+")
 # and compares. To tune the rubric, change both.
 ANOTHER_FINDING = "another finding"  # dup: the id of another finding of the review
 A_QUOTE = "a quote"                  # card: a quote of the requirement not delivered
-SEVERITY_RUBRIC = {
+
+
+class SeverityRow(TypedDict, total=False):
+    """One row of the table: the answers it matches, and what it gives."""
+    when: dict[str, tuple[str, ...]]
+    lowers: str
+    result: str
+
+
+class SeverityRubric(TypedDict):
+    """The rubric as data: the allowed words, the kinds that take reach, the table."""
+    answers: dict[str, tuple[str, ...]]
+    reach_kinds: tuple[str, ...]
+    table: tuple[SeverityRow, ...]
+
+
+SEVERITY_RUBRIC: SeverityRubric = {
     # The allowed words of each answer, in the order the reviewer gives them.
     "answers": {
         "origin": ("diff", "base"),
@@ -1404,7 +1420,7 @@ def _clean_stale_remote():
 
 def get_active_remote():
     """Active --host runs started from this machine, as (path, data) pairs."""
-    active = []
+    active: list[tuple[Path, dict]] = []
     if not RUNNING_REMOTE.is_dir():
         return active
     _clean_stale_remote()
@@ -1976,7 +1992,7 @@ class ProcessTracker:
 
     def _walk_descendants(self, table):
         """Remember and return every pid below a root in the ppid tree."""
-        children = {}
+        children: dict[int, list[int]] = {}
         for pid, (ppid, _pgid, _sid, _state) in table.items():
             children.setdefault(ppid, []).append(pid)
         stack = [pid for pid in self.roots if pid in table]
@@ -2253,7 +2269,7 @@ def agy_quota(now_dt=None):
                               cwd=tempfile.gettempdir(), timeout=AGY_QUOTA_TIMEOUT_S)
         if done.returncode != 0:
             return {}
-        pools = {}
+        pools: dict = {}
         for group in json.loads(done.stdout)["command"]["data"]["groups"]:
             for bucket in group.get("buckets") or []:
                 bucket_id = str(bucket.get("id") or "")
@@ -2287,7 +2303,7 @@ def provider_limits(now_dt=None):
     early when a later run under the same key reached the provider.
     """
     now_dt = now_dt or now()
-    latest = {}
+    latest: dict = {}
     if LOG.exists():
         for line in LOG.read_text(errors="replace").splitlines():
             try:
@@ -2420,7 +2436,7 @@ def cmd_route(a):
     for profile in route:
         family = MODELS[profile][2]
         print(f"review route after {profile} ({family}): " + ",".join(review_routes[family]))
-    groups = {}
+    groups: dict[tuple, list] = {}
     for name, state in avail.items():
         if state["cooling_until"]:
             groups.setdefault((state["cooling_until"], state["reset_source"]), []).append(name)
@@ -2438,6 +2454,8 @@ class PausedError(Exception):
 
 
 class SlotTimeoutError(Exception):
+    record: dict
+
     def __init__(self, executor):
         self.executor = executor
         super().__init__(f"slot wait timed out: no free {executor} slot")
@@ -2812,7 +2830,7 @@ def remote_exec_script(executor, model, role, policy):
     file, never from this wrapper's argv or the remote-runner argv.
     """
     lines = ["set -e"]
-    variables = []
+    variables: list[str] = []
 
     def shell_arg(value):
         if REMOTE_BASE_PLACEHOLDER not in value:
@@ -3063,7 +3081,7 @@ def remote_work_marker(path, token):
         text = Path(path).read_text(errors="replace")
     except OSError:
         return None
-    work = None
+    work: Optional[dict[str, object]] = None
     for line in text.splitlines():
         parts = line.split("\t")
         if len(parts) == 7 and parts[0] == REMOTE_WORK_MARKER and parts[1] == token:
@@ -4055,6 +4073,7 @@ def _resolve_run_identity(role, options):
         sys.exit(2)
     if role == "review" and profile in REVIEW_PROFILES:
         profile = REVIEW_PROFILES[profile]
+    family: Optional[str]
     if profile:
         executor, model, family = MODELS[profile]
     else:
@@ -4181,7 +4200,7 @@ def _prepare_local_run(setup):
     executor = setup.identity.executor
     argv = build_argv(BuildRequest(executor, setup.identity.model, setup.role, setup.cwd,
                                    setup.card_content, setup.last_msg, setup.policy))
-    progress_files = (setup.stdout, setup.stderr)
+    progress_files: tuple = (setup.stdout, setup.stderr)
     agy_log = None
     if executor == "agy":
         # In text mode agy prints nothing until the turn ends, so a long review
@@ -4697,7 +4716,7 @@ def classify_findings(findings):
     finding of the answer, goes round in a circle (F01 -> F02 -> F01) or
     points to a merged finding merges nothing: that finding is classified by
     its other answers, and its answers are kept as given."""
-    first = {}
+    first: dict = {}
     for i, finding in enumerate(findings):
         first.setdefault(finding["id"], i)
     for i in range(len(findings)):
@@ -4768,6 +4787,7 @@ def parse_review(text):
         counts[finding["severity"].replace("-", "_")] += 1
         if finding["severity"] == "unclassified":
             counts["medium"] += 1
+    claimed: object = None
     if marks:
         claimed = marks[-1]
         mismatch = claimed != len(findings)
@@ -4780,7 +4800,7 @@ def parse_review(text):
     # FINDINGS above 0 with no finding line the runner can read is not a clean
     # review: it is incomplete, like an answer without its closing line.
     complete = (marks[-1] == 0 or bool(rows)) if marks else bool(totals)
-    review = {
+    review: dict[str, object] = {
         "severity_source": "computed" if computed else "reviewer",
         "complete": complete,
         "findings": findings, "counts": counts, "findings_mismatch": mismatch,
@@ -4941,7 +4961,7 @@ def followup_card_text(task_id, task, majors, next_id):
 def major_verdicts(text, ids):
     """Each first-review major the follow-up review answered: id -> (fixed or
     open, the reviewer's reason). An id answered both ways is open."""
-    found = {}
+    found: dict = {}
     for line in text.splitlines():
         match = MAJOR_VERDICT_RE.match(line)
         if match and match.group(1) in ids and found.get(match.group(1), ("fixed",))[0] == "fixed":
@@ -5517,7 +5537,7 @@ def run_pipeline_gate(st):
     """Run the host gate and record what it saw."""
     st.step = "gate"
     check_paused()
-    gate_state = {}
+    gate_state: dict = {}
     try:
         run_gate(st.a.gate, st.cwd, st.a.timeout, st.gate_log, gate_state)
     finally:
@@ -6113,7 +6133,7 @@ def print_run_status(run):
 
 def read_run_records():
     """Every `run` record of the log, oldest first; unreadable lines are skipped."""
-    records = []
+    records: list = []
     if not LOG.exists():
         return records
     for line in LOG.read_text().splitlines():
@@ -6150,7 +6170,7 @@ def provider_limit_state(record, now_dt):
 
 def collect_provider_limits(records, now_dt):
     """The latest recent provider_limit of each executor, as `status` shows it."""
-    limits = {}
+    limits: dict = {}
     for record in records:
         state = provider_limit_state(record, now_dt)
         if state and (state[0] not in limits or state[1] > limits[state[0]][0]):
@@ -6356,7 +6376,9 @@ def cmd_record(a):
 def cmd_report(a):
     if not LOG.exists():
         sys.exit("delegate: no log yet")
-    runs, verdicts, pipelines = {}, {}, {}
+    runs: dict[str, list] = {}
+    verdicts: dict[str, list] = {}
+    pipelines: dict[tuple, list] = {}
     for line in LOG.read_text().splitlines():
         try:
             r = json.loads(line)
@@ -6371,13 +6393,13 @@ def cmd_report(a):
             pair = (r.get("executor_profile"), r.get("reviewer_profile"))
             pipelines.setdefault(pair, []).append(r)
 
-    groups = {}
+    groups: dict[tuple, list] = {}
     for task_id, rs in runs.items():
         # Old log lines may name profiles, models and families that no longer exist;
         # report them verbatim instead of looking them up. A task id can hold runs of
         # several roles/models, so group every run by its own role, executor and model.
         verdict = (verdicts.get(task_id) or [{}])[-1]
-        by_route = {}
+        by_route: dict[tuple, list] = {}
         for r in rs:
             by_route.setdefault((r.get("role", ""), r.get("executor", ""), r.get("model", "")), []).append(r)
         for key, route_runs in by_route.items():
@@ -6401,7 +6423,7 @@ def cmd_report(a):
 
     for (ex_prof, rev_prof), items in sorted(pipelines.items(), key=lambda item: tuple(p or "" for p in item[0])):
         n = len(items)
-        outcomes = {}
+        outcomes: dict[str, int] = {}
         for p in items:
             o = p.get("outcome", "unknown")
             outcomes[o] = outcomes.get(o, 0) + 1
