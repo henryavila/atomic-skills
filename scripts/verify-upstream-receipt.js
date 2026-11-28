@@ -30,6 +30,10 @@ function parseArgs(argv) {
   return out;
 }
 
+/**
+ * @param {string} msg
+ * @returns {never}
+ */
 function fail(msg) {
   console.error(`verify-upstream-receipt: ${msg}`);
   process.exit(1);
@@ -81,6 +85,29 @@ function main() {
   if (!existsSync(args.receipt)) fail(`receipt missing: ${args.receipt}`);
   const receipt = JSON.parse(readFileSync(args.receipt, 'utf8'));
 
+  checkLockedPackage(receipt);
+
+  const worktree = resolve(REPO_ROOT, args.worktree);
+  assertWorktree(worktree);
+  const { head, branch, origin } = inspectWorktree(worktree);
+  assertBaseCommit(receipt, worktree);
+  assertBranchAndOrigin(receipt, branch, origin);
+  assertInstalledSrcMatchesAtBase(receipt, worktree, head);
+  const taskEntry = readTaskEntry(receipt, args.task, worktree, head);
+  assertRemotePublished(args.requireRemote, receipt, taskEntry, worktree);
+
+  console.log(JSON.stringify({
+    ok: true,
+    task: args.task,
+    baseSha: receipt.baseSha,
+    head,
+    branch,
+    taskResultSha: taskEntry.resultSha ?? null,
+    remotePublished: Boolean(receipt.remotePublished),
+  }, null, 2));
+}
+
+function checkLockedPackage(receipt) {
   const lock = packageLockIntegrity();
   // dist.integrity is the published 0.1.0 baseline tarball. After T-006 the lock
   // may resolve a git commit of the remediated branch — that is tracked via
@@ -99,23 +126,27 @@ function main() {
       fail(`receipt.integrated.resolved !== lock resolved\n  receipt: ${a}\n  lock:    ${b}`);
     }
   }
+}
 
-  const worktree = resolve(REPO_ROOT, args.worktree);
+function assertWorktree(worktree) {
   if (!existsSync(join(worktree, '.git')) && !existsSync(join(worktree, 'src'))) {
     fail(`worktree not found or incomplete: ${worktree}`);
   }
+}
 
-  let head;
-  let branch;
-  let origin;
+function inspectWorktree(worktree) {
   try {
-    head = git(worktree, ['rev-parse', 'HEAD']);
-    branch = git(worktree, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    origin = git(worktree, ['remote', 'get-url', 'origin']);
+    return {
+      head: git(worktree, ['rev-parse', 'HEAD']),
+      branch: git(worktree, ['rev-parse', '--abbrev-ref', 'HEAD']),
+      origin: git(worktree, ['remote', 'get-url', 'origin']),
+    };
   } catch (err) {
-    fail(`git inspect failed in ${worktree}: ${err.message}`);
+    return fail(`git inspect failed in ${worktree}: ${err.message}`);
   }
+}
 
+function assertBaseCommit(receipt, worktree) {
   if (!receipt.baseSha || !/^[0-9a-f]{40}$/i.test(receipt.baseSha)) {
     fail(`receipt.baseSha must be a full 40-char SHA, got: ${receipt.baseSha}`);
   }
@@ -124,7 +155,9 @@ function main() {
   } catch {
     fail(`baseSha ${receipt.baseSha} is not a commit in worktree`);
   }
+}
 
+function assertBranchAndOrigin(receipt, branch, origin) {
   // Uniqueness: baseSha must be reachable; ambiguity of multiple candidates is
   // out of scope once content-match is established at materialization time.
   if (receipt.branch && branch !== receipt.branch && branch !== 'HEAD') {
@@ -139,84 +172,75 @@ function main() {
       fail(`worktree origin ${origin} !== receipt.origin ${receipt.origin}`);
     }
   }
+}
 
-  // At base: worktree src must match installed package when head == baseSha.
+// At base: worktree src must match installed package when head == baseSha.
+function assertInstalledSrcMatchesAtBase(receipt, worktree, head) {
   const installedSrc = join(REPO_ROOT, 'node_modules/@henryavila/minimalist-installer/src');
-  if (head === receipt.baseSha && existsSync(installedSrc)) {
-    const wtSrc = join(worktree, 'src');
-    const aFiles = walkFiles(installedSrc).map((f) => f.slice(installedSrc.length + 1)).sort();
-    const bFiles = walkFiles(wtSrc).map((f) => f.slice(wtSrc.length + 1)).sort();
-    if (JSON.stringify(aFiles) !== JSON.stringify(bFiles)) {
-      fail('src file list mismatch between installed package and worktree at baseSha');
-    }
-    for (const rel of aFiles) {
-      if (sha256File(join(installedSrc, rel)) !== sha256File(join(wtSrc, rel))) {
-        fail(`src content mismatch at baseSha for ${rel}`);
-      }
+  if (head !== receipt.baseSha || !existsSync(installedSrc)) return;
+
+  const wtSrc = join(worktree, 'src');
+  const aFiles = walkFiles(installedSrc).map((f) => f.slice(installedSrc.length + 1)).sort();
+  const bFiles = walkFiles(wtSrc).map((f) => f.slice(wtSrc.length + 1)).sort();
+  if (JSON.stringify(aFiles) !== JSON.stringify(bFiles)) {
+    fail('src file list mismatch between installed package and worktree at baseSha');
+  }
+  for (const rel of aFiles) {
+    if (sha256File(join(installedSrc, rel)) !== sha256File(join(wtSrc, rel))) {
+      fail(`src content mismatch at baseSha for ${rel}`);
     }
   }
+}
 
-  const taskEntry = receipt.tasks?.[args.task];
+function readTaskEntry(receipt, task, worktree, head) {
+  const taskEntry = receipt.tasks?.[task];
   if (!taskEntry) {
-    fail(`receipt.tasks missing entry for ${args.task}`);
+    fail(`receipt.tasks missing entry for ${task}`);
   }
   if (taskEntry.resultSha) {
     try {
       git(worktree, ['cat-file', '-e', `${taskEntry.resultSha}^{commit}`]);
     } catch {
-      fail(`task ${args.task} resultSha ${taskEntry.resultSha} not in worktree`);
+      fail(`task ${task} resultSha ${taskEntry.resultSha} not in worktree`);
     }
     // For completed tasks beyond T-001, HEAD should be at or descendant of resultSha.
-    if (args.task !== 'F1/T-001') {
-      try {
-        const mergeBase = git(worktree, ['merge-base', '--is-ancestor', taskEntry.resultSha, head]);
-        void mergeBase;
-      } catch {
-        // merge-base --is-ancestor exits 1 if not ancestor
-        const isAncestor = (() => {
-          try {
-            execFileSync('git', ['-C', worktree, 'merge-base', '--is-ancestor', taskEntry.resultSha, head], {
-              stdio: 'ignore',
-            });
-            return true;
-          } catch {
-            return false;
-          }
-        })();
-        if (!isAncestor && head !== taskEntry.resultSha) {
-          fail(`HEAD ${head} is not at/descendant of task resultSha ${taskEntry.resultSha}`);
-        }
-      }
+    if (task !== 'F1/T-001') {
+      assertResultShaAncestor(worktree, taskEntry.resultSha, head);
     }
   }
+  return taskEntry;
+}
 
-  if (args.requireRemote) {
-    if (!receipt.remotePublished) {
-      fail('--require-remote set but receipt.remotePublished is not true');
-    }
-    const want = receipt.resultSha || taskEntry.resultSha;
-    if (!want) fail('--require-remote requires resultSha');
-    let remoteTip;
-    try {
-      remoteTip = git(worktree, ['ls-remote', 'origin', `refs/heads/${receipt.branch}`]).split(/\s+/)[0];
-    } catch (err) {
-      fail(`ls-remote failed: ${err.message}`);
-    }
-    if (!remoteTip) fail(`remote branch ${receipt.branch} not found on origin`);
-    if (remoteTip !== want) {
-      fail(`origin/${receipt.branch} tip ${remoteTip} !== resultSha ${want}`);
+function assertResultShaAncestor(worktree, resultSha, head) {
+  try {
+    execFileSync('git', ['-C', worktree, 'merge-base', '--is-ancestor', resultSha, head], {
+      stdio: 'ignore',
+    });
+  } catch {
+    // merge-base --is-ancestor exits 1 if not ancestor
+    if (head !== resultSha) {
+      fail(`HEAD ${head} is not at/descendant of task resultSha ${resultSha}`);
     }
   }
+}
 
-  console.log(JSON.stringify({
-    ok: true,
-    task: args.task,
-    baseSha: receipt.baseSha,
-    head,
-    branch,
-    taskResultSha: taskEntry.resultSha ?? null,
-    remotePublished: Boolean(receipt.remotePublished),
-  }, null, 2));
+function assertRemotePublished(requireRemote, receipt, taskEntry, worktree) {
+  if (!requireRemote) return;
+  if (!receipt.remotePublished) {
+    fail('--require-remote set but receipt.remotePublished is not true');
+  }
+  const want = receipt.resultSha || taskEntry.resultSha;
+  if (!want) fail('--require-remote requires resultSha');
+  let remoteTip;
+  try {
+    remoteTip = git(worktree, ['ls-remote', 'origin', `refs/heads/${receipt.branch}`]).split(/\s+/)[0];
+  } catch (err) {
+    fail(`ls-remote failed: ${err.message}`);
+  }
+  if (!remoteTip) fail(`remote branch ${receipt.branch} not found on origin`);
+  if (remoteTip !== want) {
+    fail(`origin/${receipt.branch} tip ${remoteTip} !== resultSha ${want}`);
+  }
 }
 
 main();
