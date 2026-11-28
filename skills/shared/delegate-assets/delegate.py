@@ -3651,13 +3651,128 @@ the checkpoint commit: build on it. The note the runner wrote when it stopped:
 """
 
 
-def execute_run(task_id, task, role, profile=None, executor=None, model=None, cwd=None,
-                card=None, out=None, project=None, timeout=DEFAULT_TIMEOUT_S, wait_s=3600, attempt=1,
-                confirmed=False, allow_peak=False, diff_range=None, attachments=None,
-                access_mode="policy", host=None, idle_timeout=DEFAULT_IDLE_TIMEOUT_S, resume=False,
-                allow_claude_review=False, author_family=None, diff_exclude=None):
-    check_paused()
+@dataclass
+class RunOptions:
+    """The optional inputs of one run, with the defaults the command line uses."""
+    profile: Optional[str] = None
+    executor: Optional[str] = None
+    model: Optional[str] = None
+    cwd: Optional[str] = None
+    card: Optional[str] = None
+    out: Optional[str] = None
+    project: Optional[str] = None
+    timeout: float = DEFAULT_TIMEOUT_S
+    wait_s: float = 3600
+    attempt: int = 1
+    confirmed: bool = False
+    allow_peak: bool = False
+    diff_range: Optional[str] = None
+    attachments: Optional[list] = None
+    access_mode: str = "policy"
+    host: Optional[str] = None
+    idle_timeout: float = DEFAULT_IDLE_TIMEOUT_S
+    resume: bool = False
+    allow_claude_review: bool = False
+    author_family: Optional[str] = None
+    diff_exclude: Optional[str] = None
+
+
+@dataclass
+class RunIdentity:
+    """The profile and the executor/model/family a run resolved to."""
+    profile: Optional[str]
+    executor: str
+    model: str
+    family: Optional[str]
+
+
+@dataclass
+class PromptSetup:
+    """The composed prompt and the facts the run paths need from it."""
+    task_id: str
+    cwd: str
+    project: str
+    card_content: str
+    input_sizes: dict
+    input_failure: Optional[str]
+    too_large: Optional[str]
+    resumed_from: Optional[str]
+    attempt: int
+
+
+@dataclass
+class RunSetup:
+    """Everything one run knows before it starts: identity, prompt, paths and pending record."""
+    task_id: str
+    task: str
+    role: str
+    options: RunOptions
+    identity: RunIdentity
+    cwd: str
+    project: str
+    card_content: str
+    input_sizes: dict
+    input_failure: Optional[str]
+    too_large: Optional[str]
+    resumed_from: Optional[str]
+    attempt: int
+    out_path: Path
+    policy: dict
+    stdout: Path
+    stderr: Path
+    last_msg: Path
+    prompt: Path
+    tracker: ProcessTracker
+    pending: dict
+
+
+@dataclass
+class LocalRun:
+    """The mutable state of one local slot acquisition and executor wait."""
+    setup: RunSetup
+    argv: list
+    progress_files: tuple
+    agy_log: Optional[Path]
+    peak: bool
+    deadline: float
+    max_slots: int
+    si: Optional[object] = None
+    git_global: Optional[Path] = None
+    p: Optional[subprocess.Popen] = None
+    slot_file: Optional[Path] = None
+    slot_data: Optional[dict] = None
+    queued_at: float = 0.0
+    timed_out: bool = False
+    stalled: bool = False
+    orphan_failure: Optional[str] = None
+    interrupted_exc: Optional[BaseException] = None
+    exit_seen: bool = False
+    pending_return: bool = False
+    pending_error: Optional[SlotTimeoutError] = None
+    snap0: tuple = ()
+    head0: str = ""
+    dirty_before: bool = False
+    started: str = ""
+    t0: float = 0.0
+    wait_duration_s: float = 0.0
+    progress: Optional[ProgressWatch] = None
+
+
+@dataclass
+class LocalOutcome:
+    """The tree and failure a finished local run produced, before the record is built."""
+    head1: str
+    dirty_after: bool
+    failure: str
+    uncommitted: bool
+    commits: str
+    files: str
+
+
+def _resolve_run_identity(role, options):
+    """Turn the profile/executor/model options into a runnable identity and check the route rules."""
     alias_notice = None
+    profile = options.profile
     if profile in ALIASES:
         target = ALIASES[profile]
         alias_notice = f"delegate: profile {profile} is deprecated; use --profile {target}"
@@ -3670,33 +3785,40 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     if profile:
         executor, model, family = MODELS[profile]
     else:
+        executor, model = options.executor, options.model
         family = "anthropic" if agy_claude_model(executor, model) else None
     if not executor or not model:
         sys.exit("delegate: give --profile, or both --executor and --model")
     check_model_allowed(role, executor, model, profile)
-    check_claude_review(executor, role, allow_claude_review, author_family, host)
-    check_review_family(role, executor, model, family, author_family)
-    check_agy_claude(executor, model, role, author_family)
+    check_claude_review(executor, role, options.allow_claude_review, options.author_family,
+                        options.host)
+    check_review_family(role, executor, model, family, options.author_family)
+    check_agy_claude(executor, model, role, options.author_family)
     if alias_notice:
         print(alias_notice, file=sys.stderr)
-    rubric = read_severity_rubric() if role == "review" else None
+    return RunIdentity(profile, executor, model, family)
 
-    cwd = str(Path(cwd).resolve())
-    parent_pid = os.getppid()
-    if role == "review" and EXECUTOR_FLAGS.get(executor, {}).get("requires_review_diff") and not diff_range:
-        usage_error(f"{executor} review requires --diff-range; the runner attaches the exact diff")
-    card_content, input_sizes, input_failure = compose_prompt(card, attachments, diff_range, cwd, diff_exclude)
-    if role == "review" and not diff_range and "{{DIFF_RANGE}}" in Path(card).read_text(encoding="utf-8"):
+
+def _prepare_prompt(task_id, role, options, identity):
+    """Compose the card prompt, attach the review rubric or resume note, and check its size."""
+    cwd = str(Path(options.cwd).resolve())
+    if (role == "review" and EXECUTOR_FLAGS.get(identity.executor, {}).get("requires_review_diff")
+            and not options.diff_range):
+        usage_error(f"{identity.executor} review requires --diff-range; the runner attaches the exact diff")
+    card_content, input_sizes, input_failure = compose_prompt(
+        options.card, options.attachments, options.diff_range, cwd, options.diff_exclude)
+    if role == "review" and not options.diff_range and "{{DIFF_RANGE}}" in Path(options.card).read_text(encoding="utf-8"):
         usage_error("review card contains {{DIFF_RANGE}} but no --diff-range was given; "
                     "pass --diff-range <base>...<head>")
-    if rubric:
+    if role == "review":
         # The reviewer answers the rubric's questions; the runner computes the severity.
-        card_content += "\n" + rubric
+        card_content += "\n" + read_severity_rubric()
         input_sizes["prompt_bytes"] = len(card_content.encode("utf-8"))
     top = git(cwd, "rev-parse", "--show-toplevel") or cwd
-    project = project or Path(top).name
+    project = options.project or Path(top).name
     resumed_from = None
-    if resume:
+    attempt = options.attempt
+    if options.resume:
         previous, problem = find_resume(task_id, project)
         if problem:
             usage_error(problem)
@@ -3709,288 +3831,375 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
     too_large = None
     if input_sizes["prompt_bytes"] > MAX_REVIEW_INPUT_BYTES:
         input_failure, too_large = size_failure, f"the {MAX_REVIEW_INPUT_BYTES} bytes a review input may have"
-    elif executor in ARGV_PROMPT_EXECUTORS and input_sizes["prompt_bytes"] >= MAX_ARG_BYTES:
+    elif identity.executor in ARGV_PROMPT_EXECUTORS and input_sizes["prompt_bytes"] >= MAX_ARG_BYTES:
         # OpenCode takes the prompt as one argv element and would fail with
         # E2BIG at or above the kernel limit; it has no stdin prompt.
         input_failure, too_large = size_failure, f"the {MAX_ARG_BYTES} bytes OpenCode takes"
-    elif (not input_failure and role == "review" and executor == "agy"
-          and str(model).startswith("claude-opus") and input_sizes["prompt_bytes"] > AGY_OPUS_MAX_INPUT_BYTES):
+    elif (not input_failure and role == "review" and identity.executor == "agy"
+          and str(identity.model).startswith("claude-opus")
+          and input_sizes["prompt_bytes"] > AGY_OPUS_MAX_INPUT_BYTES):
         input_failure = OVER_MODEL_CAP
-    out_path = Path(out or HOME / "delegate" / "out" / project).resolve()
+    return PromptSetup(task_id, cwd, project, card_content, input_sizes, input_failure,
+                       too_large, resumed_from, attempt)
+
+
+def _prepare_run_paths(task, role, options, identity, prompt):
+    """Resolve the output paths and policy and build the pending record the run starts from."""
+    task_id = prompt.task_id
+    out_path = Path(options.out or HOME / "delegate" / "out" / prompt.project).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
-    policy = access_policy(executor, role, cwd, out_path, strict=access_mode == "strict")
-    stdout, stderr, last_msg, prompt = run_output_paths(out_path, task_id, attempt)
-    prompt.write_text(card_content, encoding="utf-8")
+    policy = access_policy(identity.executor, role, prompt.cwd, out_path,
+                           strict=options.access_mode == "strict")
+    stdout, stderr, last_msg, prompt_path = run_output_paths(out_path, task_id, prompt.attempt)
+    prompt_path.write_text(prompt.card_content, encoding="utf-8")
     tracker = ProcessTracker()
     orphans = {"found": 0, "killed": 0, "sample": [],
                "tracked": False, "polls": 0, "method": tracker.method}
     # A refused input or a queue timeout has an audit record, but no child snapshot.
     pending = {
-        "kind": "run", "id": task_id, "project": project, "task": task, "role": role,
-        "executor": executor, "model": model, "family": family, "attempt": attempt,
-        "user_confirmed": bool(confirmed), "duration_s": 0, "exit_code": None,
-        "timed_out": False, "card": str(Path(card).resolve()), "prompt": str(prompt),
+        "kind": "run", "id": task_id, "project": prompt.project, "task": task, "role": role,
+        "executor": identity.executor, "model": identity.model, "family": identity.family,
+        "attempt": prompt.attempt, "user_confirmed": bool(options.confirmed),
+        "duration_s": 0, "exit_code": None, "timed_out": False,
+        "card": str(Path(options.card).resolve()), "prompt": str(prompt_path),
         "stdout": str(stdout), "stderr": str(stderr), "access": policy["access"],
-        "orphans": orphans, **input_sizes, "machine": host or local_machine(),
+        "orphans": orphans, **prompt.input_sizes, "machine": options.host or local_machine(),
     }
-    if resume:
-        pending["resumed_from"] = resumed_from
-    if input_failure:
-        pending["orphans"] = tracker.sweep()
-        pending.update(failure=input_failure, completed=now().isoformat(timespec="microseconds"))
-        if input_failure == "review_input_too_large":
-            pending["hint"] = (f"the review prompt is {input_sizes['prompt_bytes']} bytes, above {too_large}; "
-                               "leave lockfiles and generated files out of the review diff with "
-                               "--diff-exclude <pathspec> (repeatable)")
-            print(f"delegate: {pending['hint']}", file=sys.stderr)
-        append(pending)
-        return pending
-    if host:
-        return execute_remote_run(RemoteRunRequest(
-            task_id, task, role, executor, model, family, profile, cwd, project, out_path,
-            card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed,
-            allow_peak, diff_range, attachments, access_mode, host, prompt, stdout, stderr,
-            last_msg))
-    argv = build_argv(executor, model, role, cwd, card_content, last_msg, policy)
-    progress_files = (stdout, stderr)
+    if options.resume:
+        pending["resumed_from"] = prompt.resumed_from
+    return RunSetup(task_id, task, role, options, identity, prompt.cwd, prompt.project,
+                    prompt.card_content, prompt.input_sizes, prompt.input_failure,
+                    prompt.too_large, prompt.resumed_from, prompt.attempt, out_path, policy,
+                    stdout, stderr, last_msg, prompt_path, tracker, pending)
+
+
+def _record_input_failure(setup):
+    """Write the record of a run refused before any executor starts."""
+    pending = setup.pending
+    pending["orphans"] = setup.tracker.sweep()
+    pending.update(failure=setup.input_failure,
+                   completed=now().isoformat(timespec="microseconds"))
+    if setup.input_failure == "review_input_too_large":
+        pending["hint"] = (
+            f"the review prompt is {setup.input_sizes['prompt_bytes']} bytes, above {setup.too_large}; "
+            "leave lockfiles and generated files out of the review diff with "
+            "--diff-exclude <pathspec> (repeatable)")
+        print(f"delegate: {pending['hint']}", file=sys.stderr)
+    append(pending)
+    return pending
+
+
+def _dispatch_remote(task, role, setup):
+    """Hand a prepared run to the remote path."""
+    options = setup.options
+    identity = setup.identity
+    return execute_remote_run(RemoteRunRequest(
+        setup.task_id, task, role, identity.executor, identity.model, identity.family,
+        identity.profile, setup.cwd, setup.project, setup.out_path, setup.card_content,
+        setup.input_sizes, setup.pending, options.timeout, options.wait_s, setup.attempt,
+        options.confirmed, options.allow_peak, options.diff_range, options.attachments,
+        options.access_mode, options.host, setup.prompt, setup.stdout, setup.stderr,
+        setup.last_msg))
+
+
+def _prepare_local_run(setup):
+    """Build the executor argv and the local slot state, before any process starts."""
+    executor = setup.identity.executor
+    argv = build_argv(executor, setup.identity.model, setup.role, setup.cwd,
+                      setup.card_content, setup.last_msg, setup.policy)
+    progress_files = (setup.stdout, setup.stderr)
     agy_log = None
     if executor == "agy":
         # In text mode agy prints nothing until the turn ends, so a long review
         # changes no output and no file; its log is what shows it is working.
-        agy_log = stderr.with_suffix(".agy.log")
+        agy_log = setup.stderr.with_suffix(".agy.log")
         argv += ["--log-file", str(agy_log)]
         progress_files += (agy_log,)
-    peak = in_peak() and family == "deepseek"
+    peak = in_peak() and setup.identity.family == "deepseek"
     if peak:
         print("delegate: OpenCode Go peak window (UTC); DeepSeek on OpenCode Go costs double now — proceeding",
               file=sys.stderr)
     if executor == "codex":
-        last_msg.unlink(missing_ok=True)
-
-    # Slot acquisition with polling
-    deadline = time.time() + wait_s
-    max_slots = get_max_slots(executor)
-    p = None
-    slot_file = None
-    queued_at = time.monotonic()
-    timed_out = False
-    stalled = False
-    orphan_failure = None
-    interrupted_exc = None
-    exit_seen = False
-    pending_return = False
-    pending_error = None
-
+        setup.last_msg.unlink(missing_ok=True)
     # Codex and Antigravity read the prompt from stdin; OpenCode takes it as an
     # argv element (see ARGV_PROMPT_EXECUTORS).
-    si = open(prompt, "rb") if executor in ("codex", "agy", "claude") else None
-    git_global = None
-    try:
-        if executor == "agy":
-            git_global = flatten_git_global(cwd, task_id)
-            if git_global is not None:
-                policy["env"]["GIT_CONFIG_GLOBAL"] = str(git_global)
-                policy["access"]["limits"].append(AGY_GIT_GLOBAL_LIMIT)
-        with open(stdout, "w") as so, open(stderr, "w") as se:
-            while True:
-                check_paused()
-                if os.getppid() != parent_pid:
-                    raise ParentGone()
-                with SlotLock():
-                    active = _get_active_slots(executor)
-                    if len(active) < max_slots:
-                        check_paused()
-                        snap0 = tree_snapshot(cwd)
-                        head0 = snap0[0]
-                        dirty_before = bool(snap0[1])
-                        started = now().isoformat(timespec="microseconds")
-                        t0 = time.monotonic()
-                        wait_duration_s = t0 - queued_at
-                        child_env = child_environment(executor, os.environ, policy["env"])
-                        p = subprocess.Popen(
-                            argv, cwd=cwd, stdout=so, stderr=se,
-                            stdin=si if si is not None else subprocess.DEVNULL,
-                            start_new_session=True, env=child_env,
-                        )
-                        tracker.watch(p.pid)
-                        slot_file = RUNNING / f"{executor}-{task_id}-{p.pid}.json"
-                        slot_data = {
-                            "id": task_id,
-                            "project": project,
-                            "profile": profile,
-                            "role": role,
-                            "machine": local_machine(),
-                            **ATTRIBUTION,
-                            "pid": p.pid,
-                            "pgid": p.pid,
-                            "started": started,
-                            "process_start": process_identity(p.pid) or f"unreaped:{os.getpid()}:{p.pid}",
-                            "runner_pid": os.getpid(),
-                            "runner_start": process_identity(os.getpid()),
-                        }
-                        slot_tmp = slot_file.with_suffix(".tmp")
-                        slot_tmp.write_text(json.dumps(slot_data, ensure_ascii=False))
-                        os.replace(slot_tmp, slot_file)
-                        break
+    si = open(setup.prompt, "rb") if executor in ("codex", "agy", "claude") else None
+    return LocalRun(setup=setup, argv=argv, progress_files=progress_files, agy_log=agy_log,
+                    peak=peak, deadline=time.time() + setup.options.wait_s,
+                    max_slots=get_max_slots(executor), queued_at=time.monotonic(), si=si)
 
-                if time.time() >= deadline:
-                    raise SlotTimeoutError(executor)
-                remaining = deadline - time.time()
-                time.sleep(min(5.0, max(0.05, remaining)))
 
-            try:
-                # Built inside the try: it runs git, and a stop signal that lands
-                # there must still end the executor and write the record.
-                progress = ProgressWatch(cwd, progress_files, idle_timeout, slot_file, slot_data)
-                wait_for_exit(p, timeout, parent_pid=parent_pid, tracker=tracker, progress=progress)
-                exit_seen = True
-            except ParentGone:
-                # The orchestrator's background task (or the parent shell) went
-                # away. Poll before TERM so the last detached child is known.
-                orphan_failure = "orphaned"
-                tracker.poll(force=True)
-                terminate_process(p)
-            except (KeyboardInterrupt, SystemExit) as exc:
-                orphan_failure = "interrupted"
-                interrupted_exc = exc
-                tracker.poll(force=True)
-                terminate_process(p)
-            except (subprocess.TimeoutExpired, Stalled) as stop:
-                stalled = isinstance(stop, Stalled)
-                timed_out = not stalled
-                tracker.poll(force=True)
-                try:
-                    os.killpg(p.pid, signal.SIGTERM)
-                except (ProcessLookupError, PermissionError):
-                    pass
-                try:
-                    wait_for_exit(p, 10, tracker=tracker)
-                    exit_seen = True
-                except subprocess.TimeoutExpired:
-                    pass
-    except ParentGone:
-        pending.update(failure="orphaned", wait_s=round(time.monotonic() - queued_at, 3),
-                       completed=now().isoformat(timespec="microseconds"))
-        pending_return = True
-    except SlotTimeoutError as exc:
-        pending.update(failure="slot_timeout", wait_s=round(time.monotonic() - queued_at, 3),
-                       completed=now().isoformat(timespec="microseconds"))
-        pending_return = True
-        pending_error = exc
-        exc.record = pending
-    except (KeyboardInterrupt, SystemExit) as exc:
-        if p is None:
-            raise
-        orphan_failure = "interrupted"
-        interrupted_exc = exc
-    finally:
-        # Reap and removal are one locked transition: kill can trust the runner
-        # identity while Darwin hides the unreaped zombie's start time.
-        try:
-            with SlotLock():
-                try:
-                    if p is not None:
-                        # The normal exit already forced its snapshot in
-                        # wait_for_exit; the stalled paths force one here
-                        # before the group kill.
-                        if not exit_seen:
-                            tracker.poll(force=True)
-                        stop_process(p)
-                finally:
-                    if slot_file and (p is None or p.returncode is not None):
-                        slot_file.unlink(missing_ok=True)
-                        slot_file.with_suffix(".tmp").unlink(missing_ok=True)
-        finally:
-            try:
-                # Runs on success, failure, timeout, stop and the orphan watcher:
-                # whatever the executor left outside its group ends here. The
-                # sweep result is part of every record, including pending ones.
-                # A normal exit already forced its poll; the other paths need
-                # one more snapshot here before the sweep acts.
-                orphans = tracker.sweep(force_poll=not exit_seen)
-                pending["orphans"] = orphans
-            finally:
-                if si is not None:
-                    si.close()
-                if git_global is not None:
-                    try:
-                        git_global.unlink(missing_ok=True)
-                    except OSError:
-                        pass
-
-    if pending_return:
-        append(pending)
-        if pending_error is not None:
-            raise pending_error
-        return pending
-
-    code = p.returncode
-
-    # A run that was stopped (idle limit, time cap, stop signal, lost parent)
-    # keeps its work: the processes are gone by now, so the tree is stable.
-    stop_failure = orphan_failure or ("stalled" if stalled else "timeout" if timed_out else None)
-    checkpoint = None
-    if stop_failure and role != "review":
-        try:
-            checkpoint = write_checkpoint(CheckpointSpec(
-                task_id, cwd, out_path, head0, stop_failure, timeout, idle_timeout,
-                (stdout, stderr)))
-        except Exception as exc:  # the record must still be written
-            checkpoint = {"commit": None, "resume": None, "error": str(exc)[:300]}
-
-    snap1 = tree_snapshot(cwd)
-    head1 = snap1[0]
-    dirty_after = bool(snap1[1])
-    review_wrote = role == "review" and snap1 != snap0
-    review_output = (last_msg if executor == "codex" else stdout) if role == "review" else None
-    failure = orphan_failure or ("stalled" if stalled else classify_failure(
-        timed_out, code, stdout, stderr, review_wrote, review_output, executor))
-    uncommitted = role != "review" and head1 == head0 and snap1 != snap0
-    commits = git(cwd, "rev-list", "--count", f"{head0}..{head1}") if head0 and head1 else ""
-    files = git(cwd, "diff", "--name-only", f"{head0}..{head1}") if head0 and head1 else ""
-    rec = {
-        "kind": "run", "id": task_id, "project": project,
-        "task": task, "role": role, "executor": executor, "model": model, "family": family,
-        "user_confirmed": bool(confirmed), "started": started,
-        "duration_s": round(time.monotonic() - t0), "exit_code": code, "timed_out": timed_out,
-        "completed": now().isoformat(timespec="microseconds"), "wait_s": round(wait_duration_s, 3),
-        "failure": failure,
-        "peak": peak, "base": head0[:10], "head": head1[:10],
-        "commits": int(commits) if commits.isdigit() else 0,
-        "files_changed": len([f for f in files.splitlines() if f]),
-        "dirty_before": dirty_before,
-        "dirty_after": dirty_after,
-        "uncommitted": uncommitted,
-        "card": str(Path(card).resolve()), "stdout": str(stdout), "stderr": str(stderr),
-        "attempt": attempt, "prompt": str(prompt), "access": policy["access"], **input_sizes,
-        "orphans": orphans,
+def _publish_slot(run):
+    """Write this run's slot file atomically under the caller's slot lock."""
+    setup, identity = run.setup, run.setup.identity
+    run.slot_file = RUNNING / f"{identity.executor}-{setup.task_id}-{run.p.pid}.json"
+    run.slot_data = {
+        "id": setup.task_id,
+        "project": setup.project,
+        "profile": identity.profile,
+        "role": setup.role,
+        "machine": local_machine(),
+        **ATTRIBUTION,
+        "pid": run.p.pid,
+        "pgid": run.p.pid,
+        "started": run.started,
+        "process_start": process_identity(run.p.pid) or f"unreaped:{os.getpid()}:{run.p.pid}",
+        "runner_pid": os.getpid(),
+        "runner_start": process_identity(os.getpid()),
     }
-    if executor == "codex":
-        rec["last_message"] = str(last_msg)
-    if role == "review" and failure == "none":
+    slot_tmp = run.slot_file.with_suffix(".tmp")
+    slot_tmp.write_text(json.dumps(run.slot_data, ensure_ascii=False))
+    os.replace(slot_tmp, run.slot_file)
+
+
+def _acquire_and_wait(run):
+    """Poll for a free slot, start the executor under it, and wait for its exit or a stop."""
+    setup, options, identity = run.setup, run.setup.options, run.setup.identity
+    executor, cwd, task_id = identity.executor, setup.cwd, setup.task_id
+    parent_pid = os.getppid()
+    if executor == "agy":
+        run.git_global = flatten_git_global(cwd, task_id)
+        if run.git_global is not None:
+            setup.policy["env"]["GIT_CONFIG_GLOBAL"] = str(run.git_global)
+            setup.policy["access"]["limits"].append(AGY_GIT_GLOBAL_LIMIT)
+    with open(setup.stdout, "w") as so, open(setup.stderr, "w") as se:
+        while True:
+            check_paused()
+            if os.getppid() != parent_pid:
+                raise ParentGone()
+            with SlotLock():
+                active = _get_active_slots(executor)
+                if len(active) < run.max_slots:
+                    check_paused()
+                    run.snap0 = tree_snapshot(cwd)
+                    run.head0 = run.snap0[0]
+                    run.dirty_before = bool(run.snap0[1])
+                    run.started = now().isoformat(timespec="microseconds")
+                    run.t0 = time.monotonic()
+                    run.wait_duration_s = run.t0 - run.queued_at
+                    child_env = child_environment(executor, os.environ, setup.policy["env"])
+                    run.p = subprocess.Popen(
+                        run.argv, cwd=cwd, stdout=so, stderr=se,
+                        stdin=run.si if run.si is not None else subprocess.DEVNULL,
+                        start_new_session=True, env=child_env,
+                    )
+                    setup.tracker.watch(run.p.pid)
+                    _publish_slot(run)
+                    break
+
+            if time.time() >= run.deadline:
+                raise SlotTimeoutError(executor)
+            remaining = run.deadline - time.time()
+            time.sleep(min(5.0, max(0.05, remaining)))
+
+        try:
+            # Built inside the try: it runs git, and a stop signal that lands
+            # there must still end the executor and write the record.
+            run.progress = ProgressWatch(cwd, run.progress_files, options.idle_timeout,
+                                         run.slot_file, run.slot_data)
+            wait_for_exit(run.p, options.timeout, parent_pid=parent_pid,
+                          tracker=setup.tracker, progress=run.progress)
+            run.exit_seen = True
+        except ParentGone:
+            # The orchestrator's background task (or the parent shell) went
+            # away. Poll before TERM so the last detached child is known.
+            run.orphan_failure = "orphaned"
+            setup.tracker.poll(force=True)
+            terminate_process(run.p)
+        except (KeyboardInterrupt, SystemExit) as exc:
+            run.orphan_failure = "interrupted"
+            run.interrupted_exc = exc
+            setup.tracker.poll(force=True)
+            terminate_process(run.p)
+        except (subprocess.TimeoutExpired, Stalled) as stop:
+            run.stalled = isinstance(stop, Stalled)
+            run.timed_out = not run.stalled
+            setup.tracker.poll(force=True)
+            try:
+                os.killpg(run.p.pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+            try:
+                wait_for_exit(run.p, 10, tracker=setup.tracker)
+                run.exit_seen = True
+            except subprocess.TimeoutExpired:
+                pass
+
+
+def _cleanup_local_run(run):
+    """Reap the executor, drop its slot and sweep every descendant it left."""
+    setup = run.setup
+    # Reap and removal are one locked transition: kill can trust the runner
+    # identity while Darwin hides the unreaped zombie's start time.
+    try:
+        with SlotLock():
+            try:
+                if run.p is not None:
+                    # The normal exit already forced its snapshot in
+                    # wait_for_exit; the stalled paths force one here
+                    # before the group kill.
+                    if not run.exit_seen:
+                        setup.tracker.poll(force=True)
+                    stop_process(run.p)
+            finally:
+                if run.slot_file and (run.p is None or run.p.returncode is not None):
+                    run.slot_file.unlink(missing_ok=True)
+                    run.slot_file.with_suffix(".tmp").unlink(missing_ok=True)
+    finally:
+        try:
+            # Runs on success, failure, timeout, stop and the orphan watcher:
+            # whatever the executor left outside its group ends here. The
+            # sweep result is part of every record, including pending ones.
+            # A normal exit already forced its poll; the other paths need
+            # one more snapshot here before the sweep acts.
+            setup.pending["orphans"] = setup.tracker.sweep(force_poll=not run.exit_seen)
+        finally:
+            if run.si is not None:
+                run.si.close()
+            if run.git_global is not None:
+                try:
+                    run.git_global.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+
+def _run_local_executor(task, role, setup):
+    """Acquire a slot, run the executor locally and turn every stop into a record."""
+    run = _prepare_local_run(setup)
+    try:
+        _acquire_and_wait(run)
+    except ParentGone:
+        setup.pending.update(failure="orphaned", wait_s=round(time.monotonic() - run.queued_at, 3),
+                             completed=now().isoformat(timespec="microseconds"))
+        run.pending_return = True
+    except SlotTimeoutError as exc:
+        setup.pending.update(failure="slot_timeout", wait_s=round(time.monotonic() - run.queued_at, 3),
+                             completed=now().isoformat(timespec="microseconds"))
+        run.pending_return = True
+        run.pending_error = exc
+        exc.record = setup.pending
+    except (KeyboardInterrupt, SystemExit) as exc:
+        if run.p is None:
+            raise
+        run.orphan_failure = "interrupted"
+        run.interrupted_exc = exc
+    finally:
+        _cleanup_local_run(run)
+    if run.pending_return:
+        append(setup.pending)
+        if run.pending_error is not None:
+            raise run.pending_error
+        return setup.pending
+    return _complete_local_run(task, role, run)
+
+
+def _checkpoint_stopped_run(role, run):
+    """Commit and note the work of a stopped implement run; a review keeps nothing."""
+    stop_failure = run.orphan_failure or (
+        "stalled" if run.stalled else "timeout" if run.timed_out else None)
+    if not stop_failure or role == "review":
+        return None
+    spec = CheckpointSpec(run.setup.task_id, run.setup.cwd, run.setup.out_path, run.head0,
+                          stop_failure, run.setup.options.timeout,
+                          run.setup.options.idle_timeout, (run.setup.stdout, run.setup.stderr))
+    try:
+        return write_checkpoint(spec)
+    except Exception as exc:  # the record must still be written
+        return {"commit": None, "resume": None, "error": str(exc)[:300]}
+
+
+def _local_outcome(run, role, snap1):
+    """Classify the finished local run from the tree before and after it."""
+    setup = run.setup
+    head1 = snap1[0]
+    review_wrote = role == "review" and snap1 != run.snap0
+    review_output = ((setup.last_msg if setup.identity.executor == "codex" else setup.stdout)
+                     if role == "review" else None)
+    failure = run.orphan_failure or ("stalled" if run.stalled else classify_failure(
+        run.timed_out, run.p.returncode, setup.stdout, setup.stderr, review_wrote,
+        review_output, setup.identity.executor))
+    commits = (git(setup.cwd, "rev-list", "--count", f"{run.head0}..{head1}")
+               if run.head0 and head1 else "")
+    files = (git(setup.cwd, "diff", "--name-only", f"{run.head0}..{head1}")
+             if run.head0 and head1 else "")
+    return LocalOutcome(head1, bool(snap1[1]), failure,
+                        role != "review" and head1 == run.head0 and snap1 != run.snap0,
+                        commits, files)
+
+
+def _local_run_record(task, role, run, outcome):
+    """Build the run record of a finished local run, in the log's key order."""
+    setup, identity, options = run.setup, run.setup.identity, run.setup.options
+    rec = {
+        "kind": "run", "id": setup.task_id, "project": setup.project,
+        "task": task, "role": role, "executor": identity.executor, "model": identity.model,
+        "family": identity.family, "user_confirmed": bool(options.confirmed),
+        "started": run.started, "duration_s": round(time.monotonic() - run.t0),
+        "exit_code": run.p.returncode, "timed_out": run.timed_out,
+        "completed": now().isoformat(timespec="microseconds"),
+        "wait_s": round(run.wait_duration_s, 3), "failure": outcome.failure,
+        "peak": run.peak, "base": run.head0[:10], "head": outcome.head1[:10],
+        "commits": int(outcome.commits) if outcome.commits.isdigit() else 0,
+        "files_changed": len([f for f in outcome.files.splitlines() if f]),
+        "dirty_before": run.dirty_before, "dirty_after": outcome.dirty_after,
+        "uncommitted": outcome.uncommitted,
+        "card": str(Path(options.card).resolve()), "stdout": str(setup.stdout),
+        "stderr": str(setup.stderr), "attempt": setup.attempt, "prompt": str(setup.prompt),
+        "access": setup.policy["access"], **setup.input_sizes,
+        "orphans": setup.pending["orphans"],
+    }
+    if identity.executor == "codex":
+        rec["last_message"] = str(setup.last_msg)
+    if role == "review" and outcome.failure == "none":
+        review_output = (setup.last_msg if identity.executor == "codex" else setup.stdout)
         rec.update(review_severity_fields(review_output))
-    if agy_log is not None:
-        rec["agy_log"] = str(agy_log)
-    if failure == "permission_denied":
-        rec["denied_permission"] = agy_denied_permission(stderr)
-    if executor == "claude":
+    if run.agy_log is not None:
+        rec["agy_log"] = str(run.agy_log)
+    if outcome.failure == "permission_denied":
+        rec["denied_permission"] = agy_denied_permission(setup.stderr)
+    if identity.executor == "claude":
         rec["fallback_reviewer"] = True
-        rec["author_family"] = author_family
-        if rec["failure"] == "error" and claude_login_missing(stdout):
+        rec["author_family"] = options.author_family
+        if rec["failure"] == "error" and claude_login_missing(setup.stdout):
             rec["hint"] = claude_login_help("Claude Code refused the local login")
             print(f"delegate: {rec['hint']}", file=sys.stderr)
-    if stalled:
-        rec["idle_s"] = round(progress.idle_s())
+    if run.stalled:
+        rec["idle_s"] = round(run.progress.idle_s())
+    if options.resume:
+        rec["resumed_from"] = setup.resumed_from
+    return rec
+
+
+def _complete_local_run(task, role, run):
+    """Write the record of a finished local run and keep the signal exit semantics."""
+    checkpoint = _checkpoint_stopped_run(role, run)
+    outcome = _local_outcome(run, role, tree_snapshot(run.setup.cwd))
+    rec = _local_run_record(task, role, run, outcome)
     if checkpoint is not None:
         rec["checkpoint"] = checkpoint
-    if resume:
-        rec["resumed_from"] = resumed_from
     append(rec)
-    if interrupted_exc is not None:
+    if run.interrupted_exc is not None:
         # The record and slot cleanup are complete; keep the runner's normal
         # signal exit semantics.
-        raise interrupted_exc
+        raise run.interrupted_exc
     return rec
+
+
+def execute_run(task_id, task, role, options=None, **fields):
+    """Run one executor and append its audit record; keyword fields build the options."""
+    if options is None:
+        options = RunOptions(**fields)
+    elif fields:
+        raise TypeError("execute_run takes RunOptions or keyword fields, not both")
+    check_paused()
+    identity = _resolve_run_identity(role, options)
+    prompt = _prepare_prompt(task_id, role, options, identity)
+    setup = _prepare_run_paths(task, role, options, identity, prompt)
+    if setup.input_failure:
+        return _record_input_failure(setup)
+    if options.host:
+        return _dispatch_remote(task, role, setup)
+    return _run_local_executor(task, role, setup)
 
 
 def cmd_run(a):
