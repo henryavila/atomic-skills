@@ -718,6 +718,9 @@ function runRelease(ctx, argv = process.argv.slice(2), io = process) {
 }
 
 /**
+ * `root` is optional in the type because the factory validates it itself: a
+ * call without a root fails with the same message it always did.
+ *
  * @param {object} [options]
  * @param {string} [options.root]
  * @param {(cmd: string, argv: string[], opts?: {allowFail?: boolean}) => string} [options.sh]

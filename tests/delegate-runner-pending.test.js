@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   initGitRepo,
@@ -27,7 +26,7 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py pending reviews', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py pending reviews', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -89,7 +88,8 @@ describe('delegate.py pending reviews', { skip: !hasPython3 ? 'python3 not on PA
   });
 
   const LIMIT = { FAKE_EXIT: '1', FAKE_STDERR: 'ERROR: usage limit reached. Resets in 2h0m0s.\n' };
-  const REVIEW = 'R01 | major | feature.txt:1 | bug | test | fix it\nTOTAL major=1 medium=0 minor=0\n';
+  // A medium opens no fix round, so these pipelines end at the review.
+  const REVIEW = 'R01 | medium | feature.txt:1 | bug | test | fix it\nTOTAL major=0 medium=1 minor=0\n';
   const OK = { FAKE_STDOUT: REVIEW, FAKE_LAST_MESSAGE: REVIEW };
 
   function pipelineArgs(extra = []) {
@@ -158,19 +158,19 @@ describe('delegate.py pending reviews', { skip: !hasPython3 ? 'python3 not on PA
     const res = runDelegate(['review-pending', '--id', 'P1', '--confirmed'], steps([LIMIT, OK]));
     assert.equal(res.status, 0, res.stderr);
     const recs = readLogRecords(atomicHome).slice(before);
-    assert.deepEqual(recs.map(r => r.kind), ['run', 'run', 'pipeline']);
+    assert.deepEqual(recs.map(r => r.kind), ['run', 'run', 'verdict', 'pipeline']);
     assert.equal(recs[0].failure, 'provider_limit');
     assert.equal(recs[1].failure, 'none');
     assert.equal(recs[1].role, 'review');
-    const pipeRec = recs[2];
+    const pipeRec = recs[3];
     assert.equal(pipeRec.outcome, 'reviewed');
     assert.equal(pipeRec.resumed_from, 'review_pending');
     assert.equal(pipeRec.executor_profile, 'flash');
     assert.ok(['codex-review', 'agy-review'].includes(pipeRec.reviewer_profile));
-    assert.deepEqual(pipeRec.findings, { major: 1, medium: 0, minor: 0 });
+    assert.deepEqual(pipeRec.findings, { major: 0, medium: 1, minor: 0 });
     assert.equal(existsSync(pendingFile()), false);
     assert.match(summary(), /^# Pipeline P1: pending case — reviewed/);
-    assert.match(summary(), /R01 \| major/);
+    assert.match(summary(), /R01 \| medium/);
     assert.equal(res.stdout.trim(), summary().trim());
     // The reviewer got the diff of the gated work and the author's card.
     const stdin = readFileSync(join(seqDir, 'stdin_1.txt'), 'utf8');
@@ -210,7 +210,7 @@ describe('delegate.py pending reviews', { skip: !hasPython3 ? 'python3 not on PA
     assert.equal(res.status, 0, res.stderr);
     const recs = readLogRecords(atomicHome);
     assert.deepEqual(recs.map(r => [r.kind, r.role || null]),
-      [['run', 'implement'], ['run', 'review'], ['run', 'review'], ['pipeline', null]]);
+      [['run', 'implement'], ['run', 'review'], ['run', 'review'], ['verdict', null], ['pipeline', null]]);
     for (const rec of recs) {
       assert.equal(rec.milestone, 'M4', JSON.stringify(rec));
       assert.equal(rec.repo, 'acme/widgets', JSON.stringify(rec));
@@ -241,7 +241,7 @@ describe('delegate.py pending reviews', { skip: !hasPython3 ? 'python3 not on PA
     const res = runDelegate(['review-pending', '--id', 'P1', '--confirmed'], steps([LIMIT, OK]));
     assert.equal(res.status, 0, res.stderr);
     const recs = readLogRecords(atomicHome).slice(before);
-    assert.deepEqual(recs.map(r => r.kind), ['run', 'run', 'pipeline']);
+    assert.deepEqual(recs.map(r => r.kind), ['run', 'run', 'verdict', 'pipeline']);
     for (const rec of recs) {
       assert.equal(rec.milestone, 'M5', JSON.stringify(rec));
       assert.equal(rec.repo, 'repo', JSON.stringify(rec));

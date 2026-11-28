@@ -99,7 +99,7 @@ function parseCli(argv) {
 }
 
 /**
- * @param {'codex'|'grok'|'claude'} provider
+ * @param {'codex'|'grok'|'claude'|'agy'|'antigravity'} provider
  * @param {string} [catalogPath]
  * @returns {{ models: import('../src/resolve-review-model.js').ReviewModel[], error: string | null }}
  */

@@ -135,9 +135,9 @@ const PRIMARY_IDE_IDS = [
 /**
  * Calls p.intro() once with version info.
  * @param {object} config  - parsed config (not used directly, kept for extension)
- * @param {object} opts
- * @param {boolean} opts.isUpdate
- * @param {string}  opts.pkgVersion
+ * @param {object} [opts]
+ * @param {boolean} [opts.isUpdate]
+ * @param {string}  [opts.pkgVersion]
  */
 export function showIntro(config, { isUpdate, pkgVersion } = {}) {
   let label;
@@ -178,16 +178,13 @@ export function printConfig(config, conflictCount = 0) {
 }
 
 /**
- * Per-IDE summary + "Next steps" on first install.
- * @param {object} result          - { files: [{path, hash, source}] }
- * @param {string[]} ides          - installed IDE IDs
- * @param {string} lang
- * @param {boolean} isFirstInstall
+ * Counts installed skills and assets per IDE from the reconciliation result.
+ * @param {object} result - { files: [{path, hash, source}] }
+ * @param {string[]} ides - installed IDE IDs
+ * @returns {Object<string, {skills: number, assets: number}>}
  */
-export function showPostInstall(result, ides, lang, isFirstInstall) {
-  const m = msg(lang);
-
-  // Count skills (not files) per IDE
+function countFilesByIDE(result, ides) {
+  /** @type {Record<string, {skills: number, assets: number}>} */
   const byIDE = {};
   for (const id of ides) {
     byIDE[id] = { skills: 0, assets: 0 };
@@ -202,6 +199,21 @@ export function showPostInstall(result, ides, lang, isFirstInstall) {
       }
     }
   }
+  return byIDE;
+}
+
+/**
+ * Per-IDE summary + "Next steps" on first install.
+ * @param {object} result          - { files: [{path, hash, source}] }
+ * @param {string[]} ides          - installed IDE IDs
+ * @param {string} lang
+ * @param {boolean} isFirstInstall
+ */
+export function showPostInstall(result, ides, lang, isFirstInstall) {
+  const m = msg(lang);
+
+  // Count skills (not files) per IDE
+  const byIDE = countFilesByIDE(result, ides);
 
   for (const id of ides) {
     const cfg = IDE_CONFIG[id];
@@ -240,20 +252,7 @@ export function showPostInstall(result, ides, lang, isFirstInstall) {
 export function showNonInteractiveResult(result, ides, lang) {
   const m = msg(lang);
 
-  const byIDE = {};
-  for (const id of ides) {
-    byIDE[id] = { skills: 0, assets: 0 };
-  }
-  for (const f of result.files) {
-    const isSkill = f.source.startsWith('core/');
-    for (const id of ides) {
-      const cfg = IDE_CONFIG[id];
-      if (cfg && f.path.startsWith(cfg.dir + '/')) {
-        if (isSkill) byIDE[id].skills++;
-        else byIDE[id].assets++;
-      }
-    }
-  }
+  const byIDE = countFilesByIDE(result, ides);
 
   for (const id of ides) {
     const cfg = IDE_CONFIG[id];
@@ -284,9 +283,9 @@ export function showNonInteractiveResult(result, ides, lang) {
 /**
  * Main action select: Install/Update, customize lang/ides, view conflicts, quit.
  * @param {string} lang
- * @param {object} opts
- * @param {boolean} opts.isUpdate
- * @param {boolean} opts.hasConflicts
+ * @param {object} [opts]
+ * @param {boolean} [opts.isUpdate]
+ * @param {boolean} [opts.hasConflicts]
  * @returns {Promise<string>} 'install'|'customize-lang'|'customize-ides'|'view-conflicts'|'quit'
  */
 export async function promptAction(lang, { isUpdate = false, hasConflicts = false } = {}) {
@@ -408,14 +407,15 @@ export async function promptLanguageSelection(lang) {
  * Select install scope. Project scope is only offered when the current
  * directory resolves to a valid, writable Git worktree root.
  * @param {string} lang
- * @param {object} opts
- * @param {{ok: boolean, path?: string, reason?: string}} opts.projectTarget
- * @param {'user'|'project'} opts.initialScope
+ * @param {object} [opts]
+ * @param {{ok: boolean, path?: string, reason?: string}} [opts.projectTarget]
+ * @param {'user'|'project'} [opts.initialScope]
  * @returns {Promise<'user'|'project'>}
  */
 export async function promptInstallScope(lang, opts = {}) {
   const m = msg(lang);
   const projectTarget = opts.projectTarget || { ok: false, reason: 'No project target resolved.' };
+  /** @type {Array<{ value: 'user', label: string, hint?: string } | { value: 'project', label: string, hint?: string }>} */
   const options = [
     { value: 'user', label: m.scopeUserInstall, hint: '~/' },
   ];
@@ -438,7 +438,7 @@ export async function promptInstallScope(lang, opts = {}) {
     process.exit(0);
   }
 
-  return result;
+  return /** @type {'user' | 'project'} */ (result);
 }
 
 // ---------------------------------------------------------------------------

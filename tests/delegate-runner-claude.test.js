@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   initGitRepo,
@@ -27,7 +26,7 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py Claude fallback reviewer', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py Claude fallback reviewer', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -380,10 +379,12 @@ print(json.dumps(d.child_environment("codex", env, {"X": "1"}), sort_keys=True))
       completed, started: completed, duration_s: 1, failure: 'provider_limit' });
     writeFileSync(join(logDir, 'runs.jsonl'),
       [limit('codex', 'gpt-6.1-sol'), limit('agy', 'gemini-4-hydrogen-xhigh'),
-        limit('agy', 'claude-sonnet-5-5-medium'), limit('agy', 'gemini-4-argon-high')].join('\n') + '\n');
+        limit('agy', 'claude-sonnet-5-5-medium'), limit('agy', 'gemini-4-argon-high'),
+        limit('opencode', 'opencode-go/muse-spark-1.3-contributor')].join('\n') + '\n');
     const out = JSON.parse(runDelegate(['route', '--role', 'implement', '--json'], env()).stdout);
     assert.equal(out.profiles['claude-review'].found, true);
-    assert.deepEqual(out.review_routes.deepseek, ['codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review']);
+    assert.deepEqual(out.review_routes.deepseek,
+      ['muse-review', 'codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review']);
     assert.match(out.warnings[0], /claude-review can review with the operator's yes \(--allow-claude-review\)/);
     const profiles = runDelegate(['profiles'], env());
     assert.match(profiles.stdout, /^claude-review \| claude \| claude-sonnet-5-5 \| anthropic \| found \| login=claude\.ai \(max\)$/m);

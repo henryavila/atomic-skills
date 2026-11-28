@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   initGitRepo,
@@ -27,7 +26,7 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py runner', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -858,7 +857,9 @@ print(json.dumps(out))
   });
 
   it('--profile flash-review --role review builds the OpenCode argv with the Flash model', () => {
-    const cardText = readFileSync(cardPath, 'utf8');
+    const rubric = readFileSync(join(REPO_ROOT, 'skills/shared/delegate-assets/severity-rubric.md'), 'utf8');
+    // Every review prompt ends with the severity rubric.
+    const cardText = readFileSync(cardPath, 'utf8') + '\n' + rubric;
     const res = runDelegate(
       [
         'run',

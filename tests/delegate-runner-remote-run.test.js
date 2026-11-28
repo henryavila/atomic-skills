@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync, execFileSync, spawn } from 'node:child_process';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   chmodSync,
   existsSync,
@@ -16,7 +17,6 @@ import { join, dirname, resolve, isAbsolute } from 'node:path';
 import { tmpdir, hostname } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
-  hasPython3,
   git,
   initGitRepo,
   makeFakeBin,
@@ -26,7 +26,7 @@ import {
   runDelegateAsync,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py remote host', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -401,7 +401,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (predicate()) return;
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await pause(50);
     }
     throw new Error(`${label} timed out after ${timeoutMs}ms`);
   }
@@ -486,7 +486,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     // The fake executor changes nothing, so the pipeline ends at no_changes.
     runDelegate(pipelineArgs(), remoteEnv());
     const records = readLogRecords(atomicHome);
-    assert.deepEqual(records.map(r => r.kind), ['run', 'pipeline'], JSON.stringify(records));
+    assert.deepEqual(records.map(r => r.kind), ['run', 'verdict', 'pipeline'], JSON.stringify(records));
     for (const rec of records) assert.equal(rec.machine, 'devbox', JSON.stringify(rec));
     assert.deepEqual(remoteActiveLeftovers(), []);
   });

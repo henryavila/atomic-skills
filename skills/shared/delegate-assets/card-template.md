@@ -14,7 +14,7 @@ If this card asks for documentation, check every statement about behaviour (comm
 
 <What must be true when you finish, stated by its result. Why it matters, in two lines.>
 
-<One subject only: one result, at most five numbered requirements. Anything else is another card.>
+<One subject only: one result, at most five numbered requirements, a delivery of about 300 lines at most, files and tests named below. Anything else is another card.>
 
 ## What changes
 

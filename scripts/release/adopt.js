@@ -258,6 +258,9 @@ function runAdopt(ctx, argv = [], io = process) {
 }
 
 /**
+ * `root` is optional in the type because the factory validates it itself: a
+ * call without a root fails with the same message it always did.
+ *
  * @param {object} [options]
  * @param {string} [options.root]
  * @param {string} [options.templateName]

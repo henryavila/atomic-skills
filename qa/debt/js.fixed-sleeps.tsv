@@ -1,8 +1,0 @@
-tests/delegate-runner-process.test.js::*	1
-tests/delegate-runner-progress.test.js::*	2
-tests/delegate-runner-remote-run.test.js::*	1
-tests/delegate-runner-remote-sync.test.js::*	1
-tests/delegate-runner-slots.test.js::*	2
-tests/progress-collector.test.js::*	2
-tests/qa-gate.test.js::*	1
-tests/runtime-lock-concurrency.test.js::*	1

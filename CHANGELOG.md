@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-27
+
+### Added
+
+- **Delegate uses Muse Spark.** It implements during DeepSeek peak hours and is
+  the first reviewer of Flash work. `profiles` warns that its provider trains
+  on request data.
+- **Delegate computes the severity of each finding.** The reviewer answers six
+  closed questions and the runner decides `major`, `medium` or `minor`, so
+  every model classifies the same way.
+- **`--diff-exclude` for reviews.** Leaves lockfiles and generated files out of
+  the diff a reviewer receives.
+
+### Changed
+
+- **Delegate no longer loops on reviews.** One review per task, and at most one
+  fix round, opened only by a `major`. What stays open is recorded and shown.
+- The pipeline writes its own verdict record.
+
+### Fixed
+
+- An Antigravity run stopped by a denied permission is recorded as such.
+
 ## [2.3.1] - 2026-11-24
 
 This release ships what was meant for 2.3.0 but missed its npm build.
@@ -431,7 +454,8 @@ before the paid codex pass, and so codex sees a CLEANED artifact without
 anchoring on local findings (reverse order would let self-preference bias
 contaminate the cross-model invariant).
 
-[Unreleased]: https://github.com/henryavila/atomic-skills/compare/v2.3.1...HEAD
+[Unreleased]: https://github.com/henryavila/atomic-skills/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/henryavila/atomic-skills/releases/tag/v2.4.0
 [2.3.1]: https://github.com/henryavila/atomic-skills/releases/tag/v2.3.1
 [2.3.0]: https://github.com/henryavila/atomic-skills/releases/tag/v2.3.0
 [2.2.0]: https://github.com/henryavila/atomic-skills/releases/tag/v2.2.0

@@ -102,6 +102,9 @@ export function buildDesiredSet(manifest, scope) {
  *   counts: Record<string, number>,
  *   basePath: string,
  *   scope: string,
+ *   manifest?: object,
+ *   desiredSize?: number,
+ *   error?: string,
  * }}
  */
 export function verifyInstalledRuntime(basePath, opts = {}) {

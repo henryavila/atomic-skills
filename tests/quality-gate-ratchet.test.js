@@ -9,9 +9,6 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RATCHET_PY = join(REPO_ROOT, 'skills/shared/quality-gate-assets/ratchet.py');
 
-const probe = spawnSync('python3', ['-c', 'import sys; print(sys.executable)'], { encoding: 'utf8' });
-const hasPython3 = probe.status === 0;
-
 const STACKS = [
   'stack\tlanguage\troots\tgenerated\ttests\tgroup',
   'web\tts\tweb/src\t-\t-\tserver',
@@ -31,7 +28,7 @@ const DIMENSIONS = ['dimension\tmetric', 'size\tcc', 'size\tfile', 'typing\ttz-l
 
 const EXCEPTIONS_HEADER = 'stack\tmetric\tkey\tlimit\treason\n';
 
-describe('ratchet.py', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('ratchet.py', () => {
   let tmp;
   let root;
   let base;
