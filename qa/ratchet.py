@@ -168,7 +168,7 @@ class Root:
 
 def read_measures(paths, root):
     """(stack, metric) -> {key: value}, from files or `-` for stdin."""
-    measured = defaultdict(dict)
+    measured: dict[tuple[str, str], dict[str, float]] = defaultdict(dict)
     for path in paths:
         if path == "-":
             lines = sys.stdin.read().splitlines()
@@ -215,7 +215,7 @@ def plural(count):
 def check_exceptions(root, maximum, stacks=None):
     """More exceptions than the limit in a stack, or one without a reason."""
     failures = []
-    per_stack = defaultdict(int)
+    per_stack: dict[str, int] = defaultdict(int)
     for stack, metric, key, _limit, reason in root.exceptions():
         if stacks is not None and stack not in stacks:
             continue
@@ -252,13 +252,13 @@ def lower_pair(measured, debt):
 
 def cmd_check(root, args):
     measured = read_measures(args.measures, root)
-    limits = defaultdict(dict)
+    limits: dict[tuple[str, str], dict[str, float]] = defaultdict(dict)
     for stack, metric, key, limit, _reason in root.exceptions():
         limits[(stack, metric)][key] = limit
     pairs = scope(root, args)
     stacks = {stack for stack, _metric in pairs} | set(args.stack or [])
     lines = check_exceptions(root, args.max_exceptions, stacks)
-    unfrozen = defaultdict(int)
+    unfrozen: dict[str, int] = defaultdict(int)
     lowerable = 0
     for stack, metric in pairs:
         items = measured.get((stack, metric), {})
@@ -318,7 +318,7 @@ def all_debt(root):
 
 def by_metric(debt):
     """metric -> {key: value} across every stack."""
-    merged = defaultdict(dict)
+    merged: dict[str, dict[str, float]] = defaultdict(dict)
     for (_stack, metric), items in debt.items():
         merged[metric].update(items)
     return merged
@@ -343,7 +343,9 @@ def judge_moves(moves, base_debt, head_debt, allowed):
     The last set holds every destination a failure already covers, so the
     line-by-line pass does not report it twice.
     """
-    approved, failures, covered = {}, [], set()
+    approved: dict[tuple[str, str], float] = {}
+    failures: list[tuple[str, str, str]] = []
+    covered: set[tuple[str, str]] = set()
     if not allowed:
         return approved, failures, covered
     base, head = by_metric(base_debt), by_metric(head_debt)
@@ -372,111 +374,153 @@ def judge_moves(moves, base_debt, head_debt, allowed):
     return approved, failures, covered
 
 
-def new_file_accepted(base, head, stack, metric, branch, freeze_prefix):
+def new_file_accepted(base, head, stack, metric, freeze_name):
     """A debt file absent from the base is the first freeze of its stack, or a
-    metric that starts to apply to the language of a stack already frozen."""
+    metric that starts to apply to the language of a stack already frozen.
+
+    `freeze_name` is the part of the branch after the freeze prefix, or None
+    when the branch may not freeze a stack.
+    """
     if stack not in head.stacks:
         return False
     if not base.frozen(stack):
-        if not branch.startswith(freeze_prefix):
-            return False
-        name = branch[len(freeze_prefix):]
-        return name in (stack, head.stacks[stack]["group"])
+        return freeze_name is not None and freeze_name in (stack, head.stacks[stack]["group"])
     language = head.stacks[stack]["language"]
     before = base.ceilings.get(metric, {"languages": set()})["languages"]
     after = head.ceilings.get(metric, {"languages": set()})["languages"]
     return language in after and language not in before
 
 
-def cmd_diff(root, args):
-    if not os.path.isdir(args.base):
-        raise UsageError(f"base directory not found: {args.base}")
-    base = Root(args.base)
-    base_debt, head_debt = all_debt(base), all_debt(root)
-    lines = []
+class DiffRun:
+    """One `diff` run: the base and head debt, and the decision on each move."""
 
-    for metric in sorted(root.ceilings):
-        old, new = base.ceilings.get(metric), root.ceilings[metric]
-        if not old:
-            continue
-        try:
-            raised = float(new["ceiling"]) > float(old["ceiling"])
-        except ValueError:
-            raised = False
-        if raised:
-            lines.append(f"FAIL\t{metric}\t-\tceiling raised\t{new['ceiling']}\t{old['ceiling']}")
+    def __init__(self, root, base, args):
+        self.root = root
+        self.base = base
+        self.args = args
+        self.base_debt = all_debt(base)
+        self.head_debt = all_debt(root)
+        self.approved: dict[tuple[str, str], float] = {}
+        self.covered: set[tuple[str, str]] = set()
+        self.freeze_name = (
+            args.branch[len(args.freeze_prefix):] if args.branch.startswith(args.freeze_prefix) else None
+        )
 
-    allowed = args.branch.startswith(args.move_prefix)
-    added = new_moves(base.moves(), root.moves())
-    approved, move_failures, covered = judge_moves(added, base_debt, head_debt, allowed)
-    stack_of = {}
-    for (stack, metric), items in head_debt.items():
-        for key in items:
-            stack_of[(metric, key)] = stack
-    for metric, key, reason in move_failures:
-        stack = stack_of.get((metric, key)) or root.stack_of_key(key) or "-"
-        lines.append(f"FAIL\t{stack}.{metric}\t{key}\t{reason}")
-
-    for (stack, metric), items in sorted(head_debt.items()):
-        label = f"{stack}.{metric}"
-        if (stack, metric) not in base_debt:
-            if new_file_accepted(base, root, stack, metric, args.branch, args.freeze_prefix):
+    def ceiling_lines(self):
+        """The metrics whose ceiling the head raised above the base."""
+        lines = []
+        for metric in sorted(self.root.ceilings):
+            old, new = self.base.ceilings.get(metric), self.root.ceilings[metric]
+            if not old:
                 continue
-            if not items:
-                lines.append(f"FAIL\t{label}\t-\tnew debt file")
-            before = {}
-        else:
-            before = base_debt[(stack, metric)]
+            try:
+                raised = float(new["ceiling"]) > float(old["ceiling"])
+            except ValueError:
+                raised = False
+            if raised:
+                lines.append(f"FAIL\t{metric}\t-\tceiling raised\t{new['ceiling']}\t{old['ceiling']}")
+        return lines
+
+    def move_lines(self):
+        """Record the approved moves and return the failures of the moves."""
+        allowed = self.args.branch.startswith(self.args.move_prefix)
+        added = new_moves(self.base.moves(), self.root.moves())
+        self.approved, failures, self.covered = judge_moves(added, self.base_debt, self.head_debt, allowed)
+        stack_of: dict[tuple[str, str], str] = {}
+        for (stack, metric), items in self.head_debt.items():
+            for key in items:
+                stack_of[(metric, key)] = stack
+        lines = []
+        for metric, key, reason in failures:
+            stack = stack_of.get((metric, key)) or self.root.stack_of_key(key) or "-"
+            lines.append(f"FAIL\t{stack}.{metric}\t{key}\t{reason}")
+        return lines
+
+    def debt_lines(self):
+        """The checks on the lines of every debt file the head carries."""
+        lines = []
+        for (stack, metric), items in sorted(self.head_debt.items()):
+            label = f"{stack}.{metric}"
+            if (stack, metric) not in self.base_debt:
+                if new_file_accepted(self.base, self.root, stack, metric, self.freeze_name):
+                    continue
+                if not items:
+                    lines.append(f"FAIL\t{label}\t-\tnew debt file")
+                before = {}
+            else:
+                before = self.base_debt[(stack, metric)]
+            lines.extend(self.line_failures(label, metric, items, before))
+        return lines
+
+    def line_failures(self, label, metric, items, before):
+        """A raised or new line in one debt file, skipping the covered moves."""
+        lines = []
         for key in sorted(items):
             value = items[key]
-            if (metric, key) in covered:
+            if (metric, key) in self.covered:
                 continue
             if key in before:
                 if value > before[key]:
                     lines.append(
                         f"FAIL\t{label}\t{key}\tdebt value raised\t{format_value(value)}\t{format_value(before[key])}"
                     )
-            elif (metric, key) in approved:
-                if value > approved[(metric, key)]:
+            elif (metric, key) in self.approved:
+                if value > self.approved[(metric, key)]:
                     lines.append(
                         f"FAIL\t{label}\t{key}\tdebt value raised\t{format_value(value)}"
-                        f"\t{format_value(approved[(metric, key)])}"
+                        f"\t{format_value(self.approved[(metric, key)])}"
                     )
             else:
                 lines.append(f"FAIL\t{label}\t{key}\tnew debt line\t{format_value(value)}")
+        return lines
 
-    known = {(s, m, k) for s, m, k, _limit, _reason in base.exceptions()}
-    for stack, metric, key, limit, reason in root.exceptions():
-        if (stack, metric, key) not in known:
-            print(f"new exception: {stack}.{metric}\t{key}\t{format_value(limit)}\t{reason}")
+    def print_new_exceptions(self):
+        """Exceptions the head adds to the base, one line each, before the FAILs."""
+        known = {(s, m, k) for s, m, k, _limit, _reason in self.base.exceptions()}
+        for stack, metric, key, limit, reason in self.root.exceptions():
+            if (stack, metric, key) not in known:
+                print(f"new exception: {stack}.{metric}\t{key}\t{format_value(limit)}\t{reason}")
+
+
+def cmd_diff(root, args):
+    if not os.path.isdir(args.base):
+        raise UsageError(f"base directory not found: {args.base}")
+    run = DiffRun(root, Root(args.base), args)
+    lines = run.ceiling_lines()
+    lines.extend(run.move_lines())
+    lines.extend(run.debt_lines())
+    run.print_new_exceptions()
     for line in lines:
         print(line)
     return 1 if lines else 0
 
 
-def cmd_move(root, args):
-    metric = args.metric
-    origin_stack = None
+def find_origin(root, metric, origin):
+    """The stack that holds `origin` in `metric`, with its recorded value."""
     for stack, found in root.debt_files():
-        if found == metric and args.origin in read_debt(root.debt_path(stack, found)):
-            origin_stack = stack
-            break
-    if origin_stack is None:
-        raise UsageError(f"{args.origin} is not in the debt of {metric}")
-    original = read_debt(root.debt_path(origin_stack, metric))[args.origin]
+        if found != metric:
+            continue
+        items = read_debt(root.debt_path(stack, found))
+        if origin in items:
+            return stack, items[origin]
+    raise UsageError(f"{origin} is not in the debt of {metric}")
 
+
+def parse_targets(items):
+    """[(key, value)] from --to, rejecting a malformed or repeated destination."""
     targets = []
-    for item in args.to:
+    for item in items:
         key, separator, value = item.rpartition("=")
         if not separator or not key:
             raise UsageError(f"--to expects <key>=<value>, got {item!r}")
         targets.append((key, parse_value(value, "--to")))
     if len({key for key, _value in targets}) != len(targets):
         raise UsageError("the same destination appears twice")
-    total = sum(value for _key, value in targets)
-    if total > original:
-        raise UsageError(f"the destinations add up to {format_value(total)}, above the origin {format_value(original)}")
+    return targets
 
+
+def place_targets(root, metric, targets):
+    """[(stack, key, value)] for each destination, or a usage error."""
     existing = by_metric(all_debt(root))[metric]
     placed = []
     for key, value in targets:
@@ -488,10 +532,14 @@ def cmd_move(root, args):
         if not root.frozen(stack):
             raise UsageError(f"stack {stack} is not frozen; freeze it before moving debt into it")
         placed.append((stack, key, value))
+    return placed
 
-    files = defaultdict(dict)
+
+def rewrite_debt(root, metric, origin_stack, origin, placed):
+    """Drop the origin line and add every placed destination to its stack file."""
+    files: dict[str, dict[str, float]] = defaultdict(dict)
     files[origin_stack] = read_debt(root.debt_path(origin_stack, metric))
-    del files[origin_stack][args.origin]
+    del files[origin_stack][origin]
     for stack, key, value in placed:
         if stack not in files:
             files[stack] = read_debt(root.debt_path(stack, metric))
@@ -499,13 +547,28 @@ def cmd_move(root, args):
     for stack, items in files.items():
         write_debt(root.debt_path(stack, metric), items)
 
+
+def record_moves(root, metric, origin, placed):
+    """Append the placed moves to moves.tsv, with its header on a new file."""
     path = root.file("moves.tsv")
     fresh = not os.path.isfile(path)
     with open(path, "a", encoding="utf-8") as handle:
         if fresh:
             handle.write("metric\tfrom\tto\tvalue\n")
         for _stack, key, value in placed:
-            handle.write(f"{metric}\t{args.origin}\t{key}\t{format_value(value)}\n")
+            handle.write(f"{metric}\t{origin}\t{key}\t{format_value(value)}\n")
+
+
+def cmd_move(root, args):
+    metric = args.metric
+    origin_stack, original = find_origin(root, metric, args.origin)
+    targets = parse_targets(args.to)
+    total = sum(value for _key, value in targets)
+    if total > original:
+        raise UsageError(f"the destinations add up to {format_value(total)}, above the origin {format_value(original)}")
+    placed = place_targets(root, metric, targets)
+    rewrite_debt(root, metric, origin_stack, args.origin, placed)
+    record_moves(root, metric, args.origin, placed)
     for stack, key, value in placed:
         print(f"moved: {metric}\t{args.origin} -> {key} ({stack}, {format_value(value)})")
     return 0
