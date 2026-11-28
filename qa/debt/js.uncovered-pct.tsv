@@ -6,7 +6,6 @@ scripts/generate-site.js::*	23.4
 scripts/generate-skill-docs.js::*	100
 scripts/lib/frontmatter.js::*	22.7
 scripts/new-skill.js::*	100
-scripts/run-host-probes.js::*	26
 scripts/run-tests.mjs::*	100
 scripts/test-with-upstream-pack.js::*	100
 scripts/validate-host-qualification.js::*	25
