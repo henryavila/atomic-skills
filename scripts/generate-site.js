@@ -188,10 +188,6 @@ export function findDistDrift(expected, distDir = DIST_DIR) {
   return messages;
 }
 
-/**
- * @param {Map<string, string>} expected
- * @param {{ distDir?: string, dsCssSrc?: string }} [opts]
- */
 function assertSafeRelativePath(relPath) {
   if (typeof relPath !== 'string' || relPath.length === 0) {
     throw new Error('writeDist: empty relative path');
@@ -234,6 +230,10 @@ function copyDsCss(distDir, dsCssSrc) {
   copyFileSync(dsCssSrc, dsDest);
 }
 
+/**
+ * @param {Map<string, string>} expected
+ * @param {{ distDir?: string, dsCssSrc?: string }} [opts]
+ */
 export function writeDist(expected, opts = {}) {
   const distDir = opts.distDir ?? DIST_DIR;
   const dsCssSrc = opts.dsCssSrc ?? DS_CSS_SRC;
