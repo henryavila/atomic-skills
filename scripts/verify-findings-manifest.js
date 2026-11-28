@@ -135,84 +135,129 @@ export function validateFindingsManifest(manifest, opts = {}) {
   const expected = opts.expectedIds
     ?? extractExpectedFindingIds().expectedIds;
   const expectedSet = new Set(expected);
-  const seen = new Set();
   const actualIds = [];
+  const context = {
+    errors,
+    seen: new Set(),
+    actualIds,
+    candidateSha: opts.candidateSha,
+  };
 
   for (const [i, f] of manifest.findings.entries()) {
-    const prefix = `findings[${i}]`;
-    if (!f || typeof f !== 'object') {
-      errors.push(`${prefix}: must be an object`);
-      continue;
-    }
-
-    const source = f.source;
-    const localId = f.localId;
-    if (typeof source !== 'string' || !source) {
-      errors.push(`${prefix}: source is required`);
-    }
-    if (typeof localId !== 'string' || !localId) {
-      errors.push(`${prefix}: localId is required`);
-    }
-    const id = f.id || (source && localId ? `${source}/${localId}` : null);
-    if (!id) {
-      errors.push(`${prefix}: id or source/localId required`);
-      continue;
-    }
-    if (seen.has(id)) {
-      errors.push(`${prefix}: duplicate id ${id}`);
-    }
-    seen.add(id);
-    actualIds.push(id);
-
-    if (source && localId && id !== `${source}/${localId}`) {
-      errors.push(`${prefix}: id ${id} must equal source/localId (${source}/${localId})`);
-    }
-
-    if (typeof f.ownerTask !== 'string' || !f.ownerTask.trim()) {
-      errors.push(`${prefix} (${id}): ownerTask required`);
-    }
-    if (typeof f.reproducer !== 'string' || !f.reproducer.trim()) {
-      errors.push(`${prefix} (${id}): reproducer required`);
-    }
-    if (!f.verifier || typeof f.verifier !== 'object') {
-      errors.push(`${prefix} (${id}): verifier object required`);
-    } else {
-      if (typeof f.verifier.command !== 'string' || !f.verifier.command.trim()) {
-        errors.push(`${prefix} (${id}): verifier.command required`);
-      }
-      if (f.verifier.passed !== true) {
-        errors.push(`${prefix} (${id}): verifier.passed must be true`);
-      }
-      if (f.verifier.exitCode !== 0 && f.verifier.exitCode !== undefined) {
-        errors.push(`${prefix} (${id}): verifier.exitCode must be 0 when set`);
-      }
-    }
-
-    if (typeof f.candidateSha !== 'string' || !/^[0-9a-f]{7,40}$/i.test(f.candidateSha)) {
-      errors.push(`${prefix} (${id}): candidateSha must be a git sha`);
-    }
-    if (opts.candidateSha && f.candidateSha && f.candidateSha !== opts.candidateSha) {
-      errors.push(
-        `${prefix} (${id}): candidateSha ${f.candidateSha} != receipt ${opts.candidateSha}`,
-      );
-    }
-
-    if (!f.evidence || typeof f.evidence !== 'object') {
-      errors.push(`${prefix} (${id}): evidence required`);
-    } else {
-      const hasDigest = typeof f.evidence.digest === 'string' && f.evidence.digest.length >= 8;
-      const hasJob = typeof f.evidence.job === 'string' && f.evidence.job.length > 0;
-      if (!hasDigest && !hasJob) {
-        errors.push(`${prefix} (${id}): evidence.digest or evidence.job required`);
-      }
-    }
-
-    if (typeof f.status !== 'string' || !f.status) {
-      errors.push(`${prefix} (${id}): status required`);
-    }
+    validateFinding(f, i, context);
   }
 
-  // Exact set equality
+  reportMissingAndUnexpectedFindings(expectedSet, actualIds, errors);
+  reportCandidateShaSpread(manifest.findings, opts.candidateSha, errors);
+
+  return { ok: errors.length === 0, errors, expectedIds: expected, actualIds };
+}
+
+/**
+ * Validate one findings entry in the order the manifest reader reports it.
+ * @param {unknown} f
+ * @param {number} index
+ * @param {{ errors: string[], seen: Set<string>, actualIds: string[], candidateSha?: string }} context
+ */
+function validateFinding(f, index, context) {
+  const prefix = `findings[${index}]`;
+  if (!f || typeof f !== 'object') {
+    context.errors.push(`${prefix}: must be an object`);
+    return;
+  }
+
+  const id = validateFindingIdentity(f, prefix, context);
+  if (!id) return;
+
+  validateFindingOwnership(f, prefix, id, context.errors);
+  validateFindingVerifier(f, prefix, id, context.errors);
+  validateFindingProvenance(f, prefix, id, context);
+  validateFindingEvidence(f, prefix, id, context.errors);
+  if (typeof f.status !== 'string' || !f.status) {
+    context.errors.push(`${prefix} (${id}): status required`);
+  }
+}
+
+/**
+ * @param {object} f
+ * @param {string} prefix
+ * @param {{ errors: string[], seen: Set<string>, actualIds: string[] }} context
+ * @returns {string|null}
+ */
+function validateFindingIdentity(f, prefix, context) {
+  const { errors } = context;
+  const source = f.source;
+  const localId = f.localId;
+  if (typeof source !== 'string' || !source) {
+    errors.push(`${prefix}: source is required`);
+  }
+  if (typeof localId !== 'string' || !localId) {
+    errors.push(`${prefix}: localId is required`);
+  }
+  const id = f.id || (source && localId ? `${source}/${localId}` : null);
+  if (!id) {
+    errors.push(`${prefix}: id or source/localId required`);
+    return null;
+  }
+  if (context.seen.has(id)) {
+    errors.push(`${prefix}: duplicate id ${id}`);
+  }
+  context.seen.add(id);
+  context.actualIds.push(id);
+
+  if (source && localId && id !== `${source}/${localId}`) {
+    errors.push(`${prefix}: id ${id} must equal source/localId (${source}/${localId})`);
+  }
+  return id;
+}
+
+function validateFindingOwnership(f, prefix, id, errors) {
+  if (typeof f.ownerTask !== 'string' || !f.ownerTask.trim()) {
+    errors.push(`${prefix} (${id}): ownerTask required`);
+  }
+  if (typeof f.reproducer !== 'string' || !f.reproducer.trim()) {
+    errors.push(`${prefix} (${id}): reproducer required`);
+  }
+}
+
+function validateFindingVerifier(f, prefix, id, errors) {
+  if (!f.verifier || typeof f.verifier !== 'object') {
+    errors.push(`${prefix} (${id}): verifier object required`);
+    return;
+  }
+  if (typeof f.verifier.command !== 'string' || !f.verifier.command.trim()) {
+    errors.push(`${prefix} (${id}): verifier.command required`);
+  }
+  if (f.verifier.passed !== true) {
+    errors.push(`${prefix} (${id}): verifier.passed must be true`);
+  }
+  if (f.verifier.exitCode !== 0 && f.verifier.exitCode !== undefined) {
+    errors.push(`${prefix} (${id}): verifier.exitCode must be 0 when set`);
+  }
+}
+
+function validateFindingProvenance(f, prefix, id, { errors, candidateSha }) {
+  if (typeof f.candidateSha !== 'string' || !/^[0-9a-f]{7,40}$/i.test(f.candidateSha)) {
+    errors.push(`${prefix} (${id}): candidateSha must be a git sha`);
+  }
+  if (candidateSha && f.candidateSha && f.candidateSha !== candidateSha) {
+    errors.push(`${prefix} (${id}): candidateSha ${f.candidateSha} != receipt ${candidateSha}`);
+  }
+}
+
+function validateFindingEvidence(f, prefix, id, errors) {
+  if (!f.evidence || typeof f.evidence !== 'object') {
+    errors.push(`${prefix} (${id}): evidence required`);
+    return;
+  }
+  const hasDigest = typeof f.evidence.digest === 'string' && f.evidence.digest.length >= 8;
+  const hasJob = typeof f.evidence.job === 'string' && f.evidence.job.length > 0;
+  if (!hasDigest && !hasJob) {
+    errors.push(`${prefix} (${id}): evidence.digest or evidence.job required`);
+  }
+}
+
+function reportMissingAndUnexpectedFindings(expectedSet, actualIds, errors) {
   actualIds.sort();
   const actualSet = new Set(actualIds);
   for (const id of expectedSet) {
@@ -221,16 +266,14 @@ export function validateFindingsManifest(manifest, opts = {}) {
   for (const id of actualSet) {
     if (!expectedSet.has(id)) errors.push(`unexpected finding ${id}`);
   }
+}
 
-  // All entries must share the same candidateSha when receipt provides one
-  if (opts.candidateSha) {
-    const shas = new Set(manifest.findings.map((f) => f.candidateSha).filter(Boolean));
-    if (shas.size > 1) {
-      errors.push(`multiple candidateSha values in manifest: ${[...shas].join(', ')}`);
-    }
+function reportCandidateShaSpread(findings, candidateSha, errors) {
+  if (!candidateSha) return;
+  const shas = new Set(findings.map((f) => f.candidateSha).filter(Boolean));
+  if (shas.size > 1) {
+    errors.push(`multiple candidateSha values in manifest: ${[...shas].join(', ')}`);
   }
-
-  return { ok: errors.length === 0, errors, expectedIds: expected, actualIds };
 }
 
 export function sha256Text(text) {
