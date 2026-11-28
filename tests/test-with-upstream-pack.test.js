@@ -97,12 +97,16 @@ describe('test-with-upstream-pack CLI', () => {
       ['--worktree', worktree, '--test', spec],
       { ...process.env, PAY15B_MARKER: marker },
     );
-    assert.equal(r.status, 0, r.stderr);
-    const miRoot = readFileSync(marker, 'utf8');
-    assert.equal(git(worktree, ['rev-parse', 'HEAD']), head);
-    assert.equal(existsSync(join(miRoot, 'src', 'index.js')), true);
-    assert.equal(existsSync(join(miRoot, 'LICENSE')), true);
-    const stagingRoot = dirname(dirname(dirname(miRoot)));
-    rmSync(stagingRoot, { recursive: true, force: true });
+    let stagingRoot = null;
+    try {
+      assert.equal(r.status, 0, r.stderr);
+      const miRoot = readFileSync(marker, 'utf8');
+      assert.equal(git(worktree, ['rev-parse', 'HEAD']), head);
+      assert.equal(existsSync(join(miRoot, 'src', 'index.js')), true);
+      assert.equal(existsSync(join(miRoot, 'LICENSE')), true);
+      stagingRoot = dirname(dirname(dirname(miRoot)));
+    } finally {
+      if (stagingRoot) rmSync(stagingRoot, { recursive: true, force: true });
+    }
   });
 });
