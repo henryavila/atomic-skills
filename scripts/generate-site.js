@@ -192,6 +192,48 @@ export function findDistDrift(expected, distDir = DIST_DIR) {
  * @param {Map<string, string>} expected
  * @param {{ distDir?: string, dsCssSrc?: string }} [opts]
  */
+function assertSafeRelativePath(relPath) {
+  if (typeof relPath !== 'string' || relPath.length === 0) {
+    throw new Error('writeDist: empty relative path');
+  }
+  if (relPath.startsWith('/') || relPath.includes('\0')) {
+    throw new Error(`writeDist: invalid relative path "${relPath}"`);
+  }
+}
+
+function pathEscapesRoot(distRoot, full, relToRoot) {
+  return (
+    relToRoot.startsWith('..') ||
+    relToRoot.includes(`..${sep}`) ||
+    // Windows absolute outside root also fails relative() containment
+    resolve(full) !== full ||
+    (!full.startsWith(distRoot + sep) && full !== distRoot)
+  );
+}
+
+/** Validate one expected entry and return its absolute path under distRoot. */
+function resolveDistEntry(distRoot, relPath) {
+  assertSafeRelativePath(relPath);
+  const segments = relPath.split(/[/\\]/).filter((s) => s.length > 0);
+  if (segments.some((s) => s === '.' || s === '..')) {
+    throw new Error(`writeDist: path escapes dist via segment: "${relPath}"`);
+  }
+  const full = resolve(distRoot, ...segments);
+  const relToRoot = relative(distRoot, full);
+  if (pathEscapesRoot(distRoot, full, relToRoot)) {
+    throw new Error(`writeDist: path escapes distDir: "${relPath}" → ${full}`);
+  }
+  return full;
+}
+
+/** Prefer copy for ds.css identity with source tree when the source exists. */
+function copyDsCss(distDir, dsCssSrc) {
+  if (!existsSync(dsCssSrc)) return;
+  const dsDest = join(distDir, 'assets', 'ds.css');
+  mkdirSync(dirname(dsDest), { recursive: true });
+  copyFileSync(dsCssSrc, dsDest);
+}
+
 export function writeDist(expected, opts = {}) {
   const distDir = opts.distDir ?? DIST_DIR;
   const dsCssSrc = opts.dsCssSrc ?? DS_CSS_SRC;
@@ -204,37 +246,12 @@ export function writeDist(expected, opts = {}) {
 
   const distRoot = resolve(distDir);
   for (const [relPath, content] of expected) {
-    if (typeof relPath !== 'string' || relPath.length === 0) {
-      throw new Error('writeDist: empty relative path');
-    }
-    if (relPath.startsWith('/') || relPath.includes('\0')) {
-      throw new Error(`writeDist: invalid relative path "${relPath}"`);
-    }
-    const segments = relPath.split(/[/\\]/).filter((s) => s.length > 0);
-    if (segments.some((s) => s === '.' || s === '..')) {
-      throw new Error(`writeDist: path escapes dist via segment: "${relPath}"`);
-    }
-    const full = resolve(distRoot, ...segments);
-    const relToRoot = relative(distRoot, full);
-    if (
-      relToRoot.startsWith('..') ||
-      relToRoot.includes(`..${sep}`) ||
-      // Windows absolute outside root also fails relative() containment
-      resolve(full) !== full ||
-      !full.startsWith(distRoot + sep) && full !== distRoot
-    ) {
-      throw new Error(`writeDist: path escapes distDir: "${relPath}" → ${full}`);
-    }
+    const full = resolveDistEntry(distRoot, relPath);
     mkdirSync(dirname(full), { recursive: true });
     writeFileSync(full, content, 'utf8');
   }
 
-  // Prefer copy for ds.css identity with source tree when the source exists.
-  if (existsSync(dsCssSrc)) {
-    const dsDest = join(distDir, 'assets', 'ds.css');
-    mkdirSync(dirname(dsDest), { recursive: true });
-    copyFileSync(dsCssSrc, dsDest);
-  }
+  copyDsCss(distDir, dsCssSrc);
 }
 
 function main() {
