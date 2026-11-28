@@ -5,7 +5,4 @@ skills/shared/delegate-assets/delegate.py::cmd_review_pending	131
 skills/shared/delegate-assets/delegate.py::execute_run	291
 skills/shared/delegate-assets/delegate.py::main	159
 skills/shared/delegate-assets/delegate.py::remote_driver_script	139
-skills/shared/progress-assets/progress.py::build_panel	192
-skills/shared/progress-assets/progress.py::cmd_panel_install	266
-skills/shared/progress-assets/progress.py::cmd_panel_uninstall	91
 skills/shared/progress-assets/progress.py::validate_map	186

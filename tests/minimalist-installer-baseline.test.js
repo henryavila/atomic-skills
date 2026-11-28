@@ -74,7 +74,7 @@ describe('minimalist-installer baseline (F1/T-001)', () => {
     {
       skip: upstreamWorktreeAvailable
         ? false
-        : 'upstream worktree missing (../minimalist-installer-integrity-remediation)',
+        : 'upstream worktree missing (../minimalist-installer-integrity-remediation) (@henryavila 2026-11-27; runs when that worktree is checked out next to this repository)',
     },
     () => {
       // RED baseline is the published 0.1.0 tarball contents (vendored under fixtures),

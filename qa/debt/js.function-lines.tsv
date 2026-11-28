@@ -14,12 +14,6 @@ src/install.js::install	263
 src/install.js::installSkills	144
 src/installer-driver.js::createDriver	166
 src/installer-driver.js::createDriver>install	130
-src/recovery-cli.js::forceIncompleteUninstall	226
-src/recovery-cli.js::forceIncompleteUninstall><anonymous>	224
-src/recovery-cli.js::repairIncompleteInstall	125
-src/recovery-cli.js::repairIncompleteInstall><anonymous>	123
-src/resolve-review-model.js::parseModelArgs	102
-src/resolve-review-model.js::resolveReviewModel	166
 src/runtime-layers/effects/stage-runtime-artifacts.js::createStageRuntimeArtifactsEffect	84
 src/runtime-layers/grok-refcount.js::releaseGrokOutsideJournal	85
 src/runtime-observe.js::observeRuntimeRegistry	97

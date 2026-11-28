@@ -1,6 +1,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync, execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   chmodSync,
   existsSync,
@@ -17,7 +19,6 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   initGitRepo,
@@ -27,7 +28,7 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py runner', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -128,7 +129,7 @@ spec.loader.exec_module(d)
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (predicate()) return;
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await pause(50);
     }
     throw new Error(`${label} timed out after ${timeoutMs}ms`);
   }
@@ -380,19 +381,20 @@ spec.loader.exec_module(d)
       }
     }, 20000, 'running slot publication');
 
-    const exited = new Promise(resolve => bgProc.once('exit', (code, signal) => resolve({code, signal})));
+    const exited = once(bgProc, 'exit', { signal: AbortSignal.timeout(20000) })
+      .catch((error) => {
+        if (error.name === 'AbortError') throw new Error('background runner still alive');
+        throw error;
+      });
     const killUnknown = runDelegate(['kill', 'T-UNKNOWN-ID'], baseEnv);
     assert.equal(killUnknown.status, 1);
 
     const killRes = runDelegate(['kill', 'T-KILL-TARGET'], baseEnv);
     assert.equal(killRes.status, 0, killRes.stderr);
 
-    let timer;
     try {
-      const result = await Promise.race([exited, new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('background runner still alive')), 20000);
-      })]);
-      assert.ok(result.code !== null || result.signal !== null);
+      const [code, signal] = await exited;
+      assert.ok(code !== null || signal !== null);
       await waitFor(() => {
         try {
           readFileSync(slotPath);
@@ -402,7 +404,6 @@ spec.loader.exec_module(d)
         }
       }, 10000, 'killed runner slot removal');
     } finally {
-      clearTimeout(timer);
       if (bgProc.exitCode === null && bgProc.signalCode === null) bgProc.kill('SIGTERM');
     }
   });

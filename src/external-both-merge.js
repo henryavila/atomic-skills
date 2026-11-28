@@ -329,6 +329,7 @@ export function mergeExternalBothFindings(input = {}) {
  * @returns {ExternalProvider[]}
  */
 function uniqueProviders(list) {
+  /** @type {ExternalProvider[]} */
   const out = [];
   for (const p of list) {
     if (!out.includes(p)) out.push(p);

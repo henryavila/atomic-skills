@@ -193,7 +193,7 @@ export function renderLandingPage({ product, skills, pkgVersion, includeProject 
 
 /**
  * Skills index listing all catalog skills.
- * @param {{ skills: ReturnType<typeof collectSkills>, includeProject?: boolean }} opts
+ * @param {{ skills: Array<{ key: string, entry: object, modulePath?: string|null }>, includeProject?: boolean }} opts
  */
 export function renderSkillsIndex({ skills, includeProject = false }) {
   // includeProject controls Project nav entry (only when guide page is emitted).

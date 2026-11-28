@@ -82,6 +82,7 @@ function compareFindingId(a, b) {
  * @returns {{ expectedIds: string[], bySource: Record<string, string[]> }}
  */
 export function extractExpectedFindingIds(sources = DEFAULT_SOURCES) {
+  /** @type {Record<string, string[]>} */
   const bySource = {};
   const expectedIds = [];
 
@@ -111,7 +112,12 @@ export function extractExpectedFindingIds(sources = DEFAULT_SOURCES) {
  * @param {object} [opts]
  * @param {string[]} [opts.expectedIds]
  * @param {string} [opts.candidateSha]
- * @returns {{ ok: boolean, errors: string[] }}
+ * @returns {{
+ *   ok: boolean,
+ *   errors: string[],
+ *   expectedIds?: string[],
+ *   actualIds?: string[],
+ * }} expectedIds/actualIds are only computed when the manifest shape is usable.
  */
 export function validateFindingsManifest(manifest, opts = {}) {
   const errors = [];
@@ -277,7 +283,7 @@ if (isMain) {
       process.exit(1);
     }
     console.log(
-      `Findings manifest OK: ${report.actualIds.length} source-qualified IDs; `
+      `Findings manifest OK: ${report.actualIds?.length} source-qualified IDs; `
       + `candidateSha=${candidateSha}`,
     );
   } catch (err) {

@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   initGitRepo,
@@ -27,7 +26,12 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+// What Antigravity prints on stderr when print mode denied a tool it could not ask about.
+const AGY_DENIED = 'jetski: no output produced — a tool required the "command" permission that headless mode '
+  + 'cannot prompt for, so it was auto-denied. Add an allow-rule under permissions.allow in settings.json '
+  + '(e.g. command(<target>)).\n';
+
+describe('delegate.py runner', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -244,6 +248,9 @@ spec.loader.exec_module(d)
     ['codex text with empty stdout', 'codex-review', { FAKE_STDOUT: '' }, 'none'],
     ['error before empty', 'agy-review', { FAKE_EXIT: '1', FAKE_STDOUT: '' }, 'error'],
     ['write before empty', 'agy-review', { FAKE_TOUCH_FILE: 'README.md', FAKE_STDOUT: '' }, 'review_wrote'],
+    ['agy empty after an auto-denied permission', 'agy-review', { FAKE_STDOUT: '', FAKE_STDERR: AGY_DENIED }, 'permission_denied'],
+    ['agy text despite an auto-denied permission', 'agy-review', { FAKE_STDERR: AGY_DENIED }, 'none'],
+    ['codex empty with the agy permission line', 'codex-review', { FAKE_LAST_MESSAGE: undefined, FAKE_STDERR: AGY_DENIED }, 'empty_output'],
   ]) {
     it(`review ${label} records ${failure}`, () => {
       if (label === 'codex stale last message') {
@@ -261,8 +268,18 @@ spec.loader.exec_module(d)
       assert.equal(rec.failure, failure);
       assert.ok(rec.duration_s < 60);
       assert.equal(rec.uncommitted, false);
+      if (failure === 'permission_denied') assert.equal(rec.denied_permission, 'command');
     });
   }
+  it('a pipeline moves to the next reviewer after an Antigravity permission_denied', () => {
+    const res = runDelegate(pipelineArgs(['--review-route', 'agy-review,codex-review']), steps([
+      { FAKE_COMMIT_FILE: 'feature' }, { FAKE_STDOUT: '', FAKE_STDERR: AGY_DENIED }, {}]));
+    assert.equal(res.status, 0, res.stderr);
+    const records = readLogRecords(atomicHome);
+    assert.deepEqual(records.filter(r => r.role === 'review').map(r => [r.executor, r.failure]),
+      [['agy', 'permission_denied'], ['codex', 'none']]);
+    assert.equal(records.at(-1).outcome, 'reviewed');
+  });
 
   // AS-D6: Flash is a reviewer. `--role review --profile flash` (and its alias)
   // resolves to `flash-review`; a raw OpenCode Flash review also runs.
@@ -286,7 +303,9 @@ spec.loader.exec_module(d)
         '--archived',
         '-m',
         'opencode-go/deepseek-v4.1-flash',
-        readFileSync(cardPath, 'utf8'),
+        // Every review prompt ends with the severity rubric.
+        readFileSync(cardPath, 'utf8') + '\n'
+          + readFileSync(join(REPO_ROOT, 'skills/shared/delegate-assets/severity-rubric.md'), 'utf8'),
       ]);
       const [rec] = readLogRecords(atomicHome);
       assert.equal(rec.role, 'review');
@@ -308,11 +327,119 @@ spec.loader.exec_module(d)
       ], baseEnv);
       assert.equal(res.status, 2, res.stderr);
       assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
-      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash; use codex or agy for another model/);
+      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash and opencode-go\/muse-spark-1\.3-contributor; use codex or agy for another model/);
       assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
       assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
     });
   }
+
+  // Muse Spark is the second OpenCode model: the executor during DeepSeek peak
+  // hours and a reviewer of DeepSeek work.
+  for (const [label, args, expectedRole] of [
+    ['--role implement --profile muse', ['--role', 'implement', '--profile', 'muse'], 'implement'],
+    ['--role review --profile muse', ['--role', 'review', '--profile', 'muse'], 'review'],
+    ['--role review --profile muse-review', ['--role', 'review', '--profile', 'muse-review'], 'review'],
+  ]) {
+    it(`run ${label} launches OpenCode with the Muse Spark model`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-MUSE', '--task', label,
+        ...args,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], baseEnv);
+      assert.equal(res.status, 0, res.stderr);
+      const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
+      assert.equal(argv[argv.indexOf('-m') + 1], 'opencode-go/muse-spark-1.3-contributor');
+      const [rec] = readLogRecords(atomicHome);
+      assert.equal(rec.role, expectedRole);
+      assert.equal(rec.executor, 'opencode');
+      assert.equal(rec.model, 'opencode-go/muse-spark-1.3-contributor');
+      assert.equal(rec.family, 'meta');
+      assert.equal(rec.failure, 'none');
+    });
+  }
+
+  for (const profile of ['flash', 'flash-review']) {
+    it(`DELEGATE_OPENCODE_MODEL cannot point ${profile} at Muse Spark`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-ENV-MUSE', '--task', 'environment model override',
+        '--role', profile === 'flash' ? 'implement' : 'review', '--profile', profile,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: 'opencode-go/muse-spark-1.3-contributor' });
+      assert.equal(res.status, 2, res.stderr);
+      assert.match(res.stderr, /OpenCode runs only/);
+      assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+      assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
+    });
+  }
+
+  for (const override of ['opencode-go/muse-spark-1.3-contributor', 'opencode-go/hy4']) {
+    it(`DELEGATE_OPENCODE_MODEL=${override} leaves the muse profile on its own model`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-ENV-MUSE-OK', '--task', 'environment model override',
+        '--role', 'implement', '--profile', 'muse',
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: override });
+      assert.equal(res.status, 0, res.stderr);
+      const argv = JSON.parse(readFileSync(argvFile, 'utf8'));
+      assert.equal(argv[argv.indexOf('-m') + 1], 'opencode-go/muse-spark-1.3-contributor');
+    });
+  }
+
+  // The reviewer is never of the family that wrote the code, in a standalone run too.
+  for (const [label, args] of [
+    ['muse-review of meta work', ['--profile', 'muse-review', '--author-family', 'meta']],
+    ['muse of meta work', ['--profile', 'muse', '--author-family', 'meta']],
+    ['flash-review of deepseek work', ['--profile', 'flash-review', '--author-family', 'deepseek']],
+    ['raw opencode Muse of meta work',
+      ['--executor', 'opencode', '--model', 'opencode-go/muse-spark-1.3-contributor', '--author-family', 'meta']],
+    ['codex-review of openai work', ['--profile', 'codex-review', '--author-family', 'openai']],
+  ]) {
+    it(`run --role review refuses ${label} before launch`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-SAME-FAMILY', '--task', label, '--role', 'review', ...args,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], baseEnv);
+      assert.equal(res.status, 2, res.stderr);
+      assert.match(res.stderr, /the reviewer is never of the family that wrote the code/);
+      assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+      assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
+    });
+  }
+
+  for (const [label, model, family] of [
+    ['raw Muse of meta work', 'opencode-go/muse-spark-1.3-contributor', 'meta'],
+    ['raw Flash of deepseek work', 'opencode-go/deepseek-v4.1-flash', 'deepseek'],
+  ]) {
+    it(`run --role review refuses ${label} under a Muse DELEGATE_OPENCODE_MODEL`, () => {
+      const res = runDelegate([
+        'run', '--id', 'T-SAME-FAMILY-ENV', '--task', label, '--role', 'review',
+        '--executor', 'opencode', '--model', model, '--author-family', family,
+        '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+      ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: 'opencode-go/muse-spark-1.3-contributor' });
+      assert.equal(res.status, 2, res.stderr);
+      assert.match(res.stderr, /the reviewer is never of the family that wrote the code/);
+      assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+    });
+  }
+
+  it('run --role review --profile muse-review accepts deepseek work', () => {
+    const res = runDelegate([
+      'run', '--id', 'T-MUSE-DEEPSEEK', '--task', 'muse reviews deepseek', '--role', 'review',
+      '--profile', 'muse-review', '--author-family', 'deepseek',
+      '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+    ], baseEnv);
+    assert.equal(res.status, 0, res.stderr);
+  });
+
+  it('run with raw opencode kimi-k3 is refused before launch', () => {
+    const res = runDelegate([
+      'run', '--id', 'T-REFUSED-KIMI', '--task', 'refused',
+      '--role', 'implement', '--executor', 'opencode', '--model', 'opencode-go/kimi-k3',
+      '--cwd', repoDir, '--card', cardPath, '--out', outDir, '--confirmed',
+    ], baseEnv);
+    assert.equal(res.status, 2, res.stderr);
+    assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
+  });
 
   for (const role of ['implement', 'review']) {
     it(`DELEGATE_OPENCODE_MODEL cannot select another OpenCode model for ${role}`, () => {
@@ -323,7 +450,7 @@ spec.loader.exec_module(d)
       ], { ...baseEnv, DELEGATE_OPENCODE_MODEL: 'opencode-go/hy4' });
       assert.equal(res.status, 2, res.stderr);
       assert.equal(res.stderr.trim().split('\n').length, 1, res.stderr);
-      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash; use codex or agy/);
+      assert.match(res.stderr, /OpenCode runs only opencode-go\/deepseek-v4\.1-flash and opencode-go\/muse-spark-1\.3-contributor; use codex or agy/);
       assert.throws(() => readFileSync(argvFile), { code: 'ENOENT' });
       assert.throws(() => readFileSync(join(atomicHome, 'delegate', 'runs.jsonl')), { code: 'ENOENT' });
     });

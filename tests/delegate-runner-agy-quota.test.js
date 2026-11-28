@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   git,
-  hasPython3,
   initGitRepo,
   makeFakeBin,
   readLogRecords,
@@ -43,7 +42,7 @@ function quota({ gemini = 1, geminiReset = '1970-01-01T00:00:00Z', fiveHour = 1,
   });
 }
 
-describe('delegate.py Antigravity quota groups', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py Antigravity quota groups', () => {
   let root;
   let atomicHome;
   let repoDir;
@@ -141,7 +140,8 @@ describe('delegate.py Antigravity quota groups', { skip: !hasPython3 ? 'python3 
     assert.deepEqual(out.route, ['flash', 'codex', 'agy-argon']);
     assert.deepEqual(route({}, ['--open-design']).route, ['codex', 'agy-argon', 'agy']);
     assert.deepEqual(out.review_routes, {
-      deepseek: ['codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review'],
+      deepseek: ['muse-review', 'codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review'],
+      meta: ['codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review', 'flash-review'],
       openai: ['flash-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review'],
       gemini: ['codex-review', 'flash-review', 'agy-sonnet-review'],
     });
@@ -202,7 +202,7 @@ describe('delegate.py Antigravity quota groups', { skip: !hasPython3 ? 'python3 
     assert.equal(out.profiles['agy-argon'].cooling_until, null);
     assert.equal(out.profiles['agy-sonnet-review'].cooling_until, null);
     assert.deepEqual(out.review_routes.deepseek,
-      ['codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review']);
+      ['muse-review', 'codex-review', 'agy-sonnet-review', 'agy-argon-review', 'agy-review']);
     assert.equal(out.quota.gemini.remaining, 0);
     assert.equal(out.quota['claude-gpt'].remaining, 1);
   });

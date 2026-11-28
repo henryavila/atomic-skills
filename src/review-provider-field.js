@@ -18,6 +18,7 @@ export const PROVIDER_ENUM = Object.freeze(
   /** @type {const} */ (['codex', 'grok', 'claude', 'agy', 'local']),
 );
 
+/** @type {Set<string>} */
 const PROVIDER_SET = new Set(PROVIDER_ENUM);
 
 /**

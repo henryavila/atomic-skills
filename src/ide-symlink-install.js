@@ -398,6 +398,7 @@ export function instructionLocation(basePath, state) {
     carriesOwnedBlock = start >= 0 && (start === 0 || bytes[start - 1] === 10);
   }
   if (!isAbsolute(storedBase) || ((canonicalStored !== livePath || relocated) && !carriesOwnedBlock)) {
+    /** @type {Error & { globalInstructionPath?: string, code?: string }} */
     const err = new Error(`Destination changed for "${state.path}"; journaled file ${stored}`);
     err.globalInstructionPath = state.path;
     err.code = 'GLOBAL_INSTRUCTIONS_REFUSED';
@@ -498,7 +499,7 @@ function wrapTextBlock(registry) {
  * Mutate reconcileFileSet, jsonMerge and global instruction textBlock on this installer registry so IDE-root
  * symlinks are installed at their final directory. Same journal paths as a
  * real directory (`.grok/...`), so status and uninstall stay on the logical path.
- * @param {{ get: (type: string) => { apply?: Function, revert?: Function } | undefined }} registry
+ * @param {{ get: (type: string) => { apply?: Function, revert?: Function, ideSymlinkWrapped?: boolean, preparePlan?: Function } | undefined }} registry
  */
 export function wrapInstallerRegistryForIdeSymlinks(registry) {
   wrapTextBlock(registry);
