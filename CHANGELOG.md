@@ -9,7 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `delegate`: Muse Spark implements during DeepSeek peak hours and is the first reviewer of Flash work.
+- **Delegate uses Muse Spark.** It implements during DeepSeek peak hours and is
+  the first reviewer of Flash work. `profiles` warns that its provider trains
+  on request data.
+- **Delegate computes the severity of each finding.** The reviewer answers six
+  closed questions and the runner decides `major`, `medium` or `minor`, so
+  every model classifies the same way.
+- **`--diff-exclude` for reviews.** Leaves lockfiles and generated files out of
+  the diff a reviewer receives.
+
+### Changed
+
+- **Delegate no longer loops on reviews.** One review per task, and at most one
+  fix round, opened only by a `major`. What stays open is recorded and shown.
+- The pipeline writes its own verdict record.
+
+### Fixed
+
+- An Antigravity run stopped by a denied permission is recorded as such.
 
 ## [2.3.1] - 2026-11-24
 
