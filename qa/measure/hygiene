@@ -1,0 +1,410 @@
+#!/usr/bin/env node
+/**
+ * Suppression comments and secrets, stacks `js`, `py` and `sh`, metrics
+ * `suppressions` and `secrets`.
+ *
+ * Contract (see the comment block at the top of scripts/qa.sh):
+ *   --describe  prints mode/changed/covers lines; exit 0
+ *   (nothing)   measures every stack root in qa/stacks.tsv
+ *   --files F.. measures only the listed files, paths from the repository root
+ *   stdout      one line per item above its ceiling, nothing else
+ *   exit 0      measured (even with items); 3 tool not installed
+ *
+ * Suppressions are counted in comments for JavaScript (espree) and Python
+ * (tokenize). In shell files every segment that starts at a `#` is counted on
+ * its own, whether or not a tokenizer would call it a comment: a directive
+ * inside a string or a here-document is still a suppression a person can see.
+ * Secrets are counted wherever they appear, because a real credential in a
+ * string is still a credential.
+ */
+
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { SECRETS, SUPPRESSIONS } from './lib/hygiene-patterns.mjs';
+import { parseJavaScript } from './lib/js-source.mjs';
+import { isShellSource } from './lib/shellfiles.mjs';
+
+const METRICS = ['suppressions', 'secrets'];
+const STACKS = ['js', 'py', 'sh'];
+
+const DESCRIBE = [
+  'mode\tfast',
+  'changed\tyes',
+  ...STACKS.flatMap((stack) => METRICS.map((metric) => `covers\t${stack}\t${metric}`)),
+].join('\n');
+
+function fail(message) {
+  process.stderr.write(`hygiene: ${message}\n`);
+  process.exit(1);
+}
+
+function toolMissing(message) {
+  process.stderr.write(`hygiene: ${message}\n`);
+  process.exit(3);
+}
+
+function repositoryRoot() {
+  if (process.env.QA_ROOT) return resolve(process.env.QA_ROOT);
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch {
+    fail('not inside a git repository and QA_ROOT is not set');
+  }
+}
+
+function readCeilings(root) {
+  const path = join(root, 'qa', 'ceilings.tsv');
+  let body;
+  try {
+    body = readFileSync(path, 'utf8');
+  } catch {
+    fail(`cannot read ${path}`);
+  }
+  const ceilings = {};
+  for (const [number, line] of body.split(/\r?\n/).entries()) {
+    if (!line.trim() || line.startsWith('#') || number === 0) continue;
+    const [metric, ceiling] = line.split('\t');
+    if (!METRICS.includes(metric)) continue;
+    const value = Number(ceiling);
+    if (!Number.isFinite(value)) fail(`${path}:${number + 1}: not a number: ${ceiling}`);
+    ceilings[metric] = value;
+  }
+  for (const metric of METRICS) {
+    if (!(metric in ceilings)) fail(`${path}: no ceiling for ${metric}`);
+  }
+  return ceilings;
+}
+
+function readStacks(root) {
+  const path = join(root, 'qa', 'stacks.tsv');
+  let body;
+  try {
+    body = readFileSync(path, 'utf8');
+  } catch {
+    fail(`cannot read ${path}`);
+  }
+  const stacks = [];
+  for (const [number, line] of body.split(/\r?\n/).entries()) {
+    if (!line.trim() || line.startsWith('#')) continue;
+    const columns = line.split('\t');
+    if (number === 0 && columns[0] === 'stack') continue;
+    const [stack, language, roots = '', generated = ''] = columns;
+    if (!STACKS.includes(stack)) continue;
+    stacks.push({
+      stack,
+      language,
+      roots: roots.split(',').map((item) => item.trim()).filter((item) => item && item !== '-'),
+      generated: generated.split(',').map((item) => item.trim()).filter((item) => item && item !== '-'),
+    });
+  }
+  return stacks;
+}
+
+function relativeKey(root, file) {
+  return relative(root, file).split(sep).join('/');
+}
+
+function generated(key, prefixes) {
+  return prefixes.some((prefix) => key.startsWith(`${prefix.replace(/\/+$/, '')}/`));
+}
+
+function generatedHusky(key) {
+  return key === '.husky/_' || key.startsWith('.husky/_/');
+}
+
+function gitWorkTree(root) {
+  try {
+    const output = execFileSync('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return output.trim() === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function trackedShellFiles(root, roots) {
+  try {
+    const output = execFileSync(
+      'git',
+      ['-C', root, 'ls-files', '-z', '--', '.husky', ...roots],
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    );
+    return output.split('\0').filter(Boolean);
+  } catch (error) {
+    fail(`cannot list tracked shell files: ${error.message}`);
+  }
+}
+
+function included(stack, key, name, shellRoots) {
+  if (stack === 'js') return name.endsWith('.js') || name.endsWith('.mjs');
+  if (stack === 'py') return name.endsWith('.py');
+  if (stack === 'sh') return isShellSource(key, shellRoots);
+  return false;
+}
+
+function walk(directory, found, optional = false) {
+  let entries;
+  try {
+    entries = readdirSync(directory, { withFileTypes: true });
+  } catch (error) {
+    if (optional && error.code === 'ENOENT') return;
+    fail(`cannot read ${directory}: ${error.message}`);
+  }
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === '.git') continue;
+      walk(path, found);
+    } else if (entry.isFile()) {
+      found.push(path);
+    }
+  }
+}
+
+function collect(root, stacks) {
+  const files = new Map();
+  const shellRoots = [...new Set(
+    stacks.filter((entry) => entry.stack === 'sh').flatMap((entry) => entry.roots),
+  )];
+  const trackedShell = shellRoots.length > 0 && gitWorkTree(root)
+    ? trackedShellFiles(root, shellRoots)
+    : null;
+
+  for (const entry of stacks) {
+    for (const name of entry.roots) {
+      if (entry.stack === 'sh' && trackedShell) {
+        for (const key of trackedShell) {
+          if (generatedHusky(key)) continue;
+          if (!included(entry.stack, key, key, shellRoots)) continue;
+          if (!(key === name || key.startsWith(`${name}/`) || key.startsWith('.husky/'))) continue;
+          if (generated(key, entry.generated)) continue;
+          if (!files.has(key)) files.set(key, entry.stack);
+        }
+        continue;
+      }
+
+      const found = [];
+      walk(join(root, name), found, true);
+      for (const file of found) {
+        const key = relativeKey(root, file);
+        if (entry.stack === 'sh' && generatedHusky(key)) continue;
+        if (generated(key, entry.generated)) continue;
+        if (!included(entry.stack, key, file, shellRoots)) continue;
+        if (!files.has(key)) files.set(key, entry.stack);
+      }
+    }
+  }
+  return files;
+}
+
+/**
+ * Shell suppression texts: every segment of every line that starts at a `#`
+ * and runs to the next `#` or the end of the line. A tokenizer cannot be the
+ * judge here, because a real directive can sit after an escaped hash, inside a
+ * multi-line quote, or after an arithmetic command substitution; counting it
+ * anyway reports more, never less. Cutting at every `#` keeps a second marker
+ * on the same line from hiding behind the first one.
+ */
+function shellSuppressionTexts(source) {
+  const texts = [];
+  for (const line of source.split(/\r?\n/)) {
+    const parts = line.split('#');
+    for (let index = 1; index < parts.length; index += 1) {
+      texts.push(`#${parts[index]}`);
+    }
+  }
+  return texts;
+}
+
+/**
+ * A ShellCheck directive is one suppression, whatever whitespace separates
+ * `#`, `shellcheck` and the directive list. ShellCheck 0.11.0 accepts two
+ * spaces and a tab there; a literal `shellcheck disable` needle misses both.
+ * Only a directive that disables checks or overrides `source=` / `shell=`
+ * counts: `enable=` alone is not a suppression. A marker is judged as a whole
+ * segment, so two directives on one line are two suppressions and one
+ * directive with a repeated token is still one.
+ */
+const SHELLCHECK_DIRECTIVE = /^#[ \t]*shellcheck[ \t]+\S/;
+const SHELLCHECK_SUPPRESSION = /[ \t](?:disable|source|shell)=/;
+
+function countShellSuppressions(texts) {
+  let total = 0;
+  for (const text of texts) {
+    if (SHELLCHECK_DIRECTIVE.test(text)) {
+      if (SHELLCHECK_SUPPRESSION.test(text)) total += 1;
+    } else {
+      total += countOccurrences([text], SUPPRESSIONS);
+    }
+  }
+  return total;
+}
+
+const PYTHON_COMMENTS = String.raw`
+import json
+import sys
+import tokenize
+
+result = {}
+for path in sys.argv[1:]:
+    try:
+        with tokenize.open(path) as source:
+            result[path] = [
+                token.string
+                for token in tokenize.generate_tokens(source.readline)
+                if token.type == tokenize.COMMENT
+            ]
+    except (OSError, SyntaxError, tokenize.TokenError, UnicodeDecodeError) as error:
+        print(f"{path}: {error}", file=sys.stderr)
+        sys.exit(1)
+json.dump(result, sys.stdout)
+`;
+
+function pythonComments(root, keys) {
+  const paths = keys.map((key) => join(root, key));
+  const result = spawnSync('python3', ['-c', PYTHON_COMMENTS, ...paths], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.error) {
+    if (result.error.code === 'ENOENT') toolMissing('python3 is not installed');
+    fail(`cannot run python3 to read comments: ${result.error.message}`);
+  }
+  if (result.signal) fail(`python3 was terminated by ${result.signal}`);
+  if (result.status !== 0) {
+    fail(`python3 could not tokenize comments: ${result.stderr.trim() || result.stdout.trim()}`);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch (error) {
+    fail(`python3 printed invalid comment data: ${error.message}`);
+  }
+  return parsed;
+}
+
+function loadEspree() {
+  try {
+    const require = createRequire(import.meta.url);
+    return require('espree');
+  } catch (error) {
+    return toolMissing(`espree is not installed: ${error.message}`);
+  }
+}
+
+function jsComments(espree, source, file) {
+  let ast;
+  try {
+    ast = parseJavaScript(espree, source, { comment: true });
+  } catch (error) {
+    fail(`${file}: cannot parse as a module or a script: ${error.message}`);
+  }
+  return (ast.comments || []).map((comment) => comment.value);
+}
+
+/**
+ * Count directive occurrences without counting one directive twice when two
+ * patterns overlap (for example `noqa` and `ruff: noqa`).
+ */
+function countOccurrences(texts, needles) {
+  let total = 0;
+  for (const text of texts) {
+    const ranges = [];
+    for (const needle of needles) {
+      let index = text.indexOf(needle);
+      while (index !== -1) {
+        ranges.push([index, index + needle.length]);
+        index = text.indexOf(needle, index + needle.length);
+      }
+    }
+    ranges.sort((left, right) => left[0] - right[0]);
+    let cursor = -1;
+    for (const [start, end] of ranges) {
+      if (start < cursor) continue;
+      total += 1;
+      cursor = end;
+    }
+  }
+  return total;
+}
+
+function countSecrets(source) {
+  let total = 0;
+  for (const pattern of SECRETS) {
+    const regex = new RegExp(pattern.source, pattern.flags);
+    const found = source.match(regex);
+    if (found) total += found.length;
+  }
+  return total;
+}
+
+function measure(root, files) {
+  const ceilings = readCeilings(root);
+  const stacks = readStacks(root);
+  const all = collect(root, stacks);
+  const known = files === null
+    ? all
+    : new Map([...all].filter(([key]) => files.has(key)));
+  if (known.size === 0) return [];
+
+  const espree = loadEspree();
+  const pythonKeys = [...known].filter(([, stack]) => stack === 'py').map(([key]) => key);
+  const python = pythonKeys.length > 0 ? pythonComments(root, pythonKeys) : {};
+  const items = [];
+  for (const [key, stack] of known) {
+    let source;
+    try {
+      source = readFileSync(join(root, key), 'utf8');
+    } catch (error) {
+      fail(`cannot read ${key}: ${error.message}`);
+    }
+    let comments;
+    if (stack === 'js') comments = jsComments(espree, source, key);
+    else if (stack === 'py') comments = python[join(root, key)] || [];
+    else comments = shellSuppressionTexts(source);
+    const values = {
+      suppressions: stack === 'sh'
+        ? countShellSuppressions(comments)
+        : countOccurrences(comments, SUPPRESSIONS),
+      secrets: countSecrets(source),
+    };
+    for (const metric of METRICS) {
+      const value = values[metric];
+      if (value > ceilings[metric]) items.push([stack, metric, `${key}::*`, value]);
+    }
+  }
+  return items;
+}
+
+function normalize(root, files) {
+  const keys = new Set();
+  for (const file of files) {
+    const absolute = resolve(root, file);
+    const key = relativeKey(root, absolute);
+    if (key.startsWith('..') || isAbsolute(key)) continue;
+    keys.add(key);
+  }
+  return keys;
+}
+
+function print(items) {
+  const lines = items.map((item) => item.join('\t')).sort();
+  if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === '--describe') {
+  process.stdout.write(`${DESCRIBE}\n`);
+} else if (args.length > 0 && args[0] === '--files') {
+  const root = repositoryRoot();
+  print(measure(root, normalize(root, args.slice(1))));
+} else if (args.length > 0) {
+  process.stderr.write('usage: hygiene [--describe | --files <path>...]\n');
+  process.exit(1);
+} else {
+  print(measure(repositoryRoot(), null));
+}

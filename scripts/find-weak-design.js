@@ -64,48 +64,69 @@ function sectionBody(sections, re) {
 }
 
 /**
+ * Body of each design section the quality bars inspect.
+ * @param {ReturnType<typeof parseSections>} sections
+ */
+function readDesignBodies(sections) {
+  return {
+    interview: sectionBody(sections, /\binterview\b/),
+    context: sectionBody(sections, /\bcontext\b/),
+    'non-goals': sectionBody(sections, /non[-\s]+goals?/),
+    decisions: sectionBody(sections, /\bdecisions?\b/),
+  };
+}
+
+function findInterviewIssue(interview) {
+  if (!interview || interview.replace(/\s+/g, '').length < MIN_INTERVIEW_LENGTH) {
+    return {
+      field: 'interview',
+      reason: `too-short(<${MIN_INTERVIEW_LENGTH})`,
+    };
+  }
+  if (SOFT_LANGUAGE_RE.test(interview)) {
+    return { field: 'interview', reason: 'soft-language' };
+  }
+  return null;
+}
+
+function collectSoftLanguageIssues(bodies, issues) {
+  for (const field of ['context', 'non-goals', 'decisions']) {
+    const body = bodies[field];
+    if (body && SOFT_LANGUAGE_RE.test(body)) {
+      issues.push({ field, reason: 'soft-language' });
+    }
+  }
+}
+
+function isEchoOf(nonGoals, context) {
+  const n = normalizeForEcho(nonGoals);
+  const c = normalizeForEcho(context);
+  if (!n || !c) return false;
+  return n === c || c.includes(n) || n.includes(c);
+}
+
+function collectNonGoalsEchoIssue(bodies, issues) {
+  const nonGoals = bodies['non-goals'];
+  if (nonGoals && bodies.context && isEchoOf(nonGoals, bodies.context)) {
+    issues.push({ field: 'non-goals', reason: 'echo-of-context' });
+  }
+}
+
+/**
  * Quality issues for design.md content.
  * @param {string} markdown
  * @returns {Array<{ field: string, reason: string }>}
  */
 export function weakDesignIssues(markdown) {
-  const issues = [];
   if (typeof markdown !== 'string' || markdown.trim() === '') {
     return [{ field: 'design', reason: 'empty' }];
   }
-  const sections = parseSections(markdown);
-  const interview = sectionBody(sections, /\binterview\b/);
-  const context = sectionBody(sections, /\bcontext\b/);
-  const nonGoals = sectionBody(sections, /non[-\s]+goals?/);
-  const decisions = sectionBody(sections, /\bdecisions?\b/);
-
-  if (!interview || interview.replace(/\s+/g, '').length < MIN_INTERVIEW_LENGTH) {
-    issues.push({
-      field: 'interview',
-      reason: `too-short(<${MIN_INTERVIEW_LENGTH})`,
-    });
-  } else if (SOFT_LANGUAGE_RE.test(interview)) {
-    issues.push({ field: 'interview', reason: 'soft-language' });
-  }
-
-  for (const [field, body] of [
-    ['context', context],
-    ['non-goals', nonGoals],
-    ['decisions', decisions],
-  ]) {
-    if (body && SOFT_LANGUAGE_RE.test(body)) {
-      issues.push({ field, reason: 'soft-language' });
-    }
-  }
-
-  if (nonGoals && context) {
-    const n = normalizeForEcho(nonGoals);
-    const c = normalizeForEcho(context);
-    if (n && c && (n === c || c.includes(n) || n.includes(c))) {
-      issues.push({ field: 'non-goals', reason: 'echo-of-context' });
-    }
-  }
-
+  const bodies = readDesignBodies(parseSections(markdown));
+  const issues = [];
+  const interviewIssue = findInterviewIssue(bodies.interview);
+  if (interviewIssue) issues.push(interviewIssue);
+  collectSoftLanguageIssues(bodies, issues);
+  collectNonGoalsEchoIssue(bodies, issues);
   return issues;
 }
 

@@ -33,6 +33,7 @@
     "generate-docs": "node scripts/generate-readme.js && node scripts/generate-skill-docs.js && node scripts/generate-catalog-json.js && node scripts/generate-site.js",
     "check-docs": "node scripts/generate-readme.js --check && node scripts/generate-skill-docs.js --check && node scripts/generate-catalog-json.js --check && node scripts/generate-site.js --check",
     "validate-catalog": "npm run validate-skills && npm run check-docs",
+    "qa": "bash scripts/qa.sh",
     "prepare": "husky && git config core.hooksPath .husky"
   },
   "keywords": [
@@ -66,8 +67,12 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
+    "c8": "12.0.0",
+    "eslint": "9.39.1",
     "husky": "^9.1.7",
-    "typescript": "^5.6.0"
+    "jscpd": "4.0.5",
+    "madge": "8.0.0",
+    "typescript": "5.9.3"
   },
   "engines": {
     "node": "^22.18.0 || >=24.11.0"

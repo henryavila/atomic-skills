@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync, execFileSync, spawn } from 'node:child_process';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   chmodSync,
   existsSync,
@@ -17,7 +18,6 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   bundleBlobText,
@@ -28,7 +28,7 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py remote host', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -114,7 +114,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (predicate()) return;
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await pause(50);
     }
     throw new Error(`${label} timed out after ${timeoutMs}ms`);
   }
@@ -125,6 +125,33 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   }
+
+  function pythonHarness(code) {
+    const script = `import importlib.util, sys
+spec = importlib.util.spec_from_file_location('delegate', sys.argv[1])
+d = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(d)
+${code}`;
+    return spawnSync(PYTHON3, ['-B', '-c', script, DELEGATE_PY], {
+      env: { ...process.env, ...baseEnv },
+      encoding: 'utf8',
+      timeout: 60000,
+    });
+  }
+
+  it('names the remote base placeholder without a token-like constant or a /tmp root', () => {
+    const res = pythonHarness(`
+print(d.REMOTE_BASE_PLACEHOLDER)
+print(d.REMOTE_POLICY_ROOT)
+print(hasattr(d, 'REMOTE_TOKEN'))
+`);
+    assert.equal(res.status, 0, res.stderr);
+    assert.deepEqual(res.stdout.trim().split('\n'), [
+      '__DELEGATE_REMOTE_BASE__',
+      '/__DELEGATE_REMOTE_BASE__',
+      'False',
+    ]);
+  });
 
   it('a local run keeps the old argv and record shape without remote fields', () => {
     const res = runDelegate(['run', '--id', 'LOCAL', '--task', 'local', '--role', 'implement',

@@ -152,3 +152,90 @@ describe('F6 release host probes', () => {
     assert.equal(receipt.ok, true);
   });
 });
+
+describe('checkReceiptAgainstManifest error table', () => {
+  const doc = {
+    schemaVersion: '1',
+    hosts: [
+      { id: 'a', supportTier: 'layout-only', supportDeclared: false, justification: 'layout only host' },
+      { id: 'b', supportTier: 'operational', supportDeclared: true },
+    ],
+  };
+  const operationalEntry = {
+    id: 'b',
+    supportTier: 'operational',
+    supportDeclared: true,
+    operational: { discovery: true, load: true, invoke: true },
+  };
+
+  const CASES = [
+    {
+      name: 'non-object receipt',
+      receipt: null,
+      errors: ['receipt must be an object'],
+    },
+    {
+      name: 'missing host',
+      receipt: {
+        hosts: [{ id: 'a', supportTier: 'layout-only', supportDeclared: false }],
+      },
+      errors: ['receipt missing host b'],
+    },
+    {
+      name: 'tier mismatch then layout-only claim',
+      receipt: {
+        hosts: [
+          { id: 'a', supportTier: 'operational', supportDeclared: true },
+          operationalEntry,
+        ],
+      },
+      errors: [
+        'a: receipt tier operational != manifest layout-only',
+        'a: layout-only receipt must not claim supportDeclared',
+      ],
+    },
+    {
+      name: 'layout-only claiming declared support',
+      receipt: {
+        hosts: [
+          { id: 'a', supportTier: 'layout-only', supportDeclared: true },
+          operationalEntry,
+        ],
+      },
+      errors: ['a: layout-only receipt must not claim supportDeclared'],
+    },
+    {
+      name: 'operational without discovery/load/invoke',
+      receipt: {
+        hosts: [
+          { id: 'a', supportTier: 'layout-only', supportDeclared: false },
+          {
+            id: 'b',
+            supportTier: 'operational',
+            supportDeclared: true,
+            operational: { discovery: true, load: false, invoke: false },
+          },
+        ],
+      },
+      errors: ['b: operational receipt missing discovery/load/invoke'],
+    },
+    {
+      name: 'valid receipt',
+      receipt: {
+        hosts: [
+          { id: 'a', supportTier: 'layout-only', supportDeclared: false, operational: { skipped: true } },
+          operationalEntry,
+        ],
+      },
+      errors: [],
+    },
+  ];
+
+  for (const testCase of CASES) {
+    it(testCase.name, () => {
+      const report = checkReceiptAgainstManifest(testCase.receipt, doc);
+      assert.equal(report.ok, testCase.errors.length === 0);
+      assert.deepEqual(report.errors, testCase.errors);
+    });
+  }
+});

@@ -1,0 +1,189 @@
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
+import {
+  chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync,
+} from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const MEASURER = join(REPO_ROOT, 'qa/measure/js-cycles');
+const CEILINGS = join(REPO_ROOT, 'qa/ceilings.tsv');
+
+describe('qa/measure/js-cycles', () => {
+  let root;
+
+  function plant(files) {
+    mkdirSync(join(root, 'qa'), { recursive: true });
+    copyFileSync(CEILINGS, join(root, 'qa/ceilings.tsv'));
+    for (const [path, body] of Object.entries(files)) {
+      const target = join(root, path);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, body);
+    }
+  }
+
+  function run(args = [], env = {}) {
+    return spawnSync(process.execPath, [MEASURER, ...args], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, QA_ROOT: root, ...env },
+    });
+  }
+
+  function lines(result) {
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    return result.stdout.split('\n').filter(Boolean).sort();
+  }
+
+  function expectLines(result, expected) {
+    assert.deepEqual(lines(result), [...expected].sort());
+  }
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'qa-js-cycles-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('describes itself', () => {
+    const result = run(['--describe']);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(result.stdout.trim().split('\n'), [
+      'mode\tfast',
+      'changed\tno',
+      'covers\tjs\timport-cycles',
+    ]);
+  });
+
+  it('prints nothing for a clean tree', () => {
+    plant({
+      'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
+      'src/b.js': 'export const b = 1;\n',
+    });
+    expectLines(run(), []);
+  });
+
+  it('measures a cycle with the first file in sorted order as the key', () => {
+    plant({
+      'src/z.js': "import { a } from './a.js';\nexport const z = a;\n",
+      'src/a.js': "import { z } from './z.js';\nexport const a = z;\n",
+    });
+    expectLines(run(), ['js\timport-cycles\tsrc/a.js::cycle>src/z.js\t1']);
+  });
+
+  it('ignores hostile madge configuration in the measured tree', () => {
+    plant({
+      'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
+      'src/b.js': "import { a } from './a.js';\nexport const b = a;\n",
+      '.madgerc': JSON.stringify({ excludeRegExp: ['.*'] }),
+      'package.json': JSON.stringify({ madge: { excludeRegExp: ['.*'] } }),
+    });
+    expectLines(run(), ['js\timport-cycles\tsrc/a.js::cycle>src/b.js\t1']);
+  });
+
+  it('ignores madge_* environment variables', () => {
+    plant({
+      'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
+      'src/b.js': "import { a } from './a.js';\nexport const b = a;\n",
+    });
+    expectLines(run([], { madge_excludeRegExp: '.*' }), [
+      'js\timport-cycles\tsrc/a.js::cycle>src/b.js\t1',
+    ]);
+  });
+
+  it('fails when a measured source does not parse', () => {
+    plant({
+      'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
+      'src/b.js': "import { a } from './a.js';\nexport const b = a;\n",
+      'src/broken.js': 'export const broken = ;\n',
+    });
+    const result = run();
+    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /src\/broken\.js/);
+    assert.equal(result.stdout, '');
+  });
+
+  it('fails when a CommonJS file cannot be read for dependencies', () => {
+    plant({
+      'src/a.js': "const b = require('./b.js');\nreturn;\nmodule.exports = { b };\n",
+      'src/b.js': "const a = require('./a.js');\nmodule.exports = { a };\n",
+    });
+    const result = run();
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.notEqual(result.status, 3, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /src\/a\.js/);
+    assert.equal(result.stdout, '');
+  });
+
+  it('measures a CommonJS cycle when no file has a top-level return', () => {
+    plant({
+      'src/a.js': "const b = require('./b.js');\nmodule.exports = { b };\n",
+      'src/b.js': "const a = require('./a.js');\nmodule.exports = { a };\n",
+    });
+    expectLines(run(), ['js\timport-cycles\tsrc/a.js::cycle>src/b.js\t1']);
+  });
+
+  it('fails when a cycle file uses with syntax the dependency parser rejects', () => {
+    plant({
+      'src/a.js': "const b = require('./b.js');\nwith ({}) {}\nmodule.exports = { b };\n",
+      'src/b.js': "const a = require('./a.js');\nmodule.exports = { a };\n",
+    });
+    const result = run();
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.notEqual(result.status, 3, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /src\/a\.js/);
+    assert.equal(result.stdout, '');
+  });
+
+  it('fails when a cycle file uses legacy octal the dependency parser rejects', () => {
+    plant({
+      'src/a.js': "const b = require('./b.js');\nconst mask = 010;\nmodule.exports = { b, mask };\n",
+      'src/b.js': "const a = require('./a.js');\nmodule.exports = { a };\n",
+    });
+    const result = run();
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.notEqual(result.status, 3, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /src\/a\.js/);
+    assert.equal(result.stdout, '');
+  });
+
+  it('fails when a measured root cannot be inspected', () => {
+    plant({ 'src/placeholder.js': 'export const placeholder = 1;\n' });
+    const hidden = join(root, 'hidden-parent');
+    mkdirSync(join(hidden, 'src'), { recursive: true });
+    writeFileSync(join(hidden, 'src/a.js'), "import { b } from './b.js';\nexport const a = b;\n");
+    writeFileSync(join(hidden, 'src/b.js'), "import { a } from './a.js';\nexport const b = a;\n");
+    chmodSync(hidden, 0o000);
+    rmSync(join(root, 'src'), { recursive: true, force: true });
+    symlinkSync(join(hidden, 'src'), join(root, 'src'));
+    try {
+      const result = run();
+      assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stderr, /src|cannot inspect/i);
+      assert.equal(result.stdout, '');
+    } finally {
+      chmodSync(hidden, 0o755);
+    }
+  });
+
+  it('measures a self-import as a cycle', () => {
+    plant({
+      'src/self.js': "import './self.js';\nexport const value = 1;\n",
+    });
+    expectLines(run(), ['js\timport-cycles\tsrc/self.js::cycle>\t1']);
+  });
+
+  it('resolves cycles against the measured base directory', () => {
+    plant({
+      'src/a.js': "import { b } from './b.js';\nexport const a = b;\n",
+      'src/b.js': "import { a } from './a.js';\nexport const b = a;\n",
+      'a.js': 'export const unrelated = 1;\n',
+    });
+    expectLines(run(), ['js\timport-cycles\tsrc/a.js::cycle>src/b.js\t1']);
+  });
+});

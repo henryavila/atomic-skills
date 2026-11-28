@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync, execFileSync } from 'node:child_process';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   chmodSync,
   existsSync,
@@ -10,6 +11,7 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -17,7 +19,6 @@ import { tmpdir, hostname } from 'node:os';
 import {
   DELEGATE_PY,
   PYTHON3,
-  hasPython3,
   git,
   initGitRepo,
   makeFakeBin,
@@ -28,7 +29,7 @@ import {
 
 // AS-D11a: a run is stopped for lack of progress, keeps its work in a
 // checkpoint, and can be resumed. Every executor here is a disposable fake CLI.
-describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py progress limit and resume', () => {
   let root;
   let atomicHome;
   let repoDir;
@@ -72,8 +73,9 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
   async function waitFor(check, ms, what) {
     const deadline = Date.now() + ms;
     while (Date.now() < deadline) {
-      if (check()) return;
-      await new Promise((r) => setTimeout(r, 25));
+      const value = check();
+      if (value) return value;
+      await pause(25);
     }
     assert.fail(`timed out waiting for ${what}`);
   }
@@ -136,19 +138,54 @@ describe('delegate.py progress limit and resume', { skip: !hasPython3 ? 'python3
 
   it('counts a change in the working tree as progress', async () => {
     const ready = join(root, 'ready');
+    const runningDir = join(atomicHome, 'delegate', 'running');
+    const slotBeat = () => {
+      let names;
+      try {
+        names = readdirSync(runningDir).filter((name) => name.endsWith('.json'));
+      } catch {
+        return null;
+      }
+      if (!names.length) return null;
+      try {
+        return statSync(join(runningDir, names[0])).mtimeMs;
+      } catch {
+        return null;
+      }
+    };
     const run = runDelegateAsync(runArgs('TREE', ['--idle-timeout', '4']),
       { ...baseEnv, FAKE_READY_FILE: ready, FAKE_WAIT_FILE: join(root, 'release'), FAKE_WAIT_TIMEOUT: '120' });
     try {
       await waitFor(() => existsSync(ready), 20000, 'executor start');
       // Silent executor; the only sign of life is a file that keeps changing.
-      for (let round = 0; round < 20; round += 1) {
-        writeFileSync(join(repoDir, 'grows.txt'), 'x'.repeat(round + 1));
-        await new Promise((r) => setTimeout(r, 300));
+      // The runner publishes the slot before it takes its first snapshot of
+      // the tree, so a change written in that gap belongs to the baseline and
+      // is not progress. Keep changing the tree until one change is recorded;
+      // a missed write must not leave the test waiting on a beat that cannot
+      // come. Once a beat is seen, the watch is known to be live.
+      const started = Date.now();
+      let size = 0;
+      const grow = () => {
+        size += 1;
+        writeFileSync(join(repoDir, 'grows.txt'), 'x'.repeat(size));
+      };
+      let beat = await waitFor(slotBeat, 20000, 'progress slot');
+      const nextBeat = () => {
+        const next = slotBeat();
+        return next && next !== beat ? next : null;
+      };
+      beat = await waitFor(() => { grow(); return nextBeat(); }, 10000, 'progress beat');
+      // From here every change must be recorded as progress, for longer than
+      // the idle limit: a runner that counts the working tree keeps going.
+      while (Date.now() - started < 5000) {
+        grow();
+        beat = await waitFor(nextBeat, 10000, 'progress beat');
       }
       writeFileSync(join(root, 'release'), 'go');
       const res = await run.done;
       const [rec] = readLogRecords(atomicHome);
       assert.equal(rec.failure, 'none', res.stderr);
+      assert.ok(rec.duration_s >= 5, JSON.stringify(rec));
     } finally {
       writeFileSync(join(root, 'release'), 'go');
       if (run.child.exitCode === null) {

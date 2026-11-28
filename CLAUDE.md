@@ -49,6 +49,8 @@ its reversal — that is the gate.
 - `npm test` — full unit suite (Node test runner).
 - `npm run test:hooks` — shell hook tests.
 - `npm run validate-skills` — skill schema validation.
+- `bash scripts/qa.sh fast` — quality gate (rules in `docs/quality.md`). Debt
+  only goes down: never raise a ceiling, add a debt line or a suppression.
 - TDD: write the failing test, watch it fail, implement minimally, watch it
   pass, commit. Never claim green without running the command.
 

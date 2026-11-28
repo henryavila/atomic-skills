@@ -1,0 +1,211 @@
+#!/usr/bin/env node
+/**
+ * Type errors, stack `js`, metric `type-errors`.
+ *
+ * Contract (see the comment block at the top of scripts/qa.sh):
+ *   --describe  prints mode/changed/covers lines; exit 0
+ *   (nothing)   measures the production roots src/, scripts/, bin/
+ *   stdout      one line per item above its ceiling, nothing else
+ *   exit 0      measured (even with items); 3 tool not installed
+ *
+ * The compiler options live in qa/measure/lib/tsconfig.json. They are handed
+ * to the TypeScript Node API (`ts.createProgram`), with the measured files as
+ * absolute paths, so the same measurer works on QA_ROOT trees without writing
+ * inside them. `typeRoots` points at this repository's @types, which is how a
+ * QA_ROOT tree resolves node builtins without its own node_modules. Counting
+ * diagnostics as structured objects keeps a chained message at one item and
+ * makes a diagnostic without a file a hard failure.
+ */
+
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const STACK = 'js';
+const METRIC = 'type-errors';
+const ROOTS = ['src', 'scripts', 'bin'];
+const EXTENSIONS = ['.js', '.mjs'];
+const HERE = dirname(fileURLToPath(import.meta.url));
+const CONFIG = join(HERE, 'lib', 'tsconfig.json');
+
+const DESCRIBE = [
+  'mode\tfast',
+  'changed\tno',
+  `covers\t${STACK}\t${METRIC}`,
+].join('\n');
+
+function fail(message) {
+  process.stderr.write(`js-types: ${message}\n`);
+  process.exit(1);
+}
+
+function toolMissing(message) {
+  process.stderr.write(`js-types: ${message}\n`);
+  process.exit(3);
+}
+
+function repositoryRoot() {
+  if (process.env.QA_ROOT) return resolve(process.env.QA_ROOT);
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch {
+    fail('not inside a git repository and QA_ROOT is not set');
+  }
+}
+
+function readCeiling(root) {
+  const path = join(root, 'qa', 'ceilings.tsv');
+  let body;
+  try {
+    body = readFileSync(path, 'utf8');
+  } catch {
+    fail(`cannot read ${path}`);
+  }
+  for (const [number, line] of body.split(/\r?\n/).entries()) {
+    if (!line.trim() || line.startsWith('#') || number === 0) continue;
+    const [metric, ceiling] = line.split('\t');
+    if (metric !== METRIC) continue;
+    const value = Number(ceiling);
+    if (!Number.isFinite(value)) fail(`${path}:${number + 1}: not a number: ${ceiling}`);
+    return value;
+  }
+  return fail(`${path}: no ceiling for ${METRIC}`);
+}
+
+function relativeKey(root, file) {
+  return relative(root, file).split(sep).join('/');
+}
+
+function isProductionKey(key) {
+  return EXTENSIONS.some((extension) => key.endsWith(extension))
+    && ROOTS.some((root) => key.startsWith(`${root}/`));
+}
+
+function walk(directory, found, optional = false) {
+  let entries;
+  try {
+    entries = readdirSync(directory, { withFileTypes: true });
+  } catch (error) {
+    if (optional && error.code === 'ENOENT') return;
+    fail(`cannot read ${directory}: ${error.message}`);
+  }
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === '.git') continue;
+      walk(path, found);
+    } else if (entry.isFile() && EXTENSIONS.some((extension) => entry.name.endsWith(extension))) {
+      found.push(path);
+    }
+  }
+}
+
+function sources(root) {
+  const found = [];
+  for (const name of ROOTS) walk(join(root, name), found, true);
+  return found.sort();
+}
+
+function loadTypeScript() {
+  let typescript;
+  let types;
+  try {
+    const require = createRequire(import.meta.url);
+    typescript = require('typescript');
+    const packagePath = require.resolve('typescript/package.json');
+    types = resolve(dirname(packagePath), '..', '@types');
+  } catch (error) {
+    return toolMissing(`typescript is not installed: ${error.message}`);
+  }
+  try {
+    if (!statSync(types).isDirectory()) throw new Error('not a directory');
+  } catch {
+    return toolMissing(`@types is not installed: ${types}`);
+  }
+  return { typescript, types };
+}
+
+function compilerOptions(ts, types, root) {
+  let base;
+  try {
+    base = JSON.parse(readFileSync(CONFIG, 'utf8'));
+  } catch (error) {
+    fail(`cannot read ${CONFIG}: ${error.message}`);
+  }
+  const converted = ts.convertCompilerOptionsFromJson(
+    { ...(base.compilerOptions || {}), typeRoots: [types] },
+    root,
+  );
+  if (converted.errors.length > 0) {
+    // A rejected option is a diagnostic with no file: the program cannot be
+    // built as configured, so reporting nothing would be a smaller result.
+    const first = converted.errors[0];
+    fail(
+      `cannot apply compiler options: ${ts.flattenDiagnosticMessageText(first.messageText, '\n')}`,
+    );
+  }
+  return converted.options;
+}
+
+function errorKey(root, file) {
+  const absolute = isAbsolute(file) ? file : resolve(root, file);
+  return relativeKey(root, absolute);
+}
+
+function measure(root) {
+  const ceiling = readCeiling(root);
+  const files = sources(root);
+  const items = [];
+  if (files.length === 0) return items;
+
+  const { typescript: ts, types } = loadTypeScript();
+  for (const file of files) {
+    try {
+      readFileSync(file);
+    } catch (error) {
+      fail(`cannot read ${relativeKey(root, file)}: ${error.message}`);
+    }
+  }
+
+  const options = compilerOptions(ts, types, root);
+  let diagnostics;
+  try {
+    const program = ts.createProgram(files, options);
+    diagnostics = ts.getPreEmitDiagnostics(program);
+  } catch (error) {
+    fail(`typescript failed: ${error.message}`);
+  }
+
+  const counts = new Map();
+  for (const diagnostic of diagnostics) {
+    if (!diagnostic.file) {
+      const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+      fail(`typescript reported a global error TS${diagnostic.code}: ${message}`);
+    }
+    const key = errorKey(root, diagnostic.file.fileName);
+    if (key.startsWith('..') || isAbsolute(key) || !isProductionKey(key)) continue;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+
+  for (const [key, value] of counts) {
+    if (value > ceiling) items.push([STACK, METRIC, `${key}::*`, value]);
+  }
+  return items;
+}
+
+function print(items) {
+  const lines = items.map((item) => item.join('\t')).sort();
+  if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === '--describe') {
+  process.stdout.write(`${DESCRIBE}\n`);
+} else if (args.length > 0) {
+  process.stderr.write('usage: js-types [--describe]\n');
+  process.exit(1);
+} else {
+  print(measure(repositoryRoot()));
+}

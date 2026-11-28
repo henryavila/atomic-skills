@@ -764,3 +764,115 @@ describe('release CLI — feature-forbids-patch gate (integration)', () => {
     }
   });
 });
+
+describe('release CLI — pinned output (refactor guard)', () => {
+  let root;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'as-release-pinned-'));
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function capture() {
+    const state = { out: '', err: '' };
+    return {
+      state,
+      io: {
+        stdout: { write: (s) => { state.out += s; } },
+        stderr: { write: (s) => { state.err += s; } },
+      },
+    };
+  }
+
+  it('printPlan renders the full plan text', () => {
+    writePkg(root);
+    writeChangelog(root);
+    const cli = makeCli(root);
+    const facts = cli.collect();
+    const bin =
+      'node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/release/release.js"';
+    const header = [
+      '@example/release-fixture',
+      '  package.json : 0.1.0',
+      '  npm latest   : 0.1.0',
+      '  git tags     : v0.1.0',
+      '  gh releases  : v0.1.0',
+      '  baseline     : 0.1.0',
+      '  commits since v0.1.0: 1',
+      '',
+      '  bump         : minor',
+      '  next         : 0.2.0',
+      '  breaking     : no',
+      '  reasons:',
+      '    · feat: feat: add widget',
+      '    · changelog Added: Widget',
+      '',
+      '  next steps:',
+      `    ${bin} --root "$PWD" --apply`,
+    ];
+    assert.equal(
+      cli.printPlan(facts),
+      [
+        ...header,
+        '    REFUSE ship — npm in scope but stage Action is missing or not stage-only.',
+        '    adopt skills/shared/release-assets/templates/publish-stage.yml (see adopt.md)',
+        '    or pass --no-npm for GH-only',
+      ].join('\n'),
+    );
+    assert.equal(
+      cli.printPlan(facts, { noNpm: true }),
+      [...header, `    ${bin} --root "$PWD" --ship --no-npm`].join('\n'),
+    );
+  });
+
+  it('run --apply keeps its stdout and stderr text', () => {
+    writePkg(root);
+    const cli = makeCli(root);
+    const { state, io } = capture();
+    const code = cli.run(['--apply'], io);
+    assert.equal(code, 0);
+    assert.equal(
+      state.out,
+      [
+        'package.json → 0.2.0',
+        'next: commit on a work branch; refuse --ship until stage Action is adopted (or pass --no-npm)',
+        '',
+      ].join('\n'),
+    );
+    assert.equal(state.err, 'applied 0.2.0 (2026-09-24)\n');
+  });
+
+  it('run --notes and --ship --dry-run keep their text', () => {
+    writePkg(root, '0.2.0');
+    writeStageWorkflow(root);
+    writeFileSync(
+      join(root, 'CHANGELOG.md'),
+      `# Changelog\n\n## [Unreleased]\n\n## [0.2.0] - 2026-09-24\n\n### Added\n- Widget\n\n## [0.1.0] - 2026-01-01\n\n### Added\n- Initial\n`,
+    );
+    const cli = makeCli(root, {
+      commits: ['chore: release 0.2.0'],
+      npmLatest: '0.1.0',
+      npmVersions: ['0.1.0'],
+      gitTags: ['0.1.0'],
+      githubReleases: ['0.1.0'],
+    });
+    const notes = capture();
+    assert.equal(cli.run(['--notes'], notes.io), 0);
+    assert.equal(notes.state.out, '### Added\n- Widget\n');
+    assert.equal(notes.state.err, '');
+
+    const ship = capture();
+    assert.equal(cli.run(['--ship', '--dry-run'], ship.io), 0);
+    assert.equal(
+      ship.state.out,
+      [
+        'dry-run: would tag+release v0.2.0',
+        'next (human, 2FA — npm UI only):',
+        '  https://www.npmjs.com/package/@example/release-fixture?activeTab=versions',
+        '',
+      ].join('\n'),
+    );
+    assert.equal(ship.state.err, '');
+  });
+});

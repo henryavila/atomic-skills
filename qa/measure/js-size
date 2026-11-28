@@ -1,0 +1,294 @@
+#!/usr/bin/env node
+/**
+ * First quality measurer: JavaScript size and empty catches, stack `js`.
+ *
+ * Contract (see the comment block at the top of scripts/qa.sh):
+ *   --describe  prints mode/changed/covers lines; exit 0
+ *   (nothing)   measures the production roots src/, scripts/, bin/
+ *   --files F.. measures only the listed files, paths from the repository root
+ *   stdout      one line per item above its ceiling, nothing else
+ *   exit 0      measured (even with items); 3 tool not installed
+ *
+ * The repository root comes from QA_ROOT, or from `git rev-parse
+ * --show-toplevel` when it is not set. Ceilings come from qa/ceilings.tsv;
+ * none is hard-coded.
+ *
+ * ESLint's public result objects expose `messageId` and English `message`, but
+ * not the rule's `data`, so this measurer parses the number out of the message
+ * text (complexity of N, too many lines (N), too many parameters (N)).
+ */
+
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { createConfig } from './lib/js-size-config.mjs';
+import { collectFunctions, enclosingFunction, functionAtStart } from './lib/symbols.mjs';
+
+const STACK = 'js';
+const ROOTS = ['src', 'scripts', 'bin'];
+const EXTENSIONS = ['.js', '.mjs'];
+const METRICS = ['complexity', 'function-lines', 'params', 'file-lines', 'silent-errors'];
+
+const DESCRIBE = [
+  'mode\tfast',
+  'changed\tyes',
+  ...METRICS.map((metric) => `covers\t${STACK}\t${metric}`),
+].join('\n');
+
+function fail(message) {
+  process.stderr.write(`js-size: ${message}\n`);
+  process.exit(1);
+}
+
+function toolMissing(message) {
+  process.stderr.write(`js-size: ${message}\n`);
+  process.exit(3);
+}
+
+function repositoryRoot() {
+  if (process.env.QA_ROOT) return resolve(process.env.QA_ROOT);
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch {
+    fail('not inside a git repository and QA_ROOT is not set');
+  }
+}
+
+function readCeilings(root) {
+  const path = join(root, 'qa', 'ceilings.tsv');
+  let body;
+  try {
+    body = readFileSync(path, 'utf8');
+  } catch {
+    fail(`cannot read ${path}`);
+  }
+  const ceilings = {};
+  for (const [number, line] of body.split(/\r?\n/).entries()) {
+    if (!line.trim() || line.startsWith('#') || number === 0) continue;
+    const [metric, ceiling] = line.split('\t');
+    if (METRICS.includes(metric)) {
+      const value = Number(ceiling);
+      if (!Number.isFinite(value)) fail(`${path}:${number + 1}: not a number: ${ceiling}`);
+      ceilings[metric] = value;
+    }
+  }
+  for (const metric of METRICS) {
+    if (!(metric in ceilings)) fail(`${path}: no ceiling for ${metric}`);
+  }
+  return ceilings;
+}
+
+function relativeKey(root, file) {
+  return relative(root, file).split(sep).join('/');
+}
+
+function isProductionFile(key) {
+  if (!EXTENSIONS.some((extension) => key.endsWith(extension))) return false;
+  return ROOTS.some((root) => key.startsWith(`${root}/`));
+}
+
+function walk(directory, found) {
+  let entries;
+  try {
+    entries = readdirSync(directory, { withFileTypes: true });
+  } catch (error) {
+    throw new Error(`cannot read ${directory}: ${error.message}`);
+  }
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === '.git') continue;
+      walk(path, found);
+    } else if (entry.isFile() && EXTENSIONS.some((extension) => entry.name.endsWith(extension))) {
+      found.push(path);
+    }
+  }
+}
+
+function repositoryFiles(root) {
+  const found = [];
+  for (const name of ROOTS) {
+    const directory = join(root, name);
+    let stats;
+    try {
+      stats = statSync(directory);
+    } catch (error) {
+      if (error.code === 'ENOENT') continue;
+      throw new Error(`cannot read ${directory}: ${error.message}`);
+    }
+    if (stats.isDirectory()) walk(directory, found);
+  }
+  return found;
+}
+
+function listedFiles(root, files) {
+  const found = [];
+  for (const file of files) {
+    const absolute = resolve(root, file);
+    const key = relativeKey(root, absolute);
+    if (key.startsWith('..') || isAbsolute(key) || !isProductionFile(key)) continue;
+    try {
+      if (statSync(absolute).isFile()) found.push(absolute);
+    } catch {
+      // The gate already drops files that do not exist; ignore a stale path.
+    }
+  }
+  return found;
+}
+
+function physicalLines(source) {
+  if (source === '') return 0;
+  const count = source.split('\n').length;
+  return source.endsWith('\n') ? count - 1 : count;
+}
+
+function numberFrom(message, pattern, where) {
+  const match = message.match(pattern);
+  if (!match) fail(`${where}: cannot read a number from the rule message: ${message}`);
+  return Number(match[1]);
+}
+
+function parse(source, file) {
+  try {
+    return espree.parse(source, {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      loc: true,
+      range: true,
+      comment: true,
+    });
+  } catch (error) {
+    return fail(`${file}: cannot parse: ${error.message}`);
+  }
+}
+
+let espree;
+
+async function loadTools() {
+  let ESLint;
+  try {
+    ({ ESLint } = await import('eslint'));
+  } catch (error) {
+    if (error && (error.code === 'ERR_MODULE_NOT_FOUND' || error.code === 'MODULE_NOT_FOUND')) {
+      toolMissing('eslint is not installed');
+    }
+    fail(`cannot load eslint: ${error.message}`);
+  }
+  try {
+    const require = createRequire(import.meta.url);
+    const eslintPath = require.resolve('eslint/package.json');
+    espree = require(require.resolve('espree', { paths: [dirname(eslintPath)] }));
+  } catch (error) {
+    toolMissing(`espree is not installed: ${error.message}`);
+  }
+  return ESLint;
+}
+
+async function measure(root, files) {
+  const ceilings = readCeilings(root);
+  const sources = files || repositoryFiles(root);
+  const items = [];
+
+  if (sources.length === 0) return items;
+
+  const ESLint = await loadTools();
+  const eslint = new ESLint({
+    cwd: root,
+    overrideConfigFile: true,
+    overrideConfig: {
+      ...createConfig(ceilings),
+      linterOptions: { reportUnusedDisableDirectives: 'off' },
+    },
+    allowInlineConfig: false,
+    errorOnUnmatchedPattern: false,
+    warnIgnored: false,
+  });
+
+  let results;
+  try {
+    results = await eslint.lintFiles(sources);
+  } catch (error) {
+    fail(`eslint failed: ${error.message}`);
+  }
+
+  for (const result of results) {
+    const key = relativeKey(root, result.filePath);
+    if (!isProductionFile(key)) continue;
+
+    const fatal = result.messages.find((message) => !message.ruleId);
+    if (fatal) fail(`${key}:${fatal.line}: ${fatal.message}`);
+
+    const source = result.source || readFileSync(result.filePath, 'utf8');
+    const ast = parse(source, key);
+    const functions = collectFunctions(ast);
+
+    const byRule = (ruleId) => result.messages.filter((message) => message.ruleId === ruleId);
+
+    for (const message of byRule('complexity')) {
+      const entry = functionAtStart(functions, message) || enclosingFunction(functions, message);
+      if (!entry) fail(`${key}:${message.line}: complexity on an unknown function`);
+      const value = numberFrom(message.message, /complexity of (\d+)/, `${key}:${message.line}`);
+      if (value > ceilings.complexity) items.push([STACK, 'complexity', `${key}::${entry.symbol}`, value]);
+    }
+
+    for (const message of byRule('max-lines-per-function')) {
+      const entry = functionAtStart(functions, message) || enclosingFunction(functions, message);
+      if (!entry) fail(`${key}:${message.line}: function-lines on an unknown function`);
+      const value = numberFrom(message.message, /too many lines \((\d+)\)/, `${key}:${message.line}`);
+      if (value > ceilings['function-lines']) items.push([STACK, 'function-lines', `${key}::${entry.symbol}`, value]);
+    }
+
+    for (const message of byRule('max-params')) {
+      const entry = functionAtStart(functions, message) || enclosingFunction(functions, message);
+      if (!entry) fail(`${key}:${message.line}: params on an unknown function`);
+      const value = numberFrom(message.message, /too many parameters \((\d+)\)/, `${key}:${message.line}`);
+      if (value > ceilings.params) items.push([STACK, 'params', `${key}::${entry.symbol}`, value]);
+    }
+
+    const silent = new Map();
+    for (const message of byRule('no-empty')) {
+      const entry = enclosingFunction(functions, message);
+      const symbol = entry ? entry.symbol : '<module>';
+      silent.set(symbol, (silent.get(symbol) || 0) + 1);
+    }
+    for (const [symbol, value] of silent) {
+      if (value > ceilings['silent-errors']) {
+        items.push([STACK, 'silent-errors', `${key}::${symbol}`, value]);
+      }
+    }
+
+    const lines = physicalLines(source);
+    if (lines > ceilings['file-lines']) items.push([STACK, 'file-lines', `${key}::*`, lines]);
+  }
+
+  return items;
+}
+
+function print(items) {
+  const lines = items.map((item) => item.join('\t')).sort();
+  if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+
+  if (args.length === 1 && args[0] === '--describe') {
+    process.stdout.write(`${DESCRIBE}\n`);
+    return;
+  }
+
+  let files = null;
+  if (args.length > 0) {
+    if (args[0] !== '--files') {
+      process.stderr.write('usage: js-size [--describe | --files <path>...]\n');
+      process.exit(1);
+    }
+    files = args.slice(1);
+  }
+
+  const root = repositoryRoot();
+  print(await measure(root, files === null ? null : listedFiles(root, files)));
+}
+
+main().catch((error) => fail(error && error.stack ? error.stack : String(error)));

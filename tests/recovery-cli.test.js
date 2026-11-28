@@ -231,6 +231,64 @@ describe('classifyJournalTrust', () => {
       JOURNAL_TRUST_POST_U,
     );
   });
+
+  it('keeps non-object and descriptor-without-manifest inputs pre-U', () => {
+    assert.equal(classifyJournalTrust(null), JOURNAL_TRUST_PRE_U);
+    assert.equal(classifyJournalTrust(undefined), JOURNAL_TRUST_PRE_U);
+    assert.equal(classifyJournalTrust('pre-U'), JOURNAL_TRUST_PRE_U);
+    assert.equal(
+      classifyJournalTrust({ state: 'incomplete', manifest: null }),
+      JOURNAL_TRUST_PRE_U,
+    );
+    // Descriptor appliedCount: 0 wins even when the nested manifest has effects.
+    assert.equal(
+      classifyJournalTrust({
+        state: 'incomplete',
+        appliedCount: 0,
+        manifest: {
+          effects: [{ type: 'reconcileFileSet', beforeState: [] }],
+          transaction: {},
+        },
+      }),
+      JOURNAL_TRUST_PRE_U,
+    );
+  });
+
+  it('reads capability from the descriptor when the manifest omits it', () => {
+    assert.equal(
+      classifyJournalTrust({
+        state: 'incomplete',
+        journalMode: 'per-effect',
+        appliedCount: 1,
+        manifest: {
+          effects: [{ type: 'reconcileFileSet', beforeState: [] }],
+          transaction: {},
+        },
+      }),
+      JOURNAL_TRUST_POST_U,
+    );
+    assert.equal(
+      classifyJournalTrust({
+        state: 'incomplete',
+        durablePerEffect: true,
+        manifest: {
+          effects: [{ type: 'reconcileFileSet', beforeState: [] }],
+          transaction: {},
+        },
+      }),
+      JOURNAL_TRUST_POST_U,
+    );
+  });
+
+  it('does not trust an effects list with a non-object entry', () => {
+    assert.equal(
+      classifyJournalTrust({
+        effects: [null],
+        transaction: { state: 'incomplete' },
+      }),
+      JOURNAL_TRUST_PRE_U,
+    );
+  });
 });
 
 describe('formatRecoverySummary / operator messaging', () => {
@@ -312,6 +370,69 @@ describe('repairIncompleteInstall (pre-U refuse)', () => {
     );
     const result = repairIncompleteInstall(root);
     assert.equal(result.action, 'noop');
+  });
+
+  it('no-ops with the recorded message when no transaction exists', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-repair-absent-'));
+    const result = repairIncompleteInstall(root);
+    assert.equal(result.action, 'noop');
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.message, 'No installer transaction found — nothing to repair.');
+    assert.match(result.summary, /state: absent/);
+  });
+
+  it('refuses an unreadable manifest directly and keeps it on disk', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-repair-unreadable-'));
+    const dir = join(root, MANIFEST_DIR);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'manifest.json'), '{not-valid-json!!!', 'utf8');
+
+    const result = repairIncompleteInstall(root);
+    assert.equal(result.action, 'refuse');
+    assert.equal(result.unreadable, true);
+    assert.equal(result.exitCode, 1);
+    assert.match(result.message, /unreadable or invalid JSON/i);
+    assert.equal(readFileSync(join(dir, 'manifest.json'), 'utf8'), '{not-valid-json!!!');
+  });
+
+  it('reverses a post-U journal and clears incomplete (reverse-only)', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-repair-postu-'));
+    writeIncompleteManifest(root, {
+      effects: [
+        { type: 'reconcileFileSet', id: 'reconcileFileSet', beforeState: [] },
+      ],
+      transactionExtra: { journalMode: 'per-effect' },
+    });
+
+    const result = repairIncompleteInstall(root);
+    assert.equal(result.action, 'reversed');
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.ok, true);
+    assert.equal(result.incompleteRetained, false);
+    assert.equal(existsSync(join(root, MANIFEST_DIR, 'manifest.json')), false);
+
+    const ledger = JSON.parse(
+      readFileSync(join(root, MANIFEST_DIR, RECOVERY_LEDGER_FILE), 'utf8'),
+    );
+    assert.equal(ledger.recoveryAction, 'install --repair (post-U reverse-only)');
+    assert.equal(ledger.strategy, 'reverse-only');
+  });
+
+  it('retains incomplete on a post-U partial reverse', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-repair-postu-partial-'));
+    writeIncompleteManifest(root, {
+      effects: [
+        { type: 'totally-unknown-effect-xyz', id: 'x', beforeState: {} },
+      ],
+      transactionExtra: { journalMode: 'per-effect' },
+    });
+
+    const result = repairIncompleteInstall(root);
+    assert.equal(result.action, 'partial');
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.incompleteRetained, true);
+    assert.equal(result.failed.length, 1);
+    assert.equal(existsSync(join(root, MANIFEST_DIR, 'manifest.json')), true);
   });
 });
 
@@ -467,6 +588,66 @@ describe('forceIncompleteUninstall', () => {
       JSON.parse(readFileSync(path, 'utf8')),
       { version: 1, probe: true },
     );
+  });
+
+  it('no-ops when no transaction exists', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-force-absent-'));
+    const result = forceIncompleteUninstall(root);
+    assert.equal(result.ok, true);
+    assert.equal(result.action, 'noop');
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.message, 'No installer transaction found — nothing to force-uninstall.');
+    assert.deepEqual(result.failed, []);
+    assert.equal(result.reversedCount, 0);
+  });
+
+  it('refuses a complete transaction with normal-uninstall guidance', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-force-complete-'));
+    writeIncompleteManifest(root, { transactionExtra: { state: 'complete' } });
+
+    const result = forceIncompleteUninstall(root);
+    assert.equal(result.ok, false);
+    assert.equal(result.action, 'refuse-complete');
+    assert.equal(result.exitCode, 1);
+    assert.match(result.message, /use normal uninstall/i);
+    assert.match(result.message, /uninstall --yes/);
+  });
+
+  it('keeps the incomplete marker when quarantine fails', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-force-quarantine-fail-'));
+    // A directory at the manifest path is unreadable and cannot be copied.
+    mkdirSync(join(root, MANIFEST_DIR, 'manifest.json'), { recursive: true });
+
+    const result = forceIncompleteUninstall(root);
+    assert.equal(result.ok, false);
+    assert.equal(result.action, 'partial-kept-incomplete');
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.incompleteRetained, true);
+    assert.equal(result.failed[0].code, 'QUARANTINE_FAILED');
+    assert.match(result.message, /quarantine failed/i);
+  });
+
+  it('clears a clean post-U journal and reports forced-clean', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-force-postu-clean-'));
+    writeIncompleteManifest(root, {
+      effects: [
+        { type: 'reconcileFileSet', id: 'reconcileFileSet', beforeState: [] },
+      ],
+      transactionExtra: { journalMode: 'per-effect' },
+    });
+
+    const result = forceIncompleteUninstall(root);
+    assert.equal(result.ok, true);
+    assert.equal(result.action, 'forced-clean');
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.incompleteRetained, false);
+    assert.match(result.message, /Incomplete marker cleared/);
+
+    const ledger = JSON.parse(
+      readFileSync(join(root, MANIFEST_DIR, RECOVERY_LEDGER_FILE), 'utf8'),
+    );
+    assert.equal(ledger.trust, JOURNAL_TRUST_POST_U);
+    assert.equal(ledger.residualRisk, 'unverified');
   });
 });
 
@@ -756,6 +937,64 @@ describe('resolveIncompleteRecoveryScope (dual-scope routing)', () => {
     execFileSync('git', ['add', '.'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['commit', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
   }
+
+  it('forceProject targets the project scope even when nothing is incomplete', () => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'as-scope-home-explicit-'));
+    projectRoot = mkdtempSync(join(tmpdir(), 'as-scope-proj-explicit-'));
+    initGitRepo(projectRoot);
+
+    return withHome(fakeHome, () => {
+      const resolved = resolveIncompleteRecoveryScope({
+        projectDir: projectRoot,
+        forceProject: true,
+        purpose: 'repair',
+      });
+      assert.equal(resolved.ok, true);
+      assert.equal(resolved.scope, 'project');
+      assert.equal(resolved.explicit, true);
+      assert.equal(resolved.basePath, realpathSync(projectRoot));
+      assert.equal(resolved.incomplete.length, 0);
+    });
+  });
+
+  it('forceProject errors when the project scope cannot be resolved', () => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'as-scope-home-noproj-'));
+
+    return withHome(fakeHome, () => {
+      const resolved = resolveIncompleteRecoveryScope({
+        projectDir: fakeHome,
+        forceProject: true,
+        purpose: 'repair',
+      });
+      assert.equal(resolved.ok, false);
+      assert.equal(resolved.exitCode, 1);
+      assert.equal(resolved.action, 'scope-error');
+      assert.ok(resolved.message);
+      assert.equal(resolved.incomplete.length, 0);
+    });
+  });
+
+  it('reports none-incomplete with the force-incomplete wording', () => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'as-scope-home-none-'));
+
+    return withHome(fakeHome, () => {
+      const resolved = resolveIncompleteRecoveryScope({
+        projectDir: fakeHome,
+        forceProject: false,
+        purpose: 'force-incomplete',
+      });
+      assert.equal(resolved.ok, false);
+      assert.equal(resolved.exitCode, 0);
+      assert.equal(resolved.action, 'none-incomplete');
+      assert.equal(resolved.none, true);
+      assert.equal(resolved.scope, 'user');
+      assert.equal(resolved.basePath, fakeHome);
+      assert.equal(
+        resolved.message,
+        'No incomplete installer transaction found in user or project scope.',
+      );
+    });
+  });
 
   it('selects project incomplete when user is complete', () => {
     fakeHome = mkdtempSync(join(tmpdir(), 'as-scope-home-'));

@@ -4,7 +4,6 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
-  hasPython3,
   makeFakeBin,
   runDelegate,
 } from './helpers/delegate-runner-kit.js';
@@ -13,7 +12,7 @@ const FLASH = 'opencode-go/deepseek-v4.1-flash';
 const CODEX = 'gpt-6.1-sol';
 const AGY_REVIEW = 'gemini-4-hydrogen-xhigh';
 
-describe('delegate.py route and availability', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py route and availability', () => {
   let root;
   let atomicHome;
   let baseEnv;

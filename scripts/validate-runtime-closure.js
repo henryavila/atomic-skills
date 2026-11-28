@@ -45,40 +45,7 @@ export function validateRuntimeClosure(options = {}) {
       }
 
       filesChecked += files.length;
-      const installedPaths = new Set(files.map((file) => file.path));
-      const installedPathList = [...installedPaths];
-      const assetsDir = getAssetsDir(ideId);
-      const renderedAssetsDir = scope === 'user' ? `~/${assetsDir}` : assetsDir;
-
-      for (const file of files) {
-        for (const sourceReference of uniqueMatches(
-          file.content,
-          /skills\/shared\/[A-Za-z0-9_./-]+/g,
-        )) {
-          diagnostics.push(
-            `[${ideId}/${scope}] ${file.path}: source-tree reference '${sourceReference}'`,
-          );
-        }
-
-        if (file.content.includes('{{ASSETS_PATH}}')) {
-          diagnostics.push(
-            `[${ideId}/${scope}] ${file.path}: unresolved template '{{ASSETS_PATH}}'`,
-          );
-        }
-
-        for (const renderedReference of extractAssetReferences(file.content, renderedAssetsDir)) {
-          const installedReference = renderedReference.startsWith('~/')
-            ? renderedReference.slice(2)
-            : renderedReference;
-          const target = installedReference.replace(/\/$/, '');
-          const resolves = resolvesInstalledReference(target, installedPaths, installedPathList);
-          if (!resolves) {
-            diagnostics.push(
-              `[${ideId}/${scope}] ${file.path}: unresolved runtime asset '${renderedReference}'`,
-            );
-          }
-        }
-      }
+      checkFileSetClosure(ideId, scope, files, diagnostics);
     }
   }
 
@@ -88,6 +55,48 @@ export function validateRuntimeClosure(options = {}) {
     combinationsChecked,
     filesChecked,
   };
+}
+
+function checkFileSetClosure(ideId, scope, files, diagnostics) {
+  const installedPaths = new Set(files.map((file) => file.path));
+  const installedPathList = [...installedPaths];
+  const assetsDir = getAssetsDir(ideId);
+  const renderedAssetsDir = scope === 'user' ? `~/${assetsDir}` : assetsDir;
+  const installed = { renderedAssetsDir, installedPaths, installedPathList };
+
+  for (const file of files) {
+    checkFileClosure(ideId, scope, file, installed, diagnostics);
+  }
+}
+
+function checkFileClosure(ideId, scope, file, installed, diagnostics) {
+  const prefix = `[${ideId}/${scope}] ${file.path}`;
+
+  for (const sourceReference of uniqueMatches(
+    file.content,
+    /skills\/shared\/[A-Za-z0-9_./-]+/g,
+  )) {
+    diagnostics.push(`${prefix}: source-tree reference '${sourceReference}'`);
+  }
+
+  if (file.content.includes('{{ASSETS_PATH}}')) {
+    diagnostics.push(`${prefix}: unresolved template '{{ASSETS_PATH}}'`);
+  }
+
+  for (const renderedReference of extractAssetReferences(file.content, installed.renderedAssetsDir)) {
+    const installedReference = renderedReference.startsWith('~/')
+      ? renderedReference.slice(2)
+      : renderedReference;
+    const target = installedReference.replace(/\/$/, '');
+    const resolves = resolvesInstalledReference(
+      target,
+      installed.installedPaths,
+      installed.installedPathList,
+    );
+    if (!resolves) {
+      diagnostics.push(`${prefix}: unresolved runtime asset '${renderedReference}'`);
+    }
+  }
 }
 
 function uniqueMatches(content, pattern) {

@@ -19,7 +19,9 @@ export function detectLanguage() {
   try {
     const locale = Intl.DateTimeFormat().resolvedOptions().locale;
     if (locale && locale.startsWith('pt')) return 'pt';
-  } catch {}
+  } catch {
+    // Locale detection is best-effort: any Intl failure falls back to English.
+  }
   return 'en';
 }
 

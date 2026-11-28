@@ -46,6 +46,107 @@ import {
  *   { path, sourceTree }       — recursive tree copy from absolute `sourceTree` (owned targets only)
  * `path` is relative to basePath; before-state is { created: string[] }.
  */
+/**
+ * Does this apply own its target? A missing path, a path the prior install
+ * created, and a path already holding the desired bytes are ours; anything else
+ * is a user artifact.
+ * @param {string} basePath
+ * @param {object} item
+ * @param {Set<string>} priorlyOwned
+ * @param {boolean} existedBefore
+ * @returns {boolean}
+ */
+function ownsStageTarget(basePath, item, priorlyOwned, existedBefore) {
+  if (!existedBefore || priorlyOwned.has(item.path) || 'sourceTree' in item) {
+    return !existedBefore || priorlyOwned.has(item.path);
+  }
+  return stageTargetMatchesDesired(basePath, item);
+}
+
+/**
+ * Does an existing, non-owned target already hold the bytes this item would
+ * write? An unreadable non-symlink does not match.
+ * @param {string} basePath
+ * @param {object} item
+ * @returns {boolean}
+ */
+function stageTargetMatchesDesired(basePath, item) {
+  try {
+    const current = readFileNoFollow(basePath, item.path, null);
+    const desired = 'source' in item
+      ? readFileSync(item.source)
+      : Buffer.from(item.content);
+    return Buffer.isBuffer(current)
+      ? current.equals(desired)
+      : Buffer.from(current).equals(desired);
+  } catch (err) {
+    if (err instanceof PathSafetyError) throw err;
+    // Unreadable non-symlink — treat as non-matching.
+    return false;
+  }
+}
+
+/**
+ * Write one staged item at its owned target.
+ * @param {string} basePath
+ * @param {object} item
+ * @param {boolean} existedBefore
+ */
+function stageRuntimeItem(basePath, item, existedBefore) {
+  if ('sourceTree' in item) {
+    // Remove prior owned tree entries leaf-first when the target existed at the
+    // ownership check; a destination that appeared since then is not ours.
+    if (existedBefore) {
+      removeTreeNoFollow(basePath, item.path);
+    }
+    stageTreeNoFollow(basePath, item.path, item.sourceTree);
+    return;
+  }
+  const data = 'source' in item
+    ? readFileSync(item.source) // source is package asset (outside base)
+    : item.content;
+  // Mode is applied via writeFileNoFollow (O_CREAT + temp open) — no follow
+  // chmodSync after write (TOCTOU if leaf replaced with symlink).
+  writeFileNoFollow(basePath, item.path, data, {
+    atomic: true,
+    mode: item.mode != null ? item.mode : 0o644,
+  });
+}
+
+/**
+ * Remove one path recorded as created, leaf-first for directory trees.
+ * @param {string} basePath
+ * @param {string} relPath
+ */
+function revertStagedPath(basePath, relPath) {
+  assertLexicalWithinBase(basePath, relPath);
+  try {
+    if (!existsNoFollow(basePath, relPath)) return;
+  } catch (err) {
+    if (err instanceof PathSafetyError) return; // symlink leaf — leave
+    throw err;
+  }
+  // Directory trees (sourceTree) need recursive no-follow prune.
+  const absPath = join(basePath, relPath);
+  let isDir = false;
+  try {
+    isDir = statSync(absPath).isDirectory();
+  } catch {
+    isDir = false;
+  }
+  if (isDir) {
+    removeTreeNoFollow(basePath, relPath);
+  } else {
+    try {
+      unlinkNoFollow(basePath, relPath);
+    } catch (err) {
+      if (err instanceof PathSafetyError) return;
+      throw err;
+    }
+  }
+  pruneEmptyParentsLexical(basePath, relPath);
+}
+
 export const createStageRuntimeArtifactsEffect = () => ({
   type: 'stageRuntimeArtifacts',
 
@@ -54,57 +155,14 @@ export const createStageRuntimeArtifactsEffect = () => ({
     const created = [];
     for (const item of items) {
       assertLexicalWithinBase(basePath, item.path);
-      let existedBefore = false;
-      try {
-        existedBefore = existsNoFollow(basePath, item.path);
-      } catch (err) {
-        if (err instanceof PathSafetyError) throw err;
-        throw err;
-      }
-
-      let matchesDesiredFile = false;
-      if (existedBefore && !priorlyOwned.has(item.path) && !('sourceTree' in item)) {
-        try {
-          const current = readFileNoFollow(basePath, item.path, null);
-          const desired = 'source' in item
-            ? readFileSync(item.source)
-            : Buffer.from(item.content);
-          matchesDesiredFile = Buffer.isBuffer(current)
-            ? current.equals(desired)
-            : Buffer.from(current).equals(desired);
-        } catch (err) {
-          if (err instanceof PathSafetyError) throw err;
-          // Unreadable non-symlink — treat as non-matching.
-        }
-      }
-      const ownsTarget = !existedBefore || priorlyOwned.has(item.path) || matchesDesiredFile;
-
-      if (!ownsTarget) {
+      // Read existence once: ownership and tree removal both use this answer,
+      // so a path that appears later is not mistaken for ours.
+      const existedBefore = existsNoFollow(basePath, item.path);
+      if (!ownsStageTarget(basePath, item, priorlyOwned, existedBefore)) {
         throw new Error(`stageRuntimeArtifacts conflict: refusing to replace non-owned path "${item.path}"`);
       }
-
-      if ('sourceTree' in item) {
-        // Remove prior owned tree entries leaf-first when we own the root.
-        if (existedBefore) {
-          removeTreeNoFollow(basePath, item.path);
-        }
-        stageTreeNoFollow(basePath, item.path, item.sourceTree);
-      } else if ('source' in item) {
-        const data = readFileSync(item.source); // source is package asset (outside base)
-        // Mode is applied via writeFileNoFollow (O_CREAT + temp open) — no follow
-        // chmodSync after write (TOCTOU if leaf replaced with symlink).
-        writeFileNoFollow(basePath, item.path, data, {
-          atomic: true,
-          mode: item.mode != null ? item.mode : 0o644,
-        });
-      } else {
-        writeFileNoFollow(basePath, item.path, item.content, {
-          atomic: true,
-          mode: item.mode != null ? item.mode : 0o644,
-        });
-      }
-
-      if (ownsTarget) created.push(item.path);
+      stageRuntimeItem(basePath, item, existedBefore);
+      created.push(item.path);
     }
     return { created };
   },
@@ -112,32 +170,7 @@ export const createStageRuntimeArtifactsEffect = () => ({
   revert({ basePath }, beforeState) {
     const created = beforeState?.created ?? [];
     for (const relPath of [...created].reverse()) {
-      assertLexicalWithinBase(basePath, relPath);
-      try {
-        if (!existsNoFollow(basePath, relPath)) continue;
-      } catch (err) {
-        if (err instanceof PathSafetyError) continue; // symlink leaf — leave
-        throw err;
-      }
-      // Directory trees (sourceTree) need recursive no-follow prune.
-      const absPath = join(basePath, relPath);
-      let isDir = false;
-      try {
-        isDir = statSync(absPath).isDirectory();
-      } catch {
-        isDir = false;
-      }
-      if (isDir) {
-        removeTreeNoFollow(basePath, relPath);
-      } else {
-        try {
-          unlinkNoFollow(basePath, relPath);
-        } catch (err) {
-          if (err instanceof PathSafetyError) continue;
-          throw err;
-        }
-      }
-      pruneEmptyParentsLexical(basePath, relPath);
+      revertStagedPath(basePath, relPath);
     }
   },
 });

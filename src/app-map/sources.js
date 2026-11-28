@@ -225,6 +225,12 @@ function walkDocs(root, extensions, ignoreDirs) {
   return files.sort();
 }
 
+/**
+ * @param {object} [options]
+ * @param {string|string[]} [options.roots]
+ * @param {string[]} [options.extensions]
+ * @param {Set<string>|string[]} [options.ignoreDirs]
+ */
 export function recallSources({
   roots,
   extensions = DEFAULT_DOC_EXTENSIONS,

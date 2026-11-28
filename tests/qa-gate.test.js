@@ -1,0 +1,576 @@
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import { strict as assert } from 'node:assert';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { setTimeout as pause } from 'node:timers/promises';
+import {
+  chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const QA_SH = join(REPO_ROOT, 'scripts/qa.sh');
+const RATCHET_PY = join(REPO_ROOT, 'qa/ratchet.py');
+
+const STACKS = [
+  'stack\tlanguage\troots\tgenerated\ttests\tgroup',
+  'js\tjavascript\tsrc,scripts,bin\t-\ttests\t-',
+  '',
+].join('\n');
+
+const CEILINGS = [
+  'metric\tceiling\tapplies_to',
+  'complexity\t15\tjavascript',
+  'file-lines\t800\tjavascript',
+  '',
+].join('\n');
+
+const DIMENSIONS = ['dimension\tmetric', 'size\tcomplexity', 'size\tfile-lines', ''].join('\n');
+const EXCEPTIONS = 'stack\tmetric\tkey\tlimit\treason\n';
+
+/** A shell line that prints one measure line. */
+function measureLine(stack, metric, key, value) {
+  return `printf '${stack}\\t${metric}\\t${key}\\t${value}\\n'`;
+}
+
+describe('scripts/qa.sh', () => {
+  let tmp;
+  let repo;
+  let fakeDir;
+  let binDir;
+
+  function git(args, options = {}) {
+    return execFileSync('git', args, { cwd: repo, encoding: 'utf8', ...options });
+  }
+
+  function writeFile(path, body, mode) {
+    const target = join(repo, path);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, body);
+    if (mode !== undefined) chmodSync(target, mode);
+  }
+
+  /**
+   * A fake measurer. `body` runs for a measurement (no arguments) or for
+   * `--files`; the descriptor is generated from the fields.
+   */
+  function writeMeasurer(name, { mode = 'fast', changed = 'no', covers = [['js', 'complexity']], body = 'exit 0' } = {}) {
+    const coversLines = covers.map(([stack, metric]) => `  printf 'covers\\t${stack}\\t${metric}\\n'`).join('\n');
+    const script = `#!/bin/sh
+if [ "$1" = "--describe" ]; then
+  printf 'mode\\t${mode}\\n'
+  printf 'changed\\t${changed}\\n'
+${coversLines}
+  exit 0
+fi
+${body}
+`;
+    const target = join(repo, 'qa/measure', name);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, script);
+    chmodSync(target, 0o755);
+  }
+
+  function debt(stack, metric, lines) {
+    writeFile(join('qa/debt', `${stack}.${metric}.tsv`), lines);
+  }
+
+  function run(args, extraEnv = {}) {
+    return spawnSync('/bin/bash', [join(repo, 'scripts/qa.sh'), ...args], {
+      cwd: repo,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        QA_FAKE_DIR: fakeDir,
+        PATH: `${binDir}:${process.env.PATH}`,
+        ...extraEnv,
+      },
+    });
+  }
+
+  function both(result) {
+    return `${result.stdout}\n${result.stderr}`;
+  }
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'qa-gate-'));
+    repo = join(tmp, 'repo');
+    fakeDir = join(tmp, 'fake');
+    binDir = join(tmp, 'bin');
+    mkdirSync(repo, { recursive: true });
+    mkdirSync(fakeDir, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+
+    writeFile('scripts/qa.sh', readFileSync(QA_SH, 'utf8'), 0o755);
+    writeFile('qa/ratchet.py', readFileSync(RATCHET_PY, 'utf8'));
+    writeFile('qa/stacks.tsv', STACKS);
+    writeFile('qa/ceilings.tsv', CEILINGS);
+    writeFile('qa/dimensions.tsv', DIMENSIONS);
+    writeFile('qa/exceptions.tsv', EXCEPTIONS);
+
+    git(['init', '-q']);
+    git(['config', 'user.email', 'qa@example.test']);
+    git(['config', 'user.name', 'QA Test']);
+    git(['add', '-A']);
+    git(['commit', '-qm', 'base']);
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('passes on a clean tree', () => {
+    writeMeasurer('fake');
+    const result = run(['fast']);
+    assert.equal(result.status, 0, both(result));
+  });
+
+  it('fails with the next step on a new item', () => {
+    debt('js', 'complexity', 'src/known.js::f\t10\n');
+    writeMeasurer('fake', {
+      body: [measureLine('js', 'complexity', 'src/known.js::f', 10), measureLine('js', 'complexity', 'src/new.js::g', 20)].join('\n'),
+    });
+    const result = run(['fast']);
+    assert.equal(result.status, 1, both(result));
+    assert.match(result.stdout, /new\.js::g/);
+    assert.match(both(result), /When the gate is red/);
+  });
+
+  it('passes when an item matches its recorded value', () => {
+    debt('js', 'complexity', 'src/known.js::f\t20\n');
+    writeMeasurer('fake', { body: measureLine('js', 'complexity', 'src/known.js::f', 20) });
+    const result = run(['fast']);
+    assert.equal(result.status, 0, both(result));
+  });
+
+  it('fails when an item is worse than recorded', () => {
+    debt('js', 'complexity', 'src/known.js::f\t10\n');
+    writeMeasurer('fake', { body: measureLine('js', 'complexity', 'src/known.js::f', 11) });
+    const result = run(['fast']);
+    assert.equal(result.status, 1, both(result));
+    assert.match(result.stdout, /worse/);
+  });
+
+  it('checks each stack only over the metrics a measurer covered for it', () => {
+    writeFile('qa/stacks.tsv', [
+      'stack\tlanguage\troots\tgenerated\ttests\tgroup',
+      'js\tjavascript\tsrc,scripts,bin\t-\ttests\t-',
+      'py\tpython\tpy\t-\ttests\t-',
+      '',
+    ].join('\n'));
+    writeFile('qa/ceilings.tsv', [
+      'metric\tceiling\tapplies_to',
+      'complexity\t15\tjavascript,python',
+      'file-lines\t800\tjavascript,python',
+      '',
+    ].join('\n'));
+    writeMeasurer('js', {
+      covers: [['js', 'complexity']],
+      body: [
+        measureLine('js', 'complexity', 'src/known.js::f', 10),
+        measureLine('js', 'complexity', 'src/new.js::g', 20),
+      ].join('\n'),
+    });
+    writeMeasurer('py', {
+      covers: [['py', 'file-lines']],
+      body: 'exit 0',
+    });
+    debt('js', 'complexity', 'src/known.js::f\t10\n');
+    debt('py', 'complexity', 'py/old.py::unmeasured\t10\n');
+
+    const result = run(['fast']);
+    assert.equal(result.status, 1, both(result));
+    assert.match(result.stdout, /src\/new\.js::g/);
+    assert.doesNotMatch(both(result), /can lower/);
+    assert.doesNotMatch(both(result), /py\.complexity/);
+  });
+
+  it('exits 2 when a measurer reports its tool is missing', () => {
+    writeMeasurer('fake', { body: 'exit 3' });
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /fake: tool not installed/);
+    assert.match(result.stderr, /scripts\/qa\.sh setup/);
+  });
+
+  it('exits 2 when a measurer crashes', () => {
+    writeMeasurer('fake', { body: 'exit 7' });
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /fake/);
+  });
+
+  it('exits 2 when a measurer prints a malformed line', () => {
+    writeMeasurer('fake', { body: "printf 'js\\tcomplexity\\tonly-three\\n'" });
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /fake/);
+  });
+
+  it('exits 2 when a measurer prints a row for a stack it does not cover', () => {
+    writeMeasurer('fake', {
+      covers: [['js', 'complexity']],
+      body: measureLine('jss', 'complexity', 'src/a.js::f', 10),
+    });
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /fake/);
+    assert.match(result.stderr, /jss/);
+  });
+
+  it('exits 2 when a measurer prints a row for a metric it does not cover', () => {
+    writeMeasurer('fake', {
+      covers: [['js', 'complexity']],
+      body: measureLine('js', 'file-lines', 'src/a.js::*', 900),
+    });
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /fake/);
+    assert.match(result.stderr, /file-lines/);
+  });
+
+  it('exits 2 naming a missing quality table', () => {
+    rmSync(join(repo, 'qa/dimensions.tsv'));
+    writeMeasurer('fake');
+    const result = run(['measure']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa\/dimensions\.tsv/);
+  });
+
+  it('exits 2 when a stack row has no root', () => {
+    writeFile('qa/stacks.tsv', [
+      'stack\tlanguage\troots\tgenerated\ttests\tgroup',
+      'js\tjavascript\t-\t-\ttests\t-',
+      '',
+    ].join('\n'));
+    writeMeasurer('fake');
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa\/stacks\.tsv/);
+  });
+
+  it('exits 2 when qa/stacks.tsv cannot be read', () => {
+    const awk = join(binDir, 'awk');
+    writeFileSync(awk, '#!/bin/sh\nexit 2\n');
+    chmodSync(awk, 0o755);
+    writeMeasurer('fake', { changed: 'yes' });
+
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa\/stacks\.tsv/);
+  });
+
+  it('changed checks the quality tables even when nothing is staged', () => {
+    writeFile('qa/stacks.tsv', [
+      'stack\tlanguage\troots\tgenerated\ttests\tgroup',
+      'js\tjavascript\t\t-\ttests\t-',
+      '',
+    ].join('\n'));
+    writeMeasurer('fake', { changed: 'yes' });
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa\/stacks\.tsv/);
+  });
+
+  it('strong exits 2 when ratchet status exits 2', () => {
+    const npm = join(binDir, 'npm');
+    writeFileSync(npm, '#!/bin/sh\nexit 0\n');
+    chmodSync(npm, 0o755);
+    writeFile('qa/debt/js.weird.tsv', 'src/a.js::f\tnot-a-number\n');
+    writeMeasurer('fake');
+
+    const result = run(['strong']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /ratchet/);
+  });
+
+  it('changed --staged runs only changed yes measurers with the staged files', () => {
+    writeMeasurer('yes', {
+      changed: 'yes',
+      body: 'printf \'%s\\n\' "$@" > "$QA_FAKE_DIR/yes.args"',
+    });
+    writeMeasurer('no', {
+      changed: 'no',
+      body: ': > "$QA_FAKE_DIR/no.ran"',
+    });
+    writeFile('src/x.js', 'export const x = 1;\n');
+    git(['add', 'src/x.js']);
+
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 0, both(result));
+    const args = readFileSync(join(fakeDir, 'yes.args'), 'utf8').trim().split('\n');
+    assert.deepEqual(args, ['--files', 'src/x.js']);
+    assert.equal(existsSync(join(fakeDir, 'no.ran')), false);
+  });
+
+  it('changed --staged hides can lower when the measures cover only staged files', () => {
+    debt('js', 'complexity', 'src/known.js::f\t10\nsrc/staged.js::g\t20\n');
+    writeMeasurer('fake', {
+      changed: 'yes',
+      body: measureLine('js', 'complexity', 'src/staged.js::g', 20),
+    });
+    writeFile('src/staged.js', 'export const staged = 1;\n');
+    git(['add', 'src/staged.js']);
+
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 0, both(result));
+    assert.doesNotMatch(both(result), /can lower/);
+  });
+
+  it('fast still prints can lower when an item is paid', () => {
+    debt('js', 'complexity', 'src/known.js::f\t10\nsrc/staged.js::g\t20\n');
+    writeMeasurer('fake', {
+      body: measureLine('js', 'complexity', 'src/staged.js::g', 20),
+    });
+
+    const result = run(['fast']);
+    assert.equal(result.status, 0, both(result));
+    assert.match(both(result), /can lower/);
+  });
+
+  it('changed --staged skips a measurer when no changed file is under its roots', () => {
+    writeMeasurer('yes', {
+      changed: 'yes',
+      body: ': > "$QA_FAKE_DIR/yes.ran"',
+    });
+    writeFile('docs/readme.md', 'not production code\n');
+    git(['add', 'docs/readme.md']);
+
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 0, both(result));
+    assert.match(both(result), /no fast changed-aware measurer/);
+    assert.equal(existsSync(join(fakeDir, 'yes.ran')), false);
+  });
+
+  it('changed --base compares against the merge-base of HEAD and the ref', () => {
+    writeMeasurer('yes', {
+      changed: 'yes',
+      body: 'printf \'%s\\n\' "$@" > "$QA_FAKE_DIR/yes.args"',
+    });
+    writeFile('src/base.js', 'export const base = 1;\n');
+    git(['add', 'src/base.js']);
+    git(['commit', '-qm', 'add base']);
+    writeFile('src/base.js', 'export const base = 2;\n');
+    git(['add', 'src/base.js']);
+    git(['commit', '-qm', 'change base']);
+
+    const result = run(['changed', '--base', 'HEAD~1']);
+    assert.equal(result.status, 0, both(result));
+    const args = readFileSync(join(fakeDir, 'yes.args'), 'utf8').trim().split('\n');
+    assert.deepEqual(args, ['--files', 'src/base.js']);
+  });
+
+  it('changed --staged passes with a message when nothing is staged', () => {
+    writeMeasurer('yes', {
+      changed: 'yes',
+      body: ': > "$QA_FAKE_DIR/yes.ran"',
+    });
+    const result = run(['changed', '--staged']);
+    assert.equal(result.status, 0, both(result));
+    assert.match(both(result), /no changed files/);
+    assert.equal(existsSync(join(fakeDir, 'yes.ran')), false);
+  });
+
+  it('full does not run the test suite when the fast part failed', () => {
+    const npm = join(binDir, 'npm');
+    writeFileSync(npm, '#!/bin/sh\n: > "$QA_FAKE_DIR/npm.ran"\nexit 0\n');
+    chmodSync(npm, 0o755);
+    debt('js', 'complexity', 'src/known.js::f\t10\n');
+    writeMeasurer('fake', { body: measureLine('js', 'complexity', 'src/known.js::f', 11) });
+
+    const result = run(['full']);
+    assert.equal(result.status, 1, both(result));
+    assert.equal(existsSync(join(fakeDir, 'npm.ran')), false);
+  });
+
+  it('full runs the test suite when the fast part passed', () => {
+    const npm = join(binDir, 'npm');
+    writeFileSync(npm, '#!/bin/sh\n: > "$QA_FAKE_DIR/npm.ran"\nexit 0\n');
+    chmodSync(npm, 0o755);
+    writeMeasurer('fake');
+
+    const result = run(['full']);
+    assert.equal(result.status, 0, both(result));
+    assert.equal(existsSync(join(fakeDir, 'npm.ran')), true);
+  });
+
+  it('runs full-mode measurers in full but not in fast', () => {
+    const npm = join(binDir, 'npm');
+    writeFileSync(npm, '#!/bin/sh\nexit 0\n');
+    chmodSync(npm, 0o755);
+    writeMeasurer('full', {
+      mode: 'full',
+      body: ': > "$QA_FAKE_DIR/full.ran"',
+    });
+
+    const fast = run(['fast']);
+    assert.equal(fast.status, 0, both(fast));
+    assert.equal(existsSync(join(fakeDir, 'full.ran')), false);
+
+    const full = run(['full']);
+    assert.equal(full.status, 0, both(full));
+    assert.equal(existsSync(join(fakeDir, 'full.ran')), true);
+  });
+
+  it('strong exits 1 when status is not strong', () => {
+    const npm = join(binDir, 'npm');
+    writeFileSync(npm, '#!/bin/sh\nexit 0\n');
+    chmodSync(npm, 0o755);
+    writeMeasurer('fake');
+
+    const result = run(['strong']);
+    assert.equal(result.status, 1, both(result));
+    assert.match(result.stdout, /not frozen/);
+  });
+
+  it('exits non-zero and removes its temporary folder when terminated', async () => {
+    writeMeasurer('slow', {
+      body: 'printf \'%s\\n\' "$$" > "$QA_FAKE_DIR/slow.pid"\nsleep 2',
+    });
+    const gateTmp = join(tmp, 'gate-tmp');
+    mkdirSync(gateTmp);
+    const child = spawn('/bin/bash', [join(repo, 'scripts/qa.sh'), 'fast'], {
+      cwd: repo,
+      env: {
+        ...process.env,
+        QA_FAKE_DIR: fakeDir,
+        PATH: `${binDir}:${process.env.PATH}`,
+        TMPDIR: gateTmp,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let measurerPid = null;
+    try {
+      const pidFile = join(fakeDir, 'slow.pid');
+      const deadline = Date.now() + 5000;
+      while (!existsSync(pidFile) && Date.now() < deadline) {
+        await pause(20);
+      }
+      assert.ok(existsSync(pidFile), 'the slow measurer did not start');
+      measurerPid = Number(readFileSync(pidFile, 'utf8').trim());
+
+      child.kill('SIGTERM');
+      const result = await new Promise((done) => {
+        child.on('exit', (code, signal) => done({ code, signal }));
+      });
+      assert.ok(result.code !== 0, `expected a non-zero exit, got ${JSON.stringify(result)}`);
+      assert.deepEqual(readdirSync(gateTmp), []);
+    } finally {
+      if (measurerPid) {
+        try {
+          process.kill(measurerPid, 'SIGTERM');
+        } catch {
+          // The measurer already exited.
+        }
+      }
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    }
+  });
+
+  it('exits 2 when there is no eligible measurer', () => {
+    writeFile('qa/measure/_helper', '#!/bin/sh\nexit 0\n', 0o755);
+    const result = run(['fast']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /qa: no measurer found in qa\/measure/);
+  });
+
+  it('exits 2 on an unknown mode', () => {
+    const result = run(['nonsense']);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /usage:/);
+  });
+
+  it('exits 2 when no mode is given', () => {
+    const result = run([]);
+    assert.equal(result.status, 2, both(result));
+    assert.match(result.stderr, /usage:/);
+  });
+
+  it('measure prints the lines and does not fail on items', () => {
+    writeMeasurer('fake', { body: measureLine('js', 'complexity', 'src/x.js::f', 20) });
+    const result = run(['measure']);
+    assert.equal(result.status, 0, both(result));
+    assert.match(result.stdout, /^js\tcomplexity\tsrc\/x\.js::f\t20$/m);
+  });
+
+  it('measure prints a final row without a trailing newline', () => {
+    writeMeasurer('fake', { body: "printf 'js\\tcomplexity\\tsrc/x.js::f\\t20'" });
+    const result = run(['measure']);
+    assert.equal(result.status, 0, both(result));
+    assert.match(result.stdout, /^js\tcomplexity\tsrc\/x\.js::f\t20$/m);
+  });
+
+  it('keeps rows apart when a measurer omits the final newline', () => {
+    debt('js', 'complexity', 'src/known.js::f\t10\n');
+    writeMeasurer('one', {
+      covers: [['js', 'complexity'], ['js', 'file-lines']],
+      body: "printf 'js\\tcomplexity\\tsrc/a.js::f\\t20'",
+    });
+    writeMeasurer('two', {
+      covers: [['js', 'file-lines']],
+      body: "printf 'js\\tfile-lines\\tsrc/b.js::*\\t900\\n'",
+    });
+
+    const measured = run(['measure']);
+    assert.equal(measured.status, 0, both(measured));
+    assert.deepEqual(measured.stdout.trim().split('\n').sort(), [
+      'js\tcomplexity\tsrc/a.js::f\t20',
+      'js\tfile-lines\tsrc/b.js::*\t900',
+    ]);
+
+    const byMetric = run(['measure', '--metric', 'file-lines']);
+    assert.equal(byMetric.status, 0, both(byMetric));
+    assert.deepEqual(byMetric.stdout.trim().split('\n'), ['js\tfile-lines\tsrc/b.js::*\t900']);
+
+    const fast = run(['fast']);
+    assert.equal(fast.status, 1, both(fast));
+    assert.match(fast.stdout, /src\/a\.js::f/);
+    assert.match(fast.stdout, /src\/b\.js::\*/);
+  });
+
+  it('measure filters by metric', () => {
+    writeMeasurer('one', { covers: [['js', 'complexity']], body: measureLine('js', 'complexity', 'src/a.js::f', 20) });
+    writeMeasurer('two', { covers: [['js', 'file-lines']], body: measureLine('js', 'file-lines', 'src/b.js::*', 900) });
+
+    const result = run(['measure', '--metric', 'complexity']);
+    assert.equal(result.status, 0, both(result));
+    assert.match(result.stdout, /src\/a\.js::f/);
+    assert.doesNotMatch(result.stdout, /src\/b\.js::\*/);
+  });
+
+  it('measure filters every row a measurer prints', () => {
+    writeFile('qa/stacks.tsv', [
+      'stack\tlanguage\troots\tgenerated\ttests\tgroup',
+      'js\tjavascript\tsrc,scripts,bin\t-\ttests\t-',
+      'py\tpython\tpy\t-\ttests\t-',
+      '',
+    ].join('\n'));
+    writeFile('qa/ceilings.tsv', [
+      'metric\tceiling\tapplies_to',
+      'complexity\t15\tjavascript,python',
+      'file-lines\t800\tjavascript,python',
+      '',
+    ].join('\n'));
+    writeMeasurer('multi', {
+      covers: [['js', 'complexity'], ['js', 'file-lines'], ['py', 'complexity']],
+      body: [
+        measureLine('js', 'complexity', 'src/a.js::f', 20),
+        measureLine('js', 'file-lines', 'src/a.js::*', 900),
+        measureLine('py', 'complexity', 'py/a.py::f', 20),
+      ].join('\n'),
+    });
+
+    const byMetric = run(['measure', '--metric', 'complexity']);
+    assert.equal(byMetric.status, 0, both(byMetric));
+    assert.deepEqual(byMetric.stdout.trim().split('\n').sort(), [
+      'js\tcomplexity\tsrc/a.js::f\t20',
+      'py\tcomplexity\tpy/a.py::f\t20',
+    ]);
+
+    const byStack = run(['measure', '--stack', 'py']);
+    assert.equal(byStack.status, 0, both(byStack));
+    assert.deepEqual(byStack.stdout.trim().split('\n'), ['py\tcomplexity\tpy/a.py::f\t20']);
+  });
+});

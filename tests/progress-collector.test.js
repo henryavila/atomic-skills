@@ -1,6 +1,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawn, spawnSync, execFileSync } from 'node:child_process';
+import { once } from 'node:events';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   existsSync,
   mkdirSync,
@@ -21,7 +23,6 @@ const REPO_ROOT = realpathSync(new URL('..', import.meta.url).pathname);
 const PROGRESS_PY = join(REPO_ROOT, 'skills/shared/progress-assets/progress.py');
 
 const PYTHON3 = process.env.PROGRESS_TEST_PYTHON || 'python3';
-const hasPython3 = spawnSync(PYTHON3, ['-c', 'import sys'], { encoding: 'utf8' }).status === 0;
 
 function gitEnv(extra = {}) {
   return {
@@ -91,7 +92,7 @@ async function waitFor(check, timeout = 15000, step = 50) {
     } catch (error) {
       last = error;
     }
-    await new Promise((resolve) => setTimeout(resolve, step));
+    await pause(step);
   }
   throw new Error(`condition not met within ${timeout}ms${last ? `: ${last.message}` : ''}`);
 }
@@ -141,7 +142,7 @@ function oneMilestonePerCard(cards, extra = {}) {
   });
 }
 
-describe('progress collector', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('progress collector', () => {
   let root;
   let home;
   let atomicHome;
@@ -997,6 +998,45 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
 
   // ------------------------------------------------------------- collection
 
+  it('writes the four panel feeds byte for byte for a fixed input', () => {
+    writeMap(project, baseMap({ id: 'pinned', title: 'Pinned', unit: 'cartões' }));
+    register(project);
+    collect();
+
+    assert.equal(readFileSync(join(outDir, 'projetos.json'), 'utf8'), `[
+  {
+    "id": "pinned",
+    "nome": "Pinned",
+    "feito": 0,
+    "total": 1,
+    "pct": 0,
+    "validado": 0,
+    "validadoPct": 0,
+    "resumo": "0/1 cartões · 0%",
+    "legenda": ""
+  }
+]
+`);
+    assert.equal(readFileSync(join(outDir, 'marcos.json'), 'utf8'), `[
+  {
+    "projeto": "pinned",
+    "marco": "fundacao",
+    "titulo": "Fundação",
+    "legenda": "0 de 1 prontos",
+    "feito": 0,
+    "total": 1,
+    "pct": 0,
+    "resumo": "0/1 cartões · 0%",
+    "prontos": 0,
+    "bloqueados": 0,
+    "rodando": 0
+  }
+]
+`);
+    assert.equal(readFileSync(join(outDir, 'execucoes.json'), 'utf8'), '[]\n');
+    assert.equal(readFileSync(join(outDir, 'alertas.json'), 'utf8'), '[]\n');
+  });
+
   it('writes no file again when the bytes did not change', () => {
     writeMap(project, baseMap());
     register(project);
@@ -1357,6 +1397,60 @@ print(progress.repo_identity(sys.argv[2]) or "")
       real,
       'an old git must not turn its unknown option into the repository name',
     );
+  });
+
+  it('repo_identity stays None outside a repository', () => {
+    const plain = join(root, 'not-a-repo');
+    mkdirSync(plain);
+    const script = `
+import importlib.util, sys
+
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+progress = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(progress)
+print(progress.repo_identity(sys.argv[2]))
+print(progress.repo_identity(sys.argv[2] + "/missing"))
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, plain], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.deepEqual(res.stdout.trim().split('\n'), ['None', 'None']);
+  });
+
+  it('repo_identity absorbs a malformed git path and propagates an unexpected failure', () => {
+    const script = `
+import importlib.util, sys
+
+spec = importlib.util.spec_from_file_location("progress", sys.argv[1])
+progress = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(progress)
+
+progress.git = lambda *args, **kwargs: 'a\\u0000b'
+print(progress.repo_identity(sys.argv[2]))
+
+def injected(*args, **kwargs):
+    raise AttributeError('injected')
+
+progress.git = injected
+try:
+    progress.repo_identity(sys.argv[2])
+except AttributeError:
+    print('propagated')
+else:
+    print('swallowed')
+`;
+    const res = spawnSync(PYTHON3, ['-c', script, PROGRESS_PY, project], {
+      encoding: 'utf8',
+      env,
+      cwd: root,
+      timeout: 30000,
+    });
+    assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
+    assert.deepEqual(res.stdout.trim().split('\n'), ['None', 'propagated']);
   });
 
   it('keeps the previous rows and alerts when git log fails', () => {
@@ -2056,14 +2150,16 @@ exec ${JSON.stringify(realUploadPack)} "$@"
     try {
       await waitFor(() => existsSync(marker), 15000);
       const started = Date.now();
+      const exited = once(child, 'exit', { signal: AbortSignal.timeout(3000) });
       child.kill('SIGINT');
-      const code = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('watch did not exit after SIGINT')), 3000);
-        child.once('exit', (exitCode, signal) => {
-          clearTimeout(timer);
-          resolve(exitCode ?? signal);
-        });
-      });
+      let code;
+      try {
+        const [exitCode, exitSignal] = await exited;
+        code = exitCode ?? exitSignal;
+      } catch (error) {
+        if (error.name === 'AbortError') throw new Error('watch did not exit after SIGINT');
+        throw error;
+      }
       const elapsed = Date.now() - started;
       assert.equal(code, 0);
       assert.ok(elapsed < 2000, `watch took ${elapsed}ms to stop during a fetch`);
@@ -2094,7 +2190,7 @@ exec ${JSON.stringify(realUploadPack)} "$@"
     try {
       const deadline = Date.now() + 15000;
       while (Date.now() < deadline && !existsSync(join(outDir, 'projetos.json'))) {
-        await new Promise((r) => setTimeout(r, 50));
+        await pause(50);
       }
       assert.ok(existsSync(join(outDir, 'projetos.json')), 'watch did not collect');
       child.kill('SIGTERM');

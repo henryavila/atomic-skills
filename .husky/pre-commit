@@ -2,18 +2,23 @@
 [ "${HUSKY-}" = "0" ] && exit 0
 set -e
 
-# Catalog → docs auto-regen pipeline.
+# Catalog → docs check pipeline.
 #
-# Step 1: if any catalog INPUT is staged, regenerate docs and re-stage the
-#         OUTPUTS so the commit captures the up-to-date generated files
-#         atomically (no second "fix README" commit needed).
+# The hook only checks. It never regenerates a file, never stages and never
+# commits: a hook that rewrites the index hides work from the committer, and a
+# regenerator can change outputs the hook does not stage, so the commit then
+# fails `npm run check-docs` in CI.
+#
+# Step 1: if any catalog INPUT is staged, verify that every generated output is
+#         fresh. On drift, refuse the commit and tell the committer to run
+#         `npm run generate-docs`, stage the changed files and commit again.
 #
 # Step 2: if any catalog-coupled file is staged (inputs OR outputs OR README),
 #         run validate-catalog as the final guard. Catches manual edits to
 #         marker-bounded regions and unknown `atomic-skills:<name>` mentions.
 #
 # Hand-edits to README.md outside markers and outside the lint regex are not
-# touched by the regenerator — they survive across regen runs.
+# touched by the generator — they survive across regenerate runs.
 
 STAGED=$(git diff --cached --name-only)
 
@@ -24,25 +29,15 @@ INPUTS_REGEX='^(meta/catalog\.yaml|skills/(core|modules|shared)/|src/config\.js|
 COUPLED_REGEX='^(meta/catalog\.(yaml|json)|skills/(core|modules|shared)/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law|build-catalog-json)|README\.md)'
 
 if echo "$STAGED" | grep -qE "$INPUTS_REGEX"; then
-  # F-001 guard (codex review 2026-05-24): refuse to silently sweep
-  # pre-existing unstaged edits to the generator outputs into the commit.
-  # If README.md or meta/catalog.json has unstaged changes, the user must
-  # commit/stash them explicitly first — otherwise the `git add` below would
-  # absorb their unrelated work alongside the catalog change.
-  UNSTAGED_OUTPUTS=$(git diff --name-only -- README.md meta/catalog.json)
-  if [ -n "$UNSTAGED_OUTPUTS" ]; then
-    echo "[husky] ✖ aborting: regenerator outputs have unstaged changes:" >&2
-    echo "$UNSTAGED_OUTPUTS" | sed 's/^/  - /' >&2
-    echo "[husky] commit, stash, or restore those first — otherwise auto-regen" >&2
-    echo "[husky] would stage them alongside the catalog change." >&2
+  if ! npm run check-docs; then
+    echo "[husky] ✖ generated docs are stale — run \`npm run generate-docs\`," >&2
+    echo "[husky]   stage the changed files, then commit again." >&2
     exit 1
   fi
-
-  echo "[husky] catalog inputs changed — regenerating docs"
-  npm run generate-docs
-  git add README.md meta/catalog.json
 fi
 
 if echo "$STAGED" | grep -qE "$COUPLED_REGEX"; then
   npm run validate-catalog
 fi
+
+bash scripts/qa.sh changed --staged

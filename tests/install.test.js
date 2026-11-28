@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { install, installSkills, resolveProjectScopeTarget, installRuntimeArtifacts } from '../src/install.js';
+import { install, installSkills, resolveProjectScopeTarget, installRuntimeArtifacts, getPackageVersion } from '../src/install.js';
 import { PUBLIC_IDE_IDS, getSkillPath } from '../src/config.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -566,6 +566,39 @@ describe('install command artifacts', () => {
     }
   });
 
+  it('prints the non-interactive install banner before the summary', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-install-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-install-repo-'));
+    const nested = join(repo, 'src', 'nested');
+    const originalHome = process.env.HOME;
+    const originalLog = console.log;
+    const lines = [];
+
+    try {
+      mkdirSync(nested, { recursive: true });
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      process.env.HOME = fakeHome;
+      console.log = (...args) => { lines.push(args.join(' ')); };
+
+      await install(nested, {
+        yes: true,
+        project: true,
+        ide: ['claude-code'],
+        lang: 'en',
+      });
+
+      assert.deepEqual(lines, [
+        `◇ Installing atomic-skills v${getPackageVersion()}...`,
+      ]);
+    } finally {
+      console.log = originalLog;
+      if (originalHome === undefined) delete process.env.HOME;
+      else process.env.HOME = originalHome;
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   it('rejects project scope outside a git worktree', () => {
     const dir = mkdtempSync(join(tmpdir(), 'as-install-not-repo-'));
     try {
@@ -620,6 +653,15 @@ describe('findLegacyOrphans + removeLegacyOrphans', () => {
   it('returns empty when no legacy paths exist', () => {
     const orphans = findLegacyOrphans(tmp, new Set(['fix']));
     assert.deepEqual(orphans, []);
+  });
+
+  it('surfaces a scan failure that is not a missing path', () => {
+    fsMkdirSync(pjoin(tmp, '.gemini'), { recursive: true });
+    fsWriteFileSync(pjoin(tmp, '.gemini/skills'), 'not a directory');
+    assert.throws(
+      () => findLegacyOrphans(tmp, new Set(['fix'])),
+      (err) => err.code === 'ENOTDIR',
+    );
   });
 
   it('finds files under <legacyRoot>/atomic-skills/', () => {

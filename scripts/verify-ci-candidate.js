@@ -110,33 +110,59 @@ export function validateJobMatrix(receipt, { requireOs, requireNode }) {
     errors.push('receipt.jobs must be a non-empty array for full status');
   }
 
-  for (const [i, job] of jobs.entries()) {
-    const prefix = `jobs[${i}]`;
-    if (!job || typeof job !== 'object') {
-      errors.push(`${prefix}: must be an object`);
-      continue;
-    }
-    if (typeof job.os !== 'string' || !job.os) {
-      errors.push(`${prefix}: os required`);
-    }
-    if (typeof job.nodeVersion !== 'string' || !parseNodeVersion(job.nodeVersion)) {
-      errors.push(`${prefix}: nodeVersion must be a real process.version (got ${JSON.stringify(job.nodeVersion)})`);
-    }
-    // Reject versions inferred only from job name when nodeVersion missing was already caught.
-    if (job.status && !['success', 'passed', 'green', 'skipped', 'failed'].includes(job.status)) {
-      errors.push(`${prefix}: unknown status ${job.status}`);
-    }
-    if (job.status === 'failed' || job.status === 'red') {
-      errors.push(`${prefix}: job failed`);
-    }
-    if (job.status === 'skipped' && receipt.status === 'full') {
-      errors.push(`${prefix}: skipped jobs not allowed for full status`);
-    }
-    if (receipt.candidateSha && job.sha && job.sha !== receipt.candidateSha) {
-      errors.push(`${prefix}: job.sha ${job.sha} != candidateSha ${receipt.candidateSha}`);
-    }
+  validateJobEntries(receipt, jobs, errors);
+  const recordedVersions = collectRecordedVersions(receipt, jobs);
+  const osCovered = collectOsCoverage(receipt, jobs);
+
+  // Full receipts require the Cartesian product OS × Node (Codex F-008).
+  // Partial receipts keep union-axis coverage (allow-partial softens gaps later).
+  if (receipt.status === 'full') {
+    reportFullCoverage(receipt, jobs, requireOs, requireNode, errors);
+  } else {
+    reportUnionCoverage(osCovered, recordedVersions, requireOs, requireNode, errors);
   }
 
+  return { ok: errors.length === 0, errors, osCovered: [...osCovered], recordedVersions };
+}
+
+function validateJobEntries(receipt, jobs, errors) {
+  for (const [i, job] of jobs.entries()) {
+    validateJobEntry(receipt, job, i, errors);
+  }
+}
+
+function validateJobEntry(receipt, job, i, errors) {
+  const prefix = `jobs[${i}]`;
+  if (!job || typeof job !== 'object') {
+    errors.push(`${prefix}: must be an object`);
+    return;
+  }
+  if (typeof job.os !== 'string' || !job.os) {
+    errors.push(`${prefix}: os required`);
+  }
+  if (typeof job.nodeVersion !== 'string' || !parseNodeVersion(job.nodeVersion)) {
+    errors.push(`${prefix}: nodeVersion must be a real process.version (got ${JSON.stringify(job.nodeVersion)})`);
+  }
+  // Reject versions inferred only from job name when nodeVersion missing was already caught.
+  validateJobStatus(receipt, job, prefix, errors);
+  if (receipt.candidateSha && job.sha && job.sha !== receipt.candidateSha) {
+    errors.push(`${prefix}: job.sha ${job.sha} != candidateSha ${receipt.candidateSha}`);
+  }
+}
+
+function validateJobStatus(receipt, job, prefix, errors) {
+  if (job.status && !['success', 'passed', 'green', 'skipped', 'failed'].includes(job.status)) {
+    errors.push(`${prefix}: unknown status ${job.status}`);
+  }
+  if (job.status === 'failed' || job.status === 'red') {
+    errors.push(`${prefix}: job failed`);
+  }
+  if (job.status === 'skipped' && receipt.status === 'full') {
+    errors.push(`${prefix}: skipped jobs not allowed for full status`);
+  }
+}
+
+function collectRecordedVersions(receipt, jobs) {
   const recordedVersions = [
     ...jobs.map((j) => j.nodeVersion).filter(Boolean),
     ...(Array.isArray(receipt.nodeCoverage)
@@ -144,7 +170,10 @@ export function validateJobMatrix(receipt, { requireOs, requireNode }) {
       : []),
   ];
   if (receipt.local?.nodeVersion) recordedVersions.push(receipt.local.nodeVersion);
+  return recordedVersions;
+}
 
+function collectOsCoverage(receipt, jobs) {
   const osCovered = new Set(jobs.map((j) => normalizeOs(j.os)).filter(Boolean));
   // Also accept platformCoverage when jobs are local-only / partial
   if (receipt.platformCoverage && typeof receipt.platformCoverage === 'object') {
@@ -152,44 +181,43 @@ export function validateJobMatrix(receipt, { requireOs, requireNode }) {
       if (covered === true) osCovered.add(normalizeOs(os));
     }
   }
+  return osCovered;
+}
 
-  // Full receipts require the Cartesian product OS × Node (Codex F-008).
-  // Partial receipts keep union-axis coverage (allow-partial softens gaps later).
-  if (receipt.status === 'full') {
-    const successJobs = jobs.filter(
-      (j) => j
-        && (!j.status || ['success', 'passed', 'green'].includes(j.status))
-        && j.status !== 'skipped'
-        && j.status !== 'failed',
-    );
-    for (const os of requireOs) {
-      for (const req of requireNode) {
-        const hit = successJobs.some(
-          (j) => normalizeOs(j.os) === normalizeOs(os)
-            && j.nodeVersion
-            && nodeSatisfies(j.nodeVersion, req)
-            && (!receipt.candidateSha || !j.sha || j.sha === receipt.candidateSha),
-        );
-        if (!hit) {
-          errors.push(`missing OS×Node coverage: ${os} × ${req}`);
-        }
-      }
-    }
-  } else {
-    for (const os of requireOs) {
-      if (!osCovered.has(normalizeOs(os))) {
-        errors.push(`missing OS coverage: ${os}`);
-      }
-    }
+function reportFullCoverage(receipt, jobs, requireOs, requireNode, errors) {
+  const successJobs = jobs.filter(
+    (j) => j
+      && (!j.status || ['success', 'passed', 'green'].includes(j.status))
+      && j.status !== 'skipped'
+      && j.status !== 'failed',
+  );
+  for (const os of requireOs) {
     for (const req of requireNode) {
-      const hit = recordedVersions.some((v) => nodeSatisfies(v, req));
+      const hit = successJobs.some(
+        (j) => normalizeOs(j.os) === normalizeOs(os)
+          && j.nodeVersion
+          && nodeSatisfies(j.nodeVersion, req)
+          && (!receipt.candidateSha || !j.sha || j.sha === receipt.candidateSha),
+      );
       if (!hit) {
-        errors.push(`missing Node coverage for requirement ${req} (recorded: ${recordedVersions.join(', ') || 'none'})`);
+        errors.push(`missing OS×Node coverage: ${os} × ${req}`);
       }
     }
   }
+}
 
-  return { ok: errors.length === 0, errors, osCovered: [...osCovered], recordedVersions };
+function reportUnionCoverage(osCovered, recordedVersions, requireOs, requireNode, errors) {
+  for (const os of requireOs) {
+    if (!osCovered.has(normalizeOs(os))) {
+      errors.push(`missing OS coverage: ${os}`);
+    }
+  }
+  for (const req of requireNode) {
+    const hit = recordedVersions.some((v) => nodeSatisfies(v, req));
+    if (!hit) {
+      errors.push(`missing Node coverage for requirement ${req} (recorded: ${recordedVersions.join(', ') || 'none'})`);
+    }
+  }
 }
 
 function normalizeOs(os) {
@@ -284,10 +312,27 @@ export function checkNoProductDiff(candidateSha, cwd = ROOT, opts = {}) {
  * @param {object} opts
  */
 export function validateCiCandidate(receipt, opts = {}) {
-  const errors = [];
   if (!receipt || typeof receipt !== 'object') {
     return { ok: false, errors: ['receipt must be an object'] };
   }
+  const errors = [];
+  validateReceiptEnvelope(receipt, opts, errors);
+
+  const matrix = validateJobMatrix(receipt, {
+    requireOs: opts.requireOs || ['linux'],
+    requireNode: opts.requireNode || ['22.18.x', '>=24.11.0'],
+  });
+  reportMatrixResult(receipt, opts, matrix, errors);
+
+  if (opts.noProductDiff && receipt.candidateSha) {
+    const diff = checkNoProductDiff(receipt.candidateSha, opts.cwd || ROOT);
+    if (!diff.ok) errors.push(...diff.errors);
+  }
+
+  return { ok: errors.length === 0, errors, matrix };
+}
+
+function validateReceiptEnvelope(receipt, opts, errors) {
   if (receipt.schemaVersion !== '1') {
     errors.push(`schemaVersion must be "1"`);
   }
@@ -303,51 +348,44 @@ export function validateCiCandidate(receipt, opts = {}) {
   if (receipt.status === 'partial' && !opts.allowPartial) {
     errors.push('receipt status is partial; pass --allow-partial for environment-limited qualification');
   }
-
   if (opts.hostManifest) {
-    if (!existsSync(opts.hostManifest)) {
-      errors.push(`host manifest missing: ${opts.hostManifest}`);
-    } else if (receipt.hostManifest) {
-      // soft check path match suffix
-      if (!String(receipt.hostManifest).endsWith('host-qualification.json')) {
-        errors.push('receipt.hostManifest should reference host-qualification.json');
-      }
+    validateHostManifestOption(receipt, opts.hostManifest, errors);
+  }
+}
+
+function validateHostManifestOption(receipt, hostManifest, errors) {
+  if (!existsSync(hostManifest)) {
+    errors.push(`host manifest missing: ${hostManifest}`);
+  } else if (receipt.hostManifest) {
+    // soft check path match suffix
+    if (!String(receipt.hostManifest).endsWith('host-qualification.json')) {
+      errors.push('receipt.hostManifest should reference host-qualification.json');
     }
   }
+}
 
-  const matrix = validateJobMatrix(receipt, {
-    requireOs: opts.requireOs || ['linux'],
-    requireNode: opts.requireNode || ['22.18.x', '>=24.11.0'],
-  });
+function isCoverageGap(error) {
+  return error.startsWith('missing OS coverage:')
+    || error.startsWith('missing Node coverage');
+}
+
+function reportMatrixResult(receipt, opts, matrix, errors) {
+  if (matrix.ok) return;
   // For partial receipts, OS gaps are recorded as environment limits rather than hard fail
   // when allowPartial is set — still surface them as warnings-as-errors only if not allowed.
-  if (!matrix.ok) {
-    if (receipt.status === 'partial' && opts.allowPartial) {
-      const isCoverageGap = (e) =>
-        e.startsWith('missing OS coverage:')
-        || e.startsWith('missing Node coverage');
-      // Allow OS/Node axis gaps under partial when environment cannot run the
-      // full Cartesian matrix; still fail on malformed jobs / failed status.
-      const hard = matrix.errors.filter((e) => !isCoverageGap(e));
-      const nodeGaps = matrix.errors.filter((e) => e.startsWith('missing Node coverage'));
-      // Under partial, require at least one real recorded process.version.
-      if (hard.length) errors.push(...hard);
-      else if (nodeGaps.length && matrix.recordedVersions.length === 0) {
-        errors.push(...nodeGaps);
-      }
-      // OS/Node axis gaps under partial are OK when documented in platformCoverage
-      // and at least one real nodeVersion was recorded locally.
-    } else {
-      errors.push(...matrix.errors);
+  if (receipt.status === 'partial' && opts.allowPartial) {
+    // Allow OS/Node axis gaps under partial when environment cannot run the
+    // full Cartesian matrix; still fail on malformed jobs / failed status.
+    const hard = matrix.errors.filter((e) => !isCoverageGap(e));
+    const nodeGaps = matrix.errors.filter((e) => e.startsWith('missing Node coverage'));
+    // Under partial, require at least one real recorded process.version.
+    if (hard.length) errors.push(...hard);
+    else if (nodeGaps.length && matrix.recordedVersions.length === 0) {
+      errors.push(...nodeGaps);
     }
+    return;
   }
-
-  if (opts.noProductDiff && receipt.candidateSha) {
-    const diff = checkNoProductDiff(receipt.candidateSha, opts.cwd || ROOT);
-    if (!diff.ok) errors.push(...diff.errors);
-  }
-
-  return { ok: errors.length === 0, errors, matrix };
+  errors.push(...matrix.errors);
 }
 
 const isMain = process.argv[1]
