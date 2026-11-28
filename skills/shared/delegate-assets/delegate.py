@@ -3009,15 +3009,52 @@ def _copy_result(src, dest):
         pass
 
 
-def execute_remote_run(task_id, task, role, executor, model, family, profile, cwd, project,
-                       out_path, card_content, input_sizes, pending, timeout, wait_s, attempt,
-                       confirmed, allow_peak, diff_range, attachments, access_mode, host, prompt,
-                       stdout, stderr, last_msg):
+@dataclass
+class RemoteRunRequest:
+    """The run a --host dispatch carries from the local command into the remote path."""
+    task_id: str
+    task: str
+    role: str
+    executor: str
+    model: str
+    family: Optional[str]
+    profile: Optional[str]
+    cwd: str
+    project: str
+    out_path: Path
+    card_content: str
+    input_sizes: dict
+    pending: dict
+    timeout: float
+    wait_s: float
+    attempt: int
+    confirmed: bool
+    allow_peak: bool
+    diff_range: Optional[str]
+    attachments: Optional[list]
+    access_mode: str
+    host: str
+    prompt: Path
+    stdout: Path
+    stderr: Path
+    last_msg: Path
+
+
+def execute_remote_run(request):
     """Run remotely and always leave a record, even for an unhandled error.
 
     The run is listed in RUNNING_REMOTE from here until this function returns
     or raises, whatever the path. It takes no local slot.
     """
+    (task_id, task, role, executor, model, family, profile, cwd, project, out_path,
+     card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed, allow_peak,
+     diff_range, attachments, access_mode, host, prompt, stdout, stderr, last_msg) = (
+        request.task_id, request.task, request.role, request.executor, request.model,
+        request.family, request.profile, request.cwd, request.project, request.out_path,
+        request.card_content, request.input_sizes, request.pending, request.timeout,
+        request.wait_s, request.attempt, request.confirmed, request.allow_peak,
+        request.diff_range, request.attachments, request.access_mode, request.host,
+        request.prompt, request.stdout, request.stderr, request.last_msg)
     # Checks, sync and pull are each bounded by the timeout plus two minutes.
     active_file, active = new_remote_active(
         executor, task_id, project, profile, role, host,
@@ -3026,11 +3063,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
     try:
         publish_remote_active(active_file, active)
         try:
-            return _execute_remote_run(
-                task_id, task, role, executor, model, family, profile, cwd, project, out_path,
-                card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed,
-                allow_peak, diff_range, attachments, access_mode, host, prompt, stdout, stderr,
-                last_msg)
+            return _execute_remote_run(request)
         except (KeyboardInterrupt, SystemExit):
             raise
         except BaseException as exc:
@@ -3043,10 +3076,7 @@ def execute_remote_run(task_id, task, role, executor, model, family, profile, cw
         remove_remote_active(active_file)
 
 
-def _execute_remote_run(task_id, task, role, executor, model, family, profile, cwd, project,
-                        out_path, card_content, input_sizes, pending, timeout, wait_s, attempt,
-                        confirmed, allow_peak, diff_range, attachments, access_mode, host, prompt,
-                        stdout, stderr, last_msg):
+def _execute_remote_run(request):
     """Run the executor on a remote host through the remote-runner CLI.
 
     Code is shipped as a git bundle inside a dedicated staging repository that
@@ -3054,6 +3084,15 @@ def _execute_remote_run(task_id, task, role, executor, model, family, profile, c
     return as a git bundle written in the remote staging directory and pulled
     back before a local fast-forward fetch.
     """
+    (task_id, task, role, executor, model, family, profile, cwd, project, out_path,
+     card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed, allow_peak,
+     diff_range, attachments, access_mode, host, prompt, stdout, stderr, last_msg) = (
+        request.task_id, request.task, request.role, request.executor, request.model,
+        request.family, request.profile, request.cwd, request.project, request.out_path,
+        request.card_content, request.input_sizes, request.pending, request.timeout,
+        request.wait_s, request.attempt, request.confirmed, request.allow_peak,
+        request.diff_range, request.attachments, request.access_mode, request.host,
+        request.prompt, request.stdout, request.stderr, request.last_msg)
     snap0 = tree_snapshot(cwd)
     branch = git(cwd, "rev-parse", "--abbrev-ref", "HEAD")
     policy = remote_access_policy(executor, role, strict=access_mode == "strict")
@@ -3707,14 +3746,11 @@ def execute_run(task_id, task, role, profile=None, executor=None, model=None, cw
         append(pending)
         return pending
     if host:
-        return execute_remote_run(
-            task_id=task_id, task=task, role=role, executor=executor, model=model,
-            family=family, profile=profile, cwd=cwd, project=project, out_path=out_path,
-            card_content=card_content, input_sizes=input_sizes, pending=pending,
-            timeout=timeout, wait_s=wait_s,
-            attempt=attempt, confirmed=confirmed, allow_peak=allow_peak,
-            diff_range=diff_range, attachments=attachments, access_mode=access_mode,
-            host=host, prompt=prompt, stdout=stdout, stderr=stderr, last_msg=last_msg)
+        return execute_remote_run(RemoteRunRequest(
+            task_id, task, role, executor, model, family, profile, cwd, project, out_path,
+            card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed,
+            allow_peak, diff_range, attachments, access_mode, host, prompt, stdout, stderr,
+            last_msg))
     argv = build_argv(executor, model, role, cwd, card_content, last_msg, policy)
     progress_files = (stdout, stderr)
     agy_log = None
