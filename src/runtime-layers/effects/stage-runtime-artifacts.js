@@ -53,21 +53,24 @@ import {
  * @param {string} basePath
  * @param {object} item
  * @param {Set<string>} priorlyOwned
+ * @param {boolean} existedBefore
  * @returns {boolean}
  */
-function ownsStageTarget(basePath, item, priorlyOwned) {
-  let existedBefore = false;
-  try {
-    existedBefore = existsNoFollow(basePath, item.path);
-  } catch (err) {
-    if (err instanceof PathSafetyError) throw err;
-    throw err;
-  }
-
+function ownsStageTarget(basePath, item, priorlyOwned, existedBefore) {
   if (!existedBefore || priorlyOwned.has(item.path) || 'sourceTree' in item) {
     return !existedBefore || priorlyOwned.has(item.path);
   }
+  return stageTargetMatchesDesired(basePath, item);
+}
 
+/**
+ * Does an existing, non-owned target already hold the bytes this item would
+ * write? An unreadable non-symlink does not match.
+ * @param {string} basePath
+ * @param {object} item
+ * @returns {boolean}
+ */
+function stageTargetMatchesDesired(basePath, item) {
   try {
     const current = readFileNoFollow(basePath, item.path, null);
     const desired = 'source' in item
@@ -87,11 +90,13 @@ function ownsStageTarget(basePath, item, priorlyOwned) {
  * Write one staged item at its owned target.
  * @param {string} basePath
  * @param {object} item
+ * @param {boolean} existedBefore
  */
-function stageRuntimeItem(basePath, item) {
+function stageRuntimeItem(basePath, item, existedBefore) {
   if ('sourceTree' in item) {
-    // Remove prior owned tree entries leaf-first when we own the root.
-    if (existsNoFollow(basePath, item.path)) {
+    // Remove prior owned tree entries leaf-first when the target existed at the
+    // ownership check; a destination that appeared since then is not ours.
+    if (existedBefore) {
       removeTreeNoFollow(basePath, item.path);
     }
     stageTreeNoFollow(basePath, item.path, item.sourceTree);
@@ -150,10 +155,13 @@ export const createStageRuntimeArtifactsEffect = () => ({
     const created = [];
     for (const item of items) {
       assertLexicalWithinBase(basePath, item.path);
-      if (!ownsStageTarget(basePath, item, priorlyOwned)) {
+      // Read existence once: ownership and tree removal both use this answer,
+      // so a path that appears later is not mistaken for ours.
+      const existedBefore = existsNoFollow(basePath, item.path);
+      if (!ownsStageTarget(basePath, item, priorlyOwned, existedBefore)) {
         throw new Error(`stageRuntimeArtifacts conflict: refusing to replace non-owned path "${item.path}"`);
       }
-      stageRuntimeItem(basePath, item);
+      stageRuntimeItem(basePath, item, existedBefore);
       created.push(item.path);
     }
     return { created };
