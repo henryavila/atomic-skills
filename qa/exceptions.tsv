@@ -1,1 +1,2 @@
 stack	metric	key	limit	reason
+py	file-lines	skills/shared/delegate-assets/delegate.py::*	6468	shipped and run as one script; splitting its long functions under the ceilings adds lines, and splitting the file into modules is an open decision for the owner (was 4725 at freeze, 5651 after main)

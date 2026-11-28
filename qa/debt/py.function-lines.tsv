@@ -1,7 +1,1 @@
-skills/shared/delegate-assets/delegate.py::_execute_remote_run	387
 skills/shared/delegate-assets/delegate.py::access_policy	170
-skills/shared/delegate-assets/delegate.py::cmd_pipeline	303
-skills/shared/delegate-assets/delegate.py::cmd_review_pending	131
-skills/shared/delegate-assets/delegate.py::execute_run	291
-skills/shared/delegate-assets/delegate.py::main	159
-skills/shared/delegate-assets/delegate.py::remote_driver_script	139
