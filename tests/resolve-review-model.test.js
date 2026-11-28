@@ -655,6 +655,13 @@ describe('parser output tables (pinned before refactor)', () => {
       parseModelArgs('model:GPT plan.md'),
       parsedArgs({ model: 'GPT', remainingTokens: ['plan.md'] }),
     );
+    // A bare flag is dropped without clearing a value set earlier.
+    assert.deepEqual(parseModelArgs('--model=x --model'), parsedArgs({ model: 'x' }));
+    assert.deepEqual(parseModelArgs('model:q --model'), parsedArgs({ model: 'q' }));
+    assert.deepEqual(
+      parseModelArgs('--model-claude=z --model-codex=y flash --model-codex'),
+      parsedArgs({ modelClaude: 'z', modelCodex: 'y', remainingTokens: ['flash'] }),
+    );
   });
 
   it('resolveReviewModel table', () => {

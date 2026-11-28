@@ -16,23 +16,6 @@
 
 /** @typedef {'codex' | 'grok' | 'claude' | 'agy'} ExternalProvider */
 
-/** Stable Claude Code aliases (no live CLI catalog — design D7). */
-export const CLAUDE_MODEL_ALIASES = Object.freeze([
-  { slug: 'opus', displayName: 'Opus', description: 'Recommended for adversarial review', isDefault: false, priority: 1 },
-  { slug: 'sonnet', displayName: 'Sonnet', description: 'Balanced default-class', isDefault: true, priority: 2 },
-  { slug: 'haiku', displayName: 'Haiku', description: 'Fast / cheap', isDefault: false, priority: 3 },
-  { slug: 'fable', displayName: 'Fable', description: 'Alias named in claude --help', isDefault: false, priority: 4 },
-]);
-
-/** Stable Antigravity model aliases and defaults. */
-export const AGY_MODEL_ALIASES = Object.freeze([
-  { slug: 'hybrid', displayName: 'Hybrid (Flash Pass 1 + Pro Pass 2)', description: 'Recommended: fast sweep + deep reasoning verdict', isDefault: true, priority: 1 },
-  { slug: 'gemini-3.8-flash-high', displayName: 'Gemini 3.8 Flash (High)', description: 'Fast scan (~8s) for code review', isDefault: false, priority: 2 },
-  { slug: 'gemini-3.1-pro-high', displayName: 'Gemini 3.1 Pro (High)', description: 'Deep reasoning for architecture and plan review', isDefault: false, priority: 3 },
-  { slug: 'claude-sonnet-5-5-high', displayName: 'Claude Sonnet 5.5 (High)', description: 'Balanced cross-family option in agy', isDefault: false, priority: 4 },
-  { slug: 'claude-opus-5-5-high', displayName: 'Claude Opus 5.5 (High)', description: 'Heavy reasoning option in agy', isDefault: false, priority: 5 },
-]);
-
 /**
  * @typedef {object} ReviewModel
  * @property {string} slug
@@ -61,234 +44,18 @@ export const AGY_MODEL_ALIASES = Object.freeze([
  * @property {ReviewModel | null} [recommended]
  * @property {ModelOption[]} [options]
  * @property {boolean} [unknownToCatalog]
- * @property {boolean} [invalidModelId] — true when an explicit/user id failed safety checks
+ * @property {boolean} [invalidModelId] true when an explicit/user id failed safety checks
  * @property {ReviewModel[]} [ranked]
  */
 
-/**
- * @param {unknown} raw
- * @returns {ReviewModel[]}
- */
-export function parseCodexModelsCatalog(raw) {
-  let obj = raw;
-  if (raw == null || raw === '') return [];
-  if (typeof raw === 'string') {
-    try {
-      obj = JSON.parse(raw);
-    } catch {
-      return [];
-    }
-  }
-  if (typeof obj !== 'object' || obj === null) return [];
-  const list = Array.isArray(obj)
-    ? obj
-    : Array.isArray(/** @type {{ models?: unknown }} */ (obj).models)
-      ? /** @type {{ models: unknown[] }} */ (obj).models
-      : [];
-
-  /** @type {ReviewModel[]} */
-  const out = [];
-  for (const item of list) {
-    if (!item || typeof item !== 'object') continue;
-    const m = /** @type {Record<string, unknown>} */ (item);
-    const slug = String(m.slug ?? m.id ?? m.model ?? '').trim();
-    if (!slug) continue;
-    const levelsRaw = m.supported_reasoning_levels;
-    /** @type {string[]} */
-    const reasoningLevels = [];
-    if (Array.isArray(levelsRaw)) {
-      for (const lvl of levelsRaw) {
-        if (lvl && typeof lvl === 'object' && 'effort' in lvl) {
-          reasoningLevels.push(String(/** @type {{ effort: unknown }} */ (lvl).effort));
-        } else if (typeof lvl === 'string') {
-          reasoningLevels.push(lvl);
-        }
-      }
-    }
-    const priority =
-      typeof m.priority === 'number' && Number.isFinite(m.priority) ? m.priority : null;
-    out.push({
-      slug,
-      displayName: m.display_name != null ? String(m.display_name) : slug,
-      description: m.description != null ? String(m.description) : '',
-      priority,
-      visibility: m.visibility != null ? String(m.visibility) : 'list',
-      reasoningLevels,
-      isDefault: false,
-      provider: 'codex',
-    });
-  }
-  return out;
-}
-
-/**
- * Parse `grok models` stdout.
- * @param {string | null | undefined} text
- * @returns {ReviewModel[]}
- */
-export function parseGrokModelsList(text) {
-  if (text == null || text === '') return [];
-  const lines = String(text).split(/\r?\n/);
-  /** @type {ReviewModel[]} */
-  const out = [];
-  let inList = false;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (/^available models:?$/i.test(trimmed)) {
-      inList = true;
-      continue;
-    }
-    // bullet: "* slug" or "* slug (default)" or "- slug"
-    const bullet = trimmed.match(/^[*•\-]\s+(\S+)(?:\s+\(([^)]+)\))?/);
-    if (bullet) {
-      const slug = bullet[1];
-      const note = (bullet[2] || '').toLowerCase();
-      const isDefault = /\bdefault\b/.test(note) || note === 'default';
-      out.push({
-        slug,
-        displayName: slug,
-        description: isDefault ? 'CLI default' : '',
-        priority: null,
-        visibility: 'list',
-        reasoningLevels: [],
-        isDefault,
-        provider: 'grok',
-      });
-      continue;
-    }
-    // "Default model: slug" — mark default even if list not yet seen
-    const def = trimmed.match(/^default model:\s*(\S+)/i);
-    if (def) {
-      const slug = def[1];
-      const existing = out.find((m) => m.slug === slug);
-      if (existing) existing.isDefault = true;
-      else if (!inList) {
-        // record for later merge when list appears; also keep as candidate
-        out.push({
-          slug,
-          displayName: slug,
-          description: 'CLI default',
-          priority: null,
-          visibility: 'list',
-          reasoningLevels: [],
-          isDefault: true,
-          provider: 'grok',
-        });
-      }
-    }
-  }
-  // de-dupe by slug (prefer isDefault true)
-  const bySlug = new Map();
-  for (const m of out) {
-    const prev = bySlug.get(m.slug);
-    if (!prev || (m.isDefault && !prev.isDefault)) bySlug.set(m.slug, m);
-  }
-  return [...bySlug.values()];
-}
-
-/**
- * Claude has no live CLI catalog. Return stable aliases (optional help-text
- * scan can mark aliases mentioned in `claude --help`).
- *
- * @param {string | null | undefined} helpText
- * @returns {ReviewModel[]}
- */
-export function parseClaudeModelsAliases(helpText) {
-  const help = helpText == null ? '' : String(helpText);
-  /** @type {ReviewModel[]} */
-  const out = [];
-  for (const a of CLAUDE_MODEL_ALIASES) {
-    const mentioned = help === '' || new RegExp(`\\b${a.slug}\\b`, 'i').test(help);
-    if (!mentioned && help !== '') continue;
-    out.push({
-      slug: a.slug,
-      displayName: a.displayName,
-      description: a.description,
-      priority: a.priority,
-      visibility: 'list',
-      reasoningLevels: [],
-      isDefault: a.isDefault === true,
-      provider: 'claude',
-    });
-  }
-  // Always return at least the full alias table when help is empty (offline).
-  if (out.length === 0) {
-    for (const a of CLAUDE_MODEL_ALIASES) {
-      out.push({
-        slug: a.slug,
-        displayName: a.displayName,
-        description: a.description,
-        priority: a.priority,
-        visibility: 'list',
-        reasoningLevels: [],
-        isDefault: a.isDefault === true,
-        provider: 'claude',
-      });
-    }
-  }
-  return out;
-}
-
-/**
- * Parse output of `agy models` (TSV `<slug>\t<displayName>`).
- * @param {string | null | undefined} raw
- * @returns {ReviewModel[]}
- */
-export function parseAgyModelsList(raw) {
-  if (raw == null || String(raw).trim() === '') {
-    return AGY_MODEL_ALIASES.map((a) => ({
-      ...a,
-      visibility: 'list',
-      reasoningLevels: [],
-      provider: 'agy',
-    }));
-  }
-  const lines = String(raw).split(/\r?\n/);
-  /** @type {ReviewModel[]} */
-  const out = [];
-  // Include hybrid alias first as it's the recommended default
-  out.push({
-    slug: 'hybrid',
-    displayName: 'Hybrid (Flash Pass 1 + Pro Pass 2)',
-    description: 'Recommended: fast sweep + deep reasoning verdict',
-    priority: 1,
-    visibility: 'list',
-    reasoningLevels: [],
-    isDefault: true,
-    provider: 'agy',
-  });
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (
-      !trimmed ||
-      trimmed.startsWith('⠋') ||
-      trimmed.startsWith('⠙') ||
-      trimmed.startsWith('⠹') ||
-      trimmed.includes('Fetching available models')
-    ) {
-      continue;
-    }
-    const parts = trimmed.split('\t');
-    const slug = parts[0]?.trim();
-    if (!slug) continue;
-    const displayName = parts[1]?.trim() || slug;
-    const isFlash = slug.includes('flash');
-    const isPro = slug.includes('pro');
-    const priority = isFlash ? 2 : isPro ? 3 : 4;
-    out.push({
-      slug,
-      displayName,
-      description: isFlash ? 'Fast scan (~8s)' : isPro ? 'Deep reasoning' : 'Available in agy',
-      priority,
-      visibility: 'list',
-      reasoningLevels: [],
-      isDefault: false,
-      provider: 'agy',
-    });
-  }
-  return out;
-}
+export {
+  AGY_MODEL_ALIASES,
+  CLAUDE_MODEL_ALIASES,
+  parseAgyModelsList,
+  parseClaudeModelsAliases,
+  parseCodexModelsCatalog,
+  parseGrokModelsList,
+} from './review-model-catalog.js';
 
 /**
  * Rank models for adversarial external review.
@@ -384,6 +151,69 @@ export function buildModelFlag(modelId) {
 }
 
 /**
+ * @param {string | string[] | null | undefined} args
+ * @returns {string[]}
+ */
+function tokenizeModelArgs(args) {
+  if (args == null || args === '') return [];
+  if (Array.isArray(args)) return args.map(String);
+  const tokens = String(args).match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+  return tokens.map((t) => t.replace(/^['"]|['"]$/g, ''));
+}
+
+/**
+ * Read `--flag=value` or `--flag value` at index. A bare flag consumes only
+ * itself, leaving the next token for the caller.
+ *
+ * @param {string[]} tokens
+ * @param {number} index
+ * @param {string} flag
+ * @returns {{ value: string | null, next: number } | null}
+ */
+function readModelFlag(tokens, index, flag) {
+  const token = tokens[index];
+  const equals = token.match(new RegExp(`^${flag}=(.+)$`));
+  if (equals) return { value: equals[1], next: index + 1 };
+  if (token !== flag) return null;
+  const next = tokens[index + 1];
+  if (next && !next.startsWith('-')) return { value: next, next: index + 2 };
+  return { value: null, next: index + 1 };
+}
+
+/** @typedef {'model' | 'modelCodex' | 'modelGrok' | 'modelClaude' | 'modelAgy'} ModelFlagField */
+
+/** @type {ReadonlyArray<readonly [ModelFlagField, string]>} */
+const MODEL_FLAGS = [
+  ['model', '--model'],
+  ['modelCodex', '--model-codex'],
+  ['modelGrok', '--model-grok'],
+  ['modelClaude', '--model-claude'],
+  ['modelAgy', '--model-agy'],
+];
+
+/**
+ * @param {string[]} tokens
+ * @param {number} index
+ * @returns {{ field: ModelFlagField, value: string | null, next: number } | null}
+ */
+function readFirstModelFlag(tokens, index) {
+  for (const [field, flag] of MODEL_FLAGS) {
+    const match = readModelFlag(tokens, index, flag);
+    if (match) return { field, value: match.value, next: match.next };
+  }
+  return null;
+}
+
+/**
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isAskModelEnabled(value) {
+  const normalized = value.toLowerCase();
+  return normalized !== '0' && normalized !== 'false' && normalized !== 'no';
+}
+
+/**
  * Parse model-related flags from a skill argument string or token list.
  * Consumes model flags **and** their values (including space-form
  * `--model <id>` and compact `model:<id>`), returning remaining tokens so
@@ -395,128 +225,55 @@ export function buildModelFlag(modelId) {
  *   modelCodex: string | null,
  *   modelGrok: string | null,
  *   modelClaude: string | null,
+ *   modelAgy: string | null,
  *   askModel: boolean,
  *   remainingTokens: string[],
  * }}
  */
 export function parseModelArgs(args) {
-  /** @type {string[]} */
-  let tokens;
-  if (args == null || args === '') {
-    tokens = [];
-  } else if (Array.isArray(args)) {
-    tokens = args.map(String);
-  } else {
-    tokens = String(args).match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
-    tokens = tokens.map((t) => t.replace(/^['"]|['"]$/g, ''));
-  }
-
-  /** @type {string | null} */
-  let model = null;
-  /** @type {string | null} */
-  let modelCodex = null;
-  /** @type {string | null} */
-  let modelGrok = null;
-  /** @type {string | null} */
-  let modelClaude = null;
-  /** @type {string | null} */
-  let modelAgy = null;
+  const tokens = tokenizeModelArgs(args);
+  /** @type {Record<ModelFlagField, string | null>} */
+  const parsed = {
+    model: null,
+    modelCodex: null,
+    modelGrok: null,
+    modelClaude: null,
+    modelAgy: null,
+  };
   let askModel = false;
   /** @type {string[]} */
   const remainingTokens = [];
 
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
-    if (t === '--ask-model') {
+  for (let i = 0; i < tokens.length; ) {
+    const token = tokens[i];
+    if (token === '--ask-model') {
       askModel = true;
+      i++;
       continue;
     }
-    if (t.startsWith('--ask-model=')) {
-      const v = t.slice('--ask-model='.length).toLowerCase();
-      askModel = v !== '0' && v !== 'false' && v !== 'no';
+    if (token.startsWith('--ask-model=')) {
+      askModel = isAskModelEnabled(token.slice('--ask-model='.length));
+      i++;
       continue;
     }
-
-    const eqModel = t.match(/^--model=(.+)$/);
-    if (eqModel) {
-      model = eqModel[1];
+    const compact = token.match(/^model:(.+)$/i);
+    if (compact) {
+      parsed.model = compact[1];
+      i++;
       continue;
     }
-    if (t === '--model') {
-      const next = tokens[i + 1];
-      if (next && !next.startsWith('-')) {
-        model = next;
-        i++;
-      }
-      // bare `--model` with no value: drop the flag, leave next token alone
+    const matched = readFirstModelFlag(tokens, i);
+    if (matched) {
+      // A bare flag is dropped; it must not clear a value set earlier.
+      if (matched.value != null) parsed[matched.field] = matched.value;
+      i = matched.next;
       continue;
     }
-    const modelColon = t.match(/^model:(.+)$/i);
-    if (modelColon) {
-      model = modelColon[1];
-      continue;
-    }
-
-    const eqCodex = t.match(/^--model-codex=(.+)$/);
-    if (eqCodex) {
-      modelCodex = eqCodex[1];
-      continue;
-    }
-    if (t === '--model-codex') {
-      const next = tokens[i + 1];
-      if (next && !next.startsWith('-')) {
-        modelCodex = next;
-        i++;
-      }
-      continue;
-    }
-
-    const eqGrok = t.match(/^--model-grok=(.+)$/);
-    if (eqGrok) {
-      modelGrok = eqGrok[1];
-      continue;
-    }
-    if (t === '--model-grok') {
-      const next = tokens[i + 1];
-      if (next && !next.startsWith('-')) {
-        modelGrok = next;
-        i++;
-      }
-      continue;
-    }
-
-    const eqClaude = t.match(/^--model-claude=(.+)$/);
-    if (eqClaude) {
-      modelClaude = eqClaude[1];
-      continue;
-    }
-    if (t === '--model-claude') {
-      const next = tokens[i + 1];
-      if (next && !next.startsWith('-')) {
-        modelClaude = next;
-        i++;
-      }
-      continue;
-    }
-
-    const eqAgy = t.match(/^--model-agy=(.+)$/);
-    if (eqAgy) {
-      modelAgy = eqAgy[1];
-      continue;
-    }
-    if (t === '--model-agy') {
-      const next = tokens[i + 1];
-      if (next && !next.startsWith('-')) {
-        modelAgy = next;
-        i++;
-      }
-      continue;
-    }
-
-    remainingTokens.push(t);
+    remainingTokens.push(token);
+    i++;
   }
 
-  return { model, modelCodex, modelGrok, modelClaude, modelAgy, askModel, remainingTokens };
+  return { ...parsed, askModel, remainingTokens };
 }
 
 /**
@@ -541,8 +298,8 @@ export function positionalFromRemaining(remainingTokens) {
  * @param {object} input
  * @param {ExternalProvider} input.provider
  * @param {ReviewModel[]} [input.models]
- * @param {string | null | undefined} [input.text] — combined stdout/stderr used for parse
- * @param {number | null | undefined} [input.status] — process exit code
+ * @param {string | null | undefined} [input.text] combined stdout/stderr used for parse
+ * @param {number | null | undefined} [input.status] process exit code
  * @param {Error | string | null | undefined} [input.spawnError]
  * @returns {{ models: ReviewModel[], error: string | null }}
  */
@@ -568,18 +325,168 @@ export function catalogDiscoveryResult(input) {
 }
 
 /**
+ * @typedef {object} ResolveInput
+ * @property {ExternalProvider} provider
+ * @property {ReviewModel[]} [models]
+ * @property {string | null} [explicitModel] generic --model=
+ * @property {string | null} [modelCodex]
+ * @property {string | null} [modelGrok]
+ * @property {string | null} [modelClaude]
+ * @property {string | null} [modelAgy]
+ * @property {boolean} [askModel]
+ * @property {boolean} [interactive]
+ * @property {string | null} [userChoice] answer from picker (slug | recommended | cli-default)
+ */
+
+/**
+ * @typedef {object} ResolveBase
+ * @property {ReviewModel | null} recommended
+ * @property {ReviewModel[]} ranked
+ * @property {ReviewModel[]} models
+ */
+
+/** Short aliases accepted for Antigravity model ids. */
+const AGY_MODEL_IDS = new Map([
+  ['flash', 'gemini-3.8-flash-high'],
+  ['pro', 'gemini-3.1-pro-high'],
+  ['hybrid', 'hybrid'],
+  ['sonnet', 'claude-sonnet-5-5-high'],
+  ['claude-sonnet', 'claude-sonnet-5-5-high'],
+  ['claude-sonnet-4-6', 'claude-sonnet-5-5-high'],
+  ['opus', 'claude-opus-5-5-high'],
+  ['claude-opus', 'claude-opus-5-5-high'],
+  ['claude-opus-4-6-thinking', 'claude-opus-5-5-high'],
+]);
+
+/**
+ * @param {ExternalProvider} provider
+ * @param {string | null} modelId
+ * @returns {string | null}
+ */
+function normalizeProviderModelId(provider, modelId) {
+  if (provider !== 'agy' || !modelId) return modelId;
+  return AGY_MODEL_IDS.get(modelId.toLowerCase()) ?? modelId;
+}
+
+/**
+ * @param {ResolveInput} input
+ * @returns {string | null}
+ */
+function perProviderModel(input) {
+  switch (input.provider) {
+    case 'codex':
+      return input.modelCodex ?? null;
+    case 'grok':
+      return input.modelGrok ?? null;
+    case 'claude':
+      return input.modelClaude ?? null;
+    case 'agy':
+      return input.modelAgy ?? null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Per-provider flag wins over the generic --model; both are normalized before
+ * the safety check.
+ *
+ * @param {ResolveInput} input
+ * @returns {string | null}
+ */
+function explicitModelFor(input) {
+  const perProvider = perProviderModel(input);
+  const explicit =
+    (perProvider && String(perProvider).trim()) ||
+    (input.explicitModel && String(input.explicitModel).trim()) ||
+    null;
+  return normalizeProviderModelId(input.provider, explicit);
+}
+
+/**
+ * @param {ResolveInput} input
+ * @returns {string | null}
+ */
+function userChoiceModel(input) {
+  if (input.userChoice == null || String(input.userChoice).trim() === '') return null;
+  return normalizeProviderModelId(input.provider, String(input.userChoice).trim());
+}
+
+/**
+ * @param {ResolveBase} base
+ * @returns {ResolveReviewModelResult}
+ */
+function runRecommended(base) {
+  const { recommended } = base;
+  if (!recommended) {
+    return runResult({ ...base, modelId: null, source: 'cli-default' });
+  }
+  // Recommended comes from catalog: still gate through safety.
+  if (!isSafeReviewModelId(recommended.slug)) {
+    return runResult({ ...base, modelId: null, source: 'recommended', invalidModelId: true });
+  }
+  return runResult({ ...base, modelId: recommended.slug, source: 'recommended' });
+}
+
+/**
+ * @param {string} explicit
+ * @param {ResolveBase} base
+ * @returns {ResolveReviewModelResult}
+ */
+function runExplicit(explicit, base) {
+  if (explicit === 'cli-default') {
+    return runResult({ ...base, modelId: null, source: 'cli-default' });
+  }
+  if (!isSafeReviewModelId(explicit)) {
+    return runResult({ ...base, modelId: null, source: 'explicit', invalidModelId: true });
+  }
+  return runResult({ ...base, modelId: explicit, source: 'explicit' });
+}
+
+/**
+ * @param {string} choice
+ * @param {ResolveBase} base
+ * @returns {ResolveReviewModelResult}
+ */
+function runUserChoice(choice, base) {
+  if (choice === 'cli-default') {
+    return runResult({ ...base, modelId: null, source: 'cli-default' });
+  }
+  if (choice === 'recommended') return runRecommended(base);
+  if (!isSafeReviewModelId(choice)) {
+    return runResult({ ...base, modelId: null, source: 'user-pick', invalidModelId: true });
+  }
+  return runResult({ ...base, modelId: choice, source: 'user-pick' });
+}
+
+/**
+ * --ask-model headless: bind the recommended model when the catalog is known.
+ *
+ * @param {ResolveBase} base
+ * @returns {ResolveReviewModelResult}
+ */
+function runAskModel(base) {
+  if (base.recommended) return runRecommended(base);
+  return runResult({ ...base, modelId: null, source: 'cli-default' });
+}
+
+/**
+ * @param {ResolveBase} base
+ * @returns {ResolveReviewModelResult}
+ */
+function pickResult(base) {
+  return {
+    action: 'pick',
+    recommended: base.recommended,
+    ranked: base.ranked,
+    options: buildPickerOptions(base.ranked, base.recommended),
+  };
+}
+
+/**
  * Resolve which model id / MODEL_FLAG to use for one external provider leg.
  *
- * @param {object} input
- * @param {ExternalProvider} input.provider
- * @param {ReviewModel[]} [input.models]
- * @param {string | null} [input.explicitModel] — generic --model=
- * @param {string | null} [input.modelCodex]
- * @param {string | null} [input.modelGrok]
- * @param {string | null} [input.modelClaude]
- * @param {boolean} [input.askModel]
- * @param {boolean} [input.interactive]
- * @param {string | null} [input.userChoice] — answer from picker (slug | recommended | cli-default)
+ * @param {ResolveInput} input
  * @returns {ResolveReviewModelResult}
  */
 export function resolveReviewModel(input) {
@@ -587,178 +494,20 @@ export function resolveReviewModel(input) {
   const models = Array.isArray(input.models) ? input.models : [];
   const ranked = rankModelsForReview(models, { provider });
   const recommended = ranked[0] ?? null;
-  const interactive = Boolean(input.interactive);
-  const askModel = Boolean(input.askModel);
+  const base = { recommended, ranked, models };
 
-  const perProvider =
-    provider === 'codex'
-      ? input.modelCodex ?? null
-      : provider === 'grok'
-        ? input.modelGrok ?? null
-        : provider === 'claude'
-          ? input.modelClaude ?? null
-          : provider === 'agy'
-            ? input.modelAgy ?? null
-            : null;
-  let explicit =
-    (perProvider && String(perProvider).trim()) ||
-    (input.explicitModel && String(input.explicitModel).trim()) ||
-    null;
+  const explicit = explicitModelFor(input);
+  if (explicit) return runExplicit(explicit, base);
 
-  if (provider === 'agy' && explicit) {
-    const low = explicit.toLowerCase();
-    if (low === 'flash') explicit = 'gemini-3.8-flash-high';
-    else if (low === 'pro') explicit = 'gemini-3.1-pro-high';
-    else if (low === 'hybrid') explicit = 'hybrid';
-    else if (low === 'sonnet' || low === 'claude-sonnet' || low === 'claude-sonnet-4-6') explicit = 'claude-sonnet-5-5-high';
-    else if (low === 'opus' || low === 'claude-opus' || low === 'claude-opus-4-6-thinking') explicit = 'claude-opus-5-5-high';
-  }
+  const choice = userChoiceModel(input);
+  if (choice != null) return runUserChoice(choice, base);
 
-  if (explicit) {
-    if (explicit === 'cli-default') {
-      return runResult({
-        modelId: null,
-        source: 'cli-default',
-        recommended,
-        ranked,
-        models,
-      });
-    }
-    if (!isSafeReviewModelId(explicit)) {
-      return runResult({
-        modelId: null,
-        source: 'explicit',
-        recommended,
-        ranked,
-        models,
-        invalidModelId: true,
-      });
-    }
-    return runResult({
-      modelId: explicit,
-      source: 'explicit',
-      recommended,
-      ranked,
-      models,
-    });
-  }
+  // Interactive (or --ask-model interactive): surface the picker.
+  if (Boolean(input.interactive)) return pickResult(base);
+  if (Boolean(input.askModel)) return runAskModel(base);
 
-  if (input.userChoice != null && String(input.userChoice).trim() !== '') {
-    let choice = String(input.userChoice).trim();
-    if (provider === 'agy') {
-      const low = choice.toLowerCase();
-      if (low === 'flash') choice = 'gemini-3.8-flash-high';
-      else if (low === 'pro') choice = 'gemini-3.1-pro-high';
-      else if (low === 'hybrid') choice = 'hybrid';
-      else if (low === 'sonnet' || low === 'claude-sonnet' || low === 'claude-sonnet-4-6') choice = 'claude-sonnet-5-5-high';
-      else if (low === 'opus' || low === 'claude-opus' || low === 'claude-opus-4-6-thinking') choice = 'claude-opus-5-5-high';
-    }
-    if (choice === 'cli-default') {
-      return runResult({
-        modelId: null,
-        source: 'cli-default',
-        recommended,
-        ranked,
-        models,
-      });
-    }
-    if (choice === 'recommended') {
-      if (!recommended) {
-        return runResult({
-          modelId: null,
-          source: 'cli-default',
-          recommended,
-          ranked,
-          models,
-        });
-      }
-      // Recommended comes from catalog — still gate through safety.
-      if (!isSafeReviewModelId(recommended.slug)) {
-        return runResult({
-          modelId: null,
-          source: 'recommended',
-          recommended,
-          ranked,
-          models,
-          invalidModelId: true,
-        });
-      }
-      return runResult({
-        modelId: recommended.slug,
-        source: 'recommended',
-        recommended,
-        ranked,
-        models,
-      });
-    }
-    if (!isSafeReviewModelId(choice)) {
-      return runResult({
-        modelId: null,
-        source: 'user-pick',
-        recommended,
-        ranked,
-        models,
-        invalidModelId: true,
-      });
-    }
-    return runResult({
-      modelId: choice,
-      source: 'user-pick',
-      recommended,
-      ranked,
-      models,
-    });
-  }
-
-  // Interactive (or --ask-model interactive): surface picker
-  if (interactive && (askModel || !explicit)) {
-    // When interactive without explicit always pick (unless userChoice handled above)
-    return {
-      action: 'pick',
-      recommended,
-      ranked,
-      options: buildPickerOptions(ranked, recommended),
-    };
-  }
-
-  // --ask-model headless: bind recommended when catalog known
-  if (askModel && !interactive) {
-    if (recommended) {
-      if (!isSafeReviewModelId(recommended.slug)) {
-        return runResult({
-          modelId: null,
-          source: 'recommended',
-          recommended,
-          ranked,
-          models,
-          invalidModelId: true,
-        });
-      }
-      return runResult({
-        modelId: recommended.slug,
-        source: 'recommended',
-        recommended,
-        ranked,
-        models,
-      });
-    }
-    return runResult({
-      modelId: null,
-      source: 'cli-default',
-      recommended,
-      ranked,
-      models,
-    });
-  }
-
-  // Non-interactive default: leave model selection to the CLI
-  return runResult({
-    modelId: null,
-    source: 'cli-default',
-    recommended,
-    ranked,
-    models,
-  });
+  // Non-interactive default: leave model selection to the CLI.
+  return runResult({ ...base, modelId: null, source: 'cli-default' });
 }
 
 /**
