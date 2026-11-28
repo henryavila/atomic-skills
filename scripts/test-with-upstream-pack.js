@@ -63,14 +63,19 @@ function verifyReceiptHead(receiptPath, head) {
  */
 function stageUpstreamPackage(worktree) {
   const staging = mkdtempSync(join(tmpdir(), 'as-upstream-pack-'));
-  const pkgDir = join(staging, 'node_modules', '@henryavila', 'minimalist-installer');
-  mkdirSync(pkgDir, { recursive: true });
-  cpSync(join(worktree, 'src'), join(pkgDir, 'src'), { recursive: true });
-  cpSync(join(worktree, 'package.json'), join(pkgDir, 'package.json'));
-  if (existsSync(join(worktree, 'LICENSE'))) {
-    cpSync(join(worktree, 'LICENSE'), join(pkgDir, 'LICENSE'));
+  try {
+    const pkgDir = join(staging, 'node_modules', '@henryavila', 'minimalist-installer');
+    mkdirSync(pkgDir, { recursive: true });
+    cpSync(join(worktree, 'src'), join(pkgDir, 'src'), { recursive: true });
+    cpSync(join(worktree, 'package.json'), join(pkgDir, 'package.json'));
+    if (existsSync(join(worktree, 'LICENSE'))) {
+      cpSync(join(worktree, 'LICENSE'), join(pkgDir, 'LICENSE'));
+    }
+    return { staging, pkgDir };
+  } catch (error) {
+    rmSync(staging, { recursive: true, force: true });
+    throw error;
   }
-  return { staging, pkgDir };
 }
 
 function buildTestEnv(staging, pkgDir, head) {
