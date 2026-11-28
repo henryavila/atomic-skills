@@ -8,6 +8,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import pc from 'picocolors';
 import { install, removeRuntimeArtifacts } from '../src/install.js';
 import { uninstall, pruneEmptyParents } from '../src/uninstall.js';
 import { isolateHomedir, assertIsolatedHomedir } from './helpers/isolate-homedir.js';
@@ -30,6 +31,26 @@ function withHome(fakeHome, fn) {
 
 // Pin what uninstall prints. The refactor splits the function along its steps;
 // these snapshots prove the split did not change a single message or blank line.
+//
+// picocolors decides once, at import time, whether to emit ANSI codes, and CI
+// sets the variables that turn them on. The pinned text is the plain text, so
+// swap the shared formatters for their no-colour versions around the captured
+// call and restore them afterwards.
+async function withPlainColors(fn) {
+  const plain = pc.createColors(false);
+  const saved = new Map();
+  for (const key of Object.keys(plain)) {
+    if (typeof plain[key] !== 'function' || typeof pc[key] !== 'function') continue;
+    saved.set(key, pc[key]);
+    pc[key] = plain[key];
+  }
+  try {
+    return await fn();
+  } finally {
+    for (const [key, formatter] of saved) pc[key] = formatter;
+  }
+}
+
 async function captureConsole(fn) {
   const logs = [];
   const errors = [];
@@ -38,7 +59,7 @@ async function captureConsole(fn) {
   console.log = (...args) => { logs.push(args.join(' ')); };
   console.error = (...args) => { errors.push(args.join(' ')); };
   try {
-    await fn();
+    await withPlainColors(fn);
   } finally {
     console.log = originalLog;
     console.error = originalError;
