@@ -87,6 +87,53 @@ export function isShellQuotedVersionCheckCommand(command) {
 }
 
 /**
+ * Decide one SessionStart hook's fate during reconcile.
+ * @param {unknown} hook
+ * @param {string|null} desiredCommand
+ * @param {{ keptDesired: boolean }} state
+ * @returns {{ hook?: unknown, removed: number }}
+ */
+function reconcileSessionStartHook(hook, desiredCommand, state) {
+  if (!hook || typeof hook !== 'object' || Array.isArray(hook)) return { hook, removed: 0 };
+  if (!isAtomicSkillsVersionCheckCommand(hook.command)) return { hook, removed: 0 };
+  // AS-owned version-check: keep only exact desired form, once.
+  if (desiredCommand != null && hook.command === desiredCommand && !state.keptDesired) {
+    state.keptDesired = true;
+    return { hook, removed: 0 };
+  }
+  return { removed: 1 };
+}
+
+/**
+ * Reconcile the hooks of one SessionStart entry.
+ * @param {unknown} entry
+ * @param {string|null} desiredCommand
+ * @param {{ keptDesired: boolean }} state
+ * @returns {{ entry: unknown, keep: boolean, removed: number }}
+ */
+function reconcileSessionStartEntry(entry, desiredCommand, state) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return { entry, keep: true, removed: 0 };
+  }
+  const hooks = entry.hooks;
+  if (!Array.isArray(hooks)) return { entry, keep: true, removed: 0 };
+
+  const kept = [];
+  let removed = 0;
+  for (const hook of hooks) {
+    const result = reconcileSessionStartHook(hook, desiredCommand, state);
+    removed += result.removed;
+    if (result.removed === 0) kept.push(result.hook);
+  }
+
+  if (kept.length === 0) return { entry, keep: false, removed };
+  if (kept.length === hooks.length && kept.every((h, i) => h === hooks[i])) {
+    return { entry, keep: true, removed };
+  }
+  return { entry: { ...entry, hooks: kept }, keep: true, removed };
+}
+
+/**
  * Reconcile a SessionStart array against the desired version-check command.
  *
  * - Removes every Atomic Skills version-check hook whose `command` is not
@@ -103,50 +150,14 @@ export function isShellQuotedVersionCheckCommand(command) {
 export function reconcileSessionStartVersionCheck(sessionStart, desiredCommand) {
   if (!Array.isArray(sessionStart)) return { starts: sessionStart, removed: 0 };
 
+  const state = { keptDesired: false };
   let removed = 0;
-  let keptDesired = false;
   const starts = [];
 
   for (const entry of sessionStart) {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      starts.push(entry);
-      continue;
-    }
-    const hooks = entry.hooks;
-    if (!Array.isArray(hooks)) {
-      starts.push(entry);
-      continue;
-    }
-
-    const kept = [];
-    for (const h of hooks) {
-      if (!h || typeof h !== 'object' || Array.isArray(h)) {
-        kept.push(h);
-        continue;
-      }
-      if (!isAtomicSkillsVersionCheckCommand(h.command)) {
-        kept.push(h);
-        continue;
-      }
-      // AS-owned version-check: keep only exact desired form, once.
-      if (
-        desiredCommand != null
-        && h.command === desiredCommand
-        && !keptDesired
-      ) {
-        kept.push(h);
-        keptDesired = true;
-        continue;
-      }
-      removed += 1;
-    }
-
-    if (kept.length === 0) continue;
-    if (kept.length === hooks.length && kept.every((h, i) => h === hooks[i])) {
-      starts.push(entry);
-    } else {
-      starts.push({ ...entry, hooks: kept });
-    }
+    const result = reconcileSessionStartEntry(entry, desiredCommand, state);
+    removed += result.removed;
+    if (result.keep) starts.push(result.entry);
   }
 
   return { starts, removed };
