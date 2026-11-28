@@ -1846,6 +1846,7 @@ class ProcessTracker:
         self._adopt_scope(table, visited)
 
     def _remember_root(self, root, table):
+        """Remember a root's process group and session as well as its identity."""
         row = table.get(root)
         if not row:
             return
@@ -1857,6 +1858,7 @@ class ProcessTracker:
             self.sessions.add(sid)
 
     def _walk_descendants(self, table):
+        """Remember and return every pid below a root in the ppid tree."""
         children = {}
         for pid, (ppid, _pgid, _sid, _state) in table.items():
             children.setdefault(ppid, []).append(pid)
@@ -1873,6 +1875,7 @@ class ProcessTracker:
         return visited
 
     def _adopt_scope(self, table, visited):
+        """Add adopted orphans and new group/session members until the scope stops growing."""
         # They may have left the ppid tree, so the remembered group and session
         # are what keeps them in scope.
         changed = True
@@ -2733,98 +2736,177 @@ def remote_exec_script(executor, model, role, policy):
     else:
         raise RemoteError("remote_error", f"unknown executor {executor}")
     return "\n".join(variables + lines) + "\n"
+
+
 @dataclass
 class RemoteDriverScript:
-    task_id: str; task: str; role: str; branch: str
-    sent: str; project: str; digest: str; token: str
+    """The inputs of one remote-run driver script, named so the caller cannot swap them."""
+    task_id: str
+    task: str
+    role: str
+    branch: str
+    sent: str
+    project: str
+    digest: str
+    token: str
+
+
 def _driver_header(driver):
+    """Set every shell variable and the failure traps the rest of the driver uses."""
     q = shlex.quote
     project_dir = safe_remote_name(driver.project)
     task_dir = remote_task_dir(driver.task_id)
     return f"""#!/bin/bash
-set -u\nid={q(driver.task_id)}
-branch={q(driver.branch)}\nsent={q(driver.sent)}
-role={q(driver.role)}\nmsg={q(f"{driver.task_id}: {driver.task} (committed by the delegate runner)")}
-token={q(driver.token)}\ncommon=$(git rev-parse --path-format=absolute --git-common-dir)
-stage="$common/delegate/{driver.digest}"\nR="$HOME/.atomic-skills/delegate/remote/{project_dir}/{task_dir}"
-tree="$R/tree"\nrun="$R/run"
-res="$PWD/{REMOTE_RESULT_PREFIX}{driver.digest}"\ncleanup() {{
-  [ -n "${{run:-}}" ] && rm -rf "$run"\n  [ -n "${{stage:-}}" ] && rm -rf "$stage"
-}}\ntrap 'cleanup; exit 143' TERM INT HUP
-trap cleanup EXIT\nrm -rf "$run" "$res"
+set -u
+id={q(driver.task_id)}
+branch={q(driver.branch)}
+sent={q(driver.sent)}
+role={q(driver.role)}
+msg={q(f"{driver.task_id}: {driver.task} (committed by the delegate runner)")}
+token={q(driver.token)}
+common=$(git rev-parse --path-format=absolute --git-common-dir)
+stage="$common/delegate/{driver.digest}"
+R="$HOME/.atomic-skills/delegate/remote/{project_dir}/{task_dir}"
+tree="$R/tree"
+run="$R/run"
+res="$PWD/{REMOTE_RESULT_PREFIX}{driver.digest}"
+cleanup() {{
+  [ -n "${{run:-}}" ] && rm -rf "$run"
+  [ -n "${{stage:-}}" ] && rm -rf "$stage"
+}}
+trap 'cleanup; exit 143' TERM INT HUP
+trap cleanup EXIT
+rm -rf "$run" "$res"
 mkdir -p "$R"
 """
+
+
 def _driver_run_id(driver):
+    """Find and announce the remote-runner run id this script belongs to."""
     q = shlex.quote
     token = driver.token
     return f"""# Identify this run exactly. remote-runner writes a record whose first line is
-# the pid of the session leader it started; this script runs below it (under\n# `timeout` and a login shell), so that pid is this script or one of its
-# ancestors. The stderr line lets the local runner read the id without ever\n# guessing from a list of new ids.
-state="${{REMOTE_RUNNER_REMOTE_STATE:-$HOME/.local/state/remote-runner}}"\nrun_id="${{REMOTE_RUNNER_RUN_ID:-}}"
-if [ -z "$run_id" ] && [ -d "$state/runs" ]; then\n  ancestors=" $$ "
-  pid=$$\n  depth=0
-  while [ "$depth" -lt 16 ]; do\n    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
-    case "$pid" in ''|0|1|*[!0-9]*) break ;; esac\n    ancestors="$ancestors$pid "
-    depth=$((depth + 1))\n  done
-  # Newest first: a stale record for a reused pid must never win over the one\n  # remote-runner wrote for this run immediately before starting it.
-  for name in $(ls -1t "$state/runs" 2>/dev/null); do\n    case "$name" in .*|*.env|*.cancel|*.gate|*.owner) continue ;; esac
-    rec="$state/runs/$name"\n    [ -f "$rec" ] || continue
-    leader=$(sed -n '1p' "$rec" 2>/dev/null)\n    case "$leader" in ''|*[!0-9]*) continue ;; esac
-    case "$ancestors" in *" $leader "*) run_id="$name"; break ;; esac\n  done
-fi\nif [ -n "$run_id" ]; then
-  printf '%s alive pgid=%s\\n' "$run_id" "$$" > "$R/.delegate-run-$token"\n  printf '__DELEGATE_REMOTE_RUN__ %s %s\\n' "$token" "$run_id" >&2
+# the pid of the session leader it started; this script runs below it (under
+# `timeout` and a login shell), so that pid is this script or one of its
+# ancestors. The stderr line lets the local runner read the id without ever
+# guessing from a list of new ids.
+state="${{REMOTE_RUNNER_REMOTE_STATE:-$HOME/.local/state/remote-runner}}"
+run_id="${{REMOTE_RUNNER_RUN_ID:-}}"
+if [ -z "$run_id" ] && [ -d "$state/runs" ]; then
+  ancestors=" $$ "
+  pid=$$
+  depth=0
+  while [ "$depth" -lt 16 ]; do
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    case "$pid" in ''|0|1|*[!0-9]*) break ;; esac
+    ancestors="$ancestors$pid "
+    depth=$((depth + 1))
+  done
+  # Newest first: a stale record for a reused pid must never win over the one
+  # remote-runner wrote for this run immediately before starting it.
+  for name in $(ls -1t "$state/runs" 2>/dev/null); do
+    case "$name" in .*|*.env|*.cancel|*.gate|*.owner) continue ;; esac
+    rec="$state/runs/$name"
+    [ -f "$rec" ] || continue
+    leader=$(sed -n '1p' "$rec" 2>/dev/null)
+    case "$leader" in ''|*[!0-9]*) continue ;; esac
+    case "$ancestors" in *" $leader "*) run_id="$name"; break ;; esac
+  done
+fi
+if [ -n "$run_id" ]; then
+  printf '%s alive pgid=%s\\n' "$run_id" "$$" > "$R/.delegate-run-$token"
+  printf '__DELEGATE_REMOTE_RUN__ %s %s\\n' "$token" "$run_id" >&2
 fi
 """
+
+
 def _driver_checkout(driver):
+    """Reuse or create the checkout and publish the run directory the executor reads."""
     token = driver.token
     return f"""# Reuse only a checkout that is exactly the commit being sent and clean.
-# Anything else is remote work that never reached the local branch: keep it\n# under a timestamped name instead of deleting it.
-reuse=0\nkept=""
-kept_head=""\nif [ -d "$tree/.git" ]; then
-  kept_head=$(git -C "$tree" rev-parse HEAD 2>/dev/null || true)\n  if [ -n "$kept_head" ] && [ "$kept_head" = "$sent" ] && \
+# Anything else is remote work that never reached the local branch: keep it
+# under a timestamped name instead of deleting it.
+reuse=0
+kept=""
+kept_head=""
+if [ -d "$tree/.git" ]; then
+  kept_head=$(git -C "$tree" rev-parse HEAD 2>/dev/null || true)
+  if [ -n "$kept_head" ] && [ "$kept_head" = "$sent" ] && \
       [ "$(git -C "$tree" symbolic-ref --short -q HEAD)" = "$branch" ] && \
-      [ -z "$(git -C "$tree" status --porcelain 2>/dev/null)" ]; then\n    reuse=1
+      [ -z "$(git -C "$tree" status --porcelain 2>/dev/null)" ]; then
+    reuse=1
   elif [ -n "$kept_head" ] && \
       [ "$(git -C "$tree" symbolic-ref --short -q HEAD)" = "$branch" ] && \
       [ -z "$(git -C "$tree" status --porcelain 2>/dev/null)" ] && \
       git -C "$tree" fetch -q "$stage/code.bundle" "$sent" 2>/dev/null && \
       git -C "$tree" merge-base --is-ancestor "$kept_head" "$sent" 2>/dev/null && \
-      git -C "$tree" reset -q --hard "$sent"; then\n    # A clean checkout whose commit is already part of what is being sent
-    # holds nothing unfetched: move it forward in place.\n    reuse=1
-    kept_head=""\n  else
-    stamp=$(date -u +%Y%m%dT%H%M%SZ)\n    kept="$R/kept-$stamp"
-    n=1\n    while [ -e "$kept" ]; do kept="$R/kept-$stamp-$n"; n=$((n+1)); done
-    mv "$tree" "$kept" || exit 70\n  fi
-fi\nif [ "$reuse" != 1 ]; then
-  git init -q "$tree" || exit 70\n  git -C "$tree" fetch -q "$stage/code.bundle" "$sent:refs/heads/$branch" || exit 70
-  git -C "$tree" symbolic-ref HEAD "refs/heads/$branch" || exit 70\n  git -C "$tree" reset -q --hard "$sent" || exit 70
-fi\nmkdir -p "$run"
-cp "$stage/prompt.md" "$run/prompt.md"\nif [ -d "$stage/attachments" ]; then cp -a "$stage/attachments" "$run/attachments"; fi
-if [ -f "$stage/diff.txt" ]; then cp "$stage/diff.txt" "$run/diff.txt"; fi\ncp "$stage/exec.sh" "$run/exec.sh"
+      git -C "$tree" reset -q --hard "$sent"; then
+    # A clean checkout whose commit is already part of what is being sent
+    # holds nothing unfetched: move it forward in place.
+    reuse=1
+    kept_head=""
+  else
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    kept="$R/kept-$stamp"
+    n=1
+    while [ -e "$kept" ]; do kept="$R/kept-$stamp-$n"; n=$((n+1)); done
+    mv "$tree" "$kept" || exit 70
+  fi
+fi
+if [ "$reuse" != 1 ]; then
+  git init -q "$tree" || exit 70
+  git -C "$tree" fetch -q "$stage/code.bundle" "$sent:refs/heads/$branch" || exit 70
+  git -C "$tree" symbolic-ref HEAD "refs/heads/$branch" || exit 70
+  git -C "$tree" reset -q --hard "$sent" || exit 70
+fi
+mkdir -p "$run"
+cp "$stage/prompt.md" "$run/prompt.md"
+if [ -d "$stage/attachments" ]; then cp -a "$stage/attachments" "$run/attachments"; fi
+if [ -f "$stage/diff.txt" ]; then cp "$stage/diff.txt" "$run/diff.txt"; fi
+cp "$stage/exec.sh" "$run/exec.sh"
 printf '__DELEGATE_REMOTE_WORK__\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \
   "$token" "$tree" "$branch" "$sent" "${{kept:--}}" "${{kept:+$kept_head}}" >&2
 """
+
+
 def _driver_execute(driver):
+    """Run the executor, commit its work on an implement run, and collect the result."""
     q = shlex.quote
     review = driver.role == "review"
     return f"""export R
-cd "$tree" || exit 70\nbash "$run/exec.sh" >"$run/stdout" 2>"$run/stderr"
-code=$?\nreceived=$(git -C "$tree" rev-parse HEAD)
-dirty=0\nif [ -n "$(git -C "$tree" status --porcelain)" ]; then dirty=1; fi
-commit_rc=0\nif [ {q('1' if not review else '0')} = 1 ] && {{ [ "$dirty" = 1 ] || [ "$received" != "$sent" ]; }}; then
-  if [ "$dirty" = 1 ]; then\n    git -C "$tree" add -A
+cd "$tree" || exit 70
+bash "$run/exec.sh" >"$run/stdout" 2>"$run/stderr"
+code=$?
+received=$(git -C "$tree" rev-parse HEAD)
+dirty=0
+if [ -n "$(git -C "$tree" status --porcelain)" ]; then dirty=1; fi
+commit_rc=0
+if [ {q('1' if not review else '0')} = 1 ] && {{ [ "$dirty" = 1 ] || [ "$received" != "$sent" ]; }}; then
+  if [ "$dirty" = 1 ]; then
+    git -C "$tree" add -A
     git -C "$tree" -c user.name="Delegate Runner" -c user.email="delegate@localhost" \
-        commit -q -m "$msg" >>"$run/commit.log" 2>&1\n    commit_rc=$?
-  fi\n  received=$(git -C "$tree" rev-parse HEAD)
-fi\nif [ "$received" != "$sent" ]; then
-  git -C "$tree" bundle create "$run/result.bundle" "$branch" >/dev/null 2>&1 || true\nfi
-{{\n  printf 'token=%s\\n' "$token"
-  printf 'exit=%s\\n' "$code"\n  printf 'received=%s\\n' "$received"
-  printf 'dirty=%s\\n' "$dirty"\n  printf 'commit_rc=%s\\n' "${{commit_rc:-}}"
-  printf 'remote_base=%s\\n' "$R"\n  printf 'tree=%s\\n' "$tree"
-}} > "$run/meta.txt"\nmkdir -p "$res"
-cp "$run/stdout" "$run/stderr" "$run/meta.txt" "$res/"\nfor f in last.md result.bundle commit.log; do
-  if [ -f "$run/$f" ]; then cp "$run/$f" "$res/"; fi\ndone
+        commit -q -m "$msg" >>"$run/commit.log" 2>&1
+    commit_rc=$?
+  fi
+  received=$(git -C "$tree" rev-parse HEAD)
+fi
+if [ "$received" != "$sent" ]; then
+  git -C "$tree" bundle create "$run/result.bundle" "$branch" >/dev/null 2>&1 || true
+fi
+{{
+  printf 'token=%s\\n' "$token"
+  printf 'exit=%s\\n' "$code"
+  printf 'received=%s\\n' "$received"
+  printf 'dirty=%s\\n' "$dirty"
+  printf 'commit_rc=%s\\n' "${{commit_rc:-}}"
+  printf 'remote_base=%s\\n' "$R"
+  printf 'tree=%s\\n' "$tree"
+}} > "$run/meta.txt"
+mkdir -p "$res"
+cp "$run/stdout" "$run/stderr" "$run/meta.txt" "$res/"
+for f in last.md result.bundle commit.log; do
+  if [ -f "$run/$f" ]; then cp "$run/$f" "$res/"; fi
+done
 exit 0
 """
 
@@ -2925,17 +3007,42 @@ def _copy_result(src, dest):
             shutil.copyfile(src, dest)
     except OSError:
         pass
+
+
 @dataclass
 class RemoteRunRequest:
-    task_id: str; task: str; role: str; executor: str
-    model: str; family: Optional[str]; profile: Optional[str]; cwd: str
-    project: str; out_path: Path; card_content: str; input_sizes: dict
-    pending: dict; timeout: float; wait_s: float; attempt: int
-    confirmed: bool; allow_peak: bool; diff_range: Optional[str]; attachments: Optional[list]
-    access_mode: str; host: str; prompt: Path; stdout: Path
-    stderr: Path; last_msg: Path
+    """The run a --host dispatch carries from the local command into the remote path."""
+    task_id: str
+    task: str
+    role: str
+    executor: str
+    model: str
+    family: Optional[str]
+    profile: Optional[str]
+    cwd: str
+    project: str
+    out_path: Path
+    card_content: str
+    input_sizes: dict
+    pending: dict
+    timeout: float
+    wait_s: float
+    attempt: int
+    confirmed: bool
+    allow_peak: bool
+    diff_range: Optional[str]
+    attachments: Optional[list]
+    access_mode: str
+    host: str
+    prompt: Path
+    stdout: Path
+    stderr: Path
+    last_msg: Path
+
+
 def execute_remote_run(request):
     """Run remotely and always leave a record, even for an unhandled error.
+
     The run is listed in RUNNING_REMOTE from here until this function returns
     or raises, whatever the path. It takes no local slot.
     """
@@ -2949,7 +3056,9 @@ def execute_remote_run(request):
         request.diff_range, request.attachments, request.access_mode, request.host,
         request.prompt, request.stdout, request.stderr, request.last_msg)
     # Checks, sync and pull are each bounded by the timeout plus two minutes.
-    active_file, active = new_remote_active( executor, task_id, project, profile, role, host, limit_s=wait_s + 3 * (timeout + 120) + 600)
+    active_file, active = new_remote_active(
+        executor, task_id, project, profile, role, host,
+        limit_s=wait_s + 3 * (timeout + 120) + 600)
     pending["active_token"] = active["token"]
     try:
         publish_remote_active(active_file, active)
@@ -2960,31 +3069,82 @@ def execute_remote_run(request):
         except BaseException as exc:
             if "completed" in pending:
                 raise
-            return _remote_record_failure( pending, "remote_error", f"remote run failed: {exception_reason(exc)}", host=host)
+            return _remote_record_failure(
+                pending, "remote_error", f"remote run failed: {exception_reason(exc)}",
+                host=host)
     finally:
         remove_remote_active(active_file)
+
+
 @dataclass
 class MergeOutcome:
-    diverged: bool; diverged_reason: Optional[str]; fetched_ref: Optional[str]; fetch_error: Optional[str]
+    """What the local side did with the returned bundle."""
+    diverged: bool
+    diverged_reason: Optional[str]
+    fetched_ref: Optional[str]
+    fetch_error: Optional[str]
+
+
 @dataclass
 class RemoteOutcome:
-    received: str; remote_exit: int; remote_dirty: bool; commit_failed: bool
-    commit_error: Optional[str]; review_wrote: bool; merge: MergeOutcome; failure: str
-    head1: str; dirty_after: bool; uncommitted: bool; commits: str
-    files: str; review_output: Optional[object]
+    """The pulled result of a remote run, before its record is built."""
+    received: str
+    remote_exit: int
+    remote_dirty: bool
+    commit_failed: bool
+    commit_error: Optional[str]
+    review_wrote: bool
+    merge: MergeOutcome
+    failure: str
+    head1: str
+    dirty_after: bool
+    uncommitted: bool
+    commits: str
+    files: str
+    review_output: Optional[object]
+
+
 @dataclass
 class RemoteRun:
-    request: RemoteRunRequest; snap0: tuple; branch: str; policy: dict
-    default_base: str; peak: bool; sent: str; digest: str
-    staging: Path; stage: Path; local_res: Path; bundle: Path
-    started: str; remote_out: str; remote_err: str; run_token: str
-    process: Optional[subprocess.Popen] = None; timed_out: bool = False; local_slot_timeout: bool = False; orphan_failure: Optional[str] = None
-    interrupted_exc: Optional[BaseException] = None; remote_id: Optional[str] = None; kill_result: Optional[str] = None; run_s: float = 0.0
-    send_s: float = 0.0; fetch_s: float = 0.0; fetch_t0: float = 0.0; remote_code: Optional[int] = None
-    last_line: str = ""; work_info: Optional[dict] = None; meta: Optional[dict] = None; deadline: Optional[float] = None
+    """The mutable state of one --host run from staging to the pulled result."""
+    request: RemoteRunRequest
+    snap0: tuple
+    branch: str
+    policy: dict
+    default_base: str
+    peak: bool
+    sent: str
+    digest: str
+    staging: Path
+    stage: Path
+    local_res: Path
+    bundle: Path
+    started: str
+    remote_out: str
+    remote_err: str
+    run_token: str
+    process: Optional[subprocess.Popen] = None
+    timed_out: bool = False
+    local_slot_timeout: bool = False
+    orphan_failure: Optional[str] = None
+    interrupted_exc: Optional[BaseException] = None
+    remote_id: Optional[str] = None
+    kill_result: Optional[str] = None
+    run_s: float = 0.0
+    send_s: float = 0.0
+    fetch_s: float = 0.0
+    fetch_t0: float = 0.0
+    remote_code: Optional[int] = None
+    last_line: str = ""
+    work_info: Optional[dict] = None
+    meta: Optional[dict] = None
+    deadline: Optional[float] = None
     result: Optional[dict] = None
+
+
 def _execute_remote_run(request):
     """Run the executor on a remote host through the remote-runner CLI.
+
     Code is shipped as a git bundle inside a dedicated staging repository that
     holds no worktree files and is fetched into a per-task checkout. Results
     return as a git bundle written in the remote staging directory and pulled
@@ -2997,28 +3157,43 @@ def _execute_remote_run(request):
         return run.result
     _read_remote_outcome(run)
     return _remote_result(run)
+
+
 def _discover_remote_id(run):
+    """Read this run's id from the marker once; never guess another run's id."""
     if not run.remote_id:
         run.remote_id = remote_run_marker(run.remote_err, run.run_token)
     return run.remote_id
+
+
 def _stop_remote_process(run):
+    """Stop the remote run this process knows, and remember whether the stop was confirmed."""
     _discover_remote_id(run)
     run.kill_result = remote_stop(run.request.host, run.remote_id)
     run.request.pending["_remote_kill"] = run.kill_result
     if run.process is not None:
         _terminate_remote_process(run.process)
+
+
 def _prepare_remote(request):
+    """Check the host and build the staging repository, or return the refusal record."""
     snap0 = tree_snapshot(request.cwd)
     branch = git(request.cwd, "rev-parse", "--abbrev-ref", "HEAD")
-    policy = remote_access_policy(request.executor, request.role, strict=request.access_mode == "strict")
+    policy = remote_access_policy(request.executor, request.role,
+                                  strict=request.access_mode == "strict")
     default_base = remote_base_rel(request.project, request.task_id)
-    request.pending.update(host=request.host, remote_dir=default_base, access=resolve_remote_access(policy["access"], default_base))
+    request.pending.update(host=request.host, remote_dir=default_base,
+                           access=resolve_remote_access(policy["access"], default_base))
     if snap0[1]:
         return _remote_record_failure(request.pending, "dirty_worktree", wait_s=0)
     if not branch or branch == "HEAD":
-        return _remote_record_failure( request.pending, "remote_error", "remote runs need a named branch; check out the task branch first")
+        return _remote_record_failure(
+            request.pending, "remote_error",
+            "remote runs need a named branch; check out the task branch first")
     if not remote_runner_cmd():
-        return _remote_record_failure( request.pending, "remote_not_ready", "remote-runner not found; install it or set DELEGATE_REMOTE_RUNNER")
+        return _remote_record_failure(
+            request.pending, "remote_not_ready",
+            "remote-runner not found; install it or set DELEGATE_REMOTE_RUNNER")
     try:
         checks = remote_checks(request.host)
     except RemoteError as exc:
@@ -3026,11 +3201,14 @@ def _prepare_remote(request):
     fix = remote_ready(checks, request.host, request.executor)
     if fix:
         return _remote_record_failure(request.pending, "remote_not_ready", fix)
+
     peak = in_peak() and request.family == "deepseek"
     if peak:
-        print("delegate: OpenCode Go peak window (UTC); DeepSeek on OpenCode Go costs double now — proceeding", file=sys.stderr)
+        print("delegate: OpenCode Go peak window (UTC); DeepSeek on OpenCode Go costs double now — proceeding",
+              file=sys.stderr)
     if request.executor == "codex":
         request.last_msg.unlink(missing_ok=True)
+
     sent = snap0[0]
     digest = hashlib.sha256(f"{request.task_id}\0{sent}".encode("utf-8")).hexdigest()[:16]
     # Ship a dedicated repository that holds only the bundle and the run files.
@@ -3043,7 +3221,9 @@ def _prepare_remote(request):
         subprocess.run(["git", "init", "-q", str(staging)], check=True, capture_output=True)
     except (OSError, subprocess.CalledProcessError) as exc:
         shutil.rmtree(staging, ignore_errors=True)
-        return _remote_record_failure( request.pending, "remote_error", f"cannot prepare the remote staging repository: {exc}")
+        return _remote_record_failure(
+            request.pending, "remote_error",
+            f"cannot prepare the remote staging repository: {exc}")
     stage = staging / ".git" / "delegate" / digest
     local_res = staging / f"{REMOTE_RESULT_PREFIX}{digest}"
     stage.mkdir(parents=True, exist_ok=True)
@@ -3061,11 +3241,19 @@ def _prepare_remote(request):
     remote_out_name, remote_err_name = remote_out.name, remote_err.name
     remote_out.close()
     remote_err.close()
-    return RemoteRun(request=request, snap0=snap0, branch=branch, policy=policy, default_base=default_base, peak=peak, sent=sent, digest=digest, staging=staging, stage=stage, local_res=local_res, bundle=bundle, started=started, remote_out=remote_out_name, remote_err=remote_err_name, run_token=os.urandom(8).hex())
+    return RemoteRun(request=request, snap0=snap0, branch=branch, policy=policy,
+                     default_base=default_base, peak=peak, sent=sent, digest=digest,
+                     staging=staging, stage=stage, local_res=local_res, bundle=bundle,
+                     started=started, remote_out=remote_out_name, remote_err=remote_err_name,
+                     run_token=os.urandom(8).hex())
+
+
 def _stage_remote_payload(run):
+    """Put the bundle, prompt, executor script and attachments in the staging repository."""
     request = run.request
     try:
-        subprocess.run(["git", "-C", request.cwd, "bundle", "create", str(run.bundle), run.branch], check=True, capture_output=True)
+        subprocess.run(["git", "-C", request.cwd, "bundle", "create", str(run.bundle), run.branch],
+                       check=True, capture_output=True)
     except (OSError, subprocess.CalledProcessError) as exc:
         detail = getattr(exc, "stderr", b"")
         if isinstance(detail, bytes):
@@ -3074,7 +3262,11 @@ def _stage_remote_payload(run):
     (run.stage / "prompt.md").write_text(request.card_content, encoding="utf-8")
     exec_script = remote_exec_script(request.executor, request.model, request.role, run.policy)
     (run.stage / "exec.sh").write_text(exec_script, encoding="utf-8")
-    (run.stage / "remote-run.sh").write_text( remote_driver_script(RemoteDriverScript( request.task_id, request.task, request.role, run.branch, run.sent, request.project, run.digest, run.run_token)), encoding="utf-8")
+    (run.stage / "remote-run.sh").write_text(
+        remote_driver_script(RemoteDriverScript(
+            request.task_id, request.task, request.role, run.branch, run.sent,
+            request.project, run.digest, run.run_token)),
+        encoding="utf-8")
     if request.attachments:
         attach_dir = run.stage / "attachments"
         attach_dir.mkdir(exist_ok=True)
@@ -3082,21 +3274,35 @@ def _stage_remote_payload(run):
             source = Path(filename)
             _copy_result(source, attach_dir / source.name)
     if request.diff_range:
-        diff_result = subprocess.run( ["git", "-C", request.cwd, "diff", "--no-ext-diff", request.diff_range, "--"], capture_output=True)
+        diff_result = subprocess.run(
+            ["git", "-C", request.cwd, "diff", "--no-ext-diff", request.diff_range, "--"],
+            capture_output=True)
         if diff_result.returncode == 0:
             (run.stage / "diff.txt").write_bytes(diff_result.stdout)
+
+
 def _sync_remote_payload(run):
+    """Send the staging repository to the host."""
     request = run.request
     send_t0 = time.monotonic()
-    sync_result = remote_cli(["sync", "--host", request.host, str(run.staging)], timeout=max(120, request.timeout + 120), timeout_failure="remote_error")
+    sync_result = remote_cli(["sync", "--host", request.host, str(run.staging)],
+                             timeout=max(120, request.timeout + 120),
+                             timeout_failure="remote_error")
     run.send_s = time.monotonic() - send_t0
     if sync_result.returncode != 0:
-        detail = (sync_result.stderr.strip().splitlines() or ["remote-runner sync failed"])[-1]
+        detail = (sync_result.stderr.strip().splitlines() or
+                  ["remote-runner sync failed"])[-1]
         raise RemoteError("remote_error", detail)
+
+
 def _start_remote_process(run):
+    """Start the remote-runner child and wait for it, the queue or a stop."""
     request = run.request
-    snippet = (f'exec bash "$(git rev-parse --path-format=absolute ' f'--git-common-dir)/delegate/{run.digest}/remote-run.sh"')
-    argv = [remote_runner_cmd(), "run", "-n", "--host", request.host, "-C", str(run.staging), "--wait", str(request.wait_s), "--timeout", str(max(1, request.timeout + 30)), "--", snippet]
+    snippet = (f'exec bash "$(git rev-parse --path-format=absolute '
+               f'--git-common-dir)/delegate/{run.digest}/remote-run.sh"')
+    argv = [remote_runner_cmd(), "run", "-n", "--host", request.host, "-C", str(run.staging),
+            "--wait", str(request.wait_s), "--timeout", str(max(1, request.timeout + 30)),
+            "--", snippet]
     run_t0 = time.monotonic()
     # The queue is bounded by --wait; the executor timeout starts only when
     # the run reports that it is active (its marker), never while queued.
@@ -3126,7 +3332,10 @@ def _start_remote_process(run):
             next_probe = time.monotonic() + 0.25
         time.sleep(0.05)
     run.run_s = time.monotonic() - run_t0
+
+
 def _send_remote(run):
+    """Stage, sync and start the remote run; say whether it reached the result phase."""
     request = run.request
     try:
         _stage_remote_payload(run)
@@ -3142,46 +3351,74 @@ def _send_remote(run):
     except RemoteError as exc:
         _cleanup_remote_local(run.staging)
         _cleanup_temp(run.remote_out, run.remote_err)
-        run.result = _remote_record_failure( request.pending, exc.failure, exc.detail, send_s=round(run.send_s, 3), run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3))
+        run.result = _remote_record_failure(
+            request.pending, exc.failure, exc.detail,
+            send_s=round(run.send_s, 3), run_s=round(run.run_s, 3),
+            fetch_s=round(run.fetch_s, 3))
         return False
     finally:
         if run.process is not None and run.process.poll() is None:
             _terminate_remote_process(run.process)
     return True
+
+
 def _read_remote_outcome(run):
+    """Read the child's exit, the last real stderr cause and the work marker."""
     run.remote_code = run.process.returncode if run.process is not None else None
     remote_stderr = ""
     try:
         remote_stderr = Path(run.remote_err).read_text(errors="replace").strip()
     except OSError:
         pass
-    causes = [line for line in remote_stderr.splitlines() if line.strip() and not line.startswith(("remote-runner: result=", REMOTE_RUN_MARKER, REMOTE_WORK_MARKER))]
+    causes = [line for line in remote_stderr.splitlines()
+              if line.strip() and not line.startswith(("remote-runner: result=", REMOTE_RUN_MARKER,
+                                                       REMOTE_WORK_MARKER))]
     run.last_line = (causes or [""])[-1]
     work_info = remote_work_marker(run.remote_err, run.run_token)
     if work_info:
         run.work_info = dict(work_info)
         run.request.pending["_remote_work"] = dict(work_info)
+
+
 def _remote_kept_record(run, extra=None):
+    """The kept-work record this run can report, or None when no marker was found."""
     if not run.work_info:
         return None
     kept = dict(run.work_info)
     if extra:
         kept.update(extra)
     return kept
+
+
 def _remote_early_stop(run):
+    """Record a stopped or unsent run before any pull, or return None to continue."""
     request = run.request
     if run.orphan_failure:
-        rec = _remote_record_failure( request.pending, run.orphan_failure, wait_s=round(run.run_s, 3), send_s=round(run.send_s, 3), run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code)
+        rec = _remote_record_failure(
+            request.pending, run.orphan_failure, wait_s=round(run.run_s, 3),
+            send_s=round(run.send_s, 3), run_s=round(run.run_s, 3),
+            fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code)
         if run.interrupted_exc is not None:
             raise run.interrupted_exc
         return rec
     if run.local_slot_timeout:
         extra = {"remote_kill": run.kill_result} if run.kill_result else {}
-        return _remote_record_failure( request.pending, "slot_timeout", run.last_line or "no free capacity on the host within --wait", host=request.host, wait_s=round(run.run_s, 3), send_s=round(run.send_s, 3), run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code, **extra)
+        return _remote_record_failure(
+            request.pending, "slot_timeout",
+            run.last_line or "no free capacity on the host within --wait", host=request.host,
+            wait_s=round(run.run_s, 3), send_s=round(run.send_s, 3),
+            run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3),
+            exit_code=run.remote_code, **extra)
     if run.remote_code == 74:
-        return _remote_record_failure( request.pending, "slot_timeout", run.last_line or None, host=request.host, wait_s=round(run.run_s, 3), send_s=round(run.send_s, 3), run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3))
+        return _remote_record_failure(
+            request.pending, "slot_timeout", run.last_line or None, host=request.host,
+            wait_s=round(run.run_s, 3), send_s=round(run.send_s, 3),
+            run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3))
     return None
+
+
 def _read_remote_meta(path):
+    """Read the key=value meta file the driver wrote for this run."""
     meta = {}
     if path.is_file():
         for line in path.read_text(errors="replace").splitlines():
@@ -3189,11 +3426,15 @@ def _read_remote_meta(path):
             if sep:
                 meta[key] = value
     return meta
+
+
 def _pull_remote_result(run):
+    """Pull the result and say whether it belongs to this run; record a refusal otherwise."""
     request = run.request
     run.fetch_t0 = time.monotonic()
     shutil.rmtree(run.local_res, ignore_errors=True)
-    pull = remote_cli(["pull", "--host", request.host, str(run.local_res)], timeout=max(120, request.timeout + 120))
+    pull = remote_cli(["pull", "--host", request.host, str(run.local_res)],
+                      timeout=max(120, request.timeout + 120))
     meta = _read_remote_meta(run.local_res / "meta.txt")
     if meta.get("token") != run.run_token:
         run.fetch_s = time.monotonic() - run.fetch_t0
@@ -3202,14 +3443,23 @@ def _pull_remote_result(run):
             extra = {"remote_work_kept": _remote_kept_record(run)} if _remote_kept_record(run) else {}
             if run.kill_result:
                 extra["remote_kill"] = run.kill_result
-            run.result = _remote_record_failure( request.pending, "timeout", wait_s=round(run.run_s, 3), timed_out=True, send_s=round(run.send_s, 3), run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code, **extra)
+            run.result = _remote_record_failure(
+                request.pending, "timeout", wait_s=round(run.run_s, 3), timed_out=True,
+                send_s=round(run.send_s, 3), run_s=round(run.run_s, 3),
+                fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code, **extra)
             return False
         detail = run.last_line or (pull.stderr.strip().splitlines() or [""])[-1]
-        run.result = _remote_record_failure( request.pending, "remote_error", detail or "remote run produced no result", send_s=round(run.send_s, 3), run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code)
+        run.result = _remote_record_failure(
+            request.pending, "remote_error", detail or "remote run produced no result",
+            send_s=round(run.send_s, 3), run_s=round(run.run_s, 3),
+            fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code)
         return False
     run.meta = meta
     return True
+
+
 def _merge_remote_result(run, meta):
+    """Fetch the returned bundle; fast-forward the branch or keep the ref and say why."""
     request = run.request
     received = meta.get("received") or run.sent
     diverged, diverged_reason = False, None
@@ -3217,37 +3467,54 @@ def _merge_remote_result(run, meta):
     if request.role != "review" and received != run.sent and not run.timed_out and not run.orphan_failure:
         fetched_ref = remote_delegate_ref(request.task_id)
         current_branch = git(request.cwd, "rev-parse", "--abbrev-ref", "HEAD")
-        fetch = subprocess.run( ["git", "-C", request.cwd, "fetch", "--no-tags", str(run.local_res / "result.bundle"), f"+refs/heads/{run.branch}:{fetched_ref}"], capture_output=True, text=True)
+        fetch = subprocess.run(
+            ["git", "-C", request.cwd, "fetch", "--no-tags", str(run.local_res / "result.bundle"),
+             f"+refs/heads/{run.branch}:{fetched_ref}"], capture_output=True, text=True)
         if fetch.returncode != 0:
             fetch_error = fetch.stderr.strip() or "cannot fetch the result bundle"
         elif current_branch != run.branch:
             diverged = True
-            diverged_reason = (f"the worktree moved to {current_branch or 'a detached HEAD'}, " f"not {run.branch}; the result is kept at {fetched_ref}")
-        elif subprocess.run(["git", "-C", request.cwd, "merge-base", "--is-ancestor", "HEAD", fetched_ref], capture_output=True).returncode != 0:
+            diverged_reason = (f"the worktree moved to {current_branch or 'a detached HEAD'}, "
+                               f"not {run.branch}; the result is kept at {fetched_ref}")
+        elif subprocess.run(["git", "-C", request.cwd, "merge-base", "--is-ancestor",
+                             "HEAD", fetched_ref], capture_output=True).returncode != 0:
             diverged = True
-            diverged_reason = ("the local branch and the remote result diverge; " f"the result is kept at {fetched_ref}")
+            diverged_reason = ("the local branch and the remote result diverge; "
+                               f"the result is kept at {fetched_ref}")
         else:
-            merge = subprocess.run(["git", "-C", request.cwd, "merge", "--ff-only", fetched_ref], capture_output=True, text=True)
+            merge = subprocess.run(["git", "-C", request.cwd, "merge", "--ff-only", fetched_ref],
+                                   capture_output=True, text=True)
             if merge.returncode != 0:
                 diverged = True
-                detail = (merge.stderr.strip().splitlines() or ["git refused the fast-forward"])[-1]
-                diverged_reason = ("a local change overlaps the remote result and the " f"fast-forward was refused ({detail}); commit or stash " f"it, then merge {fetched_ref}")
+                detail = (merge.stderr.strip().splitlines() or
+                          ["git refused the fast-forward"])[-1]
+                diverged_reason = ("a local change overlaps the remote result and the "
+                                   f"fast-forward was refused ({detail}); commit or stash "
+                                   f"it, then merge {fetched_ref}")
             else:
-                subprocess.run(["git", "-C", request.cwd, "update-ref", "-d", fetched_ref], capture_output=True)
+                subprocess.run(["git", "-C", request.cwd, "update-ref", "-d", fetched_ref],
+                               capture_output=True)
     return MergeOutcome(diverged, diverged_reason, fetched_ref, fetch_error)
+
+
 def _remote_commit_error(run, meta):
+    """Turn the driver's commit exit into a reason the record can show."""
     commit_rc = meta.get("commit_rc") or ""
     if commit_rc in ("", "0"):
         return False, None
     commit_error = f"remote auto-commit failed (git exit {commit_rc})"
     try:
-        tail = [line for line in (run.local_res / "commit.log").read_text( errors="replace").splitlines() if line.strip()]
+        tail = [line for line in (run.local_res / "commit.log").read_text(
+            errors="replace").splitlines() if line.strip()]
     except OSError:
         tail = []
     if tail:
         commit_error += ": " + tail[-1]
     return True, commit_error
+
+
 def _remote_failure(run, meta, merge, review_wrote, commit_failed):
+    """Pick the record's failure from the facts of the returned run."""
     request = run.request
     if run.orphan_failure:
         return run.orphan_failure
@@ -3264,8 +3531,12 @@ def _remote_failure(run, meta, merge, review_wrote, commit_failed):
     review_output = None
     if request.role == "review":
         review_output = request.last_msg if request.executor == "codex" else request.stdout
-    return classify_failure(False, int(meta.get("exit") or 0), request.stdout, request.stderr, review_wrote, review_output, request.executor)
+    return classify_failure(False, int(meta.get("exit") or 0), request.stdout, request.stderr,
+                            review_wrote, review_output, request.executor)
+
+
 def _remote_outcome(run, meta):
+    """Copy the result files, merge the bundle and classify what the run produced."""
     request = run.request
     received = meta.get("received") or run.sent
     remote_dirty = meta.get("dirty") == "1"
@@ -3287,14 +3558,25 @@ def _remote_outcome(run, meta):
         review_output = request.last_msg if request.executor == "codex" else request.stdout
     commits = git(request.cwd, "rev-list", "--count", f"{run.sent}..{head1}") if run.sent and head1 else ""
     files = git(request.cwd, "diff", "--name-only", f"{run.sent}..{head1}") if run.sent and head1 else ""
-    return RemoteOutcome( received, int(meta.get("exit") or 0), remote_dirty, commit_failed, commit_error, review_wrote, merge, _remote_failure(run, meta, merge, review_wrote, commit_failed), head1, bool(snap1[1]), bool(remote_dirty and request.role != "review"), commits, files, review_output)
+    return RemoteOutcome(
+        received, int(meta.get("exit") or 0), remote_dirty, commit_failed, commit_error,
+        review_wrote, merge,
+        _remote_failure(run, meta, merge, review_wrote, commit_failed),
+        head1, bool(snap1[1]), bool(remote_dirty and request.role != "review"),
+        commits, files, review_output)
+
+
 def _remote_run_record(run, meta, outcome):
+    """Build the run record of a pulled remote run, in the log's key order."""
     request = run.request
     remote_base = meta.get("remote_base") or run.default_base
     access = resolve_remote_access(run.policy["access"], remote_base)
-    access.setdefault("limits", []).append( "leftover-process cleanup on the host is only what remote-runner kill guarantees")
+    access.setdefault("limits", []).append(
+        "leftover-process cleanup on the host is only what remote-runner kill guarantees")
     if run.kill_result in ("failed", "no_id"):
-        access.setdefault("limits", []).append( f"remote-runner kill did not confirm a stop ({run.kill_result}); " f"check `remote-runner runs --host {request.host}` on the host")
+        access.setdefault("limits", []).append(
+            f"remote-runner kill did not confirm a stop ({run.kill_result}); "
+            f"check `remote-runner runs --host {request.host}` on the host")
     rec = {
         "kind": "run", "id": request.task_id, "project": request.project,
         "task": request.task, "role": request.role, "executor": request.executor,
@@ -3332,7 +3614,9 @@ def _remote_run_record(run, meta, outcome):
     if outcome.merge.diverged and outcome.merge.fetched_ref:
         rec["remote_ref"] = outcome.merge.fetched_ref
     if outcome.failure != "none":
-        kept = _remote_kept_record( run, {"ref": outcome.merge.fetched_ref} if outcome.merge.diverged and outcome.merge.fetched_ref else None)
+        kept = _remote_kept_record(
+            run, {"ref": outcome.merge.fetched_ref}
+            if outcome.merge.diverged and outcome.merge.fetched_ref else None)
         if kept:
             rec["remote_work_kept"] = kept
     if request.executor == "codex":
@@ -3340,10 +3624,16 @@ def _remote_run_record(run, meta, outcome):
     if request.role == "review" and outcome.failure == "none":
         rec.update(review_severity_fields(outcome.review_output))
     return rec
+
+
 def _cleanup_remote_run(run):
+    """Remove the local staging repository and the child's capture files."""
     _cleanup_remote_local(run.staging)
     _cleanup_temp(run.remote_out, run.remote_err)
+
+
 def _remote_result(run):
+    """Pull the result, merge it and append the record; every exit cleans up."""
     try:
         early = _remote_early_stop(run)
         if early is not None:
@@ -3401,10 +3691,19 @@ def output_tail(paths, limit=RESUME_TAIL_LINES):
         if lines:
             return path, lines[-limit:]
     return None, []
+
+
 @dataclass
 class CheckpointSpec:
-    task_id: str; cwd: str; out_path: Path; base: Optional[str]
-    failure: str; timeout: float; idle_timeout: float; captures: tuple
+    """Everything a stopped local run keeps: where it ran, why, and its output."""
+    task_id: str
+    cwd: str
+    out_path: Path
+    base: Optional[str]
+    failure: str
+    timeout: float
+    idle_timeout: float
+    captures: tuple
 
 
 def write_checkpoint(spec):
@@ -3505,44 +3804,128 @@ where it stopped. Do not redo work that is already committed, and do not revert
 the checkpoint commit: build on it. The note the runner wrote when it stopped:
 
 """
+
+
 @dataclass
 class RunOptions:
-    profile: Optional[str] = None; executor: Optional[str] = None; model: Optional[str] = None; cwd: Optional[str] = None
-    card: Optional[str] = None; out: Optional[str] = None; project: Optional[str] = None; timeout: float = DEFAULT_TIMEOUT_S
-    wait_s: float = 3600; attempt: int = 1; confirmed: bool = False; allow_peak: bool = False
-    diff_range: Optional[str] = None; attachments: Optional[list] = None; access_mode: str = "policy"; host: Optional[str] = None
-    idle_timeout: float = DEFAULT_IDLE_TIMEOUT_S; resume: bool = False; allow_claude_review: bool = False; author_family: Optional[str] = None
+    """The optional inputs of one run, with the defaults the command line uses."""
+    profile: Optional[str] = None
+    executor: Optional[str] = None
+    model: Optional[str] = None
+    cwd: Optional[str] = None
+    card: Optional[str] = None
+    out: Optional[str] = None
+    project: Optional[str] = None
+    timeout: float = DEFAULT_TIMEOUT_S
+    wait_s: float = 3600
+    attempt: int = 1
+    confirmed: bool = False
+    allow_peak: bool = False
+    diff_range: Optional[str] = None
+    attachments: Optional[list] = None
+    access_mode: str = "policy"
+    host: Optional[str] = None
+    idle_timeout: float = DEFAULT_IDLE_TIMEOUT_S
+    resume: bool = False
+    allow_claude_review: bool = False
+    author_family: Optional[str] = None
     diff_exclude: Optional[str] = None
+
+
 @dataclass
 class RunIdentity:
-    profile: Optional[str]; executor: str; model: str; family: Optional[str]
+    """The profile and the executor/model/family a run resolved to."""
+    profile: Optional[str]
+    executor: str
+    model: str
+    family: Optional[str]
+
+
 @dataclass
 class PromptSetup:
-    task_id: str; cwd: str; project: str; card_content: str
-    input_sizes: dict; input_failure: Optional[str]; too_large: Optional[str]; resumed_from: Optional[str]
+    """The composed prompt and the facts the run paths need from it."""
+    task_id: str
+    cwd: str
+    project: str
+    card_content: str
+    input_sizes: dict
+    input_failure: Optional[str]
+    too_large: Optional[str]
+    resumed_from: Optional[str]
     attempt: int
+
+
 @dataclass
 class RunSetup:
-    task_id: str; task: str; role: str; options: RunOptions
-    identity: RunIdentity; cwd: str; project: str; card_content: str
-    input_sizes: dict; input_failure: Optional[str]; too_large: Optional[str]; resumed_from: Optional[str]
-    attempt: int; out_path: Path; policy: dict; stdout: Path
-    stderr: Path; last_msg: Path; prompt: Path; tracker: ProcessTracker
+    """Everything one run knows before it starts: identity, prompt, paths and pending record."""
+    task_id: str
+    task: str
+    role: str
+    options: RunOptions
+    identity: RunIdentity
+    cwd: str
+    project: str
+    card_content: str
+    input_sizes: dict
+    input_failure: Optional[str]
+    too_large: Optional[str]
+    resumed_from: Optional[str]
+    attempt: int
+    out_path: Path
+    policy: dict
+    stdout: Path
+    stderr: Path
+    last_msg: Path
+    prompt: Path
+    tracker: ProcessTracker
     pending: dict
+
+
 @dataclass
 class LocalRun:
-    setup: RunSetup; argv: list; progress_files: tuple; agy_log: Optional[Path]
-    peak: bool; deadline: float; max_slots: int; si: Optional[object] = None
-    git_global: Optional[Path] = None; p: Optional[subprocess.Popen] = None; slot_file: Optional[Path] = None; slot_data: Optional[dict] = None
-    queued_at: float = 0.0; timed_out: bool = False; stalled: bool = False; orphan_failure: Optional[str] = None
-    interrupted_exc: Optional[BaseException] = None; exit_seen: bool = False; pending_return: bool = False; pending_error: Optional[SlotTimeoutError] = None
-    snap0: tuple = (); head0: str = ""; dirty_before: bool = False; started: str = ""
-    t0: float = 0.0; wait_duration_s: float = 0.0; progress: Optional[ProgressWatch] = None
+    """The mutable state of one local slot acquisition and executor wait."""
+    setup: RunSetup
+    argv: list
+    progress_files: tuple
+    agy_log: Optional[Path]
+    peak: bool
+    deadline: float
+    max_slots: int
+    si: Optional[object] = None
+    git_global: Optional[Path] = None
+    p: Optional[subprocess.Popen] = None
+    slot_file: Optional[Path] = None
+    slot_data: Optional[dict] = None
+    queued_at: float = 0.0
+    timed_out: bool = False
+    stalled: bool = False
+    orphan_failure: Optional[str] = None
+    interrupted_exc: Optional[BaseException] = None
+    exit_seen: bool = False
+    pending_return: bool = False
+    pending_error: Optional[SlotTimeoutError] = None
+    snap0: tuple = ()
+    head0: str = ""
+    dirty_before: bool = False
+    started: str = ""
+    t0: float = 0.0
+    wait_duration_s: float = 0.0
+    progress: Optional[ProgressWatch] = None
+
+
 @dataclass
 class LocalOutcome:
-    head1: str; dirty_after: bool; failure: str; uncommitted: bool
-    commits: str; files: str
+    """The tree and failure a finished local run produced, before the record is built."""
+    head1: str
+    dirty_after: bool
+    failure: str
+    uncommitted: bool
+    commits: str
+    files: str
+
+
 def _resolve_run_identity(role, options):
+    """Turn the profile/executor/model options into a runnable identity and check the route rules."""
     alias_notice = None
     profile = options.profile
     if profile in ALIASES:
@@ -3562,19 +3945,26 @@ def _resolve_run_identity(role, options):
     if not executor or not model:
         sys.exit("delegate: give --profile, or both --executor and --model")
     check_model_allowed(role, executor, model, profile)
-    check_claude_review(executor, role, options.allow_claude_review, options.author_family, options.host)
+    check_claude_review(executor, role, options.allow_claude_review, options.author_family,
+                        options.host)
     check_review_family(role, executor, model, family, options.author_family)
     check_agy_claude(executor, model, role, options.author_family)
     if alias_notice:
         print(alias_notice, file=sys.stderr)
     return RunIdentity(profile, executor, model, family)
+
+
 def _prepare_prompt(task_id, role, options, identity):
+    """Compose the card prompt, attach the review rubric or resume note, and check its size."""
     cwd = str(Path(options.cwd).resolve())
-    if (role == "review" and EXECUTOR_FLAGS.get(identity.executor, {}).get("requires_review_diff") and not options.diff_range):
+    if (role == "review" and EXECUTOR_FLAGS.get(identity.executor, {}).get("requires_review_diff")
+            and not options.diff_range):
         usage_error(f"{identity.executor} review requires --diff-range; the runner attaches the exact diff")
-    card_content, input_sizes, input_failure = compose_prompt( options.card, options.attachments, options.diff_range, cwd, options.diff_exclude)
+    card_content, input_sizes, input_failure = compose_prompt(
+        options.card, options.attachments, options.diff_range, cwd, options.diff_exclude)
     if role == "review" and not options.diff_range and "{{DIFF_RANGE}}" in Path(options.card).read_text(encoding="utf-8"):
-        usage_error("review card contains {{DIFF_RANGE}} but no --diff-range was given; " "pass --diff-range <base>...<head>")
+        usage_error("review card contains {{DIFF_RANGE}} but no --diff-range was given; "
+                    "pass --diff-range <base>...<head>")
     if role == "review":
         # The reviewer answers the rubric's questions; the runner computes the severity.
         card_content += "\n" + read_severity_rubric()
@@ -3600,18 +3990,26 @@ def _prepare_prompt(task_id, role, options, identity):
         # OpenCode takes the prompt as one argv element and would fail with
         # E2BIG at or above the kernel limit; it has no stdin prompt.
         input_failure, too_large = size_failure, f"the {MAX_ARG_BYTES} bytes OpenCode takes"
-    elif (not input_failure and role == "review" and identity.executor == "agy" and str(identity.model).startswith("claude-opus") and input_sizes["prompt_bytes"] > AGY_OPUS_MAX_INPUT_BYTES):
+    elif (not input_failure and role == "review" and identity.executor == "agy"
+          and str(identity.model).startswith("claude-opus")
+          and input_sizes["prompt_bytes"] > AGY_OPUS_MAX_INPUT_BYTES):
         input_failure = OVER_MODEL_CAP
-    return PromptSetup(task_id, cwd, project, card_content, input_sizes, input_failure, too_large, resumed_from, attempt)
+    return PromptSetup(task_id, cwd, project, card_content, input_sizes, input_failure,
+                       too_large, resumed_from, attempt)
+
+
 def _prepare_run_paths(task, role, options, identity, prompt):
+    """Resolve the output paths and policy and build the pending record the run starts from."""
     task_id = prompt.task_id
     out_path = Path(options.out or HOME / "delegate" / "out" / prompt.project).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
-    policy = access_policy(identity.executor, role, prompt.cwd, out_path, strict=options.access_mode == "strict")
+    policy = access_policy(identity.executor, role, prompt.cwd, out_path,
+                           strict=options.access_mode == "strict")
     stdout, stderr, last_msg, prompt_path = run_output_paths(out_path, task_id, prompt.attempt)
     prompt_path.write_text(prompt.card_content, encoding="utf-8")
     tracker = ProcessTracker()
-    orphans = {"found": 0, "killed": 0, "sample": [], "tracked": False, "polls": 0, "method": tracker.method}
+    orphans = {"found": 0, "killed": 0, "sample": [],
+               "tracked": False, "polls": 0, "method": tracker.method}
     # A refused input or a queue timeout has an audit record, but no child snapshot.
     pending = {
         "kind": "run", "id": task_id, "project": prompt.project, "task": task, "role": role,
@@ -3624,17 +4022,30 @@ def _prepare_run_paths(task, role, options, identity, prompt):
     }
     if options.resume:
         pending["resumed_from"] = prompt.resumed_from
-    return RunSetup(task_id, task, role, options, identity, prompt.cwd, prompt.project, prompt.card_content, prompt.input_sizes, prompt.input_failure, prompt.too_large, prompt.resumed_from, prompt.attempt, out_path, policy, stdout, stderr, last_msg, prompt_path, tracker, pending)
+    return RunSetup(task_id, task, role, options, identity, prompt.cwd, prompt.project,
+                    prompt.card_content, prompt.input_sizes, prompt.input_failure,
+                    prompt.too_large, prompt.resumed_from, prompt.attempt, out_path, policy,
+                    stdout, stderr, last_msg, prompt_path, tracker, pending)
+
+
 def _record_input_failure(setup):
+    """Write the record of a run refused before any executor starts."""
     pending = setup.pending
     pending["orphans"] = setup.tracker.sweep()
-    pending.update(failure=setup.input_failure, completed=now().isoformat(timespec="microseconds"))
+    pending.update(failure=setup.input_failure,
+                   completed=now().isoformat(timespec="microseconds"))
     if setup.input_failure == "review_input_too_large":
-        pending["hint"] = ( f"the review prompt is {setup.input_sizes['prompt_bytes']} bytes, above {setup.too_large}; " "leave lockfiles and generated files out of the review diff with " "--diff-exclude <pathspec> (repeatable)")
+        pending["hint"] = (
+            f"the review prompt is {setup.input_sizes['prompt_bytes']} bytes, above {setup.too_large}; "
+            "leave lockfiles and generated files out of the review diff with "
+            "--diff-exclude <pathspec> (repeatable)")
         print(f"delegate: {pending['hint']}", file=sys.stderr)
     append(pending)
     return pending
+
+
 def _dispatch_remote(task, role, setup):
+    """Hand a prepared run to the remote path."""
     options = setup.options
     identity = setup.identity
     return execute_remote_run(RemoteRunRequest(
@@ -3644,9 +4055,13 @@ def _dispatch_remote(task, role, setup):
         options.confirmed, options.allow_peak, options.diff_range, options.attachments,
         options.access_mode, options.host, setup.prompt, setup.stdout, setup.stderr,
         setup.last_msg))
+
+
 def _prepare_local_run(setup):
+    """Build the executor argv and the local slot state, before any process starts."""
     executor = setup.identity.executor
-    argv = build_argv(executor, setup.identity.model, setup.role, setup.cwd, setup.card_content, setup.last_msg, setup.policy)
+    argv = build_argv(executor, setup.identity.model, setup.role, setup.cwd,
+                      setup.card_content, setup.last_msg, setup.policy)
     progress_files = (setup.stdout, setup.stderr)
     agy_log = None
     if executor == "agy":
@@ -3657,21 +4072,43 @@ def _prepare_local_run(setup):
         progress_files += (agy_log,)
     peak = in_peak() and setup.identity.family == "deepseek"
     if peak:
-        print("delegate: OpenCode Go peak window (UTC); DeepSeek on OpenCode Go costs double now — proceeding", file=sys.stderr)
+        print("delegate: OpenCode Go peak window (UTC); DeepSeek on OpenCode Go costs double now — proceeding",
+              file=sys.stderr)
     if executor == "codex":
         setup.last_msg.unlink(missing_ok=True)
     # Codex and Antigravity read the prompt from stdin; OpenCode takes it as an
     # argv element (see ARGV_PROMPT_EXECUTORS).
     si = open(setup.prompt, "rb") if executor in ("codex", "agy", "claude") else None
-    return LocalRun(setup=setup, argv=argv, progress_files=progress_files, agy_log=agy_log, peak=peak, deadline=time.time() + setup.options.wait_s, max_slots=get_max_slots(executor), queued_at=time.monotonic(), si=si)
+    return LocalRun(setup=setup, argv=argv, progress_files=progress_files, agy_log=agy_log,
+                    peak=peak, deadline=time.time() + setup.options.wait_s,
+                    max_slots=get_max_slots(executor), queued_at=time.monotonic(), si=si)
+
+
 def _publish_slot(run):
+    """Write this run's slot file atomically under the caller's slot lock."""
     setup, identity = run.setup, run.setup.identity
     run.slot_file = RUNNING / f"{identity.executor}-{setup.task_id}-{run.p.pid}.json"
-    run.slot_data = { "id": setup.task_id, "project": setup.project, "profile": identity.profile, "role": setup.role, "machine": local_machine(), **ATTRIBUTION, "pid": run.p.pid, "pgid": run.p.pid, "started": run.started, "process_start": process_identity(run.p.pid) or f"unreaped:{os.getpid()}:{run.p.pid}", "runner_pid": os.getpid(), "runner_start": process_identity(os.getpid()), }
+    run.slot_data = {
+        "id": setup.task_id,
+        "project": setup.project,
+        "profile": identity.profile,
+        "role": setup.role,
+        "machine": local_machine(),
+        **ATTRIBUTION,
+        "pid": run.p.pid,
+        "pgid": run.p.pid,
+        "started": run.started,
+        "process_start": process_identity(run.p.pid) or f"unreaped:{os.getpid()}:{run.p.pid}",
+        "runner_pid": os.getpid(),
+        "runner_start": process_identity(os.getpid()),
+    }
     slot_tmp = run.slot_file.with_suffix(".tmp")
     slot_tmp.write_text(json.dumps(run.slot_data, ensure_ascii=False))
     os.replace(slot_tmp, run.slot_file)
+
+
 def _acquire_and_wait(run):
+    """Poll for a free slot, start the executor under it, and wait for its exit or a stop."""
     setup, options, identity = run.setup, run.setup.options, run.setup.identity
     executor, cwd, task_id = identity.executor, setup.cwd, setup.task_id
     parent_pid = os.getppid()
@@ -3696,19 +4133,27 @@ def _acquire_and_wait(run):
                     run.t0 = time.monotonic()
                     run.wait_duration_s = run.t0 - run.queued_at
                     child_env = child_environment(executor, os.environ, setup.policy["env"])
-                    run.p = subprocess.Popen( run.argv, cwd=cwd, stdout=so, stderr=se, stdin=run.si if run.si is not None else subprocess.DEVNULL, start_new_session=True, env=child_env, )
+                    run.p = subprocess.Popen(
+                        run.argv, cwd=cwd, stdout=so, stderr=se,
+                        stdin=run.si if run.si is not None else subprocess.DEVNULL,
+                        start_new_session=True, env=child_env,
+                    )
                     setup.tracker.watch(run.p.pid)
                     _publish_slot(run)
                     break
+
             if time.time() >= run.deadline:
                 raise SlotTimeoutError(executor)
             remaining = run.deadline - time.time()
             time.sleep(min(5.0, max(0.05, remaining)))
+
         try:
             # Built inside the try: it runs git, and a stop signal that lands
             # there must still end the executor and write the record.
-            run.progress = ProgressWatch(cwd, run.progress_files, options.idle_timeout, run.slot_file, run.slot_data)
-            wait_for_exit(run.p, options.timeout, parent_pid=parent_pid, tracker=setup.tracker, progress=run.progress)
+            run.progress = ProgressWatch(cwd, run.progress_files, options.idle_timeout,
+                                         run.slot_file, run.slot_data)
+            wait_for_exit(run.p, options.timeout, parent_pid=parent_pid,
+                          tracker=setup.tracker, progress=run.progress)
             run.exit_seen = True
         except ParentGone:
             # The orchestrator's background task (or the parent shell) went
@@ -3734,7 +4179,10 @@ def _acquire_and_wait(run):
                 run.exit_seen = True
             except subprocess.TimeoutExpired:
                 pass
+
+
 def _cleanup_local_run(run):
+    """Reap the executor, drop its slot and sweep every descendant it left."""
     setup = run.setup
     # Reap and removal are one locked transition: kill can trust the runner
     # identity while Darwin hides the unreaped zombie's start time.
@@ -3768,15 +4216,20 @@ def _cleanup_local_run(run):
                     run.git_global.unlink(missing_ok=True)
                 except OSError:
                     pass
+
+
 def _run_local_executor(task, role, setup):
+    """Acquire a slot, run the executor locally and turn every stop into a record."""
     run = _prepare_local_run(setup)
     try:
         _acquire_and_wait(run)
     except ParentGone:
-        setup.pending.update(failure="orphaned", wait_s=round(time.monotonic() - run.queued_at, 3), completed=now().isoformat(timespec="microseconds"))
+        setup.pending.update(failure="orphaned", wait_s=round(time.monotonic() - run.queued_at, 3),
+                             completed=now().isoformat(timespec="microseconds"))
         run.pending_return = True
     except SlotTimeoutError as exc:
-        setup.pending.update(failure="slot_timeout", wait_s=round(time.monotonic() - run.queued_at, 3), completed=now().isoformat(timespec="microseconds"))
+        setup.pending.update(failure="slot_timeout", wait_s=round(time.monotonic() - run.queued_at, 3),
+                             completed=now().isoformat(timespec="microseconds"))
         run.pending_return = True
         run.pending_error = exc
         exc.record = setup.pending
@@ -3793,25 +4246,44 @@ def _run_local_executor(task, role, setup):
             raise run.pending_error
         return setup.pending
     return _complete_local_run(task, role, run)
+
+
 def _checkpoint_stopped_run(role, run):
-    stop_failure = run.orphan_failure or ( "stalled" if run.stalled else "timeout" if run.timed_out else None)
+    """Commit and note the work of a stopped implement run; a review keeps nothing."""
+    stop_failure = run.orphan_failure or (
+        "stalled" if run.stalled else "timeout" if run.timed_out else None)
     if not stop_failure or role == "review":
         return None
-    spec = CheckpointSpec(run.setup.task_id, run.setup.cwd, run.setup.out_path, run.head0, stop_failure, run.setup.options.timeout, run.setup.options.idle_timeout, (run.setup.stdout, run.setup.stderr))
+    spec = CheckpointSpec(run.setup.task_id, run.setup.cwd, run.setup.out_path, run.head0,
+                          stop_failure, run.setup.options.timeout,
+                          run.setup.options.idle_timeout, (run.setup.stdout, run.setup.stderr))
     try:
         return write_checkpoint(spec)
     except Exception as exc:  # the record must still be written
         return {"commit": None, "resume": None, "error": str(exc)[:300]}
+
+
 def _local_outcome(run, role, snap1):
+    """Classify the finished local run from the tree before and after it."""
     setup = run.setup
     head1 = snap1[0]
     review_wrote = role == "review" and snap1 != run.snap0
-    review_output = ((setup.last_msg if setup.identity.executor == "codex" else setup.stdout) if role == "review" else None)
-    failure = run.orphan_failure or ("stalled" if run.stalled else classify_failure( run.timed_out, run.p.returncode, setup.stdout, setup.stderr, review_wrote, review_output, setup.identity.executor))
-    commits = (git(setup.cwd, "rev-list", "--count", f"{run.head0}..{head1}") if run.head0 and head1 else "")
-    files = (git(setup.cwd, "diff", "--name-only", f"{run.head0}..{head1}") if run.head0 and head1 else "")
-    return LocalOutcome(head1, bool(snap1[1]), failure, role != "review" and head1 == run.head0 and snap1 != run.snap0, commits, files)
+    review_output = ((setup.last_msg if setup.identity.executor == "codex" else setup.stdout)
+                     if role == "review" else None)
+    failure = run.orphan_failure or ("stalled" if run.stalled else classify_failure(
+        run.timed_out, run.p.returncode, setup.stdout, setup.stderr, review_wrote,
+        review_output, setup.identity.executor))
+    commits = (git(setup.cwd, "rev-list", "--count", f"{run.head0}..{head1}")
+               if run.head0 and head1 else "")
+    files = (git(setup.cwd, "diff", "--name-only", f"{run.head0}..{head1}")
+             if run.head0 and head1 else "")
+    return LocalOutcome(head1, bool(snap1[1]), failure,
+                        role != "review" and head1 == run.head0 and snap1 != run.snap0,
+                        commits, files)
+
+
 def _local_run_record(task, role, run, outcome):
+    """Build the run record of a finished local run, in the log's key order."""
     setup, identity, options = run.setup, run.setup.identity, run.setup.options
     rec = {
         "kind": "run", "id": setup.task_id, "project": setup.project,
@@ -3851,7 +4323,10 @@ def _local_run_record(task, role, run, outcome):
     if options.resume:
         rec["resumed_from"] = setup.resumed_from
     return rec
+
+
 def _complete_local_run(task, role, run):
+    """Write the record of a finished local run and keep the signal exit semantics."""
     checkpoint = _checkpoint_stopped_run(role, run)
     outcome = _local_outcome(run, role, tree_snapshot(run.setup.cwd))
     rec = _local_run_record(task, role, run, outcome)
@@ -3863,6 +4338,8 @@ def _complete_local_run(task, role, run):
         # signal exit semantics.
         raise run.interrupted_exc
     return rec
+
+
 def execute_run(task_id, task, role, options=None, **fields):
     """Run one executor and append its audit record; keyword fields build the options."""
     if options is None:
