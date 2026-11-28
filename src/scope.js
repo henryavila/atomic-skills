@@ -3,10 +3,6 @@ import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { parse } from 'node:path';
 
-/**
- * @typedef {{ ok: true, path: string } | { ok: false, reason: string }} ScopeResult
- */
-
 function runGit(cwd, args) {
   return execFileSync('git', ['-C', cwd, ...args], {
     encoding: 'utf8',
@@ -139,17 +135,16 @@ function isWritable(root) {
 
 /**
  * @param {string} projectDir
- * @returns {ScopeResult}
  */
 export function resolveProjectScopeTarget(projectDir) {
   const target = existingDirectory(projectDir);
-  if (!target.ok) return target;
+  if (target.ok !== true) return { ok: false, reason: target.reason };
 
   const workTreeReason = workTreeRefusal(target.cwd);
   if (workTreeReason) return { ok: false, reason: workTreeReason };
 
   const repo = repositoryRoot(target.cwd);
-  if (!repo.ok) return repo;
+  if (repo.ok !== true) return { ok: false, reason: repo.reason };
 
   const { root } = repo;
   if (isFilesystemRoot(root)) {
