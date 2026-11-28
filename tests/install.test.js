@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { install, installSkills, resolveProjectScopeTarget, installRuntimeArtifacts } from '../src/install.js';
+import { install, installSkills, resolveProjectScopeTarget, installRuntimeArtifacts, getPackageVersion } from '../src/install.js';
 import { PUBLIC_IDE_IDS, getSkillPath } from '../src/config.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -559,6 +559,39 @@ describe('install command artifacts', () => {
       assert.ok(!existsSync(join(nested, '.claude/commands/atomic-skills/fix.md')));
       assert.ok(!existsSync(join(nested, '.atomic-skills/manifest.json')));
     } finally {
+      if (originalHome === undefined) delete process.env.HOME;
+      else process.env.HOME = originalHome;
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('prints the non-interactive install banner before the summary', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-install-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-install-repo-'));
+    const nested = join(repo, 'src', 'nested');
+    const originalHome = process.env.HOME;
+    const originalLog = console.log;
+    const lines = [];
+
+    try {
+      mkdirSync(nested, { recursive: true });
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      process.env.HOME = fakeHome;
+      console.log = (...args) => { lines.push(args.join(' ')); };
+
+      await install(nested, {
+        yes: true,
+        project: true,
+        ide: ['claude-code'],
+        lang: 'en',
+      });
+
+      assert.deepEqual(lines, [
+        `◇ Installing atomic-skills v${getPackageVersion()}...`,
+      ]);
+    } finally {
+      console.log = originalLog;
       if (originalHome === undefined) delete process.env.HOME;
       else process.env.HOME = originalHome;
       rmSync(fakeHome, { recursive: true, force: true });
