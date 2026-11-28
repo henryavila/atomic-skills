@@ -1839,14 +1839,24 @@ class ProcessTracker:
         if not table:
             return
         for root in self.roots:
-            row = table.get(root)
-            if row:
-                self._remember(root, table)
-                _ppid, pgid, sid, _state = row
-                if pgid > 1:
-                    self.pgids.add(pgid)
-                if sid > 0:
-                    self.sessions.add(sid)
+            self._remember_root(root, table)
+        visited = self._walk_descendants(table)
+        self._adopt_scope(table, visited)
+
+    def _remember_root(self, root, table):
+        """Remember a root's process group and session as well as its identity."""
+        row = table.get(root)
+        if not row:
+            return
+        self._remember(root, table)
+        _ppid, pgid, sid, _state = row
+        if pgid > 1:
+            self.pgids.add(pgid)
+        if sid > 0:
+            self.sessions.add(sid)
+
+    def _walk_descendants(self, table):
+        """Remember and return every pid below a root in the ppid tree."""
         children = {}
         for pid, (ppid, _pgid, _sid, _state) in table.items():
             children.setdefault(ppid, []).append(pid)
@@ -1860,8 +1870,12 @@ class ProcessTracker:
                 visited.add(child)
                 stack.append(child)
                 self._remember(child, table)
-        # Adopted orphans and new members of a remembered session/group may
-        # have left the ppid tree; add them until the scope stops growing.
+        return visited
+
+    def _adopt_scope(self, table, visited):
+        """Add adopted orphans and new group/session members until the scope stops growing."""
+        # They may have left the ppid tree, so the remembered group and session
+        # are what keeps them in scope.
         changed = True
         while changed:
             changed = False
