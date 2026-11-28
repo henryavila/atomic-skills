@@ -150,6 +150,176 @@ describe('verify-ci-candidate (F6/T-003)', () => {
   });
 });
 
+describe('validateJobMatrix error table', () => {
+  const CASES = [
+    {
+      name: 'empty jobs on full status',
+      receipt: { status: 'full', jobs: [] },
+      opts: { requireOs: [], requireNode: [] },
+      errors: ['receipt.jobs must be a non-empty array for full status'],
+      osCovered: [],
+      recordedVersions: [],
+    },
+    {
+      name: 'per-job field errors in order',
+      receipt: {
+        status: 'full',
+        candidateSha: 'aaa1111',
+        jobs: [{ status: 'failed', sha: 'bbb2222' }],
+      },
+      opts: { requireOs: [], requireNode: [] },
+      errors: [
+        'jobs[0]: os required',
+        'jobs[0]: nodeVersion must be a real process.version (got undefined)',
+        'jobs[0]: job failed',
+        'jobs[0]: job.sha bbb2222 != candidateSha aaa1111',
+      ],
+      osCovered: [],
+      recordedVersions: [],
+    },
+    {
+      name: 'unknown and skipped status',
+      receipt: {
+        status: 'full',
+        jobs: [
+          { os: 'linux', nodeVersion: 'v22.18.0', status: 'weird' },
+          { os: 'linux', nodeVersion: 'v22.18.0', status: 'skipped' },
+        ],
+      },
+      opts: { requireOs: [], requireNode: [] },
+      errors: [
+        'jobs[0]: unknown status weird',
+        'jobs[1]: skipped jobs not allowed for full status',
+      ],
+      osCovered: ['linux'],
+      recordedVersions: ['v22.18.0', 'v22.18.0'],
+    },
+    {
+      name: 'union coverage gaps on partial status',
+      receipt: {
+        status: 'partial',
+        jobs: [{ os: 'linux', nodeVersion: 'v22.17.0', status: 'success' }],
+      },
+      opts: { requireOs: ['linux', 'macos'], requireNode: ['22.18.x'] },
+      errors: [
+        'missing OS coverage: macos',
+        'missing Node coverage for requirement 22.18.x (recorded: v22.17.0)',
+      ],
+      osCovered: ['linux'],
+      recordedVersions: ['v22.17.0'],
+    },
+    {
+      name: 'full matrix is satisfied',
+      receipt: {
+        status: 'full',
+        candidateSha: 'aaa1111',
+        jobs: [{ os: 'linux', nodeVersion: 'v22.18.0', status: 'success', sha: 'aaa1111' }],
+      },
+      opts: { requireOs: ['linux'], requireNode: ['22.18.x'] },
+      errors: [],
+      osCovered: ['linux'],
+      recordedVersions: ['v22.18.0'],
+    },
+  ];
+
+  for (const testCase of CASES) {
+    it(testCase.name, () => {
+      const report = validateJobMatrix(testCase.receipt, testCase.opts);
+      assert.equal(report.ok, testCase.errors.length === 0);
+      assert.deepEqual(report.errors, testCase.errors);
+      assert.deepEqual(report.osCovered, testCase.osCovered);
+      assert.deepEqual(report.recordedVersions, testCase.recordedVersions);
+    });
+  }
+
+  it('still rejects a non-object job at the recorded-version step', () => {
+    assert.throws(
+      () => validateJobMatrix({ status: 'partial', jobs: [null] }, { requireOs: [], requireNode: [] }),
+      /Cannot read properties of null/,
+    );
+  });
+});
+
+describe('validateCiCandidate error table', () => {
+  const CASES = [
+    {
+      name: 'non-object receipt',
+      receipt: null,
+      opts: {},
+      errors: ['receipt must be an object'],
+    },
+    {
+      name: 'empty receipt reports envelope then matrix errors',
+      receipt: {},
+      opts: {},
+      errors: [
+        'schemaVersion must be "1"',
+        'candidateSha must be a git sha',
+        'status must be full|partial|failed (got undefined)',
+        'receipt.jobs must be a non-empty array for full status',
+        'missing OS coverage: linux',
+        'missing Node coverage for requirement 22.18.x (recorded: none)',
+        'missing Node coverage for requirement >=24.11.0 (recorded: none)',
+      ],
+    },
+    {
+      name: 'partial with allowPartial softens coverage gaps',
+      receipt: {
+        schemaVersion: '1',
+        status: 'partial',
+        candidateSha: 'aaa1111',
+        platformCoverage: { linux: true },
+        jobs: [{ os: 'linux', nodeVersion: 'v22.18.0', status: 'success' }],
+      },
+      opts: { requireOs: ['linux', 'macos'], requireNode: ['22.18.x'], allowPartial: true },
+      errors: [],
+    },
+    {
+      name: 'partial with allowPartial keeps missing node when nothing was recorded',
+      receipt: { schemaVersion: '1', status: 'partial', candidateSha: 'aaa1111', jobs: [] },
+      opts: { requireOs: [], requireNode: ['22.18.x'], allowPartial: true },
+      errors: ['missing Node coverage for requirement 22.18.x (recorded: none)'],
+    },
+    {
+      name: 'missing host manifest',
+      receipt: {
+        schemaVersion: '1',
+        status: 'full',
+        candidateSha: 'aaa1111',
+        jobs: [{ os: 'linux', nodeVersion: 'v22.18.0', status: 'success' }],
+      },
+      opts: {
+        requireOs: ['linux'],
+        requireNode: ['22.18.x'],
+        hostManifest: '/nonexistent/host-qualification.json',
+      },
+      errors: ['host manifest missing: /nonexistent/host-qualification.json'],
+    },
+    {
+      name: 'no product diff with malformed sha',
+      receipt: {
+        schemaVersion: '1',
+        status: 'full',
+        candidateSha: 'zzz',
+        jobs: [{ os: 'linux', nodeVersion: 'v22.18.0', status: 'success' }],
+      },
+      opts: { requireOs: ['linux'], requireNode: ['22.18.x'], noProductDiff: true },
+      errors: [
+        'candidateSha must be a git sha',
+        'candidateSha required for --no-product-diff',
+      ],
+    },
+  ];
+
+  for (const testCase of CASES) {
+    it(testCase.name, () => {
+      const report = validateCiCandidate(testCase.receipt, testCase.opts);
+      assert.equal(report.ok, testCase.errors.length === 0);
+      assert.deepEqual(report.errors, testCase.errors);
+    });
+  }
+});
+
 function nodeReqsForCurrent() {
   const major = Number(process.versions.node.split('.')[0]);
   if (major === 22) return ['22.18.x'];
