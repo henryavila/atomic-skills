@@ -68,14 +68,18 @@ function pinFromTemplate(text, fallback) {
 }
 
 /**
- * @param {object} options
- * @param {string} options.root
+ * `root` is optional in the type because the factory validates it itself: a
+ * call without a root fails with the same message it always did.
+ *
+ * @param {object} [options]
+ * @param {string} [options.root]
  * @param {string} [options.templateName]
  * @param {string} [options.targetRel]
  * @param {(path: string, enc?: string) => string} [options.readFile]
  * @param {(path: string, data: string) => void} [options.writeFile]
  * @param {(path: string) => boolean} [options.exists]
  * @param {(path: string, opts?: object) => void} [options.mkdir]
+ * @param {string} [options.templatesDir]
  */
 export function createAdopt({
   root,
