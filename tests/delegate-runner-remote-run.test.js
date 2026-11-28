@@ -486,7 +486,7 @@ describe('delegate.py remote host', { skip: !hasPython3 ? 'python3 not on PATH' 
     // The fake executor changes nothing, so the pipeline ends at no_changes.
     runDelegate(pipelineArgs(), remoteEnv());
     const records = readLogRecords(atomicHome);
-    assert.deepEqual(records.map(r => r.kind), ['run', 'pipeline'], JSON.stringify(records));
+    assert.deepEqual(records.map(r => r.kind), ['run', 'verdict', 'pipeline'], JSON.stringify(records));
     for (const rec of records) assert.equal(rec.machine, 'devbox', JSON.stringify(rec));
     assert.deepEqual(remoteActiveLeftovers(), []);
   });

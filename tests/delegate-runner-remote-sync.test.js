@@ -614,7 +614,8 @@ except delegate.RemoteError as exc:
     assert.equal(res.status, 0, res.stderr);
     assert.match(res.stdout, /^flash \| opencode \| .* \| host=devbox ready$/m);
     assert.match(res.stdout, /^agy \| agy \| .* \| host=devbox ready$/m);
-    assert.equal(res.stdout.trim().split('\n').length, 30);
+    assert.equal(res.stdout.trim().split('\n').length, 36);
+    assert.match(res.stdout, /^muse \| opencode \| .* \| host=devbox ready$/m);
   });
 
   it('profiles --host reports a not-ready executor with the remote fix', () => {
