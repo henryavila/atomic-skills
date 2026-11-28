@@ -240,8 +240,9 @@ test('coverage report cannot consume an enclosing run through COVERAGE_FILE', ()
     const before = readFileSync(parallelData);
     const result = run(f, [], { COVERAGE_FILE: foreignData });
     assert.equal(result.status, 0, result.stderr);
+    assert.ok(existsSync(parallelData), 'report consumed the enclosing parallel data');
+    assert.deepEqual(readFileSync(parallelData), before, 'report changed the enclosing parallel data');
+    // combine() never writes the base file, so only parallel files reveal a nested report.
     assert.match(result.stdout, /run.py::\*\t25.0/);
-    assert.equal(existsSync(foreignData), false, 'report wrote into the enclosing run');
-    assert.deepEqual(readFileSync(parallelData), before, 'report consumed the enclosing parallel data');
   } finally { rmSync(f.temp, { recursive: true, force: true }); }
 });
