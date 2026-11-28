@@ -15,6 +15,7 @@ import { createStageRuntimeArtifactsEffect } from '../src/runtime-layers/effects
 import {
   createAutoUpdateRuntimeProvider,
   resolveAutoUpdateHosts,
+  reconcileSessionStartVersionCheck,
   GROK_AUTO_UPDATE_HOOK_REL,
   buildUpdateCommand,
 } from '../src/runtime-layers/auto-update.js';
@@ -117,6 +118,39 @@ describe('auto-update host capability matrix (F2/T-002)', () => {
       assert.ok(existsSync(join(grokDir, GROK_AUTO_UPDATE_HOOK_REL)));
       assert.equal(existsSync(join(grokDir, '.claude', 'settings.json')), false);
     });
+  });
+
+  it('reconcileSessionStartVersionCheck keeps one desired hook and drops stale AS hooks', () => {
+    const desired = '/home/u/.atomic-skills/hooks/version-check.sh';
+    const stale = "'/old/.atomic-skills/hooks/version-check.sh'";
+    const thirdParty = { type: 'command', command: '/third/party.sh' };
+    const sessionStart = [
+      {
+        matcher: '*',
+        hooks: [
+          { type: 'command', command: stale },
+          thirdParty,
+          { type: 'command', command: desired },
+          { type: 'command', command: desired },
+        ],
+      },
+      { hooks: [{ type: 'command', command: stale }] },
+      'junk',
+      null,
+    ];
+
+    const result = reconcileSessionStartVersionCheck(sessionStart, desired);
+
+    assert.equal(result.removed, 3);
+    assert.deepEqual(result.starts, [
+      {
+        matcher: '*',
+        hooks: [thirdParty, { type: 'command', command: desired }],
+      },
+      'junk',
+      null,
+    ]);
+    assert.equal(sessionStart[0].hooks.length, 4, 'input array is not mutated');
   });
 
   it('buildUpdateCommand is scope-aware', () => {

@@ -113,57 +113,89 @@ function innerFromLogical(logicalPath) {
   return slash > 0 ? norm.slice(slash + 1) : norm;
 }
 
-function applyReconcile(originalApply, originalRevert, args) {
-  const { basePath, desired = [], previous = [] } = args;
-  const onlyNames = ideRootNamesInPaths([
-    ...desired.map((file) => file && file.path),
-    ...previous.map((row) => row && row.path),
-  ]);
-  const roots = readIdeSymlinkRoots(basePath, { onlyNames });
-  const orphans = new Map();
-  const queueOrphan = (realBase, inner, installedHash) => {
-    if (!realBase || !inner) return;
-    let rows = orphans.get(realBase);
-    if (!rows) {
-      rows = [];
-      orphans.set(realBase, rows);
-    }
-    rows.push({ path: inner, installedHash });
-  };
-  if (roots.size === 0 && ![...previous].some((row) => row && typeof row.resolvedBase === 'string')) {
-    return originalApply(args);
+/**
+ * @param {Map<string, object[]>} orphans
+ * @param {string|null|undefined} realBase
+ * @param {string} inner
+ * @param {string|undefined} installedHash
+ */
+function queueOrphan(orphans, realBase, inner, installedHash) {
+  if (!realBase || !inner) return;
+  let rows = orphans.get(realBase);
+  if (!rows) {
+    rows = [];
+    orphans.set(realBase, rows);
   }
+  rows.push({ path: inner, installedHash });
+}
 
-  const normalDesired = [];
-  const normalPrevious = [];
-  /** @type {Map<string, { realBase: string, desired: object[], previous: object[], logicalByInner: Map<string, string> }>} */
-  const groups = new Map();
+/**
+ * @param {Map<string, { realBase: string, desired: object[], previous: object[], logicalByInner: Map<string, string> }>} groups
+ * @param {{ rootName: string, realBase: string }} loc
+ */
+function groupFor(groups, loc) {
+  let group = groups.get(loc.rootName);
+  if (!group) {
+    group = {
+      realBase: loc.realBase,
+      desired: [],
+      previous: [],
+      logicalByInner: new Map(),
+    };
+    groups.set(loc.rootName, group);
+  }
+  return group;
+}
 
-  const groupFor = (loc) => {
-    let group = groups.get(loc.rootName);
-    if (!group) {
-      group = {
-        realBase: loc.realBase,
-        desired: [],
-        previous: [],
-        logicalByInner: new Map(),
-      };
-      groups.set(loc.rootName, group);
-    }
-    return group;
-  };
-
+/**
+ * Split desired files between the normal tree and each relocated IDE root.
+ * @param {object[]} desired
+ * @param {Map<string, string>} roots
+ * @param {object[]} normalDesired
+ * @param {Map<string, object>} groups
+ */
+function collectDesiredFiles(desired, roots, normalDesired, groups) {
   for (const file of desired) {
     const loc = file && relocateLogicalPath(file.path, roots);
     if (!loc) {
       normalDesired.push(file);
       continue;
     }
-    const group = groupFor(loc);
+    const group = groupFor(groups, loc);
     group.desired.push({ path: loc.innerPath, content: file.content });
     group.logicalByInner.set(loc.innerPath, loc.logicalPath);
   }
+}
 
+/**
+ * The real directory a logical root occupies now, or null when it is absent or
+ * is still a symlink (the journaled target moved).
+ * @param {string} basePath
+ * @param {string} logicalPath
+ * @returns {string|null}
+ */
+function currentRealBase(basePath, logicalPath) {
+  const top = logicalPath.replace(/\\/g, '/').split('/').filter(Boolean)[0];
+  if (!top) return null;
+  try {
+    const st = lstatSync(join(basePath, top));
+    if (!st.isSymbolicLink() && st.isDirectory()) return realpathSync(join(basePath, top));
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Split prior rows between the normal tree, relocation groups and orphaned
+ * real directories that need an explicit revert.
+ * @param {string} basePath
+ * @param {object[]} previous
+ * @param {Map<string, string>} roots
+ * @param {{ normalPrevious: object[], groups: Map<string, object>, orphans: Map<string, object[]> }} state
+ */
+function collectPreviousRows(basePath, previous, roots, state) {
+  const { normalPrevious, groups, orphans } = state;
   for (const row of previous) {
     if (!row || typeof row.path !== 'string') {
       normalPrevious.push(row);
@@ -172,43 +204,33 @@ function applyReconcile(originalApply, originalRevert, args) {
     const loc = relocateLogicalPath(row.path, roots);
     if (!loc) {
       const stored = typeof row.resolvedBase === 'string' ? row.resolvedBase : null;
-      const top = row.path.replace(/\\/g, '/').split('/').filter(Boolean)[0];
-      let now = null;
-      if (top) {
-        try {
-          const st = lstatSync(join(basePath, top));
-          if (!st.isSymbolicLink() && st.isDirectory()) now = realpathSync(join(basePath, top));
-        } catch {
-          now = null;
-        }
-      }
+      const now = currentRealBase(basePath, row.path);
       if (stored && stored !== now) {
-        queueOrphan(stored, innerFromLogical(row.path), row.installedHash);
+        queueOrphan(orphans, stored, innerFromLogical(row.path), row.installedHash);
         continue;
       }
       normalPrevious.push(row);
       continue;
     }
     if (typeof row.resolvedBase === 'string' && row.resolvedBase !== loc.realBase) {
-      queueOrphan(row.resolvedBase, innerFromLogical(row.path), row.installedHash);
+      queueOrphan(orphans, row.resolvedBase, innerFromLogical(row.path), row.installedHash);
       continue;
     }
-    const group = groupFor(loc);
+    const group = groupFor(groups, loc);
     group.previous.push({ path: loc.innerPath, installedHash: row.installedHash });
     if (!group.logicalByInner.has(loc.innerPath)) {
       group.logicalByInner.set(loc.innerPath, loc.logicalPath);
     }
   }
+}
 
-  const out = [];
-  if (normalDesired.length > 0 || normalPrevious.length > 0) {
-    out.push(...originalApply({
-      ...args,
-      desired: normalDesired,
-      previous: normalPrevious,
-    }));
-  }
-
+/**
+ * Apply each relocated group and map its rows back to logical journal paths.
+ * @param {Function} originalApply
+ * @param {Map<string, object>} groups
+ * @param {object[]} out
+ */
+function applyRelocatedGroups(originalApply, groups, out) {
   for (const group of groups.values()) {
     const part = originalApply({
       basePath: group.realBase,
@@ -223,10 +245,61 @@ function applyReconcile(originalApply, originalRevert, args) {
       out.push({ ...row, path: logical, resolvedBase: group.realBase });
     }
   }
+}
+
+function applyReconcile(originalApply, originalRevert, args) {
+  const { basePath, desired = [], previous = [] } = args;
+  const onlyNames = ideRootNamesInPaths([
+    ...desired.map((file) => file && file.path),
+    ...previous.map((row) => row && row.path),
+  ]);
+  const roots = readIdeSymlinkRoots(basePath, { onlyNames });
+  if (roots.size === 0 && ![...previous].some((row) => row && typeof row.resolvedBase === 'string')) {
+    return originalApply(args);
+  }
+
+  const normalDesired = [];
+  /** @type {Map<string, { realBase: string, desired: object[], previous: object[], logicalByInner: Map<string, string> }>} */
+  const groups = new Map();
+  const orphans = new Map();
+  const normalPrevious = [];
+  collectDesiredFiles(desired, roots, normalDesired, groups);
+  collectPreviousRows(basePath, previous, roots, { normalPrevious, groups, orphans });
+
+  const out = [];
+  if (normalDesired.length > 0 || normalPrevious.length > 0) {
+    out.push(...originalApply({
+      ...args,
+      desired: normalDesired,
+      previous: normalPrevious,
+    }));
+  }
+  applyRelocatedGroups(originalApply, groups, out);
   for (const [realBase, rows] of orphans) {
     originalRevert({ basePath: realBase }, rows);
   }
   return out;
+}
+
+/**
+ * Resolve one journaled row to the real base to revert and the inner path there.
+ * @param {string} basePath
+ * @param {object} row
+ * @param {Map<string, string>} roots
+ * @returns {{ realBase: string, inner: string } | null}
+ */
+function resolveRevertTarget(basePath, row, roots) {
+  const live = relocateLogicalPath(row.path, roots);
+  const stored = typeof row.resolvedBase === 'string' ? row.resolvedBase : null;
+  const liveReal = live?.realBase;
+  const realBase = (typeof stored === 'string' && stored.length > 0 && (!liveReal || liveReal !== stored))
+    ? stored
+    : (liveReal || null);
+  if (!realBase) return null;
+  const inner = (live && realBase === live.realBase)
+    ? live.innerPath
+    : innerFromLogical(row.path);
+  return { realBase, inner };
 }
 
 function revertReconcile(originalRevert, ctx, beforeState) {
@@ -239,29 +312,17 @@ function revertReconcile(originalRevert, ctx, beforeState) {
   const groups = new Map();
 
   for (const row of rows) {
-    if (!row || typeof row.path !== 'string') {
+    const target = (row && typeof row.path === 'string')
+      ? resolveRevertTarget(ctx.basePath, row, roots)
+      : null;
+    if (!target) {
       normal.push(row);
       continue;
     }
-    const live = relocateLogicalPath(row.path, roots);
-    const stored = typeof row.resolvedBase === 'string' ? row.resolvedBase : null;
-    const liveReal = live?.realBase;
-    const realBase = (typeof stored === 'string' && stored.length > 0 && (!liveReal || liveReal !== stored))
-      ? stored
-      : (liveReal || null);
-    if (!realBase) {
-      normal.push(row);
-      continue;
-    }
-    const inner = (live && realBase === live.realBase)
-      ? live.innerPath
-      : innerFromLogical(row.path);
-    let part = groups.get(realBase);
-    if (!part) {
-      part = [];
-      groups.set(realBase, part);
-    }
-    part.push({ path: inner, installedHash: row.installedHash });
+    const part = groups.get(target.realBase);
+    const entry = { path: target.inner, installedHash: row.installedHash };
+    if (part) part.push(entry);
+    else groups.set(target.realBase, [entry]);
   }
 
   if (normal.length > 0) originalRevert(ctx, normal);
@@ -369,6 +430,46 @@ export function resolveInstructionPath(basePath, path) {
   }
 }
 
+/**
+ * realpath when the path exists; keep the input when it is absent.
+ * @param {string} path
+ * @returns {string}
+ */
+function canonicalizeIfExists(path) {
+  try {
+    return realpathSync(path);
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+    return path;
+  }
+}
+
+/**
+ * True when the live file still carries the exact block this journal entry wrote.
+ * @param {{ basePath: string, path: string }} live
+ * @param {{ inserted: string, prefix?: string }} state
+ * @returns {boolean}
+ */
+function carriesOwnedBlock(live, state) {
+  const bytes = readFileNoFollow(live.basePath, live.path, null);
+  const segment = Buffer.from(state.inserted, 'base64').subarray(Buffer.byteLength(state.prefix ?? ''));
+  const start = bytes.indexOf(segment);
+  return start >= 0 && (start === 0 || bytes[start - 1] === 10);
+}
+
+/**
+ * @param {object} state
+ * @param {string} stored
+ * @returns {Error & { globalInstructionPath?: string, code?: string }}
+ */
+function destinationChangedError(state, stored) {
+  /** @type {Error & { globalInstructionPath?: string, code?: string }} */
+  const err = new Error(`Destination changed for "${state.path}"; journaled file ${stored}`);
+  err.globalInstructionPath = state.path;
+  err.code = 'GLOBAL_INSTRUCTIONS_REFUSED';
+  return err;
+}
+
 export function instructionLocation(basePath, state) {
   // Resolve both the journal and live path at comparison time. Moving the
   // same file behind a link does not revoke its journaled block ownership.
@@ -381,28 +482,15 @@ export function instructionLocation(basePath, state) {
     err.message = `${err.message}; journaled file ${stored}`;
     throw err;
   }
-  let canonicalStored = stored;
-  try { canonicalStored = realpathSync(stored); }
-  catch (err) { if (err.code !== 'ENOENT') throw err; }
-  let livePath = join(live.basePath, live.path);
-  try { livePath = realpathSync(livePath); }
-  catch (err) { if (err.code !== 'ENOENT') throw err; }
+  const canonicalStored = canonicalizeIfExists(stored);
+  const livePath = canonicalizeIfExists(join(live.basePath, live.path));
   // A move can remove the old physical path entirely. The exact journaled
   // block at the live destination still proves ownership; a foreign file does not.
   const relocated = join(live.basePath, live.path) !== stored;
-  let carriesOwnedBlock = false;
-  if ((canonicalStored !== livePath || relocated) && state.inserted !== undefined) {
-    const bytes = readFileNoFollow(live.basePath, live.path, null);
-    const segment = Buffer.from(state.inserted, 'base64').subarray(Buffer.byteLength(state.prefix ?? ''));
-    const start = bytes.indexOf(segment);
-    carriesOwnedBlock = start >= 0 && (start === 0 || bytes[start - 1] === 10);
-  }
-  if (!isAbsolute(storedBase) || ((canonicalStored !== livePath || relocated) && !carriesOwnedBlock)) {
-    /** @type {Error & { globalInstructionPath?: string, code?: string }} */
-    const err = new Error(`Destination changed for "${state.path}"; journaled file ${stored}`);
-    err.globalInstructionPath = state.path;
-    err.code = 'GLOBAL_INSTRUCTIONS_REFUSED';
-    throw err;
+  const changed = canonicalStored !== livePath || relocated;
+  const proven = changed && state.inserted !== undefined && carriesOwnedBlock(live, state);
+  if (!isAbsolute(storedBase) || (changed && !proven)) {
+    throw destinationChangedError(state, stored);
   }
   return live;
 }

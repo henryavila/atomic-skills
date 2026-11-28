@@ -52,24 +52,26 @@ export function resolveGrokPluginPackagePath(basePath) {
 }
 
 /**
- * Locate the `grok` CLI. Prefer PATH; fall back to ~/.grok/bin/grok.
- * @param {{ env?: NodeJS.ProcessEnv, home?: string }} [opts]
- * @returns {string | null} absolute path or bare command name, or null
+ * Bundled `grok` under the user's home, or null.
+ * @param {string} home
+ * @returns {string | null}
  */
-export function resolveGrokBinary(opts = {}) {
-  const env = opts.env || process.env;
-  const home = opts.home ?? env.HOME ?? homedir();
-
-  if (env.GROK_BIN && existsSync(env.GROK_BIN)) return env.GROK_BIN;
-
+function bundledGrokBinary(home) {
   const bundled = join(home, '.grok', 'bin', 'grok');
   if (existsSync(bundled)) return bundled;
   if (process.platform === 'win32') {
     if (existsSync(`${bundled}.cmd`)) return `${bundled}.cmd`;
     if (existsSync(`${bundled}.exe`)) return `${bundled}.exe`;
   }
+  return null;
+}
 
-  // PATH lookup — spawn will resolve; probe via platform command lookup.
+/**
+ * PATH lookup — spawn will resolve; probe via platform command lookup.
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string | null}
+ */
+function probeGrokOnPath(env) {
   const probe = process.platform === 'win32'
     ? { bin: 'where.exe', args: ['grok'] }
     : { bin: 'sh', args: ['-c', 'command -v grok'] };
@@ -85,6 +87,23 @@ export function resolveGrokBinary(opts = {}) {
     /* ignore lookup probe failure */
   }
   return null;
+}
+
+/**
+ * Locate the `grok` CLI. Prefer PATH; fall back to ~/.grok/bin/grok.
+ * @param {{ env?: NodeJS.ProcessEnv, home?: string }} [opts]
+ * @returns {string | null} absolute path or bare command name, or null
+ */
+export function resolveGrokBinary(opts = {}) {
+  const env = opts.env || process.env;
+  const home = opts.home ?? env.HOME ?? homedir();
+
+  if (env.GROK_BIN && existsSync(env.GROK_BIN)) return env.GROK_BIN;
+
+  const bundled = bundledGrokBinary(home);
+  if (bundled) return bundled;
+
+  return probeGrokOnPath(env);
 }
 
 /**
@@ -173,47 +192,61 @@ export function registerGrokPluginHost(opts) {
 
   const combined = `${install.stdout}\n${install.stderr}`;
   if (/already installed/i.test(combined)) {
-    // Multi-owner restage: never risk unregistering a live host when reinstall
-    // might fail — host entry may already be fine for the survivor.
-    if (nonDestructive) {
-      return {
-        status: 'already',
-        detail: trimOut(install) || 'already installed (non-destructive restage)',
-      };
-    }
-    // Grok materializes a DIRECTORY SNAPSHOT under ~/.grok/installed-plugins/
-    // (not a live symlink to the journal package). `plugin update` for local
-    // sources prints "local symlink, already live" and leaves that snapshot
-    // stale — so slash-menu fields like argument-hint never refresh. Force
-    // uninstall+install so the host re-copies the journal-rendered package.
-    const uninstall = run(
-      bin,
-      ['plugin', 'uninstall', GROK_PLUGIN_NAME, '--confirm'],
-      { env },
-    );
-    const reinstall = run(bin, ['plugin', 'install', '--trust', pluginRoot], { env });
-    if (reinstall.status === 0) {
-      return {
-        status: 'updated',
-        detail:
-          trimOut(reinstall)
-          || `reinstalled (prior: ${trimOut(uninstall) || 'uninstalled'})`,
-      };
-    }
-    // Fail-open for install path: journal package remains; host may need a manual reinstall.
-    // Callers that require a live host after restage must treat this as failure.
-    return {
-      status: 'already',
-      detail:
-        trimOut(reinstall)
-        || trimOut(install)
-        || 'already installed; host reinstall failed',
-    };
+    return restageInstalledPlugin(install, {
+      bin, pluginRoot, env, run, nonDestructive,
+    });
   }
 
   return {
     status: 'failed',
     detail: trimOut(install) || `grok plugin install exited ${install.status}`,
+  };
+}
+
+/**
+ * A prior registration exists. Force uninstall+install so the host re-copies
+ * the journal-rendered package, unless the caller asked to keep it.
+ *
+ * @param {HostCmdResult} install
+ * @param {{ bin: string, pluginRoot: string, env: NodeJS.ProcessEnv, run: HostRunner, nonDestructive: boolean }} opts
+ * @returns {{ status: RegisterStatus, detail?: string }}
+ */
+function restageInstalledPlugin(install, { bin, pluginRoot, env, run, nonDestructive }) {
+  // Multi-owner restage: never risk unregistering a live host when reinstall
+  // might fail — host entry may already be fine for the survivor.
+  if (nonDestructive) {
+    return {
+      status: 'already',
+      detail: trimOut(install) || 'already installed (non-destructive restage)',
+    };
+  }
+  // Grok materializes a DIRECTORY SNAPSHOT under ~/.grok/installed-plugins/
+  // (not a live symlink to the journal package). `plugin update` for local
+  // sources prints "local symlink, already live" and leaves that snapshot
+  // stale — so slash-menu fields like argument-hint never refresh. Force
+  // uninstall+install so the host re-copies the journal-rendered package.
+  const uninstall = run(
+    bin,
+    ['plugin', 'uninstall', GROK_PLUGIN_NAME, '--confirm'],
+    { env },
+  );
+  const reinstall = run(bin, ['plugin', 'install', '--trust', pluginRoot], { env });
+  if (reinstall.status === 0) {
+    return {
+      status: 'updated',
+      detail:
+        trimOut(reinstall)
+        || `reinstalled (prior: ${trimOut(uninstall) || 'uninstalled'})`,
+    };
+  }
+  // Fail-open for install path: journal package remains; host may need a manual reinstall.
+  // Callers that require a live host after restage must treat this as failure.
+  return {
+    status: 'already',
+    detail:
+      trimOut(reinstall)
+      || trimOut(install)
+      || 'already installed; host reinstall failed',
   };
 }
 
