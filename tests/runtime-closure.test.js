@@ -229,6 +229,41 @@ describe('installed runtime closure', () => {
     assert.match(result.diagnostics.join('\n'), /missing-template-\*\.txt/);
   });
 
+  it('reports unresolved assets in file and reference order', (t) => {
+    const fixture = createFixture(t, [
+      'core:',
+      '  alpha: { name: alpha, description: alpha }',
+      '',
+    ].join('\n'));
+    fixture.writeSkill(
+      'core/alpha.md',
+      [
+        'skills/shared/foo.md',
+        '{{ASSETS_PATH}}',
+        '{{ASSETS_PATH}}/missing.md',
+        '{{ASSETS_PATH}}/shared/*.txt',
+      ].join('\n'),
+    );
+
+    const result = validateRuntimeClosure({
+      language: 'en',
+      ides: ['codex'],
+      scopes: ['project'],
+      skillsDir: fixture.skillsDir,
+      metaDir: fixture.metaDir,
+    });
+
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.diagnostics, [
+      "[codex/project] .agents/skills/atomic-skills/alpha/SKILL.md: unresolved runtime asset '.agents/atomic-skills/_assets/foo.md'",
+      "[codex/project] .agents/skills/atomic-skills/alpha/SKILL.md: unresolved runtime asset '.agents/atomic-skills/_assets'",
+      "[codex/project] .agents/skills/atomic-skills/alpha/SKILL.md: unresolved runtime asset '.agents/atomic-skills/_assets/missing.md'",
+      "[codex/project] .agents/skills/atomic-skills/alpha/SKILL.md: unresolved runtime asset '.agents/atomic-skills/_assets/shared/*.txt'",
+    ]);
+    assert.equal(result.combinationsChecked, 1);
+    assert.equal(result.filesChecked, 2);
+  });
+
   it('closes the real file-set for every public IDE and install scope', () => {
     const result = validateRuntimeClosure();
 
