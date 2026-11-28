@@ -13,7 +13,7 @@ import {
 // No public prepareTextBlockPlan export exists at this pin (only the effect
 // factory is exported). Reuse the private planner's byte/marker validation.
 export const { prepareTextBlockPlan } = await import(new URL('./kernel/effects/text-block.js',
-  import.meta.resolve('@henryavila/minimalist-installer')));
+  import.meta.resolve('@henryavila/minimalist-installer')).href);
 
 // The Driver is identical for every consumer. It runs the configured providers to
 // emit effects, applies each effect, journals its before-state on the manifest,
@@ -22,6 +22,23 @@ export const { prepareTextBlockPlan } = await import(new URL('./kernel/effects/t
 //
 // Matching prior effects: prefer stable `id` (journal v2); fall back to
 // (type, occurrence order) for v1 manifests.
+/**
+ * @typedef {object} DriverRegistry
+ * @property {(type: string) => ({ apply: Function, revert: Function, preparePlan?: Function } | undefined)} get
+ */
+
+/**
+ * @typedef {object} DriverOptions
+ * @property {DriverRegistry} [registry]
+ * @property {Array<{ plan: Function }>} [providers]
+ * @property {string} [manifestDir]
+ * @property {string} [lockRoot]
+ * @property {Function | object[]} [resourceIdentities]
+ */
+
+/**
+ * @param {DriverOptions} [options]
+ */
 export const createDriver = ({
   registry,
   providers,

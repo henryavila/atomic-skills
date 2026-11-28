@@ -40,7 +40,7 @@ import {
 // No public prepareTextBlockPlan export exists at this pin (only the effect
 // factory is exported). Reuse the private planner's byte/marker validation.
 export const { prepareTextBlockPlan } = await import(new URL('./kernel/effects/text-block.js',
-  import.meta.resolve('@henryavila/minimalist-installer')));
+  import.meta.resolve('@henryavila/minimalist-installer')).href);
 
 `;
   assert.equal(local.slice(0, local.indexOf(anchor)), expectedImports);
@@ -49,6 +49,25 @@ export const { prepareTextBlockPlan } = await import(new URL('./kernel/effects/t
     assert.equal(expected.split(before).length - 1, 1, 'Upstream hunk changed; re-sync the adapter');
     expected = expected.replace(before, after);
   };
+  hunk('export const createDriver = ({',
+    `/**
+ * @typedef {object} DriverRegistry
+ * @property {(type: string) => ({ apply: Function, revert: Function, preparePlan?: Function } | undefined)} get
+ */
+
+/**
+ * @typedef {object} DriverOptions
+ * @property {DriverRegistry} [registry]
+ * @property {Array<{ plan: Function }>} [providers]
+ * @property {string} [manifestDir]
+ * @property {string} [lockRoot]
+ * @property {Function | object[]} [resourceIdentities]
+ */
+
+/**
+ * @param {DriverOptions} [options]
+ */
+export const createDriver = ({`);
   hunk('const prepared = prepareTextBlockPlan(',
     "const preparePlan = registry.get('textBlock').preparePlan ?? prepareTextBlockPlan;\n        const prepared = preparePlan(");
   hunk('manifest = { ...manifest, effects: [] };',
