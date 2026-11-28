@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { REPO_ROOT, DELEGATE_PY, hasPython3, PYTHON3 } from './helpers/delegate-runner-kit.js';
+import { REPO_ROOT, DELEGATE_PY, PYTHON3 } from './helpers/delegate-runner-kit.js';
 
 // The severity of a review finding is computed by the runner from six answers,
 // with the table of severity-rubric.md. These tests call the runner's own
@@ -116,7 +116,7 @@ const QUOTE = 'the runner refuses the review before launching';
 const BASE = { origin: 'diff', dup: 'none', card: 'none', kind: 'behaviour', reach: 'normal', proof: 'shown' };
 const answer = (over) => ({ ...BASE, ...over });
 
-describe('delegate severity rubric', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate severity rubric', () => {
   describe('the table, one row at a time', () => {
     const rows = [
       ['row 1: origin=base is pre-existing', [[{ origin: 'base' }, 'pre-existing']]],

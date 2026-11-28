@@ -16,7 +16,6 @@ import { tmpdir } from 'node:os';
 import {
   REPO_ROOT,
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   initGitRepo,
   makeFakeBin,
@@ -44,7 +43,7 @@ const OLD_WRONG_TOTAL = 'R01 | medium | a.js:3 | issue | saw | fix\nTOTAL major=
 // The follow-up review after the one fix round of NEW_REVIEW's only major.
 const FIXED_F02 = 'MAJOR F02 fixed | README.md:4 says --every now\nFINDINGS 0\n';
 
-describe('delegate.py severity in runs and pipelines', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py severity in runs and pipelines', () => {
   let root;
   let atomicHome;
   let repoDir;

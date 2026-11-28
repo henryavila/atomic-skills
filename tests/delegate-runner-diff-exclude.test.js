@@ -11,7 +11,6 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
-  hasPython3,
   git,
   initGitRepo,
   makeFakeBin,
@@ -23,7 +22,7 @@ import {
 // All executors below are disposable fake CLIs.
 const CLEAN = 'Read the diff; nothing wrong.\nFINDINGS 0\n';
 
-describe('delegate.py --diff-exclude', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py --diff-exclude', () => {
   let root;
   let atomicHome;
   let repoDir;

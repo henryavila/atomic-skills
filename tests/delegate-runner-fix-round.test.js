@@ -13,7 +13,6 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   REPO_ROOT,
-  hasPython3,
   git,
   initGitRepo,
   makeFakeBin,
@@ -50,7 +49,7 @@ const NEW_MAJOR = [
   'FINDINGS 1',
 ].join('\n') + '\n';
 
-describe('delegate.py fix round and pipeline verdict', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py fix round and pipeline verdict', () => {
   let root;
   let atomicHome;
   let repoDir;
