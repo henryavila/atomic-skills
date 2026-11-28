@@ -108,19 +108,10 @@ export function fencedCodeBlock(content, lang = '') {
 }
 
 /**
- * Product envelope body from catalog `product:` (design D2/D5).
- * what_is / what_is_not / install.primary / docs_url.
- * @param {object|null|undefined} product
- * @param {{ allowMissing?: boolean }} [opts] allowMissing=true only for unit fixtures
+ * Validate + normalize the prose fields of a catalog `product:` block.
+ * @param {object} product
  */
-export function renderProductEnvelope(product, opts = {}) {
-  if (product == null) {
-    if (opts.allowMissing) return '';
-    throw new Error('catalog product is required for README envelope');
-  }
-  if (typeof product !== 'object') {
-    throw new Error('catalog product must be an object');
-  }
+function productEnvelopeCopy(product) {
   const whatIs = typeof product.what_is === 'string' ? product.what_is.trim() : '';
   if (!whatIs) {
     throw new Error('product.what_is must be a non-empty string');
@@ -134,6 +125,14 @@ export function renderProductEnvelope(product, opts = {}) {
       throw new Error('product.what_is_not entries must be non-empty strings');
     }
   }
+  return { whatIs, whatIsNot };
+}
+
+/**
+ * Validate + normalize the install command and docs URL of a product block.
+ * @param {object} product
+ */
+function productEnvelopeInstall(product) {
   const installPrimary =
     product.install &&
     typeof product.install === 'object' &&
@@ -150,6 +149,25 @@ export function renderProductEnvelope(product, opts = {}) {
   if (!docsUrlRaw) {
     throw new Error('product.docs_url must be a non-empty string');
   }
+  return { installPrimary, docsUrlRaw };
+}
+
+/**
+ * Product envelope body from catalog `product:` (design D2/D5).
+ * what_is / what_is_not / install.primary / docs_url.
+ * @param {object|null|undefined} product
+ * @param {{ allowMissing?: boolean }} [opts] allowMissing=true only for unit fixtures
+ */
+export function renderProductEnvelope(product, opts = {}) {
+  if (product == null) {
+    if (opts.allowMissing) return '';
+    throw new Error('catalog product is required for README envelope');
+  }
+  if (typeof product !== 'object') {
+    throw new Error('catalog product must be an object');
+  }
+  const { whatIs, whatIsNot } = productEnvelopeCopy(product);
+  const { installPrimary, docsUrlRaw } = productEnvelopeInstall(product);
   const safeDocs = safeHttpUrl(docsUrlRaw);
   const docsLine = safeDocs
     ? `**Docs:** [${safeDocs}](${safeDocs})`
@@ -380,19 +398,15 @@ function replaceBetween(text, startMarker, endMarker, replacement) {
 }
 
 /**
- * Pure renderer: takes a parsed catalog + current README content + a function
- * to read body files, returns the new README content.
- *
- * Slim envelope (design D5): product block, hosts table, compact skills table.
- * DETAILS / MODULES / VERSION_NOTE bodies are intentionally empty.
+ * Resolve the Iron Law for every skill: catalog `iron_law` first (product
+ * SSOT / design D2), otherwise extract it from the skill body.
+ * @param {Array<{key: string, entry: object}>} skills
+ * @param {string} skillsDir
+ * @param {{ requireBodyLaw?: boolean }} [opts]
  */
-export function renderReadme({ catalogData, readme, skillsDir, pkgVersion: _pkgVersion }) {
-  ensureMarkers(readme);
-
-  const skills = collectSkills(catalogData);
+function collectIronLaws(skills, skillsDir, { requireBodyLaw = false } = {}) {
   const ironLaws = new Map();
   for (const skill of skills) {
-    // Prefer catalog iron_law (product SSOT / design D2); fall back to body extract.
     const catalogLaw =
       typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim().length > 0
         ? skill.entry.iron_law.trim()
@@ -404,12 +418,30 @@ export function renderReadme({ catalogData, readme, skillsDir, pkgVersion: _pkgV
     const bodyPath = bodyPathForSkill(skill, skillsDir);
     const law = extractIronLaw(bodyPath);
     if (!law) {
-      throw new Error(
-        `skill body missing canonical \`## Iron Law\` section: ${bodyPath}`
-      );
+      if (requireBodyLaw) {
+        throw new Error(
+          `skill body missing canonical \`## Iron Law\` section: ${bodyPath}`
+        );
+      }
+      continue;
     }
     ironLaws.set(skill.key, law);
   }
+  return ironLaws;
+}
+
+/**
+ * Pure renderer: takes a parsed catalog + current README content + a function
+ * to read body files, returns the new README content.
+ *
+ * Slim envelope (design D5): product block, hosts table, compact skills table.
+ * DETAILS / MODULES / VERSION_NOTE bodies are intentionally empty.
+ */
+export function renderReadme({ catalogData, readme, skillsDir, pkgVersion: _pkgVersion }) {
+  ensureMarkers(readme);
+
+  const skills = collectSkills(catalogData);
+  const ironLaws = collectIronLaws(skills, skillsDir, { requireBodyLaw: true });
 
   const productBody = renderProductEnvelope(catalogData.product);
   const table = renderTable(skills, ironLaws);
@@ -455,20 +487,7 @@ export function renderReadmeFromPaths({ projectRoot, catalogPath, readmePath, sk
  */
 export function buildSkillDocs({ catalogData, skillsDir }) {
   const skills = collectSkills(catalogData);
-  const ironLaws = new Map();
-  for (const skill of skills) {
-    const catalogLaw =
-      typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim().length > 0
-        ? skill.entry.iron_law.trim()
-        : null;
-    if (catalogLaw) {
-      ironLaws.set(skill.key, catalogLaw);
-      continue;
-    }
-    const bodyPath = bodyPathForSkill(skill, skillsDir);
-    const law = extractIronLaw(bodyPath);
-    if (law) ironLaws.set(skill.key, law);
-  }
+  const ironLaws = collectIronLaws(skills, skillsDir);
   return renderSkillDocs(skills, ironLaws);
 }
 
