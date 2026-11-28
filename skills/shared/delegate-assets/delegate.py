@@ -5176,6 +5176,95 @@ def active_runs():
     return runs
 
 
+def print_run_status(run):
+    """One active run as `status` prints it, with a warning if its runner died."""
+    sid = run["id"]
+    idle = "" if run["idle_s"] is None else f" | idle {run['idle_s'] // 60}m"
+    where = " | remote" if run["remote"] else ""
+    lost = " | runner gone" if run["runner_gone"] else ""
+    print(f"{sid} | {run['project']} | {run['profile']} | {run['role']} | {run['machine']} | "
+          f"{run['age_s'] // 60}m{idle}{where}{lost}")
+    if lost:
+        print(f"warning: the runner of {sid} died; its executor is still working and "
+              f"will leave no result. Stop it with `kill {sid}`, then check the worktree.")
+
+
+def read_run_records():
+    """Every `run` record of the log, oldest first; unreadable lines are skipped."""
+    records = []
+    if not LOG.exists():
+        return records
+    for line in LOG.read_text().splitlines():
+        try:
+            r = json.loads(line)
+        except (TypeError, ValueError):
+            continue
+        if r.get("kind") == "run":
+            records.append(r)
+    return records
+
+
+def provider_limit_state(record, now_dt):
+    """(executor, reset time, stderr path) of a recent provider_limit run, or None."""
+    if record.get("failure") != "provider_limit":
+        return None
+    ex = record.get("executor")
+    started_str = record.get("completed") or record.get("started")
+    if not ex or not started_str:
+        return None
+    try:
+        s_dt = dt.datetime.fromisoformat(started_str)
+        if s_dt.tzinfo is None:
+            s_dt = s_dt.replace(tzinfo=dt.timezone.utc)
+        if not record.get("completed"):
+            s_dt += dt.timedelta(seconds=record.get("duration_s", 0))
+        age = (now_dt - s_dt).total_seconds()
+    except (OverflowError, TypeError, ValueError):
+        return None
+    if not 0 <= age <= 6 * 3600:
+        return None
+    return ex, s_dt, record.get("stderr")
+
+
+def collect_provider_limits(records, now_dt):
+    """The latest recent provider_limit of each executor, as `status` shows it."""
+    limits = {}
+    for record in records:
+        state = provider_limit_state(record, now_dt)
+        if state and (state[0] not in limits or state[1] > limits[state[0]][0]):
+            limits[state[0]] = (state[1], state[2])
+    return limits
+
+
+def print_provider_limits(limits):
+    """The provider limits still in force and their reset time, when known."""
+    for ex in sorted(limits.keys()):
+        s_dt, stderr_path = limits[ex]
+        reset_text = ""
+        if stderr_path:
+            try:
+                stderr_content = Path(stderr_path).read_text(errors="replace")
+                m = re.search(r"(try again at [^\n\r.]+)", stderr_content, re.IGNORECASE)
+                if m:
+                    reset_text = m.group(1).strip()
+            except (OSError, TypeError, ValueError):
+                pass
+        if reset_text:
+            print(f"{ex}: provider_limit ({reset_text})")
+        else:
+            print(f"{ex}: provider_limit at {s_dt.strftime('%H:%M:%S UTC')}")
+
+
+def print_orphan_warning(records):
+    """Warn when the last runs left orphan processes behind."""
+    recent = records[-10:]
+    found = sum((r.get("orphans") or {}).get("found") or 0 for r in recent)
+    if found:
+        killed = sum((r.get("orphans") or {}).get("killed") or 0 for r in recent)
+        print(f"warning: recent runs left {found} orphan process(es) ({killed} killed); "
+              "see the `orphans` field of the run records")
+
+
 def cmd_status(a):
     runs = active_runs()
     if getattr(a, "json", False):
@@ -5188,71 +5277,16 @@ def cmd_status(a):
 
     now_dt = now()
     for run in runs:
-        sid = run["id"]
-        idle = "" if run["idle_s"] is None else f" | idle {run['idle_s'] // 60}m"
-        where = " | remote" if run["remote"] else ""
-        lost = " | runner gone" if run["runner_gone"] else ""
-        print(f"{sid} | {run['project']} | {run['profile']} | {run['role']} | {run['machine']} | "
-              f"{run['age_s'] // 60}m{idle}{where}{lost}")
-        if lost:
-            print(f"warning: the runner of {sid} died; its executor is still working and "
-                  f"will leave no result. Stop it with `kill {sid}`, then check the worktree.")
+        print_run_status(run)
 
     pending = len(pending_files())
     if pending:
         print(f"pending reviews: {pending} (list them with review-pending)")
 
     if LOG.exists():
-        limits = {}
-        recent_runs = []
-        for line in LOG.read_text().splitlines():
-            try:
-                r = json.loads(line)
-            except (TypeError, ValueError):
-                continue
-            if r.get("kind") != "run":
-                continue
-            recent_runs.append(r)
-            if r.get("failure") == "provider_limit":
-                ex = r.get("executor")
-                started_str = r.get("completed") or r.get("started")
-                if not ex or not started_str:
-                    continue
-                try:
-                    s_dt = dt.datetime.fromisoformat(started_str)
-                    if s_dt.tzinfo is None:
-                        s_dt = s_dt.replace(tzinfo=dt.timezone.utc)
-                    if not r.get("completed"):
-                        s_dt += dt.timedelta(seconds=r.get("duration_s", 0))
-                    age = (now_dt - s_dt).total_seconds()
-                    if 0 <= age <= 6 * 3600:
-                        if ex not in limits or s_dt > limits[ex][0]:
-                            limits[ex] = (s_dt, r.get("stderr"))
-                except (OverflowError, TypeError, ValueError):
-                    continue
-
-        for ex in sorted(limits.keys()):
-            s_dt, stderr_path = limits[ex]
-            reset_text = ""
-            if stderr_path:
-                try:
-                    stderr_content = Path(stderr_path).read_text(errors="replace")
-                    m = re.search(r"(try again at [^\n\r.]+)", stderr_content, re.IGNORECASE)
-                    if m:
-                        reset_text = m.group(1).strip()
-                except (OSError, TypeError, ValueError):
-                    pass
-            if reset_text:
-                print(f"{ex}: provider_limit ({reset_text})")
-            else:
-                print(f"{ex}: provider_limit at {s_dt.strftime('%H:%M:%S UTC')}")
-
-        recent = recent_runs[-10:]
-        found = sum((r.get("orphans") or {}).get("found") or 0 for r in recent)
-        if found:
-            killed = sum((r.get("orphans") or {}).get("killed") or 0 for r in recent)
-            print(f"warning: recent runs left {found} orphan process(es) ({killed} killed); "
-                  "see the `orphans` field of the run records")
+        records = read_run_records()
+        print_provider_limits(collect_provider_limits(records, now_dt))
+        print_orphan_warning(records)
 
 
 def cmd_kill(a):
