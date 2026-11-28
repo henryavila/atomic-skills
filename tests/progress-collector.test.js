@@ -998,6 +998,45 @@ print(pathlib.Path(os.environ["FAKE_DELEGATE_JSON"]).read_text())
 
   // ------------------------------------------------------------- collection
 
+  it('writes the four panel feeds byte for byte for a fixed input', () => {
+    writeMap(project, baseMap({ id: 'pinned', title: 'Pinned', unit: 'cartões' }));
+    register(project);
+    collect();
+
+    assert.equal(readFileSync(join(outDir, 'projetos.json'), 'utf8'), `[
+  {
+    "id": "pinned",
+    "nome": "Pinned",
+    "feito": 0,
+    "total": 1,
+    "pct": 0,
+    "validado": 0,
+    "validadoPct": 0,
+    "resumo": "0/1 cartões · 0%",
+    "legenda": ""
+  }
+]
+`);
+    assert.equal(readFileSync(join(outDir, 'marcos.json'), 'utf8'), `[
+  {
+    "projeto": "pinned",
+    "marco": "fundacao",
+    "titulo": "Fundação",
+    "legenda": "0 de 1 prontos",
+    "feito": 0,
+    "total": 1,
+    "pct": 0,
+    "resumo": "0/1 cartões · 0%",
+    "prontos": 0,
+    "bloqueados": 0,
+    "rodando": 0
+  }
+]
+`);
+    assert.equal(readFileSync(join(outDir, 'execucoes.json'), 'utf8'), '[]\n');
+    assert.equal(readFileSync(join(outDir, 'alertas.json'), 'utf8'), '[]\n');
+  });
+
   it('writes no file again when the bytes did not change', () => {
     writeMap(project, baseMap());
     register(project);

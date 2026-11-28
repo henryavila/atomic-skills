@@ -1067,212 +1067,176 @@ def previous_rows(out_dir, project_id):
     return row, rows
 
 
-def build_panel(fetch=False, delegate_path=None, out_dir=None,
-                carried_failures=None, stop_event=None):
-    """Return (projetos, marcos, execucoes, alertas, fetch failures)."""
+def panel_registry(carried_failures):
     carried = dict(carried_failures or {})
     try:
         registry = load_registry()
     except (OSError, ValueError) as exc:
-        return [], [], [], [{
-            "projeto": "",
-            "tipo": "registro_invalido",
-            "detalhe": "projects.json inválido: %s" % exc,
-        }], carried
-
+        alert = {"projeto": "", "tipo": "registro_invalido",
+                 "detalhe": "projects.json inválido: %s" % exc}
+        return None, [alert], carried
     projects = registry["projects"]
-    alerts = list(registry.get("alerts", []))
     origin_paths = {
         resolve_project(project["path"]) for project in projects
         if isinstance(project.get("ref"), str)
         and project["ref"].startswith("origin/")
     }
-    carried = {
-        path: detail for path, detail in carried.items()
-        if resolve_project(path) in origin_paths
-    }
-    if fetch:
-        failures, attempted = fetch_projects(projects, stop_event=stop_event)
-        carried = {path: detail for path, detail in carried.items()
-                   if path not in attempted}
-        carried.update(failures)
+    carried = {path: detail for path, detail in carried.items()
+               if resolve_project(path) in origin_paths}
+    return projects, list(registry.get("alerts", [])), carried
 
-    active_runs, delegate_alert = load_active_runs(delegate_path)
-    if delegate_alert:
-        alerts.append(delegate_alert)
-    logged_runs = read_logged_runs()
 
+def panel_fetch_failures(projects, carried, fetch=False, stop_event=None):
+    if not fetch:
+        return carried
+    failures, attempted = fetch_projects(projects, stop_event=stop_event)
+    kept = {path: detail for path, detail in carried.items()
+            if path not in attempted}
+    kept.update(failures)
+    return kept
+
+
+def panel_loaded_projects(projects, alerts):
     loaded = []
     for project in projects:
         view = ProjectView(project["path"], project["ref"], project.get("id"))
         try:
             sha, error = resolve_ref(project["path"], project["ref"])
             if sha is None:
-                loaded.append({
-                    "project": project,
-                    "view": view,
-                    "sha": None,
-                    "log_error": error or "cannot resolve %s" % project["ref"],
-                })
+                loaded.append({"project": project, "view": view, "sha": None,
+                               "log_error": error or "cannot resolve %s" % project["ref"]})
                 continue
-            view = load_project(
-                project["path"], project["ref"], sha=sha, stored_id=project.get("id")
-            )
-            if (
-                view.stored_id
-                and view.map_id
-                and view.map_id != view.stored_id
-            ):
-                alerts.append({
-                    "projeto": view.id,
-                    "tipo": "id_mapa_mudou",
-                    "detalhe": (
-                        "o id do mapa mudou de %s para %s; rode add %s --ref %s de novo"
-                        % (
-                            view.stored_id, view.map_id,
-                            shlex.quote(project["path"]), project["ref"],
-                        )
-                    ),
-                })
-            loaded.append({
-                "project": project,
-                "view": view,
-                "sha": sha,
-                "log_error": None,
-            })
+            view = load_project(project["path"], project["ref"], sha=sha,
+                                stored_id=project.get("id"))
+            if view.stored_id and view.map_id and view.map_id != view.stored_id:
+                detail = ("o id do mapa mudou de %s para %s; rode add %s --ref %s de novo"
+                          % (view.stored_id, view.map_id,
+                             shlex.quote(project["path"]), project["ref"]))
+                alerts.append({"projeto": view.id, "tipo": "id_mapa_mudou",
+                               "detalhe": detail})
+            loaded.append({"project": project, "view": view, "sha": sha,
+                           "log_error": None})
         except Exception as exc:  # one project never stops the others
-            loaded.append({
-                "project": project,
-                "view": view,
-                "sha": None,
-                "internal": exc,
-            })
+            loaded.append({"project": project, "view": view, "sha": None,
+                           "internal": exc})
+    return loaded
 
-    path_to_id = {
-        resolve_project(item["project"]["path"]): item["view"].id
-        for item in loaded
-    }
-    for path, detail in carried.items():
-        alerts.append({
-            "projeto": path_to_id.get(resolve_project(path), Path(path).name),
-            "tipo": "fetch_falhou",
-            "detalhe": detail,
-        })
 
+def panel_carried_alerts(carried, loaded):
+    path_to_id = {resolve_project(item["project"]["path"]): item["view"].id
+                  for item in loaded}
+    return [{"projeto": path_to_id.get(resolve_project(path), Path(path).name),
+             "tipo": "fetch_falhou", "detalhe": detail}
+            for path, detail in carried.items()]
+
+
+def panel_execucoes(active_runs, loaded):
     by_repo = {}
     for item in loaded:
-        view = item["view"]
-        if view.repo:
-            by_repo.setdefault(view.repo, view.id)
-
-    execucoes = []
+        if item["view"].repo:
+            by_repo.setdefault(item["view"].repo, item["view"].id)
+    rows = []
     for run in active_runs:
         repo = run.get("repo")
         project_id = by_repo.get(repo) if repo else None
         if project_id is None:
             project_id = run.get("project") or ""
         milestone = run.get("milestone")
-        execucoes.append({
-            "projeto": project_id,
-            "repo": repo or "",
+        rows.append({
+            "projeto": project_id, "repo": repo or "",
             "marco": milestone if isinstance(milestone, str) else "",
-            "tarefa": run.get("id") or "",
-            "papel": run.get("role") or "",
+            "tarefa": run.get("id") or "", "papel": run.get("role") or "",
             "executor": run.get("profile") or "",
             "equipamento": run.get("machine") or "",
             "remoto": bool(run.get("remote")),
             "minutos": minutes(run.get("age_s")),
         })
+    return rows
 
+
+def panel_log_failure(error, view, out_dir):
+    prior = previous_rows(out_dir, view.id)
+    if prior is None:
+        return ("%s; sem linhas anteriores, %s fica com feito: 0" % (error, view.id),
+                empty_project_row(view), [])
+    row, rows = prior
+    return ("%s; mantidas as linhas anteriores de %s" % (error, view.id), row, rows)
+
+
+def panel_project_rows(loaded, active_runs, logged_runs, out_dir):
     projetos = []
     marcos = []
+    alerts = []
     seen_ids = set()
-
-    def keep_previous(view):
-        prior = previous_rows(out_dir, view.id)
-        if prior is None:
-            projetos.append(empty_project_row(view))
-            return False
-        row, rows = prior
-        projetos.append(row)
-        marcos.extend(rows)
-        return True
-
-    def log_failure_detail(error, view):
-        kept = keep_previous(view)
-        if kept:
-            return "%s; mantidas as linhas anteriores de %s" % (error, view.id)
-        return "%s; sem linhas anteriores, %s fica com feito: 0" % (error, view.id)
-
     for item in loaded:
         view = item["view"]
         if view.id in seen_ids:
-            alerts.append({
-                "projeto": view.id,
-                "tipo": "id_duplicado",
-                "detalhe": "o id %s já pertence a outro projeto; %s não foi listado" % (
-                    view.id, item["project"]["path"],
-                ),
-            })
+            detail = "o id %s já pertence a outro projeto; %s não foi listado" % (
+                view.id, item["project"]["path"])
+            alerts.append({"projeto": view.id, "tipo": "id_duplicado",
+                           "detalhe": detail})
             continue
         seen_ids.add(view.id)
-
         if "internal" in item:
-            alerts.append({
-                "projeto": view.id,
-                "tipo": "erro_interno",
-                "detalhe": "erro ao calcular %s: %s" % (
-                    item["project"]["path"], item["internal"],
-                ),
-            })
+            detail = "erro ao calcular %s: %s" % (
+                item["project"]["path"], item["internal"])
+            alerts.append({"projeto": view.id, "tipo": "erro_interno",
+                           "detalhe": detail})
             projetos.append(empty_project_row(view))
             continue
-
         if item["log_error"] is not None:
-            alerts.append({
-                "projeto": view.id,
-                "tipo": "git_log_falhou",
-                "detalhe": log_failure_detail(item["log_error"], view),
-            })
+            detail, row, rows = panel_log_failure(item["log_error"], view, out_dir)
+            alerts.append({"projeto": view.id, "tipo": "git_log_falhou",
+                           "detalhe": detail})
+            projetos.append(row)
+            marcos.extend(rows)
             continue
-
         if not view.valid:
-            alerts.append({
-                "projeto": view.id,
-                "tipo": "mapa_invalido",
-                "detalhe": "; ".join(view.issues),
-            })
+            alerts.append({"projeto": view.id, "tipo": "mapa_invalido",
+                           "detalhe": "; ".join(view.issues)})
             projetos.append(empty_project_row(view))
             continue
-
         try:
             subjects, log_error = merge_subjects(view.path, item["sha"])
             if log_error is not None:
-                alerts.append({
-                    "projeto": view.id,
-                    "tipo": "git_log_falhou",
-                    "detalhe": log_failure_detail(log_error, view),
-                })
+                detail, row, rows = panel_log_failure(log_error, view, out_dir)
+                alerts.append({"projeto": view.id, "tipo": "git_log_falhou",
+                               "detalhe": detail})
+                projetos.append(row)
+                marcos.extend(rows)
                 continue
             states = card_states(view, active_runs, subjects)
             row = project_row(view, states)
             rows = milestone_rows(view, states)
-            card_alerts = unknown_card_alerts(view, subjects)
-            milestone_alerts = unknown_milestone_alerts(view, active_runs, logged_runs)
             projetos.append(row)
             marcos.extend(rows)
-            alerts.extend(card_alerts)
-            alerts.extend(milestone_alerts)
+            alerts.extend(unknown_card_alerts(view, subjects))
+            alerts.extend(unknown_milestone_alerts(view, active_runs, logged_runs))
         except Exception as exc:  # one project never stops the others
-            alerts.append({
-                "projeto": view.id,
-                "tipo": "erro_interno",
-                "detalhe": "erro ao calcular %s: %s" % (
-                    item["project"]["path"], exc,
-                ),
-            })
+            detail = "erro ao calcular %s: %s" % (item["project"]["path"], exc)
+            alerts.append({"projeto": view.id, "tipo": "erro_interno",
+                           "detalhe": detail})
             projetos.append(empty_project_row(view))
+    return projetos, marcos, alerts
 
+
+def build_panel(fetch=False, delegate_path=None, out_dir=None,
+                carried_failures=None, stop_event=None):
+    """Return (projetos, marcos, execucoes, alertas, fetch failures)."""
+    projects, alerts, carried = panel_registry(carried_failures)
+    if projects is None:
+        return [], [], [], alerts, carried
+    carried = panel_fetch_failures(projects, carried, fetch, stop_event)
+    active_runs, delegate_alert = load_active_runs(delegate_path)
+    if delegate_alert:
+        alerts.append(delegate_alert)
+    logged_runs = read_logged_runs()
+    loaded = panel_loaded_projects(projects, alerts)
+    alerts.extend(panel_carried_alerts(carried, loaded))
+    execucoes = panel_execucoes(active_runs, loaded)
+    projetos, marcos, project_alerts = panel_project_rows(
+        loaded, active_runs, logged_runs, out_dir)
+    alerts.extend(project_alerts)
     return projetos, marcos, execucoes, alerts, carried
 
 
@@ -2063,18 +2027,22 @@ def refresh_manifest():
         print("progress: cannot regenerate the panel manifest: %s" % exc, file=sys.stderr)
 
 
-def cmd_panel_install(args):
-    problem = panel_platform_error()
-    if problem:
-        print(problem, file=sys.stderr)
-        return 2
+def load_valid_panel_state():
+    state = load_panel_state()
+    if state is not None:
+        validate_panel_state(state)
+    return state
+
+
+def panel_install_target(args):
     try:
         port = int(args.port)
     except (TypeError, ValueError):
         port = None
     if port is None or isinstance(port, bool) or not 1024 <= port <= 65535:
-        print("progress panel: invalid port %r (use 1024-65535)" % args.port, file=sys.stderr)
-        return 1
+        print("progress panel: invalid port %r (use 1024-65535)" % args.port,
+              file=sys.stderr)
+        return None
     aideck = Path(args.aideck).expanduser()
     try:
         aideck = aideck.resolve()
@@ -2082,299 +2050,286 @@ def cmd_panel_install(args):
         pass
     if not aideck.is_file():
         print("progress panel: --aideck is not a file: %s" % aideck, file=sys.stderr)
-        return 1
+        return None
     client_index = panel_client_dir(aideck) / "index.html"
     if not client_index.is_file():
-        print(
-            "progress panel: %s is not a file; build the aiDeck with npm run build"
-            % client_index,
-            file=sys.stderr,
-        )
-        return 1
+        print("progress panel: %s is not a file; build the aiDeck with npm run build"
+              % client_index, file=sys.stderr)
+        return None
     if shutil.which("node") is None:
         print("progress panel: node was not found on PATH", file=sys.stderr)
-        return 1
-    try:
-        state = load_panel_state()
-        if state is not None:
-            validate_panel_state(state)
-    except PanelError as exc:
-        print("progress panel: %s" % exc, file=sys.stderr)
-        return 1
+        return None
+    return port, aideck
 
+
+def panel_install_plan(aideck, port, state):
     desired, plists = panel_desired_files(aideck, port)
     refusal = panel_symlink_refusal() or panel_refusal(desired, state)
-    if refusal:
-        print("progress panel: %s" % refusal, file=sys.stderr)
-        return 1
-    if state is None:
-        for name in PANEL_OUTPUT_NAMES:
-            item = panel_data_dir() / ("%s.json" % name)
-            if os.path.lexists(item):
-                print(
-                    "progress panel: %s already exists and was not created by "
-                    "panel install; move it away and run install again "
-                    "(the watch service recreates it)" % item,
-                    file=sys.stderr,
-                )
-                return 1
-    hashes = {path: sha256_bytes(data) for path, data in desired.items()}
+    plan = {"port": port, "aideck": aideck, "state": state, "desired": desired,
+            "hashes": {path: sha256_bytes(data) for path, data in desired.items()},
+            "watch_plist": plists[0], "service_plist": plists[1]}
+    return plan, refusal
 
-    progress_dir = panel_progress_dir()
-    logs_dir = panel_logs_dir()
-    manifest = panel_manifest_path()
-    data_dir = panel_data_dir()
-    watch_plist, service_plist = plists
 
-    if state is not None:
-        same_files = state.get("files") == hashes and all(
-            Path(path).is_file() and sha256_file(path) == digest
-            for path, digest in hashes.items()
-        )
-        same_args = state.get("port") == port and state.get("aideck") == str(aideck)
-        if same_args and same_files:
-            try:
-                for label, plist in (
-                    (PANEL_WATCH_LABEL, watch_plist),
-                    (PANEL_SERVICE_LABEL, service_plist),
-                ):
-                    if not panel_label_loaded(label):
-                        panel_bootstrap(plist)
-            except PanelError as exc:
-                print("progress panel: %s" % exc, file=sys.stderr)
-                return 1
-            print("panel already installed on port %d" % port)
-            return 0
+def panel_data_refusal(plan):
+    if plan["state"] is not None:
+        return None
+    for name in PANEL_OUTPUT_NAMES:
+        item = panel_data_dir() / ("%s.json" % name)
+        if os.path.lexists(item):
+            return ("%s already exists and was not created by panel install; "
+                    "move it away and run install again "
+                    "(the watch service recreates it)" % item)
+    return None
 
-    loaded_before = []
-    if state is None:
-        try:
-            for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL):
-                if panel_label_loaded(label):
-                    print(
-                        "progress panel: %s is already loaded; refusing to install"
-                        % label,
-                        file=sys.stderr,
-                    )
-                    return 1
-        except PanelError as exc:
-            print("progress panel: %s" % exc, file=sys.stderr)
-            return 1
-    else:
-        try:
-            for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL):
-                if panel_label_loaded(label):
-                    loaded_before.append(label)
-        except PanelError as exc:
-            print("progress panel: %s" % exc, file=sys.stderr)
-            return 1
 
-    prior_files = {}
-    prior_state = None
-    try:
-        for path in desired:
-            if Path(path).is_file():
-                prior_files[path] = Path(path).read_bytes()
-        if panel_state_path().is_file():
-            prior_state = panel_state_path().read_bytes()
-    except OSError as exc:
-        print(
-            "progress panel: cannot read the previous panel files; "
-            "nothing was stopped: %s" % exc,
-            file=sys.stderr,
-        )
-        return 1
+def panel_same_install(plan):
+    state = plan["state"]
+    if state is None or state.get("files") != plan["hashes"]:
+        return False
+    for path, digest in plan["hashes"].items():
+        if not Path(path).is_file() or sha256_file(path) != digest:
+            return False
+    return (state.get("port") == plan["port"]
+            and state.get("aideck") == str(plan["aideck"]))
 
-    down_old = []
-    try:
-        if state is not None:
-            for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL):
-                if panel_bootout(label):
-                    down_old.append(label)
-    except PanelError as exc:
-        print("progress panel: %s" % exc, file=sys.stderr)
-        if down_old:
-            print(
-                "progress panel: %s is down; run %s"
-                % (
-                    ", ".join(down_old),
-                    " and ".join(panel_bootstrap_command(label) for label in down_old),
-                ),
-                file=sys.stderr,
-            )
-        return 1
 
-    created_dirs = []
-    bootstrapped = []
-    try:
-        for directory in (
-            progress_dir,
-            logs_dir,
-            panel_home(),
-            data_dir,
-            panel_launch_agents_dir(),
-        ):
-            ensure_panel_dir(directory, created_dirs)
-        for path, data in desired.items():
-            write_atomic(path, data)
-        previous_dirs = []
-        if state is not None and isinstance(state.get("createdDirs"), list):
-            previous_dirs = [str(item) for item in state["createdDirs"]]
-        save_panel_state({
-            "schemaVersion": PANEL_SCHEMA_VERSION,
-            "port": port,
-            "aideck": str(aideck),
-            "files": hashes,
-            "createdDirs": sorted(set(previous_dirs + created_dirs)),
-        })
-        for label, plist in (
-            (PANEL_WATCH_LABEL, watch_plist),
-            (PANEL_SERVICE_LABEL, service_plist),
-        ):
+def panel_load_missing(plan):
+    for label, plist in ((PANEL_WATCH_LABEL, plan["watch_plist"]),
+                         (PANEL_SERVICE_LABEL, plan["service_plist"])):
+        if not panel_label_loaded(label):
             panel_bootstrap(plist)
-            bootstrapped.append(label)
-    except Exception as exc:
-        rolled_back = set()
-        rollback_error = None
-        for label in reversed(bootstrapped):
-            try:
-                panel_bootout(label)
-            except PanelError as bootout_exc:
-                rollback_error = bootout_exc
-                break
-            rolled_back.add(label)
-        if rollback_error is not None:
-            previous_dirs = []
-            if state is not None and isinstance(state.get("createdDirs"), list):
-                previous_dirs = [str(item) for item in state["createdDirs"]]
-            try:
-                files_now = {}
-                for path in desired:
-                    item = Path(path)
-                    if item.is_file() and not item.is_symlink():
-                        files_now[path] = sha256_file(item)
-                save_panel_state({
-                    "schemaVersion": PANEL_SCHEMA_VERSION,
-                    "port": port,
-                    "aideck": str(aideck),
-                    "files": files_now,
-                    "createdDirs": sorted(set(previous_dirs + created_dirs)),
-                })
-            except (OSError, PanelError, ValueError) as state_exc:
-                print(
-                    "progress panel: cannot write the panel state: %s"
-                    % state_exc,
-                    file=sys.stderr,
-                )
-            print(
-                "progress panel: install failed: %s; then bootout failed: %s"
-                % (exc, rollback_error),
-                file=sys.stderr,
-            )
-            for label in bootstrapped:
-                if label in rolled_back:
-                    continue
-                print(
-                    "progress panel: %s is still loaded; run "
-                    "launchctl bootout gui/%d/%s"
-                    % (label, os.getuid(), label),
-                    file=sys.stderr,
-                )
-            for label in loaded_before:
-                try:
-                    if panel_label_loaded(label):
-                        continue
-                except PanelError:
-                    continue
-                print(
-                    "progress panel: %s is down; run %s"
-                    % (label, panel_bootstrap_command(label)),
-                    file=sys.stderr,
-                )
-            print(
-                "progress panel: the panel files were kept; "
-                "run `panel uninstall` afterwards",
-                file=sys.stderr,
-            )
-            return 1
-        for path, data in prior_files.items():
-            try:
-                write_atomic(path, data)
-            except OSError:
-                pass
-        for path in desired:
-            if path not in prior_files:
-                try:
-                    Path(path).unlink()
-                except OSError:
-                    pass
+
+
+def panel_loaded_before(plan):
+    if plan["state"] is not None:
+        return [label for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL)
+                if panel_label_loaded(label)], None
+    for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL):
+        if panel_label_loaded(label):
+            return [], ("progress panel: %s is already loaded; refusing to install"
+                        % label)
+    return [], None
+
+
+def panel_read_prior(plan):
+    prior_files = {}
+    for path in plan["desired"]:
+        if Path(path).is_file():
+            prior_files[path] = Path(path).read_bytes()
+    prior_state = None
+    if panel_state_path().is_file():
+        prior_state = panel_state_path().read_bytes()
+    plan["prior_files"] = prior_files
+    plan["prior_state"] = prior_state
+
+
+def panel_stop_old(plan):
+    down_old = []
+    if plan["state"] is None:
+        return down_old, None
+    try:
+        for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL):
+            if panel_bootout(label):
+                down_old.append(label)
+    except PanelError as exc:
+        return down_old, str(exc)
+    return down_old, None
+
+
+def panel_write_install(plan):
+    created_dirs = plan["created_dirs"]
+    for directory in (panel_progress_dir(), panel_logs_dir(), panel_home(),
+                      panel_data_dir(), panel_launch_agents_dir()):
+        ensure_panel_dir(directory, created_dirs)
+    for path, data in plan["desired"].items():
+        write_atomic(path, data)
+    previous_dirs = []
+    state = plan["state"]
+    if state is not None and isinstance(state.get("createdDirs"), list):
+        previous_dirs = [str(item) for item in state["createdDirs"]]
+    save_panel_state({"schemaVersion": PANEL_SCHEMA_VERSION, "port": plan["port"],
+                      "aideck": str(plan["aideck"]), "files": plan["hashes"],
+                      "createdDirs": sorted(set(previous_dirs + created_dirs))})
+    for label, plist in ((PANEL_WATCH_LABEL, plan["watch_plist"]),
+                         (PANEL_SERVICE_LABEL, plan["service_plist"])):
+        panel_bootstrap(plist)
+        plan["bootstrapped"].append(label)
+
+
+def panel_reverse_bootstrapped(bootstrapped):
+    rolled_back = set()
+    rollback_error = None
+    for label in reversed(bootstrapped):
         try:
-            if prior_state is None:
-                panel_state_path().unlink()
-            else:
-                write_atomic(panel_state_path(), prior_state)
+            panel_bootout(label)
+        except PanelError as exc:
+            rollback_error = exc
+            break
+        rolled_back.add(label)
+    return rolled_back, rollback_error
+
+
+def panel_keep_failed_state(plan):
+    previous_dirs = []
+    state = plan["state"]
+    if state is not None and isinstance(state.get("createdDirs"), list):
+        previous_dirs = [str(item) for item in state["createdDirs"]]
+    try:
+        files_now = {}
+        for path in plan["desired"]:
+            item = Path(path)
+            if item.is_file() and not item.is_symlink():
+                files_now[path] = sha256_file(item)
+        save_panel_state({"schemaVersion": PANEL_SCHEMA_VERSION, "port": plan["port"],
+                          "aideck": str(plan["aideck"]), "files": files_now,
+                          "createdDirs": sorted(set(previous_dirs + plan["created_dirs"]))})
+    except (OSError, PanelError, ValueError) as state_exc:
+        print("progress panel: cannot write the panel state: %s" % state_exc,
+              file=sys.stderr)
+
+
+def panel_report_failed_rollback(exc, rollback_error, bootstrapped,
+                                 rolled_back, loaded_before):
+    print("progress panel: install failed: %s; then bootout failed: %s"
+          % (exc, rollback_error), file=sys.stderr)
+    for label in bootstrapped:
+        if label in rolled_back:
+            continue
+        print("progress panel: %s is still loaded; run launchctl bootout gui/%d/%s"
+              % (label, os.getuid(), label), file=sys.stderr)
+    for label in loaded_before:
+        try:
+            if panel_label_loaded(label):
+                continue
+        except PanelError:
+            continue
+        print("progress panel: %s is down; run %s"
+              % (label, panel_bootstrap_command(label)), file=sys.stderr)
+    print("progress panel: the panel files were kept; run `panel uninstall` afterwards",
+          file=sys.stderr)
+
+
+def panel_restore_install(plan, loaded_before):
+    for path, data in plan["prior_files"].items():
+        try:
+            write_atomic(path, data)
         except OSError:
             pass
-        left = remove_panel_dirs(created_dirs)
-        down = []
-        for label in loaded_before:
+    for path in plan["desired"]:
+        if path not in plan["prior_files"]:
             try:
-                panel_bootstrap(panel_plist_path(label))
-            except PanelError:
-                down.append(label)
-        print("progress panel: install failed: %s" % exc, file=sys.stderr)
-        if down:
-            print(
-                "progress panel: %s down; run %s"
-                % (
-                    ", ".join(down),
-                    " and ".join(panel_bootstrap_command(label) for label in down),
-                ),
-                file=sys.stderr,
-            )
-        report_left_dirs(left)
+                Path(path).unlink()
+            except OSError:
+                pass
+    try:
+        if plan["prior_state"] is None:
+            panel_state_path().unlink()
+        else:
+            write_atomic(panel_state_path(), plan["prior_state"])
+    except OSError:
+        pass
+    left = remove_panel_dirs(plan["created_dirs"])
+    down = []
+    for label in loaded_before:
+        try:
+            panel_bootstrap(panel_plist_path(label))
+        except PanelError:
+            down.append(label)
+    return down, left
+
+
+def panel_install_failed(plan, exc, loaded_before):
+    bootstrapped = plan["bootstrapped"]
+    rolled_back, rollback_error = panel_reverse_bootstrapped(bootstrapped)
+    if rollback_error is not None:
+        panel_keep_failed_state(plan)
+        panel_report_failed_rollback(
+            exc, rollback_error, bootstrapped, rolled_back, loaded_before)
         return 1
+    down, left = panel_restore_install(plan, loaded_before)
+    print("progress panel: install failed: %s" % exc, file=sys.stderr)
+    if down:
+        print("progress panel: %s down; run %s"
+              % (", ".join(down),
+                 " and ".join(panel_bootstrap_command(label) for label in down)),
+              file=sys.stderr)
+    report_left_dirs(left)
+    return 1
 
-    print("panel installed on http://127.0.0.1:%d" % port)
-    return 0
 
-
-def cmd_panel_uninstall(args):
+def cmd_panel_install(args):
     problem = panel_platform_error()
     if problem:
         print(problem, file=sys.stderr)
         return 2
+    target = panel_install_target(args)
+    if target is None:
+        return 1
+    port, aideck = target
     try:
-        state = load_panel_state()
-        if state is not None:
-            validate_panel_state(state)
+        state = load_valid_panel_state()
     except PanelError as exc:
         print("progress panel: %s" % exc, file=sys.stderr)
         return 1
-    if state is None:
-        print("panel: nothing is installed")
-        return 0
-
-    refusal = panel_symlink_refusal()
+    plan, refusal = panel_install_plan(aideck, port, state)
+    refusal = refusal or panel_data_refusal(plan)
     if refusal:
         print("progress panel: %s" % refusal, file=sys.stderr)
         return 1
+    if panel_same_install(plan):
+        try:
+            panel_load_missing(plan)
+        except PanelError as exc:
+            print("progress panel: %s" % exc, file=sys.stderr)
+            return 1
+        print("panel already installed on port %d" % port)
+        return 0
+    try:
+        loaded_before, load_error = panel_loaded_before(plan)
+    except PanelError as exc:
+        print("progress panel: %s" % exc, file=sys.stderr)
+        return 1
+    if load_error:
+        print(load_error, file=sys.stderr)
+        return 1
+    try:
+        panel_read_prior(plan)
+    except OSError as exc:
+        print("progress panel: cannot read the previous panel files; "
+              "nothing was stopped: %s" % exc, file=sys.stderr)
+        return 1
+    down_old, stop_error = panel_stop_old(plan)
+    if stop_error:
+        print("progress panel: %s" % stop_error, file=sys.stderr)
+        if down_old:
+            print("progress panel: %s is down; run %s"
+                  % (", ".join(down_old),
+                     " and ".join(panel_bootstrap_command(label)
+                                  for label in down_old)),
+                  file=sys.stderr)
+        return 1
+    plan["created_dirs"] = []
+    plan["bootstrapped"] = []
+    try:
+        panel_write_install(plan)
+    except Exception as exc:
+        return panel_install_failed(plan, exc, loaded_before)
+    print("panel installed on http://127.0.0.1:%d" % port)
+    return 0
 
+
+def panel_bootout_installed():
     down = []
     try:
         for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL):
             if panel_bootout(label):
                 down.append(label)
     except PanelError as exc:
-        print("progress panel: %s" % exc, file=sys.stderr)
-        if down:
-            print(
-                "progress panel: %s is down; the state was kept"
-                % ", ".join(down),
-                file=sys.stderr,
-            )
-        return 1
+        return down, str(exc)
+    return down, None
 
+def panel_remove_logs():
     failed = False
     for label in (PANEL_WATCH_LABEL, PANEL_SERVICE_LABEL):
         item = panel_logs_dir() / ("%s.log" % label)
@@ -2383,10 +2338,13 @@ def cmd_panel_uninstall(args):
         except FileNotFoundError:
             pass
         except OSError as exc:
-            print("progress panel: cannot remove %s: %s" % (item, exc), file=sys.stderr)
+            print("progress panel: cannot remove %s: %s" % (item, exc),
+                  file=sys.stderr)
             failed = True
+    return failed
 
-    files = state.get("files") if isinstance(state.get("files"), dict) else {}
+def panel_remove_state_files(files):
+    failed = False
     for path, digest in files.items():
         item = Path(path)
         if not os.path.lexists(item):
@@ -2398,40 +2356,81 @@ def cmd_panel_uninstall(args):
             failed = True
             continue
         if current != digest:
-            print(
-                "progress panel: kept %s (its content changed)" % item,
-                file=sys.stderr,
-            )
+            print("progress panel: kept %s (its content changed)" % item,
+                  file=sys.stderr)
             continue
         try:
             item.unlink()
         except OSError as exc:
-            print("progress panel: cannot remove %s: %s" % (item, exc), file=sys.stderr)
+            print("progress panel: cannot remove %s: %s" % (item, exc),
+                  file=sys.stderr)
             failed = True
+    return failed
 
-    created_dirs = [
-        str(item) for item in (state.get("createdDirs") or [])
-    ]
-    if str(panel_data_dir()) in created_dirs:
-        for name in PANEL_OUTPUT_NAMES:
-            try:
-                (panel_data_dir() / ("%s.json" % name)).unlink()
-            except FileNotFoundError:
-                pass
-            except OSError as exc:
-                print("progress panel: cannot remove %s: %s" % (name, exc), file=sys.stderr)
-                failed = True
+def panel_remove_data_files():
+    failed = False
+    for name in PANEL_OUTPUT_NAMES:
+        try:
+            (panel_data_dir() / ("%s.json" % name)).unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            print("progress panel: cannot remove %s: %s" % (name, exc),
+                  file=sys.stderr)
+            failed = True
+    return failed
 
-    if failed:
-        print("progress panel: uninstall incomplete; the state was kept", file=sys.stderr)
-        return 1
-
+def panel_remove_state():
     try:
         panel_state_path().unlink()
     except FileNotFoundError:
-        pass
+        return None
     except OSError as exc:
-        print("progress panel: cannot remove %s: %s" % (panel_state_path(), exc), file=sys.stderr)
+        return "cannot remove %s: %s" % (panel_state_path(), exc)
+    return None
+
+def panel_state_created_dirs(state):
+    return [str(item) for item in (state.get("createdDirs") or [])]
+
+def cmd_panel_uninstall(args):
+    problem = panel_platform_error()
+    if problem:
+        print(problem, file=sys.stderr)
+        return 2
+    try:
+        state = load_valid_panel_state()
+    except PanelError as exc:
+        print("progress panel: %s" % exc, file=sys.stderr)
+        return 1
+    if state is None:
+        print("panel: nothing is installed")
+        return 0
+    refusal = panel_symlink_refusal()
+    if refusal:
+        print("progress panel: %s" % refusal, file=sys.stderr)
+        return 1
+    down, stop_error = panel_bootout_installed()
+    if stop_error:
+        print("progress panel: %s" % stop_error, file=sys.stderr)
+        if down:
+            print("progress panel: %s is down; the state was kept" % ", ".join(down),
+                  file=sys.stderr)
+        return 1
+    failed = panel_remove_logs()
+    files = state.get("files") if isinstance(state.get("files"), dict) else {}
+    if panel_remove_state_files(files):
+        failed = True
+    created_dirs = panel_state_created_dirs(state)
+    if str(panel_data_dir()) in created_dirs:
+        if panel_remove_data_files():
+            failed = True
+    if failed:
+        print("progress panel: uninstall incomplete; the state was kept",
+              file=sys.stderr)
+        return 1
+    error = panel_remove_state()
+    if error:
+        print("progress panel: %s" % error, file=sys.stderr)
         return 1
     left = remove_panel_dirs(created_dirs)
     print("panel uninstalled")
