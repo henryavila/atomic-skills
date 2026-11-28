@@ -2,4 +2,3 @@ skills/shared/delegate-assets/delegate.py::access_policy	7
 skills/shared/delegate-assets/delegate.py::build_argv	7
 skills/shared/delegate-assets/delegate.py::classify_failure	7
 skills/shared/delegate-assets/delegate.py::new_remote_active	7
-skills/shared/quality-gate-assets/ratchet.py::new_file_accepted	6

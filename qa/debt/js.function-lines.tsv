@@ -6,16 +6,8 @@ scripts/release/adopt.js::createAdopt	147
 scripts/release/release.js::createRelease	538
 scripts/release/release.js::createRelease>collect	120
 scripts/release/release.js::createRelease>run	82
-scripts/verify-findings-manifest.js::validateFindingsManifest	100
-scripts/verify-upstream-receipt.js::main	127
-src/cross-model-host-default.js::resolveReviewRoute	186
 src/ide-symlink-install.js::applyReconcile	108
-src/install.js::install	263
-src/install.js::installSkills	144
 src/installer-driver.js::createDriver	166
 src/installer-driver.js::createDriver>install	130
 src/runtime-layers/effects/stage-runtime-artifacts.js::createStageRuntimeArtifactsEffect	84
 src/runtime-layers/grok-refcount.js::releaseGrokOutsideJournal	85
-src/runtime-observe.js::observeRuntimeRegistry	97
-src/runtime-observe.js::parseInstallsRegistry	85
-src/status.js::status	141
