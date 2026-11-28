@@ -28,6 +28,24 @@ function withHome(fakeHome, fn) {
   });
 }
 
+// Pin what uninstall prints. The refactor splits the function along its steps;
+// these snapshots prove the split did not change a single message or blank line.
+async function captureConsole(fn) {
+  const logs = [];
+  const errors = [];
+  const originalLog = console.log;
+  const originalError = console.error;
+  console.log = (...args) => { logs.push(args.join(' ')); };
+  console.error = (...args) => { errors.push(args.join(' ')); };
+  try {
+    await fn();
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+  }
+  return { logs, errors };
+}
+
 const RUNTIME_ARTIFACTS = [
   join('.atomic-skills', 'bin', 'aideck.mjs'),
   join('.atomic-skills', 'dashboard', 'index.html'),
@@ -263,6 +281,93 @@ describe('uninstall (integration)', () => {
         );
         // Manifest still present (journal never ran).
         assert.ok(existsSync(join(fakeHome, '.atomic-skills', 'manifest.json')));
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('uninstall output', () => {
+  it('prints the pinned summary for a successful user-scope uninstall', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-uninst-output-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-uninst-output-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' });
+        const manifest = JSON.parse(
+          readFileSync(join(fakeHome, '.atomic-skills', 'manifest.json'), 'utf8'),
+        );
+        const count = Object.keys(manifest.files || {}).length;
+
+        const captured = await captureConsole(
+          () => uninstall(projectDir, { scope: 'user', yes: true }),
+        );
+
+        assert.deepEqual(captured.errors, []);
+        assert.equal(captured.logs.join('\n'), [
+          '',
+          '  ⚛ Removing Atomic Skills...',
+          '',
+          `  ✓ ${count} files removed.`,
+          '  ✓ .atomic-skills/manifest.json removed.',
+          '',
+          '  ⚛ Uninstall complete.',
+          '',
+        ].join('\n'));
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('prints the pinned no-installation message', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-uninst-output-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-uninst-output-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const captured = await captureConsole(
+          () => uninstall(projectDir, { scope: 'user', yes: true }),
+        );
+
+        assert.deepEqual(captured.errors, []);
+        assert.equal(captured.logs.join('\n'), [
+          '',
+          '  ⚛ Removing Atomic Skills...',
+          '',
+          '  No installation found.',
+          '',
+        ].join('\n'));
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('prints the pinned force-incomplete no-op messages', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-uninst-output-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-uninst-output-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const captured = await captureConsole(
+          () => uninstall(projectDir, { forceIncomplete: true, scope: 'user' }),
+        );
+
+        assert.deepEqual(captured.errors, []);
+        assert.equal(captured.logs.join('\n'), [
+          '',
+          '  ⚛ Force-incomplete recovery',
+          '',
+          `  scope: user (${fakeHome})`,
+          '',
+          'No installer transaction found — nothing to force-uninstall.',
+          '',
+          '  ⚛ Force-incomplete complete (check residual ledger if pre-U).',
+          '',
+        ].join('\n'));
       });
     } finally {
       rmSync(fakeHome, { recursive: true, force: true });
