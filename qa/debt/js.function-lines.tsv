@@ -1,11 +1,3 @@
-scripts/lib/render-site.js::renderProjectGuidePage	233
-scripts/lib/validate-skills-core.js::validateCatalog	98
-scripts/list-review-models.js::fetchModels	82
-scripts/list-review-models.js::main	84
-scripts/release/adopt.js::createAdopt	147
-scripts/release/release.js::createRelease	538
-scripts/release/release.js::createRelease>collect	120
-scripts/release/release.js::createRelease>run	82
 src/ide-symlink-install.js::applyReconcile	108
 src/installer-driver.js::createDriver	166
 src/installer-driver.js::createDriver>install	130
