@@ -39,6 +39,50 @@ function git(worktree, args) {
   return execFileSync('git', ['-C', worktree, ...args], { encoding: 'utf8' }).trim();
 }
 
+function receiptResultSha(receipt) {
+  return receipt.tasks?.['F1/T-005']?.resultSha
+    ?? receipt.tasks?.['F1/T-004']?.resultSha
+    ?? receipt.tasks?.['F1/T-003']?.resultSha
+    ?? receipt.tasks?.['F1/T-002']?.resultSha
+    ?? receipt.resultSha;
+}
+
+/** Refuse to test a worktree that does not match the receipt task SHA. */
+function verifyReceiptHead(receiptPath, head) {
+  const receipt = JSON.parse(readFileSync(resolve(REPO_ROOT, receiptPath), 'utf8'));
+  const want = receiptResultSha(receipt);
+  if (want && want !== head) {
+    console.error(`receipt resultSha ${want} !== worktree HEAD ${head}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Copy worktree sources into a package layout under a fresh staging dir.
+ * @returns {{ staging: string, pkgDir: string }}
+ */
+function stageUpstreamPackage(worktree) {
+  const staging = mkdtempSync(join(tmpdir(), 'as-upstream-pack-'));
+  const pkgDir = join(staging, 'node_modules', '@henryavila', 'minimalist-installer');
+  mkdirSync(pkgDir, { recursive: true });
+  cpSync(join(worktree, 'src'), join(pkgDir, 'src'), { recursive: true });
+  cpSync(join(worktree, 'package.json'), join(pkgDir, 'package.json'));
+  if (existsSync(join(worktree, 'LICENSE'))) {
+    cpSync(join(worktree, 'LICENSE'), join(pkgDir, 'LICENSE'));
+  }
+  return { staging, pkgDir };
+}
+
+function buildTestEnv(staging, pkgDir, head) {
+  return {
+    ...process.env,
+    NODE_PATH: join(staging, 'node_modules')
+      + (process.env.NODE_PATH ? `:${process.env.NODE_PATH}` : ''),
+    ATOMIC_SKILLS_UPSTREAM_MI_ROOT: pkgDir,
+    ATOMIC_SKILLS_UPSTREAM_MI_SHA: head,
+  };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.worktree || args.tests.length === 0) {
@@ -48,37 +92,13 @@ function main() {
   const worktree = resolve(REPO_ROOT, args.worktree);
   const head = git(worktree, ['rev-parse', 'HEAD']);
 
-  if (args.receipt) {
-    const receipt = JSON.parse(readFileSync(resolve(REPO_ROOT, args.receipt), 'utf8'));
-    const want = receipt.tasks?.['F1/T-005']?.resultSha
-      ?? receipt.tasks?.['F1/T-004']?.resultSha
-      ?? receipt.tasks?.['F1/T-003']?.resultSha
-      ?? receipt.tasks?.['F1/T-002']?.resultSha
-      ?? receipt.resultSha;
-    if (want && want !== head) {
-      console.error(`receipt resultSha ${want} !== worktree HEAD ${head}`);
-      process.exit(1);
-    }
-  }
+  if (args.receipt) verifyReceiptHead(args.receipt, head);
 
-  const staging = mkdtempSync(join(tmpdir(), 'as-upstream-pack-'));
+  let staging = null;
   try {
-    // Copy worktree sources into a package layout and point module resolution at it.
-    const pkgDir = join(staging, 'node_modules', '@henryavila', 'minimalist-installer');
-    mkdirSync(pkgDir, { recursive: true });
-    cpSync(join(worktree, 'src'), join(pkgDir, 'src'), { recursive: true });
-    cpSync(join(worktree, 'package.json'), join(pkgDir, 'package.json'));
-    if (existsSync(join(worktree, 'LICENSE'))) {
-      cpSync(join(worktree, 'LICENSE'), join(pkgDir, 'LICENSE'));
-    }
-
-    const env = {
-      ...process.env,
-      NODE_PATH: join(staging, 'node_modules')
-        + (process.env.NODE_PATH ? `:${process.env.NODE_PATH}` : ''),
-      ATOMIC_SKILLS_UPSTREAM_MI_ROOT: pkgDir,
-      ATOMIC_SKILLS_UPSTREAM_MI_SHA: head,
-    };
+    const staged = stageUpstreamPackage(worktree);
+    staging = staged.staging;
+    const env = buildTestEnv(staging, staged.pkgDir, head);
 
     const result = spawnSync(
       process.execPath,
@@ -87,7 +107,7 @@ function main() {
     );
     process.exit(result.status ?? 1);
   } finally {
-    rmSync(staging, { recursive: true, force: true });
+    if (staging) rmSync(staging, { recursive: true, force: true });
   }
 }
 
