@@ -551,236 +551,306 @@ def unique_paths(paths):
     return result
 
 
-def access_policy(executor, role, cwd, out_path=None, strict=False, common_dir=None,
-                  home_dirs=None):
+@dataclasses.dataclass
+class AccessRequest:
+    """The inputs of one access policy: who runs, where, and what it may reach."""
+
+    executor: str
+    role: str
+    cwd: str
+    out_path: object = None
+    strict: bool = False
+    common_dir: object = None
+    home_dirs: object = None
+
+
+@dataclasses.dataclass
+class AccessContext:
+    """The resolved paths and role flags every access branch reads."""
+
+    executor: str
+    role: str
+    cwd: str
+    strict: bool
+    review: bool
+    common: str
+    home_dirs: list
+    extra_read: list
+    git_common_limit: str
+
+
+def _access_context(request):
+    review = request.role == "review"
+    common = git_common_dir(request.cwd) if request.common_dir is None else request.common_dir
+    home_dirs = ([HOME / "delegate" / "cards", HOME / "delegate" / "out"]
+                 if request.home_dirs is None else list(request.home_dirs))
+    if request.out_path:
+        home_dirs.append(request.out_path)
+    extra_read = unique_paths([common, *home_dirs])
+    git_common_limit = ("git write includes the main repository's config, hooks "
+                        "and other worktrees' refs")
+    return AccessContext(request.executor, request.role, request.cwd, request.strict,
+                         review, common, home_dirs, extra_read, git_common_limit)
+
+
+def access_policy(request):
     """Build the flags and the audit description for one executor and role.
 
     One policy by role; each branch below quotes the CLI help or config
     reference line that justifies the flag used. A CLI that cannot express a
     grant records it under `limits` instead of dropping the sandbox.
 
-    `common_dir` and `home_dirs` are supplied by the remote path: its checkout
-    and per-run directory are not local paths, so they must not be discovered
-    with local git or the local runner home.
+    `request.common_dir` and `request.home_dirs` are supplied by the remote
+    path: its checkout and per-run directory are not local paths, so they must
+    not be discovered with local git or the local runner home.
     """
-    review = role == "review"
-    common = git_common_dir(cwd) if common_dir is None else common_dir
-    home_dirs = ([HOME / "delegate" / "cards", HOME / "delegate" / "out"]
-                 if home_dirs is None else list(home_dirs))
-    if out_path:
-        home_dirs.append(out_path)
-    extra_read = unique_paths([common, *home_dirs])
-    git_common_limit = ("git write includes the main repository's config, hooks "
-                        "and other worktrees' refs")
+    context = _access_context(request)
+    if context.executor == "claude":
+        return _claude_access(context)
+    if context.strict:
+        return _strict_access(context)
+    return _policy_access(context)
 
-    # codex --help: "--add-dir <DIR> Additional directories that should be
-    #   writable alongside the primary workspace"
-    # codex config reference: "sandbox_workspace_write.network_access boolean
-    #   Allow outbound network access inside the workspace-write sandbox."
-    if executor == "claude":
-        # claude --help: "--tools <tools...> Specify the list of available tools
-        #   from the built-in set"; "--permission-mode <mode>" (choices include
-        #   "dontAsk"). With only the three read tools there is no shell, no
-        #   edit tool and no network to remove, so strict is the same policy.
-        return {"argv": ["--tools", "Read,Grep,Glob", "--permission-mode", "dontAsk"], "env": {}, "access": {
-            "mode": "strict" if strict else "policy", "network": False, "git_write": False,
-            "extra_read": [], "limits": [
-                "claude has only the Read, Grep and Glob tools: no shell, no git command and "
-                "no network; the diff and the cards arrive in the prompt",
-                "claude has no sandbox: what it may read is decided by Claude Code's own "
-                "permission rules, and review_wrote still checks the tree"]}}
-    if strict:
-        # Strict removes grants from the default role policy; it never adds a
-        # CLI's factory bypass. Every branch below is therefore a subset of the
-        # same executor and role in the policy branch.
-        argv, env, limits = [], {}, []
-        if executor == "codex":
-            # build_argv keeps the per-role sandbox (workspace-write for
-            # implement, read-only for review). Strict only removes the
-            # workspace-write network switch and the extra writable directory.
-            limits.append("strict: no network and no --add-dir; "
-                          "the codex sandbox mode is unchanged")
-            return {"argv": [], "env": {}, "access": {
-                "mode": "strict", "network": False, "git_write": False,
-                "extra_read": [], "limits": limits}}
-        elif executor == "opencode":
-            # Same role rules as the default, minus web access and every grant
-            # outside the worktree. No approval bypass: the explicit permission
-            # rules and the private server remain in place.
-            rules = [
-                {"action": "external_directory", "resource": "*", "effect": "deny"},
-                {"action": "read", "resource": "*", "effect": "allow"},
-                {"action": "shell", "resource": "*", "effect": "allow"},
-                {"action": "webfetch", "resource": "*", "effect": "deny"},
-                {"action": "websearch", "resource": "*", "effect": "deny"},
-                {"action": "edit", "resource": "*", "effect": "deny"},
-            ]
-            if not review:
-                rules.append({"action": "edit", "resource": "*", "effect": "allow"})
-                for path in ("..", "../*"):
-                    rules.append({"action": "edit", "resource": path, "effect": "deny"})
-                for path in unique_paths([common, *home_dirs]):
-                    if path and not is_within(path, cwd):
-                        rules.append({"action": "edit", "resource": f"{path}/*",
-                                      "effect": "deny"})
-            env["OPENCODE_CONFIG_CONTENT"] = json.dumps({"permissions": rules})
-            limits.append("OpenCode has no sandbox: shell runs with the host user's "
-                          "filesystem and network authority")
-            limits.append("strict: webfetch and websearch are denied and only the "
-                          "worktree is editable; shell can still reach the network "
-                          "and write elsewhere")
-            network = git_write = True
-            if review:
-                limits.append("reviewer can still write through the shell; "
-                              "only the edit tool is denied")
-            else:
-                limits.append("edit tool is limited to the worktree; shell can "
-                              "still write elsewhere")
-            return {"argv": [], "env": env, "access": {
-                "mode": "strict", "network": network, "git_write": git_write,
-                "extra_read": [], "limits": limits}}
-        elif executor == "agy":
-            # Review inputs (cards and outputs) are the only outside-worktree
-            # reads strict keeps; the git common directory and read_url go away.
-            strict_extra = unique_paths(home_dirs) if review else []
-            allow = [f"read_file({cwd})"]
-            allow += [f"read_file({path})" for path in strict_extra if path != cwd]
-            deny = []
-            if review:
-                allow += [f"command({command})" for command in (
-                    "git diff", "git log", "git show", "git status", "git rev-parse")]
-                deny = [f"write_file({path})" for path in unique_paths([cwd, *strict_extra])]
-                limits.append("agy keeps the worktree read-write on its sandbox mount; "
-                              "write_file is denied and review_wrote still checks the tree")
-            else:
-                allow += [f"write_file({cwd})", "command(git)"]
-            limits.append("strict: no read_url, no git common directory and no "
-                          "directory outside the worktree except attached review inputs")
-            settings = {
-                "toolPermission": "proceed-in-sandbox",
-                "allowNonWorkspaceAccess": bool(strict_extra),
-                "permissions": {"allow": allow, "deny": deny},
-            }
-            argv += ["--sandbox", "--settings", json.dumps(settings, separators=(",", ":"))]
-            return {"argv": argv, "env": {}, "access": {
-                "mode": "strict", "network": False, "git_write": False,
-                "extra_read": strict_extra, "limits": limits}}
-        else:
-            sys.exit(f"delegate: unknown executor {executor}")
 
-    argv, env, limits = [], {}, []
-    network = True
-    git_write = not review
+def _claude_access(context):
+    # claude --help: "--tools <tools...> Specify the list of available tools
+    #   from the built-in set"; "--permission-mode <mode>" (choices include
+    #   "dontAsk"). With only the three read tools there is no shell, no
+    #   edit tool and no network to remove, so strict is the same policy.
+    return {"argv": ["--tools", "Read,Grep,Glob", "--permission-mode", "dontAsk"], "env": {}, "access": {
+        "mode": "strict" if context.strict else "policy", "network": False, "git_write": False,
+        "extra_read": [], "limits": [
+            "claude has only the Read, Grep and Glob tools: no shell, no git command and "
+            "no network; the diff and the cards arrive in the prompt",
+            "claude has no sandbox: what it may read is decided by Claude Code's own "
+            "permission rules, and review_wrote still checks the tree"]}}
 
-    if executor == "codex":
-        if review:
-            # Read-only is the reviewer guarantee. The network switch is
-            # workspace-write only, so network cannot be added without also
-            # allowing writes in the worktree.
-            network = False
-            limits.append("codex read-only sandbox cannot enable network; "
-                          "sandbox_workspace_write.network_access needs --sandbox workspace-write")
-        else:
-            argv += ["-c", "sandbox_workspace_write.network_access=true"]
-            if common:
-                # Codex protects <workspace>/.git as read-only; adding the
-                # common directory is what lets the executor commit.
-                argv += ["--add-dir", common]
 
-    elif executor == "opencode":
-        # opencode run --help: "--auto Auto-approve permissions that are not
-        #   explicitly denied"; the policy does not use it. The installed CLI
-        #   (v2.3.2) reads OPENCODE_CONFIG_CONTENT as a JSON config document;
-        #   V2 uses "permissions" (plural), "shell" (not "bash") and
-        #   {action, resource, effect} rules, documented at
-        #   https://opencode.ai/docs/permissions. path rules are supported.
-        # It has no sandbox or network switch; shell keeps host authority.
-        rules = [
-            {"action": "external_directory", "resource": "*", "effect": "deny"},
-            {"action": "read", "resource": "*", "effect": "allow"},
-            {"action": "shell", "resource": "*", "effect": "allow"},
-            {"action": "webfetch", "resource": "*", "effect": "allow"},
-            # Web Search under "allow" asks for input that a headless run cannot
-            # give; OpenCode v2.3.2 then exits 1 ("Cancelled a request for input
-            # this run cannot answer: Web Search") even when the work is done.
-            # Under "deny" the tool is refused and the run ends with exit 0.
-            {"action": "websearch", "resource": "*", "effect": "deny"},
-            {"action": "edit", "resource": "*", "effect": "deny"},
-        ]
-        limits.append("websearch is denied: OpenCode's Web Search asks for input a "
-                      "headless run cannot answer; webfetch and the shell keep network access")
-        # External reads are checked before read/edit; allow only the git
-        # common directory, cards and outputs, never every directory.
-        for path in extra_read:
-            rules.append({"action": "external_directory", "resource": f"{path}/*",
-                          "effect": "allow"})
-        # FileAccess.resolve gives an internal path relative to the location
-        # (e.g. "src/a.py") and an external path as an absolute path. So "*"
-        # covers the worktree, the absolute common path covers a linked
-        # worktree's git directory, and the external_directory grants above
-        # bound the rest. Deny project-parent paths and the read-only outputs.
-        if not review:
-            rules.append({"action": "edit", "resource": "*", "effect": "allow"})
-            if common:
-                rules.append({"action": "edit", "resource": f"{common}/*",
-                              "effect": "allow"})
-            for path in ("..", "../*"):
-                rules.append({"action": "edit", "resource": path, "effect": "deny"})
-            for path in unique_paths(home_dirs):
-                if not is_within(path, cwd):
-                    rules.append({"action": "edit", "resource": f"{path}/*",
-                                  "effect": "deny"})
-        env["OPENCODE_CONFIG_CONTENT"] = json.dumps({"permissions": rules})
-        limits.append("OpenCode has no sandbox: shell runs with the host user's "
-                      "filesystem and network authority")
-        if review:
-            # Reviewers need shell for read-only git and tests, but shell keeps
-            # host write authority even though the edit tool is denied.
-            git_write = True
-            limits.append("reviewer can still write through the shell; "
-                          "only the edit tool is denied")
-        else:
-            limits.append("edit tool is limited to the worktree and git common "
-                          "directory; shell can still write elsewhere")
+def _strict_access(context):
+    # Strict removes grants from the default role policy; it never adds a
+    # CLI's factory bypass. Every branch below is therefore a subset of the
+    # same executor and role in the policy branch.
+    if context.executor == "codex":
+        return _strict_codex_access(context)
+    if context.executor == "opencode":
+        return _strict_opencode_access(context)
+    if context.executor == "agy":
+        return _strict_agy_access(context)
+    sys.exit(f"delegate: unknown executor {context.executor}")
 
-    elif executor == "agy":
-        # agy --help: "--sandbox Run in a sandbox with terminal restrictions
-        #   enabled"; "--settings Settings for this session only, never saved:
-        #   a JSON object of settings.json keys, inline or as a file path";
-        #   "--add-dir Add a directory to the workspace (repeatable)".
-        # settings.json schema: permissions {allow, ask, deny}, toolPermission,
-        # allowNonWorkspaceAccess. Permission rules use command(<prefix>) for
-        # commands, e.g. "command(git status)".
-        allow = ["read_url(*)", "read_file(" + cwd + ")"]
-        allow += [f"read_file({path})" for path in extra_read if path != cwd]
-        deny = []
-        if review:
-            allow += [f"command({command})" for command in (
-                "git diff", "git log", "git show", "git status", "git rev-parse")]
-            deny = [f"write_file({path})" for path in unique_paths([cwd, common, *home_dirs])]
-            limits.append("agy keeps the worktree read-write on its sandbox mount; "
-                          "write_file is denied and review_wrote still checks the tree")
-        else:
-            allow += [f"write_file({cwd})", "command(git)"]
-            if common:
-                allow.append(f"write_file({common})")
-            if common and not is_within(common, cwd):
-                argv += ["--add-dir", common]
-        settings = {
-            "toolPermission": "proceed-in-sandbox",
-            "allowNonWorkspaceAccess": True,
-            "permissions": {"allow": allow, "deny": deny},
-        }
-        argv += ["--sandbox", "--settings", json.dumps(settings, separators=(",", ":"))]
 
+def _strict_codex_access(context):
+    # build_argv keeps the per-role sandbox (workspace-write for
+    # implement, read-only for review). Strict only removes the
+    # workspace-write network switch and the extra writable directory.
+    limits = ["strict: no network and no --add-dir; "
+              "the codex sandbox mode is unchanged"]
+    return {"argv": [], "env": {}, "access": {
+        "mode": "strict", "network": False, "git_write": False,
+        "extra_read": [], "limits": limits}}
+
+
+def _strict_opencode_access(context):
+    # Same role rules as the default, minus web access and every grant
+    # outside the worktree. No approval bypass: the explicit permission
+    # rules and the private server remain in place.
+    rules = [
+        {"action": "external_directory", "resource": "*", "effect": "deny"},
+        {"action": "read", "resource": "*", "effect": "allow"},
+        {"action": "shell", "resource": "*", "effect": "allow"},
+        {"action": "webfetch", "resource": "*", "effect": "deny"},
+        {"action": "websearch", "resource": "*", "effect": "deny"},
+        {"action": "edit", "resource": "*", "effect": "deny"},
+    ]
+    if not context.review:
+        rules.append({"action": "edit", "resource": "*", "effect": "allow"})
+        for path in ("..", "../*"):
+            rules.append({"action": "edit", "resource": path, "effect": "deny"})
+        for path in unique_paths([context.common, *context.home_dirs]):
+            if path and not is_within(path, context.cwd):
+                rules.append({"action": "edit", "resource": f"{path}/*",
+                              "effect": "deny"})
+    env = {"OPENCODE_CONFIG_CONTENT": json.dumps({"permissions": rules})}
+    limits = [
+        "OpenCode has no sandbox: shell runs with the host user's "
+        "filesystem and network authority",
+        "strict: webfetch and websearch are denied and only the "
+        "worktree is editable; shell can still reach the network "
+        "and write elsewhere",
+    ]
+    if context.review:
+        limits.append("reviewer can still write through the shell; "
+                      "only the edit tool is denied")
     else:
-        sys.exit(f"delegate: unknown executor {executor}")
+        limits.append("edit tool is limited to the worktree; shell can "
+                      "still write elsewhere")
+    return {"argv": [], "env": env, "access": {
+        "mode": "strict", "network": True, "git_write": True,
+        "extra_read": [], "limits": limits}}
 
-    if git_write and common:
-        limits.append(git_common_limit)
-    return {"argv": argv, "env": env, "access": {
-        "mode": "policy", "network": network, "git_write": git_write,
-        "extra_read": extra_read, "limits": limits}}
+
+def _strict_agy_access(context):
+    # Review inputs (cards and outputs) are the only outside-worktree
+    # reads strict keeps; the git common directory and read_url go away.
+    strict_extra = unique_paths(context.home_dirs) if context.review else []
+    allow = [f"read_file({context.cwd})"]
+    allow += [f"read_file({path})" for path in strict_extra if path != context.cwd]
+    deny = []
+    limits = []
+    if context.review:
+        allow += [f"command({command})" for command in (
+            "git diff", "git log", "git show", "git status", "git rev-parse")]
+        deny = [f"write_file({path})" for path in unique_paths([context.cwd, *strict_extra])]
+        limits.append("agy keeps the worktree read-write on its sandbox mount; "
+                      "write_file is denied and review_wrote still checks the tree")
+    else:
+        allow += [f"write_file({context.cwd})", "command(git)"]
+    limits.append("strict: no read_url, no git common directory and no "
+                  "directory outside the worktree except attached review inputs")
+    settings = {
+        "toolPermission": "proceed-in-sandbox",
+        "allowNonWorkspaceAccess": bool(strict_extra),
+        "permissions": {"allow": allow, "deny": deny},
+    }
+    argv = ["--sandbox", "--settings", json.dumps(settings, separators=(",", ":"))]
+    return {"argv": argv, "env": {}, "access": {
+        "mode": "strict", "network": False, "git_write": False,
+        "extra_read": strict_extra, "limits": limits}}
+
+
+def _policy_access(context):
+    if context.executor == "codex":
+        result = _policy_codex_access(context)
+    elif context.executor == "opencode":
+        result = _policy_opencode_access(context)
+    elif context.executor == "agy":
+        result = _policy_agy_access(context)
+    else:
+        sys.exit(f"delegate: unknown executor {context.executor}")
+    if result["access"]["git_write"] and context.common:
+        result["access"]["limits"].append(context.git_common_limit)
+    return result
+
+
+def _policy_codex_access(context):
+    argv, limits = [], []
+    network = True
+    if context.review:
+        # Read-only is the reviewer guarantee. The network switch is
+        # workspace-write only, so network cannot be added without also
+        # allowing writes in the worktree.
+        network = False
+        limits.append("codex read-only sandbox cannot enable network; "
+                      "sandbox_workspace_write.network_access needs --sandbox workspace-write")
+    else:
+        # codex --help: "--add-dir <DIR> Additional directories that should be
+        #   writable alongside the primary workspace"
+        # codex config reference: "sandbox_workspace_write.network_access boolean
+        #   Allow outbound network access inside the workspace-write sandbox."
+        argv += ["-c", "sandbox_workspace_write.network_access=true"]
+        if context.common:
+            # Codex protects <workspace>/.git as read-only; adding the
+            # common directory is what lets the executor commit.
+            argv += ["--add-dir", context.common]
+    return {"argv": argv, "env": {}, "access": {
+        "mode": "policy", "network": network, "git_write": not context.review,
+        "extra_read": context.extra_read, "limits": limits}}
+
+
+def _policy_opencode_access(context):
+    # opencode run --help: "--auto Auto-approve permissions that are not
+    #   explicitly denied"; the policy does not use it. The installed CLI
+    #   (v2.3.2) reads OPENCODE_CONFIG_CONTENT as a JSON config document;
+    #   V2 uses "permissions" (plural), "shell" (not "bash") and
+    #   {action, resource, effect} rules, documented at
+    #   https://opencode.ai/docs/permissions. path rules are supported.
+    # It has no sandbox or network switch; shell keeps host authority.
+    rules = [
+        {"action": "external_directory", "resource": "*", "effect": "deny"},
+        {"action": "read", "resource": "*", "effect": "allow"},
+        {"action": "shell", "resource": "*", "effect": "allow"},
+        {"action": "webfetch", "resource": "*", "effect": "allow"},
+        # Web Search under "allow" asks for input that a headless run cannot
+        # give; OpenCode v2.3.2 then exits 1 ("Cancelled a request for input
+        # this run cannot answer: Web Search") even when the work is done.
+        # Under "deny" the tool is refused and the run ends with exit 0.
+        {"action": "websearch", "resource": "*", "effect": "deny"},
+        {"action": "edit", "resource": "*", "effect": "deny"},
+    ]
+    limits = ["websearch is denied: OpenCode's Web Search asks for input a "
+              "headless run cannot answer; webfetch and the shell keep network access"]
+    # External reads are checked before read/edit; allow only the git
+    # common directory, cards and outputs, never every directory.
+    for path in context.extra_read:
+        rules.append({"action": "external_directory", "resource": f"{path}/*",
+                      "effect": "allow"})
+    # FileAccess.resolve gives an internal path relative to the location
+    # (e.g. "src/a.py") and an external path as an absolute path. So "*"
+    # covers the worktree, the absolute common path covers a linked
+    # worktree's git directory, and the external_directory grants above
+    # bound the rest. Deny project-parent paths and the read-only outputs.
+    if not context.review:
+        rules.append({"action": "edit", "resource": "*", "effect": "allow"})
+        if context.common:
+            rules.append({"action": "edit", "resource": f"{context.common}/*",
+                          "effect": "allow"})
+        for path in ("..", "../*"):
+            rules.append({"action": "edit", "resource": path, "effect": "deny"})
+        for path in unique_paths(context.home_dirs):
+            if not is_within(path, context.cwd):
+                rules.append({"action": "edit", "resource": f"{path}/*",
+                              "effect": "deny"})
+    env = {"OPENCODE_CONFIG_CONTENT": json.dumps({"permissions": rules})}
+    limits.append("OpenCode has no sandbox: shell runs with the host user's "
+                  "filesystem and network authority")
+    if context.review:
+        # Reviewers need shell for read-only git and tests, but shell keeps
+        # host write authority even though the edit tool is denied.
+        limits.append("reviewer can still write through the shell; "
+                      "only the edit tool is denied")
+    else:
+        limits.append("edit tool is limited to the worktree and git common "
+                      "directory; shell can still write elsewhere")
+    return {"argv": [], "env": env, "access": {
+        "mode": "policy", "network": True, "git_write": True,
+        "extra_read": context.extra_read, "limits": limits}}
+
+
+def _policy_agy_access(context):
+    # agy --help: "--sandbox Run in a sandbox with terminal restrictions
+    #   enabled"; "--settings Settings for this session only, never saved:
+    #   a JSON object of settings.json keys, inline or as a file path";
+    #   "--add-dir Add a directory to the workspace (repeatable)".
+    # settings.json schema: permissions {allow, ask, deny}, toolPermission,
+    # allowNonWorkspaceAccess. Permission rules use command(<prefix>) for
+    # commands, e.g. "command(git status)".
+    allow = ["read_url(*)", "read_file(" + context.cwd + ")"]
+    allow += [f"read_file({path})" for path in context.extra_read if path != context.cwd]
+    deny = []
+    limits = []
+    argv = []
+    if context.review:
+        allow += [f"command({command})" for command in (
+            "git diff", "git log", "git show", "git status", "git rev-parse")]
+        deny = [f"write_file({path})" for path in unique_paths(
+            [context.cwd, context.common, *context.home_dirs])]
+        limits.append("agy keeps the worktree read-write on its sandbox mount; "
+                      "write_file is denied and review_wrote still checks the tree")
+    else:
+        allow += [f"write_file({context.cwd})", "command(git)"]
+        if context.common:
+            allow.append(f"write_file({context.common})")
+        if context.common and not is_within(context.common, context.cwd):
+            argv += ["--add-dir", context.common]
+    settings = {
+        "toolPermission": "proceed-in-sandbox",
+        "allowNonWorkspaceAccess": True,
+        "permissions": {"allow": allow, "deny": deny},
+    }
+    argv += ["--sandbox", "--settings", json.dumps(settings, separators=(",", ":"))]
+    return {"argv": argv, "env": {}, "access": {
+        "mode": "policy", "network": True, "git_write": not context.review,
+        "extra_read": context.extra_read, "limits": limits}}
 
 
 AGY_GIT_GLOBAL_LIMIT = ("agy: git reads a runner-made copy of the global git config "
@@ -850,8 +920,23 @@ def guard_argv(argv, executor):
     return argv
 
 
-def build_argv(executor, model, role, cwd, card, last_msg, policy=None):
-    policy = policy or access_policy(executor, role, cwd)
+@dataclasses.dataclass
+class BuildRequest:
+    """One executor command line: the model, the role and the prompt card."""
+
+    executor: str
+    model: str
+    role: str
+    cwd: str
+    card: str
+    last_msg: object
+    policy: object = None
+
+
+def build_argv(request):
+    executor, model, role, cwd = request.executor, request.model, request.role, request.cwd
+    card, last_msg = request.card, request.last_msg
+    policy = request.policy or access_policy(AccessRequest(executor, role, cwd))
     if executor == "opencode":
         # opencode run --help: "--archived Create the session archived";
         # global "--standalone Run with a private server instead of the
@@ -1051,26 +1136,39 @@ def agy_denied_permission(stderr):
     return match.group(1) if match else None
 
 
-def classify_failure(timed_out, code, stdout, stderr, review_wrote, review_output=None, executor=None):
-    if timed_out:
+@dataclasses.dataclass
+class FailureInput:
+    """What a finished run left behind, enough to name its failure."""
+
+    timed_out: bool
+    code: int
+    stdout: object
+    stderr: object
+    review_wrote: bool
+    review_output: object = None
+    executor: object = None
+
+
+def classify_failure(input):
+    if input.timed_out:
         return "timeout"
-    if code != 0 and has_provider_limit(stdout, stderr):
+    if input.code != 0 and has_provider_limit(input.stdout, input.stderr):
         return "provider_limit"
-    if executor == "claude" and claude_limit(stdout):
+    if input.executor == "claude" and claude_limit(input.stdout):
         return "provider_limit"
-    if review_wrote:
+    if input.review_wrote:
         return "review_wrote"
-    if code != 0:
+    if input.code != 0:
         return "error"
-    if review_output is not None:
+    if input.review_output is not None:
         try:
-            review_text = review_output.read_text(errors="replace")
+            review_text = input.review_output.read_text(errors="replace")
         except FileNotFoundError:
             review_text = ""
         if not review_text.strip():
             # Antigravity in print mode denies a tool it cannot ask about and
             # loses the whole answer: that is the cause, not an empty review.
-            if executor == "agy" and agy_denied_permission(stderr):
+            if input.executor == "agy" and agy_denied_permission(input.stderr):
                 return "permission_denied"
             return "empty_output"
         if not review_complete(review_text):
@@ -1320,25 +1418,44 @@ def get_active_remote():
     return active
 
 
-def new_remote_active(executor, task_id, project, profile, role, host, limit_s):
+@dataclasses.dataclass
+class RemoteActiveSpec:
+    """The fields of one --host run's active file."""
+
+    executor: str
+    task_id: str
+    project: str
+    profile: str
+    role: str
+    host: str
+    limit_s: float
+
+
+def new_remote_active(request=None, *legacy, **fields):
     """Path and content of the active file of one --host run; writes nothing.
 
+    `request` is a `RemoteActiveSpec`. The seven fields are also accepted
+    positionally or by keyword, because report and cleaning callers use the
+    older form.
     The token makes the name this run's alone and is copied into its record
     (`active_token`), which is how a leftover file is matched to a finished run.
     `limit_s` bounds the whole run; it only decides when the file ends if the
     runner's identity could not be read.
     """
+    if not isinstance(request, RemoteActiveSpec):
+        request = (RemoteActiveSpec(**fields) if request is None
+                   else RemoteActiveSpec(request, *legacy, **fields))
     token = os.urandom(8).hex()
     started = now()
     data = {
-        "id": task_id, "project": project, "profile": profile, "role": role,
-        "machine": host, **ATTRIBUTION,
+        "id": request.task_id, "project": request.project, "profile": request.profile,
+        "role": request.role, "machine": request.host, **ATTRIBUTION,
         "started": started.isoformat(timespec="microseconds"),
         "runner_pid": os.getpid(), "runner_start": process_identity(os.getpid()),
         "token": token,
-        "expires": (started + dt.timedelta(seconds=limit_s)).isoformat(timespec="seconds"),
+        "expires": (started + dt.timedelta(seconds=request.limit_s)).isoformat(timespec="seconds"),
     }
-    return RUNNING_REMOTE / f"{executor}-{task_id}-{token}.json", data
+    return RUNNING_REMOTE / f"{request.executor}-{request.task_id}-{token}.json", data
 
 
 def publish_remote_active(path, data):
@@ -2641,11 +2758,11 @@ def remoteify(value):
 
 
 def remote_access_policy(executor, role, strict=False):
-    policy = access_policy(
+    policy = access_policy(AccessRequest(
         executor, role, REMOTE_POLICY_ROOT + "/tree",
         out_path=REMOTE_POLICY_ROOT + "/run", strict=strict,
         common_dir=REMOTE_POLICY_ROOT + "/tree/.git",
-        home_dirs=[REMOTE_POLICY_ROOT + "/run"])
+        home_dirs=[REMOTE_POLICY_ROOT + "/run"]))
     policy["argv"] = remoteify(policy["argv"])
     policy["env"] = remoteify(policy["env"])
     policy["access"] = remoteify(policy["access"])
@@ -3056,9 +3173,9 @@ def execute_remote_run(request):
         request.diff_range, request.attachments, request.access_mode, request.host,
         request.prompt, request.stdout, request.stderr, request.last_msg)
     # Checks, sync and pull are each bounded by the timeout plus two minutes.
-    active_file, active = new_remote_active(
+    active_file, active = new_remote_active(RemoteActiveSpec(
         executor, task_id, project, profile, role, host,
-        limit_s=wait_s + 3 * (timeout + 120) + 600)
+        wait_s + 3 * (timeout + 120) + 600))
     pending["active_token"] = active["token"]
     try:
         publish_remote_active(active_file, active)
@@ -3531,8 +3648,9 @@ def _remote_failure(run, meta, merge, review_wrote, commit_failed):
     review_output = None
     if request.role == "review":
         review_output = request.last_msg if request.executor == "codex" else request.stdout
-    return classify_failure(False, int(meta.get("exit") or 0), request.stdout, request.stderr,
-                            review_wrote, review_output, request.executor)
+    return classify_failure(FailureInput(
+        False, int(meta.get("exit") or 0), request.stdout, request.stderr,
+        review_wrote, review_output, request.executor))
 
 
 def _remote_outcome(run, meta):
@@ -4003,8 +4121,9 @@ def _prepare_run_paths(task, role, options, identity, prompt):
     task_id = prompt.task_id
     out_path = Path(options.out or HOME / "delegate" / "out" / prompt.project).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
-    policy = access_policy(identity.executor, role, prompt.cwd, out_path,
-                           strict=options.access_mode == "strict")
+    policy = access_policy(AccessRequest(
+        identity.executor, role, prompt.cwd, out_path,
+        strict=options.access_mode == "strict"))
     stdout, stderr, last_msg, prompt_path = run_output_paths(out_path, task_id, prompt.attempt)
     prompt_path.write_text(prompt.card_content, encoding="utf-8")
     tracker = ProcessTracker()
@@ -4060,8 +4179,8 @@ def _dispatch_remote(task, role, setup):
 def _prepare_local_run(setup):
     """Build the executor argv and the local slot state, before any process starts."""
     executor = setup.identity.executor
-    argv = build_argv(executor, setup.identity.model, setup.role, setup.cwd,
-                      setup.card_content, setup.last_msg, setup.policy)
+    argv = build_argv(BuildRequest(executor, setup.identity.model, setup.role, setup.cwd,
+                                   setup.card_content, setup.last_msg, setup.policy))
     progress_files = (setup.stdout, setup.stderr)
     agy_log = None
     if executor == "agy":
@@ -4271,8 +4390,8 @@ def _local_outcome(run, role, snap1):
     review_output = ((setup.last_msg if setup.identity.executor == "codex" else setup.stdout)
                      if role == "review" else None)
     failure = run.orphan_failure or ("stalled" if run.stalled else classify_failure(
-        run.timed_out, run.p.returncode, setup.stdout, setup.stderr, review_wrote,
-        review_output, setup.identity.executor))
+        FailureInput(run.timed_out, run.p.returncode, setup.stdout, setup.stderr, review_wrote,
+                     review_output, setup.identity.executor)))
     commits = (git(setup.cwd, "rev-list", "--count", f"{run.head0}..{head1}")
                if run.head0 and head1 else "")
     files = (git(setup.cwd, "diff", "--name-only", f"{run.head0}..{head1}")
@@ -4841,8 +4960,36 @@ class StepRequest:
     author_family: object = None
 
 
-def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, route, executor_profile,
-              gate, gate_timeout, review_route, first, first_reviewer):
+@dataclasses.dataclass
+class FixRoundRequest:
+    """Everything the one fix round reads besides the run record and the launcher."""
+
+    task_id: str
+    task: str
+    cwd: str
+    out: object
+    attempt_root: object
+    card: object
+    route: list
+    executor_profile: str
+    gate: str
+    gate_timeout: object
+    review_route: list
+    first: dict
+    first_reviewer: str
+
+
+@dataclasses.dataclass
+class FixReview:
+    """The facts of the follow-up review: what it reads and who may run it."""
+
+    gated: tuple
+    card: object
+    family: str
+    reviewers: list
+
+
+def fix_round(fix, run_step, request):
     """The one fix round of a pipeline, opened by a computed major and never
     repeated: the majors alone go to the executor that wrote the code (then the
     rest of the approved route, on a capacity failure only), the runner commits
@@ -4851,16 +4998,40 @@ def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, rou
     filled in as the round goes, so a stop signal still leaves what was done.
     `run_step(StepRequest(profile, role, card, diff_range, attachments, author_family))`
     launches one run of the pipeline."""
+    fix_card = _fix_round_start(fix, request)
+    rec = _fix_route(fix, request, run_step, fix_card)
+    if rec is None:
+        return fix
+    if _fix_commit(fix, request, rec):
+        return fix
+    if _fix_gate(fix, request):
+        return fix
+    review = _fix_review_setup(fix, request)
+    _run_fix_review(fix, request, run_step, review)
+    return fix
+
+
+def _fix_round_start(fix, request):
+    """Write the fix card and open the round on the record."""
     majors = [{"id": f["id"], "location": f["location"], "line": line}
-              for f, line in zip(first["findings"], first["summary_lines"]) if f["severity"] == "major"]
-    fix.update(state="started", stage="executor", majors=majors, base=git(cwd, "rev-parse", "HEAD"))
-    fix_card = attempt_root / "fix-card.md"
-    fix_card.write_text(fix_card_text(task_id, task, [m["line"] for m in majors]), encoding="utf-8")
+              for f, line in zip(request.first["findings"], request.first["summary_lines"])
+              if f["severity"] == "major"]
+    fix.update(state="started", stage="executor", majors=majors,
+               base=git(request.cwd, "rev-parse", "HEAD"))
+    fix_card = request.attempt_root / "fix-card.md"
+    fix_card.write_text(fix_card_text(request.task_id, request.task,
+                                      [m["line"] for m in majors]), encoding="utf-8")
     fix["card"] = str(fix_card)
+    return fix_card
+
+
+def _fix_route(fix, request, run_step, fix_card):
+    """Run the fixer route; return the record that stopped the route, or None."""
     tried = []
-    for profile in dict.fromkeys([executor_profile, *route]):
+    for profile in dict.fromkeys([request.executor_profile, *request.route]):
         check_paused()
-        rec = run_step(StepRequest(profile, "fix", str(fix_card), attachments=[card] if card else []))
+        rec = run_step(StepRequest(profile, "fix", str(fix_card),
+                                   attachments=[request.card] if request.card else []))
         tried.append(rec)
         if rec["failure"] in ("provider_limit", "slot_timeout", "input_too_large"):
             continue
@@ -4869,75 +5040,100 @@ def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, rou
     else:
         fix.update(state="no_fixer", error="fix route exhausted: " + ", ".join(
             f"{r['profile']} ({r['failure']})" for r in tried))
-        return fix
+        return None
+    return rec
 
+
+def _fix_commit(fix, request, rec):
+    """Commit what the fix left; return True when the round stops here."""
     fix["stage"] = "commit"
     check_paused()
-    snapshot = tree_snapshot(cwd)
+    snapshot = tree_snapshot(request.cwd)
     if snapshot[1] and rec["failure"] == "none":
-        runner_commit(cwd, f"{task_id}: fix the majors of the review (committed by the delegate runner)",
-                      attempt_root / "fix-commit.log")
+        runner_commit(request.cwd,
+                      f"{request.task_id}: fix the majors of the review "
+                      "(committed by the delegate runner)",
+                      request.attempt_root / "fix-commit.log")
         fix["auto_committed"] = True
-        snapshot = tree_snapshot(cwd)
+        snapshot = tree_snapshot(request.cwd)
     if snapshot[1]:
         fix.update(state="fix_failed",
                    error=f"the fix run ended {rec['failure']} and left uncommitted changes")
-        return fix
+        return True
     if snapshot[0] == fix["base"]:
         fix["state"] = "no_changes"
         if rec["failure"] != "none":
             fix["error"] = f"the fix run ended {rec['failure']}"
-        return fix
+        return True
     fix["head"] = snapshot[0]
     if rec["failure"] != "none":
         fix["note"] = (f"the fix run ended {rec['failure']} after committing; "
                        "the gate and the follow-up review judge its commits")
+    return False
 
+
+def _fix_gate(fix, request):
+    """Run the host gate over the fix commits; return True when the round stops."""
     fix["stage"] = "gate"
     check_paused()
     fix["gate"] = {}
-    run_gate(gate, cwd, gate_timeout, out / f"{task_id}.fix-gate.log", fix["gate"])
+    run_gate(request.gate, request.cwd, request.gate_timeout,
+             request.out / f"{request.task_id}.fix-gate.log", fix["gate"])
     if fix["gate"]["exit"] != 0 or fix["gate"]["timed_out"]:
-        fix.update(state="gate_failed", error="gate timed out after the fix" if fix["gate"]["timed_out"]
+        fix.update(state="gate_failed",
+                   error="gate timed out after the fix" if fix["gate"]["timed_out"]
                    else f"gate exit {fix['gate']['exit']} after the fix")
-        return fix
+        return True
+    return False
 
+
+def _fix_review_setup(fix, request):
+    """Write the follow-up card and choose the reviewers of the fix commits."""
     fix["stage"] = "review"
     check_paused()
-    gated = tree_snapshot(cwd)
-    numbers = [int(f["id"][1:]) for f in first["findings"]]
-    followup = attempt_root / "follow-up-review-card.md"
-    followup.write_text(followup_card_text(task_id, task, [m["line"] for m in majors],
-                                           f"F{max(numbers, default=0) + 1:02d}"), encoding="utf-8")
+    gated = tree_snapshot(request.cwd)
+    numbers = [int(f["id"][1:]) for f in request.first["findings"]]
+    followup = request.attempt_root / "follow-up-review-card.md"
+    followup.write_text(followup_card_text(
+        request.task_id, request.task, [m["line"] for m in fix["majors"]],
+        f"F{max(numbers, default=0) + 1:02d}"), encoding="utf-8")
     fix["review_card"] = str(followup)
     fix_family = MODELS[fix["profile"]][2]
     # The reviewer is never of the family of either author.
-    authors = {MODELS[executor_profile][2], fix_family}
-    reviewers = [p for p in claude_last(list(dict.fromkeys([first_reviewer, *review_route])))
-                 if MODELS[p][2] not in authors]
+    authors = {MODELS[request.executor_profile][2], fix_family}
+    reviewers = [p for p in claude_last(list(dict.fromkeys(
+        [request.first_reviewer, *request.review_route])))
+        if MODELS[p][2] not in authors]
+    return FixReview(gated, followup, fix_family, reviewers)
+
+
+def _run_fix_review(fix, request, run_step, review):
+    """Run the follow-up review route and fill the round's last state."""
     tried = []
-    for profile in reviewers:
+    for profile in review.reviewers:
         check_paused()
-        rec = run_step(StepRequest(profile, "review", str(followup), diff_range=f"{fix['base']}...{gated[0]}",
-                                   attachments=[], author_family=fix_family))
+        rec = run_step(StepRequest(
+            profile, "review", str(review.card),
+            diff_range=f"{fix['base']}...{review.gated[0]}",
+            attachments=[], author_family=review.family))
         tried.append(rec)
-        if tree_snapshot(cwd) != gated:
+        if tree_snapshot(request.cwd) != review.gated:
             fix.update(state="not_reviewed", error="review_wrote: tree changed after the fix gate")
-            return fix
+            return
         if rec["failure"] in REVIEW_RETRY:
             continue
         if rec["failure"] == "none":
             review_file = rec.get("last_message") or rec["stdout"]
             text = Path(review_file).read_text(errors="replace")
             fix.update(state="reviewed", reviewer=profile, review_file=review_file,
-                       review=parse_review(text), verdicts=major_verdicts(text, [m["id"] for m in majors]))
+                       review=parse_review(text),
+                       verdicts=major_verdicts(text, [m["id"] for m in fix["majors"]]))
         else:
             fix.update(state="not_reviewed", error=rec["failure"])
-        return fix
+        return
     fix.update(state="not_reviewed", error="follow-up review route exhausted: " + ", ".join(
         f"{r['profile']} ({r['failure']})" for r in tried) if tried
         else "no reviewer outside the families of the authors")
-    return fix
 
 
 def conclude(outcome, first, fix):
@@ -5431,11 +5627,11 @@ def pipeline_fix_round(st):
     st.fix = {}
     try:
         fix_round(st.fix, lambda request: pipeline_attempt(st, request),
-                  task_id=st.task_id, task=st.task, cwd=st.cwd, out=st.out,
-                  attempt_root=st.attempt_root, card=st.a.card, route=st.route,
-                  executor_profile=st.executor_profile, gate=st.a.gate,
-                  gate_timeout=st.a.timeout, review_route=st.review_route,
-                  first=st.review, first_reviewer=st.reviewer_profile)
+                  FixRoundRequest(task_id=st.task_id, task=st.task, cwd=st.cwd, out=st.out,
+                                  attempt_root=st.attempt_root, card=st.a.card, route=st.route,
+                                  executor_profile=st.executor_profile, gate=st.a.gate,
+                                  gate_timeout=st.a.timeout, review_route=st.review_route,
+                                  first=st.review, first_reviewer=st.reviewer_profile))
     except (Exception, SystemExit, KeyboardInterrupt) as exc:
         st.fix.update(state="paused" if isinstance(exc, PausedError) else "stopped",
                       error=exception_reason(exc))
@@ -5761,12 +5957,12 @@ def pending_fix(ctx):
     ctx.fix = {}
     try:
         fix_round(ctx.fix, lambda request: pending_run_step(ctx, request),
-                  task_id=ctx.task_id, task=ctx.task, cwd=ctx.cwd, out=ctx.out,
-                  attempt_root=ctx.attempt_root, card=card,
-                  route=ctx.p.get("route") or [ctx.p["executor_profile"]],
-                  executor_profile=ctx.p["executor_profile"], gate=ctx.p["gate"],
-                  gate_timeout=ctx.executor_timeout, review_route=ctx.route, first=ctx.review,
-                  first_reviewer=ctx.reviewer_profile)
+                  FixRoundRequest(task_id=ctx.task_id, task=ctx.task, cwd=ctx.cwd, out=ctx.out,
+                                  attempt_root=ctx.attempt_root, card=card,
+                                  route=ctx.p.get("route") or [ctx.p["executor_profile"]],
+                                  executor_profile=ctx.p["executor_profile"], gate=ctx.p["gate"],
+                                  gate_timeout=ctx.executor_timeout, review_route=ctx.route,
+                                  first=ctx.review, first_reviewer=ctx.reviewer_profile))
     except (Exception, SystemExit, KeyboardInterrupt) as exc:
         ctx.fix.update(state="paused" if isinstance(exc, PausedError) else "stopped",
                        error=exception_reason(exc))
@@ -6107,7 +6303,7 @@ def cmd_profiles(a):
         for label, role in (("implement, fix, mechanical, test", "implement"), ("review", "review")):
             if (executor == "claude" or agy_claude_model(executor, model)) and role != "review":
                 continue
-            policy = access_policy(executor, role, cwd)
+            policy = access_policy(AccessRequest(executor, role, cwd))
             print(f"  {label} | {format_access(policy['access'])}")
 
 

@@ -316,8 +316,8 @@ spec.loader.exec_module(d)
   it('D9 R01/R04 scopes OpenCode edit rules and uses the verified permissions shape', () => {
     const res = pythonHarness(`
 import json
-impl = d.access_policy('opencode', 'implement', ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)})
-rev = d.access_policy('opencode', 'review', ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)})
+impl = d.access_policy(d.AccessRequest('opencode', 'implement', ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)}))
+rev = d.access_policy(d.AccessRequest('opencode', 'review', ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)}))
 def dump(policy):
     return {'rules': json.loads(policy['env']['OPENCODE_CONFIG_CONTENT'])['permissions'],
             'access': policy['access']}
@@ -416,7 +416,7 @@ except SystemExit as exc:
     const res = pythonHarness(`
 out = {}
 for role in ('implement', 'review'):
-  out[role] = d.access_policy('opencode', role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)})
+  out[role] = d.access_policy(d.AccessRequest('opencode', role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)}))
 print(json.dumps(out))
 `);
     assert.equal(res.status, 0, res.stderr);
@@ -450,10 +450,10 @@ import json
 out = {}
 for executor in ('codex', 'opencode', 'agy'):
  for role in ('implement', 'review'):
-  pol = d.access_policy(executor, role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)}, strict=False)
-  strict = d.access_policy(executor, role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)}, strict=True)
-  argv = d.build_argv(executor, d.FLASH_MODEL if executor == 'opencode' else 'm', role,
-                      ${JSON.stringify(repoDir)}, 'CARD', 'LAST', strict)
+  pol = d.access_policy(d.AccessRequest(executor, role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)}, strict=False))
+  strict = d.access_policy(d.AccessRequest(executor, role, ${JSON.stringify(repoDir)}, ${JSON.stringify(outDir)}, strict=True))
+  argv = d.build_argv(d.BuildRequest(executor, d.FLASH_MODEL if executor == 'opencode' else 'm', role,
+                      ${JSON.stringify(repoDir)}, 'CARD', 'LAST', strict))
   out[executor + '/' + role] = {'policy': pol, 'strict': strict, 'argv': argv}
 print(json.dumps(out))
 `);
