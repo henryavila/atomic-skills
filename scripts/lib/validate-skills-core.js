@@ -394,7 +394,13 @@ export function validateSkill(key, entry, knownNames) {
 }
 
 /**
+ * @typedef {{ key: string, entry: any, location: string, modulePath?: string|null }} SkillRecord
+ */
+
+/**
  * Walk the catalog tree and produce a list of {key, entry, location} records.
+ * @param {any} data
+ * @returns {SkillRecord[]}
  */
 export function collectSkills(data) {
   const skills = [];

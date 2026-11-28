@@ -204,7 +204,7 @@ function renderExamples(examples) {
 
 /**
  * Landing page: product positioning, install, links.
- * @param {{ product: object, skills: ReturnType<typeof collectSkills>, pkgVersion?: string }} opts
+ * @param {{ product: object, skills: ReturnType<typeof collectSkills>, pkgVersion?: string, includeProject?: boolean }} opts
  */
 export function renderLandingPage({ product, skills, pkgVersion, includeProject = false }) {
   const p = product && typeof product === 'object' ? product : {};
@@ -296,7 +296,7 @@ export function renderLandingPage({ product, skills, pkgVersion, includeProject 
 
 /**
  * Skills index listing all catalog skills.
- * @param {{ skills: ReturnType<typeof collectSkills> }} opts
+ * @param {{ skills: ReturnType<typeof collectSkills>, includeProject?: boolean }} opts
  */
 export function renderSkillsIndex({ skills, includeProject = false }) {
   // includeProject controls Project nav entry (only when guide page is emitted).
@@ -340,7 +340,7 @@ export function renderSkillsIndex({ skills, includeProject = false }) {
 
 /**
  * Per-skill detail page (catalog fields only).
- * @param {{ skill: { key: string, entry: object, modulePath: string|null } }} opts
+ * @param {{ skill: { key: string, entry: object, modulePath?: string|null }, includeProject?: boolean }} opts
  */
 export function renderSkillDetail({ skill, includeProject = false }) {
   const e = skill.entry || {};
@@ -413,7 +413,7 @@ export function renderSkillDetail({ skill, includeProject = false }) {
 
 /**
  * Modules page from catalog module_meta.
- * @param {{ moduleMeta: Record<string, object>|null|undefined }} opts
+ * @param {{ moduleMeta: Record<string, object>|null|undefined, includeProject?: boolean }} opts
  */
 export function renderModulesPage({ moduleMeta, includeProject = false }) {
   const meta = moduleMeta && typeof moduleMeta === 'object' ? moduleMeta : {};
@@ -474,7 +474,7 @@ export function renderModulesPage({ moduleMeta, includeProject = false }) {
 
 /**
  * Hosts page — Tested vs Theoretical from config (never a parallel catalog list).
- * @param {{ ideConfig?: typeof IDE_CONFIG, supportLabel?: typeof getIdeSupportLabel }} [opts]
+ * @param {{ ideConfig?: typeof IDE_CONFIG, supportLabel?: typeof getIdeSupportLabel, publicIdeIds?: string[], includeProject?: boolean }} [opts]
  */
 export function renderHostsPage(opts = {}) {
   const ideConfig = opts.ideConfig ?? IDE_CONFIG;
