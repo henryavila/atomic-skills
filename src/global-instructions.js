@@ -52,51 +52,121 @@ export function globalInstructionsDecision(installedPaths, answer) {
   return { cancelled: false, enabled: answer ?? installedPaths.length > 0 };
 }
 
+/**
+ * @param {object} effect
+ * @param {string} id
+ * @returns {boolean}
+ */
+function isOwnedInstructionEffect(effect, id) {
+  return effect?.type === 'textBlock' && effect.id === id;
+}
+
+/**
+ * Selected IDEs plus every agent whose block the journal still owns, so an
+ * existing opt-in survives unattended updates and IDE selection changes.
+ *
+ * @param {object} config
+ * @param {object[]} prior
+ * @returns {Set<string>}
+ */
+function collectInstructionAgents(config, prior) {
+  const agents = new Set(config.ides || []);
+  for (const agent of Object.keys(GLOBAL_INSTRUCTION_PATHS)) {
+    if (prior.some((effect) => isOwnedInstructionEffect(effect, `global-instructions:${agent}`))) {
+      agents.add(agent);
+    }
+  }
+  return agents;
+}
+
+/**
+ * Inspect the live destination through the no-follow boundary. A refusal on an
+ * owned agent is logged and parked; on a foreign one it aborts the plan.
+ *
+ * @param {object} fields
+ * @param {string} fields.basePath
+ * @param {string} fields.path
+ * @param {object[]} fields.prior
+ * @param {string} fields.id
+ * @param {boolean} fields.owned
+ * @param {object} fields.config
+ * @returns {{ state: string } | { refused: true }}
+ */
+function readInstructionState(fields) {
+  const { basePath, path, prior, id, owned, config } = fields;
+  try {
+    const previous = prior.find((effect) => isOwnedInstructionEffect(effect, id))?.beforeState;
+    if (previous) instructionLocation(basePath, previous);
+    return { state: globalInstructionState(basePath, path) };
+  } catch (err) {
+    if (owned) {
+      console.log(`  ${msg(config.language).globalInstructionsRefused(path, err.message)}`);
+      return { refused: true };
+    }
+    err.globalInstructionPath = path;
+    throw err;
+  }
+}
+
+/**
+ * @param {string} state
+ * @param {string} path
+ */
+function assertUsableInstructionState(state, path) {
+  if (state !== 'absent' && state !== 'present') {
+    /** @type {Error & { globalInstructionPath?: string }} */
+    const err = new Error(state);
+    err.globalInstructionPath = path;
+    throw err;
+  }
+}
+
+/**
+ * Plan one agent's text block, or return [] when it must be left alone.
+ *
+ * @param {object} fields
+ * @param {string} fields.agent
+ * @param {object} fields.config
+ * @param {string} fields.basePath
+ * @param {object[]} fields.prior
+ * @returns {object[]}
+ */
+function planAgentInstruction(fields) {
+  const { agent, config, basePath, prior } = fields;
+  const path = GLOBAL_INSTRUCTION_PATHS[agent];
+  const id = `global-instructions:${agent}`;
+  const owned = prior.some((effect) => isOwnedInstructionEffect(effect, id));
+  const enabled = config.globalInstructions ?? owned;
+  if (!path || (!enabled && !owned) || config.refusedGlobalPaths?.includes(path)) return [];
+
+  const read = readInstructionState({ basePath, path, prior, id, owned, config });
+  if ('refused' in read) return [];
+
+  try {
+    assertUsableInstructionState(read.state, path);
+    if (owned && read.state === 'absent' && config.globalInstructions === undefined) {
+      config.optedOutGlobalPaths?.add(path);
+      return [];
+    }
+  } catch (err) {
+    err.globalInstructionPath = path;
+    throw err;
+  }
+
+  if (!enabled) return [];
+  return [{ type: 'textBlock', id, args: {
+    basePath, path, id, markers: DELEGATE_MARKERS,
+    content: globalInstructionBody(config.language),
+  } }];
+}
+
 export function createGlobalInstructionsProvider() {
   return {
     plan(config, { basePath }) {
       if (config.scope !== 'user') return [];
       const prior = readManifest(basePath)?.effects || [];
-      // Existing opt-ins survive unattended updates and IDE selection changes.
-      const agents = new Set(config.ides || []);
-      for (const agent of Object.keys(GLOBAL_INSTRUCTION_PATHS)) {
-        if (prior.some(e => e.type === 'textBlock' && e.id === `global-instructions:${agent}`)) agents.add(agent);
-      }
-      return [...agents].flatMap(agent => {
-        const path = GLOBAL_INSTRUCTION_PATHS[agent];
-        const id = `global-instructions:${agent}`;
-        const owned = prior.some(e => e.type === 'textBlock' && e.id === id);
-        const enabled = config.globalInstructions ?? owned;
-        if (!path || (!enabled && !owned) || config.refusedGlobalPaths?.includes(path)) return [];
-        let state;
-        try {
-          const previous = prior.find(e => e.type === 'textBlock' && e.id === id)?.beforeState;
-          if (previous) instructionLocation(basePath, previous);
-          state = globalInstructionState(basePath, path);
-        } catch (err) {
-          if (owned) {
-            console.log(`  ${msg(config.language).globalInstructionsRefused(path, err.message)}`);
-            return [];
-          }
-          err.globalInstructionPath = path;
-          throw err;
-        }
-        try {
-          if (state !== 'absent' && state !== 'present') throw new Error(state);
-          if (owned && state === 'absent' && config.globalInstructions === undefined) {
-            config.optedOutGlobalPaths?.add(path);
-            return [];
-          }
-        } catch (err) {
-          err.globalInstructionPath = path;
-          throw err;
-        }
-        if (!enabled) return [];
-        return [{ type: 'textBlock', id, args: {
-          basePath, path, id, markers: DELEGATE_MARKERS,
-          content: globalInstructionBody(config.language),
-        } }];
-      });
+      return [...collectInstructionAgents(config, prior)]
+        .flatMap((agent) => planAgentInstruction({ agent, config, basePath, prior }));
     },
   };
 }

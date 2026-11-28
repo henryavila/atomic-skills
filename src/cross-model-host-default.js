@@ -43,6 +43,36 @@ export const REVIEW_MODES = Object.freeze([
   'external-both',
 ]);
 
+/** Alias table for free-form host labels (lowercased before lookup). */
+const HOST_FAMILY_ALIASES = Object.freeze(
+  /** @type {Readonly<Record<string, HostFamily>>} */ ({
+    claude: 'claude',
+    'claude-code': 'claude',
+    claude_code: 'claude',
+    codex: 'codex',
+    'openai-codex': 'codex',
+    grok: 'grok',
+    'grok-build': 'grok',
+    grok_build: 'grok',
+    agy: 'agy',
+    antigravity: 'agy',
+    'antigravity-cli': 'agy',
+    cursor: 'cursor',
+    unknown: 'unknown',
+  }),
+);
+
+const AGY_ENV_SIGNALS = Object.freeze([
+  'ANTIGRAVITY_AGENT',
+  'ANTIGRAVITY_CONVERSATION_ID',
+  'ANTIGRAVITY_APP_DATA_DIR',
+  'AGY_SESSION_ID',
+]);
+const GROK_ENV_SIGNALS = Object.freeze(['GROK_SESSION_ID', 'GROK_WORKSPACE_ROOT']);
+const CODEX_ENV_SIGNALS = Object.freeze(['CODEX_THREAD_ID']);
+const CLAUDE_ENV_SIGNALS = Object.freeze(['CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_PROJECT_DIR']);
+const CURSOR_ENV_SIGNALS = Object.freeze(['CURSOR_TRACE_ID', 'CURSOR_SESSION_ID']);
+
 /**
  * Normalize a free-form host label into a HostFamily.
  * @param {string | null | undefined} raw
@@ -51,12 +81,28 @@ export const REVIEW_MODES = Object.freeze([
 export function normalizeHostFamily(raw) {
   if (raw == null || raw === '') return 'unknown';
   const s = String(raw).trim().toLowerCase();
-  if (s === 'claude' || s === 'claude-code' || s === 'claude_code') return 'claude';
-  if (s === 'codex' || s === 'openai-codex') return 'codex';
-  if (s === 'grok' || s === 'grok-build' || s === 'grok_build') return 'grok';
-  if (s === 'agy' || s === 'antigravity' || s === 'antigravity-cli') return 'agy';
-  if (s === 'cursor') return 'cursor';
-  if (s === 'unknown') return 'unknown';
+  return HOST_FAMILY_ALIASES[s] ?? 'unknown';
+}
+
+/**
+ * @param {Record<string, string | undefined>} env
+ * @param {readonly string[]} keys
+ * @returns {boolean}
+ */
+function anyEnvSet(env, keys) {
+  return keys.some((key) => Boolean(env[key]));
+}
+
+/**
+ * @param {Record<string, string | undefined>} env
+ * @returns {HostFamily}
+ */
+function familyFromEnvSignals(env) {
+  if (anyEnvSet(env, AGY_ENV_SIGNALS)) return 'agy';
+  if (anyEnvSet(env, GROK_ENV_SIGNALS)) return 'grok';
+  if (anyEnvSet(env, CODEX_ENV_SIGNALS) || env.CODEX_CI === '1' || env.CODEX_CI === 'true') return 'codex';
+  if (anyEnvSet(env, CLAUDE_ENV_SIGNALS)) return 'claude';
+  if (anyEnvSet(env, CURSOR_ENV_SIGNALS)) return 'cursor';
   return 'unknown';
 }
 
@@ -75,19 +121,7 @@ export function detectHostFamily(input = {}) {
   if (env.ATOMIC_SKILLS_HOST != null && String(env.ATOMIC_SKILLS_HOST).trim() !== '') {
     return normalizeHostFamily(env.ATOMIC_SKILLS_HOST);
   }
-  if (
-    env.ANTIGRAVITY_AGENT ||
-    env.ANTIGRAVITY_CONVERSATION_ID ||
-    env.ANTIGRAVITY_APP_DATA_DIR ||
-    env.AGY_SESSION_ID
-  ) {
-    return 'agy';
-  }
-  if (env.GROK_SESSION_ID || env.GROK_WORKSPACE_ROOT) return 'grok';
-  if (env.CODEX_THREAD_ID || env.CODEX_CI === '1' || env.CODEX_CI === 'true') return 'codex';
-  if (env.CLAUDECODE || env.CLAUDE_CODE_ENTRYPOINT || env.CLAUDE_PROJECT_DIR) return 'claude';
-  if (env.CURSOR_TRACE_ID || env.CURSOR_SESSION_ID) return 'cursor';
-  return 'unknown';
+  return familyFromEnvSignals(env);
 }
 
 /**
@@ -172,215 +206,345 @@ export function externalProviderForMode(mode, hostFamily) {
  */
 
 /**
- * Route a review invocation through the host≠reviewer matrix and same-family rules.
- *
- * @param {object} input
- * @param {HostFamily | string} [input.hostFamily]
- * @param {string} [input.explicitHost]
- * @param {Record<string, string | undefined>} [input.env]
- * @param {ReviewMode | string} input.mode
- * @param {boolean} [input.interactive] - TTY / ask_user available
- * @param {boolean} [input.acceptSameFamilyAsLocal]
- * @param {'confirm' | 'decline' | 'offer-cross-family' | null | ''} [input.sameFamilyDecision]
+ * @typedef {object} RouteInput
+ * @property {HostFamily | string} [hostFamily]
+ * @property {string} [explicitHost]
+ * @property {Record<string, string | undefined>} [env]
+ * @property {ReviewMode | string} [mode]
+ * @property {boolean} [interactive] - TTY / ask_user available
+ * @property {boolean} [acceptSameFamilyAsLocal]
+ * @property {'confirm' | 'decline' | 'offer-cross-family' | null | ''} [sameFamilyDecision]
  *        Required after a confirm-same-family pause when re-entering the helper.
+ */
+
+/**
+ * @typedef {object} RunFields
+ * @property {ProviderId} provider
+ * @property {boolean} sameFamilyRemap
+ * @property {boolean} includesLocal
+ * @property {'codex' | 'grok' | 'claude' | 'agy' | null} externalProvider
+ * @property {Array<'codex' | 'grok' | 'claude' | 'agy'>} [externalProviders]
+ * @property {HostFamily} hostFamily
+ * @property {string} mode
+ */
+
+/**
+ * @typedef {object} AbortFields
+ * @property {string} message
+ * @property {'codex' | 'grok' | 'claude' | 'agy'} [crossFamilyAlternative]
+ * @property {HostFamily} hostFamily
+ * @property {string} mode
+ * @property {'codex' | 'grok' | 'claude' | 'agy' | null} [externalProvider]
+ */
+
+const LOCAL_AND_EXTERNAL_MODES = new Set(['both', 'both-codex', 'both-grok', 'both-claude', 'both-agy']);
+
+/**
+ * @param {RunFields} fields
  * @returns {RouteResult}
  */
-export function resolveReviewRoute(input) {
+function runResult(fields) {
+  if (fields.externalProviders) {
+    return {
+      action: 'run',
+      provider: fields.provider,
+      sameFamilyRemap: fields.sameFamilyRemap,
+      includesLocal: fields.includesLocal,
+      externalProvider: fields.externalProvider,
+      externalProviders: fields.externalProviders,
+      hostFamily: fields.hostFamily,
+      mode: fields.mode,
+    };
+  }
+  return {
+    action: 'run',
+    provider: fields.provider,
+    sameFamilyRemap: fields.sameFamilyRemap,
+    includesLocal: fields.includesLocal,
+    externalProvider: fields.externalProvider,
+    hostFamily: fields.hostFamily,
+    mode: fields.mode,
+  };
+}
+
+/**
+ * @param {AbortFields} fields
+ * @returns {RouteResult}
+ */
+function abortResult(fields) {
+  return {
+    action: 'abort',
+    message: fields.message,
+    ...(fields.crossFamilyAlternative ? { crossFamilyAlternative: fields.crossFamilyAlternative } : {}),
+    hostFamily: fields.hostFamily,
+    mode: fields.mode,
+    externalProvider: fields.externalProvider ?? null,
+  };
+}
+
+/**
+ * @param {HostFamily} hostFamily
+ * @param {string} mode
+ * @returns {RouteResult}
+ */
+function localSameFamilyRemap(hostFamily, mode) {
+  return runResult({
+    provider: 'local',
+    sameFamilyRemap: true,
+    includesLocal: true,
+    externalProvider: null,
+    hostFamily,
+    mode,
+  });
+}
+
+/**
+ * @param {RouteInput} input
+ * @returns {{ hostFamily: HostFamily, mode: string, interactive: boolean, acceptFlag: boolean }}
+ */
+function routeContext(input) {
   const env = input.env || {};
   const hostFamily = input.hostFamily
     ? normalizeHostFamily(input.hostFamily)
     : detectHostFamily({ explicitHost: input.explicitHost, env });
-  const mode = String(input.mode || 'both').toLowerCase();
-  const interactive = input.interactive === true;
-  const acceptFlag = acceptsSameFamilyAsLocal({
-    acceptSameFamilyAsLocal: input.acceptSameFamilyAsLocal,
-    env,
+  return {
+    hostFamily,
+    mode: String(input.mode || 'both').toLowerCase(),
+    interactive: input.interactive === true,
+    acceptFlag: acceptsSameFamilyAsLocal({
+      acceptSameFamilyAsLocal: input.acceptSameFamilyAsLocal,
+      env,
+    }),
+  };
+}
+
+/**
+ * external-both with no family-different leg left after filtering.
+ *
+ * @param {object} fields
+ * @param {RouteInput} fields.input
+ * @param {boolean} fields.acceptFlag
+ * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.crossFamilyAlternative
+ * @param {HostFamily} fields.hostFamily
+ * @param {string} fields.mode
+ * @param {boolean} fields.interactive
+ * @returns {RouteResult}
+ */
+function externalBothNoLegsRoute(fields) {
+  const { input, acceptFlag, crossFamilyAlternative, hostFamily, mode, interactive } = fields;
+  const decision = input.sameFamilyDecision;
+  if (interactive && (decision == null || decision === '')) {
+    return {
+      action: 'confirm-same-family',
+      message:
+        'external-both has no family-different provider for this host. Confirm sealed local, or abort.',
+      crossFamilyAlternative,
+      hostFamily,
+      mode,
+      externalProvider: null,
+      externalProviders: [],
+    };
+  }
+  if ((interactive && decision === 'confirm') || acceptFlag) {
+    return localSameFamilyRemap(hostFamily, mode);
+  }
+  return abortResult({
+    message:
+      'HARD ABORT: external-both has no family-different provider for this host. ' +
+      'Use --accept-same-family-as-local for sealed local, or pick a single cross-family mode.',
+    crossFamilyAlternative,
+    hostFamily,
+    mode,
+    externalProvider: null,
   });
+}
+
+/**
+ * external-both: run every leg left after filtering the same-family one.
+ *
+ * @param {object} fields
+ * @param {RouteInput} fields.input
+ * @param {boolean} fields.acceptFlag
+ * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.crossFamilyAlternative
+ * @param {HostFamily} fields.hostFamily
+ * @param {string} fields.mode
+ * @param {boolean} fields.interactive
+ * @param {Array<'codex' | 'grok' | 'claude' | 'agy'>} fields.legs
+ * @returns {RouteResult}
+ */
+function externalBothRoute(fields) {
+  const { legs, hostFamily, mode } = fields;
+  if (legs.length === 0) return externalBothNoLegsRoute(fields);
+  return runResult({
+    provider: legs[0],
+    sameFamilyRemap: false,
+    includesLocal: false,
+    externalProvider: legs[0],
+    externalProviders: legs,
+    hostFamily,
+    mode,
+  });
+}
+
+/**
+ * @param {object} fields
+ * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.externalProvider
+ * @param {HostFamily} fields.hostFamily
+ * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.crossFamilyAlternative
+ * @returns {string}
+ */
+function sameFamilyAbortMessage(fields) {
+  const { externalProvider, hostFamily, crossFamilyAlternative } = fields;
+  return `HARD ABORT: requested external provider "${externalProvider}" is the same model family ` +
+    `as host "${hostFamily}". Same-family is not cross-model review. ` +
+    `Use the cross-family default "${crossFamilyAlternative}", mode=local, ` +
+    `or pass --accept-same-family-as-local (env ATOMIC_SKILLS_ACCEPT_SAME_FAMILY_AS_LOCAL=1) ` +
+    `to run the sealed local path (records provider:local, sameFamilyRemap:true; does not count as CROSS-MODEL REVIEW).`;
+}
+
+/**
+ * Interactive answer to a same-family external request.
+ *
+ * @param {object} fields
+ * @param {RouteInput} fields.input
+ * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.externalProvider
+ * @param {HostFamily} fields.hostFamily
+ * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.crossFamilyAlternative
+ * @param {boolean} fields.includesLocal
+ * @param {string} fields.mode
+ * @returns {RouteResult}
+ */
+function interactiveSameFamilyRoute(fields) {
+  const { input, externalProvider, hostFamily, crossFamilyAlternative, includesLocal, mode } = fields;
+  const decision = input.sameFamilyDecision;
+  if (decision == null || decision === '') {
+    return {
+      action: 'confirm-same-family',
+      provider: externalProvider,
+      sameFamilyRemap: false,
+      includesLocal,
+      externalProvider,
+      crossFamilyAlternative,
+      message:
+        `Same-family external (${externalProvider} on host ${hostFamily}) is equivalent to a ` +
+        `clean local review agent, not cross-model review. Confirm to run local, decline to abort, ` +
+        `or switch to cross-family provider ${crossFamilyAlternative}.`,
+      hostFamily,
+      mode,
+    };
+  }
+  if (decision === 'confirm') return localSameFamilyRemap(hostFamily, mode);
+  if (decision === 'offer-cross-family') {
+    return runResult({
+      provider: crossFamilyAlternative,
+      sameFamilyRemap: false,
+      includesLocal,
+      externalProvider: crossFamilyAlternative,
+      hostFamily,
+      mode,
+    });
+  }
+  return abortResult({
+    message: `Aborted: same-family external ${externalProvider} declined. Cross-family alternative: ${crossFamilyAlternative}.`,
+    crossFamilyAlternative,
+    hostFamily,
+    mode,
+    externalProvider,
+  });
+}
+
+/**
+ * A same-family external was requested: confirm/remap, or abort.
+ *
+ * @param {object} fields
+ * @param {RouteInput} fields.input
+ * @param {boolean} fields.acceptFlag
+ * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.externalProvider
+ * @param {HostFamily} fields.hostFamily
+ * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.crossFamilyAlternative
+ * @param {boolean} fields.includesLocal
+ * @param {string} fields.mode
+ * @param {boolean} fields.interactive
+ * @returns {RouteResult}
+ */
+function sameFamilyRoute(fields) {
+  const { input, acceptFlag, externalProvider, hostFamily, crossFamilyAlternative, includesLocal, mode, interactive } = fields;
+  if (interactive) return interactiveSameFamilyRoute({ input, externalProvider, hostFamily, crossFamilyAlternative, includesLocal, mode });
+  if (acceptFlag) return localSameFamilyRemap(hostFamily, mode);
+  return abortResult({
+    message: sameFamilyAbortMessage({ externalProvider, hostFamily, crossFamilyAlternative }),
+    crossFamilyAlternative,
+    hostFamily,
+    mode,
+    externalProvider,
+  });
+}
+
+/**
+ * Route a review invocation through the host≠reviewer matrix and same-family rules.
+ *
+ * @param {RouteInput} input
+ * @returns {RouteResult}
+ */
+export function resolveReviewRoute(input) {
+  const { hostFamily, mode, interactive, acceptFlag } = routeContext(input);
 
   if (!REVIEW_MODES.includes(mode)) {
-    return {
-      action: 'abort',
+    return abortResult({
       message:
         `HARD ABORT: unknown review mode "${mode}". ` +
         `Valid modes: ${REVIEW_MODES.join(', ')}.`,
       hostFamily,
       mode,
-      externalProvider: null,
-    };
+    });
   }
 
-  const includesLocal =
-    mode === 'both' ||
-    mode === 'both-codex' ||
-    mode === 'both-grok' ||
-    mode === 'both-claude' ||
-    mode === 'both-agy';
+  const includesLocal = LOCAL_AND_EXTERNAL_MODES.has(mode);
   const externalProvider = externalProviderForMode(mode, hostFamily);
   const crossFamilyAlternative = defaultExternalProvider(hostFamily);
 
   if (mode === 'local') {
-    return {
-      action: 'run',
+    return runResult({
       provider: 'local',
       sameFamilyRemap: false,
       includesLocal: true,
       externalProvider: null,
       hostFamily,
       mode,
-    };
+    });
   }
 
-  // external-both: filter same-family legs (order: codex → grok → claude).
   if (mode === 'external-both') {
-    const legs = externalBothLegs(hostFamily);
-    if (legs.length === 0) {
-      if (interactive && (input.sameFamilyDecision == null || input.sameFamilyDecision === '')) {
-        return {
-          action: 'confirm-same-family',
-          message:
-            'external-both has no family-different provider for this host. Confirm sealed local, or abort.',
-          crossFamilyAlternative,
-          hostFamily,
-          mode,
-          externalProvider: null,
-          externalProviders: [],
-        };
-      }
-      if (interactive && input.sameFamilyDecision === 'confirm') {
-        return {
-          action: 'run',
-          provider: 'local',
-          sameFamilyRemap: true,
-          includesLocal: true,
-          externalProvider: null,
-          hostFamily,
-          mode,
-        };
-      }
-      if (acceptFlag) {
-        return {
-          action: 'run',
-          provider: 'local',
-          sameFamilyRemap: true,
-          includesLocal: true,
-          externalProvider: null,
-          hostFamily,
-          mode,
-        };
-      }
-      return {
-        action: 'abort',
-        message:
-          'HARD ABORT: external-both has no family-different provider for this host. ' +
-          'Use --accept-same-family-as-local for sealed local, or pick a single cross-family mode.',
-        crossFamilyAlternative,
-        hostFamily,
-        mode,
-        externalProvider: null,
-      };
-    }
-    return {
-      action: 'run',
-      provider: legs[0],
-      sameFamilyRemap: false,
-      includesLocal: false,
-      externalProvider: legs[0],
-      externalProviders: legs,
+    return externalBothRoute({
+      input,
+      acceptFlag,
+      crossFamilyAlternative,
       hostFamily,
       mode,
-    };
+      interactive,
+      legs: externalBothLegs(hostFamily),
+    });
   }
 
   if (!isSameFamilyExternal(hostFamily, externalProvider)) {
-    return {
-      action: 'run',
-      provider: externalProvider,
+    return runResult({
+      provider: /** @type {'codex' | 'grok' | 'claude' | 'agy'} */ (externalProvider),
       sameFamilyRemap: false,
       includesLocal,
       externalProvider,
       hostFamily,
       mode,
-    };
+    });
   }
 
-  // Same-family external requested.
-  const abortMessage =
-    `HARD ABORT: requested external provider "${externalProvider}" is the same model family ` +
-    `as host "${hostFamily}". Same-family is not cross-model review. ` +
-    `Use the cross-family default "${crossFamilyAlternative}", mode=local, ` +
-    `or pass --accept-same-family-as-local (env ATOMIC_SKILLS_ACCEPT_SAME_FAMILY_AS_LOCAL=1) ` +
-    `to run the sealed local path (records provider:local, sameFamilyRemap:true; does not count as CROSS-MODEL REVIEW).`;
-
-  if (interactive) {
-    const decision = input.sameFamilyDecision;
-    if (decision == null || decision === '') {
-      return {
-        action: 'confirm-same-family',
-        provider: externalProvider,
-        sameFamilyRemap: false,
-        includesLocal,
-        externalProvider,
-        crossFamilyAlternative,
-        message:
-          `Same-family external (${externalProvider} on host ${hostFamily}) is equivalent to a ` +
-          `clean local review agent, not cross-model review. Confirm to run local, decline to abort, ` +
-          `or switch to cross-family provider ${crossFamilyAlternative}.`,
-        hostFamily,
-        mode,
-      };
-    }
-    if (decision === 'confirm') {
-      return {
-        action: 'run',
-        provider: 'local',
-        sameFamilyRemap: true,
-        includesLocal: true,
-        externalProvider: null,
-        hostFamily,
-        mode,
-      };
-    }
-    if (decision === 'offer-cross-family') {
-      return {
-        action: 'run',
-        provider: crossFamilyAlternative,
-        sameFamilyRemap: false,
-        includesLocal,
-        externalProvider: crossFamilyAlternative,
-        hostFamily,
-        mode,
-      };
-    }
-    // decline
-    return {
-      action: 'abort',
-      message: `Aborted: same-family external ${externalProvider} declined. Cross-family alternative: ${crossFamilyAlternative}.`,
-      crossFamilyAlternative,
-      hostFamily,
-      mode,
-      externalProvider,
-    };
-  }
-
-  // Non-interactive
-  if (acceptFlag) {
-    return {
-      action: 'run',
-      provider: 'local',
-      sameFamilyRemap: true,
-      includesLocal: true,
-      externalProvider: null,
-      hostFamily,
-      mode,
-    };
-  }
-
-  return {
-    action: 'abort',
-    message: abortMessage,
-    crossFamilyAlternative,
+  return sameFamilyRoute({
+    input,
+    acceptFlag,
+    externalProvider: /** @type {'codex' | 'grok' | 'claude' | 'agy'} */ (externalProvider),
     hostFamily,
+    crossFamilyAlternative,
+    includesLocal,
     mode,
-    externalProvider,
-  };
+    interactive,
+  });
 }

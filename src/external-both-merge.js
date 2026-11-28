@@ -143,6 +143,26 @@ export function compareSeverity(a, b) {
 }
 
 /**
+ * @returns {{ status: ProviderStatus, findings: FindingInput[], error: string|null }}
+ */
+function skippedSide() {
+  return { status: 'skipped', findings: [], error: null };
+}
+
+/**
+ * Error text implied by the side fields, before the status default is applied.
+ *
+ * @param {ProviderSide} side
+ * @param {string} rawStatus
+ * @returns {string | null}
+ */
+function sideErrorFromFields(side, rawStatus) {
+  if (hasText(side.error)) return String(side.error);
+  if (hasText(side.reason) && rawStatus === 'failed') return String(side.reason);
+  return null;
+}
+
+/**
  * Resolve explicit or inferred per-provider status.
  *
  * @param {object} input
@@ -151,37 +171,30 @@ export function compareSeverity(a, b) {
  */
 export function resolveProviderSide(input, provider) {
   if (input == null || typeof input !== 'object' || !Object.hasOwn(input, provider)) {
-    return { status: 'skipped', findings: [], error: null };
+    return skippedSide();
   }
   const side = input[provider];
   if (side == null || typeof side !== 'object') {
-    return { status: 'skipped', findings: [], error: null };
+    return skippedSide();
   }
 
   const rawStatus = side.status == null ? '' : String(side.status).trim().toLowerCase();
   const findings = Array.isArray(side.findings) ? side.findings : [];
-  const errorFromField = hasText(side.error)
-    ? String(side.error)
-    : hasText(side.reason) && rawStatus === 'failed'
-      ? String(side.reason)
-      : null;
+  const errorFromField = sideErrorFromFields(side, rawStatus);
 
-  if (rawStatus === 'skipped' || rawStatus === 'failed' || rawStatus === 'succeeded') {
-    /** @type {ProviderStatus} */
-    const status = /** @type {ProviderStatus} */ (rawStatus);
-    if (status === 'skipped') {
-      return { status, findings: [], error: null };
-    }
-    if (status === 'failed') {
-      return {
-        status,
-        findings,
-        error: errorFromField ?? (hasText(side.reason) ? String(side.reason) : 'provider failed'),
-      };
-    }
-    return { status, findings, error: null };
+  if (rawStatus === 'skipped') {
+    return { status: 'skipped', findings: [], error: null };
   }
-
+  if (rawStatus === 'failed') {
+    return {
+      status: 'failed',
+      findings,
+      error: errorFromField ?? (hasText(side.reason) ? String(side.reason) : 'provider failed'),
+    };
+  }
+  if (rawStatus === 'succeeded') {
+    return { status: 'succeeded', findings, error: null };
+  }
   if (errorFromField) {
     return { status: 'failed', findings, error: errorFromField };
   }
@@ -219,6 +232,113 @@ function toMerged(finding, provider) {
 }
 
 /**
+ * Fold one incoming finding into the identity map, keeping the higher severity
+ * body and listing every provider that reported it.
+ *
+ * @param {Map<string, MergedFinding>} byKey
+ * @param {MergedFinding} incoming
+ * @param {ExternalProvider} provider
+ */
+function mergeFindingByKey(byKey, incoming, provider) {
+  const existing = byKey.get(incoming.mergeKey);
+  if (!existing) {
+    byKey.set(incoming.mergeKey, incoming);
+    return;
+  }
+  const cmp = compareSeverity(incoming.severity, existing.severity);
+  if (cmp > 0) {
+    const otherSeverity = existing.severity;
+    const next = {
+      ...incoming,
+      providers: uniqueProviders([...existing.providers, provider]),
+      primaryProvider: provider,
+    };
+    if (normalizeSeverity(otherSeverity) !== normalizeSeverity(incoming.severity)) {
+      next.otherSeverity = otherSeverity;
+    }
+    byKey.set(incoming.mergeKey, next);
+    return;
+  }
+  const next = {
+    ...existing,
+    providers: uniqueProviders([...existing.providers, provider]),
+  };
+  if (cmp < 0 && normalizeSeverity(incoming.severity) !== normalizeSeverity(existing.severity)) {
+    next.otherSeverity = incoming.severity;
+  }
+  byKey.set(incoming.mergeKey, next);
+}
+
+/**
+ * Collect every non-skipped finding, keyed by merge identity.
+ *
+ * @param {Map<ExternalProvider, ReturnType<typeof resolveProviderSide>>} sides
+ * @returns {Map<string, MergedFinding>}
+ */
+function mergeFindingsByKey(sides) {
+  /** @type {Map<string, MergedFinding>} */
+  const byKey = new Map();
+  for (const p of EXTERNAL_PROVIDER_ORDER) {
+    const side = sides.get(p);
+    if (!side || side.status === 'skipped') continue;
+    for (const f of side.findings) {
+      if (!f || typeof f !== 'object') continue;
+      const incoming = toMerged(/** @type {FindingInput} */ (f), p);
+      if (!incoming.mergeKey || incoming.mergeKey === ':::') continue;
+      mergeFindingByKey(byKey, incoming, p);
+    }
+  }
+  return byKey;
+}
+
+/**
+ * @param {Map<string, MergedFinding>} byKey
+ * @returns {MergedFinding[]}
+ */
+function sortedFindings(byKey) {
+  return [...byKey.values()].sort((a, b) => {
+    const c = compareSeverity(b.severity, a.severity);
+    if (c !== 0) return c;
+    return a.mergeKey.localeCompare(b.mergeKey);
+  });
+}
+
+/**
+ * @param {Map<ExternalProvider, ReturnType<typeof resolveProviderSide>>} sides
+ * @returns {{
+ *   errors: Partial<Record<ExternalProvider, string>>,
+ *   providerStatus: Record<ExternalProvider, ProviderStatus>,
+ *   providersSucceeded: ExternalProvider[],
+ *   providersFailed: ExternalProvider[],
+ *   providersSkipped: ExternalProvider[],
+ * }}
+ */
+function collectProviderStatus(sides) {
+  /** @type {Partial<Record<ExternalProvider, string>>} */
+  const errors = {};
+  /** @type {Record<ExternalProvider, ProviderStatus>} */
+  const providerStatus = /** @type {Record<ExternalProvider, ProviderStatus>} */ ({});
+  /** @type {ExternalProvider[]} */
+  const providersSucceeded = [];
+  /** @type {ExternalProvider[]} */
+  const providersFailed = [];
+  /** @type {ExternalProvider[]} */
+  const providersSkipped = [];
+
+  for (const p of EXTERNAL_PROVIDER_ORDER) {
+    const side = sides.get(p);
+    const st = side?.status ?? 'skipped';
+    providerStatus[p] = st;
+    if (side?.error) errors[p] = side.error;
+    if (st === 'succeeded') providersSucceeded.push(p);
+    else if (st === 'failed') providersFailed.push(p);
+    else providersSkipped.push(p);
+  }
+
+  return { errors, providerStatus, providersSucceeded, providersFailed, providersSkipped };
+}
+
+/**
  * Merge provider finding lists in EXTERNAL_PROVIDER_ORDER.
  * Identity is `file:line` + normalized claim. On conflict, higher severity wins
  * and `providers` lists all. Equal rank keeps the earlier provider body.
@@ -244,83 +364,18 @@ export function mergeExternalBothFindings(input = {}) {
     sides.set(p, resolveProviderSide(input, p));
   }
 
-  /** @type {Map<string, MergedFinding>} */
-  const byKey = new Map();
-
-  for (const p of EXTERNAL_PROVIDER_ORDER) {
-    const side = sides.get(p);
-    if (!side || side.status === 'skipped') continue;
-    for (const f of side.findings) {
-      if (!f || typeof f !== 'object') continue;
-      const incoming = toMerged(/** @type {FindingInput} */ (f), p);
-      if (!incoming.mergeKey || incoming.mergeKey === ':::') continue;
-      const existing = byKey.get(incoming.mergeKey);
-      if (!existing) {
-        byKey.set(incoming.mergeKey, incoming);
-        continue;
-      }
-      const cmp = compareSeverity(incoming.severity, existing.severity);
-      if (cmp > 0) {
-        const otherSeverity = existing.severity;
-        const next = {
-          ...incoming,
-          providers: uniqueProviders([...existing.providers, p]),
-          primaryProvider: p,
-        };
-        if (normalizeSeverity(otherSeverity) !== normalizeSeverity(incoming.severity)) {
-          next.otherSeverity = otherSeverity;
-        }
-        byKey.set(incoming.mergeKey, next);
-      } else {
-        const next = {
-          ...existing,
-          providers: uniqueProviders([...existing.providers, p]),
-        };
-        if (cmp < 0 && normalizeSeverity(incoming.severity) !== normalizeSeverity(existing.severity)) {
-          next.otherSeverity = incoming.severity;
-        }
-        byKey.set(incoming.mergeKey, next);
-      }
-    }
-  }
-
-  const findings = [...byKey.values()].sort((a, b) => {
-    const c = compareSeverity(b.severity, a.severity);
-    if (c !== 0) return c;
-    return a.mergeKey.localeCompare(b.mergeKey);
-  });
-
-  /** @type {Partial<Record<ExternalProvider, string>>} */
-  const errors = {};
-  /** @type {Record<ExternalProvider, ProviderStatus>} */
-  const providerStatus = /** @type {Record<ExternalProvider, ProviderStatus>} */ ({});
-  /** @type {ExternalProvider[]} */
-  const providersSucceeded = [];
-  /** @type {ExternalProvider[]} */
-  const providersFailed = [];
-  /** @type {ExternalProvider[]} */
-  const providersSkipped = [];
-
-  for (const p of EXTERNAL_PROVIDER_ORDER) {
-    const side = sides.get(p);
-    const st = side?.status ?? 'skipped';
-    providerStatus[p] = st;
-    if (side?.error) errors[p] = side.error;
-    if (st === 'succeeded') providersSucceeded.push(p);
-    else if (st === 'failed') providersFailed.push(p);
-    else providersSkipped.push(p);
-  }
-
-  const partial = providersFailed.length > 0 && providersSucceeded.length > 0;
+  const findings = sortedFindings(mergeFindingsByKey(sides));
+  const status = collectProviderStatus(sides);
+  const partial = status.providersFailed.length > 0 && status.providersSucceeded.length > 0;
 
   return {
     findings,
-    errors,
+    errors: status.errors,
     partial,
-    providerStatus,
-    providersSucceeded,
-    providersFailed,
-    providersSkipped,
+    providerStatus: status.providerStatus,
+    providersSucceeded: status.providersSucceeded,
+    providersFailed: status.providersFailed,
+    providersSkipped: status.providersSkipped,
   };
 }
 
