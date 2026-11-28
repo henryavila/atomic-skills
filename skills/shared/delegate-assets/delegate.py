@@ -4040,6 +4040,60 @@ def read_answers(parts):
     return location, answers, parts[i] if i < len(parts) else ""
 
 
+def finding_dup_target(findings, i):
+    """The finding id this finding's dup points to, or None."""
+    dup = findings[i]["answers"].get("dup", "none")
+    return dup if dup != "none" and FINDING_ID_RE.fullmatch(dup) else None
+
+
+def finding_dup_circular(findings, first, i):
+    """Whether this finding's dup chain goes round and names it again."""
+    seen, dup = set(), finding_dup_target(findings, i)
+    while dup in first and dup not in seen:
+        if dup == findings[i]["id"]:
+            return True
+        seen.add(dup)
+        dup = finding_dup_target(findings, first[dup])
+    return False
+
+
+def finding_dup_reason(findings, first, i):
+    """Why this finding's dup merges nothing, or None when it does merge."""
+    dup = finding_dup_target(findings, i)
+    if dup is None:
+        return None
+    if dup == findings[i]["id"]:
+        return "names itself"
+    if dup not in first:
+        return "no such finding"
+    if finding_dup_circular(findings, first, i):
+        return "circular"
+    if classify_finding(findings, first, first[dup]) == "merged":
+        return f"{dup} is merged itself"
+    return None
+
+
+def classify_finding(findings, first, i):
+    """Set the severity and problems of one finding, and return the severity."""
+    finding = findings[i]
+    if "severity" in finding:
+        return finding["severity"]
+    finding["severity"] = "unclassified"  # never merged into while it is being decided
+    answers, problems, dup = finding["answers"], answer_problems(finding["answers"]), finding_dup_target(findings, i)
+    if not problems and dup is not None:
+        reason = finding_dup_reason(findings, first, i)
+        if reason:
+            answers = dict(answers, dup="none")
+            finding["dup_not_merged"] = reason
+    severity = None if problems else compute_severity(answers)
+    if severity is None and not problems:
+        problems = ["no row of the table matches these answers"]
+    if problems:
+        finding["problems"] = problems
+    finding["severity"] = severity or "unclassified"
+    return finding["severity"]
+
+
 def classify_findings(findings):
     """Set "severity" (and "problems", "dup_not_merged") on each finding of a
     rubric-format answer, each a dict with "id" and "answers".
@@ -4052,49 +4106,8 @@ def classify_findings(findings):
     first = {}
     for i, finding in enumerate(findings):
         first.setdefault(finding["id"], i)
-
-    def target(i):
-        dup = findings[i]["answers"].get("dup", "none")
-        return dup if dup != "none" and FINDING_ID_RE.fullmatch(dup) else None
-
-    def circular(i):
-        seen, dup = set(), target(i)
-        while dup in first and dup not in seen:
-            if dup == findings[i]["id"]:
-                return True
-            seen.add(dup)
-            dup = target(first[dup])
-        return False
-
-    def classify(i):
-        finding = findings[i]
-        if "severity" in finding:
-            return finding["severity"]
-        finding["severity"] = "unclassified"  # never merged into while it is being decided
-        answers, problems, dup = finding["answers"], answer_problems(finding["answers"]), target(i)
-        if not problems and dup is not None:
-            reason = None
-            if dup == finding["id"]:
-                reason = "names itself"
-            elif dup not in first:
-                reason = "no such finding"
-            elif circular(i):
-                reason = "circular"
-            elif classify(first[dup]) == "merged":
-                reason = f"{dup} is merged itself"
-            if reason:
-                answers = dict(answers, dup="none")
-                finding["dup_not_merged"] = reason
-        severity = None if problems else compute_severity(answers)
-        if severity is None and not problems:
-            problems = ["no row of the table matches these answers"]
-        if problems:
-            finding["problems"] = problems
-        finding["severity"] = severity or "unclassified"
-        return finding["severity"]
-
     for i in range(len(findings)):
-        classify(i)
+        classify_finding(findings, first, i)
 
 
 def computed_summary(finding, what):
