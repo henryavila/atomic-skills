@@ -26,14 +26,44 @@ export const PACKAGE_ROOT_REL = join('.atomic-skills', 'package-root');
  * }} RuntimeOwner
  */
 
+/**
+ * @typedef {{
+ *   format: 'absent'|'legacy'|'versioned'|'corrupt',
+ *   owners: RuntimeOwner[],
+ *   corruption: string|null,
+ *   schemaVersion: string|null,
+ * }} RegistryParse
+ */
+
+/**
+ * @typedef {{
+ *   format: string,
+ *   owners: RuntimeOwner[],
+ *   ghosts: string[],
+ *   corruption: string|null,
+ *   schemaVersion: string|null,
+ *   selectedOwner: RuntimeOwner|null,
+ *   packageRootOnDisk: string|null,
+ *   runtimeMismatch: string|null,
+ *   writes: 0,
+ * }} RuntimeObservation
+ */
+
+/** @returns {RegistryParse} */
 function absentRegistry() {
   return { format: 'absent', owners: [], corruption: null, schemaVersion: null };
 }
 
+/**
+ * @param {string} corruption
+ * @param {string|null} schemaVersion
+ * @returns {RegistryParse}
+ */
 function corruptRegistry(corruption, schemaVersion) {
   return { format: 'corrupt', owners: [], corruption, schemaVersion };
 }
 
+/** @returns {RegistryParse} */
 function parseLegacyRegistry(entries) {
   if (!entries.every((x) => typeof x === 'string')) {
     return corruptRegistry('legacy registry entries must be strings', null);
@@ -52,6 +82,7 @@ function parseLegacyRegistry(entries) {
   };
 }
 
+/** @returns {RuntimeOwner|null} */
 function toVersionedOwner(entry) {
   if (!entry || typeof entry !== 'object' || typeof entry.basePath !== 'string') {
     return null;
@@ -69,6 +100,7 @@ function toVersionedOwner(entry) {
   };
 }
 
+/** @returns {RegistryParse} */
 function parseVersionedRegistry(parsed) {
   const schemaVersion = parsed.schemaVersion != null
     ? String(parsed.schemaVersion)
@@ -196,6 +228,11 @@ function resolvePackageRootOnDisk(packageRootPath, opts) {
   }
 }
 
+/**
+ * @param {{ format: string, corruption: string|null, schemaVersion: string|null }} parsed
+ * @param {string|null} packageRootOnDisk
+ * @returns {RuntimeObservation}
+ */
 function corruptObservation(parsed, packageRootOnDisk) {
   return {
     format: parsed.format,
@@ -257,17 +294,7 @@ function computeRuntimeMismatch(packageRootOnDisk, selectedOwner, opts) {
  * @param {string|null} [opts.packageRootFile] - inject package-root file contents
  * @param {(p: string) => boolean} [opts.existsFn]
  * @param {(p: string) => object|null} [opts.readManifestFn]
- * @returns {{
- *   format: string,
- *   owners: RuntimeOwner[],
- *   ghosts: string[],
- *   corruption: string|null,
- *   schemaVersion: string|null,
- *   selectedOwner: RuntimeOwner|null,
- *   packageRootOnDisk: string|null,
- *   runtimeMismatch: string|null,
- *   writes: 0,
- * }}
+ * @returns {RuntimeObservation}
  */
 export function observeRuntimeRegistry(opts = {}) {
   const home = opts.homeDir || homedir();

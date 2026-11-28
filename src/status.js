@@ -33,6 +33,12 @@ function stripIdeSuffix(name) {
   return name.replace(/ \(Skills\)$/, '').replace(/ \(Commands\)$/, '');
 }
 
+/**
+ * @param {string|null} projectDir
+ * @param {object} options
+ * @param {string} homeDir
+ * @returns {{ manifest: object|null, scope: 'user'|'project', base: string|null }}
+ */
 function resolveStatusManifest(projectDir, options, homeDir) {
   if (options.forceProject) {
     const target = projectDir ? resolveProjectScopeTarget(projectDir) : null;
