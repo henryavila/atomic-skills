@@ -127,48 +127,12 @@ export function verifyInstalledRuntime(basePath, opts = {}) {
   const filesMap = manifest.files && typeof manifest.files === 'object' ? manifest.files : {};
 
   const paths = new Set([...Object.keys(filesMap), ...desired.keys()]);
-  const files = [];
-
-  for (const rel of [...paths].sort()) {
-    const abs = join(basePath, rel);
-    const onDisk = existsSync(abs);
-    let diskHash = null;
-    if (onDisk) {
-      try {
-        diskHash = hashContent(readFileSync(abs));
-      } catch {
-        diskHash = null;
-      }
-    }
-    const installedHash = filesMap[rel]?.installed_hash
-      ?? filesMap[rel]?.installedHash
-      ?? null;
-    const desiredEntry = desired.get(rel);
-    const desiredHash = desiredEntry?.hash ?? null;
-
-    const state = classifyFileState({
-      exists: onDisk && diskHash != null,
-      diskHash,
-      installedHash,
-      desiredHash,
-    });
-
-    files.push({
-      path: rel,
-      state,
-      installedHash,
-      diskHash,
-      desiredHash,
-      desiredContent: desiredEntry?.content ?? null,
-      source: desiredEntry?.source ?? filesMap[rel]?.source,
-    });
-  }
+  const files = [...paths].sort().map(
+    (rel) => describeInstalledFile(basePath, rel, filesMap, desired),
+  );
 
   const counts = summarizeVerification({ files });
-  const drifted = files.some(
-    (f) => f.state === 'stale' || f.state === 'missing' || f.state === 'modified'
-      || f.state === 'preserved' || f.state === 'conflict',
-  );
+  const drifted = files.some(isDriftedState);
 
   return {
     ok: !drifted,
@@ -179,6 +143,46 @@ export function verifyInstalledRuntime(basePath, opts = {}) {
     manifest,
     desiredSize: desired.size,
   };
+}
+
+function describeInstalledFile(basePath, rel, filesMap, desired) {
+  const abs = join(basePath, rel);
+  const onDisk = existsSync(abs);
+  let diskHash = null;
+  if (onDisk) {
+    try {
+      diskHash = hashContent(readFileSync(abs));
+    } catch {
+      diskHash = null;
+    }
+  }
+  const installedHash = filesMap[rel]?.installed_hash
+    ?? filesMap[rel]?.installedHash
+    ?? null;
+  const desiredEntry = desired.get(rel);
+  const desiredHash = desiredEntry?.hash ?? null;
+
+  const state = classifyFileState({
+    exists: onDisk && diskHash != null,
+    diskHash,
+    installedHash,
+    desiredHash,
+  });
+
+  return {
+    path: rel,
+    state,
+    installedHash,
+    diskHash,
+    desiredHash,
+    desiredContent: desiredEntry?.content ?? null,
+    source: desiredEntry?.source ?? filesMap[rel]?.source,
+  };
+}
+
+function isDriftedState(file) {
+  return file.state === 'stale' || file.state === 'missing' || file.state === 'modified'
+    || file.state === 'preserved' || file.state === 'conflict';
 }
 
 /**
@@ -220,39 +224,15 @@ export function repairInstalledRuntime(report, opts = {}) {
   const repaired = [];
   const skipped = [];
   const filesMap = { ...(report.manifest.files || {}) };
+  const context = {
+    filesMap,
+    repaired,
+    skipped,
+    forceModified: opts.forceModified,
+  };
 
   for (const f of report.files) {
-    if (f.state === 'unchanged' || f.state === 'updated') continue;
-    if (f.state === 'modified' || f.state === 'preserved' || f.state === 'conflict') {
-      if (!opts.forceModified) {
-        skipped.push({ path: f.path, state: f.state, reason: 'local modification; pass --force-modified' });
-        continue;
-      }
-    }
-    if (f.desiredContent == null) {
-      // Desired removed — leave disk if modified; delete if stale/missing-from-desired tracked
-      if (f.state === 'stale' || f.state === 'missing') {
-        skipped.push({ path: f.path, state: f.state, reason: 'no desired content' });
-      }
-      continue;
-    }
-
-    let abs;
-    try {
-      abs = confinedInstallPath(report.basePath, f.path);
-    } catch (err) {
-      skipped.push({ path: f.path, state: f.state, reason: err.message });
-      continue;
-    }
-    mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, f.desiredContent);
-    const hash = hashContent(f.desiredContent);
-    filesMap[f.path] = {
-      ...(filesMap[f.path] || {}),
-      installed_hash: hash,
-      source: f.source,
-    };
-    repaired.push({ path: f.path, state: f.state, hash });
+    repairInstalledFile(report.basePath, f, context);
   }
 
   writeManifest(report.basePath, {
@@ -261,6 +241,41 @@ export function repairInstalledRuntime(report, opts = {}) {
   });
 
   return { repaired, skipped };
+}
+
+function repairInstalledFile(basePath, file, context) {
+  const { filesMap, repaired, skipped, forceModified } = context;
+  if (file.state === 'unchanged' || file.state === 'updated') return;
+  if (file.state === 'modified' || file.state === 'preserved' || file.state === 'conflict') {
+    if (!forceModified) {
+      skipped.push({ path: file.path, state: file.state, reason: 'local modification; pass --force-modified' });
+      return;
+    }
+  }
+  if (file.desiredContent == null) {
+    // Desired removed — leave disk if modified; delete if stale/missing-from-desired tracked
+    if (file.state === 'stale' || file.state === 'missing') {
+      skipped.push({ path: file.path, state: file.state, reason: 'no desired content' });
+    }
+    return;
+  }
+
+  let abs;
+  try {
+    abs = confinedInstallPath(basePath, file.path);
+  } catch (err) {
+    skipped.push({ path: file.path, state: file.state, reason: err.message });
+    return;
+  }
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, file.desiredContent);
+  const hash = hashContent(file.desiredContent);
+  filesMap[file.path] = {
+    ...(filesMap[file.path] || {}),
+    installed_hash: hash,
+    source: file.source,
+  };
+  repaired.push({ path: file.path, state: file.state, hash });
 }
 
 /**
