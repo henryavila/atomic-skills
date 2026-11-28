@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   git,
-  hasPython3,
   initGitRepo,
   makeFakeBin,
   readLogRecords,
@@ -43,7 +42,7 @@ function quota({ gemini = 1, geminiReset = '1970-01-01T00:00:00Z', fiveHour = 1,
   });
 }
 
-describe('delegate.py Antigravity quota groups', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py Antigravity quota groups', () => {
   let root;
   let atomicHome;
   let repoDir;

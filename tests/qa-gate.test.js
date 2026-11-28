@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync,
   writeFileSync,
@@ -12,9 +13,6 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const QA_SH = join(REPO_ROOT, 'scripts/qa.sh');
 const RATCHET_PY = join(REPO_ROOT, 'qa/ratchet.py');
-
-const probe = spawnSync('python3', ['-c', 'import sys'], { encoding: 'utf8' });
-const hasPython3 = probe.status === 0;
 
 const STACKS = [
   'stack\tlanguage\troots\tgenerated\ttests\tgroup',
@@ -37,7 +35,7 @@ function measureLine(stack, metric, key, value) {
   return `printf '${stack}\\t${metric}\\t${key}\\t${value}\\n'`;
 }
 
-describe('scripts/qa.sh', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('scripts/qa.sh', () => {
   let tmp;
   let repo;
   let fakeDir;
@@ -448,7 +446,7 @@ ${body}
       const pidFile = join(fakeDir, 'slow.pid');
       const deadline = Date.now() + 5000;
       while (!existsSync(pidFile) && Date.now() < deadline) {
-        await new Promise((done) => setTimeout(done, 20));
+        await pause(20);
       }
       assert.ok(existsSync(pidFile), 'the slow measurer did not start');
       measurerPid = Number(readFileSync(pidFile, 'utf8').trim());

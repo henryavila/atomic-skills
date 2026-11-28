@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync, execFileSync, spawn } from 'node:child_process';
+import { setTimeout as pause } from 'node:timers/promises';
 import {
   chmodSync,
   mkdirSync,
@@ -17,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   initGitRepo,
@@ -27,7 +27,7 @@ import {
   runDelegateAsync,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py runner', () => {
   let root;
   let atomicHome;
   let emptyHome;
@@ -116,7 +116,7 @@ spec.loader.exec_module(d)
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (predicate()) return;
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await pause(50);
     }
     throw new Error(`${label} timed out after ${timeoutMs}ms`);
   }

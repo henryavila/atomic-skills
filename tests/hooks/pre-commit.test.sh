@@ -11,6 +11,10 @@
 #   6. not stage an unstaged hand-written edit to a generated output.
 set -euo pipefail
 
+# A caller's HUSKY=0 must not leak into the hook invocations under test; only
+# the explicit HUSKY=0 in Test 4 may bypass the hook.
+unset HUSKY
+
 REPO_ROOT="$(pwd)"
 HOOK="$REPO_ROOT/.husky/pre-commit"
 PASS=0

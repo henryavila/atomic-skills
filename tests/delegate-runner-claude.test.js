@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   initGitRepo,
@@ -27,7 +26,7 @@ import {
   readLogRecords,
 } from './helpers/delegate-runner-kit.js';
 
-describe('delegate.py Claude fallback reviewer', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py Claude fallback reviewer', () => {
   let root;
   let atomicHome;
   let emptyHome;

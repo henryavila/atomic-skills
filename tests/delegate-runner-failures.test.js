@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 import {
   REPO_ROOT,
   DELEGATE_PY,
-  hasPython3,
   PYTHON3,
   git,
   initGitRepo,
@@ -32,7 +31,7 @@ const AGY_DENIED = 'jetski: no output produced — a tool required the "command"
   + 'cannot prompt for, so it was auto-denied. Add an allow-rule under permissions.allow in settings.json '
   + '(e.g. command(<target>)).\n';
 
-describe('delegate.py runner', { skip: !hasPython3 ? 'python3 not on PATH' : false }, () => {
+describe('delegate.py runner', () => {
   let root;
   let atomicHome;
   let emptyHome;
