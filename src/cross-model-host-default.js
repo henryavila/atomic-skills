@@ -244,18 +244,27 @@ const LOCAL_AND_EXTERNAL_MODES = new Set(['both', 'both-codex', 'both-grok', 'bo
  * @returns {RouteResult}
  */
 function runResult(fields) {
-  /** @type {RouteResult} */
-  const result = {
+  if (fields.externalProviders) {
+    return {
+      action: 'run',
+      provider: fields.provider,
+      sameFamilyRemap: fields.sameFamilyRemap,
+      includesLocal: fields.includesLocal,
+      externalProvider: fields.externalProvider,
+      externalProviders: fields.externalProviders,
+      hostFamily: fields.hostFamily,
+      mode: fields.mode,
+    };
+  }
+  return {
     action: 'run',
     provider: fields.provider,
     sameFamilyRemap: fields.sameFamilyRemap,
     includesLocal: fields.includesLocal,
     externalProvider: fields.externalProvider,
+    hostFamily: fields.hostFamily,
+    mode: fields.mode,
   };
-  if (fields.externalProviders) result.externalProviders = fields.externalProviders;
-  result.hostFamily = fields.hostFamily;
-  result.mode = fields.mode;
-  return result;
 }
 
 /**
@@ -263,13 +272,14 @@ function runResult(fields) {
  * @returns {RouteResult}
  */
 function abortResult(fields) {
-  /** @type {RouteResult} */
-  const result = { action: 'abort', message: fields.message };
-  if (fields.crossFamilyAlternative) result.crossFamilyAlternative = fields.crossFamilyAlternative;
-  result.hostFamily = fields.hostFamily;
-  result.mode = fields.mode;
-  result.externalProvider = fields.externalProvider ?? null;
-  return result;
+  return {
+    action: 'abort',
+    message: fields.message,
+    ...(fields.crossFamilyAlternative ? { crossFamilyAlternative: fields.crossFamilyAlternative } : {}),
+    hostFamily: fields.hostFamily,
+    mode: fields.mode,
+    externalProvider: fields.externalProvider ?? null,
+  };
 }
 
 /**
@@ -381,7 +391,6 @@ function externalBothRoute(fields) {
  * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.externalProvider
  * @param {HostFamily} fields.hostFamily
  * @param {'codex' | 'grok' | 'claude' | 'agy'} fields.crossFamilyAlternative
- * @param {boolean} fields.includesLocal
  * @returns {string}
  */
 function sameFamilyAbortMessage(fields) {
