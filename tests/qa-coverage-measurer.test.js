@@ -40,7 +40,11 @@ test('covered', () => {
 });
 `);
   mkdirSync(join(repo, 'qa/.venv'), { recursive: true });
-  symlinkSync(join(root, 'qa/.venv/bin'), join(repo, 'qa/.venv/bin'));
+  // Python recognises a venv by the pyvenv.cfg beside bin/, not by where the
+  // interpreter symlink resolves. A bin-only view loses site-packages on Linux.
+  for (const entry of ['bin', 'pyvenv.cfg', 'lib']) {
+    symlinkSync(join(root, 'qa/.venv', entry), join(repo, 'qa/.venv', entry));
+  }
   mkdirSync(join(temp, 'scratch'));
   return { temp, repo, write };
 }
