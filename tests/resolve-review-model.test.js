@@ -4,9 +4,11 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
+  AGY_MODEL_ALIASES,
   buildModelFlag,
   catalogDiscoveryResult,
   isSafeReviewModelId,
+  parseAgyModelsList,
   parseCodexModelsCatalog,
   parseGrokModelsList,
   parseModelArgs,
@@ -445,5 +447,619 @@ describe("claude model aliases (no live catalog)", () => {
     assert.equal(res.source, "explicit");
     const def = resolveReviewModel({ provider: "claude", models: [] });
     assert.equal(def.source, "cli-default");
+  });
+});
+
+describe('parser output tables (pinned before refactor)', () => {
+  const codexModel = (slug, overrides = {}) => ({
+    slug,
+    displayName: slug,
+    description: '',
+    priority: null,
+    visibility: 'list',
+    reasoningLevels: [],
+    isDefault: false,
+    provider: 'codex',
+    ...overrides,
+  });
+  const grokModel = (slug, overrides = {}) => ({
+    slug,
+    displayName: slug,
+    description: '',
+    priority: null,
+    visibility: 'list',
+    reasoningLevels: [],
+    isDefault: false,
+    provider: 'grok',
+    ...overrides,
+  });
+  const parsedArgs = (overrides = {}) => ({
+    model: null,
+    modelCodex: null,
+    modelGrok: null,
+    modelClaude: null,
+    modelAgy: null,
+    askModel: false,
+    remainingTokens: [],
+    ...overrides,
+  });
+
+  it('parseCodexModelsCatalog table', () => {
+    assert.deepEqual(parseCodexModelsCatalog(null), []);
+    assert.deepEqual(parseCodexModelsCatalog(''), []);
+    assert.deepEqual(parseCodexModelsCatalog('{not json'), []);
+    assert.deepEqual(parseCodexModelsCatalog('{"models":[]}'), []);
+    assert.deepEqual(parseCodexModelsCatalog('[]'), []);
+    assert.deepEqual(parseCodexModelsCatalog({ models: 'no' }), []);
+    assert.deepEqual(parseCodexModelsCatalog({ models: [null, 'x', { slug: 'x' }] }), [
+      codexModel('x'),
+    ]);
+    assert.deepEqual(
+      parseCodexModelsCatalog([
+        { id: 'a' },
+        { model: 'b' },
+        { slug: ' c ' },
+        { slug: '' },
+        {},
+        {
+          slug: 'd',
+          priority: 2,
+          display_name: null,
+          visibility: 'hide',
+          supported_reasoning_levels: ['high', { effort: 'low' }, null, 7],
+        },
+      ]),
+      [
+        codexModel('a'),
+        codexModel('b'),
+        codexModel('c'),
+        codexModel('d', {
+          priority: 2,
+          visibility: 'hide',
+          reasoningLevels: ['high', 'low'],
+        }),
+      ],
+    );
+  });
+
+  it('parseGrokModelsList table', () => {
+    assert.deepEqual(parseGrokModelsList(null), []);
+    assert.deepEqual(parseGrokModelsList(''), []);
+    assert.deepEqual(
+      parseGrokModelsList('* grok-a\n- grok-b (default)\n• grok-c (preview)'),
+      [
+        grokModel('grok-a'),
+        grokModel('grok-b', { description: 'CLI default', isDefault: true }),
+        grokModel('grok-c'),
+      ],
+    );
+    assert.deepEqual(
+      parseGrokModelsList('Default model: grok-z\nAvailable models:\n* grok-z\n* grok-y'),
+      [
+        grokModel('grok-z', { description: 'CLI default', isDefault: true }),
+        grokModel('grok-y'),
+      ],
+    );
+    assert.deepEqual(
+      parseGrokModelsList('Available models:\n* grok-a\n* grok-a (default)'),
+      [grokModel('grok-a', { description: 'CLI default', isDefault: true })],
+    );
+    assert.deepEqual(parseGrokModelsList('Default model: solo'), [
+      grokModel('solo', { description: 'CLI default', isDefault: true }),
+    ]);
+    assert.deepEqual(parseGrokModelsList('Default model: solo\n* other'), [
+      grokModel('solo', { description: 'CLI default', isDefault: true }),
+      grokModel('other'),
+    ]);
+  });
+
+  it('parseAgyModelsList table', () => {
+    const fallback = AGY_MODEL_ALIASES.map((a) => ({
+      ...a,
+      visibility: 'list',
+      reasoningLevels: [],
+      provider: 'agy',
+    }));
+    assert.deepEqual(parseAgyModelsList(null), fallback);
+    assert.deepEqual(parseAgyModelsList(''), fallback);
+    assert.deepEqual(parseAgyModelsList('  '), fallback);
+    assert.deepEqual(
+      parseAgyModelsList(
+        'gemini-3.8-flash-high\tGemini 3.8 Flash (High)\n' +
+          'gemini-3.1-pro-high\tGemini 3.1 Pro (High)\n' +
+          'mystery\tMystery\n',
+      ),
+      [
+        {
+          slug: 'hybrid',
+          displayName: 'Hybrid (Flash Pass 1 + Pro Pass 2)',
+          description: 'Recommended: fast sweep + deep reasoning verdict',
+          priority: 1,
+          visibility: 'list',
+          reasoningLevels: [],
+          isDefault: true,
+          provider: 'agy',
+        },
+        {
+          slug: 'gemini-3.8-flash-high',
+          displayName: 'Gemini 3.8 Flash (High)',
+          description: 'Fast scan (~8s)',
+          priority: 2,
+          visibility: 'list',
+          reasoningLevels: [],
+          isDefault: false,
+          provider: 'agy',
+        },
+        {
+          slug: 'gemini-3.1-pro-high',
+          displayName: 'Gemini 3.1 Pro (High)',
+          description: 'Deep reasoning',
+          priority: 3,
+          visibility: 'list',
+          reasoningLevels: [],
+          isDefault: false,
+          provider: 'agy',
+        },
+        {
+          slug: 'mystery',
+          displayName: 'Mystery',
+          description: 'Available in agy',
+          priority: 4,
+          visibility: 'list',
+          reasoningLevels: [],
+          isDefault: false,
+          provider: 'agy',
+        },
+      ],
+    );
+    assert.deepEqual(
+      parseAgyModelsList('⠋ Fetching available models\ngemini-x\n').map((m) => m.slug),
+      ['hybrid', 'gemini-x'],
+    );
+    assert.deepEqual(parseAgyModelsList('bare-model\n').map((m) => m.slug), [
+      'hybrid',
+      'bare-model',
+    ]);
+  });
+
+  it('parseModelArgs table', () => {
+    assert.deepEqual(parseModelArgs('--model='), parsedArgs({ remainingTokens: ['--model='] }));
+    assert.deepEqual(
+      parseModelArgs('--model --mode=local'),
+      parsedArgs({ remainingTokens: ['--mode=local'] }),
+    );
+    assert.deepEqual(
+      parseModelArgs('--model-codex --model-grok=g'),
+      parsedArgs({ modelGrok: 'g' }),
+    );
+    assert.deepEqual(
+      parseModelArgs('--mode=codex --model= --model-claude'),
+      parsedArgs({ remainingTokens: ['--mode=codex', '--model='] }),
+    );
+    assert.deepEqual(parseModelArgs('--ask-model=false'), parsedArgs());
+    assert.deepEqual(parseModelArgs('--ask-model=no'), parsedArgs());
+    assert.deepEqual(parseModelArgs('--ask-model=yes'), parsedArgs({ askModel: true }));
+    assert.deepEqual(
+      parseModelArgs('--model-agy flash plan.md'),
+      parsedArgs({ modelAgy: 'flash', remainingTokens: ['plan.md'] }),
+    );
+    assert.deepEqual(
+      parseModelArgs(['--model-grok', 'grok-4', 'x']),
+      parsedArgs({ modelGrok: 'grok-4', remainingTokens: ['x'] }),
+    );
+    assert.deepEqual(
+      parseModelArgs('"quoted value" --model=abc'),
+      parsedArgs({ model: 'abc', remainingTokens: ['quoted value'] }),
+    );
+    assert.deepEqual(
+      parseModelArgs('model:GPT plan.md'),
+      parsedArgs({ model: 'GPT', remainingTokens: ['plan.md'] }),
+    );
+  });
+
+  it('resolveReviewModel table', () => {
+    const codexModels = [
+      {
+        slug: 'sol',
+        displayName: 'Sol',
+        description: 'top',
+        priority: 1,
+        visibility: 'list',
+        reasoningLevels: ['high'],
+        isDefault: false,
+        provider: 'codex',
+      },
+      {
+        slug: 'terra',
+        displayName: 'Terra',
+        description: '',
+        priority: 2,
+        visibility: 'list',
+        reasoningLevels: [],
+        isDefault: false,
+        provider: 'codex',
+      },
+      {
+        slug: 'hidden',
+        displayName: 'Hidden',
+        description: '',
+        priority: 0,
+        visibility: 'hide',
+        reasoningLevels: [],
+        isDefault: false,
+        provider: 'codex',
+      },
+    ];
+    const grokModels = [
+      {
+        slug: 'grok-4.5',
+        displayName: 'grok-4.5',
+        description: 'CLI default',
+        priority: null,
+        visibility: 'list',
+        reasoningLevels: [],
+        isDefault: true,
+        provider: 'grok',
+      },
+      {
+        slug: 'grok-4',
+        displayName: 'grok-4',
+        description: '',
+        priority: null,
+        visibility: 'list',
+        reasoningLevels: [],
+        isDefault: false,
+        provider: 'grok',
+      },
+    ];
+    const unsafeModels = [
+      {
+        slug: 'bad id',
+        displayName: 'bad',
+        priority: 1,
+        visibility: 'list',
+        reasoningLevels: [],
+        isDefault: false,
+        provider: 'codex',
+      },
+    ];
+    const summarize = (r) => ({
+      action: r.action,
+      modelId: r.modelId ?? null,
+      modelFlag: r.modelFlag ?? null,
+      source: r.source ?? null,
+      invalidModelId: r.invalidModelId ?? false,
+      unknownToCatalog: r.unknownToCatalog ?? false,
+      recommended: r.recommended ? r.recommended.slug : null,
+      options: r.options ? r.options.map((o) => o.slug) : null,
+      top: r.ranked ? r.ranked.map((m) => m.slug) : null,
+    });
+    const cases = [
+      [
+        { provider: 'codex', models: codexModels, explicitModel: 'terra' },
+        {
+          action: 'run',
+          modelId: 'terra',
+          modelFlag: '--model terra',
+          source: 'explicit',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'sol',
+          options: null,
+          top: ['sol', 'terra'],
+        },
+      ],
+      [
+        { provider: 'codex', models: codexModels, explicitModel: 'future' },
+        {
+          action: 'run',
+          modelId: 'future',
+          modelFlag: '--model future',
+          source: 'explicit',
+          invalidModelId: false,
+          unknownToCatalog: true,
+          recommended: 'sol',
+          options: null,
+          top: ['sol', 'terra'],
+        },
+      ],
+      [
+        { provider: 'codex', models: codexModels, explicitModel: 'cli-default' },
+        {
+          action: 'run',
+          modelId: null,
+          modelFlag: '',
+          source: 'cli-default',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'sol',
+          options: null,
+          top: ['sol', 'terra'],
+        },
+      ],
+      [
+        { provider: 'codex', models: codexModels, explicitModel: 'a;b' },
+        {
+          action: 'run',
+          modelId: null,
+          modelFlag: '',
+          source: 'explicit',
+          invalidModelId: true,
+          unknownToCatalog: false,
+          recommended: 'sol',
+          options: null,
+          top: ['sol', 'terra'],
+        },
+      ],
+      [
+        { provider: 'grok', models: grokModels, explicitModel: 'x', modelGrok: 'grok-4' },
+        {
+          action: 'run',
+          modelId: 'grok-4',
+          modelFlag: '--model grok-4',
+          source: 'explicit',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'grok-4.5',
+          options: null,
+          top: ['grok-4.5', 'grok-4'],
+        },
+      ],
+      [
+        { provider: 'agy', models: [], explicitModel: 'flash' },
+        {
+          action: 'run',
+          modelId: 'gemini-3.8-flash-high',
+          modelFlag: '--model gemini-3.8-flash-high',
+          source: 'explicit',
+          invalidModelId: false,
+          unknownToCatalog: true,
+          recommended: null,
+          options: null,
+          top: [],
+        },
+      ],
+      [
+        { provider: 'agy', models: [], explicitModel: 'sonnet' },
+        {
+          action: 'run',
+          modelId: 'claude-sonnet-5-5-high',
+          modelFlag: '--model claude-sonnet-5-5-high',
+          source: 'explicit',
+          invalidModelId: false,
+          unknownToCatalog: true,
+          recommended: null,
+          options: null,
+          top: [],
+        },
+      ],
+      [
+        { provider: 'agy', models: [], modelAgy: 'claude-opus-4-6-thinking' },
+        {
+          action: 'run',
+          modelId: 'claude-opus-5-5-high',
+          modelFlag: '--model claude-opus-5-5-high',
+          source: 'explicit',
+          invalidModelId: false,
+          unknownToCatalog: true,
+          recommended: null,
+          options: null,
+          top: [],
+        },
+      ],
+      [
+        { provider: 'agy', models: [], explicitModel: 'mystery' },
+        {
+          action: 'run',
+          modelId: 'mystery',
+          modelFlag: '--model mystery',
+          source: 'explicit',
+          invalidModelId: false,
+          unknownToCatalog: true,
+          recommended: null,
+          options: null,
+          top: [],
+        },
+      ],
+      [
+        { provider: 'codex', models: codexModels, interactive: true },
+        {
+          action: 'pick',
+          modelId: null,
+          modelFlag: null,
+          source: null,
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'sol',
+          options: ['sol', 'terra', 'cli-default'],
+          top: ['sol', 'terra'],
+        },
+      ],
+      [
+        { provider: 'codex', models: [], interactive: true },
+        {
+          action: 'pick',
+          modelId: null,
+          modelFlag: null,
+          source: null,
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: null,
+          options: ['cli-default'],
+          top: [],
+        },
+      ],
+      [
+        { provider: 'codex', models: codexModels, interactive: true, userChoice: 'terra' },
+        {
+          action: 'run',
+          modelId: 'terra',
+          modelFlag: '--model terra',
+          source: 'user-pick',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'sol',
+          options: null,
+          top: ['sol', 'terra'],
+        },
+      ],
+      [
+        { provider: 'grok', models: grokModels, userChoice: 'cli-default' },
+        {
+          action: 'run',
+          modelId: null,
+          modelFlag: '',
+          source: 'cli-default',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'grok-4.5',
+          options: null,
+          top: ['grok-4.5', 'grok-4'],
+        },
+      ],
+      [
+        { provider: 'codex', models: codexModels, userChoice: 'recommended' },
+        {
+          action: 'run',
+          modelId: 'sol',
+          modelFlag: '--model sol',
+          source: 'recommended',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'sol',
+          options: null,
+          top: ['sol', 'terra'],
+        },
+      ],
+      [
+        { provider: 'codex', models: [], userChoice: 'recommended' },
+        {
+          action: 'run',
+          modelId: null,
+          modelFlag: '',
+          source: 'cli-default',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: null,
+          options: null,
+          top: [],
+        },
+      ],
+      [
+        { provider: 'codex', models: unsafeModels, userChoice: 'recommended' },
+        {
+          action: 'run',
+          modelId: null,
+          modelFlag: '',
+          source: 'recommended',
+          invalidModelId: true,
+          unknownToCatalog: false,
+          recommended: 'bad id',
+          options: null,
+          top: ['bad id'],
+        },
+      ],
+      [
+        { provider: 'grok', models: grokModels, userChoice: 'x$(id)' },
+        {
+          action: 'run',
+          modelId: null,
+          modelFlag: '',
+          source: 'user-pick',
+          invalidModelId: true,
+          unknownToCatalog: false,
+          recommended: 'grok-4.5',
+          options: null,
+          top: ['grok-4.5', 'grok-4'],
+        },
+      ],
+      [
+        { provider: 'agy', models: [], userChoice: 'pro' },
+        {
+          action: 'run',
+          modelId: 'gemini-3.1-pro-high',
+          modelFlag: '--model gemini-3.1-pro-high',
+          source: 'user-pick',
+          invalidModelId: false,
+          unknownToCatalog: true,
+          recommended: null,
+          options: null,
+          top: [],
+        },
+      ],
+      [
+        { provider: 'grok', models: grokModels, userChoice: '  ' },
+        {
+          action: 'run',
+          modelId: null,
+          modelFlag: '',
+          source: 'cli-default',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'grok-4.5',
+          options: null,
+          top: ['grok-4.5', 'grok-4'],
+        },
+      ],
+      [
+        { provider: 'codex', models: codexModels, askModel: true },
+        {
+          action: 'run',
+          modelId: 'sol',
+          modelFlag: '--model sol',
+          source: 'recommended',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'sol',
+          options: null,
+          top: ['sol', 'terra'],
+        },
+      ],
+      [
+        { provider: 'codex', models: [], askModel: true },
+        {
+          action: 'run',
+          modelId: null,
+          modelFlag: '',
+          source: 'cli-default',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: null,
+          options: null,
+          top: [],
+        },
+      ],
+      [
+        { provider: 'grok', models: grokModels, askModel: true, interactive: true },
+        {
+          action: 'pick',
+          modelId: null,
+          modelFlag: null,
+          source: null,
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'grok-4.5',
+          options: ['grok-4.5', 'grok-4', 'cli-default'],
+          top: ['grok-4.5', 'grok-4'],
+        },
+      ],
+      [
+        { provider: 'grok', models: grokModels },
+        {
+          action: 'run',
+          modelId: null,
+          modelFlag: '',
+          source: 'cli-default',
+          invalidModelId: false,
+          unknownToCatalog: false,
+          recommended: 'grok-4.5',
+          options: null,
+          top: ['grok-4.5', 'grok-4'],
+        },
+      ],
+    ];
+    for (const [input, expected] of cases) {
+      assert.deepEqual(summarize(resolveReviewModel(input)), expected, JSON.stringify(input));
+    }
   });
 });
