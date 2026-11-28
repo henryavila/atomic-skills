@@ -38,21 +38,175 @@ import { readManifest, writeManifest } from './manifest.js';
  *   excludeFromDesired: string[],
  * }}
  */
+/**
+ * @param {Set<string>|string[]|null} knownPackageHashes
+ * @returns {Set<string>}
+ */
+function normalizeKnownHashes(knownPackageHashes) {
+  if (knownPackageHashes instanceof Set) return knownPackageHashes;
+  return new Set(Array.isArray(knownPackageHashes) ? knownPackageHashes : []);
+}
+
+/**
+ * @returns {{
+ *   adopted: number,
+ *   paths: string[],
+ *   unresolved: number,
+ *   unresolvedPaths: string[],
+ *   excludeFromDesired: string[],
+ * }}
+ */
+function emptyAdoptionResult() {
+  return {
+    adopted: 0, paths: [], unresolved: 0, unresolvedPaths: [], excludeFromDesired: [],
+  };
+}
+
+/**
+ * Build the owned set and reconcile beforeState from the journal without
+ * mutating it yet.
+ *
+ * @param {string} projectDir
+ * @returns {{
+ *   manifest: object,
+ *   effects: object[],
+ *   index: number,
+ *   beforeState: Array<{ path: string, installedHash?: string }>,
+ *   owned: Set<string>,
+ * }}
+ */
+function readAdoptionJournal(projectDir) {
+  let manifest = readManifest(projectDir);
+  if (manifest == null) {
+    manifest = { journalVersion: 2, effects: [] };
+  }
+  const effects = Array.isArray(manifest.effects) ? [...manifest.effects] : [];
+  const index = effects.findIndex((e) => e && e.type === 'reconcileFileSet');
+  const beforeState = index >= 0
+    ? [...(effects[index].beforeState || [])]
+    : [];
+  const owned = new Set(
+    beforeState
+      .filter((e) => e && typeof e.path === 'string')
+      .map((e) => e.path),
+  );
+  return { manifest, effects, index, beforeState, owned };
+}
+
+/**
+ * @param {string} projectDir
+ * @param {string} relPath
+ * @returns {{ abs: string, installedHash: string } | null}
+ */
+function readPreexistingFile(projectDir, relPath) {
+  const abs = join(projectDir, relPath);
+  if (!existsSync(abs)) return null;
+  try {
+    if (!statSync(abs).isFile()) return null;
+    return { abs, installedHash: hashContent(readFileSync(abs, 'utf8')) };
+  } catch {
+    // Unreadable / raced — leave for reconciler (may still fail closed).
+    return null;
+  }
+}
+
+/**
+ * @param {object} fields
+ * @param {boolean} fields.forceAdopt
+ * @param {(absPath: string) => boolean} fields.isArtifact
+ * @param {Set<string>} fields.knownHashes
+ * @param {string} fields.abs
+ * @param {string} fields.installedHash
+ * @returns {boolean}
+ */
+function isEligibleForAdoption(fields) {
+  const { forceAdopt, isArtifact, knownHashes, abs, installedHash } = fields;
+  return forceAdopt
+    || (typeof isArtifact === 'function' && isArtifact(abs))
+    || knownHashes.has(installedHash);
+}
+
+/**
+ * Classify one desired path as adopted, unmanaged-desired, or skipped.
+ *
+ * @param {object} fields
+ * @param {string} fields.projectDir
+ * @param {string} fields.relPath
+ * @param {string} fields.desiredContent
+ * @param {ReturnType<typeof readAdoptionJournal>} fields.journal
+ * @param {boolean} fields.forceAdopt
+ * @param {(absPath: string) => boolean} fields.isArtifact
+ * @param {Set<string>} fields.knownHashes
+ * @returns {'adopted' | 'unresolved' | 'skipped'}
+ */
+function adoptDesiredPath(fields) {
+  const { projectDir, relPath, desiredContent, journal, forceAdopt, isArtifact, knownHashes } = fields;
+  if (journal.owned.has(relPath)) return 'skipped';
+
+  const preexisting = readPreexistingFile(projectDir, relPath);
+  if (!preexisting) return 'skipped';
+
+  // Already matches package desired bytes: reconciler will track as
+  // already-desired without needing a force rewrite claim.
+  if (preexisting.installedHash === hashContent(desiredContent)) return 'skipped';
+
+  const eligible = isEligibleForAdoption({
+    forceAdopt,
+    isArtifact,
+    knownHashes,
+    abs: preexisting.abs,
+    installedHash: preexisting.installedHash,
+  });
+
+  if (!eligible) {
+    // Unmanaged-desired: exclude from reconcile desired set; never own.
+    return 'unresolved';
+  }
+
+  // Claim ownership at current hash so 3-hash policy rewrites to desired.
+  journal.beforeState.push({ path: relPath, installedHash: preexisting.installedHash });
+  journal.owned.add(relPath);
+  return 'adopted';
+}
+
+/**
+ * @param {string} projectDir
+ * @param {ReturnType<typeof readAdoptionJournal>} journal
+ */
+function persistAdoptions(projectDir, journal) {
+  const { manifest, effects, index, beforeState } = journal;
+  const effect = index >= 0
+    ? { ...effects[index], type: 'reconcileFileSet', beforeState }
+    : { type: 'reconcileFileSet', beforeState };
+  if (index >= 0) effects[index] = effect;
+  else effects.push(effect);
+  writeManifest(projectDir, { ...manifest, effects });
+}
+
+/**
+ * @param {string} projectDir
+ * @param {Array<{ path: string, content: string }>} desired
+ * @param {object} [options]
+ * @param {boolean} [options.forceAdopt=false] reclaim foreign content at desired paths
+ * @param {(absPath: string) => boolean} [options.isArtifact] safelist frontmatter check
+ * @param {Set<string>|string[]|null} [options.knownPackageHashes] prior package content hashes
+ * @returns {{
+ *   adopted: number,
+ *   paths: string[],
+ *   unresolved: number,
+ *   unresolvedPaths: string[],
+ *   excludeFromDesired: string[],
+ * }}
+ */
 export function adoptPreexistingDesiredFiles(projectDir, desired, options = {}) {
   const {
     forceAdopt = false,
     isArtifact = () => false,
     knownPackageHashes = null,
   } = options;
-  const knownHashes = knownPackageHashes instanceof Set
-    ? knownPackageHashes
-    : new Set(Array.isArray(knownPackageHashes) ? knownPackageHashes : []);
+  const knownHashes = normalizeKnownHashes(knownPackageHashes);
 
-  if (!Array.isArray(desired) || desired.length === 0) {
-    return {
-      adopted: 0, paths: [], unresolved: 0, unresolvedPaths: [], excludeFromDesired: [],
-    };
-  }
+  if (!Array.isArray(desired) || desired.length === 0) return emptyAdoptionResult();
 
   const desiredByPath = new Map(
     desired
@@ -60,66 +214,25 @@ export function adoptPreexistingDesiredFiles(projectDir, desired, options = {}) 
       .map((d) => [d.path, d.content ?? '']),
   );
 
-  // Build owned set from journal (if any) without mutating yet.
-  let manifest = readManifest(projectDir);
-  if (manifest == null) {
-    manifest = { journalVersion: 2, effects: [] };
-  }
-  const effects = Array.isArray(manifest.effects) ? [...manifest.effects] : [];
-  let idx = effects.findIndex((e) => e && e.type === 'reconcileFileSet');
-  const beforeState = idx >= 0
-    ? [...(effects[idx].beforeState || [])]
-    : [];
-  const owned = new Set(
-    beforeState
-      .filter((e) => e && typeof e.path === 'string')
-      .map((e) => e.path),
-  );
-
+  const journal = readAdoptionJournal(projectDir);
   const adoptedPaths = [];
   const unresolvedPaths = [];
 
   for (const [relPath, desiredContent] of desiredByPath) {
-    if (owned.has(relPath)) continue;
-    const abs = join(projectDir, relPath);
-    if (!existsSync(abs)) continue;
-    let installedHash;
-    try {
-      if (!statSync(abs).isFile()) continue;
-      installedHash = hashContent(readFileSync(abs, 'utf8'));
-    } catch {
-      // Unreadable / raced — leave for reconciler (may still fail closed).
-      continue;
-    }
-
-    const desiredHash = hashContent(desiredContent);
-    // Already matches package desired bytes: reconciler will track as
-    // already-desired without needing a force rewrite claim.
-    if (installedHash === desiredHash) continue;
-
-    const eligible = forceAdopt
-      || (typeof isArtifact === 'function' && isArtifact(abs))
-      || knownHashes.has(installedHash);
-
-    if (eligible) {
-      // Claim ownership at current hash so 3-hash policy rewrites to desired.
-      beforeState.push({ path: relPath, installedHash });
-      owned.add(relPath);
-      adoptedPaths.push(relPath);
-    } else {
-      // Unmanaged-desired: exclude from reconcile desired set; never own.
-      unresolvedPaths.push(relPath);
-    }
+    const outcome = adoptDesiredPath({
+      projectDir,
+      relPath,
+      desiredContent,
+      journal,
+      forceAdopt,
+      isArtifact,
+      knownHashes,
+    });
+    if (outcome === 'adopted') adoptedPaths.push(relPath);
+    else if (outcome === 'unresolved') unresolvedPaths.push(relPath);
   }
 
-  if (adoptedPaths.length > 0) {
-    const effect = idx >= 0
-      ? { ...effects[idx], type: 'reconcileFileSet', beforeState }
-      : { type: 'reconcileFileSet', beforeState };
-    if (idx >= 0) effects[idx] = effect;
-    else effects.push(effect);
-    writeManifest(projectDir, { ...manifest, effects });
-  }
+  if (adoptedPaths.length > 0) persistAdoptions(projectDir, journal);
 
   return {
     adopted: adoptedPaths.length,
