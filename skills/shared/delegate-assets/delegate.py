@@ -3076,6 +3076,72 @@ def execute_remote_run(request):
         remove_remote_active(active_file)
 
 
+@dataclass
+class MergeOutcome:
+    """What the local side did with the returned bundle."""
+    diverged: bool
+    diverged_reason: Optional[str]
+    fetched_ref: Optional[str]
+    fetch_error: Optional[str]
+
+
+@dataclass
+class RemoteOutcome:
+    """The pulled result of a remote run, before its record is built."""
+    received: str
+    remote_exit: int
+    remote_dirty: bool
+    commit_failed: bool
+    commit_error: Optional[str]
+    review_wrote: bool
+    merge: MergeOutcome
+    failure: str
+    head1: str
+    dirty_after: bool
+    uncommitted: bool
+    commits: str
+    files: str
+    review_output: Optional[object]
+
+
+@dataclass
+class RemoteRun:
+    """The mutable state of one --host run from staging to the pulled result."""
+    request: RemoteRunRequest
+    snap0: tuple
+    branch: str
+    policy: dict
+    default_base: str
+    peak: bool
+    sent: str
+    digest: str
+    staging: Path
+    stage: Path
+    local_res: Path
+    bundle: Path
+    started: str
+    remote_out: str
+    remote_err: str
+    run_token: str
+    process: Optional[subprocess.Popen] = None
+    timed_out: bool = False
+    local_slot_timeout: bool = False
+    orphan_failure: Optional[str] = None
+    interrupted_exc: Optional[BaseException] = None
+    remote_id: Optional[str] = None
+    kill_result: Optional[str] = None
+    run_s: float = 0.0
+    send_s: float = 0.0
+    fetch_s: float = 0.0
+    fetch_t0: float = 0.0
+    remote_code: Optional[int] = None
+    last_line: str = ""
+    work_info: Optional[dict] = None
+    meta: Optional[dict] = None
+    deadline: Optional[float] = None
+    result: Optional[dict] = None
+
+
 def _execute_remote_run(request):
     """Run the executor on a remote host through the remote-runner CLI.
 
@@ -3084,52 +3150,71 @@ def _execute_remote_run(request):
     return as a git bundle written in the remote staging directory and pulled
     back before a local fast-forward fetch.
     """
-    (task_id, task, role, executor, model, family, profile, cwd, project, out_path,
-     card_content, input_sizes, pending, timeout, wait_s, attempt, confirmed, allow_peak,
-     diff_range, attachments, access_mode, host, prompt, stdout, stderr, last_msg) = (
-        request.task_id, request.task, request.role, request.executor, request.model,
-        request.family, request.profile, request.cwd, request.project, request.out_path,
-        request.card_content, request.input_sizes, request.pending, request.timeout,
-        request.wait_s, request.attempt, request.confirmed, request.allow_peak,
-        request.diff_range, request.attachments, request.access_mode, request.host,
-        request.prompt, request.stdout, request.stderr, request.last_msg)
-    snap0 = tree_snapshot(cwd)
-    branch = git(cwd, "rev-parse", "--abbrev-ref", "HEAD")
-    policy = remote_access_policy(executor, role, strict=access_mode == "strict")
-    default_base = remote_base_rel(project, task_id)
-    pending.update(host=host, remote_dir=default_base,
-                   access=resolve_remote_access(policy["access"], default_base))
+    run = _prepare_remote(request)
+    if isinstance(run, dict):
+        return run
+    if not _send_remote(run):
+        return run.result
+    _read_remote_outcome(run)
+    return _remote_result(run)
+
+
+def _discover_remote_id(run):
+    """Read this run's id from the marker once; never guess another run's id."""
+    if not run.remote_id:
+        run.remote_id = remote_run_marker(run.remote_err, run.run_token)
+    return run.remote_id
+
+
+def _stop_remote_process(run):
+    """Stop the remote run this process knows, and remember whether the stop was confirmed."""
+    _discover_remote_id(run)
+    run.kill_result = remote_stop(run.request.host, run.remote_id)
+    run.request.pending["_remote_kill"] = run.kill_result
+    if run.process is not None:
+        _terminate_remote_process(run.process)
+
+
+def _prepare_remote(request):
+    """Check the host and build the staging repository, or return the refusal record."""
+    snap0 = tree_snapshot(request.cwd)
+    branch = git(request.cwd, "rev-parse", "--abbrev-ref", "HEAD")
+    policy = remote_access_policy(request.executor, request.role,
+                                  strict=request.access_mode == "strict")
+    default_base = remote_base_rel(request.project, request.task_id)
+    request.pending.update(host=request.host, remote_dir=default_base,
+                           access=resolve_remote_access(policy["access"], default_base))
     if snap0[1]:
-        return _remote_record_failure(pending, "dirty_worktree", wait_s=0)
+        return _remote_record_failure(request.pending, "dirty_worktree", wait_s=0)
     if not branch or branch == "HEAD":
         return _remote_record_failure(
-            pending, "remote_error",
+            request.pending, "remote_error",
             "remote runs need a named branch; check out the task branch first")
     if not remote_runner_cmd():
         return _remote_record_failure(
-            pending, "remote_not_ready",
+            request.pending, "remote_not_ready",
             "remote-runner not found; install it or set DELEGATE_REMOTE_RUNNER")
     try:
-        checks = remote_checks(host)
+        checks = remote_checks(request.host)
     except RemoteError as exc:
-        return _remote_record_failure(pending, exc.failure, exc.detail)
-    fix = remote_ready(checks, host, executor)
+        return _remote_record_failure(request.pending, exc.failure, exc.detail)
+    fix = remote_ready(checks, request.host, request.executor)
     if fix:
-        return _remote_record_failure(pending, "remote_not_ready", fix)
+        return _remote_record_failure(request.pending, "remote_not_ready", fix)
 
-    peak = in_peak() and family == "deepseek"
+    peak = in_peak() and request.family == "deepseek"
     if peak:
         print("delegate: OpenCode Go peak window (UTC); DeepSeek on OpenCode Go costs double now — proceeding",
               file=sys.stderr)
-    if executor == "codex":
-        last_msg.unlink(missing_ok=True)
+    if request.executor == "codex":
+        request.last_msg.unlink(missing_ok=True)
 
     sent = snap0[0]
-    digest = hashlib.sha256(f"{task_id}\0{sent}".encode("utf-8")).hexdigest()[:16]
+    digest = hashlib.sha256(f"{request.task_id}\0{sent}".encode("utf-8")).hexdigest()[:16]
     # Ship a dedicated repository that holds only the bundle and the run files.
     # Syncing the worktree would also send every untracked and ignored file,
     # including .env* (remote-runner's includeIgnored default).
-    staging = Path(cwd) / f".delegate-remote-stage-{digest}"
+    staging = Path(request.cwd) / f".delegate-remote-stage-{digest}"
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
     try:
@@ -3137,7 +3222,8 @@ def _execute_remote_run(request):
     except (OSError, subprocess.CalledProcessError) as exc:
         shutil.rmtree(staging, ignore_errors=True)
         return _remote_record_failure(
-            pending, "remote_error", f"cannot prepare the remote staging repository: {exc}")
+            request.pending, "remote_error",
+            f"cannot prepare the remote staging repository: {exc}")
     stage = staging / ".git" / "delegate" / digest
     local_res = staging / f"{REMOTE_RESULT_PREFIX}{digest}"
     stage.mkdir(parents=True, exist_ok=True)
@@ -3146,353 +3232,422 @@ def _execute_remote_run(request):
     except OSError:
         pass
     bundle = stage / "code.bundle"
-    out_path.mkdir(parents=True, exist_ok=True)
-    stdout.write_text("", encoding="utf-8")
-    stderr.write_text("", encoding="utf-8")
+    request.out_path.mkdir(parents=True, exist_ok=True)
+    request.stdout.write_text("", encoding="utf-8")
+    request.stderr.write_text("", encoding="utf-8")
     started = now().isoformat(timespec="microseconds")
     remote_out = tempfile.NamedTemporaryFile(prefix="delegate-remote-", suffix=".out", delete=False)
     remote_err = tempfile.NamedTemporaryFile(prefix="delegate-remote-", suffix=".err", delete=False)
+    remote_out_name, remote_err_name = remote_out.name, remote_err.name
     remote_out.close()
     remote_err.close()
-    process = None
-    timed_out = False
-    local_slot_timeout = False
-    orphan_failure = None
-    interrupted_exc = None
-    remote_id = None
-    kill_result = None
-    run_token = os.urandom(8).hex()
-    run_s = send_s = fetch_s = 0.0
+    return RemoteRun(request=request, snap0=snap0, branch=branch, policy=policy,
+                     default_base=default_base, peak=peak, sent=sent, digest=digest,
+                     staging=staging, stage=stage, local_res=local_res, bundle=bundle,
+                     started=started, remote_out=remote_out_name, remote_err=remote_err_name,
+                     run_token=os.urandom(8).hex())
 
-    def discover_remote_id():
-        nonlocal remote_id
-        if not remote_id:
-            remote_id = remote_run_marker(remote_err.name, run_token)
-        return remote_id
 
+def _stage_remote_payload(run):
+    """Put the bundle, prompt, executor script and attachments in the staging repository."""
+    request = run.request
     try:
-        try:
-            subprocess.run(["git", "-C", cwd, "bundle", "create", str(bundle), branch],
-                           check=True, capture_output=True)
-        except (OSError, subprocess.CalledProcessError) as exc:
-            detail = getattr(exc, "stderr", b"")
-            if isinstance(detail, bytes):
-                detail = detail.decode("utf-8", errors="replace")
-            raise RemoteError("remote_error", f"cannot create git bundle: {detail or exc}")
-        (stage / "prompt.md").write_text(card_content, encoding="utf-8")
-        exec_script = remote_exec_script(executor, model, role, policy)
-        (stage / "exec.sh").write_text(exec_script, encoding="utf-8")
-        (stage / "remote-run.sh").write_text(
-            remote_driver_script(RemoteDriverScript(
-                task_id, task, role, branch, sent, project, digest, run_token)),
-            encoding="utf-8")
-        if attachments:
-            attach_dir = stage / "attachments"
-            attach_dir.mkdir(exist_ok=True)
-            for filename in attachments:
-                source = Path(filename)
-                _copy_result(source, attach_dir / source.name)
-        if diff_range:
-            diff_result = subprocess.run(
-                ["git", "-C", cwd, "diff", "--no-ext-diff", diff_range, "--"],
-                capture_output=True)
-            if diff_result.returncode == 0:
-                (stage / "diff.txt").write_bytes(diff_result.stdout)
+        subprocess.run(["git", "-C", request.cwd, "bundle", "create", str(run.bundle), run.branch],
+                       check=True, capture_output=True)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        detail = getattr(exc, "stderr", b"")
+        if isinstance(detail, bytes):
+            detail = detail.decode("utf-8", errors="replace")
+        raise RemoteError("remote_error", f"cannot create git bundle: {detail or exc}")
+    (run.stage / "prompt.md").write_text(request.card_content, encoding="utf-8")
+    exec_script = remote_exec_script(request.executor, request.model, request.role, run.policy)
+    (run.stage / "exec.sh").write_text(exec_script, encoding="utf-8")
+    (run.stage / "remote-run.sh").write_text(
+        remote_driver_script(RemoteDriverScript(
+            request.task_id, request.task, request.role, run.branch, run.sent,
+            request.project, run.digest, run.run_token)),
+        encoding="utf-8")
+    if request.attachments:
+        attach_dir = run.stage / "attachments"
+        attach_dir.mkdir(exist_ok=True)
+        for filename in request.attachments:
+            source = Path(filename)
+            _copy_result(source, attach_dir / source.name)
+    if request.diff_range:
+        diff_result = subprocess.run(
+            ["git", "-C", request.cwd, "diff", "--no-ext-diff", request.diff_range, "--"],
+            capture_output=True)
+        if diff_result.returncode == 0:
+            (run.stage / "diff.txt").write_bytes(diff_result.stdout)
 
-        send_t0 = time.monotonic()
-        sync_result = remote_cli(["sync", "--host", host, str(staging)],
-                                 timeout=max(120, timeout + 120),
-                                 timeout_failure="remote_error")
-        send_s = time.monotonic() - send_t0
-        if sync_result.returncode != 0:
-            detail = (sync_result.stderr.strip().splitlines() or
-                      ["remote-runner sync failed"])[-1]
-            raise RemoteError("remote_error", detail)
 
-        snippet = f'exec bash "$(git rev-parse --path-format=absolute --git-common-dir)/delegate/{digest}/remote-run.sh"'
-        argv = [remote_runner_cmd(), "run", "-n", "--host", host, "-C", str(staging),
-                "--wait", str(wait_s), "--timeout", str(max(1, timeout + 30)), "--", snippet]
-        run_t0 = time.monotonic()
-        # The queue is bounded by --wait; the executor timeout starts only when
-        # the run reports that it is active (its marker), never while queued.
-        queue_deadline = run_t0 + wait_s + 2
-        deadline = None
-        with open(remote_out.name, "w") as so, open(remote_err.name, "w") as se:
-            process = subprocess.Popen(argv, stdout=so, stderr=se, start_new_session=True)
-        parent_pid = os.getppid()
-        next_probe = time.monotonic()
-        while True:
-            code_now = process.poll()
-            if code_now is not None:
-                break
-            if os.getppid() != parent_pid:
-                raise ParentGone()
-            now_s = time.monotonic()
-            if deadline is not None and now_s >= deadline:
-                timed_out = True
-                discover_remote_id()
-                kill_result = remote_stop(host, remote_id)
-                pending["_remote_kill"] = kill_result
-                _terminate_remote_process(process)
-                break
-            if deadline is None and now_s >= queue_deadline:
-                local_slot_timeout = True
-                discover_remote_id()
-                kill_result = remote_stop(host, remote_id)
-                pending["_remote_kill"] = kill_result
-                _terminate_remote_process(process)
-                break
-            if now_s >= next_probe:
-                if discover_remote_id() and deadline is None:
-                    deadline = time.monotonic() + timeout
-                next_probe = time.monotonic() + 0.25
-            time.sleep(0.05)
-        run_s = time.monotonic() - run_t0
+def _sync_remote_payload(run):
+    """Send the staging repository to the host."""
+    request = run.request
+    send_t0 = time.monotonic()
+    sync_result = remote_cli(["sync", "--host", request.host, str(run.staging)],
+                             timeout=max(120, request.timeout + 120),
+                             timeout_failure="remote_error")
+    run.send_s = time.monotonic() - send_t0
+    if sync_result.returncode != 0:
+        detail = (sync_result.stderr.strip().splitlines() or
+                  ["remote-runner sync failed"])[-1]
+        raise RemoteError("remote_error", detail)
+
+
+def _start_remote_process(run):
+    """Start the remote-runner child and wait for it, the queue or a stop."""
+    request = run.request
+    snippet = (f'exec bash "$(git rev-parse --path-format=absolute '
+               f'--git-common-dir)/delegate/{run.digest}/remote-run.sh"')
+    argv = [remote_runner_cmd(), "run", "-n", "--host", request.host, "-C", str(run.staging),
+            "--wait", str(request.wait_s), "--timeout", str(max(1, request.timeout + 30)),
+            "--", snippet]
+    run_t0 = time.monotonic()
+    # The queue is bounded by --wait; the executor timeout starts only when
+    # the run reports that it is active (its marker), never while queued.
+    queue_deadline = run_t0 + request.wait_s + 2
+    with open(run.remote_out, "w") as so, open(run.remote_err, "w") as se:
+        run.process = subprocess.Popen(argv, stdout=so, stderr=se, start_new_session=True)
+    parent_pid = os.getppid()
+    next_probe = time.monotonic()
+    while True:
+        code_now = run.process.poll()
+        if code_now is not None:
+            break
+        if os.getppid() != parent_pid:
+            raise ParentGone()
+        now_s = time.monotonic()
+        if run.deadline is not None and now_s >= run.deadline:
+            run.timed_out = True
+            _stop_remote_process(run)
+            break
+        if run.deadline is None and now_s >= queue_deadline:
+            run.local_slot_timeout = True
+            _stop_remote_process(run)
+            break
+        if now_s >= next_probe:
+            if _discover_remote_id(run) and run.deadline is None:
+                run.deadline = time.monotonic() + request.timeout
+            next_probe = time.monotonic() + 0.25
+        time.sleep(0.05)
+    run.run_s = time.monotonic() - run_t0
+
+
+def _send_remote(run):
+    """Stage, sync and start the remote run; say whether it reached the result phase."""
+    request = run.request
+    try:
+        _stage_remote_payload(run)
+        _sync_remote_payload(run)
+        _start_remote_process(run)
     except ParentGone:
-        orphan_failure = "orphaned"
-        discover_remote_id()
-        kill_result = remote_stop(host, remote_id)
-        pending["_remote_kill"] = kill_result
-        if process is not None:
-            _terminate_remote_process(process)
+        run.orphan_failure = "orphaned"
+        _stop_remote_process(run)
     except (KeyboardInterrupt, SystemExit) as exc:
-        orphan_failure = "interrupted"
-        interrupted_exc = exc
-        discover_remote_id()
-        kill_result = remote_stop(host, remote_id)
-        pending["_remote_kill"] = kill_result
-        if process is not None:
-            _terminate_remote_process(process)
+        run.orphan_failure = "interrupted"
+        run.interrupted_exc = exc
+        _stop_remote_process(run)
     except RemoteError as exc:
-        _cleanup_remote_local(staging)
-        _cleanup_temp(remote_out.name, remote_err.name)
-        return _remote_record_failure(pending, exc.failure, exc.detail,
-                                      send_s=round(send_s, 3),
-                                      run_s=round(run_s, 3),
-                                      fetch_s=round(fetch_s, 3))
+        _cleanup_remote_local(run.staging)
+        _cleanup_temp(run.remote_out, run.remote_err)
+        run.result = _remote_record_failure(
+            request.pending, exc.failure, exc.detail,
+            send_s=round(run.send_s, 3), run_s=round(run.run_s, 3),
+            fetch_s=round(run.fetch_s, 3))
+        return False
     finally:
-        if process is not None and process.poll() is None:
-            _terminate_remote_process(process)
+        if run.process is not None and run.process.poll() is None:
+            _terminate_remote_process(run.process)
+    return True
 
-    remote_code = process.returncode if process is not None else None
+
+def _read_remote_outcome(run):
+    """Read the child's exit, the last real stderr cause and the work marker."""
+    run.remote_code = run.process.returncode if run.process is not None else None
     remote_stderr = ""
     try:
-        remote_stderr = Path(remote_err.name).read_text(errors="replace").strip()
+        remote_stderr = Path(run.remote_err).read_text(errors="replace").strip()
     except OSError:
         pass
     causes = [line for line in remote_stderr.splitlines()
               if line.strip() and not line.startswith(("remote-runner: result=", REMOTE_RUN_MARKER,
                                                        REMOTE_WORK_MARKER))]
-    last_line = (causes or [""])[-1]
-    work_info = remote_work_marker(remote_err.name, run_token)
+    run.last_line = (causes or [""])[-1]
+    work_info = remote_work_marker(run.remote_err, run.run_token)
     if work_info:
-        pending["_remote_work"] = dict(work_info)
+        run.work_info = dict(work_info)
+        run.request.pending["_remote_work"] = dict(work_info)
 
-    def kept_record(extra=None):
-        if not work_info:
-            return None
-        kept = dict(work_info)
-        if extra:
-            kept.update(extra)
-        return kept
 
-    try:
-        # A stop signal ends this run: do not pull or merge its partial result.
-        if orphan_failure:
-            rec = _remote_record_failure(
-                pending, orphan_failure, wait_s=round(run_s, 3),
-                send_s=round(send_s, 3), run_s=round(run_s, 3),
-                fetch_s=round(fetch_s, 3), exit_code=remote_code)
-            if interrupted_exc is not None:
-                raise interrupted_exc
-            return rec
-        if local_slot_timeout:
-            extra = {"remote_kill": kill_result} if kill_result else {}
-            return _remote_record_failure(
-                pending, "slot_timeout",
-                last_line or "no free capacity on the host within --wait", host=host,
-                wait_s=round(run_s, 3), send_s=round(send_s, 3),
-                run_s=round(run_s, 3), fetch_s=round(fetch_s, 3),
-                exit_code=remote_code, **extra)
-        if remote_code == 74:
-            return _remote_record_failure(
-                pending, "slot_timeout", last_line or None, host=host,
-                wait_s=round(run_s, 3), send_s=round(send_s, 3),
-                run_s=round(run_s, 3), fetch_s=round(fetch_s, 3))
-        fetch_t0 = time.monotonic()
-        shutil.rmtree(local_res, ignore_errors=True)
-        pull = remote_cli(["pull", "--host", host, str(local_res)], timeout=max(120, timeout + 120))
-        meta_file = local_res / "meta.txt"
-        meta = {}
-        if meta_file.is_file():
-            for line in meta_file.read_text(errors="replace").splitlines():
-                key, sep, value = line.partition("=")
-                if sep:
-                    meta[key] = value
-        if meta.get("token") != run_token:
-            fetch_s = time.monotonic() - fetch_t0
-            _cleanup_remote_local(staging)
-            if timed_out:
-                extra = {"remote_work_kept": kept_record()} if kept_record() else {}
-                if kill_result:
-                    extra["remote_kill"] = kill_result
-                return _remote_record_failure(
-                    pending, "timeout", wait_s=round(run_s, 3), timed_out=True,
-                    send_s=round(send_s, 3), run_s=round(run_s, 3),
-                    fetch_s=round(fetch_s, 3), exit_code=remote_code, **extra)
-            if orphan_failure:
-                extra = {"remote_work_kept": kept_record()} if kept_record() else {}
-                if kill_result:
-                    extra["remote_kill"] = kill_result
-                return _remote_record_failure(
-                    pending, orphan_failure, wait_s=round(run_s, 3),
-                    send_s=round(send_s, 3), run_s=round(run_s, 3),
-                    fetch_s=round(fetch_s, 3), exit_code=remote_code, **extra)
-            detail = last_line or (pull.stderr.strip().splitlines() or [""])[-1]
-            return _remote_record_failure(
-                pending, "remote_error", detail or "remote run produced no result",
-                send_s=round(send_s, 3), run_s=round(run_s, 3),
-                fetch_s=round(fetch_s, 3), exit_code=remote_code)
-        remote_base = meta.get("remote_base") or default_base
-        received = meta.get("received") or sent
-        remote_exit = int(meta.get("exit") or 0)
-        remote_dirty = meta.get("dirty") == "1"
-        commit_rc = meta.get("commit_rc") or ""
-        commit_failed = commit_rc not in ("", "0")
-        commit_error = None
-        if commit_failed:
-            commit_error = f"remote auto-commit failed (git exit {commit_rc})"
-            try:
-                tail = [line for line in (local_res / "commit.log").read_text(
-                    errors="replace").splitlines() if line.strip()]
-            except OSError:
-                tail = []
-            if tail:
-                commit_error += ": " + tail[-1]
-        _copy_result(local_res / "stdout", stdout)
-        _copy_result(local_res / "stderr", stderr)
-        if executor == "codex":
-            _copy_result(local_res / "last.md", last_msg)
-        review_wrote = role == "review" and (remote_dirty or received != sent)
-        diverged = False
-        diverged_reason = None
-        fetched_ref = None
-        fetch_error = None
-        if role != "review" and received != sent and not timed_out and not orphan_failure:
-            fetched_ref = remote_delegate_ref(task_id)
-            current_branch = git(cwd, "rev-parse", "--abbrev-ref", "HEAD")
-            fetch = subprocess.run(
-                ["git", "-C", cwd, "fetch", "--no-tags", str(local_res / "result.bundle"),
-                 f"+refs/heads/{branch}:{fetched_ref}"], capture_output=True, text=True)
-            if fetch.returncode != 0:
-                fetch_error = fetch.stderr.strip() or "cannot fetch the result bundle"
-            elif current_branch != branch:
-                diverged = True
-                diverged_reason = (f"the worktree moved to {current_branch or 'a detached HEAD'}, "
-                                   f"not {branch}; the result is kept at {fetched_ref}")
-            elif subprocess.run(["git", "-C", cwd, "merge-base", "--is-ancestor",
-                                 "HEAD", fetched_ref], capture_output=True).returncode != 0:
-                diverged = True
-                diverged_reason = ("the local branch and the remote result diverge; "
-                                   f"the result is kept at {fetched_ref}")
-            else:
-                merge = subprocess.run(["git", "-C", cwd, "merge", "--ff-only", fetched_ref],
-                                       capture_output=True, text=True)
-                if merge.returncode != 0:
-                    diverged = True
-                    detail = (merge.stderr.strip().splitlines() or
-                              ["git refused the fast-forward"])[-1]
-                    diverged_reason = ("a local change overlaps the remote result and the "
-                                       f"fast-forward was refused ({detail}); commit or stash "
-                                       f"it, then merge {fetched_ref}")
-                else:
-                    subprocess.run(["git", "-C", cwd, "update-ref", "-d", fetched_ref],
-                                   capture_output=True)
-        fetch_s = time.monotonic() - fetch_t0
-        # The pulled result directory lives in the synced staging repository;
-        # remove it before snapshotting, or it would look like executor dirt.
-        _cleanup_remote_local(staging)
+def _remote_kept_record(run, extra=None):
+    """The kept-work record this run can report, or None when no marker was found."""
+    if not run.work_info:
+        return None
+    kept = dict(run.work_info)
+    if extra:
+        kept.update(extra)
+    return kept
 
-        snap1 = tree_snapshot(cwd)
-        head1 = snap1[0]
-        dirty_after = bool(snap1[1])
-        uncommitted = bool(remote_dirty and role != "review")
-        review_output = None
-        if role == "review":
-            review_output = last_msg if executor == "codex" else stdout
-        if orphan_failure:
-            failure = orphan_failure
-        elif timed_out:
-            failure = "timeout"
-        elif diverged:
-            failure = "diverged"
-        elif fetch_error:
-            failure = "remote_error"
-        elif review_wrote:
-            failure = "review_wrote"
-        elif commit_failed:
-            failure = "remote_error"
+
+def _remote_early_stop(run):
+    """Record a stopped or unsent run before any pull, or return None to continue."""
+    request = run.request
+    if run.orphan_failure:
+        rec = _remote_record_failure(
+            request.pending, run.orphan_failure, wait_s=round(run.run_s, 3),
+            send_s=round(run.send_s, 3), run_s=round(run.run_s, 3),
+            fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code)
+        if run.interrupted_exc is not None:
+            raise run.interrupted_exc
+        return rec
+    if run.local_slot_timeout:
+        extra = {"remote_kill": run.kill_result} if run.kill_result else {}
+        return _remote_record_failure(
+            request.pending, "slot_timeout",
+            run.last_line or "no free capacity on the host within --wait", host=request.host,
+            wait_s=round(run.run_s, 3), send_s=round(run.send_s, 3),
+            run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3),
+            exit_code=run.remote_code, **extra)
+    if run.remote_code == 74:
+        return _remote_record_failure(
+            request.pending, "slot_timeout", run.last_line or None, host=request.host,
+            wait_s=round(run.run_s, 3), send_s=round(run.send_s, 3),
+            run_s=round(run.run_s, 3), fetch_s=round(run.fetch_s, 3))
+    return None
+
+
+def _read_remote_meta(path):
+    """Read the key=value meta file the driver wrote for this run."""
+    meta = {}
+    if path.is_file():
+        for line in path.read_text(errors="replace").splitlines():
+            key, sep, value = line.partition("=")
+            if sep:
+                meta[key] = value
+    return meta
+
+
+def _pull_remote_result(run):
+    """Pull the result and say whether it belongs to this run; record a refusal otherwise."""
+    request = run.request
+    run.fetch_t0 = time.monotonic()
+    shutil.rmtree(run.local_res, ignore_errors=True)
+    pull = remote_cli(["pull", "--host", request.host, str(run.local_res)],
+                      timeout=max(120, request.timeout + 120))
+    meta = _read_remote_meta(run.local_res / "meta.txt")
+    if meta.get("token") != run.run_token:
+        run.fetch_s = time.monotonic() - run.fetch_t0
+        _cleanup_remote_local(run.staging)
+        if run.timed_out:
+            extra = {"remote_work_kept": _remote_kept_record(run)} if _remote_kept_record(run) else {}
+            if run.kill_result:
+                extra["remote_kill"] = run.kill_result
+            run.result = _remote_record_failure(
+                request.pending, "timeout", wait_s=round(run.run_s, 3), timed_out=True,
+                send_s=round(run.send_s, 3), run_s=round(run.run_s, 3),
+                fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code, **extra)
+            return False
+        detail = run.last_line or (pull.stderr.strip().splitlines() or [""])[-1]
+        run.result = _remote_record_failure(
+            request.pending, "remote_error", detail or "remote run produced no result",
+            send_s=round(run.send_s, 3), run_s=round(run.run_s, 3),
+            fetch_s=round(run.fetch_s, 3), exit_code=run.remote_code)
+        return False
+    run.meta = meta
+    return True
+
+
+def _merge_remote_result(run, meta):
+    """Fetch the returned bundle; fast-forward the branch or keep the ref and say why."""
+    request = run.request
+    received = meta.get("received") or run.sent
+    diverged, diverged_reason = False, None
+    fetched_ref, fetch_error = None, None
+    if request.role != "review" and received != run.sent and not run.timed_out and not run.orphan_failure:
+        fetched_ref = remote_delegate_ref(request.task_id)
+        current_branch = git(request.cwd, "rev-parse", "--abbrev-ref", "HEAD")
+        fetch = subprocess.run(
+            ["git", "-C", request.cwd, "fetch", "--no-tags", str(run.local_res / "result.bundle"),
+             f"+refs/heads/{run.branch}:{fetched_ref}"], capture_output=True, text=True)
+        if fetch.returncode != 0:
+            fetch_error = fetch.stderr.strip() or "cannot fetch the result bundle"
+        elif current_branch != run.branch:
+            diverged = True
+            diverged_reason = (f"the worktree moved to {current_branch or 'a detached HEAD'}, "
+                               f"not {run.branch}; the result is kept at {fetched_ref}")
+        elif subprocess.run(["git", "-C", request.cwd, "merge-base", "--is-ancestor",
+                             "HEAD", fetched_ref], capture_output=True).returncode != 0:
+            diverged = True
+            diverged_reason = ("the local branch and the remote result diverge; "
+                               f"the result is kept at {fetched_ref}")
         else:
-            failure = classify_failure(False, remote_exit, stdout, stderr,
-                                       review_wrote, review_output, executor)
-        commits = git(cwd, "rev-list", "--count", f"{sent}..{head1}") if sent and head1 else ""
-        files = git(cwd, "diff", "--name-only", f"{sent}..{head1}") if sent and head1 else ""
-        access = resolve_remote_access(policy["access"], remote_base)
+            merge = subprocess.run(["git", "-C", request.cwd, "merge", "--ff-only", fetched_ref],
+                                   capture_output=True, text=True)
+            if merge.returncode != 0:
+                diverged = True
+                detail = (merge.stderr.strip().splitlines() or
+                          ["git refused the fast-forward"])[-1]
+                diverged_reason = ("a local change overlaps the remote result and the "
+                                   f"fast-forward was refused ({detail}); commit or stash "
+                                   f"it, then merge {fetched_ref}")
+            else:
+                subprocess.run(["git", "-C", request.cwd, "update-ref", "-d", fetched_ref],
+                               capture_output=True)
+    return MergeOutcome(diverged, diverged_reason, fetched_ref, fetch_error)
+
+
+def _remote_commit_error(run, meta):
+    """Turn the driver's commit exit into a reason the record can show."""
+    commit_rc = meta.get("commit_rc") or ""
+    if commit_rc in ("", "0"):
+        return False, None
+    commit_error = f"remote auto-commit failed (git exit {commit_rc})"
+    try:
+        tail = [line for line in (run.local_res / "commit.log").read_text(
+            errors="replace").splitlines() if line.strip()]
+    except OSError:
+        tail = []
+    if tail:
+        commit_error += ": " + tail[-1]
+    return True, commit_error
+
+
+def _remote_failure(run, meta, merge, review_wrote, commit_failed):
+    """Pick the record's failure from the facts of the returned run."""
+    request = run.request
+    if run.orphan_failure:
+        return run.orphan_failure
+    if run.timed_out:
+        return "timeout"
+    if merge.diverged:
+        return "diverged"
+    if merge.fetch_error:
+        return "remote_error"
+    if review_wrote:
+        return "review_wrote"
+    if commit_failed:
+        return "remote_error"
+    review_output = None
+    if request.role == "review":
+        review_output = request.last_msg if request.executor == "codex" else request.stdout
+    return classify_failure(False, int(meta.get("exit") or 0), request.stdout, request.stderr,
+                            review_wrote, review_output, request.executor)
+
+
+def _remote_outcome(run, meta):
+    """Copy the result files, merge the bundle and classify what the run produced."""
+    request = run.request
+    received = meta.get("received") or run.sent
+    remote_dirty = meta.get("dirty") == "1"
+    commit_failed, commit_error = _remote_commit_error(run, meta)
+    _copy_result(run.local_res / "stdout", request.stdout)
+    _copy_result(run.local_res / "stderr", request.stderr)
+    if request.executor == "codex":
+        _copy_result(run.local_res / "last.md", request.last_msg)
+    review_wrote = request.role == "review" and (remote_dirty or received != run.sent)
+    merge = _merge_remote_result(run, meta)
+    run.fetch_s = time.monotonic() - run.fetch_t0
+    # The pulled result directory lives in the synced staging repository;
+    # remove it before snapshotting, or it would look like executor dirt.
+    _cleanup_remote_local(run.staging)
+    snap1 = tree_snapshot(request.cwd)
+    head1 = snap1[0]
+    review_output = None
+    if request.role == "review":
+        review_output = request.last_msg if request.executor == "codex" else request.stdout
+    commits = git(request.cwd, "rev-list", "--count", f"{run.sent}..{head1}") if run.sent and head1 else ""
+    files = git(request.cwd, "diff", "--name-only", f"{run.sent}..{head1}") if run.sent and head1 else ""
+    return RemoteOutcome(
+        received, int(meta.get("exit") or 0), remote_dirty, commit_failed, commit_error,
+        review_wrote, merge,
+        _remote_failure(run, meta, merge, review_wrote, commit_failed),
+        head1, bool(snap1[1]), bool(remote_dirty and request.role != "review"),
+        commits, files, review_output)
+
+
+def _remote_run_record(run, meta, outcome):
+    """Build the run record of a pulled remote run, in the log's key order."""
+    request = run.request
+    remote_base = meta.get("remote_base") or run.default_base
+    access = resolve_remote_access(run.policy["access"], remote_base)
+    access.setdefault("limits", []).append(
+        "leftover-process cleanup on the host is only what remote-runner kill guarantees")
+    if run.kill_result in ("failed", "no_id"):
         access.setdefault("limits", []).append(
-            "leftover-process cleanup on the host is only what remote-runner kill guarantees")
-        if kill_result in ("failed", "no_id"):
-            access.setdefault("limits", []).append(
-                f"remote-runner kill did not confirm a stop ({kill_result}); "
-                f"check `remote-runner runs --host {host}` on the host")
-        rec = {
-            "kind": "run", "id": task_id, "project": project,
-            "task": task, "role": role, "executor": executor, "model": model,
-            "family": family, "user_confirmed": bool(confirmed), "started": started,
-            "duration_s": round(run_s), "exit_code": remote_exit, "timed_out": timed_out,
-            "completed": now().isoformat(timespec="microseconds"),
-            "wait_s": round(run_s if remote_code == 74 else 0, 3),
-            "failure": failure, "peak": peak, "base": sent[:10], "head": head1[:10],
-            "commits": int(commits) if commits.isdigit() else 0,
-            "files_changed": len([f for f in files.splitlines() if f]),
-            "dirty_before": False, "dirty_after": dirty_after, "uncommitted": uncommitted,
-            "card": str(Path(pending["card"]).resolve()), "stdout": str(stdout),
-            "stderr": str(stderr), "attempt": attempt, "prompt": str(prompt),
-            "access": access, "host": host, "remote_dir": remote_base,
-            "sync": {"sent": sent, "received": received},
-            "orphans": {"found": 0, "killed": 0, "sample": []},
-            "send_s": round(send_s, 3), "run_s": round(run_s, 3),
-            "fetch_s": round(fetch_s, 3), **input_sizes,
-        }
-        if pending.get("active_token"):
-            rec["active_token"] = pending["active_token"]
-        if failure == "permission_denied":
-            rec["denied_permission"] = agy_denied_permission(stderr)
-        if fetch_error:
-            rec["remote_error"] = fetch_error
-        elif commit_error:
-            rec["remote_error"] = commit_error
-        elif diverged_reason:
-            rec["remote_error"] = diverged_reason
-        if kill_result:
-            rec["remote_kill"] = kill_result
-        if diverged and fetched_ref:
-            rec["remote_ref"] = fetched_ref
-        if failure != "none":
-            kept = kept_record({"ref": fetched_ref} if diverged and fetched_ref else None)
-            if kept:
-                rec["remote_work_kept"] = kept
-        if executor == "codex":
-            rec["last_message"] = str(last_msg)
-        if role == "review" and failure == "none":
-            rec.update(review_severity_fields(review_output))
+            f"remote-runner kill did not confirm a stop ({run.kill_result}); "
+            f"check `remote-runner runs --host {request.host}` on the host")
+    rec = {
+        "kind": "run", "id": request.task_id, "project": request.project,
+        "task": request.task, "role": request.role, "executor": request.executor,
+        "model": request.model, "family": request.family,
+        "user_confirmed": bool(request.confirmed), "started": run.started,
+        "duration_s": round(run.run_s), "exit_code": outcome.remote_exit,
+        "timed_out": run.timed_out, "completed": now().isoformat(timespec="microseconds"),
+        "wait_s": round(run.run_s if run.remote_code == 74 else 0, 3),
+        "failure": outcome.failure, "peak": run.peak, "base": run.sent[:10],
+        "head": outcome.head1[:10],
+        "commits": int(outcome.commits) if outcome.commits.isdigit() else 0,
+        "files_changed": len([f for f in outcome.files.splitlines() if f]),
+        "dirty_before": False, "dirty_after": outcome.dirty_after,
+        "uncommitted": outcome.uncommitted,
+        "card": str(Path(request.pending["card"]).resolve()), "stdout": str(request.stdout),
+        "stderr": str(request.stderr), "attempt": request.attempt, "prompt": str(request.prompt),
+        "access": access, "host": request.host, "remote_dir": remote_base,
+        "sync": {"sent": run.sent, "received": outcome.received},
+        "orphans": {"found": 0, "killed": 0, "sample": []},
+        "send_s": round(run.send_s, 3), "run_s": round(run.run_s, 3),
+        "fetch_s": round(run.fetch_s, 3), **request.input_sizes,
+    }
+    if request.pending.get("active_token"):
+        rec["active_token"] = request.pending["active_token"]
+    if outcome.failure == "permission_denied":
+        rec["denied_permission"] = agy_denied_permission(request.stderr)
+    if outcome.merge.fetch_error:
+        rec["remote_error"] = outcome.merge.fetch_error
+    elif outcome.commit_error:
+        rec["remote_error"] = outcome.commit_error
+    elif outcome.merge.diverged_reason:
+        rec["remote_error"] = outcome.merge.diverged_reason
+    if run.kill_result:
+        rec["remote_kill"] = run.kill_result
+    if outcome.merge.diverged and outcome.merge.fetched_ref:
+        rec["remote_ref"] = outcome.merge.fetched_ref
+    if outcome.failure != "none":
+        kept = _remote_kept_record(
+            run, {"ref": outcome.merge.fetched_ref}
+            if outcome.merge.diverged and outcome.merge.fetched_ref else None)
+        if kept:
+            rec["remote_work_kept"] = kept
+    if request.executor == "codex":
+        rec["last_message"] = str(request.last_msg)
+    if request.role == "review" and outcome.failure == "none":
+        rec.update(review_severity_fields(outcome.review_output))
+    return rec
+
+
+def _cleanup_remote_run(run):
+    """Remove the local staging repository and the child's capture files."""
+    _cleanup_remote_local(run.staging)
+    _cleanup_temp(run.remote_out, run.remote_err)
+
+
+def _remote_result(run):
+    """Pull the result, merge it and append the record; every exit cleans up."""
+    try:
+        early = _remote_early_stop(run)
+        if early is not None:
+            return early
+        if not _pull_remote_result(run):
+            return run.result
+        outcome = _remote_outcome(run, run.meta or {})
+        rec = _remote_run_record(run, run.meta or {}, outcome)
         append(rec)
-        if interrupted_exc is not None:
-            raise interrupted_exc
+        if run.interrupted_exc is not None:
+            raise run.interrupted_exc
         return rec
     finally:
-        _cleanup_remote_local(staging)
-        _cleanup_temp(remote_out.name, remote_err.name)
-
+        _cleanup_remote_run(run)
 
 def _terminate_remote_process(process):
     """Stop the local remote-runner child; it owns the remote process group."""
