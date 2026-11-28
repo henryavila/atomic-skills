@@ -73,6 +73,128 @@ function parseResetsAt(combined) {
 }
 
 /**
+ * @param {object} input
+ * @param {string | null} [input.stdout]
+ * @param {string | null} [input.stderr]
+ * @param {number | null} [input.exitCode]
+ * @returns {{ combinedFull: string, scan: string, resetsAt: string | null, exitCode: number }}
+ */
+function limitScanContext(input) {
+  const combinedFull = `${norm(input.stdout)}\n${norm(input.stderr)}`.trim();
+  return {
+    combinedFull,
+    scan: headForLimitScan(combinedFull),
+    resetsAt: parseResetsAt(combinedFull),
+    exitCode: Number(input.exitCode),
+  };
+}
+
+/**
+ * Short banners only — long review prose mentioning "rate limit" is a finding,
+ * not an abort. A non-zero exit also makes a banner-like match actionable.
+ *
+ * @param {string} scan
+ * @param {number} exitCode
+ * @returns {boolean}
+ */
+function isBannerOrFailure(scan, exitCode) {
+  return scan.length < 400 || exitCode !== 0;
+}
+
+/**
+ * @param {string | null} resetsAt
+ * @returns {string}
+ */
+function resetsHint(resetsAt) {
+  return resetsAt ? ` Resets ${resetsAt}.` : '';
+}
+
+/**
+ * @param {string} scan
+ * @returns {ProviderLimitFailure}
+ */
+function authFailure(scan) {
+  return {
+    kind: 'auth',
+    message:
+      'Provider authentication failed. Re-auth the CLI (e.g. `claude auth login` / `codex login` / `grok login`) or set the API key, then retry.',
+    resetsAt: null,
+    retryable: false,
+    doNotRetry: true,
+    rawMatch: scan.match(AUTH_RE)?.[0],
+  };
+}
+
+/**
+ * @param {string} scan
+ * @param {string | null} resetsAt
+ * @returns {ProviderLimitFailure}
+ */
+function sessionLimitFailure(scan, resetsAt) {
+  return {
+    kind: 'session-limit',
+    message:
+      `Claude session limit hit (CLI often exits 0 with a banner — not a review).${resetsHint(resetsAt)} ` +
+      `Do not retry this provider until the window resets. Use another family-different provider ` +
+      `(e.g. --mode=codex) or wait and re-run.`,
+    resetsAt,
+    retryable: false,
+    doNotRetry: true,
+    rawMatch: scan.match(SESSION_LIMIT_RE)?.[0],
+  };
+}
+
+/**
+ * @param {string} scan
+ * @param {string | null} resetsAt
+ * @returns {ProviderLimitFailure}
+ */
+function usageLimitFailure(scan, resetsAt) {
+  return {
+    kind: 'usage-limit',
+    message:
+      `Provider usage limit hit.${resetsHint(resetsAt)} Do not retry until reset. Switch provider or wait.`,
+    resetsAt,
+    retryable: false,
+    doNotRetry: true,
+    rawMatch: scan.match(USAGE_LIMIT_RE)?.[0],
+  };
+}
+
+/**
+ * @param {string} scan
+ * @param {string | null} resetsAt
+ * @returns {ProviderLimitFailure}
+ */
+function rateLimitFailure(scan, resetsAt) {
+  return {
+    kind: 'rate-limit',
+    message:
+      `Provider rate limit hit.${resetsHint(resetsAt)} Wait briefly or switch provider; do not burn a corrective retry.`,
+    resetsAt,
+    retryable: true,
+    doNotRetry: true,
+    rawMatch: scan.match(RATE_LIMIT_RE)?.[0],
+  };
+}
+
+/**
+ * @param {string} scan
+ * @returns {ProviderLimitFailure}
+ */
+function overloadedFailure(scan) {
+  return {
+    kind: 'overloaded',
+    message:
+      'Provider model overloaded/unavailable. Try --fallback-model / another model id, or switch provider.',
+    resetsAt: null,
+    retryable: true,
+    doNotRetry: true,
+    rawMatch: scan.match(OVERLOADED_RE)?.[0],
+  };
+}
+
+/**
  * Classify stdout+stderr from a provider CLI invoke.
  *
  * @param {object} input
@@ -83,85 +205,19 @@ function parseResetsAt(combined) {
  * @returns {ProviderLimitFailure | null}
  */
 export function classifyProviderLimitFailure(input = {}) {
-  const stdout = norm(input.stdout);
-  const stderr = norm(input.stderr);
-  const combinedFull = `${stdout}\n${stderr}`.trim();
+  const { combinedFull, scan, resetsAt, exitCode } = limitScanContext(input);
   if (!combinedFull) return null;
 
-  const scan = headForLimitScan(combinedFull);
-  const resetsAt = parseResetsAt(combinedFull);
-
   // Auth first — same treatment as preflight abort (do not treat as review).
-  if (AUTH_RE.test(scan)) {
-    return {
-      kind: 'auth',
-      message:
-        'Provider authentication failed. Re-auth the CLI (e.g. `claude auth login` / `codex login` / `grok login`) or set the API key, then retry.',
-      resetsAt: null,
-      retryable: false,
-      doNotRetry: true,
-      rawMatch: scan.match(AUTH_RE)?.[0],
-    };
+  if (AUTH_RE.test(scan)) return authFailure(scan);
+  if (SESSION_LIMIT_RE.test(scan)) return sessionLimitFailure(scan, resetsAt);
+  if (USAGE_LIMIT_RE.test(scan)) return usageLimitFailure(scan, resetsAt);
+  if (RATE_LIMIT_RE.test(scan) && isBannerOrFailure(scan, exitCode)) {
+    return rateLimitFailure(scan, resetsAt);
   }
-
-  if (SESSION_LIMIT_RE.test(scan)) {
-    const when = resetsAt ? ` Resets ${resetsAt}.` : '';
-    return {
-      kind: 'session-limit',
-      message:
-        `Claude session limit hit (CLI often exits 0 with a banner — not a review).${when} ` +
-        `Do not retry this provider until the window resets. Use another family-different provider ` +
-        `(e.g. --mode=codex) or wait and re-run.`,
-      resetsAt,
-      retryable: false,
-      doNotRetry: true,
-      rawMatch: scan.match(SESSION_LIMIT_RE)?.[0],
-    };
+  if (OVERLOADED_RE.test(scan) && isBannerOrFailure(scan, exitCode)) {
+    return overloadedFailure(scan);
   }
-
-  if (USAGE_LIMIT_RE.test(scan)) {
-    const when = resetsAt ? ` Resets ${resetsAt}.` : '';
-    return {
-      kind: 'usage-limit',
-      message:
-        `Provider usage limit hit.${when} Do not retry until reset. Switch provider or wait.`,
-      resetsAt,
-      retryable: false,
-      doNotRetry: true,
-      rawMatch: scan.match(USAGE_LIMIT_RE)?.[0],
-    };
-  }
-
-  if (RATE_LIMIT_RE.test(scan)) {
-    // Short banners only — long review prose mentioning "rate limit" as a finding
-    // should not abort. If the head is mostly the banner (or exit non-zero), flag it.
-    const short = scan.length < 400 || Number(input.exitCode) !== 0;
-    if (short) {
-      const when = resetsAt ? ` Resets ${resetsAt}.` : '';
-      return {
-        kind: 'rate-limit',
-        message:
-          `Provider rate limit hit.${when} Wait briefly or switch provider; do not burn a corrective retry.`,
-        resetsAt,
-        retryable: true,
-        doNotRetry: true,
-        rawMatch: scan.match(RATE_LIMIT_RE)?.[0],
-      };
-    }
-  }
-
-  if (OVERLOADED_RE.test(scan) && (scan.length < 400 || Number(input.exitCode) !== 0)) {
-    return {
-      kind: 'overloaded',
-      message:
-        'Provider model overloaded/unavailable. Try --fallback-model / another model id, or switch provider.',
-      resetsAt: null,
-      retryable: true,
-      doNotRetry: true,
-      rawMatch: scan.match(OVERLOADED_RE)?.[0],
-    };
-  }
-
   return null;
 }
 
