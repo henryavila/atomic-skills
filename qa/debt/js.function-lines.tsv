@@ -19,4 +19,3 @@ src/runtime-layers/grok-refcount.js::releaseGrokOutsideJournal	85
 src/runtime-observe.js::observeRuntimeRegistry	97
 src/runtime-observe.js::parseInstallsRegistry	85
 src/status.js::status	141
-src/uninstall.js::uninstall	180

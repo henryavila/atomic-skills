@@ -1,4 +1,3 @@
 scripts/run-host-probes.js::*	1
 scripts/verify-installed-runtime.js::*	1
 src/install.js::*	12
-src/uninstall.js::*	2

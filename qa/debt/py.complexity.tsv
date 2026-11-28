@@ -5,6 +5,5 @@ skills/shared/delegate-assets/delegate.py::cmd_pipeline	59
 skills/shared/delegate-assets/delegate.py::cmd_review_pending	30
 skills/shared/delegate-assets/delegate.py::cmd_status	23
 skills/shared/delegate-assets/delegate.py::execute_run	53
-skills/shared/progress-assets/progress.py::validate_map	75
 skills/shared/quality-gate-assets/ratchet.py::cmd_diff	22
 skills/shared/quality-gate-assets/ratchet.py::cmd_move	18
