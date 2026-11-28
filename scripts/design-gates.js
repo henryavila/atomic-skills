@@ -177,25 +177,58 @@ export function updateDesignGate(stateRoot, projectId, slug, partial = {}, opts 
   const merged = buildDesignGate({
     ...existing,
     ...partial,
-    projectId: partial.projectId != null ? partial.projectId : existing.projectId || projectId,
-    slug: partial.slug != null ? partial.slug : existing.slug || slug,
-    // Nested debateGate: shallow-merge when both objects
-    debateGate:
-      partial.debateGate !== undefined
-        ? normalizeDebateGate(
-            typeof partial.debateGate === 'object' &&
-              partial.debateGate &&
-              typeof existing.debateGate === 'object' &&
-              existing.debateGate
-              ? { ...existing.debateGate, ...partial.debateGate }
-              : partial.debateGate,
-          )
-        : existing.debateGate,
+    ...resolveMergedIdentity(partial, existing, projectId, slug),
+    debateGate: mergeDebateGate(partial, existing),
     updatedAt: new Date().toISOString(),
   });
 
-  // Auto-promote status to ready when all process fields are set and caller
-  // did not force pending; demote if fields incomplete but status was ready.
+  applyStatusRules(merged, partial);
+
+  writeGate(designGatePath(stateRoot, projectId, slug), merged);
+  return merged;
+}
+
+/**
+ * Identity fields of the merged receipt: the partial wins, then the existing
+ * receipt, then the ids the caller addressed.
+ * @param {object} partial
+ * @param {object} existing
+ * @param {string} projectId
+ * @param {string} slug
+ */
+function resolveMergedIdentity(partial, existing, projectId, slug) {
+  return {
+    projectId: partial.projectId != null ? partial.projectId : existing.projectId || projectId,
+    slug: partial.slug != null ? partial.slug : existing.slug || slug,
+  };
+}
+
+/**
+ * Nested debateGate: shallow-merge when the partial and existing are both
+ * objects, otherwise normalise whatever the partial supplied.
+ * @param {object} partial
+ * @param {object} existing
+ */
+function mergeDebateGate(partial, existing) {
+  if (partial.debateGate === undefined) return existing.debateGate;
+  const bothObjects =
+    typeof partial.debateGate === 'object' &&
+    partial.debateGate &&
+    typeof existing.debateGate === 'object' &&
+    existing.debateGate;
+  if (bothObjects) {
+    return normalizeDebateGate({ ...existing.debateGate, ...partial.debateGate });
+  }
+  return normalizeDebateGate(partial.debateGate);
+}
+
+/**
+ * Auto-promote status to ready when all process fields are set and caller
+ * did not force pending; demote if fields incomplete but status was ready.
+ * @param {object} merged
+ * @param {object} partial
+ */
+function applyStatusRules(merged, partial) {
   const processMissing = processFieldsMissing(merged);
   if (partial.status === DESIGN_STATUS.READY || merged.status === DESIGN_STATUS.READY) {
     merged.status = processMissing.length === 0 ? DESIGN_STATUS.READY : DESIGN_STATUS.PENDING;
@@ -207,9 +240,6 @@ export function updateDesignGate(stateRoot, projectId, slug, partial = {}, opts 
   if (partial.status === DESIGN_STATUS.READY && processMissing.length === 0) {
     merged.status = DESIGN_STATUS.READY;
   }
-
-  writeGate(designGatePath(stateRoot, projectId, slug), merged);
-  return merged;
 }
 
 // ── internals ──────────────────────────────────────────────────────────────
