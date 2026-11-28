@@ -5469,7 +5469,8 @@ def removed_profile_asked(argv):
     return None
 
 
-def main():
+def reject_removed_profile():
+    """Refuse a profile that was removed from the runner before argparse runs."""
     removed = removed_profile_asked(sys.argv[1:])
     if removed:
         print(REMOVED_PROFILE_MESSAGE.format(name=removed), file=sys.stderr)
@@ -5482,9 +5483,9 @@ def main():
             print("delegate: profile deepseek-pro was removed (poor cost/benefit); use --profile flash",
                   file=sys.stderr)
             sys.exit(2)
-    ap = argparse.ArgumentParser(prog="delegate.py")
-    sub = ap.add_subparsers(dest="cmd", required=True)
 
+
+def add_run_parser(sub):
     r = sub.add_parser("run")
     r.add_argument("--id", required=True); r.add_argument("--task", required=True)
     r.add_argument("--role", required=True, choices=ROLES)
@@ -5520,6 +5521,8 @@ def main():
                    help="family of the model that wrote the code; required for claude-review")
     r.set_defaults(f=cmd_run)
 
+
+def add_pipeline_parser(sub):
     pipe = sub.add_parser("pipeline")
     pipe.add_argument("--id", required=True)
     pipe.add_argument("--task", required=True)
@@ -5557,22 +5560,32 @@ def main():
                       help="the operator said yes to a Claude review for this task (the fallback reviewer)")
     pipe.set_defaults(f=cmd_pipeline)
 
+
+def add_pause_parser(sub):
     p_pause = sub.add_parser("pause")
     p_pause.add_argument("--reason")
     p_pause.set_defaults(f=cmd_pause)
 
+
+def add_resume_parser(sub):
     p_resume = sub.add_parser("resume")
     p_resume.set_defaults(f=cmd_resume)
 
+
+def add_status_parser(sub):
     p_status = sub.add_parser("status")
     p_status.add_argument("--json", action="store_true",
                           help="print the active runs, local and --host, as JSON and nothing else")
     p_status.set_defaults(f=cmd_status)
 
+
+def add_kill_parser(sub):
     p_kill = sub.add_parser("kill")
     p_kill.add_argument("id")
     p_kill.set_defaults(f=cmd_kill)
 
+
+def add_record_parser(sub):
     v = sub.add_parser("record")
     v.add_argument("--id", required=True)
     v.add_argument("--gate-host", required=True, choices=GATE)
@@ -5584,8 +5597,16 @@ def main():
     v.add_argument("--deviation"); v.add_argument("--note")
     v.set_defaults(f=cmd_record)
 
+
+def add_report_parser(sub):
     sub.add_parser("report").set_defaults(f=cmd_report)
+
+
+def add_peak_parser(sub):
     sub.add_parser("peak").set_defaults(f=lambda a: print("peak" if in_peak() else "off-peak"))
+
+
+def add_review_pending_parser(sub):
     p_pending = sub.add_parser("review-pending")
     p_pending.add_argument("--id", help="finish the review of this task; without it, list what is pending")
     p_pending.add_argument("--project")
@@ -5600,6 +5621,9 @@ def main():
     p_pending.add_argument("--allow-claude-review", action="store_true",
                    help="the operator said yes to a Claude review for this task (the fallback reviewer)")
     p_pending.set_defaults(f=cmd_review_pending)
+
+
+def add_route_parser(sub):
     p_route = sub.add_parser("route")
     p_route.add_argument("--role", required=True, choices=sorted(EXECUTOR_ROUTES))
     p_route.add_argument("--open-design", action="store_true",
@@ -5607,10 +5631,15 @@ def main():
                               "security or a migration")
     p_route.add_argument("--json", action="store_true")
     p_route.set_defaults(f=cmd_route)
+
+
+def add_profiles_parser(sub):
     p_profiles = sub.add_parser("profiles")
     p_profiles.add_argument("--host", help="also show which executors are ready on this host")
     p_profiles.set_defaults(f=cmd_profiles)
 
+
+def add_remote_clean_parser(sub):
     p_clean = sub.add_parser("remote-clean")
     p_clean.add_argument("--host", required=True)
     p_clean.add_argument("--id")
@@ -5620,25 +5649,53 @@ def main():
     p_clean.add_argument("--timeout", type=duration_arg, default=600, help="seconds, or a number with a unit: 300, 300s, 90m, 2h")
     p_clean.set_defaults(f=cmd_remote_clean)
 
+
+def install_signal_handlers():
     def interrupted(signum, frame):
         raise SystemExit(128 + signum)
 
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     signal.signal(signal.SIGHUP, interrupted)
+
+
+def normalize_timeout_args(a):
+    """Round the caps to whole seconds and refuse one below the minimum."""
+    if a.cmd not in ("run", "pipeline"):
+        return
+    # Whole seconds for the caps (the remote path passes them on a command line).
+    for name in ("timeout", "review_timeout", "wait"):
+        value = getattr(a, name, None)
+        if value is not None:
+            setattr(a, name, int(-(-value // 1)))
+    for name in ("timeout", "review_timeout"):
+        value = getattr(a, name, None)
+        if value is not None and value < MIN_TIMEOUT_S and not a.allow_short_timeout:
+            usage_error(
+                f"--{name.replace('_', '-')} {value} is {value} seconds: a time without a unit is in "
+                "seconds (write 90m or 2h for longer); pass --allow-short-timeout if you mean it")
+
+
+def main():
+    reject_removed_profile()
+    ap = argparse.ArgumentParser(prog="delegate.py")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    add_run_parser(sub)
+    add_pipeline_parser(sub)
+    add_pause_parser(sub)
+    add_resume_parser(sub)
+    add_status_parser(sub)
+    add_kill_parser(sub)
+    add_record_parser(sub)
+    add_report_parser(sub)
+    add_peak_parser(sub)
+    add_review_pending_parser(sub)
+    add_route_parser(sub)
+    add_profiles_parser(sub)
+    add_remote_clean_parser(sub)
+    install_signal_handlers()
     a = ap.parse_args()
-    if a.cmd in ("run", "pipeline"):
-        # Whole seconds for the caps (the remote path passes them on a command line).
-        for name in ("timeout", "review_timeout", "wait"):
-            value = getattr(a, name, None)
-            if value is not None:
-                setattr(a, name, int(-(-value // 1)))
-        for name in ("timeout", "review_timeout"):
-            value = getattr(a, name, None)
-            if value is not None and value < MIN_TIMEOUT_S and not a.allow_short_timeout:
-                usage_error(
-                    f"--{name.replace('_', '-')} {value} is {value} seconds: a time without a unit is in "
-                    "seconds (write 90m or 2h for longer); pass --allow-short-timeout if you mean it")
+    normalize_timeout_args(a)
     try:
         a.f(a)
     except (PausedError, SlotTimeoutError) as exc:
