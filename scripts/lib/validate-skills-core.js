@@ -132,6 +132,41 @@ export function validateIronLawField(entry, issues, options = {}) {
   }
 }
 
+function validateProductCopy(issues, product) {
+  if (typeof product.what_is !== 'string' || product.what_is.trim().length === 0) {
+    issues.push('product.what_is is required and must be a non-empty string');
+  }
+
+  if (!Array.isArray(product.what_is_not)) {
+    issues.push('product.what_is_not is required and must be a non-empty array of strings');
+  } else if (product.what_is_not.length === 0) {
+    issues.push('product.what_is_not must be a non-empty array of strings');
+  } else if (!product.what_is_not.every((x) => typeof x === 'string' && x.trim().length > 0)) {
+    issues.push('product.what_is_not entries must be non-empty strings');
+  }
+}
+
+function validateProductDocs(issues, product) {
+  if (typeof product.docs_url !== 'string' || product.docs_url.trim().length === 0) {
+    issues.push('product.docs_url is required and must be a non-empty string');
+  }
+}
+
+function validateProductInstall(issues, product) {
+  if (
+    product.install === null ||
+    typeof product.install !== 'object' ||
+    Array.isArray(product.install)
+  ) {
+    issues.push('product.install is required and must be an object with primary');
+  } else if (
+    typeof product.install.primary !== 'string' ||
+    product.install.primary.trim().length === 0
+  ) {
+    issues.push('product.install.primary is required and must be a non-empty string');
+  }
+}
+
 /**
  * Validate top-level `product:` positioning block (catalog v0.3+).
  * Required fields: what_is (string), what_is_not (non-empty string[]),
@@ -152,34 +187,9 @@ export function validateProductBlock(data, options = {}) {
     return issues;
   }
 
-  if (typeof product.what_is !== 'string' || product.what_is.trim().length === 0) {
-    issues.push('product.what_is is required and must be a non-empty string');
-  }
-
-  if (!Array.isArray(product.what_is_not)) {
-    issues.push('product.what_is_not is required and must be a non-empty array of strings');
-  } else if (product.what_is_not.length === 0) {
-    issues.push('product.what_is_not must be a non-empty array of strings');
-  } else if (!product.what_is_not.every((x) => typeof x === 'string' && x.trim().length > 0)) {
-    issues.push('product.what_is_not entries must be non-empty strings');
-  }
-
-  if (typeof product.docs_url !== 'string' || product.docs_url.trim().length === 0) {
-    issues.push('product.docs_url is required and must be a non-empty string');
-  }
-
-  if (
-    product.install === null ||
-    typeof product.install !== 'object' ||
-    Array.isArray(product.install)
-  ) {
-    issues.push('product.install is required and must be an object with primary');
-  } else if (
-    typeof product.install.primary !== 'string' ||
-    product.install.primary.trim().length === 0
-  ) {
-    issues.push('product.install.primary is required and must be a non-empty string');
-  }
+  validateProductCopy(issues, product);
+  validateProductDocs(issues, product);
+  validateProductInstall(issues, product);
 
   return issues;
 }
@@ -394,7 +404,13 @@ export function validateSkill(key, entry, knownNames) {
 }
 
 /**
+ * @typedef {{ key: string, entry: any, location: string, modulePath?: string|null }} SkillRecord
+ */
+
+/**
  * Walk the catalog tree and produce a list of {key, entry, location} records.
+ * @param {any} data
+ * @returns {SkillRecord[]}
  */
 export function collectSkills(data) {
   const skills = [];
@@ -434,6 +450,42 @@ export function discoverBodySkills(skillsDir) {
   return found;
 }
 
+function ironLawMismatchIssues(skill, body, bodyPath) {
+  const catalogLaw =
+    typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim()
+      ? skill.entry.iron_law
+      : null;
+  if (catalogLaw == null) return [];
+  const bodyLaw = extractIronLawFromBody(body);
+  if (bodyLaw == null) {
+    return [
+      `iron_law body line missing under ## Iron Law while catalog has iron_law (${bodyPath})`,
+    ];
+  }
+  const a = normalizeIronLaw(catalogLaw);
+  const b = normalizeIronLaw(bodyLaw);
+  return a !== b ? [`iron_law mismatch: catalog "${a}" !== body "${b}" (${bodyPath})`] : [];
+}
+
+function crossCheckBodyIssues(skill, skillsDir, requireIronLaw, crossCheckIronLaw) {
+  const issues = [];
+  const bodyPath = bodyPathForSkill(skill, skillsDir);
+
+  if (!existsSync(bodyPath)) {
+    issues.push(`skill body missing on disk: ${bodyPath}`);
+    return issues;
+  }
+
+  const body = readFileSync(bodyPath, 'utf8');
+  if (requireIronLaw && !/^## Iron Law\b/m.test(body)) {
+    issues.push(`skill body missing canonical \`## Iron Law\` section: ${bodyPath}`);
+  }
+  if (crossCheckIronLaw) {
+    issues.push(...ironLawMismatchIssues(skill, body, bodyPath));
+  }
+  return issues;
+}
+
 /**
  * Cross-checks that span the whole catalog + on-disk body tree.
  * Issues are appended to each skill's issue list when scoped, or pushed to a
@@ -454,41 +506,13 @@ export function runCrossChecks(skills, skillsDir, options = {}) {
   const seenCatalogLocations = new Set();
 
   for (const skill of skills) {
-    const issues = [];
-    const bodyPath = bodyPathForSkill(skill, skillsDir);
     seenCatalogLocations.add(skill.location);
-
-    if (!existsSync(bodyPath)) {
-      issues.push(`skill body missing on disk: ${bodyPath}`);
-    } else {
-      const body = readFileSync(bodyPath, 'utf8');
-      if (requireIronLaw && !/^## Iron Law\b/m.test(body)) {
-        issues.push(`skill body missing canonical \`## Iron Law\` section: ${bodyPath}`);
-      }
-      if (crossCheckIronLaw) {
-        const catalogLaw =
-          typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim()
-            ? skill.entry.iron_law
-            : null;
-        const bodyLaw = extractIronLawFromBody(body);
-        if (catalogLaw != null) {
-          if (bodyLaw == null) {
-            issues.push(
-              `iron_law body line missing under ## Iron Law while catalog has iron_law (${bodyPath})`
-            );
-          } else {
-            const a = normalizeIronLaw(catalogLaw);
-            const b = normalizeIronLaw(bodyLaw);
-            if (a !== b) {
-              issues.push(
-                `iron_law mismatch: catalog "${a}" !== body "${b}" (${bodyPath})`
-              );
-            }
-          }
-        }
-      }
-    }
-
+    const issues = crossCheckBodyIssues(
+      skill,
+      skillsDir,
+      requireIronLaw,
+      crossCheckIronLaw
+    );
     if (issues.length > 0) {
       failures.push({ location: skill.location, issues });
     }
@@ -615,21 +639,8 @@ export function validateReleaseHighlight(data) {
   return issues;
 }
 
-/**
- * Validate the entire catalog. Returns a structured report:
- *   { totalSkills, totalIssues, failedSkills, failures, versionsSeen, parseError }
- *
- * Options:
- *   - skillsDir: where to look for skill bodies (defaults to disabling cross-checks)
- *   - requireIronLaw: forwarded to runCrossChecks (body `## Iron Law` section)
- *   - requireIronLawField: require non-empty catalog `iron_law` on every skill
- *   - requireProduct: require + validate top-level `product` block
- *   - crossCheckIronLaw: catalog iron_law must match body first line (D2)
- *   - When root `version` is in CATALOG_VERSIONS_REQUIRING_PRODUCT (0.3),
- *     iron_law field + product block are required automatically.
- */
-export function validateCatalog(data, options = {}) {
-  const report = {
+function createValidationReport() {
+  return {
     totalSkills: 0,
     totalIssues: 0,
     failedSkills: 0,
@@ -637,33 +648,25 @@ export function validateCatalog(data, options = {}) {
     versionsSeen: new Set(),
     parseError: null,
   };
+}
 
-  if (data == null || typeof data !== 'object') {
-    report.parseError = 'catalog.yaml root is not an object';
-    return report;
-  }
-
-  const skills = collectSkills(data);
-  if (skills.length === 0) {
-    report.parseError = 'no skill entries found in catalog.yaml';
-    return report;
-  }
-
+function validationFlags(data, options) {
   const catalogNeedsProduct =
     typeof data.version === 'string' &&
     CATALOG_VERSIONS_REQUIRING_PRODUCT.has(data.version);
-  const requireIronLawField =
-    options.requireIronLawField === true || catalogNeedsProduct;
-  const requireProduct = options.requireProduct === true || catalogNeedsProduct;
-  // Default cross-check on when product SSOT catalog is in use (v0.3+).
-  const crossCheckIronLaw =
-    options.crossCheckIronLaw !== undefined
-      ? options.crossCheckIronLaw === true
-      : catalogNeedsProduct;
+  return {
+    requireIronLawField:
+      options.requireIronLawField === true || catalogNeedsProduct,
+    requireProduct: options.requireProduct === true || catalogNeedsProduct,
+    // Default cross-check on when product SSOT catalog is in use (v0.3+).
+    crossCheckIronLaw:
+      options.crossCheckIronLaw !== undefined
+        ? options.crossCheckIronLaw === true
+        : catalogNeedsProduct,
+  };
+}
 
-  report.totalSkills = skills.length;
-  const knownNames = new Set(skills.map((s) => s.key));
-
+function validateSkillEntries(skills, knownNames, requireIronLawField, report) {
   const perSkillFailures = new Map(); // location -> { location, issues[] }
 
   for (const skill of skills) {
@@ -689,61 +692,104 @@ export function validateCatalog(data, options = {}) {
     }
   }
 
-  if (options.skillsDir) {
-    const crossFailures = runCrossChecks(skills, options.skillsDir, {
-      ...options,
-      crossCheckIronLaw,
-    });
-    for (const cf of crossFailures) {
-      if (perSkillFailures.has(cf.location)) {
-        perSkillFailures.get(cf.location).issues.push(...cf.issues);
-      } else {
-        perSkillFailures.set(cf.location, cf);
-      }
+  return perSkillFailures;
+}
+
+function mergeCrossChecks(perSkillFailures, skills, options, crossCheckIronLaw) {
+  const crossFailures = runCrossChecks(skills, options.skillsDir, {
+    ...options,
+    crossCheckIronLaw,
+  });
+  for (const cf of crossFailures) {
+    if (perSkillFailures.has(cf.location)) {
+      perSkillFailures.get(cf.location).issues.push(...cf.issues);
+    } else {
+      perSkillFailures.set(cf.location, cf);
     }
   }
+}
 
-  // Always enforce: no installer-modules leftovers in catalog (Codex F-003).
-  const noModulesIssues = validateNoModulesKeys(data);
-  if (noModulesIssues.length > 0) {
-    perSkillFailures.set('__no_modules__', {
-      location: '__no_modules__',
-      issues: noModulesIssues,
-    });
+function mergeGlobalIssues(perSkillFailures, location, issues) {
+  if (issues.length > 0) {
+    perSkillFailures.set(location, { location, issues });
   }
+}
 
-  // F-003 (codex review): opt-in (CLI sets requireCatalogVersion: true;
-  // tests default off so synthetic fixtures don't need the root field).
-  if (options.requireCatalogVersion) {
-    const versionIssues = validateCatalogVersion(data);
-    if (versionIssues.length > 0) {
-      perSkillFailures.set('__catalog_version__', {
-        location: '__catalog_version__',
-        issues: versionIssues,
-      });
-    }
-  }
-
-  // S2 (review): release_highlight is always validated when present;
-  // absent is fine (renders no version note).
-  const releaseHighlightIssues = validateReleaseHighlight(data);
-  if (releaseHighlightIssues.length > 0) {
-    perSkillFailures.set('__release_highlight__', {
-      location: '__release_highlight__',
-      issues: releaseHighlightIssues,
-    });
-  }
-
-  const productIssues = validateProductBlock(data, { required: requireProduct });
-  if (productIssues.length > 0) {
-    perSkillFailures.set('__product__', {
-      location: '__product__',
-      issues: productIssues,
-    });
-  }
-
+function finalizeReport(report, perSkillFailures) {
   report.failures = [...perSkillFailures.values()];
   report.failedSkills = report.failures.length;
   report.totalIssues = report.failures.reduce((sum, f) => sum + f.issues.length, 0);
   return report;
+}
+
+/**
+ * Validate the entire catalog. Returns a structured report:
+ *   { totalSkills, totalIssues, failedSkills, failures, versionsSeen, parseError }
+ *
+ * Options:
+ *   - skillsDir: where to look for skill bodies (defaults to disabling cross-checks)
+ *   - requireIronLaw: forwarded to runCrossChecks (body `## Iron Law` section)
+ *   - requireIronLawField: require non-empty catalog `iron_law` on every skill
+ *   - requireProduct: require + validate top-level `product` block
+ *   - crossCheckIronLaw: catalog iron_law must match body first line (D2)
+ *   - When root `version` is in CATALOG_VERSIONS_REQUIRING_PRODUCT (0.3),
+ *     iron_law field + product block are required automatically.
+ */
+export function validateCatalog(data, options = {}) {
+  const report = createValidationReport();
+
+  if (data == null || typeof data !== 'object') {
+    report.parseError = 'catalog.yaml root is not an object';
+    return report;
+  }
+
+  const skills = collectSkills(data);
+  if (skills.length === 0) {
+    report.parseError = 'no skill entries found in catalog.yaml';
+    return report;
+  }
+
+  const flags = validationFlags(data, options);
+  report.totalSkills = skills.length;
+  const knownNames = new Set(skills.map((s) => s.key));
+
+  const perSkillFailures = validateSkillEntries(
+    skills,
+    knownNames,
+    flags.requireIronLawField,
+    report
+  );
+
+  if (options.skillsDir) {
+    mergeCrossChecks(perSkillFailures, skills, options, flags.crossCheckIronLaw);
+  }
+
+  // Always enforce: no installer-modules leftovers in catalog (Codex F-003).
+  mergeGlobalIssues(perSkillFailures, '__no_modules__', validateNoModulesKeys(data));
+
+  // F-003 (codex review): opt-in (CLI sets requireCatalogVersion: true;
+  // tests default off so synthetic fixtures don't need the root field).
+  if (options.requireCatalogVersion) {
+    mergeGlobalIssues(
+      perSkillFailures,
+      '__catalog_version__',
+      validateCatalogVersion(data)
+    );
+  }
+
+  // S2 (review): release_highlight is always validated when present;
+  // absent is fine (renders no version note).
+  mergeGlobalIssues(
+    perSkillFailures,
+    '__release_highlight__',
+    validateReleaseHighlight(data)
+  );
+
+  mergeGlobalIssues(
+    perSkillFailures,
+    '__product__',
+    validateProductBlock(data, { required: flags.requireProduct })
+  );
+
+  return finalizeReport(report, perSkillFailures);
 }
