@@ -67,6 +67,12 @@ function pinFromTemplate(text, fallback) {
   return m ? m[1] : fallback;
 }
 
+const ADOPT_USAGE = [
+  'Usage: node scripts/release/adopt.js --check|--diff|--write [--template stage|gh-only] [--target path] [--root dir]',
+  'Exit 0 on match; exit 1 on missing/drift (check/diff).',
+  'Writing when missing|drift requires --check --diff --write (consent triad).',
+].join('\n') + '\n';
+
 /**
  * @param {object} options
  * @param {string} options.root
@@ -76,6 +82,191 @@ function pinFromTemplate(text, fallback) {
  * @param {(path: string, data: string) => void} [options.writeFile]
  * @param {(path: string) => boolean} [options.exists]
  * @param {(path: string, opts?: object) => void} [options.mkdir]
+ * @param {string} [options.templatesDir]
+ */
+function buildAdoptContext({
+  root,
+  templateName = 'stage',
+  targetRel = '.github/workflows/publish.yml',
+  readFile = (p) => readFileSync(p, 'utf8'),
+  writeFile = (p, d) => writeFileSync(p, d),
+  exists = existsSync,
+  mkdir = (p, o) => mkdirSync(p, o),
+  templatesDir = TEMPLATES_DIR,
+}) {
+  const meta = TEMPLATES[templateName];
+  if (!meta) {
+    throw new Error(`unknown template "${templateName}" (expected stage|gh-only)`);
+  }
+  return {
+    root,
+    templateName,
+    targetRel,
+    readFile,
+    writeFile,
+    exists,
+    mkdir,
+    templatesDir,
+    meta,
+    templatePath: join(templatesDir, meta.file),
+    targetPath: join(root, targetRel),
+  };
+}
+
+/** @param {ReturnType<typeof buildAdoptContext>} ctx */
+function inspectTemplate(ctx) {
+  if (!ctx.exists(ctx.templatePath)) {
+    throw new Error(`template missing: ${ctx.templatePath}`);
+  }
+  const templateText = ctx.readFile(ctx.templatePath);
+  const pin = pinFromTemplate(templateText, ctx.meta.pin);
+  const targetExists = ctx.exists(ctx.targetPath);
+  if (!targetExists) {
+    return {
+      template: ctx.meta.file,
+      pin,
+      target: ctx.targetRel,
+      status: 'missing',
+      templateText,
+      targetText: null,
+    };
+  }
+  const targetText = ctx.readFile(ctx.targetPath);
+  const status = normalize(targetText) === normalize(templateText) ? 'match' : 'drift';
+  return {
+    template: ctx.meta.file,
+    pin,
+    target: ctx.targetRel,
+    status,
+    templateText,
+    targetText,
+  };
+}
+
+function formatCheck(report) {
+  return [
+    'adopt --check',
+    `  template: ${report.template}`,
+    `  pin:      ${report.pin}`,
+    `  target:   ${report.target}`,
+    `  status:   ${report.status}`,
+  ].join('\n');
+}
+
+function formatDiff(report) {
+  if (report.status === 'match') {
+    return `${formatCheck(report)}\n  (no diff)`;
+  }
+  if (report.status === 'missing') {
+    return [
+      formatCheck(report),
+      '  would create:',
+      ...report.templateText.split('\n').map((l) => `  + ${l}`),
+    ].join('\n');
+  }
+  // Minimal unified-ish diff: show both sides when drifted (enough for gate).
+  const lines = [formatCheck(report), '  --- target', '  +++ template'];
+  for (const l of report.targetText.split('\n')) lines.push(`  - ${l}`);
+  for (const l of report.templateText.split('\n')) lines.push(`  + ${l}`);
+  return lines.join('\n');
+}
+
+/** @param {ReturnType<typeof buildAdoptContext>} ctx */
+function writeTemplate(ctx, report) {
+  if (report.status === 'match') {
+    return { written: false, ...report };
+  }
+  ctx.mkdir(dirname(ctx.targetPath), { recursive: true });
+  ctx.writeFile(ctx.targetPath, report.templateText);
+  return { written: true, ...report, statusAfter: 'match' };
+}
+
+/** Resolve the instance the CLI flags ask for, without rebuilding on a match. */
+function effectiveAdopt(ctx, { template, target }) {
+  if (template === ctx.templateName && target === ctx.targetRel) {
+    return {
+      inspect: inspectTemplate.bind(null, ctx),
+      formatCheck,
+      formatDiff,
+      write: writeTemplate.bind(null, ctx),
+    };
+  }
+  return createAdopt({
+    root: ctx.root,
+    templateName: template || ctx.templateName,
+    targetRel: target || ctx.targetRel,
+    readFile: ctx.readFile,
+    writeFile: ctx.writeFile,
+    exists: ctx.exists,
+    mkdir: ctx.mkdir,
+    templatesDir: ctx.templatesDir,
+  });
+}
+
+function writeAdoptedTemplate(effective, report, wants, io) {
+  if (report.status !== 'match') {
+    if (!wants.check) {
+      io.stderr.write('adopt: refuse write without --check when status is missing|drift\n');
+      return 1;
+    }
+    if (!wants.diff) {
+      io.stderr.write('adopt: refuse write without --diff when status is missing|drift\n');
+      return 1;
+    }
+  }
+  const result = effective.write(report);
+  io.stdout.write(
+    [
+      effective.formatCheck({ ...report, status: result.statusAfter || report.status }),
+      `  written: ${result.written ? 'yes' : 'no (already match)'}`,
+      `  pin:     ${report.pin}`,
+    ].join('\n') + '\n',
+  );
+  return 0;
+}
+
+/** @param {ReturnType<typeof buildAdoptContext>} ctx */
+function runAdopt(ctx, argv = [], io = process) {
+  const { args, template, target } = parseArgs(argv);
+  const effective = effectiveAdopt(ctx, { template, target });
+
+  if (args.has('-h') || args.has('--help')) {
+    io.stdout.write(ADOPT_USAGE);
+    return 0;
+  }
+
+  const wants = {
+    check: args.has('--check'),
+    diff: args.has('--diff'),
+    write: args.has('--write'),
+  };
+  if (!wants.check && !wants.diff && !wants.write) {
+    io.stderr.write('adopt: pass --check, --diff, or --write\n');
+    return 2;
+  }
+
+  const report = effective.inspect();
+  if (wants.write) return writeAdoptedTemplate(effective, report, wants, io);
+
+  if (wants.diff) {
+    io.stdout.write(effective.formatDiff(report) + '\n');
+    return report.status === 'match' ? 0 : 1;
+  }
+
+  io.stdout.write(effective.formatCheck(report) + '\n');
+  return report.status === 'match' ? 0 : 1;
+}
+
+/**
+ * @param {object} [options]
+ * @param {string} [options.root]
+ * @param {string} [options.templateName]
+ * @param {string} [options.targetRel]
+ * @param {(path: string, enc?: string) => string} [options.readFile]
+ * @param {(path: string, data: string) => void} [options.writeFile]
+ * @param {(path: string) => boolean} [options.exists]
+ * @param {(path: string, opts?: object) => void} [options.mkdir]
+ * @param {string} [options.templatesDir]
  */
 export function createAdopt({
   root,
@@ -88,155 +279,25 @@ export function createAdopt({
   templatesDir = TEMPLATES_DIR,
 } = {}) {
   if (!root) throw new Error('createAdopt requires root');
-
-  const meta = TEMPLATES[templateName];
-  if (!meta) {
-    throw new Error(`unknown template "${templateName}" (expected stage|gh-only)`);
-  }
-
-  const templatePath = join(templatesDir, meta.file);
-  const targetPath = join(root, targetRel);
-
-  function inspect() {
-    if (!exists(templatePath)) {
-      throw new Error(`template missing: ${templatePath}`);
-    }
-    const templateText = readFile(templatePath);
-    const pin = pinFromTemplate(templateText, meta.pin);
-    const targetExists = exists(targetPath);
-    if (!targetExists) {
-      return {
-        template: meta.file,
-        pin,
-        target: targetRel,
-        status: 'missing',
-        templateText,
-        targetText: null,
-      };
-    }
-    const targetText = readFile(targetPath);
-    const status =
-      normalize(targetText) === normalize(templateText) ? 'match' : 'drift';
-    return {
-      template: meta.file,
-      pin,
-      target: targetRel,
-      status,
-      templateText,
-      targetText,
-    };
-  }
-
-  function formatCheck(report) {
-    return [
-      'adopt --check',
-      `  template: ${report.template}`,
-      `  pin:      ${report.pin}`,
-      `  target:   ${report.target}`,
-      `  status:   ${report.status}`,
-    ].join('\n');
-  }
-
-  function formatDiff(report) {
-    if (report.status === 'match') {
-      return `${formatCheck(report)}\n  (no diff)`;
-    }
-    if (report.status === 'missing') {
-      return [
-        formatCheck(report),
-        '  would create:',
-        ...report.templateText.split('\n').map((l) => `  + ${l}`),
-      ].join('\n');
-    }
-    // Minimal unified-ish diff: show both sides when drifted (enough for gate).
-    const lines = [formatCheck(report), '  --- target', '  +++ template'];
-    for (const l of report.targetText.split('\n')) lines.push(`  - ${l}`);
-    for (const l of report.templateText.split('\n')) lines.push(`  + ${l}`);
-    return lines.join('\n');
-  }
-
-  function write(report) {
-    if (report.status === 'match') {
-      return { written: false, ...report };
-    }
-    mkdir(dirname(targetPath), { recursive: true });
-    writeFile(targetPath, report.templateText);
-    return { written: true, ...report, statusAfter: 'match' };
-  }
-
-  function run(argv = [], io = process) {
-    const { args, template, target } = parseArgs(argv);
-    const effective =
-      template !== templateName || target !== targetRel
-        ? createAdopt({
-            root,
-            templateName: template || templateName,
-            targetRel: target || targetRel,
-            readFile,
-            writeFile,
-            exists,
-            mkdir,
-            templatesDir,
-          })
-        : {
-            inspect,
-            formatCheck,
-            formatDiff,
-            write,
-          };
-
-    if (args.has('-h') || args.has('--help')) {
-      io.stdout.write(
-        [
-          'Usage: node scripts/release/adopt.js --check|--diff|--write [--template stage|gh-only] [--target path] [--root dir]',
-          'Exit 0 on match; exit 1 on missing/drift (check/diff).',
-          'Writing when missing|drift requires --check --diff --write (consent triad).',
-        ].join('\n') + '\n',
-      );
-      return 0;
-    }
-
-    const wantCheck = args.has('--check');
-    const wantDiff = args.has('--diff');
-    const wantWrite = args.has('--write');
-    if (!wantCheck && !wantDiff && !wantWrite) {
-      io.stderr.write('adopt: pass --check, --diff, or --write\n');
-      return 2;
-    }
-
-    const report = effective.inspect();
-    if (wantWrite) {
-      if (report.status !== 'match') {
-        if (!wantCheck) {
-          io.stderr.write('adopt: refuse write without --check when status is missing|drift\n');
-          return 1;
-        }
-        if (!wantDiff) {
-          io.stderr.write('adopt: refuse write without --diff when status is missing|drift\n');
-          return 1;
-        }
-      }
-      const result = effective.write(report);
-      io.stdout.write(
-        [
-          effective.formatCheck({ ...report, status: result.statusAfter || report.status }),
-          `  written: ${result.written ? 'yes' : 'no (already match)'}`,
-          `  pin:     ${report.pin}`,
-        ].join('\n') + '\n',
-      );
-      return 0;
-    }
-
-    if (wantDiff) {
-      io.stdout.write(effective.formatDiff(report) + '\n');
-      return report.status === 'match' ? 0 : 1;
-    }
-
-    io.stdout.write(effective.formatCheck(report) + '\n');
-    return report.status === 'match' ? 0 : 1;
-  }
-
-  return { inspect, formatCheck, formatDiff, write, run, templatePath, targetPath };
+  const ctx = buildAdoptContext({
+    root,
+    templateName,
+    targetRel,
+    readFile,
+    writeFile,
+    exists,
+    mkdir,
+    templatesDir,
+  });
+  return {
+    inspect: inspectTemplate.bind(null, ctx),
+    formatCheck,
+    formatDiff,
+    write: writeTemplate.bind(null, ctx),
+    run: runAdopt.bind(null, ctx),
+    templatePath: ctx.templatePath,
+    targetPath: ctx.targetPath,
+  };
 }
 
 export function resolveRoot(argv = process.argv.slice(2), fallback = process.cwd()) {
