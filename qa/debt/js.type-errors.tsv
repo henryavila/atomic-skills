@@ -1,7 +1,4 @@
-scripts/list-review-models.js::*	2
 scripts/run-host-probes.js::*	1
 scripts/verify-installed-runtime.js::*	1
 src/install.js::*	12
-src/recovery-cli.js::*	4
-src/resolve-review-model.js::*	7
 src/uninstall.js::*	2

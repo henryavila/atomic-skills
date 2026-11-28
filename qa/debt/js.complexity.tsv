@@ -51,15 +51,6 @@ src/install.js::syncGrokPluginHostAfterInstall	43
 src/install.js::unregisterAndMaybeReclaimRuntimeUnlocked	18
 src/installer-driver.js::createDriver>install	26
 src/provider-limit-failure.js::classifyProviderLimitFailure	20
-src/recovery-cli.js::classifyJournalTrust	23
-src/recovery-cli.js::forceIncompleteUninstall><anonymous>	30
-src/recovery-cli.js::formatRecoverySummary	18
-src/recovery-cli.js::resolveIncompleteRecoveryScope	16
-src/resolve-review-model.js::parseAgyModelsList	17
-src/resolve-review-model.js::parseCodexModelsCatalog	27
-src/resolve-review-model.js::parseGrokModelsList	16
-src/resolve-review-model.js::parseModelArgs	31
-src/resolve-review-model.js::resolveReviewModel	53
 src/runtime-layers/auto-update.js::reconcileSessionStartVersionCheck	18
 src/runtime-layers/effects/stage-runtime-artifacts.js::createStageRuntimeArtifactsEffect>apply	23
 src/runtime-layers/grok-plugin-host.js::registerGrokPluginHost	20
