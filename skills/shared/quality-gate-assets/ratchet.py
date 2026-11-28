@@ -495,29 +495,32 @@ def cmd_diff(root, args):
     return 1 if lines else 0
 
 
-def cmd_move(root, args):
-    metric = args.metric
-    origin_stack = None
+def find_origin(root, metric, origin):
+    """The stack that holds `origin` in `metric`, with its recorded value."""
     for stack, found in root.debt_files():
-        if found == metric and args.origin in read_debt(root.debt_path(stack, found)):
-            origin_stack = stack
-            break
-    if origin_stack is None:
-        raise UsageError(f"{args.origin} is not in the debt of {metric}")
-    original = read_debt(root.debt_path(origin_stack, metric))[args.origin]
+        if found != metric:
+            continue
+        items = read_debt(root.debt_path(stack, found))
+        if origin in items:
+            return stack, items[origin]
+    raise UsageError(f"{origin} is not in the debt of {metric}")
 
+
+def parse_targets(items):
+    """[(key, value)] from --to, rejecting a malformed or repeated destination."""
     targets = []
-    for item in args.to:
+    for item in items:
         key, separator, value = item.rpartition("=")
         if not separator or not key:
             raise UsageError(f"--to expects <key>=<value>, got {item!r}")
         targets.append((key, parse_value(value, "--to")))
     if len({key for key, _value in targets}) != len(targets):
         raise UsageError("the same destination appears twice")
-    total = sum(value for _key, value in targets)
-    if total > original:
-        raise UsageError(f"the destinations add up to {format_value(total)}, above the origin {format_value(original)}")
+    return targets
 
+
+def place_targets(root, metric, targets):
+    """[(stack, key, value)] for each destination, or a usage error."""
     existing = by_metric(all_debt(root))[metric]
     placed = []
     for key, value in targets:
@@ -529,10 +532,14 @@ def cmd_move(root, args):
         if not root.frozen(stack):
             raise UsageError(f"stack {stack} is not frozen; freeze it before moving debt into it")
         placed.append((stack, key, value))
+    return placed
 
+
+def rewrite_debt(root, metric, origin_stack, origin, placed):
+    """Drop the origin line and add every placed destination to its stack file."""
     files: dict[str, dict[str, float]] = defaultdict(dict)
     files[origin_stack] = read_debt(root.debt_path(origin_stack, metric))
-    del files[origin_stack][args.origin]
+    del files[origin_stack][origin]
     for stack, key, value in placed:
         if stack not in files:
             files[stack] = read_debt(root.debt_path(stack, metric))
@@ -540,13 +547,28 @@ def cmd_move(root, args):
     for stack, items in files.items():
         write_debt(root.debt_path(stack, metric), items)
 
+
+def record_moves(root, metric, origin, placed):
+    """Append the placed moves to moves.tsv, with its header on a new file."""
     path = root.file("moves.tsv")
     fresh = not os.path.isfile(path)
     with open(path, "a", encoding="utf-8") as handle:
         if fresh:
             handle.write("metric\tfrom\tto\tvalue\n")
         for _stack, key, value in placed:
-            handle.write(f"{metric}\t{args.origin}\t{key}\t{format_value(value)}\n")
+            handle.write(f"{metric}\t{origin}\t{key}\t{format_value(value)}\n")
+
+
+def cmd_move(root, args):
+    metric = args.metric
+    origin_stack, original = find_origin(root, metric, args.origin)
+    targets = parse_targets(args.to)
+    total = sum(value for _key, value in targets)
+    if total > original:
+        raise UsageError(f"the destinations add up to {format_value(total)}, above the origin {format_value(original)}")
+    placed = place_targets(root, metric, targets)
+    rewrite_debt(root, metric, origin_stack, args.origin, placed)
+    record_moves(root, metric, args.origin, placed)
     for stack, key, value in placed:
         print(f"moved: {metric}\t{args.origin} -> {key} ({stack}, {format_value(value)})")
     return 0
