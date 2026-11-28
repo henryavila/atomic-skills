@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Full-suite line coverage, with all reports and startup hooks in a temp tree.
+
+Node uses the same tests/ + test/ *.test.js discovery as scripts/run-tests.mjs.
+Production listing reuses py-size's walker and Python source_files; JavaScript
+uses js-size's production roots and extensions (not the test roots in stacks).
+QA_ROOT supports isolated fixture repositories, like the other measurers.
+"""
+
+import contextlib
+import json
+import os
+from pathlib import Path
+import re
+import runpy
+import signal
+import subprocess
+import sys
+import tempfile
+
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE / "lib"))
+DESCRIBE = "mode\tfull\nchanged\tno\ncovers\tjs\tuncovered-pct\ncovers\tpy\tuncovered-pct\n"
+
+
+def missing(message):
+    print("coverage: " + message, file=sys.stderr)
+    raise SystemExit(3)
+
+
+def command(args, **kwargs):
+    return subprocess.run(args, check=True, text=True, capture_output=True, **kwargs).stdout
+
+
+def ceiling(root):
+    for line in (root / "qa/ceilings.tsv").read_text().splitlines()[1:]:
+        fields = line.split("\t")
+        if fields[0] == "uncovered-pct":
+            value = float(fields[1])
+            if not 0 <= value <= 100:
+                raise ValueError("uncovered-pct ceiling must be between 0 and 100")
+            return value
+    raise ValueError("qa/ceilings.tsv: no uncovered-pct ceiling")
+
+
+def sources(root):
+    size = runpy.run_path(str(HERE / "py-size"))
+    python, _ = size["source_files"](str(root))
+    javascript = set()
+    for base in ("src", "scripts", "bin"):
+        size["walk"](str(root), base, lambda path: path.endswith((".js", ".mjs")), javascript)
+    return sorted(javascript), sorted(python)
+
+
+def prerequisites(root):
+    try:
+        help_text = command(["node", "--help"])
+    except (OSError, subprocess.CalledProcessError):
+        missing("Node is not installed")
+    if "--experimental-test-coverage" not in help_text:
+        missing("Node --experimental-test-coverage is not installed")
+    python = root / "qa/.venv/bin/python"
+    try:
+        package = command([str(python), "-B", "-c",
+                           "import coverage; print(coverage.__file__)"]).strip()
+    except (OSError, subprocess.CalledProcessError):
+        missing("qa/.venv coverage is not installed")
+    return python, str(Path(package).parent.parent)
+
+
+def startup(temp, package, root, files):
+    config = temp / "coveragerc"
+    config.write_text("[run]\nparallel = true\ndata_file = " + str(temp / ".coverage")
+                      + "\ninclude =\n" + "".join("    " + str(root / key) + "\n" for key in files))
+    (temp / "sitecustomize.py").write_text(
+        "import sys\nsys.path.insert(0, " + repr(package) + ")\n"
+        "import coverage\ncoverage.process_startup()\n")
+    env = dict(os.environ)
+    env.update(COVERAGE_PROCESS_START=str(config), COVERAGE_FILE=str(temp / ".coverage"),
+               PYTHONDONTWRITEBYTECODE="1",
+               PYTHONPATH=str(temp) + os.pathsep + env.get("PYTHONPATH", ""))
+    # Never inherit an outer Node coverage destination (e.g. nested fixture tests).
+    env.pop("NODE_V8_COVERAGE", None)
+    env.pop("NODE_TEST_CONTEXT", None)
+    return config, env
+
+
+def run_tests(root, temp, env):
+    tests = sorted(str(path) for base in ("tests", "test")
+                   for path in (root / base).rglob("*.test.js") if path.is_file())
+    if not tests:
+        raise ValueError("no *.test.js files found under tests/ or test/")
+    args = ["node", "--test", "--experimental-test-coverage",
+            "--test-reporter=tap", "--test-reporter-destination=" + str(temp / "tests.tap"),
+            "--test-reporter=lcov", "--test-reporter-destination=" + str(temp / "node.lcov"), *tests]
+    with (temp / "runner.log").open("w") as log:
+        child = subprocess.Popen(args, cwd=root, env=env, stdout=log, stderr=log,
+                                 start_new_session=True)
+        try:
+            status = child.wait()
+        finally:
+            # Also reap descendants if a suite left a background process behind.
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(child.pid, signal.SIGKILL)
+            child.wait()
+    tap = (temp / "tests.tap").read_text() if (temp / "tests.tap").exists() else ""
+    failures = re.findall(r"^# fail (\d+)\s*$", tap, re.MULTILINE)
+    if status:
+        if not failures or int(failures[-1]) == 0:
+            raise RuntimeError("Node coverage runner failed: " + (temp / "runner.log").read_text())
+        print("coverage: %s tests failed" % failures[-1], file=sys.stderr)
+
+
+def node_lines(root, temp):
+    counts = {}
+    current = None
+    for line in (temp / "node.lcov").read_text().splitlines():
+        if line.startswith("SF:"):
+            path = Path(line[3:])
+            path = path if path.is_absolute() else root / path
+            current = os.path.relpath(path, root).replace(os.sep, "/")
+            counts.setdefault(current, {})
+        elif line.startswith("DA:") and current is not None:
+            number, hits, *_ = line[3:].split(",")
+            lines = counts[current]
+            lines[number] = lines.get(number, 0) + int(hits)
+    return {key: (sum(hits == 0 for hits in lines.values()), len(lines))
+            for key, lines in counts.items()}
+
+
+def python_lines(python, root, temp, config, files):
+    # analysis2 also counts executable statements in files no subprocess loaded.
+    code = """import coverage, json, sys
+from pathlib import Path
+cov = coverage.Coverage(config_file=sys.argv[1])
+cov.combine(strict=False)
+cov.load()
+result = {}
+for key in json.loads(sys.argv[3]):
+    _, statements, _, missing, _ = cov.analysis2(str(Path(sys.argv[2]) / key))
+    result[key] = [len(missing), len(statements)]
+print(json.dumps(result))
+"""
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+    # Report generation must not start measuring itself in an enclosing run.
+    env.pop("COVERAGE_PROCESS_START", None)
+    return json.loads(command([str(python), "-B", "-c", code, str(config), str(root),
+                               json.dumps(files)], cwd=temp, env=env))
+
+
+def interrupted(signum, _frame):
+    raise SystemExit(128 + signum)
+
+
+def main():
+    if sys.argv[1:] == ["--describe"]:
+        sys.stdout.write(DESCRIBE)
+        return
+    if sys.argv[1:]:
+        raise ValueError("usage: coverage [--describe]")
+    root = Path(os.environ.get("QA_ROOT") or command(
+        ["git", "rev-parse", "--show-toplevel"]).strip()).resolve()
+    python, package = prerequisites(root)
+    limit = ceiling(root)
+    js, py = sources(root)
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig, interrupted)
+    with tempfile.TemporaryDirectory(prefix="qa-coverage-") as directory:
+        temp = Path(directory)
+        config, env = startup(temp, package, root, py)
+        run_tests(root, temp, env)
+        results = {"js": node_lines(root, temp),
+                   "py": python_lines(python, root, temp, config, py)}
+        for stack, files in (("js", js), ("py", py)):
+            for key in files:
+                missing_count, total = results[stack].get(key, (1, 1))
+                value = 100 * missing_count / total if total else 0
+                if value > limit:
+                    print("%s\tuncovered-pct\t%s::*\t%.1f" % (stack, key, value))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        print("coverage: %s" % error, file=sys.stderr)
+        sys.exit(1)
