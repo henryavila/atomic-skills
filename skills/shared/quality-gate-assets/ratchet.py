@@ -391,68 +391,105 @@ def new_file_accepted(base, head, stack, metric, freeze_name):
     return language in after and language not in before
 
 
-def cmd_diff(root, args):
-    if not os.path.isdir(args.base):
-        raise UsageError(f"base directory not found: {args.base}")
-    base = Root(args.base)
-    base_debt, head_debt = all_debt(base), all_debt(root)
-    lines = []
+class DiffRun:
+    """One `diff` run: the base and head debt, and the decision on each move."""
 
-    for metric in sorted(root.ceilings):
-        old, new = base.ceilings.get(metric), root.ceilings[metric]
-        if not old:
-            continue
-        try:
-            raised = float(new["ceiling"]) > float(old["ceiling"])
-        except ValueError:
-            raised = False
-        if raised:
-            lines.append(f"FAIL\t{metric}\t-\tceiling raised\t{new['ceiling']}\t{old['ceiling']}")
+    def __init__(self, root, base, args):
+        self.root = root
+        self.base = base
+        self.args = args
+        self.base_debt = all_debt(base)
+        self.head_debt = all_debt(root)
+        self.approved: dict[tuple[str, str], float] = {}
+        self.covered: set[tuple[str, str]] = set()
+        self.freeze_name = (
+            args.branch[len(args.freeze_prefix):] if args.branch.startswith(args.freeze_prefix) else None
+        )
 
-    freeze_name = args.branch[len(args.freeze_prefix):] if args.branch.startswith(args.freeze_prefix) else None
-    allowed = args.branch.startswith(args.move_prefix)
-    added = new_moves(base.moves(), root.moves())
-    approved, move_failures, covered = judge_moves(added, base_debt, head_debt, allowed)
-    stack_of = {}
-    for (stack, metric), items in head_debt.items():
-        for key in items:
-            stack_of[(metric, key)] = stack
-    for metric, key, reason in move_failures:
-        stack = stack_of.get((metric, key)) or root.stack_of_key(key) or "-"
-        lines.append(f"FAIL\t{stack}.{metric}\t{key}\t{reason}")
-
-    for (stack, metric), items in sorted(head_debt.items()):
-        label = f"{stack}.{metric}"
-        if (stack, metric) not in base_debt:
-            if new_file_accepted(base, root, stack, metric, freeze_name):
+    def ceiling_lines(self):
+        """The metrics whose ceiling the head raised above the base."""
+        lines = []
+        for metric in sorted(self.root.ceilings):
+            old, new = self.base.ceilings.get(metric), self.root.ceilings[metric]
+            if not old:
                 continue
-            if not items:
-                lines.append(f"FAIL\t{label}\t-\tnew debt file")
-            before = {}
-        else:
-            before = base_debt[(stack, metric)]
+            try:
+                raised = float(new["ceiling"]) > float(old["ceiling"])
+            except ValueError:
+                raised = False
+            if raised:
+                lines.append(f"FAIL\t{metric}\t-\tceiling raised\t{new['ceiling']}\t{old['ceiling']}")
+        return lines
+
+    def move_lines(self):
+        """Record the approved moves and return the failures of the moves."""
+        allowed = self.args.branch.startswith(self.args.move_prefix)
+        added = new_moves(self.base.moves(), self.root.moves())
+        self.approved, failures, self.covered = judge_moves(added, self.base_debt, self.head_debt, allowed)
+        stack_of: dict[tuple[str, str], str] = {}
+        for (stack, metric), items in self.head_debt.items():
+            for key in items:
+                stack_of[(metric, key)] = stack
+        lines = []
+        for metric, key, reason in failures:
+            stack = stack_of.get((metric, key)) or self.root.stack_of_key(key) or "-"
+            lines.append(f"FAIL\t{stack}.{metric}\t{key}\t{reason}")
+        return lines
+
+    def debt_lines(self):
+        """The checks on the lines of every debt file the head carries."""
+        lines = []
+        for (stack, metric), items in sorted(self.head_debt.items()):
+            label = f"{stack}.{metric}"
+            if (stack, metric) not in self.base_debt:
+                if new_file_accepted(self.base, self.root, stack, metric, self.freeze_name):
+                    continue
+                if not items:
+                    lines.append(f"FAIL\t{label}\t-\tnew debt file")
+                before = {}
+            else:
+                before = self.base_debt[(stack, metric)]
+            lines.extend(self.line_failures(label, metric, items, before))
+        return lines
+
+    def line_failures(self, label, metric, items, before):
+        """A raised or new line in one debt file, skipping the covered moves."""
+        lines = []
         for key in sorted(items):
             value = items[key]
-            if (metric, key) in covered:
+            if (metric, key) in self.covered:
                 continue
             if key in before:
                 if value > before[key]:
                     lines.append(
                         f"FAIL\t{label}\t{key}\tdebt value raised\t{format_value(value)}\t{format_value(before[key])}"
                     )
-            elif (metric, key) in approved:
-                if value > approved[(metric, key)]:
+            elif (metric, key) in self.approved:
+                if value > self.approved[(metric, key)]:
                     lines.append(
                         f"FAIL\t{label}\t{key}\tdebt value raised\t{format_value(value)}"
-                        f"\t{format_value(approved[(metric, key)])}"
+                        f"\t{format_value(self.approved[(metric, key)])}"
                     )
             else:
                 lines.append(f"FAIL\t{label}\t{key}\tnew debt line\t{format_value(value)}")
+        return lines
 
-    known = {(s, m, k) for s, m, k, _limit, _reason in base.exceptions()}
-    for stack, metric, key, limit, reason in root.exceptions():
-        if (stack, metric, key) not in known:
-            print(f"new exception: {stack}.{metric}\t{key}\t{format_value(limit)}\t{reason}")
+    def print_new_exceptions(self):
+        """Exceptions the head adds to the base, one line each, before the FAILs."""
+        known = {(s, m, k) for s, m, k, _limit, _reason in self.base.exceptions()}
+        for stack, metric, key, limit, reason in self.root.exceptions():
+            if (stack, metric, key) not in known:
+                print(f"new exception: {stack}.{metric}\t{key}\t{format_value(limit)}\t{reason}")
+
+
+def cmd_diff(root, args):
+    if not os.path.isdir(args.base):
+        raise UsageError(f"base directory not found: {args.base}")
+    run = DiffRun(root, Root(args.base), args)
+    lines = run.ceiling_lines()
+    lines.extend(run.move_lines())
+    lines.extend(run.debt_lines())
+    run.print_new_exceptions()
     for line in lines:
         print(line)
     return 1 if lines else 0
