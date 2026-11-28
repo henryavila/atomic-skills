@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, readFileSync, rmSync, symlinkSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, readFileSync, rmSync, symlinkSync, chmodSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,7 +76,7 @@ test('coverage measures loaded Python subprocesses and unloaded production files
     const before = snapshot(f.repo);
     const result = run(f);
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stderr, '');
+    assert.equal(result.stderr, 'coverage: no Python coverage data: skills/shared/demo-assets/unloaded.py\n');
     assert.deepEqual(result.stdout.trim().split('\n'), [
       'js\tuncovered-pct\tsrc/uncovered.js::*\t100.0',
       'py\tuncovered-pct\tskills/shared/demo-assets/run.py::*\t25.0',
@@ -94,7 +94,7 @@ test('coverage keeps collected items and reports failed test count', () => {
     f.write('test/failing.test.js', "import { test } from 'node:test';\ntest('failure', () => { throw new Error('expected'); });\n");
     const result = run(f);
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stderr, 'coverage: 1 tests failed\n');
+    assert.equal(result.stderr, 'coverage: 1 tests failed\ncoverage: no Python coverage data: skills/shared/demo-assets/unloaded.py\n');
     assert.match(result.stdout, /src\/uncovered.js::\*\t100.0/);
     assert.match(result.stdout, /run.py::\*\t25.0/);
   } finally { rmSync(f.temp, { recursive: true, force: true }); }
@@ -164,5 +164,80 @@ echo fast >> '${marker}'
       exec('bash', ['scripts/qa.sh', ...args], { PATH: `${bin}:${process.env.PATH}` });
       assert.equal(readFileSync(marker, 'utf8'), args[0] === 'full' ? 'fast\nfull\n' : 'fast\n');
     }
+  } finally { rmSync(f.temp, { recursive: true, force: true }); }
+});
+
+for (const ending of ['sigterm', '_exit', 'exec']) {
+  test(`coverage saves Python lines before ${ending}, including another interpreter`, () => {
+    const f = fixture();
+    try {
+      // /usr/bin/python3 is independent of the QA venv on macOS and Ubuntu.
+      const python = existsSync('/usr/bin/python3') ? '/usr/bin/python3' : 'python3';
+      f.write('skills/shared/demo-assets/ending.py', `import os, signal, sys
+value = 1
+if sys.argv[1] == 'sigterm':
+    os.kill(os.getpid(), signal.SIGTERM)
+elif sys.argv[1] == '_exit':
+    os._exit(0)
+else:
+    os.execv(sys.executable, [sys.executable, '-c', 'pass'])
+`);
+      f.write('tests/ending.test.js', `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+test('ending', () => {
+  const child = spawnSync(${JSON.stringify(python)}, ['skills/shared/demo-assets/ending.py', '${ending}'], { encoding: 'utf8' });
+  try {
+    assert.equal(child.error, undefined);
+    assert.equal(child.signal, ${ending === 'sigterm' ? "'SIGTERM'" : 'null'}, child.stderr);
+    if (!child.signal) assert.equal(child.status, 0, child.stderr);
+  } finally { /* spawnSync has reaped the child, including signal termination. */ }
+});
+`);
+      const result = run(f);
+      assert.equal(result.status, 0, result.stderr);
+      const row = result.stdout.split('\n').find(line => line.includes('/ending.py::*'));
+      assert.ok(row, result.stdout);
+      assert.equal(row, `py\tuncovered-pct\tskills/shared/demo-assets/ending.py::*\t${ending === 'sigterm' ? '42.9' : '28.6'}`);
+    } finally { rmSync(f.temp, { recursive: true, force: true }); }
+  });
+}
+
+test('coverage diagnoses files without Python data when isolated mode bypasses startup', () => {
+  const f = fixture();
+  try {
+    f.write('tests/run.test.js', `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+test('isolated', () => {
+  const child = spawnSync('python3', ['-I', 'skills/shared/demo-assets/run.py'], { encoding: 'utf8' });
+  try { assert.equal(child.status, 0, child.stderr); } finally { /* Already reaped. */ }
+});
+`);
+    const result = run(f);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /coverage: no Python coverage data: skills\/shared\/demo-assets\/run.py/);
+    assert.match(result.stdout, /run.py::\*\t100.0/);
+  } finally { rmSync(f.temp, { recursive: true, force: true }); }
+});
+
+test('coverage report cannot consume an enclosing run through COVERAGE_FILE', () => {
+  const f = fixture();
+  try {
+    const foreignData = join(f.temp, 'outer.coverage');
+    // A real parallel file detects combine() consuming an enclosing run's data.
+    const seed = spawnSync(join(root, 'qa/.venv/bin/python'), ['-c',
+      'import coverage, sys; d = coverage.CoverageData(basename=sys.argv[1], suffix="sentinel"); d.add_lines({sys.argv[2]: {1}}); d.write()',
+      foreignData, join(f.repo, 'skills/shared/demo-assets/unloaded.py')], {
+      encoding: 'utf8', env: { ...process.env, COVERAGE_PROCESS_START: '', COVERAGE_FILE: foreignData },
+    });
+    try { assert.equal(seed.status, 0, seed.stderr); } finally { /* Already reaped. */ }
+    const parallelData = `${foreignData}.sentinel`;
+    const before = readFileSync(parallelData);
+    const result = run(f, [], { COVERAGE_FILE: foreignData });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /run.py::\*\t25.0/);
+    assert.equal(existsSync(foreignData), false, 'report wrote into the enclosing run');
+    assert.deepEqual(readFileSync(parallelData), before, 'report consumed the enclosing parallel data');
   } finally { rmSync(f.temp, { recursive: true, force: true }); }
 });
