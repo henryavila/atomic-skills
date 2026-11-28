@@ -158,21 +158,34 @@ describe('delegate.py progress limit and resume', () => {
     try {
       await waitFor(() => existsSync(ready), 20000, 'executor start');
       // Silent executor; the only sign of life is a file that keeps changing.
-      // Write again once the runner has recorded the previous change as
-      // progress, so the run outlives the idle limit without a fixed wait.
+      // The runner publishes the slot before it takes its first snapshot of
+      // the tree, so a change written in that gap belongs to the baseline and
+      // is not progress. Keep changing the tree until one change is recorded;
+      // a missed write must not leave the test waiting on a beat that cannot
+      // come. Once a beat is seen, the watch is known to be live.
       const started = Date.now();
+      let size = 0;
+      const grow = () => {
+        size += 1;
+        writeFileSync(join(repoDir, 'grows.txt'), 'x'.repeat(size));
+      };
       let beat = await waitFor(slotBeat, 20000, 'progress slot');
+      const nextBeat = () => {
+        const next = slotBeat();
+        return next && next !== beat ? next : null;
+      };
+      beat = await waitFor(() => { grow(); return nextBeat(); }, 10000, 'progress beat');
+      // From here every change must be recorded as progress, for longer than
+      // the idle limit: a runner that counts the working tree keeps going.
       while (Date.now() - started < 5000) {
-        writeFileSync(join(repoDir, 'grows.txt'), 'x'.repeat(Date.now() - started + 1));
-        beat = await waitFor(() => {
-          const next = slotBeat();
-          return next && next !== beat ? next : null;
-        }, 10000, 'progress beat');
+        grow();
+        beat = await waitFor(nextBeat, 10000, 'progress beat');
       }
       writeFileSync(join(root, 'release'), 'go');
       const res = await run.done;
       const [rec] = readLogRecords(atomicHome);
       assert.equal(rec.failure, 'none', res.stderr);
+      assert.ok(rec.duration_s >= 5, JSON.stringify(rec));
     } finally {
       writeFileSync(join(root, 'release'), 'go');
       if (run.child.exitCode === null) {
