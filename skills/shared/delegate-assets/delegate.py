@@ -27,7 +27,7 @@ The log is one JSONL file shared by every project and agent on this machine:
   ${ATOMIC_SKILLS_HOME:-~/.atomic-skills}/delegate/runs.jsonl
 Records are append-only. Values are enums, never free text, so the log can be audited.
 """
-import argparse, datetime as dt, errno, fcntl, getpass, hashlib, json, os, re, shlex, shutil, signal, socket, subprocess, sys, time, tempfile
+import argparse, dataclasses, datetime as dt, errno, fcntl, getpass, hashlib, json, os, re, shlex, shutil, signal, socket, subprocess, sys, time, tempfile
 from pathlib import Path
 
 HOME = Path(os.environ.get("ATOMIC_SKILLS_HOME", Path.home() / ".atomic-skills"))
@@ -4355,6 +4355,17 @@ def major_verdicts(text, ids):
     return found
 
 
+@dataclasses.dataclass
+class StepRequest:
+    """One run a pipeline step asks for: the arguments `run_step` receives."""
+    profile: str
+    role: str
+    card: str
+    diff_range: object = None
+    attachments: object = None
+    author_family: object = None
+
+
 def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, route, executor_profile,
               gate, gate_timeout, review_route, first, first_reviewer):
     """The one fix round of a pipeline, opened by a computed major and never
@@ -4363,7 +4374,7 @@ def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, rou
     what it left, the host gate runs again, and one follow-up review reads only
     the fix commits. Nothing follows it, whatever that review says. `fix` is
     filled in as the round goes, so a stop signal still leaves what was done.
-    `run_step(profile, role, card, diff_range, attachments, author_family)`
+    `run_step(StepRequest(profile, role, card, diff_range, attachments, author_family))`
     launches one run of the pipeline."""
     majors = [{"id": f["id"], "location": f["location"], "line": line}
               for f, line in zip(first["findings"], first["summary_lines"]) if f["severity"] == "major"]
@@ -4374,7 +4385,7 @@ def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, rou
     tried = []
     for profile in dict.fromkeys([executor_profile, *route]):
         check_paused()
-        rec = run_step(profile, "fix", str(fix_card), attachments=[card] if card else [])
+        rec = run_step(StepRequest(profile, "fix", str(fix_card), attachments=[card] if card else []))
         tried.append(rec)
         if rec["failure"] in ("provider_limit", "slot_timeout", "input_too_large"):
             continue
@@ -4432,8 +4443,8 @@ def fix_round(fix, run_step, *, task_id, task, cwd, out, attempt_root, card, rou
     tried = []
     for profile in reviewers:
         check_paused()
-        rec = run_step(profile, "review", str(followup), diff_range=f"{fix['base']}...{gated[0]}",
-                       attachments=[], author_family=fix_family)
+        rec = run_step(StepRequest(profile, "review", str(followup), diff_range=f"{fix['base']}...{gated[0]}",
+                                   attachments=[], author_family=fix_family))
         tried.append(rec)
         if tree_snapshot(cwd) != gated:
             fix.update(state="not_reviewed", error="review_wrote: tree changed after the fix gate")
@@ -4681,7 +4692,10 @@ def cmd_pipeline(a):
     commit_result = "not_run"
     commit_duration_s = 0
 
-    def run_attempt(profile, run_role, card, diff_range=None, attachments=None, author_family=None):
+    def run_attempt(request):
+        profile, run_role, card = request.profile, request.role, request.card
+        diff_range, attachments = request.diff_range, request.attachments
+        author_family = request.author_family
         attempt_number = len(attempts) + 1
         if author_family is None and executor_profile:
             author_family = MODELS[executor_profile][2]
@@ -4721,7 +4735,7 @@ def cmd_pipeline(a):
         check_paused()
         for profile in route:
             check_paused()
-            executor_rec = run_attempt(profile, role, a.card)
+            executor_rec = run_attempt(StepRequest(profile, role, a.card))
             if executor_rec["failure"] in ("provider_limit", "slot_timeout", "input_too_large"):
                 continue
             executor_profile = profile
@@ -4787,9 +4801,9 @@ def cmd_pipeline(a):
                 if MODELS[profile][2] == executor_family:
                     skipped_reviewers.append(profile)
                     continue
-                review_rec = run_attempt(profile, "review", str(review_card_copy),
-                                         diff_range=f"{base_commit}...{gated_snapshot[0]}",
-                                         attachments=[a.card, *a.review_attach])
+                review_rec = run_attempt(StepRequest(profile, "review", str(review_card_copy),
+                                                     diff_range=f"{base_commit}...{gated_snapshot[0]}",
+                                                     attachments=[a.card, *a.review_attach]))
                 # Quota classification retains its precedence, but writes are never safe to retry.
                 if tree_snapshot(cwd) != gated_snapshot:
                     error = "review_wrote: tree changed after gate"
@@ -5023,7 +5037,10 @@ def cmd_review_pending(a):
     attempts, reviewer_profile, review_rec, outcome, error = [], None, None, None, ""
     executor_timeout = p.get("executor_timeout", DEFAULT_TIMEOUT_S)
 
-    def run_step(profile, role, card, diff_range=None, attachments=None, author_family=None):
+    def run_step(request):
+        profile, role, card = request.profile, request.role, request.card
+        diff_range, attachments = request.diff_range, request.attachments
+        author_family = request.author_family
         number = p["attempts"] + len(attempts) + 1
         rec = {"profile": profile, "role": role, "failure": "interrupted", "duration_s": 0}
         attempts.append(rec)
@@ -5043,7 +5060,7 @@ def cmd_review_pending(a):
 
     try:
         for profile in route:
-            rec = run_step(profile, "review", p["review_card"], f"{base}...{head}", p["attachments"])
+            rec = run_step(StepRequest(profile, "review", p["review_card"], f"{base}...{head}", p["attachments"]))
             if tree_snapshot(cwd) != snapshot:
                 error, outcome = "review_wrote: tree changed after gate", "no_reviewer"
                 break
