@@ -48,4 +48,30 @@ it('R1-R05 installed driver keeps the reviewed compatibility hunks', () => {
   for (const fragment of protocol) {
     assert.equal(local.includes(fragment), true, `transaction protocol drifted: ${fragment}`);
   }
+
+  // A fragment that also lives in another helper proves nothing about where the
+  // protocol runs, so pin each step inside the function that must run it.
+  const countOf = (fragment) => local.split(fragment).length - 1;
+  const bodyOf = (start, end) => {
+    const from = local.indexOf(start);
+    const to = local.indexOf(end, from + start.length);
+    assert.ok(from !== -1 && to !== -1, `cannot locate ${start.trim()}`);
+    return local.slice(from, to);
+  };
+
+  const installBody = bodyOf('    install(config, { projectDir }) {', '    uninstall({ projectDir }) {');
+  assert.equal(countOf('locks.release();'), 2,
+    'install and uninstall must each release the install locks exactly once');
+  assert.ok(installBody.includes('locks.release();'),
+    'install must release the install locks in finally');
+  assert.ok(installBody.includes('manifest = applyJournaledEffect({'),
+    'install must journal and flush each effect as it applies');
+
+  const applyEffectBody = bodyOf('function applyJournaledEffect(', '/**');
+  assert.ok(applyEffectBody.includes('return flushIncompleteManifest(recorded, projectDir, manifestDir);'),
+    'applyJournaledEffect must flush the incomplete journal after every successful apply');
+
+  const flushBody = bodyOf('function flushIncompleteManifest(', 'function completeManifest(');
+  assert.ok(flushBody.includes('writeManifest(projectDir, flushed, manifestDir);'),
+    'flushIncompleteManifest must persist the journal before returning');
 });
